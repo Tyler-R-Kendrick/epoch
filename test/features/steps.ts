@@ -21,6 +21,7 @@ interface WorldState {
   gitRepo?: string;
   gitExportRepo?: string;
   syncResult?: SyncResult;
+  hookNames?: string[];
 }
 
 let state: WorldState;
@@ -125,6 +126,13 @@ Given("a new workspace", function () {
   assert.ok(state.workspace);
 });
 
+Given("an Epoch repository hook recorder", function () {
+  state.hookNames = [];
+  state.repo = new EpochRepository(state.workspace, {
+    hooks: [(event) => state.hookNames?.push(event.name)],
+  });
+});
+
 When("I initialize an Epoch repository as {string}", function (author: string) {
   state.repo.init(author);
 });
@@ -192,6 +200,13 @@ Then("repository verification reports {string}", function (expected: string) {
 Then("recording fails with {string}", function (expected: string) {
   assert.ok(state.error);
   assert.match(state.error.message, new RegExp(expected));
+});
+
+Then("observed repository hooks include {string}", function (expected: string) {
+  assert.ok(state.hookNames);
+  for (const name of expected.split(",")) {
+    assert.ok(state.hookNames.includes(name), `missing hook ${name}; observed ${state.hookNames.join(",")}`);
+  }
 });
 
 Given("a peer Epoch repository initialized as {string}", function (author: string) {

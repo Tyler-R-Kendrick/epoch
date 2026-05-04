@@ -1,4 +1,4 @@
-import * as Automerge from "@automerge/automerge";
+import { CRuntime, CText, CValueMap, SendEvent } from "@collabs/collabs";
 import { canonicalJson } from "./json";
 
 export interface CRDTDefinition {
@@ -20,20 +20,19 @@ export interface CRDTEvent {
   readonly payload: Record<string, unknown>;
 }
 
-interface AutomergePayload extends Record<string, unknown> {
-  readonly backend: "automerge";
+interface CollabsPayload extends Record<string, unknown> {
+  readonly backend: "collabs";
   readonly entity: string;
   readonly entity_kind: "map" | "text";
-  readonly change_base64: string;
+  readonly messages_base64: string[];
   readonly operation?: CRDTOperation;
 }
 
-type AutomergeDocument = {
-  map: Record<string, unknown>;
-  text: string;
-};
-
-const AUTOMERGE_BASE_ACTOR = "00000000000000000000000000000000";
+interface CollabsDocument {
+  readonly runtime: CRuntime;
+  readonly map: CValueMap<string, unknown>;
+  readonly text: CText;
+}
 
 export class MergeConflictError extends Error {
   constructor(readonly path: string, message = `merge conflict at ${path}`) {
@@ -62,47 +61,50 @@ export class CRDTRegistry {
 }
 
 export class CRDTEventLog {
-  changeForOperation(events: readonly CRDTEvent[], operation: CRDTOperation, actorId: string): AutomergePayload {
-    const document = Automerge.change(this.documentFor(events, actorId, operation.entity), { message: operation.kind }, (draft) => {
-      applyOperation(draft, operation);
-    });
-    const change = Automerge.getLastLocalChange(document);
-    if (change === undefined) throw new Error(`CRDT operation produced no Automerge change: ${operation.kind}`);
+  changeForOperation(events: readonly CRDTEvent[], operation: CRDTOperation, replicaID: string): CollabsPayload {
+    const document = this.documentFor(events, replicaID, operation.entity);
+    const messages: Uint8Array[] = [];
+    document.runtime.on("Send", (event: SendEvent) => messages.push(event.message));
+    document.runtime.transact(() => applyOperation(document, operation));
+    if (messages.length === 0) throw new Error(`CRDT operation produced no Collabs message: ${operation.kind}`);
     return {
-      backend: "automerge",
+      backend: "collabs",
       entity: operation.entity,
       entity_kind: operation.kind.startsWith("text-") ? "text" : "map",
-      change_base64: Buffer.from(change).toString("base64"),
+      messages_base64: messages.map((message) => Buffer.from(message).toString("base64")),
       operation,
     };
   }
 
   materialize(events: readonly CRDTEvent[], entity: string): unknown {
     const payloads = this.payloadsFor(events, entity);
-    const document = this.documentFor(events, AUTOMERGE_BASE_ACTOR, entity);
-    if (payloads[0]?.entity_kind === "text") return document.text;
-    return JSON.parse(JSON.stringify(document.map)) as Record<string, unknown>;
+    const document = this.documentFor(events, "materializer", entity);
+    if (payloads[0]?.entity_kind === "text") return document.text.toString();
+    return JSON.parse(JSON.stringify(Object.fromEntries(document.map.entries()))) as Record<string, unknown>;
   }
 
-  private documentFor(events: readonly CRDTEvent[], actorId = AUTOMERGE_BASE_ACTOR, entity?: string): Automerge.Doc<AutomergeDocument> {
-    const document = loadBaseAutomergeDocument(actorId);
-    const changes = events
+  private documentFor(events: readonly CRDTEvent[], replicaID: string, entity?: string): CollabsDocument {
+    const document = createCollabsDocument(replicaID);
+    const messages = events
       .filter((event) => event.type === "crdt")
       .sort(compareEvents)
       .flatMap((event) => {
-        const payload = automergePayload(event.payload);
+        const payload = collabsPayload(event.payload);
         if (entity !== undefined && payload?.entity !== entity) return [];
-        return payload === undefined ? [] : [Buffer.from(payload.change_base64, "base64")];
+        return payload === undefined ? [] : payload.messages_base64.map((message) => Buffer.from(message, "base64"));
       });
-    return Automerge.applyChanges(document, changes)[0];
+    document.runtime.batchRemoteUpdates(() => {
+      for (const message of messages) document.runtime.receive(message);
+    });
+    return document;
   }
 
-  private payloadsFor(events: readonly CRDTEvent[], entity: string): AutomergePayload[] {
+  private payloadsFor(events: readonly CRDTEvent[], entity: string): CollabsPayload[] {
     return events
       .filter((event) => event.type === "crdt")
       .sort(compareEvents)
       .flatMap((event) => {
-        const payload = automergePayload(event.payload);
+        const payload = collabsPayload(event.payload);
         return payload?.entity === entity ? [payload] : [];
       });
   }
@@ -311,43 +313,46 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function loadBaseAutomergeDocument(actorId: string): Automerge.Doc<AutomergeDocument> {
-  return Automerge.load(Automerge.save(Automerge.from<AutomergeDocument>({
-    map: {},
-    text: "",
-  }, { actor: AUTOMERGE_BASE_ACTOR })), { actor: actorId });
+function createCollabsDocument(replicaID: string): CollabsDocument {
+  const runtime = new CRuntime({ debugReplicaID: replicaID, autoTransactions: "error" });
+  return {
+    runtime,
+    map: runtime.registerCollab("map", (init) => new CValueMap<string, unknown>(init)),
+    text: runtime.registerCollab("text", (init) => new CText(init)),
+  };
 }
 
-function applyOperation(document: Automerge.Doc<AutomergeDocument>, operation: CRDTOperation): void {
+function applyOperation(document: CollabsDocument, operation: CRDTOperation): void {
   switch (operation.kind) {
     case "map-set":
-      document.map[operation.key] = operation.value;
+      document.map.set(operation.key, operation.value);
       return;
     case "map-delete":
-      delete document.map[operation.key];
+      document.map.delete(operation.key);
       return;
     case "text-insert": {
       const index = clampIndex(operation.index ?? document.text.length, document.text.length);
-      Automerge.splice(document, ["text"], index, 0, operation.value);
+      document.text.insert(index, operation.value);
       return;
     }
     case "text-delete": {
       const index = clampIndex(operation.index, document.text.length);
       const count = Math.max(0, Math.min(operation.count ?? 1, document.text.length - index));
-      Automerge.splice(document, ["text"], index, count);
+      if (count > 0) document.text.delete(index, count);
       return;
     }
   }
 }
 
-function automergePayload(payload: Record<string, unknown>): AutomergePayload | undefined {
+function collabsPayload(payload: Record<string, unknown>): CollabsPayload | undefined {
   if (
-    payload.backend === "automerge"
+    payload.backend === "collabs"
     && typeof payload.entity === "string"
     && (payload.entity_kind === "map" || payload.entity_kind === "text")
-    && typeof payload.change_base64 === "string"
+    && Array.isArray(payload.messages_base64)
+    && payload.messages_base64.every((message) => typeof message === "string")
   ) {
-    return payload as unknown as AutomergePayload;
+    return payload as unknown as CollabsPayload;
   }
   return undefined;
 }

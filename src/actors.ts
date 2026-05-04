@@ -1,5 +1,5 @@
 import { createActor, fromCallback } from "xstate";
-import { EpochRepository, Event, EventPayload, SyncResult } from "./core";
+import { EpochRepository, EpochRepositoryOptions, Event, EventPayload, SyncResult } from "./core";
 import { CRDTOperation } from "./crdt";
 
 interface Reply<T> {
@@ -32,8 +32,8 @@ type CommandActor<T> = {
   stop(): void;
 };
 
-const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string }>(({ input, receive }) => {
-  const repository = new EpochRepository(input.root);
+const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string; options?: EpochRepositoryOptions }>(({ input, receive }) => {
+  const repository = new EpochRepository(input.root, input.options);
   let queue = Promise.resolve();
 
   function enqueue<T>(reply: Reply<T>, work: () => T | Promise<T>): void {
@@ -95,8 +95,8 @@ export class EpochActorSystem {
   private readonly actor: CommandActor<RepositoryCommand>;
   private readonly userActors = new Map<string, EpochUserActor>();
 
-  constructor(readonly root: string) {
-    this.actor = createActor(repositoryActorLogic, { input: { root } }).start();
+  constructor(readonly root: string, options: EpochRepositoryOptions = {}) {
+    this.actor = createActor(repositoryActorLogic, { input: { root, options } }).start();
   }
 
   init(author = "local"): Promise<void> {

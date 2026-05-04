@@ -40,6 +40,45 @@ export interface SyncResult {
   blobsCopied: number;
 }
 
+export type EpochHookName =
+  | "repository.init.before"
+  | "repository.init.after"
+  | "repository.append.before"
+  | "repository.append.after"
+  | "repository.crdt.operation.before"
+  | "repository.crdt.operation.after"
+  | "repository.crdt.materialize.before"
+  | "repository.crdt.materialize.after"
+  | "repository.recordFile.before"
+  | "repository.recordFile.after"
+  | "repository.read.before"
+  | "repository.read.after"
+  | "repository.events.before"
+  | "repository.events.after"
+  | "repository.heads.before"
+  | "repository.heads.after"
+  | "repository.verify.before"
+  | "repository.verify.after"
+  | "repository.syncFrom.before"
+  | "repository.syncFrom.after"
+  | "repository.gossip.before"
+  | "repository.gossip.after"
+  | "repository.antiEntropy.before"
+  | "repository.antiEntropy.after";
+
+export interface EpochHookEvent {
+  readonly name: EpochHookName;
+  readonly repository: EpochRepository;
+  readonly timestamp: number;
+  readonly detail: Record<string, unknown>;
+}
+
+export type EpochHook = (event: EpochHookEvent) => void;
+
+export interface EpochRepositoryOptions {
+  readonly hooks?: readonly EpochHook[];
+}
+
 export const GIT_AUTHOR_NAME = "epoch";
 export const GIT_AUTHOR_EMAIL = "epoch@example.invalid";
 
@@ -135,8 +174,9 @@ export class EpochRepository {
   readonly usersDir: string;
   readonly headsPath: string;
   readonly identityPath: string;
+  private readonly hooks: EpochHook[];
 
-  constructor(root: string) {
+  constructor(root: string, options: EpochRepositoryOptions = {}) {
     this.root = resolve(root);
     this.epochDir = join(this.root, ".epoch");
     this.eventsDir = join(this.epochDir, "events");
@@ -144,9 +184,19 @@ export class EpochRepository {
     this.usersDir = join(this.epochDir, "users");
     this.headsPath = join(this.epochDir, "heads.json");
     this.identityPath = join(this.epochDir, "identity.json");
+    this.hooks = [...(options.hooks ?? [])];
+  }
+
+  registerHook(hook: EpochHook): () => void {
+    this.hooks.push(hook);
+    return () => {
+      const index = this.hooks.indexOf(hook);
+      if (index !== -1) this.hooks.splice(index, 1);
+    };
   }
 
   init(author = "local"): void {
+    this.emitHook("repository.init.before", { author });
     mkdirSync(this.eventsDir, { recursive: true });
     mkdirSync(this.blobsDir, { recursive: true });
     mkdirSync(this.usersDir, { recursive: true });
@@ -156,6 +206,7 @@ export class EpochRepository {
     if (!existsAsFile(this.identityPath)) {
       writeJson(this.identityPath, createIdentity(author));
     }
+    this.emitHook("repository.init.after", { author });
   }
 
   identity(): string {
@@ -197,14 +248,19 @@ export class EpochRepository {
 
   heads(): string[] {
     this.requireInitialized();
-    return readJson<string[]>(this.headsPath);
+    this.emitHook("repository.heads.before", {});
+    const heads = readJson<string[]>(this.headsPath);
+    this.emitHook("repository.heads.after", { heads });
+    return heads;
   }
 
   append(type: string, payload: EventPayload, author = this.identity()): Event {
     this.requireInitialized();
+    const appendPayload = { ...payload };
+    this.emitHook("repository.append.before", { type, payload: appendPayload, author });
     const identity = this.identityFor(author);
     const heads = this.heads();
-    const unsigned = Event.create(type, author, identity.publicKey, this.nextLamport(heads), heads, payload);
+    const unsigned = Event.create(type, author, identity.publicKey, this.nextLamport(heads), heads, appendPayload);
     const event = new Event({
       ...unsigned.unsigned(),
       signature: signEvent(unsigned, identity.privateKey),
@@ -215,20 +271,28 @@ export class EpochRepository {
       const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
       return [...new Set([...retainedHeads, event.id])].sort();
     });
+    this.emitHook("repository.append.after", { event });
     return event;
   }
 
   appendCRDTOperation(operation: CRDTOperation, author = this.identity()): Event {
+    this.emitHook("repository.crdt.operation.before", { operation, author });
     const payload = new CRDTEventLog().changeForOperation(this.events(), operation, sha256(author).slice(0, 32));
-    return this.append("crdt", payload, author);
+    const event = this.append("crdt", payload, author);
+    this.emitHook("repository.crdt.operation.after", { operation, author, event });
+    return event;
   }
 
   crdtView(entity: string): unknown {
     this.requireInitialized();
-    return new CRDTEventLog().materialize(this.events(), entity);
+    this.emitHook("repository.crdt.materialize.before", { entity });
+    const value = new CRDTEventLog().materialize(this.events(), entity);
+    this.emitHook("repository.crdt.materialize.after", { entity, value });
+    return value;
   }
 
   recordFile(path: string, entityType = "application/octet-stream", author = this.identity()): Event {
+    this.emitHook("repository.recordFile.before", { path, entityType, author });
     const { absolute, relativePath } = resolveInside(this.root, path, "record file", "repository root");
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
@@ -236,29 +300,38 @@ export class EpochRepository {
     if (!existsAsFile(blobPath)) {
       writeFileSync(blobPath, data);
     }
-    return this.append("record", {
+    const event = this.append("record", {
       path: relativePath.split(sep).join("/"),
       entity_type: entityType,
       blob_sha256: blobSha256,
       size: data.byteLength,
     }, author);
+    this.emitHook("repository.recordFile.after", { path, entityType, author, event });
+    return event;
   }
 
   read(eventId: string): Event {
     this.requireInitialized();
-    return Event.fromJSON(readJson<EventData>(join(this.eventsDir, `${eventId}.json`)));
+    this.emitHook("repository.read.before", { eventId });
+    const event = Event.fromJSON(readJson<EventData>(join(this.eventsDir, `${eventId}.json`)));
+    this.emitHook("repository.read.after", { eventId, event });
+    return event;
   }
 
   events(): Event[] {
     this.requireInitialized();
-    return readdirSync(this.eventsDir)
+    this.emitHook("repository.events.before", {});
+    const events = readdirSync(this.eventsDir)
       .filter((name) => extname(name) === ".json")
       .map((name) => Event.fromJSON(readJson<EventData>(join(this.eventsDir, name))))
       .sort((left, right) => left.lamport - right.lamport || left.id.localeCompare(right.id));
+    this.emitHook("repository.events.after", { events });
+    return events;
   }
 
   verify(): string[] {
     this.requireInitialized();
+    this.emitHook("repository.verify.before", {});
     const events = this.events();
     const known = new Map<string, Event>();
     const problems: string[] = [];
@@ -295,11 +368,13 @@ export class EpochRepository {
       }
     }
 
+    this.emitHook("repository.verify.after", { problems });
     return problems;
   }
 
   syncFrom(peerRoot: string): SyncResult {
     this.requireInitialized();
+    this.emitHook("repository.syncFrom.before", { peerRoot });
     const peer = new EpochRepository(peerRoot);
     peer.requireInitialized();
 
@@ -307,20 +382,28 @@ export class EpochRepository {
     const blobsCopied = copyMissingFiles(peer.blobsDir, this.blobsDir);
     const peerHeads = peer.heads();
     this.updateHeads((heads) => [...new Set([...heads, ...peerHeads])].sort());
-    return { eventsCopied, blobsCopied };
+    const result = { eventsCopied, blobsCopied };
+    this.emitHook("repository.syncFrom.after", { peerRoot, result });
+    return result;
   }
 
   gossip(peerRoot: string): SyncResult {
+    this.emitHook("repository.gossip.before", { peerRoot });
     const inbound = this.syncFrom(peerRoot);
     const outbound = new EpochRepository(peerRoot).syncFrom(this.root);
-    return {
+    const result = {
       eventsCopied: inbound.eventsCopied + outbound.eventsCopied,
       blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
     };
+    this.emitHook("repository.gossip.after", { peerRoot, result });
+    return result;
   }
 
   antiEntropy(peerRoot: string): SyncResult {
-    return this.gossip(peerRoot);
+    this.emitHook("repository.antiEntropy.before", { peerRoot });
+    const result = this.gossip(peerRoot);
+    this.emitHook("repository.antiEntropy.after", { peerRoot, result });
+    return result;
   }
 
   importFromGit(gitRoot: string): Event[] {
@@ -400,6 +483,16 @@ export class EpochRepository {
     withDirectoryLock(`${this.headsPath}.lock`, () => {
       writeJson(this.headsPath, update(this.heads()));
     });
+  }
+
+  private emitHook(name: EpochHookName, detail: Record<string, unknown>): void {
+    const event: EpochHookEvent = {
+      name,
+      repository: this,
+      timestamp: Math.floor(Date.now() / 1000),
+      detail,
+    };
+    for (const hook of this.hooks) hook(event);
   }
 
   private requireInitialized(): void {
