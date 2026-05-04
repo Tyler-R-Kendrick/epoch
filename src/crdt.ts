@@ -30,7 +30,6 @@ interface TextElement {
   readonly after: string | null;
   readonly value: string;
   readonly event: CRDTEvent;
-  deleted: boolean;
 }
 
 export class MergeConflictError extends Error {
@@ -97,6 +96,7 @@ export class CRDTEventLog {
 
   private materializeText(events: readonly CRDTEvent[]): string {
     const elements = new Map<string, TextElement>();
+    const deleted = new Set<string>();
     for (const event of events) {
       switch (event.payload.kind) {
         case "text-insert": {
@@ -108,15 +108,13 @@ export class CRDTEventLog {
             after: typeof after === "string" ? after : null,
             value,
             event,
-            deleted: false,
           });
           break;
         }
         case "text-delete": {
           const target = event.payload.target;
           if (typeof target !== "string") break;
-          const element = elements.get(target);
-          if (element !== undefined) element.deleted = true;
+          deleted.add(target);
           break;
         }
       }
@@ -135,7 +133,7 @@ export class CRDTEventLog {
     const chunks: string[] = [];
     const visit = (parent: string | null): void => {
       for (const element of children.get(parent) ?? []) {
-        if (!element.deleted) chunks.push(element.value);
+        if (!deleted.has(element.id)) chunks.push(element.value);
         visit(element.id);
       }
     };
