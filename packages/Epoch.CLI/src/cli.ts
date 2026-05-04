@@ -29,13 +29,13 @@ function run(argv: string[]): void {
   const repo = new EpochRepository(parsed.repo);
   switch (parsed.command) {
     case CliCommand.init: {
-      const { author } = parseOptions(parsed.args, { [CliOption.author]: DefaultAuthor });
+      const { author } = parseOptions(parsed.args, { author: DefaultAuthor });
       repo.init(author);
       console.log(`initialized Epoch repository at ${repo.epochDir}`);
       return;
     }
     case CliCommand.record: {
-      const options = parseOptions(parsed.args, { [CliOption.type]: EntityType.octetStream });
+      const options = parseOptions(parsed.args, { type: EntityType.octetStream });
       if (options.positionals.length !== 1) throw new Error(`usage: epoch ${parsed.command} [--type MIME] PATH`);
       console.log(repo.recordFile(options.positionals[0], options.type).id);
       return;
