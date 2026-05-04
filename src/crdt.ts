@@ -1,8 +1,37 @@
+import { CRuntime, CText, CValueMap, SendEvent } from "@collabs/collabs";
 import { canonicalJson } from "./json";
 
 export interface CRDTDefinition {
   readonly entityType: string;
   merge(base: unknown, left: unknown, right: unknown): unknown;
+}
+
+export type CRDTOperation =
+  | { kind: "map-set"; entity: string; key: string; value: unknown }
+  | { kind: "map-delete"; entity: string; key: string }
+  | { kind: "text-insert"; entity: string; value: string; index?: number }
+  | { kind: "text-delete"; entity: string; index: number; count?: number };
+
+export interface CRDTEvent {
+  readonly id: string;
+  readonly type: string;
+  readonly author: string;
+  readonly lamport: number;
+  readonly payload: Record<string, unknown>;
+}
+
+interface CollabsPayload extends Record<string, unknown> {
+  readonly backend: "collabs";
+  readonly entity: string;
+  readonly entity_kind: "map" | "text";
+  readonly messages_base64: string[];
+  readonly operation?: CRDTOperation;
+}
+
+interface CollabsDocument {
+  readonly runtime: CRuntime;
+  readonly map: CValueMap<string, unknown>;
+  readonly text: CText;
 }
 
 export class MergeConflictError extends Error {
@@ -28,6 +57,62 @@ export class CRDTRegistry {
 
   merge(entityType: string, base: unknown, left: unknown, right: unknown): unknown {
     return (this.definitions.get(entityType) ?? { merge: threeWayMerge }).merge(base, left, right);
+  }
+}
+
+export class CRDTEventLog {
+  changeForOperation(events: readonly CRDTEvent[], operation: CRDTOperation, replicaID: string): CollabsPayload {
+    const document = this.documentFor(events, replicaID, operation.entity);
+    const messages: Uint8Array[] = [];
+    document.runtime.on("Send", (event: SendEvent) => messages.push(event.message));
+    try {
+      document.runtime.transact(() => applyOperation(document, operation));
+    } catch (error) {
+      throw new Error(`failed to apply CRDT operation ${operation.kind} for entity ${operation.entity}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (messages.length === 0) {
+      throw new Error(`CRDT operation produced no Collabs message: ${operation.kind} for entity ${operation.entity}; check for no-op writes or unsupported entity configuration`);
+    }
+    return {
+      backend: "collabs",
+      entity: operation.entity,
+      entity_kind: operation.kind.startsWith("text-") ? "text" : "map",
+      messages_base64: messages.map((message) => Buffer.from(message).toString("base64")),
+      operation,
+    };
+  }
+
+  materialize(events: readonly CRDTEvent[], entity: string): unknown {
+    const payloads = this.payloadsFor(events, entity);
+    const document = this.documentFor(events, "materializer", entity);
+    if (payloads[0]?.entity_kind === "text") return document.text.toString();
+    return JSON.parse(JSON.stringify(Object.fromEntries(document.map.entries()))) as Record<string, unknown>;
+  }
+
+  private documentFor(events: readonly CRDTEvent[], replicaID: string, entity?: string): CollabsDocument {
+    const document = createCollabsDocument(replicaID);
+    const messages = events
+      .filter((event) => event.type === "crdt")
+      .sort(compareEvents)
+      .flatMap((event) => {
+        const payload = collabsPayload(event.payload);
+        if (entity !== undefined && payload?.entity !== entity) return [];
+        return payload === undefined ? [] : payload.messages_base64.map((message) => Buffer.from(message, "base64"));
+      });
+    document.runtime.batchRemoteUpdates(() => {
+      for (const message of messages) document.runtime.receive(message);
+    });
+    return document;
+  }
+
+  private payloadsFor(events: readonly CRDTEvent[], entity: string): CollabsPayload[] {
+    return events
+      .filter((event) => event.type === "crdt")
+      .sort(compareEvents)
+      .flatMap((event) => {
+        const payload = collabsPayload(event.payload);
+        return payload?.entity === entity ? [payload] : [];
+      });
   }
 }
 
@@ -232,4 +317,87 @@ function same(left: unknown, right: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function createCollabsDocument(replicaID: string): CollabsDocument {
+  const runtime = new CRuntime({ debugReplicaID: replicaID, autoTransactions: "error" });
+  return {
+    runtime,
+    map: runtime.registerCollab("map", (init) => new CValueMap<string, unknown>(init)),
+    text: runtime.registerCollab("text", (init) => new CText(init)),
+  };
+}
+
+function applyOperation(document: CollabsDocument, operation: CRDTOperation): void {
+  switch (operation.kind) {
+    case "map-set":
+      document.map.set(operation.key, operation.value);
+      return;
+    case "map-delete":
+      document.map.delete(operation.key);
+      return;
+    case "text-insert": {
+      const index = operationIndex(operation.index, document.text.length, document.text.length);
+      document.text.insert(index, operation.value);
+      return;
+    }
+    case "text-delete": {
+      const index = operationIndex(operation.index, document.text.length, document.text.length);
+      const count = Math.max(0, Math.min(operation.count ?? 1, document.text.length - index));
+      if (count > 0) document.text.delete(index, count);
+      return;
+    }
+  }
+}
+
+function collabsPayload(payload: Record<string, unknown>): CollabsPayload | undefined {
+  if (
+    payload.backend === "collabs"
+    && typeof payload.entity === "string"
+    && (payload.entity_kind === "map" || payload.entity_kind === "text")
+    && Array.isArray(payload.messages_base64)
+    && payload.messages_base64.every((message) => typeof message === "string")
+  ) {
+    return payload as unknown as CollabsPayload;
+  }
+  return undefined;
+}
+
+/**
+ * Clamps an operation index to valid text bounds.
+ *
+ * Non-finite values default to the end of the text; finite values are truncated and clamped to [0, length].
+ */
+function clampIndex(index: number, length: number): number {
+  if (!Number.isFinite(index)) return length;
+  return Math.max(0, Math.min(Math.trunc(index), length));
+}
+
+/**
+ * Resolves optional operation indices before bounds validation.
+ *
+ * Undefined indices use the provided fallback, then delegate to `clampIndex` for final text bounds.
+ */
+function operationIndex(index: number | undefined, fallback: number, length: number): number {
+  return clampIndex(index ?? fallback, length);
+}
+
+/**
+ * Orders events for deterministic CRDT replay across replicas.
+ *
+ * Returns a negative value when `left` sorts before `right`, zero when they are equivalent for ordering,
+ * and a positive value when `left` sorts after `right`. Lamport time captures causality; author and event
+ * ID provide stable tie-breaking for concurrent events. Every replica must use this exact total order when
+ * replaying Collabs messages so materialized views converge.
+ */
+function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
+  const lamportDiff = left.lamport - right.lamport;
+  if (lamportDiff !== 0) return lamportDiff;
+  const authorDiff = compareStrings(left.author, right.author);
+  if (authorDiff !== 0) return authorDiff;
+  return compareStrings(left.id, right.id);
+}
+
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }

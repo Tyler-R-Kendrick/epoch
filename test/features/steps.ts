@@ -21,6 +21,7 @@ interface WorldState {
   gitRepo?: string;
   gitExportRepo?: string;
   syncResult?: SyncResult;
+  hookNames?: string[];
 }
 
 let state: WorldState;
@@ -125,6 +126,13 @@ Given("a new workspace", function () {
   assert.ok(state.workspace);
 });
 
+Given("an Epoch repository hook recorder", function () {
+  state.hookNames = [];
+  state.repo = new EpochRepository(state.workspace, {
+    hooks: [(event) => state.hookNames?.push(event.name)],
+  });
+});
+
 When("I initialize an Epoch repository as {string}", function (author: string) {
   state.repo.init(author);
 });
@@ -194,6 +202,13 @@ Then("recording fails with {string}", function (expected: string) {
   assert.match(state.error.message, new RegExp(expected));
 });
 
+Then("observed repository hooks include {string}", function (expected: string) {
+  assert.ok(state.hookNames);
+  for (const name of expected.split(",")) {
+    assert.ok(state.hookNames.includes(name), `missing hook ${name}; observed ${state.hookNames.join(",")}`);
+  }
+});
+
 Given("a peer Epoch repository initialized as {string}", function (author: string) {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-peer-"));
   state.createdDirs.push(workspace);
@@ -204,6 +219,42 @@ Given("a peer Epoch repository initialized as {string}", function (author: strin
 When("I run anti-entropy with the peer repository", function () {
   assert.ok(state.peerRepo);
   state.syncResult = state.repo.antiEntropy(state.peerRepo.root);
+});
+
+When("I append CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
+  state.lastEvent = state.repo.appendCRDTOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
+});
+
+When("the peer appends CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
+  assert.ok(state.peerRepo);
+  state.lastEvent = state.peerRepo.appendCRDTOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
+});
+
+When("I append CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
+  state.lastEvent = state.repo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
+});
+
+When("the peer appends CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
+  assert.ok(state.peerRepo);
+  state.lastEvent = state.peerRepo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
+});
+
+Then("the repository CRDT view {string} equals JSON:", function (entity: string, expected: string) {
+  assert.equal(canonicalJson(state.repo.crdtView(entity)), canonicalJson(JSON.parse(expected)));
+});
+
+Then("the peer CRDT view {string} equals JSON:", function (entity: string, expected: string) {
+  assert.ok(state.peerRepo);
+  assert.equal(canonicalJson(state.peerRepo.crdtView(entity)), canonicalJson(JSON.parse(expected)));
+});
+
+Then("the repository CRDT view {string} equals text {string}", function (entity: string, expected: string) {
+  assert.equal(state.repo.crdtView(entity), expected);
+});
+
+Then("the peer CRDT view {string} equals text {string}", function (entity: string, expected: string) {
+  assert.ok(state.peerRepo);
+  assert.equal(state.peerRepo.crdtView(entity), expected);
 });
 
 Then("the peer repository verifies successfully", function () {

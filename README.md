@@ -50,7 +50,9 @@
 
 - **Immutable Event Log** — every change is a signed, append-only event; full history is always auditable
 - **Ed25519 Identity** — self-sovereign cryptographic identity; no central user registry
-- **Pluggable CRDT Merging** — register CRDT definitions per file type for automatic, conflict-free merges
+- **Operation-Based CRDT Log** — agents append signed Collabs-backed CRDT updates and materialize convergent map/text views without central serialization
+- **Lifecycle Hooks** — repository hooks observe and extend init, append, record, CRDT, sync, verify, and materialization steps
+- **Pluggable CRDT Merging** — register CRDT definitions per file type for compatibility with snapshot-style imports and exports
 - **Three-Way Merge Default** — works out of the box without any CRDT configuration
 - **Content-Addressed Storage** — SHA-256 addressed blobs and trees; automatic deduplication
 - **Gossip P2P Distribution** — no central server required; events propagate across peers automatically
@@ -80,6 +82,8 @@
 | [`docs/design.md`](docs/design.md) | Comprehensive design document: architecture, data model, extension API, comparisons |
 | [`docs/features.md`](docs/features.md) | Full feature registry with IDs, descriptions, and acceptance criteria |
 | [`docs/user-stories.md`](docs/user-stories.md) | Complete user stories organized by persona |
+| [`docs/crdt-backend-decision.md`](docs/crdt-backend-decision.md) | Automerge vs Collabs measurement, pros/cons, dependency exception, and backend decision |
+| [`docs/dependency-exceptions.md`](docs/dependency-exceptions.md) | Documented dependency overrides and exception rationale |
 
 ### Inspiration Research
 Epoch synthesizes lessons from eight systems studied during design:
@@ -104,6 +108,8 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - Ed25519-backed repository identities and signed immutable events
 - filesystem-backed `.epoch/` event and blob storage
 - event log, signature, DAG, head, and blob verification for tamper detection
+- operation-based CRDT events for write-only, offline-first multi-agent map/register and sequence-text state, backed by Collabs CRDT messages
+- repository lifecycle hooks for observability and extensibility around event-driven operations
 - pluggable CRDT registry
 - built-in text and JSON entity merge definitions
 - filesystem gossip / anti-entropy exchange between local repositories
@@ -183,6 +189,34 @@ await Promise.all([
 
 const problems = await repository.verify();
 repository.stop();
+```
+
+For agent-native shared state, prefer appending CRDT operations instead of recording hot files as blobs:
+
+```ts
+const alice = repository.user("alice");
+const bob = repository.user("bob");
+
+await Promise.all([
+  alice.appendCRDTOperation({ kind: "map-set", entity: "tasks", key: "alice", value: { status: "draft" } }),
+  bob.appendCRDTOperation({ kind: "map-set", entity: "tasks", key: "bob", value: { status: "review" } }),
+]);
+
+const tasks = await repository.crdtView("tasks");
+```
+
+Register hooks to observe or extend repository lifecycle steps:
+
+```ts
+import { EpochRepository } from "epoch";
+
+const repository = new EpochRepository("./repo", {
+  hooks: [
+    (event) => {
+      console.log(event.name, event.detail);
+    },
+  ],
+});
 ```
 
 ---
