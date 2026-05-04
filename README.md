@@ -46,7 +46,9 @@
 
 ---
 
-## Key Features
+## Planned Capabilities
+
+Epoch is designed to grow toward these capabilities. The current prototype implements only the subset listed in [Status](#status).
 
 - **Immutable Event Log** — every change is a signed, append-only event; full history is always auditable
 - **Ed25519 Identity** — self-sovereign cryptographic identity; no central user registry
@@ -102,7 +104,7 @@ Epoch synthesizes lessons from eight systems studied during design:
 Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Native Preview (`tsgo`)**, the Go-native TypeScript toolchain preview from [`microsoft/typescript-go`](https://github.com/microsoft/typescript-go). It implements the first executable slice of the design:
 
 - content-addressed immutable events
-- filesystem-backed `.epoch/` event storage
+- filesystem-backed `.epoch/` event and blob storage
 - event log verification and tamper detection
 - pluggable CRDT registry
 - built-in text and JSON entity merge definitions

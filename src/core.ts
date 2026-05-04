@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, isAbsolute, join, relative, sep } from "node:path";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalJson } from "./json";
 
 export type EventPayload = Record<string, unknown>;
@@ -85,19 +85,22 @@ export class EpochRepository {
   readonly root: string;
   readonly epochDir: string;
   readonly eventsDir: string;
+  readonly blobsDir: string;
   readonly headsPath: string;
   readonly identityPath: string;
 
   constructor(root: string) {
-    this.root = root;
-    this.epochDir = join(root, ".epoch");
+    this.root = resolve(root);
+    this.epochDir = join(this.root, ".epoch");
     this.eventsDir = join(this.epochDir, "events");
+    this.blobsDir = join(this.epochDir, "blobs");
     this.headsPath = join(this.epochDir, "heads.json");
     this.identityPath = join(this.epochDir, "identity.json");
   }
 
   init(author = "local"): void {
     mkdirSync(this.eventsDir, { recursive: true });
+    mkdirSync(this.blobsDir, { recursive: true });
     if (!existsAsFile(this.headsPath)) {
       writeJson(this.headsPath, []);
     }
@@ -127,13 +130,21 @@ export class EpochRepository {
   }
 
   recordFile(path: string, entityType = "application/octet-stream"): Event {
-    const absolute = isAbsolute(path) ? path : join(this.root, path);
+    const absolute = resolve(isAbsolute(path) ? path : join(this.root, path));
+    const relativePath = relative(this.root, absolute);
+    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+      throw new Error(`cannot record file outside repository root: ${path}`);
+    }
     const data = readFileSync(absolute);
-    const relativePath = relative(this.root, absolute).split(sep).join("/");
+    const blobSha256 = sha256(data);
+    const blobPath = join(this.blobsDir, blobSha256);
+    if (!existsAsFile(blobPath)) {
+      writeFileSync(blobPath, data);
+    }
     return this.append("record", {
-      path: relativePath,
+      path: relativePath.split(sep).join("/"),
       entity_type: entityType,
-      blob_sha256: sha256(data),
+      blob_sha256: blobSha256,
       size: data.byteLength,
     });
   }
@@ -189,7 +200,7 @@ export class EpochRepository {
   }
 
   private requireInitialized(): void {
-    if (!existsAsDirectory(this.eventsDir) || !existsAsFile(this.headsPath)) {
+    if (!existsAsDirectory(this.eventsDir) || !existsAsDirectory(this.blobsDir) || !existsAsFile(this.headsPath)) {
       throw new Error(`not an Epoch repository: ${this.root}`);
     }
   }
