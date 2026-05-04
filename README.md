@@ -108,6 +108,7 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - built-in text and JSON entity merge definitions
 - filesystem gossip / anti-entropy exchange between local repositories
 - Git import/export compatibility for tracked files
+- XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
 - CLI commands for `init`, `record`, `log`, `verify`, `merge`, `gossip`, `anti-entropy`, `git-import`, and `git-export`
 - Gherkin feature coverage for repository and CRDT behavior
 
@@ -165,6 +166,23 @@ If installed as a package, the CLI is exposed as `epoch`:
 
 ```bash
 epoch verify
+```
+
+Use the asynchronous XState actor API when coordinating event-driven applications or multiple local users:
+
+```ts
+import { EpochActorSystem } from "epoch";
+
+const repository = new EpochActorSystem("./repo");
+await repository.init("alice");
+
+await Promise.all([
+  repository.user("alice").recordFile("alice.txt", "text/plain"),
+  repository.user("bob").recordFile("bob.txt", "text/plain"),
+]);
+
+const problems = await repository.verify();
+repository.stop();
 ```
 
 ---
