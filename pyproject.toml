@@ -1,0 +1,13 @@
+[project]
+name = "epoch-dvcs"
+version = "0.1.0"
+description = "Minimal event-driven DVCS prototype with pluggable CRDT entity-level merging."
+requires-python = ">=3.11"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+[project.scripts]
+epoch = "epoch.cli:main"
+
+[tool.setuptools]
+packages = ["epoch"]
