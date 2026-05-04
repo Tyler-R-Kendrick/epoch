@@ -26,8 +26,6 @@
   },
   "dependencies": {
     "@automerge/automerge": "^3.2.6",
-    "@collabs/collabs": "^0.13.4",
-    "@collabs/core": "^0.13.4",
     "xstate": "^5.31.0"
   }
 }

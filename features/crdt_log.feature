@@ -24,5 +24,5 @@ Feature: Operation-based CRDT event log
     When I append CRDT text "A" to "doc" as "alice"
     And the peer appends CRDT text "B" to "doc" as "bob"
     And I run anti-entropy with the peer repository
-    Then the repository CRDT view "doc" equals text "AB"
-    And the peer CRDT view "doc" equals text "AB"
+    Then the repository CRDT view "doc" equals text "BA"
+    And the peer CRDT view "doc" equals text "BA"

@@ -1,3 +1,4 @@
+import * as Automerge from "@automerge/automerge";
 import { canonicalJson } from "./json";
 
 export interface CRDTDefinition {
@@ -8,8 +9,8 @@ export interface CRDTDefinition {
 export type CRDTOperation =
   | { kind: "map-set"; entity: string; key: string; value: unknown }
   | { kind: "map-delete"; entity: string; key: string }
-  | { kind: "text-insert"; entity: string; value: string; after?: string | null }
-  | { kind: "text-delete"; entity: string; target: string };
+  | { kind: "text-insert"; entity: string; value: string; index?: number }
+  | { kind: "text-delete"; entity: string; index: number; count?: number };
 
 export interface CRDTEvent {
   readonly id: string;
@@ -19,18 +20,20 @@ export interface CRDTEvent {
   readonly payload: Record<string, unknown>;
 }
 
-interface VersionedValue {
-  readonly event: CRDTEvent;
-  readonly deleted: boolean;
-  readonly value?: unknown;
+interface AutomergePayload extends Record<string, unknown> {
+  readonly backend: "automerge";
+  readonly entity: string;
+  readonly entity_kind: "map" | "text";
+  readonly change_base64: string;
+  readonly operation?: CRDTOperation;
 }
 
-interface TextElement {
-  readonly id: string;
-  readonly after: string | null;
-  readonly value: string;
-  readonly event: CRDTEvent;
-}
+type AutomergeDocument = {
+  map: Record<string, unknown>;
+  text: string;
+};
+
+const AUTOMERGE_BASE_ACTOR = "00000000000000000000000000000000";
 
 export class MergeConflictError extends Error {
   constructor(readonly path: string, message = `merge conflict at ${path}`) {
@@ -59,87 +62,49 @@ export class CRDTRegistry {
 }
 
 export class CRDTEventLog {
-  materialize(events: readonly CRDTEvent[], entity: string): unknown {
-    const operations = events
-      .filter((event) => event.type === "crdt")
-      .filter((event) => event.payload.entity === entity)
-      .sort(compareEvents);
-    const firstKind = operations[0]?.payload.kind;
-    if (firstKind === "text-insert" || firstKind === "text-delete") {
-      return this.materializeText(operations);
-    }
-    return this.materializeMap(operations);
-  }
-
-  private materializeMap(events: readonly CRDTEvent[]): Record<string, unknown> {
-    const values = new Map<string, VersionedValue>();
-    for (const event of events) {
-      const key = event.payload.key;
-      if (typeof key !== "string") continue;
-      const current = values.get(key);
-      if (current !== undefined && compareEvents(event, current.event) <= 0) continue;
-      switch (event.payload.kind) {
-        case "map-set":
-          values.set(key, { event, deleted: false, value: event.payload.value });
-          break;
-        case "map-delete":
-          values.set(key, { event, deleted: true });
-          break;
-      }
-    }
-
-    const materialized: Record<string, unknown> = {};
-    for (const [key, value] of Array.from(values.entries()).sort(([left], [right]) => left.localeCompare(right))) {
-      if (!value.deleted) materialized[key] = value.value;
-    }
-    return materialized;
-  }
-
-  private materializeText(events: readonly CRDTEvent[]): string {
-    const elements = new Map<string, TextElement>();
-    const deleted = new Set<string>();
-    for (const event of events) {
-      switch (event.payload.kind) {
-        case "text-insert": {
-          const value = event.payload.value;
-          const after = event.payload.after;
-          if (typeof value !== "string") break;
-          elements.set(event.id, {
-            id: event.id,
-            after: typeof after === "string" ? after : null,
-            value,
-            event,
-          });
-          break;
-        }
-        case "text-delete": {
-          const target = event.payload.target;
-          if (typeof target !== "string") break;
-          deleted.add(target);
-          break;
-        }
-      }
-    }
-
-    const children = new Map<string | null, TextElement[]>();
-    for (const element of elements.values()) {
-      // Dangling references are treated as root inserts so partial/offline logs still materialize deterministically.
-      const parent = element.after !== null && elements.has(element.after) ? element.after : null;
-      const siblings = children.get(parent) ?? [];
-      siblings.push(element);
-      children.set(parent, siblings);
-    }
-    for (const siblings of children.values()) siblings.sort((left, right) => compareEvents(left.event, right.event));
-
-    const chunks: string[] = [];
-    const visit = (parent: string | null): void => {
-      for (const element of children.get(parent) ?? []) {
-        if (!deleted.has(element.id)) chunks.push(element.value);
-        visit(element.id);
-      }
+  changeForOperation(events: readonly CRDTEvent[], operation: CRDTOperation, actorId: string): AutomergePayload {
+    const document = Automerge.change(this.documentFor(events, actorId, operation.entity), { message: operation.kind }, (draft) => {
+      applyOperation(draft, operation);
+    });
+    const change = Automerge.getLastLocalChange(document);
+    if (change === undefined) throw new Error(`CRDT operation produced no Automerge change: ${operation.kind}`);
+    return {
+      backend: "automerge",
+      entity: operation.entity,
+      entity_kind: operation.kind.startsWith("text-") ? "text" : "map",
+      change_base64: Buffer.from(change).toString("base64"),
+      operation,
     };
-    visit(null);
-    return chunks.join("");
+  }
+
+  materialize(events: readonly CRDTEvent[], entity: string): unknown {
+    const payloads = this.payloadsFor(events, entity);
+    const document = this.documentFor(events, AUTOMERGE_BASE_ACTOR, entity);
+    if (payloads[0]?.entity_kind === "text") return document.text;
+    return JSON.parse(JSON.stringify(document.map)) as Record<string, unknown>;
+  }
+
+  private documentFor(events: readonly CRDTEvent[], actorId = AUTOMERGE_BASE_ACTOR, entity?: string): Automerge.Doc<AutomergeDocument> {
+    const document = loadBaseAutomergeDocument(actorId);
+    const changes = events
+      .filter((event) => event.type === "crdt")
+      .sort(compareEvents)
+      .flatMap((event) => {
+        const payload = automergePayload(event.payload);
+        if (entity !== undefined && payload?.entity !== entity) return [];
+        return payload === undefined ? [] : [Buffer.from(payload.change_base64, "base64")];
+      });
+    return Automerge.applyChanges(document, changes)[0];
+  }
+
+  private payloadsFor(events: readonly CRDTEvent[], entity: string): AutomergePayload[] {
+    return events
+      .filter((event) => event.type === "crdt")
+      .sort(compareEvents)
+      .flatMap((event) => {
+        const payload = automergePayload(event.payload);
+        return payload?.entity === entity ? [payload] : [];
+      });
   }
 }
 
@@ -346,9 +311,59 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function loadBaseAutomergeDocument(actorId: string): Automerge.Doc<AutomergeDocument> {
+  return Automerge.load(Automerge.save(Automerge.from<AutomergeDocument>({
+    map: {},
+    text: "",
+  }, { actor: AUTOMERGE_BASE_ACTOR })), { actor: actorId });
+}
+
+function applyOperation(document: Automerge.Doc<AutomergeDocument>, operation: CRDTOperation): void {
+  switch (operation.kind) {
+    case "map-set":
+      document.map[operation.key] = operation.value;
+      return;
+    case "map-delete":
+      delete document.map[operation.key];
+      return;
+    case "text-insert": {
+      const index = clampIndex(operation.index ?? document.text.length, document.text.length);
+      Automerge.splice(document, ["text"], index, 0, operation.value);
+      return;
+    }
+    case "text-delete": {
+      const index = clampIndex(operation.index, document.text.length);
+      const count = Math.max(0, Math.min(operation.count ?? 1, document.text.length - index));
+      Automerge.splice(document, ["text"], index, count);
+      return;
+    }
+  }
+}
+
+function automergePayload(payload: Record<string, unknown>): AutomergePayload | undefined {
+  if (
+    payload.backend === "automerge"
+    && typeof payload.entity === "string"
+    && (payload.entity_kind === "map" || payload.entity_kind === "text")
+    && typeof payload.change_base64 === "string"
+  ) {
+    return payload as unknown as AutomergePayload;
+  }
+  return undefined;
+}
+
+function clampIndex(index: number, length: number): number {
+  if (!Number.isFinite(index)) return length;
+  return Math.max(0, Math.min(Math.trunc(index), length));
+}
+
 // Lamport time captures causality; author and event ID make concurrent operations converge with a stable total order.
 function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
-  return left.lamport - right.lamport || compareStrings(left.author, right.author) || compareStrings(left.id, right.id);
+  const lamportDiff = left.lamport - right.lamport;
+  if (lamportDiff !== 0) return lamportDiff;
+  const authorDiff = compareStrings(left.author, right.author);
+  if (authorDiff !== 0) return authorDiff;
+  return compareStrings(left.id, right.id);
 }
 
 function compareStrings(left: string, right: string): number {

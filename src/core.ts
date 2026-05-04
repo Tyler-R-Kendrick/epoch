@@ -219,7 +219,8 @@ export class EpochRepository {
   }
 
   appendCRDTOperation(operation: CRDTOperation, author = this.identity()): Event {
-    return this.append("crdt", { ...operation }, author);
+    const payload = new CRDTEventLog().changeForOperation(this.events(), operation, sha256(author).slice(0, 32));
+    return this.append("crdt", payload, author);
   }
 
   crdtView(entity: string): unknown {
@@ -480,7 +481,7 @@ function withDirectoryLock<T>(lockDir: string, work: () => T): T {
       break;
     } catch (error) {
       if (!isFileExistsError(error) || Date.now() >= deadline) throw error;
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+      sleepSync(10);
     }
   }
 
@@ -488,6 +489,13 @@ function withDirectoryLock<T>(lockDir: string, work: () => T): T {
     return work();
   } finally {
     rmSync(lockDir, { recursive: true, force: true });
+  }
+}
+
+function sleepSync(milliseconds: number): void {
+  const end = Date.now() + milliseconds;
+  while (Date.now() < end) {
+    // Synchronous repository APIs use a short bounded spin while waiting for another process's lock.
   }
 }
 
