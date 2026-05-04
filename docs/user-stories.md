@@ -411,9 +411,9 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 **Flow:**
 1. Contributor opens patch: `epoch patch open --title "Fix auth race condition"`.
-2. Patch event is gossiped; lead's node receives it.
-3. Lead reviews diff: `epoch patch diff <patch-id>`.
-4. Lead posts review comment: `epoch patch comment <patch-id> "Please add tests"`.
+2. Intent event is gossiped; lead's node receives it.
+3. Lead reviews diff: `epoch intent diff <intent-id>`.
+4. Lead posts review comment: `epoch intent comment <intent-id> "Please add tests"`.
 5. Contributor syncs new record events addressing feedback.
 6. Lead signs inclusion: `epoch merge <intent-id>`.
 7. Epoch projects main from the signed, non-rejected intent.
@@ -498,12 +498,12 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Flow:**
 1. Contributor creates an intent, records changes, and syncs intent events to their public node.
 2. Runs `epoch patch open --target main --title "Fix null pointer in parser"`.
-3. Patch event is gossiped; maintainer's node receives it.
+3. Intent event is gossiped; maintainer's node receives it.
 4. Maintainer reviews and responds.
 
 **Acceptance Criteria:**
 - Patch is identifiable by a unique event ID.
-- Patch event is signed with contributor's Ed25519 key.
+- Intent event is signed with contributor's Ed25519 key.
 - Maintainer can diff, comment, and accept/reject the patch.
 
 ---
