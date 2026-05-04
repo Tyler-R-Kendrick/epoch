@@ -4,8 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "../../src";
-import { canonicalJson } from "../../src/json";
+import { canonicalJson, commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "@epoch/core";
 
 interface WorldState {
   workspace: string;
@@ -21,6 +20,7 @@ interface WorldState {
   gitRepo?: string;
   gitExportRepo?: string;
   syncResult?: SyncResult;
+  lastIntentId?: string;
   hookNames?: string[];
 }
 
@@ -76,10 +76,10 @@ When("actor users concurrently record:", async function (table: DataTable) {
   }));
 });
 
-When("I run actor anti-entropy with the peer repository", async function () {
+When("I run actor sync with the peer repository", async function () {
   assert.ok(state.actorRepo);
   assert.ok(state.peerRepo);
-  state.syncResult = await state.actorRepo.antiEntropy(state.peerRepo.root);
+  state.syncResult = await state.actorRepo.sync(state.peerRepo.root);
 });
 
 Then("the actor repository verifies successfully", async function () {
@@ -160,7 +160,7 @@ Then("the repository verifies successfully", function () {
   assert.deepEqual(state.repo.verify(), []);
 });
 
-Then("the event log contains {int} event", function (count: number) {
+Then(/^the event log contains (\d+) events?$/, function (count: number) {
   assert.equal(state.repo.events().length, count);
 });
 
@@ -216,9 +216,92 @@ Given("a peer Epoch repository initialized as {string}", function (author: strin
   state.peerRepo.init(author);
 });
 
-When("I run anti-entropy with the peer repository", function () {
+When("I sync with the peer repository", function () {
   assert.ok(state.peerRepo);
-  state.syncResult = state.repo.antiEntropy(state.peerRepo.root);
+  state.syncResult = state.repo.sync(state.peerRepo.root);
+});
+
+When("I create an intent for {string} with content {string} as {string}", function (path: string, content: string, entityType: string) {
+  const absolute = join(state.workspace, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  state.lastEvent = state.repo.intentFile(path, entityType);
+  state.lastIntentId = state.lastEvent.id;
+});
+
+When("I create an intent for {string} with content {string} as {string} titled {string} described {string} labeled {string}", function (path: string, content: string, entityType: string, title: string, description: string, labels: string) {
+  const absolute = join(state.workspace, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  state.lastEvent = state.repo.intentFile(path, entityType, state.repo.identity(), { title, description, labels: splitLabels(labels) });
+  state.lastIntentId = state.lastEvent.id;
+});
+
+When("{string} signs the intent merge", function (author: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.mergeIntent(state.lastIntentId, author);
+});
+
+When("{string} signs the intent merge with reason {string} labeled {string}", function (author: string, reason: string, labels: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.mergeIntent(state.lastIntentId, author, { reason, labels: splitLabels(labels) });
+});
+
+When("{string} rejects the intent with reason {string}", function (author: string, reason: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.rejectIntent(state.lastIntentId, reason, author);
+});
+
+When("{string} rejects the intent with reason {string} labeled {string}", function (author: string, reason: string, labels: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.rejectIntent(state.lastIntentId, reason, author, { labels: splitLabels(labels) });
+});
+
+When("{string} comments {string} on the intent labeled {string}", function (author: string, body: string, labels: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.comment(body, state.lastIntentId, author, { labels: splitLabels(labels) });
+});
+
+Then("the last event comment body is {string}", function (expected: string) {
+  assert.equal(state.lastEvent?.payload.body, expected);
+});
+
+Then("the last event comment references the last intent", function () {
+  assert.ok(state.lastIntentId);
+  assert.equal(state.lastEvent?.payload.intent, state.lastIntentId);
+});
+
+Then("the last event metadata title is {string}", function (expected: string) {
+  assert.equal(metadataValue("title"), expected);
+});
+
+Then("the last event metadata description is {string}", function (expected: string) {
+  assert.equal(metadataValue("description"), expected);
+});
+
+Then("the last event metadata reason is {string}", function (expected: string) {
+  assert.equal(metadataValue("reason"), expected);
+});
+
+Then("the last event metadata labels are {string}", function (expected: string) {
+  assert.deepEqual(metadataLabels(), splitLabels(expected));
+});
+
+Then("the last intent status is {string}", function (status: string) {
+  assert.ok(state.lastIntentId);
+  const decision = state.repo.policy().intents.find((item) => item.intent.id === state.lastIntentId);
+  assert.ok(decision);
+  assert.equal(decision.status, status);
+});
+
+Then("the main projection contains the last intent", function () {
+  assert.ok(state.lastIntentId);
+  assert.ok(state.repo.mainIntentIds().includes(state.lastIntentId));
+});
+
+Then("the main projection skips the last intent", function () {
+  assert.ok(state.lastIntentId);
+  assert.ok(!state.repo.mainIntentIds().includes(state.lastIntentId));
 });
 
 When("I append CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
@@ -237,6 +320,11 @@ When("I append CRDT text {string} to {string} as {string}", function (value: str
 When("the peer appends CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
   assert.ok(state.peerRepo);
   state.lastEvent = state.peerRepo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
+});
+
+When("I run anti-entropy with the peer repository", function () {
+  assert.ok(state.peerRepo);
+  state.syncResult = state.repo.antiEntropy(state.peerRepo.root);
 });
 
 Then("the repository CRDT view {string} equals JSON:", function (entity: string, expected: string) {
@@ -301,6 +389,21 @@ Then("the exported Git file {string} contains {string}", function (path: string,
   assert.ok(state.gitExportRepo);
   assert.equal(readFileSync(join(state.gitExportRepo, path), "utf8"), expected.replaceAll("\\n", "\n"));
 });
+
+function splitLabels(labels: string): string[] {
+  return labels.split(",").map((label) => label.trim()).filter((label) => label.length > 0);
+}
+
+function metadataValue(key: string): unknown {
+  const metadata = state.lastEvent?.payload.metadata;
+  assert.equal(typeof metadata, "object");
+  assert.ok(metadata !== null);
+  return (metadata as Record<string, unknown>)[key];
+}
+
+function metadataLabels(): unknown {
+  return metadataValue("labels");
+}
 
 Given("the default CRDT registry", function () {
   state.registry = CRDTRegistry.defaults();
