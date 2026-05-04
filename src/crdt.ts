@@ -363,11 +363,21 @@ function collabsPayload(payload: Record<string, unknown>): CollabsPayload | unde
   return undefined;
 }
 
+/**
+ * Clamps an operation index to valid text bounds.
+ *
+ * Non-finite values default to the end of the text; finite values are truncated and clamped to [0, length].
+ */
 function clampIndex(index: number, length: number): number {
   if (!Number.isFinite(index)) return length;
   return Math.max(0, Math.min(Math.trunc(index), length));
 }
 
+/**
+ * Resolves optional operation indices before bounds validation.
+ *
+ * Undefined indices use the provided fallback, then delegate to `clampIndex` for final text bounds.
+ */
 function operationIndex(index: number | undefined, fallback: number, length: number): number {
   return clampIndex(index ?? fallback, length);
 }

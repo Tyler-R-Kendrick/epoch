@@ -592,7 +592,12 @@ function withDirectoryLock<T>(lockDir: string, work: () => T): T {
   }
 }
 
-// Repository APIs are synchronous, so lock polling uses a short, bounded spin instead of async timers.
+/**
+ * Blocks synchronously between lock acquisition attempts.
+ *
+ * Repository APIs are synchronous, so file-lock polling cannot await an async timer without changing
+ * the public API. `Atomics.wait` provides a bounded blocking sleep for the short polling interval.
+ */
 function sleepSync(milliseconds: number): void {
   Atomics.wait(ATOMICS_WAIT_ARRAY, 0, 0, milliseconds);
 }
