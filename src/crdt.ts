@@ -89,7 +89,7 @@ export class CRDTEventLog {
     }
 
     const materialized: Record<string, unknown> = {};
-    for (const [key, value] of [...values.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    for (const [key, value] of Array.from(values.entries()).sort(([left], [right]) => left.localeCompare(right))) {
       if (!value.deleted) materialized[key] = value.value;
     }
     return materialized;
@@ -346,6 +346,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+// Lamport time captures causality; author and event ID make concurrent operations converge with a stable total order.
 function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
   return left.lamport - right.lamport || left.author.localeCompare(right.author) || left.id.localeCompare(right.id);
 }

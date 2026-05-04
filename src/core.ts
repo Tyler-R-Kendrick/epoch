@@ -210,7 +210,8 @@ export class EpochRepository {
       signature: signEvent(unsigned, identity.privateKey),
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
-    const retainedHeads = this.heads().filter((head) => !heads.includes(head));
+    const previousHeads = new Set(heads);
+    const retainedHeads = this.heads().filter((head) => !previousHeads.has(head));
     writeJson(this.headsPath, [...new Set([...retainedHeads, event.id])].sort());
     return event;
   }
