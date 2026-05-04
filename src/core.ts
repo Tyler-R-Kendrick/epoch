@@ -349,7 +349,7 @@ export class EpochRepository {
 
   createView(name: string, rule: InclusionRule, parentView?: string, metadata?: ViewMetadata, author = this.identity()): Event {
     this.assertValidViewName(name);
-    const effectiveRule = parentView === undefined ? rule : { type: "intersection", rules: [{ type: "base", viewName: parentView }, rule] } satisfies InclusionRule;
+    const effectiveRule: InclusionRule = parentView === undefined ? rule : { type: "intersection", rules: [{ type: "base", viewName: parentView }, rule] };
     const payload = { name, rule: effectiveRule, metadata, parentView } satisfies EventPayload;
     this.undeleteLocalView(name);
     return this.append("view-definition", payload, author);
@@ -684,12 +684,13 @@ export class EpochRepository {
       if (previous === undefined || compareEvents(event, previous) > 0) definitions.set(event.payload.name, event);
     }
     const views = new Map<string, ViewDefinition>();
+    const mainDefinition = definitions.get("main");
     views.set("main", {
       type: "view-definition",
       name: "main",
-      rule: definitions.get("main") !== undefined && isInclusionRule(definitions.get("main")?.payload.rule) ? definitions.get("main")?.payload.rule as InclusionRule : { type: "all" },
-      signature: definitions.get("main")?.signature ?? "",
-      timestamp: definitions.get("main")?.timestamp ?? 0,
+      rule: mainDefinition !== undefined && isInclusionRule(mainDefinition.payload.rule) ? mainDefinition.payload.rule : { type: "all" },
+      signature: mainDefinition?.signature ?? "",
+      timestamp: mainDefinition?.timestamp ?? 0,
     });
     for (const event of definitions.values()) {
       const metadata = isViewMetadata(event.payload.metadata) ? event.payload.metadata : undefined;
