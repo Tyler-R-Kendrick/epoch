@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
 import { CRDTRegistry, EpochRepository, Event } from "../../src";
 import { canonicalJson } from "../../src/json";
@@ -40,14 +40,14 @@ When("I initialize an Epoch repository as {string}", function (author: string) {
 
 When("I record {string} with content {string} as {string}", function (path: string, content: string, entityType: string) {
   const absolute = join(state.workspace, path);
-  mkdirSync(join(absolute, ".."), { recursive: true });
+  mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.lastEvent = state.repo.recordFile(path, entityType);
 });
 
 When("I try to record {string} with content {string} as {string}", function (path: string, content: string, entityType: string) {
   const absolute = join(state.workspace, path);
-  mkdirSync(join(absolute, ".."), { recursive: true });
+  mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.createdFiles.push(absolute);
   try {
