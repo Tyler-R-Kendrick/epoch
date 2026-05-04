@@ -109,7 +109,7 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - filesystem gossip / anti-entropy exchange between local repositories
 - Git import/export compatibility for tracked files
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
-- CLI commands for `init`, `record`, `log`, `verify`, `merge`, `gossip`, `anti-entropy`, `git-import`, and `git-export`
+- CLI commands for `init`, `commit`, `log`, `verify`, `merge`, `merge-abort`, `pull`, `push`, `sync`, `branch`, `rollback`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -129,22 +129,32 @@ Run the CLI after building:
 
 ```bash
 node dist/src/cli.js init --author alice
-node dist/src/cli.js record README.md --type text/plain
+node dist/src/cli.js commit README.md --type text/plain
 node dist/src/cli.js log
 node dist/src/cli.js verify
 ```
 
-Synchronize two local Epoch repositories with gossip / anti-entropy:
+Synchronize two local Epoch repositories with DVCS-style sync commands:
 
 ```bash
-node dist/src/cli.js --repo ./peer-a anti-entropy ./peer-b
+node dist/src/cli.js --repo ./peer-a pull ./peer-b
+node dist/src/cli.js --repo ./peer-a push ./peer-b
+node dist/src/cli.js --repo ./peer-a sync ./peer-b
 ```
 
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:
 
 ```bash
-node dist/src/cli.js --repo ./epoch git-import ./git-project
-node dist/src/cli.js --repo ./epoch git-export ./git-export
+node dist/src/cli.js --repo ./epoch import ./git-project
+node dist/src/cli.js --repo ./epoch export ./git-export
+```
+
+Manage workflow state with familiar DVCS primitives:
+
+```bash
+node dist/src/cli.js branch feature/login
+node dist/src/cli.js rollback EVENT_ID
+node dist/src/cli.js merge-abort --reason "not ready"
 ```
 
 Merge three versions of a supported entity type:

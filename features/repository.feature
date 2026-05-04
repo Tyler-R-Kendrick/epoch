@@ -31,15 +31,26 @@ Feature: Epoch repository event log
     When I try to record "../outside.txt" with content "secret\n" as "text/plain"
     Then recording fails with "outside repository root"
 
-  Scenario: Gossip anti-entropy synchronizes repositories
+  Scenario: Sync command surface synchronizes repositories
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     And I record "note.txt" with content "hello\n" as "text/plain"
     And a peer Epoch repository initialized as "bob"
-    When I run anti-entropy with the peer repository
+    When I sync with the peer repository
     Then the peer repository verifies successfully
     And the peer event log contains 1 event
     And the peer recorded blob content equals "hello\n"
+
+  Scenario: Branching, rollback, and merge rejection are recorded as events
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    And I record "note.txt" with content "hello\n" as "text/plain"
+    When I create branch "feature"
+    Then the branch list contains "feature"
+    When I rollback to the last event
+    And I reject the current merge
+    Then the repository verifies successfully
+    And the event log contains 4 events
 
   Scenario: Import from and export to Git repositories
     Given a new workspace

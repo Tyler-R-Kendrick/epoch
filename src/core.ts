@@ -346,7 +346,7 @@ export class EpochRepository {
     const sourceRoot = resolve(gitRoot);
     const tracked = execFileSync(Git.binary, ["-C", sourceRoot, Git.lsFiles, "-z"]);
     return tracked
-      .toString("utf8")
+      .toString(JsonEncoding)
       .split("\0")
       .filter((path) => path.length > 0)
       .map((path) => {
