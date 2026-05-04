@@ -206,9 +206,8 @@ export class EpochRepository {
       if (event.id !== event.computedId()) {
         problems.push(`${event.id}: content hash mismatch`);
       }
-      if (!verifyEvent(event)) {
-        problems.push(`${event.id}: signature verification failed`);
-      }
+      const signatureProblem = verifyEventSignature(event);
+      if (signatureProblem !== undefined) problems.push(`${event.id}: ${signatureProblem}`);
       known.set(event.id, event);
     }
 
@@ -376,13 +375,14 @@ function signEvent(event: Event, privateKey: string): string {
   return sign(null, Buffer.from(canonicalJson(event.unsigned())), privateKey).toString("base64");
 }
 
-function verifyEvent(event: Event): boolean {
-  if (event.signature === "" || event.authorPublicKey === "") return false;
+function verifyEventSignature(event: Event): string | undefined {
+  if (event.signature === "" || event.authorPublicKey === "") return "signature verification failed";
   try {
-    return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"));
+    return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"))
+      ? undefined
+      : "signature verification failed";
   } catch (error) {
-    console.warn(`unable to verify event ${event.id}: ${error instanceof Error ? error.message : String(error)}`);
-    return false;
+    return `signature verification failed: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
