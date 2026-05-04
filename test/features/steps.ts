@@ -13,17 +13,20 @@ interface WorldState {
   registry?: CRDTRegistry;
   merged?: unknown;
   error?: Error;
+  outsideFiles: string[];
 }
 
 let state: WorldState;
 
 Before(function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-feature-"));
-  state = { workspace, repo: new EpochRepository(workspace) };
+  state = { workspace, repo: new EpochRepository(workspace), outsideFiles: [] };
 });
 
 After(function () {
-  rmSync(join(state.workspace, "..", "outside.txt"), { force: true });
+  for (const path of state.outsideFiles) {
+    rmSync(path, { force: true });
+  }
   rmSync(state.workspace, { recursive: true, force: true });
 });
 
@@ -46,6 +49,9 @@ When("I try to record {string} with content {string} as {string}", function (pat
   const absolute = join(state.workspace, path);
   mkdirSync(join(absolute, ".."), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  if (!absolute.startsWith(state.workspace)) {
+    state.outsideFiles.push(absolute);
+  }
   try {
     state.repo.recordFile(path, entityType);
   } catch (error) {

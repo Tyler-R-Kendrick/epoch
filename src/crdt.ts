@@ -199,7 +199,7 @@ function mergeTextHunks(base: string[], left: TextHunk[], right: TextHunk[]): st
     } else if ([...leftGroup, ...rightGroup].every((hunk) => hunk.start === hunk.end)) {
       merged.push(...leftLines, ...rightLines);
     } else {
-      throw new MergeConflictError(`lines ${nextStart + 1}-${groupEnd}`);
+      throw new MergeConflictError(formatLineRange(nextStart, groupEnd));
     }
     cursor = groupEnd;
   }
@@ -218,6 +218,12 @@ function replacementForSide(base: string[], sideGroup: TextHunk[], start: number
   }
   lines.push(...base.slice(cursor, end));
   return lines;
+}
+
+function formatLineRange(start: number, endExclusive: number): string {
+  const firstLine = start + 1;
+  const lastLine = Math.max(firstLine, endExclusive);
+  return firstLine === lastLine ? `line ${firstLine}` : `lines ${firstLine}-${lastLine}`;
 }
 
 function same(left: unknown, right: unknown): boolean {
