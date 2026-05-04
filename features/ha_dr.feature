@@ -6,10 +6,10 @@ Feature: High availability and disaster recovery
     And I initialize an Epoch repository as "alice"
     When I record "one.txt" with content "one\n" as "text/plain"
     And I record "two.txt" with content "two\n" as "text/plain"
-    And I record "three.txt" with content "three\n" as "text/plain"
     And I create an HA checkpoint
+    And I record "three.txt" with content "three\n" as "text/plain"
     And I prune the event log before the HA checkpoint
-    Then the local event file count is 1
+    Then the local event file count is 2
     When I restore from the HA checkpoint
     Then the repository verifies successfully
     And the event log contains 3 events

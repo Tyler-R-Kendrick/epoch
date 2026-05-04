@@ -85,7 +85,18 @@ export function pruneEventLog(repository: EpochRepository, checkpointId: string)
 
 export function restoreFromCheckpoint(repository: EpochRepository, checkpointId: string): void {
   const checkpoint = loadCheckpoint(repository, checkpointId);
+  verifyCheckpoint(checkpoint);
+  const tailEvents = eventsAfterCheckpoint(repository, checkpoint);
+  const tailBlobs = blobsForEvents(repository, tailEvents);
+  const heads = tailEvents.length === 0 ? undefined : repository.heads();
   restoreCheckpointData(repository, checkpoint, true);
+  for (const event of tailEvents) {
+    writeJson(join(repository.eventsDir, `${event.id}${JsonFileExtension}`), event.toJSON());
+  }
+  for (const [hash, data] of Object.entries(tailBlobs)) {
+    writeFileSync(join(repository.blobsDir, hash), Buffer.from(data, "base64"));
+  }
+  if (heads !== undefined) writeJson(repository.headsPath, heads);
 }
 
 export function restoreCheckpointData(repository: EpochRepository, checkpoint: Checkpoint, replaceExisting: boolean): void {
