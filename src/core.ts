@@ -3,20 +3,26 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalJson } from "./json";
+import {
+  Branches,
+  DefaultAuthor,
+  EntityType,
+  EventData,
+  EventDataSchema,
+  EventPayload,
+  EventType,
+  Git,
+  IdentityData,
+  JsonEncoding,
+  JsonFileExtension,
+  LegacyIdentitySchema,
+  Schemas,
+  StorageName,
+} from "./domain";
+import type { z } from "zod";
 
-export type EventPayload = Record<string, unknown>;
-
-export interface EventData {
-  id: string;
-  type: string;
-  author: string;
-  lamport: number;
-  parents: string[];
-  payload: EventPayload;
-  timestamp: number;
-  authorPublicKey: string;
-  signature: string;
-}
+export { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "./domain";
+export type { Branches, EventData, EventPayload, IdentityData } from "./domain";
 
 interface UnsignedEvent {
   type: string;
@@ -28,37 +34,28 @@ interface UnsignedEvent {
   authorPublicKey: string;
 }
 
-export interface IdentityData {
-  author: string;
-  publicKey: string;
-  privateKey: string;
-}
-
 export interface SyncResult {
   eventsCopied: number;
   blobsCopied: number;
 }
 
-export const GIT_AUTHOR_NAME = "epoch";
-export const GIT_AUTHOR_EMAIL = "epoch@example.invalid";
-
 const ENTITY_TYPES_BY_EXTENSION = new Map([
-  [".css", "text/css"],
-  [".csv", "text/csv"],
-  [".htm", "text/html"],
-  [".html", "text/html"],
-  [".js", "application/javascript"],
-  [".json", "application/json"],
-  [".jsx", "application/javascript"],
-  [".markdown", "text/plain"],
-  [".md", "text/plain"],
-  [".toml", "text/plain"],
-  [".ts", "application/typescript"],
-  [".tsx", "application/typescript"],
-  [".txt", "text/plain"],
-  [".xml", "text/plain"],
-  [".yaml", "text/plain"],
-  [".yml", "text/plain"],
+  [".css", EntityType.css],
+  [".csv", EntityType.csv],
+  [".htm", EntityType.html],
+  [".html", EntityType.html],
+  [".js", EntityType.javascript],
+  [JsonFileExtension, EntityType.json],
+  [".jsx", EntityType.jsx],
+  [".markdown", EntityType.markdown],
+  [".md", EntityType.markdown],
+  [".toml", EntityType.toml],
+  [".ts", EntityType.typescript],
+  [".tsx", EntityType.tsx],
+  [".txt", EntityType.plainText],
+  [".xml", EntityType.xml],
+  [".yaml", EntityType.yaml],
+  [".yml", EntityType.yaml],
 ]);
 
 export class Event {
@@ -98,7 +95,7 @@ export class Event {
   }
 
   static fromJSON(data: EventData): Event {
-    return new Event(data);
+    return new Event(EventDataSchema.parse(data));
   }
 
   unsigned(): UnsignedEvent {
@@ -134,18 +131,20 @@ export class EpochRepository {
   readonly usersDir: string;
   readonly headsPath: string;
   readonly identityPath: string;
+  readonly branchesPath: string;
 
   constructor(root: string) {
     this.root = resolve(root);
-    this.epochDir = join(this.root, ".epoch");
-    this.eventsDir = join(this.epochDir, "events");
-    this.blobsDir = join(this.epochDir, "blobs");
-    this.usersDir = join(this.epochDir, "users");
-    this.headsPath = join(this.epochDir, "heads.json");
-    this.identityPath = join(this.epochDir, "identity.json");
+    this.epochDir = join(this.root, StorageName.epoch);
+    this.eventsDir = join(this.epochDir, StorageName.events);
+    this.blobsDir = join(this.epochDir, StorageName.blobs);
+    this.usersDir = join(this.epochDir, StorageName.users);
+    this.headsPath = join(this.epochDir, StorageName.heads);
+    this.identityPath = join(this.epochDir, StorageName.identity);
+    this.branchesPath = join(this.epochDir, StorageName.branches);
   }
 
-  init(author = "local"): void {
+  init(author = DefaultAuthor): void {
     mkdirSync(this.eventsDir, { recursive: true });
     mkdirSync(this.blobsDir, { recursive: true });
     mkdirSync(this.usersDir, { recursive: true });
@@ -155,6 +154,9 @@ export class EpochRepository {
     if (!existsAsFile(this.identityPath)) {
       writeJson(this.identityPath, createIdentity(author));
     }
+    if (!existsAsFile(this.branchesPath)) {
+      writeJson(this.branchesPath, {});
+    }
   }
 
   identity(): string {
@@ -163,8 +165,8 @@ export class EpochRepository {
 
   identityDocument(): IdentityData {
     this.requireInitialized();
-    const identity = readJson<Partial<IdentityData> & { author: string }>(this.identityPath);
-    if (identity.publicKey !== undefined && identity.privateKey !== undefined) return identity as IdentityData;
+    const identity = readJson(this.identityPath, LegacyIdentitySchema);
+    if (identity.publicKey !== undefined && identity.privateKey !== undefined) return Schemas.identity.parse(identity);
     const upgraded = createIdentity(identity.author);
     writeJson(this.identityPath, upgraded);
     return upgraded;
@@ -182,21 +184,21 @@ export class EpochRepository {
 
     mkdirSync(this.usersDir, { recursive: true });
     const path = join(this.usersDir, `${sha256(author)}.json`);
-    if (existsAsFile(path)) return readJson<IdentityData>(path);
+    if (existsAsFile(path)) return readJson(path, Schemas.identity);
 
     const identity = createIdentity(author);
     try {
-      writeFileSync(path, `${canonicalJson(identity)}\n`, { encoding: "utf8", flag: "wx" });
+      writeFileSync(path, `${canonicalJson(identity)}\n`, { encoding: JsonEncoding, flag: "wx" });
       return identity;
     } catch (error) {
-      if (isFileExistsError(error)) return readJson<IdentityData>(path);
+      if (isFileExistsError(error)) return readJson(path, Schemas.identity);
       throw error;
     }
   }
 
   heads(): string[] {
     this.requireInitialized();
-    return readJson<string[]>(this.headsPath);
+    return readJson(this.headsPath, Schemas.heads);
   }
 
   append(type: string, payload: EventPayload, author = this.identity()): Event {
@@ -213,7 +215,7 @@ export class EpochRepository {
     return event;
   }
 
-  recordFile(path: string, entityType = "application/octet-stream", author = this.identity()): Event {
+  recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
     const { absolute, relativePath } = resolveInside(this.root, path, "record file", "repository root");
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
@@ -221,7 +223,7 @@ export class EpochRepository {
     if (!existsAsFile(blobPath)) {
       writeFileSync(blobPath, data);
     }
-    return this.append("record", {
+    return this.append(EventType.commit, {
       path: relativePath.split(sep).join("/"),
       entity_type: entityType,
       blob_sha256: blobSha256,
@@ -231,14 +233,14 @@ export class EpochRepository {
 
   read(eventId: string): Event {
     this.requireInitialized();
-    return Event.fromJSON(readJson<EventData>(join(this.eventsDir, `${eventId}.json`)));
+    return Event.fromJSON(readJson(join(this.eventsDir, `${eventId}${JsonFileExtension}`), EventDataSchema));
   }
 
   events(): Event[] {
     this.requireInitialized();
     return readdirSync(this.eventsDir)
-      .filter((name) => extname(name) === ".json")
-      .map((name) => Event.fromJSON(readJson<EventData>(join(this.eventsDir, name))))
+      .filter((name) => extname(name) === JsonFileExtension)
+      .map((name) => Event.fromJSON(readJson(join(this.eventsDir, name), EventDataSchema)))
       .sort((left, right) => left.lamport - right.lamport || left.id.localeCompare(right.id));
   }
 
@@ -275,7 +277,7 @@ export class EpochRepository {
     }
 
     for (const event of events) {
-      if (event.type === "record") {
+      if (event.type === EventType.commit || event.type === EventType.legacyRecord) {
         problems.push(...this.verifyRecordedBlob(event));
       }
     }
@@ -291,26 +293,58 @@ export class EpochRepository {
     const eventsCopied = copyMissingFiles(peer.eventsDir, this.eventsDir);
     const blobsCopied = copyMissingFiles(peer.blobsDir, this.blobsDir);
     writeJson(this.headsPath, [...new Set([...this.heads(), ...peer.heads()])].sort());
-    return { eventsCopied, blobsCopied };
+    return Schemas.syncResult.parse({ eventsCopied, blobsCopied });
+  }
+
+  pull(peerRoot: string): SyncResult {
+    return this.syncFrom(peerRoot);
+  }
+
+  push(peerRoot: string): SyncResult {
+    return new EpochRepository(peerRoot).syncFrom(this.root);
+  }
+
+  sync(peerRoot: string): SyncResult {
+    const inbound = this.syncFrom(peerRoot);
+    const outbound = new EpochRepository(peerRoot).syncFrom(this.root);
+    return Schemas.syncResult.parse({
+      eventsCopied: inbound.eventsCopied + outbound.eventsCopied,
+      blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
+    });
   }
 
   gossip(peerRoot: string): SyncResult {
-    const inbound = this.syncFrom(peerRoot);
-    const outbound = new EpochRepository(peerRoot).syncFrom(this.root);
-    return {
-      eventsCopied: inbound.eventsCopied + outbound.eventsCopied,
-      blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
-    };
+    return this.sync(peerRoot);
   }
 
   antiEntropy(peerRoot: string): SyncResult {
-    return this.gossip(peerRoot);
+    return this.sync(peerRoot);
+  }
+
+  branches(): Branches {
+    this.requireInitialized();
+    return readJson(this.branchesPath, Schemas.branches);
+  }
+
+  branch(name: string, targetHeads = this.heads()): Event {
+    const branches = this.branches();
+    branches[name] = [...targetHeads];
+    writeJson(this.branchesPath, branches);
+    return this.append(EventType.branch, { name, heads: targetHeads });
+  }
+
+  rollback(target: string, reason = ""): Event {
+    return this.append(EventType.rollback, { target, reason, previousHeads: this.heads() });
+  }
+
+  rejectMerge(reason = ""): Event {
+    return this.append(EventType.mergeRejected, { reason, rejectedHeads: this.heads() });
   }
 
   importFromGit(gitRoot: string): Event[] {
     this.requireInitialized();
     const sourceRoot = resolve(gitRoot);
-    const tracked = execFileSync("git", ["-C", sourceRoot, "ls-files", "-z"]);
+    const tracked = execFileSync(Git.binary, ["-C", sourceRoot, Git.lsFiles, "-z"]);
     return tracked
       .toString("utf8")
       .split("\0")
@@ -328,8 +362,8 @@ export class EpochRepository {
     this.requireInitialized();
     const targetRoot = resolve(gitRoot);
     mkdirSync(targetRoot, { recursive: true });
-    if (!existsAsDirectory(join(targetRoot, ".git"))) {
-      execFileSync("git", ["-C", targetRoot, "-c", "init.defaultBranch=main", "init"]);
+    if (!existsAsDirectory(join(targetRoot, Git.repository))) {
+      execFileSync(Git.binary, ["-C", targetRoot, Git.config, Git.initDefaultBranch, Git.init]);
     }
 
     const exported: string[] = [];
@@ -344,19 +378,19 @@ export class EpochRepository {
     }
 
     if (exported.length > 0) {
-      execFileSync("git", ["-C", targetRoot, "add", ...exported]);
-      const hasChanges = execFileSync("git", ["-C", targetRoot, "status", "--porcelain"]).toString("utf8").trim().length > 0;
+      execFileSync(Git.binary, ["-C", targetRoot, Git.add, ...exported]);
+      const hasChanges = execFileSync(Git.binary, ["-C", targetRoot, Git.status, Git.porcelain]).toString(JsonEncoding).trim().length > 0;
       if (hasChanges) {
-        commitGit(targetRoot, "Export from Epoch");
+        commitGit(targetRoot, Git.exportMessage);
       }
     }
     return exported.sort();
   }
 
   private verifyRecordedBlob(event: Event): string[] {
-    const blobSha256 = event.payload.blob_sha256;
-    const size = event.payload.size;
-    if (typeof blobSha256 !== "string" || typeof size !== "number") return [`${event.id}: invalid record payload`];
+    const parsed = Schemas.recordPayload.safeParse(event.payload);
+    if (!parsed.success) return [`${event.id}: invalid commit payload`];
+    const { blob_sha256: blobSha256, size } = parsed.data;
     const blobPath = join(this.blobsDir, blobSha256);
     if (!existsAsFile(blobPath)) return [`${event.id}: missing blob ${blobSha256}`];
     const data = readFileSync(blobPath);
@@ -369,7 +403,7 @@ export class EpochRepository {
   private latestRecords(): Event[] {
     const records = new Map<string, Event>();
     for (const event of this.events()) {
-      if (event.type === "record" && typeof event.payload.path === "string") {
+      if ((event.type === EventType.commit || event.type === EventType.legacyRecord) && typeof event.payload.path === "string") {
         records.set(event.payload.path, event);
       }
     }
@@ -384,15 +418,18 @@ export class EpochRepository {
     if (!existsAsDirectory(this.eventsDir) || !existsAsDirectory(this.blobsDir) || !existsAsFile(this.headsPath)) {
       throw new Error(`not an Epoch repository: ${this.root}`);
     }
+    if (!existsAsFile(this.branchesPath)) {
+      writeJson(this.branchesPath, {});
+    }
   }
 }
 
-export function readJson<T>(path: string): T {
-  return JSON.parse(readFileSync(path, "utf8")) as T;
+export function readJson<T>(path: string, schema: z.ZodType<T>): T {
+  return schema.parse(JSON.parse(readFileSync(path, JsonEncoding)));
 }
 
 export function writeJson(path: string, value: unknown): void {
-  writeFileSync(path, `${canonicalJson(value)}\n`, "utf8");
+  writeFileSync(path, `${canonicalJson(value)}\n`, JsonEncoding);
 }
 
 function sha256(data: string | Buffer): string {
@@ -409,7 +446,7 @@ function resolveInside(root: string, path: string, operation: string, descriptio
 }
 
 export function commitGit(root: string, message: string): void {
-  execFileSync("git", ["-C", root, "-c", `user.name=${GIT_AUTHOR_NAME}`, "-c", `user.email=${GIT_AUTHOR_EMAIL}`, "commit", "-m", message]);
+  execFileSync(Git.binary, ["-C", root, Git.config, Git.userName, Git.config, Git.userEmail, Git.commit, Git.message, message]);
 }
 
 function createIdentity(author: string): IdentityData {
@@ -452,7 +489,7 @@ function copyMissingFiles(sourceDir: string, targetDir: string): number {
 }
 
 function entityTypeForPath(path: string): string {
-  return ENTITY_TYPES_BY_EXTENSION.get(extname(path).toLowerCase()) ?? "application/octet-stream";
+  return ENTITY_TYPES_BY_EXTENSION.get(extname(path).toLowerCase()) ?? EntityType.octetStream;
 }
 
 function existsAsFile(path: string): boolean {

@@ -1,4 +1,5 @@
 import { canonicalJson } from "./json";
+import { EntityType } from "./domain";
 
 export interface CRDTDefinition {
   readonly entityType: string;
@@ -32,7 +33,7 @@ export class CRDTRegistry {
 }
 
 export class TextWeaveCRDT implements CRDTDefinition {
-  readonly entityType = "text/plain";
+  readonly entityType = EntityType.plainText;
 
   merge(base: unknown, left: unknown, right: unknown): string {
     if (typeof base !== "string" || typeof left !== "string" || typeof right !== "string") {
@@ -51,7 +52,7 @@ export class TextWeaveCRDT implements CRDTDefinition {
 }
 
 export class JsonMapCRDT implements CRDTDefinition {
-  readonly entityType = "application/json";
+  readonly entityType = EntityType.json;
 
   merge(base: unknown, left: unknown, right: unknown): unknown {
     return this.mergeValue(base, left, right, "$");
@@ -106,11 +107,11 @@ export function threeWayMerge(base: unknown, left: unknown, right: unknown): unk
 }
 
 export function loadEntity(entityType: string, text: string): unknown {
-  return entityType === "application/json" ? JSON.parse(text) : text;
+  return entityType === EntityType.json ? JSON.parse(text) : text;
 }
 
 export function dumpEntity(entityType: string, value: unknown): string {
-  return entityType === "application/json" ? `${JSON.stringify(value, null, 2)}\n` : String(value);
+  return entityType === EntityType.json ? `${JSON.stringify(value, null, 2)}\n` : String(value);
 }
 
 function splitLines(text: string): string[] {
