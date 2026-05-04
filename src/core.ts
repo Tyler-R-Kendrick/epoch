@@ -69,6 +69,7 @@ export type EpochHookName =
 export interface EpochHookEvent {
   readonly name: EpochHookName;
   readonly repository: EpochRepository;
+  /** Unix timestamp in seconds, matching persisted Epoch event timestamps. */
   readonly timestamp: number;
   readonly detail: Record<string, unknown>;
 }
@@ -100,6 +101,9 @@ const ENTITY_TYPES_BY_EXTENSION = new Map([
   [".yaml", "text/plain"],
   [".yml", "text/plain"],
 ]);
+
+const LOCK_TIMEOUT_MS = 5000;
+const LOCK_POLL_INTERVAL_MS = 10;
 
 export class Event {
   readonly id: string;
@@ -568,14 +572,14 @@ function copyMissingFiles(sourceDir: string, targetDir: string): number {
 }
 
 function withDirectoryLock<T>(lockDir: string, work: () => T): T {
-  const deadline = Date.now() + 5000;
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
   while (true) {
     try {
       mkdirSync(lockDir);
       break;
     } catch (error) {
       if (!isFileExistsError(error) || Date.now() >= deadline) throw error;
-      sleepSync(10);
+      sleepSync(LOCK_POLL_INTERVAL_MS);
     }
   }
 

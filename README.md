@@ -83,6 +83,7 @@
 | [`docs/features.md`](docs/features.md) | Full feature registry with IDs, descriptions, and acceptance criteria |
 | [`docs/user-stories.md`](docs/user-stories.md) | Complete user stories organized by persona |
 | [`docs/crdt-backend-decision.md`](docs/crdt-backend-decision.md) | Automerge vs Collabs measurement, pros/cons, dependency exception, and backend decision |
+| [`docs/dependency-exceptions.md`](docs/dependency-exceptions.md) | Documented dependency overrides and exception rationale |
 
 ### Inspiration Research
 Epoch synthesizes lessons from eight systems studied during design:
