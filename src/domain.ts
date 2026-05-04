@@ -38,32 +38,24 @@ export const EntityType = {
 } as const;
 
 export const EventType = {
-  commit: "commit",
+  record: "record",
   branch: "branch",
   rollback: "rollback",
   mergeRejected: "merge.rejected",
-  legacyRecord: "record",
 } as const;
 
 export const CliCommand = {
   init: "init",
-  commit: "commit",
   record: "record",
-  log: "log",
+  events: "events",
   verify: "verify",
   merge: "merge",
-  mergeAbort: "merge-abort",
-  pull: "pull",
-  push: "push",
+  rejectMerge: "reject-merge",
   sync: "sync",
   branch: "branch",
   rollback: "rollback",
   import: "import",
   export: "export",
-  gitImport: "git-import",
-  gitExport: "git-export",
-  gossip: "gossip",
-  antiEntropy: "anti-entropy",
 } as const;
 
 export const CliOption = {
@@ -82,11 +74,7 @@ export const ActorCommand = {
   heads: "repository.heads",
   verify: "repository.verify",
   syncFrom: "repository.syncFrom",
-  pull: "repository.pull",
-  push: "repository.push",
   sync: "repository.sync",
-  gossip: "repository.gossip",
-  antiEntropy: "repository.antiEntropy",
 } as const;
 
 export const Git = {
@@ -117,7 +105,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <init|commit|log|verify|merge|merge-abort|pull|push|sync|branch|rollback|import|export>",
+  usage: "usage: epoch [--repo PATH] <init|record|events|verify|merge|reject-merge|sync|branch|rollback|import|export>",
   mergeUsage: "usage: epoch merge --type MIME BASE LEFT RIGHT",
   branchUsage: "usage: epoch branch [NAME]",
   rollbackUsage: "usage: epoch rollback EVENT_ID",

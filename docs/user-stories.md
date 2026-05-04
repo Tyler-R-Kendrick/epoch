@@ -35,7 +35,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 5. Developer's HEAD pointer advances to the new event.
 
 **Acceptance Criteria:**
-- Commit event appears in `epoch log` output.
+- Commit event appears in `epoch events` output.
 - Commit carries developer's public key as author.
 - Commit has a valid Ed25519 signature.
 
@@ -52,8 +52,8 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Developer puts laptop in airplane mode.
 2. Creates branch: `epoch branch feature/auth`.
 3. Makes 5 commits across 3 files.
-4. Runs `epoch log` to review history.
-5. On landing, runs `epoch push origin` — all 5 commits sync.
+4. Runs `epoch events` to review history.
+5. On landing, runs `epoch sync origin` — all 5 commits sync.
 
 **Acceptance Criteria:**
 - All commands succeed with no network access.
@@ -96,7 +96,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 3. Teammate makes 2 commits on `main` in the meantime.
 4. Developer runs `epoch merge main` from feature branch.
 5. Three-way merge applies all non-conflicting changes.
-6. Developer pushes merged branch.
+6. Developer syncs merged branch.
 
 **Acceptance Criteria:**
 - Non-overlapping changes are merged automatically.
@@ -182,7 +182,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Developer verifies HEAD is the release commit.
 2. Runs `epoch tag v1.0.0 -m "Initial stable release"`.
 3. Tag event is signed with developer's Ed25519 key.
-4. Tag is gossiped to all peers.
+4. Tag is event synced to all peers.
 5. User verifies: `epoch tag --verify v1.0.0`.
 
 **Acceptance Criteria:**
@@ -230,7 +230,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Acceptance Criteria:**
 - Both worktrees share the same object store.
 - Each worktree has independent HEAD and index.
-- Commits from either worktree appear in `epoch log` from any worktree.
+- Commits from either worktree appear in `epoch events` from any worktree.
 
 ---
 
@@ -281,18 +281,18 @@ This document provides the complete set of user stories for Epoch, organized by 
 ### OWNER-002: Revoke a Contributor's Access
 **As a** repository owner,  
 **I want** to revoke a former employee's write access immediately,  
-**So that** they cannot push new events after they leave the team.
+**So that** they cannot publish new events after they leave the team.
 
 **Feature**: F-016 (Access Control)
 
 **Flow:**
 1. Owner runs `epoch access revoke <former-employee-pubkey> write`.
-2. Revocation event is signed and gossiped to all peers.
+2. Revocation event is signed and event synced to all peers.
 3. All peers update their local access control projection.
-4. Former employee's push attempts are rejected.
+4. Former employee's publish attempts are rejected.
 
 **Acceptance Criteria:**
-- Revocation takes effect within one gossip round (< 30 seconds).
+- Revocation takes effect within one event sync round (< 30 seconds).
 - Events signed by the revoked key after the revocation event are rejected.
 - Historical events from the revoked key remain valid.
 
@@ -309,11 +309,11 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Owner provisions a seed node and installs Epoch.
 2. Runs `epoch remote add seed epoch://<seed-node-address>`.
 3. Seed node is configured to follow the repository.
-4. Owner pushes to seed: `epoch push seed`.
+4. Owner syncs with seed: `epoch sync seed`.
 5. Contributors clone from seed.
 
 **Acceptance Criteria:**
-- Seed node replicates all future events automatically via anti-entropy.
+- Seed node replicates all future events automatically via convergence repair.
 - Clones from seed succeed when owner node is offline.
 - Seed node is listed in repository metadata.
 
@@ -330,7 +330,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Owner writes a CRDT definition implementing `CRDTDefinition<string>` for `*.schema`.
 2. Publishes it as an npm package.
 3. In `epoch.config.ts`: `epoch.registerCRDT(require('@company/epoch-schema-crdt'))`.
-4. Configuration event is committed and gossiped.
+4. Configuration event is committed and event synced.
 5. All peers apply the CRDT definition on next schema file merge.
 
 **Acceptance Criteria:**
@@ -351,7 +351,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Owner runs `epoch export-git ./archive.git`.
 2. Epoch converts all Commit events to Git commits, preserving messages and authorship.
 3. Ed25519 signatures are stored as commit notes.
-4. Archive is pushed to GitHub for long-term storage.
+4. Archive is archived to GitHub for long-term storage.
 
 **Acceptance Criteria:**
 - All commits appear in the exported Git repository.
@@ -377,7 +377,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 5. Developer fixes lint errors; retries commit.
 
 **Acceptance Criteria:**
-- Pre-commit hook is invoked before every `epoch commit`.
+- Pre-commit hook is invoked before every `epoch record`.
 - Non-zero exit from hook aborts the commit.
 - Hook receives staged file list as environment variable.
 
@@ -385,20 +385,20 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### LEAD-002: Run Integration Tests on Every Push
 **As a** team lead,  
-**I want** a post-push hook on the seed node that triggers CI tests,  
-**So that** test results are available for every pushed branch.
+**I want** a post-sync hook on the seed node that triggers CI tests,  
+**So that** test results are available for every synced branch.
 
 **Feature**: F-025 (Hooks), F-014 (Seed Nodes)
 
 **Flow:**
-1. Lead configures `post-receive` hook on seed node.
-2. Hook calls CI API with pushed branch and event ID.
+1. Lead configures `post-sync` hook on seed node.
+2. Hook calls CI API with synced branch and event ID.
 3. CI pipeline runs tests and posts results.
 4. Results are visible to all developers.
 
 **Acceptance Criteria:**
-- `post-receive` hook fires after every successful push to the seed.
-- Hook environment includes the pushed branch name and new event ID.
+- `post-sync` hook fires after every successful sync with the seed.
+- Hook environment includes the synced branch name and new event ID.
 
 ---
 
@@ -411,10 +411,10 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 **Flow:**
 1. Contributor opens patch: `epoch patch open --title "Fix auth race condition"`.
-2. Patch event is gossiped; lead's node receives it.
+2. Patch event is event synced; lead's node receives it.
 3. Lead reviews diff: `epoch patch diff <patch-id>`.
 4. Lead posts review comment: `epoch patch comment <patch-id> "Please add tests"`.
-5. Contributor pushes new commits addressing feedback.
+5. Contributor syncs new events addressing feedback.
 6. Lead approves: `epoch patch accept <patch-id>`.
 7. Epoch merges the patch branch to main.
 
@@ -473,7 +473,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 **I want** to clone an Epoch repository using only the Epoch node software,  
 **So that** I can contribute without creating an account on any third-party platform.
 
-**Feature**: F-015 (Push / Pull), F-003 (Ed25519 Identity)
+**Feature**: F-015 (Explicit Event Sync), F-003 (Ed25519 Identity)
 
 **Flow:**
 1. Contributor installs Epoch; generates an Ed25519 keypair automatically.
@@ -496,9 +496,9 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Feature**: F-030 (Issues and Patches)
 
 **Flow:**
-1. Contributor creates branch, makes changes, pushes branch to their public node.
+1. Contributor creates branch, makes changes, syncs branch to their public node.
 2. Runs `epoch patch open --target main --title "Fix null pointer in parser"`.
-3. Patch event is gossiped; maintainer's node receives it.
+3. Patch event is event synced; maintainer's node receives it.
 4. Maintainer reviews and responds.
 
 **Acceptance Criteria:**
@@ -513,13 +513,13 @@ This document provides the complete set of user stories for Epoch, organized by 
 **I want** to receive review comments on my patch when I reconnect,  
 **So that** I don't miss feedback due to connectivity gaps.
 
-**Feature**: F-011 (Offline Operation), F-012 (Gossip P2P Sync)
+**Feature**: F-011 (Offline Operation), F-012 (Event Sync)
 
 **Flow:**
 1. Contributor disconnects from network.
 2. Maintainer posts review comments while contributor is offline.
-3. Comment events are gossiped and queued.
-4. Contributor reconnects; gossip delivers all queued events.
+3. Comment events are event synced and queued.
+4. Contributor reconnects; event sync delivers all queued events.
 5. Contributor reads feedback.
 
 **Acceptance Criteria:**
@@ -532,21 +532,21 @@ This document provides the complete set of user stories for Epoch, organized by 
 ### EXT-004: Open an Issue Without Write Access
 **As an** external contributor,  
 **I want** to open an issue on a repository I can only read,  
-**So that** I can report a bug without needing push access.
+**So that** I can report a bug without needing write access.
 
 **Feature**: F-030 (Issues and Patches), F-016 (Access Control)
 
 **Flow:**
 1. Contributor has `read` permission on the repository.
 2. Runs `epoch issue open --title "Crash on empty input"`.
-3. Issue event is signed with contributor's key and gossiped.
+3. Issue event is signed with contributor's key and event synced.
 4. Maintainer's node receives the issue.
 5. Maintainer can label, comment, and close the issue.
 
 **Acceptance Criteria:**
 - Issue creation succeeds with `read` permission.
 - Issue event is signed and verifiable.
-- Maintainer receives the issue via gossip.
+- Maintainer receives the issue via event sync.
 
 ---
 
@@ -584,10 +584,10 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Developer generates a new keypair on a new machine.
 2. Uses secondary authentication to prove identity to the team.
 3. Repository owner emits a `KeyRotation` event signed with the old key (if available) or admin key.
-4. Rotation event is gossiped; all peers reject events signed with the old key.
+4. Rotation event is event synced; all peers reject events signed with the old key.
 
 **Acceptance Criteria:**
-- `KeyRotation` event is gossiped and applied within one anti-entropy cycle.
+- `KeyRotation` event is event synced and applied within one convergence repair cycle.
 - Events signed with old key after rotation timestamp are rejected.
 - Historical events signed with old key remain valid.
 
@@ -601,7 +601,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Feature**: F-018 (Tamper Detection)
 
 **Flow:**
-1. Suspicious peer gossips events with mismatched hashes.
+1. Suspicious peer event syncs events with mismatched hashes.
 2. Receiving node computes SHA-256 of event payload; compares to event ID.
 3. Mismatch detected; event is rejected and peer is flagged.
 4. Alert is raised; security team investigates.
@@ -655,22 +655,22 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ---
 
-### DEVOPS-002: Trigger CI on Gossip Events
+### DEVOPS-002: Trigger CI on Event Sync Events
 **As a** DevOps engineer,  
-**I want** a post-receive hook on the seed node to trigger CI when a branch is pushed,  
+**I want** a post-sync hook on the seed node to trigger CI when a branch is synced,  
 **So that** automated tests run on every branch update.
 
 **Feature**: F-025 (Hooks), F-014 (Seed Nodes)
 
 **Flow:**
-1. Engineer writes `post-receive` hook that calls CI webhook with branch and event ID.
+1. Engineer writes `post-sync` hook that calls CI webhook with branch and event ID.
 2. Hook is deployed to seed node.
-3. Developer pushes branch; seed node gossips the events.
-4. `post-receive` fires; CI webhook is called.
+3. Developer syncs branch; seed node event syncs the events.
+4. `post-sync` fires; CI webhook is called.
 5. CI fetches the branch from seed node and runs tests.
 
 **Acceptance Criteria:**
-- `post-receive` hook fires on every push received by seed node.
+- `post-sync` hook fires on every sync received by seed node.
 - Hook environment includes `EPOCH_BRANCH`, `EPOCH_EVENT_ID`, `EPOCH_AUTHOR`.
 
 ---
@@ -686,7 +686,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Engineer runs `epoch import-git ./legacy-repo`.
 2. Epoch converts all Git commits to Epoch events.
 3. Branches, tags, and merge commits are preserved.
-4. Engineer verifies: `epoch log` shows complete history.
+4. Engineer verifies: `epoch events` shows complete history.
 5. Team switches to Epoch; legacy Git remote is archived.
 
 **Acceptance Criteria:**
@@ -713,7 +713,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 4. Audit report is generated from `audit.json`.
 
 **Acceptance Criteria:**
-- `epoch log` supports `--since` and `--until` date filters.
+- `epoch events` supports `--since` and `--until` date filters.
 - `--format=json` outputs machine-readable JSON.
 - `epoch verify` confirms all events are signed by their claimed authors.
 

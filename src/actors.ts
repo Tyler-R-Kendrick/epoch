@@ -16,11 +16,7 @@ type RepositoryCommand =
   | { type: typeof ActorCommand.heads; reply: Reply<string[]> }
   | { type: typeof ActorCommand.verify; reply: Reply<string[]> }
   | { type: typeof ActorCommand.syncFrom; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: typeof ActorCommand.pull; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: typeof ActorCommand.push; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: typeof ActorCommand.sync; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: typeof ActorCommand.gossip; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: typeof ActorCommand.antiEntropy; peerRoot: string; reply: Reply<SyncResult> };
+  | { type: typeof ActorCommand.sync; peerRoot: string; reply: Reply<SyncResult> };
 
 type UserCommand =
   | { type: typeof ActorCommand.append; eventType: string; payload: EventPayload; reply: Reply<Event> }
@@ -71,20 +67,8 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string }>((
       case ActorCommand.syncFrom:
         enqueue(event.reply, () => repository.syncFrom(event.peerRoot));
         return;
-      case ActorCommand.pull:
-        enqueue(event.reply, () => repository.pull(event.peerRoot));
-        return;
-      case ActorCommand.push:
-        enqueue(event.reply, () => repository.push(event.peerRoot));
-        return;
       case ActorCommand.sync:
         enqueue(event.reply, () => repository.sync(event.peerRoot));
-        return;
-      case ActorCommand.gossip:
-        enqueue(event.reply, () => repository.gossip(event.peerRoot));
-        return;
-      case ActorCommand.antiEntropy:
-        enqueue(event.reply, () => repository.antiEntropy(event.peerRoot));
         return;
     }
   });
@@ -134,24 +118,8 @@ export class EpochActorSystem {
     return this.request({ type: ActorCommand.syncFrom, peerRoot });
   }
 
-  pull(peerRoot: string): Promise<SyncResult> {
-    return this.request({ type: ActorCommand.pull, peerRoot });
-  }
-
-  push(peerRoot: string): Promise<SyncResult> {
-    return this.request({ type: ActorCommand.push, peerRoot });
-  }
-
   sync(peerRoot: string): Promise<SyncResult> {
     return this.request({ type: ActorCommand.sync, peerRoot });
-  }
-
-  gossip(peerRoot: string): Promise<SyncResult> {
-    return this.request({ type: ActorCommand.gossip, peerRoot });
-  }
-
-  antiEntropy(peerRoot: string): Promise<SyncResult> {
-    return this.request({ type: ActorCommand.antiEntropy, peerRoot });
   }
 
   user(author: string): EpochUserActor {

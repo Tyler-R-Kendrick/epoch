@@ -9,11 +9,11 @@
 | Limitation in Git | Epoch's Answer |
 |---|---|
 | Line-level merge conflicts | Per-entity CRDT definitions (automatic, conflict-free merges for registered types) |
-| Central forge dependency | Gossip-based P2P — no server required |
+| Central forge dependency | Event-based P2P — no server required |
 | Email-based, unverified identity | Self-sovereign Ed25519 keypairs |
 | No real-time collaboration | Event-driven append-only log; peers sync within seconds |
 | No tamper detection | Every event is signed; chain integrity is verifiable |
-| Mutable history (rebase, force-push) | Append-only event log; history cannot be silently altered |
+| Mutable history (rebase, forced rewrite) | Append-only event log; history cannot be silently altered |
 
 ---
 
@@ -35,7 +35,7 @@
 │  │   Identity / Keystore (Ed25519)                  │    │
 │  └──────────────────────────────────────────────────┘    │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │   Sync Layer: Gossip │ Anti-Entropy │ Push/Pull   │    │
+│  │   Sync Layer: Event Sync │ Convergence Repair │ Push/Pull   │    │
 │  └──────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
          │                  │                │
@@ -53,8 +53,8 @@
 - **Pluggable CRDT Merging** — register CRDT definitions per file type for automatic, conflict-free merges
 - **Three-Way Merge Default** — works out of the box without any CRDT configuration
 - **Content-Addressed Storage** — SHA-256 addressed blobs and trees; automatic deduplication
-- **Gossip P2P Distribution** — no central server required; events propagate across peers automatically
-- **Anti-Entropy** — background reconciliation ensures all peers converge
+- **Event Sync Distribution** — no central server required; events propagate across peers automatically
+- **Convergence Repair** — background reconciliation ensures all peers converge
 - **Offline First** — commit, branch, diff, and merge with zero network access
 - **Tamper Detection** — forked or modified event logs are detectable by any peer
 - **Git Compatibility** — import from and export to standard Git repositories
@@ -90,8 +90,8 @@ Epoch synthesizes lessons from eight systems studied during design:
 | [`.inspiration/goatdb`](.inspiration/goatdb/README.md) | Ed25519 signing; Git-like commit DAG; three-way merge; React-native local-first DB |
 | [`.inspiration/manyana`](.inspiration/manyana/README.md) | Event sourcing; CQRS; event log as single source of truth |
 | [`.inspiration/git-warp`](.inspiration/git-warp/README.md) | DAG object model; timestamp restoration; content-addressed history |
-| [`.inspiration/radicle`](.inspiration/radicle/README.md) | Gossip P2P; cryptographic identities; append-only decentralized forge |
-| [`.inspiration/roshi`](.inspiration/roshi/README.md) | OR-Set CRDT; anti-entropy; high-throughput distributed sets |
+| [`.inspiration/radicle`](.inspiration/radicle/README.md) | Event Sync; cryptographic identities; append-only decentralized forge |
+| [`.inspiration/roshi`](.inspiration/roshi/README.md) | OR-Set CRDT; convergence repair; high-throughput distributed sets |
 | [`.inspiration/solgit`](.inspiration/solgit/README.md) | Blockchain VCS; what to avoid: gas costs, immutable sensitive data |
 | [`.inspiration/bda-svc`](.inspiration/bda-svc/README.md) | IPFS + Hyperledger Fabric; what to avoid: extreme operational complexity |
 
@@ -106,10 +106,10 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - event log, signature, DAG, head, and blob verification for tamper detection
 - pluggable CRDT registry
 - built-in text and JSON entity merge definitions
-- filesystem gossip / anti-entropy exchange between local repositories
+- filesystem event sync between local repositories
 - Git import/export compatibility for tracked files
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
-- CLI commands for `init`, `commit`, `log`, `verify`, `merge`, `merge-abort`, `pull`, `push`, `sync`, `branch`, `rollback`, `import`, and `export`
+- CLI commands for `init`, `record`, `events`, `verify`, `merge`, `reject-merge`, `sync`, `branch`, `rollback`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -129,16 +129,14 @@ Run the CLI after building:
 
 ```bash
 node dist/src/cli.js init --author alice
-node dist/src/cli.js commit README.md --type text/plain
-node dist/src/cli.js log
+node dist/src/cli.js record README.md --type text/plain
+node dist/src/cli.js events
 node dist/src/cli.js verify
 ```
 
-Synchronize two local Epoch repositories with DVCS-style sync commands:
+Converge two local Epoch repositories by exchanging missing events and blobs:
 
 ```bash
-node dist/src/cli.js --repo ./peer-a pull ./peer-b
-node dist/src/cli.js --repo ./peer-a push ./peer-b
 node dist/src/cli.js --repo ./peer-a sync ./peer-b
 ```
 
@@ -146,7 +144,7 @@ Import tracked files from Git and export the latest recorded blobs back to a Git
 
 ```bash
 node dist/src/cli.js --repo ./epoch import ./git-project
-node dist/src/cli.js --repo ./epoch export ./git-export
+node dist/src/cli.js --repo ./epoch export ./git-output
 ```
 
 Manage workflow state with familiar DVCS primitives:
@@ -154,7 +152,7 @@ Manage workflow state with familiar DVCS primitives:
 ```bash
 node dist/src/cli.js branch feature/login
 node dist/src/cli.js rollback EVENT_ID
-node dist/src/cli.js merge-abort --reason "not ready"
+node dist/src/cli.js reject-merge --reason "not ready"
 ```
 
 Merge three versions of a supported entity type:

@@ -250,46 +250,46 @@ All core operations (commit, branch, tag, diff, log, merge) function without net
 **As a** developer on a flight without Wi-Fi, **I want** to commit, branch, and view history so that I can remain fully productive offline.
 
 ### Acceptance Criteria
-- [ ] `epoch commit`, `epoch branch`, `epoch tag`, `epoch diff`, `epoch log`, and `epoch merge` all succeed with no network connection.
+- [ ] `epoch record`, `epoch branch`, `epoch tag`, `epoch diff`, `epoch events`, and `epoch merge` all succeed with no network connection.
 - [ ] No network call is attempted for local operations.
 - [ ] Local events accumulated offline are synced automatically when connectivity is restored.
 
 ---
 
-## F-012 — Gossip P2P Sync
+## F-012 — Event Sync
 
 | Field | Value |
 |---|---|
 | **ID** | F-012 |
-| **Name** | Gossip P2P Sync |
+| **Name** | Event Sync |
 | **Category** | Distribution |
 | **Status** | Required |
 
 ### Description
-New events are propagated across the peer network using an epidemic gossip protocol. Each node periodically forwards new events to a random subset of its peers, who forward to their peers, until all interested peers have the event.
+New events are propagated across the peer network using an epidemic event replication protocol. Each node periodically forwards new events to a random subset of its peers, who forward to their peers, until all interested peers have the event.
 
 ### User Story
-**As a** developer, **I want** my commits to propagate to my teammates' nodes automatically so that we stay in sync without manually pushing to a central server.
+**As a** developer, **I want** my commits to propagate to my teammates' nodes automatically so that we stay in sync without manually depending on a central server.
 
 ### Acceptance Criteria
-- [ ] New events are gossiped to at least one peer within 5 seconds of creation.
+- [ ] New events are event synced to at least one peer within 5 seconds of creation.
 - [ ] All online peers receive the event within a configurable TTL (default: 30 seconds).
-- [ ] Gossip handles peer churn (nodes joining and leaving) gracefully.
-- [ ] Duplicate events received via gossip are deduplicated and ignored.
+- [ ] Event Sync handles peer churn (nodes joining and leaving) gracefully.
+- [ ] Duplicate events received via event sync are deduplicated and ignored.
 
 ---
 
-## F-013 — Anti-Entropy
+## F-013 — Convergence Repair
 
 | Field | Value |
 |---|---|
 | **ID** | F-013 |
-| **Name** | Anti-Entropy |
+| **Name** | Convergence Repair |
 | **Category** | Distribution |
 | **Status** | Required |
 
 ### Description
-A background process that periodically compares the event frontier of two peers and exchanges any missing events. This ensures convergence even when gossip delivery is incomplete.
+A background process that periodically compares the event frontier of two peers and exchanges any missing events. This ensures convergence even when event sync delivery is incomplete.
 
 ### User Story
 **As a** repository operator, **I want** replicas to repair divergence automatically in the background so that I don't need to manually intervene when peers temporarily desynchronize.
@@ -297,7 +297,7 @@ A background process that periodically compares the event frontier of two peers 
 ### Acceptance Criteria
 - [ ] Anti-entropy runs on a configurable interval (default: 60 seconds).
 - [ ] Anti-entropy detects diverged peers and exchanges missing events.
-- [ ] After anti-entropy, both peers have identical event frontiers.
+- [ ] After convergence repair, both peers have identical event frontiers.
 - [ ] Anti-entropy is bandwidth-efficient (only missing events are transferred).
 
 ---
@@ -321,30 +321,30 @@ Seed nodes are always-on peers that continuously replicate one or more repositor
 - [ ] Any Epoch node can be designated as a seed node for specific repositories.
 - [ ] Seed nodes replicate all events for their configured repositories.
 - [ ] Clones directed at a seed node succeed even when the original author's node is offline.
-- [ ] Seed nodes are listed in repository metadata and gossiped to peers.
+- [ ] Seed nodes are listed in repository metadata and event synced to peers.
 
 ---
 
-## F-015 — Push / Pull
+## F-015 — Explicit Event Sync
 
 | Field | Value |
 |---|---|
 | **ID** | F-015 |
-| **Name** | Push / Pull |
+| **Name** | Explicit Event Sync |
 | **Category** | Distribution |
 | **Status** | Required |
 
 ### Description
-Explicit sync operations that transfer events between two nodes. `epoch push` sends local events to a remote peer; `epoch pull` fetches events from a remote peer.
+Explicit sync operations exchange missing events between two nodes with `epoch sync <peer>`.
 
 ### User Story
-**As a** developer, **I want** to explicitly push and pull from specific remotes so that I have control over when and where my changes are shared.
+**As a** developer, **I want** to explicitly sync from specific remotes so that I have control over when and where my changes are shared.
 
 ### Acceptance Criteria
-- [ ] `epoch push <remote>` transfers all events the remote hasn't seen.
-- [ ] `epoch pull <remote>` fetches all events not in the local log.
-- [ ] Push and pull are atomic per event (partial transfers are recoverable).
-- [ ] Authentication is via Ed25519 identity; unauthorized pushes are rejected.
+- [ ] `epoch sync <peer>` exchanges all events either peer has not seen.
+- [ ] `epoch sync <peer>` updates both event logs to the same frontier.
+- [ ] Sync is atomic per event (partial transfers are recoverable).
+- [ ] Authentication is via Ed25519 identity; unauthorized writes are rejected.
 
 ---
 
@@ -361,13 +361,13 @@ Explicit sync operations that transfer events between two nodes. `epoch push` se
 Each repository maintains an allow-list of public keys with associated permission levels (read, write, admin). The allow-list is itself stored as signed events in the repository log.
 
 ### User Story
-**As a** repository owner, **I want** to control who can push events to my repository so that unauthorized parties cannot modify the project's history.
+**As a** repository owner, **I want** to control who can write events to my repository so that unauthorized parties cannot modify the project's history.
 
 ### Acceptance Criteria
 - [ ] Access control list is stored as signed events in the log.
 - [ ] Only `admin` keys can modify the access control list.
 - [ ] Write operations from unknown keys are rejected by all peers.
-- [ ] Access control events are gossiped like any other event.
+- [ ] Access control events are event synced like any other event.
 
 ---
 
@@ -381,7 +381,7 @@ Each repository maintains an allow-list of public keys with associated permissio
 | **Status** | Required |
 
 ### Description
-Every event emitted by an Epoch node is signed with the author's Ed25519 private key before being appended to the log or gossiped. Receiving peers verify signatures before accepting events.
+Every event emitted by an Epoch node is signed with the author's Ed25519 private key before being appended to the log or event synced. Receiving peers verify signatures before accepting events.
 
 ### User Story
 **As a** peer, **I want** to verify that every received event is signed by its claimed author so that I can reject spoofed or tampered events.
@@ -413,7 +413,7 @@ The causal chain structure of the event log makes tampering detectable. A tamper
 - [ ] Any modification to a stored event's payload changes its hash and invalidates its signature.
 - [ ] `epoch verify` command checks all event signatures and causal chain integrity.
 - [ ] Forked events from the same author are reported as anomalies.
-- [ ] Tamper detection runs automatically during pull/gossip operations.
+- [ ] Tamper detection runs automatically during event sync operations.
 
 ---
 
@@ -546,7 +546,7 @@ Traverse and query the event graph with filtering by author, date range, branch,
 **As a** developer, **I want** to view the history of changes to a specific file so that I can understand who changed it and why.
 
 ### Acceptance Criteria
-- [ ] `epoch log` lists all commit events on the current branch.
+- [ ] `epoch events` lists all commit events on the current branch.
 - [ ] `epoch log -- <path>` filters to events touching a specific file.
 - [ ] `epoch log --author=<key>` filters by author public key.
 - [ ] Event graph is traversed in reverse causal order by default.
@@ -563,7 +563,7 @@ Traverse and query the event graph with filtering by author, date range, branch,
 | **Status** | Required |
 
 ### Description
-Pre- and post-event hooks allow arbitrary scripts or plugins to be invoked at lifecycle events: pre-commit, post-commit, pre-push, post-receive, post-merge. Hooks can abort operations by returning non-zero.
+Pre- and post-event hooks allow arbitrary scripts or plugins to be invoked at lifecycle events: pre-record, post-record, pre-sync, post-sync, post-merge. Hooks can abort operations by returning non-zero.
 
 ### User Story
 **As a** team lead, **I want** a pre-commit hook that runs linting so that no unlinted code ever enters the repository.
@@ -571,7 +571,7 @@ Pre- and post-event hooks allow arbitrary scripts or plugins to be invoked at li
 ### Acceptance Criteria
 - [ ] Hooks are stored in `.epoch/hooks/` and are executable scripts.
 - [ ] Pre-commit hook returning non-zero aborts the commit.
-- [ ] Post-receive hook is invoked on the remote after a push.
+- [ ] Post-sync hook is invoked after event sync completes.
 - [ ] Hook environment includes relevant event metadata as environment variables.
 
 ---
@@ -595,7 +595,7 @@ Temporarily shelve in-progress working tree changes without committing. Stashed 
 - [ ] `epoch stash` saves working tree changes and resets to HEAD.
 - [ ] `epoch stash pop` restores the most recent stash.
 - [ ] Multiple stash entries are supported with `epoch stash list`.
-- [ ] Stash is not gossiped to peers.
+- [ ] Stash is not event synced to peers.
 
 ---
 
@@ -677,13 +677,13 @@ Import existing Git repositories into Epoch (converting commits to events) and e
 | **Status** | Optional |
 
 ### Description
-Decentralized issue tracking and patch proposals. Issues and patches are content-addressed, signed events stored in the repository's event log and gossiped to all peers. No central forge required.
+Decentralized issue tracking and patch proposals. Issues and patches are content-addressed, signed events stored in the repository's event log and event synced to all peers. No central forge required.
 
 ### User Story
 **As a** contributor, **I want** to open a patch proposal and discussion on an Epoch repository without creating an account on a third-party platform so that I can contribute using only my Epoch identity.
 
 ### Acceptance Criteria
-- [ ] `epoch issue open` creates a signed Issue event and gossips it.
+- [ ] `epoch issue open` creates a signed Issue event and event syncs it.
 - [ ] `epoch patch open` creates a signed Patch event referencing a branch.
 - [ ] Comments on issues and patches are signed Comment events.
-- [ ] All issue/patch data is replicated to all peers via gossip.
+- [ ] All issue/patch data is replicated to all peers via event sync.

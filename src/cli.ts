@@ -33,17 +33,13 @@ function run(argv: string[]): void {
       console.log(`initialized Epoch repository at ${repo.epochDir}`);
       return;
     }
-    case CliCommand.commit:
     case CliCommand.record: {
       const options = parseOptions(parsed.args, { [CliOption.type]: EntityType.octetStream });
       if (options.positionals.length !== 1) throw new Error(`usage: epoch ${parsed.command} [--type MIME] PATH`);
-      const event = parsed.command === CliCommand.commit
-        ? repo.commitFile(options.positionals[0], options.type)
-        : repo.recordFile(options.positionals[0], options.type);
-      console.log(event.id);
+      console.log(repo.recordFile(options.positionals[0], options.type).id);
       return;
     }
-    case CliCommand.log:
+    case CliCommand.events:
       for (const event of repo.events()) {
         console.log(`${event.id} ${event.type} ${JSON.stringify(event.payload)}`);
       }
@@ -57,25 +53,19 @@ function run(argv: string[]): void {
       console.log(CliText.ok);
       return;
     }
-    case CliCommand.pull:
-    case CliCommand.push:
-    case CliCommand.sync:
-    case CliCommand.gossip:
-    case CliCommand.antiEntropy: {
+    case CliCommand.sync: {
       if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} PEER_REPO`);
-      const result = syncByCommand(repo, parsed.command, parsed.args[0]);
+      const result = repo.sync(parsed.args[0]);
       console.log(`synced ${result.eventsCopied} events and ${result.blobsCopied} blobs`);
       return;
     }
-    case CliCommand.import:
-    case CliCommand.gitImport: {
+    case CliCommand.import: {
       if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} GIT_REPO`);
       const events = repo.importFromGit(parsed.args[0]);
       console.log(`imported ${events.length} files`);
       return;
     }
-    case CliCommand.export:
-    case CliCommand.gitExport: {
+    case CliCommand.export: {
       if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} GIT_REPO`);
       const paths = repo.exportToGit(parsed.args[0]);
       console.log(`exported ${paths.length} files`);
@@ -90,7 +80,7 @@ function run(argv: string[]): void {
       process.stdout.write(dumpEntity(options.type, CRDTRegistry.defaults().merge(options.type, base, left, right)));
       return;
     }
-    case CliCommand.mergeAbort: {
+    case CliCommand.rejectMerge: {
       const { reason } = parseOptions(parsed.args, { [CliOption.reason]: "" });
       console.log(repo.rejectMerge(reason).id);
       return;
@@ -114,12 +104,6 @@ function run(argv: string[]): void {
     default:
       throw new Error(`unknown command: ${parsed.command}`);
   }
-}
-
-function syncByCommand(repo: EpochRepository, command: string, peerRoot: string) {
-  if (command === CliCommand.pull) return repo.pull(peerRoot);
-  if (command === CliCommand.push) return repo.push(peerRoot);
-  return repo.sync(peerRoot);
 }
 
 function parseGlobalArgs(argv: string[]): ParsedArgs {

@@ -222,15 +222,7 @@ export class EpochRepository {
     return event;
   }
 
-  commitFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
-    return this.writeFileEvent(EventType.commit, path, entityType, author);
-  }
-
   recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
-    return this.writeFileEvent(EventType.legacyRecord, path, entityType, author);
-  }
-
-  private writeFileEvent(eventType: string, path: string, entityType: string, author: string): Event {
     const { absolute, relativePath } = resolveInside(this.root, path, RepositoryText.recordFile, RepositoryText.repositoryRoot);
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
@@ -238,7 +230,7 @@ export class EpochRepository {
     if (!existsAsFile(blobPath)) {
       writeFileSync(blobPath, data);
     }
-    return this.append(eventType, {
+    return this.append(EventType.record, {
       path: relativePath.split(sep).join(TextToken.pathSeparator),
       entity_type: entityType,
       blob_sha256: blobSha256,
@@ -292,7 +284,7 @@ export class EpochRepository {
     }
 
     for (const event of events) {
-      if (event.type === EventType.commit || event.type === EventType.legacyRecord) {
+      if (event.type === EventType.record) {
         problems.push(...this.verifyRecordedBlob(event));
       }
     }
@@ -311,14 +303,6 @@ export class EpochRepository {
     return Schemas.syncResult.parse({ eventsCopied, blobsCopied });
   }
 
-  pull(peerRoot: string): SyncResult {
-    return this.syncFrom(peerRoot);
-  }
-
-  push(peerRoot: string): SyncResult {
-    return new EpochRepository(peerRoot).syncFrom(this.root);
-  }
-
   sync(peerRoot: string): SyncResult {
     const inbound = this.syncFrom(peerRoot);
     const outbound = new EpochRepository(peerRoot).syncFrom(this.root);
@@ -326,14 +310,6 @@ export class EpochRepository {
       eventsCopied: inbound.eventsCopied + outbound.eventsCopied,
       blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
     });
-  }
-
-  gossip(peerRoot: string): SyncResult {
-    return this.sync(peerRoot);
-  }
-
-  antiEntropy(peerRoot: string): SyncResult {
-    return this.sync(peerRoot);
   }
 
   branches(): Branches {
@@ -418,7 +394,7 @@ export class EpochRepository {
   private latestRecords(): Event[] {
     const records = new Map<string, Event>();
     for (const event of this.events()) {
-      if ((event.type === EventType.commit || event.type === EventType.legacyRecord) && isString(event.payload.path)) {
+      if (event.type === EventType.record && isString(event.payload.path)) {
         records.set(event.payload.path, event);
       }
     }

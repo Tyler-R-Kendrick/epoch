@@ -75,10 +75,10 @@ When("actor users concurrently record:", async function (table: DataTable) {
   }));
 });
 
-When("I run actor anti-entropy with the peer repository", async function () {
+When("I run actor sync with the peer repository", async function () {
   assert.ok(state.actorRepo);
   assert.ok(state.peerRepo);
-  state.syncResult = await state.actorRepo.antiEntropy(state.peerRepo.root);
+  state.syncResult = await state.actorRepo.sync(state.peerRepo.root);
 });
 
 Then("the actor repository verifies successfully", async function () {
@@ -199,11 +199,6 @@ Given("a peer Epoch repository initialized as {string}", function (author: strin
   state.createdDirs.push(workspace);
   state.peerRepo = new EpochRepository(workspace);
   state.peerRepo.init(author);
-});
-
-When("I run anti-entropy with the peer repository", function () {
-  assert.ok(state.peerRepo);
-  state.syncResult = state.repo.antiEntropy(state.peerRepo.root);
 });
 
 When("I sync with the peer repository", function () {
