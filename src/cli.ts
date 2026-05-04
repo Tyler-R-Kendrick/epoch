@@ -21,7 +21,7 @@ export function main(argv = process.argv.slice(2)): number {
 function run(argv: string[]): void {
   const parsed = parseGlobalArgs(argv);
   if (parsed.command === undefined) {
-    throw new Error("usage: epoch [--repo PATH] <init|record|log|verify|merge|gossip|anti-entropy|git-import|git-export>");
+      throw new Error("usage: epoch [--repo PATH] <init|record|log|verify|merge|gossip|anti-entropy|git-import|git-export|view-create|views|checkout|view-delete|view-diff|view-promote>");
   }
 
   const repo = new EpochRepository(parsed.repo);
@@ -36,6 +36,40 @@ function run(argv: string[]): void {
       const options = parseOptions(parsed.args, { type: "" });
       if (options.positionals.length !== 1) throw new Error("usage: epoch record [--type MIME] PATH");
       console.log(repo.recordFile(options.positionals[0], options.type).id);
+      return;
+    }
+    case "view-create": {
+      const options = parseOptions(parsed.args, { rule: "{\"type\":\"all\"}", parent: "" });
+      if (options.positionals.length !== 1) throw new Error("usage: epoch view-create [--rule JSON] [--parent VIEW] NAME");
+      const event = repo.createView(options.positionals[0], JSON.parse(options.rule), options.parent === "" ? undefined : options.parent);
+      console.log(event.id);
+      return;
+    }
+    case "views":
+      for (const view of repo.listViews()) {
+        const current = view.name === repo.currentView() ? "*" : " ";
+        console.log(`${current} ${view.name} ${JSON.stringify(view.rule)}`);
+      }
+      return;
+    case "checkout": {
+      if (parsed.args.length !== 1) throw new Error("usage: epoch checkout VIEW");
+      const state = repo.checkoutView(parsed.args[0]);
+      console.log(`checked out ${state.name} (${state.proposalIds.length} proposals)`);
+      return;
+    }
+    case "view-delete": {
+      if (parsed.args.length !== 1) throw new Error("usage: epoch view-delete VIEW");
+      repo.deleteView(parsed.args[0]);
+      return;
+    }
+    case "view-diff": {
+      if (parsed.args.length !== 2) throw new Error("usage: epoch view-diff FROM TO");
+      console.log(JSON.stringify(repo.diffViews(parsed.args[0], parsed.args[1]), null, 2));
+      return;
+    }
+    case "view-promote": {
+      if (parsed.args.length !== 2) throw new Error("usage: epoch view-promote SOURCE TARGET");
+      console.log(repo.promoteToView(parsed.args[0], parsed.args[1]).id);
       return;
     }
     case "log":
