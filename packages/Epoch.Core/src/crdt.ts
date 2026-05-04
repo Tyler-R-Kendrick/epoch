@@ -1,5 +1,5 @@
 import { canonicalJson } from "./json";
-import { EntityType, MergeText, PrimitiveType, TextToken } from "./domain";
+import { EntityType, MergeText, TextToken } from "./domain";
 
 export interface CRDTDefinition {
   readonly entityType: string;
@@ -232,9 +232,9 @@ function same(left: unknown, right: unknown): boolean {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === PrimitiveType.object && !Array.isArray(value);
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function isString(value: unknown): value is string {
-  return typeof value === PrimitiveType.string;
+  return typeof value === "string";
 }

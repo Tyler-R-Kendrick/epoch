@@ -116,12 +116,6 @@ export const TextToken = {
   nul: "\0",
 } as const;
 
-export const PrimitiveType = {
-  string: "string",
-  object: "object",
-  number: "number",
-} as const;
-
 export const CryptoSpec = {
   eventHash: "sha256",
   hashDigest: "hex",

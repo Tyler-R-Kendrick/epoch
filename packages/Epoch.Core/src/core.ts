@@ -19,7 +19,6 @@ import {
   JsonFileExtension,
   LegacyIdentitySchema,
   FsFlag,
-  PrimitiveType,
   RepositoryText,
   Schemas,
   SignatureText,
@@ -492,11 +491,11 @@ function isFileExistsError(error: unknown): boolean {
 }
 
 function isString(value: unknown): value is string {
-  return typeof value === PrimitiveType.string;
+  return typeof value === "string";
 }
 
 function isObject(value: unknown): value is object {
-  return typeof value === PrimitiveType.object && value !== null;
+  return typeof value === "object" && value !== null;
 }
 
 function existsAsDirectory(path: string): boolean {
