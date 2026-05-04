@@ -148,7 +148,9 @@ export class EpochRepository {
   init(author = "local"): void {
     mkdirSync(this.eventsDir, { recursive: true });
     mkdirSync(this.blobsDir, { recursive: true });
-    mkdirSync(this.usersDir, { recursive: true });
+    if (!existsAsDirectory(this.usersDir)) {
+      mkdirSync(this.usersDir, { recursive: true });
+    }
     if (!existsAsFile(this.headsPath)) {
       writeJson(this.headsPath, []);
     }

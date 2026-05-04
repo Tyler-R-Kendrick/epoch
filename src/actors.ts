@@ -150,10 +150,10 @@ export class EpochUserActor {
       receive((event) => {
         switch (event.type) {
           case "append":
-            void this.repository.append(event.eventType, event.payload, this.author).then(event.reply.resolve, event.reply.reject);
+            this.repository.append(event.eventType, event.payload, this.author).then(event.reply.resolve, event.reply.reject);
             return;
           case "recordFile":
-            void this.repository.recordFile(event.path, event.entityType, this.author).then(event.reply.resolve, event.reply.reject);
+            this.repository.recordFile(event.path, event.entityType, this.author).then(event.reply.resolve, event.reply.reject);
             return;
         }
       });
