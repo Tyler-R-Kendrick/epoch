@@ -11,6 +11,13 @@ Feature: Epoch repository event log
     And the repository identity uses Ed25519 keys
     And the recorded event is signed
 
+  Scenario: Repository hooks observe event-driven lifecycle steps
+    Given a new workspace
+    And an Epoch repository hook recorder
+    When I initialize an Epoch repository as "alice"
+    And I record "note.txt" with content "hello\n" as "text/plain"
+    Then observed repository hooks include "repository.init.before,repository.init.after,repository.recordFile.before,repository.append.before,repository.append.after,repository.recordFile.after"
+
   Scenario: Detect tampered event content
     Given a new workspace
     And I initialize an Epoch repository as "alice"

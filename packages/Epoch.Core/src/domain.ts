@@ -35,6 +35,7 @@ export const EntityType = {
 } as const;
 
 export const EventType = {
+  crdt: "crdt",
   record: "record",
   intent: "intent",
   intentMerge: "intent.merge",

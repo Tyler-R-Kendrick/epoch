@@ -31,7 +31,12 @@
     "@typescript/native-preview": "^7.0.0-dev.20260504.1"
   },
   "dependencies": {
+    "@collabs/collabs": "0.13.4",
+    "protobufjs": "7.5.5",
     "xstate": "^5.31.0",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "protobufjs": "7.5.5"
   }
 }
