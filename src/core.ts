@@ -170,6 +170,11 @@ export class EpochRepository {
     return upgraded;
   }
 
+  /**
+   * Returns the signing identity for an event author, creating a per-author keypair when needed.
+   * Author names are hashed into filesystem-safe filenames under `.epoch/users`.
+   * Concurrent creators use atomic file creation so the first persisted identity wins.
+   */
   identityFor(author: string): IdentityData {
     this.requireInitialized();
     const defaultIdentity = this.identityDocument();

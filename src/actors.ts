@@ -73,6 +73,10 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string }>((
   });
 });
 
+/**
+ * Asynchronous XState actor facade for a repository.
+ * Commands are serialized through a repository actor; per-user actors forward commands with their author attached.
+ */
 export class EpochActorSystem {
   private readonly actor;
   private readonly userActors = new Map<string, EpochUserActor>();
@@ -141,6 +145,9 @@ export class EpochActorSystem {
   }
 }
 
+/**
+ * Per-user XState actor that submits repository commands as a fixed author.
+ */
 export class EpochUserActor {
   private readonly actor = createActor(
     fromCallback<UserCommand>(({ receive }) => {

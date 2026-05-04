@@ -108,7 +108,8 @@ Then("actor event authors have distinct signing keys", async function () {
   for (const keys of keysByAuthor.values()) {
     assert.equal(keys.size, 1);
   }
-  assert.equal(new Set([...keysByAuthor.values()].map((keys) => [...keys][0])).size, keysByAuthor.size);
+  const uniqueKeyCount = new Set([...keysByAuthor.values()].map((keys) => [...keys][0])).size;
+  assert.equal(uniqueKeyCount, keysByAuthor.size);
 });
 
 Given("a new workspace", function () {
