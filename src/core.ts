@@ -329,8 +329,8 @@ export class EpochRepository {
     const appendPayload = JSON.parse(canonicalJson(payload)) as EventPayload;
     this.emitHook("repository.append.before", { type, payload: appendPayload, author });
     const identity = this.identityFor(author);
-    const parents = this.parentsForNewEvent(type);
-    const unsigned = Event.create(type, author, identity.publicKey, this.nextLamport(parents), parents, appendPayload);
+    const parentEventIds = this.parentsForNewEvent(type);
+    const unsigned = Event.create(type, author, identity.publicKey, this.nextLamport(parentEventIds), parentEventIds, appendPayload);
     const event = new Event({
       ...unsigned.unsigned(),
       signature: signEvent(unsigned, identity.privateKey),
@@ -338,7 +338,7 @@ export class EpochRepository {
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
     this.updateHeads((currentHeads) => {
       // `heads` is the parent set captured before signing this event; preserve `currentHeads` tips from concurrent processes.
-      const headsBeingMerged = new Set(parents);
+      const headsBeingMerged = new Set(parentEventIds);
       const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
       return [...new Set([...retainedHeads, event.id])].sort();
     });
@@ -387,7 +387,7 @@ export class EpochRepository {
   }
 
   deleteView(name: string): void {
-    if (name === "main") throw new Error("cannot delete main view");
+    if (name === "main") throw new Error("cannot delete view 'main': the main view is protected");
     this.updateLocalViewIndex((index) => ({
       ...index,
       current: index.current === name ? "main" : index.current,
@@ -772,9 +772,14 @@ export class EpochRepository {
   private parentsForNewEvent(type: string): string[] {
     if (!isProposalType(type)) return this.heads();
     const currentView = this.currentView();
-    const proposalIds = this.computeViewState(currentView).proposalIds;
-    const tip = proposalIds.at(-1);
+    const tip = this.viewTipProposalId(currentView);
     return tip === undefined ? this.heads() : [tip];
+  }
+
+  private viewTipProposalId(name: string): string | undefined {
+    const events = this.events();
+    const proposalIds = this.proposalIdsForView(name, {}, events);
+    return sortEvents(events.filter((event) => proposalIds.has(event.id))).at(-1)?.id;
   }
 
   private trackLocalViewProposal(type: string, eventId: string): void {
@@ -812,7 +817,7 @@ export class EpochRepository {
   }
 
   private assertValidViewName(name: string): void {
-    if (name.trim() === "" || name.includes("\0")) throw new Error(`invalid view name: ${name}`);
+    if (name.trim() === "" || name.includes("\0")) throw new Error(`invalid view name '${name}': must not be empty or contain null characters`);
   }
 
   private nextLamport(heads: string[]): number {
