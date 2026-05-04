@@ -70,7 +70,9 @@ export class CRDTEventLog {
     } catch (error) {
       throw new Error(`failed to apply CRDT operation ${operation.kind} for entity ${operation.entity}: ${error instanceof Error ? error.message : String(error)}`);
     }
-    if (messages.length === 0) throw new Error(`CRDT operation produced no Collabs message: ${operation.kind} for entity ${operation.entity}`);
+    if (messages.length === 0) {
+      throw new Error(`CRDT operation produced no Collabs message: ${operation.kind} for entity ${operation.entity}; check for no-op writes or unsupported entity configuration`);
+    }
     return {
       backend: "collabs",
       entity: operation.entity,
@@ -335,12 +337,12 @@ function applyOperation(document: CollabsDocument, operation: CRDTOperation): vo
       document.map.delete(operation.key);
       return;
     case "text-insert": {
-      const index = clampIndex(operation.index ?? document.text.length, document.text.length);
+      const index = operationIndex(operation.index, document.text.length, document.text.length);
       document.text.insert(index, operation.value);
       return;
     }
     case "text-delete": {
-      const index = clampIndex(operation.index, document.text.length);
+      const index = operationIndex(operation.index, document.text.length, document.text.length);
       const count = Math.max(0, Math.min(operation.count ?? 1, document.text.length - index));
       if (count > 0) document.text.delete(index, count);
       return;
@@ -364,6 +366,10 @@ function collabsPayload(payload: Record<string, unknown>): CollabsPayload | unde
 function clampIndex(index: number, length: number): number {
   if (!Number.isFinite(index)) return length;
   return Math.max(0, Math.min(Math.trunc(index), length));
+}
+
+function operationIndex(index: number | undefined, fallback: number, length: number): number {
+  return clampIndex(index ?? fallback, length);
 }
 
 /**

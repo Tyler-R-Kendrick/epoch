@@ -104,8 +104,8 @@ const ENTITY_TYPES_BY_EXTENSION = new Map([
 
 const LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_INTERVAL_MS = 10;
-const LOCK_SLEEP_BUFFER = new SharedArrayBuffer(4);
-const LOCK_SLEEP_ARRAY = new Int32Array(LOCK_SLEEP_BUFFER);
+const ATOMICS_WAIT_BUFFER = new SharedArrayBuffer(4);
+const ATOMICS_WAIT_ARRAY = new Int32Array(ATOMICS_WAIT_BUFFER);
 
 export class Event {
   readonly id: string;
@@ -262,7 +262,7 @@ export class EpochRepository {
 
   append(type: string, payload: EventPayload, author = this.identity()): Event {
     this.requireInitialized();
-    const appendPayload = { ...payload };
+    const appendPayload = JSON.parse(canonicalJson(payload)) as EventPayload;
     this.emitHook("repository.append.before", { type, payload: appendPayload, author });
     const identity = this.identityFor(author);
     const heads = this.heads();
@@ -273,7 +273,7 @@ export class EpochRepository {
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
     this.updateHeads((currentHeads) => {
-      // `heads` is the parent set captured before signing; `currentHeads` may include concurrent process tips to preserve.
+      // `heads` is the parent set captured before signing this event; preserve `currentHeads` tips from concurrent processes.
       const headsBeingMerged = new Set(heads);
       const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
       return [...new Set([...retainedHeads, event.id])].sort();
@@ -594,7 +594,7 @@ function withDirectoryLock<T>(lockDir: string, work: () => T): T {
 
 // Repository APIs are synchronous, so lock polling uses a short, bounded spin instead of async timers.
 function sleepSync(milliseconds: number): void {
-  Atomics.wait(LOCK_SLEEP_ARRAY, 0, 0, milliseconds);
+  Atomics.wait(ATOMICS_WAIT_ARRAY, 0, 0, milliseconds);
 }
 
 function entityTypeForPath(path: string): string {
