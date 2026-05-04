@@ -9,6 +9,7 @@ const CHECKPOINT_DIR = "checkpoints";
 const CHECKPOINT_MANIFEST = "manifest.json";
 const CHECKPOINT_FORMAT = "epoch-checkpoint-v1";
 const MILLISECONDS_PER_SECOND = 1000;
+const SHA256_HEX_LENGTH = 64;
 
 export interface Checkpoint {
   id: string;
@@ -77,7 +78,7 @@ export function pruneEventLog(repository: EpochRepository, checkpointId: string)
   const events = repository.events();
   const targetIndex = events.findIndex((event) => event.id === checkpoint.lastIncludedEventId);
   if (targetIndex < 0) throw new Error(`checkpoint target is not present in local event log: ${checkpoint.lastIncludedEventId}`);
-  for (const event of events.slice(0, targetIndex)) {
+  for (const event of events.slice(0, targetIndex + 1)) {
     rmSync(join(repository.eventsDir, `${event.id}${JsonFileExtension}`), { force: true });
   }
   const manifest = readManifest(repository);
@@ -225,7 +226,7 @@ function blobsForEvents(repository: EpochRepository, events: readonly Event[]): 
 }
 
 function collectBlobHash(value: unknown, hashes: Set<string>): void {
-  if (typeof value === "string" && /^[a-f0-9]{64}$/u.test(value)) hashes.add(value);
+  if (typeof value === "string" && value.length === SHA256_HEX_LENGTH && /^[a-f0-9]+$/u.test(value)) hashes.add(value);
 }
 
 function clearJsonFiles(path: string): void {

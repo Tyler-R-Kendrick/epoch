@@ -16,7 +16,11 @@ export interface SeedNodeServiceOptions {
 export async function bootstrapFromSeed(repository: EpochRepository, seed: SeedNode): Promise<SyncResult> {
   repository.init();
   const seedRepository = repositoryForSeed(seed);
-  seedRepository.identityDocument();
+  try {
+    seedRepository.identityDocument();
+  } catch (error) {
+    throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity not found or invalid (${error instanceof Error ? error.message : String(error)})`);
+  }
   if (seed.trustLevel === "full") {
     const checkpoint = latestCheckpoint(seedRepository);
     if (checkpoint !== undefined) {
