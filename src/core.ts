@@ -664,6 +664,11 @@ export class EpochRepository {
     const local = new Set(this.localViewIndex().proposalIds[name] ?? []);
     const proposalIds = this.evaluateRule(rule, events, gatePolicy, new Set([name]));
     for (const id of local) proposalIds.add(id);
+    if (name === "main") {
+      for (const id of [...proposalIds]) {
+        if (!this.passesGate(id, events, gatePolicy)) proposalIds.delete(id);
+      }
+    }
     return proposalIds;
   }
 
@@ -704,7 +709,7 @@ export class EpochRepository {
   private evaluateRule(rule: InclusionRule, events: readonly Event[], gatePolicy: GatePolicy, resolvingViews: Set<string>): Set<string> {
     switch (rule.type) {
       case "all":
-        return new Set(events.filter((event) => isProposalEvent(event) && this.passesGate(event.id, events, gatePolicy)).map((event) => event.id));
+        return new Set(events.filter((event) => isProposalEvent(event) && !this.isLocallyScopedProposal(event.id) && this.passesGate(event.id, events, gatePolicy)).map((event) => event.id));
       case "proposal-list":
         return new Set(rule.proposalIds.filter((id) => events.some((event) => event.id === id && isProposalEvent(event))));
       case "ancestor-chain":
@@ -780,6 +785,10 @@ export class EpochRepository {
       proposalIds[currentView] = [...new Set([...(proposalIds[currentView] ?? []), eventId])].sort();
       return { ...index, proposalIds };
     });
+  }
+
+  private isLocallyScopedProposal(eventId: string): boolean {
+    return Object.values(this.localViewIndex().proposalIds).some((ids) => ids.includes(eventId));
   }
 
   private localViewIndex(): LocalViewIndex {
