@@ -5,5 +5,5 @@ export { CRDTEventLog, CRDTRegistry, JsonMapCRDT, TextWeaveCRDT, dumpEntity, loa
 export type { CRDTOperation } from "./crdt";
 export { EPOCH_GIT_PROVIDER, EpochCLIGit, EpochCoreGit, UnsupportedGitOperationError, readEpochGitRemote, unsupported } from "./git";
 export type { EpochGitCommandResult, EpochGitCommitResult, EpochGitRemote } from "./git";
-export { EpochWASMGit, EpochWasmGitUnsupportedOperationError } from "./wasm-git";
+export { EpochWASMGit, EpochWasmGit, EpochWasmGitUnsupportedOperationError } from "./wasm-git";
 export type { EpochWasmGitCommandResult } from "./wasm-git";

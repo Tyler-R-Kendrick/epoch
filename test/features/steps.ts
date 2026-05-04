@@ -161,11 +161,7 @@ Then("the repository verifies successfully", function () {
   assert.deepEqual(state.repo.verify(), []);
 });
 
-Then("the event log contains {int} event", function (count: number) {
-  assert.equal(state.repo.events().length, count);
-});
-
-Then("the event log contains {int} events", function (count: number) {
+Then("the event log contains {int} event(s)", function (count: number) {
   assert.equal(state.repo.events().length, count);
 });
 

@@ -40,8 +40,9 @@ export class EpochCoreGit {
   }
 
   static clone(remote: string, target?: string, options: { readonly author?: string } = {}): EpochCoreGit {
+    rejectGitOptionLikeValue(remote, "remote");
     const destination = resolve(target ?? basename(remote).replace(/\.git$/u, ""));
-    execFileSync("git", ["clone", remote, destination], { stdio: "pipe" });
+    execFileSync("git", ["clone", "--", remote, destination], { stdio: "pipe" });
     const git = new EpochCoreGit(destination);
     git.repository.init(options.author ?? "git");
     const ref = git.currentRef();
@@ -225,4 +226,10 @@ function entityTypeForPath(path: string): string {
 export function readEpochGitRemote(root: string): EpochGitRemote | undefined {
   const path = join(resolve(root), ".epoch", "git.json");
   return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) as EpochGitRemote : undefined;
+}
+
+function rejectGitOptionLikeValue(value: string, description: string): void {
+  if (value.startsWith("-")) {
+    throw new Error(`invalid Git ${description}: values beginning with '-' are not accepted`);
+  }
 }

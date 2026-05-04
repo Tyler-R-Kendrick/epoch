@@ -11,7 +11,7 @@ export class EpochWasmGitUnsupportedOperationError extends Error {
   }
 }
 
-export class EpochWASMGit {
+export class EpochWasmGit {
   static execute(command: string): EpochWasmGitCommandResult {
     throw new EpochWasmGitUnsupportedOperationError(command, "native Git repository access is unavailable in the WASM runtime; use the Core or CLI Git package on a host filesystem");
   }
@@ -20,3 +20,5 @@ export class EpochWASMGit {
     throw new EpochWasmGitUnsupportedOperationError("clone", `native Git clone is unavailable in the WASM runtime for ${remote}`);
   }
 }
+
+export { EpochWasmGit as EpochWASMGit };
