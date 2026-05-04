@@ -49,9 +49,7 @@ When("I try to record {string} with content {string} as {string}", function (pat
   const absolute = join(state.workspace, path);
   mkdirSync(join(absolute, ".."), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
-  if (!absolute.startsWith(state.workspace)) {
-    state.outsideFiles.push(absolute);
-  }
+  state.outsideFiles.push(absolute);
   try {
     state.repo.recordFile(path, entityType);
   } catch (error) {

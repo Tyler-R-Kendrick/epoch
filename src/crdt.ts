@@ -222,7 +222,8 @@ function replacementForSide(base: string[], sideGroup: TextHunk[], start: number
 
 function formatLineRange(start: number, endExclusive: number): string {
   const firstLine = start + 1;
-  const lastLine = Math.max(firstLine, endExclusive);
+  if (endExclusive <= start) return `insertion at line ${firstLine}`;
+  const lastLine = endExclusive;
   return firstLine === lastLine ? `line ${firstLine}` : `lines ${firstLine}-${lastLine}`;
 }
 
