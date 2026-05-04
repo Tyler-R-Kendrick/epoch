@@ -104,6 +104,8 @@ const ENTITY_TYPES_BY_EXTENSION = new Map([
 
 const LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_INTERVAL_MS = 10;
+const LOCK_SLEEP_BUFFER = new SharedArrayBuffer(4);
+const LOCK_SLEEP_ARRAY = new Int32Array(LOCK_SLEEP_BUFFER);
 
 export class Event {
   readonly id: string;
@@ -592,10 +594,7 @@ function withDirectoryLock<T>(lockDir: string, work: () => T): T {
 
 // Repository APIs are synchronous, so lock polling uses a short, bounded spin instead of async timers.
 function sleepSync(milliseconds: number): void {
-  const end = Date.now() + milliseconds;
-  while (Date.now() < end) {
-    // Synchronous repository APIs use a short bounded spin while waiting for another process's lock.
-  }
+  Atomics.wait(LOCK_SLEEP_ARRAY, 0, 0, milliseconds);
 }
 
 function entityTypeForPath(path: string): string {

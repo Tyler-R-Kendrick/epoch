@@ -366,7 +366,14 @@ function clampIndex(index: number, length: number): number {
   return Math.max(0, Math.min(Math.trunc(index), length));
 }
 
-// Lamport time captures causality; author and event ID provide deterministic tie-breaking for a stable total order.
+/**
+ * Orders events for deterministic CRDT replay across replicas.
+ *
+ * Returns a negative value when `left` sorts before `right`, zero when they are equivalent for ordering,
+ * and a positive value when `left` sorts after `right`. Lamport time captures causality; author and event
+ * ID provide stable tie-breaking for concurrent events. Every replica must use this exact total order when
+ * replaying Collabs messages so materialized views converge.
+ */
 function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
   const lamportDiff = left.lamport - right.lamport;
   if (lamportDiff !== 0) return lamportDiff;
