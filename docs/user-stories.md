@@ -43,14 +43,14 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### DEV-002: Work Offline on a Flight
 **As a** developer on a long-haul flight without Wi-Fi,  
-**I want** to record changes, branch, and view history locally,  
+**I want** to record changes, create intents, and view history locally,  
 **So that** I can remain fully productive without any network connection.
 
 **Feature**: F-011 (Offline Operation)
 
 **Flow:**
 1. Developer puts laptop in airplane mode.
-2. Creates branch: `epoch branch feature/auth`.
+2. Creates intent: `epoch intent src/auth.ts --type application/typescript`.
 3. Records 5 changes across 3 files.
 4. Runs `epoch events` to review history.
 5. On landing, runs `epoch sync origin` — all 5 record events sync.
@@ -64,7 +64,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### DEV-003: View History of a Specific File
 **As a** developer investigating a bug,  
-**I want** to see every commit that changed a specific file, who made it, and when,  
+**I want** to see every record event that changed a specific file, who made it, and when,  
 **So that** I can identify which change introduced the regression.
 
 **Feature**: F-024 (Log / History)
@@ -72,8 +72,8 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Flow:**
 1. Developer suspects bug is in `src/auth.ts`.
 2. Runs `epoch events -- src/auth.ts`.
-3. Output lists 7 commits touching that file, with event IDs, authors, dates, and messages.
-4. Developer diffs two commits: `epoch diff <event-a> <event-b> -- src/auth.ts`.
+3. Output lists 7 record events touching that file, with event IDs, authors, dates, and messages.
+4. Developer diffs two events: `epoch diff <event-a> <event-b> -- src/auth.ts`.
 5. Developer identifies the problematic change.
 
 **Acceptance Criteria:**
@@ -83,38 +83,38 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ---
 
-### DEV-004: Create a Feature Branch and Merge It
+### DEV-004: Create an Intent and Have It Merged
 **As a** developer,  
-**I want** to create a feature branch, develop in isolation, and merge it back to main,  
-**So that** in-progress work doesn't destabilize the main branch.
+**I want** to create an intent and have maintainers sign its inclusion,  
+**So that** unmerged work stays transparent on the ledger without entering main.
 
-**Feature**: F-005 (Branch), F-007 (Three-Way Merge)
+**Feature**: F-005 (Intent Policy), F-007 (Three-Way Resolve)
 
 **Flow:**
-1. `epoch branch feature/payment` creates branch at current HEAD.
-2. Developer makes 3 commits on the feature branch.
-3. Teammate makes 2 commits on `main` in the meantime.
-4. Developer runs `epoch merge main` from feature branch.
+1. `epoch intent src/payment.ts --type application/typescript` creates a signed intent referencing current main.
+2. Developer records related patch content in the intent.
+3. Teammate creates 2 merged intents in the meantime.
+4. Maintainer runs `epoch merge <intent-id>` to sign inclusion.
 5. Three-way merge applies all non-conflicting changes.
-6. Developer syncs the merged branch events.
+6. Developer syncs the intent and merge-signature events.
 
 **Acceptance Criteria:**
 - Non-overlapping changes are merged automatically.
-- Merge event has two parent event IDs.
-- `epoch events --graph` shows branching and merging visually.
+- IntentMerge event references the included intent ID and is signed by the maintainer.
+- `epoch status` shows intent status and signed merge/rejection decisions.
 
 ---
 
 ### DEV-005: Resolve a Merge Conflict
 **As a** developer,  
-**I want** to see clear conflict markers when two branches modify the same lines,  
+**I want** to see clear conflict markers when two intents modify the same entity,  
 **So that** I can make an informed decision about the correct final content.
 
 **Feature**: F-010 (Conflict Surfacing)
 
 **Flow:**
-1. Developer runs `epoch merge feature/nav` on `main`.
-2. Both branches modified `config.json` lines 42–45.
+1. Developer runs `epoch resolve --type application/json base.json left.json right.json` while preparing an intent.
+2. Both intents modify `config.json` lines 42–45.
 3. Epoch inserts conflict markers in `config.json`.
 4. `epoch status` shows `config.json` as `conflicted`.
 5. Developer edits file, removes markers, chooses correct content.
@@ -122,14 +122,14 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 **Acceptance Criteria:**
 - Conflicted files contain `<<<<<<<`, `=======`, `>>>>>>>` markers.
-- Commit is blocked until all conflicts are resolved.
-- After resolution commit, `epoch status` shows clean working tree.
+- Intent creation is blocked until all conflicts are resolved.
+- After recording the resolution, `epoch status` shows clean working tree.
 
 ---
 
 ### DEV-006: Stash Work in Progress
 **As a** developer mid-feature,  
-**I want** to stash my uncommitted changes so I can quickly switch to fix a critical bug,  
+**I want** to stash my unrecorded changes so I can quickly switch to fix a critical bug,  
 **So that** I don't lose my work and can return to it later.
 
 **Feature**: F-026 (Stash)
@@ -137,9 +137,9 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Flow:**
 1. Developer has unstaged changes in 4 files.
 2. Urgent bug reported; developer runs `epoch stash`.
-3. Working tree is clean; developer switches to `hotfix` branch.
-4. Bug is fixed and committed.
-5. Developer returns to feature branch: `epoch stash pop`.
+3. Working tree is clean; developer starts a hotfix intent.
+4. Bug is fixed and recorded.
+5. Developer restores shelved work: `epoch stash pop`.
 6. Previous changes are restored.
 
 **Acceptance Criteria:**
@@ -149,10 +149,10 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ---
 
-### DEV-007: View Changes Before Committing
+### DEV-007: View Changes Before Recording
 **As a** developer,  
-**I want** to see a diff of my uncommitted changes before creating a commit,  
-**So that** I can verify I'm committing only intended changes.
+**I want** to see a diff of my unrecorded changes before creating a record,  
+**So that** I can verify I'm recording only intended changes.
 
 **Feature**: F-023 (Diff / Patch)
 
@@ -162,7 +162,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 3. Reviews unified diff output.
 4. Realizes one file has debug code; removes it.
 5. Runs `epoch diff` again to confirm only intended changes.
-6. Commits.
+6. Records.
 
 **Acceptance Criteria:**
 - `epoch diff` shows unstaged changes against HEAD.
@@ -179,7 +179,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Feature**: F-006 (Tag), F-017 (Event Signing)
 
 **Flow:**
-1. Developer verifies HEAD is the release commit.
+1. Developer verifies the release event ID.
 2. Runs `epoch tag v1.0.0 -m "Initial stable release"`.
 3. Tag event is signed with developer's Ed25519 key.
 4. Tag is gossiped to all peers.
@@ -194,16 +194,16 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### DEV-009: Bisect a Regression
 **As a** developer,  
-**I want** to binary-search through commit history to find the commit that introduced a bug,  
+**I want** to binary-search through event history to find the event that introduced a bug,  
 **So that** I can identify and understand the regression quickly.
 
-**Feature**: F-024 (Log / History), F-004 (Commit)
+**Feature**: F-024 (Log / History), F-004 (Record)
 
 **Flow:**
 1. Bug exists in HEAD but not in `v0.9.0` tag.
 2. Developer runs `epoch bisect start`.
 3. Marks HEAD as bad, `v0.9.0` as good.
-4. Epoch checks out midpoint commit.
+4. Epoch checks out midpoint event.
 5. Developer runs tests; marks good or bad.
 6. After 7 iterations, Epoch identifies the culprit event.
 
@@ -216,21 +216,21 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### DEV-010: Use a Worktree for Parallel Development
 **As a** developer,  
-**I want** to check out two branches in separate directories simultaneously,  
-**So that** I can run both and compare behavior without switching branches.
+**I want** to work with two intent states in separate directories simultaneously,  
+**So that** I can run both and compare behavior without overwriting a working tree.
 
 **Feature**: F-027 (Worktrees)
 
 **Flow:**
-1. Developer runs `epoch worktree add ../epoch-v2 feature/v2`.
-2. `../epoch-v2` directory contains the `feature/v2` working tree.
+1. Developer runs `epoch worktree add ../epoch-v2`.
+2. `../epoch-v2` directory contains a linked working tree.
 3. Developer runs the application in both directories simultaneously.
-4. Changes committed in either worktree appear in the shared event log.
+4. Changes recorded in either worktree appear in the shared event log.
 
 **Acceptance Criteria:**
 - Both worktrees share the same object store.
 - Each worktree has independent HEAD and index.
-- Commits from either worktree appear in `epoch events` from any worktree.
+- Record events from either worktree appear in `epoch events` from any worktree.
 
 ---
 
@@ -330,7 +330,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 1. Owner writes a CRDT definition implementing `CRDTDefinition<string>` for `*.schema`.
 2. Publishes it as an npm package.
 3. In `epoch.config.ts`: `epoch.registerCRDT(require('@company/epoch-schema-crdt'))`.
-4. Configuration event is committed and gossiped.
+4. Configuration event is recorded and gossiped.
 5. All peers apply the CRDT definition on next schema file merge.
 
 **Acceptance Criteria:**
@@ -362,23 +362,23 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ## Team Lead Stories
 
-### LEAD-001: Enforce Linting Before Every Commit
+### LEAD-001: Enforce Linting Before Every Record
 **As a** team lead,  
-**I want** a pre-record hook that runs `eslint` and blocks the commit on failure,  
-**So that** no unlinted code is ever committed to the repository.
+**I want** a pre-record hook that runs `eslint` and blocks the record operation on failure,  
+**So that** no unlinted code is ever recorded to the repository.
 
 **Feature**: F-025 (Hooks)
 
 **Flow:**
 1. Team lead creates `.epoch/hooks/pre-record` with ESLint invocation.
 2. Makes the script executable.
-3. Developer commits; hook runs ESLint.
-4. If ESLint fails, commit is aborted with error output.
-5. Developer fixes lint errors; retries commit.
+3. Developer records; hook runs ESLint.
+4. If ESLint fails, record is aborted with error output.
+5. Developer fixes lint errors; retries record.
 
 **Acceptance Criteria:**
-- Pre-commit hook is invoked before every `epoch record`.
-- Non-zero exit from hook aborts the commit.
+- Pre-record hook is invoked before every `epoch record`.
+- Non-zero exit from hook aborts the record operation.
 - Hook receives staged file list as environment variable.
 
 ---
@@ -386,25 +386,25 @@ This document provides the complete set of user stories for Epoch, organized by 
 ### LEAD-002: Run Integration Tests on Every Push
 **As a** team lead,  
 **I want** a post-sync hook on the seed node that triggers CI tests,  
-**So that** test results are available for every synced branch.
+**So that** test results are available for every synced intent.
 
 **Feature**: F-025 (Hooks), F-014 (Seed Nodes)
 
 **Flow:**
 1. Lead configures `post-sync` hook on seed node.
-2. Hook calls CI API with synced branch and event ID.
+2. Hook calls CI API with synced intent and event ID.
 3. CI pipeline runs tests and posts results.
 4. Results are visible to all developers.
 
 **Acceptance Criteria:**
 - `post-sync` hook fires after every successful sync with the seed.
-- Hook environment includes the synced branch name and new event ID.
+- Hook environment includes the synced intent ID and new event ID.
 
 ---
 
 ### LEAD-003: Review a Patch Before Merging
 **As a** team lead,  
-**I want** to review a contributor's patch proposal before it is merged to main,  
+**I want** to review a contributor's intent before it is merged to main,  
 **So that** I can verify code quality and correctness.
 
 **Feature**: F-030 (Issues and Patches)
@@ -415,34 +415,34 @@ This document provides the complete set of user stories for Epoch, organized by 
 3. Lead reviews diff: `epoch patch diff <patch-id>`.
 4. Lead posts review comment: `epoch patch comment <patch-id> "Please add tests"`.
 5. Contributor syncs new record events addressing feedback.
-6. Lead approves: `epoch patch accept <patch-id>`.
-7. Epoch merges the patch branch to main.
+6. Lead signs inclusion: `epoch merge <intent-id>`.
+7. Epoch projects main from the signed, non-rejected intent.
 
 **Acceptance Criteria:**
 - Patch and review events are signed by their respective authors.
-- Patch diff shows all changes relative to the target branch.
+- Intent diff shows all changes relative to the target main projection.
 - Patch acceptance triggers a merge event.
 
 ---
 
-### LEAD-004: Verify Team Members' Commit Signatures
+### LEAD-004: Verify Team Members' Event Signatures
 **As a** team lead,  
-**I want** to verify that all commits on `main` are signed by authorized team members,  
-**So that** I can confirm only approved contributors have modified production code.
+**I want** to verify that all merged intents in main are signed by authorized team members,  
+**So that** I can confirm only merged intents from authorized contributors have modified production code.
 
 **Feature**: F-017 (Event Signing), F-018 (Tamper Detection)
 
 **Flow:**
-1. Lead runs `epoch verify --branch main`.
+1. Lead runs `epoch verify` and checks `epoch main`.
 2. Epoch checks every record event's Ed25519 signature.
 3. Epoch cross-references signers with the access control list.
-4. Report shows each commit's verification status.
-5. Any unsigned or unauthorized commit is flagged.
+4. Report shows each event's verification status.
+5. Any unsigned or unauthorized event is flagged.
 
 **Acceptance Criteria:**
-- Every commit on `main` is verified against its author's public key.
-- Commits from keys not in the access control list are flagged.
-- `epoch verify` exits non-zero if any invalid commit is found.
+- Every event projected into main is verified against its author's public key.
+- Events from keys not in the access control list are flagged.
+- `epoch verify` exits non-zero if any invalid event is found.
 
 ---
 
@@ -490,13 +490,13 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### EXT-002: Submit a Patch for Review
 **As an** external contributor,  
-**I want** to submit a code change as a patch proposal,  
+**I want** to submit a code change as an intent,  
 **So that** the maintainer can review and potentially merge my contribution.
 
 **Feature**: F-030 (Issues and Patches)
 
 **Flow:**
-1. Contributor creates branch, records changes, and syncs branch events to their public node.
+1. Contributor creates an intent, records changes, and syncs intent events to their public node.
 2. Runs `epoch patch open --target main --title "Fix null pointer in parser"`.
 3. Patch event is gossiped; maintainer's node receives it.
 4. Maintainer reviews and responds.
@@ -637,7 +637,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### DEVOPS-001: Restore File Timestamps After Clone
 **As a** build engineer,  
-**I want** file modification timestamps to reflect their last commit after a CI clone,  
+**I want** file modification timestamps to reflect their last event after a CI clone,  
 **So that** `make` and similar tools don't recompile unchanged files.
 
 **Feature**: F-028 (Timestamp Restoration)
@@ -657,17 +657,17 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### DEVOPS-002: Trigger CI on Gossip Events
 **As a** DevOps engineer,  
-**I want** a post-sync hook on the seed node to trigger CI when a branch is synced,  
-**So that** automated tests run on every branch update.
+**I want** a post-sync hook on the seed node to trigger CI when an intent is synced,  
+**So that** automated tests run on every intent update.
 
 **Feature**: F-025 (Hooks), F-014 (Seed Nodes)
 
 **Flow:**
-1. Engineer writes `post-sync` hook that calls CI webhook with branch and event ID.
+1. Engineer writes `post-sync` hook that calls CI webhook with intent and event ID.
 2. Hook is deployed to seed node.
-3. Developer syncs branch events; seed node gossips the events.
+3. Developer syncs intent events; seed node gossips the events.
 4. `post-sync` fires; CI webhook is called.
-5. CI fetches the branch from seed node and runs tests.
+5. CI fetches the intent state from seed node and runs tests.
 
 **Acceptance Criteria:**
 - `post-sync` hook fires on every sync received by seed node.
@@ -685,13 +685,13 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Flow:**
 1. Engineer runs `epoch import-git ./legacy-repo`.
 2. Epoch converts all Git commits to Epoch events.
-3. Branches, tags, and merge commits are preserved.
+3. Tags and signed intent/merge events are preserved.
 4. Engineer verifies: `epoch events` shows complete history.
 5. Team switches to Epoch; legacy Git remote is archived.
 
 **Acceptance Criteria:**
 - All commits are imported as Epoch events.
-- Branches and tags are preserved.
+- Tags and intent policy events are preserved.
 - Merge commit parents are correctly represented.
 - Original commit timestamps are preserved as event timestamps.
 
@@ -721,27 +721,27 @@ This document provides the complete set of user stories for Epoch, organized by 
 
 ### AUDIT-002: Verify No Unauthorized Merges to Main
 **As a** compliance auditor,  
-**I want** to verify that all merges to the `main` branch were approved by authorized reviewers,  
+**I want** to verify that all intents projected into main were signed by authorized maintainers,  
 **So that** I can confirm the change management process was followed.
 
 **Feature**: F-030 (Issues and Patches), F-017 (Event Signing)
 
 **Flow:**
-1. Auditor queries all Merge events on `main` branch.
-2. For each merge, auditor checks the corresponding Patch approval events.
-3. Approval events are verified to be signed by authorized reviewer keys.
-4. Merges without valid approvals are flagged.
+1. Auditor queries all IntentMerge events in the main projection.
+2. For each included intent, auditor checks the corresponding maintainer signatures.
+3. Merge signature events are verified to be signed by authorized reviewer keys.
+4. Intents without valid merge signatures are flagged.
 
 **Acceptance Criteria:**
-- Merge events are linked to their originating patch proposals.
-- Patch approval events are signed and verifiable.
-- `epoch audit-merges --branch=main` produces a report of merge approvals.
+- IntentMerge events are linked to their originating intents.
+- IntentMerge and IntentReject events are signed and verifiable.
+- `epoch status` and policy audit output report intent merge signatures.
 
 ---
 
 ### AUDIT-003: Verify Identity of Each Committer
 **As a** compliance auditor,  
-**I want** to map each commit's Ed25519 public key to a known employee,  
+**I want** to map each event's Ed25519 public key to a known employee,  
 **So that** I can confirm all code changes are attributable to authorized personnel.
 
 **Feature**: F-003 (Ed25519 Identity), F-017 (Event Signing)
@@ -749,7 +749,7 @@ This document provides the complete set of user stories for Epoch, organized by 
 **Flow:**
 1. Security team maintains a directory: `{public_key: employee_name}`.
 2. Auditor queries `epoch events --format=json` and maps each author key.
-3. Any commit from an unknown key is flagged for investigation.
+3. Any event from an unknown key is flagged for investigation.
 
 **Acceptance Criteria:**
 - Every record event contains the author's Ed25519 public key.

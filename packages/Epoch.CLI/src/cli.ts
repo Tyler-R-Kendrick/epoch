@@ -77,14 +77,16 @@ function run(argv: string[]): void {
       console.log(`exported ${paths.length} files`);
       return;
     }
-    case CliCommand.merge:
-      if (parsed.args.length !== 1) throw new Error(CliText.mergeUsage);
-      console.log(repo.mergeIntent(parsed.args[0]).id);
+    case CliCommand.merge: {
+      const options = parseOptions(parsed.args, { author: repo.identity() });
+      if (options.positionals.length !== 1) throw new Error(CliText.mergeUsage);
+      console.log(repo.mergeIntent(options.positionals[0], options.author).id);
       return;
+    }
     case CliCommand.reject: {
-      const options = parseOptions(parsed.args, { reason: "" });
+      const options = parseOptions(parsed.args, { author: repo.identity(), reason: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.rejectUsage);
-      console.log(repo.rejectIntent(options.positionals[0], options.reason).id);
+      console.log(repo.rejectIntent(options.positionals[0], options.reason, options.author).id);
       return;
     }
     case CliCommand.status:

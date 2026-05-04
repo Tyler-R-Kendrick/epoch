@@ -34,8 +34,8 @@ export const CliText = {
   verificationFailed: "verification failed",
   usage: "usage: epoch [--repo PATH] <init|record|intent|events|verify|merge|reject|status|main|resolve|sync|rollback|import|export>",
   intentUsage: "usage: epoch intent [--type MIME] PATH",
-  mergeUsage: "usage: epoch merge INTENT_ID",
-  rejectUsage: "usage: epoch reject [--reason TEXT] INTENT_ID",
+  mergeUsage: "usage: epoch merge [--author NAME] INTENT_ID",
+  rejectUsage: "usage: epoch reject [--author NAME] [--reason TEXT] INTENT_ID",
   resolveUsage: "usage: epoch resolve --type MIME BASE LEFT RIGHT",
   rollbackUsage: "usage: epoch rollback EVENT_ID",
 } as const;

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It is designed to be the next evolution beyond Git: retaining Git's proven strengths (offline-first, content-addressed DAG, fast branching) while eliminating its weaknesses (text-only merges, no real-time collaboration, no decentralized identity, centralized forge dependency).
+**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It is designed to be the next evolution beyond Git: retaining Git's proven strengths (offline-first operation and content-addressed history) while replacing mutable-pointer collaboration with signed intents and a Radicle-inspired patch inclusion policy.
 
 Epoch models every change as an **immutable, causally-ordered event** appended to a distributed event log. The current state of any repository is always a deterministic projection of its event history. Merges are handled at the **entity level**: each file type can register a CRDT definition that governs how concurrent edits are resolved — automatically, without user intervention, for types that support it. Files without CRDT definitions fall back to three-way merge.
 
@@ -30,8 +30,8 @@ Epoch uses **Ed25519 cryptographic identities** (no central username registry), 
 | **Weave CRDT** | Sequence CRDT as first-class entity type; tombstone model for deletions |
 | **GoatDB** | Ed25519 signing, three-way merge default, commit DAG model |
 | **Manyana** | Event sourcing: every change is an immutable event; CQRS-inspired projection |
-| **git-warp** | DAG object model (blobs, trees, events), fast offline branching |
-| **Radicle** | Gossip-based P2P distribution, append-only data model, seed nodes |
+| **git-warp** | DAG object model (blobs, trees, events), timestamp restoration |
+| **Radicle** | Gossip-based P2P distribution, append-only data model, signed patch workflow, seed nodes |
 | **Roshi** | CRDT set semantics; anti-entropy reconciliation for distributed consistency |
 | **SolGit** | Cryptographic audit trail — without on-chain cost; retain tamper-evidence |
 | **BDA-SVC** | Content-addressed storage (from IPFS model) — without pinning governance complexity |
@@ -47,7 +47,7 @@ Every change in Epoch is an **immutable event** appended to a local event log. E
 ```
 Event {
   id:           EventID          // content hash (SHA-256 of payload)
-  type:         EventType        // Commit | Branch | Tag | Merge | Delete | Config
+  type:         EventType        // Record | Intent | IntentMerge | IntentReject | Tag | Config
   author:       PublicKey        // Ed25519 public key
   signature:    Signature        // Ed25519 signature of payload
   timestamp:    LogicalClock     // Lamport timestamp for ordering
@@ -59,7 +59,7 @@ Event {
 Inspired by **Manyana** and **Roshi**, this model ensures:
 - All state is derivable from the log (full auditability).
 - Offline writes are buffered locally and merged on reconnect.
-- Projections (working tree, branch map, index) are always regenerable.
+- Projections (working tree, policy view, index) are always regenerable.
 
 ### 2. Entity-Level CRDT Merging
 
@@ -103,7 +103,7 @@ ObjectStore {
   blobs:   Map<SHA256, Bytes>        // raw file content
   trees:   Map<SHA256, Tree>         // directory snapshots
   events:  Map<EventID, Event>       // immutable event log
-  heads:   Map<BranchName, EventID>  // mutable branch pointers
+  heads:   EventID[]                 // causal frontier of known events
 }
 ```
 
@@ -185,14 +185,14 @@ CRDT definitions are:
 | F-001 | Event Log | Core | Every change is an immutable, signed event appended to the local log |
 | F-002 | Content-Addressed Storage | Core | All objects identified by SHA-256 hash; automatic deduplication |
 | F-003 | Ed25519 Identity | Core | Self-sovereign keypair identity; no central user registry |
-| F-004 | Commit | Core | Snapshot of repository state at a point in time, signed by author |
-| F-005 | Branch | Core | Named pointer to a tip event in the event graph |
+| F-004 | Record | Core | Signed file record event stored in the ledger |
+| F-005 | Intent Policy | Core | Signed intent, merge, and rejection events decide which patches enter main |
 | F-006 | Tag | Core | Immutable named pointer to a specific event; signed by tagger |
 | F-007 | Three-Way Merge | Merge | Default merge strategy: base + left + right applied at entity level |
 | F-008 | CRDT Merge | Merge | Pluggable CRDT definition per entity type; automatic conflict resolution |
 | F-009 | CRDT Extension API | Extension | API for registering custom CRDT definitions for any file type |
 | F-010 | Conflict Surfacing | Merge | Unresolvable conflicts surfaced to user with markers; manual resolution |
-| F-011 | Offline Operation | Distribution | All local operations (commit, branch, diff, log) work without network |
+| F-011 | Offline Operation | Distribution | All local operations (record, intent, resolve, events) work without network |
 | F-012 | Gossip P2P Sync | Distribution | Event propagation via gossip protocol; no central server required |
 | F-013 | Anti-Entropy | Distribution | Background reconciliation ensures all peers eventually converge |
 | F-014 | Seed Nodes | Distribution | Optional always-on peers that guarantee availability |
@@ -204,14 +204,14 @@ CRDT definitions are:
 | F-020 | Compaction / GC | Storage | Snapshot-based compaction of old events; tombstone cleanup |
 | F-021 | Shallow Clone | Storage | Clone with truncated history for bandwidth-constrained environments |
 | F-022 | Delta Sync | Distribution | Sync only events not yet seen by the remote peer |
-| F-023 | Diff / Patch | Inspection | Compute diff between any two events or branches |
+| F-023 | Diff / Patch | Inspection | Compute diff between any two events or intent payloads |
 | F-024 | Log / History | Inspection | Traverse and query the event graph with filtering |
 | F-025 | Hooks | Automation | Pre/post-event hooks for automation and CI/CD integration |
 | F-026 | Stash | Workflow | Temporarily shelve in-progress changes |
 | F-027 | Worktrees | Workflow | Multiple working directories sharing a single object store |
 | F-028 | Timestamp Restoration | Compatibility | Restore file mtimes from event metadata (git-warp-time equivalent) |
 | F-029 | Git Compatibility Layer | Compatibility | Import from / export to Git repositories |
-| F-030 | Issues and Patches | Collaboration | Decentralized issue tracking and patch proposals (like Radicle) |
+| F-030 | Issues and Intents | Collaboration | Decentralized issue tracking and intent-based patches inspired by Radicle |
 
 ---
 
@@ -274,6 +274,7 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 | **Event Engine** | Create, sign, validate, and append events to the local log |
 | **Merge Engine** | Implement three-way merge and delegate to CRDT engine for registered types |
 | **CRDT Registry** | Manage registered CRDT definitions; route merges by entity type |
+| **Policy Layer** | Project signed intents, merge signatures, and rejections into deterministic main state |
 | **Object Store** | Content-addressed storage for blobs, trees, and events |
 | **Identity / Keystore** | Manage Ed25519 keypairs; sign outgoing events; verify incoming |
 | **Sync Layer** | Gossip propagation, anti-entropy, explicit sync operations |
@@ -293,22 +294,18 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 4. Sync Layer gossips new event to known peers
 ```
 
-### Data Flow: Merge
+### Data Flow: Intent Merge
 
 ```
-1. User invokes `epoch merge <branch>`
-2. Merge Engine:
-   a. Find common ancestor event (LCA of event DAGs)
-   b. For each changed entity (file):
-      i.  Check CRDT Registry for registered definition
-      ii. If found: apply CRDT merge(base, left, right) → merged state
-      iii.If not found: apply three-way text merge
-      iv. If conflict: mark entity as conflicted
-   c. Write merged tree to Object Store
-   d. Create Merge event (two causal_deps: both branch tips)
-   e. Sign and append
-3. Working tree updated to merged state
-4. Conflicted entities surfaced to user
+1. Author invokes `epoch intent <path>`
+2. Event Engine stores the patch blob and signs an Intent event referencing the current main projection.
+3. Reviewers inspect the intent and invoke `epoch merge <intent-id>` to sign inclusion, or `epoch reject <intent-id>` to sign exclusion.
+4. Policy Layer:
+   a. Collects Intent events.
+   b. Counts maintainer-signed IntentMerge events for each intent.
+   c. Skips any intent with a valid IntentReject event.
+   d. Projects main from merged, non-rejected intent patches.
+5. CRDT Registry resolves entity-level patch application deterministically.
 ```
 
 ---

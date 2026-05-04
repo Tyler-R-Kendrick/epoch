@@ -1,6 +1,6 @@
 # Epoch
 
-**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It retains Git's proven strengths — offline-first operation, content-addressed DAG, fast branching — while eliminating its weaknesses: text-only merges, no real-time collaboration, no decentralized identity, and forced dependence on a central forge.
+**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It retains Git's proven strengths — offline-first operation and content-addressed history — while replacing mutable-pointer collaboration with signed intent events and a Radicle-inspired patch inclusion policy.
 
 ---
 
@@ -35,7 +35,7 @@
 │  │   Identity / Keystore (Ed25519)                  │    │
 │  └──────────────────────────────────────────────────┘    │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │   Sync Layer: Event Sync │ Convergence Repair │ Push/Pull   │    │
+│  │   Sync Layer: Event Sync │ Convergence Repair │ Gossip       │    │
 │  └──────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
          │                  │                │
@@ -55,7 +55,7 @@
 - **Content-Addressed Storage** — SHA-256 addressed blobs and trees; automatic deduplication
 - **Event Sync Distribution** — no central server required; events propagate across peers automatically
 - **Convergence Repair** — background reconciliation ensures all peers converge
-- **Offline First** — commit, branch, diff, and merge with zero network access
+- **Offline First** — record, inspect, resolve, and sign intent merges with zero network access
 - **Tamper Detection** — forked or modified event logs are detectable by any peer
 - **Git Compatibility** — import from and export to standard Git repositories
 
@@ -108,9 +108,10 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - built-in text and JSON entity merge definitions
 - filesystem event sync between local repositories
 - Git import/export compatibility for tracked files
+- Radicle-inspired intent events and signed merge/rejection policy events for patch inclusion
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
 - separate `Epoch.Core`, `Epoch.CLI`, and `Epoch.WASM` package projects
-- CLI commands for `init`, `record`, `events`, `verify`, `merge`, `sync`, `branch`, `rollback`, `import`, and `export`
+- CLI commands for `init`, `record`, `intent`, `events`, `verify`, `merge`, `reject`, `status`, `main`, `resolve`, `sync`, `rollback`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -148,18 +149,21 @@ node packages/Epoch.CLI/dist/cli.js --repo ./epoch import ./git-project
 node packages/Epoch.CLI/dist/cli.js --repo ./epoch export ./git-output
 ```
 
-Manage workflow state with event-native DVCS primitives:
+Create an intent and have maintainers sign inclusion or rejection events:
 
 ```bash
-node packages/Epoch.CLI/dist/cli.js branch feature/login
-node packages/Epoch.CLI/dist/cli.js rollback EVENT_ID
+node packages/Epoch.CLI/dist/cli.js intent README.md --type text/plain
+node packages/Epoch.CLI/dist/cli.js merge INTENT_ID
+node packages/Epoch.CLI/dist/cli.js reject INTENT_ID --reason "needs tests"
+node packages/Epoch.CLI/dist/cli.js status
+node packages/Epoch.CLI/dist/cli.js main
 ```
 
-Merge three versions of a supported entity type:
+Resolve three versions of a supported entity type through the CRDT registry:
 
 ```bash
-node packages/Epoch.CLI/dist/cli.js merge --type application/json base.json left.json right.json
-node packages/Epoch.CLI/dist/cli.js merge --type text/plain base.txt left.txt right.txt
+node packages/Epoch.CLI/dist/cli.js resolve --type application/json base.json left.json right.json
+node packages/Epoch.CLI/dist/cli.js resolve --type text/plain base.txt left.txt right.txt
 ```
 
 Run the Gherkin feature suite:
