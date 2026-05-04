@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { CRDTRegistry, dumpEntity, EpochRepository, loadEntity } from "../../Epoch.Core/src";
-import { DefaultAuthor, EntityType, JsonEncoding } from "../../Epoch.Core/src/domain";
+import { CRDTRegistry, DefaultAuthor, dumpEntity, EntityType, EpochRepository, JsonEncoding, loadEntity } from "@epoch/core";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 
 interface ParsedArgs {

@@ -2,9 +2,12 @@
   "name": "@epoch/cli",
   "version": "0.1.0",
   "description": "Epoch command line host.",
-  "main": "../../dist/packages/Epoch.CLI/src/cli.js",
+  "main": "dist/cli.js",
   "bin": {
-    "epoch": "../../dist/packages/Epoch.CLI/src/cli.js"
+    "epoch": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.json"
   },
   "dependencies": {
     "@epoch/core": "0.1.0"

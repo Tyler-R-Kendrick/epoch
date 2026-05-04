@@ -4,8 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "../../packages/Epoch.Core/src";
-import { canonicalJson } from "../../packages/Epoch.Core/src/json";
+import { canonicalJson, commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "@epoch/core";
 
 interface WorldState {
   workspace: string;

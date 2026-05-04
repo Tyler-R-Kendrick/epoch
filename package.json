@@ -8,12 +8,12 @@
     "packages/Epoch.CLI",
     "packages/Epoch.WASM"
   ],
-  "main": "dist/packages/Epoch.Core/src/index.js",
+  "main": "packages/Epoch.Core/dist/index.js",
   "bin": {
-    "epoch": "dist/packages/Epoch.CLI/src/cli.js"
+    "epoch": "packages/Epoch.CLI/dist/cli.js"
   },
   "scripts": {
-    "build": "tsgo -p tsconfig.json",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && tsgo -p tsconfig.test.json",
     "features": "npm run build -- --pretty false && cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test": "npm run features"
   },

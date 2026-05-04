@@ -2,8 +2,11 @@
   "name": "@epoch/wasm",
   "version": "0.1.0",
   "description": "Epoch WASM host entrypoint.",
-  "main": "../../dist/packages/Epoch.WASM/src/index.js",
-  "types": "../../dist/packages/Epoch.WASM/src/index.d.ts",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json"
+  },
   "dependencies": {
     "@epoch/core": "0.1.0"
   }

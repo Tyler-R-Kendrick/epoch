@@ -9,6 +9,5 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": ["node"]
-  },
-  "include": ["packages/**/*.ts", "test/**/*.ts"]
+  }
 }

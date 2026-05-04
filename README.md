@@ -129,37 +129,37 @@ npm run build
 Run the CLI host after building:
 
 ```bash
-node dist/packages/Epoch.CLI/src/cli.js init --author alice
-node dist/packages/Epoch.CLI/src/cli.js record README.md --type text/plain
-node dist/packages/Epoch.CLI/src/cli.js events
-node dist/packages/Epoch.CLI/src/cli.js verify
+node packages/Epoch.CLI/dist/cli.js init --author alice
+node packages/Epoch.CLI/dist/cli.js record README.md --type text/plain
+node packages/Epoch.CLI/dist/cli.js events
+node packages/Epoch.CLI/dist/cli.js verify
 ```
 
 Converge two local Epoch repositories by exchanging missing events and blobs:
 
 ```bash
-node dist/packages/Epoch.CLI/src/cli.js --repo ./peer-a sync ./peer-b
+node packages/Epoch.CLI/dist/cli.js --repo ./peer-a sync ./peer-b
 ```
 
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:
 
 ```bash
-node dist/packages/Epoch.CLI/src/cli.js --repo ./epoch import ./git-project
-node dist/packages/Epoch.CLI/src/cli.js --repo ./epoch export ./git-output
+node packages/Epoch.CLI/dist/cli.js --repo ./epoch import ./git-project
+node packages/Epoch.CLI/dist/cli.js --repo ./epoch export ./git-output
 ```
 
 Manage workflow state with event-native DVCS primitives:
 
 ```bash
-node dist/packages/Epoch.CLI/src/cli.js branch feature/login
-node dist/packages/Epoch.CLI/src/cli.js rollback EVENT_ID
+node packages/Epoch.CLI/dist/cli.js branch feature/login
+node packages/Epoch.CLI/dist/cli.js rollback EVENT_ID
 ```
 
 Merge three versions of a supported entity type:
 
 ```bash
-node dist/packages/Epoch.CLI/src/cli.js merge --type application/json base.json left.json right.json
-node dist/packages/Epoch.CLI/src/cli.js merge --type text/plain base.txt left.txt right.txt
+node packages/Epoch.CLI/dist/cli.js merge --type application/json base.json left.json right.json
+node packages/Epoch.CLI/dist/cli.js merge --type text/plain base.txt left.txt right.txt
 ```
 
 Run the Gherkin feature suite:
