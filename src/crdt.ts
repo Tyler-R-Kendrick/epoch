@@ -220,11 +220,10 @@ function replacementForSide(base: string[], sideGroup: TextHunk[], start: number
   return lines;
 }
 
-function formatLineRange(start: number, endExclusive: number): string {
+function formatLineRange(start: number, endLine: number): string {
   const firstLine = start + 1;
-  if (endExclusive <= start) return `insertion at line ${firstLine}`;
-  const lastLine = endExclusive;
-  return firstLine === lastLine ? `line ${firstLine}` : `lines ${firstLine}-${lastLine}`;
+  if (endLine <= start) return `insertion at line ${firstLine}`;
+  return firstLine === endLine ? `line ${firstLine}` : `lines ${firstLine}-${endLine}`;
 }
 
 function same(left: unknown, right: unknown): boolean {
