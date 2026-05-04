@@ -2,6 +2,7 @@ import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { CRDTEventLog, CRDTOperation } from "./crdt";
 import { canonicalJson } from "./json";
 
 export type EventPayload = Record<string, unknown>;
@@ -209,8 +210,18 @@ export class EpochRepository {
       signature: signEvent(unsigned, identity.privateKey),
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
-    writeJson(this.headsPath, [event.id]);
+    const retainedHeads = this.heads().filter((head) => !heads.includes(head));
+    writeJson(this.headsPath, [...new Set([...retainedHeads, event.id])].sort());
     return event;
+  }
+
+  appendCRDTOperation(operation: CRDTOperation, author = this.identity()): Event {
+    return this.append("crdt", { ...operation }, author);
+  }
+
+  crdtView(entity: string): unknown {
+    this.requireInitialized();
+    return new CRDTEventLog().materialize(this.events(), entity);
   }
 
   recordFile(path: string, entityType = "application/octet-stream", author = this.identity()): Event {

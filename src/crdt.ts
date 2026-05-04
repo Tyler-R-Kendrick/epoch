@@ -5,6 +5,34 @@ export interface CRDTDefinition {
   merge(base: unknown, left: unknown, right: unknown): unknown;
 }
 
+export type CRDTOperation =
+  | { kind: "map-set"; entity: string; key: string; value: unknown }
+  | { kind: "map-delete"; entity: string; key: string }
+  | { kind: "text-insert"; entity: string; value: string; after?: string | null }
+  | { kind: "text-delete"; entity: string; target: string };
+
+export interface CRDTEvent {
+  readonly id: string;
+  readonly type: string;
+  readonly author: string;
+  readonly lamport: number;
+  readonly payload: Record<string, unknown>;
+}
+
+interface VersionedValue {
+  readonly event: CRDTEvent;
+  readonly deleted: boolean;
+  readonly value?: unknown;
+}
+
+interface TextElement {
+  readonly id: string;
+  readonly after: string | null;
+  readonly value: string;
+  readonly event: CRDTEvent;
+  deleted: boolean;
+}
+
 export class MergeConflictError extends Error {
   constructor(readonly path: string, message = `merge conflict at ${path}`) {
     super(message);
@@ -28,6 +56,90 @@ export class CRDTRegistry {
 
   merge(entityType: string, base: unknown, left: unknown, right: unknown): unknown {
     return (this.definitions.get(entityType) ?? { merge: threeWayMerge }).merge(base, left, right);
+  }
+}
+
+export class CRDTEventLog {
+  materialize(events: readonly CRDTEvent[], entity: string): unknown {
+    const operations = events
+      .filter((event) => event.type === "crdt")
+      .filter((event) => event.payload.entity === entity)
+      .sort(compareEvents);
+    if (operations.some((event) => event.payload.kind === "text-insert" || event.payload.kind === "text-delete")) {
+      return this.materializeText(operations);
+    }
+    return this.materializeMap(operations);
+  }
+
+  private materializeMap(events: readonly CRDTEvent[]): Record<string, unknown> {
+    const values = new Map<string, VersionedValue>();
+    for (const event of events) {
+      const key = event.payload.key;
+      if (typeof key !== "string") continue;
+      const current = values.get(key);
+      if (current !== undefined && compareEvents(event, current.event) <= 0) continue;
+      switch (event.payload.kind) {
+        case "map-set":
+          values.set(key, { event, deleted: false, value: event.payload.value });
+          break;
+        case "map-delete":
+          values.set(key, { event, deleted: true });
+          break;
+      }
+    }
+
+    const materialized: Record<string, unknown> = {};
+    for (const [key, value] of [...values.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+      if (!value.deleted) materialized[key] = value.value;
+    }
+    return materialized;
+  }
+
+  private materializeText(events: readonly CRDTEvent[]): string {
+    const elements = new Map<string, TextElement>();
+    for (const event of events) {
+      switch (event.payload.kind) {
+        case "text-insert": {
+          const value = event.payload.value;
+          const after = event.payload.after;
+          if (typeof value !== "string") break;
+          elements.set(event.id, {
+            id: event.id,
+            after: typeof after === "string" ? after : null,
+            value,
+            event,
+            deleted: false,
+          });
+          break;
+        }
+        case "text-delete": {
+          const target = event.payload.target;
+          if (typeof target !== "string") break;
+          const element = elements.get(target);
+          if (element !== undefined) element.deleted = true;
+          break;
+        }
+      }
+    }
+
+    const children = new Map<string | null, TextElement[]>();
+    for (const element of elements.values()) {
+      const parent = element.after !== null && elements.has(element.after) ? element.after : null;
+      const siblings = children.get(parent) ?? [];
+      siblings.push(element);
+      children.set(parent, siblings);
+    }
+    for (const siblings of children.values()) siblings.sort((left, right) => compareEvents(left.event, right.event));
+
+    const chunks: string[] = [];
+    const visit = (parent: string | null): void => {
+      for (const element of children.get(parent) ?? []) {
+        if (!element.deleted) chunks.push(element.value);
+        visit(element.id);
+      }
+    };
+    visit(null);
+    return chunks.join("");
   }
 }
 
@@ -232,4 +344,8 @@ function same(left: unknown, right: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
+  return left.lamport - right.lamport || left.author.localeCompare(right.author) || left.id.localeCompare(right.id);
 }
