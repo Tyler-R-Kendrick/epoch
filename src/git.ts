@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { EpochRepository, Event, readJson, writeJson } from "./core";
 
@@ -194,6 +194,7 @@ function parseCommitMessage(args: readonly string[]): string {
 
 function entityTypeForPath(path: string): string {
   const extension = path.toLowerCase().split(".").pop();
+  if (extension === undefined) return "application/octet-stream";
   switch (extension) {
     case "json":
       return "application/json";
@@ -225,7 +226,7 @@ function entityTypeForPath(path: string): string {
 
 export function readEpochGitRemote(root: string): EpochGitRemote | undefined {
   const path = join(resolve(root), ".epoch", "git.json");
-  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) as EpochGitRemote : undefined;
+  return existsSync(path) ? readJson<EpochGitRemote>(path) : undefined;
 }
 
 function rejectGitOptionLikeValue(value: string, description: string): void {

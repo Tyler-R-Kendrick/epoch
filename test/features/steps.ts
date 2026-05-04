@@ -161,8 +161,8 @@ Then("the repository verifies successfully", function () {
   assert.deepEqual(state.repo.verify(), []);
 });
 
-Then("the event log contains {int} event(s)", function (count: number) {
-  assert.equal(state.repo.events().length, count);
+Then(/^the event log contains (\d+) events?$/, function (count: string) {
+  assert.equal(state.repo.events().length, Number(count));
 });
 
 Then("the recorded blob content equals {string}", function (expected: string) {
