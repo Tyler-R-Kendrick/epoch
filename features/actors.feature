@@ -19,6 +19,7 @@ Feature: XState actor-driven Epoch repository
     Then the actor repository verifies successfully
     And the actor event log contains 2 events
     And the actor events include authors "alice,bob"
+    And actor event authors have distinct signing keys
 
   Scenario: Actor anti-entropy synchronizes with a peer asynchronously
     Given a new workspace

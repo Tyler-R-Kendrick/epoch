@@ -82,10 +82,22 @@ Then("the actor event log contains {int} event", async function (count: number) 
   assert.equal((await state.actorRepo.events()).length, count);
 });
 
+Then("the actor event log contains {int} events", async function (count: number) {
+  assert.ok(state.actorRepo);
+  assert.equal((await state.actorRepo.events()).length, count);
+});
+
 Then("the actor events include authors {string}", async function (expected: string) {
   assert.ok(state.actorRepo);
   const authors = [...new Set((await state.actorRepo.events()).map((event) => event.author))].sort();
   assert.deepEqual(authors, expected.split(",").sort());
+});
+
+Then("actor event authors have distinct signing keys", async function () {
+  assert.ok(state.actorRepo);
+  const keysByAuthor = new Map((await state.actorRepo.events()).map((event: Event) => [event.author, event.authorPublicKey]));
+  assert.equal(keysByAuthor.size, 2);
+  assert.equal(new Set(keysByAuthor.values()).size, keysByAuthor.size);
 });
 
 Given("a new workspace", function () {

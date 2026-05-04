@@ -131,6 +131,7 @@ export class EpochRepository {
   readonly epochDir: string;
   readonly eventsDir: string;
   readonly blobsDir: string;
+  readonly usersDir: string;
   readonly headsPath: string;
   readonly identityPath: string;
 
@@ -139,6 +140,7 @@ export class EpochRepository {
     this.epochDir = join(this.root, ".epoch");
     this.eventsDir = join(this.epochDir, "events");
     this.blobsDir = join(this.epochDir, "blobs");
+    this.usersDir = join(this.epochDir, "users");
     this.headsPath = join(this.epochDir, "heads.json");
     this.identityPath = join(this.epochDir, "identity.json");
   }
@@ -146,6 +148,7 @@ export class EpochRepository {
   init(author = "local"): void {
     mkdirSync(this.eventsDir, { recursive: true });
     mkdirSync(this.blobsDir, { recursive: true });
+    mkdirSync(this.usersDir, { recursive: true });
     if (!existsAsFile(this.headsPath)) {
       writeJson(this.headsPath, []);
     }
@@ -167,6 +170,20 @@ export class EpochRepository {
     return upgraded;
   }
 
+  identityFor(author: string): IdentityData {
+    this.requireInitialized();
+    const defaultIdentity = this.identityDocument();
+    if (author === defaultIdentity.author) return defaultIdentity;
+
+    mkdirSync(this.usersDir, { recursive: true });
+    const path = join(this.usersDir, `${sha256(author)}.json`);
+    if (existsAsFile(path)) return readJson<IdentityData>(path);
+
+    const identity = createIdentity(author);
+    writeJson(path, identity);
+    return identity;
+  }
+
   heads(): string[] {
     this.requireInitialized();
     return readJson<string[]>(this.headsPath);
@@ -174,7 +191,7 @@ export class EpochRepository {
 
   append(type: string, payload: EventPayload, author = this.identity()): Event {
     this.requireInitialized();
-    const identity = this.identityDocument();
+    const identity = this.identityFor(author);
     const heads = this.heads();
     const unsigned = Event.create(type, author, identity.publicKey, this.nextLamport(heads), heads, payload);
     const event = new Event({
@@ -186,7 +203,7 @@ export class EpochRepository {
     return event;
   }
 
-  recordFile(path: string, entityType = "application/octet-stream"): Event {
+  recordFile(path: string, entityType = "application/octet-stream", author = this.identity()): Event {
     const { absolute, relativePath } = resolveInside(this.root, path, "record file", "repository root");
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
@@ -199,7 +216,7 @@ export class EpochRepository {
       entity_type: entityType,
       blob_sha256: blobSha256,
       size: data.byteLength,
-    });
+    }, author);
   }
 
   read(eventId: string): Event {
