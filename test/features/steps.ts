@@ -95,9 +95,15 @@ Then("the actor events include authors {string}", async function (expected: stri
 
 Then("actor event authors have distinct signing keys", async function () {
   assert.ok(state.actorRepo);
-  const keysByAuthor = new Map((await state.actorRepo.events()).map((event: Event) => [event.author, event.authorPublicKey]));
-  assert.equal(keysByAuthor.size, 2);
-  assert.equal(new Set(keysByAuthor.values()).size, keysByAuthor.size);
+  const keysByAuthor = new Map<string, Set<string>>();
+  for (const event of await state.actorRepo.events()) {
+    keysByAuthor.set(event.author, (keysByAuthor.get(event.author) ?? new Set()).add(event.authorPublicKey));
+  }
+  assert.ok(keysByAuthor.size > 1);
+  for (const keys of keysByAuthor.values()) {
+    assert.equal(keys.size, 1);
+  }
+  assert.equal(new Set([...keysByAuthor.values()].map((keys) => [...keys][0])).size, keysByAuthor.size);
 });
 
 Given("a new workspace", function () {

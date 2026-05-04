@@ -29,10 +29,7 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string }>((
   let queue = Promise.resolve();
 
   function enqueue<T>(reply: Reply<T>, work: () => T | Promise<T>): void {
-    const run = queue.then(async () => {
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      return work();
-    });
+    const run = queue.then(work);
     queue = run.then(
       () => undefined,
       () => undefined,
