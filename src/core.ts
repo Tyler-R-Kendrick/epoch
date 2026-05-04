@@ -5,19 +5,26 @@ import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node
 import { canonicalJson } from "./json";
 import {
   Branches,
+  CryptoSpec,
   DefaultAuthor,
   EntityType,
   EventData,
   EventDataSchema,
   EventPayload,
   EventType,
+  FileExtension,
   Git,
   IdentityData,
   JsonEncoding,
   JsonFileExtension,
   LegacyIdentitySchema,
+  FsFlag,
+  PrimitiveType,
+  RepositoryText,
   Schemas,
+  SignatureText,
   StorageName,
+  TextToken,
 } from "./domain";
 import type { z } from "zod";
 
@@ -39,23 +46,23 @@ export interface SyncResult {
   blobsCopied: number;
 }
 
-const ENTITY_TYPES_BY_EXTENSION = new Map([
-  [".css", EntityType.css],
-  [".csv", EntityType.csv],
-  [".htm", EntityType.html],
-  [".html", EntityType.html],
-  [".js", EntityType.javascript],
-  [JsonFileExtension, EntityType.json],
-  [".jsx", EntityType.jsx],
-  [".markdown", EntityType.markdown],
-  [".md", EntityType.markdown],
-  [".toml", EntityType.toml],
-  [".ts", EntityType.typescript],
-  [".tsx", EntityType.tsx],
-  [".txt", EntityType.plainText],
-  [".xml", EntityType.xml],
-  [".yaml", EntityType.yaml],
-  [".yml", EntityType.yaml],
+const ENTITY_TYPES_BY_EXTENSION = new Map<string, string>([
+  [FileExtension.css, EntityType.css],
+  [FileExtension.csv, EntityType.csv],
+  [FileExtension.htm, EntityType.html],
+  [FileExtension.html, EntityType.html],
+  [FileExtension.javascript, EntityType.javascript],
+  [FileExtension.json, EntityType.json],
+  [FileExtension.jsx, EntityType.jsx],
+  [FileExtension.markdownLong, EntityType.markdown],
+  [FileExtension.markdown, EntityType.markdown],
+  [FileExtension.toml, EntityType.toml],
+  [FileExtension.typescript, EntityType.typescript],
+  [FileExtension.tsx, EntityType.tsx],
+  [FileExtension.text, EntityType.plainText],
+  [FileExtension.xml, EntityType.xml],
+  [FileExtension.yaml, EntityType.yaml],
+  [FileExtension.yml, EntityType.yaml],
 ]);
 
 export class Event {
@@ -188,7 +195,7 @@ export class EpochRepository {
 
     const identity = createIdentity(author);
     try {
-      writeFileSync(path, `${canonicalJson(identity)}\n`, { encoding: JsonEncoding, flag: "wx" });
+      writeFileSync(path, `${canonicalJson(identity)}${TextToken.newline}`, { encoding: JsonEncoding, flag: FsFlag.exclusiveWrite });
       return identity;
     } catch (error) {
       if (isFileExistsError(error)) return readJson(path, Schemas.identity);
@@ -216,7 +223,7 @@ export class EpochRepository {
   }
 
   recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
-    const { absolute, relativePath } = resolveInside(this.root, path, "record file", "repository root");
+    const { absolute, relativePath } = resolveInside(this.root, path, RepositoryText.recordFile, RepositoryText.repositoryRoot);
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
     const blobPath = join(this.blobsDir, blobSha256);
@@ -224,7 +231,7 @@ export class EpochRepository {
       writeFileSync(blobPath, data);
     }
     return this.append(EventType.commit, {
-      path: relativePath.split(sep).join("/"),
+      path: relativePath.split(sep).join(TextToken.pathSeparator),
       entity_type: entityType,
       blob_sha256: blobSha256,
       size: data.byteLength,
@@ -344,14 +351,14 @@ export class EpochRepository {
   importFromGit(gitRoot: string): Event[] {
     this.requireInitialized();
     const sourceRoot = resolve(gitRoot);
-    const tracked = execFileSync(Git.binary, ["-C", sourceRoot, Git.lsFiles, "-z"]);
+    const tracked = execFileSync(Git.binary, [Git.workTreeOption, sourceRoot, Git.lsFiles, Git.nulTerminated]);
     return tracked
       .toString(JsonEncoding)
-      .split("\0")
+      .split(TextToken.nul)
       .filter((path) => path.length > 0)
       .map((path) => {
-        const data = readFileSync(resolveInside(sourceRoot, path, "read path", "Git repository").absolute);
-        const target = resolveInside(this.root, path, "write path", "repository root").absolute;
+        const data = readFileSync(resolveInside(sourceRoot, path, RepositoryText.readPath, RepositoryText.gitRepository).absolute);
+        const target = resolveInside(this.root, path, RepositoryText.writePath, RepositoryText.repositoryRoot).absolute;
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, data);
         return this.recordFile(path, entityTypeForPath(path));
@@ -363,23 +370,23 @@ export class EpochRepository {
     const targetRoot = resolve(gitRoot);
     mkdirSync(targetRoot, { recursive: true });
     if (!existsAsDirectory(join(targetRoot, Git.repository))) {
-      execFileSync(Git.binary, ["-C", targetRoot, Git.config, Git.initDefaultBranch, Git.init]);
+      execFileSync(Git.binary, [Git.workTreeOption, targetRoot, Git.config, Git.initDefaultBranch, Git.init]);
     }
 
     const exported: string[] = [];
     for (const event of this.latestRecords()) {
       const path = event.payload.path;
       const blobSha256 = event.payload.blob_sha256;
-      if (typeof path !== "string" || typeof blobSha256 !== "string") continue;
-      const target = resolveInside(targetRoot, path, "write path", "Git repository").absolute;
+      if (!isString(path) || !isString(blobSha256)) continue;
+      const target = resolveInside(targetRoot, path, RepositoryText.writePath, RepositoryText.gitRepository).absolute;
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, readFileSync(join(this.blobsDir, blobSha256)));
       exported.push(path);
     }
 
     if (exported.length > 0) {
-      execFileSync(Git.binary, ["-C", targetRoot, Git.add, ...exported]);
-      const hasChanges = execFileSync(Git.binary, ["-C", targetRoot, Git.status, Git.porcelain]).toString(JsonEncoding).trim().length > 0;
+      execFileSync(Git.binary, [Git.workTreeOption, targetRoot, Git.add, ...exported]);
+      const hasChanges = execFileSync(Git.binary, [Git.workTreeOption, targetRoot, Git.status, Git.porcelain]).toString(JsonEncoding).trim().length > 0;
       if (hasChanges) {
         commitGit(targetRoot, Git.exportMessage);
       }
@@ -403,7 +410,7 @@ export class EpochRepository {
   private latestRecords(): Event[] {
     const records = new Map<string, Event>();
     for (const event of this.events()) {
-      if ((event.type === EventType.commit || event.type === EventType.legacyRecord) && typeof event.payload.path === "string") {
+      if ((event.type === EventType.commit || event.type === EventType.legacyRecord) && isString(event.payload.path)) {
         records.set(event.payload.path, event);
       }
     }
@@ -429,46 +436,46 @@ export function readJson<T>(path: string, schema: z.ZodType<T>): T {
 }
 
 export function writeJson(path: string, value: unknown): void {
-  writeFileSync(path, `${canonicalJson(value)}\n`, JsonEncoding);
+  writeFileSync(path, `${canonicalJson(value)}${TextToken.newline}`, JsonEncoding);
 }
 
 function sha256(data: string | Buffer): string {
-  return createHash("sha256").update(data).digest("hex");
+  return createHash(CryptoSpec.eventHash).update(data).digest(CryptoSpec.hashDigest);
 }
 
 function resolveInside(root: string, path: string, operation: string, description: string): { absolute: string; relativePath: string } {
   const absolute = resolve(isAbsolute(path) ? path : join(root, path));
   const relativePath = relative(root, absolute);
-  if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+  if (relativePath === TextToken.empty || relativePath === TextToken.parentPath || relativePath.startsWith(`${TextToken.parentPath}${sep}`) || isAbsolute(relativePath)) {
     throw new Error(`cannot ${operation} outside ${description}: ${path}`);
   }
   return { absolute, relativePath };
 }
 
 export function commitGit(root: string, message: string): void {
-  execFileSync(Git.binary, ["-C", root, Git.config, Git.userName, Git.config, Git.userEmail, Git.commit, Git.message, message]);
+  execFileSync(Git.binary, [Git.workTreeOption, root, Git.config, Git.userName, Git.config, Git.userEmail, Git.commit, Git.message, message]);
 }
 
 function createIdentity(author: string): IdentityData {
-  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const { publicKey, privateKey } = generateKeyPairSync(CryptoSpec.signingAlgorithm);
   return {
     author,
-    publicKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
-    privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+    publicKey: publicKey.export({ type: CryptoSpec.publicKeyType, format: CryptoSpec.keyFormat }).toString(),
+    privateKey: privateKey.export({ type: CryptoSpec.privateKeyType, format: CryptoSpec.keyFormat }).toString(),
   };
 }
 
 function signEvent(event: Event, privateKey: string): string {
-  return sign(null, Buffer.from(canonicalJson(event.unsigned())), privateKey).toString("base64");
+  return sign(null, Buffer.from(canonicalJson(event.unsigned())), privateKey).toString(CryptoSpec.signatureEncoding);
 }
 
 function verifyEventSignature(event: Event): string | undefined {
-  if (typeof event.signature !== "string" || event.signature.length === 0) return "missing signature";
-  if (typeof event.authorPublicKey !== "string" || event.authorPublicKey.length === 0) return "missing public key";
+  if (!isString(event.signature) || event.signature.length === 0) return SignatureText.missingSignature;
+  if (!isString(event.authorPublicKey) || event.authorPublicKey.length === 0) return SignatureText.missingPublicKey;
   try {
-    return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"))
+    return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, CryptoSpec.signatureEncoding))
       ? undefined
-      : "invalid signature";
+      : SignatureText.invalidSignature;
   } catch (error) {
     return `signature verification error (key mismatch or corrupted signature data): ${error instanceof Error ? error.message : String(error)}`;
   }
@@ -501,7 +508,15 @@ function existsAsFile(path: string): boolean {
 }
 
 function isFileExistsError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "EEXIST";
+  return isObject(error) && "code" in error && (error as { code: unknown }).code === FsFlag.exists;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === PrimitiveType.string;
+}
+
+function isObject(value: unknown): value is object {
+  return typeof value === PrimitiveType.object && value !== null;
 }
 
 function existsAsDirectory(path: string): boolean {

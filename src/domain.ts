@@ -91,6 +91,8 @@ export const ActorCommand = {
 
 export const Git = {
   binary: "git",
+  workTreeOption: "-C",
+  nulTerminated: "-z",
   initDefaultBranch: "init.defaultBranch=main",
   userName: "user.name=epoch",
   userEmail: "user.email=epoch@example.invalid",
@@ -106,12 +108,97 @@ export const Git = {
   exportMessage: "Export from Epoch",
 } as const;
 
+export const CliSyntax = {
+  repositoryDefault: ".",
+  optionPrefix: "--",
+  branchSeparator: ",",
+} as const;
+
+export const CliText = {
+  ok: "ok",
+  verificationFailed: "verification failed",
+  usage: "usage: epoch [--repo PATH] <init|commit|log|verify|merge|merge-abort|pull|push|sync|branch|rollback|import|export>",
+  mergeUsage: "usage: epoch merge --type MIME BASE LEFT RIGHT",
+  branchUsage: "usage: epoch branch [NAME]",
+  rollbackUsage: "usage: epoch rollback EVENT_ID",
+} as const;
+
+export const SignatureText = {
+  missingSignature: "missing signature",
+  missingPublicKey: "missing public key",
+  invalidSignature: "invalid signature",
+} as const;
+
 export const GIT_AUTHOR_NAME = "epoch";
 export const GIT_AUTHOR_EMAIL = "epoch@example.invalid";
 
 export const DefaultAuthor = "local";
 export const JsonEncoding = "utf8";
 export const JsonFileExtension = ".json";
+
+export const FileExtension = {
+  css: ".css",
+  csv: ".csv",
+  htm: ".htm",
+  html: ".html",
+  javascript: ".js",
+  json: JsonFileExtension,
+  jsx: ".jsx",
+  markdownLong: ".markdown",
+  markdown: ".md",
+  toml: ".toml",
+  typescript: ".ts",
+  tsx: ".tsx",
+  text: ".txt",
+  xml: ".xml",
+  yaml: ".yaml",
+  yml: ".yml",
+} as const;
+
+export const TextToken = {
+  empty: "",
+  newline: "\n",
+  comma: ",",
+  dot: ".",
+  pathSeparator: "/",
+  parentPath: "..",
+  nul: "\0",
+} as const;
+
+export const PrimitiveType = {
+  string: "string",
+  object: "object",
+  number: "number",
+} as const;
+
+export const CryptoSpec = {
+  eventHash: "sha256",
+  hashDigest: "hex",
+  signingAlgorithm: "ed25519",
+  publicKeyType: "spki",
+  privateKeyType: "pkcs8",
+  keyFormat: "pem",
+  signatureEncoding: "base64",
+} as const;
+
+export const FsFlag = {
+  exclusiveWrite: "wx",
+  exists: "EEXIST",
+} as const;
+
+export const RepositoryText = {
+  recordFile: "record file",
+  readPath: "read path",
+  writePath: "write path",
+  repositoryRoot: "repository root",
+  gitRepository: "Git repository",
+} as const;
+
+export const MergeText = {
+  conflictName: "MergeConflictError",
+  jsonPathRoot: "$",
+  textTypeError: "text/plain merges require string values",
+} as const;
 
 export const Schemas = {
   eventPayload: z.record(z.string(), z.unknown()),

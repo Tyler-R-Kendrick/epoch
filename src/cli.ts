@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { CRDTRegistry, dumpEntity, EpochRepository, loadEntity } from "./index";
-import { CliCommand, CliOption, DefaultAuthor, EntityType, JsonEncoding, Schemas } from "./domain";
+import { CliCommand, CliOption, CliSyntax, CliText, DefaultAuthor, EntityType, JsonEncoding, Schemas } from "./domain";
 
 interface ParsedArgs {
   repo: string;
@@ -22,7 +22,7 @@ export function main(argv = process.argv.slice(2)): number {
 function run(argv: string[]): void {
   const parsed = parseGlobalArgs(argv);
   if (parsed.command === undefined) {
-    throw new Error(`usage: epoch [${CliOption.repo} PATH] <init|commit|log|verify|merge|merge-abort|pull|push|sync|branch|rollback|import|export>`);
+    throw new Error(CliText.usage);
   }
 
   const repo = new EpochRepository(parsed.repo);
@@ -49,9 +49,9 @@ function run(argv: string[]): void {
       const problems = repo.verify();
       if (problems.length > 0) {
         for (const problem of problems) console.error(problem);
-        throw new Error("verification failed");
+        throw new Error(CliText.verificationFailed);
       }
-      console.log("ok");
+      console.log(CliText.ok);
       return;
     }
     case CliCommand.pull:
@@ -81,7 +81,7 @@ function run(argv: string[]): void {
     case CliCommand.merge: {
       const options = parseOptions(parsed.args, { [CliOption.type]: "" });
       if (options.type === "" || options.positionals.length !== 3) {
-        throw new Error("usage: epoch merge --type MIME BASE LEFT RIGHT");
+        throw new Error(CliText.mergeUsage);
       }
       const [base, left, right] = options.positionals.map((path) => loadEntity(options.type, readFileSync(path, JsonEncoding)));
       process.stdout.write(dumpEntity(options.type, CRDTRegistry.defaults().merge(options.type, base, left, right)));
@@ -95,16 +95,16 @@ function run(argv: string[]): void {
     case CliCommand.branch: {
       if (parsed.args.length === 0) {
         for (const [name, heads] of Object.entries(repo.branches()).sort(([left], [right]) => left.localeCompare(right))) {
-          console.log(`${name} ${heads.join(",")}`);
+          console.log(`${name} ${heads.join(CliSyntax.branchSeparator)}`);
         }
         return;
       }
-      if (parsed.args.length !== 1) throw new Error("usage: epoch branch [NAME]");
+      if (parsed.args.length !== 1) throw new Error(CliText.branchUsage);
       console.log(repo.branch(parsed.args[0]).id);
       return;
     }
     case CliCommand.rollback: {
-      if (parsed.args.length !== 1) throw new Error("usage: epoch rollback EVENT_ID");
+      if (parsed.args.length !== 1) throw new Error(CliText.rollbackUsage);
       console.log(repo.rollback(parsed.args[0]).id);
       return;
     }
@@ -121,8 +121,8 @@ function syncByCommand(repo: EpochRepository, command: string, peerRoot: string)
 
 function parseGlobalArgs(argv: string[]): ParsedArgs {
   const args = [...argv];
-  let repo = ".";
-  while (args[0]?.startsWith("--")) {
+  let repo: string = CliSyntax.repositoryDefault;
+  while (args[0]?.startsWith(CliSyntax.optionPrefix)) {
     const option = args.shift();
     if (option === CliOption.repo) {
       repo = requiredValue(option, args.shift());
@@ -138,7 +138,7 @@ function parseOptions<T extends Record<string, string>>(args: string[], defaults
   const remaining = [...args];
   while (remaining.length > 0) {
     const token = remaining.shift() as string;
-    if (!token.startsWith("--")) {
+    if (!token.startsWith(CliSyntax.optionPrefix)) {
       (values.positionals as string[]).push(token);
       continue;
     }
