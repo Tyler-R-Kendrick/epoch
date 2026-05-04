@@ -267,6 +267,7 @@ export class EpochRepository {
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
     this.updateHeads((currentHeads) => {
+      // `heads` is the parent set captured before signing; `currentHeads` may include concurrent process tips to preserve.
       const headsBeingMerged = new Set(heads);
       const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
       return [...new Set([...retainedHeads, event.id])].sort();
@@ -585,6 +586,7 @@ function withDirectoryLock<T>(lockDir: string, work: () => T): T {
   }
 }
 
+// Repository APIs are synchronous, so lock polling uses a short, bounded spin instead of async timers.
 function sleepSync(milliseconds: number): void {
   const end = Date.now() + milliseconds;
   while (Date.now() < end) {

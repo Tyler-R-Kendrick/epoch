@@ -65,7 +65,11 @@ export class CRDTEventLog {
     const document = this.documentFor(events, replicaID, operation.entity);
     const messages: Uint8Array[] = [];
     document.runtime.on("Send", (event: SendEvent) => messages.push(event.message));
-    document.runtime.transact(() => applyOperation(document, operation));
+    try {
+      document.runtime.transact(() => applyOperation(document, operation));
+    } catch (error) {
+      throw new Error(`failed to apply CRDT operation ${operation.kind}: ${error instanceof Error ? error.message : String(error)}`);
+    }
     if (messages.length === 0) throw new Error(`CRDT operation produced no Collabs message: ${operation.kind}`);
     return {
       backend: "collabs",
@@ -362,7 +366,7 @@ function clampIndex(index: number, length: number): number {
   return Math.max(0, Math.min(Math.trunc(index), length));
 }
 
-// Lamport time captures causality; author and event ID make concurrent operations converge with a stable total order.
+// Lamport time captures causality; author and event ID provide deterministic tie-breaking for a stable total order.
 function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
   const lamportDiff = left.lamport - right.lamport;
   if (lamportDiff !== 0) return lamportDiff;

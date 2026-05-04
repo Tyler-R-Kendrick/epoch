@@ -31,5 +31,8 @@
   },
   "overrides": {
     "protobufjs": "7.5.5"
+  },
+  "dependencyNotes": {
+    "protobufjs": "Override required for @collabs/collabs transitive advisory mitigation; see docs/crdt-backend-decision.md."
   }
 }
