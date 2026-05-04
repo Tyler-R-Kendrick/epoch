@@ -73,7 +73,7 @@ function run(argv: string[]): void {
       return;
     }
     case CliCommand.merge: {
-      const options = parseOptions(parsed.args, { [CliOption.type]: "" });
+      const options = parseOptions(parsed.args, { type: "" });
       if (options.type === "" || options.positionals.length !== 3) {
         throw new Error(CliText.mergeUsage);
       }
