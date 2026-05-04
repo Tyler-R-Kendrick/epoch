@@ -348,5 +348,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // Lamport time captures causality; author and event ID make concurrent operations converge with a stable total order.
 function compareEvents(left: CRDTEvent, right: CRDTEvent): number {
-  return left.lamport - right.lamport || left.author.localeCompare(right.author) || left.id.localeCompare(right.id);
+  return left.lamport - right.lamport || compareStrings(left.author, right.author) || compareStrings(left.id, right.id);
+}
+
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }

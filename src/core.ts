@@ -210,8 +210,8 @@ export class EpochRepository {
       signature: signEvent(unsigned, identity.privateKey),
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
-    const previousHeads = new Set(heads);
-    const retainedHeads = this.heads().filter((head) => !previousHeads.has(head));
+    const headsBeingMerged = new Set(heads);
+    const retainedHeads = this.heads().filter((head) => !headsBeingMerged.has(head));
     writeJson(this.headsPath, [...new Set([...retainedHeads, event.id])].sort());
     return event;
   }
