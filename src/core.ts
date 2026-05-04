@@ -39,6 +39,9 @@ export interface SyncResult {
   blobsCopied: number;
 }
 
+export const GIT_AUTHOR_NAME = "epoch";
+export const GIT_AUTHOR_EMAIL = "epoch@example.invalid";
+
 export class Event {
   readonly id: string;
   readonly type: string;
@@ -299,7 +302,7 @@ export class EpochRepository {
       execFileSync("git", ["-C", targetRoot, "add", ...exported]);
       const hasChanges = execFileSync("git", ["-C", targetRoot, "status", "--porcelain"]).toString("utf8").trim().length > 0;
       if (hasChanges) {
-        execFileSync("git", ["-C", targetRoot, "-c", "user.name=epoch", "-c", "user.email=epoch@example.invalid", "commit", "-m", "Export from Epoch"]);
+        execFileSync("git", ["-C", targetRoot, "-c", `user.name=${GIT_AUTHOR_NAME}`, "-c", `user.email=${GIT_AUTHOR_EMAIL}`, "commit", "-m", "Export from Epoch"]);
       }
     }
     return exported.sort();
@@ -374,9 +377,11 @@ function signEvent(event: Event, privateKey: string): string {
 }
 
 function verifyEvent(event: Event): boolean {
+  if (event.signature === "" || event.authorPublicKey === "") return false;
   try {
     return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"));
-  } catch {
+  } catch (error) {
+    console.warn(`unable to verify event ${event.id}: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
 }
@@ -396,8 +401,30 @@ function copyMissingFiles(sourceDir: string, targetDir: string): number {
 }
 
 function entityTypeForPath(path: string): string {
-  if (extname(path) === ".json") return "application/json";
-  if ([".md", ".txt"].includes(extname(path))) return "text/plain";
+  switch (extname(path).toLowerCase()) {
+    case ".json":
+      return "application/json";
+    case ".css":
+      return "text/css";
+    case ".csv":
+      return "text/csv";
+    case ".html":
+    case ".htm":
+      return "text/html";
+    case ".js":
+    case ".jsx":
+      return "text/javascript";
+    case ".md":
+    case ".markdown":
+    case ".txt":
+    case ".toml":
+    case ".ts":
+    case ".tsx":
+    case ".xml":
+    case ".yaml":
+    case ".yml":
+      return "text/plain";
+  }
   return "application/octet-stream";
 }
 

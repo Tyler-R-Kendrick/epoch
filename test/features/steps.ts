@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { CRDTRegistry, EpochRepository, Event, SyncResult } from "../../src";
+import { CRDTRegistry, EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, SyncResult } from "../../src";
 import { canonicalJson } from "../../src/json";
 
 interface WorldState {
@@ -149,7 +149,7 @@ Given("a Git repository with {string} containing {string}", function (path: stri
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, content.replaceAll("\\n", "\n"), "utf8");
   execFileSync("git", ["-C", workspace, "add", path]);
-  execFileSync("git", ["-C", workspace, "-c", "user.name=epoch", "-c", "user.email=epoch@example.invalid", "commit", "-m", "seed"]);
+  execFileSync("git", ["-C", workspace, "-c", `user.name=${GIT_AUTHOR_NAME}`, "-c", `user.email=${GIT_AUTHOR_EMAIL}`, "commit", "-m", "seed"]);
 });
 
 When("I import the Git repository", function () {
