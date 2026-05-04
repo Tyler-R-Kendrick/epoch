@@ -179,8 +179,13 @@ export class EpochRepository {
     if (existsAsFile(path)) return readJson<IdentityData>(path);
 
     const identity = createIdentity(author);
-    writeJson(path, identity);
-    return identity;
+    try {
+      writeFileSync(path, `${canonicalJson(identity)}\n`, { encoding: "utf8", flag: "wx" });
+      return identity;
+    } catch (error) {
+      if (isFileExistsError(error)) return readJson<IdentityData>(path);
+      throw error;
+    }
   }
 
   heads(): string[] {
@@ -450,6 +455,10 @@ function existsAsFile(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isFileExistsError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "EEXIST";
 }
 
 function existsAsDirectory(path: string): boolean {

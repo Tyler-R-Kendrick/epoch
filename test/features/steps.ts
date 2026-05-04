@@ -97,7 +97,12 @@ Then("actor event authors have distinct signing keys", async function () {
   assert.ok(state.actorRepo);
   const keysByAuthor = new Map<string, Set<string>>();
   for (const event of await state.actorRepo.events()) {
-    keysByAuthor.set(event.author, (keysByAuthor.get(event.author) ?? new Set()).add(event.authorPublicKey));
+    let keys = keysByAuthor.get(event.author);
+    if (keys === undefined) {
+      keys = new Set<string>();
+      keysByAuthor.set(event.author, keys);
+    }
+    keys.add(event.authorPublicKey);
   }
   assert.ok(keysByAuthor.size > 1);
   for (const keys of keysByAuthor.values()) {
