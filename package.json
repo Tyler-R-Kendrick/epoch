@@ -4,7 +4,14 @@
   "description": "Minimal event-driven DVCS prototype with pluggable CRDT entity-level merging.",
   "main": "dist/src/index.js",
   "bin": {
-    "epoch": "dist/src/cli.js"
+    "epoch": "dist/src/cli.js",
+    "epoch-git": "dist/src/cli-git.js"
+  },
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./Epoch.Core.Git": "./dist/src/git.js",
+    "./Epoch.CLI.Git": "./dist/src/cli-git.js",
+    "./Epoch.WASM.Git": "./dist/src/wasm-git.js"
   },
   "scripts": {
     "build": "tsgo -p tsconfig.json",

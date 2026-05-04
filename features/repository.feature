@@ -57,3 +57,26 @@ Feature: Epoch repository event log
     And the event log contains 1 event
     When I export to a Git repository
     Then the exported Git file "docs/readme.md" contains "from git\n"
+
+  Scenario: Git compatibility clone records provider metadata
+    Given a Git repository with "docs/readme.md" containing "from git\n"
+    When I clone the Git repository through Epoch Git compatibility
+    Then the repository verifies successfully
+    And the event log contains 2 events
+    And the cloned Epoch Git provider is "git"
+    And the cloned Epoch Git remote references the Git repository
+
+  Scenario: Git compatibility commit records an Epoch merge event
+    Given a Git repository with "docs/readme.md" containing "from git\n"
+    When I clone the Git repository through Epoch Git compatibility
+    And I stage Git file "docs/readme.md" with content "changed\n"
+    And I commit through Epoch Git compatibility with message "change"
+    Then the repository verifies successfully
+    And the event log contains 4 events
+    And the latest Epoch event has type "git.commit"
+    And the latest recorded Git file "docs/readme.md" contains "changed\n"
+
+  Scenario: Unsupported Git compatibility operations explain why
+    Given a new workspace
+    When I run unsupported Epoch Git command "rebase"
+    Then Git compatibility fails with "not supported"
