@@ -1,0 +1,27 @@
+{
+  "name": "epoch",
+  "version": "0.1.0",
+  "description": "Minimal event-driven DVCS prototype with pluggable CRDT entity-level merging.",
+  "main": "dist/src/index.js",
+  "bin": {
+    "epoch": "dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "features": "npm run build -- --pretty false && cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
+    "test": "npm run features"
+  },
+  "keywords": [
+    "dvcs",
+    "crdt",
+    "typescript",
+    "tsgo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cucumber/cucumber": "^12.8.2",
+    "@types/node": "^25.6.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260504.1"
+  }
+}
