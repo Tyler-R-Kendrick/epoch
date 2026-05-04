@@ -39,6 +39,7 @@ export const EventType = {
   intent: "intent",
   intentMerge: "intent.merge",
   intentReject: "intent.reject",
+  intentComment: "intent.comment",
   rollback: "rollback",
 } as const;
 
@@ -173,6 +174,12 @@ export const Schemas = {
     blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
     size: z.number().int().nonnegative(),
   }),
+  eventMetadata: z.object({
+    title: z.string().optional(),
+    description: z.string().optional(),
+    reason: z.string().optional(),
+    labels: z.array(z.string().min(1)).optional(),
+  }),
   intentPayload: z.object({
     base: z.array(z.string().min(1)),
     patches: z.array(z.object({
@@ -181,13 +188,41 @@ export const Schemas = {
       blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
       size: z.number().int().nonnegative(),
     })).min(1),
+    metadata: z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      reason: z.string().optional(),
+      labels: z.array(z.string().min(1)).optional(),
+    }).optional(),
   }),
   intentMergePayload: z.object({
     intent: z.string().min(1),
+    metadata: z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      reason: z.string().optional(),
+      labels: z.array(z.string().min(1)).optional(),
+    }).optional(),
   }),
   intentRejectPayload: z.object({
     intent: z.string().min(1),
-    reason: z.string(),
+    reason: z.string().optional(),
+    metadata: z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      reason: z.string().optional(),
+      labels: z.array(z.string().min(1)).optional(),
+    }).optional(),
+  }),
+  intentCommentPayload: z.object({
+    intent: z.string().min(1).optional(),
+    body: z.string().min(1),
+    metadata: z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      reason: z.string().optional(),
+      labels: z.array(z.string().min(1)).optional(),
+    }).optional(),
   }),
   heads: z.array(z.string().min(1)),
   syncResult: z.object({
@@ -205,7 +240,9 @@ export const LegacyIdentitySchema = Schemas.identity.partial({ publicKey: true, 
 
 export type EventData = z.infer<typeof EventDataSchema>;
 export type EventPayload = z.infer<typeof Schemas.eventPayload>;
+export type EventMetadata = z.infer<typeof Schemas.eventMetadata>;
 export type IdentityData = z.infer<typeof Schemas.identity>;
 export type IntentPayload = z.infer<typeof Schemas.intentPayload>;
 export type IntentMergePayload = z.infer<typeof Schemas.intentMergePayload>;
 export type IntentRejectPayload = z.infer<typeof Schemas.intentRejectPayload>;
+export type IntentCommentPayload = z.infer<typeof Schemas.intentCommentPayload>;

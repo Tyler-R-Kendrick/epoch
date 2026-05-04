@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { CRDTRegistry, DefaultAuthor, dumpEntity, EntityType, EpochRepository, JsonEncoding, loadEntity } from "@epoch/core";
+import type { EventMetadata } from "@epoch/core";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 
 interface ParsedArgs {
@@ -40,9 +41,9 @@ function run(argv: string[]): void {
       return;
     }
     case CliCommand.intent: {
-      const options = parseOptions(parsed.args, { type: EntityType.octetStream });
+      const options = parseOptions(parsed.args, { author: repo.identity(), type: EntityType.octetStream, title: "", description: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.intentUsage);
-      console.log(repo.intentFile(options.positionals[0], options.type).id);
+      console.log(repo.intentFile(options.positionals[0], options.type, options.author, metadataFromOptions(options)).id);
       return;
     }
     case CliCommand.events:
@@ -78,15 +79,21 @@ function run(argv: string[]): void {
       return;
     }
     case CliCommand.merge: {
-      const options = parseOptions(parsed.args, { author: repo.identity() });
+      const options = parseOptions(parsed.args, { author: repo.identity(), title: "", description: "", reason: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.mergeUsage);
-      console.log(repo.mergeIntent(options.positionals[0], options.author).id);
+      console.log(repo.mergeIntent(options.positionals[0], options.author, metadataFromOptions(options)).id);
       return;
     }
     case CliCommand.reject: {
-      const options = parseOptions(parsed.args, { author: repo.identity(), reason: "" });
+      const options = parseOptions(parsed.args, { author: repo.identity(), title: "", description: "", reason: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.rejectUsage);
-      console.log(repo.rejectIntent(options.positionals[0], options.reason, options.author).id);
+      console.log(repo.rejectIntent(options.positionals[0], options.reason, options.author, metadataFromOptions(options)).id);
+      return;
+    }
+    case CliCommand.comment: {
+      const options = parseOptions(parsed.args, { author: repo.identity(), intent: "", title: "", description: "", label: "" });
+      if (options.positionals.length !== 1) throw new Error(CliText.commentUsage);
+      console.log(repo.comment(options.positionals[0], options.intent === "" ? undefined : options.intent, options.author, metadataFromOptions(options)).id);
       return;
     }
     case CliCommand.status:
@@ -151,6 +158,17 @@ function parseOptions<T extends Record<string, string>>(args: string[], defaults
 function requiredValue(option: string, value: string | undefined): string {
   if (value === undefined) throw new Error(`${option} requires a value`);
   return value;
+}
+
+function metadataFromOptions(options: { title?: string; description?: string; reason?: string; label?: string }): EventMetadata {
+  const metadata: EventMetadata = {};
+  if (options.title !== undefined && options.title.length > 0) metadata.title = options.title;
+  if (options.description !== undefined && options.description.length > 0) metadata.description = options.description;
+  if (options.reason !== undefined && options.reason.length > 0) metadata.reason = options.reason;
+  if (options.label !== undefined && options.label.length > 0) {
+    metadata.labels = options.label.split(",").map((label) => label.trim()).filter((label) => label.length > 0);
+  }
+  return metadata;
 }
 
 if (require.main === module) {

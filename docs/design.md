@@ -47,12 +47,13 @@ Every change in Epoch is an **immutable event** appended to a local event log. E
 ```
 Event {
   id:           EventID          // content hash (SHA-256 of payload)
-  type:         EventType        // Record | Intent | IntentMerge | IntentReject | Tag | Config
+  type:         EventType        // Record | Intent | IntentMerge | IntentReject | IntentComment | Tag | Config
   author:       PublicKey        // Ed25519 public key
   signature:    Signature        // Ed25519 signature of payload
   timestamp:    LogicalClock     // Lamport timestamp for ordering
   causal_deps:  []EventID        // parent event IDs (causal frontier)
   payload:      EventPayload     // type-specific data
+  metadata:     EventMetadata?   // optional title, description, reason, labels
 }
 ```
 
@@ -299,12 +300,13 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 ```
 1. Author invokes `epoch intent <path>`
 2. Event Engine stores the patch blob and signs an Intent event referencing the current main projection.
-3. Reviewers inspect the intent and invoke `epoch merge <intent-id>` to sign inclusion, or `epoch reject <intent-id>` to sign exclusion.
+3. Reviewers inspect the intent and invoke `epoch merge <intent-id>` to sign inclusion, `epoch reject <intent-id>` to sign exclusion, or `epoch comment --intent <intent-id>` to append signed discussion.
 4. Policy Layer:
    a. Collects Intent events.
    b. Counts maintainer-signed IntentMerge events for each intent.
    c. Skips any intent with a valid IntentReject event.
    d. Projects main from merged, non-rejected intent patches.
+   e. Keeps IntentComment events on the ledger as signed discussion without changing main.
 5. CRDT Registry resolves entity-level patch application deterministically.
 ```
 

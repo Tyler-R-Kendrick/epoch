@@ -20,7 +20,7 @@ Every change in Epoch is represented as an immutable, cryptographically signed e
 **As a** developer, **I want** every change I make to be recorded as an immutable event so that the full history of my repository is always auditable and recoverable.
 
 ### Acceptance Criteria
-- [ ] Every record, intent, merge signature, rejection, tag, and configuration change produces exactly one event.
+- [ ] Every record, intent, merge signature, rejection, comment, tag, and configuration change produces exactly one event.
 - [ ] Events are appended only; no event can be modified after creation.
 - [ ] The log survives process restart and is durable on disk.
 - [ ] The full repository state can be reconstructed by replaying the event log from genesis.
@@ -106,7 +106,7 @@ A record is a signed event that stores a file patch or snapshot reference with a
 | **Status** | Required |
 
 ### Description
-An intent is a signed patch event that states what an author wants included. Maintainers sign separate merge events to include the intent or rejection events to exclude it. This mirrors Radicle's patch workflow while keeping Epoch's main projection pointerless and deterministic.
+An intent is a signed patch event that states what an author wants included. Maintainers sign separate merge events to include the intent or rejection events to exclude it. Reviewers can also sign comment events associated with the intent. This mirrors Radicle's patch workflow while keeping Epoch's main projection pointerless and deterministic.
 
 ### User Story
 **As a** contributor, **I want** to publish an intent and have maintainers cryptographically sign inclusion or rejection so that review policy is transparent and auditable.
@@ -115,6 +115,8 @@ An intent is a signed patch event that states what an author wants included. Mai
 - [ ] `epoch intent` creates a signed Intent event containing one or more CRDT patches.
 - [ ] `epoch merge <intent-id>` creates a signed IntentMerge event referencing the intent.
 - [ ] `epoch reject <intent-id>` creates a signed IntentReject event referencing the intent.
+- [ ] `epoch comment --intent <intent-id>` creates a signed IntentComment event referencing the intent.
+- [ ] Intent, merge, reject, and comment events support optional title, description, reason, and label metadata.
 - [ ] Main is projected from merged, non-rejected intents and is deterministic for the same accepted patch set.
 
 ---
@@ -546,7 +548,7 @@ Traverse and query the event graph with filtering by author, date range, path, p
 **As a** developer, **I want** to view the history of changes to a specific file so that I can understand who changed it and why.
 
 ### Acceptance Criteria
-- [ ] `epoch events` lists record, intent, merge, rejection, and sync-visible events.
+- [ ] `epoch events` lists record, intent, merge, rejection, comment, and sync-visible events.
 - [ ] `epoch events -- <path>` filters to events touching a specific file.
 - [ ] `epoch events --author=<key>` filters by author public key.
 - [ ] Event graph is traversed in reverse causal order by default.

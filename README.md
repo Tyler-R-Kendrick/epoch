@@ -152,9 +152,10 @@ node packages/Epoch.CLI/dist/cli.js --repo ./epoch export ./git-output
 Create an intent and have maintainers sign inclusion or rejection events:
 
 ```bash
-node packages/Epoch.CLI/dist/cli.js intent README.md --type text/plain
-node packages/Epoch.CLI/dist/cli.js merge INTENT_ID
-node packages/Epoch.CLI/dist/cli.js reject INTENT_ID --reason "needs tests"
+node packages/Epoch.CLI/dist/cli.js intent README.md --type text/plain --title "Update README" --description "Clarifies usage" --label docs,ready
+node packages/Epoch.CLI/dist/cli.js merge INTENT_ID --author maintainer --reason "looks good" --label reviewed
+node packages/Epoch.CLI/dist/cli.js reject INTENT_ID --author maintainer --reason "needs tests" --label blocked
+node packages/Epoch.CLI/dist/cli.js comment --intent INTENT_ID --author reviewer --label discussion "Please add tests"
 node packages/Epoch.CLI/dist/cli.js status
 node packages/Epoch.CLI/dist/cli.js main
 ```

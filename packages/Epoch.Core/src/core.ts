@@ -8,6 +8,7 @@ import {
   DefaultAuthor,
   EntityType,
   EventData,
+  EventMetadata,
   EventDataSchema,
   EventPayload,
   EventType,
@@ -28,7 +29,7 @@ import {
 import type { z } from "zod";
 
 export { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "./domain";
-export type { EventData, EventPayload, IdentityData } from "./domain";
+export type { EventData, EventMetadata, EventPayload, IdentityData } from "./domain";
 
 interface UnsignedEvent {
   type: string;
@@ -241,24 +242,32 @@ export class EpochRepository {
     return this.append(EventType.record, this.recordPatch(path, entityType), author);
   }
 
-  intentFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
-    return this.intent([this.recordPatch(path, entityType)], author);
+  intentFile(path: string, entityType: string = EntityType.octetStream, author = this.identity(), metadata: EventMetadata = {}): Event {
+    return this.intent([this.recordPatch(path, entityType)], author, metadata);
   }
 
-  intent(patches: RecordPatch[], author = this.identity()): Event {
-    return this.append(EventType.intent, { base: this.mainIntentIds(), patches }, author);
+  intent(patches: RecordPatch[], author = this.identity(), metadata: EventMetadata = {}): Event {
+    return this.append(EventType.intent, withMetadata({ base: this.mainIntentIds(), patches }, metadata), author);
   }
 
-  mergeIntent(intentId: string, author = this.identity()): Event {
+  mergeIntent(intentId: string, author = this.identity(), metadata: EventMetadata = {}): Event {
     const intent = this.read(intentId);
     if (intent.type !== EventType.intent) throw new Error(`not an intent: ${intentId}`);
-    return this.append(EventType.intentMerge, { intent: intentId }, author);
+    return this.append(EventType.intentMerge, withMetadata({ intent: intentId }, metadata), author);
   }
 
-  rejectIntent(intentId: string, reason = "", author = this.identity()): Event {
+  rejectIntent(intentId: string, reason = "", author = this.identity(), metadata: EventMetadata = {}): Event {
     const intent = this.read(intentId);
     if (intent.type !== EventType.intent) throw new Error(`not an intent: ${intentId}`);
-    return this.append(EventType.intentReject, { intent: intentId, reason }, author);
+    return this.append(EventType.intentReject, withMetadata({ intent: intentId, reason }, { ...metadata, reason: metadata.reason ?? reason }), author);
+  }
+
+  comment(body: string, intentId?: string, author = this.identity(), metadata: EventMetadata = {}): Event {
+    if (intentId !== undefined) {
+      const intent = this.read(intentId);
+      if (intent.type !== EventType.intent) throw new Error(`not an intent: ${intentId}`);
+    }
+    return this.append(EventType.intentComment, withMetadata({ ...(intentId === undefined ? {} : { intent: intentId }), body }, metadata), author);
   }
 
   policy(options: PolicyOptions = {}): PolicyProjection {
@@ -509,6 +518,23 @@ export function writeJson(path: string, value: unknown): void {
 
 function sha256(data: string | Buffer): string {
   return createHash(CryptoSpec.eventHash).update(data).digest(CryptoSpec.hashDigest);
+}
+
+function withMetadata(payload: EventPayload, metadata: EventMetadata): EventPayload {
+  const clean = cleanMetadata(metadata);
+  return clean === undefined ? payload : { ...payload, metadata: clean };
+}
+
+function cleanMetadata(metadata: EventMetadata): EventMetadata | undefined {
+  const clean: EventMetadata = {};
+  if (metadata.title !== undefined && metadata.title.length > 0) clean.title = metadata.title;
+  if (metadata.description !== undefined && metadata.description.length > 0) clean.description = metadata.description;
+  if (metadata.reason !== undefined && metadata.reason.length > 0) clean.reason = metadata.reason;
+  if (metadata.labels !== undefined) {
+    const labels = metadata.labels.filter((label) => label.length > 0);
+    if (labels.length > 0) clean.labels = labels;
+  }
+  return Object.keys(clean).length === 0 ? undefined : clean;
 }
 
 function resolveInside(root: string, path: string, operation: string, description: string): { absolute: string; relativePath: string } {

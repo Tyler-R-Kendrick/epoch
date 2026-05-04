@@ -62,6 +62,25 @@ Feature: Epoch repository event log
     And the main projection skips the last intent
     And the event log contains 2 events
 
+  Scenario: Intent workflow events carry signed metadata
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I create an intent for "note.txt" with content "hello\n" as "text/plain" titled "Update note" described "Adds greeting" labeled "docs,ready"
+    Then the last event metadata title is "Update note"
+    And the last event metadata description is "Adds greeting"
+    And the last event metadata labels are "docs,ready"
+    When "bob" signs the intent merge with reason "looks good" labeled "reviewed"
+    Then the last event metadata reason is "looks good"
+    And the last event metadata labels are "reviewed"
+    When "carol" comments "Please add tests" on the intent labeled "review"
+    Then the last event comment body is "Please add tests"
+    And the last event comment references the last intent
+    And the last event metadata labels are "review"
+    When "dave" rejects the intent with reason "needs changes" labeled "blocked"
+    Then the last event metadata reason is "needs changes"
+    And the last event metadata labels are "blocked"
+    And the event log contains 4 events
+
   Scenario: Import from and export to Git repositories
     Given a new workspace
     And I initialize an Epoch repository as "alice"

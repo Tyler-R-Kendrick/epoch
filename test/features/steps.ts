@@ -214,14 +214,62 @@ When("I create an intent for {string} with content {string} as {string}", functi
   state.lastIntentId = state.lastEvent.id;
 });
 
+When("I create an intent for {string} with content {string} as {string} titled {string} described {string} labeled {string}", function (path: string, content: string, entityType: string, title: string, description: string, labels: string) {
+  const absolute = join(state.workspace, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  state.lastEvent = state.repo.intentFile(path, entityType, state.repo.identity(), { title, description, labels: splitLabels(labels) });
+  state.lastIntentId = state.lastEvent.id;
+});
+
 When("{string} signs the intent merge", function (author: string) {
   assert.ok(state.lastIntentId);
   state.lastEvent = state.repo.mergeIntent(state.lastIntentId, author);
 });
 
+When("{string} signs the intent merge with reason {string} labeled {string}", function (author: string, reason: string, labels: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.mergeIntent(state.lastIntentId, author, { reason, labels: splitLabels(labels) });
+});
+
 When("{string} rejects the intent with reason {string}", function (author: string, reason: string) {
   assert.ok(state.lastIntentId);
   state.lastEvent = state.repo.rejectIntent(state.lastIntentId, reason, author);
+});
+
+When("{string} rejects the intent with reason {string} labeled {string}", function (author: string, reason: string, labels: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.rejectIntent(state.lastIntentId, reason, author, { labels: splitLabels(labels) });
+});
+
+When("{string} comments {string} on the intent labeled {string}", function (author: string, body: string, labels: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.comment(body, state.lastIntentId, author, { labels: splitLabels(labels) });
+});
+
+Then("the last event comment body is {string}", function (expected: string) {
+  assert.equal(state.lastEvent?.payload.body, expected);
+});
+
+Then("the last event comment references the last intent", function () {
+  assert.ok(state.lastIntentId);
+  assert.equal(state.lastEvent?.payload.intent, state.lastIntentId);
+});
+
+Then("the last event metadata title is {string}", function (expected: string) {
+  assert.equal(metadataValue("title"), expected);
+});
+
+Then("the last event metadata description is {string}", function (expected: string) {
+  assert.equal(metadataValue("description"), expected);
+});
+
+Then("the last event metadata reason is {string}", function (expected: string) {
+  assert.equal(metadataValue("reason"), expected);
+});
+
+Then("the last event metadata labels are {string}", function (expected: string) {
+  assert.deepEqual(metadataLabels(), splitLabels(expected));
 });
 
 Then("the last intent status is {string}", function (status: string) {
@@ -285,6 +333,21 @@ Then("the exported Git file {string} contains {string}", function (path: string,
   assert.ok(state.gitExportRepo);
   assert.equal(readFileSync(join(state.gitExportRepo, path), "utf8"), expected.replaceAll("\\n", "\n"));
 });
+
+function splitLabels(labels: string): string[] {
+  return labels.split(",").map((label) => label.trim()).filter((label) => label.length > 0);
+}
+
+function metadataValue(key: string): unknown {
+  const metadata = state.lastEvent?.payload.metadata;
+  assert.equal(typeof metadata, "object");
+  assert.ok(metadata !== null);
+  return (metadata as Record<string, unknown>)[key];
+}
+
+function metadataLabels(): unknown {
+  return metadataValue("labels");
+}
 
 Given("the default CRDT registry", function () {
   state.registry = CRDTRegistry.defaults();
