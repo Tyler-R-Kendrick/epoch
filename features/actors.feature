@@ -30,3 +30,15 @@ Feature: XState actor-driven Epoch repository
     Then the actor repository verifies successfully
     And the peer repository verifies successfully
     And the peer event log contains 1 event
+
+  Scenario: Actor upgrades an existing repository without user identity storage
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    And the actor user identity directory is missing
+    When I start an Epoch actor for the existing repository
+    And actor users concurrently record:
+      | author | path    | content      | entityType |
+      | bob    | bob.txt | from bob\n   | text/plain |
+    Then the actor repository verifies successfully
+    And the actor event log contains 1 event
+    And the actor events include authors "bob"

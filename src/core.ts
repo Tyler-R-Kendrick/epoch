@@ -180,6 +180,7 @@ export class EpochRepository {
     const defaultIdentity = this.identityDocument();
     if (author === defaultIdentity.author) return defaultIdentity;
 
+    mkdirSync(this.usersDir, { recursive: true });
     const path = join(this.usersDir, `${sha256(author)}.json`);
     if (existsAsFile(path)) return readJson<IdentityData>(path);
 

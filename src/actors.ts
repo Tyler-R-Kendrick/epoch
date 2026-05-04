@@ -23,6 +23,10 @@ type UserCommand =
   | { type: "recordFile"; path: string; entityType: string; reply: Reply<Event> };
 
 type CommandWithoutReply<T> = T extends unknown ? Omit<T, "reply"> : never;
+type CommandActor<T> = {
+  send(event: T): void;
+  stop(): void;
+};
 
 const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string }>(({ input, receive }) => {
   const repository = new EpochRepository(input.root);
@@ -78,7 +82,7 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string }>((
  * Commands are serialized through a repository actor; per-user actors forward commands with their author attached.
  */
 export class EpochActorSystem {
-  private readonly actor;
+  private readonly actor: CommandActor<RepositoryCommand>;
   private readonly userActors = new Map<string, EpochUserActor>();
 
   constructor(readonly root: string) {
@@ -149,8 +153,10 @@ export class EpochActorSystem {
  * Per-user XState actor that submits repository commands as a fixed author.
  */
 export class EpochUserActor {
-  private readonly actor = createActor(
-    fromCallback<UserCommand>(({ receive }) => {
+  private readonly actor: CommandActor<UserCommand>;
+
+  constructor(readonly author: string, private readonly repository: EpochActorSystem) {
+    this.actor = createActor(fromCallback<UserCommand>(({ receive }) => {
       receive((event) => {
         switch (event.type) {
           case "append":
@@ -159,12 +165,10 @@ export class EpochUserActor {
           case "recordFile":
             this.repository.recordFile(event.path, event.entityType, this.author).then(event.reply.resolve, event.reply.reject);
             return;
-        }
-      });
-    }),
-  ).start();
-
-  constructor(readonly author: string, private readonly repository: EpochActorSystem) {}
+          }
+        });
+    })).start();
+  }
 
   append(type: string, payload: EventPayload): Promise<Event> {
     return this.request({ type: "append", eventType: type, payload });

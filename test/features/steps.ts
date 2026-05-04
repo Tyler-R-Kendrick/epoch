@@ -47,6 +47,14 @@ When("I start an Epoch actor repository as {string}", async function (author: st
   await state.actorRepo.init(author);
 });
 
+When("I start an Epoch actor for the existing repository", function () {
+  state.actorRepo = new EpochActorSystem(state.workspace);
+});
+
+Given("the actor user identity directory is missing", function () {
+  rmSync(state.repo.usersDir, { recursive: true, force: true });
+});
+
 When("I asynchronously record {string} with content {string} as {string}", async function (path: string, content: string, entityType: string) {
   assert.ok(state.actorRepo);
   const absolute = join(state.workspace, path);
@@ -57,12 +65,13 @@ When("I asynchronously record {string} with content {string} as {string}", async
 
 When("actor users concurrently record:", async function (table: DataTable) {
   assert.ok(state.actorRepo);
+  const actorRepo = state.actorRepo;
   const rows = table.hashes();
   await Promise.all(rows.map(async (row) => {
     const absolute = join(state.workspace, row.path);
     mkdirSync(dirname(absolute), { recursive: true });
     writeFileSync(absolute, row.content.replaceAll("\\n", "\n"), "utf8");
-    return state.actorRepo?.user(row.author).recordFile(row.path, row.entityType);
+    return actorRepo.user(row.author).recordFile(row.path, row.entityType);
   }));
 });
 
