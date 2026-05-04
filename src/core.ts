@@ -168,7 +168,7 @@ export class EpochRepository {
   }
 
   recordFile(path: string, entityType = "application/octet-stream"): Event {
-    const { absolute, relativePath } = resolveInside(this.root, path, "repository root");
+    const { absolute, relativePath } = resolveInside(this.root, path, "record file", "repository root");
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
     const blobPath = join(this.blobsDir, blobSha256);
@@ -270,8 +270,8 @@ export class EpochRepository {
       .split("\0")
       .filter((path) => path.length > 0)
       .map((path) => {
-        const data = readFileSync(resolveInside(sourceRoot, path, "Git repository").absolute);
-        const target = resolveInside(this.root, path, "repository root").absolute;
+        const data = readFileSync(resolveInside(sourceRoot, path, "read path", "Git repository").absolute);
+        const target = resolveInside(this.root, path, "write path", "repository root").absolute;
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, data);
         return this.recordFile(path, entityTypeForPath(path));
@@ -291,7 +291,7 @@ export class EpochRepository {
       const path = event.payload.path;
       const blobSha256 = event.payload.blob_sha256;
       if (typeof path !== "string" || typeof blobSha256 !== "string") continue;
-      const target = resolveInside(targetRoot, path, "Git repository").absolute;
+      const target = resolveInside(targetRoot, path, "write path", "Git repository").absolute;
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, readFileSync(join(this.blobsDir, blobSha256)));
       exported.push(path);
@@ -301,7 +301,7 @@ export class EpochRepository {
       execFileSync("git", ["-C", targetRoot, "add", ...exported]);
       const hasChanges = execFileSync("git", ["-C", targetRoot, "status", "--porcelain"]).toString("utf8").trim().length > 0;
       if (hasChanges) {
-        execFileSync("git", ["-C", targetRoot, "-c", `user.name=${GIT_AUTHOR_NAME}`, "-c", `user.email=${GIT_AUTHOR_EMAIL}`, "commit", "-m", "Export from Epoch"]);
+        commitGit(targetRoot, "Export from Epoch");
       }
     }
     return exported.sort();
@@ -353,13 +353,17 @@ function sha256(data: string | Buffer): string {
   return createHash("sha256").update(data).digest("hex");
 }
 
-function resolveInside(root: string, path: string, description: string): { absolute: string; relativePath: string } {
+function resolveInside(root: string, path: string, operation: string, description: string): { absolute: string; relativePath: string } {
   const absolute = resolve(isAbsolute(path) ? path : join(root, path));
   const relativePath = relative(root, absolute);
   if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
-    throw new Error(`cannot access path outside ${description}: ${path}`);
+    throw new Error(`cannot ${operation} outside ${description}: ${path}`);
   }
   return { absolute, relativePath };
+}
+
+export function commitGit(root: string, message: string): void {
+  execFileSync("git", ["-C", root, "-c", `user.name=${GIT_AUTHOR_NAME}`, "-c", `user.email=${GIT_AUTHOR_EMAIL}`, "commit", "-m", message]);
 }
 
 function createIdentity(author: string): IdentityData {
@@ -376,13 +380,13 @@ function signEvent(event: Event, privateKey: string): string {
 }
 
 function verifyEventSignature(event: Event): string | undefined {
-  if (event.signature === "" || event.authorPublicKey === "") return "signature verification failed";
+  if (event.signature === "" || event.authorPublicKey === "") return "missing signature or public key";
   try {
     return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"))
       ? undefined
-      : "signature verification failed";
+      : "invalid signature";
   } catch (error) {
-    return `signature verification failed: ${error instanceof Error ? error.message : String(error)}`;
+    return `signature verification error: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
