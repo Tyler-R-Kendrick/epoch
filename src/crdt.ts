@@ -64,7 +64,8 @@ export class CRDTEventLog {
       .filter((event) => event.type === "crdt")
       .filter((event) => event.payload.entity === entity)
       .sort(compareEvents);
-    if (operations.some((event) => event.payload.kind === "text-insert" || event.payload.kind === "text-delete")) {
+    const firstKind = operations[0]?.payload.kind;
+    if (firstKind === "text-insert" || firstKind === "text-delete") {
       return this.materializeText(operations);
     }
     return this.materializeMap(operations);

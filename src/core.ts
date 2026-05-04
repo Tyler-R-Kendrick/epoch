@@ -1,6 +1,6 @@
 import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CRDTEventLog, CRDTOperation } from "./crdt";
 import { canonicalJson } from "./json";
@@ -210,10 +210,11 @@ export class EpochRepository {
       signature: signEvent(unsigned, identity.privateKey),
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
-    const headsBeingMerged = new Set(heads);
-    // Re-read heads to preserve tips concurrently introduced by another process before this write.
-    const retainedHeads = this.heads().filter((head) => !headsBeingMerged.has(head));
-    writeJson(this.headsPath, [...new Set([...retainedHeads, event.id])].sort());
+    this.updateHeads((currentHeads) => {
+      const headsBeingMerged = new Set(heads);
+      const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
+      return [...new Set([...retainedHeads, event.id])].sort();
+    });
     return event;
   }
 
@@ -303,7 +304,8 @@ export class EpochRepository {
 
     const eventsCopied = copyMissingFiles(peer.eventsDir, this.eventsDir);
     const blobsCopied = copyMissingFiles(peer.blobsDir, this.blobsDir);
-    writeJson(this.headsPath, [...new Set([...this.heads(), ...peer.heads()])].sort());
+    const peerHeads = peer.heads();
+    this.updateHeads((heads) => [...new Set([...heads, ...peerHeads])].sort());
     return { eventsCopied, blobsCopied };
   }
 
@@ -393,6 +395,12 @@ export class EpochRepository {
     return Math.max(0, ...heads.map((head) => this.read(head).lamport)) + 1;
   }
 
+  private updateHeads(update: (heads: string[]) => string[]): void {
+    withDirectoryLock(`${this.headsPath}.lock`, () => {
+      writeJson(this.headsPath, update(this.heads()));
+    });
+  }
+
   private requireInitialized(): void {
     if (!existsAsDirectory(this.eventsDir) || !existsAsDirectory(this.blobsDir) || !existsAsFile(this.headsPath)) {
       throw new Error(`not an Epoch repository: ${this.root}`);
@@ -462,6 +470,25 @@ function copyMissingFiles(sourceDir: string, targetDir: string): number {
     }
   }
   return copied;
+}
+
+function withDirectoryLock<T>(lockDir: string, work: () => T): T {
+  const deadline = Date.now() + 5000;
+  while (true) {
+    try {
+      mkdirSync(lockDir);
+      break;
+    } catch (error) {
+      if (!isFileExistsError(error) || Date.now() >= deadline) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  }
+
+  try {
+    return work();
+  } finally {
+    rmSync(lockDir, { recursive: true, force: true });
+  }
 }
 
 function entityTypeForPath(path: string): string {
