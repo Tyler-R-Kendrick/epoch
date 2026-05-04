@@ -99,7 +99,7 @@ Epoch synthesizes lessons from eight systems studied during design:
 
 ## Status
 
-Epoch now includes a **minimal dependency-free Python prototype** that implements the first executable slice of the design:
+Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Native Preview (`tsgo`)**, the Go-native TypeScript toolchain preview from [`microsoft/typescript-go`](https://github.com/microsoft/typescript-go). It implements the first executable slice of the design:
 
 - content-addressed immutable events
 - filesystem-backed `.epoch/` event storage
@@ -107,6 +107,7 @@ Epoch now includes a **minimal dependency-free Python prototype** that implement
 - pluggable CRDT registry
 - built-in text and JSON entity merge definitions
 - CLI commands for `init`, `record`, `log`, `verify`, and `merge`
+- Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
 
@@ -114,33 +115,41 @@ See [`docs/design.md`](docs/design.md) for the full design specification.
 
 ## Prototype Usage
 
-Run the CLI directly with Python:
+Install dependencies and build with `tsgo`:
 
 ```bash
-python -m epoch.cli init --author alice
-python -m epoch.cli record README.md --type text/plain
-python -m epoch.cli log
-python -m epoch.cli verify
+npm install
+npm run build
+```
+
+Run the CLI after building:
+
+```bash
+node dist/src/cli.js init --author alice
+node dist/src/cli.js record README.md --type text/plain
+node dist/src/cli.js log
+node dist/src/cli.js verify
 ```
 
 Merge three versions of a supported entity type:
 
 ```bash
-python -m epoch.cli merge --type application/json base.json left.json right.json
-python -m epoch.cli merge --type text/plain base.txt left.txt right.txt
+node dist/src/cli.js merge --type application/json base.json left.json right.json
+node dist/src/cli.js merge --type text/plain base.txt left.txt right.txt
 ```
 
-The prototype intentionally avoids external runtime dependencies. Install it locally only if you want the `epoch` console script:
+Run the Gherkin feature suite:
 
 ```bash
-python -m pip install -e .
+npm test
+```
+
+The feature files live in [`features/`](features/) and are executed with Cucumber against the compiled TypeScript output.
+
+If installed as a package, the CLI is exposed as `epoch`:
+
+```bash
 epoch verify
-```
-
-Run tests:
-
-```bash
-python -m unittest discover -s tests -v
 ```
 
 ---
