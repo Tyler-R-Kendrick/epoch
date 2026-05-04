@@ -115,7 +115,8 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - filesystem gossip / anti-entropy exchange between local repositories
 - Git import/export compatibility for tracked files
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
-- CLI commands for `init`, `record`, `log`, `verify`, `merge`, `gossip`, `anti-entropy`, `git-import`, and `git-export`
+- Named views for deterministic logical workspaces over the shared event log, with checkout, diff, and promotion support
+- CLI commands for `init`, `record`, `log`, `verify`, `merge`, `gossip`, `anti-entropy`, `git-import`, `git-export`, `view-create`, `views`, `checkout`, `view-delete`, `view-diff`, and `view-promote`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -144,6 +145,16 @@ Synchronize two local Epoch repositories with gossip / anti-entropy:
 
 ```bash
 node dist/src/cli.js --repo ./peer-a anti-entropy ./peer-b
+```
+
+Create and switch between named views:
+
+```bash
+node dist/src/cli.js view-create exp/fast-algo --parent main
+node dist/src/cli.js checkout exp/fast-algo
+node dist/src/cli.js views
+node dist/src/cli.js view-diff main exp/fast-algo
+node dist/src/cli.js view-promote exp/fast-algo main
 ```
 
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:
