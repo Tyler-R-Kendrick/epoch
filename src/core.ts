@@ -222,7 +222,15 @@ export class EpochRepository {
     return event;
   }
 
+  commitFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
+    return this.writeFileEvent(EventType.commit, path, entityType, author);
+  }
+
   recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
+    return this.writeFileEvent(EventType.legacyRecord, path, entityType, author);
+  }
+
+  private writeFileEvent(eventType: string, path: string, entityType: string, author: string): Event {
     const { absolute, relativePath } = resolveInside(this.root, path, RepositoryText.recordFile, RepositoryText.repositoryRoot);
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
@@ -230,7 +238,7 @@ export class EpochRepository {
     if (!existsAsFile(blobPath)) {
       writeFileSync(blobPath, data);
     }
-    return this.append(EventType.commit, {
+    return this.append(eventType, {
       path: relativePath.split(sep).join(TextToken.pathSeparator),
       entity_type: entityType,
       blob_sha256: blobSha256,

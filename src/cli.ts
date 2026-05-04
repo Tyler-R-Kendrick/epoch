@@ -37,7 +37,10 @@ function run(argv: string[]): void {
     case CliCommand.record: {
       const options = parseOptions(parsed.args, { [CliOption.type]: EntityType.octetStream });
       if (options.positionals.length !== 1) throw new Error(`usage: epoch ${parsed.command} [--type MIME] PATH`);
-      console.log(repo.recordFile(options.positionals[0], options.type).id);
+      const event = parsed.command === CliCommand.commit
+        ? repo.commitFile(options.positionals[0], options.type)
+        : repo.recordFile(options.positionals[0], options.type);
+      console.log(event.id);
       return;
     }
     case CliCommand.log:
