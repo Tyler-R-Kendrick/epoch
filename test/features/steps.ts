@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { canonicalJson, commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "@epoch/core";
+import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochRepository, Event, pruneEventLog, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
 
 interface WorldState {
   workspace: string;
@@ -22,6 +22,8 @@ interface WorldState {
   syncResult?: SyncResult;
   lastIntentId?: string;
   hookNames?: string[];
+  checkpoint?: Checkpoint;
+  coldBackup?: ReturnType<typeof createColdBackup>;
 }
 
 let state: WorldState;
@@ -359,6 +361,45 @@ Then("the peer recorded blob content equals {string}", function (expected: strin
   assert.ok(state.peerRepo);
   const event = state.peerRepo.events()[0];
   assert.equal(readFileSync(join(state.peerRepo.blobsDir, event.payload.blob_sha256 as string), "utf8"), expected.replaceAll("\\n", "\n"));
+});
+
+When("I create an HA checkpoint", function () {
+  state.checkpoint = createCheckpoint(state.repo);
+});
+
+When("I prune the event log before the HA checkpoint", function () {
+  assert.ok(state.checkpoint);
+  pruneEventLog(state.repo, state.checkpoint.id);
+});
+
+Then("the local event file count is {int}", function (count: number) {
+  assert.equal(readdirSync(state.repo.eventsDir).filter((name) => name.endsWith(".json")).length, count);
+});
+
+When("I restore from the HA checkpoint", function () {
+  assert.ok(state.checkpoint);
+  restoreFromCheckpoint(state.repo, state.checkpoint.id);
+});
+
+When("the peer bootstraps from the repository seed", async function () {
+  assert.ok(state.peerRepo);
+  state.syncResult = await bootstrapFromSeed(state.peerRepo, {
+    peerId: state.repo.identity(),
+    multiaddr: state.repo.root,
+    trustLevel: "full",
+  });
+});
+
+When("I create a cold backup", function () {
+  state.coldBackup = createColdBackup(state.repo);
+});
+
+When("I restore the cold backup into a fresh repository", function () {
+  assert.ok(state.coldBackup);
+  const workspace = mkdtempSync(join(tmpdir(), "epoch-restore-"));
+  state.createdDirs.push(workspace);
+  state.peerRepo = new EpochRepository(workspace);
+  restoreFromColdBackup(state.peerRepo, state.coldBackup);
 });
 
 Given("a Git repository with {string} containing {string}", function (path: string, content: string) {
