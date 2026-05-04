@@ -623,6 +623,7 @@ export class EpochRepository {
     const event: EpochHookEvent = {
       name,
       repository: this,
+      // Hook timestamps use Unix seconds to match persisted Epoch event timestamps.
       timestamp: Math.floor(Date.now() / 1000),
       detail,
     };
