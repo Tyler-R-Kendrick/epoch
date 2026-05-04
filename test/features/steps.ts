@@ -165,6 +165,10 @@ Then("the event log contains {int} event", function (count: number) {
   assert.equal(state.repo.events().length, count);
 });
 
+Then("the event log contains {int} events", function (count: number) {
+  assert.equal(state.repo.events().length, count);
+});
+
 Then("the recorded blob content equals {string}", function (expected: string) {
   assert.ok(state.lastEvent);
   assert.equal(readFileSync(join(state.repo.blobsDir, state.lastEvent.payload.blob_sha256 as string), "utf8"), expected.replaceAll("\\n", "\n"));
