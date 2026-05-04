@@ -41,16 +41,15 @@ Feature: Epoch repository event log
     And the peer event log contains 1 event
     And the peer recorded blob content equals "hello\n"
 
-  Scenario: Branching, rollback, and merge rejection are recorded as events
+  Scenario: Branching and rollback are recorded as events
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     And I record "note.txt" with content "hello\n" as "text/plain"
     When I create branch "feature"
     Then the branch list contains "feature"
     When I rollback to the last event
-    And I reject the current merge
     Then the repository verifies successfully
-    And the event log contains 4 events
+    And the event log contains 3 events
 
   Scenario: Import from and export to Git repositories
     Given a new workspace

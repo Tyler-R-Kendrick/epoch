@@ -109,7 +109,8 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - filesystem event sync between local repositories
 - Git import/export compatibility for tracked files
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
-- CLI commands for `init`, `record`, `events`, `verify`, `merge`, `reject-merge`, `sync`, `branch`, `rollback`, `import`, and `export`
+- separate `Epoch.Core`, `Epoch.CLI`, and `Epoch.WASM` package projects
+- CLI commands for `init`, `record`, `events`, `verify`, `merge`, `sync`, `branch`, `rollback`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -125,41 +126,40 @@ npm install
 npm run build
 ```
 
-Run the CLI after building:
+Run the CLI host after building:
 
 ```bash
-node dist/src/cli.js init --author alice
-node dist/src/cli.js record README.md --type text/plain
-node dist/src/cli.js events
-node dist/src/cli.js verify
+node dist/packages/Epoch.CLI/src/cli.js init --author alice
+node dist/packages/Epoch.CLI/src/cli.js record README.md --type text/plain
+node dist/packages/Epoch.CLI/src/cli.js events
+node dist/packages/Epoch.CLI/src/cli.js verify
 ```
 
 Converge two local Epoch repositories by exchanging missing events and blobs:
 
 ```bash
-node dist/src/cli.js --repo ./peer-a sync ./peer-b
+node dist/packages/Epoch.CLI/src/cli.js --repo ./peer-a sync ./peer-b
 ```
 
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:
 
 ```bash
-node dist/src/cli.js --repo ./epoch import ./git-project
-node dist/src/cli.js --repo ./epoch export ./git-output
+node dist/packages/Epoch.CLI/src/cli.js --repo ./epoch import ./git-project
+node dist/packages/Epoch.CLI/src/cli.js --repo ./epoch export ./git-output
 ```
 
-Manage workflow state with familiar DVCS primitives:
+Manage workflow state with event-native DVCS primitives:
 
 ```bash
-node dist/src/cli.js branch feature/login
-node dist/src/cli.js rollback EVENT_ID
-node dist/src/cli.js reject-merge --reason "not ready"
+node dist/packages/Epoch.CLI/src/cli.js branch feature/login
+node dist/packages/Epoch.CLI/src/cli.js rollback EVENT_ID
 ```
 
 Merge three versions of a supported entity type:
 
 ```bash
-node dist/src/cli.js merge --type application/json base.json left.json right.json
-node dist/src/cli.js merge --type text/plain base.txt left.txt right.txt
+node dist/packages/Epoch.CLI/src/cli.js merge --type application/json base.json left.json right.json
+node dist/packages/Epoch.CLI/src/cli.js merge --type text/plain base.txt left.txt right.txt
 ```
 
 Run the Gherkin feature suite:

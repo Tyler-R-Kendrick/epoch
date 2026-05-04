@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { CRDTRegistry, dumpEntity, EpochRepository, loadEntity } from "./index";
-import { CliCommand, CliOption, CliSyntax, CliText, DefaultAuthor, EntityType, JsonEncoding, Schemas } from "./domain";
+import { CRDTRegistry, dumpEntity, EpochRepository, loadEntity } from "../../Epoch.Core/src";
+import { DefaultAuthor, EntityType, JsonEncoding } from "../../Epoch.Core/src/domain";
+import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 
 interface ParsedArgs {
   repo: string;
@@ -80,11 +81,6 @@ function run(argv: string[]): void {
       process.stdout.write(dumpEntity(options.type, CRDTRegistry.defaults().merge(options.type, base, left, right)));
       return;
     }
-    case CliCommand.rejectMerge: {
-      const { reason } = parseOptions(parsed.args, { [CliOption.reason]: "" });
-      console.log(repo.rejectMerge(reason).id);
-      return;
-    }
     case CliCommand.branch: {
       if (parsed.args.length === 0) {
         for (const [name, heads] of Object.entries(repo.branches()).sort(([left], [right]) => left.localeCompare(right))) {
@@ -117,7 +113,7 @@ function parseGlobalArgs(argv: string[]): ParsedArgs {
       throw new Error(`unknown option: ${option}`);
     }
   }
-  return Schemas.parsedArgs.parse({ repo, command: args.shift(), args });
+  return ParsedArgsSchema.parse({ repo, command: args.shift(), args });
 }
 
 function parseOptions<T extends Record<string, string>>(args: string[], defaults: T): T & { positionals: string[] } {

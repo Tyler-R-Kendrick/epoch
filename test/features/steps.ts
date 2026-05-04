@@ -4,8 +4,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "../../src";
-import { canonicalJson } from "../../src/json";
+import { commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "../../packages/Epoch.Core/src";
+import { canonicalJson } from "../../packages/Epoch.Core/src/json";
 
 interface WorldState {
   workspace: string;
@@ -217,10 +217,6 @@ Then("the branch list contains {string}", function (name: string) {
 When("I rollback to the last event", function () {
   assert.ok(state.lastEvent);
   state.lastEvent = state.repo.rollback(state.lastEvent.id);
-});
-
-When("I reject the current merge", function () {
-  state.lastEvent = state.repo.rejectMerge();
 });
 
 Then("the peer repository verifies successfully", function () {

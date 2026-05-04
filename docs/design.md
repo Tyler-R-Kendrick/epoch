@@ -6,7 +6,7 @@
 
 Epoch models every change as an **immutable, causally-ordered event** appended to a distributed event log. The current state of any repository is always a deterministic projection of its event history. Merges are handled at the **entity level**: each file type can register a CRDT definition that governs how concurrent edits are resolved — automatically, without user intervention, for types that support it. Files without CRDT definitions fall back to three-way merge.
 
-Epoch uses **Ed25519 cryptographic identities** (no central username registry), a **content-addressed DAG** (no single point of failure), and a **event replication protocol** for peer-to-peer distribution — without a blockchain's cost, latency, or complexity.
+Epoch uses **Ed25519 cryptographic identities** (no central username registry), a **content-addressed DAG** (no single point of failure), and a **gossip protocol** for peer-to-peer distribution — without a blockchain's cost, latency, or complexity.
 
 ---
 
@@ -16,9 +16,9 @@ Epoch uses **Ed25519 cryptographic identities** (no central username registry), 
 |---|---|---|---|---|---|---|---|
 | **Weave CRDT** | Append-only sequence | Site ID | CRDT (sequence) | N/A (algorithm) | Yes | Yes | Tombstone growth |
 | **GoatDB** | DAG of commits | Ed25519 keys | CRDT + 3-way merge | P2P + relay | ~1s latency | Yes | JS-only, GC immaturity |
-| **Manyana** | Append-only event log | Conceptual | CRDT semantics | Event Sync | Conceptual | Yes | No production impl |
+| **Manyana** | Append-only event log | Conceptual | CRDT semantics | Gossip | Conceptual | Yes | No production impl |
 | **git-warp** | Content-addressed DAG | Email (unverified) | 3-way merge (line) | Central/P2P | No | Yes | Line-level conflicts |
-| **Radicle** | Git + event replication overlay | Ed25519 keys | Git 3-way merge | Event Sync | No | Yes | No CI/CD, Linux only |
+| **Radicle** | Git + gossip overlay | Ed25519 keys | Git 3-way merge | Gossip | No | Yes | No CI/CD, Linux only |
 | **Roshi** | CRDT OR-Set (Redis) | N/A | Add-wins CRDT | Multi-cluster | Yes | No | Set operations only |
 | **SolGit** | On-chain (blockchain) | Wallet key | Chain ordering | Blockchain | No | No | Gas cost, immutability |
 | **BDA-SVC** | IPFS + Hyperledger Fabric | X.509 | Chain ordering | Permissioned P2P | No | No | Extreme complexity |
@@ -31,8 +31,8 @@ Epoch uses **Ed25519 cryptographic identities** (no central username registry), 
 | **GoatDB** | Ed25519 signing, three-way merge default, commit DAG model |
 | **Manyana** | Event sourcing: every change is an immutable event; CQRS-inspired projection |
 | **git-warp** | DAG object model (blobs, trees, events), fast offline branching |
-| **Radicle** | Event-based P2P distribution, append-only data model, seed nodes |
-| **Roshi** | CRDT set semantics; convergence repair reconciliation for distributed consistency |
+| **Radicle** | Gossip-based P2P distribution, append-only data model, seed nodes |
+| **Roshi** | CRDT set semantics; anti-entropy reconciliation for distributed consistency |
 | **SolGit** | Cryptographic audit trail — without on-chain cost; retain tamper-evidence |
 | **BDA-SVC** | Content-addressed storage (from IPFS model) — without pinning governance complexity |
 
@@ -112,10 +112,10 @@ Inspired by **git-warp** and the IPFS model from **BDA-SVC**:
 - The event graph is a verifiable chain of custody.
 - Any state can be reconstructed by replaying events to a point in the DAG.
 
-### 5. Peer-to-Peer Distribution (Event Sync Protocol)
+### 5. Peer-to-Peer Distribution (Gossip Protocol)
 
-Epoch uses an epidemic event replication protocol for event propagation, inspired by **Radicle**:
-- Each node maintains a peer list; new events are event synced to a random subset of peers.
+Epoch uses an epidemic gossip protocol for event propagation, inspired by **Radicle**:
+- Each node maintains a peer list; new events are gossiped to a random subset of peers.
 - Peers forward events they haven't seen; convergence is probabilistic but fast.
 - **Seed nodes** are optional high-availability peers that replicate a repository continuously.
 - No central server is required; the network is fully decentralized.
@@ -193,8 +193,8 @@ CRDT definitions are:
 | F-009 | CRDT Extension API | Extension | API for registering custom CRDT definitions for any file type |
 | F-010 | Conflict Surfacing | Merge | Unresolvable conflicts surfaced to user with markers; manual resolution |
 | F-011 | Offline Operation | Distribution | All local operations (commit, branch, diff, log) work without network |
-| F-012 | Event Sync | Distribution | Event propagation via event replication protocol; no central server required |
-| F-013 | Convergence Repair | Distribution | Background reconciliation ensures all peers eventually converge |
+| F-012 | Gossip P2P Sync | Distribution | Event propagation via gossip protocol; no central server required |
+| F-013 | Anti-Entropy | Distribution | Background reconciliation ensures all peers eventually converge |
 | F-014 | Seed Nodes | Distribution | Optional always-on peers that guarantee availability |
 | F-015 | Push/Pull | Distribution | Explicit sync operations for controlled event exchange |
 | F-016 | Repository Access Control | Security | Allow-list of public keys with read/write permissions |
@@ -254,7 +254,7 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 │  ┌────────────────────────────▼───────────────────────────┐    │
 │  │                  Sync Layer                            │    │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐  │    │
-│  │  │ Event Sync Proto │  │ Convergence Repair │  │  Push/Pull  │  │    │
+│  │  │ Gossip Proto │  │ Anti-Entropy │  │  Push/Pull  │  │    │
 │  │  └──────────────┘  └──────────────┘  └─────────────┘  │    │
 │  └───────────────────────────────────────────────────-─────┘    │
 └─────────────────────────────────────────────────────────────────┘
@@ -276,9 +276,9 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 | **CRDT Registry** | Manage registered CRDT definitions; route merges by entity type |
 | **Object Store** | Content-addressed storage for blobs, trees, and events |
 | **Identity / Keystore** | Manage Ed25519 keypairs; sign outgoing events; verify incoming |
-| **Sync Layer** | Event Sync propagation, convergence repair, explicit event sync operations |
+| **Sync Layer** | Gossip propagation, anti-entropy, explicit sync operations |
 
-### Data Flow: Commit
+### Data Flow: Record
 
 ```
 1. User edits files in working tree
@@ -286,11 +286,11 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 3. Event Engine:
    a. Compute diff against last event snapshot
    b. Store new blobs and tree in Object Store
-   c. Create Commit event with causal_deps = [current HEAD]
+   c. Create Record event with causal_deps = [current HEAD]
    d. Sign event with Ed25519 private key
    e. Append to local event log
    f. Update HEAD pointer
-4. Sync Layer event syncs new event to known peers
+4. Sync Layer gossips new event to known peers
 ```
 
 ### Data Flow: Merge
@@ -329,9 +329,9 @@ See [`user-stories.md`](user-stories.md) for the complete set of user stories or
 ## Open Questions and Future Work
 
 - **Compaction Protocol**: The exact quorum mechanism for safe tombstone/event GC requires further design.
-- **Selective Sync**: Sparse checkout and partial clone semantics in a event sync network need careful design.
+- **Selective Sync**: Sparse checkout and partial clone semantics in a gossip network need careful design.
 - **Performance Benchmarks**: In-memory event graph traversal at scale (millions of events) needs profiling.
 - **CRDT Definition Security**: Sandboxing third-party CRDT plugins to prevent malicious code execution.
 - **Mobile / Browser Support**: WASM compilation of the core for browser and mobile runtimes.
-- **CI/CD Integration**: First-class hooks for triggering external pipelines from event sync events.
+- **CI/CD Integration**: First-class hooks for triggering external pipelines from gossip events.
 - **Patch / Issue Protocol**: Formal specification of decentralized issue and patch objects (similar to Radicle).

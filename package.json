@@ -1,10 +1,16 @@
 {
   "name": "epoch",
   "version": "0.1.0",
-  "description": "Minimal event-driven DVCS prototype with pluggable CRDT entity-level merging.",
-  "main": "dist/src/index.js",
+  "description": "Epoch workspace for core SDK, CLI, and WASM hosts.",
+  "private": true,
+  "workspaces": [
+    "packages/Epoch.Core",
+    "packages/Epoch.CLI",
+    "packages/Epoch.WASM"
+  ],
+  "main": "dist/packages/Epoch.Core/src/index.js",
   "bin": {
-    "epoch": "dist/src/cli.js"
+    "epoch": "dist/packages/Epoch.CLI/src/cli.js"
   },
   "scripts": {
     "build": "tsgo -p tsconfig.json",

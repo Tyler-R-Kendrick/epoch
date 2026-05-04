@@ -89,7 +89,7 @@ A commit is an event that records a snapshot of the repository state (via a tree
 **As a** developer, **I want** to commit a set of changes with a message so that I can record logical units of work with clear attribution.
 
 ### Acceptance Criteria
-- [ ] Commit event contains: tree hash, message, author public key, signature, timestamp, parent event IDs.
+- [ ] Record event contains: tree hash, message, author public key, signature, timestamp, parent event IDs.
 - [ ] Commit is signed by the author's Ed25519 private key.
 - [ ] Commit appears in the event log and is immediately queryable.
 - [ ] Working tree is clean after a successful commit.
@@ -230,7 +230,7 @@ When neither three-way merge nor CRDT merge can automatically resolve a conflict
 - [ ] Conflicted entities are annotated with conflict markers (`<<<`, `===`, `>>>`).
 - [ ] `epoch status` lists all conflicted entities.
 - [ ] The merge cannot be committed while conflicts remain unresolved.
-- [ ] After manual resolution, `epoch add` marks the conflict resolved.
+- [ ] After manual resolution, `epoch record` records the resolved entity.
 
 ---
 
@@ -256,40 +256,40 @@ All core operations (commit, branch, tag, diff, log, merge) function without net
 
 ---
 
-## F-012 — Event Sync
+## F-012 — Gossip P2P Sync
 
 | Field | Value |
 |---|---|
 | **ID** | F-012 |
-| **Name** | Event Sync |
+| **Name** | Gossip P2P Sync |
 | **Category** | Distribution |
 | **Status** | Required |
 
 ### Description
-New events are propagated across the peer network using an epidemic event replication protocol. Each node periodically forwards new events to a random subset of its peers, who forward to their peers, until all interested peers have the event.
+New events are propagated across the peer network using an epidemic gossip protocol. Each node periodically forwards new events to a random subset of its peers, who forward to their peers, until all interested peers have the event.
 
 ### User Story
-**As a** developer, **I want** my commits to propagate to my teammates' nodes automatically so that we stay in sync without manually depending on a central server.
+**As a** developer, **I want** my commits to propagate to my teammates' nodes automatically so that we stay in sync without manually pushing to a central server.
 
 ### Acceptance Criteria
-- [ ] New events are event synced to at least one peer within 5 seconds of creation.
+- [ ] New events are gossiped to at least one peer within 5 seconds of creation.
 - [ ] All online peers receive the event within a configurable TTL (default: 30 seconds).
-- [ ] Event Sync handles peer churn (nodes joining and leaving) gracefully.
-- [ ] Duplicate events received via event sync are deduplicated and ignored.
+- [ ] Gossip handles peer churn (nodes joining and leaving) gracefully.
+- [ ] Duplicate events received via gossip are deduplicated and ignored.
 
 ---
 
-## F-013 — Convergence Repair
+## F-013 — Anti-Entropy
 
 | Field | Value |
 |---|---|
 | **ID** | F-013 |
-| **Name** | Convergence Repair |
+| **Name** | Anti-Entropy |
 | **Category** | Distribution |
 | **Status** | Required |
 
 ### Description
-A background process that periodically compares the event frontier of two peers and exchanges any missing events. This ensures convergence even when event sync delivery is incomplete.
+A background process that periodically compares the event frontier of two peers and exchanges any missing events. This ensures convergence even when gossip delivery is incomplete.
 
 ### User Story
 **As a** repository operator, **I want** replicas to repair divergence automatically in the background so that I don't need to manually intervene when peers temporarily desynchronize.
@@ -297,7 +297,7 @@ A background process that periodically compares the event frontier of two peers 
 ### Acceptance Criteria
 - [ ] Anti-entropy runs on a configurable interval (default: 60 seconds).
 - [ ] Anti-entropy detects diverged peers and exchanges missing events.
-- [ ] After convergence repair, both peers have identical event frontiers.
+- [ ] After anti-entropy, both peers have identical event frontiers.
 - [ ] Anti-entropy is bandwidth-efficient (only missing events are transferred).
 
 ---
@@ -321,7 +321,7 @@ Seed nodes are always-on peers that continuously replicate one or more repositor
 - [ ] Any Epoch node can be designated as a seed node for specific repositories.
 - [ ] Seed nodes replicate all events for their configured repositories.
 - [ ] Clones directed at a seed node succeed even when the original author's node is offline.
-- [ ] Seed nodes are listed in repository metadata and event synced to peers.
+- [ ] Seed nodes are listed in repository metadata and gossiped to peers.
 
 ---
 
@@ -335,10 +335,10 @@ Seed nodes are always-on peers that continuously replicate one or more repositor
 | **Status** | Required |
 
 ### Description
-Explicit sync operations exchange missing events between two nodes with `epoch sync <peer>`.
+Explicit sync operations exchange missing events between two peers with `epoch sync <peer>`.
 
 ### User Story
-**As a** developer, **I want** to explicitly sync from specific remotes so that I have control over when and where my changes are shared.
+**As a** developer, **I want** to explicitly sync with specific peers so that I have control over when and where my changes are shared.
 
 ### Acceptance Criteria
 - [ ] `epoch sync <peer>` exchanges all events either peer has not seen.
@@ -367,7 +367,7 @@ Each repository maintains an allow-list of public keys with associated permissio
 - [ ] Access control list is stored as signed events in the log.
 - [ ] Only `admin` keys can modify the access control list.
 - [ ] Write operations from unknown keys are rejected by all peers.
-- [ ] Access control events are event synced like any other event.
+- [ ] Access control events are gossiped like any other event.
 
 ---
 
@@ -381,7 +381,7 @@ Each repository maintains an allow-list of public keys with associated permissio
 | **Status** | Required |
 
 ### Description
-Every event emitted by an Epoch node is signed with the author's Ed25519 private key before being appended to the log or event synced. Receiving peers verify signatures before accepting events.
+Every event emitted by an Epoch node is signed with the author's Ed25519 private key before being appended to the log or gossiped. Receiving peers verify signatures before accepting events.
 
 ### User Story
 **As a** peer, **I want** to verify that every received event is signed by its claimed author so that I can reject spoofed or tampered events.
@@ -413,7 +413,7 @@ The causal chain structure of the event log makes tampering detectable. A tamper
 - [ ] Any modification to a stored event's payload changes its hash and invalidates its signature.
 - [ ] `epoch verify` command checks all event signatures and causal chain integrity.
 - [ ] Forked events from the same author are reported as anomalies.
-- [ ] Tamper detection runs automatically during event sync operations.
+- [ ] Tamper detection runs automatically during sync/gossip operations.
 
 ---
 
@@ -546,9 +546,9 @@ Traverse and query the event graph with filtering by author, date range, branch,
 **As a** developer, **I want** to view the history of changes to a specific file so that I can understand who changed it and why.
 
 ### Acceptance Criteria
-- [ ] `epoch events` lists all commit events on the current branch.
-- [ ] `epoch log -- <path>` filters to events touching a specific file.
-- [ ] `epoch log --author=<key>` filters by author public key.
+- [ ] `epoch events` lists all record events on the current branch.
+- [ ] `epoch events -- <path>` filters to events touching a specific file.
+- [ ] `epoch events --author=<key>` filters by author public key.
 - [ ] Event graph is traversed in reverse causal order by default.
 
 ---
@@ -566,11 +566,11 @@ Traverse and query the event graph with filtering by author, date range, branch,
 Pre- and post-event hooks allow arbitrary scripts or plugins to be invoked at lifecycle events: pre-record, post-record, pre-sync, post-sync, post-merge. Hooks can abort operations by returning non-zero.
 
 ### User Story
-**As a** team lead, **I want** a pre-commit hook that runs linting so that no unlinted code ever enters the repository.
+**As a** team lead, **I want** a pre-record hook that runs linting so that no unlinted code ever enters the repository.
 
 ### Acceptance Criteria
 - [ ] Hooks are stored in `.epoch/hooks/` and are executable scripts.
-- [ ] Pre-commit hook returning non-zero aborts the commit.
+- [ ] Pre-record hook returning non-zero aborts the record operation.
 - [ ] Post-sync hook is invoked after event sync completes.
 - [ ] Hook environment includes relevant event metadata as environment variables.
 
@@ -595,7 +595,7 @@ Temporarily shelve in-progress working tree changes without committing. Stashed 
 - [ ] `epoch stash` saves working tree changes and resets to HEAD.
 - [ ] `epoch stash pop` restores the most recent stash.
 - [ ] Multiple stash entries are supported with `epoch stash list`.
-- [ ] Stash is not event synced to peers.
+- [ ] Stash is not gossiped to peers.
 
 ---
 
@@ -677,13 +677,13 @@ Import existing Git repositories into Epoch (converting commits to events) and e
 | **Status** | Optional |
 
 ### Description
-Decentralized issue tracking and patch proposals. Issues and patches are content-addressed, signed events stored in the repository's event log and event synced to all peers. No central forge required.
+Decentralized issue tracking and patch proposals. Issues and patches are content-addressed, signed events stored in the repository's event log and gossiped to all peers. No central forge required.
 
 ### User Story
 **As a** contributor, **I want** to open a patch proposal and discussion on an Epoch repository without creating an account on a third-party platform so that I can contribute using only my Epoch identity.
 
 ### Acceptance Criteria
-- [ ] `epoch issue open` creates a signed Issue event and event syncs it.
+- [ ] `epoch issue open` creates a signed Issue event and gossips it.
 - [ ] `epoch patch open` creates a signed Patch event referencing a branch.
 - [ ] Comments on issues and patches are signed Comment events.
-- [ ] All issue/patch data is replicated to all peers via event sync.
+- [ ] All issue/patch data is replicated to all peers via gossip.

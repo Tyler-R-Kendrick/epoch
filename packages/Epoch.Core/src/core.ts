@@ -328,10 +328,6 @@ export class EpochRepository {
     return this.append(EventType.rollback, { target, reason, previousHeads: this.heads() });
   }
 
-  rejectMerge(reason = ""): Event {
-    return this.append(EventType.mergeRejected, { reason, rejectedHeads: this.heads() });
-  }
-
   importFromGit(gitRoot: string): Event[] {
     this.requireInitialized();
     const sourceRoot = resolve(gitRoot);
