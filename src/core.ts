@@ -211,6 +211,7 @@ export class EpochRepository {
     });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
     const headsBeingMerged = new Set(heads);
+    // Re-read heads to preserve tips concurrently introduced by another process before this write.
     const retainedHeads = this.heads().filter((head) => !headsBeingMerged.has(head));
     writeJson(this.headsPath, [...new Set([...retainedHeads, event.id])].sort());
     return event;

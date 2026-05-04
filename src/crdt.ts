@@ -124,6 +124,7 @@ export class CRDTEventLog {
 
     const children = new Map<string | null, TextElement[]>();
     for (const element of elements.values()) {
+      // Dangling references are treated as root inserts so partial/offline logs still materialize deterministically.
       const parent = element.after !== null && elements.has(element.after) ? element.after : null;
       const siblings = children.get(parent) ?? [];
       siblings.push(element);
