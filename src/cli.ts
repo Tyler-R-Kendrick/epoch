@@ -21,7 +21,7 @@ export function main(argv = process.argv.slice(2)): number {
 function run(argv: string[]): void {
   const parsed = parseGlobalArgs(argv);
   if (parsed.command === undefined) {
-    throw new Error("usage: epoch [--repo PATH] <init|record|log|verify|merge>");
+    throw new Error("usage: epoch [--repo PATH] <init|record|log|verify|merge|gossip|anti-entropy|git-import|git-export>");
   }
 
   const repo = new EpochRepository(parsed.repo);
@@ -50,6 +50,25 @@ function run(argv: string[]): void {
         throw new Error("verification failed");
       }
       console.log("ok");
+      return;
+    }
+    case "gossip":
+    case "anti-entropy": {
+      if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} PEER_REPO`);
+      const result = parsed.command === "gossip" ? repo.gossip(parsed.args[0]) : repo.antiEntropy(parsed.args[0]);
+      console.log(`synced ${result.eventsCopied} events and ${result.blobsCopied} blobs`);
+      return;
+    }
+    case "git-import": {
+      if (parsed.args.length !== 1) throw new Error("usage: epoch git-import GIT_REPO");
+      const events = repo.importFromGit(parsed.args[0]);
+      console.log(`imported ${events.length} files`);
+      return;
+    }
+    case "git-export": {
+      if (parsed.args.length !== 1) throw new Error("usage: epoch git-export GIT_REPO");
+      const paths = repo.exportToGit(parsed.args[0]);
+      console.log(`exported ${paths.length} files`);
       return;
     }
     case "merge": {

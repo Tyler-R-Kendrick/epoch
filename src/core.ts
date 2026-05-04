@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalJson } from "./json";
 
 export type EventPayload = Record<string, unknown>;
@@ -13,6 +14,8 @@ export interface EventData {
   parents: string[];
   payload: EventPayload;
   timestamp: number;
+  authorPublicKey: string;
+  signature: string;
 }
 
 interface UnsignedEvent {
@@ -22,6 +25,18 @@ interface UnsignedEvent {
   parents: string[];
   payload: EventPayload;
   timestamp: number;
+  authorPublicKey: string;
+}
+
+export interface IdentityData {
+  author: string;
+  publicKey: string;
+  privateKey: string;
+}
+
+export interface SyncResult {
+  eventsCopied: number;
+  blobsCopied: number;
 }
 
 export class Event {
@@ -32,6 +47,8 @@ export class Event {
   readonly parents: string[];
   readonly payload: EventPayload;
   readonly timestamp: number;
+  readonly authorPublicKey: string;
+  readonly signature: string;
 
   constructor(data: Omit<EventData, "id"> & { id?: string }) {
     this.type = data.type;
@@ -40,16 +57,20 @@ export class Event {
     this.parents = [...data.parents];
     this.payload = { ...data.payload };
     this.timestamp = data.timestamp;
+    this.authorPublicKey = data.authorPublicKey;
+    this.signature = data.signature;
     this.id = data.id ?? this.computedId();
   }
 
-  static create(type: string, author: string, lamport: number, parents: string[], payload: EventPayload): Event {
+  static create(type: string, author: string, authorPublicKey: string, lamport: number, parents: string[], payload: EventPayload): Event {
     return new Event({
       type,
       author,
+      authorPublicKey,
       lamport,
       parents,
       payload,
+      signature: "",
       timestamp: Math.floor(Date.now() / 1000),
     });
   }
@@ -66,6 +87,7 @@ export class Event {
       parents: [...this.parents],
       payload: this.payload,
       timestamp: this.timestamp,
+      authorPublicKey: this.authorPublicKey,
     };
   }
 
@@ -77,6 +99,7 @@ export class Event {
     return {
       ...this.unsigned(),
       id: this.id,
+      signature: this.signature,
     };
   }
 }
@@ -105,14 +128,21 @@ export class EpochRepository {
       writeJson(this.headsPath, []);
     }
     if (!existsAsFile(this.identityPath)) {
-      writeJson(this.identityPath, { author });
+      writeJson(this.identityPath, createIdentity(author));
     }
   }
 
   identity(): string {
+    return this.identityDocument().author;
+  }
+
+  identityDocument(): IdentityData {
     this.requireInitialized();
-    const identity = readJson<{ author: string }>(this.identityPath);
-    return identity.author;
+    const identity = readJson<Partial<IdentityData> & { author: string }>(this.identityPath);
+    if (identity.publicKey !== undefined && identity.privateKey !== undefined) return identity as IdentityData;
+    const upgraded = createIdentity(identity.author);
+    writeJson(this.identityPath, upgraded);
+    return upgraded;
   }
 
   heads(): string[] {
@@ -122,19 +152,20 @@ export class EpochRepository {
 
   append(type: string, payload: EventPayload, author = this.identity()): Event {
     this.requireInitialized();
+    const identity = this.identityDocument();
     const heads = this.heads();
-    const event = Event.create(type, author, this.nextLamport(heads), heads, payload);
+    const unsigned = Event.create(type, author, identity.publicKey, this.nextLamport(heads), heads, payload);
+    const event = new Event({
+      ...unsigned.unsigned(),
+      signature: signEvent(unsigned, identity.privateKey),
+    });
     writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
     writeJson(this.headsPath, [event.id]);
     return event;
   }
 
   recordFile(path: string, entityType = "application/octet-stream"): Event {
-    const absolute = resolve(isAbsolute(path) ? path : join(this.root, path));
-    const relativePath = relative(this.root, absolute);
-    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
-      throw new Error(`cannot record file outside repository root: ${path}`);
-    }
+    const { absolute, relativePath } = resolveInside(this.root, path, "repository root");
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
     const blobPath = join(this.blobsDir, blobSha256);
@@ -172,6 +203,9 @@ export class EpochRepository {
       if (event.id !== event.computedId()) {
         problems.push(`${event.id}: content hash mismatch`);
       }
+      if (!verifyEvent(event)) {
+        problems.push(`${event.id}: signature verification failed`);
+      }
       known.set(event.id, event);
     }
 
@@ -192,7 +226,106 @@ export class EpochRepository {
       }
     }
 
+    for (const event of events) {
+      if (event.type === "record") {
+        problems.push(...this.verifyRecordedBlob(event));
+      }
+    }
+
     return problems;
+  }
+
+  syncFrom(peerRoot: string): SyncResult {
+    this.requireInitialized();
+    const peer = new EpochRepository(peerRoot);
+    peer.requireInitialized();
+
+    const eventsCopied = copyMissingFiles(peer.eventsDir, this.eventsDir);
+    const blobsCopied = copyMissingFiles(peer.blobsDir, this.blobsDir);
+    writeJson(this.headsPath, [...new Set([...this.heads(), ...peer.heads()])].sort());
+    return { eventsCopied, blobsCopied };
+  }
+
+  gossip(peerRoot: string): SyncResult {
+    const inbound = this.syncFrom(peerRoot);
+    const outbound = new EpochRepository(peerRoot).syncFrom(this.root);
+    return {
+      eventsCopied: inbound.eventsCopied + outbound.eventsCopied,
+      blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
+    };
+  }
+
+  antiEntropy(peerRoot: string): SyncResult {
+    return this.gossip(peerRoot);
+  }
+
+  importFromGit(gitRoot: string): Event[] {
+    this.requireInitialized();
+    const sourceRoot = resolve(gitRoot);
+    const tracked = execFileSync("git", ["-C", sourceRoot, "ls-files", "-z"]);
+    return tracked
+      .toString("utf8")
+      .split("\0")
+      .filter((path) => path.length > 0)
+      .map((path) => {
+        const data = readFileSync(resolveInside(sourceRoot, path, "Git repository").absolute);
+        const target = resolveInside(this.root, path, "repository root").absolute;
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, data);
+        return this.recordFile(path, entityTypeForPath(path));
+      });
+  }
+
+  exportToGit(gitRoot: string): string[] {
+    this.requireInitialized();
+    const targetRoot = resolve(gitRoot);
+    mkdirSync(targetRoot, { recursive: true });
+    if (!existsAsDirectory(join(targetRoot, ".git"))) {
+      execFileSync("git", ["-C", targetRoot, "-c", "init.defaultBranch=main", "init"]);
+    }
+
+    const exported: string[] = [];
+    for (const event of this.latestRecords()) {
+      const path = event.payload.path;
+      const blobSha256 = event.payload.blob_sha256;
+      if (typeof path !== "string" || typeof blobSha256 !== "string") continue;
+      const target = resolveInside(targetRoot, path, "Git repository").absolute;
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(join(this.blobsDir, blobSha256)));
+      exported.push(path);
+    }
+
+    if (exported.length > 0) {
+      execFileSync("git", ["-C", targetRoot, "add", ...exported]);
+      const hasChanges = execFileSync("git", ["-C", targetRoot, "status", "--porcelain"]).toString("utf8").trim().length > 0;
+      if (hasChanges) {
+        execFileSync("git", ["-C", targetRoot, "-c", "user.name=epoch", "-c", "user.email=epoch@example.invalid", "commit", "-m", "Export from Epoch"]);
+      }
+    }
+    return exported.sort();
+  }
+
+  private verifyRecordedBlob(event: Event): string[] {
+    const blobSha256 = event.payload.blob_sha256;
+    const size = event.payload.size;
+    if (typeof blobSha256 !== "string" || typeof size !== "number") return [`${event.id}: invalid record payload`];
+    const blobPath = join(this.blobsDir, blobSha256);
+    if (!existsAsFile(blobPath)) return [`${event.id}: missing blob ${blobSha256}`];
+    const data = readFileSync(blobPath);
+    const problems: string[] = [];
+    if (sha256(data) !== blobSha256) problems.push(`${event.id}: blob hash mismatch`);
+    if (data.byteLength !== size) problems.push(`${event.id}: blob size mismatch`);
+    return problems;
+  }
+
+  private latestRecords(): Event[] {
+    const records = new Map<string, Event>();
+    for (const event of this.events()) {
+      if (event.type === "record" && typeof event.payload.path === "string") {
+        records.set(event.payload.path, event);
+      }
+    }
+    return [...records.values()];
   }
 
   private nextLamport(heads: string[]): number {
@@ -216,6 +349,56 @@ export function writeJson(path: string, value: unknown): void {
 
 function sha256(data: string | Buffer): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+function resolveInside(root: string, path: string, description: string): { absolute: string; relativePath: string } {
+  const absolute = resolve(isAbsolute(path) ? path : join(root, path));
+  const relativePath = relative(root, absolute);
+  if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+    throw new Error(`cannot access path outside ${description}: ${path}`);
+  }
+  return { absolute, relativePath };
+}
+
+function createIdentity(author: string): IdentityData {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  return {
+    author,
+    publicKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
+    privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+  };
+}
+
+function signEvent(event: Event, privateKey: string): string {
+  return sign(null, Buffer.from(canonicalJson(event.unsigned())), privateKey).toString("base64");
+}
+
+function verifyEvent(event: Event): boolean {
+  try {
+    return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"));
+  } catch {
+    return false;
+  }
+}
+
+function copyMissingFiles(sourceDir: string, targetDir: string): number {
+  mkdirSync(targetDir, { recursive: true });
+  let copied = 0;
+  for (const name of readdirSync(sourceDir)) {
+    const source = join(sourceDir, name);
+    const target = join(targetDir, name);
+    if (statSync(source).isFile() && !existsAsFile(target)) {
+      writeFileSync(target, readFileSync(source));
+      copied += 1;
+    }
+  }
+  return copied;
+}
+
+function entityTypeForPath(path: string): string {
+  if (extname(path) === ".json") return "application/json";
+  if ([".md", ".txt"].includes(extname(path))) return "text/plain";
+  return "application/octet-stream";
 }
 
 function existsAsFile(path: string): boolean {
