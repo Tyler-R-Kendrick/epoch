@@ -277,6 +277,10 @@ When("I checkout view {string}", function (name: string) {
   state.repo.checkoutView(name);
 });
 
+When("I delete view {string}", function (name: string) {
+  state.repo.deleteView(name);
+});
+
 When("I promote view {string} to {string}", function (source: string, target: string) {
   state.lastEvent = state.repo.promoteToView(source, target);
 });
@@ -298,6 +302,14 @@ When("I remember the last proposal as {string}", function (name: string) {
 
 Then("the current view is {string}", function (expected: string) {
   assert.equal(state.repo.currentView(), expected);
+});
+
+Then("the named views include {string}", function (expected: string) {
+  assert.ok(state.repo.listViews().some((view) => view.name === expected));
+});
+
+Then("the named views do not include {string}", function (expected: string) {
+  assert.ok(!state.repo.listViews().some((view) => view.name === expected));
 });
 
 Then("view {string} has file {string} with content {string}", function (view: string, path: string, expected: string) {

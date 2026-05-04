@@ -6,11 +6,15 @@ Feature: Named views
     And I initialize an Epoch repository as "alice"
     And I record "note.txt" with content "main\n" as "text/plain"
     When I create view "exp/fast-algo" from "main"
+    Then the named views include "exp/fast-algo"
     And I checkout view "exp/fast-algo"
     And I record "note.txt" with content "experiment\n" as "text/plain"
     Then view "main" has file "note.txt" with content "main\n"
     And view "exp/fast-algo" has file "note.txt" with content "experiment\n"
     And the current view is "exp/fast-algo"
+    When I delete view "exp/fast-algo"
+    Then the named views do not include "exp/fast-algo"
+    And the current view is "main"
 
   Scenario: Promotion to main remains gated until approval
     Given a new workspace
