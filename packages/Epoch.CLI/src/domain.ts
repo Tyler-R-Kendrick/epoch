@@ -16,6 +16,7 @@ export const CliCommand = {
   rollback: "rollback",
   import: "import",
   export: "export",
+  drPlan: "dr-plan",
 } as const;
 
 export const CliOption = {
@@ -37,7 +38,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <init|record|intent|events|verify|merge|reject|comment|status|main|resolve|sync|rollback|import|export>",
+  usage: "usage: epoch [--repo PATH] <init|record|intent|events|verify|merge|reject|comment|status|main|resolve|sync|rollback|import|export|dr-plan>",
   intentUsage: "usage: epoch intent [--author NAME] [--type MIME] [--title TEXT] [--description TEXT] [--label A,B] PATH",
   mergeUsage: "usage: epoch merge [--author NAME] [--title TEXT] [--description TEXT] [--reason TEXT] [--label A,B] INTENT_ID",
   rejectUsage: "usage: epoch reject [--author NAME] [--title TEXT] [--description TEXT] [--reason TEXT] [--label A,B] INTENT_ID",
