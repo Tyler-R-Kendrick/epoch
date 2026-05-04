@@ -396,7 +396,7 @@ export class EpochRepository {
 
   private verifyRecordedBlob(event: Event): string[] {
     const parsed = Schemas.recordPayload.safeParse(event.payload);
-    if (!parsed.success) return [`${event.id}: invalid commit payload`];
+    if (!parsed.success) return [`${event.id}: ${RepositoryText.invalidFileRecordPayload}`];
     const { blob_sha256: blobSha256, size } = parsed.data;
     const blobPath = join(this.blobsDir, blobSha256);
     if (!existsAsFile(blobPath)) return [`${event.id}: missing blob ${blobSha256}`];

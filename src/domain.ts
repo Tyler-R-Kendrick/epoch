@@ -192,6 +192,7 @@ export const RepositoryText = {
   writePath: "write path",
   repositoryRoot: "repository root",
   gitRepository: "Git repository",
+  invalidFileRecordPayload: "invalid file record payload",
 } as const;
 
 export const MergeText = {
