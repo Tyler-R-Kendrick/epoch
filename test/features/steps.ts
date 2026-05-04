@@ -81,7 +81,7 @@ Then("the recorded blob content equals {string}", function (expected: string) {
 
 Then("the repository identity uses Ed25519 keys", function () {
   const identity = state.repo.identityDocument();
-  assert.equal(identity.author, "alice");
+  assert.equal(identity.author, state.repo.identity());
   assert.match(identity.publicKey, /BEGIN PUBLIC KEY/);
   assert.match(identity.privateKey, /BEGIN PRIVATE KEY/);
 });

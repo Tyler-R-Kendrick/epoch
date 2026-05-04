@@ -42,6 +42,25 @@ export interface SyncResult {
 export const GIT_AUTHOR_NAME = "epoch";
 export const GIT_AUTHOR_EMAIL = "epoch@example.invalid";
 
+const ENTITY_TYPES_BY_EXTENSION = new Map([
+  [".css", "text/css"],
+  [".csv", "text/csv"],
+  [".htm", "text/html"],
+  [".html", "text/html"],
+  [".js", "text/javascript"],
+  [".json", "application/json"],
+  [".jsx", "text/javascript"],
+  [".markdown", "text/plain"],
+  [".md", "text/plain"],
+  [".toml", "text/plain"],
+  [".ts", "text/plain"],
+  [".tsx", "text/plain"],
+  [".txt", "text/plain"],
+  [".xml", "text/plain"],
+  [".yaml", "text/plain"],
+  [".yml", "text/plain"],
+]);
+
 export class Event {
   readonly id: string;
   readonly type: string;
@@ -380,7 +399,8 @@ function signEvent(event: Event, privateKey: string): string {
 }
 
 function verifyEventSignature(event: Event): string | undefined {
-  if (event.signature === "" || event.authorPublicKey === "") return "missing signature or public key";
+  if (typeof event.signature !== "string" || event.signature.length === 0) return "missing signature";
+  if (typeof event.authorPublicKey !== "string" || event.authorPublicKey.length === 0) return "missing public key";
   try {
     return verify(null, Buffer.from(canonicalJson(event.unsigned())), event.authorPublicKey, Buffer.from(event.signature, "base64"))
       ? undefined
@@ -405,31 +425,7 @@ function copyMissingFiles(sourceDir: string, targetDir: string): number {
 }
 
 function entityTypeForPath(path: string): string {
-  switch (extname(path).toLowerCase()) {
-    case ".json":
-      return "application/json";
-    case ".css":
-      return "text/css";
-    case ".csv":
-      return "text/csv";
-    case ".html":
-    case ".htm":
-      return "text/html";
-    case ".js":
-    case ".jsx":
-      return "text/javascript";
-    case ".md":
-    case ".markdown":
-    case ".txt":
-    case ".toml":
-    case ".ts":
-    case ".tsx":
-    case ".xml":
-    case ".yaml":
-    case ".yml":
-      return "text/plain";
-  }
-  return "application/octet-stream";
+  return ENTITY_TYPES_BY_EXTENSION.get(extname(path).toLowerCase()) ?? "application/octet-stream";
 }
 
 function existsAsFile(path: string): boolean {
