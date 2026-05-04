@@ -3,11 +3,15 @@ import { z } from "zod";
 export const CliCommand = {
   init: "init",
   record: "record",
+  intent: "intent",
   events: "events",
   verify: "verify",
   merge: "merge",
+  reject: "reject",
+  status: "status",
+  main: "main",
+  resolve: "resolve",
   sync: "sync",
-  branch: "branch",
   rollback: "rollback",
   import: "import",
   export: "export",
@@ -16,21 +20,23 @@ export const CliCommand = {
 export const CliOption = {
   author: "author",
   type: "type",
+  reason: "reason",
   repo: "--repo",
 } as const;
 
 export const CliSyntax = {
   repositoryDefault: ".",
   optionPrefix: "--",
-  branchSeparator: ",",
 } as const;
 
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <init|record|events|verify|merge|sync|branch|rollback|import|export>",
-  mergeUsage: "usage: epoch merge --type MIME BASE LEFT RIGHT",
-  branchUsage: "usage: epoch branch [NAME]",
+  usage: "usage: epoch [--repo PATH] <init|record|intent|events|verify|merge|reject|status|main|resolve|sync|rollback|import|export>",
+  intentUsage: "usage: epoch intent [--type MIME] PATH",
+  mergeUsage: "usage: epoch merge INTENT_ID",
+  rejectUsage: "usage: epoch reject [--reason TEXT] INTENT_ID",
+  resolveUsage: "usage: epoch resolve --type MIME BASE LEFT RIGHT",
   rollbackUsage: "usage: epoch rollback EVENT_ID",
 } as const;
 

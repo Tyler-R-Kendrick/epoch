@@ -20,6 +20,7 @@ interface WorldState {
   gitRepo?: string;
   gitExportRepo?: string;
   syncResult?: SyncResult;
+  lastIntentId?: string;
 }
 
 let state: WorldState;
@@ -205,17 +206,39 @@ When("I sync with the peer repository", function () {
   state.syncResult = state.repo.sync(state.peerRepo.root);
 });
 
-When("I create branch {string}", function (name: string) {
-  state.lastEvent = state.repo.branch(name);
+When("I create an intent for {string} with content {string} as {string}", function (path: string, content: string, entityType: string) {
+  const absolute = join(state.workspace, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  state.lastEvent = state.repo.intentFile(path, entityType);
+  state.lastIntentId = state.lastEvent.id;
 });
 
-Then("the branch list contains {string}", function (name: string) {
-  assert.ok(Object.hasOwn(state.repo.branches(), name));
+When("{string} signs the intent merge", function (author: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.mergeIntent(state.lastIntentId, author);
 });
 
-When("I rollback to the last event", function () {
-  assert.ok(state.lastEvent);
-  state.lastEvent = state.repo.rollback(state.lastEvent.id);
+When("{string} rejects the intent with reason {string}", function (author: string, reason: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = state.repo.rejectIntent(state.lastIntentId, reason, author);
+});
+
+Then("the last intent status is {string}", function (status: string) {
+  assert.ok(state.lastIntentId);
+  const decision = state.repo.policy().intents.find((item) => item.intent.id === state.lastIntentId);
+  assert.ok(decision);
+  assert.equal(decision.status, status);
+});
+
+Then("the main projection contains the last intent", function () {
+  assert.ok(state.lastIntentId);
+  assert.ok(state.repo.mainIntentIds().includes(state.lastIntentId));
+});
+
+Then("the main projection skips the last intent", function () {
+  assert.ok(state.lastIntentId);
+  assert.ok(!state.repo.mainIntentIds().includes(state.lastIntentId));
 });
 
 Then("the peer repository verifies successfully", function () {

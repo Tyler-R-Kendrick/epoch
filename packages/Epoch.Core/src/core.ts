@@ -4,7 +4,6 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalJson } from "./json";
 import {
-  Branches,
   CryptoSpec,
   DefaultAuthor,
   EntityType,
@@ -19,6 +18,7 @@ import {
   JsonFileExtension,
   LegacyIdentitySchema,
   FsFlag,
+  IntentStatus,
   RepositoryText,
   Schemas,
   SignatureText,
@@ -28,7 +28,7 @@ import {
 import type { z } from "zod";
 
 export { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "./domain";
-export type { Branches, EventData, EventPayload, IdentityData } from "./domain";
+export type { EventData, EventPayload, IdentityData } from "./domain";
 
 interface UnsignedEvent {
   type: string;
@@ -44,6 +44,27 @@ export interface SyncResult {
   eventsCopied: number;
   blobsCopied: number;
 }
+
+export interface PolicyOptions {
+  mergesRequired?: number;
+  maintainers?: readonly string[];
+}
+
+export interface IntentDecision {
+  intent: Event;
+  merges: string[];
+  rejections: string[];
+  status: "merged" | "rejected" | "pending";
+}
+
+export interface PolicyProjection {
+  intents: IntentDecision[];
+  merged: string[];
+  rejected: string[];
+  pending: string[];
+}
+
+type RecordPatch = z.infer<typeof Schemas.recordPayload>;
 
 const ENTITY_TYPES_BY_EXTENSION = new Map<string, string>([
   [FileExtension.css, EntityType.css],
@@ -137,7 +158,6 @@ export class EpochRepository {
   readonly usersDir: string;
   readonly headsPath: string;
   readonly identityPath: string;
-  readonly branchesPath: string;
 
   constructor(root: string) {
     this.root = resolve(root);
@@ -147,7 +167,6 @@ export class EpochRepository {
     this.usersDir = join(this.epochDir, StorageName.users);
     this.headsPath = join(this.epochDir, StorageName.heads);
     this.identityPath = join(this.epochDir, StorageName.identity);
-    this.branchesPath = join(this.epochDir, StorageName.branches);
   }
 
   init(author = DefaultAuthor): void {
@@ -159,9 +178,6 @@ export class EpochRepository {
     }
     if (!existsAsFile(this.identityPath)) {
       writeJson(this.identityPath, createIdentity(author));
-    }
-    if (!existsAsFile(this.branchesPath)) {
-      writeJson(this.branchesPath, {});
     }
   }
 
@@ -222,6 +238,81 @@ export class EpochRepository {
   }
 
   recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
+    return this.append(EventType.record, this.recordPatch(path, entityType), author);
+  }
+
+  intentFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
+    return this.intent([this.recordPatch(path, entityType)], author);
+  }
+
+  intent(patches: RecordPatch[], author = this.identity()): Event {
+    return this.append(EventType.intent, { base: this.mainIntentIds(), patches }, author);
+  }
+
+  mergeIntent(intentId: string, author = this.identity()): Event {
+    const intent = this.read(intentId);
+    if (intent.type !== EventType.intent) throw new Error(`not an intent: ${intentId}`);
+    return this.append(EventType.intentMerge, { intent: intentId }, author);
+  }
+
+  rejectIntent(intentId: string, reason = "", author = this.identity()): Event {
+    const intent = this.read(intentId);
+    if (intent.type !== EventType.intent) throw new Error(`not an intent: ${intentId}`);
+    return this.append(EventType.intentReject, { intent: intentId, reason }, author);
+  }
+
+  policy(options: PolicyOptions = {}): PolicyProjection {
+    const mergesRequired = options.mergesRequired ?? 2;
+    const maintainers = options.maintainers === undefined ? undefined : new Set(options.maintainers);
+    const decisions = new Map<string, IntentDecision>();
+
+    for (const event of this.events()) {
+      if (event.type !== EventType.intent) continue;
+      decisions.set(event.id, { intent: event, merges: [], rejections: [], status: IntentStatus.pending });
+    }
+
+    for (const event of this.events()) {
+      if (maintainers !== undefined && !maintainers.has(event.author)) continue;
+      if (event.type === EventType.intentMerge) {
+        const parsed = Schemas.intentMergePayload.safeParse(event.payload);
+        if (!parsed.success) continue;
+        decisions.get(parsed.data.intent)?.merges.push(event.author);
+      } else if (event.type === EventType.intentReject) {
+        const parsed = Schemas.intentRejectPayload.safeParse(event.payload);
+        if (!parsed.success) continue;
+        decisions.get(parsed.data.intent)?.rejections.push(event.author);
+      }
+    }
+
+    const intents = [...decisions.values()].map((decision) => {
+      const merges = [...new Set(decision.merges)].sort();
+      const rejections = [...new Set(decision.rejections)].sort();
+      const status = rejections.length > 0 ? IntentStatus.rejected : merges.length >= mergesRequired ? IntentStatus.merged : IntentStatus.pending;
+      return { intent: decision.intent, merges, rejections, status };
+    });
+
+    return {
+      intents,
+      merged: intents.filter((decision) => decision.status === IntentStatus.merged).map((decision) => decision.intent.id),
+      rejected: intents.filter((decision) => decision.status === IntentStatus.rejected).map((decision) => decision.intent.id),
+      pending: intents.filter((decision) => decision.status === IntentStatus.pending).map((decision) => decision.intent.id),
+    };
+  }
+
+  mainIntentIds(options: PolicyOptions = {}): string[] {
+    return this.policy(options).merged;
+  }
+
+  mergedIntents(options: PolicyOptions = {}): Event[] {
+    const merged = new Set(this.mainIntentIds(options));
+    return this.events().filter((event) => merged.has(event.id));
+  }
+
+  mainPatches(options: PolicyOptions = {}): RecordPatch[] {
+    return this.mergedIntents(options).flatMap((intent) => Schemas.intentPayload.parse(intent.payload).patches);
+  }
+
+  private recordPatch(path: string, entityType: string): RecordPatch {
     const { absolute, relativePath } = resolveInside(this.root, path, RepositoryText.recordFile, RepositoryText.repositoryRoot);
     const data = readFileSync(absolute);
     const blobSha256 = sha256(data);
@@ -229,12 +320,12 @@ export class EpochRepository {
     if (!existsAsFile(blobPath)) {
       writeFileSync(blobPath, data);
     }
-    return this.append(EventType.record, {
+    return {
       path: relativePath.split(sep).join(TextToken.pathSeparator),
       entity_type: entityType,
       blob_sha256: blobSha256,
       size: data.byteLength,
-    }, author);
+    };
   }
 
   read(eventId: string): Event {
@@ -285,6 +376,13 @@ export class EpochRepository {
     for (const event of events) {
       if (event.type === EventType.record) {
         problems.push(...this.verifyRecordedBlob(event));
+      } else if (event.type === EventType.intent) {
+        const parsed = Schemas.intentPayload.safeParse(event.payload);
+        if (!parsed.success) {
+          problems.push(`${event.id}: invalid intent payload`);
+        } else {
+          for (const patch of parsed.data.patches) problems.push(...this.verifyPatchBlob(event.id, patch));
+        }
       }
     }
 
@@ -309,18 +407,6 @@ export class EpochRepository {
       eventsCopied: inbound.eventsCopied + outbound.eventsCopied,
       blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
     });
-  }
-
-  branches(): Branches {
-    this.requireInitialized();
-    return readJson(this.branchesPath, Schemas.branches);
-  }
-
-  branch(name: string, targetHeads = this.heads()): Event {
-    const branches = this.branches();
-    branches[name] = [...targetHeads];
-    writeJson(this.branchesPath, branches);
-    return this.append(EventType.branch, { name, heads: targetHeads });
   }
 
   rollback(target: string, reason = ""): Event {
@@ -353,9 +439,9 @@ export class EpochRepository {
     }
 
     const exported: string[] = [];
-    for (const event of this.latestRecords()) {
-      const path = event.payload.path;
-      const blobSha256 = event.payload.blob_sha256;
+    for (const patch of this.latestRecords()) {
+      const path = patch.path;
+      const blobSha256 = patch.blob_sha256;
       if (!isString(path) || !isString(blobSha256)) continue;
       const target = resolveInside(targetRoot, path, RepositoryText.writePath, RepositoryText.gitRepository).absolute;
       mkdirSync(dirname(target), { recursive: true });
@@ -376,23 +462,29 @@ export class EpochRepository {
   private verifyRecordedBlob(event: Event): string[] {
     const parsed = Schemas.recordPayload.safeParse(event.payload);
     if (!parsed.success) return [`${event.id}: ${RepositoryText.invalidFileRecordPayload}`];
-    const { blob_sha256: blobSha256, size } = parsed.data;
+    return this.verifyPatchBlob(event.id, parsed.data);
+  }
+
+  private verifyPatchBlob(owner: string, patch: RecordPatch): string[] {
+    const { blob_sha256: blobSha256, size } = patch;
     const blobPath = join(this.blobsDir, blobSha256);
-    if (!existsAsFile(blobPath)) return [`${event.id}: missing blob ${blobSha256}`];
+    if (!existsAsFile(blobPath)) return [`${owner}: missing blob ${blobSha256}`];
     const data = readFileSync(blobPath);
     const problems: string[] = [];
-    if (sha256(data) !== blobSha256) problems.push(`${event.id}: blob hash mismatch`);
-    if (data.byteLength !== size) problems.push(`${event.id}: blob size mismatch`);
+    if (sha256(data) !== blobSha256) problems.push(`${owner}: blob hash mismatch`);
+    if (data.byteLength !== size) problems.push(`${owner}: blob size mismatch`);
     return problems;
   }
 
-  private latestRecords(): Event[] {
-    const records = new Map<string, Event>();
+  private latestRecords(): RecordPatch[] {
+    const records = new Map<string, RecordPatch>();
     for (const event of this.events()) {
-      if (event.type === EventType.record && isString(event.payload.path)) {
-        records.set(event.payload.path, event);
+      if (event.type === EventType.record) {
+        const parsed = Schemas.recordPayload.safeParse(event.payload);
+        if (parsed.success) records.set(parsed.data.path, parsed.data);
       }
     }
+    for (const patch of this.mainPatches()) records.set(patch.path as string, patch);
     return [...records.values()];
   }
 
@@ -403,9 +495,6 @@ export class EpochRepository {
   private requireInitialized(): void {
     if (!existsAsDirectory(this.eventsDir) || !existsAsDirectory(this.blobsDir) || !existsAsFile(this.headsPath)) {
       throw new Error(`not an Epoch repository: ${this.root}`);
-    }
-    if (!existsAsFile(this.branchesPath)) {
-      writeJson(this.branchesPath, {});
     }
   }
 }

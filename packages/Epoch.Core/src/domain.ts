@@ -2,12 +2,10 @@ import { z } from "zod";
 
 export const Symbols = {
   eventId: Symbol("epoch.eventId"),
-  branchName: Symbol("epoch.branchName"),
   repositoryPath: Symbol("epoch.repositoryPath"),
 } as const;
 
 export type EventId = string & { readonly [Symbols.eventId]: true };
-export type BranchName = string & { readonly [Symbols.branchName]: true };
 export type RepositoryPath = string & { readonly [Symbols.repositoryPath]: true };
 
 export const StorageName = {
@@ -17,7 +15,6 @@ export const StorageName = {
   users: "users",
   heads: "heads.json",
   identity: "identity.json",
-  branches: "branches.json",
 } as const;
 
 export const EntityType = {
@@ -39,8 +36,16 @@ export const EntityType = {
 
 export const EventType = {
   record: "record",
-  branch: "branch",
+  intent: "intent",
+  intentMerge: "intent.merge",
+  intentReject: "intent.reject",
   rollback: "rollback",
+} as const;
+
+export const IntentStatus = {
+  merged: "merged",
+  rejected: "rejected",
+  pending: "pending",
 } as const;
 
 export const ActorCommand = {
@@ -168,7 +173,22 @@ export const Schemas = {
     blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
     size: z.number().int().nonnegative(),
   }),
-  branches: z.record(z.string().min(1), z.array(z.string().min(1))),
+  intentPayload: z.object({
+    base: z.array(z.string().min(1)),
+    patches: z.array(z.object({
+      path: z.string().min(1),
+      entity_type: z.string().min(1),
+      blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+      size: z.number().int().nonnegative(),
+    })).min(1),
+  }),
+  intentMergePayload: z.object({
+    intent: z.string().min(1),
+  }),
+  intentRejectPayload: z.object({
+    intent: z.string().min(1),
+    reason: z.string(),
+  }),
   heads: z.array(z.string().min(1)),
   syncResult: z.object({
     eventsCopied: z.number().int().nonnegative(),
@@ -186,4 +206,6 @@ export const LegacyIdentitySchema = Schemas.identity.partial({ publicKey: true, 
 export type EventData = z.infer<typeof EventDataSchema>;
 export type EventPayload = z.infer<typeof Schemas.eventPayload>;
 export type IdentityData = z.infer<typeof Schemas.identity>;
-export type Branches = z.infer<typeof Schemas.branches>;
+export type IntentPayload = z.infer<typeof Schemas.intentPayload>;
+export type IntentMergePayload = z.infer<typeof Schemas.intentMergePayload>;
+export type IntentRejectPayload = z.infer<typeof Schemas.intentRejectPayload>;

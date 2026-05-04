@@ -39,6 +39,12 @@ function run(argv: string[]): void {
       console.log(repo.recordFile(options.positionals[0], options.type).id);
       return;
     }
+    case CliCommand.intent: {
+      const options = parseOptions(parsed.args, { type: EntityType.octetStream });
+      if (options.positionals.length !== 1) throw new Error(CliText.intentUsage);
+      console.log(repo.intentFile(options.positionals[0], options.type).id);
+      return;
+    }
     case CliCommand.events:
       for (const event of repo.events()) {
         console.log(`${event.id} ${event.type} ${JSON.stringify(event.payload)}`);
@@ -71,24 +77,33 @@ function run(argv: string[]): void {
       console.log(`exported ${paths.length} files`);
       return;
     }
-    case CliCommand.merge: {
+    case CliCommand.merge:
+      if (parsed.args.length !== 1) throw new Error(CliText.mergeUsage);
+      console.log(repo.mergeIntent(parsed.args[0]).id);
+      return;
+    case CliCommand.reject: {
+      const options = parseOptions(parsed.args, { reason: "" });
+      if (options.positionals.length !== 1) throw new Error(CliText.rejectUsage);
+      console.log(repo.rejectIntent(options.positionals[0], options.reason).id);
+      return;
+    }
+    case CliCommand.status:
+      for (const decision of repo.policy().intents) {
+        console.log(`${decision.intent.id} ${decision.status} merges=${decision.merges.join(",")} rejections=${decision.rejections.join(",")}`);
+      }
+      return;
+    case CliCommand.main:
+      for (const intent of repo.mainIntentIds()) {
+        console.log(intent);
+      }
+      return;
+    case CliCommand.resolve: {
       const options = parseOptions(parsed.args, { type: "" });
       if (options.type === "" || options.positionals.length !== 3) {
-        throw new Error(CliText.mergeUsage);
+        throw new Error(CliText.resolveUsage);
       }
       const [base, left, right] = options.positionals.map((path) => loadEntity(options.type, readFileSync(path, JsonEncoding)));
       process.stdout.write(dumpEntity(options.type, CRDTRegistry.defaults().merge(options.type, base, left, right)));
-      return;
-    }
-    case CliCommand.branch: {
-      if (parsed.args.length === 0) {
-        for (const [name, heads] of Object.entries(repo.branches()).sort(([left], [right]) => left.localeCompare(right))) {
-          console.log(`${name} ${heads.join(CliSyntax.branchSeparator)}`);
-        }
-        return;
-      }
-      if (parsed.args.length !== 1) throw new Error(CliText.branchUsage);
-      console.log(repo.branch(parsed.args[0]).id);
       return;
     }
     case CliCommand.rollback: {

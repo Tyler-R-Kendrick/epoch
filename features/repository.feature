@@ -41,15 +41,26 @@ Feature: Epoch repository event log
     And the peer event log contains 1 event
     And the peer recorded blob content equals "hello\n"
 
-  Scenario: Branching and rollback are recorded as events
+  Scenario: Intent merge signatures advance the main projection
     Given a new workspace
     And I initialize an Epoch repository as "alice"
-    And I record "note.txt" with content "hello\n" as "text/plain"
-    When I create branch "feature"
-    Then the branch list contains "feature"
-    When I rollback to the last event
+    When I create an intent for "note.txt" with content "hello\n" as "text/plain"
+    Then the last intent status is "pending"
+    When "bob" signs the intent merge
+    And "carol" signs the intent merge
+    Then the last intent status is "merged"
+    And the main projection contains the last intent
     Then the repository verifies successfully
     And the event log contains 3 events
+
+  Scenario: Rejected intents remain on the ledger but are skipped by main
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I create an intent for "note.txt" with content "bad\n" as "text/plain"
+    And "bob" rejects the intent with reason "not ready"
+    Then the last intent status is "rejected"
+    And the main projection skips the last intent
+    And the event log contains 2 events
 
   Scenario: Import from and export to Git repositories
     Given a new workspace
