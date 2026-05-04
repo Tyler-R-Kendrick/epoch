@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { commitGit, CRDTRegistry, EpochRepository, Event, SyncResult } from "../../src";
+import { commitGit, CRDTRegistry, EpochActorSystem, EpochRepository, Event, SyncResult } from "../../src";
 import { canonicalJson } from "../../src/json";
 
 interface WorldState {
@@ -17,6 +17,7 @@ interface WorldState {
   createdFiles: string[];
   createdDirs: string[];
   peerRepo?: EpochRepository;
+  actorRepo?: EpochActorSystem;
   gitRepo?: string;
   gitExportRepo?: string;
   syncResult?: SyncResult;
@@ -31,6 +32,7 @@ Before(function () {
 });
 
 After(function () {
+  state.actorRepo?.stop();
   for (const path of state.createdFiles) {
     rmSync(path, { force: true });
   }
@@ -38,6 +40,85 @@ After(function () {
     rmSync(path, { recursive: true, force: true });
   }
   rmSync(state.workspace, { recursive: true, force: true });
+});
+
+When("I start an Epoch actor repository as {string}", async function (author: string) {
+  state.actorRepo = new EpochActorSystem(state.workspace);
+  await state.actorRepo.init(author);
+});
+
+When("I start an Epoch actor for the existing repository", function () {
+  state.actorRepo = new EpochActorSystem(state.workspace);
+});
+
+Given("the actor user identity directory is missing", function () {
+  rmSync(state.repo.usersDir, { recursive: true, force: true });
+});
+
+When("I asynchronously record {string} with content {string} as {string}", async function (path: string, content: string, entityType: string) {
+  assert.ok(state.actorRepo);
+  const absolute = join(state.workspace, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  state.lastEvent = await state.actorRepo.recordFile(path, entityType);
+});
+
+When("actor users concurrently record:", async function (table: DataTable) {
+  assert.ok(state.actorRepo);
+  const actorRepo = state.actorRepo;
+  const rows = table.hashes();
+  await Promise.all(rows.map(async (row) => {
+    const absolute = join(state.workspace, row.path);
+    mkdirSync(dirname(absolute), { recursive: true });
+    writeFileSync(absolute, row.content.replaceAll("\\n", "\n"), "utf8");
+    return actorRepo.user(row.author).recordFile(row.path, row.entityType);
+  }));
+});
+
+When("I run actor anti-entropy with the peer repository", async function () {
+  assert.ok(state.actorRepo);
+  assert.ok(state.peerRepo);
+  state.syncResult = await state.actorRepo.antiEntropy(state.peerRepo.root);
+});
+
+Then("the actor repository verifies successfully", async function () {
+  assert.ok(state.actorRepo);
+  assert.deepEqual(await state.actorRepo.verify(), []);
+});
+
+Then("the actor event log contains {int} event", async function (count: number) {
+  assert.ok(state.actorRepo);
+  assert.equal((await state.actorRepo.events()).length, count);
+});
+
+Then("the actor event log contains {int} events", async function (count: number) {
+  assert.ok(state.actorRepo);
+  assert.equal((await state.actorRepo.events()).length, count);
+});
+
+Then("the actor events include authors {string}", async function (expected: string) {
+  assert.ok(state.actorRepo);
+  const authors = [...new Set((await state.actorRepo.events()).map((event) => event.author))].sort();
+  assert.deepEqual(authors, expected.split(",").sort());
+});
+
+Then("actor event authors have distinct signing keys", async function () {
+  assert.ok(state.actorRepo);
+  const keysByAuthor = new Map<string, Set<string>>();
+  for (const event of await state.actorRepo.events()) {
+    let keys = keysByAuthor.get(event.author);
+    if (keys === undefined) {
+      keys = new Set<string>();
+      keysByAuthor.set(event.author, keys);
+    }
+    keys.add(event.authorPublicKey);
+  }
+  assert.ok(keysByAuthor.size > 1);
+  for (const keys of keysByAuthor.values()) {
+    assert.equal(keys.size, 1);
+  }
+  const uniqueKeyCount = new Set([...keysByAuthor.values()].map((keys) => [...keys][0])).size;
+  assert.equal(uniqueKeyCount, keysByAuthor.size);
 });
 
 Given("a new workspace", function () {
