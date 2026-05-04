@@ -94,12 +94,16 @@ Given("the default CRDT registry", function () {
 When("I merge text\\/plain values:", function (table: DataTable) {
   assert.ok(state.registry);
   const row = table.hashes()[0];
-  state.merged = state.registry.merge(
-    "text/plain",
-    row.base.replaceAll("\\n", "\n"),
-    row.left.replaceAll("\\n", "\n"),
-    row.right.replaceAll("\\n", "\n"),
-  );
+  try {
+    state.merged = state.registry.merge(
+      "text/plain",
+      row.base.replaceAll("\\n", "\n"),
+      row.left.replaceAll("\\n", "\n"),
+      row.right.replaceAll("\\n", "\n"),
+    );
+  } catch (error) {
+    state.error = error as Error;
+  }
 });
 
 Then("the merged text contains {string}", function (expected: string) {

@@ -30,6 +30,13 @@ Feature: Entity-level CRDT merging
       | top\nend\n | top\nmiddle\nend\n | top\nend\ntail\n |
     Then the merged text equals "top\nmiddle\nend\ntail\n"
 
+  Scenario: Report conflicting text replacements with line numbers
+    Given the default CRDT registry
+    When I merge text/plain values:
+      | base   | left    | right   |
+      | a\nb\n | a\nx\n  | a\ny\n  |
+    Then the merge reports a conflict containing "line 2"
+
   Scenario: Merge independent JSON object keys
     Given the default CRDT registry
     When I merge application/json values:
