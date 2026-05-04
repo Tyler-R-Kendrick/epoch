@@ -23,6 +23,7 @@ interface WorldState {
 }
 
 let state: WorldState;
+const gitDefaultBranch = process.env.EPOCH_TEST_GIT_BRANCH ?? "main";
 
 Before(function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-feature-"));
@@ -144,7 +145,7 @@ Given("a Git repository with {string} containing {string}", function (path: stri
   const workspace = mkdtempSync(join(tmpdir(), "epoch-git-"));
   state.createdDirs.push(workspace);
   state.gitRepo = workspace;
-  execFileSync("git", ["-C", workspace, "-c", "init.defaultBranch=main", "init"]);
+  execFileSync("git", ["-C", workspace, "-c", `init.defaultBranch=${gitDefaultBranch}`, "init"]);
   const file = join(workspace, path);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, content.replaceAll("\\n", "\n"), "utf8");

@@ -47,14 +47,14 @@ const ENTITY_TYPES_BY_EXTENSION = new Map([
   [".csv", "text/csv"],
   [".htm", "text/html"],
   [".html", "text/html"],
-  [".js", "text/javascript"],
+  [".js", "application/javascript"],
   [".json", "application/json"],
-  [".jsx", "text/javascript"],
+  [".jsx", "application/javascript"],
   [".markdown", "text/plain"],
   [".md", "text/plain"],
   [".toml", "text/plain"],
-  [".ts", "text/plain"],
-  [".tsx", "text/plain"],
+  [".ts", "application/typescript"],
+  [".tsx", "application/typescript"],
   [".txt", "text/plain"],
   [".xml", "text/plain"],
   [".yaml", "text/plain"],
@@ -406,7 +406,7 @@ function verifyEventSignature(event: Event): string | undefined {
       ? undefined
       : "invalid signature";
   } catch (error) {
-    return `signature verification error: ${error instanceof Error ? error.message : String(error)}`;
+    return `signature verification error (key mismatch or corrupted signature data): ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
