@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { EpochRepository, SyncResult } from "../core";
 import { Schemas } from "../domain";
 import { createCheckpoint, latestCheckpoint, restoreCheckpointData, verifyCheckpoint } from "./checkpoint";
@@ -63,6 +64,6 @@ export class SeedNodeService {
 }
 
 function repositoryForSeed(seed: SeedNode): EpochRepository {
-  const root = seed.multiaddr.startsWith("file://") ? new URL(seed.multiaddr).pathname : seed.multiaddr;
+  const root = seed.multiaddr.startsWith("file://") ? fileURLToPath(seed.multiaddr) : seed.multiaddr;
   return new EpochRepository(root);
 }

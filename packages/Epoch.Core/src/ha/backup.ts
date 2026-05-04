@@ -8,6 +8,7 @@ import { sha256, signJson, verifyJsonSignature } from "./crypto";
 
 const BACKUP_DIR = "backups";
 const BACKUP_FORMAT = "epoch-cold-backup-v1";
+const MILLISECONDS_PER_SECOND = 1000;
 
 export interface ColdBackup {
   repositoryId: string;
@@ -49,7 +50,7 @@ export function createColdBackup(repository: EpochRepository, options: ColdBacku
     repositoryId: repositoryId(repository),
     checkpoint,
     tailEvents: eventsAfterCheckpoint(repository, checkpoint).map((event) => event.toJSON()),
-    createdAt: Math.floor(Date.now() / 1000),
+    createdAt: Math.floor(Date.now() / MILLISECONDS_PER_SECOND),
     signerPublicKey: identity.publicKey,
   };
   const backup: ColdBackup = { ...unsigned, signature: signJson(unsigned, identity.privateKey) };

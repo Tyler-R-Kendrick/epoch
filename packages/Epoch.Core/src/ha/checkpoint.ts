@@ -8,6 +8,7 @@ import { sha256, signJson, verifyJsonSignature } from "./crypto";
 const CHECKPOINT_DIR = "checkpoints";
 const CHECKPOINT_MANIFEST = "manifest.json";
 const CHECKPOINT_FORMAT = "epoch-checkpoint-v1";
+const MILLISECONDS_PER_SECOND = 1000;
 
 export interface Checkpoint {
   id: string;
@@ -60,7 +61,7 @@ export function createCheckpoint(repository: EpochRepository, targetEventId?: st
   const unsigned: UnsignedCheckpoint = {
     lastIncludedEventId: included[included.length - 1].id,
     stateHash: sha256(Buffer.from(payload, "base64")),
-    timestamp: Math.floor(Date.now() / 1000),
+    timestamp: Math.floor(Date.now() / MILLISECONDS_PER_SECOND),
     signerPublicKey: identity.publicKey,
     payload,
   };
