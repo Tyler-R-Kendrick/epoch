@@ -23,5 +23,8 @@
     "@cucumber/cucumber": "^12.8.2",
     "@types/node": "^25.6.0",
     "@typescript/native-preview": "^7.0.0-dev.20260504.1"
+  },
+  "dependencies": {
+    "xstate": "^5.31.0"
   }
 }
