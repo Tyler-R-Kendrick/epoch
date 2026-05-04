@@ -114,6 +114,7 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - built-in text and JSON entity merge definitions
 - filesystem gossip / anti-entropy exchange between local repositories
 - Git import/export compatibility for tracked files
+- Git compatibility surfaces exposed as `Epoch.Core.Git`, `Epoch.CLI.Git`, and `Epoch.WASM.Git` package entrypoints
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
 - CLI commands for `init`, `record`, `log`, `verify`, `merge`, `gossip`, `anti-entropy`, `git-import`, and `git-export`
 - Gherkin feature coverage for repository and CRDT behavior
@@ -152,6 +153,23 @@ Import tracked files from Git and export the latest recorded blobs back to a Git
 node dist/src/cli.js --repo ./epoch git-import ./git-project
 node dist/src/cli.js --repo ./epoch git-export ./git-export
 ```
+
+Use the Git compatibility CLI for tools that expect Git-like commands:
+
+```bash
+node dist/src/cli-git.js clone https://example.invalid/project.git ./project
+cd ./project
+node ../dist/src/cli-git.js add README.md
+node ../dist/src/cli-git.js commit -m "Update README"
+```
+
+The package also exposes Git compatibility entrypoints:
+
+- `epoch/Epoch.Core.Git` provides the host filesystem implementation that shells out to native Git for clone, init, add, and status while recording commits as Epoch merge events.
+- `epoch/Epoch.CLI.Git` provides the CLI runner used by the `epoch-git` binary.
+- `epoch/Epoch.WASM.Git` provides the WASM-facing surface and returns explicit unsupported errors for native Git operations that need host filesystem access.
+
+Unsupported Git commands fail with an explicit `not supported` error explaining that there is not yet a safe Epoch operation or clear workaround.
 
 Merge three versions of a supported entity type:
 
