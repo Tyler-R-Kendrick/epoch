@@ -1,6 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { EpochRepository, Event, readJson, writeJson } from "../core";
+import { EpochRepository, Event, writeJson } from "../core";
 import { EventData, JsonEncoding, JsonFileExtension, Schemas, TextToken } from "../domain";
 import { canonicalJson } from "../json";
 import { sha256, signJson, verifyJsonSignature } from "./crypto";

@@ -21,7 +21,7 @@ export async function bootstrapFromSeed(repository: EpochRepository, seed: SeedN
   try {
     seedIdentity = seedRepository.identityDocument();
   } catch (error) {
-    throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity not found or invalid (${error instanceof Error ? error.message : String(error)})`);
+    throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity not found or invalid (${error instanceof Error ? error.message : String(error)})`, { cause: error });
   }
   if (seed.peerId !== seedIdentity.author) throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity mismatch`);
   if (seed.trustLevel === "full") {
