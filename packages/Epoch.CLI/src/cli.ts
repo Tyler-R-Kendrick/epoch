@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { CRDTRegistry, DefaultAuthor, dumpEntity, EntityType, EpochRepository, JsonEncoding, loadEntity } from "@epoch/core";
+import { CRDTRegistry, DefaultAuthor, disasterRecoveryPlan, dumpEntity, EntityType, EpochRepository, JsonEncoding, loadEntity } from "@epoch/core";
 import type { EventMetadata } from "@epoch/core";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 
@@ -120,6 +120,9 @@ function run(argv: string[]): void {
       console.log(repo.rollback(parsed.args[0]).id);
       return;
     }
+    case CliCommand.drPlan:
+      console.log(disasterRecoveryPlan());
+      return;
     case CliCommand.viewCreate: {
       const options = parseOptions(parsed.args, { rule: "{\"type\":\"all\"}", parent: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.viewCreateUsage);
