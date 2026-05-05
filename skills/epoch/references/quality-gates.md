@@ -6,6 +6,8 @@ Epoch requires TDD and passing automated gates for source changes.
 
 Run these commands from the repository root:
 
+Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match the package engine declaration and the toolchain used by CI.
+
 | Command | Required for | What it checks |
 |---|---|---|
 | `npm run lint` | Every source or test change | ESLint rules over TypeScript, tests, and configuration. |

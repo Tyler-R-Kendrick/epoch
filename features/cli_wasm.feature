@@ -132,7 +132,16 @@ Feature: CLI and WASM integration surfaces
       | unknown |
     Then the CLI exits with code 1
     And the CLI error contains "unknown command"
-    When I run the Epoch Git CLI with arguments:
+    Given a Git repository with "docs/readme.md" containing "from git\n"
+    When I run the Epoch Git CLI in the Git repository with arguments:
+      | init |
+    Then the CLI exits with code 0
+    And the CLI output contains "initialized Git-compatible Epoch repository"
+    When I run the Epoch Git CLI in the Git repository with arguments:
+      | status |
+    Then the CLI exits with code 0
+    And the CLI output contains "Epoch repository verifies successfully"
+    When I run the Epoch Git CLI in the Git repository with arguments:
       | rebase |
     Then the CLI exits with code 1
     And the CLI error contains "not supported"

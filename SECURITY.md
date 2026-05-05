@@ -8,7 +8,7 @@ Epoch is currently a pre-1.0 prototype. Security fixes are accepted on the defau
 
 ## Reporting a vulnerability
 
-Please report suspected vulnerabilities privately to the repository maintainers. Do not open a public issue for secrets exposure, signature bypasses, tamper-detection failures, arbitrary file writes, command execution, or dependency compromise.
+Please report suspected vulnerabilities privately to the repository maintainers through a GitHub private vulnerability report at <https://github.com/Tyler-R-Kendrick/epoch/security/advisories/new>. Do not open a public issue for secrets exposure, signature bypasses, tamper-detection failures, arbitrary file writes, command execution, or dependency compromise.
 
 Include:
 

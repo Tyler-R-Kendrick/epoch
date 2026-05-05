@@ -7,7 +7,7 @@ import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber"
 import { main as epochCliMain, type CliIO } from "@epoch/cli";
 import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLog, readEpochGitRemote, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
 import { CRDTRegistry as WasmCRDTRegistry, EpochWasmGit } from "@epoch/wasm";
-import { main as epochGitCliMain } from "../../packages/Epoch.CLI/src/cli-git";
+import { main as epochGitCliMain } from "epoch/Epoch.CLI.Git";
 
 interface WorldState {
   workspace: string;
@@ -611,6 +611,11 @@ When("I run the Epoch Git CLI with arguments:", function (table: DataTable) {
   runCli(epochGitCliMain, argsFromTable(table));
 });
 
+When("I run the Epoch Git CLI in the Git repository with arguments:", function (table: DataTable) {
+  assert.ok(state.gitRepo);
+  runCli(epochGitCliMain, argsFromTable(table), state.gitRepo);
+});
+
 When("I remember the CLI output as {string}", function (name: string) {
   assert.ok(state.cliStdout);
   state.rememberedCliOutput = { ...(state.rememberedCliOutput ?? {}), [name]: state.cliStdout.trim() };
@@ -702,7 +707,7 @@ function argsFromTable(table: DataTable): string[] {
   return table.raw().flat();
 }
 
-function runCli(main: (argv: string[], io: CliIO) => number, argv: string[]): void {
+function runCli(main: (argv: string[], io: CliIO) => number, argv: string[], cwd = state.workspace): void {
   let stdout = "";
   let stderr = "";
   const originalCwd = process.cwd();
@@ -711,7 +716,7 @@ function runCli(main: (argv: string[], io: CliIO) => number, argv: string[]): vo
     stderr: { write: (message) => { stderr += message; } },
   };
   try {
-    process.chdir(state.workspace);
+    process.chdir(cwd);
     state.cliExitCode = main(argv, io);
   } finally {
     process.chdir(originalCwd);

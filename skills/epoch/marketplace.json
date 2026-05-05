@@ -41,6 +41,8 @@
     "references/core-sdk.md",
     "references/cli.md",
     "references/wasm.md",
-    "references/quality-gates.md"
+    "references/quality-gates.md",
+    "../../docs/design.md",
+    "../../docs/features.md"
   ]
 }

@@ -16,8 +16,15 @@
   "exports": {
     ".": "./packages/Epoch.Core/dist/index.js",
     "./Epoch.Core.Git": "./packages/Epoch.Core/dist/git.js",
-    "./Epoch.CLI.Git": "./packages/Epoch.CLI/dist/cli-git.js",
+    "./Epoch.CLI.Git": {
+      "types": "./packages/Epoch.CLI/src/cli-git.ts",
+      "default": "./packages/Epoch.CLI/dist/cli-git.js"
+    },
     "./Epoch.WASM.Git": "./packages/Epoch.WASM/dist/git.js"
+  },
+  "engines": {
+    "node": "^20.20.0 || >=22.13.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && tsgo -p tsconfig.test.json",
