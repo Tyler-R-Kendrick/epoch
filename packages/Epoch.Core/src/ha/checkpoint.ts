@@ -55,7 +55,7 @@ export function createCheckpoint(repository: EpochRepository, targetEventId?: st
   const payload = encodePayload({
     format: CHECKPOINT_FORMAT,
     events: included.map((event) => event.toJSON()),
-    heads: repository.heads(),
+    heads: headsForEvents(included),
     blobs: blobsForEvents(repository, included),
   });
   const identity = repository.identityDocument();
@@ -153,6 +153,11 @@ export function eventsAfterCheckpoint(repository: EpochRepository, checkpoint: C
   return index < 0 ? events : events.slice(index + 1);
 }
 
+export function headsForEvents(events: readonly Event[]): string[] {
+  const parents = new Set(events.flatMap((event) => event.parents));
+  return events.map((event) => event.id).filter((id) => !parents.has(id)).sort();
+}
+
 function storeCheckpoint(repository: EpochRepository, checkpoint: Checkpoint): void {
   verifyCheckpoint(checkpoint);
   mkdirSync(checkpointsDir(repository), { recursive: true });
@@ -206,7 +211,7 @@ function decodePayload(payload: string): CheckpointPayload {
   };
 }
 
-function blobsForEvents(repository: EpochRepository, events: readonly Event[]): Record<string, string> {
+export function blobsForEvents(repository: EpochRepository, events: readonly Event[]): Record<string, string> {
   const hashes = new Set<string>();
   for (const event of events) {
     collectBlobHash(event.payload.blob_sha256, hashes);

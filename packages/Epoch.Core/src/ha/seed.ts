@@ -16,15 +16,18 @@ export interface SeedNodeServiceOptions {
 export async function bootstrapFromSeed(repository: EpochRepository, seed: SeedNode): Promise<SyncResult> {
   repository.init();
   const seedRepository = repositoryForSeed(seed);
+  let seedIdentity;
   try {
-    seedRepository.identityDocument();
+    seedIdentity = seedRepository.identityDocument();
   } catch (error) {
     throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity not found or invalid (${error instanceof Error ? error.message : String(error)})`);
   }
+  if (seed.peerId !== seedIdentity.author) throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity mismatch (${seedIdentity.author})`);
   if (seed.trustLevel === "full") {
     const checkpoint = latestCheckpoint(seedRepository);
     if (checkpoint !== undefined) {
       verifyCheckpoint(checkpoint);
+      if (checkpoint.signerPublicKey !== seedIdentity.publicKey) throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: checkpoint signer does not match seed identity`);
       restoreCheckpointData(repository, checkpoint, true);
     }
   }

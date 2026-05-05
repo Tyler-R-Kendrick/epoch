@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EpochRepository, Event } from "../core";
+import { EpochRepository, Event, writeJson } from "../core";
 import { JsonEncoding, TextToken } from "../domain";
 import { canonicalJson } from "../json";
-import { Checkpoint, createCheckpoint, eventsAfterCheckpoint, restoreCheckpointData, verifyCheckpoint } from "./checkpoint";
+import { blobsForEvents, Checkpoint, createCheckpoint, eventsAfterCheckpoint, headsForEvents, restoreCheckpointData, verifyCheckpoint } from "./checkpoint";
 import { sha256, signJson, verifyJsonSignature } from "./crypto";
 
 const BACKUP_DIR = "backups";
@@ -11,9 +11,11 @@ const BACKUP_FORMAT = "epoch-cold-backup-v1";
 const MILLISECONDS_PER_SECOND = 1000;
 
 export interface ColdBackup {
+  format: typeof BACKUP_FORMAT;
   repositoryId: string;
   checkpoint: Checkpoint;
   tailEvents: ReturnType<Event["toJSON"]>[];
+  tailBlobs: Record<string, string>;
   createdAt: number;
   signerPublicKey: string;
   signature: string;
@@ -40,16 +42,20 @@ export class LocalStorageBackend implements StorageBackend {
 export interface ColdBackupOptions {
   storage?: StorageBackend;
   key?: string;
+  checkpoint?: Checkpoint;
 }
 
 export function createColdBackup(repository: EpochRepository, options: ColdBackupOptions = {}): ColdBackup {
-  const checkpoint = createCheckpoint(repository);
+  const checkpoint = options.checkpoint ?? createCheckpoint(repository);
+  verifyCheckpoint(checkpoint);
   const identity = repository.identityDocument();
+  const tailEvents = eventsAfterCheckpoint(repository, checkpoint);
   const unsigned = {
-    format: BACKUP_FORMAT,
+    format: BACKUP_FORMAT as typeof BACKUP_FORMAT,
     repositoryId: repositoryId(repository),
     checkpoint,
-    tailEvents: eventsAfterCheckpoint(repository, checkpoint).map((event) => event.toJSON()),
+    tailEvents: tailEvents.map((event) => event.toJSON()),
+    tailBlobs: blobsForEvents(repository, tailEvents),
     createdAt: Math.floor(Date.now() / MILLISECONDS_PER_SECOND),
     signerPublicKey: identity.publicKey,
   };
@@ -71,15 +77,21 @@ export function restoreFromColdBackup(repository: EpochRepository, backupOrPath:
   for (const event of backup.tailEvents) {
     writeFileSync(join(repository.eventsDir, `${event.id}.json`), `${canonicalJson(event)}${TextToken.newline}`, JsonEncoding);
   }
+  for (const [hash, data] of Object.entries(backup.tailBlobs)) {
+    writeFileSync(join(repository.blobsDir, hash), Buffer.from(data, "base64"));
+  }
+  if (backup.tailEvents.length > 0) writeJson(repository.headsPath, headsForEvents(repository.events()));
 }
 
 export function verifyColdBackup(backup: ColdBackup): void {
+  if (backup.format !== BACKUP_FORMAT) throw new Error("unsupported cold backup format");
   verifyCheckpoint(backup.checkpoint);
   const unsigned = {
-    format: BACKUP_FORMAT,
+    format: backup.format,
     repositoryId: backup.repositoryId,
     checkpoint: backup.checkpoint,
     tailEvents: backup.tailEvents,
+    tailBlobs: backup.tailBlobs,
     createdAt: backup.createdAt,
     signerPublicKey: backup.signerPublicKey,
   };

@@ -189,6 +189,17 @@ const LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_INTERVAL_MS = 10;
 const ATOMICS_WAIT_BUFFER = new SharedArrayBuffer(4);
 const ATOMICS_WAIT_ARRAY = new Int32Array(ATOMICS_WAIT_BUFFER);
+const CHECKPOINT_DIR = "checkpoints";
+const CHECKPOINT_MANIFEST = "manifest.json";
+
+interface LocalCheckpointManifest {
+  readonly prunedBeforeEventId?: string;
+  readonly checkpoints?: readonly {
+    readonly id?: string;
+    readonly lastIncludedEventId?: string;
+    readonly path?: string;
+  }[];
+}
 
 export class Event {
   readonly id: string;
@@ -603,7 +614,11 @@ export class EpochRepository {
   read(eventId: string): Event {
     this.requireInitialized();
     this.emitHook("repository.read.before", { eventId });
-    const event = Event.fromJSON(readJson(join(this.eventsDir, `${eventId}${JsonFileExtension}`), EventDataSchema));
+    const path = join(this.eventsDir, `${eventId}${JsonFileExtension}`);
+    const event = existsAsFile(path)
+      ? Event.fromJSON(readJson(path, EventDataSchema))
+      : this.checkpointPrefixEvent(eventId);
+    if (event === undefined) throw new Error(`event not found: ${eventId}`);
     this.emitHook("repository.read.after", { eventId, event });
     return event;
   }
@@ -624,6 +639,7 @@ export class EpochRepository {
     this.emitHook("repository.verify.before", {});
     const events = this.events();
     const known = new Map<string, Event>();
+    const trustedPrefix = this.checkpointPrefixEventMap();
     const problems: string[] = [];
 
     for (const event of events) {
@@ -637,7 +653,7 @@ export class EpochRepository {
 
     for (const event of events) {
       for (const parent of event.parents) {
-        const parentEvent = known.get(parent);
+        const parentEvent = known.get(parent) ?? trustedPrefix.get(parent);
         if (parentEvent === undefined) {
           problems.push(`${event.id}: missing parent ${parent}`);
         } else if (event.lamport <= parentEvent.lamport) {
@@ -647,7 +663,7 @@ export class EpochRepository {
     }
 
     for (const head of this.heads()) {
-      if (!known.has(head)) {
+      if (!known.has(head) && !trustedPrefix.has(head)) {
         problems.push(`head references missing event ${head}`);
       }
     }
@@ -974,6 +990,29 @@ export class EpochRepository {
     if (!existsAsDirectory(this.eventsDir) || !existsAsDirectory(this.blobsDir) || !existsAsFile(this.headsPath)) {
       throw new Error(`not an Epoch repository: ${this.root}`);
     }
+  }
+
+  private checkpointPrefixEvent(eventId: string): Event | undefined {
+    return this.checkpointPrefixEventMap().get(eventId);
+  }
+
+  private checkpointPrefixEventMap(): Map<string, Event> {
+    const manifestPath = join(this.epochDir, CHECKPOINT_DIR, CHECKPOINT_MANIFEST);
+    if (!existsAsFile(manifestPath)) return new Map();
+    const manifest = JSON.parse(readFileSync(manifestPath, JsonEncoding)) as LocalCheckpointManifest;
+    if (manifest.prunedBeforeEventId === undefined) return new Map();
+    const entry = (manifest.checkpoints ?? []).find((checkpoint) => checkpoint.lastIncludedEventId === manifest.prunedBeforeEventId);
+    if (entry?.id === undefined) return new Map();
+    const checkpointPath = join(this.epochDir, CHECKPOINT_DIR, entry.path ?? `${entry.id}${JsonFileExtension}`);
+    if (!existsAsFile(checkpointPath)) return new Map();
+    const checkpoint = JSON.parse(readFileSync(checkpointPath, JsonEncoding)) as { payload?: unknown };
+    if (typeof checkpoint.payload !== "string") return new Map();
+    const payload = JSON.parse(Buffer.from(checkpoint.payload, "base64").toString(JsonEncoding)) as { events?: unknown };
+    if (!Array.isArray(payload.events)) return new Map();
+    return new Map(payload.events.map((event) => {
+      const parsed = Event.fromJSON(EventDataSchema.parse(event));
+      return [parsed.id, parsed] as const;
+    }));
   }
 }
 

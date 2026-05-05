@@ -14,6 +14,28 @@ Feature: High availability and disaster recovery
     Then the repository verifies successfully
     And the event log contains 3 events
 
+  Scenario: Pruned checkpoints remain trusted parents for new events
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I record "one.txt" with content "one\n" as "text/plain"
+    And I create an HA checkpoint
+    And I prune the event log before the HA checkpoint
+    Then the local event file count is 0
+    When I record "two.txt" with content "two\n" as "text/plain"
+    Then the repository verifies successfully
+    And the event log contains 1 event
+
+  Scenario: Targeted checkpoints restore with later tail events
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I record "one.txt" with content "one\n" as "text/plain"
+    And I remember the last event as "checkpoint-boundary"
+    And I record "two.txt" with content "two\n" as "text/plain"
+    And I create an HA checkpoint targeting remembered event "checkpoint-boundary"
+    When I restore from the HA checkpoint
+    Then the repository verifies successfully
+    And the event log contains 2 events
+
   Scenario: Fresh peer bootstraps from a trusted seed
     Given a new workspace
     And I initialize an Epoch repository as "seed"
@@ -24,6 +46,15 @@ Feature: High availability and disaster recovery
     Then the peer repository verifies successfully
     And the peer event log contains 1 event
 
+  Scenario: Seed bootstrap rejects an unexpected seed identity
+    Given a new workspace
+    And I initialize an Epoch repository as "seed"
+    When I record "seed.txt" with content "available\n" as "text/plain"
+    And I create an HA checkpoint
+    And a peer Epoch repository initialized as "peer"
+    And the peer tries to bootstrap from the repository seed as "other-seed"
+    Then seed bootstrap fails with "identity mismatch"
+
   Scenario: Cold backup restores a repository
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -32,3 +63,16 @@ Feature: High availability and disaster recovery
     And I restore the cold backup into a fresh repository
     Then the peer repository verifies successfully
     And the peer event log contains 1 event
+
+  Scenario: Cold backup restores tail events and blobs after its checkpoint
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I record "one.txt" with content "one\n" as "text/plain"
+    And I create an HA checkpoint
+    And I record "two.txt" with content "two\n" as "text/plain"
+    And I create a cold backup from the HA checkpoint
+    And I restore the cold backup into a fresh repository
+    Then the peer repository verifies successfully
+    And the peer event log contains 2 events
+    And the peer file "one.txt" blob content equals "one\n"
+    And the peer file "two.txt" blob content equals "two\n"

@@ -25,6 +25,7 @@ interface WorldState {
   hookNames?: string[];
   checkpoint?: Checkpoint;
   coldBackup?: ReturnType<typeof createColdBackup>;
+  rememberedEvents?: Record<string, string>;
   rememberedProposals?: Record<string, string>;
 }
 
@@ -432,14 +433,32 @@ Then("the peer event log contains {int} event", function (count: number) {
   assert.equal(state.peerRepo.events().length, count);
 });
 
+Then("the peer event log contains {int} events", function (count: number) {
+  assert.ok(state.peerRepo);
+  assert.equal(state.peerRepo.events().length, count);
+});
+
 Then("the peer recorded blob content equals {string}", function (expected: string) {
   assert.ok(state.peerRepo);
   const event = state.peerRepo.events()[0];
   assert.equal(readFileSync(join(state.peerRepo.blobsDir, event.payload.blob_sha256 as string), "utf8"), expected.replaceAll("\\n", "\n"));
 });
 
+Then("the peer file {string} blob content equals {string}", function (path: string, expected: string) {
+  assert.ok(state.peerRepo);
+  const event = state.peerRepo.events().find((candidate) => candidate.payload.path === path);
+  assert.ok(event);
+  assert.equal(readFileSync(join(state.peerRepo.blobsDir, event.payload.blob_sha256 as string), "utf8"), expected.replaceAll("\\n", "\n"));
+});
+
 When("I create an HA checkpoint", function () {
   state.checkpoint = createCheckpoint(state.repo);
+});
+
+When("I create an HA checkpoint targeting remembered event {string}", function (name: string) {
+  const eventId = state.rememberedEvents?.[name];
+  assert.ok(eventId);
+  state.checkpoint = createCheckpoint(state.repo, eventId);
 });
 
 When("I prune the event log before the HA checkpoint", function () {
@@ -465,8 +484,31 @@ When("the peer bootstraps from the repository seed", async function () {
   });
 });
 
+When("the peer tries to bootstrap from the repository seed as {string}", async function (peerId: string) {
+  assert.ok(state.peerRepo);
+  try {
+    state.syncResult = await bootstrapFromSeed(state.peerRepo, {
+      peerId,
+      multiaddr: state.repo.root,
+      trustLevel: "full",
+    });
+  } catch (error) {
+    state.error = error as Error;
+  }
+});
+
+Then("seed bootstrap fails with {string}", function (expected: string) {
+  assert.ok(state.error);
+  assert.match(state.error.message, new RegExp(expected));
+});
+
 When("I create a cold backup", function () {
   state.coldBackup = createColdBackup(state.repo);
+});
+
+When("I create a cold backup from the HA checkpoint", function () {
+  assert.ok(state.checkpoint);
+  state.coldBackup = createColdBackup(state.repo, { checkpoint: state.checkpoint });
 });
 
 When("I restore the cold backup into a fresh repository", function () {
@@ -475,6 +517,11 @@ When("I restore the cold backup into a fresh repository", function () {
   state.createdDirs.push(workspace);
   state.peerRepo = new EpochRepository(workspace);
   restoreFromColdBackup(state.peerRepo, state.coldBackup);
+});
+
+When("I remember the last event as {string}", function (name: string) {
+  assert.ok(state.lastEvent);
+  state.rememberedEvents = { ...(state.rememberedEvents ?? {}), [name]: state.lastEvent.id };
 });
 
 Given("a Git repository with {string} containing {string}", function (path: string, content: string) {
