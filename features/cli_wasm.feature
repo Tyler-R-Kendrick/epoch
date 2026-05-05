@@ -9,7 +9,7 @@ Feature: CLI and WASM integration surfaces
       | alice    |
     Then the CLI exits with code 0
     And the CLI output contains "initialized Epoch repository"
-    When I write workspace file "note.txt" with content "hello\n"
+    When I write raw workspace file "note.txt" with content "hello\n"
     And I run the Epoch CLI with arguments:
       | record     |
       | --type     |
@@ -24,9 +24,9 @@ Feature: CLI and WASM integration surfaces
       | events |
     Then the CLI exits with code 0
     And the CLI output contains "record"
-    When I write workspace file "base.txt" with content "base\n"
-    And I write workspace file "left.txt" with content "left\n"
-    And I write workspace file "right.txt" with content "left\n"
+    When I write raw workspace file "base.txt" with content "base\n"
+    And I write raw workspace file "left.txt" with content "left\n"
+    And I write raw workspace file "right.txt" with content "left\n"
     And I run the Epoch CLI with arguments:
       | resolve    |
       | --type     |
@@ -43,7 +43,7 @@ Feature: CLI and WASM integration surfaces
       | init     |
       | --author |
       | alice    |
-    And I write workspace file "proposal.txt" with content "proposal\n"
+    And I write raw workspace file "proposal.txt" with content "proposal\n"
     And I run the Epoch CLI with arguments:
       | intent          |
       | --type          |

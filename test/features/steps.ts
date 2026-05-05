@@ -78,7 +78,7 @@ When("I asynchronously record {string} with content {string} as {string}", async
   state.lastProposal = state.lastEvent;
 });
 
-When("I write workspace file {string} with content {string}", function (path: string, content: string) {
+When("I write raw workspace file {string} with content {string}", function (path: string, content: string) {
   const absolute = join(state.workspace, path);
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
