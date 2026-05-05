@@ -24,18 +24,18 @@ Feature: CLI and WASM integration surfaces
       | events |
     Then the CLI exits with code 0
     And the CLI output contains "record"
-    When I write raw workspace file "base.txt" with content "base\n"
-    And I write raw workspace file "left.txt" with content "left\n"
-    And I write raw workspace file "right.txt" with content "left\n"
+    When I write raw workspace file "base.json" with content "{\"ready\":false}\n"
+    And I write raw workspace file "left.json" with content "{\"ready\":true}\n"
+    And I write raw workspace file "right.json" with content "{\"ready\":false}\n"
     And I run the Epoch CLI with arguments:
-      | resolve    |
-      | --type     |
-      | text/plain |
-      | base.txt   |
-      | left.txt   |
-      | right.txt  |
+      | resolve          |
+      | --type           |
+      | application/json |
+      | base.json        |
+      | left.json        |
+      | right.json       |
     Then the CLI exits with code 0
-    And the CLI output contains "left"
+    And the CLI output contains "\"ready\": true"
 
   Scenario: CLI policy, view, sync, Git import/export, and DR commands are covered
     Given a new workspace

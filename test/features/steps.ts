@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { main as epochCliMain } from "@epoch/cli";
+import { main as epochCliMain, type CliIO } from "@epoch/cli";
 import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLog, readEpochGitRemote, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
 import { CRDTRegistry as WasmCRDTRegistry, EpochWasmGit } from "@epoch/wasm";
 import { main as epochGitCliMain } from "../../packages/Epoch.CLI/src/cli-git";
@@ -702,29 +702,19 @@ function argsFromTable(table: DataTable): string[] {
   return table.raw().flat();
 }
 
-function runCli(main: (argv: string[]) => number, argv: string[]): void {
+function runCli(main: (argv: string[], io: CliIO) => number, argv: string[]): void {
   let stdout = "";
   let stderr = "";
-  const originalStdoutWrite = process.stdout.write;
-  const originalStderrWrite = process.stderr.write;
   const originalCwd = process.cwd();
-  process.stdout.write = ((...args: Parameters<typeof process.stdout.write>) => {
-    stdout += args[0].toString();
-    streamWriteCallback(args)?.();
-    return true;
-  }) as typeof process.stdout.write;
-  process.stderr.write = ((...args: Parameters<typeof process.stderr.write>) => {
-    stderr += args[0].toString();
-    streamWriteCallback(args)?.();
-    return true;
-  }) as typeof process.stderr.write;
+  const io: CliIO = {
+    stdout: { write: (message) => { stdout += message; } },
+    stderr: { write: (message) => { stderr += message; } },
+  };
   try {
     process.chdir(state.workspace);
-    state.cliExitCode = main(argv);
+    state.cliExitCode = main(argv, io);
   } finally {
     process.chdir(originalCwd);
-    process.stdout.write = originalStdoutWrite;
-    process.stderr.write = originalStderrWrite;
     state.cliStdout = stdout;
     state.cliStderr = stderr;
   }
@@ -732,11 +722,6 @@ function runCli(main: (argv: string[]) => number, argv: string[]): void {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-}
-
-function streamWriteCallback(args: readonly unknown[]): (() => void) | undefined {
-  const maybeCallback = args.find((arg) => typeof arg === "function");
-  return typeof maybeCallback === "function" ? maybeCallback as () => void : undefined;
 }
 
 function metadataValue(key: string): unknown {
