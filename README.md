@@ -116,8 +116,9 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - Git import/export compatibility for tracked files
 - Radicle-inspired intent events and signed merge/rejection policy events for patch inclusion
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
+- Named views for deterministic logical workspaces over the shared event log, with checkout, diff, and promotion support
 - separate `Epoch.Core`, `Epoch.CLI`, and `Epoch.WASM` package projects
-- CLI commands for `init`, `record`, `intent`, `events`, `verify`, `merge`, `reject`, `status`, `main`, `resolve`, `sync`, `rollback`, `import`, and `export`
+- CLI commands for `init`, `record`, `intent`, `events`, `verify`, `merge`, `reject`, `status`, `main`, `resolve`, `sync`, `rollback`, `view-create`, `views`, `checkout`, `view-delete`, `view-diff`, `view-promote`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -146,6 +147,16 @@ Converge two local Epoch repositories by exchanging missing events and blobs:
 
 ```bash
 node packages/Epoch.CLI/dist/cli.js --repo ./peer-a sync ./peer-b
+```
+
+Create and switch between named views:
+
+```bash
+node dist/src/cli.js view-create exp/fast-algo --parent main
+node dist/src/cli.js checkout exp/fast-algo
+node dist/src/cli.js views
+node dist/src/cli.js view-diff main exp/fast-algo
+node dist/src/cli.js view-promote exp/fast-algo main
 ```
 
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:

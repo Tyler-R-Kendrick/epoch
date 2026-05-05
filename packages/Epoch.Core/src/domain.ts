@@ -15,6 +15,7 @@ export const StorageName = {
   users: "users",
   heads: "heads.json",
   identity: "identity.json",
+  views: "views.json",
 } as const;
 
 export const EntityType = {
@@ -42,6 +43,11 @@ export const EventType = {
   intentReject: "intent.reject",
   intentComment: "intent.comment",
   rollback: "rollback",
+  viewDefinition: "view-definition",
+  approval: "approval",
+  rejection: "rejection",
+  ci: "ci",
+  proposal: "proposal",
 } as const;
 
 export const IntentStatus = {

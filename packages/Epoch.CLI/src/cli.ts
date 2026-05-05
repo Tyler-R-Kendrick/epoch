@@ -123,6 +123,40 @@ function run(argv: string[]): void {
     case CliCommand.drPlan:
       console.log(disasterRecoveryPlan());
       return;
+    case CliCommand.viewCreate: {
+      const options = parseOptions(parsed.args, { rule: "{\"type\":\"all\"}", parent: "" });
+      if (options.positionals.length !== 1) throw new Error(CliText.viewCreateUsage);
+      const event = repo.createView(options.positionals[0], JSON.parse(options.rule), options.parent === "" ? undefined : options.parent);
+      console.log(event.id);
+      return;
+    }
+    case CliCommand.views:
+      for (const view of repo.listViews()) {
+        const current = view.name === repo.currentView() ? "*" : " ";
+        console.log(`${current} ${view.name} ${JSON.stringify(view.rule)}`);
+      }
+      return;
+    case CliCommand.checkout: {
+      if (parsed.args.length !== 1) throw new Error(CliText.checkoutUsage);
+      const state = repo.checkoutView(parsed.args[0]);
+      console.log(`checked out ${state.name} (${state.proposalIds.length} proposals)`);
+      return;
+    }
+    case CliCommand.viewDelete: {
+      if (parsed.args.length !== 1) throw new Error(CliText.viewDeleteUsage);
+      repo.deleteView(parsed.args[0]);
+      return;
+    }
+    case CliCommand.viewDiff: {
+      if (parsed.args.length !== 2) throw new Error(CliText.viewDiffUsage);
+      console.log(JSON.stringify(repo.diffViews(parsed.args[0], parsed.args[1]), null, 2));
+      return;
+    }
+    case CliCommand.viewPromote: {
+      if (parsed.args.length !== 2) throw new Error(CliText.viewPromoteUsage);
+      console.log(repo.promoteToView(parsed.args[0], parsed.args[1]).id);
+      return;
+    }
     default:
       throw new Error(`unknown command: ${parsed.command}`);
   }
