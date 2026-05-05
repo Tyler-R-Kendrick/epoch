@@ -10,6 +10,7 @@ interface WorldState {
   workspace: string;
   repo: EpochRepository;
   lastEvent?: Event;
+  lastProposal?: Event;
   registry?: CRDTRegistry;
   merged?: unknown;
   error?: Error;
@@ -22,6 +23,7 @@ interface WorldState {
   syncResult?: SyncResult;
   lastIntentId?: string;
   hookNames?: string[];
+  rememberedProposals?: Record<string, string>;
 }
 
 let state: WorldState;
@@ -62,6 +64,7 @@ When("I asynchronously record {string} with content {string} as {string}", async
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.lastEvent = await state.actorRepo.recordFile(path, entityType);
+  state.lastProposal = state.lastEvent;
 });
 
 When("actor users concurrently record:", async function (table: DataTable) {
@@ -142,6 +145,7 @@ When("I record {string} with content {string} as {string}", function (path: stri
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.lastEvent = state.repo.recordFile(path, entityType);
+  state.lastProposal = state.lastEvent;
 });
 
 When("I try to record {string} with content {string} as {string}", function (path: string, content: string, entityType: string) {
@@ -306,6 +310,7 @@ Then("the main projection skips the last intent", function () {
 
 When("I append CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
   state.lastEvent = state.repo.appendCRDTOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
+  state.lastProposal = state.lastEvent;
 });
 
 When("the peer appends CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
@@ -315,6 +320,7 @@ When("the peer appends CRDT map value for {string} key {string} as {string} with
 
 When("I append CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
   state.lastEvent = state.repo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
+  state.lastProposal = state.lastEvent;
 });
 
 When("the peer appends CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
@@ -344,6 +350,75 @@ Then("the peer CRDT view {string} equals text {string}", function (entity: strin
   assert.ok(state.peerRepo);
   assert.equal(state.peerRepo.crdtView(entity), expected);
 });
+
+When("I create view {string} from {string}", function (name: string, parent: string) {
+  state.repo.createView(name, { type: "all" }, parent);
+});
+
+When("I create view {string} with until all rule stopped at remembered proposal {string}", function (name: string, remembered: string) {
+  const proposalId = state.rememberedProposals?.[remembered];
+  assert.ok(proposalId);
+  state.repo.createView(name, { type: "until", rule: { type: "all" }, stopProposalId: proposalId });
+});
+
+When("I checkout view {string}", function (name: string) {
+  state.repo.checkoutView(name);
+});
+
+When("I delete view {string}", function (name: string) {
+  state.repo.deleteView(name);
+});
+
+When("I promote view {string} to {string}", function (source: string, target: string) {
+  state.lastEvent = state.repo.promoteToView(source, target);
+});
+
+When("I approve the last recorded proposal as {string}", function (author: string) {
+  assert.ok(state.lastProposal);
+  state.repo.appendApproval(state.lastProposal.id, author);
+});
+
+When("I reject the last recorded proposal as {string}", function (author: string) {
+  assert.ok(state.lastProposal);
+  state.repo.appendRejection(state.lastProposal.id, author);
+});
+
+When("I remember the last proposal as {string}", function (name: string) {
+  assert.ok(state.lastProposal);
+  state.rememberedProposals = { ...(state.rememberedProposals ?? {}), [name]: state.lastProposal.id };
+});
+
+Then("the current view is {string}", function (expected: string) {
+  assert.equal(state.repo.currentView(), expected);
+});
+
+Then("the named views include {string}", function (expected: string) {
+  assert.ok(state.repo.listViews().some((view) => view.name === expected));
+});
+
+Then("the named views do not include {string}", function (expected: string) {
+  assert.ok(!state.repo.listViews().some((view) => view.name === expected));
+});
+
+Then("view {string} has file {string} with content {string}", function (view: string, path: string, expected: string) {
+  assertViewFile(view, path, expected);
+});
+
+Then("view {string} requiring {int} approval has file {string} with content {string}", function (view: string, requiredApprovals: number, path: string, expected: string) {
+  assertViewFile(view, path, expected, requiredApprovals);
+});
+
+Then("view {string} has no file {string}", function (view: string, path: string) {
+  const stateForView = state.repo.computeViewState(view);
+  assert.equal(stateForView.records[path], undefined);
+});
+
+function assertViewFile(view: string, path: string, expected: string, requiredApprovals = 0): void {
+  const stateForView = state.repo.computeViewState(view, { requiredApprovals });
+  const record = stateForView.records[path];
+  assert.ok(record, `missing ${path} in view ${view}`);
+  assert.equal(readFileSync(join(state.repo.blobsDir, record.blobSha256), "utf8"), expected.replaceAll("\\n", "\n"));
+}
 
 Then("the peer repository verifies successfully", function () {
   assert.ok(state.peerRepo);
