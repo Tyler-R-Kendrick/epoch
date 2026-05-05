@@ -1,6 +1,6 @@
 # Security Policy
 
-Epoch handles signed events, repository identities, content-addressed blobs, checkpoints, and Git interoperability. Treat these areas as security-sensitive.
+Epoch handles signed events, repository identities, content-addressed blobs, compacts, and Git interoperability. Treat these areas as security-sensitive.
 
 ## Supported versions
 

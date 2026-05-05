@@ -21,8 +21,8 @@ Roshi's stateless API layer fans out writes to multiple Redis clusters in parall
 ### 3. Stateless API Layer Over Multiple Redis Clusters
 The Roshi API servers hold no persistent state. All data lives in Redis clusters. API servers can be scaled horizontally without data migration; failing API servers are immediately replaceable.
 
-### 4. Anti-Entropy and Reconciliation
-Roshi runs background anti-entropy processes that walk through keys, compare values across replicas, and reconcile divergence. This ensures eventual consistency even when real-time replication is delayed or partially failed.
+### 4. Sync Repair and Reconciliation
+Roshi runs background sync repair processes that walk through keys, compare values across replicas, and reconcile divergence. This ensures eventual consistency even when real-time replication is delayed or partially failed.
 
 ### 5. Quorum-Based Read/Write Coordination
 Reads and writes are sent to all replicas; a configurable quorum (e.g., majority) must respond successfully before the operation is acknowledged. This provides tunable consistency/availability trade-offs (CAP theorem).
@@ -87,13 +87,13 @@ By building on Redis (a well-understood, operationally mature data store), Roshi
 
 ### US-4: Reconciling Diverged Replicas
 **As a** Roshi operator,  
-**I want** background anti-entropy to detect and fix replicas that fell out of sync,  
+**I want** background sync repair to detect and fix replicas that fell out of sync,  
 **So that** transient network partitions don't cause permanent inconsistency.
 
 **Flow:**
 1. Network partition temporarily isolates one Redis cluster.
 2. During partition, some writes reach only 2 of 3 clusters.
-3. Anti-entropy process scans keys, detects divergence in cluster 3.
+3. Sync repair process scans keys, detects divergence in cluster 3.
 4. Missing entries are replicated from clusters 1 and 2 to cluster 3.
 5. All clusters converge.
 
@@ -114,7 +114,7 @@ By building on Redis (a well-understood, operationally mature data store), Roshi
 **So that** I can detect and respond to consistency issues before they affect users.
 
 **Flow:**
-1. Roshi exposes metrics per cluster: write success rate, quorum failures, anti-entropy lag.
+1. Roshi exposes metrics per cluster: write success rate, quorum failures, sync repair lag.
 2. Prometheus scrapes metrics; Grafana dashboard visualizes.
 3. Alert fires when quorum failure rate exceeds threshold.
 4. Engineer investigates the affected cluster.
@@ -127,7 +127,7 @@ By building on Redis (a well-understood, operationally mature data store), Roshi
 Roshi does not provide linearizability or serializability. A read immediately after a write may not reflect that write (read-your-writes is not guaranteed without routing to the same cluster). Applications must tolerate stale reads.
 
 ### 2. No Transactional Guarantees
-Operations are not atomic across clusters. A write that partially succeeds (reaches 2 of 3 clusters before failure) leaves replicas in a diverged state until anti-entropy repairs it.
+Operations are not atomic across clusters. A write that partially succeeds (reaches 2 of 3 clusters before failure) leaves replicas in a diverged state until sync repair resolves it.
 
 ### 3. Complex Deletes: Tombstones Can Resurface Deleted Items
 Tombstones are stored alongside live entries. If a tombstone is GC'd before all replicas have seen it, a late-arriving add operation for the same member may reappear on replicas that no longer have the tombstone to suppress it.

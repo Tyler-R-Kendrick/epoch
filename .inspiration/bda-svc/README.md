@@ -71,7 +71,7 @@ Chaincode events can trigger webhooks to external CI/CD systems. The tamper-proo
 **So that** no single person can merge code without oversight.
 
 **Flow:**
-1. Junior engineer opens a merge request; chaincode records the proposal.
+1. Junior engineer opens a merge request; chaincode records the intent.
 2. Senior Engineer 1 reviews and signs the approval transaction.
 3. Senior Engineer 2 reviews and signs.
 4. Chaincode detects 2/2 approvals; merge transaction is committed to Fabric.

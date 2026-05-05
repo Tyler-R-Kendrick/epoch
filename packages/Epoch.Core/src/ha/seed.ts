@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { EpochRepository, SyncResult } from "../core";
 import { Schemas } from "../domain";
 import type { IdentityData } from "../domain";
-import { createCheckpoint, latestCheckpoint, restoreCheckpointData, verifyCheckpoint } from "./checkpoint";
+import { createCompact, latestCompact, restoreCompactData, verifyCompact } from "./compact";
 
 export interface SeedNode {
   peerId: string;
@@ -11,7 +11,7 @@ export interface SeedNode {
 }
 
 export interface SeedNodeServiceOptions {
-  keepCheckpoints?: number;
+  keepCompacts?: number;
 }
 
 export async function bootstrapFromSeed(repository: EpochRepository, seed: SeedNode): Promise<SyncResult> {
@@ -25,11 +25,11 @@ export async function bootstrapFromSeed(repository: EpochRepository, seed: SeedN
   }
   if (seed.peerId !== seedIdentity.author) throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: identity mismatch`);
   if (seed.trustLevel === "full") {
-    const checkpoint = latestCheckpoint(seedRepository);
-    if (checkpoint !== undefined) {
-      verifyCheckpoint(checkpoint);
-      if (checkpoint.signerPublicKey !== seedIdentity.publicKey) throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: checkpoint signer does not match seed identity`);
-      restoreCheckpointData(repository, checkpoint, true);
+    const compact = latestCompact(seedRepository);
+    if (compact !== undefined) {
+      verifyCompact(compact);
+      if (compact.signerPublicKey !== seedIdentity.publicKey) throw new Error(`seed ${seed.peerId} at ${seed.multiaddr}: compact signer does not match seed identity`);
+      restoreCompactData(repository, compact, true);
     }
   }
   return Schemas.syncResult.parse(repository.syncFrom(seedRepository.root));
@@ -58,8 +58,8 @@ export class SeedNodeService {
     this.repository.init(author);
   }
 
-  createCheckpoint(): string {
-    return createCheckpoint(this.repository).id;
+  createCompact(): string {
+    return createCompact(this.repository).id;
   }
 
   bootstrapPeer(peerRoot: string, trustLevel: SeedNode["trustLevel"] = "full"): Promise<SyncResult> {

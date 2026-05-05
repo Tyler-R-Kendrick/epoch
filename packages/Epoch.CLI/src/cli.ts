@@ -146,7 +146,7 @@ function run(argv: string[], io: CliIO): void {
     case CliCommand.checkout: {
       if (parsed.args.length !== 1) throw new Error(CliText.checkoutUsage);
       const state = repo.checkoutView(parsed.args[0]);
-      writeLine(io, `checked out ${state.name} (${state.proposalIds.length} proposals)`);
+      writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)`);
       return;
     }
     case CliCommand.viewDelete: {

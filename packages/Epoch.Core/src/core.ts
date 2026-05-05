@@ -49,13 +49,13 @@ export interface SyncResult {
 
 export type InclusionRule =
   | { readonly type: "all" }
-  | { readonly type: "proposal-list"; readonly proposalIds: readonly string[] }
-  | { readonly type: "ancestor-chain"; readonly anchorProposalId: string }
+  | { readonly type: "intent-list"; readonly intentIds: readonly string[] }
+  | { readonly type: "ancestor-chain"; readonly anchorIntentId: string }
   | { readonly type: "tag-filter"; readonly tag: string }
   | { readonly type: "union"; readonly rules: readonly InclusionRule[] }
   | { readonly type: "intersection"; readonly rules: readonly InclusionRule[] }
   | { readonly type: "difference"; readonly include: InclusionRule; readonly exclude: InclusionRule }
-  | { readonly type: "until"; readonly rule: InclusionRule; readonly stopProposalId: string }
+  | { readonly type: "until"; readonly rule: InclusionRule; readonly stopIntentId: string }
   | { readonly type: "base"; readonly viewName: string };
 
 export interface ViewMetadata {
@@ -81,7 +81,7 @@ export interface GatePolicy {
 
 export interface ViewState {
   readonly name: string;
-  readonly proposalIds: readonly string[];
+  readonly intentIds: readonly string[];
   readonly records: Readonly<Record<string, {
     readonly eventId: string;
     readonly entityType: string;
@@ -102,7 +102,7 @@ export interface ViewDiff {
 
 interface LocalViewIndex {
   readonly current?: string;
-  readonly proposalIds: Record<string, string[]>;
+  readonly intentIds: Record<string, string[]>;
   readonly deleted: string[];
 }
 
@@ -127,10 +127,10 @@ export type EpochHookName =
   | "repository.verify.after"
   | "repository.syncFrom.before"
   | "repository.syncFrom.after"
+  | "repository.sync.before"
+  | "repository.sync.after"
   | "repository.gossip.before"
-  | "repository.gossip.after"
-  | "repository.antiEntropy.before"
-  | "repository.antiEntropy.after";
+  | "repository.gossip.after";
 
 export interface EpochHookEvent {
   readonly name: EpochHookName;
@@ -189,27 +189,27 @@ const LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_INTERVAL_MS = 10;
 const ATOMICS_WAIT_BUFFER = new SharedArrayBuffer(4);
 const ATOMICS_WAIT_ARRAY = new Int32Array(ATOMICS_WAIT_BUFFER);
-const CHECKPOINT_DIR = "checkpoints";
-const CHECKPOINT_MANIFEST = "manifest.json";
+const COMPACT_DIR = "compacts";
+const COMPACT_MANIFEST = "manifest.json";
 
-interface LocalCheckpointManifest {
+interface LocalCompactManifest {
   readonly prunedBeforeEventId?: string;
-  readonly checkpoints?: readonly {
+  readonly compacts?: readonly {
     readonly id?: string;
     readonly lastIncludedEventId?: string;
     readonly path?: string;
   }[];
 }
 
-const LocalCheckpointManifestSchema: z.ZodType<LocalCheckpointManifest> = z.object({
+const LocalCompactManifestSchema: z.ZodType<LocalCompactManifest> = z.object({
   prunedBeforeEventId: z.string().optional(),
-  checkpoints: z.array(z.object({
+  compacts: z.array(z.object({
     id: z.string().optional(),
     lastIncludedEventId: z.string().optional(),
     path: z.string().optional(),
   })).optional(),
 });
-const LocalCheckpointSchema = z.object({ payload: z.string().optional() });
+const LocalCompactSchema = z.object({ payload: z.string().optional() });
 
 export class Event {
   readonly id: string;
@@ -286,7 +286,7 @@ export class EpochRepository {
   readonly identityPath: string;
   readonly viewsPath: string;
   private readonly hooks: EpochHook[];
-  private checkpointPrefixCache?: { readonly manifestHash: string; readonly events: Map<string, Event> };
+  private compactPrefixCache?: { readonly manifestHash: string; readonly events: Map<string, Event> };
 
   constructor(root: string, options: EpochRepositoryOptions = {}) {
     this.root = resolve(root);
@@ -387,7 +387,7 @@ export class EpochRepository {
       const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
       return [...new Set([...retainedHeads, event.id])].sort();
     });
-    this.trackLocalViewProposal(type, event.id);
+    this.trackLocalViewIntent(type, event.id);
     this.emitHook("repository.append.after", { event });
     return event;
   }
@@ -442,11 +442,11 @@ export class EpochRepository {
 
   computeViewState(name: string, gatePolicy: GatePolicy = {}): ViewState {
     const events = this.events();
-    const proposalIds = this.proposalIdsForView(name, gatePolicy, events);
-    const proposals = sortEvents(events.filter((event) => proposalIds.has(event.id)));
+    const intentIds = this.intentIdsForView(name, gatePolicy, events);
+    const intents = sortEvents(events.filter((event) => intentIds.has(event.id)));
     const records: Record<string, { eventId: string; entityType: string; blobSha256: string; size: number }> = {};
     const crdtEntities = new Set<string>();
-    for (const event of proposals) {
+    for (const event of intents) {
       if (event.type === "record" && typeof event.payload.path === "string" && typeof event.payload.blob_sha256 === "string" && typeof event.payload.entity_type === "string" && typeof event.payload.size === "number") {
         records[event.payload.path] = {
           eventId: event.id,
@@ -459,15 +459,15 @@ export class EpochRepository {
     }
     const crdtLog = new CRDTEventLog();
     const crdt: Record<string, unknown> = {};
-    for (const entity of [...crdtEntities].sort()) crdt[entity] = crdtLog.materialize(proposals, entity);
-    return { name, proposalIds: proposals.map((event) => event.id), records, crdt };
+    for (const entity of [...crdtEntities].sort()) crdt[entity] = crdtLog.materialize(intents, entity);
+    return { name, intentIds: intents.map((event) => event.id), records, crdt };
   }
 
   diffViews(from: string, to: string, gatePolicy: GatePolicy = {}): ViewDiff {
     const left = this.computeViewState(from, gatePolicy);
     const right = this.computeViewState(to, gatePolicy);
-    const leftIds = new Set(left.proposalIds);
-    const rightIds = new Set(right.proposalIds);
+    const leftIds = new Set(left.intentIds);
+    const rightIds = new Set(right.intentIds);
     const records: Record<string, { from?: unknown; to?: unknown }> = {};
     for (const path of [...new Set([...Object.keys(left.records), ...Object.keys(right.records)])].sort()) {
       if (canonicalJson(left.records[path] ?? null) !== canonicalJson(right.records[path] ?? null)) records[path] = { from: left.records[path], to: right.records[path] };
@@ -479,8 +479,8 @@ export class EpochRepository {
     return {
       from,
       to,
-      onlyInFrom: left.proposalIds.filter((id) => !rightIds.has(id)),
-      onlyInTo: right.proposalIds.filter((id) => !leftIds.has(id)),
+      onlyInFrom: left.intentIds.filter((id) => !rightIds.has(id)),
+      onlyInTo: right.intentIds.filter((id) => !leftIds.has(id)),
       records,
       crdt,
     };
@@ -489,19 +489,19 @@ export class EpochRepository {
   promoteToView(sourceView: string, targetView: string, author = this.identity(), gatePolicy: GatePolicy = {}): Event {
     const source = this.computeViewState(sourceView, gatePolicy);
     const target = this.computeViewState(targetView, gatePolicy);
-    const targetIds = new Set(target.proposalIds);
-    const promoted = source.proposalIds.filter((id) => !targetIds.has(id));
+    const targetIds = new Set(target.intentIds);
+    const promoted = source.intentIds.filter((id) => !targetIds.has(id));
     const currentRule = this.viewRule(targetView);
-    const rule: InclusionRule = { type: "union", rules: [currentRule, { type: "proposal-list", proposalIds: promoted }] };
+    const rule: InclusionRule = { type: "union", rules: [currentRule, { type: "intent-list", intentIds: promoted }] };
     return this.createView(targetView, rule, undefined, { description: `promoted from ${sourceView}` }, author);
   }
 
-  appendApproval(proposalId: string, author = this.identity()): Event {
-    return this.append(EventType.approval, { proposal_id: proposalId }, author);
+  appendApproval(intentId: string, author = this.identity()): Event {
+    return this.append(EventType.approval, { intent_id: intentId }, author);
   }
 
-  appendRejection(proposalId: string, author = this.identity()): Event {
-    return this.append(EventType.rejection, { proposal_id: proposalId }, author);
+  appendRejection(intentId: string, author = this.identity()): Event {
+    return this.append(EventType.rejection, { intent_id: intentId }, author);
   }
 
   recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
@@ -519,7 +519,7 @@ export class EpochRepository {
     return event;
   }
 
-  crdtView(entity: string): unknown {
+  materialize(entity: string): unknown {
     this.requireInitialized();
     this.emitHook("repository.crdt.materialize.before", { entity });
     const value = new CRDTEventLog().materialize(this.events(), entity);
@@ -628,7 +628,7 @@ export class EpochRepository {
     const path = join(this.eventsDir, `${eventId}${JsonFileExtension}`);
     const event = existsAsFile(path)
       ? Event.fromJSON(readJson(path, EventDataSchema))
-      : this.checkpointPrefixEvent(eventId);
+      : this.compactPrefixEvent(eventId);
     if (event === undefined) throw new Error(`event not found: ${eventId}`);
     this.emitHook("repository.read.after", { eventId, event });
     return event;
@@ -650,7 +650,7 @@ export class EpochRepository {
     this.emitHook("repository.verify.before", {});
     const events = this.events();
     const known = new Map<string, Event>();
-    const trustedPrefix = this.checkpointPrefixEventMap();
+    const trustedPrefix = this.compactPrefixEventMap();
     const problems: string[] = [];
 
     for (const event of events) {
@@ -712,7 +712,10 @@ export class EpochRepository {
   }
 
   sync(peerRoot: string): SyncResult {
-    return this.gossip(peerRoot);
+    this.emitHook("repository.sync.before", { peerRoot });
+    const result = this.gossip(peerRoot);
+    this.emitHook("repository.sync.after", { peerRoot, result });
+    return result;
   }
 
   gossip(peerRoot: string): SyncResult {
@@ -724,13 +727,6 @@ export class EpochRepository {
       blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
     });
     this.emitHook("repository.gossip.after", { peerRoot, result });
-    return result;
-  }
-
-  antiEntropy(peerRoot: string): SyncResult {
-    this.emitHook("repository.antiEntropy.before", { peerRoot });
-    const result = this.gossip(peerRoot);
-    this.emitHook("repository.antiEntropy.after", { peerRoot, result });
     return result;
   }
 
@@ -813,17 +809,17 @@ export class EpochRepository {
     return [...records.values()];
   }
 
-  private proposalIdsForView(name: string, gatePolicy: GatePolicy, events: readonly Event[]): Set<string> {
+  private intentIdsForView(name: string, gatePolicy: GatePolicy, events: readonly Event[]): Set<string> {
     const rule = this.viewRule(name);
-    const local = new Set(this.localViewIndex().proposalIds[name] ?? []);
-    const proposalIds = this.evaluateRule(rule, events, gatePolicy, new Set([name]));
-    for (const id of local) proposalIds.add(id);
+    const local = new Set(this.localViewIndex().intentIds[name] ?? []);
+    const intentIds = this.evaluateRule(rule, events, gatePolicy, new Set([name]));
+    for (const id of local) intentIds.add(id);
     if (name === "main") {
-      for (const id of [...proposalIds]) {
-        if (!this.passesGate(id, events, gatePolicy)) proposalIds.delete(id);
+      for (const id of [...intentIds]) {
+        if (!this.passesGate(id, events, gatePolicy)) intentIds.delete(id);
       }
     }
-    return proposalIds;
+    return intentIds;
   }
 
   private viewRule(name: string): InclusionRule {
@@ -864,13 +860,13 @@ export class EpochRepository {
   private evaluateRule(rule: InclusionRule, events: readonly Event[], gatePolicy: GatePolicy, resolvingViews: Set<string>): Set<string> {
     switch (rule.type) {
       case "all":
-        return new Set(events.filter((event) => isProposalEvent(event) && !this.isLocallyScopedProposal(event.id) && this.passesGate(event.id, events, gatePolicy)).map((event) => event.id));
-      case "proposal-list":
-        return new Set(rule.proposalIds.filter((id) => events.some((event) => event.id === id && isProposalEvent(event))));
+        return new Set(events.filter((event) => isIntentEvent(event) && !this.isLocallyScopedIntent(event.id) && this.passesGate(event.id, events, gatePolicy)).map((event) => event.id));
+      case "intent-list":
+        return new Set(rule.intentIds.filter((id) => events.some((event) => event.id === id && isIntentEvent(event))));
       case "ancestor-chain":
-        return this.ancestorChain(rule.anchorProposalId, events);
+        return this.ancestorChain(rule.anchorIntentId, events);
       case "tag-filter":
-        return new Set(events.filter((event) => isProposalEvent(event) && eventHasTag(event, rule.tag)).map((event) => event.id));
+        return new Set(events.filter((event) => isIntentEvent(event) && eventHasTag(event, rule.tag)).map((event) => event.id));
       case "union":
         return unionSets(rule.rules.map((child) => this.evaluateRule(child, events, gatePolicy, new Set(resolvingViews))));
       case "intersection":
@@ -882,7 +878,7 @@ export class EpochRepository {
       }
       case "until": {
         const included = this.evaluateRule(rule.rule, events, gatePolicy, new Set(resolvingViews));
-        const stop = events.find((event) => event.id === rule.stopProposalId);
+        const stop = events.find((event) => event.id === rule.stopIntentId);
         if (stop === undefined) return included;
         return new Set([...included].filter((id) => {
           const event = events.find((candidate) => candidate.id === id);
@@ -894,61 +890,61 @@ export class EpochRepository {
         resolvingViews.add(rule.viewName);
         const baseRule = this.viewRule(rule.viewName);
         const resolved = this.evaluateRule(baseRule, events, gatePolicy, resolvingViews);
-        for (const id of this.localViewIndex().proposalIds[rule.viewName] ?? []) resolved.add(id);
+        for (const id of this.localViewIndex().intentIds[rule.viewName] ?? []) resolved.add(id);
         return resolved;
       }
     }
   }
 
-  private ancestorChain(anchorProposalId: string, events: readonly Event[]): Set<string> {
+  private ancestorChain(anchorIntentId: string, events: readonly Event[]): Set<string> {
     const byId = new Map(events.map((event) => [event.id, event]));
     const ids = new Set<string>();
     const visit = (id: string): void => {
       const event = byId.get(id);
-      if (event === undefined || !isProposalEvent(event) || ids.has(id)) return;
+      if (event === undefined || !isIntentEvent(event) || ids.has(id)) return;
       ids.add(id);
       for (const parent of event.parents) visit(parent);
     };
-    visit(anchorProposalId);
+    visit(anchorIntentId);
     return ids;
   }
 
-  private passesGate(proposalId: string, events: readonly Event[], gatePolicy: GatePolicy): boolean {
-    if (events.some((event) => event.type === EventType.rejection && event.payload.proposal_id === proposalId)) return false;
-    const approvals = new Set(events.filter((event) => event.type === EventType.approval && event.payload.proposal_id === proposalId).map((event) => event.author));
+  private passesGate(intentId: string, events: readonly Event[], gatePolicy: GatePolicy): boolean {
+    if (events.some((event) => event.type === EventType.rejection && event.payload.intent_id === intentId)) return false;
+    const approvals = new Set(events.filter((event) => event.type === EventType.approval && event.payload.intent_id === intentId).map((event) => event.author));
     if (approvals.size < (gatePolicy.requiredApprovals ?? 0)) return false;
     for (const status of gatePolicy.requiredCiStatuses ?? []) {
-      if (!events.some((event) => event.type === EventType.ci && event.payload.proposal_id === proposalId && event.payload.status === status)) return false;
+      if (!events.some((event) => event.type === EventType.ci && event.payload.intent_id === intentId && event.payload.status === status)) return false;
     }
     return true;
   }
 
   private parentsForNewEvent(type: string): string[] {
-    if (!isProposalType(type)) return this.heads();
+    if (!isIntentType(type)) return this.heads();
     const currentView = this.currentView();
-    const tip = this.viewTipProposalId(currentView);
+    const tip = this.viewTipIntentId(currentView);
     return tip === undefined ? this.heads() : [tip];
   }
 
-  private viewTipProposalId(name: string): string | undefined {
+  private viewTipIntentId(name: string): string | undefined {
     const events = this.events();
-    const proposalIds = this.proposalIdsForView(name, {}, events);
-    return sortEvents(events.filter((event) => proposalIds.has(event.id))).at(-1)?.id;
+    const intentIds = this.intentIdsForView(name, {}, events);
+    return sortEvents(events.filter((event) => intentIds.has(event.id))).at(-1)?.id;
   }
 
-  private trackLocalViewProposal(type: string, eventId: string): void {
-    if (!isProposalType(type)) return;
+  private trackLocalViewIntent(type: string, eventId: string): void {
+    if (!isIntentType(type)) return;
     const currentView = this.currentView();
     if (currentView === "main") return;
     this.updateLocalViewIndex((index) => {
-      const proposalIds = { ...index.proposalIds };
-      proposalIds[currentView] = [...new Set([...(proposalIds[currentView] ?? []), eventId])].sort();
-      return { ...index, proposalIds };
+      const intentIds = { ...index.intentIds };
+      intentIds[currentView] = [...new Set([...(intentIds[currentView] ?? []), eventId])].sort();
+      return { ...index, intentIds };
     });
   }
 
-  private isLocallyScopedProposal(eventId: string): boolean {
-    return Object.values(this.localViewIndex().proposalIds).some((ids) => ids.includes(eventId));
+  private isLocallyScopedIntent(eventId: string): boolean {
+    return Object.values(this.localViewIndex().intentIds).some((ids) => ids.includes(eventId));
   }
 
   private localViewIndex(): LocalViewIndex {
@@ -957,7 +953,7 @@ export class EpochRepository {
     const index = JSON.parse(readFileSync(this.viewsPath, JsonEncoding)) as Partial<LocalViewIndex>;
     return {
       current: typeof index.current === "string" ? index.current : undefined,
-      proposalIds: isStringArrayRecord(index.proposalIds) ? index.proposalIds : {},
+      intentIds: isStringArrayRecord(index.intentIds) ? index.intentIds : {},
       deleted: Array.isArray(index.deleted) && index.deleted.every((name) => typeof name === "string") ? index.deleted : [],
     };
   }
@@ -1003,31 +999,31 @@ export class EpochRepository {
     }
   }
 
-  private checkpointPrefixEvent(eventId: string): Event | undefined {
-    return this.checkpointPrefixEventMap().get(eventId);
+  private compactPrefixEvent(eventId: string): Event | undefined {
+    return this.compactPrefixEventMap().get(eventId);
   }
 
-  private checkpointPrefixEventMap(): Map<string, Event> {
-    const manifestPath = join(this.epochDir, CHECKPOINT_DIR, CHECKPOINT_MANIFEST);
+  private compactPrefixEventMap(): Map<string, Event> {
+    const manifestPath = join(this.epochDir, COMPACT_DIR, COMPACT_MANIFEST);
     if (!existsAsFile(manifestPath)) return new Map();
     const manifestData = readFileSync(manifestPath, JsonEncoding);
     const manifestHash = sha256(manifestData);
-    if (this.checkpointPrefixCache?.manifestHash === manifestHash) return this.checkpointPrefixCache.events;
-    const manifest = LocalCheckpointManifestSchema.parse(JSON.parse(manifestData));
+    if (this.compactPrefixCache?.manifestHash === manifestHash) return this.compactPrefixCache.events;
+    const manifest = LocalCompactManifestSchema.parse(JSON.parse(manifestData));
     if (manifest.prunedBeforeEventId === undefined) return new Map();
-    const entry = (manifest.checkpoints ?? []).find((checkpoint) => checkpoint.lastIncludedEventId === manifest.prunedBeforeEventId);
+    const entry = (manifest.compacts ?? []).find((compact) => compact.lastIncludedEventId === manifest.prunedBeforeEventId);
     if (entry?.id === undefined) return new Map();
-    const checkpointPath = join(this.epochDir, CHECKPOINT_DIR, entry.path ?? `${entry.id}${JsonFileExtension}`);
-    if (!existsAsFile(checkpointPath)) return new Map();
-    const checkpoint = LocalCheckpointSchema.parse(JSON.parse(readFileSync(checkpointPath, JsonEncoding)));
-    if (typeof checkpoint.payload !== "string") return new Map();
-    const payload = JSON.parse(Buffer.from(checkpoint.payload, "base64").toString(JsonEncoding)) as { events?: unknown };
+    const compactPath = join(this.epochDir, COMPACT_DIR, entry.path ?? `${entry.id}${JsonFileExtension}`);
+    if (!existsAsFile(compactPath)) return new Map();
+    const compact = LocalCompactSchema.parse(JSON.parse(readFileSync(compactPath, JsonEncoding)));
+    if (typeof compact.payload !== "string") return new Map();
+    const payload = JSON.parse(Buffer.from(compact.payload, "base64").toString(JsonEncoding)) as { events?: unknown };
     if (!Array.isArray(payload.events)) return new Map();
     const events = new Map(payload.events.map((event) => {
       const parsed = Event.fromJSON(EventDataSchema.parse(event));
       return [parsed.id, parsed] as const;
     }));
-    this.checkpointPrefixCache = { manifestHash, events };
+    this.compactPrefixCache = { manifestHash, events };
     return events;
   }
 }
@@ -1141,15 +1137,15 @@ function entityTypeForPath(path: string): string {
 }
 
 function emptyLocalViewIndex(): LocalViewIndex {
-  return { proposalIds: {}, deleted: [] };
+  return { intentIds: {}, deleted: [] };
 }
 
-function isProposalType(type: string): boolean {
-  return type === EventType.record || type === EventType.crdt || type === EventType.proposal || type === EventType.intent;
+function isIntentType(type: string): boolean {
+  return type === EventType.record || type === EventType.crdt || type === EventType.intent;
 }
 
-function isProposalEvent(event: Event): boolean {
-  return isProposalType(event.type);
+function isIntentEvent(event: Event): boolean {
+  return isIntentType(event.type);
 }
 
 function sortEvents(events: readonly Event[]): Event[] {
@@ -1191,10 +1187,10 @@ function isInclusionRule(value: unknown): value is InclusionRule {
   switch (value.type) {
     case "all":
       return true;
-    case "proposal-list":
-      return Array.isArray(value.proposalIds) && value.proposalIds.every((id) => typeof id === "string");
+    case "intent-list":
+      return Array.isArray(value.intentIds) && value.intentIds.every((id) => typeof id === "string");
     case "ancestor-chain":
-      return typeof value.anchorProposalId === "string";
+      return typeof value.anchorIntentId === "string";
     case "tag-filter":
       return typeof value.tag === "string";
     case "union":
@@ -1203,7 +1199,7 @@ function isInclusionRule(value: unknown): value is InclusionRule {
     case "difference":
       return isInclusionRule(value.include) && isInclusionRule(value.exclude);
     case "until":
-      return isInclusionRule(value.rule) && typeof value.stopProposalId === "string";
+      return isInclusionRule(value.rule) && typeof value.stopIntentId === "string";
     case "base":
       return typeof value.viewName === "string";
     default:

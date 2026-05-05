@@ -8,7 +8,7 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 
-Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, lifecycle hook types, backup/checkpoint helpers, seed-node helpers, and Git compatibility classes.
+Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
 
 ## Repository lifecycle
 
@@ -20,7 +20,7 @@ Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, C
 
 ## CRDT workflow
 
-Use operation-based CRDT events for shared agent state that changes frequently. Append map/register or sequence-text operations with the actor API, then materialize state with `crdtView(entity)`.
+Use operation-based CRDT events for shared agent state that changes frequently. Append map/register or sequence-text operations with the actor API, then materialize state with `materialize(entity)`.
 
 Use `CRDTRegistry.defaults()` for built-in text and JSON merges. Register custom CRDT definitions for application-specific entity types when three-way merge is not enough.
 

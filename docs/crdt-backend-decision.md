@@ -1,6 +1,6 @@
 # CRDT Backend Decision
 
-Epoch's role is the signed, event-driven DVCS envelope: identity, append-only events, anti-entropy, verification, hooks, and source-control integration. Epoch should not define bespoke CRDT entity algorithms when a credible library can provide extensible map/text semantics.
+Epoch's role is the signed, event-driven DVCS envelope: identity, append-only events, sync, verification, hooks, and source-control integration. Epoch should not define bespoke CRDT entity algorithms when a credible library can provide extensible map/text semantics.
 
 ## Candidates measured
 
@@ -25,7 +25,7 @@ Pros:
 - Much faster than Automerge in this local benchmark.
 - Smaller update payloads in this local benchmark.
 - More extensible CRDT construction model with built-in `CValueMap`, `CText`, lists, sets, counters, presence, and custom Collab composition.
-- Runtime messages are storage/network agnostic, which maps cleanly to Epoch signed events and anti-entropy.
+- Runtime messages are storage/network agnostic, which maps cleanly to Epoch signed events and sync.
 
 Cons:
 

@@ -1,38 +1,38 @@
 Feature: High availability and disaster recovery
   Epoch can compact logs, bootstrap from seeds, and restore cold backups.
 
-  Scenario: Checkpoint pruning and restoration
+  Scenario: Compact pruning and restoration
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     When I record "one.txt" with content "one\n" as "text/plain"
     And I record "two.txt" with content "two\n" as "text/plain"
-    And I create an HA checkpoint
+    And I create an HA compact
     And I record "three.txt" with content "three\n" as "text/plain"
-    And I prune the event log before the HA checkpoint
+    And I prune the event log before the HA compact
     Then the local event file count is 1
-    When I restore from the HA checkpoint
+    When I restore from the HA compact
     Then the repository verifies successfully
     And the event log contains 3 events
 
-  Scenario: Pruned checkpoints remain trusted parents for new events
+  Scenario: Pruned compacts remain trusted parents for new events
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     When I record "one.txt" with content "one\n" as "text/plain"
-    And I create an HA checkpoint
-    And I prune the event log before the HA checkpoint
+    And I create an HA compact
+    And I prune the event log before the HA compact
     Then the local event file count is 0
     When I record "two.txt" with content "two\n" as "text/plain"
     Then the repository verifies successfully
     And the event log contains 1 event
 
-  Scenario: Targeted checkpoints restore with later tail events
+  Scenario: Targeted compacts restore with later tail events
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     When I record "one.txt" with content "one\n" as "text/plain"
-    And I remember the last event as "checkpoint-boundary"
+    And I remember the last event as "compact-boundary"
     And I record "two.txt" with content "two\n" as "text/plain"
-    And I create an HA checkpoint targeting remembered event "checkpoint-boundary"
-    When I restore from the HA checkpoint
+    And I create an HA compact targeting remembered event "compact-boundary"
+    When I restore from the HA compact
     Then the repository verifies successfully
     And the event log contains 2 events
 
@@ -40,7 +40,7 @@ Feature: High availability and disaster recovery
     Given a new workspace
     And I initialize an Epoch repository as "seed"
     When I record "seed.txt" with content "available\n" as "text/plain"
-    And I create an HA checkpoint
+    And I create an HA compact
     And a peer Epoch repository initialized as "peer"
     And the peer bootstraps from the repository seed
     Then the peer repository verifies successfully
@@ -50,7 +50,7 @@ Feature: High availability and disaster recovery
     Given a new workspace
     And I initialize an Epoch repository as "seed"
     When I record "seed.txt" with content "available\n" as "text/plain"
-    And I create an HA checkpoint
+    And I create an HA compact
     And a peer Epoch repository initialized as "peer"
     And the peer tries to bootstrap from the repository seed as "other-seed"
     Then seed bootstrap fails with "identity mismatch"
@@ -64,13 +64,13 @@ Feature: High availability and disaster recovery
     Then the peer repository verifies successfully
     And the peer event log contains 1 event
 
-  Scenario: Cold backup restores tail events and blobs after its checkpoint
+  Scenario: Cold backup restores tail events and blobs after its compact
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     When I record "one.txt" with content "one\n" as "text/plain"
-    And I create an HA checkpoint
+    And I create an HA compact
     And I record "two.txt" with content "two\n" as "text/plain"
-    And I create a cold backup from the HA checkpoint
+    And I create a cold backup from the HA compact
     And I restore the cold backup into a fresh repository
     Then the peer repository verifies successfully
     And the peer event log contains 2 events

@@ -43,18 +43,18 @@ Feature: CLI and WASM integration surfaces
       | init     |
       | --author |
       | alice    |
-    And I write raw workspace file "proposal.txt" with content "proposal\n"
+    And I write raw workspace file "intent.txt" with content "intent\n"
     And I run the Epoch CLI with arguments:
       | intent          |
       | --type          |
       | text/plain      |
       | --title         |
-      | Update proposal |
+      | Update intent |
       | --description   |
-      | Adds proposal   |
+      | Adds intent   |
       | --label         |
       | docs,ready      |
-      | proposal.txt    |
+      | intent.txt      |
     And I remember the CLI output as "intent"
     And I run the Epoch CLI with remembered argument "intent":
       | merge    |
@@ -98,7 +98,7 @@ Feature: CLI and WASM integration surfaces
     When I run the Epoch CLI with arguments:
       | checkout |
       | review   |
-    Then the CLI output contains "checked out review"
+    Then the CLI output contains "checked out review (1 intents)"
     When I run the Epoch CLI with arguments:
       | view-diff |
       | main      |
