@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { EpochRepository, SyncResult } from "../core";
 import { Schemas } from "../domain";
+import type { IdentityData } from "../domain";
 import { createCheckpoint, latestCheckpoint, restoreCheckpointData, verifyCheckpoint } from "./checkpoint";
 
 export interface SeedNode {
@@ -16,7 +17,7 @@ export interface SeedNodeServiceOptions {
 export async function bootstrapFromSeed(repository: EpochRepository, seed: SeedNode): Promise<SyncResult> {
   repository.init();
   const seedRepository = repositoryForSeed(seed);
-  let seedIdentity;
+  let seedIdentity: IdentityData;
   try {
     seedIdentity = seedRepository.identityDocument();
   } catch (error) {

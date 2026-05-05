@@ -276,7 +276,7 @@ export class EpochRepository {
   readonly identityPath: string;
   readonly viewsPath: string;
   private readonly hooks: EpochHook[];
-  private checkpointPrefixCache?: { readonly manifestMtimeMs: number; readonly events: Map<string, Event> };
+  private checkpointPrefixCache?: { readonly manifestHash: string; readonly events: Map<string, Event> };
 
   constructor(root: string, options: EpochRepositoryOptions = {}) {
     this.root = resolve(root);
@@ -1000,9 +1000,10 @@ export class EpochRepository {
   private checkpointPrefixEventMap(): Map<string, Event> {
     const manifestPath = join(this.epochDir, CHECKPOINT_DIR, CHECKPOINT_MANIFEST);
     if (!existsAsFile(manifestPath)) return new Map();
-    const manifestMtimeMs = statSync(manifestPath).mtimeMs;
-    if (this.checkpointPrefixCache?.manifestMtimeMs === manifestMtimeMs) return this.checkpointPrefixCache.events;
-    const manifest = JSON.parse(readFileSync(manifestPath, JsonEncoding)) as LocalCheckpointManifest;
+    const manifestData = readFileSync(manifestPath, JsonEncoding);
+    const manifestHash = sha256(manifestData);
+    if (this.checkpointPrefixCache?.manifestHash === manifestHash) return this.checkpointPrefixCache.events;
+    const manifest = JSON.parse(manifestData) as LocalCheckpointManifest;
     if (manifest.prunedBeforeEventId === undefined) return new Map();
     const entry = (manifest.checkpoints ?? []).find((checkpoint) => checkpoint.lastIncludedEventId === manifest.prunedBeforeEventId);
     if (entry?.id === undefined) return new Map();
@@ -1016,7 +1017,7 @@ export class EpochRepository {
       const parsed = Event.fromJSON(EventDataSchema.parse(event));
       return [parsed.id, parsed] as const;
     }));
-    this.checkpointPrefixCache = { manifestMtimeMs, events };
+    this.checkpointPrefixCache = { manifestHash, events };
     return events;
   }
 }
