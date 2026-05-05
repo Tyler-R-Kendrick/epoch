@@ -621,11 +621,11 @@ Then("the CLI exits with code {int}", function (code: number) {
 });
 
 Then("the CLI output contains {string}", function (expected: string) {
-  assert.match(state.cliStdout ?? "", new RegExp(escapeRegExp(expected)));
+  assert.match(state.cliStdout ?? "", new RegExp(escapeForRegExp(expected)));
 });
 
 Then("the CLI error contains {string}", function (expected: string) {
-  assert.match(state.cliStderr ?? "", new RegExp(escapeRegExp(expected)));
+  assert.match(state.cliStderr ?? "", new RegExp(escapeForRegExp(expected)));
 });
 
 When("I merge JSON through the WASM CRDT registry", function () {
@@ -654,7 +654,7 @@ When("I run unsupported WASM Git clone for {string}", function (remote: string) 
 
 Then("WASM Git fails with {string}", function (expected: string) {
   assert.ok(state.error);
-  assert.match(state.error.message, new RegExp(escapeRegExp(expected)));
+  assert.match(state.error.message, new RegExp(escapeForRegExp(expected)));
 });
 
 When("I export to a Git repository", function () {
@@ -720,7 +720,7 @@ function runCli(main: (argv: string[], io: CliIO) => number, argv: string[]): vo
   }
 }
 
-function escapeRegExp(value: string): string {
+function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 

@@ -15,9 +15,9 @@ export interface CliIO {
   stderr: { write(message: string): unknown };
 }
 
-const defaultCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
+const processCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
 
-export function main(argv = process.argv.slice(2), io: CliIO = defaultCliIO): number {
+export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): number {
   try {
     run(argv, io);
     return 0;
