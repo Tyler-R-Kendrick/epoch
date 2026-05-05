@@ -21,12 +21,12 @@ Feature: XState actor-driven Epoch repository
     And the actor events include authors "alice,bob"
     And actor event authors have distinct signing keys
 
-  Scenario: Actor anti-entropy synchronizes with a peer asynchronously
+  Scenario: Actor event sync converges with a peer asynchronously
     Given a new workspace
     When I start an Epoch actor repository as "alice"
     And I asynchronously record "note.txt" with content "hello\n" as "text/plain"
     And a peer Epoch repository initialized as "bob"
-    When I run actor anti-entropy with the peer repository
+    When I run actor sync with the peer repository
     Then the actor repository verifies successfully
     And the peer repository verifies successfully
     And the peer event log contains 1 event

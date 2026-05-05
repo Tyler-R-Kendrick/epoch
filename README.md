@@ -1,6 +1,6 @@
 # Epoch
 
-**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It retains Git's proven strengths — offline-first operation, content-addressed DAG, fast branching — while eliminating its weaknesses: text-only merges, no real-time collaboration, no decentralized identity, and forced dependence on a central forge.
+**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It retains Git's proven strengths — offline-first operation and content-addressed history — while replacing mutable-pointer collaboration with signed intent events and a Radicle-inspired patch inclusion policy.
 
 ---
 
@@ -9,11 +9,11 @@
 | Limitation in Git | Epoch's Answer |
 |---|---|
 | Line-level merge conflicts | Per-entity CRDT definitions (automatic, conflict-free merges for registered types) |
-| Central forge dependency | Gossip-based P2P — no server required |
+| Central forge dependency | Event-based P2P — no server required |
 | Email-based, unverified identity | Self-sovereign Ed25519 keypairs |
 | No real-time collaboration | Event-driven append-only log; peers sync within seconds |
 | No tamper detection | Every event is signed; chain integrity is verifiable |
-| Mutable history (rebase, force-push) | Append-only event log; history cannot be silently altered |
+| Mutable history (rebase, forced rewrite) | Append-only event log; history cannot be silently altered |
 
 ---
 
@@ -35,7 +35,7 @@
 │  │   Identity / Keystore (Ed25519)                  │    │
 │  └──────────────────────────────────────────────────┘    │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │   Sync Layer: Gossip │ Anti-Entropy │ Push/Pull   │    │
+│  │   Sync Layer: Event Sync │ Convergence Repair │ Gossip       │    │
 │  └──────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
          │                  │                │
@@ -55,9 +55,9 @@
 - **Pluggable CRDT Merging** — register CRDT definitions per file type for compatibility with snapshot-style imports and exports
 - **Three-Way Merge Default** — works out of the box without any CRDT configuration
 - **Content-Addressed Storage** — SHA-256 addressed blobs and trees; automatic deduplication
-- **Gossip P2P Distribution** — no central server required; events propagate across peers automatically
-- **Anti-Entropy** — background reconciliation ensures all peers converge
-- **Offline First** — commit, branch, diff, and merge with zero network access
+- **Event Sync Distribution** — no central server required; events propagate across peers automatically
+- **Convergence Repair** — background reconciliation ensures all peers converge
+- **Offline First** — record, inspect, resolve, and sign intent merges with zero network access
 - **Tamper Detection** — forked or modified event logs are detectable by any peer
 - **Git Compatibility** — import from and export to standard Git repositories
 
@@ -94,8 +94,8 @@ Epoch synthesizes lessons from eight systems studied during design:
 | [`.inspiration/goatdb`](.inspiration/goatdb/README.md) | Ed25519 signing; Git-like commit DAG; three-way merge; React-native local-first DB |
 | [`.inspiration/manyana`](.inspiration/manyana/README.md) | Event sourcing; CQRS; event log as single source of truth |
 | [`.inspiration/git-warp`](.inspiration/git-warp/README.md) | DAG object model; timestamp restoration; content-addressed history |
-| [`.inspiration/radicle`](.inspiration/radicle/README.md) | Gossip P2P; cryptographic identities; append-only decentralized forge |
-| [`.inspiration/roshi`](.inspiration/roshi/README.md) | OR-Set CRDT; anti-entropy; high-throughput distributed sets |
+| [`.inspiration/radicle`](.inspiration/radicle/README.md) | Event Sync; cryptographic identities; append-only decentralized forge |
+| [`.inspiration/roshi`](.inspiration/roshi/README.md) | OR-Set CRDT; convergence repair; high-throughput distributed sets |
 | [`.inspiration/solgit`](.inspiration/solgit/README.md) | Blockchain VCS; what to avoid: gas costs, immutable sensitive data |
 | [`.inspiration/bda-svc`](.inspiration/bda-svc/README.md) | IPFS + Hyperledger Fabric; what to avoid: extreme operational complexity |
 
@@ -112,11 +112,13 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - repository lifecycle hooks for observability and extensibility around event-driven operations
 - pluggable CRDT registry
 - built-in text and JSON entity merge definitions
-- filesystem gossip / anti-entropy exchange between local repositories
+- filesystem event sync between local repositories
 - Git import/export compatibility for tracked files
+- Radicle-inspired intent events and signed merge/rejection policy events for patch inclusion
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
 - Named views for deterministic logical workspaces over the shared event log, with checkout, diff, and promotion support
-- CLI commands for `init`, `record`, `log`, `verify`, `merge`, `gossip`, `anti-entropy`, `git-import`, `git-export`, `view-create`, `views`, `checkout`, `view-delete`, `view-diff`, and `view-promote`
+- separate `Epoch.Core`, `Epoch.CLI`, and `Epoch.WASM` package projects
+- CLI commands for `init`, `record`, `intent`, `events`, `verify`, `merge`, `reject`, `status`, `main`, `resolve`, `sync`, `rollback`, `view-create`, `views`, `checkout`, `view-delete`, `view-diff`, `view-promote`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
 See [`docs/design.md`](docs/design.md) for the full design specification.
@@ -132,19 +134,19 @@ npm install
 npm run build
 ```
 
-Run the CLI after building:
+Run the CLI host after building:
 
 ```bash
-node dist/src/cli.js init --author alice
-node dist/src/cli.js record README.md --type text/plain
-node dist/src/cli.js log
-node dist/src/cli.js verify
+node packages/Epoch.CLI/dist/cli.js init --author alice
+node packages/Epoch.CLI/dist/cli.js record README.md --type text/plain
+node packages/Epoch.CLI/dist/cli.js events
+node packages/Epoch.CLI/dist/cli.js verify
 ```
 
-Synchronize two local Epoch repositories with gossip / anti-entropy:
+Converge two local Epoch repositories by exchanging missing events and blobs:
 
 ```bash
-node dist/src/cli.js --repo ./peer-a anti-entropy ./peer-b
+node packages/Epoch.CLI/dist/cli.js --repo ./peer-a sync ./peer-b
 ```
 
 Create and switch between named views:
@@ -160,15 +162,26 @@ node dist/src/cli.js view-promote exp/fast-algo main
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:
 
 ```bash
-node dist/src/cli.js --repo ./epoch git-import ./git-project
-node dist/src/cli.js --repo ./epoch git-export ./git-export
+node packages/Epoch.CLI/dist/cli.js --repo ./epoch import ./git-project
+node packages/Epoch.CLI/dist/cli.js --repo ./epoch export ./git-output
 ```
 
-Merge three versions of a supported entity type:
+Create an intent and have maintainers sign inclusion or rejection events:
 
 ```bash
-node dist/src/cli.js merge --type application/json base.json left.json right.json
-node dist/src/cli.js merge --type text/plain base.txt left.txt right.txt
+node packages/Epoch.CLI/dist/cli.js intent README.md --type text/plain --title "Update README" --description "Clarifies usage" --label docs,ready
+node packages/Epoch.CLI/dist/cli.js merge INTENT_ID --author maintainer --reason "looks good" --label reviewed
+node packages/Epoch.CLI/dist/cli.js reject INTENT_ID --author maintainer --reason "needs tests" --label blocked
+node packages/Epoch.CLI/dist/cli.js comment --intent INTENT_ID --author reviewer --label discussion "Please add tests"
+node packages/Epoch.CLI/dist/cli.js status
+node packages/Epoch.CLI/dist/cli.js main
+```
+
+Resolve three versions of a supported entity type through the CRDT registry:
+
+```bash
+node packages/Epoch.CLI/dist/cli.js resolve --type application/json base.json left.json right.json
+node packages/Epoch.CLI/dist/cli.js resolve --type text/plain base.txt left.txt right.txt
 ```
 
 Run the Gherkin feature suite:

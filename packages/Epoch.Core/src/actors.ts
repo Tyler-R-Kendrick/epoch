@@ -1,6 +1,7 @@
 import { createActor, fromCallback } from "xstate";
 import { EpochRepository, EpochRepositoryOptions, Event, EventPayload, SyncResult } from "./core";
 import { CRDTOperation } from "./crdt";
+import { DefaultAuthor, EntityType } from "./domain";
 
 interface Reply<T> {
   resolve(value: T): void;
@@ -99,7 +100,7 @@ export class EpochActorSystem {
     this.actor = createActor(repositoryActorLogic, { input: { root, options } }).start();
   }
 
-  init(author = "local"): Promise<void> {
+  init(author = DefaultAuthor): Promise<void> {
     return this.request({ type: "init", author });
   }
 
@@ -111,7 +112,7 @@ export class EpochActorSystem {
     return this.request({ type: "appendCRDTOperation", operation, author });
   }
 
-  recordFile(path: string, entityType = "application/octet-stream", author?: string): Promise<Event> {
+  recordFile(path: string, entityType: string = EntityType.octetStream, author?: string): Promise<Event> {
     return this.request({ type: "recordFile", path, entityType, author });
   }
 
@@ -137,6 +138,10 @@ export class EpochActorSystem {
 
   syncFrom(peerRoot: string): Promise<SyncResult> {
     return this.request({ type: "syncFrom", peerRoot });
+  }
+
+  sync(peerRoot: string): Promise<SyncResult> {
+    return this.gossip(peerRoot);
   }
 
   gossip(peerRoot: string): Promise<SyncResult> {
@@ -199,7 +204,7 @@ export class EpochUserActor {
     return this.request({ type: "appendCRDTOperation", operation });
   }
 
-  recordFile(path: string, entityType = "application/octet-stream"): Promise<Event> {
+  recordFile(path: string, entityType: string = EntityType.octetStream): Promise<Event> {
     return this.request({ type: "recordFile", path, entityType });
   }
 
