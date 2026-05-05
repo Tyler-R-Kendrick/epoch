@@ -155,7 +155,7 @@ export function eventsAfterCheckpoint(repository: EpochRepository, checkpoint: C
 
 export function headsForEvents(events: readonly Event[]): string[] {
   const parents = new Set(events.flatMap((event) => event.parents));
-  return events.map((event) => event.id).filter((id) => !parents.has(id)).sort();
+  return events.filter((event) => !parents.has(event.id)).map((event) => event.id).sort();
 }
 
 function storeCheckpoint(repository: EpochRepository, checkpoint: Checkpoint): void {
