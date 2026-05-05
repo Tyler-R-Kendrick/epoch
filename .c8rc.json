@@ -1,0 +1,12 @@
+{
+  "_coverageThresholdRationale": "Function coverage currently trails line and statement coverage because generated CommonJS re-export wrappers and compatibility surfaces contribute function counters; new behavior must preserve or improve this floor.",
+  "all": true,
+  "check-coverage": true,
+  "lines": 85,
+  "branches": 75,
+  "functions": 79,
+  "statements": 85,
+  "reporter": ["text", "lcov"],
+  "include": ["packages/*/dist/**/*.js"],
+  "exclude": ["dist/test/**"]
+}

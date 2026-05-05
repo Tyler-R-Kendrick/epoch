@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { EpochCLIGit } from "@epoch/core";
+import type { CliIO } from "./cli";
 
-export function main(argv = process.argv.slice(2)): number {
+const defaultCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
+
+export function main(argv = process.argv.slice(2), io: CliIO = defaultCliIO): number {
   try {
     const result = EpochCLIGit.run(argv);
-    if (result.stdout.length > 0) process.stdout.write(result.stdout);
-    if (result.stderr.length > 0) process.stderr.write(result.stderr);
+    if (result.stdout.length > 0) io.stdout.write(result.stdout);
+    if (result.stderr.length > 0) io.stderr.write(result.stderr);
     return result.exitCode;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     return 1;
   }
 }

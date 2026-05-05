@@ -69,7 +69,7 @@ export class CRDTEventLog {
     try {
       document.runtime.transact(() => applyOperation(document, operation));
     } catch (error) {
-      throw new Error(`failed to apply CRDT operation ${operation.kind} for entity ${operation.entity}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`failed to apply CRDT operation ${operation.kind} for entity ${operation.entity}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
     if (messages.length === 0) {
       throw new Error(`CRDT operation produced no Collabs message: ${operation.kind} for entity ${operation.entity}; check for no-op writes or unsupported entity configuration`);

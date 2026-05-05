@@ -16,13 +16,24 @@
   "exports": {
     ".": "./packages/Epoch.Core/dist/index.js",
     "./Epoch.Core.Git": "./packages/Epoch.Core/dist/git.js",
-    "./Epoch.CLI.Git": "./packages/Epoch.CLI/dist/cli-git.js",
+    "./Epoch.CLI.Git": {
+      "types": "./packages/Epoch.CLI/src/cli-git.ts",
+      "default": "./packages/Epoch.CLI/dist/cli-git.js"
+    },
     "./Epoch.WASM.Git": "./packages/Epoch.WASM/dist/git.js"
+  },
+  "engines": {
+    "node": "^20.20.0 || >=22.13.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && tsgo -p tsconfig.test.json --noEmit",
+    "lint": "eslint .",
     "features": "npm run build -- --pretty false && cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
-    "test": "npm run features"
+    "coverage": "npm run build -- --pretty false && c8 cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
+    "test": "npm run features",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run coverage"
   },
   "keywords": [
     "dvcs",
@@ -34,8 +45,12 @@
   "license": "MIT",
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.2",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
-    "@typescript/native-preview": "^7.0.0-dev.20260504.1"
+    "@typescript/native-preview": "^7.0.0-dev.20260504.1",
+    "c8": "^11.0.0",
+    "eslint": "^10.3.0",
+    "typescript-eslint": "^8.59.2"
   },
   "dependencies": {
     "@collabs/collabs": "0.13.4",

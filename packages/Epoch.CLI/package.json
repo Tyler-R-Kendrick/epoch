@@ -8,9 +8,11 @@
     "epoch-git": "dist/cli-git.js"
   },
   "scripts": {
-    "build": "tsgo -p tsconfig.json"
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@epoch/core": "0.1.0"
-  }
+  },
+  "types": "src/cli.ts"
 }
