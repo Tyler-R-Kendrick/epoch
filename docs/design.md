@@ -1,336 +1,150 @@
-# Epoch: Design Document
+# Epoch Current Design
 
-## Executive Summary
+This document describes the implementation that exists in this repository today. Roadmap ideas belong outside this current-state design until they have code and feature coverage.
 
-**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It is designed to be the next evolution beyond Git: retaining Git's proven strengths (offline-first operation and content-addressed history) while replacing mutable-pointer collaboration with signed intents and a Radicle-inspired patch inclusion policy.
+## Summary
 
-Epoch models every change as an **immutable, causally-ordered event** appended to a distributed event log. The current state of any repository is always a deterministic projection of its event history. Merges are handled at the **entity level**: each file type can register a CRDT definition that governs how concurrent edits are resolved — automatically, without user intervention, for types that support it. Files without CRDT definitions fall back to three-way merge.
+Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, HA/DR compacts, and Git compatibility adapters.
 
-Epoch uses **Ed25519 cryptographic identities** (no central username registry), a **content-addressed DAG** (no single point of failure), and a **gossip protocol** for peer-to-peer distribution — without a blockchain's cost, latency, or complexity.
+## Repository Layout
 
----
+An initialized repository contains:
 
-## Inspiration Comparison
-
-| System | Storage Model | Identity | Conflict Resolution | Distribution | Real-Time | Offline | Key Weakness |
-|---|---|---|---|---|---|---|---|
-| **Weave CRDT** | Append-only sequence | Site ID | CRDT (sequence) | N/A (algorithm) | Yes | Yes | Tombstone growth |
-| **GoatDB** | DAG of commits | Ed25519 keys | CRDT + 3-way merge | P2P + relay | ~1s latency | Yes | JS-only, GC immaturity |
-| **Manyana** | Append-only event log | Conceptual | CRDT semantics | Gossip | Conceptual | Yes | No production impl |
-| **git-warp** | Content-addressed DAG | Email (unverified) | 3-way merge (line) | Central/P2P | No | Yes | Line-level conflicts |
-| **Radicle** | Git + gossip overlay | Ed25519 keys | Git 3-way merge | Gossip | No | Yes | No CI/CD, Linux only |
-| **Roshi** | CRDT OR-Set (Redis) | N/A | Add-wins CRDT | Multi-cluster | Yes | No | Set operations only |
-| **SolGit** | On-chain (blockchain) | Wallet key | Chain ordering | Blockchain | No | No | Gas cost, immutability |
-| **BDA-SVC** | IPFS + Hyperledger Fabric | X.509 | Chain ordering | Permissioned P2P | No | No | Extreme complexity |
-
-### What Epoch Takes from Each
-
-| Inspiration | Contribution to Epoch |
-|---|---|
-| **Weave CRDT** | Sequence CRDT as first-class entity type; tombstone model for deletions |
-| **GoatDB** | Ed25519 signing, three-way merge default, commit DAG model |
-| **Manyana** | Event sourcing: every change is an immutable event; CQRS-inspired projection |
-| **git-warp** | DAG object model (blobs, trees, events), timestamp restoration |
-| **Radicle** | Gossip-based P2P distribution, append-only data model, signed patch workflow, seed nodes |
-| **Roshi** | CRDT set semantics; anti-entropy reconciliation for distributed consistency |
-| **SolGit** | Cryptographic audit trail — without on-chain cost; retain tamper-evidence |
-| **BDA-SVC** | Content-addressed storage (from IPFS model) — without pinning governance complexity |
-
----
-
-## Core Epoch Design
-
-### 1. Event-Driven Architecture
-
-Every change in Epoch is an **immutable event** appended to a local event log. Events are never mutated or deleted (only compacted into snapshots after GC).
-
-```
-Event {
-  id:           EventID          // content hash (SHA-256 of payload)
-  type:         EventType        // Record | Intent | IntentMerge | IntentReject | IntentComment | Tag | Config
-  author:       PublicKey        // Ed25519 public key
-  signature:    Signature        // Ed25519 signature of payload
-  timestamp:    LogicalClock     // Lamport timestamp for ordering
-  causal_deps:  []EventID        // parent event IDs (causal frontier)
-  payload:      EventPayload     // type-specific data
-  metadata:     EventMetadata?   // optional title, description, reason, labels
-}
+```text
+.epoch/
+  blobs/
+  compacts/
+  events/
+  users/
+  heads.json
+  identity.json
+  views.json
 ```
 
-Inspired by **Manyana** and **Roshi**, this model ensures:
-- All state is derivable from the log (full auditability).
-- Offline writes are buffered locally and merged on reconnect.
-- Projections (working tree, policy view, index) are always regenerable.
+- `events/` stores signed event JSON by event ID.
+- `blobs/` stores recorded content by SHA-256.
+- `users/` stores per-author signing identities.
+- `heads.json` stores current event frontier IDs.
+- `views.json` stores current named-view state.
+- `compacts/` stores materialized log-prefix compacts and their manifest.
 
-### 2. Entity-Level CRDT Merging
+## Event Model
 
-Unlike Git (which merges at the line level), Epoch supports **per-entity-type CRDT definitions**. A CRDT definition is a plugin that specifies:
+Every event includes:
 
-```typescript
-interface CRDTDefinition<T> {
-  entityType: string;            // e.g., "text/plain", "application/json"
-  merge(base: T, left: T, right: T): T;
-  diff(before: T, after: T): CRDTDelta;
-  apply(state: T, delta: CRDTDelta): T;
-}
+- type
+- author
+- author public key
+- Lamport timestamp
+- parent event IDs
+- payload
+- Unix timestamp
+- signature
+- content-derived event ID
+
+`EpochRepository.append()` signs and persists events, updates heads, and records view-local intents when the current view is not `main`.
+
+## Current Event Types
+
+The current domain constants include:
+
+- `record`
+- `crdt`
+- `intent`
+- `intent.merge`
+- `intent.reject`
+- `intent.comment`
+- `rollback`
+- `view-definition`
+- `approval`
+- `rejection`
+- `ci`
+
+Records and CRDT operations are also treated as intents for named-view projection because they represent requested, not yet necessarily accepted, state changes.
+
+## Intent Policy
+
+`intentFile()` creates an intent from file patches. `mergeIntent()` and `rejectIntent()` append signed decisions. `policy()` computes merged, rejected, and pending intents with configurable merge-signature requirements and optional maintainer filtering.
+
+The main projection is derived from merged, non-rejected intents. Direct `record` and `crdt` events can also participate in named views as local intents.
+
+## CRDT Surfaces
+
+Epoch has two CRDT-related surfaces:
+
+- `CRDTRegistry` handles snapshot-style three-way merges for text and JSON entities.
+- `appendCRDTOperation()` records operation CRDT updates, and `materialize(entity)` replays signed CRDT events into a current map or text value.
+
+The operation CRDT backend is Collabs with a protobuf override documented in `docs/crdt-backend-decision.md`.
+
+## Sync
+
+`syncFrom(peerPath)` copies missing event and blob files from another local repository path, then merges heads.
+
+`sync(peerPath)` performs two-way exchange by syncing both repositories. The CLI exposes this as:
+
+```bash
+epoch sync PEER_REPO
 ```
 
-Inspired by **Weave CRDT** and **GoatDB**:
-- Text files use a sequence CRDT (Weave-style, character-level).
-- JSON/YAML files use a map CRDT (field-level, last-write-wins or merge).
-- Binary files fall back to three-way merge (or "ours"/"theirs" strategies).
-- Custom types register their own definitions at the repository level.
+This implementation does not include network discovery, access control, or always-on background replication.
 
-This makes Epoch **extensible**: language-aware CRDT merging (e.g., AST-level merge for TypeScript files) is achievable without modifying Epoch's core.
+## Named Views
 
-### 3. Cryptographic Identity (Ed25519)
+Named views are deterministic projections over event IDs. The current implementation supports:
 
-Epoch has no username registry. Every identity is an Ed25519 keypair:
-- The **public key** is the identity (analogous to a Radicle DID or GoatDB identity).
-- The **private key** signs every event emitted by that identity.
-- Identities are self-sovereign: no CA, no registration, no central authority.
+- `all`
+- `intent-list`
+- `ancestor-chain`
+- `tag-filter`
+- `union`
+- `intersection`
+- `difference`
+- `until`
+- `base`
 
-Inspired by **GoatDB** and **Radicle**:
-- Every event's signature is verifiable by any peer.
-- Repository access control is an allow-list of public keys.
-- Key rotation is handled by publishing a signed `KeyRotation` event.
+View APIs include `createView()`, `listViews()`, `checkoutView()`, `deleteView()`, `computeViewState()`, `diffViews()`, and `promoteToView()`.
 
-### 4. Content-Addressed Storage (DAG of Events)
+## Compacts And Recovery
 
-The Epoch object store is a content-addressed DAG, mirroring Git's object model but at the event level:
+Compacts materialize a prefix of the event log and referenced blobs into signed data under `.epoch/compacts`.
 
-```
-ObjectStore {
-  blobs:   Map<SHA256, Bytes>        // raw file content
-  trees:   Map<SHA256, Tree>         // directory snapshots
-  events:  Map<EventID, Event>       // immutable event log
-  heads:   EventID[]                 // causal frontier of known events
-}
-```
+Current HA/DR APIs include:
 
-Inspired by **git-warp** and the IPFS model from **BDA-SVC**:
-- Every unique file content is stored exactly once (automatic deduplication).
-- The event graph is a verifiable chain of custody.
-- Any state can be reconstructed by replaying events to a point in the DAG.
+- `createCompact()`
+- `pruneEventLogBeforeCompact()`
+- `restoreFromCompact()`
+- `latestCompact()`
+- `verifyCompact()`
+- `createColdBackup()`
+- `restoreFromColdBackup()`
+- `verifyColdBackup()`
+- `bootstrapFromSeed()`
+- `bootstrapFromSeeds()`
 
-### 5. Peer-to-Peer Distribution (Gossip Protocol)
+See `docs/HA-DR.md` for operator usage.
 
-Epoch uses an epidemic gossip protocol for event propagation, inspired by **Radicle**:
-- Each node maintains a peer list; new events are gossiped to a random subset of peers.
-- Peers forward events they haven't seen; convergence is probabilistic but fast.
-- **Seed nodes** are optional high-availability peers that replicate a repository continuously.
-- No central server is required; the network is fully decentralized.
+## Hooks And Actors
 
-Anti-entropy (inspired by **Roshi**) runs periodically: peers compare their event frontier and exchange missing events.
+Hooks observe repository lifecycle events for init, append, record, CRDT operation/materialization, read, event listing, heads, verify, sync, and gossip.
 
-### 6. No Blockchain
+`EpochActorSystem` wraps a repository with serialized async command handling. Per-user actors attach a stable author to appended and recorded events.
 
-Epoch achieves the auditability goals of **SolGit** and **BDA-SVC** without blockchain:
-- The append-only, cryptographically signed event log is tamper-evident by design.
-- Forks of the event log are detectable (two events with the same causal frontier).
-- No gas costs, no consensus latency, no wallet management.
+## CLI And Git Compatibility
 
-The trade-off: Epoch's tamper-evidence is not "globally verified by miners/validators" but is instead verified by the peer network. This is sufficient for the vast majority of use cases and dramatically simpler operationally.
+The CLI exposes the currently implemented repository, intent, sync, view, merge, Git import/export, and HA/DR plan flows. Git compatibility classes bridge trusted host Git repositories where native filesystem and Git access are available. WASM-facing Git helpers return explicit unsupported errors for native host operations.
 
-### 7. Append-Only Event Log with Compaction Strategy
+## Non-Goals In The Current Prototype
 
-To prevent unbounded growth (a key weakness in **Manyana**, **GoatDB**, and **Weave CRDT**):
-- Events older than a configurable horizon (e.g., 1 year, or after a stable GC checkpoint) can be **compacted** into a snapshot event.
-- Snapshot events capture full repository state; older events can be pruned.
-- Compaction requires agreement from a quorum of peers (preventing premature GC).
-- Tombstones are garbage-collected after all peers confirm they've seen the deletion.
+The current implementation does not provide:
 
-### 8. Three-Way Merge as Default, CRDT as Opt-In Per Entity Type
-
-Epoch does not force CRDT on every file:
-- **Default**: Three-way merge (same as Git), applied at the entity level.
-- **Opt-in CRDT**: Per-file-type CRDT definitions override three-way merge for registered types.
-- **Conflict fallback**: If neither three-way merge nor CRDT resolves a conflict, Epoch surfaces a conflict for manual resolution (same as Git) — but only for unregistered types.
-
-This design means Epoch is immediately useful (no CRDT definitions required) and progressively enhanced as teams add CRDT definitions for their critical file types.
-
----
-
-## Extension Model for Custom CRDT Definitions
-
-Epoch's extension API allows teams to define CRDT behavior for any file type:
-
-```typescript
-// Register a CRDT definition for TypeScript source files
-epoch.registerCRDT({
-  entityType: "text/typescript",
-  merge: (base, left, right) => {
-    // Parse to AST, merge at declaration level, serialize back
-    const baseAST = parseTS(base);
-    const leftAST = parseTS(left);
-    const rightAST = parseTS(right);
-    return serializeTS(mergeAST(baseAST, leftAST, rightAST));
-  },
-  diff: (before, after) => computeASTDelta(before, after),
-  apply: (state, delta) => applyASTDelta(state, delta),
-});
-```
-
-CRDT definitions are:
-- **Versioned**: Each definition has a semver version. Repository configs specify which version to use.
-- **Portable**: Definitions are standard JS/TS modules; they can be published to npm and shared.
-- **Sandboxed**: Definitions run in a restricted environment with no file system or network access.
-- **Composable**: Definitions for composite types (e.g., a Markdown file with embedded JSON frontmatter) can delegate to sub-definitions.
-
----
-
-## Feature Definitions
-
-| ID | Name | Category | Description |
-|---|---|---|---|
-| F-001 | Event Log | Core | Every change is an immutable, signed event appended to the local log |
-| F-002 | Content-Addressed Storage | Core | All objects identified by SHA-256 hash; automatic deduplication |
-| F-003 | Ed25519 Identity | Core | Self-sovereign keypair identity; no central user registry |
-| F-004 | Record | Core | Signed file record event stored in the ledger |
-| F-005 | Intent Policy | Core | Signed intent, merge, and rejection events decide which patches enter main |
-| F-006 | Tag | Core | Immutable named pointer to a specific event; signed by tagger |
-| F-007 | Three-Way Merge | Merge | Default merge strategy: base + left + right applied at entity level |
-| F-008 | CRDT Merge | Merge | Pluggable CRDT definition per entity type; automatic conflict resolution |
-| F-009 | CRDT Extension API | Extension | API for registering custom CRDT definitions for any file type |
-| F-010 | Conflict Surfacing | Merge | Unresolvable conflicts surfaced to user with markers; manual resolution |
-| F-011 | Offline Operation | Distribution | All local operations (record, intent, resolve, events) work without network |
-| F-012 | Gossip P2P Sync | Distribution | Event propagation via gossip protocol; no central server required |
-| F-013 | Anti-Entropy | Distribution | Background reconciliation ensures all peers eventually converge |
-| F-014 | Seed Nodes | Distribution | Optional always-on peers that guarantee availability |
-| F-015 | Push/Pull | Distribution | Explicit sync operations for controlled event exchange |
-| F-016 | Repository Access Control | Security | Allow-list of public keys with read/write permissions |
-| F-017 | Event Signing | Security | Every event signed with Ed25519; verified on receipt |
-| F-018 | Tamper Detection | Security | Forked/altered event graphs detected by signature chain |
-| F-019 | Key Rotation | Security | Signed KeyRotation event updates identity without losing history |
-| F-020 | Compaction / GC | Storage | Snapshot-based compaction of old events; tombstone cleanup |
-| F-021 | Shallow Clone | Storage | Clone with truncated history for bandwidth-constrained environments |
-| F-022 | Delta Sync | Distribution | Sync only events not yet seen by the remote peer |
-| F-023 | Diff / Patch | Inspection | Compute diff between any two events or intent payloads |
-| F-024 | Log / History | Inspection | Traverse and query the event graph with filtering |
-| F-025 | Hooks | Automation | Pre/post-event hooks for automation and CI/CD integration |
-| F-026 | Stash | Workflow | Temporarily shelve in-progress changes |
-| F-027 | Worktrees | Workflow | Multiple working directories sharing a single object store |
-| F-028 | Timestamp Restoration | Compatibility | Restore file mtimes from event metadata (git-warp-time equivalent) |
-| F-029 | Git Compatibility Layer | Compatibility | Import from / export to Git repositories |
-| F-030 | Issues and Intents | Collaboration | Decentralized issue tracking and intent-based patches inspired by Radicle |
-
----
-
-## User Stories
-
-See [`user-stories.md`](user-stories.md) for the complete set of user stories organized by persona.
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Epoch Node                              │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │   CLI / API  │  │  Web UI      │  │  Editor Integration  │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────────┬───────────┘  │
-│         └─────────────────┴─────────────────────┘              │
-│                            │                                    │
-│  ┌─────────────────────────▼──────────────────────────────┐    │
-│  │                    Epoch Core                          │    │
-│  │                                                        │    │
-│  │  ┌───────────────┐  ┌──────────────┐  ┌────────────┐  │    │
-│  │  │  Event Engine │  │ Merge Engine │  │  CRDT Reg  │  │    │
-│  │  │  (append/sign)│  │ (3-way+CRDT) │  │  (plugins) │  │    │
-│  │  └───────┬───────┘  └──────┬───────┘  └────────────┘  │    │
-│  │          │                 │                           │    │
-│  │  ┌───────▼─────────────────▼──────────────────────┐   │    │
-│  │  │              Object Store                      │   │    │
-│  │  │  (blobs / trees / events — SHA-256 addressed)  │   │    │
-│  │  └───────────────────────────────────────────────-┘   │    │
-│  │                                                        │    │
-│  │  ┌─────────────────────────────────────────────────┐  │    │
-│  │  │            Identity / Keystore                  │  │    │
-│  │  │          (Ed25519 sign / verify)                │  │    │
-│  │  └─────────────────────────────────────────────────┘  │    │
-│  └────────────────────────────┬───────────────────────────┘    │
-│                               │                                 │
-│  ┌────────────────────────────▼───────────────────────────┐    │
-│  │                  Sync Layer                            │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐  │    │
-│  │  │ Gossip Proto │  │ Anti-Entropy │  │  Push/Pull  │  │    │
-│  │  └──────────────┘  └──────────────┘  └─────────────┘  │    │
-│  └───────────────────────────────────────────────────-─────┘    │
-└─────────────────────────────────────────────────────────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-        ┌─────▼────┐     ┌─────▼────┐     ┌────▼──────┐
-        │  Peer A  │     │  Peer B  │     │ Seed Node │
-        └──────────┘     └──────────┘     └───────────┘
-```
-
-### Layer Responsibilities
-
-| Layer | Responsibility |
-|---|---|
-| **CLI / API / Web UI** | User-facing interfaces; translate user intent to Epoch commands |
-| **Event Engine** | Create, sign, validate, and append events to the local log |
-| **Merge Engine** | Implement three-way merge and delegate to CRDT engine for registered types |
-| **CRDT Registry** | Manage registered CRDT definitions; route merges by entity type |
-| **Policy Layer** | Project signed intents, merge signatures, and rejections into deterministic main state |
-| **Object Store** | Content-addressed storage for blobs, trees, and events |
-| **Identity / Keystore** | Manage Ed25519 keypairs; sign outgoing events; verify incoming |
-| **Sync Layer** | Gossip propagation, anti-entropy, explicit sync operations |
-
-### Data Flow: Record
-
-```
-1. User edits files in working tree
-2. `epoch record` invoked
-3. Event Engine:
-   a. Compute diff against last event snapshot
-   b. Store new blobs and tree in Object Store
-   c. Create Record event with causal_deps = [current HEAD]
-   d. Sign event with Ed25519 private key
-   e. Append to local event log
-   f. Update HEAD pointer
-4. Sync Layer gossips new event to known peers
-```
-
-### Data Flow: Intent Merge
-
-```
-1. Author invokes `epoch intent <path>`
-2. Event Engine stores the patch blob and signs an Intent event referencing the current main projection.
-3. Reviewers inspect the intent and invoke `epoch merge <intent-id>` to sign inclusion, `epoch reject <intent-id>` to sign exclusion, or `epoch comment --intent <intent-id>` to append signed discussion.
-4. Policy Layer:
-   a. Collects Intent events.
-   b. Counts maintainer-signed IntentMerge events for each intent.
-   c. Skips any intent with a valid IntentReject event.
-   d. Projects main from merged, non-rejected intent patches.
-   e. Keeps IntentComment events on the ledger as signed discussion without changing main.
-5. CRDT Registry resolves entity-level patch application deterministically.
-```
-
----
-
-## Design Principles
-
-1. **Immutability by Default** — Events are never mutated. History is always complete and verifiable.
-2. **Identity Without Authority** — Cryptographic keys, not central registries, establish identity.
-3. **Offline First** — All core operations work without network access. Sync is an enhancement, not a requirement.
-4. **Progressive Enhancement** — Three-way merge works out of the box. CRDT definitions add capability incrementally.
-5. **No Unnecessary Complexity** — No blockchain, no certificate authorities, no complex operational dependencies.
-6. **Auditability** — The full history of every change is cryptographically verifiable by any peer.
-7. **Extensibility** — CRDT definitions, hooks, and storage adapters are first-class extension points.
-8. **Interoperability** — Git import/export ensures no lock-in and smooth migration paths.
-
----
-
-## Open Questions and Future Work
-
-- **Compaction Protocol**: The exact quorum mechanism for safe tombstone/event GC requires further design.
-- **Selective Sync**: Sparse checkout and partial clone semantics in a gossip network need careful design.
-- **Performance Benchmarks**: In-memory event graph traversal at scale (millions of events) needs profiling.
-- **CRDT Definition Security**: Sandboxing third-party CRDT plugins to prevent malicious code execution.
-- **Mobile / Browser Support**: WASM compilation of the core for browser and mobile runtimes.
-- **CI/CD Integration**: First-class hooks for triggering external pipelines from gossip events.
-- **Patch / Issue Protocol**: Formal specification of decentralized issue and patch objects (similar to Radicle).
+- network peer discovery
+- repository access control
+- key rotation
+- signed tags
+- shallow clones
+- delta sync
+- issue tracking
+- timestamp restoration
+- configured hook scripts
+- automatic background sync scheduling

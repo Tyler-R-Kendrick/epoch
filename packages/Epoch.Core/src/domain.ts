@@ -47,7 +47,6 @@ export const EventType = {
   approval: "approval",
   rejection: "rejection",
   ci: "ci",
-  proposal: "proposal",
 } as const;
 
 export const IntentStatus = {

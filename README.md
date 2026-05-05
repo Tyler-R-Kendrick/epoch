@@ -1,6 +1,6 @@
 # Epoch
 
-**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) with pluggable CRDT entity-level merging. It retains Git's proven strengths — offline-first operation and content-addressed history — while replacing mutable-pointer collaboration with signed intent events and a Radicle-inspired patch inclusion policy.
+**Epoch** is a minimal, event-driven Distributed Version Control System (DVCS) prototype with pluggable CRDT entity-level merging. It retains Git's proven strengths - offline-first operation and content-addressed history - while replacing mutable-pointer collaboration with signed intent events and deterministic inclusion policy.
 
 ---
 
@@ -9,9 +9,9 @@
 | Limitation in Git | Epoch's Answer |
 |---|---|
 | Line-level merge conflicts | Per-entity CRDT definitions (automatic, conflict-free merges for registered types) |
-| Central forge dependency | Event-based P2P — no server required |
+| Central forge dependency | Event-based local sync without requiring a forge |
 | Email-based, unverified identity | Self-sovereign Ed25519 keypairs |
-| No real-time collaboration | Event-driven append-only log; peers sync within seconds |
+| No real-time collaboration | Event-driven append-only log; peers can sync explicitly |
 | No tamper detection | Every event is signed; chain integrity is verifiable |
 | Mutable history (rebase, forced rewrite) | Append-only event log; history cannot be silently altered |
 
@@ -35,7 +35,7 @@
 │  │   Identity / Keystore (Ed25519)                  │    │
 │  └──────────────────────────────────────────────────┘    │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │   Sync Layer: Event Sync │ Convergence Repair │ Gossip       │    │
+│  │   Sync Layer: Event Sync │ Local Exchange │ Gossip Hooks    │    │
 │  └──────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
          │                  │                │
@@ -54,9 +54,9 @@
 - **Lifecycle Hooks** — repository hooks observe and extend init, append, record, CRDT, sync, verify, and materialization steps
 - **Pluggable CRDT Merging** — register CRDT definitions per file type for compatibility with snapshot-style imports and exports
 - **Three-Way Merge Default** — works out of the box without any CRDT configuration
-- **Content-Addressed Storage** — SHA-256 addressed blobs and trees; automatic deduplication
-- **Event Sync Distribution** — no central server required; events propagate across peers automatically
-- **Convergence Repair** — background reconciliation ensures all peers converge
+- **Content-Addressed Storage** — SHA-256 addressed blobs with automatic deduplication
+- **Explicit Event Sync** — repositories exchange missing events and blobs by local repository path
+- **Compacts And Cold Backups** — operators can materialize, prune, back up, and restore signed repository state
 - **Offline First** — record, inspect, resolve, and sign intent merges with zero network access
 - **Tamper Detection** — forked or modified event logs are detectable by any peer
 - **Git Compatibility** — import from and export to standard Git repositories
@@ -119,9 +119,10 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - filesystem event sync between local repositories
 - Git import/export compatibility for tracked files
 - Git compatibility surfaces exposed as `Epoch.Core.Git`, `Epoch.CLI.Git`, and `Epoch.WASM.Git` package entrypoints
-- Radicle-inspired intent events and signed merge/rejection policy events for patch inclusion
+- intent events and signed merge/rejection policy events for patch inclusion
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
-- Named views for deterministic logical workspaces over the shared event log, with checkout, diff, and promotion support
+- Named views for deterministic logical workspaces over the shared event log, with checkout, diff, and promotion support using intent terminology
+- HA/DR compacts, cold backups, and local seed bootstrap helpers
 - separate `Epoch.Core`, `Epoch.CLI`, and `Epoch.WASM` package projects
 - CLI commands for `init`, `record`, `intent`, `events`, `verify`, `merge`, `reject`, `status`, `main`, `resolve`, `sync`, `rollback`, `view-create`, `views`, `checkout`, `view-delete`, `view-diff`, `view-promote`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
@@ -157,11 +158,11 @@ node packages/Epoch.CLI/dist/cli.js --repo ./peer-a sync ./peer-b
 Create and switch between named views:
 
 ```bash
-node dist/src/cli.js view-create exp/fast-algo --parent main
-node dist/src/cli.js checkout exp/fast-algo
-node dist/src/cli.js views
-node dist/src/cli.js view-diff main exp/fast-algo
-node dist/src/cli.js view-promote exp/fast-algo main
+node packages/Epoch.CLI/dist/cli.js view-create exp/fast-algo --parent main
+node packages/Epoch.CLI/dist/cli.js checkout exp/fast-algo
+node packages/Epoch.CLI/dist/cli.js views
+node packages/Epoch.CLI/dist/cli.js view-diff main exp/fast-algo
+node packages/Epoch.CLI/dist/cli.js view-promote exp/fast-algo main
 ```
 
 Import tracked files from Git and export the latest recorded blobs back to a Git repository:
@@ -256,7 +257,7 @@ await Promise.all([
   bob.appendCRDTOperation({ kind: "map-set", entity: "tasks", key: "bob", value: { status: "review" } }),
 ]);
 
-const tasks = await repository.crdtView("tasks");
+const tasks = await repository.materialize("tasks");
 ```
 
 Register hooks to observe or extend repository lifecycle steps:

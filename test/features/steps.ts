@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
 import { main as epochCliMain, type CliIO } from "@epoch/cli";
-import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLog, readEpochGitRemote, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
+import { bootstrapFromSeed, canonicalJson, Compact, commitGit, createColdBackup, createCompact, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLogBeforeCompact, readEpochGitRemote, restoreFromColdBackup, restoreFromCompact, SyncResult } from "@epoch/core";
 import { CRDTRegistry as WasmCRDTRegistry, EpochWasmGit } from "@epoch/wasm";
 import { main as epochGitCliMain } from "epoch/Epoch.CLI.Git";
 
@@ -13,7 +13,7 @@ interface WorldState {
   workspace: string;
   repo: EpochRepository;
   lastEvent?: Event;
-  lastProposal?: Event;
+  lastIntent?: Event;
   registry?: CRDTRegistry;
   merged?: unknown;
   error?: Error;
@@ -27,10 +27,10 @@ interface WorldState {
   syncResult?: SyncResult;
   lastIntentId?: string;
   hookNames?: string[];
-  checkpoint?: Checkpoint;
+  compact?: Compact;
   coldBackup?: ReturnType<typeof createColdBackup>;
   rememberedEvents?: Record<string, string>;
-  rememberedProposals?: Record<string, string>;
+  rememberedIntents?: Record<string, string>;
   rememberedCliOutput?: Record<string, string>;
   cliStdout?: string;
   cliStderr?: string;
@@ -75,7 +75,7 @@ When("I asynchronously record {string} with content {string} as {string}", async
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.lastEvent = await state.actorRepo.recordFile(path, entityType);
-  state.lastProposal = state.lastEvent;
+  state.lastIntent = state.lastEvent;
 });
 
 When("I write raw workspace file {string} with content {string}", function (path: string, content: string) {
@@ -162,7 +162,7 @@ When("I record {string} with content {string} as {string}", function (path: stri
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.lastEvent = state.repo.recordFile(path, entityType);
-  state.lastProposal = state.lastEvent;
+  state.lastIntent = state.lastEvent;
 });
 
 When("I try to record {string} with content {string} as {string}", function (path: string, content: string, entityType: string) {
@@ -327,7 +327,7 @@ Then("the main projection skips the last intent", function () {
 
 When("I append CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
   state.lastEvent = state.repo.appendCRDTOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
-  state.lastProposal = state.lastEvent;
+  state.lastIntent = state.lastEvent;
 });
 
 When("the peer appends CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
@@ -337,7 +337,7 @@ When("the peer appends CRDT map value for {string} key {string} as {string} with
 
 When("I append CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
   state.lastEvent = state.repo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
-  state.lastProposal = state.lastEvent;
+  state.lastIntent = state.lastEvent;
 });
 
 When("the peer appends CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
@@ -345,37 +345,32 @@ When("the peer appends CRDT text {string} to {string} as {string}", function (va
   state.lastEvent = state.peerRepo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
 });
 
-When("I run anti-entropy with the peer repository", function () {
+Then("the repository materialized view {string} equals JSON:", function (entity: string, expected: string) {
+  assert.equal(canonicalJson(state.repo.materialize(entity)), canonicalJson(JSON.parse(expected)));
+});
+
+Then("the peer materialized view {string} equals JSON:", function (entity: string, expected: string) {
   assert.ok(state.peerRepo);
-  state.syncResult = state.repo.antiEntropy(state.peerRepo.root);
+  assert.equal(canonicalJson(state.peerRepo.materialize(entity)), canonicalJson(JSON.parse(expected)));
 });
 
-Then("the repository CRDT view {string} equals JSON:", function (entity: string, expected: string) {
-  assert.equal(canonicalJson(state.repo.crdtView(entity)), canonicalJson(JSON.parse(expected)));
+Then("the repository materialized view {string} equals text {string}", function (entity: string, expected: string) {
+  assert.equal(state.repo.materialize(entity), expected);
 });
 
-Then("the peer CRDT view {string} equals JSON:", function (entity: string, expected: string) {
+Then("the peer materialized view {string} equals text {string}", function (entity: string, expected: string) {
   assert.ok(state.peerRepo);
-  assert.equal(canonicalJson(state.peerRepo.crdtView(entity)), canonicalJson(JSON.parse(expected)));
-});
-
-Then("the repository CRDT view {string} equals text {string}", function (entity: string, expected: string) {
-  assert.equal(state.repo.crdtView(entity), expected);
-});
-
-Then("the peer CRDT view {string} equals text {string}", function (entity: string, expected: string) {
-  assert.ok(state.peerRepo);
-  assert.equal(state.peerRepo.crdtView(entity), expected);
+  assert.equal(state.peerRepo.materialize(entity), expected);
 });
 
 When("I create view {string} from {string}", function (name: string, parent: string) {
   state.repo.createView(name, { type: "all" }, parent);
 });
 
-When("I create view {string} with until all rule stopped at remembered proposal {string}", function (name: string, remembered: string) {
-  const proposalId = state.rememberedProposals?.[remembered];
-  assert.ok(proposalId);
-  state.repo.createView(name, { type: "until", rule: { type: "all" }, stopProposalId: proposalId });
+When("I create view {string} with until all rule stopped at remembered intent {string}", function (name: string, remembered: string) {
+  const intentId = state.rememberedIntents?.[remembered];
+  assert.ok(intentId);
+  state.repo.createView(name, { type: "until", rule: { type: "all" }, stopIntentId: intentId });
 });
 
 When("I checkout view {string}", function (name: string) {
@@ -390,19 +385,19 @@ When("I promote view {string} to {string}", function (source: string, target: st
   state.lastEvent = state.repo.promoteToView(source, target);
 });
 
-When("I approve the last recorded proposal as {string}", function (author: string) {
-  assert.ok(state.lastProposal);
-  state.repo.appendApproval(state.lastProposal.id, author);
+When("I approve the last recorded intent as {string}", function (author: string) {
+  assert.ok(state.lastIntent);
+  state.repo.appendApproval(state.lastIntent.id, author);
 });
 
-When("I reject the last recorded proposal as {string}", function (author: string) {
-  assert.ok(state.lastProposal);
-  state.repo.appendRejection(state.lastProposal.id, author);
+When("I reject the last recorded intent as {string}", function (author: string) {
+  assert.ok(state.lastIntent);
+  state.repo.appendRejection(state.lastIntent.id, author);
 });
 
-When("I remember the last proposal as {string}", function (name: string) {
-  assert.ok(state.lastProposal);
-  state.rememberedProposals = { ...(state.rememberedProposals ?? {}), [name]: state.lastProposal.id };
+When("I remember the last intent as {string}", function (name: string) {
+  assert.ok(state.lastIntent);
+  state.rememberedIntents = { ...(state.rememberedIntents ?? {}), [name]: state.lastIntent.id };
 });
 
 Then("the current view is {string}", function (expected: string) {
@@ -460,28 +455,28 @@ Then("the peer file {string} blob content equals {string}", function (path: stri
   assert.equal(readFileSync(join(state.peerRepo.blobsDir, event.payload.blob_sha256 as string), "utf8"), expected.replaceAll("\\n", "\n"));
 });
 
-When("I create an HA checkpoint", function () {
-  state.checkpoint = createCheckpoint(state.repo);
+When("I create an HA compact", function () {
+  state.compact = createCompact(state.repo);
 });
 
-When("I create an HA checkpoint targeting remembered event {string}", function (name: string) {
+When("I create an HA compact targeting remembered event {string}", function (name: string) {
   const eventId = state.rememberedEvents?.[name];
   assert.ok(eventId);
-  state.checkpoint = createCheckpoint(state.repo, eventId);
+  state.compact = createCompact(state.repo, eventId);
 });
 
-When("I prune the event log before the HA checkpoint", function () {
-  assert.ok(state.checkpoint);
-  pruneEventLog(state.repo, state.checkpoint.id);
+When("I prune the event log before the HA compact", function () {
+  assert.ok(state.compact);
+  pruneEventLogBeforeCompact(state.repo, state.compact.id);
 });
 
 Then("the local event file count is {int}", function (count: number) {
   assert.equal(readdirSync(state.repo.eventsDir).filter((name) => name.endsWith(".json")).length, count);
 });
 
-When("I restore from the HA checkpoint", function () {
-  assert.ok(state.checkpoint);
-  restoreFromCheckpoint(state.repo, state.checkpoint.id);
+When("I restore from the HA compact", function () {
+  assert.ok(state.compact);
+  restoreFromCompact(state.repo, state.compact.id);
 });
 
 When("the peer bootstraps from the repository seed", async function () {
@@ -515,9 +510,9 @@ When("I create a cold backup", function () {
   state.coldBackup = createColdBackup(state.repo);
 });
 
-When("I create a cold backup from the HA checkpoint", function () {
-  assert.ok(state.checkpoint);
-  state.coldBackup = createColdBackup(state.repo, { checkpoint: state.checkpoint });
+When("I create a cold backup from the HA compact", function () {
+  assert.ok(state.compact);
+  state.coldBackup = createColdBackup(state.repo, { compact: state.compact });
 });
 
 When("I restore the cold backup into a fresh repository", function () {

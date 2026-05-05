@@ -47,7 +47,7 @@ Radicle's data model is append-only. Once data is published to the network, it c
 Issues are not stored in a central database — they are content-addressed objects signed by their creator and replicated via gossip. An issue created on one peer appears on all peers that follow the repository.
 
 ### 13. Patches (Pull Requests) as First-Class Objects
-Patches are proposals to merge a branch into the default branch. Like issues, patches are signed, content-addressed, and replicated across the network. Review comments are similarly decentralized.
+Patches express intent to merge a branch into the default branch. Like issues, patches are signed, content-addressed, and replicated across the network. Review comments are similarly decentralized.
 
 ### 14. Code Review as a Decentralized Object
 Review comments and approvals are structured data objects attached to patches. They are signed by reviewers, replicated to all peers, and verifiable without trusting any central authority.

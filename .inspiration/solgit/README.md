@@ -43,7 +43,7 @@ Contributor identity is a wallet address derived from a public key. No username 
 Compiled release artifacts can be content-addressed and their IPFS or on-chain hash recorded at the commit transaction. Users can verify they are running the exact binary that corresponds to a specific commit.
 
 ### 11. DAO-Based Repository Governance
-Repository governance (merging, branch protection, deprecation) can be implemented as a DAO (Decentralized Autonomous Organization) where token holders vote on proposals.
+Repository governance (merging, branch protection, deprecation) can be implemented as a DAO (Decentralized Autonomous Organization) where token holders vote on intents.
 
 ### 12. On-Chain Code Review
 Review approvals and rejections can be recorded as on-chain transactions, creating an immutable code review trail that is as tamper-proof as the commit history.
@@ -58,7 +58,7 @@ Review approvals and rejections can be recorded as on-chain transactions, creati
 **So that** the community can verify that the project is governed fairly and transparently.
 
 **Flow:**
-1. Contributor submits a patch as an on-chain proposal transaction.
+1. Contributor submits a patch as an on-chain intent transaction.
 2. Token-holding governance participants vote on-chain to accept or reject.
 3. If quorum approves, smart contract automatically merges the commit.
 4. The entire decision trail is immutable and publicly auditable.

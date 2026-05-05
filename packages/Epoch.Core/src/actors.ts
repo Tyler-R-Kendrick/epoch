@@ -13,14 +13,14 @@ type RepositoryCommand =
   | { type: "append"; eventType: string; payload: EventPayload; author?: string; reply: Reply<Event> }
   | { type: "appendCRDTOperation"; operation: CRDTOperation; author?: string; reply: Reply<Event> }
   | { type: "recordFile"; path: string; entityType: string; author?: string; reply: Reply<Event> }
-  | { type: "crdtView"; entity: string; reply: Reply<unknown> }
+  | { type: "materialize"; entity: string; reply: Reply<unknown> }
   | { type: "read"; eventId: string; reply: Reply<Event> }
   | { type: "events"; reply: Reply<Event[]> }
   | { type: "heads"; reply: Reply<string[]> }
   | { type: "verify"; reply: Reply<string[]> }
   | { type: "syncFrom"; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: "gossip"; peerRoot: string; reply: Reply<SyncResult> }
-  | { type: "antiEntropy"; peerRoot: string; reply: Reply<SyncResult> };
+  | { type: "sync"; peerRoot: string; reply: Reply<SyncResult> }
+  | { type: "gossip"; peerRoot: string; reply: Reply<SyncResult> };
 
 type UserCommand =
   | { type: "append"; eventType: string; payload: EventPayload; reply: Reply<Event> }
@@ -60,8 +60,8 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string; opt
       case "recordFile":
         enqueue(event.reply, () => repository.recordFile(event.path, event.entityType, event.author));
         return;
-      case "crdtView":
-        enqueue(event.reply, () => repository.crdtView(event.entity));
+      case "materialize":
+        enqueue(event.reply, () => repository.materialize(event.entity));
         return;
       case "read":
         enqueue(event.reply, () => repository.read(event.eventId));
@@ -78,11 +78,11 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string; opt
       case "syncFrom":
         enqueue(event.reply, () => repository.syncFrom(event.peerRoot));
         return;
+      case "sync":
+        enqueue(event.reply, () => repository.sync(event.peerRoot));
+        return;
       case "gossip":
         enqueue(event.reply, () => repository.gossip(event.peerRoot));
-        return;
-      case "antiEntropy":
-        enqueue(event.reply, () => repository.antiEntropy(event.peerRoot));
         return;
     }
   });
@@ -116,8 +116,8 @@ export class EpochActorSystem {
     return this.request({ type: "recordFile", path, entityType, author });
   }
 
-  crdtView(entity: string): Promise<unknown> {
-    return this.request({ type: "crdtView", entity });
+  materialize(entity: string): Promise<unknown> {
+    return this.request({ type: "materialize", entity });
   }
 
   read(eventId: string): Promise<Event> {
@@ -141,15 +141,11 @@ export class EpochActorSystem {
   }
 
   sync(peerRoot: string): Promise<SyncResult> {
-    return this.gossip(peerRoot);
+    return this.request({ type: "sync", peerRoot });
   }
 
   gossip(peerRoot: string): Promise<SyncResult> {
     return this.request({ type: "gossip", peerRoot });
-  }
-
-  antiEntropy(peerRoot: string): Promise<SyncResult> {
-    return this.request({ type: "antiEntropy", peerRoot });
   }
 
   user(author: string): EpochUserActor {
