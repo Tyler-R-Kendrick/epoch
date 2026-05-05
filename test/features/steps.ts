@@ -3,7 +3,9 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
+import { After, Before, DataTable, Given, setDefaultTimeout, Then, When } from "@cucumber/cucumber";
+import { chromium, type Browser, type Page } from "playwright";
+import { createServer, type ViteDevServer } from "vite";
 import { main as epochCliMain, type CliIO } from "@epoch/cli";
 import { bootstrapFromSeed, canonicalJson, Compact, commitGit, createColdBackup, createCompact, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLogBeforeCompact, readEpochGitRemote, restoreFromColdBackup, restoreFromCompact, SyncResult } from "@epoch/core";
 import { CRDTRegistry as WasmCRDTRegistry, EpochWasmGit } from "@epoch/wasm";
@@ -35,17 +37,26 @@ interface WorldState {
   cliStdout?: string;
   cliStderr?: string;
   cliExitCode?: number;
+  browser?: Browser;
+  browserPage?: Page;
+  browserServer?: ViteDevServer;
+  browserDemoResults?: Record<string, string>;
+  browserDemoScreenshotBytes?: number;
 }
 
 let state: WorldState;
 const gitDefaultBranch = process.env.EPOCH_TEST_GIT_BRANCH ?? "main";
+setDefaultTimeout(30_000);
 
 Before(function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-feature-"));
   state = { workspace, repo: new EpochRepository(workspace), createdFiles: [], createdDirs: [] };
 });
 
-After(function () {
+After(async function () {
+  await state.browserPage?.close();
+  await state.browser?.close();
+  await state.browserServer?.close();
   state.actorRepo?.stop();
   for (const path of state.createdFiles) {
     rmSync(path, { force: true });
@@ -657,6 +668,66 @@ Then("WASM Git fails with {string}", function (expected: string) {
   assert.match(state.error.message, new RegExp(escapeForRegExp(expected)));
 });
 
+When("I run the Epoch WASM React browser demo", async function () {
+  const demoRoot = join(state.workspace, "wasm-react-demo");
+  const sourceRoot = join(demoRoot, "src");
+  mkdirSync(sourceRoot, { recursive: true });
+  writeFileSync(join(demoRoot, "index.html"), "<!doctype html><div id=\"root\"></div><script type=\"module\" src=\"/src/main.js\"></script>\n", "utf8");
+  writeFileSync(join(sourceRoot, "main.js"), browserDemoSource(), "utf8");
+
+  state.browserServer = await createServer({
+    root: demoRoot,
+    logLevel: "silent",
+    server: { host: "127.0.0.1", port: 0 },
+    resolve: {
+      alias: [
+        { find: "@epoch/wasm-react", replacement: join(process.cwd(), "packages", "Epoch.WASM.React", "src", "index.ts") },
+        { find: "react-dom/client", replacement: join(process.cwd(), "node_modules", "react-dom", "client.js") },
+        { find: "react-dom", replacement: join(process.cwd(), "node_modules", "react-dom", "index.js") },
+        { find: "react", replacement: join(process.cwd(), "node_modules", "react", "index.js") },
+      ],
+      dedupe: ["react", "react-dom"],
+    },
+  });
+  await state.browserServer.listen();
+  const url = state.browserServer.resolvedUrls?.local[0];
+  assert.ok(url);
+
+  state.browser = await chromium.launch({ headless: true });
+  state.browserPage = await state.browser.newPage({ viewport: { width: 640, height: 420 } });
+  await state.browserPage.goto(url);
+  await state.browserPage.locator("#epoch-react-demo[data-ready=\"true\"]").waitFor({ timeout: 10_000 });
+  const screenshot = await state.browserPage.screenshot({ fullPage: true });
+  state.browserDemoScreenshotBytes = screenshot.byteLength;
+  assert.ok(screenshot.byteLength > 1_000, "expected a non-empty browser screenshot");
+  const bounds = await state.browserPage.locator("#epoch-react-demo").boundingBox();
+  assert.ok(bounds && bounds.width > 100 && bounds.height > 80, "expected rendered browser demo bounds");
+
+  state.browserDemoResults = {
+    current: await textContent(state.browserPage, "#current-state"),
+    rewind: await textContent(state.browserPage, "#rewind-state"),
+    rematerialized: await textContent(state.browserPage, "#rematerialized-state"),
+    restored: await textContent(state.browserPage, "#restored-state"),
+  };
+});
+
+Then("the browser-rendered Epoch React state is {string}", function (expected: string) {
+  assert.equal(state.browserDemoResults?.current, expected);
+});
+
+Then("the browser-rendered rewind state is {string}", function (expected: string) {
+  assert.equal(state.browserDemoResults?.rewind, expected);
+});
+
+Then("the browser-rendered rematerialized state is {string}", function (expected: string) {
+  assert.equal(state.browserDemoResults?.rematerialized, expected);
+});
+
+Then("the browser-rendered restored state is {string}", function (expected: string) {
+  assert.equal(state.browserDemoResults?.restored, expected);
+  assert.ok((state.browserDemoScreenshotBytes ?? 0) > 1_000, "expected browser screenshot evidence");
+});
+
 When("I export to a Git repository", function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-git-export-"));
   state.createdDirs.push(workspace);
@@ -722,6 +793,76 @@ function runCli(main: (argv: string[], io: CliIO) => number, argv: string[], cwd
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+async function textContent(page: Page, selector: string): Promise<string> {
+  return (await page.locator(selector).textContent()) ?? "";
+}
+
+function browserDemoSource(): string {
+  return `
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { createEpochReactStore, createMemoryEpochReactStorage, useEpochState } from "@epoch/wasm-react";
+
+function Counter() {
+  const storage = useMemo(() => createMemoryEpochReactStorage(), []);
+  const store = useMemo(() => createEpochReactStore({
+    entity: "counter",
+    initialState: { count: 0 },
+    storage,
+    storageKey: "epoch:counter",
+    author: "browser",
+  }), [storage]);
+  const [_state, setState, epoch] = useEpochState(store);
+  const [results, setResults] = useState({ current: "", rewind: "", rematerialized: "", restored: "" });
+
+  useEffect(() => {
+    setState((current) => ({ count: current.count + 1 }));
+    const firstIncrement = store.history().at(-1);
+    setState((current) => ({ count: current.count + 1 }));
+    const current = "count: " + store.getSnapshot().state.count;
+    if (firstIncrement) epoch.rewind(firstIncrement.id);
+    const rewind = "count: " + store.getSnapshot().state.count;
+    setState({ count: 5 });
+    const rematerialized = "count: " + store.materialize("latest").count;
+    const restoredStore = createEpochReactStore({
+      entity: "counter",
+      initialState: { count: 0 },
+      storage,
+      storageKey: "epoch:counter",
+      author: "browser",
+    });
+    setResults({
+      current,
+      rewind,
+      rematerialized,
+      restored: "count: " + restoredStore.getSnapshot().state.count,
+    });
+  }, []);
+
+  return React.createElement("main", {
+    id: "epoch-react-demo",
+    "data-ready": results.restored.length > 0 ? "true" : "false",
+    style: {
+      fontFamily: "system-ui, sans-serif",
+      padding: "32px",
+      color: "#10241f",
+      background: "#f7fbf7",
+      border: "1px solid #b7d7c5",
+      width: "360px",
+    },
+  },
+    React.createElement("h1", { style: { fontSize: "22px", margin: "0 0 16px" } }, "Epoch React Demo"),
+    React.createElement("output", { id: "current-state" }, results.current),
+    React.createElement("output", { id: "rewind-state", style: { display: "block", marginTop: "8px" } }, results.rewind),
+    React.createElement("output", { id: "rematerialized-state", style: { display: "block", marginTop: "8px" } }, results.rematerialized),
+    React.createElement("output", { id: "restored-state", style: { display: "block", marginTop: "8px" } }, results.restored),
+  );
+}
+
+createRoot(document.getElementById("root")).render(React.createElement(Counter));
+`;
 }
 
 function metadataValue(key: string): unknown {

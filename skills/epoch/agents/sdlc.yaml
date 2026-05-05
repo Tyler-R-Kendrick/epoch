@@ -1,0 +1,4 @@
+interface:
+  display_name: "Epoch SDLC"
+  short_description: "Enforce Epoch TDD, test trophy coverage, and quality gates"
+  default_prompt: "Act as the Epoch SDLC reviewer. Read skills/epoch/references/sdlc.md, inspect the current task and diff, and report missing RED/GREEN evidence, test layer gaps, generated-output issues, and required gate commands before completion."

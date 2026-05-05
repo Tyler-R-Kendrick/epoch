@@ -24,10 +24,11 @@ The CI workflow enforces these same gates on pull requests and pushes to `main`.
 ## TDD workflow
 
 1. Add or update a feature scenario that describes the behavior.
-2. Run the relevant test command and confirm the scenario fails for the expected reason.
-3. Implement the smallest production change that satisfies the scenario.
-4. Run all quality gates.
-5. Update docs when public CLI commands, SDK APIs, WASM exports, or workflows change.
+2. Add lower-level tests that fit the change: unit tests for SDK transitions, component tests for framework rendering, and Playwright-backed feature steps for browser behavior.
+3. Run the relevant test command and confirm the new tests fail for the expected reason.
+4. Implement the smallest production change that satisfies the tests.
+5. Run all quality gates.
+6. Update docs when public CLI commands, SDK APIs, WASM exports, React hooks, or workflows change.
 
 ## Pull request expectations
 
@@ -43,6 +44,7 @@ The CI workflow enforces these same gates on pull requests and pushes to `main`.
 | `packages/Epoch.Core` | Core repository, CRDT, event, sync, Git compatibility, HA/DR APIs. |
 | `packages/Epoch.CLI` | Node command-line hosts for `epoch` and `epoch-git`. |
 | `packages/Epoch.WASM` | WASM-safe exports and unsupported native Git guards. |
+| `packages/Epoch.WASM.React` | Browser-safe React hooks and persistent framework state helpers. |
 | `features` | Cucumber feature specifications. |
 | `test/features` | Cucumber step definitions. |
 | `skills/epoch` | Distributable agent skill documentation and marketplace metadata. |

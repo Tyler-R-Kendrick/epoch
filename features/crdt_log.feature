@@ -17,6 +17,16 @@ Feature: Operation-based CRDT event log
       {"alice":{"status":"draft"},"bob":{"status":"review"}}
       """
 
+  Scenario: One actor can append repeated map updates to the same CRDT entity
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I append CRDT map value for "counter" key "count" as "alice" with JSON 1
+    And I append CRDT map value for "counter" key "count" as "alice" with JSON 2
+    Then the repository materialized view "counter" equals JSON:
+      """
+      {"count":2}
+      """
+
   Scenario: Offline agents converge concurrent text inserts after sync
     Given a new workspace
     And I initialize an Epoch repository as "alice"
