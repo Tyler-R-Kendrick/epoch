@@ -428,9 +428,9 @@ Then("the peer repository verifies successfully", function () {
   assert.deepEqual(state.peerRepo.verify(), []);
 });
 
-Then(/^the peer event log contains (\d+) events?$/, function (expectedCount: number) {
+Then(/^the peer event log contains (\d+) events?$/, function (count: number) {
   assert.ok(state.peerRepo);
-  assert.equal(state.peerRepo.events().length, expectedCount);
+  assert.equal(state.peerRepo.events().length, count);
 });
 
 Then("the peer recorded blob content equals {string}", function (expected: string) {

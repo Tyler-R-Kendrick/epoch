@@ -27,7 +27,7 @@ import {
   StorageName,
   TextToken,
 } from "./domain";
-import type { z } from "zod";
+import { z } from "zod";
 
 export { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "./domain";
 export type { EventData, EventMetadata, EventPayload, IdentityData } from "./domain";
@@ -200,6 +200,16 @@ interface LocalCheckpointManifest {
     readonly path?: string;
   }[];
 }
+
+const LocalCheckpointManifestSchema: z.ZodType<LocalCheckpointManifest> = z.object({
+  prunedBeforeEventId: z.string().optional(),
+  checkpoints: z.array(z.object({
+    id: z.string().optional(),
+    lastIncludedEventId: z.string().optional(),
+    path: z.string().optional(),
+  })).optional(),
+});
+const LocalCheckpointSchema = z.object({ payload: z.string().optional() });
 
 export class Event {
   readonly id: string;
@@ -1003,13 +1013,13 @@ export class EpochRepository {
     const manifestData = readFileSync(manifestPath, JsonEncoding);
     const manifestHash = sha256(manifestData);
     if (this.checkpointPrefixCache?.manifestHash === manifestHash) return this.checkpointPrefixCache.events;
-    const manifest = JSON.parse(manifestData) as LocalCheckpointManifest;
+    const manifest = LocalCheckpointManifestSchema.parse(JSON.parse(manifestData));
     if (manifest.prunedBeforeEventId === undefined) return new Map();
     const entry = (manifest.checkpoints ?? []).find((checkpoint) => checkpoint.lastIncludedEventId === manifest.prunedBeforeEventId);
     if (entry?.id === undefined) return new Map();
     const checkpointPath = join(this.epochDir, CHECKPOINT_DIR, entry.path ?? `${entry.id}${JsonFileExtension}`);
     if (!existsAsFile(checkpointPath)) return new Map();
-    const checkpoint = JSON.parse(readFileSync(checkpointPath, JsonEncoding)) as { payload?: unknown };
+    const checkpoint = LocalCheckpointSchema.parse(JSON.parse(readFileSync(checkpointPath, JsonEncoding)));
     if (typeof checkpoint.payload !== "string") return new Map();
     const payload = JSON.parse(Buffer.from(checkpoint.payload, "base64").toString(JsonEncoding)) as { events?: unknown };
     if (!Array.isArray(payload.events)) return new Map();
