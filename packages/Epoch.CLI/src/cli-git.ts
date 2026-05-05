@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { EpochCLIGit } from "./git";
+import { EpochCLIGit } from "@epoch/core";
 
 export function main(argv = process.argv.slice(2)): number {
   try {

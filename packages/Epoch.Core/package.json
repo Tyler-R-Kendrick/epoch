@@ -1,0 +1,19 @@
+{
+  "name": "@epoch/core",
+  "version": "0.1.0",
+  "description": "Generic Epoch SDK for event-driven DVCS repositories and CRDT entity merging.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json"
+  },
+  "dependencies": {
+    "@collabs/collabs": "0.13.4",
+    "protobufjs": "7.5.5",
+    "xstate": "^5.31.0",
+    "zod": "^4.4.3"
+  },
+  "overrides": {
+    "protobufjs": "7.5.5"
+  }
+}

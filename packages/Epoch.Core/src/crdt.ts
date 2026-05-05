@@ -1,5 +1,6 @@
 import { CRuntime, CText, CValueMap, SendEvent } from "@collabs/collabs";
 import { canonicalJson } from "./json";
+import { EntityType, MergeText, TextToken } from "./domain";
 
 export interface CRDTDefinition {
   readonly entityType: string;
@@ -37,7 +38,7 @@ interface CollabsDocument {
 export class MergeConflictError extends Error {
   constructor(readonly path: string, message = `merge conflict at ${path}`) {
     super(message);
-    this.name = "MergeConflictError";
+    this.name = MergeText.conflictName;
   }
 }
 
@@ -117,11 +118,11 @@ export class CRDTEventLog {
 }
 
 export class TextWeaveCRDT implements CRDTDefinition {
-  readonly entityType = "text/plain";
+  readonly entityType = EntityType.plainText;
 
   merge(base: unknown, left: unknown, right: unknown): string {
-    if (typeof base !== "string" || typeof left !== "string" || typeof right !== "string") {
-      throw new TypeError("text/plain merges require string values");
+    if (!isString(base) || !isString(left) || !isString(right)) {
+      throw new TypeError(MergeText.textTypeError);
     }
     if (left === right) return left;
     if (left === base) return right;
@@ -130,16 +131,16 @@ export class TextWeaveCRDT implements CRDTDefinition {
     const baseLines = splitLines(base);
     const merged = mergeTextHunks(baseLines, diffLines(baseLines, splitLines(left)), diffLines(baseLines, splitLines(right)));
 
-    const suffix = left.endsWith("\n") || right.endsWith("\n") ? "\n" : "";
-    return `${merged.join("\n")}${suffix}`;
+    const suffix = left.endsWith(TextToken.newline) || right.endsWith(TextToken.newline) ? TextToken.newline : TextToken.empty;
+    return `${merged.join(TextToken.newline)}${suffix}`;
   }
 }
 
 export class JsonMapCRDT implements CRDTDefinition {
-  readonly entityType = "application/json";
+  readonly entityType = EntityType.json;
 
   merge(base: unknown, left: unknown, right: unknown): unknown {
-    return this.mergeValue(base, left, right, "$");
+    return this.mergeValue(base, left, right, MergeText.jsonPathRoot);
   }
 
   private mergeValue(base: unknown, left: unknown, right: unknown, path: string): unknown {
@@ -187,20 +188,20 @@ export function threeWayMerge(base: unknown, left: unknown, right: unknown): unk
   if (same(left, right)) return left;
   if (same(left, base)) return right;
   if (same(right, base)) return left;
-  throw new MergeConflictError("$");
+  throw new MergeConflictError(MergeText.jsonPathRoot);
 }
 
 export function loadEntity(entityType: string, text: string): unknown {
-  return entityType === "application/json" ? JSON.parse(text) : text;
+  return entityType === EntityType.json ? JSON.parse(text) : text;
 }
 
 export function dumpEntity(entityType: string, value: unknown): string {
-  return entityType === "application/json" ? `${JSON.stringify(value, null, 2)}\n` : String(value);
+  return entityType === EntityType.json ? `${JSON.stringify(value, null, 2)}\n` : String(value);
 }
 
 function splitLines(text: string): string[] {
-  const trimmed = text.endsWith("\n") ? text.slice(0, -1) : text;
-  return trimmed === "" ? [] : trimmed.split("\n");
+  const trimmed = text.endsWith(TextToken.newline) ? text.slice(0, -1) : text;
+  return trimmed === TextToken.empty ? [] : trimmed.split(TextToken.newline);
 }
 
 interface TextHunk {
@@ -317,6 +318,10 @@ function same(left: unknown, right: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
 }
 
 function createCollabsDocument(replicaID: string): CollabsDocument {

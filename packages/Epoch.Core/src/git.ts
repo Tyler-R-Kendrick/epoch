@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { z } from "zod";
 import { EpochRepository, Event, readJson, writeJson } from "./core";
 
 export const EPOCH_GIT_PROVIDER = "git";
@@ -22,6 +23,13 @@ export interface EpochGitCommandResult {
   readonly stderr: string;
   readonly exitCode: number;
 }
+
+const EpochGitRemoteSchema = z.object({
+  provider: z.literal(EPOCH_GIT_PROVIDER),
+  remote: z.string().min(1),
+  ref: z.string().optional(),
+  commit: z.string().optional(),
+});
 
 export class UnsupportedGitOperationError extends Error {
   constructor(operation: string, reason: string) {
@@ -72,7 +80,7 @@ export class EpochCoreGit {
 
   remote(): EpochGitRemote | undefined {
     const path = this.remotePath();
-    return existsSync(path) ? readJson<EpochGitRemote>(path) : undefined;
+    return existsSync(path) ? readJson(path, EpochGitRemoteSchema) : undefined;
   }
 
   add(paths: readonly string[]): EpochGitCommandResult {
@@ -226,7 +234,7 @@ function entityTypeForPath(path: string): string {
 
 export function readEpochGitRemote(root: string): EpochGitRemote | undefined {
   const path = join(resolve(root), ".epoch", "git.json");
-  return existsSync(path) ? readJson<EpochGitRemote>(path) : undefined;
+  return existsSync(path) ? readJson(path, EpochGitRemoteSchema) : undefined;
 }
 
 function rejectGitOptionLikeValue(value: string, description: string): void {

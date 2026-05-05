@@ -1,0 +1,17 @@
+export { EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, commitGit } from "./core";
+export type { EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryOptions, GatePolicy, IdentityData, InclusionRule, IntentDecision, PolicyOptions, PolicyProjection, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
+export { EpochActorSystem, EpochUserActor } from "./actors";
+export { CRDTEventLog, CRDTRegistry, JsonMapCRDT, TextWeaveCRDT, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
+export type { CRDTOperation } from "./crdt";
+export { canonicalJson } from "./json";
+export { ActorCommand, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, Schemas, StorageName, Symbols } from "./domain";
+export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath } from "./domain";
+export { createCheckpoint, pruneEventLog, restoreFromCheckpoint, latestCheckpoint, verifyCheckpoint } from "./ha/checkpoint";
+export type { Checkpoint, CheckpointManifest, CheckpointManifestEntry } from "./ha/checkpoint";
+export { SeedNodeService, bootstrapFromSeed, bootstrapFromSeeds } from "./ha/seed";
+export type { SeedNode, SeedNodeServiceOptions } from "./ha/seed";
+export { LocalStorageBackend, createColdBackup, restoreFromColdBackup, verifyColdBackup } from "./ha/backup";
+export type { ColdBackup, ColdBackupOptions, StorageBackend } from "./ha/backup";
+export { disasterRecoveryPlan } from "./ha/dr-plan";
+export { EPOCH_GIT_PROVIDER, EpochCLIGit, EpochCoreGit, UnsupportedGitOperationError, readEpochGitRemote, unsupported } from "./git";
+export type { EpochGitCommandResult, EpochGitCommitResult, EpochGitRemote } from "./git";

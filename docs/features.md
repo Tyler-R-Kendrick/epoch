@@ -20,7 +20,7 @@ Every change in Epoch is represented as an immutable, cryptographically signed e
 **As a** developer, **I want** every change I make to be recorded as an immutable event so that the full history of my repository is always auditable and recoverable.
 
 ### Acceptance Criteria
-- [ ] Every commit, branch, tag, merge, and configuration change produces exactly one event.
+- [ ] Every record, intent, merge signature, rejection, comment, tag, and configuration change produces exactly one event.
 - [ ] Events are appended only; no event can be modified after creation.
 - [ ] The log survives process restart and is durable on disk.
 - [ ] The full repository state can be reconstructed by replaying the event log from genesis.
@@ -73,49 +73,51 @@ Each Epoch user is identified by an Ed25519 keypair. The public key is the persi
 
 ---
 
-## F-004 — Commit
+## F-004 — Record
 
 | Field | Value |
 |---|---|
 | **ID** | F-004 |
-| **Name** | Commit |
+| **Name** | Record |
 | **Category** | Core |
 | **Status** | Required |
 
 ### Description
-A commit is an event that records a snapshot of the repository state (via a tree hash), a message, an author, a timestamp, and causal parent event IDs.
+A record is a signed event that stores a file patch or snapshot reference with author, timestamp, and causal parent event IDs.
 
 ### User Story
-**As a** developer, **I want** to commit a set of changes with a message so that I can record logical units of work with clear attribution.
+**As a** developer, **I want** to record changes as signed events so that I can capture logical units of work with clear attribution.
 
 ### Acceptance Criteria
-- [ ] Commit event contains: tree hash, message, author public key, signature, timestamp, parent event IDs.
-- [ ] Commit is signed by the author's Ed25519 private key.
-- [ ] Commit appears in the event log and is immediately queryable.
-- [ ] Working tree is clean after a successful commit.
+- [ ] Record event contains: path, entity type, blob hash, author public key, signature, timestamp, parent event IDs.
+- [ ] Record is signed by the author's Ed25519 private key.
+- [ ] Record appears in the event log and is immediately queryable.
+- [ ] Working tree content is preserved after a successful record.
 
 ---
 
-## F-005 — Branch
+## F-005 — Intent Policy
 
 | Field | Value |
 |---|---|
 | **ID** | F-005 |
-| **Name** | Branch |
+| **Name** | Intent Policy |
 | **Category** | Core |
 | **Status** | Required |
 
 ### Description
-A branch is a named, mutable pointer to a tip event in the event graph. Creating a branch is O(1) and does not copy any objects.
+An intent is a signed patch event that states what an author wants included. Maintainers sign separate merge events to include the intent or rejection events to exclude it. Reviewers can also sign comment events associated with the intent. This mirrors Radicle's patch workflow while keeping Epoch's main projection pointerless and deterministic.
 
 ### User Story
-**As a** developer, **I want** to create and switch between branches so that I can work on features in isolation without affecting the main line of development.
+**As a** contributor, **I want** to publish an intent and have maintainers cryptographically sign inclusion or rejection so that review policy is transparent and auditable.
 
 ### Acceptance Criteria
-- [ ] Branches can be created, renamed, and deleted.
-- [ ] Branch creation is O(1) (pointer, not a copy).
-- [ ] Switching branches updates the working tree.
-- [ ] Branches are propagated to peers via the sync layer.
+- [ ] `epoch intent` creates a signed Intent event containing one or more CRDT patches.
+- [ ] `epoch merge <intent-id>` creates a signed IntentMerge event referencing the intent.
+- [ ] `epoch reject <intent-id>` creates a signed IntentReject event referencing the intent.
+- [ ] `epoch comment --intent <intent-id>` creates a signed IntentComment event referencing the intent.
+- [ ] Intent, merge, reject, and comment events support optional title, description, reason, and label metadata.
+- [ ] Main is projected from merged, non-rejected intents and is deterministic for the same accepted patch set.
 
 ---
 
@@ -152,16 +154,16 @@ A tag is an immutable named pointer to a specific event, signed by the tagger. T
 | **Status** | Required |
 
 ### Description
-The default merge strategy. Given a common ancestor event and two diverged branch tips, Epoch computes the three-way merge for each changed entity. For unregistered entity types, this is a line-level text merge.
+The default entity resolution strategy. Given a common base and two patch versions, Epoch computes the three-way result for each changed entity. For unregistered entity types, this is a line-level text resolution.
 
 ### User Story
-**As a** developer, **I want** Epoch to merge branches automatically when there are no conflicting changes so that routine integration work requires no manual intervention.
+**As a** developer, **I want** Epoch to resolve patch contents automatically when there are no conflicting changes so that routine integration work requires no manual intervention.
 
 ### Acceptance Criteria
 - [ ] Three-way merge produces a correct result for non-overlapping changes.
 - [ ] Conflicting changes are surfaced with conflict markers.
 - [ ] The common ancestor is always the lowest common ancestor of the event DAG.
-- [ ] Merge result is recorded as a Merge event with two parent event IDs.
+- [ ] Resolved content can be recorded or submitted as a new intent patch.
 
 ---
 
@@ -230,7 +232,7 @@ When neither three-way merge nor CRDT merge can automatically resolve a conflict
 - [ ] Conflicted entities are annotated with conflict markers (`<<<`, `===`, `>>>`).
 - [ ] `epoch status` lists all conflicted entities.
 - [ ] The merge cannot be committed while conflicts remain unresolved.
-- [ ] After manual resolution, `epoch add` marks the conflict resolved.
+- [ ] After manual resolution, `epoch record` records the resolved entity.
 
 ---
 
@@ -244,13 +246,13 @@ When neither three-way merge nor CRDT merge can automatically resolve a conflict
 | **Status** | Required |
 
 ### Description
-All core operations (commit, branch, tag, diff, log, merge) function without network access. The local event log and object store are sufficient for all local operations.
+All core operations (record, intent, tag, diff, events, merge signatures, rejection signatures, and CRDT resolution) function without network access. The local event log and object store are sufficient for all local operations.
 
 ### User Story
-**As a** developer on a flight without Wi-Fi, **I want** to commit, branch, and view history so that I can remain fully productive offline.
+**As a** developer on a flight without Wi-Fi, **I want** to record changes, create intents, sign merge decisions, and view history so that I can remain fully productive offline.
 
 ### Acceptance Criteria
-- [ ] `epoch commit`, `epoch branch`, `epoch tag`, `epoch diff`, `epoch log`, and `epoch merge` all succeed with no network connection.
+- [ ] `epoch record`, `epoch intent`, `epoch tag`, `epoch diff`, `epoch events`, `epoch merge`, and `epoch resolve` all succeed with no network connection.
 - [ ] No network call is attempted for local operations.
 - [ ] Local events accumulated offline are synced automatically when connectivity is restored.
 
@@ -325,26 +327,26 @@ Seed nodes are always-on peers that continuously replicate one or more repositor
 
 ---
 
-## F-015 — Push / Pull
+## F-015 — Explicit Event Sync
 
 | Field | Value |
 |---|---|
 | **ID** | F-015 |
-| **Name** | Push / Pull |
+| **Name** | Explicit Event Sync |
 | **Category** | Distribution |
 | **Status** | Required |
 
 ### Description
-Explicit sync operations that transfer events between two nodes. `epoch push` sends local events to a remote peer; `epoch pull` fetches events from a remote peer.
+Explicit sync operations exchange missing events between two peers with `epoch sync <peer>`.
 
 ### User Story
-**As a** developer, **I want** to explicitly push and pull from specific remotes so that I have control over when and where my changes are shared.
+**As a** developer, **I want** to explicitly sync with specific peers so that I have control over when and where my changes are shared.
 
 ### Acceptance Criteria
-- [ ] `epoch push <remote>` transfers all events the remote hasn't seen.
-- [ ] `epoch pull <remote>` fetches all events not in the local log.
-- [ ] Push and pull are atomic per event (partial transfers are recoverable).
-- [ ] Authentication is via Ed25519 identity; unauthorized pushes are rejected.
+- [ ] `epoch sync <peer>` exchanges all events either peer has not seen.
+- [ ] `epoch sync <peer>` updates both event logs to the same frontier.
+- [ ] Sync is atomic per event (partial transfers are recoverable).
+- [ ] Authentication is via Ed25519 identity; unauthorized writes are rejected.
 
 ---
 
@@ -361,7 +363,7 @@ Explicit sync operations that transfer events between two nodes. `epoch push` se
 Each repository maintains an allow-list of public keys with associated permission levels (read, write, admin). The allow-list is itself stored as signed events in the repository log.
 
 ### User Story
-**As a** repository owner, **I want** to control who can push events to my repository so that unauthorized parties cannot modify the project's history.
+**As a** repository owner, **I want** to control who can write events to my repository so that unauthorized parties cannot modify the project's history.
 
 ### Acceptance Criteria
 - [ ] Access control list is stored as signed events in the log.
@@ -413,7 +415,7 @@ The causal chain structure of the event log makes tampering detectable. A tamper
 - [ ] Any modification to a stored event's payload changes its hash and invalidates its signature.
 - [ ] `epoch verify` command checks all event signatures and causal chain integrity.
 - [ ] Forked events from the same author are reported as anomalies.
-- [ ] Tamper detection runs automatically during pull/gossip operations.
+- [ ] Tamper detection runs automatically during sync/gossip operations.
 
 ---
 
@@ -456,7 +458,7 @@ Periodically, old events are compacted into a snapshot event that captures full 
 **As a** repository operator, **I want** old events to be pruned after compaction so that the event log doesn't grow without bound on long-lived repositories.
 
 ### Acceptance Criteria
-- [ ] Snapshot events capture complete repository state (tree + branch map).
+- [ ] Snapshot events capture complete repository state (tree + policy projection).
 - [ ] Old events before the snapshot can be pruned after quorum agreement.
 - [ ] Tombstones are GC'd only after all known peers confirm they've seen the deletion.
 - [ ] The repository remains fully functional after compaction.
@@ -517,7 +519,7 @@ When syncing with a peer, only events not already present on the receiving peer 
 | **Status** | Required |
 
 ### Description
-Compute the difference between any two events, branches, or working tree states. Output can be in unified diff format or structured (JSON) format for programmatic use.
+Compute the difference between any two events, intents, or working tree states. Output can be in unified diff format or structured (JSON) format for programmatic use.
 
 ### User Story
 **As a** developer, **I want** to see exactly what changed between two commits so that I can understand the impact of a change before merging it.
@@ -540,15 +542,15 @@ Compute the difference between any two events, branches, or working tree states.
 | **Status** | Required |
 
 ### Description
-Traverse and query the event graph with filtering by author, date range, branch, path, or event type. Output includes event IDs, authors, timestamps, messages, and causal parent links.
+Traverse and query the event graph with filtering by author, date range, path, policy status, or event type. Output includes event IDs, authors, timestamps, messages, and causal parent links.
 
 ### User Story
 **As a** developer, **I want** to view the history of changes to a specific file so that I can understand who changed it and why.
 
 ### Acceptance Criteria
-- [ ] `epoch log` lists all commit events on the current branch.
-- [ ] `epoch log -- <path>` filters to events touching a specific file.
-- [ ] `epoch log --author=<key>` filters by author public key.
+- [ ] `epoch events` lists record, intent, merge, rejection, comment, and sync-visible events.
+- [ ] `epoch events -- <path>` filters to events touching a specific file.
+- [ ] `epoch events --author=<key>` filters by author public key.
 - [ ] Event graph is traversed in reverse causal order by default.
 
 ---
@@ -563,15 +565,15 @@ Traverse and query the event graph with filtering by author, date range, branch,
 | **Status** | Required |
 
 ### Description
-Pre- and post-event hooks allow arbitrary scripts or plugins to be invoked at lifecycle events: pre-commit, post-commit, pre-push, post-receive, post-merge. Hooks can abort operations by returning non-zero.
+Pre- and post-event hooks allow arbitrary scripts or plugins to be invoked at lifecycle events: pre-record, post-record, pre-sync, post-sync, post-merge. Hooks can abort operations by returning non-zero.
 
 ### User Story
-**As a** team lead, **I want** a pre-commit hook that runs linting so that no unlinted code ever enters the repository.
+**As a** team lead, **I want** a pre-record hook that runs linting so that no unlinted code ever enters the repository.
 
 ### Acceptance Criteria
 - [ ] Hooks are stored in `.epoch/hooks/` and are executable scripts.
-- [ ] Pre-commit hook returning non-zero aborts the commit.
-- [ ] Post-receive hook is invoked on the remote after a push.
+- [ ] Pre-record hook returning non-zero aborts the record operation.
+- [ ] Post-sync hook is invoked after event sync completes.
 - [ ] Hook environment includes relevant event metadata as environment variables.
 
 ---
@@ -609,13 +611,13 @@ Temporarily shelve in-progress working tree changes without committing. Stashed 
 | **Status** | Recommended |
 
 ### Description
-Multiple working directories can be associated with a single Epoch object store. Each worktree can check out a different branch, enabling parallel work without cloning the repository multiple times.
+Multiple working directories can be associated with a single Epoch object store. Each worktree can hold a different working copy while sharing the same event log and object store.
 
 ### User Story
-**As a** developer, **I want** to check out two branches simultaneously in different directories so that I can compare their behavior side-by-side.
+**As a** developer, **I want** multiple working directories simultaneously so that I can compare candidate intent states side-by-side.
 
 ### Acceptance Criteria
-- [ ] `epoch worktree add <path> <branch>` creates a linked worktree.
+- [ ] `epoch worktree add <path>` creates a linked worktree.
 - [ ] Each worktree has its own HEAD and index; the object store is shared.
 - [ ] Commits in a worktree appear in the shared event log.
 - [ ] `epoch worktree remove <path>` cleanly removes the linked worktree.
@@ -677,13 +679,13 @@ Import existing Git repositories into Epoch (converting commits to events) and e
 | **Status** | Optional |
 
 ### Description
-Decentralized issue tracking and patch proposals. Issues and patches are content-addressed, signed events stored in the repository's event log and gossiped to all peers. No central forge required.
+Decentralized issue tracking and intent-based patches. Issues and intents are content-addressed, signed events stored in the repository's event log and gossiped to all peers. No central forge required.
 
 ### User Story
-**As a** contributor, **I want** to open a patch proposal and discussion on an Epoch repository without creating an account on a third-party platform so that I can contribute using only my Epoch identity.
+**As a** contributor, **I want** to open an intent and discussion on an Epoch repository without creating an account on a third-party platform so that I can contribute using only my Epoch identity.
 
 ### Acceptance Criteria
 - [ ] `epoch issue open` creates a signed Issue event and gossips it.
-- [ ] `epoch patch open` creates a signed Patch event referencing a branch.
-- [ ] Comments on issues and patches are signed Comment events.
-- [ ] All issue/patch data is replicated to all peers via gossip.
+- [ ] `epoch intent` creates a signed Intent event referencing the current main projection.
+- [ ] Comments on issues and intents are signed Comment events.
+- [ ] All issue/intent data is replicated to all peers via gossip.

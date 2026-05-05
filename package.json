@@ -1,20 +1,26 @@
 {
   "name": "epoch",
   "version": "0.1.0",
-  "description": "Minimal event-driven DVCS prototype with pluggable CRDT entity-level merging.",
-  "main": "dist/src/index.js",
+  "description": "Epoch workspace for core SDK, CLI, and WASM hosts.",
+  "private": true,
+  "workspaces": [
+    "packages/Epoch.Core",
+    "packages/Epoch.CLI",
+    "packages/Epoch.WASM"
+  ],
+  "main": "packages/Epoch.Core/dist/index.js",
   "bin": {
-    "epoch": "dist/src/cli.js",
-    "epoch-git": "dist/src/cli-git.js"
+    "epoch": "packages/Epoch.CLI/dist/cli.js",
+    "epoch-git": "packages/Epoch.CLI/dist/cli-git.js"
   },
   "exports": {
-    ".": "./dist/src/index.js",
-    "./Epoch.Core.Git": "./dist/src/git.js",
-    "./Epoch.CLI.Git": "./dist/src/cli-git.js",
-    "./Epoch.WASM.Git": "./dist/src/wasm-git.js"
+    ".": "./packages/Epoch.Core/dist/index.js",
+    "./Epoch.Core.Git": "./packages/Epoch.Core/dist/git.js",
+    "./Epoch.CLI.Git": "./packages/Epoch.CLI/dist/cli-git.js",
+    "./Epoch.WASM.Git": "./packages/Epoch.WASM/dist/git.js"
   },
   "scripts": {
-    "build": "tsgo -p tsconfig.json",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && tsgo -p tsconfig.test.json",
     "features": "npm run build -- --pretty false && cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test": "npm run features"
   },
@@ -34,7 +40,8 @@
   "dependencies": {
     "@collabs/collabs": "0.13.4",
     "protobufjs": "7.5.5",
-    "xstate": "^5.31.0"
+    "xstate": "^5.31.0",
+    "zod": "^4.4.3"
   },
   "overrides": {
     "protobufjs": "7.5.5"
