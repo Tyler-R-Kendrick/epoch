@@ -50,8 +50,8 @@ export function createColdBackup(repository: EpochRepository, options: ColdBacku
   verifyCheckpoint(checkpoint);
   const identity = repository.identityDocument();
   const tailEvents = eventsAfterCheckpoint(repository, checkpoint);
-  const unsigned = {
-    format: BACKUP_FORMAT as typeof BACKUP_FORMAT,
+  const unsigned: Omit<ColdBackup, "signature"> = {
+    format: BACKUP_FORMAT,
     repositoryId: repositoryId(repository),
     checkpoint,
     tailEvents: tailEvents.map((event) => event.toJSON()),
