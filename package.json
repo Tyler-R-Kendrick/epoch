@@ -6,7 +6,8 @@
   "workspaces": [
     "packages/Epoch.Core",
     "packages/Epoch.CLI",
-    "packages/Epoch.WASM"
+    "packages/Epoch.WASM",
+    "packages/Epoch.WASM.React"
   ],
   "main": "packages/Epoch.Core/dist/index.js",
   "bin": {
@@ -20,19 +21,26 @@
       "types": "./packages/Epoch.CLI/src/cli-git.ts",
       "default": "./packages/Epoch.CLI/dist/cli-git.js"
     },
-    "./Epoch.WASM.Git": "./packages/Epoch.WASM/dist/git.js"
+    "./Epoch.WASM.Git": "./packages/Epoch.WASM/dist/git.js",
+    "./Epoch.WASM.React": {
+      "types": "./packages/Epoch.WASM.React/src/index.ts",
+      "default": "./packages/Epoch.WASM.React/dist/index.js"
+    }
   },
   "engines": {
     "node": "^20.20.0 || >=22.13.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
-    "features": "npm run build -- --pretty false && cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
-    "coverage": "npm run build -- --pretty false && c8 cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
-    "test": "npm run features",
+    "features": "npm run build -- --pretty false && npm run test:features:runtime",
+    "test:features:runtime": "cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
+    "test:unit:runtime": "node dist/test/run-unit-tests.js",
+    "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
+    "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
+    "test": "npm run build -- --pretty false && npm run test:runtime",
     "verify": "npm run lint && npm run typecheck && npm test && npm run coverage"
   },
   "keywords": [
@@ -46,11 +54,19 @@
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
+    "@types/jsdom": "^28.0.1",
     "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@typescript/native-preview": "^7.0.0-dev.20260504.1",
     "c8": "^11.0.0",
     "eslint": "^10.3.0",
-    "typescript-eslint": "^8.59.2"
+    "jsdom": "^29.1.1",
+    "playwright": "^1.59.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.10"
   },
   "dependencies": {
     "@collabs/collabs": "0.13.4",

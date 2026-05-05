@@ -119,11 +119,12 @@ Epoch now includes a **TypeScript prototype built with Microsoft TypeScript Nati
 - filesystem event sync between local repositories
 - Git import/export compatibility for tracked files
 - Git compatibility surfaces exposed as `Epoch.Core.Git`, `Epoch.CLI.Git`, and `Epoch.WASM.Git` package entrypoints
+- React framework integration exposed as `Epoch.WASM.React` with browser-safe persistent state hooks
 - intent events and signed merge/rejection policy events for patch inclusion
 - XState-backed asynchronous repository and per-user actors for event-driven multi-user workflows
 - Named views for deterministic logical workspaces over the shared event log, with checkout, diff, and promotion support using intent terminology
 - HA/DR compacts, cold backups, and local seed bootstrap helpers
-- separate `Epoch.Core`, `Epoch.CLI`, and `Epoch.WASM` package projects
+- separate `Epoch.Core`, `Epoch.CLI`, `Epoch.WASM`, and `Epoch.WASM.React` package projects
 - CLI commands for `init`, `record`, `intent`, `events`, `verify`, `merge`, `reject`, `status`, `main`, `resolve`, `sync`, `rollback`, `view-create`, `views`, `checkout`, `view-delete`, `view-diff`, `view-promote`, `import`, and `export`
 - Gherkin feature coverage for repository and CRDT behavior
 
@@ -186,8 +187,35 @@ The workspace also exposes Git compatibility entrypoints:
 - `epoch/Epoch.Core.Git` provides the host filesystem implementation that shells out to native Git for clone, init, add, and status while recording commits as Epoch merge events.
 - `epoch/Epoch.CLI.Git` provides the CLI runner used by the `epoch-git` binary.
 - `epoch/Epoch.WASM.Git` provides the WASM-facing surface and returns explicit unsupported errors for native Git operations that need host filesystem access.
+- `epoch/Epoch.WASM.React` provides `createEpochReactStore`, `createMemoryEpochReactStorage`, and `useEpochState` for persisting React state changes as append-only browser-safe Epoch events.
 
 Unsupported Git commands fail with an explicit `not supported` error explaining that there is not yet a safe Epoch operation or clear workaround.
+
+Persist framework state changes from React:
+
+```ts
+import { createEpochReactStore, useEpochState } from "epoch/Epoch.WASM.React";
+
+const counterStore = createEpochReactStore({
+  entity: "counter",
+  initialState: { count: 0 },
+  storageKey: "epoch:counter",
+  storage: localStorage,
+});
+
+function Counter() {
+  const [state, setState, epoch] = useEpochState(counterStore);
+
+  return (
+    <button onClick={() => setState({ count: state.count + 1 })}>
+      {state.count}
+    </button>
+  );
+}
+
+counterStore.rewind(1);
+counterStore.materialize("latest");
+```
 
 Create an intent and have maintainers sign inclusion or rejection events:
 
@@ -213,7 +241,7 @@ Run the Gherkin feature suite:
 npm test
 ```
 
-The feature files live in [`features/`](features/) and are executed with Cucumber against the compiled TypeScript output.
+The feature files live in [`features/`](features/) and are executed with Cucumber against the compiled TypeScript output. Browser-facing features use Playwright headlessly, while focused unit and component tests run through the same `npm test` gate.
 
 Run the full local quality gate before opening a pull request:
 
@@ -221,7 +249,7 @@ Run the full local quality gate before opening a pull request:
 npm run verify
 ```
 
-The verification gate runs linting, TypeScript typechecking, the feature suite, and c8 coverage thresholds. CI enforces the same checks for pull requests and pushes to `main`.
+The verification gate runs linting, TypeScript typechecking, unit/component tests, the feature suite, and c8 coverage thresholds. CI enforces the same checks for pull requests and pushes to `main`.
 
 If installed as a package, the CLI is exposed as `epoch`:
 

@@ -19,6 +19,7 @@
     "sdk-integration",
     "wasm-integration",
     "quality-gates",
+    "sdlc-review",
     "test-driven-development"
   ],
   "permissions": [],
@@ -42,6 +43,8 @@
     "references/cli.md",
     "references/wasm.md",
     "references/quality-gates.md",
+    "references/sdlc.md",
+    "agents/sdlc.yaml",
     "../../docs/design.md",
     "../../docs/features.md"
   ]

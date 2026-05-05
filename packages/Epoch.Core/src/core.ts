@@ -513,7 +513,9 @@ export class EpochRepository {
 
   appendCRDTOperation(operation: CRDTOperation, author = this.identity()): Event {
     this.emitHook("repository.crdt.operation.before", { operation, author });
-    const payload = new CRDTEventLog().changeForOperation(this.events(), operation, sha256(author).slice(0, 32));
+    const events = this.events();
+    const replicaID = sha256(canonicalJson({ author, nextLamport: events.length + 1, operation })).slice(0, 32);
+    const payload = new CRDTEventLog().changeForOperation(events, operation, replicaID);
     const event = this.append(EventType.crdt, payload, author);
     this.emitHook("repository.crdt.operation.after", { operation, author, event });
     return event;

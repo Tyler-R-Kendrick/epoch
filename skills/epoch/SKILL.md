@@ -37,6 +37,7 @@ Before proposing source changes, run the project gates documented in [Quality Ga
 | [CLI](references/cli.md) | Running `epoch` and `epoch-git`, repository commands, views, policy events, import/export, verification. |
 | [WASM](references/wasm.md) | Browser/worker-safe exports, CRDT helpers, and unsupported native Git behavior. |
 | [Quality Gates](references/quality-gates.md) | Required TDD, lint, typecheck, test, coverage, and CI expectations. |
+| [SDLC Subagent](references/sdlc.md) | Codex subagent checklist for enforcing feature-first TDD and the Epoch test trophy. |
 | [Architecture](../../docs/design.md) | Full design model, data structures, extension surfaces, and system comparisons. |
 | [Feature Registry](../../docs/features.md) | Product feature IDs and acceptance criteria. |
 
