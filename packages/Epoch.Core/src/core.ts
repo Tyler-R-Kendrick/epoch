@@ -957,11 +957,13 @@ export class EpochRepository {
     });
   }
 
+  /**
+   * Emits repository hook events with Unix-second timestamps matching persisted Epoch event timestamps.
+   */
   private emitHook(name: EpochHookName, detail: Record<string, unknown>): void {
     const event: EpochHookEvent = {
       name,
       repository: this,
-      // Hook timestamps use Unix seconds to match persisted Epoch event timestamps.
       timestamp: Math.floor(Date.now() / 1000),
       detail,
     };
