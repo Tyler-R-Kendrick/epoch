@@ -4,3 +4,4 @@ __pycache__/
 .epoch/
 node_modules/
 dist/
+coverage/

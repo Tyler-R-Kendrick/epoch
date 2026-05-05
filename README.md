@@ -84,6 +84,10 @@
 | [`docs/user-stories.md`](docs/user-stories.md) | Complete user stories organized by persona |
 | [`docs/crdt-backend-decision.md`](docs/crdt-backend-decision.md) | Automerge vs Collabs measurement, pros/cons, dependency exception, and backend decision |
 | [`docs/dependency-exceptions.md`](docs/dependency-exceptions.md) | Documented dependency overrides and exception rationale |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution workflow, TDD expectations, and required quality gates |
+| [`SECURITY.md`](SECURITY.md) | Security reporting and secure contribution expectations |
+| [`AGENTS.md`](AGENTS.md) | Repository-wide instructions for AI coding agents |
+| [`skills/epoch/SKILL.md`](skills/epoch/SKILL.md) | Distributable agent skill index with focused Core, CLI, WASM, and quality-gate references |
 
 ### Inspiration Research
 Epoch synthesizes lessons from eight systems studied during design:
@@ -209,6 +213,14 @@ npm test
 ```
 
 The feature files live in [`features/`](features/) and are executed with Cucumber against the compiled TypeScript output.
+
+Run the full local quality gate before opening a pull request:
+
+```bash
+npm run verify
+```
+
+The verification gate runs linting, TypeScript typechecking, the feature suite, and c8 coverage thresholds. CI enforces the same checks for pull requests and pushes to `main`.
 
 If installed as a package, the CLI is exposed as `epoch`:
 

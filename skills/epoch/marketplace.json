@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_version": "1.0.0",
+  "name": "epoch",
+  "display_name": "Epoch DVCS Skill",
+  "version": "0.1.0",
+  "description": "Agent skill for using, integrating, testing, and extending Epoch's event-driven TypeScript DVCS, CLI, and WASM packages.",
+  "author": "Epoch maintainers",
+  "license": "MIT",
+  "homepage": "https://github.com/Tyler-R-Kendrick/epoch",
+  "repository": "https://github.com/Tyler-R-Kendrick/epoch",
+  "entrypoint": "SKILL.md",
+  "categories": ["developer-tools", "version-control", "typescript", "local-first"],
+  "tags": ["dvcs", "crdt", "cli", "wasm", "git", "agent-skill"],
+  "compatible_agents": ["claude", "github-copilot", "open-agent"],
+  "capabilities": [
+    "repository-orientation",
+    "cli-usage",
+    "sdk-integration",
+    "wasm-integration",
+    "quality-gates",
+    "test-driven-development"
+  ],
+  "permissions": [],
+  "inputs": [
+    {
+      "name": "task",
+      "type": "string",
+      "description": "Natural-language request involving Epoch usage, integration, testing, or contribution."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "guidance",
+      "type": "markdown",
+      "description": "Task-specific instructions with references to focused Epoch documentation pages."
+    }
+  ],
+  "files": [
+    "SKILL.md",
+    "references/core-sdk.md",
+    "references/cli.md",
+    "references/wasm.md",
+    "references/quality-gates.md"
+  ]
+}
