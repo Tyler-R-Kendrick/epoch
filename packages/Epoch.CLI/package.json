@@ -4,7 +4,8 @@
   "description": "Epoch command line host.",
   "main": "dist/cli.js",
   "bin": {
-    "epoch": "dist/cli.js"
+    "epoch": "dist/cli.js",
+    "epoch-git": "dist/cli-git.js"
   },
   "scripts": {
     "build": "tsgo -p tsconfig.json"

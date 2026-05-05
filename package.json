@@ -10,7 +10,14 @@
   ],
   "main": "packages/Epoch.Core/dist/index.js",
   "bin": {
-    "epoch": "packages/Epoch.CLI/dist/cli.js"
+    "epoch": "packages/Epoch.CLI/dist/cli.js",
+    "epoch-git": "packages/Epoch.CLI/dist/cli-git.js"
+  },
+  "exports": {
+    ".": "./packages/Epoch.Core/dist/index.js",
+    "./Epoch.Core.Git": "./packages/Epoch.Core/dist/git.js",
+    "./Epoch.CLI.Git": "./packages/Epoch.CLI/dist/cli-git.js",
+    "./Epoch.WASM.Git": "./packages/Epoch.WASM/dist/git.js"
   },
   "scripts": {
     "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && tsgo -p tsconfig.test.json",

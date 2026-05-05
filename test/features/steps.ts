@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochRepository, Event, pruneEventLog, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
+import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLog, readEpochGitRemote, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
 
 interface WorldState {
   workspace: string;
@@ -20,6 +20,7 @@ interface WorldState {
   actorRepo?: EpochActorSystem;
   gitRepo?: string;
   gitExportRepo?: string;
+  gitCloneRepo?: string;
   syncResult?: SyncResult;
   lastIntentId?: string;
   hookNames?: string[];
@@ -536,6 +537,37 @@ When("I import the Git repository", function () {
   state.repo.importFromGit(state.gitRepo);
 });
 
+When("I clone the Git repository through Epoch Git compatibility", function () {
+  assert.ok(state.gitRepo);
+  const workspace = mkdtempSync(join(tmpdir(), "epoch-git-clone-"));
+  rmSync(workspace, { recursive: true, force: true });
+  state.createdDirs.push(workspace);
+  state.gitCloneRepo = workspace;
+  EpochCoreGit.clone(state.gitRepo, workspace, { author: "alice" });
+  state.repo = new EpochRepository(workspace);
+});
+
+When("I stage Git file {string} with content {string}", function (path: string, content: string) {
+  assert.ok(state.gitCloneRepo);
+  const absolute = join(state.gitCloneRepo, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+  execFileSync("git", ["-C", state.gitCloneRepo, "add", path]);
+});
+
+When("I commit through Epoch Git compatibility with message {string}", function (message: string) {
+  assert.ok(state.gitCloneRepo);
+  new EpochCoreGit(state.gitCloneRepo).commit(message, { author: "alice" });
+});
+
+When("I run unsupported Epoch Git command {string}", function (command: string) {
+  try {
+    EpochCLIGit.run([command], state.workspace);
+  } catch (error) {
+    state.error = error as Error;
+  }
+});
+
 When("I export to a Git repository", function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-git-export-"));
   state.createdDirs.push(workspace);
@@ -546,6 +578,31 @@ When("I export to a Git repository", function () {
 Then("the exported Git file {string} contains {string}", function (path: string, expected: string) {
   assert.ok(state.gitExportRepo);
   assert.equal(readFileSync(join(state.gitExportRepo, path), "utf8"), expected.replaceAll("\\n", "\n"));
+});
+
+Then("the cloned Epoch Git provider is {string}", function (expected: string) {
+  assert.ok(state.gitCloneRepo);
+  assert.equal(readEpochGitRemote(state.gitCloneRepo)?.provider, expected);
+});
+
+Then("the cloned Epoch Git remote references the Git repository", function () {
+  assert.ok(state.gitCloneRepo);
+  assert.equal(readEpochGitRemote(state.gitCloneRepo)?.remote, state.gitRepo);
+});
+
+Then("the latest Epoch event has type {string}", function (expected: string) {
+  assert.equal(state.repo.events().at(-1)?.type, expected);
+});
+
+Then("the latest recorded Git file {string} contains {string}", function (path: string, expected: string) {
+  const event = state.repo.events().filter((candidate) => candidate.type === "record" && candidate.payload.path === path).at(-1);
+  assert.ok(event);
+  assert.equal(readFileSync(join(state.repo.blobsDir, event.payload.blob_sha256 as string), "utf8"), expected.replaceAll("\\n", "\n"));
+});
+
+Then("Git compatibility fails with {string}", function (expected: string) {
+  assert.ok(state.error);
+  assert.match(state.error.message, new RegExp(expected));
 });
 
 function splitLabels(labels: string): string[] {

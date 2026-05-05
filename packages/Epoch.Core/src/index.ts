@@ -13,3 +13,5 @@ export type { SeedNode, SeedNodeServiceOptions } from "./ha/seed";
 export { LocalStorageBackend, createColdBackup, restoreFromColdBackup, verifyColdBackup } from "./ha/backup";
 export type { ColdBackup, ColdBackupOptions, StorageBackend } from "./ha/backup";
 export { disasterRecoveryPlan } from "./ha/dr-plan";
+export { EPOCH_GIT_PROVIDER, EpochCLIGit, EpochCoreGit, UnsupportedGitOperationError, readEpochGitRemote, unsupported } from "./git";
+export type { EpochGitCommandResult, EpochGitCommitResult, EpochGitRemote } from "./git";
