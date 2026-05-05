@@ -4,7 +4,10 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, Then, When } from "@cucumber/cucumber";
+import { main as epochCliMain } from "@epoch/cli";
 import { bootstrapFromSeed, canonicalJson, Checkpoint, commitGit, createCheckpoint, createColdBackup, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLog, readEpochGitRemote, restoreFromCheckpoint, restoreFromColdBackup, SyncResult } from "@epoch/core";
+import { CRDTRegistry as WasmCRDTRegistry, EpochWasmGit } from "@epoch/wasm";
+import { main as epochGitCliMain } from "../../packages/Epoch.CLI/src/cli-git";
 
 interface WorldState {
   workspace: string;
@@ -28,6 +31,10 @@ interface WorldState {
   coldBackup?: ReturnType<typeof createColdBackup>;
   rememberedEvents?: Record<string, string>;
   rememberedProposals?: Record<string, string>;
+  rememberedCliOutput?: Record<string, string>;
+  cliStdout?: string;
+  cliStderr?: string;
+  cliExitCode?: number;
 }
 
 let state: WorldState;
@@ -69,6 +76,12 @@ When("I asynchronously record {string} with content {string} as {string}", async
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
   state.lastEvent = await state.actorRepo.recordFile(path, entityType);
   state.lastProposal = state.lastEvent;
+});
+
+When("I write workspace file {string} with content {string}", function (path: string, content: string) {
+  const absolute = join(state.workspace, path);
+  mkdirSync(dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
 });
 
 When("actor users concurrently record:", async function (table: DataTable) {
@@ -568,6 +581,82 @@ When("I run unsupported Epoch Git command {string}", function (command: string) 
   }
 });
 
+When("I run the Epoch CLI with arguments:", function (table: DataTable) {
+  runCli(epochCliMain, ["--repo", state.workspace, ...argsFromTable(table)]);
+});
+
+When("I run the Epoch CLI with remembered argument {string}:", function (name: string, table: DataTable) {
+  const remembered = state.rememberedCliOutput?.[name];
+  assert.ok(remembered);
+  const args = argsFromTable(table);
+  const resolved = args.includes("__REMEMBERED__")
+    ? args.map((arg) => arg === "__REMEMBERED__" ? remembered : arg)
+    : [...args, remembered];
+  runCli(epochCliMain, ["--repo", state.workspace, ...resolved]);
+});
+
+When("I run the Epoch CLI with Git repository argument:", function (table: DataTable) {
+  assert.ok(state.gitRepo);
+  runCli(epochCliMain, ["--repo", state.workspace, ...argsFromTable(table), state.gitRepo]);
+});
+
+When("I run the Epoch CLI export into a fresh Git repository", function () {
+  const workspace = mkdtempSync(join(tmpdir(), "epoch-cli-export-"));
+  state.createdDirs.push(workspace);
+  state.gitExportRepo = workspace;
+  runCli(epochCliMain, ["--repo", state.workspace, "export", workspace]);
+});
+
+When("I run the Epoch Git CLI with arguments:", function (table: DataTable) {
+  runCli(epochGitCliMain, argsFromTable(table));
+});
+
+When("I remember the CLI output as {string}", function (name: string) {
+  assert.ok(state.cliStdout);
+  state.rememberedCliOutput = { ...(state.rememberedCliOutput ?? {}), [name]: state.cliStdout.trim() };
+});
+
+Then("the CLI exits with code {int}", function (code: number) {
+  assert.equal(state.cliExitCode, code);
+});
+
+Then("the CLI output contains {string}", function (expected: string) {
+  assert.match(state.cliStdout ?? "", new RegExp(escapeRegExp(expected)));
+});
+
+Then("the CLI error contains {string}", function (expected: string) {
+  assert.match(state.cliStderr ?? "", new RegExp(escapeRegExp(expected)));
+});
+
+When("I merge JSON through the WASM CRDT registry", function () {
+  state.merged = WasmCRDTRegistry.defaults().merge("application/json", { name: "epoch", ready: false }, { name: "epoch", ready: false }, { name: "epoch", ready: true });
+});
+
+Then("the WASM merge result equals JSON {}", function (expected: string) {
+  assert.equal(canonicalJson(state.merged), canonicalJson(JSON.parse(expected)));
+});
+
+When("I run unsupported WASM Git execute command {string}", function (command: string) {
+  try {
+    EpochWasmGit.execute(command);
+  } catch (error) {
+    state.error = error as Error;
+  }
+});
+
+When("I run unsupported WASM Git clone for {string}", function (remote: string) {
+  try {
+    EpochWasmGit.clone(remote);
+  } catch (error) {
+    state.error = error as Error;
+  }
+});
+
+Then("WASM Git fails with {string}", function (expected: string) {
+  assert.ok(state.error);
+  assert.match(state.error.message, new RegExp(escapeRegExp(expected)));
+});
+
 When("I export to a Git repository", function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-git-export-"));
   state.createdDirs.push(workspace);
@@ -607,6 +696,40 @@ Then("Git compatibility fails with {string}", function (expected: string) {
 
 function splitLabels(labels: string): string[] {
   return labels.split(",").map((label) => label.trim()).filter((label) => label.length > 0);
+}
+
+function argsFromTable(table: DataTable): string[] {
+  return table.raw().flat();
+}
+
+function runCli(main: (argv: string[]) => number, argv: string[]): void {
+  let stdout = "";
+  let stderr = "";
+  const originalStdoutWrite = process.stdout.write;
+  const originalStderrWrite = process.stderr.write;
+  const originalCwd = process.cwd();
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    stdout += chunk.toString();
+    return true;
+  }) as typeof process.stdout.write;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    stderr += chunk.toString();
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    process.chdir(state.workspace);
+    state.cliExitCode = main(argv);
+  } finally {
+    process.chdir(originalCwd);
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+    state.cliStdout = stdout;
+    state.cliStderr = stderr;
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function metadataValue(key: string): unknown {

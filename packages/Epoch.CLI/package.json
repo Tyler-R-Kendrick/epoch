@@ -13,5 +13,6 @@
   },
   "dependencies": {
     "@epoch/core": "0.1.0"
-  }
+  },
+  "types": "src/cli.ts"
 }

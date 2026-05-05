@@ -24,7 +24,7 @@
     "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "features": "npm run build -- --pretty false && cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
-    "coverage": "npm run build -- --pretty false && c8 --all --check-coverage --lines 75 --branches 70 --functions 75 --statements 75 --reporter=text --reporter=lcov --include \"packages/*/dist/**/*.js\" --exclude \"dist/test/**\" cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
+    "coverage": "npm run build -- --pretty false && c8 --all --check-coverage --lines 85 --branches 75 --functions 79 --statements 85 --reporter=text --reporter=lcov --include \"packages/*/dist/**/*.js\" --exclude \"dist/test/**\" cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test": "npm run features",
     "verify": "npm run lint && npm run typecheck && npm test && npm run coverage"
   },
