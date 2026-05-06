@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, setDefaultTimeout, Then, When } from "@cucumber/cucumber";
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type BrowserServer, type Page } from "playwright";
 import { createServer, type ViteDevServer } from "vite";
 import { main as epochCliMain, type CliIO } from "@epoch/cli";
 import { bootstrapFromSeed, canonicalJson, Compact, commitGit, createColdBackup, createCompact, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLogBeforeCompact, readEpochGitRemote, restoreFromColdBackup, restoreFromCompact, SyncResult } from "@epoch/core";
@@ -38,10 +38,16 @@ interface WorldState {
   cliStderr?: string;
   cliExitCode?: number;
   browser?: Browser;
+  browserProcess?: BrowserServer;
   browserPage?: Page;
   browserServer?: ViteDevServer;
   browserDemoResults?: Record<string, string>;
   browserDemoScreenshotBytes?: number;
+  collaborationProjection?: Record<string, unknown>;
+  gateResult?: { passed: boolean; blockers: readonly string[] };
+  reusableResolution?: unknown;
+  redactedBlobHash?: string;
+  liveVfsDemoResults?: Record<string, string>;
 }
 
 let state: WorldState;
@@ -70,6 +76,7 @@ After(async function () {
   await Promise.allSettled([
     closeWithTimeout(state.browserPage?.close(), "browser page close"),
     closeWithTimeout(state.browser?.close(), "browser close"),
+    closeWithTimeout(Promise.resolve(state.browserProcess?.kill()), "browser process kill"),
     closeWithTimeout(state.browserServer?.close(), "browser server close"),
   ]);
   state.actorRepo?.stop();
@@ -708,7 +715,8 @@ When("I run the Epoch WASM React browser demo", async function () {
   const url = state.browserServer.resolvedUrls?.local[0];
   assert.ok(url);
 
-  state.browser = await chromium.launch({ headless: true });
+  state.browserProcess = await chromium.launchServer({ headless: true });
+  state.browser = await chromium.connect(state.browserProcess.wsEndpoint());
   state.browserPage = await state.browser.newPage({ viewport: { width: 640, height: 420 } });
   await state.browserPage.goto(url);
   await state.browserPage.locator("#epoch-react-demo[data-ready=\"true\"]").waitFor({ timeout: 10_000 });
@@ -741,6 +749,51 @@ Then("the browser-rendered rematerialized state is {string}", function (expected
 Then("the browser-rendered restored state is {string}", function (expected: string) {
   assert.equal(state.browserDemoResults?.restored, expected);
   assert.ok((state.browserDemoScreenshotBytes ?? 0) > 1_000, "expected browser screenshot evidence");
+});
+
+When("I run the Epoch WASM React live VFS browser demo", async function () {
+  const demoRoot = join(state.workspace, "wasm-react-live-vfs-demo");
+  const sourceRoot = join(demoRoot, "src");
+  mkdirSync(sourceRoot, { recursive: true });
+  writeFileSync(join(demoRoot, "index.html"), "<!doctype html><div id=\"root\"></div><script type=\"module\" src=\"/src/main.js\"></script>\n", "utf8");
+  writeFileSync(join(sourceRoot, "main.js"), browserLiveVfsDemoSource(), "utf8");
+
+  state.browserServer = await createServer({
+    root: demoRoot,
+    logLevel: "silent",
+    server: { host: "127.0.0.1", port: 0 },
+    resolve: {
+      alias: [
+        { find: "@epoch/wasm-react", replacement: join(process.cwd(), "packages", "Epoch.WASM.React", "src", "index.ts") },
+        { find: "react-dom/client", replacement: join(process.cwd(), "node_modules", "react-dom", "client.js") },
+        { find: "react-dom", replacement: join(process.cwd(), "node_modules", "react-dom", "index.js") },
+        { find: "react", replacement: join(process.cwd(), "node_modules", "react", "index.js") },
+      ],
+      dedupe: ["react", "react-dom"],
+    },
+  });
+  await state.browserServer.listen();
+  const url = state.browserServer.resolvedUrls?.local[0];
+  assert.ok(url);
+
+  state.browserProcess = await chromium.launchServer({ headless: true });
+  state.browser = await chromium.connect(state.browserProcess.wsEndpoint());
+  state.browserPage = await state.browser.newPage({ viewport: { width: 640, height: 420 } });
+  await state.browserPage.goto(url);
+  await state.browserPage.locator("#epoch-live-vfs-demo[data-ready=\"true\"]").waitFor({ timeout: 10_000 });
+
+  state.liveVfsDemoResults = {
+    history: await textContent(state.browserPage, "#live-history"),
+    entity: await textContent(state.browserPage, "#live-entity"),
+  };
+});
+
+Then("the browser-rendered live VFS history is {string}", function (expected: string) {
+  assert.equal(state.liveVfsDemoResults?.history, expected);
+});
+
+Then("the browser-rendered live VFS entity is {string}", function (expected: string) {
+  assert.equal(state.liveVfsDemoResults?.entity, expected);
 });
 
 When("I export to a Git repository", function () {
@@ -780,12 +833,125 @@ Then("Git compatibility fails with {string}", function (expected: string) {
   assert.match(state.error.message, new RegExp(expected));
 });
 
+When("I create a signed issue titled {string} with body {string}", function (title: string, body: string) {
+  state.lastEvent = (state.repo as unknown as { createIssue(title: string, body: string): Event }).createIssue(title, body);
+});
+
+When("{string} signs a review {string} on the intent with body {string}", function (author: string, stateName: string, body: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = (state.repo as unknown as { reviewIntent(intentId: string, state: string, body: string, author: string): Event }).reviewIntent(state.lastIntentId, stateName, body, author);
+});
+
+When("{string} records CI {string} as {string} for the intent", function (author: string, name: string, status: string) {
+  assert.ok(state.lastIntentId);
+  state.lastEvent = (state.repo as unknown as { recordCI(name: string, status: string, target: string, author: string): Event }).recordCI(name, status, state.lastIntentId, author);
+});
+
+Then("the collaboration projection contains issue {string}", function (title: string) {
+  state.collaborationProjection = (state.repo as unknown as { collaboration(): Record<string, unknown> }).collaboration();
+  const issues = state.collaborationProjection.issues;
+  assert.ok(Array.isArray(issues));
+  assert.ok(issues.some((issue) => typeof issue === "object" && issue !== null && (issue as Record<string, unknown>).title === title));
+});
+
+Then("the gate status for the intent requiring review {string} and CI {string} passes", function (reviewState: string, ciName: string) {
+  assert.ok(state.lastIntentId);
+  state.gateResult = (state.repo as unknown as { gateStatus(intentId: string, policy: Record<string, unknown>): { passed: boolean; blockers: readonly string[] } }).gateStatus(state.lastIntentId, {
+    requiredReviewState: reviewState,
+    requiredCi: [ciName],
+  });
+  assert.deepEqual(state.gateResult, { passed: true, blockers: [] });
+});
+
+When("I sync to the peer through a memory transport", function () {
+  assert.ok(state.peerRepo);
+  const transport = (state.repo as unknown as { exportToMemoryTransport(): unknown }).exportToMemoryTransport();
+  state.syncResult = (state.peerRepo as unknown as { syncWithTransport(transport: unknown): SyncResult }).syncWithTransport(transport);
+});
+
+When("I record a reusable conflict resolution for {string} as {string}", function (path: string, entityType: string, table: DataTable) {
+  const row = table.hashes()[0];
+  state.lastEvent = (state.repo as unknown as {
+    recordConflictResolution(input: Record<string, unknown>): Event;
+  }).recordConflictResolution({
+    path,
+    entityType,
+    base: JSON.parse(row.base),
+    left: JSON.parse(row.left),
+    right: JSON.parse(row.right),
+    resolved: JSON.parse(row.resolved),
+  });
+});
+
+Then("the repository reuses the conflict resolution for {string} as {string}", function (path: string, entityType: string, table: DataTable) {
+  const row = table.hashes()[0];
+  state.reusableResolution = (state.repo as unknown as {
+    reusableConflictResolution(input: Record<string, unknown>): unknown;
+  }).reusableConflictResolution({
+    path,
+    entityType,
+    base: JSON.parse(row.base),
+    left: JSON.parse(row.left),
+    right: JSON.parse(row.right),
+  });
+});
+
+Then("the reusable conflict resolution equals JSON:", function (expected: string) {
+  assert.equal(canonicalJson(state.reusableResolution), canonicalJson(JSON.parse(expected)));
+});
+
+When("I append an operation event for command {string} with status {string}", function (command: string, status: string) {
+  state.lastEvent = (state.repo as unknown as { appendOperation(command: string, status: string): Event }).appendOperation(command, status);
+});
+
+Then("the operation event log contains command {string} with status {string}", function (command: string, status: string) {
+  const operations = (state.repo as unknown as { operations(): readonly Record<string, unknown>[] }).operations();
+  assert.ok(operations.some((operation) => operation.command === command && operation.status === status));
+});
+
+When("I redact the last recorded blob with reason {string}", function (reason: string) {
+  assert.ok(state.lastEvent);
+  state.redactedBlobHash = state.lastEvent.payload.blob_sha256 as string;
+  state.lastEvent = (state.repo as unknown as { redactBlob(blobHash: string, reason: string): Event }).redactBlob(state.redactedBlobHash, reason);
+});
+
+When("I remove the redacted blob from local storage", function () {
+  assert.ok(state.redactedBlobHash);
+  rmSync(join(state.repo.blobsDir, state.redactedBlobHash), { force: true });
+});
+
+Then("the redaction projection contains reason {string}", function (reason: string) {
+  const redactions = (state.repo as unknown as { redactions(): readonly Record<string, unknown>[] }).redactions();
+  assert.ok(redactions.some((redaction) => redaction.reason === reason));
+});
+
+When("I initialize an Epoch repository with custom {string} serialization as {string}", function (format: string, author: string) {
+  const serializer = {
+    format,
+    extension: `.${format}`,
+    serialize: (value: unknown) => `format=${format}\n${JSON.stringify(value)}\n`,
+    deserialize: (text: string) => JSON.parse(text.split("\n").slice(1).join("\n")),
+  };
+  state.repo = new EpochRepository(state.workspace, { serializer } as never);
+  state.repo.init(author);
+});
+
+Then("serialized event files use extension {string}", function (extension: string) {
+  assert.ok(readdirSync(state.repo.eventsDir).some((name) => name.endsWith(extension)));
+});
+
 function splitLabels(labels: string): string[] {
   return labels.split(",").map((label) => label.trim()).filter((label) => label.length > 0);
 }
 
 function argsFromTable(table: DataTable): string[] {
-  return table.raw().flat();
+  return table.raw().flat().map((arg) => {
+    if (arg === "__LAST_BLOB_HASH__") {
+      assert.ok(state.redactedBlobHash);
+      return state.redactedBlobHash;
+    }
+    return arg;
+  });
 }
 
 function runCli(main: (argv: string[], io: CliIO) => number, argv: string[], cwd = state.workspace): void {
@@ -880,6 +1046,39 @@ createRoot(document.getElementById("root")).render(React.createElement(Counter))
 `;
 }
 
+function browserLiveVfsDemoSource(): string {
+  return `
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { createEpochLiveRepository, createMemoryEpochVfs, useEpochEntity, useEpochHistory } from "@epoch/wasm-react";
+
+function LiveVfsDemo() {
+  const vfs = useMemo(() => createMemoryEpochVfs(), []);
+  const repository = useMemo(() => createEpochLiveRepository({ vfs, author: "browser" }), [vfs]);
+  const history = useEpochHistory(repository);
+  const counter = useEpochEntity(repository, "counter");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    repository.append("counter", { count: 1 });
+    repository.append("counter", { count: 2 });
+    setReady(true);
+  }, [repository]);
+
+  return React.createElement("main", {
+    id: "epoch-live-vfs-demo",
+    "data-ready": ready ? "true" : "false",
+    style: { fontFamily: "system-ui, sans-serif", padding: "32px", width: "360px" },
+  },
+    React.createElement("output", { id: "live-history" }, "events: " + history.length),
+    React.createElement("output", { id: "live-entity", style: { display: "block", marginTop: "8px" } }, "count: " + (counter.count ?? 0)),
+  );
+}
+
+createRoot(document.getElementById("root")).render(React.createElement(LiveVfsDemo));
+`;
+}
+
 function metadataValue(key: string): unknown {
   const metadata = state.lastEvent?.payload.metadata;
   assert.equal(typeof metadata, "object");
@@ -924,6 +1123,21 @@ When("I merge application\\/json values:", function (table: DataTable) {
   const row = table.hashes()[0];
   try {
     state.merged = state.registry.merge("application/json", JSON.parse(row.base), JSON.parse(row.left), JSON.parse(row.right));
+  } catch (error) {
+    state.error = error as Error;
+  }
+});
+
+When("I merge text\\/csv values:", function (table: DataTable) {
+  assert.ok(state.registry);
+  const row = table.hashes()[0];
+  try {
+    state.merged = state.registry.merge(
+      "text/csv",
+      row.base.replaceAll("\\n", "\n"),
+      row.left.replaceAll("\\n", "\n"),
+      row.right.replaceAll("\\n", "\n"),
+    );
   } catch (error) {
     state.error = error as Error;
   }

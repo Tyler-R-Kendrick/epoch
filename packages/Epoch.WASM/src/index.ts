@@ -1,5 +1,6 @@
 export {
   CRDTRegistry,
+  CsvTableCRDT,
   EntityType,
   JsonMapCRDT,
   TextWeaveCRDT,

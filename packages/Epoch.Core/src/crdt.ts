@@ -7,6 +7,13 @@ export interface CRDTDefinition {
   merge(base: unknown, left: unknown, right: unknown): unknown;
 }
 
+export interface EntityAdapter extends CRDTDefinition {
+  validate?(value: unknown): readonly string[];
+  diff?(left: unknown, right: unknown): readonly string[];
+  redact?(value: unknown, fields: readonly string[]): unknown;
+  display?(value: unknown): string;
+}
+
 export type CRDTOperation =
   | { kind: "map-set"; entity: string; key: string; value: unknown }
   | { kind: "map-delete"; entity: string; key: string }
@@ -49,6 +56,7 @@ export class CRDTRegistry {
     const registry = new CRDTRegistry();
     registry.register(new TextWeaveCRDT());
     registry.register(new JsonMapCRDT());
+    registry.register(new CsvTableCRDT());
     return registry;
   }
 
@@ -184,6 +192,78 @@ export class JsonMapCRDT implements CRDTDefinition {
   }
 }
 
+export class EntityRegistry {
+  private readonly adapters = new Map<string, EntityAdapter>();
+
+  static defaults(): EntityRegistry {
+    const registry = new EntityRegistry();
+    registry.register(new TextWeaveCRDT());
+    registry.register(new JsonMapCRDT());
+    registry.register(new CsvTableCRDT());
+    return registry;
+  }
+
+  register(adapter: EntityAdapter): void {
+    this.adapters.set(adapter.entityType, adapter);
+  }
+
+  adapter(entityType: string): EntityAdapter {
+    const adapter = this.adapters.get(entityType);
+    if (adapter === undefined) throw new Error(`no entity adapter registered for ${entityType}`);
+    return adapter;
+  }
+
+  merge(entityType: string, base: unknown, left: unknown, right: unknown): unknown {
+    return (this.adapters.get(entityType) ?? { merge: threeWayMerge }).merge(base, left, right);
+  }
+}
+
+export class CsvTableCRDT implements CRDTDefinition {
+  readonly entityType = EntityType.csv;
+
+  merge(base: unknown, left: unknown, right: unknown): string {
+    if (!isString(base) || !isString(left) || !isString(right)) {
+      throw new TypeError("text/csv merges require string values");
+    }
+    const baseTable = parseCsvTable(base);
+    const leftTable = parseCsvTable(left);
+    const rightTable = parseCsvTable(right);
+    const header = leftTable.header.length > 0 ? leftTable.header : rightTable.header.length > 0 ? rightTable.header : baseTable.header;
+    if (!same(header, baseTable.header) && baseTable.header.length > 0) throw new MergeConflictError("$.header");
+    if (!same(header, rightTable.header) && rightTable.header.length > 0) throw new MergeConflictError("$.header");
+
+    const rows = new Map<string, string[]>();
+    for (const id of [...new Set([...baseTable.rows.keys(), ...leftTable.rows.keys(), ...rightTable.rows.keys()])].sort()) {
+      const baseRow = baseTable.rows.get(id);
+      const leftRow = leftTable.rows.get(id);
+      const rightRow = rightTable.rows.get(id);
+      const merged = mergeCsvRow(id, baseRow, leftRow, rightRow);
+      if (merged !== undefined) rows.set(id, merged);
+    }
+
+    return [header, ...rows.values()].map((row) => row.join(TextToken.comma)).join(TextToken.newline) + TextToken.newline;
+  }
+
+  diff(left: unknown, right: unknown): readonly string[] {
+    if (!isString(left) || !isString(right)) return ["non-string CSV value"];
+    const leftRows = parseCsvTable(left).rows;
+    const rightRows = parseCsvTable(right).rows;
+    const changes: string[] = [];
+    for (const id of [...new Set([...leftRows.keys(), ...rightRows.keys()])].sort()) {
+      if (!same(leftRows.get(id), rightRows.get(id))) changes.push(id);
+    }
+    return changes;
+  }
+
+  redact(value: unknown, fields: readonly string[]): string {
+    if (!isString(value)) throw new TypeError("text/csv redaction requires string values");
+    const table = parseCsvTable(value);
+    const redactedIndexes = fields.map((field) => table.header.indexOf(field)).filter((index) => index >= 0);
+    const rows = [...table.rows.values()].map((row) => row.map((cell, index) => redactedIndexes.includes(index) ? "[redacted]" : cell));
+    return [table.header, ...rows].map((row) => row.join(TextToken.comma)).join(TextToken.newline) + TextToken.newline;
+  }
+}
+
 export function threeWayMerge(base: unknown, left: unknown, right: unknown): unknown {
   if (same(left, right)) return left;
   if (same(left, base)) return right;
@@ -202,6 +282,32 @@ export function dumpEntity(entityType: string, value: unknown): string {
 function splitLines(text: string): string[] {
   const trimmed = text.endsWith(TextToken.newline) ? text.slice(0, -1) : text;
   return trimmed === TextToken.empty ? [] : trimmed.split(TextToken.newline);
+}
+
+interface CsvTable {
+  readonly header: string[];
+  readonly rows: Map<string, string[]>;
+}
+
+function parseCsvTable(text: string): CsvTable {
+  const lines = splitLines(text).filter((line) => line.length > 0);
+  const header = lines.length === 0 ? [] : lines[0].split(TextToken.comma);
+  const rows = new Map<string, string[]>();
+  for (const line of lines.slice(1)) {
+    const row = line.split(TextToken.comma);
+    if (row[0] !== undefined && row[0].length > 0) rows.set(row[0], row);
+  }
+  return { header, rows };
+}
+
+function mergeCsvRow(id: string, base: string[] | undefined, left: string[] | undefined, right: string[] | undefined): string[] | undefined {
+  if (same(left, right)) return left;
+  if (same(left, base)) return right;
+  if (same(right, base)) return left;
+  if (base === undefined && left === undefined) return right;
+  if (base === undefined && right === undefined) return left;
+  if (left === undefined && right === undefined) return undefined;
+  throw new MergeConflictError(`$.${id}`);
 }
 
 interface TextHunk {

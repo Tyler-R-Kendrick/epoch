@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { CRDTEventLog, CRDTOperation } from "./crdt";
+import { CRDTEventLog, CRDTOperation, EntityRegistry } from "./crdt";
 import { canonicalJson } from "./json";
 import {
   CryptoSpec,
@@ -47,6 +47,69 @@ export interface SyncResult {
   blobsCopied: number;
 }
 
+export interface EpochSerializationProvider {
+  readonly format: string;
+  readonly extension: string;
+  serialize(value: unknown): string;
+  deserialize(text: string): unknown;
+}
+
+export const JsonSerializationProvider: EpochSerializationProvider = {
+  format: "json",
+  extension: JsonFileExtension,
+  serialize: (value) => `${canonicalJson(value)}${TextToken.newline}`,
+  deserialize: (text) => JSON.parse(text),
+};
+
+export function createToonSerializationProvider(): EpochSerializationProvider {
+  return {
+    format: "toon",
+    extension: ".toon",
+    serialize: (value) => `format=toon${TextToken.newline}${JSON.stringify(value)}${TextToken.newline}`,
+    deserialize: (text) => JSON.parse(text.split(TextToken.newline).slice(1).join(TextToken.newline)),
+  };
+}
+
+export interface MemoryEpochTransportSnapshot {
+  readonly events: readonly EventData[];
+  readonly blobs: Readonly<Record<string, string>>;
+  readonly heads: readonly string[];
+}
+
+export interface EpochTransport {
+  exportSnapshot(): MemoryEpochTransportSnapshot;
+}
+
+export class MemoryEpochTransport implements EpochTransport {
+  constructor(readonly snapshot: MemoryEpochTransportSnapshot) {}
+
+  exportSnapshot(): MemoryEpochTransportSnapshot {
+    return this.snapshot;
+  }
+}
+
+export class BundleEpochTransport {
+  static write(path: string, transport: MemoryEpochTransport): void {
+    const snapshot = transport.snapshot;
+    const snapshotHash = sha256(canonicalJson(snapshot));
+    writeFileSync(path, `${canonicalJson({ format: "epoch-bundle-v1", snapshotHash, snapshot })}${TextToken.newline}`, JsonEncoding);
+  }
+
+  static read(path: string): MemoryEpochTransport {
+    const parsed = JSON.parse(readFileSync(path, JsonEncoding)) as { format?: unknown; snapshotHash?: unknown; snapshot?: unknown };
+    if (parsed.format !== "epoch-bundle-v1" || typeof parsed.snapshotHash !== "string" || !isRecord(parsed.snapshot)) {
+      throw new Error("invalid Epoch bundle transport");
+    }
+    if (sha256(canonicalJson(parsed.snapshot)) !== parsed.snapshotHash) throw new Error("Epoch bundle transport hash mismatch");
+    const snapshot = parsed.snapshot as Partial<MemoryEpochTransportSnapshot>;
+    return new MemoryEpochTransport({
+      events: Array.isArray(snapshot.events) ? snapshot.events.map((event) => EventDataSchema.parse(event)) : [],
+      blobs: isStringRecord(snapshot.blobs) ? snapshot.blobs : {},
+      heads: Array.isArray(snapshot.heads) && snapshot.heads.every((head) => typeof head === "string") ? snapshot.heads : [],
+    });
+  }
+}
+
 export type InclusionRule =
   | { readonly type: "all" }
   | { readonly type: "intent-list"; readonly intentIds: readonly string[] }
@@ -77,6 +140,23 @@ export interface ViewDefinition {
 export interface GatePolicy {
   readonly requiredApprovals?: number;
   readonly requiredCiStatuses?: readonly string[];
+}
+
+export interface CollaborationProjection {
+  readonly issues: readonly { readonly id: string; readonly title: string; readonly body: string; readonly author: string }[];
+  readonly reviews: readonly { readonly id: string; readonly intentId: string; readonly state: string; readonly body: string; readonly author: string }[];
+}
+
+export interface GateStatus {
+  readonly passed: boolean;
+  readonly blockers: readonly string[];
+}
+
+export interface RedactionPlan {
+  readonly blobSha256: string;
+  readonly eventIds: readonly string[];
+  readonly localBlobPresent: boolean;
+  readonly alreadyRedacted: boolean;
 }
 
 export interface ViewState {
@@ -143,6 +223,7 @@ export type EpochHook = (event: EpochHookEvent) => void;
 
 export interface EpochRepositoryOptions {
   readonly hooks?: readonly EpochHook[];
+  readonly serializer?: EpochSerializationProvider;
 }
 
 export interface PolicyOptions {
@@ -286,6 +367,7 @@ export class EpochRepository {
   readonly identityPath: string;
   readonly viewsPath: string;
   private readonly hooks: EpochHook[];
+  private readonly serializer: EpochSerializationProvider;
   private compactPrefixCache?: { readonly manifestHash: string; readonly events: Map<string, Event> };
 
   constructor(root: string, options: EpochRepositoryOptions = {}) {
@@ -298,6 +380,7 @@ export class EpochRepository {
     this.identityPath = join(this.epochDir, StorageName.identity);
     this.viewsPath = join(this.epochDir, StorageName.views);
     this.hooks = [...(options.hooks ?? [])];
+    this.serializer = options.serializer ?? JsonSerializationProvider;
   }
 
   registerHook(hook: EpochHook): () => void {
@@ -381,7 +464,7 @@ export class EpochRepository {
       ...unsigned.unsigned(),
       signature: signEvent(unsigned, identity.privateKey),
     });
-    writeJson(join(this.eventsDir, `${event.id}.json`), event.toJSON());
+    this.writeEvent(event);
     this.updateHeads((currentHeads) => {
       const headsBeingMerged = new Set(parentEventIds);
       const retainedHeads = currentHeads.filter((head) => !headsBeingMerged.has(head));
@@ -502,6 +585,105 @@ export class EpochRepository {
 
   appendRejection(intentId: string, author = this.identity()): Event {
     return this.append(EventType.rejection, { intent_id: intentId }, author);
+  }
+
+  createIssue(title: string, body: string, author = this.identity(), metadata: EventMetadata = {}): Event {
+    return this.append(EventType.collaborationIssue, withMetadata({ title, body }, metadata), author);
+  }
+
+  reviewIntent(intentId: string, state: string, body: string, author = this.identity()): Event {
+    this.read(intentId);
+    return this.append(EventType.collaborationReview, { intent_id: intentId, state, body }, author);
+  }
+
+  recordCI(name: string, status: string, intentId: string, author = this.identity()): Event {
+    this.read(intentId);
+    return this.append(EventType.ci, { name, status, intent_id: intentId }, author);
+  }
+
+  collaboration(): CollaborationProjection {
+    const issues: { readonly id: string; readonly title: string; readonly body: string; readonly author: string }[] = [];
+    const reviews: { readonly id: string; readonly intentId: string; readonly state: string; readonly body: string; readonly author: string }[] = [];
+    for (const event of this.events()) {
+      if (event.type === EventType.collaborationIssue && typeof event.payload.title === "string" && typeof event.payload.body === "string") {
+        issues.push({ id: event.id, title: event.payload.title, body: event.payload.body, author: event.author });
+      }
+      if (event.type === EventType.collaborationReview && typeof event.payload.intent_id === "string" && typeof event.payload.state === "string" && typeof event.payload.body === "string") {
+        reviews.push({ id: event.id, intentId: event.payload.intent_id, state: event.payload.state, body: event.payload.body, author: event.author });
+      }
+    }
+    return { issues, reviews };
+  }
+
+  gateStatus(intentId: string, policy: { readonly requiredReviewState?: string; readonly requiredCi?: readonly string[]; readonly requiredApprovals?: number } = {}): GateStatus {
+    const events = this.events();
+    const blockers: string[] = [];
+    if (!events.some((event) => event.id === intentId)) blockers.push(`unknown intent ${intentId}`);
+    if (events.some((event) => event.type === EventType.rejection && event.payload.intent_id === intentId)) blockers.push("intent rejected");
+    if (policy.requiredReviewState !== undefined && !events.some((event) => event.type === EventType.collaborationReview && event.payload.intent_id === intentId && event.payload.state === policy.requiredReviewState)) {
+      blockers.push(`missing review ${policy.requiredReviewState}`);
+    }
+    for (const ci of policy.requiredCi ?? []) {
+      if (!events.some((event) => event.type === EventType.ci && event.payload.intent_id === intentId && event.payload.name === ci && event.payload.status === "passed")) {
+        blockers.push(`missing CI ${ci}`);
+      }
+    }
+    const approvals = new Set(events.filter((event) => event.type === EventType.approval && event.payload.intent_id === intentId).map((event) => event.author));
+    if (approvals.size < (policy.requiredApprovals ?? 0)) blockers.push(`requires ${policy.requiredApprovals ?? 0} approvals`);
+    return { passed: blockers.length === 0, blockers };
+  }
+
+  appendOperation(command: string, status: string, detail: Record<string, unknown> = {}, author = this.identity()): Event {
+    return this.append(EventType.operation, { command, status, detail }, author);
+  }
+
+  operations(): readonly { readonly id: string; readonly command: string; readonly status: string; readonly detail: unknown; readonly author: string }[] {
+    return this.events().flatMap((event) => {
+      if (event.type !== EventType.operation || typeof event.payload.command !== "string" || typeof event.payload.status !== "string") return [];
+      return [{ id: event.id, command: event.payload.command, status: event.payload.status, detail: event.payload.detail, author: event.author }];
+    });
+  }
+
+  recordConflictResolution(input: { readonly path: string; readonly entityType: string; readonly base: unknown; readonly left: unknown; readonly right: unknown; readonly resolved: unknown }, author = this.identity()): Event {
+    return this.append(EventType.conflictResolution, {
+      path: input.path,
+      entity_type: input.entityType,
+      conflict_hash: conflictHash(input),
+      resolved: input.resolved,
+    }, author);
+  }
+
+  reusableConflictResolution(input: { readonly path: string; readonly entityType: string; readonly base: unknown; readonly left: unknown; readonly right: unknown }): unknown {
+    const hash = conflictHash(input);
+    return this.events()
+      .filter((event) => event.type === EventType.conflictResolution && event.payload.path === input.path && event.payload.entity_type === input.entityType && event.payload.conflict_hash === hash)
+      .at(-1)?.payload.resolved;
+  }
+
+  mergeEntity(path: string, entityType: string, base: unknown, left: unknown, right: unknown): unknown {
+    const resolution = this.reusableConflictResolution({ path, entityType, base, left, right });
+    return resolution ?? EntityRegistry.defaults().merge(entityType, base, left, right);
+  }
+
+  redactBlob(blobSha256: string, reason: string, author = this.identity()): Event {
+    return this.append(EventType.redaction, { blob_sha256: blobSha256, reason }, author);
+  }
+
+  planRedaction(blobSha256: string): RedactionPlan {
+    const eventIds = this.events().flatMap((event) => eventReferencesBlob(event, blobSha256) ? [event.id] : []);
+    return {
+      blobSha256,
+      eventIds,
+      localBlobPresent: existsAsFile(join(this.blobsDir, blobSha256)),
+      alreadyRedacted: this.redactedBlobHashes().has(blobSha256),
+    };
+  }
+
+  redactions(): readonly { readonly id: string; readonly blobSha256: string; readonly reason: string; readonly author: string }[] {
+    return this.events().flatMap((event) => {
+      if (event.type !== EventType.redaction || typeof event.payload.blob_sha256 !== "string" || typeof event.payload.reason !== "string") return [];
+      return [{ id: event.id, blobSha256: event.payload.blob_sha256, reason: event.payload.reason, author: event.author }];
+    });
   }
 
   recordFile(path: string, entityType: string = EntityType.octetStream, author = this.identity()): Event {
@@ -627,9 +809,9 @@ export class EpochRepository {
   read(eventId: string): Event {
     this.requireInitialized();
     this.emitHook("repository.read.before", { eventId });
-    const path = join(this.eventsDir, `${eventId}${JsonFileExtension}`);
-    const event = existsAsFile(path)
-      ? Event.fromJSON(readJson(path, EventDataSchema))
+    const path = this.eventPath(eventId);
+    const event = path !== undefined
+      ? Event.fromJSON(EventDataSchema.parse(this.readSerialized(path)))
       : this.compactPrefixEvent(eventId);
     if (event === undefined) throw new Error(`event not found: ${eventId}`);
     this.emitHook("repository.read.after", { eventId, event });
@@ -640,8 +822,8 @@ export class EpochRepository {
     this.requireInitialized();
     this.emitHook("repository.events.before", {});
     const events = readdirSync(this.eventsDir)
-      .filter((name) => extname(name) === JsonFileExtension)
-      .map((name) => Event.fromJSON(readJson(join(this.eventsDir, name), EventDataSchema)))
+      .filter((name) => this.isEventFile(name))
+      .map((name) => Event.fromJSON(EventDataSchema.parse(this.readSerialized(join(this.eventsDir, name)))))
       .sort((left, right) => left.lamport - right.lamport || left.id.localeCompare(right.id));
     this.emitHook("repository.events.after", { events });
     return events;
@@ -681,15 +863,16 @@ export class EpochRepository {
       }
     }
 
+    const redacted = this.redactedBlobHashes(events);
     for (const event of events) {
       if (event.type === EventType.record) {
-        problems.push(...this.verifyRecordedBlob(event));
+        problems.push(...this.verifyRecordedBlob(event, redacted));
       } else if (event.type === EventType.intent) {
         const parsed = Schemas.intentPayload.safeParse(event.payload);
         if (!parsed.success) {
           problems.push(`${event.id}: invalid intent payload`);
         } else {
-          for (const patch of parsed.data.patches) problems.push(...this.verifyPatchBlob(event.id, patch));
+          for (const patch of parsed.data.patches) problems.push(...this.verifyPatchBlob(event.id, patch, redacted));
         }
       }
     }
@@ -718,6 +901,45 @@ export class EpochRepository {
     const result = this.gossip(peerRoot);
     this.emitHook("repository.sync.after", { peerRoot, result });
     return result;
+  }
+
+  exportToMemoryTransport(): MemoryEpochTransport {
+    const blobs: Record<string, string> = {};
+    mkdirSync(this.blobsDir, { recursive: true });
+    for (const name of readdirSync(this.blobsDir)) {
+      const path = join(this.blobsDir, name);
+      if (statSync(path).isFile()) blobs[name] = readFileSync(path).toString("base64");
+    }
+    return new MemoryEpochTransport({
+      events: this.events().map((event) => event.toJSON()),
+      blobs,
+      heads: this.heads(),
+    });
+  }
+
+  syncWithTransport(transport: EpochTransport): SyncResult {
+    this.requireInitialized();
+    const snapshot = transport.exportSnapshot();
+    mkdirSync(this.eventsDir, { recursive: true });
+    mkdirSync(this.blobsDir, { recursive: true });
+    let eventsCopied = 0;
+    let blobsCopied = 0;
+    for (const data of snapshot.events) {
+      const event = Event.fromJSON(data);
+      if (this.eventPath(event.id) === undefined) {
+        this.writeEvent(event);
+        eventsCopied += 1;
+      }
+    }
+    for (const [hash, data] of Object.entries(snapshot.blobs)) {
+      const path = join(this.blobsDir, hash);
+      if (!existsAsFile(path)) {
+        writeFileSync(path, Buffer.from(data, "base64"));
+        blobsCopied += 1;
+      }
+    }
+    this.updateHeads((heads) => [...new Set([...heads, ...snapshot.heads])].sort());
+    return { eventsCopied, blobsCopied };
   }
 
   gossip(peerRoot: string): SyncResult {
@@ -782,16 +1004,16 @@ export class EpochRepository {
     return exported.sort();
   }
 
-  private verifyRecordedBlob(event: Event): string[] {
+  private verifyRecordedBlob(event: Event, redacted: ReadonlySet<string>): string[] {
     const parsed = Schemas.recordPayload.safeParse(event.payload);
     if (!parsed.success) return [`${event.id}: ${RepositoryText.invalidFileRecordPayload}`];
-    return this.verifyPatchBlob(event.id, parsed.data);
+    return this.verifyPatchBlob(event.id, parsed.data, redacted);
   }
 
-  private verifyPatchBlob(owner: string, patch: RecordPatch): string[] {
+  private verifyPatchBlob(owner: string, patch: RecordPatch, redacted: ReadonlySet<string>): string[] {
     const { blob_sha256: blobSha256, size } = patch;
     const blobPath = join(this.blobsDir, blobSha256);
-    if (!existsAsFile(blobPath)) return [`${owner}: missing blob ${blobSha256}`];
+    if (!existsAsFile(blobPath)) return redacted.has(blobSha256) ? [] : [`${owner}: missing blob ${blobSha256}`];
     const data = readFileSync(blobPath);
     const problems: string[] = [];
     if (sha256(data) !== blobSha256) problems.push(`${owner}: blob hash mismatch`);
@@ -809,6 +1031,10 @@ export class EpochRepository {
     }
     for (const patch of this.mainPatches()) records.set(patch.path as string, patch);
     return [...records.values()];
+  }
+
+  private redactedBlobHashes(events: readonly Event[] = this.events()): Set<string> {
+    return new Set(events.flatMap((event) => event.type === EventType.redaction && typeof event.payload.blob_sha256 === "string" ? [event.payload.blob_sha256] : []));
   }
 
   private intentIdsForView(name: string, gatePolicy: GatePolicy, events: readonly Event[]): Set<string> {
@@ -982,6 +1208,27 @@ export class EpochRepository {
     });
   }
 
+  private writeEvent(event: Event): void {
+    writeFileSync(join(this.eventsDir, `${event.id}${this.serializer.extension}`), this.serializer.serialize(event.toJSON()), JsonEncoding);
+  }
+
+  private eventPath(eventId: string): string | undefined {
+    const preferred = join(this.eventsDir, `${eventId}${this.serializer.extension}`);
+    if (existsAsFile(preferred)) return preferred;
+    const json = join(this.eventsDir, `${eventId}${JsonFileExtension}`);
+    if (existsAsFile(json)) return json;
+    return undefined;
+  }
+
+  private isEventFile(name: string): boolean {
+    return extname(name) === this.serializer.extension || extname(name) === JsonFileExtension;
+  }
+
+  private readSerialized(path: string): unknown {
+    const text = readFileSync(path, JsonEncoding);
+    return extname(path) === this.serializer.extension ? this.serializer.deserialize(text) : JsonSerializationProvider.deserialize(text);
+  }
+
   /**
    * Emits repository hook events with Unix-second timestamps matching persisted Epoch event timestamps.
    */
@@ -1057,6 +1304,16 @@ function cleanMetadata(metadata: EventMetadata): EventMetadata | undefined {
     if (labels.length > 0) clean.labels = labels;
   }
   return Object.keys(clean).length === 0 ? undefined : clean;
+}
+
+function conflictHash(input: { readonly path: string; readonly entityType: string; readonly base: unknown; readonly left: unknown; readonly right: unknown }): string {
+  return sha256(canonicalJson({
+    path: input.path,
+    entity_type: input.entityType,
+    base: input.base,
+    left: input.left,
+    right: input.right,
+  }));
 }
 
 function resolveInside(root: string, path: string, operation: string, description: string): { absolute: string; relativePath: string } {
@@ -1174,6 +1431,16 @@ function intersectSets(sets: readonly Set<string>[]): Set<string> {
 
 function isStringArrayRecord(value: unknown): value is Record<string, string[]> {
   return isRecord(value) && Object.values(value).every((entry) => Array.isArray(entry) && entry.every((item) => typeof item === "string"));
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
+function eventReferencesBlob(event: Event, blobSha256: string): boolean {
+  if (event.payload.blob_sha256 === blobSha256) return true;
+  const patches = event.payload.patches;
+  return Array.isArray(patches) && patches.some((patch) => isRecord(patch) && patch.blob_sha256 === blobSha256);
 }
 
 function isViewMetadata(value: unknown): value is ViewMetadata {

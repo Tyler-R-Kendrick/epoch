@@ -85,9 +85,80 @@ await Promise.all([
 const tasks = await repository.materialize("tasks");
 ```
 
-Use `CRDTRegistry.defaults()` for built-in text and JSON merges. Register custom
-CRDT definitions for application-specific entity types when three-way merge is
-not enough.
+Use `CRDTRegistry.defaults()` for built-in text, JSON, and row-keyed CSV merges.
+Use `EntityRegistry.defaults()` when callers need the richer entity adapter
+surface: merge, diff, validation, redaction, and display hooks. Register custom
+definitions for application-specific entity types when three-way merge is not
+enough.
+
+## Collaboration, Gates, And Operations
+
+Signed collaboration objects are stored in the same event log as repository
+history.
+
+```ts
+const issue = repository.createIssue("Track gate pipeline", "Use signed gates");
+const intent = repository.intentFile("policy.txt", "text/plain");
+
+repository.reviewIntent(intent.id, "approved", "Looks deterministic", "bob");
+repository.recordCI("unit", "passed", intent.id, "ci-bot");
+
+const gate = repository.gateStatus(intent.id, {
+  requiredReviewState: "approved",
+  requiredCi: ["unit"],
+});
+```
+
+Use `appendOperation(command, status, detail?)` when command history should be
+represented in the signed event log rather than in local-only metadata.
+
+## Transports And Serialization
+
+`EpochTransport` is the transport contract. `exportToMemoryTransport()` and
+`syncWithTransport()` exchange events, heads, and blobs through an explicit
+packet while preserving `verify()` as the trust boundary. `BundleEpochTransport`
+persists the same packet as a hash-checked bundle file for offline handoff.
+
+Repositories accept an `EpochSerializationProvider` for event file encoding.
+JSON is the default, but callers can substitute another serializer and
+extension while event IDs and signatures remain canonical.
+
+```ts
+const sourcePacket = source.exportToMemoryTransport();
+target.syncWithTransport(sourcePacket);
+
+BundleEpochTransport.write("./sync.bundle", sourcePacket);
+target.syncWithTransport(BundleEpochTransport.read("./sync.bundle"));
+
+const toonRepository = new EpochRepository("./repo", {
+  serializer: {
+    format: "toon",
+    extension: ".toon",
+    serialize: (value) => `toon\n${JSON.stringify(value)}\n`,
+    deserialize: (text) => JSON.parse(text.split("\n").slice(1).join("\n")),
+  },
+});
+```
+
+## Conflict Resolutions And Redactions
+
+Reusable conflict resolutions are signed exact-match events:
+
+```ts
+repository.recordConflictResolution({
+  path: "config.json",
+  entityType: "application/json",
+  base: { flag: 0 },
+  left: { flag: 1 },
+  right: { flag: 2 },
+  resolved: { flag: 3 },
+});
+```
+
+Use `redactBlob(blobHash, reason)` to record that local storage may remove a
+sensitive blob while keeping signed audit evidence that a redaction occurred.
+Use `planRedaction(blobHash)` first when an operator needs affected event IDs,
+local blob presence, and whether a prior redaction exists.
 
 ## React Integration
 
@@ -116,6 +187,31 @@ function Counter() {
 
 counterStore.rewind(1);
 epoch.materialize("latest");
+```
+
+For live browser repository state, use the VFS-backed surface:
+
+```ts
+import {
+  createEpochLiveRepository,
+  createMemoryEpochVfs,
+  useEpochEntity,
+  useEpochHistory,
+  useEpochView,
+} from "@epoch/wasm-react";
+
+const vfs = createMemoryEpochVfs();
+const live = createEpochLiveRepository({ vfs, author: "browser" });
+
+live.append("counter", { count: 1 });
+live.append("counter", { count: 2 });
+
+function Counter() {
+  const history = useEpochHistory(live);
+  const counter = useEpochEntity(live, "counter");
+  const view = useEpochView(live);
+  return <output>{history.length}:{counter.count}</output>;
+}
 ```
 
 ## Hooks

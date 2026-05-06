@@ -44,13 +44,17 @@ function run(argv: string[], io: CliIO): void {
     case CliCommand.record: {
       const options = parseOptions(parsed.args, { type: EntityType.octetStream });
       if (options.positionals.length !== 1) throw new Error(`usage: epoch ${parsed.command} [--type MIME] PATH`);
-      writeLine(io, repo.recordFile(options.positionals[0], options.type).id);
+      const event = repo.recordFile(options.positionals[0], options.type);
+      writeLine(io, event.id);
+      recordCliOperation(repo, "record", { eventId: event.id, path: options.positionals[0] });
       return;
     }
     case CliCommand.intent: {
       const options = parseOptions(parsed.args, { author: repo.identity(), type: EntityType.octetStream, title: "", description: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.intentUsage);
-      writeLine(io, repo.intentFile(options.positionals[0], options.type, options.author, metadataFromOptions(options)).id);
+      const event = repo.intentFile(options.positionals[0], options.type, options.author, metadataFromOptions(options));
+      writeLine(io, event.id);
+      recordCliOperation(repo, "intent", { eventId: event.id, path: options.positionals[0] });
       return;
     }
     case CliCommand.events:
@@ -71,36 +75,105 @@ function run(argv: string[], io: CliIO): void {
       if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} PEER_REPO`);
       const result = repo.sync(parsed.args[0]);
       writeLine(io, `synced ${result.eventsCopied} events and ${result.blobsCopied} blobs`);
+      recordCliOperation(repo, "sync", { peer: parsed.args[0], eventsCopied: result.eventsCopied, blobsCopied: result.blobsCopied });
       return;
     }
     case CliCommand.import: {
       if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} GIT_REPO`);
       const events = repo.importFromGit(parsed.args[0]);
       writeLine(io, `imported ${events.length} files`);
+      recordCliOperation(repo, "import", { gitRepo: parsed.args[0], eventIds: events.map((event) => event.id) });
       return;
     }
     case CliCommand.export: {
       if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} GIT_REPO`);
       const paths = repo.exportToGit(parsed.args[0]);
       writeLine(io, `exported ${paths.length} files`);
+      recordCliOperation(repo, "export", { gitRepo: parsed.args[0], paths });
       return;
     }
     case CliCommand.merge: {
       const options = parseOptions(parsed.args, { author: repo.identity(), title: "", description: "", reason: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.mergeUsage);
-      writeLine(io, repo.mergeIntent(options.positionals[0], options.author, metadataFromOptions(options)).id);
+      const event = repo.mergeIntent(options.positionals[0], options.author, metadataFromOptions(options));
+      writeLine(io, event.id);
+      recordCliOperation(repo, "merge", { eventId: event.id, intentId: options.positionals[0] });
       return;
     }
     case CliCommand.reject: {
       const options = parseOptions(parsed.args, { author: repo.identity(), title: "", description: "", reason: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.rejectUsage);
-      writeLine(io, repo.rejectIntent(options.positionals[0], options.reason, options.author, metadataFromOptions(options)).id);
+      const event = repo.rejectIntent(options.positionals[0], options.reason, options.author, metadataFromOptions(options));
+      writeLine(io, event.id);
+      recordCliOperation(repo, "reject", { eventId: event.id, intentId: options.positionals[0] });
       return;
     }
     case CliCommand.comment: {
       const options = parseOptions(parsed.args, { author: repo.identity(), intent: "", title: "", description: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.commentUsage);
-      writeLine(io, repo.comment(options.positionals[0], options.intent === "" ? undefined : options.intent, options.author, metadataFromOptions(options)).id);
+      const event = repo.comment(options.positionals[0], options.intent === "" ? undefined : options.intent, options.author, metadataFromOptions(options));
+      writeLine(io, event.id);
+      recordCliOperation(repo, "comment", { eventId: event.id, intentId: options.intent });
+      return;
+    }
+    case CliCommand.issue: {
+      const options = parseOptions(parsed.args, { author: repo.identity(), title: "" });
+      if (options.title === "" || options.positionals.length !== 1) throw new Error(CliText.issueUsage);
+      const event = repo.createIssue(options.title, options.positionals[0], options.author);
+      writeLine(io, `${event.id} ${event.type}`);
+      recordCliOperation(repo, "issue", { eventId: event.id, title: options.title });
+      return;
+    }
+    case CliCommand.review: {
+      const options = parseOptions(parsed.args, { author: repo.identity(), state: "", body: "" });
+      if (options.state === "" || options.body === "" || options.positionals.length !== 1) throw new Error(CliText.reviewUsage);
+      const event = repo.reviewIntent(options.positionals[0], options.state, options.body, options.author);
+      writeLine(io, `${event.id} ${event.type}`);
+      recordCliOperation(repo, "review", { eventId: event.id, intentId: options.positionals[0], state: options.state });
+      return;
+    }
+    case CliCommand.ciRecord: {
+      const options = parseOptions(parsed.args, { author: repo.identity(), name: "", status: "" });
+      if (options.name === "" || options.status === "" || options.positionals.length !== 1) throw new Error(CliText.ciRecordUsage);
+      const event = repo.recordCI(options.name, options.status, options.positionals[0], options.author);
+      writeLine(io, `${event.id} ${event.type}`);
+      recordCliOperation(repo, "ci-record", { eventId: event.id, intentId: options.positionals[0], name: options.name, status: options.status });
+      return;
+    }
+    case CliCommand.gateStatus: {
+      const options = parseOptions(parsed.args, { review: "", ci: "" });
+      if (options.positionals.length !== 1) throw new Error(CliText.gateStatusUsage);
+      const gate = repo.gateStatus(options.positionals[0], {
+        requiredReviewState: options.review === "" ? undefined : options.review,
+        requiredCi: options.ci === "" ? [] : splitCsv(options.ci),
+      });
+      writeLine(io, gate.passed ? "gate passed" : `gate blocked: ${gate.blockers.join(", ")}`);
+      return;
+    }
+    case CliCommand.opLog:
+      for (const operation of repo.operations()) {
+        writeLine(io, `${operation.id} ${operation.command} ${operation.status}`);
+      }
+      return;
+    case CliCommand.opShow: {
+      if (parsed.args.length !== 1) throw new Error(CliText.opShowUsage);
+      const operation = repo.operations().find((candidate) => candidate.id === parsed.args[0]);
+      if (operation === undefined) throw new Error(`operation not found: ${parsed.args[0]}`);
+      writeLine(io, JSON.stringify(operation, null, 2));
+      return;
+    }
+    case CliCommand.redact: {
+      const options = parseOptions(parsed.args, { author: repo.identity(), reason: "" });
+      if (options.positionals.length !== 1) throw new Error(CliText.redactUsage);
+      const event = repo.redactBlob(options.positionals[0], options.reason, options.author);
+      writeLine(io, `${event.id} ${event.type}`);
+      recordCliOperation(repo, "redact", { eventId: event.id, blobSha256: options.positionals[0] });
+      return;
+    }
+    case CliCommand.redactPlan: {
+      if (parsed.args.length !== 1) throw new Error(CliText.redactPlanUsage);
+      const plan = repo.planRedaction(parsed.args[0]);
+      writeLine(io, JSON.stringify({ ...plan, affectedEvents: plan.eventIds }, null, 2));
       return;
     }
     case CliCommand.status:
@@ -114,12 +187,29 @@ function run(argv: string[], io: CliIO): void {
       }
       return;
     case CliCommand.resolve: {
-      const options = parseOptions(parsed.args, { type: "" });
+      const options = parseOptions(parsed.args, { type: "", path: "", "record-resolution": "" });
       if (options.type === "" || options.positionals.length !== 3) {
         throw new Error(CliText.resolveUsage);
       }
       const [base, left, right] = options.positionals.map((path) => loadEntity(options.type, readFileSync(path, JsonEncoding)));
-      io.stdout.write(dumpEntity(options.type, CRDTRegistry.defaults().merge(options.type, base, left, right)));
+      if (options["record-resolution"] !== "") {
+        const resolved = loadEntity(options.type, readFileSync(options["record-resolution"], JsonEncoding));
+        const event = repo.recordConflictResolution({
+          path: options.path === "" ? options["record-resolution"] : options.path,
+          entityType: options.type,
+          base,
+          left,
+          right,
+          resolved,
+        });
+        writeLine(io, event.id);
+        recordCliOperation(repo, "resolve-record", { eventId: event.id, path: options.path, entityType: options.type });
+        return;
+      }
+      const merged = options.path === ""
+        ? CRDTRegistry.defaults().merge(options.type, base, left, right)
+        : repo.mergeEntity(options.path, options.type, base, left, right);
+      io.stdout.write(dumpEntity(options.type, merged));
       return;
     }
     case CliCommand.rollback: {
@@ -147,11 +237,13 @@ function run(argv: string[], io: CliIO): void {
       if (parsed.args.length !== 1) throw new Error(CliText.checkoutUsage);
       const state = repo.checkoutView(parsed.args[0]);
       writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)`);
+      recordCliOperation(repo, "checkout", { view: parsed.args[0], intentIds: state.intentIds });
       return;
     }
     case CliCommand.viewDelete: {
       if (parsed.args.length !== 1) throw new Error(CliText.viewDeleteUsage);
       repo.deleteView(parsed.args[0]);
+      recordCliOperation(repo, "view-delete", { view: parsed.args[0] });
       return;
     }
     case CliCommand.viewDiff: {
@@ -161,7 +253,9 @@ function run(argv: string[], io: CliIO): void {
     }
     case CliCommand.viewPromote: {
       if (parsed.args.length !== 2) throw new Error(CliText.viewPromoteUsage);
-      writeLine(io, repo.promoteToView(parsed.args[0], parsed.args[1]).id);
+      const event = repo.promoteToView(parsed.args[0], parsed.args[1]);
+      writeLine(io, event.id);
+      recordCliOperation(repo, "view-promote", { eventId: event.id, source: parsed.args[0], target: parsed.args[1] });
       return;
     }
     default:
@@ -213,6 +307,14 @@ function metadataFromOptions(options: { title?: string; description?: string; re
     metadata.labels = options.label.split(",").map((label) => label.trim()).filter((label) => label.length > 0);
   }
   return metadata;
+}
+
+function splitCsv(value: string): string[] {
+  return value.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+}
+
+function recordCliOperation(repo: EpochRepository, command: string, detail: Record<string, unknown>): void {
+  repo.appendOperation(command, "succeeded", detail);
 }
 
 function writeLine(io: CliIO, message: string): void {

@@ -1,8 +1,8 @@
-export { EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, commitGit } from "./core";
-export type { EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryOptions, GatePolicy, IdentityData, InclusionRule, IntentDecision, PolicyOptions, PolicyProjection, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
+export { BundleEpochTransport, EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, JsonSerializationProvider, MemoryEpochTransport, commitGit, createToonSerializationProvider } from "./core";
+export type { CollaborationProjection, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, IdentityData, InclusionRule, IntentDecision, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
 export { EpochActorSystem, EpochUserActor } from "./actors";
-export { CRDTEventLog, CRDTRegistry, JsonMapCRDT, TextWeaveCRDT, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
-export type { CRDTOperation } from "./crdt";
+export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
+export type { CRDTOperation, EntityAdapter } from "./crdt";
 export { canonicalJson } from "./json";
 export { ActorCommand, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, Schemas, StorageName, Symbols } from "./domain";
 export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath } from "./domain";

@@ -9,7 +9,7 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 
-Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
+Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, transport and serialization helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
 
 See the public [SDK docs](../../../docs/sdk.md) for code examples.
 
@@ -17,7 +17,7 @@ See the public [SDK docs](../../../docs/sdk.md) for code examples.
 
 1. Construct `EpochRepository` with a repository root path.
 2. Call `init(author?)` to create `.epoch/` metadata and identity files.
-3. Record data with `recordFile(path, mimeType)` or create review flow events with `intentFile`, `mergeIntent`, `rejectIntent`, and `comment`.
+3. Record data with `recordFile(path, mimeType)` or create review flow events with `intentFile`, `mergeIntent`, `rejectIntent`, `comment`, `createIssue`, `reviewIntent`, `recordCI`, and `gateStatus`.
 4. Verify integrity with `verify()` before trusting or distributing state.
 5. Exchange events and blobs with `sync(peerPath)` or `syncFrom(peerPath)`.
 
@@ -25,7 +25,17 @@ See the public [SDK docs](../../../docs/sdk.md) for code examples.
 
 Use operation-based CRDT events for shared agent state that changes frequently. Append map/register or sequence-text operations with the actor API, then materialize state with `materialize(entity)`.
 
-Use `CRDTRegistry.defaults()` for built-in text and JSON merges. Register custom CRDT definitions for application-specific entity types when three-way merge is not enough.
+Use `CRDTRegistry.defaults()` for built-in text, JSON, and CSV merges. Register custom CRDT definitions for application-specific entity types when three-way merge is not enough.
+
+## Advanced collaboration and infrastructure
+
+- `createIssue`, `reviewIntent`, `recordCI`, `collaboration`, and `gateStatus` keep collaboration state in signed events.
+- `appendOperation` and `operations` represent command history in the event log.
+- `recordConflictResolution`, `reusableConflictResolution`, and `mergeEntity` provide exact-match reusable resolutions and media-aware fallback merging.
+- `redactBlob`, `planRedaction`, and `redactions` provide a signed local redaction workflow.
+- `EpochTransport`, `exportToMemoryTransport`, `syncWithTransport`, and `BundleEpochTransport` expose explicit transport and bundle seams.
+- `EpochSerializationProvider` lets callers substitute event serialization while preserving canonical event IDs and signatures.
+- `EntityRegistry` exposes media-aware adapter capabilities beyond merge, including diff and redaction hooks where implemented.
 
 ## Hooks and actors
 
@@ -39,4 +49,4 @@ Use `CRDTRegistry.defaults()` for built-in text and JSON merges. Register custom
 
 ## React surface
 
-Use `@epoch/wasm-react` for browser-safe React state history built on append-only Epoch events.
+Use `@epoch/wasm-react` for browser-safe React state history built on append-only Epoch events and for VFS-backed live repository hooks.

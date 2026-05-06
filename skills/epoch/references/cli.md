@@ -33,6 +33,8 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 | `sync PEER_REPO` | Copy missing events and blobs from a peer repository. |
 | `rollback EVENT_ID` | Append a rollback event for an existing event. |
 | `dr-plan` | Print the disaster recovery plan. |
+| `op-log` | List signed operation events recorded by mutating CLI commands. |
+| `op-show EVENT_ID` | Print one signed operation event projection as JSON. |
 
 ## Review and policy commands
 
@@ -42,8 +44,21 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 | `merge INTENT_ID` | Sign an inclusion policy event. |
 | `reject INTENT_ID` | Sign a rejection policy event. |
 | `comment --intent INTENT_ID TEXT` | Add signed discussion metadata. |
+| `issue --title TITLE BODY` | Create a signed issue-style collaboration object. |
+| `review --state STATE --body TEXT INTENT_ID` | Record a signed review against an intent. |
+| `ci-record --name NAME --status STATUS INTENT_ID` | Record a signed CI attestation against an intent. |
+| `gate-status --review STATE --ci NAME INTENT_ID` | Project whether an intent satisfies local signed gate policy. |
 | `status` | Show intent policy status. |
 | `main` | Print accepted intent IDs. |
+
+## Entity, resolution, and redaction commands
+
+| Command | Purpose |
+|---|---|
+| `resolve --type MIME [--path ENTITY_PATH] BASE LEFT RIGHT` | Merge values with media-aware entity adapters and reuse exact signed resolutions when possible. |
+| `resolve --type MIME --path ENTITY_PATH --record-resolution RESOLVED BASE LEFT RIGHT` | Record a signed exact-match conflict resolution. |
+| `redact BLOB_SHA256 --reason REASON` | Append a signed redaction marker for a blob hash. |
+| `redact-plan BLOB_SHA256` | Print affected events, local blob presence, and redaction status. |
 
 ## Named view commands
 

@@ -8,3 +8,9 @@ Feature: WASM React state integration
     And the browser-rendered rewind state is "count: 1"
     And the browser-rendered rematerialized state is "count: 5"
     And the browser-rendered restored state is "count: 5"
+
+  Scenario: Browser live repository hooks synchronize through a VFS
+    Given a new workspace
+    When I run the Epoch WASM React live VFS browser demo
+    Then the browser-rendered live VFS history is "events: 2"
+    And the browser-rendered live VFS entity is "count: 2"
