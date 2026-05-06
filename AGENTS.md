@@ -6,6 +6,7 @@ These instructions apply to the entire repository.
 
 - Use test-driven development for behavior changes: write or update a failing feature/test first, implement the smallest change, then make the full suite pass.
 - Do not consider work complete until all required quality gates pass locally:
+  - `npm run docs:check`
   - `npm run lint`
   - `npm run typecheck`
   - `npm test`
@@ -15,10 +16,19 @@ These instructions apply to the entire repository.
 - Do not lower coverage thresholds or weaken lint/typecheck settings to make a change pass.
 - Keep generated outputs such as `dist/`, `coverage/`, and temporary files out of commits.
 
+## Documentation freshness
+
+- Treat documentation as part of every design, behavior, workflow, and public API change. Follow [`docs/documentation-freshness.md`](docs/documentation-freshness.md) before finishing work.
+- Update `README.md` and `docs/README.md` when top-level navigation, quick start, or discoverability changes.
+- Update `docs/design.md` for current architecture changes, and add or update ADRs under `docs/design-decisions/` for material design choices, trade-offs, dependency decisions, or rejected alternatives.
+- Update `docs/features.md`, relevant `features/*.feature` files, and user stories when implemented behavior or acceptance criteria change.
+- Update `docs/cli.md`, `docs/sdk.md`, `docs/HA-DR.md`, dependency docs, and `skills/epoch/` references when their public surfaces change.
+- Do not create orphaned docs. Every Markdown doc and feature spec must be reachable from the root `README.md` hierarchy, and `npm run docs:check` must pass.
+
 ## Repository practices
 
 - Keep changes small, intentional, and aligned with the existing TypeScript workspace structure.
-- Update documentation when public CLI commands, SDK APIs, WASM exports, or repository workflows change.
+- Update documentation when public CLI commands, SDK APIs, WASM exports, repository workflows, agent instructions, or design decisions change.
 - Prefer existing dependencies and standard library APIs. Add a dependency only when the benefit is clear and the dependency has been reviewed.
 - Treat Epoch history, identity, signatures, and content-addressed storage as security-sensitive code paths.
 
@@ -28,6 +38,7 @@ These instructions apply to the entire repository.
 |---|---|
 | `npm ci` | Install locked workspace dependencies. |
 | `npm run build` | Build Core, CLI, WASM, and test TypeScript outputs. |
+| `npm run docs:check` | Validate local Markdown links and docs/spec discoverability from `README.md`. |
 | `npm run lint` | Run ESLint over source, tests, and configuration. |
 | `npm run typecheck` | Run `tsgo --noEmit` for every workspace and test project. |
 | `npm test` | Build and execute the Cucumber feature suite. |

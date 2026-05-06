@@ -1,28 +1,54 @@
 # Epoch CLI Reference
 
-Use the CLI for local repository operations, smoke tests, demos, and scripts that operate on the filesystem.
+Use the CLI for local repository operations, smoke tests, demos, and scripts
+that operate on the filesystem.
 
-## Build and run
+## Build From Source
 
-Build before using the source checkout CLI:
+Install dependencies and build before running the source checkout CLI:
 
 ```bash
+npm ci
 npm run build
+```
+
+The workspace exposes package bins, so the short source-checkout form is:
+
+```bash
 npm exec -- epoch --repo ./repo init --author alice
 ```
 
-The equivalent long-form source host is `node packages/Epoch.CLI/dist/cli.js`.
-When installed as a package, use `epoch` and `epoch-git` binaries.
+This is equivalent to the long-form Node host command:
 
-See the public [CLI docs](../../../docs/cli.md) for local linking and command details.
+```bash
+node packages/Epoch.CLI/dist/cli.js --repo ./repo init --author alice
+```
 
-## Global options
+For a durable local shell alias while iterating in this checkout, link the root
+package once:
+
+```bash
+npm link
+epoch --repo ./repo verify
+epoch-git status
+```
+
+Remove the global link with:
+
+```bash
+npm unlink -g epoch
+```
+
+When Epoch is installed as a package, use the installed `epoch` and `epoch-git`
+binaries directly.
+
+## Global Options
 
 | Option | Description |
 |---|---|
 | `--repo PATH` | Select the Epoch repository root. Defaults to the current working directory. |
 
-## Repository commands
+## Repository Commands
 
 | Command | Purpose |
 |---|---|
@@ -34,7 +60,7 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 | `rollback EVENT_ID` | Append a rollback event for an existing event. |
 | `dr-plan` | Print the disaster recovery plan. |
 
-## Review and policy commands
+## Review And Policy Commands
 
 | Command | Purpose |
 |---|---|
@@ -45,7 +71,7 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 | `status` | Show intent policy status. |
 | `main` | Print accepted intent IDs. |
 
-## Named view commands
+## Named View Commands
 
 Use views as deterministic logical workspaces over the shared event log.
 
@@ -58,10 +84,18 @@ Use views as deterministic logical workspaces over the shared event log.
 | `view-diff LEFT RIGHT` | Show a JSON diff between views. |
 | `view-promote SOURCE TARGET` | Promote accepted content from one view into another. |
 
-## Git commands
+## Git Commands
 
 - `import GIT_REPO` records tracked files from a Git repository into Epoch.
-- `export GIT_REPO` writes latest recorded blobs into a Git repository directory.
-- `epoch-git` provides a Git-like command surface for integrations that expect clone/add/commit/status behavior.
+- `export GIT_REPO` writes latest recorded blobs into a Git repository
+  directory.
+- `epoch-git` provides a Git-like command surface for integrations that expect
+  clone, add, commit, and status behavior.
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.
+
+## Related Docs
+
+- [Core SDK Reference](sdk.md)
+- [Feature Registry](features.md)
+- [Current Design](design.md)

@@ -35,13 +35,14 @@
     "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && tsgo -p tsconfig.test.json",
     "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
+    "docs:check": "node scripts/check-docs.mjs",
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
     "test:features:runtime": "cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test:unit:runtime": "node dist/test/run-unit-tests.js",
     "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run coverage"
+    "verify": "npm run docs:check && npm run lint && npm run typecheck && npm test && npm run coverage"
   },
   "keywords": [
     "dvcs",

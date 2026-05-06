@@ -75,7 +75,8 @@ Epoch has two CRDT-related surfaces:
 - `CRDTRegistry` handles snapshot-style three-way merges for text and JSON entities.
 - `appendCRDTOperation()` records operation CRDT updates, and `materialize(entity)` replays signed CRDT events into a current map or text value.
 
-The operation CRDT backend is Collabs with a protobuf override documented in `docs/crdt-backend-decision.md`.
+The operation CRDT backend is Collabs with a protobuf override documented in
+[ADR-0002: CRDT Backend Selection](crdt-backend-decision.md).
 
 ## Sync
 
@@ -130,9 +131,13 @@ Hooks observe repository lifecycle events for init, append, record, CRDT operati
 
 `EpochActorSystem` wraps a repository with serialized async command handling. Per-user actors attach a stable author to appended and recorded events.
 
+See the [Core SDK Reference](sdk.md) for actor API, CRDT operation, and hook examples.
+
 ## CLI And Git Compatibility
 
 The CLI exposes the currently implemented repository, intent, sync, view, merge, Git import/export, and HA/DR plan flows. Git compatibility classes bridge trusted host Git repositories where native filesystem and Git access are available. WASM-facing Git helpers return explicit unsupported errors for native host operations.
+
+See the [CLI Reference](cli.md) for source-checkout shorthand, installed binaries, command groups, and Git-compatible command behavior.
 
 ## Non-Goals In The Current Prototype
 

@@ -10,11 +10,18 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 
 | Command | Required for | What it checks |
 |---|---|---|
-| `npm run lint` | Every source or test change | ESLint rules over TypeScript, tests, and configuration. |
+| `npm run docs:check` | Every change | Local Markdown links and docs/spec discoverability from `README.md`. |
+| `npm run lint` | Every source, script, or test change | ESLint rules over TypeScript, JavaScript scripts, tests, and configuration. |
 | `npm run typecheck` | Every source or test change | `tsgo --noEmit` for Core, CLI, WASM, WASM React, and tests. |
 | `npm test` | Every behavior change | Unit/component runtime tests plus Cucumber features against compiled TypeScript output. |
 | `npm run coverage` | Every behavior change | c8 coverage over unit/component tests and Cucumber features with enforced thresholds. |
-| `npm run verify` | Before review | Lint, typecheck, tests, and coverage in sequence. |
+| `npm run verify` | Before review | Docs check, lint, typecheck, tests, and coverage in sequence. |
+
+## Documentation expectations
+
+- Follow [Documentation Freshness](documentation.md) when design choices, features, public APIs, workflows, hooks, React surfaces, or agent guidance change.
+- Keep new docs reachable from `README.md` through `docs/README.md` or another linked index.
+- Update ADRs, feature docs, and skill references in the same change as the implementation.
 
 ## TDD expectations
 
@@ -27,4 +34,4 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 
 ## CI expectations
 
-The GitHub Actions quality workflow installs dependencies with `npm ci` and runs lint, typecheck, test, and coverage as independent required gates.
+The GitHub Actions quality workflow installs dependencies with `npm ci` and runs docs check, lint, typecheck, test, and coverage as independent required gates.

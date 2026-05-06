@@ -2,6 +2,8 @@
 
 This document lists user stories supported by the current implementation and feature suite. It does not list roadmap stories without executable coverage.
 
+See the [Feature Registry](features.md) for feature IDs and executable coverage links.
+
 ## Developer Stories
 
 ### DEV-001: Initialize A Signed Repository
