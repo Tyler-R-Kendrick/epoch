@@ -99,6 +99,7 @@ High-value entry points:
 | CLI usage | [docs/cli.md](docs/cli.md) |
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
+| Competition research | [docs/competition/README.md](docs/competition/README.md) |
 | Design decisions and ADRs | [docs/design-decisions/README.md](docs/design-decisions/README.md) |
 | User stories | [docs/user-stories.md](docs/user-stories.md) |
 | HA/DR operations | [docs/HA-DR.md](docs/HA-DR.md) |
