@@ -10,7 +10,7 @@ decisions, operations, or contribution workflow.
 |---|---|
 | [Feature Registry](features.md) | Implemented feature IDs, behavior, and executable coverage links. |
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype. |
-| [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, merge, actor, CRDT, view, and HA/DR behavior. |
+| [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, and HA/DR behavior. |
 
 ## Architecture And Public APIs
 
@@ -18,7 +18,7 @@ decisions, operations, or contribution workflow.
 |---|---|
 | [Current Design](design.md) | Current architecture, event model, sync, policy, CRDT surfaces, hooks, actors, and non-goals. |
 | [CLI Reference](cli.md) | Source checkout commands, `epoch` shorthand, `epoch-git`, global linking, and command groups. |
-| [Core SDK Reference](sdk.md) | Repository lifecycle, async actor API, CRDT operations, hooks, sync, and Git-compatible core surfaces. |
+| [Core SDK Reference](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, and Git-compatible core surfaces. |
 | [HA/DR Runbook](HA-DR.md) | Compacts, seed bootstrap, cold backups, and disaster recovery operator flow. |
 | [Documentation Freshness Policy](documentation-freshness.md) | Required docs update matrix, no-orphan rules, and docs check command. |
 

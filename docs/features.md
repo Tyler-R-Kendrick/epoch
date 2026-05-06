@@ -14,6 +14,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/merge.feature`](../features/merge.feature) | Intent policy and entity merge behavior. |
 | [`features/named_views.feature`](../features/named_views.feature) | Named logical views and promotion flows. |
 | [`features/cli_wasm.feature`](../features/cli_wasm.feature) | CLI command behavior and WASM-safe exports. |
+| [`features/wasm_react.feature`](../features/wasm_react.feature) | Browser-safe React state persistence, rewind, rematerialization, and resume flows. |
 | [`features/ha_dr.feature`](../features/ha_dr.feature) | Compacts, backups, seed bootstrap, and recovery flows. |
 
 ## F-001 - Signed Event Log
@@ -194,3 +195,21 @@ Implemented behavior:
 Covered by:
 
 - `features/cli_wasm.feature`
+
+## F-013 - WASM React State History
+
+Epoch includes browser-safe React helpers that persist local state changes as
+append-only Epoch event history.
+
+Implemented behavior:
+
+- `@epoch/wasm-react` exposes `createEpochReactStore()`,
+  `createMemoryEpochReactStorage()`, and `useEpochState()`.
+- React state updates persist as append-only CRDT events that can be rewound
+  and materialized at earlier points in history.
+- Browser-hosted React flows restore persisted state and continue appending new
+  events after rewind and rematerialization.
+
+Covered by:
+
+- `features/wasm_react.feature`

@@ -232,3 +232,21 @@ Acceptance criteria:
 
 - CRDT helpers return expected merge results.
 - Native Git operations return explicit unsupported errors.
+
+### TOOL-003: Persist React State As Epoch History
+
+**As a** React application developer,  
+**I want** browser-safe hooks that persist state changes as Epoch event history,  
+**So that** local UI state can rewind, rematerialize, and resume deterministically.
+
+Flow:
+
+1. Create a store with `createEpochReactStore(...)`.
+2. Bind it with `useEpochState(...)` in a browser-hosted React component.
+3. Update state, rewind history, materialize another point in time, and resume changes.
+
+Acceptance criteria:
+
+- State updates persist as append-only Epoch React events.
+- Rewind and rematerialization restore earlier browser-visible state.
+- Restored state can continue accepting new updates without losing history.
