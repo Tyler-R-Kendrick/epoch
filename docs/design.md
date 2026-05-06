@@ -54,6 +54,11 @@ The current domain constants include:
 - `intent.merge`
 - `intent.reject`
 - `intent.comment`
+- `collaboration.issue`
+- `collaboration.review`
+- `conflict-resolution`
+- `operation`
+- `redaction`
 - `rollback`
 - `view-definition`
 - `approval`
@@ -68,15 +73,31 @@ Records and CRDT operations are also treated as intents for named-view projectio
 
 The main projection is derived from merged, non-rejected intents. Direct `record` and `crdt` events can also participate in named views as local intents.
 
+Signed collaboration objects extend the same event log. `createIssue()` records
+issue-like discussion roots, `reviewIntent()` records review decisions against
+intents, and `recordCI()` records signed CI attestations. `gateStatus()` is a
+pure projection over intent, review, approval, rejection, and CI events, so
+policy is deterministic and local verification still decides trust.
+
 ## CRDT Surfaces
 
-Epoch has two CRDT-related surfaces:
+Epoch has two entity and CRDT-related surfaces:
 
-- `CRDTRegistry` handles snapshot-style three-way merges for text and JSON entities.
+- `CRDTRegistry` handles snapshot-style three-way merges for media-aware entity
+  adapters. Defaults include text, JSON, and row-keyed CSV.
 - `appendCRDTOperation()` records operation CRDT updates, and `materialize(entity)` replays signed CRDT events into a current map or text value.
 
 The operation CRDT backend is Collabs with a protobuf override documented in
 [ADR-0002: CRDT Backend Selection](crdt-backend-decision.md).
+
+Reusable conflict resolutions are signed `conflict-resolution` events. They
+match only when path, media type, base value, left value, and right value hash
+to the same conflict identity.
+
+Redaction is represented by signed `redaction` events. Local verification
+accepts a missing blob only when a redaction event references that exact blob
+hash, preserving audit evidence without promising global deletion from peers
+that already copied the bytes.
 
 ## Sync
 
@@ -88,7 +109,22 @@ The operation CRDT backend is Collabs with a protobuf override documented in
 epoch sync PEER_REPO
 ```
 
+`EpochTransport` is the transport contract. `exportToMemoryTransport()` and
+`syncWithTransport()` provide an explicit transport seam for moving events,
+heads, and blobs without making the transport authoritative. `BundleEpochTransport`
+persists the same hash-checked packet for offline handoff. A transport packet
+is still verified after import. Browser helpers use a virtual file system for
+live local repository state rather than assuming Node filesystem access.
+
 This implementation does not include network discovery, access control, or always-on background replication.
+
+## Serialization
+
+Event files use a pluggable `EpochSerializationProvider`. JSON remains the
+default provider, but repositories can substitute another serializer with its
+own format and file extension. Event IDs and signatures continue to use
+canonical JSON over the unsigned event payload so alternative wire/storage
+formats do not change identity or verification semantics.
 
 ## Named Views
 
@@ -131,6 +167,11 @@ Hooks observe repository lifecycle events for init, append, record, CRDT operati
 
 `EpochActorSystem` wraps a repository with serialized async command handling. Per-user actors attach a stable author to appended and recorded events.
 
+Operation history is covered by signed `operation` events. `appendOperation()`
+records command, status, detail, author, and causal parents in the shared event
+log; `operations()` projects those events for recovery and explanation.
+Mutating CLI commands append operation events automatically.
+
 See the [Core SDK Reference](sdk.md) for actor API, CRDT operation, and hook examples.
 
 ## CLI And Git Compatibility
@@ -149,7 +190,5 @@ The current implementation does not provide:
 - signed tags
 - shallow clones
 - delta sync
-- issue tracking
 - timestamp restoration
 - configured hook scripts
-- automatic background sync scheduling

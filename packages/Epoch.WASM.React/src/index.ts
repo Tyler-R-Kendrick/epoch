@@ -55,6 +55,37 @@ export interface EpochReactStore<TState extends object> extends EpochReactContro
   setState(update: EpochReactStateUpdater<TState>): EpochReactChange<TState>;
 }
 
+export interface EpochVirtualFileSystem {
+  readFile(path: string): string | undefined;
+  writeFile(path: string, content: string): void;
+  deleteFile(path: string): void;
+  listFiles(prefix?: string): readonly string[];
+}
+
+export interface EpochLiveRepositoryEvent {
+  readonly id: string;
+  readonly type: "entity";
+  readonly entity: string;
+  readonly author: string;
+  readonly lamport: number;
+  readonly payload: Record<string, unknown>;
+}
+
+export interface EpochLiveRepositoryOptions {
+  readonly vfs: EpochVirtualFileSystem;
+  readonly author?: string;
+  readonly root?: string;
+}
+
+export interface EpochLiveRepository {
+  append(entity: string, value: Record<string, unknown>): EpochLiveRepositoryEvent;
+  entity(entity: string): Record<string, unknown>;
+  history(): readonly EpochLiveRepositoryEvent[];
+  view(): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, unknown>>> };
+  subscribe(listener: () => void): () => void;
+  syncFrom(peer: EpochVirtualFileSystem): number;
+}
+
 interface PersistedEpochReactState {
   readonly version: 1;
   readonly entity: string;
@@ -71,6 +102,20 @@ export function createMemoryEpochReactStorage(initial: Record<string, string> = 
     removeItem: (key) => {
       values.delete(key);
     },
+  };
+}
+
+export function createMemoryEpochVfs(initial: Record<string, string> = {}): EpochVirtualFileSystem {
+  const files = new Map(Object.entries(initial));
+  return {
+    readFile: (path) => files.get(path),
+    writeFile: (path, content) => {
+      files.set(path, content);
+    },
+    deleteFile: (path) => {
+      files.delete(path);
+    },
+    listFiles: (prefix = "") => [...files.keys()].filter((path) => path.startsWith(prefix)).sort(),
   };
 }
 
@@ -184,6 +229,101 @@ export function useEpochState<TState extends object>(
   return [snapshot.state, setState, controls] as const;
 }
 
+export function createEpochLiveRepository(options: EpochLiveRepositoryOptions): EpochLiveRepository {
+  const vfs = options.vfs;
+  const author = options.author ?? "browser";
+  const root = normalizeVfsRoot(options.root ?? "/.epoch-live");
+  const listeners = new Set<() => void>();
+  let historySnapshot = loadHistory();
+  let entitySnapshots = materializeLiveEntities(historySnapshot);
+
+  function append(entity: string, value: Record<string, unknown>): EpochLiveRepositoryEvent {
+    const cleanEntity = requireNonEmpty(entity, "live entity");
+    const payload = normalizeState(value);
+    const lamport = history().length + 1;
+    const event: EpochLiveRepositoryEvent = {
+      id: `epoch-live-${lamport}-${hashString(stableJson({ author, cleanEntity, payload, lamport }))}`,
+      type: "entity",
+      entity: cleanEntity,
+      author,
+      lamport,
+      payload,
+    };
+    vfs.writeFile(eventPath(root, event.id), JSON.stringify(event));
+    refresh();
+    notify();
+    return event;
+  }
+
+  function entity(name: string): Record<string, unknown> {
+    return entitySnapshots.get(name) ?? emptyLiveEntity;
+  }
+
+  function history(): readonly EpochLiveRepositoryEvent[] {
+    return historySnapshot;
+  }
+
+  function view(): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, unknown>>> } {
+    return {
+      events: historySnapshot,
+      entities: Object.fromEntries(entitySnapshots.entries()),
+    };
+  }
+
+  function loadHistory(): readonly EpochLiveRepositoryEvent[] {
+    return vfs.listFiles(eventsRoot(root))
+      .map((path) => parseLiveEvent(vfs.readFile(path)))
+      .filter((event): event is EpochLiveRepositoryEvent => event !== undefined)
+      .sort((left, right) => left.lamport - right.lamport || left.id.localeCompare(right.id));
+  }
+
+  function subscribe(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
+  function syncFrom(peer: EpochVirtualFileSystem): number {
+    let copied = 0;
+    for (const path of peer.listFiles(eventsRoot(root))) {
+      if (vfs.readFile(path) !== undefined) continue;
+      const content = peer.readFile(path);
+      if (content === undefined) continue;
+      vfs.writeFile(path, content);
+      copied += 1;
+    }
+    if (copied > 0) {
+      refresh();
+      notify();
+    }
+    return copied;
+  }
+
+  function refresh(): void {
+    historySnapshot = loadHistory();
+    entitySnapshots = materializeLiveEntities(historySnapshot);
+  }
+
+  function notify(): void {
+    for (const listener of listeners) listener();
+  }
+
+  return { append, entity, history, view, subscribe, syncFrom };
+}
+
+export function useEpochHistory(repository: EpochLiveRepository): readonly EpochLiveRepositoryEvent[] {
+  return useSyncExternalStore(repository.subscribe, repository.history, repository.history);
+}
+
+export function useEpochEntity(repository: EpochLiveRepository, entity: string): Record<string, unknown> {
+  return useSyncExternalStore(repository.subscribe, () => repository.entity(entity), () => repository.entity(entity));
+}
+
+export function useEpochView(repository: EpochLiveRepository): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, unknown>>> } {
+  return useSyncExternalStore(repository.subscribe, repository.view, repository.view);
+}
+
 function appendOperations(
   existing: readonly EpochReactEvent[],
   operations: readonly EpochReactOperation[],
@@ -252,6 +392,43 @@ function eventsForTarget(events: readonly EpochReactEvent[], target: EpochReactM
   const index = events.findIndex((event) => event.id === target);
   if (index === -1) throw new Error(`unknown Epoch React event '${target}'`);
   return events.slice(0, index + 1);
+}
+
+function normalizeVfsRoot(root: string): string {
+  const trimmed = root.replace(/\/+$/u, "");
+  return trimmed.length === 0 ? "/.epoch-live" : trimmed;
+}
+
+function eventsRoot(root: string): string {
+  return `${root}/events/`;
+}
+
+function eventPath(root: string, eventId: string): string {
+  return `${eventsRoot(root)}${eventId}.json`;
+}
+
+function parseLiveEvent(raw: string | undefined): EpochLiveRepositoryEvent | undefined {
+  if (raw === undefined) return undefined;
+  const parsed = JSON.parse(raw) as Partial<EpochLiveRepositoryEvent>;
+  if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord(parsed.payload)) {
+    throw new Error("invalid Epoch live repository event");
+  }
+  return {
+    id: parsed.id,
+    type: "entity",
+    entity: parsed.entity,
+    author: parsed.author,
+    lamport: parsed.lamport,
+    payload: normalizeState(parsed.payload),
+  };
+}
+
+const emptyLiveEntity: Record<string, unknown> = {};
+
+function materializeLiveEntities(events: readonly EpochLiveRepositoryEvent[]): Map<string, Record<string, unknown>> {
+  const entities = new Map<string, Record<string, unknown>>();
+  for (const event of events) entities.set(event.entity, normalizeState(event.payload));
+  return entities;
 }
 
 function normalizeTarget(target: EpochReactMaterializationTarget, events: readonly EpochReactEvent[]): EpochReactMaterializationTarget {

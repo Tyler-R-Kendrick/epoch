@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createEpochReactStore, createMemoryEpochReactStorage } from "@epoch/wasm-react";
+import { createEpochLiveRepository, createEpochReactStore, createMemoryEpochReactStorage, createMemoryEpochVfs } from "@epoch/wasm-react";
 
 interface CounterState {
   count: number;
@@ -12,6 +12,7 @@ export function runWasmReactStoreTests(): void {
   notifiesSubscribersOnlyForPersistedChanges();
   notifiesSubscribersOnceWhenRewinding();
   materializesDeletedKeysWithoutReintroducingInitialState();
+  syncsLiveRepositoriesThroughVfs();
 }
 
 function persistsStateChangesAsEpochHistory(): void {
@@ -121,4 +122,20 @@ function materializesDeletedKeysWithoutReintroducingInitialState(): void {
 
   assert.deepEqual(store.getSnapshot().state, { count: 3 });
   assert.ok(!("label" in store.getSnapshot().state));
+}
+
+function syncsLiveRepositoriesThroughVfs(): void {
+  const leftVfs = createMemoryEpochVfs();
+  const rightVfs = createMemoryEpochVfs();
+  const left = createEpochLiveRepository({ vfs: leftVfs, author: "alice" });
+  const right = createEpochLiveRepository({ vfs: rightVfs, author: "bob" });
+
+  left.append("left", { count: 1 });
+  right.append("right", { count: 2 });
+
+  assert.equal(left.syncFrom(rightVfs), 1);
+  assert.equal(right.syncFrom(leftVfs), 1);
+  assert.equal(left.history().length, 2);
+  assert.deepEqual(right.view().entities.left, { count: 1 });
+  assert.deepEqual(right.view().entities.right, { count: 2 });
 }

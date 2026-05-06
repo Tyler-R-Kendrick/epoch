@@ -99,6 +99,12 @@ function restoreGlobal(key: string, value: unknown): void {
 
 async function settleReactClient(): Promise<void> {
   await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
+  await new Promise<void>((resolve) => {
     setImmediate(resolve);
   });
 }

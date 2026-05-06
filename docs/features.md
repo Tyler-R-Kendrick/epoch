@@ -16,6 +16,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/cli_wasm.feature`](../features/cli_wasm.feature) | CLI command behavior and WASM-safe exports. |
 | [`features/wasm_react.feature`](../features/wasm_react.feature) | Browser-safe React state persistence, rewind, rematerialization, and resume flows. |
 | [`features/ha_dr.feature`](../features/ha_dr.feature) | Compacts, backups, seed bootstrap, and recovery flows. |
+| [`features/advanced_collaboration.feature`](../features/advanced_collaboration.feature) | Signed collaboration objects, gates, memory transport, reusable conflict resolutions, operation events, CSV adapters, redactions, and serialization providers. |
 
 ## F-001 - Signed Event Log
 
@@ -209,6 +210,109 @@ Implemented behavior:
   and materialized at earlier points in history.
 - Browser-hosted React flows restore persisted state and continue appending new
   events after rewind and rematerialization.
+
+Covered by:
+
+- `features/wasm_react.feature`
+
+## F-014 - Advanced Collaboration And Gates
+
+Epoch stores collaboration and policy state as signed events.
+
+Implemented behavior:
+
+- `createIssue()` records signed issue-style discussion roots.
+- `reviewIntent()` records signed reviews against intents.
+- `recordCI()` records signed CI attestations.
+- `collaboration()` projects issues and reviews.
+- `gateStatus()` deterministically evaluates required review state,
+  approvals, rejections, and named CI checks.
+
+Covered by:
+
+- `features/advanced_collaboration.feature`
+
+## F-015 - Transport And Serialization Providers
+
+Epoch exposes transport and serialization seams without making either one
+authoritative.
+
+Implemented behavior:
+
+- `exportToMemoryTransport()` exports events, heads, and blobs to an explicit
+  memory transport packet.
+- `syncWithTransport()` imports missing content from that packet and keeps
+  verification as the trust boundary.
+- `EpochTransport` defines the transport contract, and `BundleEpochTransport`
+  persists a hash-checked bundle packet for offline handoff.
+- `EpochSerializationProvider` lets repositories substitute event file
+  serialization while preserving canonical event IDs and signatures.
+
+Covered by:
+
+- `features/advanced_collaboration.feature`
+
+## F-016 - Media-Aware Entity Adapters And Conflict Reuse
+
+Epoch's merge registry is aware of media types and can reuse signed conflict
+resolutions.
+
+Implemented behavior:
+
+- `CRDTRegistry.defaults()` includes text, JSON, and row-keyed CSV merge
+  adapters.
+- `EntityRegistry.defaults()` exposes merge, diff, validation, redaction, and
+  display adapter hooks where an adapter implements them.
+- `recordConflictResolution()` records signed exact-match conflict
+  resolutions.
+- `reusableConflictResolution()` returns a prior resolution only when path,
+  media type, base, left, and right match exactly.
+- `mergeEntity()` reuses a signed exact-match resolution before falling back to
+  media-aware adapter merge behavior.
+- The CLI can record resolutions with `resolve --record-resolution` and reuse
+  them with `resolve --path`.
+
+Covered by:
+
+- `features/merge.feature`
+- `features/advanced_collaboration.feature`
+
+## F-017 - Operation Events And Secret-Safe Redactions
+
+Epoch represents local operation history and redaction workflow in the event
+log.
+
+Implemented behavior:
+
+- `appendOperation()` appends signed operation events with command, status, and
+  detail payloads.
+- `operations()` projects operation events for recovery and explanation.
+- `redactBlob()` appends a signed redaction marker for a blob hash and reason.
+- `planRedaction()` reports affected event IDs, local blob presence, and
+  whether a matching redaction already exists.
+- `verify()` accepts missing blobs only when an exact redaction event exists.
+- `redactions()` projects signed redaction markers.
+- Mutating CLI commands append signed operation events for user-facing
+  recovery and explanation, and `op-log` / `op-show` expose them.
+
+Covered by:
+
+- `features/advanced_collaboration.feature`
+
+## F-018 - Browser Live VFS Repository
+
+Epoch React helpers include a browser-safe live repository surface backed by a
+virtual file system.
+
+Implemented behavior:
+
+- `createMemoryEpochVfs()` creates an in-memory virtual file system for browser
+  and test hosts.
+- `createEpochLiveRepository()` stores live entity events in the VFS.
+- `syncFrom()` copies missing VFS event files between live repositories.
+- `useEpochHistory()`, `useEpochEntity()`, and `useEpochView()` subscribe to
+  live repository history and materialized entity state through
+  `useSyncExternalStore`.
 
 Covered by:
 

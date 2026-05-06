@@ -59,6 +59,8 @@ binaries directly.
 | `sync PEER_REPO` | Copy missing events and blobs from a peer repository. |
 | `rollback EVENT_ID` | Append a rollback event for an existing event. |
 | `dr-plan` | Print the disaster recovery plan. |
+| `op-log` | List signed operation events recorded by mutating CLI commands. |
+| `op-show EVENT_ID` | Print one signed operation event projection as JSON. |
 
 ## Review And Policy Commands
 
@@ -68,8 +70,21 @@ binaries directly.
 | `merge INTENT_ID` | Sign an inclusion policy event. |
 | `reject INTENT_ID` | Sign a rejection policy event. |
 | `comment --intent INTENT_ID TEXT` | Add signed discussion metadata. |
+| `issue --title TITLE BODY` | Create a signed issue-style collaboration object. |
+| `review --state STATE --body TEXT INTENT_ID` | Record a signed review against an intent. |
+| `ci-record --name NAME --status STATUS INTENT_ID` | Record a signed CI attestation against an intent. |
+| `gate-status --review STATE --ci NAME INTENT_ID` | Project whether an intent satisfies local signed gate policy. |
 | `status` | Show intent policy status. |
 | `main` | Print accepted intent IDs. |
+
+## Entity, Resolution, And Redaction Commands
+
+| Command | Purpose |
+|---|---|
+| `resolve --type MIME [--path ENTITY_PATH] BASE LEFT RIGHT` | Merge values with the default media-aware entity adapters, reusing exact-match signed resolutions when `--path` is supplied. |
+| `resolve --type MIME --path ENTITY_PATH --record-resolution RESOLVED BASE LEFT RIGHT` | Record a signed exact-match conflict resolution for future reuse. |
+| `redact BLOB_SHA256 --reason REASON` | Append a signed redaction marker for a blob hash. |
+| `redact-plan BLOB_SHA256` | Print affected events, local blob presence, and redaction status. |
 
 ## Named View Commands
 

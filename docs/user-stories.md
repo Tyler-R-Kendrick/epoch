@@ -250,3 +250,39 @@ Acceptance criteria:
 - State updates persist as append-only Epoch React events.
 - Rewind and rematerialization restore earlier browser-visible state.
 - Restored state can continue accepting new updates without losing history.
+
+### TOOL-004: Gate An Intent With Signed Review And CI
+
+**As a** maintainer,  
+**I want** review decisions and CI results to be signed Epoch events,  
+**So that** merge readiness can be projected without trusting a central forge.
+
+Acceptance criteria:
+
+- Issues, reviews, and CI attestations are signed events.
+- Gate status reports pass or concrete blockers from local event history.
+- Rejections block gates deterministically.
+
+### TOOL-005: Sync Through A Transport Packet
+
+**As an** integration developer,  
+**I want** to exchange events and blobs through an explicit transport packet,  
+**So that** storage or network layers can vary without becoming authoritative.
+
+Acceptance criteria:
+
+- Missing events and blobs import from the packet.
+- Verification remains the trust boundary after import.
+- Browser hosts can use VFS-backed live repository state.
+
+### TOOL-006: Redact A Sensitive Blob Locally
+
+**As an** operator,  
+**I want** a signed redaction marker before removing a sensitive blob locally,  
+**So that** audit evidence survives without promising impossible global deletion.
+
+Acceptance criteria:
+
+- Redaction events reference exact blob hashes and reasons.
+- Verification accepts missing blobs only when an exact redaction exists.
+- Redaction projections expose the signed reasons.
