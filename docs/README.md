@@ -10,6 +10,7 @@ decisions, operations, or contribution workflow.
 |---|---|
 | [Feature Registry](features.md) | Implemented feature IDs, behavior, and executable coverage links. |
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype. |
+| [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, and HA/DR behavior. |
 
 ## Architecture And Public APIs
