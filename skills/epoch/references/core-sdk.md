@@ -5,10 +5,13 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 ## Package and imports
 
 - Workspace package: `@epoch/core`
+- React package: `@epoch/wasm-react`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
+
+See the public [SDK docs](../../../docs/sdk.md) for code examples.
 
 ## Repository lifecycle
 
@@ -33,3 +36,7 @@ Use `CRDTRegistry.defaults()` for built-in text and JSON merges. Register custom
 ## Git-compatible core surface
 
 `epoch/Epoch.Core.Git` exposes host-filesystem Git compatibility helpers. Native Git operations are for trusted host environments and should not be assumed to work in WASM.
+
+## React surface
+
+Use `@epoch/wasm-react` for browser-safe React state history built on append-only Epoch events.

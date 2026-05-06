@@ -45,3 +45,9 @@ The CLI command `epoch dr-plan` prints the recovery checklist:
 3. Run the replacement as a full-trust seed node.
 4. Bootstrap at least two additional peers from that seed.
 5. Run `epoch verify` on the seed and each peer before resuming normal sync.
+
+## Related Docs
+
+- [Current Design](design.md#compacts-and-recovery)
+- [Feature Registry](features.md#f-010---compacts-cold-backups-and-seed-bootstrap)
+- [CLI Reference](cli.md)

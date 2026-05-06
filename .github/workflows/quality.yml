@@ -10,6 +10,25 @@ permissions:
   contents: read
 
 jobs:
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Docs check
+        run: npm run docs:check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

@@ -13,6 +13,7 @@ npm run verify
 
 Every source change must pass:
 
+- `npm run docs:check`
 - `npm run lint`
 - `npm run typecheck`
 - `npm test`
@@ -28,7 +29,19 @@ The CI workflow enforces these same gates on pull requests and pushes to `main`.
 3. Run the relevant test command and confirm the new tests fail for the expected reason.
 4. Implement the smallest production change that satisfies the tests.
 5. Run all quality gates.
-6. Update docs when public CLI commands, SDK APIs, WASM exports, React hooks, or workflows change.
+6. Update docs when public CLI commands, SDK APIs, WASM exports, React hooks, workflows, design choices, or implemented features change.
+
+## Documentation workflow
+
+Follow [Documentation Freshness Policy](docs/documentation-freshness.md) for every change. In short:
+
+- update `README.md` and `docs/README.md` when navigation, quick start, or discoverability changes;
+- update `docs/design.md` for current architecture changes;
+- add or update ADRs under `docs/design-decisions/` for material design choices, trade-offs, dependency decisions, and rejected alternatives;
+- update `docs/features.md`, user stories, and Gherkin specs when implemented behavior changes; and
+- update `skills/epoch/` references when agent, CLI, SDK, WASM, React, hook, or quality-gate guidance changes.
+
+Run `npm run docs:check` before review to catch broken links and orphaned docs.
 
 ## Pull request expectations
 
@@ -47,4 +60,5 @@ The CI workflow enforces these same gates on pull requests and pushes to `main`.
 | `packages/Epoch.WASM.React` | Browser-safe React hooks and persistent framework state helpers. |
 | `features` | Cucumber feature specifications. |
 | `test/features` | Cucumber step definitions. |
+| `docs` | Public documentation, ADRs, feature registry, SDK/CLI references, and documentation freshness policy. |
 | `skills/epoch` | Distributable agent skill documentation and marketplace metadata. |

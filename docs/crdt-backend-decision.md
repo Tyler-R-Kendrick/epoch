@@ -1,4 +1,6 @@
-# CRDT Backend Decision
+# ADR-0002: CRDT Backend Selection
+
+Status: Accepted
 
 Epoch's role is the signed, event-driven DVCS envelope: identity, append-only events, sync, verification, hooks, and source-control integration. Epoch should not define bespoke CRDT entity algorithms when a credible library can provide extensible map/text semantics.
 
@@ -63,3 +65,9 @@ This exception should be revisited when Collabs publishes a version that depends
 ## Decision
 
 Use `@collabs/collabs` for Epoch CRDT entities. Epoch stores Collabs runtime messages inside signed `crdt` events and materializes views by replaying those messages into `CValueMap` and `CText`, keeping Epoch focused on source-control concerns instead of CRDT entity algorithms.
+
+## Related Docs
+
+- [Design Decisions And ADRs](design-decisions/README.md)
+- [Dependency Exceptions](dependency-exceptions.md)
+- [Feature Registry](features.md#f-005---operation-crdt-log)

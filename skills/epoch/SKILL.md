@@ -14,36 +14,43 @@ compatibility:
 
 # Epoch DVCS Skill
 
-Epoch is an event-driven, offline-first DVCS with signed immutable events, content-addressed storage, CRDT-backed entity merging, Git compatibility surfaces, a Node CLI, and WASM-facing exports. Use this skill when an agent needs to understand how to operate Epoch, integrate it into applications, extend repository behavior, or contribute changes safely.
+Epoch is an event-driven, offline-first DVCS with signed immutable events, content-addressed storage, CRDT-backed entity merging, a Node CLI, WASM-facing exports, and React integration helpers. Use this skill when an agent needs to understand how to operate Epoch, integrate it into applications, extend repository behavior, or contribute changes safely.
 
 This file is intentionally a compact wiki index. Read only the reference page relevant to the task to minimize context usage.
 
 ## When to use this skill
 
-- Building or debugging integrations with `@epoch/core`, `@epoch/cli`, or `@epoch/wasm`.
+- Building or debugging integrations with `@epoch/core`, `@epoch/cli`, `@epoch/wasm`, or `@epoch/wasm-react`.
 - Writing automation that records files, appends CRDT operations, verifies repositories, syncs peers, or imports/exports Git repositories.
 - Updating Epoch source code, tests, quality gates, or documentation.
 - Explaining Epoch concepts to project consumers.
 
 ## Required contribution gates
 
-Before proposing source changes, run the project gates documented in [Quality Gates](references/quality-gates.md): linting, typechecking, tests, coverage, and the combined verification command.
+Before proposing source changes, run the project gates documented in [Quality Gates](references/quality-gates.md): docs check, linting, typechecking, tests, coverage, and the combined verification command.
+
+For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill changes, follow [Documentation Freshness](references/documentation.md) and update public docs in the same change.
 
 ## Reference index
 
 | Reference | Use it for |
 |---|---|
-| [Core SDK](references/core-sdk.md) | Repository lifecycle, event log, CRDT operations, hooks, actors, Git-compatible core exports. |
-| [CLI](references/cli.md) | Running `epoch` and `epoch-git`, repository commands, views, policy events, import/export, verification. |
+| [Core SDK](references/core-sdk.md) | Repository lifecycle, event log, CRDT operations, hooks, actors, and Git-compatible core exports. |
+| [CLI](references/cli.md) | Running `epoch` and `epoch-git`, repository commands, views, policy events, import/export, and verification. |
 | [WASM](references/wasm.md) | Browser/worker-safe exports, CRDT helpers, and unsupported native Git behavior. |
 | [Quality Gates](references/quality-gates.md) | Required TDD, lint, typecheck, test, coverage, and CI expectations. |
+| [Documentation Freshness](references/documentation.md) | Required README, docs index, ADR, feature, SDK, CLI, WASM, and skill-reference updates. |
 | [SDLC Subagent](references/sdlc.md) | Codex subagent checklist for enforcing feature-first TDD and the Epoch test trophy. |
+| [Documentation Index](../../docs/README.md) | Public wiki index for architecture, CLI, SDK, features, operations, and ADRs. |
 | [Architecture](../../docs/design.md) | Full design model, data structures, extension surfaces, and system comparisons. |
+| [CLI Docs](../../docs/cli.md) | Public source-checkout shorthand, installed CLI usage, and command reference. |
+| [SDK Docs](../../docs/sdk.md) | Public repository lifecycle, async actor API, CRDT operation, React integration, and hook examples. |
 | [Feature Registry](../../docs/features.md) | Product feature IDs and acceptance criteria. |
+| [Design Decisions](../../docs/design-decisions/README.md) | ADR index, design philosophy, inspiration archive links, and backend decisions. |
 
 ## Quick orientation
 
-- Workspace packages live in `packages/Epoch.Core`, `packages/Epoch.CLI`, and `packages/Epoch.WASM`.
-- Feature specifications live in `features/`; step definitions live in `test/features/steps.ts`.
+- Workspace packages live in `packages/Epoch.Core`, `packages/Epoch.CLI`, `packages/Epoch.WASM`, and `packages/Epoch.WASM.React`.
+- Feature specifications live in `features/`; step definitions and lower-level tests live in `test/`.
 - Build output is generated into `dist/` directories and should not be committed.
-- Public behavior should be documented in the README or the relevant reference page when it changes.
+- Public behavior, architecture, design decisions, and agent workflows should be documented in the docs index, ADRs, feature registry, and relevant skill reference when they change.

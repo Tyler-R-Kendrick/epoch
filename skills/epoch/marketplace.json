@@ -4,14 +4,14 @@
   "name": "epoch",
   "display_name": "Epoch DVCS Skill",
   "version": "0.1.0",
-  "description": "Agent skill for using, integrating, testing, and extending Epoch's event-driven TypeScript DVCS, CLI, and WASM packages.",
+  "description": "Agent skill for using, integrating, testing, and extending Epoch's event-driven TypeScript DVCS, CLI, WASM, and React packages.",
   "author": "Epoch maintainers",
   "license": "MIT",
   "homepage": "https://github.com/Tyler-R-Kendrick/epoch",
   "repository": "https://github.com/Tyler-R-Kendrick/epoch",
   "entrypoint": "SKILL.md",
   "categories": ["developer-tools", "version-control", "typescript", "local-first"],
-  "tags": ["dvcs", "crdt", "cli", "wasm", "git", "agent-skill"],
+  "tags": ["dvcs", "crdt", "cli", "wasm", "react", "git", "agent-skill"],
   "compatible_agents": ["claude", "github-copilot", "open-agent"],
   "capabilities": [
     "repository-orientation",
@@ -19,6 +19,7 @@
     "sdk-integration",
     "wasm-integration",
     "quality-gates",
+    "documentation-freshness",
     "sdlc-review",
     "test-driven-development"
   ],
@@ -43,9 +44,13 @@
     "references/cli.md",
     "references/wasm.md",
     "references/quality-gates.md",
+    "references/documentation.md",
     "references/sdlc.md",
     "agents/sdlc.yaml",
+    "../../docs/README.md",
+    "../../docs/documentation-freshness.md",
     "../../docs/design.md",
-    "../../docs/features.md"
+    "../../docs/features.md",
+    "../../docs/design-decisions/README.md"
   ]
 }

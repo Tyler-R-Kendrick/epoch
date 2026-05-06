@@ -2,6 +2,21 @@
 
 This registry describes features implemented in the current TypeScript prototype. It intentionally excludes roadmap items that do not have executable coverage in `features/`.
 
+## Executable Feature Specs
+
+The current registry is backed by these Cucumber feature files:
+
+| Feature spec | Coverage focus |
+|---|---|
+| [`features/repository.feature`](../features/repository.feature) | Repository initialization, recording, verification, sync, hooks, and Git import/export. |
+| [`features/actors.feature`](../features/actors.feature) | Async actor facade and per-user authorship. |
+| [`features/crdt_log.feature`](../features/crdt_log.feature) | Operation CRDT events and materialized map/text state. |
+| [`features/merge.feature`](../features/merge.feature) | Intent policy and entity merge behavior. |
+| [`features/named_views.feature`](../features/named_views.feature) | Named logical views and promotion flows. |
+| [`features/cli_wasm.feature`](../features/cli_wasm.feature) | CLI command behavior and WASM-safe exports. |
+| [`features/wasm_react.feature`](../features/wasm_react.feature) | Browser-safe React state persistence, rewind, rematerialization, and resume flows. |
+| [`features/ha_dr.feature`](../features/ha_dr.feature) | Compacts, backups, seed bootstrap, and recovery flows. |
+
 ## F-001 - Signed Event Log
 
 Every repository stores signed immutable events under `.epoch/events`.
@@ -180,3 +195,21 @@ Implemented behavior:
 Covered by:
 
 - `features/cli_wasm.feature`
+
+## F-013 - WASM React State History
+
+Epoch includes browser-safe React helpers that persist local state changes as
+append-only Epoch event history.
+
+Implemented behavior:
+
+- `@epoch/wasm-react` exposes `createEpochReactStore()`,
+  `createMemoryEpochReactStorage()`, and `useEpochState()`.
+- React state updates persist as append-only CRDT events that can be rewound
+  and materialized at earlier points in history.
+- Browser-hosted React flows restore persisted state and continue appending new
+  events after rewind and rematerialization.
+
+Covered by:
+
+- `features/wasm_react.feature`
