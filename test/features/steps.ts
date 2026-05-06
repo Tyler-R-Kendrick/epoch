@@ -48,15 +48,30 @@ let state: WorldState;
 const gitDefaultBranch = process.env.EPOCH_TEST_GIT_BRANCH ?? "main";
 setDefaultTimeout(30_000);
 
+async function closeWithTimeout(task: Promise<unknown> | undefined, label: string, timeoutMs = 5_000) {
+  if (!task) {
+    return;
+  }
+
+  await Promise.race([
+    task,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
 Before(function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-feature-"));
   state = { workspace, repo: new EpochRepository(workspace), createdFiles: [], createdDirs: [] };
 });
 
 After(async function () {
-  await state.browserPage?.close();
-  await state.browser?.close();
-  await state.browserServer?.close();
+  await Promise.allSettled([
+    closeWithTimeout(state.browserPage?.close(), "browser page close"),
+    closeWithTimeout(state.browser?.close(), "browser close"),
+    closeWithTimeout(state.browserServer?.close(), "browser server close"),
+  ]);
   state.actorRepo?.stop();
   for (const path of state.createdFiles) {
     rmSync(path, { force: true });
