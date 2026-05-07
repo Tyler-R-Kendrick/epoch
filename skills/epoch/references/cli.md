@@ -26,7 +26,9 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 
 | Command | Purpose |
 |---|---|
+| `create [PATH] --author NAME` | Create an empty signed repository. |
 | `init --author NAME` | Initialize `.epoch/` metadata and identity. |
+| `push [PATH...] [--author NAME] [--version NAME]` | Open or create a repository, record existing assets, and create a signed version by default. |
 | `record [--type MIME] PATH` | Record a file as an immutable event and blob. |
 | `events` | Print event IDs, types, and payloads. |
 | `verify` | Verify signatures, DAG state, heads, blobs, and tamper evidence. |
@@ -35,6 +37,15 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 | `dr-plan` | Print the disaster recovery plan. |
 | `op-log` | List signed operation events recorded by mutating CLI commands. |
 | `op-show EVENT_ID` | Print one signed operation event projection as JSON. |
+
+## Version commands
+
+| Command | Purpose |
+|---|---|
+| `version create [NAME] [--view VIEW] [--entity NAME]` | Create a signed version manifest. |
+| `versions` | List known versions. |
+| `version show VERSION` | Print a version manifest. |
+| `version materialize VERSION --out PATH [--force]` | Recreate version files, snapshots, and `epoch-version.json`. |
 
 ## Review and policy commands
 

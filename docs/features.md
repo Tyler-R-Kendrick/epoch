@@ -8,7 +8,7 @@ The current registry is backed by these Cucumber feature files:
 
 | Feature spec | Coverage focus |
 |---|---|
-| [`features/repository.feature`](../features/repository.feature) | Repository initialization, recording, verification, sync, hooks, and Git import/export. |
+| [`features/repository.feature`](../features/repository.feature) | Repository creation, asset push, signed versions, materialization, verification, sync, hooks, and Git import/export. |
 | [`features/actors.feature`](../features/actors.feature) | Async actor facade and per-user authorship. |
 | [`features/crdt_log.feature`](../features/crdt_log.feature) | Operation CRDT events and materialized map/text state. |
 | [`features/merge.feature`](../features/merge.feature) | Intent policy and entity merge behavior. |
@@ -25,6 +25,7 @@ Every repository stores signed immutable events under `.epoch/events`.
 Implemented behavior:
 
 - `EpochRepository.init(author?)` creates repository metadata and an Ed25519 identity.
+- `EpochRepository.create(root, options)` and `openOrCreate(root, options)` provide one-call repository creation helpers.
 - `recordFile(path, mimeType)` appends a signed `record` event with causal parents.
 - `events()`, `read(eventId)`, and `heads()` expose the local event log.
 - `verify()` checks event IDs, signatures, parent references, heads, and blob integrity.
@@ -317,3 +318,30 @@ Implemented behavior:
 Covered by:
 
 - `features/wasm_react.feature`
+
+## F-019 - First-Class Repository Creation And Versions
+
+Epoch can create repositories from empty directories or existing assets, then
+bind deployable content to signed version manifests.
+
+Implemented behavior:
+
+- `epoch create` creates an empty signed repository with concise state output.
+- `epoch push` opens or creates a repository, recursively records existing
+  assets, skips `.epoch/`, `.git/`, and `node_modules/`, and creates a signed
+  version by default.
+- `EpochRepository.push()` and `EpochRepository.openOrCreate()` expose the same
+  asset-first workflow through the SDK.
+- `createVersion()`, `versions()`, `resolveVersion()`, and
+  `materializeVersion()` manage signed `version` events.
+- Version manifests reference a view/frontier, file blobs, source record
+  events, and optional CRDT snapshot blobs.
+- Version materialization writes recorded files, CRDT JSON snapshots, and an
+  `epoch-version.json` manifest while refusing to overwrite non-empty output by
+  default.
+- `epoch version create`, `epoch versions`, `epoch version show`, and
+  `epoch version materialize` expose the version workflow through the CLI.
+
+Covered by:
+
+- `features/repository.feature`

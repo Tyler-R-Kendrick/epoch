@@ -37,7 +37,7 @@ npm run build
 Run the CLI from the source checkout with the package bin shorthand:
 
 ```bash
-npm exec -- epoch init --author alice
+npm exec -- epoch create --author alice
 npm exec -- epoch record README.md --type text/plain
 npm exec -- epoch events
 npm exec -- epoch verify
@@ -65,6 +65,13 @@ Sync two local repositories:
 
 ```bash
 npm exec -- epoch --repo ./peer-a sync ./peer-b
+```
+
+Push existing assets and materialize a signed version:
+
+```bash
+npm exec -- epoch push dist --author alice --version initial-site
+npm exec -- epoch version materialize initial-site --out deploy
 ```
 
 Create and inspect an intent:
@@ -98,6 +105,7 @@ High-value entry points:
 | Architecture | [docs/design.md](docs/design.md) |
 | CLI usage | [docs/cli.md](docs/cli.md) |
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
+| Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
 | Competition research | [docs/competition/README.md](docs/competition/README.md) |
 | Design decisions and ADRs | [docs/design-decisions/README.md](docs/design-decisions/README.md) |

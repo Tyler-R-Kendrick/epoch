@@ -1,11 +1,11 @@
 export { BundleEpochTransport, EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, JsonSerializationProvider, MemoryEpochTransport, commitGit, createToonSerializationProvider } from "./core";
-export type { CollaborationProjection, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, IdentityData, InclusionRule, IntentDecision, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
+export type { CollaborationProjection, CreateVersionOptions, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryCreateOptions, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, IdentityData, InclusionRule, IntentDecision, MaterializeVersionOptions, MaterializeVersionResult, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, PushOptions, PushResult, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
 export { EpochActorSystem, EpochUserActor } from "./actors";
 export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
 export type { CRDTOperation, EntityAdapter } from "./crdt";
 export { canonicalJson } from "./json";
 export { ActorCommand, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, Schemas, StorageName, Symbols } from "./domain";
-export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath } from "./domain";
+export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath, VersionEntity, VersionFile, VersionPayload } from "./domain";
 export { createCompact, pruneEventLogBeforeCompact, restoreFromCompact, latestCompact, verifyCompact } from "./ha/compact";
 export type { Compact, CompactManifest, CompactManifestEntry } from "./ha/compact";
 export { SeedNodeService, bootstrapFromSeed, bootstrapFromSeeds } from "./ha/seed";

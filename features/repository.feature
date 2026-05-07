@@ -11,6 +11,121 @@ Feature: Epoch repository event log
     And the repository identity uses Ed25519 keys
     And the recorded event is signed
 
+  Scenario: Create an empty repository with one command
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | create   |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    And the CLI output contains "created Epoch repository"
+    And the repository verifies successfully
+    And the event log contains 0 events
+    And the repository identity uses Ed25519 keys
+
+  Scenario: Push assets to create a repository and first version
+    Given a new workspace
+    When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"
+    And I run the Epoch CLI with arguments:
+      | push         |
+      | dist         |
+      | --author     |
+      | alice        |
+      | --version    |
+      | initial-site |
+    Then the CLI exits with code 0
+    And the CLI output contains "version initial-site"
+    And the repository verifies successfully
+    And the event log contains 2 events
+    And the latest version is named "initial-site"
+    And the version manifest includes file "dist/index.html"
+
+  Scenario: Push skips repository metadata directories
+    Given a new workspace
+    When I write raw workspace file "asset.txt" with content "asset\n"
+    And I write raw workspace file ".git/config" with content "private metadata\n"
+    And I run the Epoch CLI with arguments:
+      | push     |
+      | .        |
+      | --author |
+      | alice    |
+      | --version |
+      | assets   |
+    Then the CLI exits with code 0
+    And the repository verifies successfully
+    And the version manifest includes file "asset.txt"
+    And the version manifest does not include file ".git/config"
+
+  Scenario: Materialize a version into a clean directory
+    Given a new workspace
+    When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"
+    And I run the Epoch CLI with arguments:
+      | push         |
+      | dist         |
+      | --author     |
+      | alice        |
+      | --version    |
+      | initial-site |
+    And I run the Epoch CLI with arguments:
+      | version     |
+      | materialize |
+      | initial-site |
+      | --out       |
+      | deploy      |
+    Then the CLI exits with code 0
+    And workspace file "deploy/dist/index.html" contains "<h1>Hello</h1>\n"
+    And workspace JSON file "deploy/epoch-version.json" has property "name" equal to "initial-site"
+
+  Scenario: Refuse to overwrite materialized output by default
+    Given a new workspace
+    When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"
+    And I run the Epoch CLI with arguments:
+      | push         |
+      | dist         |
+      | --author     |
+      | alice        |
+      | --version    |
+      | initial-site |
+    And I write raw workspace file "deploy/keep.txt" with content "keep\n"
+    And I run the Epoch CLI with arguments:
+      | version     |
+      | materialize |
+      | initial-site |
+      | --out       |
+      | deploy      |
+    Then the CLI exits with code 1
+    And the CLI error contains "would overwrite files"
+
+  Scenario: Version CRDT state as a deployable snapshot
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    When I append CRDT map value for "tasks" key "build" as "alice" with JSON {"status":"ready"}
+    And I run the Epoch CLI with arguments:
+      | version     |
+      | create      |
+      | agent-state |
+      | --entity    |
+      | tasks       |
+    Then the CLI exits with code 0
+    And the latest version is named "agent-state"
+    And the version manifest includes entity "tasks"
+    When I run the Epoch CLI with arguments:
+      | version     |
+      | materialize |
+      | agent-state |
+      | --out       |
+      | deploy      |
+    Then workspace JSON file "deploy/tasks.json" has property "build.status" equal to "ready"
+
+  Scenario: SDK open-or-create pushes assets and materializes a version
+    Given a new workspace
+    When I write raw workspace file "site/app.js" with content "console.log('ready')\n"
+    And I push "site" through the SDK as "alice" versioned "sdk-site"
+    Then the repository verifies successfully
+    And the latest version is named "sdk-site"
+    When I materialize version "sdk-site" through the SDK into "sdk-deploy"
+    Then workspace file "sdk-deploy/site/app.js" contains "console.log('ready')\n"
+
   Scenario: Repository hooks observe event-driven lifecycle steps
     Given a new workspace
     And an Epoch repository hook recorder

@@ -210,6 +210,16 @@ When("I try to record {string} with content {string} as {string}", function (pat
   }
 });
 
+When("I push {string} through the SDK as {string} versioned {string}", function (path: string, author: string, version: string) {
+  state.repo = EpochRepository.openOrCreate(state.workspace, { author });
+  const result = state.repo.push([path], { author, version });
+  state.lastEvent = result.version;
+});
+
+When("I materialize version {string} through the SDK into {string}", function (version: string, outDir: string) {
+  state.repo.materializeVersion(version, { outDir });
+});
+
 Then("the repository verifies successfully", function () {
   assert.deepEqual(state.repo.verify(), []);
 });
@@ -232,6 +242,45 @@ Then("the repository identity uses Ed25519 keys", function () {
 
 Then("the recorded event is signed", function () {
   assert.ok(state.lastEvent?.signature);
+});
+
+Then("the latest version is named {string}", function (expected: string) {
+  const version = state.repo.events().filter((event) => event.type === "version").at(-1);
+  assert.ok(version, "expected a version event");
+  assert.equal(version.payload.name, expected);
+});
+
+Then("the version manifest includes file {string}", function (expected: string) {
+  const version = state.repo.events().filter((event) => event.type === "version").at(-1);
+  assert.ok(version, "expected a version event");
+  const files = version.payload.files;
+  assert.ok(Array.isArray(files), "expected version files");
+  assert.ok(files.some((file) => typeof file === "object" && file !== null && "path" in file && file.path === expected));
+});
+
+Then("the version manifest does not include file {string}", function (expected: string) {
+  const version = state.repo.events().filter((event) => event.type === "version").at(-1);
+  assert.ok(version, "expected a version event");
+  const files = version.payload.files;
+  assert.ok(Array.isArray(files), "expected version files");
+  assert.ok(!files.some((file) => typeof file === "object" && file !== null && "path" in file && file.path === expected));
+});
+
+Then("the version manifest includes entity {string}", function (expected: string) {
+  const version = state.repo.events().filter((event) => event.type === "version").at(-1);
+  assert.ok(version, "expected a version event");
+  const entities = version.payload.entities;
+  assert.ok(Array.isArray(entities), "expected version entities");
+  assert.ok(entities.some((entity) => typeof entity === "object" && entity !== null && "name" in entity && entity.name === expected));
+});
+
+Then("workspace file {string} contains {string}", function (path: string, expected: string) {
+  assert.equal(readFileSync(join(state.workspace, path), "utf8"), expected.replaceAll("\\n", "\n"));
+});
+
+Then("workspace JSON file {string} has property {string} equal to {string}", function (path: string, propertyPath: string, expected: string) {
+  const data = JSON.parse(readFileSync(join(state.workspace, path), "utf8")) as unknown;
+  assert.equal(String(valueAtPath(data, propertyPath)), expected);
 });
 
 When("I tamper with the recorded event size", function () {
@@ -1088,6 +1137,14 @@ function metadataValue(key: string): unknown {
 
 function metadataLabels(): unknown {
   return metadataValue("labels");
+}
+
+function valueAtPath(value: unknown, propertyPath: string): unknown {
+  return propertyPath.split(".").reduce<unknown>((current, key) => {
+    assert.equal(typeof current, "object");
+    assert.ok(current !== null);
+    return (current as Record<string, unknown>)[key];
+  }, value);
 }
 
 Given("the default CRDT registry", function () {
