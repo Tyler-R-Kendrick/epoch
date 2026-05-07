@@ -4,8 +4,7 @@ This document describes the implementation that exists in this repository today.
 
 ## Summary
 
-Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, HA/DR compacts, and Git compatibility adapters. The workspace also includes an early `Epoch.Platform` Core/SDK/Community/Web foundation for headless platform workflows, optional Community deployment, and a browser-rendered operator console over organizations, projects, repositories, environments, deployables, deploy plans, identity/RBAC, forge reviews, packages, search, observability, runners, backups, secrets, incidents, AI action plans, audit events, snapshots, and optional Community capability discovery.
-Signed deployable versions are part of the repository layer, and the workspace also includes an early `Epoch.Platform` Core/SDK/Community/Web foundation for headless platform workflows, optional Community deployment, and a browser-rendered operator console over organizations, projects, repositories, environments, deployables, deploy plans, identity/RBAC, forge reviews, packages, search, observability, runners, backups, secrets, incidents, AI action plans, audit events, snapshots, and optional Community capability discovery.
+Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, signed deployable versions, HA/DR compacts, and Git compatibility adapters. The workspace also contains `Epoch.Platform.Core` and `Epoch.Platform.Sdk` for headless control-plane workflows, `Epoch.Platform.Web` as the hosting control-plane PWA for Epoch services, and separate Community API, Core client, CLI, and Web packages for GitHub-like repository collaboration.
 
 ## Repository Layout
 
@@ -264,16 +263,29 @@ and invariants for:
 
 `@epoch/platform-sdk` wraps the Core API with a headless management surface for operators, automation, and agents. It intentionally delegates correctness to Core rather than duplicating business rules.
 
-`@epoch/platform-community` is the optional product module over SDK for public
-or internal Community deployments. It groups profile, project showcase,
-discussion, feed, and moderation APIs while relying on Core for capability,
-visibility, RBAC, moderation, backup, and legal-hold invariants.
+## Platform Web Apps
 
-`@epoch/platform-web` provides a browser-rendered console foundation. The current renderer validates scope preservation, production-readiness state, mobile bottom navigation, desktop navigation, primary deploy action, command palette affordance, role-aware home modules, admin governance sections, dense data/table copy, confirmation copy, SDK-equivalent copy, AI affordance accessibility, operational telemetry, package distribution, search results, and Community navigation/activity/moderation state. When Community is enabled, the renderer can also expose the public project showcase slug, README, deploy badge, contribution prompt, bookmark count, and discussion count.
+`Epoch.Platform.Web` and `Epoch.Community.Web` are separate projects.
 
-This foundation does not yet implement networking, real runners, real
-infrastructure adapters, real SSO handshakes, clustered scheduling, or a
-production database/queue/search stack for the platform control plane.
+`Epoch.Platform.Web` is a PWA SPA definition for operating Epoch hosting
+infrastructure. It exposes deployable service descriptors for the Epoch node,
+object store, sync seed, and any explicitly registered Epoch app. Its
+`communityWorkflows` surface is intentionally empty.
+
+`Epoch.Community.Web` is a separate PWA SPA definition for the Epoch community
+product. It consumes `Epoch.Community.Core` to read repository browsing, issue
+tracking, change review, discussions, maintainer profiles, release discovery,
+and organization-space data from an API client. It exports a generic deployment
+target so a host can register Community with Platform Web without Platform Web
+importing Community packages.
+
+`Epoch.Community.API` owns the in-memory API implementation for the current
+prototype. `Epoch.Community.Core` owns shared community domain types and the API
+client wrapper. `Epoch.Community.CLI` uses Core to list repositories and operate
+issue/change-review workflows from the command line.
+
+See [Epoch Platform Packages](platforms.md) and
+[ADR-0008](design-decisions/0008-separate-platform-web-and-community.md).
 
 ## Non-Goals In The Current Prototype
 
@@ -291,3 +303,4 @@ The current implementation does not provide:
 - automatic background sync scheduling
 - persisted Epoch.Platform control-plane storage
 - real Epoch.Platform runners or infrastructure adapters
+- production container orchestration for the platform service descriptors

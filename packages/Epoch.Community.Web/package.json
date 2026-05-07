@@ -1,7 +1,7 @@
 {
-  "name": "@epoch/platform-community",
+  "name": "@epoch/community-web",
   "version": "0.1.0",
-  "description": "Optional Community deployment module for Epoch.Platform.",
+  "description": "Separate Epoch Community PWA for repository collaboration workflows.",
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
@@ -9,7 +9,6 @@
     "typecheck": "tsgo -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@epoch/platform-core": "0.1.0",
-    "@epoch/platform-sdk": "0.1.0"
+    "@epoch/community-core": "0.1.0"
   }
 }

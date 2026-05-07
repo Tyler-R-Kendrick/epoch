@@ -1,0 +1,17 @@
+{
+  "name": "@epoch/community-cli",
+  "version": "0.1.0",
+  "description": "Epoch Community command line client built on Epoch Community Core.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "bin": {
+    "epoch-community": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/community-core": "0.1.0"
+  }
+}

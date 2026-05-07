@@ -1,7 +1,7 @@
 {
-  "name": "@epoch/platform-web",
+  "name": "@epoch/community-core",
   "version": "0.1.0",
-  "description": "Epoch hosting control-plane PWA for deploying Epoch-related services.",
+  "description": "Epoch Community API client and shared community domain types.",
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
