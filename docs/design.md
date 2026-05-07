@@ -4,7 +4,8 @@ This document describes the implementation that exists in this repository today.
 
 ## Summary
 
-Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, signed deployable versions, HA/DR compacts, and Git compatibility adapters.
+Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, HA/DR compacts, and Git compatibility adapters. The workspace also includes an early `Epoch.Platform` Core/SDK/Community/Web foundation for headless platform workflows, optional Community deployment, and a browser-rendered operator console over organizations, projects, repositories, environments, deployables, deploy plans, identity/RBAC, forge reviews, packages, search, observability, runners, backups, secrets, incidents, AI action plans, audit events, snapshots, and optional Community capability discovery.
+Signed deployable versions are part of the repository layer, and the workspace also includes an early `Epoch.Platform` Core/SDK/Community/Web foundation for headless platform workflows, optional Community deployment, and a browser-rendered operator console over organizations, projects, repositories, environments, deployables, deploy plans, identity/RBAC, forge reviews, packages, search, observability, runners, backups, secrets, incidents, AI action plans, audit events, snapshots, and optional Community capability discovery.
 
 ## Repository Layout
 
@@ -201,6 +202,79 @@ The CLI exposes the currently implemented repository, intent, sync, view, merge,
 
 See the [CLI Reference](cli.md) for source-checkout shorthand, installed binaries, command groups, and Git-compatible command behavior.
 
+## Epoch.Platform Core, SDK, And Web Foundation
+
+`@epoch/platform-core` provides the Epoch.Platform domain service. It can run as
+an in-memory service for focused tests and embedded demos, or as a
+filesystem-backed service through `createFileSystemPlatformCore()` for durable
+control-plane state. Filesystem-backed Core writes `platform-state.json` as a
+hash-verified state envelope, rejects tampered state during startup, stores
+backup artifacts under the configured data directory, verifies backup manifests
+against their snapshots, restores fresh instances from verified backup
+artifacts, and verifies webhooks with HMAC signatures. Core owns platform state
+and invariants for:
+
+- capability discovery, including optional Community enablement
+- organization, project, repository, environment, and deployable creation
+- project overview empty-state actions
+- first-run readiness across infrastructure, backup destination, and first deployment
+- runner registration and deployment job logs
+- secret references that appear in deploy plans without exposing plaintext
+- deploy plan generation with source, target, required approvals, primary action labels, impact summary, rollback strategy, and SDK operation metadata
+- protected-environment approval checks before deployment execution
+- platform users, teams, memberships, and team role bindings for protected
+  environment approval governance
+- SSO provider configuration, SCIM user provisioning, service accounts, API
+  tokens, sessions, and typed API request correlation
+- HMAC webhook registration/signature verification and replayable platform events
+- secret rotation, access grants, reference-only reads, audit export, retention,
+  compliance reports, tenant export, and tenant export deletion
+- deployment execution audit events
+- degraded deployment incident diagnosis and rollback
+- failed deployment classification, incident acknowledgement, and follow-up
+  issue creation
+- AI action plans with approval-gated execution and audit records
+- AI context packs, source citations, secret redaction, tool authorization, and
+  eval result recording
+- issues, review intents, CI checks, AI review summaries, approvals, and merge
+  state for forge collaboration
+- package publication from deployments and platform search across repositories,
+  deployables, and packages
+- observability summaries for runner count and latest deployment state
+- infrastructure targets, resources, deployable templates, manifest discovery,
+  dry-run plan editing/canceling, deployment promotion, runner heartbeat,
+  runner quarantine, platform job retry, runner-loss reconciliation, and
+  configuration validation
+- operator dashboards, support bundles, backup start/verify with manifest
+  artifacts, restore dry-run, backup-artifact restore, HA profile declaration,
+  and failover drill records
+- Community project publication only when Community is enabled
+- Community visibility policy review and Community status reporting
+- Community showcase publication guarded by project maintainer RBAC when a
+  project is RBAC-managed
+- Community moderation approval before public visibility
+- Community public/internal/private profiles, follows, stars, bookmarks,
+  discussions, public activity feed, personalized feed entrypoint, discussion
+  reports, AI-assisted moderation triage, and report resolution
+- Community topics, showcase assets, public releases, contribution reputation,
+  search, abuse throttles, takedowns, blocking, legal-hold export, and worker
+  disablement state
+- platform snapshots that restore Core and Community state into a fresh Core
+  instance
+
+`@epoch/platform-sdk` wraps the Core API with a headless management surface for operators, automation, and agents. It intentionally delegates correctness to Core rather than duplicating business rules.
+
+`@epoch/platform-community` is the optional product module over SDK for public
+or internal Community deployments. It groups profile, project showcase,
+discussion, feed, and moderation APIs while relying on Core for capability,
+visibility, RBAC, moderation, backup, and legal-hold invariants.
+
+`@epoch/platform-web` provides a browser-rendered console foundation. The current renderer validates scope preservation, production-readiness state, mobile bottom navigation, desktop navigation, primary deploy action, command palette affordance, role-aware home modules, admin governance sections, dense data/table copy, confirmation copy, SDK-equivalent copy, AI affordance accessibility, operational telemetry, package distribution, search results, and Community navigation/activity/moderation state. When Community is enabled, the renderer can also expose the public project showcase slug, README, deploy badge, contribution prompt, bookmark count, and discussion count.
+
+This foundation does not yet implement networking, real runners, real
+infrastructure adapters, real SSO handshakes, clustered scheduling, or a
+production database/queue/search stack for the platform control plane.
+
 ## Non-Goals In The Current Prototype
 
 The current implementation does not provide:
@@ -214,3 +288,6 @@ The current implementation does not provide:
 - delta sync
 - timestamp restoration
 - configured hook scripts
+- automatic background sync scheduling
+- persisted Epoch.Platform control-plane storage
+- real Epoch.Platform runners or infrastructure adapters

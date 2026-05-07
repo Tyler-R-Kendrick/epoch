@@ -7,8 +7,13 @@ cryptographic author identity, deterministic policy, local sync, and
 CRDT-backed shared state.
 
 The repository is currently a research-friendly implementation split into a
-Core SDK, Node CLI, WASM-safe exports, and React integration helpers. The full
-implemented feature list lives in the [feature registry](docs/features.md).
+Core SDK, Node CLI, WASM-safe exports, React integration helpers, and an
+Epoch.Platform Core/SDK/Community/Web foundation with identity, deployments,
+packages, search, observability, infrastructure, API safety, compliance, AI
+guardrails, optional public Community surfaces, operations, HA/DR drill,
+durable filesystem-backed Core state, verified backup artifacts, and snapshot
+flows. The full implemented feature list lives in the
+[feature registry](docs/features.md).
 
 ## Why Epoch?
 
@@ -107,6 +112,8 @@ High-value entry points:
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
+| Epoch.Platform product spec | [docs/epoch-platform-spec.md](docs/epoch-platform-spec.md) |
+| Reusable spec template | [docs/spec-template-outline.md](docs/spec-template-outline.md) |
 | Competition research | [docs/competition/README.md](docs/competition/README.md) |
 | Design decisions and ADRs | [docs/design-decisions/README.md](docs/design-decisions/README.md) |
 | User stories | [docs/user-stories.md](docs/user-stories.md) |

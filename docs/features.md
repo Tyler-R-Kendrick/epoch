@@ -17,6 +17,15 @@ The current registry is backed by these Cucumber feature files:
 | [`features/wasm_react.feature`](../features/wasm_react.feature) | Browser-safe React state persistence, rewind, rematerialization, and resume flows. |
 | [`features/ha_dr.feature`](../features/ha_dr.feature) | Compacts, backups, seed bootstrap, and recovery flows. |
 | [`features/advanced_collaboration.feature`](../features/advanced_collaboration.feature) | Signed collaboration objects, gates, memory transport, reusable conflict resolutions, operation events, CSV adapters, redactions, and serialization providers. |
+| [`features/platform_core.feature`](../features/platform_core.feature) | Initial Epoch.Platform Core and SDK foundation for headless project, deploy-plan, audit, and optional Community flows. |
+| [`features/platform_operations.feature`](../features/platform_operations.feature) | Epoch.Platform operational flows for readiness, backups, runners, secrets, deploy jobs, incidents, AI plans, and Community moderation. |
+| [`features/platform_product_domains.feature`](../features/platform_product_domains.feature) | Epoch.Platform identity/RBAC, forge collaboration, packages, search, observability, Community social workflows, moderation, and snapshots. |
+| [`features/platform_enterprise_conformance.feature`](../features/platform_enterprise_conformance.feature) | Enterprise identity, SSO/SCIM, service accounts, API tokens, sessions, idempotency, webhooks, events, secret access, audit export, compliance, and tenant export/delete. |
+| [`features/platform_infrastructure_delivery.feature`](../features/platform_infrastructure_delivery.feature) | Infrastructure targets, resources, templates, deployable discovery, dry-run plans, cancel, promote, runner coordination, job retry/reconcile, and configuration validation. |
+| [`features/platform_ai_operations_ha.feature`](../features/platform_ai_operations_ha.feature) | AI context/guardrails/evals, failure diagnosis, incident follow-up, operator dashboard, support bundle, backup, restore, HA profile, and failover drill. |
+| [`features/platform_community_conformance.feature`](../features/platform_community_conformance.feature) | Community showcases, topics, releases, reputation, search, abuse controls, takedowns, blocking, legal hold, worker disablement, and Core continuity. |
+| [`features/platform_web.feature`](../features/platform_web.feature) | Browser-rendered Epoch.Platform web console behavior across mobile and desktop navigation. |
+| [`features/platform_web_conformance.feature`](../features/platform_web_conformance.feature) | Mobile task completion, role-aware home modules, admin governance sections, dense data, confirmations, and SDK-equivalent web copy. |
 
 ## F-001 - Signed Event Log
 
@@ -345,3 +354,185 @@ Implemented behavior:
 Covered by:
 
 - `features/repository.feature`
+## F-020 - Epoch.Platform Core and SDK Foundation
+
+Epoch includes an initial platform foundation that keeps domain logic in
+`@epoch/platform-core` and exposes headless management through
+`@epoch/platform-sdk`.
+
+Implemented behavior:
+
+- `createInMemoryPlatformCore()` creates an in-memory platform domain service.
+- `createFileSystemPlatformCore()` creates a durable local platform domain
+  service with hash-verified state envelopes, atomic state writes, backup
+  artifact creation, backup-artifact restore, and tamper detection.
+- `EpochPlatformSdk` wraps Core with organization, project, repository,
+  environment, deployable, deployment, identity, issue, review, package,
+  search, observability, runner, backup, secret, incident, AI, Community,
+  snapshot, capability, and audit surfaces.
+- `EpochPlatformCommunity` wraps the SDK as the optional Community deployment
+  module for public/internal profiles, project showcases, discussions, feeds,
+  moderation, and legal-hold workflows.
+- Capability discovery reports Community as enabled or disabled.
+- Project overviews list repositories and expose empty-state actions such as
+  `Create deployable`.
+- Deploy plans expose source repository, target environment, protected
+  environment approval requirements, primary action text, and the matching SDK
+  operation.
+- Protected deploy execution fails with a typed `policy_denied` error until the
+  plan is approved.
+- Executed deployments record `deployment.executed` audit events.
+- Community publication fails with `feature_disabled` until Community is
+  explicitly enabled.
+
+Covered by:
+
+- `features/platform_core.feature`
+- `features/platform_operations.feature`
+- `test/unit/platform-production-core.test.ts`
+
+## F-021 - Epoch.Platform Product Domains
+
+Epoch.Platform now includes executable product-domain coverage beyond the
+foundation slice.
+
+Implemented behavior:
+
+- Platform users, teams, memberships, and team role bindings can govern
+  protected environment approvals.
+- RBAC-managed protected deploy plans reject unauthorized approvers with
+  `permission_denied` and a recovery suggestion.
+- Issues, review intents, CI checks, AI review summaries, approvals, and merge
+  state form a GitHub/GitLab-like forge workflow.
+- Packages can be published from deployments and discovered alongside
+  repositories and deployables through platform search.
+- Observability summaries expose runner count and latest deployment state.
+- Community profiles can follow and star Community projects, open discussions,
+  report discussions, feed activity, and resolve moderation reports.
+- Platform snapshots export and restore core and Community state into a fresh
+  in-memory Core instance.
+
+Covered by:
+
+- `features/platform_product_domains.feature`
+
+## F-022 - Epoch.Platform Web Console Foundation
+
+Epoch includes an initial browser-rendered platform console package,
+`@epoch/platform-web`.
+
+Implemented behavior:
+
+- `renderPlatformConsole(container, model)` renders an operations-first console
+  into a browser DOM container.
+- The console shows production readiness, deployment health, project /
+  environment / deployable scope, and the primary deploy action.
+- Community navigation is hidden when Community is disabled and visible when
+  enabled.
+- Community moderation state is visible when Community is enabled.
+- Desktop rendering can expose operational telemetry, package distribution,
+  search results, Community follower/star counts, feed activity, and moderation
+  queue count.
+- Community-enabled desktop rendering can expose public project showcase data
+  including slug, README, deploy badge, contribution prompt, bookmarks, and
+  discussion count.
+- The AI affordance has an accessible label.
+- Mobile viewport rendering uses mobile navigation, while desktop viewport
+  rendering uses desktop navigation.
+
+Covered by:
+
+- `features/platform_web.feature`
+- `features/platform_web_conformance.feature`
+
+## F-023 - Epoch.Platform Enterprise Conformance
+
+Epoch.Platform includes executable enterprise controls from the spec's Core,
+SDK, API, security, compliance, and governance sections.
+
+Implemented behavior:
+
+- SSO providers, SCIM-provisioned users, service accounts, API tokens, and
+  sessions can be created, revoked, and audited.
+- Mutating deploy-plan creation supports idempotency keys and API request
+  correlation IDs.
+- Webhook endpoints can be registered and verified through SDK helpers using
+  HMAC signatures.
+- Platform event streams expose replayable event records.
+- Secret rotation, least-privilege secret-reference reads, audit export, audit
+  retention, compliance reports, tenant export, tenant export deletion, and
+  typed SDK errors are covered.
+
+Covered by:
+
+- `features/platform_enterprise_conformance.feature`
+
+## F-024 - Epoch.Platform Infrastructure And Delivery
+
+Epoch.Platform includes the infrastructure and delivery coordination contracts
+needed for the Coolify-like operational path in the spec.
+
+Implemented behavior:
+
+- Infrastructure targets, resources, deployable templates, and deployable
+  discovery from manifests are available through Core and SDK.
+- Dry-run deploy plans are editable, idempotent, cancelable, and expose
+  generated configuration.
+- Deployments can be promoted between environments.
+- Runner heartbeats, quarantine, platform job scheduling, retry, and runner-loss
+  reconciliation are tracked.
+- Platform configuration accepts forward-compatible unknown sections and rejects
+  invalid known sections with typed errors.
+
+Covered by:
+
+- `features/platform_infrastructure_delivery.feature`
+
+## F-025 - Epoch.Platform AI, Operations, And HA/DR
+
+Epoch.Platform includes the AI guardrail, operator, support, backup, restore,
+and HA drill contracts required by the spec.
+
+Implemented behavior:
+
+- AI context packs are scoped, cite sources, and redact secrets.
+- Unsafe AI tools are denied, production-impacting AI tools require approval,
+  and AI eval results are recorded.
+- Failed deployments are classified with recovery actions, incidents can be
+  acknowledged, and follow-up issues can be created.
+- Operator dashboard and support bundle summaries expose health, runner,
+  backup, capability, and redacted diagnostic state.
+- Backup start/verify creates manifest-hashed artifacts when Core is
+  filesystem-backed; restore dry-run, backup-artifact restore, HA profile
+  declaration, and failover drills are available through SDK surfaces.
+
+Covered by:
+
+- `features/platform_ai_operations_ha.feature`
+
+## F-026 - Epoch.Platform Community Conformance
+
+Epoch.Platform Community now covers the optional social product mode required
+by the spec.
+
+Implemented behavior:
+
+- Community projects support topics, showcase assets, public releases, public
+  page data, Community search, contribution recording, profile reputation, and
+  backup/restore through the filesystem-backed Core.
+- Community status includes worker state and visibility policy review.
+- Showcase publication can require project maintainer RBAC, pending showcases
+  are hidden from search, and stars/bookmarks/follows/discussions require
+  approved public visibility.
+- Public profiles retain user IDs, bios, links, avatar references, visibility,
+  and moderation state.
+- Discussion bodies, public visibility, participants, feed events, bookmarks,
+  AI-assisted report triage, takedowns, profile blocking, legal-hold export,
+  and moderation audit events are covered.
+- Disabled Community APIs return `feature_disabled`, Community workers report
+  disabled, and private Core repository workflows continue to function.
+
+Covered by:
+
+- `features/platform_community_conformance.feature`
+- `test/unit/platform-community-module.test.ts`

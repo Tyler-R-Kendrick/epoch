@@ -1,0 +1,14 @@
+{
+  "name": "@epoch/platform-sdk",
+  "version": "0.1.0",
+  "description": "Headless SDK for Epoch.Platform Core.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/platform-core": "0.1.0"
+  }
+}

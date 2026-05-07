@@ -22,7 +22,7 @@ and Gherkin feature spec is reachable from the root `README.md` hierarchy.
 | Material decision, trade-off, dependency selection, rejected alternative | ADR under `docs/design-decisions/` and its index |
 | Implemented feature or acceptance criteria | `docs/features.md`, relevant `features/*.feature`, user stories when flows change |
 | CLI command, shorthand, binary, Git-compatible behavior | `docs/cli.md`, `skills/epoch/references/cli.md` |
-| SDK API, actor API, CRDT operation API, lifecycle hook API | `docs/sdk.md`, `skills/epoch/references/core-sdk.md` |
+| SDK API, actor API, CRDT operation API, lifecycle hook API, Epoch.Platform Core/SDK/Web API | `docs/sdk.md`, `skills/epoch/references/core-sdk.md` |
 | WASM export or native unsupported behavior | `skills/epoch/references/wasm.md` and relevant public docs |
 | HA/DR compact, backup, restore, seed workflow | `docs/HA-DR.md`, feature registry, feature specs |
 | Agent workflow, quality gate, docs policy, skill behavior | `AGENTS.md`, `CONTRIBUTING.md`, PR template, `skills/epoch/` |
