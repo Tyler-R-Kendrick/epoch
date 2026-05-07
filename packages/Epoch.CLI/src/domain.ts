@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 export const CliCommand = {
+  create: "create",
   init: "init",
+  push: "push",
   record: "record",
   intent: "intent",
   events: "events",
@@ -28,6 +30,8 @@ export const CliCommand = {
   viewDelete: "view-delete",
   viewDiff: "view-diff",
   viewPromote: "view-promote",
+  version: "version",
+  versions: "versions",
   import: "import",
   export: "export",
   drPlan: "dr-plan",
@@ -51,6 +55,14 @@ export const CliOption = {
   intent: "intent",
   rule: "rule",
   parent: "parent",
+  version: "version",
+  message: "message",
+  entity: "entity",
+  view: "view",
+  out: "out",
+  force: "force",
+  json: "json",
+  noVersion: "no-version",
   repo: "--repo",
 } as const;
 
@@ -62,7 +74,9 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <init|record|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|main|resolve|sync|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|import|export|dr-plan>",
+  usage: "usage: epoch [--repo PATH] <create|init|push|record|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|main|resolve|sync|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan>",
+  createUsage: "usage: epoch create [--author NAME] [PATH]",
+  pushUsage: "usage: epoch push [--author NAME] [--version NAME] [--message TEXT] [--no-version] [PATH...]",
   intentUsage: "usage: epoch intent [--author NAME] [--type MIME] [--title TEXT] [--description TEXT] [--label A,B] PATH",
   mergeUsage: "usage: epoch merge [--author NAME] [--title TEXT] [--description TEXT] [--reason TEXT] [--label A,B] INTENT_ID",
   rejectUsage: "usage: epoch reject [--author NAME] [--title TEXT] [--description TEXT] [--reason TEXT] [--label A,B] INTENT_ID",
@@ -81,6 +95,10 @@ export const CliText = {
   viewDeleteUsage: "usage: epoch view-delete VIEW",
   viewDiffUsage: "usage: epoch view-diff FROM TO",
   viewPromoteUsage: "usage: epoch view-promote SOURCE TARGET",
+  versionUsage: "usage: epoch version <create|show|materialize> ...",
+  versionCreateUsage: "usage: epoch version create [--view VIEW] [--entity NAME] [--description TEXT] [NAME]",
+  versionShowUsage: "usage: epoch version show VERSION",
+  versionMaterializeUsage: "usage: epoch version materialize VERSION --out PATH [--force]",
 } as const;
 
 export const ParsedArgsSchema = z.object({

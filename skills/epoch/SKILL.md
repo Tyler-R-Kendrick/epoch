@@ -14,14 +14,14 @@ compatibility:
 
 # Epoch DVCS Skill
 
-Epoch is an event-driven, offline-first DVCS with signed immutable events, content-addressed storage, CRDT-backed entity merging, a Node CLI, WASM-facing exports, and React integration helpers. Use this skill when an agent needs to understand how to operate Epoch, integrate it into applications, extend repository behavior, or contribute changes safely.
+Epoch is an event-driven, offline-first DVCS with signed immutable events, content-addressed storage, first-class repository creation and signed versions, CRDT-backed entity merging, a Node CLI, WASM-facing exports, and React integration helpers. Use this skill when an agent needs to understand how to operate Epoch, integrate it into applications, extend repository behavior, or contribute changes safely.
 
 This file is intentionally a compact wiki index. Read only the reference page relevant to the task to minimize context usage.
 
 ## When to use this skill
 
 - Building or debugging integrations with `@epoch/core`, `@epoch/cli`, `@epoch/wasm`, or `@epoch/wasm-react`.
-- Writing automation that records files, appends CRDT operations, verifies repositories, syncs peers, or imports/exports Git repositories.
+- Writing automation that creates repositories, pushes assets, records files, creates/materializes versions, appends CRDT operations, verifies repositories, syncs peers, or imports/exports Git repositories.
 - Updating Epoch source code, tests, quality gates, or documentation.
 - Explaining Epoch concepts to project consumers.
 

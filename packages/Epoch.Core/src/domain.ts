@@ -48,6 +48,7 @@ export const EventType = {
   operation: "operation",
   redaction: "redaction",
   rollback: "rollback",
+  version: "version",
   viewDefinition: "view-definition",
   approval: "approval",
   rejection: "rejection",
@@ -235,6 +236,46 @@ export const Schemas = {
       labels: z.array(z.string().min(1)).optional(),
     }).optional(),
   }),
+  versionFile: z.object({
+    path: z.string().min(1),
+    entity_type: z.string().min(1),
+    blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    size: z.number().int().nonnegative(),
+    source_event: z.string().min(1),
+  }),
+  versionEntity: z.object({
+    name: z.string().min(1),
+    entity_type: z.string().min(1),
+    blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    size: z.number().int().nonnegative(),
+    source_events: z.array(z.string().min(1)),
+  }),
+  versionPayload: z.object({
+    name: z.string().min(1).optional(),
+    description: z.string().optional(),
+    view: z.string().min(1),
+    frontier: z.array(z.string().min(1)),
+    files: z.array(z.object({
+      path: z.string().min(1),
+      entity_type: z.string().min(1),
+      blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+      size: z.number().int().nonnegative(),
+      source_event: z.string().min(1),
+    })),
+    entities: z.array(z.object({
+      name: z.string().min(1),
+      entity_type: z.string().min(1),
+      blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+      size: z.number().int().nonnegative(),
+      source_events: z.array(z.string().min(1)),
+    })),
+    metadata: z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      reason: z.string().optional(),
+      labels: z.array(z.string().min(1)).optional(),
+    }).optional(),
+  }),
   heads: z.array(z.string().min(1)),
   syncResult: z.object({
     eventsCopied: z.number().int().nonnegative(),
@@ -257,3 +298,6 @@ export type IntentPayload = z.infer<typeof Schemas.intentPayload>;
 export type IntentMergePayload = z.infer<typeof Schemas.intentMergePayload>;
 export type IntentRejectPayload = z.infer<typeof Schemas.intentRejectPayload>;
 export type IntentCommentPayload = z.infer<typeof Schemas.intentCommentPayload>;
+export type VersionFile = z.infer<typeof Schemas.versionFile>;
+export type VersionEntity = z.infer<typeof Schemas.versionEntity>;
+export type VersionPayload = z.infer<typeof Schemas.versionPayload>;

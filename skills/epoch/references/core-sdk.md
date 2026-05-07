@@ -15,9 +15,9 @@ See the public [SDK docs](../../../docs/sdk.md) for code examples.
 
 ## Repository lifecycle
 
-1. Construct `EpochRepository` with a repository root path.
-2. Call `init(author?)` to create `.epoch/` metadata and identity files.
-3. Record data with `recordFile(path, mimeType)` or create review flow events with `intentFile`, `mergeIntent`, `rejectIntent`, `comment`, `createIssue`, `reviewIntent`, `recordCI`, and `gateStatus`.
+1. Create repositories with `EpochRepository.create(root, options)`, `openOrCreate(root, options)`, or `new EpochRepository(root).init(author?)`.
+2. Record data with `recordFile(path, mimeType)`, push existing assets with `push(paths, options)`, or create review flow events with `intentFile`, `mergeIntent`, `rejectIntent`, `comment`, `createIssue`, `reviewIntent`, `recordCI`, and `gateStatus`.
+3. Create signed deployable versions with `createVersion(options)` and materialize them with `materializeVersion(reference, options)`.
 4. Verify integrity with `verify()` before trusting or distributing state.
 5. Exchange events and blobs with `sync(peerPath)` or `syncFrom(peerPath)`.
 

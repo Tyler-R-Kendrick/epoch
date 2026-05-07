@@ -15,7 +15,7 @@ npm run build
 The workspace exposes package bins, so the short source-checkout form is:
 
 ```bash
-npm exec -- epoch --repo ./repo init --author alice
+npm exec -- epoch create ./repo --author alice
 ```
 
 This is equivalent to the long-form Node host command:
@@ -52,7 +52,9 @@ binaries directly.
 
 | Command | Purpose |
 |---|---|
+| `create [PATH] --author NAME` | Create an empty signed repository at `PATH` or the selected repository root. |
 | `init --author NAME` | Initialize `.epoch/` metadata and identity. |
+| `push [PATH...] [--author NAME] [--version NAME] [--message TEXT] [--no-version]` | Open or create a repository, record existing assets, and create a signed version by default. |
 | `record [--type MIME] PATH` | Record a file as an immutable event and blob. |
 | `events` | Print event IDs, types, and payloads. |
 | `verify` | Verify signatures, DAG state, heads, blobs, and tamper evidence. |
@@ -61,6 +63,18 @@ binaries directly.
 | `dr-plan` | Print the disaster recovery plan. |
 | `op-log` | List signed operation events recorded by mutating CLI commands. |
 | `op-show EVENT_ID` | Print one signed operation event projection as JSON. |
+
+## Version Commands
+
+Versions are signed manifest events for deployable files and optional CRDT
+snapshots.
+
+| Command | Purpose |
+|---|---|
+| `version create [NAME] [--view VIEW] [--entity NAME] [--description TEXT]` | Create a signed version from a view/frontier. |
+| `versions` | List known versions by id, name, file count, and entity count. |
+| `version show VERSION` | Print a version manifest. |
+| `version materialize VERSION --out PATH [--force]` | Recreate version files, CRDT snapshots, and `epoch-version.json`. |
 
 ## Review And Policy Commands
 
@@ -101,7 +115,7 @@ Use views as deterministic logical workspaces over the shared event log.
 
 ## Git Commands
 
-- `import GIT_REPO` records tracked files from a Git repository into Epoch.
+- `import [--version NAME] GIT_REPO` records tracked files from a Git repository into Epoch and can create a first version.
 - `export GIT_REPO` writes latest recorded blobs into a Git repository
   directory.
 - `epoch-git` provides a Git-like command surface for integrations that expect

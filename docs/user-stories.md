@@ -25,7 +25,26 @@ Acceptance criteria:
 - Identity uses Ed25519 keys.
 - Verification succeeds immediately after initialization.
 
-### DEV-002: Record A File As A Signed Event
+### DEV-002: Create A Repository Quickly
+
+**As a** developer,  
+**I want** one command or SDK call to create an empty signed repository,  
+**So that** I can start using Epoch without learning the event log first.
+
+Flow:
+
+1. Run `epoch create ./repo --author alice` or call
+   `EpochRepository.create("./repo", { author: "alice" })`.
+2. Epoch creates `.epoch/` metadata, identity, event/blob directories, and heads.
+3. Run `epoch --repo ./repo verify`.
+
+Acceptance criteria:
+
+- Empty repositories verify successfully.
+- `init()` remains available for compatibility.
+- CLI output names the repository path, author, and event count.
+
+### DEV-003: Record A File As A Signed Event
 
 **As a** developer,  
 **I want** to record a workspace file,  
@@ -44,7 +63,7 @@ Acceptance criteria:
 - Event payload includes path, MIME type, blob hash, and size.
 - Tampered event or blob data is reported by `epoch verify`.
 
-### DEV-003: Work Offline With Intents
+### DEV-004: Work Offline With Intents
 
 **As a** contributor,  
 **I want** to create an intent and have maintainers sign a decision later,  
@@ -63,7 +82,7 @@ Acceptance criteria:
 - Intent metadata supports title, description, reason, and labels.
 - Policy projection classifies intents as merged, rejected, or pending.
 
-### DEV-004: Resolve Text And JSON Entities
+### DEV-005: Resolve Text And JSON Entities
 
 **As a** developer,  
 **I want** built-in merge behavior for common file types,  
@@ -141,7 +160,44 @@ Acceptance criteria:
 
 ## Operator Stories
 
-### OPS-001: Create And Restore A Compact
+### OPS-001: Push Assets And Create A First Version
+
+**As an** asset-first creator,  
+**I want** to push an existing directory into Epoch,  
+**So that** assets I already have become a signed repository and deployable version.
+
+Flow:
+
+1. Put generated assets under `dist/`.
+2. Run `epoch push dist --author alice --version initial-site`.
+3. Inspect the signed `version` event with `epoch versions`.
+
+Acceptance criteria:
+
+- Epoch creates the repository if needed.
+- Files under `.epoch/` are skipped.
+- Changed assets become signed `record` events.
+- A signed version manifest references the recorded files.
+
+### OPS-002: Materialize A Signed Version
+
+**As a** deployment operator,  
+**I want** to materialize a named version into a clean directory,  
+**So that** deployment and rollback reproduce the exact signed assets.
+
+Flow:
+
+1. Run `epoch version create release-1`.
+2. Run `epoch version materialize release-1 --out deploy`.
+3. Read `deploy/epoch-version.json` during deployment.
+
+Acceptance criteria:
+
+- Version names resolve when unambiguous.
+- Non-empty output directories are rejected by default.
+- Materialized files and CRDT snapshots match the version manifest.
+
+### OPS-003: Create And Restore A Compact
 
 **As a** repository operator,  
 **I want** to compact a validated log prefix and restore from it,  
@@ -161,7 +217,7 @@ Acceptance criteria:
 - Pruning removes only events before the compact boundary.
 - Restore rebuilds event and blob storage.
 
-### OPS-002: Restore A Cold Backup
+### OPS-004: Restore A Cold Backup
 
 **As a** repository operator,  
 **I want** to create a signed cold backup and restore it into a fresh repository,  
@@ -179,7 +235,7 @@ Acceptance criteria:
 - Compact events and tail events are restored.
 - Referenced blobs are restored.
 
-### OPS-003: Bootstrap From A Trusted Seed
+### OPS-005: Bootstrap From A Trusted Seed
 
 **As a** repository operator,  
 **I want** a fresh peer to bootstrap from a trusted local seed path,  

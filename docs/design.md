@@ -4,7 +4,7 @@ This document describes the implementation that exists in this repository today.
 
 ## Summary
 
-Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, HA/DR compacts, and Git compatibility adapters.
+Epoch is a TypeScript prototype for a signed, event-driven DVCS. A repository is a filesystem directory with `.epoch/` metadata, signed append-only events, content-addressed blobs, CRDT helpers, explicit sync between local repository paths, intent policy events, named views, signed deployable versions, HA/DR compacts, and Git compatibility adapters.
 
 ## Repository Layout
 
@@ -60,12 +60,33 @@ The current domain constants include:
 - `operation`
 - `redaction`
 - `rollback`
+- `version`
 - `view-definition`
 - `approval`
 - `rejection`
 - `ci`
 
 Records and CRDT operations are also treated as intents for named-view projection because they represent requested, not yet necessarily accepted, state changes.
+
+## Repository Creation And Versions
+
+`EpochRepository.create()` and `EpochRepository.openOrCreate()` provide
+one-call repository creation helpers on top of the existing `init()` layout.
+`push()` is the asset-first workflow: it opens or creates a repository, walks
+requested files/directories under the repository root, skips `.epoch/`, `.git/`,
+and `node_modules/`, records changed assets, and creates a signed version
+unless disabled.
+
+`version` events bind a materialized view/frontier to a manifest of files and
+optional CRDT entity snapshots. File entries reference existing
+content-addressed blobs and source record events. CRDT snapshots are written as
+JSON blobs and reference the CRDT source events included in the selected view.
+
+`materializeVersion()` resolves a version by id or unambiguous name, verifies
+referenced blobs through normal repository verification, writes files and
+snapshots into a clean output directory, and writes `epoch-version.json` next to
+the materialized output. Non-empty output directories are rejected unless the
+caller explicitly forces replacement.
 
 ## Intent Policy
 
@@ -188,6 +209,7 @@ The current implementation does not provide:
 - repository access control
 - key rotation
 - signed tags
+- remote publishing for `push`
 - shallow clones
 - delta sync
 - timestamp restoration

@@ -26,6 +26,9 @@ import {
   SignatureText,
   StorageName,
   TextToken,
+  VersionEntity,
+  VersionFile,
+  VersionPayload,
 } from "./domain";
 import { z } from "zod";
 
@@ -180,6 +183,43 @@ export interface ViewDiff {
   readonly crdt: Readonly<Record<string, { readonly from?: unknown; readonly to?: unknown }>>;
 }
 
+export interface EpochRepositoryCreateOptions extends EpochRepositoryOptions {
+  readonly author?: string;
+}
+
+export interface PushOptions {
+  readonly author?: string;
+  readonly version?: string;
+  readonly message?: string;
+  readonly createVersion?: boolean;
+}
+
+export interface PushResult {
+  readonly recorded: readonly Event[];
+  readonly version?: Event;
+}
+
+export interface CreateVersionOptions {
+  readonly name?: string;
+  readonly description?: string;
+  readonly view?: string;
+  readonly entities?: readonly string[];
+  readonly labels?: readonly string[];
+  readonly author?: string;
+}
+
+export interface MaterializeVersionOptions {
+  readonly outDir: string;
+  readonly force?: boolean;
+}
+
+export interface MaterializeVersionResult {
+  readonly version: Event;
+  readonly files: readonly string[];
+  readonly entities: readonly string[];
+  readonly manifestPath: string;
+}
+
 interface LocalViewIndex {
   readonly current?: string;
   readonly intentIds: Record<string, string[]>;
@@ -272,6 +312,10 @@ const ATOMICS_WAIT_BUFFER = new SharedArrayBuffer(4);
 const ATOMICS_WAIT_ARRAY = new Int32Array(ATOMICS_WAIT_BUFFER);
 const COMPACT_DIR = "compacts";
 const COMPACT_MANIFEST = "manifest.json";
+const PushDefaultPath = {
+  currentDirectory: ".",
+} as const;
+const PUSH_IGNORED_DIRECTORIES = new Set([StorageName.epoch, Git.repository, "node_modules"]);
 
 interface LocalCompactManifest {
   readonly prunedBeforeEventId?: string;
@@ -381,6 +425,24 @@ export class EpochRepository {
     this.viewsPath = join(this.epochDir, StorageName.views);
     this.hooks = [...(options.hooks ?? [])];
     this.serializer = options.serializer ?? JsonSerializationProvider;
+  }
+
+  static create(root: string, options: EpochRepositoryCreateOptions = {}): EpochRepository {
+    const { author = DefaultAuthor, hooks } = options;
+    const repository = new EpochRepository(root, { hooks });
+    repository.init(author);
+    return repository;
+  }
+
+  static openOrCreate(root: string, options: EpochRepositoryCreateOptions = {}): EpochRepository {
+    const { author = DefaultAuthor, hooks } = options;
+    const repository = new EpochRepository(root, { hooks });
+    if (!repository.isInitialized()) repository.init(author);
+    return repository;
+  }
+
+  isInitialized(): boolean {
+    return existsAsDirectory(this.eventsDir) && existsAsDirectory(this.blobsDir) && existsAsFile(this.headsPath);
   }
 
   registerHook(hook: EpochHook): () => void {
@@ -711,6 +773,125 @@ export class EpochRepository {
     return value;
   }
 
+  push(paths: readonly string[] = [PushDefaultPath.currentDirectory], options: PushOptions = {}): PushResult {
+    if (!this.isInitialized()) this.init(options.author ?? DefaultAuthor);
+    const author = options.author ?? this.identity();
+    const latest = this.latestRecordMap();
+    const recorded: Event[] = [];
+
+    for (const path of this.assetFiles(paths.length === 0 ? [PushDefaultPath.currentDirectory] : paths)) {
+      const data = readFileSync(join(this.root, path));
+      const existing = latest.get(path);
+      if (existing?.blob_sha256 === sha256(data)) continue;
+      const event = this.recordFile(path, entityTypeForPath(path), author);
+      recorded.push(event);
+      latest.set(path, Schemas.recordPayload.parse(event.payload));
+    }
+
+    const version = options.createVersion === false
+      ? undefined
+      : this.createVersion({
+        name: options.version ?? defaultVersionName(),
+        description: options.message,
+        author,
+      });
+    return { recorded, version };
+  }
+
+  createVersion(options: CreateVersionOptions = {}): Event {
+    this.requireInitialized();
+    const view = options.view ?? this.currentView();
+    const viewState = this.computeViewState(view);
+    const events = this.events();
+    const includedEventIds = new Set(viewState.intentIds);
+    const files: VersionFile[] = Object.entries(viewState.records)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([path, record]) => ({
+        path,
+        entity_type: record.entityType,
+        blob_sha256: record.blobSha256,
+        size: record.size,
+        source_event: record.eventId,
+      }));
+
+    const entities: VersionEntity[] = [];
+    for (const entity of [...new Set(options.entities ?? [])].sort()) {
+      if (!(entity in viewState.crdt)) throw new Error(`cannot create version: CRDT entity not found in view '${view}': ${entity}`);
+      const encoded = Buffer.from(`${canonicalJson(viewState.crdt[entity])}${TextToken.newline}`, JsonEncoding);
+      const blobSha256 = sha256(encoded);
+      const blobPath = join(this.blobsDir, blobSha256);
+      if (!existsAsFile(blobPath)) writeFileSync(blobPath, encoded);
+      entities.push({
+        name: entity,
+        entity_type: EntityType.json,
+        blob_sha256: blobSha256,
+        size: encoded.byteLength,
+        source_events: events
+          .filter((event) => includedEventIds.has(event.id) && event.type === EventType.crdt && event.payload.entity === entity)
+          .map((event) => event.id),
+      });
+    }
+
+    const payload: VersionPayload = {
+      ...(options.name === undefined ? {} : { name: options.name }),
+      ...(options.description === undefined ? {} : { description: options.description }),
+      view,
+      frontier: this.heads(),
+      files,
+      entities,
+      ...(options.labels === undefined ? {} : { metadata: { labels: [...options.labels] } }),
+    };
+    return this.append(EventType.version, Schemas.versionPayload.parse(payload), options.author ?? this.identity());
+  }
+
+  versions(): Event[] {
+    return this.events().filter((event) => event.type === EventType.version);
+  }
+
+  resolveVersion(reference: string): Event {
+    const versions = this.versions();
+    const exact = versions.find((event) => event.id === reference);
+    if (exact !== undefined) return exact;
+    const named = versions.filter((event) => event.payload.name === reference);
+    if (named.length === 1) return named[0];
+    if (named.length > 1) throw new Error(`ambiguous version name: ${reference}`);
+    throw new Error(`version not found: ${reference}`);
+  }
+
+  materializeVersion(reference: string, options: MaterializeVersionOptions): MaterializeVersionResult {
+    this.requireInitialized();
+    const version = this.resolveVersion(reference);
+    const payload = Schemas.versionPayload.parse(version.payload);
+    const targetRoot = resolveInside(this.root, options.outDir, "materialize version", RepositoryText.repositoryRoot).absolute;
+    if (existsAsFile(targetRoot)) throw new Error(`version materialization would overwrite files: ${options.outDir}`);
+    if (existsAsDirectory(targetRoot) && readdirSync(targetRoot).length > 0) {
+      if (options.force !== true) throw new Error(`version materialization would overwrite files: ${options.outDir}`);
+      rmSync(targetRoot, { recursive: true, force: true });
+    }
+    mkdirSync(targetRoot, { recursive: true });
+
+    const files: string[] = [];
+    for (const file of payload.files) {
+      const target = resolveInside(targetRoot, file.path, RepositoryText.writePath, "materialized output").absolute;
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(join(this.blobsDir, file.blob_sha256)));
+      files.push(file.path);
+    }
+
+    const entities: string[] = [];
+    for (const entity of payload.entities) {
+      const snapshotPath = `${entity.name}${JsonFileExtension}`;
+      const target = resolveInside(targetRoot, snapshotPath, RepositoryText.writePath, "materialized output").absolute;
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(join(this.blobsDir, entity.blob_sha256)));
+      entities.push(snapshotPath);
+    }
+
+    const manifestPath = join(targetRoot, "epoch-version.json");
+    writeJson(manifestPath, { id: version.id, signature: version.signature, ...payload });
+    return { version, files: files.sort(), entities: entities.sort(), manifestPath };
+  }
+
   intentFile(path: string, entityType: string = EntityType.octetStream, author = this.identity(), metadata: EventMetadata = {}): Event {
     return this.intent([this.recordPatch(path, entityType)], author, metadata);
   }
@@ -874,6 +1055,22 @@ export class EpochRepository {
         } else {
           for (const patch of parsed.data.patches) problems.push(...this.verifyPatchBlob(event.id, patch, redacted));
         }
+      } else if (event.type === EventType.version) {
+        const parsed = Schemas.versionPayload.safeParse(event.payload);
+        if (!parsed.success) {
+          problems.push(`${event.id}: invalid version payload`);
+        } else {
+          for (const file of parsed.data.files) {
+            problems.push(...this.verifyBlobReference(event.id, file.blob_sha256, file.size));
+            if (!known.has(file.source_event) && !trustedPrefix.has(file.source_event)) problems.push(`${event.id}: missing version source event ${file.source_event}`);
+          }
+          for (const entity of parsed.data.entities) {
+            problems.push(...this.verifyBlobReference(event.id, entity.blob_sha256, entity.size));
+            for (const sourceEvent of entity.source_events) {
+              if (!known.has(sourceEvent) && !trustedPrefix.has(sourceEvent)) problems.push(`${event.id}: missing version source event ${sourceEvent}`);
+            }
+          }
+        }
       }
     }
 
@@ -1012,6 +1209,10 @@ export class EpochRepository {
 
   private verifyPatchBlob(owner: string, patch: RecordPatch, redacted: ReadonlySet<string>): string[] {
     const { blob_sha256: blobSha256, size } = patch;
+    return this.verifyBlobReference(owner, blobSha256, size, redacted);
+  }
+
+  private verifyBlobReference(owner: string, blobSha256: string, size: number, redacted: ReadonlySet<string> = new Set()): string[] {
     const blobPath = join(this.blobsDir, blobSha256);
     if (!existsAsFile(blobPath)) return redacted.has(blobSha256) ? [] : [`${owner}: missing blob ${blobSha256}`];
     const data = readFileSync(blobPath);
@@ -1035,6 +1236,19 @@ export class EpochRepository {
 
   private redactedBlobHashes(events: readonly Event[] = this.events()): Set<string> {
     return new Set(events.flatMap((event) => event.type === EventType.redaction && typeof event.payload.blob_sha256 === "string" ? [event.payload.blob_sha256] : []));
+  }
+
+  private latestRecordMap(): Map<string, RecordPatch> {
+    return new Map(this.latestRecords().map((record) => [record.path, record]));
+  }
+
+  private assetFiles(paths: readonly string[]): string[] {
+    const files = new Set<string>();
+    for (const path of paths) {
+      const root = resolveAssetPath(this.root, path);
+      collectAssetFiles(this.root, root, files);
+    }
+    return [...files].sort();
   }
 
   private intentIdsForView(name: string, gatePolicy: GatePolicy, events: readonly Event[]): Set<string> {
@@ -1243,7 +1457,7 @@ export class EpochRepository {
   }
 
   private requireInitialized(): void {
-    if (!existsAsDirectory(this.eventsDir) || !existsAsDirectory(this.blobsDir) || !existsAsFile(this.headsPath)) {
+    if (!this.isInitialized()) {
       throw new Error(`not an Epoch repository: ${this.root}`);
     }
   }
@@ -1393,6 +1607,33 @@ function sleepSync(milliseconds: number): void {
 
 function entityTypeForPath(path: string): string {
   return ENTITY_TYPES_BY_EXTENSION.get(extname(path).toLowerCase()) ?? EntityType.octetStream;
+}
+
+function defaultVersionName(): string {
+  return `version-${Date.now()}`;
+}
+
+function resolveAssetPath(root: string, path: string): string {
+  const absolute = resolve(isAbsolute(path) ? path : join(root, path));
+  const relativePath = relative(root, absolute);
+  if (relativePath === TextToken.parentPath || relativePath.startsWith(`${TextToken.parentPath}${sep}`) || isAbsolute(relativePath)) {
+    throw new Error(`cannot push assets outside ${RepositoryText.repositoryRoot}: ${path}`);
+  }
+  return absolute;
+}
+
+function collectAssetFiles(root: string, current: string, files: Set<string>): void {
+  const relativePath = relative(root, current);
+  const parts = relativePath.length === 0 ? [] : relativePath.split(sep);
+  if (parts.some((part) => PUSH_IGNORED_DIRECTORIES.has(part))) return;
+
+  const stat = statSync(current);
+  if (stat.isFile()) {
+    files.add(relativePath.split(sep).join(TextToken.pathSeparator));
+    return;
+  }
+  if (!stat.isDirectory()) return;
+  for (const name of readdirSync(current)) collectAssetFiles(root, join(current, name), files);
 }
 
 function emptyLocalViewIndex(): LocalViewIndex {

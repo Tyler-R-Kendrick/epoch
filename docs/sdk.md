@@ -17,10 +17,14 @@ and Git compatibility classes.
 
 ## Repository Lifecycle
 
-1. Construct `EpochRepository` with a repository root path.
-2. Call `init(author?)` to create `.epoch/` metadata and identity files.
-3. Record data with `recordFile(path, mimeType)` or create review flow events
+1. Create a repository with `EpochRepository.create(root, options)`, open or
+   create one with `openOrCreate(root, options)`, or construct
+   `EpochRepository` and call `init(author?)`.
+2. Record data with `recordFile(path, mimeType)`, push existing assets with
+   `push(paths, options)`, or create review flow events
    with `intentFile`, `mergeIntent`, `rejectIntent`, and `comment`.
+3. Create deployable versions with `createVersion()` and materialize them with
+   `materializeVersion()`.
 4. Verify integrity with `verify()` before trusting or distributing state.
 5. Exchange events and blobs with `sync(peerPath)` or `syncFrom(peerPath)`.
 
@@ -32,6 +36,21 @@ await repository.init("alice");
 await repository.recordFile("README.md", "text/markdown");
 
 const problems = await repository.verify();
+```
+
+Create from existing assets and materialize a signed version:
+
+```ts
+const repository = EpochRepository.openOrCreate("./site", { author: "alice" });
+
+const pushed = repository.push(["dist"], {
+  author: "alice",
+  version: "initial-site",
+});
+
+repository.materializeVersion(pushed.version!.id, {
+  outDir: "./deploy",
+});
 ```
 
 ## Async Actor API
@@ -159,6 +178,15 @@ Use `redactBlob(blobHash, reason)` to record that local storage may remove a
 sensitive blob while keeping signed audit evidence that a redaction occurred.
 Use `planRedaction(blobHash)` first when an operator needs affected event IDs,
 local blob presence, and whether a prior redaction exists.
+
+To include CRDT state in a deployable version, name the entities:
+
+```ts
+const version = repository.createVersion({
+  name: "agent-state",
+  entities: ["tasks"],
+});
+```
 
 ## React Integration
 

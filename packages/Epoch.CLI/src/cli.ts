@@ -35,10 +35,30 @@ function run(argv: string[], io: CliIO): void {
 
   const repo = new EpochRepository(parsed.repo);
   switch (parsed.command) {
+    case CliCommand.create: {
+      const options = parseOptions(parsed.args, { author: DefaultAuthor });
+      if (options.positionals.length > 1) throw new Error(CliText.createUsage);
+      const target = options.positionals[0] ?? parsed.repo;
+      const created = EpochRepository.create(target, { author: options.author });
+      writeLine(io, `created Epoch repository at ${created.epochDir} author=${created.identity()} events=${created.events().length}`);
+      return;
+    }
     case CliCommand.init: {
       const { author } = parseOptions(parsed.args, { author: DefaultAuthor });
       repo.init(author);
       writeLine(io, `initialized Epoch repository at ${repo.epochDir}`);
+      return;
+    }
+    case CliCommand.push: {
+      const options = parseOptions(parsed.args, { author: DefaultAuthor, version: "", message: "" }, [CliOption.noVersion]);
+      const result = repo.push(options.positionals.length === 0 ? [CliSyntax.repositoryDefault] : options.positionals, {
+        author: options.author,
+        version: options.version === "" ? undefined : options.version,
+        message: options.message === "" ? undefined : options.message,
+        createVersion: !isFlagEnabled(options, CliOption.noVersion),
+      });
+      const versionName = typeof result.version?.payload.name === "string" ? result.version.payload.name : result.version?.id;
+      writeLine(io, `pushed ${result.recorded.length} files${result.version === undefined ? "" : `; version ${versionName} ${result.version.id}`}`);
       return;
     }
     case CliCommand.record: {
@@ -79,10 +99,16 @@ function run(argv: string[], io: CliIO): void {
       return;
     }
     case CliCommand.import: {
-      if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} GIT_REPO`);
-      const events = repo.importFromGit(parsed.args[0]);
-      writeLine(io, `imported ${events.length} files`);
-      recordCliOperation(repo, "import", { gitRepo: parsed.args[0], eventIds: events.map((event) => event.id) });
+      const options = parseOptions(parsed.args, { version: "" });
+      if (options.positionals.length !== 1) throw new Error(`usage: epoch ${parsed.command} [--version NAME] GIT_REPO`);
+      const events = repo.importFromGit(options.positionals[0]);
+      const version = options.version === "" ? undefined : repo.createVersion({ name: options.version });
+      writeLine(io, `imported ${events.length} files${version === undefined ? "" : `; version ${version.payload.name as string} ${version.id}`}`);
+      recordCliOperation(repo, "import", {
+        gitRepo: options.positionals[0],
+        eventIds: events.map((event) => event.id),
+        versionId: version?.id,
+      });
       return;
     }
     case CliCommand.export: {
@@ -258,6 +284,14 @@ function run(argv: string[], io: CliIO): void {
       recordCliOperation(repo, "view-promote", { eventId: event.id, source: parsed.args[0], target: parsed.args[1] });
       return;
     }
+    case CliCommand.versions:
+      for (const version of repo.versions()) {
+        writeLine(io, `${version.id} ${typeof version.payload.name === "string" ? version.payload.name : ""} files=${Array.isArray(version.payload.files) ? version.payload.files.length : 0} entities=${Array.isArray(version.payload.entities) ? version.payload.entities.length : 0}`);
+      }
+      return;
+    case CliCommand.version:
+      runVersionCommand(repo, parsed.args, io);
+      return;
     default:
       throw new Error(`unknown command: ${parsed.command}`);
   }
@@ -277,7 +311,7 @@ function parseGlobalArgs(argv: string[]): ParsedArgs {
   return ParsedArgsSchema.parse({ repo, command: args.shift(), args });
 }
 
-function parseOptions<T extends Record<string, string>>(args: string[], defaults: T): T & { positionals: string[] } {
+function parseOptions<T extends Record<string, string>>(args: string[], defaults: T, flags: readonly string[] = []): T & { positionals: string[] } {
   const values: Record<string, string | string[]> = { ...defaults, positionals: [] };
   const remaining = [...args];
   while (remaining.length > 0) {
@@ -287,10 +321,57 @@ function parseOptions<T extends Record<string, string>>(args: string[], defaults
       continue;
     }
     const key = token.slice(2);
+    if (flags.includes(key)) {
+      values[key] = "true";
+      continue;
+    }
     if (!(key in defaults)) throw new Error(`unknown option: ${token}`);
     values[key] = requiredValue(token, remaining.shift());
   }
   return values as T & { positionals: string[] };
+}
+
+function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): void {
+  const subcommand = args[0];
+  switch (subcommand) {
+    case "create": {
+      const options = parseOptions(args.slice(1), { view: "", entity: "", description: "", author: "" });
+      if (options.positionals.length > 1) throw new Error(CliText.versionCreateUsage);
+      const version = repo.createVersion({
+        name: options.positionals[0],
+        view: options.view === "" ? undefined : options.view,
+        entities: splitOption(options.entity),
+        description: options.description === "" ? undefined : options.description,
+        author: options.author === "" ? undefined : options.author,
+      });
+      writeLine(io, `version ${typeof version.payload.name === "string" ? version.payload.name : version.id} ${version.id}`);
+      return;
+    }
+    case "show": {
+      const options = parseOptions(args.slice(1), {});
+      if (options.positionals.length !== 1) throw new Error(CliText.versionShowUsage);
+      writeLine(io, JSON.stringify(repo.resolveVersion(options.positionals[0]).payload, null, 2));
+      return;
+    }
+    case "materialize": {
+      const options = parseOptions(args.slice(1), { out: "" }, [CliOption.force]);
+      if (options.positionals.length !== 1 || options.out === "") throw new Error(CliText.versionMaterializeUsage);
+      const result = repo.materializeVersion(options.positionals[0], { outDir: options.out, force: isFlagEnabled(options, CliOption.force) });
+      const name = typeof result.version.payload.name === "string" ? result.version.payload.name : result.version.id;
+      writeLine(io, `materialized version ${name} to ${options.out}`);
+      return;
+    }
+    default:
+      throw new Error(CliText.versionUsage);
+  }
+}
+
+function splitOption(value: string): string[] {
+  return value.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+}
+
+function isFlagEnabled(options: Record<string, unknown>, key: string): boolean {
+  return options[key] === "true";
 }
 
 function requiredValue(option: string, value: string | undefined): string {
