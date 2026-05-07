@@ -10,13 +10,17 @@
     "packages/Epoch.WASM.React",
     "packages/Epoch.Platform.Core",
     "packages/Epoch.Platform.Sdk",
-    "packages/Epoch.Platform.Community",
-    "packages/Epoch.Platform.Web"
+    "packages/Epoch.Platform.Web",
+    "packages/Epoch.Community.Core",
+    "packages/Epoch.Community.API",
+    "packages/Epoch.Community.Web",
+    "packages/Epoch.Community.CLI"
   ],
   "main": "packages/Epoch.Core/dist/index.js",
   "bin": {
     "epoch": "packages/Epoch.CLI/dist/cli.js",
-    "epoch-git": "packages/Epoch.CLI/dist/cli-git.js"
+    "epoch-git": "packages/Epoch.CLI/dist/cli-git.js",
+    "epoch-community": "packages/Epoch.Community.CLI/dist/index.js"
   },
   "exports": {
     ".": "./packages/Epoch.Core/dist/index.js",
@@ -38,13 +42,25 @@
       "types": "./packages/Epoch.Platform.Sdk/src/index.ts",
       "default": "./packages/Epoch.Platform.Sdk/dist/index.js"
     },
-    "./Epoch.Platform.Community": {
-      "types": "./packages/Epoch.Platform.Community/src/index.ts",
-      "default": "./packages/Epoch.Platform.Community/dist/index.js"
-    },
     "./Epoch.Platform.Web": {
       "types": "./packages/Epoch.Platform.Web/src/index.ts",
       "default": "./packages/Epoch.Platform.Web/dist/index.js"
+    },
+    "./Epoch.Community.Core": {
+      "types": "./packages/Epoch.Community.Core/src/index.ts",
+      "default": "./packages/Epoch.Community.Core/dist/index.js"
+    },
+    "./Epoch.Community.API": {
+      "types": "./packages/Epoch.Community.API/src/index.ts",
+      "default": "./packages/Epoch.Community.API/dist/index.js"
+    },
+    "./Epoch.Community.Web": {
+      "types": "./packages/Epoch.Community.Web/src/index.ts",
+      "default": "./packages/Epoch.Community.Web/dist/index.js"
+    },
+    "./Epoch.Community.CLI": {
+      "types": "./packages/Epoch.Community.CLI/src/index.ts",
+      "default": "./packages/Epoch.Community.CLI/dist/index.js"
     }
   },
   "engines": {
@@ -52,8 +68,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-community && npm run build -w @epoch/platform-web && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-community && npm run typecheck -w @epoch/platform-web && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-cli && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-cli && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "docs:check": "node scripts/check-docs.mjs",
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
@@ -75,6 +91,7 @@
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
+    "@pact-foundation/pact": "^16.4.0",
     "@types/jsdom": "^28.0.1",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
@@ -94,6 +111,11 @@
     "protobufjs": "7.5.5",
     "xstate": "^5.31.0",
     "zod": "^4.4.3"
+  },
+  "optionalDependencies": {
+    "@pact-foundation/pact-core-linux-x64-glibc": "^19.2.0",
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
+    "@typescript/native-preview-linux-x64": "^7.0.0-dev.20260504.1"
   },
   "overrides": {
     "protobufjs": "7.5.5"

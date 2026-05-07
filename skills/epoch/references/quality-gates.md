@@ -12,10 +12,15 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 |---|---|---|
 | `npm run docs:check` | Every change | Local Markdown links and docs/spec discoverability from `README.md`. |
 | `npm run lint` | Every source, script, or test change | ESLint rules over TypeScript, JavaScript scripts, tests, and configuration. |
-| `npm run typecheck` | Every source or test change | `tsgo --noEmit` for Core, CLI, WASM, WASM React, and tests. |
+| `npm run typecheck` | Every source or test change | `tsgo --noEmit` for Core, CLI, WASM, WASM React, Platform Web, Community API, Community Core, Community CLI, Community Web, and tests. |
 | `npm test` | Every behavior change | Unit/component runtime tests plus Cucumber features against compiled TypeScript output. |
 | `npm run coverage` | Every behavior change | c8 coverage over unit/component tests and Cucumber features with enforced thresholds. |
 | `npm run verify` | Before review | Docs check, lint, typecheck, tests, and coverage in sequence. |
+
+Community package changes must keep the Community validation layers healthy:
+Gherkin browser scenarios driven by Playwright, Pact contract tests for
+Core/API HTTP boundaries, focused unit coverage, and c8 coverage output that
+includes Community API, Core, CLI, and Web packages.
 
 ## Documentation expectations
 

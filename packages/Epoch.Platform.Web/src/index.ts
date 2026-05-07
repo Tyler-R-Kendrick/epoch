@@ -1,3 +1,13 @@
+export interface PwaAppDescriptor {
+  readonly name: string;
+  readonly shortName: string;
+  readonly startUrl: string;
+  readonly display: "standalone";
+  readonly themeColor: string;
+  readonly backgroundColor: string;
+  readonly offlineShell: boolean;
+}
+
 export type PlatformConsoleModel = {
   role: "operator" | "developer" | "maintainer" | "incident-responder";
   productionReady: boolean;
@@ -39,6 +49,76 @@ export type PlatformConsoleSearchResult = {
   type: "repository" | "deployable" | "package";
   label: string;
 };
+
+export interface DeployableEpochApp {
+  readonly id: string;
+  readonly kind: string;
+  readonly displayName: string;
+  readonly version: string;
+  readonly image: string;
+  readonly route: string;
+  readonly healthPath: string;
+  readonly ports: readonly number[];
+  readonly environment: readonly string[];
+  readonly requiredServices: readonly string[];
+}
+
+export type HostingServiceCategory = "epoch-runtime" | "epoch-storage" | "epoch-network" | "epoch-app";
+
+export interface ManagedEpochService {
+  readonly id: string;
+  readonly category: HostingServiceCategory;
+  readonly displayName: string;
+  readonly purpose: string;
+  readonly image: string;
+  readonly version: string;
+  readonly route?: string;
+  readonly healthPath: string;
+  readonly ports: readonly number[];
+  readonly environment: readonly string[];
+  readonly requiredServices: readonly string[];
+  readonly operations: readonly HostingOperation[];
+  readonly epochHostingOnly: true;
+}
+
+export type HostingOperation =
+  | "provision"
+  | "deploy"
+  | "restart"
+  | "rollback"
+  | "scale"
+  | "backup"
+  | "restore"
+  | "inspect-health";
+
+export interface PlatformWebRoute {
+  readonly id: string;
+  readonly path: string;
+  readonly label: string;
+}
+
+export interface PlatformWebAppDefinition {
+  readonly project: "Epoch.Platform.Web";
+  readonly product: "epoch-platform-web";
+  readonly pwa: PwaAppDescriptor;
+  readonly routes: readonly PlatformWebRoute[];
+  readonly navigation: readonly PlatformWebRoute[];
+  readonly managedServices: readonly ManagedEpochService[];
+  readonly communityWorkflows: readonly [];
+}
+
+export interface CreatePlatformWebAppOptions {
+  readonly basePath?: string;
+  readonly deployableApps?: readonly DeployableEpochApp[];
+}
+
+const platformRoutes: readonly PlatformWebRoute[] = [
+  { id: "services", path: "/services", label: "Services" },
+  { id: "deployments", path: "/deployments", label: "Deployments" },
+  { id: "backups", path: "/backups", label: "Backups" },
+  { id: "health", path: "/health", label: "Health" },
+  { id: "settings", path: "/settings", label: "Settings" },
+];
 
 export function renderPlatformConsole(container: Element | null, model: PlatformConsoleModel): void {
   if (container === null) {
@@ -84,6 +164,121 @@ export function renderPlatformConsole(container: Element | null, model: Platform
       </main>
     </section>
   `;
+}
+
+export function createPlatformWebApp(options: CreatePlatformWebAppOptions = {}): PlatformWebAppDefinition {
+  const basePath = normalizedBasePath(options.basePath ?? "/");
+  const routes = platformRoutes.map((route) => ({
+    ...route,
+    path: route.path === "/" ? basePath : `${basePath === "/" ? "" : basePath}${route.path}`,
+  }));
+
+  return {
+    project: "Epoch.Platform.Web",
+    product: "epoch-platform-web",
+    pwa: {
+      name: "Epoch Platform Web",
+      shortName: "Epoch Web",
+      startUrl: basePath,
+      display: "standalone",
+      themeColor: "#2f6f4e",
+      backgroundColor: "#ffffff",
+      offlineShell: true,
+    },
+    routes,
+    navigation: routes,
+    managedServices: createEpochHostingServiceCatalog(options.deployableApps ?? []),
+    communityWorkflows: [],
+  };
+}
+
+export function createEpochHostingServiceCatalog(
+  deployableApps: readonly DeployableEpochApp[] = [],
+): readonly ManagedEpochService[] {
+  return [
+    epochNodeService(),
+    epochObjectStoreService(),
+    epochSyncSeedService(),
+    ...deployableApps.map(managedServiceFromDeployableApp),
+  ];
+}
+
+function epochNodeService(): ManagedEpochService {
+  return {
+    id: "epoch-node",
+    category: "epoch-runtime",
+    displayName: "Epoch Node",
+    purpose: "Runs the signed Epoch repository API and verification worker.",
+    image: "ghcr.io/epoch/node:0.1.0",
+    version: "0.1.0",
+    healthPath: "/healthz",
+    ports: [7001],
+    environment: ["EPOCH_NODE_DATA_DIR", "EPOCH_SIGNING_KEY_REF"],
+    requiredServices: [],
+    operations: ["provision", "deploy", "restart", "rollback", "inspect-health"],
+    epochHostingOnly: true,
+  };
+}
+
+function epochObjectStoreService(): ManagedEpochService {
+  return {
+    id: "epoch-object-store",
+    category: "epoch-storage",
+    displayName: "Epoch Object Store",
+    purpose: "Stores content-addressed blobs, compacts, bundles, and materialized versions.",
+    image: "ghcr.io/epoch/object-store:0.1.0",
+    version: "0.1.0",
+    healthPath: "/healthz",
+    ports: [7002],
+    environment: ["EPOCH_OBJECT_STORE_ROOT", "EPOCH_OBJECT_STORE_RETENTION"],
+    requiredServices: [],
+    operations: ["provision", "backup", "restore", "inspect-health"],
+    epochHostingOnly: true,
+  };
+}
+
+function epochSyncSeedService(): ManagedEpochService {
+  return {
+    id: "epoch-sync-seed",
+    category: "epoch-network",
+    displayName: "Epoch Sync Seed",
+    purpose: "Provides an always-on seed endpoint for Epoch peers and deployments.",
+    image: "ghcr.io/epoch/sync-seed:0.1.0",
+    version: "0.1.0",
+    healthPath: "/healthz",
+    ports: [7003],
+    environment: ["EPOCH_SEED_PEER_ID", "EPOCH_SEED_STORAGE"],
+    requiredServices: ["epoch-node", "epoch-object-store"],
+    operations: ["provision", "deploy", "restart", "rollback", "scale", "inspect-health"],
+    epochHostingOnly: true,
+  };
+}
+
+function managedServiceFromDeployableApp(app: DeployableEpochApp): ManagedEpochService {
+  return {
+    id: app.id,
+    category: "epoch-app",
+    displayName: app.displayName,
+    purpose: `Deploys the ${app.displayName} web application as an Epoch-hosted service.`,
+    image: app.image,
+    version: app.version,
+    route: app.route,
+    healthPath: app.healthPath,
+    ports: [...app.ports],
+    environment: [...app.environment],
+    requiredServices: [...app.requiredServices],
+    operations: ["provision", "deploy", "restart", "rollback", "scale", "inspect-health"],
+    epochHostingOnly: true,
+  };
+}
+
+function normalizedBasePath(path: string): string {
+  if (path === "") {
+    return "/";
+  }
+
+  const prefixed = path.startsWith("/") ? path : `/${path}`;
+  return prefixed.endsWith("/") && prefixed.length > 1 ? prefixed.slice(0, -1) : prefixed;
 }
 
 function navigationItems(navigationMode: string, communityEnabled: boolean): string[] {
