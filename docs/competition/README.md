@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-06
+last_researched: 2026-05-07
 ---
 
 # Competition Research
@@ -25,6 +25,7 @@ gossip-path: <product-path>/gossip.md
 | Product | Primary Competitive Angle | Profile | Design | Features | Marketing | Gossip |
 |---|---|---|---|---|---|---|
 | GitHub | Default forge and developer collaboration UX | [Profile](products/github/profile.md) | [Design](products/github/design/design.md) | [Feature](products/github/features/repository-collaboration.feature) | [Marketing](products/github/marketing.md) | [Gossip](products/github/gossip.md) |
+| Zed DeltaDB | CRDT-backed operation-level version control inside an AI-native collaborative editor | [Profile](products/zed-deltadb/profile.md) | [Design](products/zed-deltadb/design/design.md) | [Feature](products/zed-deltadb/features/operation-level-collaboration.feature) | [Marketing](products/zed-deltadb/marketing.md) | [Gossip](products/zed-deltadb/gossip.md) |
 | Radicle | Sovereign peer-to-peer Git forge | [Profile](products/radicle/profile.md) | [Design](products/radicle/design/design.md) | [Feature](products/radicle/features/sovereign-forge.feature) | [Marketing](products/radicle/marketing.md) | [Gossip](products/radicle/gossip.md) |
 | Jujutsu | Git-compatible VCS with operation log and first-class conflicts | [Profile](products/jujutsu/profile.md) | [Design](products/jujutsu/design/design.md) | [Feature](products/jujutsu/features/operation-log-and-conflicts.feature) | [Marketing](products/jujutsu/marketing.md) | [Gossip](products/jujutsu/gossip.md) |
 | Pijul | Patch-theory DVCS with commutative changes | [Profile](products/pijul/profile.md) | [Design](products/pijul/design/design.md) | [Feature](products/pijul/features/commutative-changes.feature) | [Marketing](products/pijul/marketing.md) | [Gossip](products/pijul/gossip.md) |
