@@ -2,14 +2,20 @@
 
 Use the SDK docs when an application needs direct programmatic access to Epoch
 repositories, signed events, CRDT state, lifecycle hooks, sync, trusted host
-Git compatibility, or browser-safe React state history.
+Git compatibility, browser-safe React state history, or the initial
+Epoch.Platform headless management and web console APIs.
 
 ## Package And Imports
 
 - Workspace package: `@epoch/core`
 - React package: `@epoch/wasm-react`
+- Platform Core package: `@epoch/platform-core`
+- Platform SDK package: `@epoch/platform-sdk`
+- Platform Community package: `@epoch/platform-community`
+- Platform Web package: `@epoch/platform-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
+- Platform root exports: `epoch/Epoch.Platform.Core`, `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Community`, and `epoch/Epoch.Platform.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`,
 CRDT helpers, lifecycle hook types, backup/compact helpers, seed-node helpers,
@@ -265,6 +271,241 @@ const repository = new EpochRepository("./repo", {
 `epoch/Epoch.Core.Git` exposes host-filesystem Git compatibility helpers.
 Native Git operations are for trusted host environments and should not be
 assumed to work in WASM.
+
+## Epoch.Platform Core and SDK
+
+Use `@epoch/platform-core` when embedding the platform domain service directly,
+`@epoch/platform-sdk` when writing headless automation against that service, and
+`@epoch/platform-community` when the optional public/internal Community module
+is deployed. Use `createInMemoryPlatformCore()` for short-lived embedded flows
+and `createFileSystemPlatformCore()` when the control plane needs durable local
+state, verified backup artifacts, and backup-artifact restore. The current
+implementation does not yet provide networking, real runners, infrastructure
+adapters, SSO handshakes, clustered scheduling, or a production
+database/queue/search stack for the platform control plane.
+
+```ts
+import { createFileSystemPlatformCore } from "@epoch/platform-core";
+import { EpochPlatformSdk } from "@epoch/platform-sdk";
+
+const sdk = new EpochPlatformSdk(
+  createFileSystemPlatformCore({
+    dataDir: "/srv/epoch/platform",
+    communityEnabled: false,
+  }),
+);
+
+const organization = sdk.organizations.create({
+  slug: "acme",
+  displayName: "Acme",
+});
+const project = sdk.projects.create({
+  organizationId: organization.id,
+  slug: "platform",
+  displayName: "Platform",
+});
+const repository = sdk.repositories.create({
+  projectId: project.id,
+  slug: "api",
+  visibility: "private",
+});
+const environment = sdk.environments.create({
+  projectId: project.id,
+  name: "production",
+  type: "production",
+  protected: true,
+});
+const deployable = sdk.deployables.create({
+  projectId: project.id,
+  name: "api-web",
+  kind: "app",
+  source: { repositoryId: repository.id },
+});
+
+const plan = sdk.deployments.createPlan({
+  deployableId: deployable.id,
+  environmentId: environment.id,
+});
+
+sdk.deployments.approvePlan(plan.id, { actor: "ops-lead" });
+const deployment = sdk.deployments.executePlan(plan.id);
+```
+
+Current platform SDK surfaces include capability discovery, organizations,
+projects, repositories, environments, deployables, deploy plans, protected
+deployment approvals, identity/RBAC, issues, review intents, packages, search,
+observability, runners, infrastructure targets, resources, deployable templates,
+configuration validation, backup destination readiness, backup verification,
+restore dry-runs, HA failover drills, secret references and rotation,
+deployment jobs and logs, incident diagnosis, rollback, AI action plans,
+AI context packs, AI tool authorization, API correlation/idempotency helpers,
+webhooks, event streams, compliance/audit export, tenant export/delete,
+Community enablement, visibility policy review, showcase publication, public
+profiles, follows, stars, bookmarks, discussions, personalized feeds,
+moderation triage, legal holds, worker status, snapshots, and audit inspection.
+
+```ts
+const alice = sdk.identity.createUser({ handle: "alice", displayName: "Alice" });
+const approvers = sdk.identity.createTeam({
+  organizationId: organization.id,
+  name: "release-managers",
+});
+sdk.identity.addUserToTeam({ userId: alice.id, teamId: approvers.id });
+sdk.identity.grantTeamRole({
+  teamId: approvers.id,
+  role: "environment-approver",
+  resourceType: "environment",
+  resourceId: environment.id,
+});
+
+sdk.deployments.approvePlan(plan.id, { actor: "alice" });
+const deployment = sdk.deployments.executePlan(plan.id);
+sdk.packages.publish({
+  name: "api-web",
+  version: "1.0.0",
+  deploymentId: deployment.id,
+});
+
+const results = sdk.search.query("api");
+const snapshot = sdk.snapshots.export();
+```
+
+Optional Community module example:
+
+```ts
+import { EpochPlatformCommunity } from "@epoch/platform-community";
+
+const community = new EpochPlatformCommunity(sdk);
+community.enable({
+  reviewedBy: "admin",
+  visibilityPolicy: "public profiles and approved project showcases",
+});
+
+const profile = community.profiles.create({
+  handle: "alice",
+  displayName: "Alice",
+  visibility: "public",
+});
+const showcase = community.projects.publish({
+  projectId: project.id,
+  publicSlug: "api-web",
+  summary: "Self-hosted API platform",
+  requestedBy: "alice",
+  readme: "Deployable self-hosted API service.",
+  deployStatusBadge: "healthy",
+  contributionPrompt: "Start with the starter issues.",
+});
+const approvedShowcase = community.projects.approve(showcase.id, {
+  moderator: "mod",
+});
+community.projects.bookmark({
+  communityProjectId: approvedShowcase.id,
+  profileId: profile.id,
+});
+community.discussions.open({
+  communityProjectId: approvedShowcase.id,
+  profileId: profile.id,
+  title: "Roadmap",
+  body: "Where should deploy previews land?",
+});
+```
+
+Enterprise and operations-oriented examples:
+
+```ts
+const serviceAccount = sdk.identity.createServiceAccount({
+  organizationId: organization.id,
+  name: "terraform",
+  scopes: ["projects:write", "deployments:write"],
+});
+const token = sdk.identity.issueApiToken({
+  serviceAccountId: serviceAccount.id,
+  name: "iac-token",
+});
+
+sdk.api.openRequest({
+  correlationId: "req-1",
+  idempotencyKey: "deploy-plan-1",
+});
+const dryRun = sdk.deployments.createPlan({
+  deployableId: deployable.id,
+  environmentId: environment.id,
+  dryRun: true,
+  idempotencyKey: "deploy-plan-1",
+});
+sdk.deployments.editPlan(dryRun.id, {
+  runtimeVariables: { PORT: "3000" },
+});
+
+const context = sdk.ai.createContextPack({
+  actor: "admin",
+  projectId: project.id,
+  sources: ["logs", "checks", "secrets"],
+});
+const bundle = sdk.operations.supportBundle();
+const backup = sdk.backups.start({ name: "nightly" });
+const verifiedBackup = sdk.backups.verify(backup.id);
+sdk.restores.dryRun({ backupId: backup.id });
+
+sdk.identity.revokeApiToken(token.id);
+```
+
+Filesystem-backed Core writes `platform-state.json` as a hash-verified state
+envelope and refuses to boot from tampered state. Backup runs include
+`artifactPath` and `manifestHash` when the Core has a data directory:
+
+```ts
+import { createFileSystemPlatformCore, signWebhookPayload } from "@epoch/platform-core";
+import { EpochPlatformSdk } from "@epoch/platform-sdk";
+
+const restoredSdk = new EpochPlatformSdk(
+  createFileSystemPlatformCore({
+    dataDir: "/srv/epoch/platform-restore",
+    restoreFromBackupArtifact: verifiedBackup.artifactPath,
+  }),
+);
+
+const payload = JSON.stringify({ event: "deployment.executed" });
+const signature = signWebhookPayload("whsec", payload);
+restoredSdk.api.verifyWebhook({ endpointName: "ops", payload, signature });
+```
+
+## Epoch.Platform Web Console
+
+Use `@epoch/platform-web` when a browser-hosted surface needs the current
+operations-first console foundation.
+
+```ts
+import { renderPlatformConsole } from "@epoch/platform-web";
+
+renderPlatformConsole(document.getElementById("root"), {
+  role: "operator",
+  productionReady: true,
+  projectName: "platform",
+  environmentName: "production",
+  deployableName: "api-web",
+  primaryAction: "Deploy to production",
+  deploymentHealth: "healthy",
+  communityEnabled: true,
+  communityProjectPage: {
+    publicSlug: "api-web",
+    readme: "Deployable self-hosted API service.",
+    deployStatusBadge: "healthy",
+    contributionPrompt: "Start with the starter issues.",
+    bookmarksCount: 3,
+    discussionsCount: 2,
+  },
+  runnerCount: 1,
+  latestDeploymentState: "succeeded",
+  packageName: "api-web",
+  packageVersion: "1.0.0",
+  searchResults: [{ type: "repository", label: "api" }],
+  mobileActions: ["Approve", "Rollback", "Ask AI"],
+  homeModules: ["pending reviews", "risky deploys"],
+  adminSections: ["identity and SSO", "upgrade and support bundle"],
+  sdkEquivalent: "sdk.deployments.executePlan(plan.id)",
+});
+```
 
 ## Related Docs
 

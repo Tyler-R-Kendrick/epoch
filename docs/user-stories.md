@@ -253,6 +253,320 @@ Acceptance criteria:
 - Unexpected seed identity is rejected.
 - Missing events and blobs are copied with sync.
 
+### OPS-004: Create A Platform Project Headlessly
+
+**As a** platform operator,
+**I want** to create an organization, project, and repository through the
+Epoch.Platform SDK,
+**So that** platform setup can be automated without the web console.
+
+Flow:
+
+1. Create a filesystem-backed platform Core instance for durable operator
+   automation, or an in-memory Core instance for short-lived tests.
+2. Wrap it with `EpochPlatformSdk`.
+3. Create an organization, project, and repository.
+4. Inspect the project overview.
+
+Acceptance criteria:
+
+- Community capability discovery reports disabled when the instance starts with
+  Community disabled.
+- Project overview lists created repositories.
+- Project overview exposes a `Create deployable` empty-state action when no
+  deployables exist.
+
+### OPS-005: Review And Execute A Protected Deploy Plan
+
+**As a** release operator,
+**I want** deploy plans to show source, target, required approvals, and SDK
+operation before execution,
+**So that** protected deployments are reviewable and automatable.
+
+Flow:
+
+1. Create a project repository, protected production environment, and deployable.
+2. Generate a deploy plan.
+3. Try to execute it before approval.
+4. Approve and execute the plan.
+
+Acceptance criteria:
+
+- Deploy plan exposes source repository and target environment.
+- Protected environments require `protected-environment` approval.
+- Execution before approval fails with `policy_denied`.
+- Approved execution records a `deployment.executed` audit event.
+
+### OPS-006: Keep Community Optional
+
+**As an** enterprise platform admin,
+**I want** Community features to be disabled until explicitly enabled,
+**So that** private Core deployments do not accidentally expose public social
+surfaces.
+
+Flow:
+
+1. Start Epoch.Platform with Community disabled.
+2. Try to publish a project to Community.
+3. Enable Community.
+4. Publish the project.
+
+Acceptance criteria:
+
+- Publication fails with `feature_disabled` while Community is disabled.
+- Enabling Community updates capability discovery.
+- Publication succeeds after Community is enabled.
+
+### OPS-007: Complete First-Run Production Readiness
+
+**As a** platform operator,
+**I want** first-run readiness to track infrastructure, backups, and first
+deployment,
+**So that** a new platform instance does not look production-ready before its
+operational basics are in place.
+
+Flow:
+
+1. Inspect first-run readiness on a new platform instance.
+2. Register a runner.
+3. Configure a backup destination.
+4. Execute the first approved deployment.
+5. Inspect readiness again.
+
+Acceptance criteria:
+
+- Missing runner, backup destination, and first deployment appear as incomplete
+  steps.
+- Readiness becomes production-ready only after all required setup steps are
+  complete.
+
+### OPS-008: Diagnose And Roll Back A Degraded Deployment
+
+**As an** incident responder,
+**I want** degraded deployments to produce a diagnosis and rollback action,
+**So that** I can recover service while preserving audit context.
+
+Flow:
+
+1. Execute at least one successful deployment.
+2. Mark the latest deployment degraded with a health-check reason.
+3. Inspect incident diagnosis.
+4. Roll back as an incident lead.
+
+Acceptance criteria:
+
+- Diagnosis severity is high.
+- Diagnosis records the first failing step.
+- Diagnosis recommends rollback.
+- Rollback changes deployment state and records a `deployment.rolled_back`
+  audit event.
+
+### OPS-009: Gate AI Actions With Approval
+
+**As a** platform admin,
+**I want** AI-generated production actions to require approval,
+**So that** AI remains useful without silently changing production state.
+
+Flow:
+
+1. Ask AI to produce a scoped action plan.
+2. Try to execute the plan before approval.
+3. Approve and execute the plan.
+
+Acceptance criteria:
+
+- AI plan records the requested action and project context.
+- Execution before approval fails with `approval_required`.
+- Approved execution records `ai.plan.executed`.
+
+### OPS-010: Use The Platform Web Console On Mobile And Desktop
+
+**As an** operator,
+**I want** the web console to preserve project scope, next action, AI access,
+and Community mode across viewport sizes,
+**So that** urgent workflows remain usable on desktop and mobile.
+
+Flow:
+
+1. Render the console at mobile width.
+2. Verify production readiness, scoped project/environment/deployable context,
+   primary action, hidden Community nav, and AI label.
+3. Render the console at desktop width with Community enabled.
+4. Verify Community navigation, moderation state, operational telemetry,
+   package distribution, search results, feed activity, and moderation queue
+   count.
+
+Acceptance criteria:
+
+- Mobile rendering uses mobile navigation.
+- Desktop rendering uses desktop navigation.
+- Community navigation follows the Community capability.
+- Desktop platform panels expose operations, packages, search, Community
+  activity, moderation, and Community project showcase details.
+- The AI affordance has an accessible label.
+
+### OPS-011: Govern Deploy Approvals With RBAC
+
+**As a** platform administrator,
+**I want** protected environment approvals to respect team role bindings,
+**So that** production deploys are gated by explicit release authority.
+
+Flow:
+
+1. Create platform users and a release manager team.
+2. Add the approver to the team.
+3. Grant the team `environment-approver` on production.
+4. Try to approve as a non-member.
+5. Approve as the release manager.
+
+Acceptance criteria:
+
+- Unauthorized approval fails with `permission_denied`.
+- The failure suggests asking an environment approver.
+- Authorized approval records the approver and audit event.
+
+### OPS-012: Run A Forge Review Workflow
+
+**As a** maintainer,
+**I want** issues, review intents, checks, AI summaries, approvals, and merges,
+**So that** Epoch.Platform can support collaborative code review flows.
+
+Flow:
+
+1. Create an issue for a project.
+2. Create a review intent linked to that issue.
+3. Record a passing check.
+4. Ask AI to summarize the review intent.
+5. Approve and merge the review intent.
+
+Acceptance criteria:
+
+- Review intent state becomes `merged`.
+- Checks and AI summary remain attached to the review intent.
+- The issue links back to the review intent.
+- Merge records a `review_intent.merged` audit event.
+
+### OPS-013: Publish, Search, Observe, And Snapshot Platform State
+
+**As a** platform operator,
+**I want** packages, search, observability, and snapshots connected to deploys,
+**So that** release state can be discovered and recovered headlessly.
+
+Flow:
+
+1. Execute an approved deployment.
+2. Publish a package from the deployment.
+3. Search for the service name.
+4. Inspect observability summary.
+5. Export a platform snapshot and restore it into a fresh SDK.
+
+Acceptance criteria:
+
+- Package version is available after publishing.
+- Search returns repository, deployable, and package results.
+- Observability reports runner count and latest deployment state.
+- Restored snapshots preserve Community capability, project overview,
+  Community slug, and latest deployment state.
+
+### OPS-014: Moderate A Community Social Surface
+
+**As a** Community moderator,
+**I want** follows, stars, discussions, reports, feeds, and resolution queues,
+**So that** public collaboration can stay useful without being mandatory for
+private deployments.
+
+Flow:
+
+1. Enable Community and publish a project.
+2. Approve the project as a moderator.
+3. Create a public profile.
+4. Follow, star, and open a discussion.
+5. Report and resolve the discussion.
+
+Acceptance criteria:
+
+- Follower and star counts update.
+- Feed activity records the discussion.
+- Open reports appear in the moderation queue.
+- Resolving the report clears the queue and records audit history.
+
+### OPS-015: Operate Enterprise Controls Through SDK
+
+**As a** security and compliance admin,
+**I want** SSO, SCIM, service accounts, tokens, sessions, audit export, and
+retention available through SDK calls,
+**So that** enterprise installs can be automated and audited.
+
+Acceptance criteria:
+
+- SSO and SCIM changes create audit records.
+- Service account tokens and user sessions can be revoked.
+- API requests expose correlation and idempotency metadata.
+- Webhooks verify signatures.
+- Audit export and compliance reports include retention and secret-handling
+  findings.
+
+### OPS-016: Connect Infrastructure And Coordinate Runners
+
+**As a** platform operator,
+**I want** targets, resources, templates, discovery, dry-run plans, cancellation,
+promotion, job retry, and runner reconciliation,
+**So that** deployment workflows stay plan-first and recoverable.
+
+Acceptance criteria:
+
+- Infrastructure targets and resources appear in project context.
+- Discovered deployables retain runtime and manifest metadata.
+- Dry-run plans expose generated configuration and can be canceled.
+- Promotions and runner/job lifecycle changes are audited.
+- Unknown config sections warn while invalid known sections fail safely.
+
+### OPS-017: Run AI, Support, Backup, Restore, And HA Drills
+
+**As an** enterprise operator,
+**I want** AI guardrails, support bundles, backup verification, restore dry-runs,
+and failover drills,
+**So that** production readiness is testable before incidents.
+
+Acceptance criteria:
+
+- AI context cites sources and redacts secrets.
+- Unsafe tools are denied and deploy tools require approval.
+- Support bundles include diagnostics without plaintext secrets.
+- Backup verification, manifest-hashed backup artifacts, backup-artifact
+  restore, restore dry-run, RPO/RTO targets, and failover drill status are
+  inspectable.
+
+### OPS-018: Publish A Safe Community Showcase
+
+**As a** Community maintainer,
+**I want** public profiles, reviewed visibility policy, maintainer-gated
+showcases, bookmarks, discussions, feeds, reputation, abuse controls,
+takedowns, blocking, legal-hold export, and backup/restore,
+**So that** public collaboration can grow without leaking private Core data.
+
+Acceptance criteria:
+
+- Community status exposes enabled state, worker state, and the reviewed public
+  visibility policy.
+- Project showcase publication requires maintainer permission when a project is
+  governed by project RBAC.
+- Pending showcases are hidden from search and cannot be starred, followed,
+  bookmarked, or discussed until approved.
+- Public project pages include topics and releases.
+- Public project pages include README, deploy badge, contribution prompt,
+  bookmark count, and discussion count without exposing private repository
+  slugs.
+- Personalized feeds expose public activity events with actor, verb, object,
+  visibility, and timestamp metadata.
+- Contributions increase public reputation.
+- Abuse throttles, AI-assisted moderation triage, reports, and takedowns create
+  typed errors and audit events.
+- Legal-hold export includes relevant Community discussion details.
+- Filesystem backup artifacts restore Community data and feed events.
+- Disabled Community APIs return `feature_disabled` while Core repository
+  collaboration continues.
+
 ## Tooling Stories
 
 ### TOOL-001: Import And Export Git Files

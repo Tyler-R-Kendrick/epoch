@@ -1,13 +1,18 @@
 # Epoch Core SDK Reference
 
-Use the Core SDK when an application needs direct programmatic access to Epoch repositories.
+Use the Core SDK when an application needs direct programmatic access to Epoch repositories or the initial Epoch.Platform headless management and web console foundation.
 
 ## Package and imports
 
 - Workspace package: `@epoch/core`
 - React package: `@epoch/wasm-react`
+- Platform Core package: `@epoch/platform-core`
+- Platform SDK package: `@epoch/platform-sdk`
+- Platform Community package: `@epoch/platform-community`
+- Platform Web package: `@epoch/platform-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
+- Platform root exports: `epoch/Epoch.Platform.Core`, `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Community`, `epoch/Epoch.Platform.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, transport and serialization helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
 
@@ -50,3 +55,30 @@ Use `CRDTRegistry.defaults()` for built-in text, JSON, and CSV merges. Register 
 ## React surface
 
 Use `@epoch/wasm-react` for browser-safe React state history built on append-only Epoch events and for VFS-backed live repository hooks.
+
+## Epoch.Platform foundation
+
+Use `@epoch/platform-core` for the platform domain service,
+`@epoch/platform-sdk` for headless automation,
+`@epoch/platform-community` for the optional public/internal Community module,
+and `@epoch/platform-web` for the browser-rendered console foundation. Use
+`createInMemoryPlatformCore()` for short-lived embedded flows and
+`createFileSystemPlatformCore()` for durable local state, hash-verified state
+envelopes, HMAC webhooks, manifest-hashed backup artifacts, and backup-artifact
+restore. The current slice covers
+capability discovery, organizations, projects, repositories, environments,
+deployables, deploy plans, protected-environment approval checks, identity/RBAC, SSO/SCIM,
+service accounts, API tokens, sessions, issues, review intents, packages,
+search, observability, infrastructure targets, resources, templates, runners,
+backup verification, restore dry-runs, HA failover drills, secret references
+and rotation, deployment jobs/logs, incident diagnosis, rollback, AI action
+approval, AI context packs, AI tool authorization, API request correlation,
+webhooks, event streams, compliance reports, tenant export/delete, deployment
+audit events, snapshots, optional Community project publication, Community
+status and visibility policy review, maintainer-gated showcases, bookmarks,
+feeds, Community reputation, Community abuse controls, Community legal-hold
+export, Community backup/restore, and Community moderation.
+
+This is a foundation only; networking, real runners, infrastructure adapters,
+SSO handshakes, clustered scheduling, and a production database/queue/search
+stack are not implemented yet.

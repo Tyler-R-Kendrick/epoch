@@ -1,0 +1,15 @@
+{
+  "name": "@epoch/platform-community",
+  "version": "0.1.0",
+  "description": "Optional Community deployment module for Epoch.Platform.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/platform-core": "0.1.0",
+    "@epoch/platform-sdk": "0.1.0"
+  }
+}

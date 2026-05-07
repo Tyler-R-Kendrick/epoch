@@ -14,13 +14,13 @@ compatibility:
 
 # Epoch DVCS Skill
 
-Epoch is an event-driven, offline-first DVCS with signed immutable events, content-addressed storage, first-class repository creation and signed versions, CRDT-backed entity merging, a Node CLI, WASM-facing exports, and React integration helpers. Use this skill when an agent needs to understand how to operate Epoch, integrate it into applications, extend repository behavior, or contribute changes safely.
+Epoch is an event-driven, offline-first DVCS with signed immutable events, content-addressed storage, first-class repository creation and signed versions, CRDT-backed entity merging, a Node CLI, WASM-facing exports, React integration helpers, and an Epoch.Platform Core/SDK/Community/Web conformance foundation. Use this skill when an agent needs to understand how to operate Epoch, integrate it into applications, extend repository or platform behavior, or contribute changes safely.
 
 This file is intentionally a compact wiki index. Read only the reference page relevant to the task to minimize context usage.
 
 ## When to use this skill
 
-- Building or debugging integrations with `@epoch/core`, `@epoch/cli`, `@epoch/wasm`, or `@epoch/wasm-react`.
+- Building or debugging integrations with `@epoch/core`, `@epoch/cli`, `@epoch/wasm`, `@epoch/wasm-react`, `@epoch/platform-core`, `@epoch/platform-sdk`, `@epoch/platform-community`, or `@epoch/platform-web`.
 - Writing automation that creates repositories, pushes assets, records files, creates/materializes versions, appends CRDT operations, verifies repositories, syncs peers, or imports/exports Git repositories.
 - Updating Epoch source code, tests, quality gates, or documentation.
 - Explaining Epoch concepts to project consumers.
@@ -35,7 +35,7 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 
 | Reference | Use it for |
 |---|---|
-| [Core SDK](references/core-sdk.md) | Repository lifecycle, event log, CRDT operations, hooks, actors, and Git-compatible core exports. |
+| [Core SDK](references/core-sdk.md) | Repository lifecycle, event log, CRDT operations, hooks, actors, Git-compatible core exports, and Epoch.Platform Core/SDK/Community/Web foundation. |
 | [CLI](references/cli.md) | Running `epoch` and `epoch-git`, repository commands, views, policy events, import/export, and verification. |
 | [WASM](references/wasm.md) | Browser/worker-safe exports, CRDT helpers, and unsupported native Git behavior. |
 | [Quality Gates](references/quality-gates.md) | Required TDD, lint, typecheck, test, coverage, and CI expectations. |
@@ -50,7 +50,7 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 
 ## Quick orientation
 
-- Workspace packages live in `packages/Epoch.Core`, `packages/Epoch.CLI`, `packages/Epoch.WASM`, and `packages/Epoch.WASM.React`.
+- Workspace packages live in `packages/Epoch.Core`, `packages/Epoch.CLI`, `packages/Epoch.WASM`, `packages/Epoch.WASM.React`, `packages/Epoch.Platform.Core`, `packages/Epoch.Platform.Sdk`, `packages/Epoch.Platform.Community`, and `packages/Epoch.Platform.Web`.
 - Feature specifications live in `features/`; step definitions and lower-level tests live in `test/`.
 - Build output is generated into `dist/` directories and should not be committed.
 - Public behavior, architecture, design decisions, and agent workflows should be documented in the docs index, ADRs, feature registry, and relevant skill reference when they change.

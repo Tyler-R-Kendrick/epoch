@@ -7,7 +7,11 @@
     "packages/Epoch.Core",
     "packages/Epoch.CLI",
     "packages/Epoch.WASM",
-    "packages/Epoch.WASM.React"
+    "packages/Epoch.WASM.React",
+    "packages/Epoch.Platform.Core",
+    "packages/Epoch.Platform.Sdk",
+    "packages/Epoch.Platform.Community",
+    "packages/Epoch.Platform.Web"
   ],
   "main": "packages/Epoch.Core/dist/index.js",
   "bin": {
@@ -25,6 +29,22 @@
     "./Epoch.WASM.React": {
       "types": "./packages/Epoch.WASM.React/src/index.ts",
       "default": "./packages/Epoch.WASM.React/dist/index.js"
+    },
+    "./Epoch.Platform.Core": {
+      "types": "./packages/Epoch.Platform.Core/src/index.ts",
+      "default": "./packages/Epoch.Platform.Core/dist/index.js"
+    },
+    "./Epoch.Platform.Sdk": {
+      "types": "./packages/Epoch.Platform.Sdk/src/index.ts",
+      "default": "./packages/Epoch.Platform.Sdk/dist/index.js"
+    },
+    "./Epoch.Platform.Community": {
+      "types": "./packages/Epoch.Platform.Community/src/index.ts",
+      "default": "./packages/Epoch.Platform.Community/dist/index.js"
+    },
+    "./Epoch.Platform.Web": {
+      "types": "./packages/Epoch.Platform.Web/src/index.ts",
+      "default": "./packages/Epoch.Platform.Web/dist/index.js"
     }
   },
   "engines": {
@@ -32,8 +52,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-community && npm run build -w @epoch/platform-web && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-community && npm run typecheck -w @epoch/platform-web && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "docs:check": "node scripts/check-docs.mjs",
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
