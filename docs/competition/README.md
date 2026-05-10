@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-09
+last_researched: 2026-05-10
 ---
 
 # Competition Research
@@ -27,6 +27,9 @@ gossip-path: <product-path>/gossip.md
 | GitHub | Default forge and developer collaboration UX | [Profile](products/github/profile.md) | [Design](products/github/design/design.md) | [Feature](products/github/features/repository-collaboration.feature) | [Marketing](products/github/marketing.md) | [Gossip](products/github/gossip.md) |
 | GitLab | DevSecOps forge with governed merge requests, CI/CD, security, and AI agent orchestration | [Profile](products/gitlab/profile.md) | [Design](products/gitlab/design/design.md) | [Feature](products/gitlab/features/merge-request-governance.feature) | [Marketing](products/gitlab/marketing.md) | [Gossip](products/gitlab/gossip.md) |
 | Bitbucket | Atlassian-native Git hosting, pull requests, Pipelines, Jira context, and Premium governance | [Profile](products/bitbucket/profile.md) | [Design](products/bitbucket/design/design.md) | [Feature](products/bitbucket/features/jira-connected-code-review.feature) | [Marketing](products/bitbucket/marketing.md) | [Gossip](products/bitbucket/gossip.md) |
+| Gitea | Lightweight self-hosted Git forge with familiar pull requests, Actions, packages, and enterprise support | [Profile](products/gitea/profile.md) | [Design](products/gitea/design/design.md) | [Feature](products/gitea/features/self-hosted-forge.feature) | [Marketing](products/gitea/marketing.md) | [Gossip](products/gitea/gossip.md) |
+| Forgejo | Community-governed self-hosted Git forge with Codeberg backing and federation direction | [Profile](products/forgejo/profile.md) | [Design](products/forgejo/design/design.md) | [Feature](products/forgejo/features/federated-community-forge.feature) | [Marketing](products/forgejo/marketing.md) | [Gossip](products/forgejo/gossip.md) |
+| SourceHut | Minimal no-JavaScript hacker forge with Git, Mercurial, mailing lists, builds, tickets, and exportable APIs | [Profile](products/sourcehut/profile.md) | [Design](products/sourcehut/design/design.md) | [Feature](products/sourcehut/features/email-native-forge.feature) | [Marketing](products/sourcehut/marketing.md) | [Gossip](products/sourcehut/gossip.md) |
 | Fossil SCM | Self-contained DVCS with repository-integrated wiki, tickets, forum, docs, and web UI | [Profile](products/fossil-scm/profile.md) | [Design](products/fossil-scm/design/design.md) | [Feature](products/fossil-scm/features/integrated-project-history.feature) | [Marketing](products/fossil-scm/marketing.md) | [Gossip](products/fossil-scm/gossip.md) |
 | Zed DeltaDB | CRDT-backed operation-level version control inside an AI-native collaborative editor | [Profile](products/zed-deltadb/profile.md) | [Design](products/zed-deltadb/design/design.md) | [Feature](products/zed-deltadb/features/operation-level-collaboration.feature) | [Marketing](products/zed-deltadb/marketing.md) | [Gossip](products/zed-deltadb/gossip.md) |
 | Automerge | Local-first CRDT repository and sync engine for application data | [Profile](products/automerge/profile.md) | [Design](products/automerge/design/design.md) | [Feature](products/automerge/features/local-first-repository.feature) | [Marketing](products/automerge/marketing.md) | [Gossip](products/automerge/gossip.md) |
