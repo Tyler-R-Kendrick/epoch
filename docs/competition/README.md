@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-11
+last_researched: 2026-05-12
 ---
 
 # Competition Research
@@ -33,6 +33,7 @@ gossip-path: <product-path>/gossip.md
 | Forgejo | Community-governed self-hosted Git forge with Codeberg backing and federation direction | [Profile](products/forgejo/profile.md) | [Design](products/forgejo/design/design.md) | [Feature](products/forgejo/features/federated-community-forge.feature) | [Marketing](products/forgejo/marketing.md) | [Gossip](products/forgejo/gossip.md) |
 | SourceHut | Minimal no-JavaScript hacker forge with Git, Mercurial, mailing lists, builds, tickets, and exportable APIs | [Profile](products/sourcehut/profile.md) | [Design](products/sourcehut/design/design.md) | [Feature](products/sourcehut/features/email-native-forge.feature) | [Marketing](products/sourcehut/marketing.md) | [Gossip](products/sourcehut/gossip.md) |
 | Fossil SCM | Self-contained DVCS with repository-integrated wiki, tickets, forum, docs, and web UI | [Profile](products/fossil-scm/profile.md) | [Design](products/fossil-scm/design/design.md) | [Feature](products/fossil-scm/features/integrated-project-history.feature) | [Marketing](products/fossil-scm/marketing.md) | [Gossip](products/fossil-scm/gossip.md) |
+| Codeberg | Community-hosted Forgejo destination with nonprofit governance and values-led open-source hosting | [Profile](products/codeberg/profile.md) | [Design](products/codeberg/design/design.md) | [Feature](products/codeberg/features/community-forge-hosting.feature) | [Marketing](products/codeberg/marketing.md) | [Gossip](products/codeberg/gossip.md) |
 | Zed DeltaDB | CRDT-backed operation-level version control inside an AI-native collaborative editor | [Profile](products/zed-deltadb/profile.md) | [Design](products/zed-deltadb/design/design.md) | [Feature](products/zed-deltadb/features/operation-level-collaboration.feature) | [Marketing](products/zed-deltadb/marketing.md) | [Gossip](products/zed-deltadb/gossip.md) |
 | Automerge | Local-first CRDT repository and sync engine for application data | [Profile](products/automerge/profile.md) | [Design](products/automerge/design/design.md) | [Feature](products/automerge/features/local-first-repository.feature) | [Marketing](products/automerge/marketing.md) | [Gossip](products/automerge/gossip.md) |
 | Yjs | Modular collaborative shared types, providers, persistence, and awareness | [Profile](products/yjs/profile.md) | [Design](products/yjs/design/design.md) | [Feature](products/yjs/features/collaborative-shared-types.feature) | [Marketing](products/yjs/marketing.md) | [Gossip](products/yjs/gossip.md) |
@@ -45,6 +46,8 @@ gossip-path: <product-path>/gossip.md
 | Pijul | Patch-theory DVCS with commutative changes | [Profile](products/pijul/profile.md) | [Design](products/pijul/design/design.md) | [Feature](products/pijul/features/commutative-changes.feature) | [Marketing](products/pijul/marketing.md) | [Gossip](products/pijul/gossip.md) |
 | Sapling | Large-scale SCM with user-friendly smartlog and stacked workflows | [Profile](products/sapling/profile.md) | [Design](products/sapling/design/design.md) | [Feature](products/sapling/features/smartlog-and-stacks.feature) | [Marketing](products/sapling/marketing.md) | [Gossip](products/sapling/gossip.md) |
 | Graphite | GitHub-native stacked pull request workflow | [Profile](products/graphite/profile.md) | [Design](products/graphite/design/design.md) | [Feature](products/graphite/features/stacked-pull-requests.feature) | [Marketing](products/graphite/marketing.md) | [Gossip](products/graphite/gossip.md) |
+| GitButler | Desktop Git client that makes virtual branches and stacked local work visible | [Profile](products/gitbutler/profile.md) | [Design](products/gitbutler/design/design.md) | [Feature](products/gitbutler/features/virtual-branch-workspace.feature) | [Marketing](products/gitbutler/marketing.md) | [Gossip](products/gitbutler/gossip.md) |
+| Review Board | SCM-neutral review requests for code, screenshots, files, and legacy repository systems | [Profile](products/review-board/profile.md) | [Design](products/review-board/design/design.md) | [Feature](products/review-board/features/scm-neutral-review-request.feature) | [Marketing](products/review-board/marketing.md) | [Gossip](products/review-board/gossip.md) |
 
 ## Research Dimensions
 
