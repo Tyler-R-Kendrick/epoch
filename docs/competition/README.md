@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-12
+last_researched: 2026-05-13
 ---
 
 # Competition Research
@@ -47,6 +47,9 @@ gossip-path: <product-path>/gossip.md
 | Sapling | Large-scale SCM with user-friendly smartlog and stacked workflows | [Profile](products/sapling/profile.md) | [Design](products/sapling/design/design.md) | [Feature](products/sapling/features/smartlog-and-stacks.feature) | [Marketing](products/sapling/marketing.md) | [Gossip](products/sapling/gossip.md) |
 | Graphite | GitHub-native stacked pull request workflow | [Profile](products/graphite/profile.md) | [Design](products/graphite/design/design.md) | [Feature](products/graphite/features/stacked-pull-requests.feature) | [Marketing](products/graphite/marketing.md) | [Gossip](products/graphite/gossip.md) |
 | GitButler | Desktop Git client that makes virtual branches and stacked local work visible | [Profile](products/gitbutler/profile.md) | [Design](products/gitbutler/design/design.md) | [Feature](products/gitbutler/features/virtual-branch-workspace.feature) | [Marketing](products/gitbutler/marketing.md) | [Gossip](products/gitbutler/gossip.md) |
+| GitKraken | Visual Git workflow platform with commit graph, workspaces, Launchpad, GitLens, AI, and MCP surfaces | [Profile](products/gitkraken/profile.md) | [Design](products/gitkraken/design/design.md) | [Feature](products/gitkraken/features/visual-git-workspace.feature) | [Marketing](products/gitkraken/marketing.md) | [Gossip](products/gitkraken/gossip.md) |
+| RhodeCode | Enterprise source code management across Git, Mercurial, and SVN with unified governance and review | [Profile](products/rhodecode/profile.md) | [Design](products/rhodecode/design/design.md) | [Feature](products/rhodecode/features/unified-scm-review.feature) | [Marketing](products/rhodecode/marketing.md) | [Gossip](products/rhodecode/gossip.md) |
+| Phorge | Maintained Phabricator fork with Differential review, Diffusion repositories, Maniphest tasks, Herald automation, and Audit workflows | [Profile](products/phorge/profile.md) | [Design](products/phorge/design/design.md) | [Feature](products/phorge/features/differential-review-and-audit.feature) | [Marketing](products/phorge/marketing.md) | [Gossip](products/phorge/gossip.md) |
 | Review Board | SCM-neutral review requests for code, screenshots, files, and legacy repository systems | [Profile](products/review-board/profile.md) | [Design](products/review-board/design/design.md) | [Feature](products/review-board/features/scm-neutral-review-request.feature) | [Marketing](products/review-board/marketing.md) | [Gossip](products/review-board/gossip.md) |
 
 ## Research Dimensions
