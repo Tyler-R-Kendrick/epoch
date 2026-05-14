@@ -57,6 +57,10 @@ The current domain constants include:
 - `collaboration.issue`
 - `collaboration.review`
 - `conflict-resolution`
+- `file.copy`
+- `file.delete`
+- `file.forget`
+- `file.move`
 - `operation`
 - `redaction`
 - `rollback`
@@ -66,16 +70,30 @@ The current domain constants include:
 - `rejection`
 - `ci`
 
-Records and CRDT operations are also treated as intents for named-view projection because they represent requested, not yet necessarily accepted, state changes.
+Records, CRDT operations, and native file lifecycle events are also treated as
+intents for named-view projection because they represent requested, not yet
+necessarily accepted, state changes.
 
 ## Repository Creation And Versions
 
 `EpochRepository.create()` and `EpochRepository.openOrCreate()` provide
 one-call repository creation helpers on top of the existing `init()` layout.
 `push()` is the asset-first workflow: it opens or creates a repository, walks
-requested files/directories under the repository root, skips `.epoch/`, `.git/`,
-and `node_modules/`, records changed assets, and creates a signed version
-unless disabled.
+requested files/directories under the repository root, skips `.epoch/` and
+`.git/`, applies Epoch ignore rules, records changed assets, enforces configured
+new-file size limits, and creates a signed version unless disabled.
+
+Native working-tree commands are part of the main `epoch` CLI. `mv`, `rm`, `cp`,
+`track`, and `forget` append signed `file.*` or `record` events so path
+lifecycle intent survives sync and version materialization. `status` projects
+tracked, modified, deleted, untracked, and ignored paths from the current
+filesystem and signed record projection. Ignore discovery reads `.epochignore`,
+`.epoch/info/exclude`, and any TOML-configured global ignore file.
+
+Repository configuration is TOML-based. Local settings live in
+`.epoch/config.toml`; shared project policy can live in `epoch.toml` and be
+recorded as normal repository content. The current enforced config value is
+`working_tree.max_new_file_bytes` for automatic asset capture.
 
 `version` events bind a materialized view/frontier to a manifest of files and
 optional CRDT entity snapshots. File entries reference existing

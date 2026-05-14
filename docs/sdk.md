@@ -27,7 +27,8 @@ and Git compatibility classes.
    create one with `openOrCreate(root, options)`, or construct
    `EpochRepository` and call `init(author?)`.
 2. Record data with `recordFile(path, mimeType)`, push existing assets with
-   `push(paths, options)`, or create review flow events
+   `push(paths, options)`, track working-tree lifecycle with `track`,
+   `movePath`, `copyPath`, `deletePath`, and `forgetPath`, or create review flow events
    with `intentFile`, `mergeIntent`, `rejectIntent`, and `comment`.
 3. Create deployable versions with `createVersion()` and materialize them with
    `materializeVersion()`.
@@ -57,6 +58,19 @@ const pushed = repository.push(["dist"], {
 repository.materializeVersion(pushed.version!.id, {
   outDir: "./deploy",
 });
+```
+
+Track native working-tree lifecycle:
+
+```ts
+repository.track("notes/draft.md", { includeIgnored: true });
+repository.movePath("notes/draft.md", "notes/final.md");
+repository.copyPath("notes/final.md", "notes/template.md");
+repository.deletePath("notes/template.md");
+repository.forgetPath("local-only.toml");
+
+const ignored = repository.checkIgnore("dist/app.js");
+const maxBytes = repository.configValue("working_tree.max_new_file_bytes");
 ```
 
 ## Async Actor API

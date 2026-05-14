@@ -45,6 +45,10 @@ export const EventType = {
   collaborationIssue: "collaboration.issue",
   collaborationReview: "collaboration.review",
   conflictResolution: "conflict-resolution",
+  fileCopy: "file.copy",
+  fileDelete: "file.delete",
+  fileForget: "file.forget",
+  fileMove: "file.move",
   operation: "operation",
   redaction: "redaction",
   rollback: "rollback",
@@ -185,6 +189,16 @@ export const Schemas = {
     entity_type: z.string().min(1),
     blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
     size: z.number().int().nonnegative(),
+  }),
+  fileCopyOrMovePayload: z.object({
+    from: z.string().min(1),
+    to: z.string().min(1),
+    entity_type: z.string().min(1),
+    blob_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    size: z.number().int().nonnegative(),
+  }),
+  filePathPayload: z.object({
+    path: z.string().min(1),
   }),
   eventMetadata: z.object({
     title: z.string().optional(),

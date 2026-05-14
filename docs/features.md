@@ -8,7 +8,7 @@ The current registry is backed by these Cucumber feature files:
 
 | Feature spec | Coverage focus |
 |---|---|
-| [`features/repository.feature`](../features/repository.feature) | Repository creation, asset push, signed versions, materialization, verification, sync, hooks, and Git import/export. |
+| [`features/repository.feature`](../features/repository.feature) | Repository creation, asset push, native working-tree lifecycle commands, ignore/config behavior, signed versions, materialization, verification, sync, hooks, and Git import/export. |
 | [`features/actors.feature`](../features/actors.feature) | Async actor facade and per-user authorship. |
 | [`features/crdt_log.feature`](../features/crdt_log.feature) | Operation CRDT events and materialized map/text state. |
 | [`features/merge.feature`](../features/merge.feature) | Intent policy and entity merge behavior. |
@@ -37,6 +37,13 @@ Implemented behavior:
 - `EpochRepository.init(author?)` creates repository metadata and an Ed25519 identity.
 - `EpochRepository.create(root, options)` and `openOrCreate(root, options)` provide one-call repository creation helpers.
 - `recordFile(path, mimeType)` appends a signed `record` event with causal parents.
+- `track`, `forget`, `movePath`, `copyPath`, and `deletePath` record native
+  working-tree lifecycle events for explicit file tracking, untracking,
+  renames, copies, and deletes.
+- `.epochignore`, `.epoch/info/exclude`, and TOML-configured global ignores
+  shape untracked discovery and `push` auto-capture.
+- `.epoch/config.toml` and `epoch.toml` provide TOML repository configuration;
+  `working_tree.max_new_file_bytes` limits automatic new-file capture.
 - `events()`, `read(eventId)`, and `heads()` expose the local event log.
 - `verify()` checks event IDs, signatures, parent references, heads, and blob integrity.
 

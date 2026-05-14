@@ -56,6 +56,11 @@ binaries directly.
 | `init --author NAME` | Initialize `.epoch/` metadata and identity. |
 | `push [PATH...] [--author NAME] [--version NAME] [--message TEXT] [--no-version]` | Open or create a repository, record existing assets, and create a signed version by default. |
 | `record [--type MIME] PATH` | Record a file as an immutable event and blob. |
+| `track [--type MIME] [--include-ignored] PATH` | Record a path explicitly, including ignored files when the override flag is supplied. |
+| `forget PATH` | Stop tracking a path without deleting it from the workspace. |
+| `mv FROM TO` | Move or rename a tracked path and record a signed `file.move` event. |
+| `rm PATH` | Delete a tracked path from the workspace and record a signed `file.delete` event. |
+| `cp FROM TO` | Copy a tracked path and record a signed `file.copy` event. |
 | `events` | Print event IDs, types, and payloads. |
 | `verify` | Verify signatures, DAG state, heads, blobs, and tamper evidence. |
 | `sync PEER_REPO` | Copy missing events and blobs from a peer repository. |
@@ -63,6 +68,33 @@ binaries directly.
 | `dr-plan` | Print the disaster recovery plan. |
 | `op-log` | List signed operation events recorded by mutating CLI commands. |
 | `op-show EVENT_ID` | Print one signed operation event projection as JSON. |
+
+## Working Tree, Ignore, And Config Commands
+
+Epoch has a native working-tree surface in the main `epoch` CLI. File lifecycle
+commands are signed Epoch events, not only Git compatibility shims.
+
+| Command | Purpose |
+|---|---|
+| `status [--ignored]` | Show tracked, modified, deleted, untracked, and optionally ignored workspace paths. |
+| `check-ignore PATH` | Print the ignore file, line, pattern, and path when a path is ignored. |
+| `config get KEY` | Read a TOML configuration value such as `working_tree.max_new_file_bytes`. |
+| `config path [--scope local|shared]` | Print the local `.epoch/config.toml` or shared `epoch.toml` config path. |
+
+Ignore discovery reads shared `.epochignore`, local `.epoch/info/exclude`, and
+the optional `ignore.global_file` configured in TOML. Ignore rules affect
+untracked discovery and `push` auto-capture; they do not silently untrack an
+already recorded file. Use `track --include-ignored PATH` when an ignored file
+must be recorded intentionally.
+
+Repository configuration uses TOML. Local machine-specific settings belong in
+`.epoch/config.toml`. Shared project policy can live in `epoch.toml` and be
+recorded like any other file. The currently enforced working-tree setting is:
+
+```toml
+[working_tree]
+max_new_file_bytes = 1048576
+```
 
 ## Version Commands
 
