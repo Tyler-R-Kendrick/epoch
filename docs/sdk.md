@@ -251,6 +251,9 @@ function Counter() {
 See the [Self-Evolving Canvas sample](../samples/self-evolving-canvas/README.md)
 for a minimal browser app that stores runtime JSON-render widget changes in an
 Epoch live repository and shares them between peers with VFS-backed gossip.
+See the [Hello World CLI sample](../samples/hello-world-cli/README.md) for a
+minimal command-line app that creates, records, versions, and verifies an Epoch
+repository with the Core SDK.
 
 ## Hooks
 

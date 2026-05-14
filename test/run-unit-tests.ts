@@ -5,6 +5,7 @@ import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
+import { runSampleHelloWorldCliTests } from "./unit/sample-hello-world-cli.test";
 import { runSampleSelfEvolvingCanvasTests } from "./unit/sample-self-evolving-canvas.test";
 import { runWasmReactShadowDomTests } from "./component/wasm-react-shadow-dom.test";
 import { runWasmReactStoreTests } from "./unit/wasm-react-store.test";
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
   await runCommunityCoverageTests();
   await runPlatformBoundaryTests();
   runWasmReactStoreTests();
+  runSampleHelloWorldCliTests();
   runSampleSelfEvolvingCanvasTests();
   await runWasmReactShadowDomTests();
   console.log("unit and component tests passed");
