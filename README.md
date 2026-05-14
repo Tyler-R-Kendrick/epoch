@@ -112,6 +112,7 @@ High-value entry points:
 |---|---|
 | Architecture | [docs/design.md](docs/design.md) |
 | Samples | [samples/README.md](samples/README.md) |
+| Notebooks | [notebooks/README.md](notebooks/README.md) |
 | CLI usage | [docs/cli.md](docs/cli.md) |
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
 | Platform web apps | [docs/platforms.md](docs/platforms.md) |
