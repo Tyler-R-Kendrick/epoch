@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build && npm run vercel:community-web",
+  "outputDirectory": "packages/Epoch.Community.Web/.vercel-output",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/community/index.html"
+    },
+    {
+      "source": "/community/(.*)",
+      "destination": "/community/index.html"
+    },
+    {
+      "source": "/healthz",
+      "destination": "/healthz"
+    }
+  ]
+}
