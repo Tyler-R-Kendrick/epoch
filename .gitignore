@@ -7,3 +7,5 @@ node_modules/
 dist/
 dist-server/
 coverage/
+.vercel
+packages/Epoch.Community.Web/.vercel-output/

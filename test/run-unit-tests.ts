@@ -2,6 +2,7 @@ import { runPlatformWebConsoleTests } from "./component/platform-web-console.tes
 import { runAdvancedInfrastructureTests } from "./unit/advanced-infrastructure.test";
 import { runCommunityContractTests } from "./unit/community-contract.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
+import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
@@ -17,6 +18,7 @@ async function main(): Promise<void> {
   runPlatformWebConsoleTests();
   await runCommunityContractTests();
   await runCommunityCoverageTests();
+  await runCommunityWebVercelTests();
   await runPlatformBoundaryTests();
   runWasmReactStoreTests();
   runSampleHelloWorldCliTests();
