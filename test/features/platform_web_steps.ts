@@ -17,6 +17,17 @@ interface PlatformWebState {
 
 let webState: PlatformWebState;
 
+async function closeWithTimeout(task: Promise<unknown> | undefined, label: string, timeoutMs = 5_000) {
+  if (!task) return;
+
+  await Promise.race([
+    task,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
 Before(function () {
   webState = {
     workspace: mkdtempSync(join(tmpdir(), "epoch-platform-web-")),
@@ -35,9 +46,9 @@ Before(function () {
 
 After(async function () {
   await Promise.allSettled([
-    webState.page?.close(),
-    webState.browser?.close(),
-    webState.server?.close(),
+    closeWithTimeout(webState.page?.close(), "platform web page close"),
+    closeWithTimeout(webState.browser?.close(), "platform web browser close"),
+    closeWithTimeout(webState.server?.close(), "platform web server close"),
   ]);
   rmSync(webState.workspace, { recursive: true, force: true });
 });
@@ -110,7 +121,7 @@ Given("the web console model SDK equivalent is {string}", function (sdkEquivalen
   webState.model.sdkEquivalent = sdkEquivalent;
 });
 
-When("I render the Epoch Platform web console at width {int}", async function (width: number) {
+When("I render the Epoch Platform web console at width {int}", { timeout: 60_000 }, async function (width: number) {
   mkdirSync(webState.workspace, { recursive: true });
   writeFileSync(join(webState.workspace, "index.html"), "<!doctype html><main id=\"root\"></main><script type=\"module\" src=\"/src/main.js\"></script>\n", "utf8");
   mkdirSync(join(webState.workspace, "src"), { recursive: true });

@@ -42,5 +42,15 @@ export default [
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
     }
+  },
+  {
+    files: ["samples/**/*.{ts,tsx}"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+        localStorage: "readonly",
+        window: "readonly"
+      }
+    }
   }
 ];

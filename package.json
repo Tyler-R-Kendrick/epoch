@@ -14,7 +14,8 @@
     "packages/Epoch.Community.Core",
     "packages/Epoch.Community.API",
     "packages/Epoch.Community.Web",
-    "packages/Epoch.Community.CLI"
+    "packages/Epoch.Community.CLI",
+    "samples/self-evolving-canvas"
   ],
   "main": "packages/Epoch.Core/dist/index.js",
   "bin": {

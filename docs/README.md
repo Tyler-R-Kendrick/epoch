@@ -13,6 +13,7 @@ decisions, operations, or contribution workflow.
 | [Create Repository And Version Materialization Spec](create-repository-and-version-materialization.md) | Implemented create, push, version, and materialization user stories. |
 | [Specification Template Outline](spec-template-outline.md) | Reusable outline extracted from a conformance-grade app spec. |
 | [Epoch.Platform Specification](epoch-platform-spec.md) | Draft product and system spec for a self-hostable Epoch platform. |
+| [Samples](../samples/README.md) | Runnable minimal integrations for Epoch browser and repository workflows. |
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, HA/DR, and platform behavior. |
 
