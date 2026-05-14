@@ -6,6 +6,7 @@ export default [
     ignores: [
       "coverage/**",
       "dist/**",
+      "**/dist-server/**",
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**"

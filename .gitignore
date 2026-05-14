@@ -5,4 +5,5 @@ __pycache__/
 node_modules/
 .npm-cache/
 dist/
+dist-server/
 coverage/

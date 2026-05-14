@@ -46,6 +46,41 @@ export interface GossipResult {
   readonly rightToLeft: number;
 }
 
+export interface EpochVfsSnapshotFile {
+  readonly path: string;
+  readonly content: string;
+}
+
+export interface EpochVfsSnapshot {
+  readonly files: readonly EpochVfsSnapshotFile[];
+}
+
+export interface CanvasClusterState {
+  readonly participantId: string;
+  readonly canvas: CanvasDocument;
+  readonly liveEvents: number;
+  readonly backendEpochEvents: number;
+  readonly backendVerifyProblems: readonly string[];
+}
+
+export interface CanvasClusterGossipStats {
+  readonly receivedEvents: number;
+  readonly sentEvents: number;
+  readonly backendEventsAppended: number;
+}
+
+export interface CanvasClusterGossipRequest {
+  readonly participantId: string;
+  readonly snapshot: EpochVfsSnapshot;
+}
+
+export interface CanvasClusterGossipResponse {
+  readonly participantId: string;
+  readonly result: CanvasClusterGossipStats;
+  readonly snapshot: EpochVfsSnapshot;
+  readonly state: CanvasClusterState;
+}
+
 const emptyCanvas: CanvasDocument = {
   revision: 0,
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -74,8 +109,45 @@ export function createLocalStorageEpochVfs(storage: KeyValueStorage, prefix = "e
   };
 }
 
+export function exportEpochVfsSnapshot(vfs: EpochVirtualFileSystem, pathPrefix = "/.epoch-live/events/"): EpochVfsSnapshot {
+  return {
+    files: vfs.listFiles(pathPrefix)
+      .map((path) => ({ path, content: vfs.readFile(path) }))
+      .filter((file): file is EpochVfsSnapshotFile => file.content !== undefined)
+      .sort((left, right) => left.path.localeCompare(right.path)),
+  };
+}
+
+export function createSnapshotEpochVfs(snapshot: EpochVfsSnapshot): EpochVirtualFileSystem {
+  const files = new Map(snapshot.files.map((file) => [file.path, file.content]));
+  return {
+    readFile: (path) => files.get(path),
+    writeFile: (path, content) => {
+      files.set(path, content);
+    },
+    deleteFile: (path) => {
+      files.delete(path);
+    },
+    listFiles: (pathPrefix = "") => [...files.keys()].filter((path) => path.startsWith(pathPrefix)).sort(),
+  };
+}
+
+export function importEpochVfsSnapshot(vfs: EpochVirtualFileSystem, snapshot: EpochVfsSnapshot): number {
+  let copied = 0;
+  for (const file of snapshot.files) {
+    if (vfs.readFile(file.path) !== undefined) continue;
+    vfs.writeFile(file.path, file.content);
+    copied += 1;
+  }
+  return copied;
+}
+
 export function readCanvas(repository: EpochLiveRepository): CanvasDocument {
   return normalizeCanvas(repository.entity(CANVAS_ENTITY));
+}
+
+export function normalizeCanvasDocument(value: unknown): CanvasDocument {
+  return normalizeCanvas(value);
 }
 
 export function commitCanvas(repository: EpochLiveRepository, canvas: CanvasDocument): EpochLiveRepositoryEvent {
