@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "vite build"
+    "dev": "npm run build && npm run start",
+    "start": "node dist-server/server.js",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "tsgo -p tsconfig.server.json"
   },
   "dependencies": {
+    "@epoch/core": "0.1.0",
     "@epoch/wasm-react": "0.1.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"

@@ -1,9 +1,15 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import { createEpochLiveRepository, createMemoryEpochVfs } from "@epoch/wasm-react";
+import { createCanvasClusterNode } from "../../samples/self-evolving-canvas/src/backend";
 import {
   CANVAS_ENTITY,
   commitCanvas,
+  createSnapshotEpochVfs,
   evolveCanvasWithAgent,
+  exportEpochVfsSnapshot,
   gossipCanvasPeers,
   readCanvas,
 } from "../../samples/self-evolving-canvas/src/domain";
@@ -11,6 +17,7 @@ import {
 export function runSampleSelfEvolvingCanvasTests(): void {
   recordsAgentCanvasChangesAsEpochEvents();
   gossipsCanvasHistoryToPeerRepositories();
+  gossipsBrowserParticipantWithNodeBackendCluster();
 }
 
 function recordsAgentCanvasChangesAsEpochEvents(): void {
@@ -42,4 +49,32 @@ function gossipsCanvasHistoryToPeerRepositories(): void {
   assert.equal(result.leftToRight, 1);
   assert.equal(result.rightToLeft, 0);
   assert.deepEqual(readCanvas(right), readCanvas(left));
+}
+
+function gossipsBrowserParticipantWithNodeBackendCluster(): void {
+  const dataDir = mkdtempSync(join(tmpdir(), "epoch-canvas-cluster-"));
+  try {
+    const cluster = createCanvasClusterNode({ dataDir, participantId: "node-backend" });
+    const browserVfs = createMemoryEpochVfs();
+    const browser = createEpochLiveRepository({ vfs: browserVfs, author: "browser-agent" });
+
+    commitCanvas(browser, evolveCanvasWithAgent(readCanvas(browser), "show browser risk"));
+    const browserToNode = cluster.gossipWithBrowserSnapshot(exportEpochVfsSnapshot(browserVfs));
+
+    assert.equal(browserToNode.result.receivedEvents, 1);
+    assert.equal(browserToNode.state.backendEpochEvents, 1);
+    assert.equal(cluster.state().canvas.lastPrompt, "show browser risk");
+
+    cluster.commitAgentPrompt("show backend confidence");
+    const nodeToBrowser = cluster.gossipWithBrowserSnapshot(exportEpochVfsSnapshot(browserVfs));
+    const imported = browser.syncFrom(createSnapshotEpochVfs(nodeToBrowser.snapshot));
+
+    assert.equal(nodeToBrowser.result.sentEvents, 1);
+    assert.equal(imported, 1);
+    assert.equal(readCanvas(browser).lastPrompt, "show backend confidence");
+    assert.equal(readCanvas(browser).widgets.length, 2);
+    assert.ok(cluster.state().backendVerifyProblems.length === 0);
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
 }
