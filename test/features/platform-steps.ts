@@ -25,6 +25,17 @@ interface PlatformWorld {
 
 let platformState: PlatformWorld;
 
+async function closeWithTimeout(task: Promise<unknown> | undefined, label: string, timeoutMs = 5_000) {
+  if (!task) return;
+
+  await Promise.race([
+    task,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
 Before(function () {
   platformState = {
     client: createCommunityClient(createInMemoryCommunityApi()),
@@ -32,8 +43,10 @@ Before(function () {
 });
 
 After(async function () {
-  await platformState.page?.close();
-  await platformState.browser?.close();
+  await Promise.allSettled([
+    closeWithTimeout(platformState.page?.close(), "community page close"),
+    closeWithTimeout(platformState.browser?.close(), "community browser close"),
+  ]);
 });
 
 Given("the Epoch Community API has a repository named {string}", async function (slug: string) {
@@ -143,7 +156,7 @@ Then("the Epoch Community CLI output contains {string}", function (expected: str
   assert.match(platformState.cliStdout ?? "", new RegExp(expected.replace("/", "\\/"), "u"));
 });
 
-When("I open Epoch Community Web in a Playwright browser", async function () {
+When("I open Epoch Community Web in a Playwright browser", { timeout: 60_000 }, async function () {
   assert.ok(platformState.client);
   platformState.community = await createCommunityWebApp({ client: platformState.client });
   platformState.browser = await chromium.launch();

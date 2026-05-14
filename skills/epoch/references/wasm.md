@@ -31,4 +31,5 @@ Use Core or CLI Git surfaces in trusted host environments when filesystem-backed
 - Keep persistence, network sync, and filesystem access in the host application.
 - Use WASM exports for deterministic CRDT merge/materialization logic.
 - Use `@epoch/wasm-react` for framework-local persistent state that must render, rewind, rematerialize, or subscribe to live VFS-backed repository state in a browser without Node filesystem access.
+- Use [the self-evolving canvas sample](../../../samples/self-evolving-canvas/README.md) as a minimal reference for a browser agent that persists JSON-render widget changes and gossips live repository history between peers.
 - Return explicit unsupported errors for operations that require native Git or unrestricted filesystem access.

@@ -248,6 +248,10 @@ function Counter() {
 }
 ```
 
+See the [Self-Evolving Canvas sample](../samples/self-evolving-canvas/README.md)
+for a minimal browser app that stores runtime JSON-render widget changes in an
+Epoch live repository and shares them between peers with VFS-backed gossip.
+
 ## Hooks
 
 Hooks observe repository lifecycle steps for init, append, record, CRDT
