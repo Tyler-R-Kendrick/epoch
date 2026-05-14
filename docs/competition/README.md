@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-13
+last_researched: 2026-05-14
 ---
 
 # Competition Research
@@ -38,6 +38,9 @@ gossip-path: <product-path>/gossip.md
 | Automerge | Local-first CRDT repository and sync engine for application data | [Profile](products/automerge/profile.md) | [Design](products/automerge/design/design.md) | [Feature](products/automerge/features/local-first-repository.feature) | [Marketing](products/automerge/marketing.md) | [Gossip](products/automerge/gossip.md) |
 | Yjs | Modular collaborative shared types, providers, persistence, and awareness | [Profile](products/yjs/profile.md) | [Design](products/yjs/design/design.md) | [Feature](products/yjs/features/collaborative-shared-types.feature) | [Marketing](products/yjs/marketing.md) | [Gossip](products/yjs/gossip.md) |
 | Dolt | Git-style version control for SQL table data | [Profile](products/dolt/profile.md) | [Design](products/dolt/design/design.md) | [Feature](products/dolt/features/version-controlled-database.feature) | [Marketing](products/dolt/marketing.md) | [Gossip](products/dolt/gossip.md) |
+| lakeFS | Git-like branching, commits, hooks, and rollback for object-storage data lakes | [Profile](products/lakefs/profile.md) | [Design](products/lakefs/design/design.md) | [Feature](products/lakefs/features/object-storage-data-branching.feature) | [Marketing](products/lakefs/marketing.md) | [Gossip](products/lakefs/gossip.md) |
+| DVC | Git-adjacent data, model, pipeline, and experiment versioning for ML projects | [Profile](products/dvc/profile.md) | [Design](products/dvc/design/design.md) | [Feature](products/dvc/features/git-backed-ml-artifacts.feature) | [Marketing](products/dvc/marketing.md) | [Gossip](products/dvc/gossip.md) |
+| Hugging Face Xet | Chunk-deduplicated large-file storage replacing Git LFS for AI model and dataset repos | [Profile](products/hugging-face-xet/profile.md) | [Design](products/hugging-face-xet/design/design.md) | [Feature](products/hugging-face-xet/features/chunk-deduplicated-large-repos.feature) | [Marketing](products/hugging-face-xet/marketing.md) | [Gossip](products/hugging-face-xet/gossip.md) |
 | Unity Version Control | Asset-heavy version control for game and real-time 3D teams | [Profile](products/unity-version-control/profile.md) | [Design](products/unity-version-control/design/design.md) | [Feature](products/unity-version-control/features/asset-heavy-collaboration.feature) | [Marketing](products/unity-version-control/marketing.md) | [Gossip](products/unity-version-control/gossip.md) |
 | Perforce P4 | Enterprise asset-scale version control for large binary and creative workflows | [Profile](products/perforce-p4/profile.md) | [Design](products/perforce-p4/design/design.md) | [Feature](products/perforce-p4/features/asset-scale-version-control.feature) | [Marketing](products/perforce-p4/marketing.md) | [Gossip](products/perforce-p4/gossip.md) |
 | Radicle | Sovereign peer-to-peer Git forge | [Profile](products/radicle/profile.md) | [Design](products/radicle/design/design.md) | [Feature](products/radicle/features/sovereign-forge.feature) | [Marketing](products/radicle/marketing.md) | [Gossip](products/radicle/gossip.md) |
