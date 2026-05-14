@@ -15,6 +15,7 @@
     "packages/Epoch.Community.API",
     "packages/Epoch.Community.Web",
     "packages/Epoch.Community.CLI",
+    "samples/hello-world-cli",
     "samples/self-evolving-canvas"
   ],
   "main": "packages/Epoch.Core/dist/index.js",
@@ -69,8 +70,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-cli && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-cli && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "docs:check": "node scripts/check-docs.mjs",
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
