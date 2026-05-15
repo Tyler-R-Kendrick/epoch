@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-14
+last_researched: 2026-05-15
 ---
 
 # Competition Research
@@ -37,6 +37,9 @@ gossip-path: <product-path>/gossip.md
 | Zed DeltaDB | CRDT-backed operation-level version control inside an AI-native collaborative editor | [Profile](products/zed-deltadb/profile.md) | [Design](products/zed-deltadb/design/design.md) | [Feature](products/zed-deltadb/features/operation-level-collaboration.feature) | [Marketing](products/zed-deltadb/marketing.md) | [Gossip](products/zed-deltadb/gossip.md) |
 | Automerge | Local-first CRDT repository and sync engine for application data | [Profile](products/automerge/profile.md) | [Design](products/automerge/design/design.md) | [Feature](products/automerge/features/local-first-repository.feature) | [Marketing](products/automerge/marketing.md) | [Gossip](products/automerge/gossip.md) |
 | Yjs | Modular collaborative shared types, providers, persistence, and awareness | [Profile](products/yjs/profile.md) | [Design](products/yjs/design/design.md) | [Feature](products/yjs/features/collaborative-shared-types.feature) | [Marketing](products/yjs/marketing.md) | [Gossip](products/yjs/gossip.md) |
+| Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
+| Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
+| Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
 | Dolt | Git-style version control for SQL table data | [Profile](products/dolt/profile.md) | [Design](products/dolt/design/design.md) | [Feature](products/dolt/features/version-controlled-database.feature) | [Marketing](products/dolt/marketing.md) | [Gossip](products/dolt/gossip.md) |
 | lakeFS | Git-like branching, commits, hooks, and rollback for object-storage data lakes | [Profile](products/lakefs/profile.md) | [Design](products/lakefs/design/design.md) | [Feature](products/lakefs/features/object-storage-data-branching.feature) | [Marketing](products/lakefs/marketing.md) | [Gossip](products/lakefs/gossip.md) |
 | DVC | Git-adjacent data, model, pipeline, and experiment versioning for ML projects | [Profile](products/dvc/profile.md) | [Design](products/dvc/design/design.md) | [Feature](products/dvc/features/git-backed-ml-artifacts.feature) | [Marketing](products/dvc/marketing.md) | [Gossip](products/dvc/gossip.md) |
