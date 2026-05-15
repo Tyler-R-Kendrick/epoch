@@ -56,6 +56,117 @@ Feature: Epoch repository event log
     And the version manifest includes file "asset.txt"
     And the version manifest does not include file ".git/config"
 
+  Scenario: Push honors Epoch ignore files
+    Given a new workspace
+    When I write raw workspace file ".epochignore" with content "dist/\n*.log\n"
+    And I write raw workspace file "src/app.ts" with content "console.log('tracked')\n"
+    And I write raw workspace file "dist/app.js" with content "console.log('built')\n"
+    And I write raw workspace file "debug.log" with content "debug\n"
+    And I run the Epoch CLI with arguments:
+      | push     |
+      | .        |
+      | --author |
+      | alice    |
+      | --version |
+      | ignored-assets |
+    Then the CLI exits with code 0
+    And the repository verifies successfully
+    And the version manifest includes file ".epochignore"
+    And the version manifest includes file "src/app.ts"
+    And the version manifest does not include file "dist/app.js"
+    And the version manifest does not include file "debug.log"
+
+  Scenario: Native file lifecycle commands update the signed projection
+    Given a new workspace
+    When I write raw workspace file "docs/guide.md" with content "guide\n"
+    And I write raw workspace file "docs/template.md" with content "template\n"
+    And I run the Epoch CLI with arguments:
+      | push     |
+      | docs     |
+      | --author |
+      | alice    |
+      | --no-version |
+    And I run the Epoch CLI with arguments:
+      | mv            |
+      | docs/guide.md |
+      | docs/manual.md |
+    And I run the Epoch CLI with arguments:
+      | cp                |
+      | docs/template.md  |
+      | docs/copy.md      |
+    And I run the Epoch CLI with arguments:
+      | rm               |
+      | docs/template.md |
+    And I run the Epoch CLI with arguments:
+      | version          |
+      | create           |
+      | lifecycle-state  |
+    Then the CLI exits with code 0
+    And the repository verifies successfully
+    And the latest Epoch event has type "version"
+    And the event log contains event type "file.move"
+    And the event log contains event type "file.copy"
+    And the event log contains event type "file.delete"
+    And the version manifest includes file "docs/manual.md"
+    And the version manifest includes file "docs/copy.md"
+    And the version manifest does not include file "docs/guide.md"
+    And the version manifest does not include file "docs/template.md"
+    And workspace file "docs/manual.md" contains "guide\n"
+    And workspace file "docs/copy.md" contains "template\n"
+
+  Scenario: Track and forget override ignored discovery
+    Given a new workspace
+    When I write raw workspace file ".epochignore" with content "local.toml\n"
+    And I write raw workspace file "local.toml" with content "secret = true\n"
+    And I run the Epoch CLI with arguments:
+      | status    |
+      | --ignored |
+    Then the CLI output contains "I local.toml"
+    When I run the Epoch CLI with arguments:
+      | track      |
+      | --include-ignored |
+      | local.toml |
+    And I run the Epoch CLI with arguments:
+      | forget     |
+      | local.toml |
+    And I run the Epoch CLI with arguments:
+      | version       |
+      | create        |
+      | forgot-local  |
+    Then the CLI exits with code 0
+    And the repository verifies successfully
+    And the event log contains event type "file.forget"
+    And the version manifest does not include file "local.toml"
+    And workspace file "local.toml" contains "secret = true\n"
+
+  Scenario: Check-ignore explains matched Epoch ignore patterns
+    Given a new workspace
+    When I write raw workspace file ".epochignore" with content "*.tmp\n"
+    And I run the Epoch CLI with arguments:
+      | check-ignore |
+      | scratch.tmp  |
+    Then the CLI exits with code 0
+    And the CLI output contains ".epochignore:1:*.tmp scratch.tmp"
+
+  Scenario: Repository TOML config limits automatic tracking size
+    Given a new workspace
+    When I write raw workspace file ".epoch/config.toml" with content "[working_tree]\nmax_new_file_bytes = 4\n"
+    And I write raw workspace file "large.txt" with content "12345\n"
+    And I run the Epoch CLI with arguments:
+      | push     |
+      | .        |
+      | --author |
+      | alice    |
+      | --no-version |
+    Then the CLI exits with code 1
+    And the CLI error contains "exceeds working_tree.max_new_file_bytes"
+    When I run the Epoch CLI with arguments:
+      | config |
+      | get    |
+      | working_tree.max_new_file_bytes |
+    Then the CLI exits with code 0
+    And the CLI output contains "4"
+
   Scenario: Materialize a version into a clean directory
     Given a new workspace
     When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"

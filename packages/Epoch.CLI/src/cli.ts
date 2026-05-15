@@ -69,6 +69,50 @@ function run(argv: string[], io: CliIO): void {
       recordCliOperation(repo, "record", { eventId: event.id, path: options.positionals[0] });
       return;
     }
+    case CliCommand.track: {
+      const options = parseOptions(parsed.args, { author: repo.isInitialized() ? repo.identity() : DefaultAuthor, type: EntityType.octetStream }, [CliOption.includeIgnored]);
+      if (options.positionals.length !== 1) throw new Error(CliText.trackUsage);
+      const event = repo.track(options.positionals[0], {
+        author: options.author,
+        entityType: options.type === EntityType.octetStream ? undefined : options.type,
+        includeIgnored: isFlagEnabled(options, CliOption.includeIgnored),
+      });
+      writeLine(io, `${event.id} tracked ${options.positionals[0]}`);
+      recordCliOperation(repo, "track", { eventId: event.id, path: options.positionals[0] });
+      return;
+    }
+    case CliCommand.forget: {
+      const options = parseOptions(parsed.args, { author: repo.identity() });
+      if (options.positionals.length !== 1) throw new Error(CliText.forgetUsage);
+      const event = repo.forgetPath(options.positionals[0], options.author);
+      writeLine(io, `${event.id} forgot ${options.positionals[0]}`);
+      recordCliOperation(repo, "forget", { eventId: event.id, path: options.positionals[0] });
+      return;
+    }
+    case CliCommand.mv: {
+      const options = parseOptions(parsed.args, { author: repo.identity() });
+      if (options.positionals.length !== 2) throw new Error(CliText.mvUsage);
+      const event = repo.movePath(options.positionals[0], options.positionals[1], options.author);
+      writeLine(io, `${event.id} moved ${options.positionals[0]} -> ${options.positionals[1]}`);
+      recordCliOperation(repo, "mv", { eventId: event.id, from: options.positionals[0], to: options.positionals[1] });
+      return;
+    }
+    case CliCommand.rm: {
+      const options = parseOptions(parsed.args, { author: repo.identity() });
+      if (options.positionals.length !== 1) throw new Error(CliText.rmUsage);
+      const event = repo.deletePath(options.positionals[0], options.author);
+      writeLine(io, `${event.id} deleted ${options.positionals[0]}`);
+      recordCliOperation(repo, "rm", { eventId: event.id, path: options.positionals[0] });
+      return;
+    }
+    case CliCommand.cp: {
+      const options = parseOptions(parsed.args, { author: repo.identity() });
+      if (options.positionals.length !== 2) throw new Error(CliText.cpUsage);
+      const event = repo.copyPath(options.positionals[0], options.positionals[1], options.author);
+      writeLine(io, `${event.id} copied ${options.positionals[0]} -> ${options.positionals[1]}`);
+      recordCliOperation(repo, "cp", { eventId: event.id, from: options.positionals[0], to: options.positionals[1] });
+      return;
+    }
     case CliCommand.intent: {
       const options = parseOptions(parsed.args, { author: repo.identity(), type: EntityType.octetStream, title: "", description: "", label: "" });
       if (options.positionals.length !== 1) throw new Error(CliText.intentUsage);
@@ -202,10 +246,31 @@ function run(argv: string[], io: CliIO): void {
       writeLine(io, JSON.stringify({ ...plan, affectedEvents: plan.eventIds }, null, 2));
       return;
     }
-    case CliCommand.status:
-      for (const decision of repo.policy().intents) {
-        writeLine(io, `${decision.intent.id} ${decision.status} merges=${decision.merges.join(",")} rejections=${decision.rejections.join(",")}`);
+    case CliCommand.status: {
+      const options = parseOptions(parsed.args, {}, [CliOption.ignored]);
+      let wrotePolicy = false;
+      if (repo.isInitialized()) {
+        for (const decision of repo.policy().intents) {
+          writeLine(io, `${decision.intent.id} ${decision.status} merges=${decision.merges.join(",")} rejections=${decision.rejections.join(",")}`);
+          wrotePolicy = true;
+        }
       }
+      const entries = repo.statusEntries({ ignored: isFlagEnabled(options, CliOption.ignored) });
+      for (const entry of entries) {
+        if (wrotePolicy && entry.status === "untracked") continue;
+        writeLine(io, `${entry.marker} ${entry.path}`);
+      }
+      return;
+    }
+    case CliCommand.checkIgnore: {
+      if (parsed.args.length !== 1) throw new Error(CliText.checkIgnoreUsage);
+      const match = repo.checkIgnore(parsed.args[0]);
+      if (match === undefined) throw new Error(`path is not ignored: ${parsed.args[0]}`);
+      writeLine(io, `${match.source}:${match.line}:${match.pattern} ${parsed.args[0]}`);
+      return;
+    }
+    case CliCommand.config:
+      runConfigCommand(repo, parsed.args, io);
       return;
     case CliCommand.main:
       for (const intent of repo.mainIntentIds()) {
@@ -363,6 +428,28 @@ function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): vo
     }
     default:
       throw new Error(CliText.versionUsage);
+  }
+}
+
+function runConfigCommand(repo: EpochRepository, args: string[], io: CliIO): void {
+  const subcommand = args[0];
+  switch (subcommand) {
+    case "get": {
+      const options = parseOptions(args.slice(1), {});
+      if (options.positionals.length !== 1) throw new Error(CliText.configGetUsage);
+      const value = repo.configValue(options.positionals[0]);
+      if (value === undefined) throw new Error(`config key not found: ${options.positionals[0]}`);
+      writeLine(io, typeof value === "object" ? JSON.stringify(value, null, 2) : String(value));
+      return;
+    }
+    case "path": {
+      const options = parseOptions(args.slice(1), { scope: "local" });
+      if (options.positionals.length !== 0 || (options.scope !== "local" && options.scope !== "shared")) throw new Error(CliText.configPathUsage);
+      writeLine(io, repo.configPath(options.scope));
+      return;
+    }
+    default:
+      throw new Error(CliText.configUsage);
   }
 }
 

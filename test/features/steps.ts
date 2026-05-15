@@ -871,6 +871,10 @@ Then("the latest Epoch event has type {string}", function (expected: string) {
   assert.equal(state.repo.events().at(-1)?.type, expected);
 });
 
+Then("the event log contains event type {string}", function (expected: string) {
+  assert.ok(state.repo.events().some((event) => event.type === expected), `missing event type ${expected}`);
+});
+
 Then("the latest recorded Git file {string} contains {string}", function (path: string, expected: string) {
   const event = state.repo.events().filter((candidate) => candidate.type === "record" && candidate.payload.path === path).at(-1);
   assert.ok(event);

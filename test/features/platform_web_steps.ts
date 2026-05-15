@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { After, Before, Given, Then, When } from "@cucumber/cucumber";
@@ -26,6 +27,23 @@ async function closeWithTimeout(task: Promise<unknown> | undefined, label: strin
       setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     }),
   ]);
+}
+
+async function availablePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createNetServer();
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => {
+        if (address === null || typeof address === "string") {
+          reject(new Error("could not allocate platform web test port"));
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+    server.on("error", reject);
+  });
 }
 
 Before(function () {
@@ -127,10 +145,11 @@ When("I render the Epoch Platform web console at width {int}", { timeout: 60_000
   mkdirSync(join(webState.workspace, "src"), { recursive: true });
   writeFileSync(join(webState.workspace, "src", "main.js"), browserSource(webState.model), "utf8");
 
+  const port = await availablePort();
   webState.server = await createServer({
     root: webState.workspace,
     logLevel: "silent",
-    server: { host: "127.0.0.1", port: 0 },
+    server: { host: "127.0.0.1", port, strictPort: true },
     resolve: {
       alias: [
         { find: "@epoch/platform-web", replacement: join(process.cwd(), "packages", "Epoch.Platform.Web", "src", "index.ts") },

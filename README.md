@@ -89,6 +89,14 @@ npm exec -- epoch intent README.md --type text/plain --title "Update README"
 npm exec -- epoch status
 ```
 
+Track working-tree lifecycle changes natively:
+
+```bash
+npm exec -- epoch mv docs/old.md docs/new.md
+npm exec -- epoch check-ignore dist/app.js
+npm exec -- epoch config get working_tree.max_new_file_bytes
+```
+
 Use the Git-compatible CLI surface when integrating with tools that expect
 Git-like commands:
 

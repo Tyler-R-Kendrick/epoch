@@ -1,6 +1,6 @@
 import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CRDTEventLog, CRDTOperation, EntityRegistry } from "./crdt";
 import { canonicalJson } from "./json";
@@ -183,6 +183,29 @@ export interface ViewDiff {
   readonly crdt: Readonly<Record<string, { readonly from?: unknown; readonly to?: unknown }>>;
 }
 
+export interface EpochIgnoreMatch {
+  readonly path: string;
+  readonly source: string;
+  readonly line: number;
+  readonly pattern: string;
+}
+
+export interface EpochRepositoryConfig {
+  readonly working_tree?: {
+    readonly max_new_file_bytes?: number;
+    readonly auto_track?: string;
+  };
+  readonly ignore?: {
+    readonly global_file?: string;
+  };
+}
+
+export interface WorkingTreeEntry {
+  readonly status: "tracked" | "modified" | "deleted" | "untracked" | "ignored";
+  readonly path: string;
+  readonly marker: string;
+}
+
 export interface EpochRepositoryCreateOptions extends EpochRepositoryOptions {
   readonly author?: string;
 }
@@ -312,10 +335,14 @@ const ATOMICS_WAIT_BUFFER = new SharedArrayBuffer(4);
 const ATOMICS_WAIT_ARRAY = new Int32Array(ATOMICS_WAIT_BUFFER);
 const COMPACT_DIR = "compacts";
 const COMPACT_MANIFEST = "manifest.json";
+const EPOCHIGNORE_FILE = ".epochignore";
+const EPOCH_SHARED_CONFIG_FILE = "epoch.toml";
+const EPOCH_LOCAL_CONFIG_FILE = "config.toml";
+const EPOCH_INFO_DIR = "info";
+const EPOCH_EXCLUDE_FILE = "exclude";
 const PushDefaultPath = {
   currentDirectory: ".",
 } as const;
-const PUSH_IGNORED_DIRECTORIES = new Set([StorageName.epoch, Git.repository, "node_modules"]);
 
 interface LocalCompactManifest {
   readonly prunedBeforeEventId?: string;
@@ -589,17 +616,9 @@ export class EpochRepository {
     const events = this.events();
     const intentIds = this.intentIdsForView(name, gatePolicy, events);
     const intents = sortEvents(events.filter((event) => intentIds.has(event.id)));
-    const records: Record<string, { eventId: string; entityType: string; blobSha256: string; size: number }> = {};
+    const records = this.projectRecords(intents);
     const crdtEntities = new Set<string>();
     for (const event of intents) {
-      if (event.type === "record" && typeof event.payload.path === "string" && typeof event.payload.blob_sha256 === "string" && typeof event.payload.entity_type === "string" && typeof event.payload.size === "number") {
-        records[event.payload.path] = {
-          eventId: event.id,
-          entityType: event.payload.entity_type,
-          blobSha256: event.payload.blob_sha256,
-          size: event.payload.size,
-        };
-      }
       if (event.type === "crdt" && typeof event.payload.entity === "string") crdtEntities.add(event.payload.entity);
     }
     const crdtLog = new CRDTEventLog();
@@ -755,6 +774,116 @@ export class EpochRepository {
     return event;
   }
 
+  track(path: string, options: { readonly author?: string; readonly includeIgnored?: boolean; readonly entityType?: string } = {}): Event {
+    if (!this.isInitialized()) this.init(options.author ?? DefaultAuthor);
+    const ignored = this.checkIgnore(path);
+    if (ignored !== undefined && options.includeIgnored !== true) {
+      throw new Error(`path is ignored by ${ignored.source}:${ignored.line}: ${path}`);
+    }
+    return this.recordFile(path, options.entityType ?? entityTypeForPath(path), options.author ?? this.identity());
+  }
+
+  movePath(from: string, to: string, author = this.identity()): Event {
+    this.requireInitialized();
+    const source = this.requireTrackedRecord(from, "move");
+    const fromPath = normalizeRepositoryPath(from);
+    const toPath = resolveInside(this.root, to, "move path", RepositoryText.repositoryRoot).relativePath.split(sep).join(TextToken.pathSeparator);
+    const sourceAbsolute = resolveInside(this.root, fromPath, "move path", RepositoryText.repositoryRoot).absolute;
+    const targetAbsolute = resolveInside(this.root, toPath, "move path", RepositoryText.repositoryRoot).absolute;
+    mkdirSync(dirname(targetAbsolute), { recursive: true });
+    renameSync(sourceAbsolute, targetAbsolute);
+    return this.append(EventType.fileMove, {
+      from: fromPath,
+      to: toPath,
+      entity_type: source.entity_type,
+      blob_sha256: source.blob_sha256,
+      size: source.size,
+    }, author);
+  }
+
+  copyPath(from: string, to: string, author = this.identity()): Event {
+    this.requireInitialized();
+    const source = this.requireTrackedRecord(from, "copy");
+    const fromPath = normalizeRepositoryPath(from);
+    const toPath = resolveInside(this.root, to, "copy path", RepositoryText.repositoryRoot).relativePath.split(sep).join(TextToken.pathSeparator);
+    const sourceAbsolute = resolveInside(this.root, fromPath, "copy path", RepositoryText.repositoryRoot).absolute;
+    const targetAbsolute = resolveInside(this.root, toPath, "copy path", RepositoryText.repositoryRoot).absolute;
+    mkdirSync(dirname(targetAbsolute), { recursive: true });
+    copyFileSync(sourceAbsolute, targetAbsolute);
+    return this.append(EventType.fileCopy, {
+      from: fromPath,
+      to: toPath,
+      entity_type: source.entity_type,
+      blob_sha256: source.blob_sha256,
+      size: source.size,
+    }, author);
+  }
+
+  deletePath(path: string, author = this.identity()): Event {
+    this.requireInitialized();
+    this.requireTrackedRecord(path, "delete");
+    const normalized = normalizeRepositoryPath(path);
+    const target = resolveInside(this.root, normalized, "delete path", RepositoryText.repositoryRoot).absolute;
+    rmSync(target, { force: true });
+    return this.append(EventType.fileDelete, { path: normalized }, author);
+  }
+
+  forgetPath(path: string, author = this.identity()): Event {
+    this.requireInitialized();
+    this.requireTrackedRecord(path, "forget");
+    return this.append(EventType.fileForget, { path: normalizeRepositoryPath(path) }, author);
+  }
+
+  statusEntries(options: { readonly ignored?: boolean } = {}): WorkingTreeEntry[] {
+    const records = this.isInitialized() ? this.latestRecordMap() : new Map<string, RecordPatch>();
+    const entries: WorkingTreeEntry[] = [];
+    const workspaceFiles = new Set(this.workspaceFiles());
+    const reported = new Set<string>();
+
+    for (const [path, record] of [...records.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+      reported.add(path);
+      const absolute = join(this.root, path);
+      if (!existsAsFile(absolute)) {
+        entries.push({ status: "deleted", marker: "D", path });
+        continue;
+      }
+      const data = readFileSync(absolute);
+      entries.push(sha256(data) === record.blob_sha256
+        ? { status: "tracked", marker: " ", path }
+        : { status: "modified", marker: "M", path });
+    }
+
+    for (const path of [...workspaceFiles].sort()) {
+      if (reported.has(path)) continue;
+      if (this.checkIgnore(path) !== undefined) {
+        if (options.ignored === true) entries.push({ status: "ignored", marker: "I", path });
+        continue;
+      }
+      entries.push({ status: "untracked", marker: "?", path });
+    }
+    return entries;
+  }
+
+  checkIgnore(path: string): EpochIgnoreMatch | undefined {
+    const normalized = normalizeRepositoryPath(path);
+    const rule = this.ignoreRules().find((candidate) => matchesIgnoreRule(normalized, candidate.pattern));
+    return rule === undefined ? undefined : { ...rule, path: normalized };
+  }
+
+  configPath(scope: "local" | "shared" = "local"): string {
+    return scope === "local" ? join(this.epochDir, EPOCH_LOCAL_CONFIG_FILE) : join(this.root, EPOCH_SHARED_CONFIG_FILE);
+  }
+
+  repositoryConfig(): EpochRepositoryConfig {
+    const shared = existsAsFile(this.configPath("shared")) ? parseToml(readFileSync(this.configPath("shared"), JsonEncoding)) : {};
+    const local = existsAsFile(this.configPath("local")) ? parseToml(readFileSync(this.configPath("local"), JsonEncoding)) : {};
+    return deepMergeConfig(shared, local);
+  }
+
+  configValue(key: string): unknown {
+    return key.split(TextToken.dot).reduce<unknown>((current, part) => isRecord(current) ? current[part] : undefined, this.repositoryConfig());
+  }
+
   appendCRDTOperation(operation: CRDTOperation, author = this.identity()): Event {
     this.emitHook("repository.crdt.operation.before", { operation, author });
     const events = this.events();
@@ -776,12 +905,16 @@ export class EpochRepository {
   push(paths: readonly string[] = [PushDefaultPath.currentDirectory], options: PushOptions = {}): PushResult {
     if (!this.isInitialized()) this.init(options.author ?? DefaultAuthor);
     const author = options.author ?? this.identity();
+    const maxNewFileBytes = this.repositoryConfig().working_tree?.max_new_file_bytes;
     const latest = this.latestRecordMap();
     const recorded: Event[] = [];
 
     for (const path of this.assetFiles(paths.length === 0 ? [PushDefaultPath.currentDirectory] : paths)) {
       const data = readFileSync(join(this.root, path));
       const existing = latest.get(path);
+      if (existing === undefined && maxNewFileBytes !== undefined && data.byteLength > maxNewFileBytes) {
+        throw new Error(`${path} exceeds working_tree.max_new_file_bytes (${maxNewFileBytes})`);
+      }
       if (existing?.blob_sha256 === sha256(data)) continue;
       const event = this.recordFile(path, entityTypeForPath(path), author);
       recorded.push(event);
@@ -1048,6 +1181,16 @@ export class EpochRepository {
     for (const event of events) {
       if (event.type === EventType.record) {
         problems.push(...this.verifyRecordedBlob(event, redacted));
+      } else if (event.type === EventType.fileCopy || event.type === EventType.fileMove) {
+        const parsed = Schemas.fileCopyOrMovePayload.safeParse(event.payload);
+        if (!parsed.success) {
+          problems.push(`${event.id}: invalid file lifecycle payload`);
+        } else {
+          problems.push(...this.verifyBlobReference(event.id, parsed.data.blob_sha256, parsed.data.size, redacted));
+        }
+      } else if (event.type === EventType.fileDelete || event.type === EventType.fileForget) {
+        const parsed = Schemas.filePathPayload.safeParse(event.payload);
+        if (!parsed.success) problems.push(`${event.id}: invalid file lifecycle payload`);
       } else if (event.type === EventType.intent) {
         const parsed = Schemas.intentPayload.safeParse(event.payload);
         if (!parsed.success) {
@@ -1223,15 +1366,46 @@ export class EpochRepository {
   }
 
   private latestRecords(): RecordPatch[] {
-    const records = new Map<string, RecordPatch>();
-    for (const event of this.events()) {
-      if (event.type === EventType.record) {
-        const parsed = Schemas.recordPayload.safeParse(event.payload);
-        if (parsed.success) records.set(parsed.data.path, parsed.data);
-      }
-    }
+    const records = new Map(Object.entries(this.projectRecords(this.events())).map(([path, record]) => [path, {
+      path,
+      entity_type: record.entityType,
+      blob_sha256: record.blobSha256,
+      size: record.size,
+    }]));
     for (const patch of this.mainPatches()) records.set(patch.path as string, patch);
     return [...records.values()];
+  }
+
+  private projectRecords(events: readonly Event[]): Record<string, { eventId: string; entityType: string; blobSha256: string; size: number }> {
+    const records: Record<string, { eventId: string; entityType: string; blobSha256: string; size: number }> = {};
+    for (const event of sortEvents(events)) {
+      if (event.type === EventType.record) {
+        const parsed = Schemas.recordPayload.safeParse(event.payload);
+        if (parsed.success) {
+          records[parsed.data.path] = {
+            eventId: event.id,
+            entityType: parsed.data.entity_type,
+            blobSha256: parsed.data.blob_sha256,
+            size: parsed.data.size,
+          };
+        }
+      } else if (event.type === EventType.fileMove || event.type === EventType.fileCopy) {
+        const payload = Schemas.fileCopyOrMovePayload.safeParse(event.payload);
+        if (payload.success) {
+          if (event.type === EventType.fileMove) delete records[payload.data.from];
+          records[payload.data.to] = {
+            eventId: event.id,
+            entityType: payload.data.entity_type,
+            blobSha256: payload.data.blob_sha256,
+            size: payload.data.size,
+          };
+        }
+      } else if (event.type === EventType.fileDelete || event.type === EventType.fileForget) {
+        const payload = Schemas.filePathPayload.safeParse(event.payload);
+        if (payload.success) delete records[payload.data.path];
+      }
+    }
+    return records;
   }
 
   private redactedBlobHashes(events: readonly Event[] = this.events()): Set<string> {
@@ -1242,13 +1416,45 @@ export class EpochRepository {
     return new Map(this.latestRecords().map((record) => [record.path, record]));
   }
 
+  private requireTrackedRecord(path: string, operation: string): RecordPatch {
+    const normalized = normalizeRepositoryPath(path);
+    const record = this.latestRecordMap().get(normalized);
+    if (record === undefined) throw new Error(`cannot ${operation} untracked path: ${path}`);
+    return record;
+  }
+
+  private workspaceFiles(): string[] {
+    const files = new Set<string>();
+    collectWorkspaceFiles(this.root, this.root, files);
+    return [...files].sort();
+  }
+
   private assetFiles(paths: readonly string[]): string[] {
     const files = new Set<string>();
     for (const path of paths) {
       const root = resolveAssetPath(this.root, path);
       collectAssetFiles(this.root, root, files);
     }
-    return [...files].sort();
+    return [...files].filter((path) => this.checkIgnore(path) === undefined).sort();
+  }
+
+  private ignoreRules(): EpochIgnoreMatch[] {
+    const rules: EpochIgnoreMatch[] = [];
+    const addRules = (source: string, display: string): void => {
+      if (!existsAsFile(source)) return;
+      readFileSync(source, JsonEncoding)
+        .split(/\r?\n/u)
+        .forEach((line, index) => {
+          const pattern = line.trim();
+          if (pattern.length === 0 || pattern.startsWith("#")) return;
+          rules.push({ path: "", source: display, line: index + 1, pattern });
+        });
+    };
+    addRules(join(this.root, EPOCHIGNORE_FILE), EPOCHIGNORE_FILE);
+    addRules(join(this.epochDir, EPOCH_INFO_DIR, EPOCH_EXCLUDE_FILE), `${StorageName.epoch}/${EPOCH_INFO_DIR}/${EPOCH_EXCLUDE_FILE}`);
+    const globalFile = this.repositoryConfig().ignore?.global_file;
+    if (globalFile !== undefined) addRules(resolveHome(globalFile), globalFile);
+    return rules;
   }
 
   private intentIdsForView(name: string, gatePolicy: GatePolicy, events: readonly Event[]): Set<string> {
@@ -1625,7 +1831,7 @@ function resolveAssetPath(root: string, path: string): string {
 function collectAssetFiles(root: string, current: string, files: Set<string>): void {
   const relativePath = relative(root, current);
   const parts = relativePath.length === 0 ? [] : relativePath.split(sep);
-  if (parts.some((part) => PUSH_IGNORED_DIRECTORIES.has(part))) return;
+  if (parts.some((part) => part === StorageName.epoch || part === Git.repository)) return;
 
   const stat = statSync(current);
   if (stat.isFile()) {
@@ -1636,12 +1842,111 @@ function collectAssetFiles(root: string, current: string, files: Set<string>): v
   for (const name of readdirSync(current)) collectAssetFiles(root, join(current, name), files);
 }
 
+function collectWorkspaceFiles(root: string, current: string, files: Set<string>): void {
+  const relativePath = relative(root, current);
+  const parts = relativePath.length === 0 ? [] : relativePath.split(sep);
+  if (parts.some((part) => part === StorageName.epoch || part === Git.repository || part === "node_modules")) return;
+
+  const stat = statSync(current);
+  if (stat.isFile()) {
+    files.add(relativePath.split(sep).join(TextToken.pathSeparator));
+    return;
+  }
+  if (!stat.isDirectory()) return;
+  for (const name of readdirSync(current)) collectWorkspaceFiles(root, join(current, name), files);
+}
+
+function normalizeRepositoryPath(path: string): string {
+  return path.replaceAll("\\", TextToken.pathSeparator).replace(/^\.\//u, "");
+}
+
+function matchesIgnoreRule(path: string, pattern: string): boolean {
+  const normalized = normalizeRepositoryPath(path);
+  const cleanPattern = normalizeRepositoryPath(pattern);
+  if (cleanPattern.endsWith(TextToken.pathSeparator)) {
+    const prefix = cleanPattern.slice(0, -1);
+    return normalized === prefix || normalized.startsWith(cleanPattern);
+  }
+  if (!cleanPattern.includes(TextToken.pathSeparator) && cleanPattern.includes("*")) {
+    const expression = new RegExp(`^${escapeRegExp(cleanPattern).replaceAll("\\*", ".*")}$`, "u");
+    return normalized.split(TextToken.pathSeparator).some((part) => expression.test(part));
+  }
+  if (cleanPattern.includes("*")) {
+    const expression = new RegExp(`^${escapeRegExp(cleanPattern).replaceAll("\\*", ".*")}$`, "u");
+    return expression.test(normalized);
+  }
+  return normalized === cleanPattern || normalized.startsWith(`${cleanPattern}${TextToken.pathSeparator}`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function parseToml(text: string): EpochRepositoryConfig {
+  const root: Record<string, unknown> = {};
+  let current: Record<string, unknown> = root;
+  for (const rawLine of text.split(/\r?\n/u)) {
+    const line = rawLine.split("#")[0].trim();
+    if (line.length === 0) continue;
+    const section = /^\[([A-Za-z0-9_.-]+)\]$/u.exec(line);
+    if (section !== null) {
+      current = root;
+      for (const part of section[1].split(TextToken.dot)) {
+        const existing = current[part];
+        if (!isRecord(existing)) current[part] = {};
+        current = current[part] as Record<string, unknown>;
+      }
+      continue;
+    }
+    const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u.exec(line);
+    if (assignment === null) throw new Error(`invalid Epoch TOML config line: ${rawLine}`);
+    current[assignment[1]] = parseTomlValue(assignment[2].trim());
+  }
+  return root as EpochRepositoryConfig;
+}
+
+function parseTomlValue(value: string): unknown {
+  if (value.startsWith("\"") && value.endsWith("\"")) return value.slice(1, -1);
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (/^-?\d+$/u.test(value)) return Number.parseInt(value, 10);
+  if (value.startsWith("[") && value.endsWith("]")) {
+    const body = value.slice(1, -1).trim();
+    if (body.length === 0) return [];
+    return body.split(TextToken.comma).map((item) => parseTomlValue(item.trim()));
+  }
+  throw new Error(`unsupported Epoch TOML config value: ${value}`);
+}
+
+function deepMergeConfig(left: EpochRepositoryConfig, right: EpochRepositoryConfig): EpochRepositoryConfig {
+  return {
+    ...left,
+    ...right,
+    working_tree: { ...(left.working_tree ?? {}), ...(right.working_tree ?? {}) },
+    ignore: { ...(left.ignore ?? {}), ...(right.ignore ?? {}) },
+  };
+}
+
+function resolveHome(path: string): string {
+  if (path === "~") return process.env.USERPROFILE ?? process.env.HOME ?? path;
+  if (path.startsWith("~/") || path.startsWith("~\\")) {
+    return join(process.env.USERPROFILE ?? process.env.HOME ?? "", path.slice(2));
+  }
+  return resolve(path);
+}
+
 function emptyLocalViewIndex(): LocalViewIndex {
   return { intentIds: {}, deleted: [] };
 }
 
 function isIntentType(type: string): boolean {
-  return type === EventType.record || type === EventType.crdt || type === EventType.intent;
+  return type === EventType.record
+    || type === EventType.crdt
+    || type === EventType.intent
+    || type === EventType.fileCopy
+    || type === EventType.fileDelete
+    || type === EventType.fileForget
+    || type === EventType.fileMove;
 }
 
 function isIntentEvent(event: Event): boolean {
