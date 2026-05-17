@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-16
+last_researched: 2026-05-17
 ---
 
 # Competition Research
@@ -40,6 +40,9 @@ gossip-path: <product-path>/gossip.md
 | Sigstore | Keyless signing, transparency logs, and artifact verification for software supply chains | [Profile](products/sigstore/profile.md) | [Design](products/sigstore/design/design.md) | [Feature](products/sigstore/features/keyless-artifact-signing.feature) | [Marketing](products/sigstore/marketing.md) | [Gossip](products/sigstore/gossip.md) |
 | gittuf | Platform-agnostic Git repository policy, authorization, and tamper-evident activity logs | [Profile](products/gittuf/profile.md) | [Design](products/gittuf/design/design.md) | [Feature](products/gittuf/features/repository-policy-verification.feature) | [Marketing](products/gittuf/marketing.md) | [Gossip](products/gittuf/gossip.md) |
 | in-toto | Signed supply-chain layouts and link metadata for end-to-end artifact provenance | [Profile](products/in-toto/profile.md) | [Design](products/in-toto/design/design.md) | [Feature](products/in-toto/features/supply-chain-layout-verification.feature) | [Marketing](products/in-toto/marketing.md) | [Gossip](products/in-toto/gossip.md) |
+| GUAC | OpenSSF supply-chain metadata graph for SBOMs, attestations, vulnerabilities, and incident response | [Profile](products/guac/profile.md) | [Design](products/guac/design/design.md) | [Feature](products/guac/features/supply-chain-graph-investigation.feature) | [Marketing](products/guac/marketing.md) | [Gossip](products/guac/gossip.md) |
+| SLSA | Supply-chain assurance framework with source and build tracks for provenance and integrity levels | [Profile](products/slsa/profile.md) | [Design](products/slsa/design/design.md) | [Feature](products/slsa/features/source-and-build-assurance.feature) | [Marketing](products/slsa/marketing.md) | [Gossip](products/slsa/gossip.md) |
+| OpenVEX | Minimal vulnerability exploitability statements for suppressing or explaining non-applicable findings | [Profile](products/openvex/profile.md) | [Design](products/openvex/design/design.md) | [Feature](products/openvex/features/exploitability-statement.feature) | [Marketing](products/openvex/marketing.md) | [Gossip](products/openvex/gossip.md) |
 | Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
