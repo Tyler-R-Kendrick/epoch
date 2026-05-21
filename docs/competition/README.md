@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-17
+last_researched: 2026-05-21
 ---
 
 # Competition Research
@@ -43,6 +43,9 @@ gossip-path: <product-path>/gossip.md
 | GUAC | OpenSSF supply-chain metadata graph for SBOMs, attestations, vulnerabilities, and incident response | [Profile](products/guac/profile.md) | [Design](products/guac/design/design.md) | [Feature](products/guac/features/supply-chain-graph-investigation.feature) | [Marketing](products/guac/marketing.md) | [Gossip](products/guac/gossip.md) |
 | SLSA | Supply-chain assurance framework with source and build tracks for provenance and integrity levels | [Profile](products/slsa/profile.md) | [Design](products/slsa/design/design.md) | [Feature](products/slsa/features/source-and-build-assurance.feature) | [Marketing](products/slsa/marketing.md) | [Gossip](products/slsa/gossip.md) |
 | OpenVEX | Minimal vulnerability exploitability statements for suppressing or explaining non-applicable findings | [Profile](products/openvex/profile.md) | [Design](products/openvex/design/design.md) | [Feature](products/openvex/features/exploitability-statement.feature) | [Marketing](products/openvex/marketing.md) | [Gossip](products/openvex/gossip.md) |
+| The Update Framework | Signed update metadata, delegated trust, rollback protection, and secure software distribution | [Profile](products/the-update-framework/profile.md) | [Design](products/the-update-framework/design/design.md) | [Feature](products/the-update-framework/features/update-metadata-verification.feature) | [Marketing](products/the-update-framework/marketing.md) | [Gossip](products/the-update-framework/gossip.md) |
+| Witness | CI/CD evidence capture and in-toto attestation policy verification for software supply chains | [Profile](products/witness/profile.md) | [Design](products/witness/design/design.md) | [Feature](products/witness/features/ci-attestation-policy.feature) | [Marketing](products/witness/marketing.md) | [Gossip](products/witness/gossip.md) |
+| Grafeas | Artifact metadata API for vulnerabilities, build details, deployment state, and attestations | [Profile](products/grafeas/profile.md) | [Design](products/grafeas/design/design.md) | [Feature](products/grafeas/features/artifact-metadata-policy.feature) | [Marketing](products/grafeas/marketing.md) | [Gossip](products/grafeas/gossip.md) |
 | Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
