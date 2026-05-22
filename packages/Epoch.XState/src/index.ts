@@ -1,5 +1,5 @@
 import type { BrowserEpoch, TrackChangeResult } from "@epoch/integration-core";
-import { stableJson, isRecord } from "@epoch/integration-core";
+import { stableJson } from "@epoch/integration-core";
 
 export interface EpochXStateSnapshot {
   readonly context?: unknown;

@@ -4,7 +4,7 @@ import React from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { assign, createActor, createMachine } from "xstate";
-import { createBrowserEpoch, createMemoryEpochIntegrationStorage } from "@epoch/integration-core";
+import { createBrowserEpoch, createMemoryEpochIntegrationStorage, stableJson } from "@epoch/integration-core";
 import { trackGeneratedUiChange } from "@epoch/gen-ui";
 import { EpochProvider, useEpochRepository, useEpochTrackedEntity, useEpochVersionLedger } from "@epoch/react";
 import { createEpochReduxMiddleware } from "@epoch/redux";
@@ -26,6 +26,7 @@ interface ReduxStore<State> {
 
 export async function runEpochIntegrationSuiteTests(): Promise<void> {
   recordsTrackedChangesWithBrowserDefaults();
+  serializesUndefinedStably();
   versionsGeneratedUiComponents();
   tracksReduxActionsExplicitly();
   tracksXStateTransitionsExplicitly();
@@ -56,6 +57,12 @@ function recordsTrackedChangesWithBrowserDefaults(): void {
   assert.equal(epoch.repository.history().length, 2);
   assert.equal(epoch.readTrackedEntity<{ widgets: number }>("dashboard").payload.widgets, 2);
   assert.deepEqual(epoch.versionLedger("dashboard").map((entry) => entry.surface), ["gen-ui", "redux"]);
+}
+
+function serializesUndefinedStably(): void {
+  assert.equal(stableJson(undefined), "null");
+  assert.equal(stableJson([undefined]), "[null]");
+  assert.equal(stableJson({ optional: undefined }), "{\"optional\":null}");
 }
 
 async function providesReactHooksForTrackedEntitiesAndLedgers(): Promise<void> {

@@ -234,6 +234,7 @@ function requireNonEmpty(value: string, label: string): string {
 }
 
 export function stableJson(value: unknown): string {
+  if (value === undefined) return "null";
   if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
   if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
   return JSON.stringify(value);
