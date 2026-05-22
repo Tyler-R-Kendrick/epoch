@@ -6,12 +6,17 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 
 - Workspace package: `@epoch/core`
 - React package: `@epoch/wasm-react`
+- Integration packages: `@epoch/integration-core`, `@epoch/react`,
+  `@epoch/gen-ui`, `@epoch/redux`, `@epoch/xstate`
 - Platform Core package: `@epoch/platform-core`
 - Platform SDK package: `@epoch/platform-sdk`
 - Platform Community package: `@epoch/platform-community`
 - Platform Web package: `@epoch/platform-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
+- Browser integration root exports: `epoch/Epoch.Integration.Core`,
+  `epoch/Epoch.React`, `epoch/Epoch.GenUI`, `epoch/Epoch.Redux`,
+  `epoch/Epoch.XState`
 - Platform root exports: `epoch/Epoch.Platform.Core`, `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Community`, `epoch/Epoch.Platform.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, transport and serialization helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
@@ -55,6 +60,11 @@ Use `CRDTRegistry.defaults()` for built-in text, JSON, and CSV merges. Register 
 ## React surface
 
 Use `@epoch/wasm-react` for browser-safe React state history built on append-only Epoch events and for VFS-backed live repository hooks.
+
+Use `@epoch/integration-core` plus `@epoch/react`, `@epoch/gen-ui`,
+`@epoch/redux`, and `@epoch/xstate` when applications need out-of-the-box
+browser storage defaults, explicit tracked-change envelopes, generated UI
+versioning, Redux action/slice tracking, or XState transition tracking.
 
 ## Epoch.Platform foundation
 

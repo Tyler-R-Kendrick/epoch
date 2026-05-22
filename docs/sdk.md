@@ -9,12 +9,20 @@ Epoch.Platform headless management and web console APIs.
 
 - Workspace package: `@epoch/core`
 - React package: `@epoch/wasm-react`
+- Integration defaults package: `@epoch/integration-core`
+- React integration package: `@epoch/react`
+- Generated UI integration package: `@epoch/gen-ui`
+- Redux integration package: `@epoch/redux`
+- XState integration package: `@epoch/xstate`
 - Platform Core package: `@epoch/platform-core`
 - Platform SDK package: `@epoch/platform-sdk`
 - Platform Community package: `@epoch/platform-community`
 - Platform Web package: `@epoch/platform-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
+- Browser integration root exports: `epoch/Epoch.Integration.Core`,
+  `epoch/Epoch.React`, `epoch/Epoch.GenUI`, `epoch/Epoch.Redux`, and
+  `epoch/Epoch.XState`
 - Platform root exports: `epoch/Epoch.Platform.Core`, `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Community`, and `epoch/Epoch.Platform.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`,
@@ -210,6 +218,73 @@ const version = repository.createVersion({
 
 ## React Integration
 
+Use the integration packages when a browser app wants Epoch to work with a
+small explicit boundary instead of hand-wiring storage, VFS setup, repository
+creation, and version ledgers. `createBrowserEpoch()` uses `localStorage` in a
+browser and falls back to memory storage elsewhere. Adapters only record what
+the app explicitly wraps.
+
+```ts
+import { trackGeneratedUiChange } from "@epoch/gen-ui";
+import { createBrowserEpoch } from "@epoch/integration-core";
+
+const epoch = createBrowserEpoch({ namespace: "ops-dashboard", author: "agent" });
+
+const result = trackGeneratedUiChange(epoch, {
+  entity: "dashboard",
+  source: "prompt",
+  summary: "add revenue card",
+  renderer: "json-render",
+  components: [{ id: "component:revenue", spec: { label: "Revenue" } }],
+});
+
+epoch.versionLedger("dashboard");
+epoch.readTrackedEntity("dashboard");
+result.event.id;
+```
+
+React apps can provide one Epoch instance and render tracked entities or
+version ledgers through hooks:
+
+```tsx
+import { EpochProvider, useEpochTrackedEntity, useEpochVersionLedger } from "@epoch/react";
+
+function Dashboard() {
+  const dashboard = useEpochTrackedEntity("dashboard");
+  const versions = useEpochVersionLedger("dashboard");
+  return <output>{versions.length}:{dashboard?.revision ?? 0}</output>;
+}
+
+<EpochProvider epoch={epoch}>
+  <Dashboard />
+</EpochProvider>;
+```
+
+Redux and XState integrations are also explicit. Configure the actions,
+selectors, events, or machine updates that should become Epoch history; ignored
+application state stays ephemeral.
+
+```ts
+import { createEpochReduxMiddleware } from "@epoch/redux";
+import { createEpochXStateObserver } from "@epoch/xstate";
+
+const middleware = createEpochReduxMiddleware({
+  epoch,
+  entity: "redux:counter",
+  source: "counter-store",
+  actions: ["counter/increment"],
+  select: (state) => ({ count: state.counter }),
+});
+
+const observer = createEpochXStateObserver({
+  epoch,
+  entity: "xstate:checkout",
+  source: "checkout-machine",
+  events: ["paid"],
+  select: (snapshot) => snapshot.context,
+});
+```
+
 Use `@epoch/wasm-react` when a browser-hosted React app needs local,
 append-only state history without assuming native filesystem access.
 
@@ -266,6 +341,9 @@ See the [Self-Evolving Canvas sample](../samples/self-evolving-canvas/README.md)
 for a minimal Node-backed web app that stores JSON-render widget changes in a
 backend Epoch repository while the browser keeps a local live repository and
 replicates through VFS-backed gossip.
+See the [Self-Evolving Dashboard sample](../samples/self-evolving-dashboard/README.md)
+for a browser-only generated UI workflow that records json-render-shaped
+component changes as automatic Epoch versions through the integration adapters.
 See the [Hello World CLI sample](../samples/hello-world-cli/README.md) for a
 minimal command-line app that creates, records, versions, and verifies an Epoch
 repository with the Core SDK.

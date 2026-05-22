@@ -1,0 +1,14 @@
+{
+  "name": "@epoch/gen-ui",
+  "version": "0.1.0",
+  "description": "Generated UI tracking helpers for Epoch.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/integration-core": "0.1.0"
+  }
+}
