@@ -199,21 +199,25 @@ function ledgerEntryFromEvent(event: EpochLiveRepositoryEvent, change: TrackedCh
 }
 
 function browserStorage(): EpochIntegrationStorage | undefined {
-  const candidate = globalThis.localStorage;
-  if (candidate === undefined) return undefined;
-  return {
-    get length() {
-      return candidate.length;
-    },
-    key: (index) => candidate.key(index),
-    getItem: (key) => candidate.getItem(key),
-    setItem: (key, value) => {
-      candidate.setItem(key, value);
-    },
-    removeItem: (key) => {
-      candidate.removeItem(key);
-    },
-  };
+  try {
+    const candidate = globalThis.localStorage;
+    if (candidate === undefined) return undefined;
+    return {
+      get length() {
+        return candidate.length;
+      },
+      key: (index) => candidate.key(index),
+      getItem: (key) => candidate.getItem(key),
+      setItem: (key, value) => {
+        candidate.setItem(key, value);
+      },
+      removeItem: (key) => {
+        candidate.removeItem(key);
+      },
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function storageKey(prefix: string, path: string): string {
@@ -229,6 +233,16 @@ function requireNonEmpty(value: string, label: string): string {
   return value;
 }
 
+export function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isTrackedChange(value: unknown): value is TrackedChange {
   return isRecord(value)
     && value.kind === "tracked-change"
@@ -237,8 +251,4 @@ function isTrackedChange(value: unknown): value is TrackedChange {
     && typeof value.revision === "number"
     && typeof value.summary === "string"
     && "payload" in value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

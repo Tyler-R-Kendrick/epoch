@@ -229,12 +229,12 @@ function createTinyReduxStore(initialState: { readonly counter: number }): Redux
 }
 
 function installDomGlobals(dom: JSDOM): () => void {
-  const previousWindow = globalThis.window;
-  const previousDocument = globalThis.document;
-  const previousNavigator = globalThis.navigator;
-  const previousHTMLElement = globalThis.HTMLElement;
-  const previousEvent = globalThis.Event;
-  const previousMouseEvent = globalThis.MouseEvent;
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, "HTMLElement");
+  const previousEvent = Object.getOwnPropertyDescriptor(globalThis, "Event");
+  const previousMouseEvent = Object.getOwnPropertyDescriptor(globalThis, "MouseEvent");
 
   Object.defineProperty(globalThis, "window", { configurable: true, value: dom.window });
   Object.defineProperty(globalThis, "document", { configurable: true, value: dom.window.document });
@@ -267,8 +267,12 @@ function text(dom: JSDOM, selector: string): string {
   return element.textContent ?? "";
 }
 
-function restoreGlobal(key: string, value: unknown): void {
-  Object.defineProperty(globalThis, key, { configurable: true, value });
+function restoreGlobal(key: string, descriptor: PropertyDescriptor | undefined): void {
+  if (descriptor === undefined) {
+    delete globalThis[key as keyof typeof globalThis];
+  } else {
+    Object.defineProperty(globalThis, key, descriptor);
+  }
 }
 
 async function settleReactClient(): Promise<void> {

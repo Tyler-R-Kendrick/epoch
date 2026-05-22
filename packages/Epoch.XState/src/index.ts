@@ -1,4 +1,5 @@
 import type { BrowserEpoch, TrackChangeResult } from "@epoch/integration-core";
+import { stableJson, isRecord } from "@epoch/integration-core";
 
 export interface EpochXStateSnapshot {
   readonly context?: unknown;
@@ -77,14 +78,4 @@ export function trackXStateMachineUpdate(
       ...input.metadata,
     },
   });
-}
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
-  if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

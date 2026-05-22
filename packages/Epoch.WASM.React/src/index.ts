@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { stableJson, isRecord } from "@epoch/integration-core";
 
 export interface EpochReactStorage {
   getItem(key: string): string | null;
@@ -467,12 +468,6 @@ function stableId(value: string): string {
   return hashString(value).padStart(8, "0").slice(0, 32);
 }
 
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
-  if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value);
-}
-
 function hashString(value: string): string {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -500,10 +495,6 @@ function requireNumber(value: unknown, label: string): number {
 function requireRecord(value: unknown, label: string): Record<string, unknown> {
   if (!isRecord(value)) throw new Error(`invalid Epoch React ${label}`);
   return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function asRecord(value: object): Record<string, unknown> {
