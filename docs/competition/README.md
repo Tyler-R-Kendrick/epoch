@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-21
+last_researched: 2026-05-22
 ---
 
 # Competition Research
@@ -46,6 +46,9 @@ gossip-path: <product-path>/gossip.md
 | The Update Framework | Signed update metadata, delegated trust, rollback protection, and secure software distribution | [Profile](products/the-update-framework/profile.md) | [Design](products/the-update-framework/design/design.md) | [Feature](products/the-update-framework/features/update-metadata-verification.feature) | [Marketing](products/the-update-framework/marketing.md) | [Gossip](products/the-update-framework/gossip.md) |
 | Witness | CI/CD evidence capture and in-toto attestation policy verification for software supply chains | [Profile](products/witness/profile.md) | [Design](products/witness/design/design.md) | [Feature](products/witness/features/ci-attestation-policy.feature) | [Marketing](products/witness/marketing.md) | [Gossip](products/witness/gossip.md) |
 | Grafeas | Artifact metadata API for vulnerabilities, build details, deployment state, and attestations | [Profile](products/grafeas/profile.md) | [Design](products/grafeas/design/design.md) | [Feature](products/grafeas/features/artifact-metadata-policy.feature) | [Marketing](products/grafeas/marketing.md) | [Gossip](products/grafeas/gossip.md) |
+| Dependency-Track | Continuous SBOM analysis platform for portfolio vulnerability, policy, and component-risk management | [Profile](products/dependency-track/profile.md) | [Design](products/dependency-track/design/design.md) | [Feature](products/dependency-track/features/continuous-sbom-analysis.feature) | [Marketing](products/dependency-track/marketing.md) | [Gossip](products/dependency-track/gossip.md) |
+| OSV | Open vulnerability database, schema, API, scanner, remediation, and GitHub workflow ecosystem | [Profile](products/osv/profile.md) | [Design](products/osv/design/design.md) | [Feature](products/osv/features/open-vulnerability-scanning.feature) | [Marketing](products/osv/marketing.md) | [Gossip](products/osv/gossip.md) |
+| Socket | Proactive dependency supply-chain security with package behavior analysis, PR checks, reachability, and malware signals | [Profile](products/socket/profile.md) | [Design](products/socket/design/design.md) | [Feature](products/socket/features/proactive-dependency-risk.feature) | [Marketing](products/socket/marketing.md) | [Gossip](products/socket/gossip.md) |
 | Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
