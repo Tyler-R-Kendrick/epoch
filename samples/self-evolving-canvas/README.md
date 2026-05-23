@@ -38,3 +38,7 @@ Then open the Node server URL shown in the terminal.
 This sample intentionally keeps the backend agent deterministic. Swap
 `evolveCanvasWithAgent` for an LLM-backed planner when you want a real model in
 the loop; keep the Epoch commit and gossip boundary the same.
+
+For a smaller browser-only generated UI integration that uses the higher-level
+`@epoch/integration-core`, `@epoch/react`, and `@epoch/gen-ui` packages, see the
+[Self-Evolving Dashboard sample](../self-evolving-dashboard/README.md).

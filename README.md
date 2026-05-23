@@ -7,7 +7,7 @@ cryptographic author identity, deterministic policy, local sync, and
 CRDT-backed shared state.
 
 The repository is currently a research-friendly implementation split into a
-Core SDK, Node CLI, WASM-safe exports, React integration helpers, an
+Core SDK, Node CLI, WASM-safe exports, browser integration adapters, an
 `Epoch.Platform` foundation, and separate Epoch Community packages.
 `Epoch.Platform.Core` and `Epoch.Platform.Sdk` provide the headless control
 plane domain and SDK surfaces. `Epoch.Platform.Web` is the PWA hosting control
@@ -102,6 +102,23 @@ Git-like commands:
 
 ```bash
 npm exec -- epoch-git clone https://example.invalid/project.git ./project
+```
+
+Embed Epoch in a browser app with explicit generated-UI tracking:
+
+```ts
+import { trackGeneratedUiChange } from "@epoch/gen-ui";
+import { createBrowserEpoch } from "@epoch/integration-core";
+
+const epoch = createBrowserEpoch({ namespace: "demo", author: "agent" });
+
+trackGeneratedUiChange(epoch, {
+  entity: "dashboard",
+  source: "prompt",
+  summary: "add revenue card",
+  renderer: "json-render",
+  components: [{ id: "component:revenue", spec: { label: "Revenue" } }],
+});
 ```
 
 See the [CLI Reference](docs/cli.md) for command coverage, installed-package

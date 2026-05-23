@@ -468,6 +468,7 @@ function stableId(value: string): string {
 }
 
 function stableJson(value: unknown): string {
+  if (value === undefined) return "null";
   if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
   if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
   return JSON.stringify(value);
@@ -502,13 +503,13 @@ function requireRecord(value: unknown, label: string): Record<string, unknown> {
   return value;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function asRecord(value: object): Record<string, unknown> {
   if (!isRecord(value)) throw new TypeError("Epoch React state must be a JSON object");
   return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isReactOperation(value: unknown): value is EpochReactOperation {
