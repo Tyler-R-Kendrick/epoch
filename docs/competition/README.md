@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-22
+last_researched: 2026-05-23
 ---
 
 # Competition Research
@@ -49,6 +49,9 @@ gossip-path: <product-path>/gossip.md
 | Dependency-Track | Continuous SBOM analysis platform for portfolio vulnerability, policy, and component-risk management | [Profile](products/dependency-track/profile.md) | [Design](products/dependency-track/design/design.md) | [Feature](products/dependency-track/features/continuous-sbom-analysis.feature) | [Marketing](products/dependency-track/marketing.md) | [Gossip](products/dependency-track/gossip.md) |
 | OSV | Open vulnerability database, schema, API, scanner, remediation, and GitHub workflow ecosystem | [Profile](products/osv/profile.md) | [Design](products/osv/design/design.md) | [Feature](products/osv/features/open-vulnerability-scanning.feature) | [Marketing](products/osv/marketing.md) | [Gossip](products/osv/gossip.md) |
 | Socket | Proactive dependency supply-chain security with package behavior analysis, PR checks, reachability, and malware signals | [Profile](products/socket/profile.md) | [Design](products/socket/design/design.md) | [Feature](products/socket/features/proactive-dependency-risk.feature) | [Marketing](products/socket/marketing.md) | [Gossip](products/socket/gossip.md) |
+| Ratify | Cloud-native artifact verification engine for Kubernetes admission-time signature, SBOM, and attestation policy | [Profile](products/ratify/profile.md) | [Design](products/ratify/design/design.md) | [Feature](products/ratify/features/artifact-admission-verification.feature) | [Marketing](products/ratify/marketing.md) | [Gossip](products/ratify/gossip.md) |
+| Kyverno | Kubernetes-native policy engine with image signature, digest, and attestation verification in admission workflows | [Profile](products/kyverno/profile.md) | [Design](products/kyverno/design/design.md) | [Feature](products/kyverno/features/image-verification-policy.feature) | [Marketing](products/kyverno/marketing.md) | [Gossip](products/kyverno/gossip.md) |
+| Google Binary Authorization | Managed Google Cloud deployment policy for attested container images across GKE, Cloud Run, and Distributed Cloud | [Profile](products/google-binary-authorization/profile.md) | [Design](products/google-binary-authorization/design/design.md) | [Feature](products/google-binary-authorization/features/attested-deployment-policy.feature) | [Marketing](products/google-binary-authorization/marketing.md) | [Gossip](products/google-binary-authorization/gossip.md) |
 | Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
