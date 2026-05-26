@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-24
+last_researched: 2026-05-26
 ---
 
 # Competition Research
@@ -55,6 +55,9 @@ gossip-path: <product-path>/gossip.md
 | BuildBuddy | Bazel remote cache, remote execution, results UI, and Remote Bazel workflows for shared build evidence | [Profile](products/buildbuddy/profile.md) | [Design](products/buildbuddy/design/design.md) | [Feature](products/buildbuddy/features/remote-bazel-execution.feature) | [Marketing](products/buildbuddy/marketing.md) | [Gossip](products/buildbuddy/gossip.md) |
 | Develocity | Build Scan observability, Universal Cache, predictive test selection, test distribution, and failure analytics | [Profile](products/develocity/profile.md) | [Design](products/develocity/design/design.md) | [Feature](products/develocity/features/build-scan-acceleration.feature) | [Marketing](products/develocity/marketing.md) | [Gossip](products/develocity/gossip.md) |
 | Depot | CI, GitHub Actions runners, remote container builds, and distributed cache acceleration | [Profile](products/depot/profile.md) | [Design](products/depot/design/design.md) | [Feature](products/depot/features/distributed-ci-cache.feature) | [Marketing](products/depot/marketing.md) | [Gossip](products/depot/gossip.md) |
+| Cursor | AI-native code editor with Agent modes, local checkpoints, background agents, rules, and Bugbot review | [Profile](products/cursor/profile.md) | [Design](products/cursor/design/design.md) | [Feature](products/cursor/features/agentic-editor-checkpoints.feature) | [Marketing](products/cursor/marketing.md) | [Gossip](products/cursor/gossip.md) |
+| Windsurf | Agentic IDE with Cascade, memories, workflows, real-time context, checkpoints, and preview deploys | [Profile](products/windsurf/profile.md) | [Design](products/windsurf/design/design.md) | [Feature](products/windsurf/features/cascade-agent-workflow.feature) | [Marketing](products/windsurf/marketing.md) | [Gossip](products/windsurf/gossip.md) |
+| Replit Agent | Browser-hosted AI app builder with autonomous planning, checkpoints, integrated runtime, and deployments | [Profile](products/replit-agent/profile.md) | [Design](products/replit-agent/design/design.md) | [Feature](products/replit-agent/features/agent-built-app-checkpoints.feature) | [Marketing](products/replit-agent/marketing.md) | [Gossip](products/replit-agent/gossip.md) |
 | Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
