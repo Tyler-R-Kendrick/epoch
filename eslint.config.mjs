@@ -9,7 +9,8 @@ export default [
       "**/dist-server/**",
       "**/dist/**",
       "node_modules/**",
-      ".inspiration/**"
+      ".inspiration/**",
+      ".agents/**"
     ]
   },
   js.configs.recommended,
