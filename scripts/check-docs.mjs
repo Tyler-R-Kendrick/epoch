@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ignoredDirectories = new Set([".git", "coverage", "dist", "node_modules"]);
+const ignoredDirectories = new Set([".agents", ".git", "coverage", "dist", "node_modules"]);
 const markdownLinkPattern = /!?\[[^\]]*]\(([^)]+)\)/g;
 
 function listFiles(directory) {

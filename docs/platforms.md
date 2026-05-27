@@ -106,6 +106,9 @@ Core client.
 Implemented responsibilities:
 
 - describe a standalone PWA app shell for the community app;
+- render the Epoch Community visual design system with root tokens,
+  skip-link navigation, a responsive workflow rail, repository cards, and a
+  signed-history graph;
 - expose repository browsing, issue tracking, change review, discussions,
   maintainer profiles, release discovery, and organization spaces from Core
   workflow data;
@@ -123,7 +126,7 @@ The platform boundary is enforced by tests:
 - `features/platform_projects.feature` captures the user-facing product split
   with executable scenarios.
 - `features/platform_projects.feature` also includes a Playwright-driven browser
-  scenario for `Epoch.Community.Web`.
+  scenario for `Epoch.Community.Web`, including the design-system shell.
 - `test/unit/community-contract.test.ts` uses Pact to lock the
   `Epoch.Community.Core` HTTP client contract with `Epoch.Community.API`.
 - `test/unit/community-coverage.test.ts` covers Community API routing, CLI

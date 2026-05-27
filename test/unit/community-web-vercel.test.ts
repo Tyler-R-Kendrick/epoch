@@ -45,5 +45,10 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.match(html, /<h1>Epoch Community<\/h1>/u);
   assert.match(html, /epoch\/epoch/u);
   assert.match(html, /href="\/community\/repository-browsing"/u);
+  assert.match(html, /data-design-system="epoch-community"/u);
+  assert.match(html, /href="#community-content">Skip to content/u);
+  assert.match(html, /--epoch-color-surface: #eef3f1/u);
+  assert.match(html, /class="workflow-rail"/u);
+  assert.match(html, /class="repo-card"/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
 }

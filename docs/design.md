@@ -295,7 +295,10 @@ product. It consumes `Epoch.Community.Core` to read repository browsing, issue
 tracking, change review, discussions, maintainer profiles, release discovery,
 and organization-space data from an API client. It exports a generic deployment
 target so a host can register Community with Platform Web without Platform Web
-importing Community packages.
+importing Community packages. Its rendered shell includes the Epoch Community
+visual design system: root design tokens, a skip link, responsive workflow rail,
+repository cards, and a signed-history graph documented in
+[DESIGN.md](../DESIGN.md).
 
 `Epoch.Community.API` owns the in-memory API implementation for the current
 prototype. `Epoch.Community.Core` owns shared community domain types and the API
