@@ -39,7 +39,7 @@ Follow [Documentation Freshness Policy](docs/documentation-freshness.md) for eve
 - update `docs/design.md` for current architecture changes;
 - add or update ADRs under `docs/design-decisions/` for material design choices, trade-offs, dependency decisions, and rejected alternatives;
 - update [Community Human-Centered Design](docs/community-human-centered-design.md), agent instructions, and skill references when Community site methodology, personas, pain points, design-thinking flow, user-centric success criteria, or human-centered design workflow changes;
-- update `docs/features.md`, user stories, and Gherkin specs when implemented behavior changes; and
+- update `docs/features.md`, `docs/feature-scenario-inventory.md`, user stories, and Gherkin specs when implemented behavior changes; and
 - update `skills/epoch/` references when agent, CLI, SDK, WASM, React, hook, or quality-gate guidance changes.
 
 Run `npm run docs:check` before review to catch broken links and orphaned docs.
@@ -53,7 +53,8 @@ Run `npm run docs:check` before review to catch broken links and orphaned docs.
   design-thinking stage, user-centric success criteria, trust, cost, security,
   accessibility, moderation, degraded-state, and portability considerations.
   Add or update persona-driven feature scenarios under `features/` before
-  implementation.
+  implementation, then record the changed scenarios in
+  `docs/feature-scenario-inventory.md`.
 - Do not commit generated `dist/`, `coverage/`, local repositories, logs, or secrets.
 - Do not lower coverage thresholds, disable lint rules, or skip tests to make CI pass.
 
@@ -67,5 +68,5 @@ Run `npm run docs:check` before review to catch broken links and orphaned docs.
 | `packages/Epoch.WASM.React` | Browser-safe React hooks and persistent framework state helpers. |
 | `features` | Cucumber feature specifications. |
 | `test/features` | Cucumber step definitions. |
-| `docs` | Public documentation, ADRs, feature registry, SDK/CLI references, and documentation freshness policy. |
+| `docs` | Public documentation, ADRs, feature registry, executable scenario inventory, SDK/CLI references, and documentation freshness policy. |
 | `skills/epoch` | Distributable agent skill documentation and marketplace metadata. |

@@ -2,7 +2,9 @@
 
 This document lists user stories supported by the current implementation and feature suite. It does not list roadmap stories without executable coverage.
 
-See the [Feature Registry](features.md) for feature IDs and executable coverage links.
+See the [Feature Registry](features.md) for feature IDs and executable coverage
+links, and the [Executable Feature Scenario Inventory](feature-scenario-inventory.md)
+for scenario-level persona records.
 
 ## Developer Stories
 
@@ -124,6 +126,8 @@ Acceptance criteria:
 - Community feature work adds or updates persona-driven scenarios in the
   relevant product feature specs under `features/` before implementation.
 - Personas are scenario context, not standalone features.
+- Scenario-level persona records stay current in the executable feature
+  scenario inventory.
 - Scenarios name the contributor journey, pain point, trust question,
   degraded-state behavior, and validation evidence.
 - Scenarios name the design-thinking stage and user-centric success criteria.

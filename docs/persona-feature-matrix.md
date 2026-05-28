@@ -2,7 +2,8 @@
 
 This matrix applies the Community human-centered design method across the full
 executable feature surface. It is the audit bridge between `features/*.feature`,
-the feature registry, and persona-aware BDD scenarios.
+the feature registry, the [executable feature scenario inventory](feature-scenario-inventory.md),
+and persona-aware BDD scenarios.
 
 Personas are not features. They describe users whose needs shape real product
 scenarios. Keep persona coverage as tags and scenario context inside product
@@ -63,7 +64,9 @@ Use it when adding or changing a feature spec:
 runtime. It fails when a feature file treats personas as product features, when
 mechanical matrix-only persona scenarios are added, when documented persona
 tags are not used by real product scenarios, or when an executable feature spec
-is missing from [features.md](features.md) and this matrix.
+is missing from [features.md](features.md), the
+[executable feature scenario inventory](feature-scenario-inventory.md), and
+this matrix.
 
 When a feature is mostly internal, document the closest human-facing reason it
 exists. For example, a storage, sync, or signing feature still serves the

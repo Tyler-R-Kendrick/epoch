@@ -6,7 +6,8 @@ Community packages are still small, so this document is the product-design
 constraint for future Community Web, API, Core, and CLI work: start from people,
 prove the problem, then choose the smallest trustworthy workflow.
 
-This document complements the [feature registry](features.md), [persona feature
+This document complements the [feature registry](features.md), [executable
+feature scenario inventory](feature-scenario-inventory.md), [persona feature
 matrix](persona-feature-matrix.md), [current design](design.md), [platform package boundary](platforms.md), and
 [ADR-0012](design-decisions/0012-community-human-centered-design.md). It is
 not a substitute for executable feature coverage when behavior changes.
@@ -52,6 +53,9 @@ The
 the full executable feature inventory, including supporting operator,
 maintainer, and security/compliance personas when those features protect the
 contributor experience indirectly.
+The [executable feature scenario inventory](feature-scenario-inventory.md)
+records every scenario, scenario outline, rule context, examples count, and
+persona tag so feature capture can be audited at the behavior level.
 
 Each product scenario must use the applicable persona tag and name:
 
@@ -264,6 +268,8 @@ A Community Web, API, Core, CLI, or workflow change is not ready until it has:
 Every executable feature spec in `features/` is not ready until it has:
 
 - a row in [features.md](features.md);
+- a row in the [executable feature scenario inventory](feature-scenario-inventory.md)
+  for every affected scenario or scenario outline;
 - a row in the [persona feature matrix](persona-feature-matrix.md);
 - a named persona and contribution or operations journey;
 - a pain point and trust question;
