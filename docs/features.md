@@ -34,7 +34,8 @@ The current registry is backed by these Cucumber feature files:
 | [`features/platform_web.feature`](../features/platform_web.feature) | Browser-rendered Epoch.Platform web console behavior across mobile and desktop navigation. |
 | [`features/platform_web_conformance.feature`](../features/platform_web_conformance.feature) | Mobile task completion, role-aware home modules, admin governance sections, dense data, confirmations, and SDK-equivalent web copy. |
 | [`features/platform_projects.feature`](../features/platform_projects.feature) | Separation between the hosting control-plane web app and the Community API/Core/CLI/Web packages, including the browser-rendered Community design-system shell and Community Web dogfooding through signed Epoch site history. |
-| [`features/community_operations.feature`](../features/community_operations.feature) | Separate Community Operations extension for hosted apps, workflow runs, agent sandboxes, runner status, signed provenance, and Platform Web descriptor registration. Evidence: [Community Operations evidence](evidence/community-operations/README.md), [Cucumber JSON](evidence/community-operations/community_operations.feature.json), and [Playwright WebM](evidence/community-operations/community_operations.webm). |
+| [`features/community_sandbox_workspaces.feature`](../features/community_sandbox_workspaces.feature) | Community Sandbox Workspace journeys where a contributor launches, resumes, checks, and submits a signed patch from a sandbox workspace, and a maintainer reviews the result. |
+| [`features/community_agent_sandboxes.feature`](../features/community_agent_sandboxes.feature) | Community Agent Sandbox journeys where a maintainer starts a policy-bound agent run from a signed intent, reviews completed output, and retries failures without losing evidence. |
 
 ## F-001 - Signed Event Log
 

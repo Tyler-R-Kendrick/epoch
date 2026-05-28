@@ -14,7 +14,28 @@ import type { DeployableEpochApp, PwaAppDescriptor } from "@epoch/platform-web";
 
 export type CommunityWorkflowAutomationSource = "github-actions" | "epoch-workflow";
 export type CommunityOperationsRunState = "queued" | "running" | "scheduled" | "reconciled" | "succeeded" | "failed" | "canceled";
-export type CommunityOperationsAction = "Create Preview" | "Open Logs" | "Promote" | "Rollback" | "Re-run Workflow" | "Open Sandbox Result";
+export type CommunityOperationsAction =
+  | "Create Preview"
+  | "Open Logs"
+  | "Promote"
+  | "Rollback"
+  | "Re-run Workflow"
+  | "Open Sandbox Result"
+  | "Open Workspace"
+  | "Resume Workspace"
+  | "Run Checks"
+  | "Submit Patch Intent"
+  | "Open Preview"
+  | "Approve Patch"
+  | "Reject Patch"
+  | "Start Agent Sandbox"
+  | "Open Agent Transcript"
+  | "Submit Sandbox Patch"
+  | "Retry Sandbox"
+  | "Cancel Sandbox";
+export type CommunitySandboxWorkspaceState = "running" | "interrupted" | "checks-passed" | "submitted";
+export type CommunitySandboxWorkspaceReviewDecision = "pending" | "approved" | "rejected";
+export type CommunityAgentSandboxState = AiActionPlan["state"] | "queued" | "running" | "succeeded" | "failed";
 
 export interface CommunityWorkflowAutomation {
   readonly id: string;
@@ -22,6 +43,7 @@ export interface CommunityWorkflowAutomation {
   readonly source: CommunityWorkflowAutomationSource;
   readonly workflowPath: string;
   readonly trigger: string;
+  readonly executionAuthority?: string;
 }
 
 export interface CommunityWorkflowRun {
@@ -32,6 +54,18 @@ export interface CommunityWorkflowRun {
   readonly signedEventId: string;
 }
 
+export interface CommunityAgentSandboxRuntime {
+  readonly provider: string;
+  readonly orchestrator: string;
+  readonly adapter: string;
+  readonly adapterPackage?: string;
+  readonly gateway: string;
+  readonly compute: string;
+  readonly writableDirectory: string;
+  readonly resourceLimits: string;
+  readonly policyLayers: readonly string[];
+}
+
 export interface CommunityAgentSandboxRun {
   readonly id: string;
   readonly aiPlanId: string;
@@ -39,10 +73,61 @@ export interface CommunityAgentSandboxRun {
   readonly provider: string;
   readonly model: string;
   readonly policy: string;
-  readonly state: AiActionPlan["state"] | "failed";
+  readonly state?: CommunityAgentSandboxState;
+  readonly repositorySlug?: string;
   readonly inputIntentId: string;
-  readonly outputPatchId: string;
+  readonly outputPatchId?: string;
   readonly signedEventId: string;
+  readonly policySummary?: string;
+  readonly resourceLimits?: string;
+  readonly transcriptSummary?: string;
+  readonly agentContext?: string;
+  readonly changedFiles?: readonly string[];
+  readonly checks?: readonly string[];
+  readonly previewId?: string;
+  readonly failureReason?: string;
+  readonly previousRunId?: string;
+  readonly actions?: readonly CommunityOperationsAction[];
+  readonly runtime?: CommunityAgentSandboxRuntime;
+}
+
+export interface CommunitySandboxWorkspaceTemplate {
+  readonly id: string;
+  readonly name: string;
+  readonly repositorySlug: string;
+  readonly startingContext: string;
+  readonly setupSummary: string;
+  readonly costOwner?: string;
+  readonly securityPolicy?: string;
+}
+
+export interface CommunitySandboxWorkspaceSession {
+  readonly id: string;
+  readonly templateId: string;
+  readonly repositorySlug: string;
+  readonly developer: string;
+  readonly goal: string;
+  readonly state: CommunitySandboxWorkspaceState;
+  readonly changedFiles: readonly string[];
+  readonly checks: readonly string[];
+  readonly agentContext: string;
+  readonly recoveryState?: string;
+  readonly patchIntentId?: string;
+  readonly signedEventId?: string;
+  readonly actions: readonly CommunityOperationsAction[];
+}
+
+export interface CommunitySandboxWorkspaceReview {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly maintainer: string;
+  readonly patchIntentId: string;
+  readonly changedFiles: readonly string[];
+  readonly checks: readonly string[];
+  readonly previewId?: string;
+  readonly decision: CommunitySandboxWorkspaceReviewDecision;
+  readonly signedEventId: string;
+  readonly actions: readonly CommunityOperationsAction[];
 }
 
 export interface CommunityHostedApp {
@@ -95,6 +180,9 @@ export interface CommunityOperationsWebAppDefinition {
     readonly displayName: string;
   };
   readonly hostedApps: readonly CommunityHostedApp[];
+  readonly workspaceTemplates: readonly CommunitySandboxWorkspaceTemplate[];
+  readonly sandboxWorkspaces: readonly CommunitySandboxWorkspaceSession[];
+  readonly workspaceReviews: readonly CommunitySandboxWorkspaceReview[];
   readonly workflowAutomations: readonly CommunityWorkflowAutomation[];
   readonly workflowRuns: readonly CommunityWorkflowRun[];
   readonly agentSandboxes: readonly CommunityAgentSandboxRun[];
@@ -111,6 +199,9 @@ export interface CreateCommunityOperationsWebAppOptions {
   readonly workflowAutomations?: readonly CommunityWorkflowAutomation[];
   readonly workflowRuns?: readonly CommunityWorkflowRun[];
   readonly sandboxRuns?: readonly CommunityAgentSandboxRun[];
+  readonly workspaceTemplates?: readonly CommunitySandboxWorkspaceTemplate[];
+  readonly sandboxWorkspaces?: readonly CommunitySandboxWorkspaceSession[];
+  readonly workspaceReviews?: readonly CommunitySandboxWorkspaceReview[];
 }
 
 export async function createCommunityOperationsWebApp(
@@ -143,6 +234,9 @@ export async function createCommunityOperationsWebApp(
       displayName: project?.displayName ?? projectId,
     },
     hostedApps: project === undefined ? [] : hostedAppsForProject(snapshot, projectId),
+    workspaceTemplates: [...(options.workspaceTemplates ?? [])],
+    sandboxWorkspaces: [...(options.sandboxWorkspaces ?? [])],
+    workspaceReviews: [...(options.workspaceReviews ?? [])],
     workflowAutomations: [...(options.workflowAutomations ?? [])],
     workflowRuns: workflowRunsWithPlatformJobs(snapshot, options.workflowRuns ?? []),
     agentSandboxes: sandboxRunsWithPlatformPlans(snapshot, options.sandboxRuns ?? []),
@@ -198,17 +292,19 @@ ${communityOperationsStyles()}
       <div>
         <p class="eyebrow">signed provenance for community-hosted capabilities</p>
         <h1>${escapeHtml(app.pwa.name)}</h1>
-        <p class="lede">${escapeHtml(app.projectScope.displayName)} project operations, preview deploys, GitHub Actions-style workflows, and agent sandboxes.</p>
+        <p class="lede">${escapeHtml(app.projectScope.displayName)} sandbox workspaces, project operations, preview deploys, workflows, and agent sandboxes.</p>
       </div>
       <dl class="ops-summary" aria-label="Operations summary">
         <div><dt>Apps</dt><dd>${app.hostedApps.length}</dd></div>
+        <div><dt>Workspaces</dt><dd>${app.sandboxWorkspaces.length}</dd></div>
         <div><dt>Workflows</dt><dd>${app.workflowRuns.length}</dd></div>
-        <div><dt>Sandboxes</dt><dd>${app.agentSandboxes.length}</dd></div>
         <div><dt>Runners</dt><dd>${app.runnerSummary.onlineRunners}</dd></div>
       </dl>
     </header>
     <nav class="ops-tabs" aria-label="Community operations sections">
       <a href="#apps">Apps</a>
+      <a href="#workspaces">Sandbox Workspaces</a>
+      <a href="#workspace-reviews">Workspace Reviews</a>
       <a href="#previews">Previews</a>
       <a href="#workflows">Workflows</a>
       <a href="#sandboxes">Agent Sandboxes</a>
@@ -219,6 +315,14 @@ ${communityOperationsStyles()}
       <section id="apps" class="ops-section" aria-labelledby="apps-title">
         <h2 id="apps-title">Apps</h2>
         ${app.hostedApps.length === 0 ? emptyCard("No hosted apps", "Connect Platform state to show deployable apps here.") : app.hostedApps.map(renderHostedApp).join("")}
+      </section>
+      <section id="workspaces" class="ops-section" aria-labelledby="workspaces-title">
+        <h2 id="workspaces-title">Sandbox Workspaces</h2>
+        ${app.sandboxWorkspaces.length === 0 ? emptyCard("No sandbox workspaces", "Launch a workspace from a repository to make a signed patch intent.") : app.sandboxWorkspaces.map((workspace) => renderSandboxWorkspace(workspace, app.workspaceTemplates)).join("")}
+      </section>
+      <section id="workspace-reviews" class="ops-section" aria-labelledby="workspace-reviews-title">
+        <h2 id="workspace-reviews-title">Workspace Reviews</h2>
+        ${app.workspaceReviews.length === 0 ? emptyCard("No workspace reviews", "Submitted workspace results appear here for maintainer review.") : app.workspaceReviews.map(renderWorkspaceReview).join("")}
       </section>
       <section id="previews" class="ops-section" aria-labelledby="previews-title">
         <h2 id="previews-title">Previews</h2>
@@ -297,7 +401,7 @@ function sandboxRunsWithPlatformPlans(
     const plan = snapshot.aiPlans.find((candidate) => candidate.id === run.aiPlanId);
     return {
       ...run,
-      state: plan?.state ?? run.state,
+      state: run.state ?? plan?.state ?? "queued",
     };
   });
 }
@@ -372,6 +476,7 @@ function renderHostedApp(app: CommunityHostedApp): string {
     </div>
     <p>${escapeHtml(app.repositorySlug)} to ${escapeHtml(app.environmentName)}</p>
     <dl class="card-facts">
+      <div><dt>Runtime</dt><dd>${escapeHtml(app.runtime)}</dd></div>
       <div><dt>Health</dt><dd>${escapeHtml(app.health)}</dd></div>
       <div><dt>Runner</dt><dd>${escapeHtml(app.runnerName)}</dd></div>
       <div><dt>Secrets</dt><dd>${app.secretCount}</dd></div>
@@ -402,6 +507,8 @@ function renderWorkflow(automation: CommunityWorkflowAutomation, runs: readonly 
     </div>
     <p>${escapeHtml(automation.workflowPath)} on ${escapeHtml(automation.trigger)}</p>
     <dl class="card-facts">
+      <div><dt>Source</dt><dd>${escapeHtml(automation.source)}</dd></div>
+      <div><dt>Execution</dt><dd>${escapeHtml(automation.executionAuthority ?? "Epoch runner jobs")}</dd></div>
       <div><dt>Job</dt><dd>${escapeHtml(latestRun?.jobId ?? "not scheduled")}</dd></div>
       <div><dt>Signed event</dt><dd>${escapeHtml(latestRun?.signedEventId ?? "pending")}</dd></div>
     </dl>
@@ -409,22 +516,115 @@ function renderWorkflow(automation: CommunityWorkflowAutomation, runs: readonly 
   </article>`;
 }
 
-function renderSandbox(sandbox: CommunityAgentSandboxRun): string {
+function renderSandboxWorkspace(
+  workspace: CommunitySandboxWorkspaceSession,
+  templates: readonly CommunitySandboxWorkspaceTemplate[],
+): string {
+  const template = templates.find((candidate) => candidate.id === workspace.templateId);
   return `<article class="ops-card">
     <div class="card-header">
       <div>
-        <p class="eyebrow">${escapeHtml(sandbox.provider)} / ${escapeHtml(sandbox.model)}</p>
+        <p class="eyebrow">${escapeHtml(workspace.repositorySlug)}</p>
+        <h3>${escapeHtml(workspace.goal)}</h3>
+      </div>
+      <span class="status">${escapeHtml(workspace.state)}</span>
+    </div>
+    <p>${escapeHtml(template?.name ?? "Workspace template")} from ${escapeHtml(template?.startingContext ?? "repository")} for ${escapeHtml(workspace.developer)}.</p>
+    <dl class="card-facts">
+      <div><dt>Workspace</dt><dd>${escapeHtml(workspace.id)}</dd></div>
+      <div><dt>Cost owner</dt><dd>${escapeHtml(template?.costOwner ?? "not declared")}</dd></div>
+      <div><dt>Security policy</dt><dd>${escapeHtml(template?.securityPolicy ?? "not declared")}</dd></div>
+      <div><dt>Agent context</dt><dd>${escapeHtml(workspace.agentContext)}</dd></div>
+      <div><dt>Recovery</dt><dd>${escapeHtml(workspace.recoveryState ?? "workspace state saved")}</dd></div>
+      <div><dt>Patch intent</dt><dd>${escapeHtml(workspace.patchIntentId ?? "not submitted")}</dd></div>
+      <div><dt>Signed event</dt><dd>${escapeHtml(workspace.signedEventId ?? "pending")}</dd></div>
+    </dl>
+    ${renderTextList("Changed files", workspace.changedFiles)}
+    ${renderTextList("Checks", workspace.checks)}
+    <div class="actions">${workspace.actions.map((action) => renderAction(action)).join("")}</div>
+  </article>`;
+}
+
+function renderWorkspaceReview(review: CommunitySandboxWorkspaceReview): string {
+  return `<article class="ops-card">
+    <div class="card-header">
+      <div>
+        <p class="eyebrow">workspace review</p>
+        <h3>${escapeHtml(review.patchIntentId)}</h3>
+      </div>
+      <span class="status">${escapeHtml(review.decision)}</span>
+    </div>
+    <p>${escapeHtml(review.maintainer)} is reviewing ${escapeHtml(review.workspaceId)}.</p>
+    <dl class="card-facts">
+      <div><dt>Preview</dt><dd>${escapeHtml(review.previewId ?? "not created")}</dd></div>
+      <div><dt>Signed event</dt><dd>${escapeHtml(review.signedEventId)}</dd></div>
+    </dl>
+    ${renderTextList("Changed files", review.changedFiles)}
+    ${renderTextList("Checks", review.checks)}
+    <div class="actions">${review.actions.map((action) => renderAction(action)).join("")}</div>
+  </article>`;
+}
+
+function renderSandbox(sandbox: CommunityAgentSandboxRun): string {
+  const changedFiles = sandbox.changedFiles ?? [];
+  const checks = sandbox.checks ?? [];
+  const actions = sandbox.actions ?? ["Open Sandbox Result"];
+  const runtimeFacts = sandbox.runtime === undefined
+    ? ""
+    : `<dl class="card-facts">
+      <div><dt>Provider</dt><dd>${escapeHtml(sandbox.runtime.provider)}</dd></div>
+      <div><dt>Orchestrator</dt><dd>${escapeHtml(sandbox.runtime.orchestrator)}</dd></div>
+      <div><dt>Adapter</dt><dd>${escapeHtml(sandbox.runtime.adapter)}</dd></div>
+      <div><dt>Gateway</dt><dd>${escapeHtml(sandbox.runtime.gateway)}</dd></div>
+      <div><dt>Writable</dt><dd>${escapeHtml(sandbox.runtime.writableDirectory)}</dd></div>
+      <div><dt>Limits</dt><dd>${escapeHtml(sandbox.runtime.resourceLimits)}</dd></div>
+      <div><dt>Compute</dt><dd>${escapeHtml(sandbox.runtime.compute)}</dd></div>
+      <div><dt>Adapter package</dt><dd>${escapeHtml(sandbox.runtime.adapterPackage ?? "configured by operator")}</dd></div>
+    </dl>
+    <ul class="policy-list">
+      ${sandbox.runtime.policyLayers.map((policyLayer) => `<li>${escapeHtml(policyLayer)}</li>`).join("")}
+    </ul>`;
+
+  return `<article class="ops-card">
+    <div class="card-header">
+      <div>
+        <p class="eyebrow">${escapeHtml(sandbox.repositorySlug ?? sandbox.provider)} / ${escapeHtml(sandbox.model)}</p>
         <h3>${escapeHtml(sandbox.agent)}</h3>
       </div>
-      <span class="status">${escapeHtml(sandbox.state)}</span>
+      <span class="status">${escapeHtml(sandbox.state ?? "queued")}</span>
     </div>
-    <p>Policy ${escapeHtml(sandbox.policy)} converted ${escapeHtml(sandbox.inputIntentId)} into ${escapeHtml(sandbox.outputPatchId)}.</p>
+    <p>Policy ${escapeHtml(sandbox.policySummary ?? sandbox.policy)} converts ${escapeHtml(sandbox.inputIntentId)} into ${escapeHtml(sandbox.outputPatchId ?? "a pending patch intent")}.</p>
     <dl class="card-facts">
+      <div><dt>Sandbox</dt><dd>${escapeHtml(sandbox.id)}</dd></div>
       <div><dt>AI plan</dt><dd>${escapeHtml(sandbox.aiPlanId)}</dd></div>
+      <div><dt>Input intent</dt><dd>${escapeHtml(sandbox.inputIntentId)}</dd></div>
+      <div><dt>Output patch</dt><dd>${escapeHtml(sandbox.outputPatchId ?? "not created")}</dd></div>
+      <div><dt>Limits</dt><dd>${escapeHtml(sandbox.resourceLimits ?? "operator default")}</dd></div>
+      <div><dt>Agent context</dt><dd>${escapeHtml(sandbox.agentContext ?? "not recorded")}</dd></div>
+      <div><dt>Preview</dt><dd>${escapeHtml(sandbox.previewId ?? "not created")}</dd></div>
+      <div><dt>Previous run</dt><dd>${escapeHtml(sandbox.previousRunId ?? "none")}</dd></div>
       <div><dt>Signed event</dt><dd>${escapeHtml(sandbox.signedEventId)}</dd></div>
     </dl>
-    <div class="actions">${renderAction("Open Sandbox Result")}</div>
+    ${sandbox.transcriptSummary === undefined ? "" : `<p class="provenance-note">${escapeHtml(sandbox.transcriptSummary)}</p>`}
+    ${sandbox.failureReason === undefined ? "" : `<p class="provenance-note">${escapeHtml(sandbox.failureReason)}</p>`}
+    ${renderTextList("Changed files", changedFiles)}
+    ${renderTextList("Checks", checks)}
+    ${runtimeFacts}
+    <div class="actions">${actions.map((action) => renderAction(action)).join("")}</div>
   </article>`;
+}
+
+function renderTextList(title: string, values: readonly string[]): string {
+  if (values.length === 0) {
+    return "";
+  }
+
+  return `<div>
+    <p class="list-title">${escapeHtml(title)}</p>
+    <ul class="runner-list">
+      ${values.map((value) => `<li><span>${escapeHtml(value)}</span></li>`).join("")}
+    </ul>
+  </div>`;
 }
 
 function renderRunners(summary: CommunityRunnerSummary): string {
@@ -687,7 +887,8 @@ function communityOperationsStyles(): string {
     }
 
     .runner-list,
-    .activity-list {
+    .activity-list,
+    .policy-list {
       display: grid;
       gap: 0.5rem;
       margin: 0;
@@ -696,7 +897,8 @@ function communityOperationsStyles(): string {
     }
 
     .runner-list li,
-    .activity-list li {
+    .activity-list li,
+    .policy-list li {
       display: flex;
       justify-content: space-between;
       gap: 1rem;

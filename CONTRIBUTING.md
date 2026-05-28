@@ -52,9 +52,9 @@ Run `npm run docs:check` before review to catch broken links and orphaned docs.
   persona or an explicit alternative persona, the pain point solved, and the
   design-thinking stage, user-centric success criteria, trust, cost, security,
   accessibility, moderation, degraded-state, and portability considerations.
-  Add or update persona-driven feature scenarios under `features/` before
-  implementation, then record the changed scenarios in
-  `docs/feature-scenario-inventory.md`.
+  Add or update Gherkin scenarios under `features/` only when they describe
+  user-visible product behavior; keep process and evidence-recording guidance
+  in docs, tests, or agent instructions.
 - Do not commit generated `dist/`, `coverage/`, local repositories, logs, or secrets.
 - Do not lower coverage thresholds, disable lint rules, or skip tests to make CI pass.
 

@@ -21,8 +21,8 @@
 
 - [ ] For Community changes, named the persona, pain point, trust question, cost/security/privacy/accessibility/moderation/portability considerations, degraded-state behavior, and validation evidence, or explained why not applicable.
 - [ ] For Community changes, named the design-thinking stage and user-centric success criteria, or explained why not applicable.
-- [ ] Added or updated persona-driven Gherkin scenarios under `features/`, or explained why not applicable.
-- [ ] Confirmed persona-driven scenarios remain real product behavior, not persona-only feature files or matrix-only outlines.
+- [ ] Added or updated user-visible product behavior Gherkin scenarios under `features/`, or explained why not applicable.
+- [ ] Confirmed Gherkin scenarios remain real product behavior, not agent instructions, test procedures, evidence recording, persona-only feature files, or matrix-only outlines.
 
 ## Security
 

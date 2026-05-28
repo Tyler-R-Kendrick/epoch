@@ -41,23 +41,28 @@ Every Community-site change uses this loop:
 6. Learn from production signals, support reports, moderation reports, and
    contributor feedback before expanding scope.
 
-## Persona-Driven BDD Contract
+## Product Behavior Spec Boundary
 
 Every Community Web, API, Core, CLI, workflow, or public-doc change that
-affects contributor experience must start by adding or updating a
-persona-driven Gherkin scenario in the relevant product feature file under
-`features/`. Personas are users in scenarios, not standalone features. Do not
-create persona-only, human-centered-design-only, or e2e-journey feature files.
-The
-[persona feature matrix](persona-feature-matrix.md) extends that contract across
-the full executable feature inventory, including supporting operator,
-maintainer, and security/compliance personas when those features protect the
-contributor experience indirectly.
-The [executable feature scenario inventory](feature-scenario-inventory.md)
-records every scenario, scenario outline, rule context, examples count, and
-persona tag so feature capture can be audited at the behavior level.
+affects contributor experience must document the human context before
+broadening implementation scope. When the change adds or changes user-visible
+product behavior, add or update a persona-tagged Gherkin scenario in the
+relevant product feature file under `features/`.
 
-Each product scenario must use the applicable persona tag and name:
+Personas are users in scenarios, not standalone features. Do not create
+persona-only, human-centered-design-only, or e2e-journey feature files, and do
+not encode agent instructions, test-running procedures, evidence recording,
+persona-matrix audits, or repository governance checks as `.feature` scenarios.
+The [persona feature matrix](persona-feature-matrix.md) connects executable app
+capabilities to personas, including supporting operator, maintainer, and
+security/compliance personas when those features protect the contributor
+experience indirectly. The
+[executable feature scenario inventory](feature-scenario-inventory.md) records
+every scenario, scenario outline, rule context, examples count, and persona tag
+so feature capture can be audited at the behavior level.
+
+Each product scenario or supporting doc must use the applicable persona tag and
+name:
 
 - the persona;
 - the contributor journey;
@@ -68,13 +73,11 @@ Each product scenario must use the applicable persona tag and name:
   considerations that matter to that journey; and
 - the validation evidence that proves the contributor can finish the job.
 
-Scenarios must also show where the change sits in the design-thinking loop and
-how the user-centric success criteria are protected.
-
-Feature files should describe the human outcome first and implementation
-details second. A feature title must describe product behavior, not the persona
-or the design method. If a Community change cannot be expressed as a
-persona-driven product scenario, the design is not ready.
+Product behavior specs should describe the human outcome first and
+implementation details second. A feature title must describe product behavior,
+not the persona or the design method. Docs and pull requests should show where
+the change sits in the design-thinking loop and how the user-centric success
+criteria are protected.
 
 For Community work, the pull request or design note must answer:
 

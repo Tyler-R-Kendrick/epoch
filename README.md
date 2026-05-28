@@ -18,8 +18,9 @@ Epoch repository so site changes have signed branch, merge, version, and
 rollback evidence. Community behavior is split through
 `Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.CLI`, and
 `Epoch.Community.Web`. `Epoch.Community.Operations.Web` is a separate
-Coolify-inspired deployable extension for project hosting, workflow, runner,
-and agent-sandbox operations over Platform SDK/Core state. The full implemented
+Coolify-inspired deployable extension for sandbox workspaces, project hosting,
+workflow, runner, and agent-sandbox operations over Platform SDK/Core state.
+The full implemented
 feature list lives in the
 [feature registry](docs/features.md).
 
@@ -149,6 +150,7 @@ High-value entry points:
 | CLI usage | [docs/cli.md](docs/cli.md) |
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
 | Platform web apps | [docs/platforms.md](docs/platforms.md) |
+| Community Operations extension | [docs/community-operations.md](docs/community-operations.md) |
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
 | Executable feature scenario inventory | [docs/feature-scenario-inventory.md](docs/feature-scenario-inventory.md) |

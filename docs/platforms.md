@@ -136,10 +136,13 @@ Workspace package: `packages/Epoch.Community.Operations.Web`
 Published package name: `@epoch/community-operations-web`
 
 `Epoch.Community.Operations.Web` is a separate Coolify-inspired PWA shell for
-community-owned project operations. It consumes `@epoch/platform-sdk` and
-`@epoch/platform-core` contracts to project existing Platform state into hosted
-apps, preview deploys, GitHub Actions-style workflow runs, agent sandboxes,
-runner status, secrets metadata, and signed activity.
+community-owned project operations. Its first concrete product slice is
+Community Sandbox Workspaces: a Codespaces-style contributor workflow backed by
+agent sandboxes, signed patch intents, project checks, and maintainer review.
+It consumes `@epoch/platform-sdk` and `@epoch/platform-core` contracts to
+project existing Platform state into hosted apps, preview deploys, workflow
+runs, sandbox workspaces, agent sandboxes, runner status, secrets metadata, and
+signed activity.
 
 Implemented responsibilities:
 
@@ -148,17 +151,18 @@ Implemented responsibilities:
   importing the extension package;
 - project hosted app cards from existing repositories, deployables,
   environments, deploy plans, deployments, runners, secrets, and audit events;
+- render sandbox workspace sessions, resume/open workspace actions, check
+  status, patch-intent submission state, and maintainer review decisions;
 - render workflow automation and workflow run cards where GitHub Actions is an
   imported source format rather than the execution authority; and
-- render agent sandbox cards from extension metadata plus Platform AI plan
-  state, keeping signed output event IDs visible.
+- render agent sandbox runs from extension metadata plus Platform AI plan state,
+  keeping policy, transcript, changed files, checks, retry context, and signed
+  event IDs visible.
 
 `Epoch.Community.Operations.Web` does not mutate Platform Core. Platform Core
 remains the authority for deploys, jobs, runners, secrets, AI plans, and audit.
-Its end-to-end browser proof is recorded by
-`npm run e2e:community-operations`, which renders the extension with
-Playwright, writes Cucumber JSON evidence, and records a WebM linked from the
-feature registry.
+See [Epoch Community Operations](community-operations.md) for the product
+capabilities, exported API surface, and v1 limits.
 
 ## Boundary Rule
 
@@ -167,15 +171,16 @@ The platform boundary is enforced by tests:
 - `test/unit/platform-boundaries.test.ts` checks that Web treats Community as a
   deployable app, that Community owns the collaboration workflows, and that the
   package dependency direction stays Core-centered.
-- `test/unit/community-operations-web.test.ts` checks that Community Operations
-  projects Platform state into app, workflow, sandbox, runner, and activity
-  cards and can register with Platform Web as a deployable app descriptor.
 - `features/platform_projects.feature` captures the user-facing product split
   with executable scenarios.
+- `features/community_sandbox_workspaces.feature` captures contributor and
+  maintainer journeys for launching, resuming, checking, submitting, and
+  reviewing sandbox workspace results.
+- `features/community_agent_sandboxes.feature` captures maintainer journeys for
+  starting policy-bound agent sandboxes, reviewing completed agent output, and
+  retrying failures without losing signed evidence.
 - `features/platform_projects.feature` also includes a Playwright-driven browser
   scenario for `Epoch.Community.Web`, including the design-system shell.
-- `features/community_operations.feature` includes a Playwright-driven browser
-  scenario for `Epoch.Community.Operations.Web`.
 - `test/unit/community-contract.test.ts` uses Pact to lock the
   `Epoch.Community.Core` HTTP client contract with `Epoch.Community.API`.
 - `test/unit/community-coverage.test.ts` covers Community API routing, CLI
@@ -183,6 +188,9 @@ The platform boundary is enforced by tests:
 
 Coverage is enforced through `npm run coverage`. The Community packages are
 included in the c8 report rather than excluded as generated or test-only code.
+Community Operations is documented as a separate package/API surface, but it is
+not anchored by browser evidence artifacts or a package-specific unit proof
+layer.
 
 The intended integration point is structural data:
 
