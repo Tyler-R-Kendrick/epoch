@@ -16,18 +16,22 @@ Epoch.Platform headless management and web console APIs.
 - XState integration package: `@epoch/xstate`
 - Platform Core package: `@epoch/platform-core`
 - Platform SDK package: `@epoch/platform-sdk`
-- Platform Community package: `@epoch/platform-community`
 - Platform Web package: `@epoch/platform-web`
+- Community packages: `@epoch/community-api`, `@epoch/community-core`,
+  `@epoch/community-cli`, and `@epoch/community-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 - Browser integration root exports: `epoch/Epoch.Integration.Core`,
   `epoch/Epoch.React`, `epoch/Epoch.GenUI`, `epoch/Epoch.Redux`, and
   `epoch/Epoch.XState`
-- Platform root exports: `epoch/Epoch.Platform.Core`, `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Community`, and `epoch/Epoch.Platform.Web`
+- Platform and Community root exports: `epoch/Epoch.Platform.Core`,
+  `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Web`,
+  `epoch/Epoch.Community.API`, `epoch/Epoch.Community.Core`,
+  `epoch/Epoch.Community.CLI`, and `epoch/Epoch.Community.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`,
 CRDT helpers, lifecycle hook types, backup/compact helpers, seed-node helpers,
-and Git compatibility classes.
+Git compatibility classes, and Community Web site materialization helpers.
 
 ## Repository Lifecycle
 
@@ -374,12 +378,12 @@ assumed to work in WASM.
 
 ## Epoch.Platform Core and SDK
 
-Use `@epoch/platform-core` when embedding the platform domain service directly,
-`@epoch/platform-sdk` when writing headless automation against that service, and
-`@epoch/platform-community` when the optional public/internal Community module
-is deployed. Use `createInMemoryPlatformCore()` for short-lived embedded flows
-and `createFileSystemPlatformCore()` when the control plane needs durable local
-state, verified backup artifacts, and backup-artifact restore. The current
+Use `@epoch/platform-core` when embedding the platform domain service directly
+and `@epoch/platform-sdk` when writing headless automation against that service.
+Use the separate `@epoch/community-*` packages for Community API, client, CLI,
+and web behavior. Use `createInMemoryPlatformCore()` for short-lived embedded
+flows and `createFileSystemPlatformCore()` when the control plane needs durable
+local state, verified backup artifacts, and backup-artifact restore. The current
 implementation does not yet provide networking, real runners, infrastructure
 adapters, SSO handshakes, clustered scheduling, or a production
 database/queue/search stack for the platform control plane.
@@ -470,43 +474,29 @@ const results = sdk.search.query("api");
 const snapshot = sdk.snapshots.export();
 ```
 
-Optional Community module example:
+Community package example:
 
 ```ts
-import { EpochPlatformCommunity } from "@epoch/platform-community";
+import { createInMemoryCommunityApi } from "@epoch/community-api";
+import { createCommunityClient } from "@epoch/community-core";
+import {
+  createCommunityWebApp,
+  materializeCommunityWebSiteWithEpoch,
+} from "@epoch/community-web";
 
-const community = new EpochPlatformCommunity(sdk);
-community.enable({
-  reviewedBy: "admin",
-  visibilityPolicy: "public profiles and approved project showcases",
-});
+const communityClient = createCommunityClient(createInMemoryCommunityApi({
+  repositories: [{
+    slug: "epoch/epoch",
+    displayName: "Epoch",
+    description: "Signed repository history.",
+    maintainers: ["alice"],
+  }],
+}));
+const community = await createCommunityWebApp({ client: communityClient });
 
-const profile = community.profiles.create({
-  handle: "alice",
-  displayName: "Alice",
-  visibility: "public",
-});
-const showcase = community.projects.publish({
-  projectId: project.id,
-  publicSlug: "api-web",
-  summary: "Self-hosted API platform",
-  requestedBy: "alice",
-  readme: "Deployable self-hosted API service.",
-  deployStatusBadge: "healthy",
-  contributionPrompt: "Start with the starter issues.",
-});
-const approvedShowcase = community.projects.approve(showcase.id, {
-  moderator: "mod",
-});
-community.projects.bookmark({
-  communityProjectId: approvedShowcase.id,
-  profileId: profile.id,
-});
-community.discussions.open({
-  communityProjectId: approvedShowcase.id,
-  profileId: profile.id,
-  title: "Roadmap",
-  body: "Where should deploy previews land?",
+materializeCommunityWebSiteWithEpoch(community, {
+  repositoryRoot: "/tmp/epoch-community-site",
+  outputDirectory: "./deploy",
 });
 ```
 

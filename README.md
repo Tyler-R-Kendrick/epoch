@@ -13,7 +13,9 @@ Core SDK, Node CLI, WASM-safe exports, browser integration adapters, an
 plane domain and SDK surfaces. `Epoch.Platform.Web` is the PWA hosting control
 plane for deploying Epoch-related services. `Epoch.Community.Web` is the
 GitHub-like community app that Platform Web can deploy and manage as a
-separate service. Community behavior is split through
+separate service, and its static site build is itself materialized through an
+Epoch repository so site changes have signed branch, merge, version, and
+rollback evidence. Community behavior is split through
 `Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.CLI`, and
 `Epoch.Community.Web`. The full implemented feature list lives in the
 [feature registry](docs/features.md).

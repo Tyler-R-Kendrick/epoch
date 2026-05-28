@@ -1,9 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInMemoryCommunityApi } from "../packages/Epoch.Community.API/dist/index.js";
 import {
   createCommunityWebApp,
-  renderCommunityWebDocument,
+  materializeCommunityWebSiteWithEpoch,
 } from "../packages/Epoch.Community.Web/dist/index.js";
 
 const outputDirectory = outputDirectoryFromArgs(process.argv.slice(2))
@@ -23,10 +24,12 @@ const app = await createCommunityWebApp({
   client: api,
   basePath: "/community",
 });
-const document = renderCommunityWebDocument(app);
+const repositoryRoot = await mkdtemp(join(tmpdir(), "epoch-community-web-repository-"));
 
-await mkdir(join(outputDirectory, "community"), { recursive: true });
-await writeFile(join(outputDirectory, "community", "index.html"), document);
+materializeCommunityWebSiteWithEpoch(app, {
+  repositoryRoot,
+  outputDirectory,
+});
 await writeFile(join(outputDirectory, "healthz"), "ok\n");
 
 function outputDirectoryFromArgs(args) {
