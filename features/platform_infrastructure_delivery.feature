@@ -11,6 +11,7 @@ Feature: Epoch.Platform infrastructure and delivery
     And I create deployable "api-web" from repository "api" for project "platform"
     And I register runner "local-runner" with capacity 2
 
+  @persona.platform_operator
   Scenario: Infrastructure targets, resources, templates, and deployable discovery are inspectable
     When I connect infrastructure target "prod-cluster" kind "kubernetes" in region "us-central"
     And I provision resource "postgres" kind "database" provider "postgres" in environment "production"
@@ -21,6 +22,7 @@ Feature: Epoch.Platform infrastructure and delivery
     And discovered deployable "api-service" has runtime "node"
     And template "node-api" is available
 
+  @persona.platform_operator
   Scenario: Dry-run deploy plans are deterministic, editable, cancelable, and promotable
     Given I create protected environment "staging" in project "platform"
     And I open API request "req-2" with idempotency key "release-1"
@@ -37,6 +39,7 @@ Feature: Epoch.Platform infrastructure and delivery
     Then the latest promotion state is "succeeded"
     And the latest audit event is "deployment.promoted"
 
+  @persona.platform_operator
   Scenario: Runner coordination handles heartbeats, quarantine, retries, and reconciliation
     When I schedule platform job "index-search" with idempotency key "job-1"
     And runner "local-runner" sends heartbeat
@@ -48,20 +51,10 @@ Feature: Epoch.Platform infrastructure and delivery
     When I reconcile runner loss for job "index-search"
     Then platform job "index-search" state is "reconciled"
 
+  @persona.platform_operator
   Scenario: Platform configuration accepts forward-compatible unknown sections but rejects invalid known sections
     When I load platform configuration with unknown section "future"
     Then platform configuration warnings include "future"
     When I try to load invalid platform configuration section "database"
     Then the platform action fails with code "invalid_configuration"
     And the platform action suggests "Fix database configuration"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_infrastructure_delivery.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_infrastructure_delivery.feature | A platform operator | Avoiding Surprise Cost | cost | inspect infrastructure, plan dry runs, coordinate runners, retry jobs, reconcile loss, and validate config |

@@ -2,6 +2,7 @@ Feature: Epoch.Platform foundation
   Epoch.Platform.Core owns platform invariants while Epoch.Platform.Sdk exposes
   headless management flows for operators and agents.
 
+  @persona.platform_operator
   Scenario: Headless project setup keeps Community optional
     Given an Epoch Platform instance with Community disabled
     When I create organization "acme" through the platform SDK
@@ -11,6 +12,7 @@ Feature: Epoch.Platform foundation
     And the project "platform" overview lists repository "api"
     And the project "platform" overview has empty-state action "Create deployable"
 
+  @persona.platform_operator
   Scenario: Deploy plans expose impact before execution
     Given an Epoch Platform instance with Community disabled
     And I create organization "acme" through the platform SDK
@@ -25,6 +27,7 @@ Feature: Epoch.Platform foundation
     And the deploy plan primary action is "Deploy to production"
     And the deploy plan SDK operation is "deployments.executePlan"
 
+  @persona.platform_operator
   Scenario: Protected deploy execution records audit trail after approval
     Given an Epoch Platform instance with Community disabled
     And I create organization "acme" through the platform SDK
@@ -41,6 +44,7 @@ Feature: Epoch.Platform foundation
     Then the latest deployment state is "succeeded"
     And the latest audit event is "deployment.executed"
 
+  @persona.platform_operator
   Scenario: Community can be enabled without coupling core deployability
     Given an Epoch Platform instance with Community disabled
     And I create organization "acme" through the platform SDK
@@ -51,14 +55,3 @@ Feature: Epoch.Platform foundation
     And I publish project "platform" to Community as "epoch-platform"
     Then the platform capability "community" is enabled
     And the Community project public slug is "epoch-platform"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_core.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_core.feature | A platform operator | Trusting Current State | governance | start a headless platform, create deploy plans, approve protected execution, and keep Community optional |

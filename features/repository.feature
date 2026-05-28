@@ -1,6 +1,7 @@
 Feature: Epoch repository event log
   Epoch stores immutable content-addressed events in a local repository.
 
+  @persona.github_open_source_contributor
   Scenario: Initialize and record a file
     Given a new workspace
     When I initialize an Epoch repository as "alice"
@@ -11,6 +12,7 @@ Feature: Epoch repository event log
     And the repository identity uses Ed25519 keys
     And the recorded event is signed
 
+  @persona.github_open_source_contributor
   Scenario: Create an empty repository with one command
     Given a new workspace
     When I run the Epoch CLI with arguments:
@@ -23,6 +25,7 @@ Feature: Epoch repository event log
     And the event log contains 0 events
     And the repository identity uses Ed25519 keys
 
+  @persona.github_open_source_contributor
   Scenario: Push assets to create a repository and first version
     Given a new workspace
     When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"
@@ -40,6 +43,7 @@ Feature: Epoch repository event log
     And the latest version is named "initial-site"
     And the version manifest includes file "dist/index.html"
 
+  @persona.github_open_source_contributor
   Scenario: Push skips repository metadata directories
     Given a new workspace
     When I write raw workspace file "asset.txt" with content "asset\n"
@@ -56,6 +60,7 @@ Feature: Epoch repository event log
     And the version manifest includes file "asset.txt"
     And the version manifest does not include file ".git/config"
 
+  @persona.github_open_source_contributor
   Scenario: Push honors Epoch ignore files
     Given a new workspace
     When I write raw workspace file ".epochignore" with content "dist/\n*.log\n"
@@ -76,6 +81,7 @@ Feature: Epoch repository event log
     And the version manifest does not include file "dist/app.js"
     And the version manifest does not include file "debug.log"
 
+  @persona.github_open_source_contributor
   Scenario: Native file lifecycle commands update the signed projection
     Given a new workspace
     When I write raw workspace file "docs/guide.md" with content "guide\n"
@@ -114,6 +120,7 @@ Feature: Epoch repository event log
     And workspace file "docs/manual.md" contains "guide\n"
     And workspace file "docs/copy.md" contains "template\n"
 
+  @persona.github_open_source_contributor
   Scenario: Track and forget override ignored discovery
     Given a new workspace
     When I write raw workspace file ".epochignore" with content "local.toml\n"
@@ -139,6 +146,7 @@ Feature: Epoch repository event log
     And the version manifest does not include file "local.toml"
     And workspace file "local.toml" contains "secret = true\n"
 
+  @persona.github_open_source_contributor
   Scenario: Check-ignore explains matched Epoch ignore patterns
     Given a new workspace
     When I write raw workspace file ".epochignore" with content "*.tmp\n"
@@ -148,6 +156,7 @@ Feature: Epoch repository event log
     Then the CLI exits with code 0
     And the CLI output contains ".epochignore:1:*.tmp scratch.tmp"
 
+  @persona.github_open_source_contributor
   Scenario: Repository TOML config limits automatic tracking size
     Given a new workspace
     When I write raw workspace file ".epoch/config.toml" with content "[working_tree]\nmax_new_file_bytes = 4\n"
@@ -167,6 +176,7 @@ Feature: Epoch repository event log
     Then the CLI exits with code 0
     And the CLI output contains "4"
 
+  @persona.github_open_source_contributor
   Scenario: Materialize a version into a clean directory
     Given a new workspace
     When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"
@@ -187,6 +197,7 @@ Feature: Epoch repository event log
     And workspace file "deploy/dist/index.html" contains "<h1>Hello</h1>\n"
     And workspace JSON file "deploy/epoch-version.json" has property "name" equal to "initial-site"
 
+  @persona.github_open_source_contributor
   Scenario: Refuse to overwrite materialized output by default
     Given a new workspace
     When I write raw workspace file "dist/index.html" with content "<h1>Hello</h1>\n"
@@ -207,6 +218,7 @@ Feature: Epoch repository event log
     Then the CLI exits with code 1
     And the CLI error contains "would overwrite files"
 
+  @persona.github_open_source_contributor
   Scenario: Version CRDT state as a deployable snapshot
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -228,6 +240,7 @@ Feature: Epoch repository event log
       | deploy      |
     Then workspace JSON file "deploy/tasks.json" has property "build.status" equal to "ready"
 
+  @persona.github_open_source_contributor
   Scenario: SDK open-or-create pushes assets and materializes a version
     Given a new workspace
     When I write raw workspace file "site/app.js" with content "console.log('ready')\n"
@@ -237,6 +250,7 @@ Feature: Epoch repository event log
     When I materialize version "sdk-site" through the SDK into "sdk-deploy"
     Then workspace file "sdk-deploy/site/app.js" contains "console.log('ready')\n"
 
+  @persona.github_open_source_contributor
   Scenario: Repository hooks observe event-driven lifecycle steps
     Given a new workspace
     And an Epoch repository hook recorder
@@ -244,6 +258,7 @@ Feature: Epoch repository event log
     And I record "note.txt" with content "hello\n" as "text/plain"
     Then observed repository hooks include "repository.init.before,repository.init.after,repository.recordFile.before,repository.append.before,repository.append.after,repository.recordFile.after"
 
+  @persona.github_open_source_contributor
   Scenario: Detect tampered event content
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -251,6 +266,7 @@ Feature: Epoch repository event log
     When I tamper with the recorded event size
     Then repository verification reports "content hash mismatch"
 
+  @persona.github_open_source_contributor
   Scenario: Detect tampered blob content
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -258,12 +274,14 @@ Feature: Epoch repository event log
     When I tamper with the recorded blob content
     Then repository verification reports "blob hash mismatch"
 
+  @persona.github_open_source_contributor
   Scenario: Reject files outside the repository root
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     When I try to record "../outside.txt" with content "secret\n" as "text/plain"
     Then recording fails with "outside repository root"
 
+  @persona.github_open_source_contributor
   Scenario: Sync command surface synchronizes repositories
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -274,6 +292,7 @@ Feature: Epoch repository event log
     And the peer event log contains 1 event
     And the peer recorded blob content equals "hello\n"
 
+  @persona.github_open_source_contributor
   Scenario: Intent merge signatures advance the main projection
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -286,6 +305,7 @@ Feature: Epoch repository event log
     Then the repository verifies successfully
     And the event log contains 3 events
 
+  @persona.github_open_source_contributor
   Scenario: Rejected intents remain on the ledger but are skipped by main
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -295,6 +315,7 @@ Feature: Epoch repository event log
     And the main projection skips the last intent
     And the event log contains 2 events
 
+  @persona.github_open_source_contributor
   Scenario: Intent workflow events carry signed metadata
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -314,6 +335,7 @@ Feature: Epoch repository event log
     And the last event metadata labels are "blocked"
     And the event log contains 4 events
 
+  @persona.github_open_source_contributor
   Scenario: Import from and export to Git repositories
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -324,6 +346,7 @@ Feature: Epoch repository event log
     When I export to a Git repository
     Then the exported Git file "docs/readme.md" contains "from git\n"
 
+  @persona.github_open_source_contributor
   Scenario: Git compatibility clone records provider metadata
     Given a Git repository with "docs/readme.md" containing "from git\n"
     When I clone the Git repository through Epoch Git compatibility
@@ -332,6 +355,7 @@ Feature: Epoch repository event log
     And the cloned Epoch Git provider is "git"
     And the cloned Epoch Git remote references the Git repository
 
+  @persona.github_open_source_contributor
   Scenario: Git compatibility commit records an Epoch merge event
     Given a Git repository with "docs/readme.md" containing "from git\n"
     When I clone the Git repository through Epoch Git compatibility
@@ -342,18 +366,8 @@ Feature: Epoch repository event log
     And the latest Epoch event has type "git.commit"
     And the latest recorded Git file "docs/readme.md" contains "changed\n"
 
+  @persona.github_open_source_contributor
   Scenario: Unsupported Git compatibility operations explain why
     Given a new workspace
     When I run unsupported Epoch Git command "rebase"
     Then Git compatibility fails with "not supported"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for repository.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/repository.feature | A GitHub open-source contributor | Trusting Current State | portability | create, record, version, verify, sync, review, import, and export signed repository work |

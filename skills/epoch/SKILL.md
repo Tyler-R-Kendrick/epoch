@@ -42,7 +42,6 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 | [Platform Packages](../../docs/platforms.md) | Separate Platform Web and Epoch Community API/Core/CLI/Web responsibilities and deployment boundary. |
 | [Community Human-Centered Design](../../docs/community-human-centered-design.md) | Community design thinking, user-centric design, GitHub open-source contributor persona, pain points, and human considerations. |
 | [Persona Feature Matrix](../../docs/persona-feature-matrix.md) | Persona, journey, pain point, trust, degraded-state, and validation mapping for every executable feature spec. |
-| [Persona End-To-End Journeys](../../docs/persona-e2e-journeys.md) | Executable e2e journey coverage for each documented persona and every executable feature spec. |
 | [Visual Design System](../../DESIGN.md) | Epoch Community tokens, component rules, accessibility guardrails, and visual direction. |
 | [Quality Gates](references/quality-gates.md) | Required TDD, lint, typecheck, test, coverage, and CI expectations. |
 | [Documentation Freshness](references/documentation.md) | Required README, docs index, ADR, feature, SDK, CLI, WASM, and skill-reference updates. |
@@ -58,8 +57,9 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 
 - Workspace packages live in `packages/Epoch.Core`, `packages/Epoch.CLI`, `packages/Epoch.WASM`, `packages/Epoch.WASM.React`, `packages/Epoch.Platform.Core`, `packages/Epoch.Platform.Sdk`, `packages/Epoch.Platform.Web`, `packages/Epoch.Community.API`, `packages/Epoch.Community.Core`, `packages/Epoch.Community.CLI`, and `packages/Epoch.Community.Web`.
 - `Epoch.Platform.Web` is only the Epoch hosting control plane; `Epoch.Community.Web` is registered with Web through a deployable app descriptor, while Community API behavior lives in `Epoch.Community.API` and Web/CLI consume `Epoch.Community.Core`. Community Web site releases should use `materializeCommunityWebSiteWithEpoch()` so the static site is built from signed Epoch branch, merge, version, and rollback evidence.
-- Community site work uses design thinking, user-centric design, and human-centered design by default. Start from a GitHub open-source contributor persona, add or update persona-driven Gherkin scenarios under `features/`, document the design-thinking stage, user-centric success criteria, and pain point, and account for trust, degraded state, security, privacy, cost, accessibility, moderation, and portability before adding features.
-- Every executable feature spec must stay listed in `docs/features.md`, `docs/persona-feature-matrix.md`, and `docs/persona-e2e-journeys.md`; undocumented specs should fail the persona-driven Cucumber inventory scenario.
+- Community site work uses design thinking, user-centric design, and human-centered design by default. Start from a GitHub open-source contributor persona, add or update persona-tagged product scenarios under `features/`, document the design-thinking stage, user-centric success criteria, and pain point, and account for trust, degraded state, security, privacy, cost, accessibility, moderation, and portability before adding features.
+- Personas are users in real scenarios, not features. Never create `persona_*`, `*_persona_*`, `*_e2e_journeys`, or human-centered-design feature files, and never add scenario outlines whose only purpose is proving a matrix row exists.
+- Every executable feature spec must stay listed in `docs/features.md` and `docs/persona-feature-matrix.md`; undocumented specs should fail the persona feature-model unit test.
 - Feature specifications live in `features/`; step definitions and lower-level tests live in `test/`.
 - Build output is generated into `dist/` directories and should not be committed.
 - Public behavior, architecture, design decisions, and agent workflows should be documented in the docs index, ADRs, feature registry, and relevant skill reference when they change.

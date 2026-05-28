@@ -1,6 +1,7 @@
 Feature: Entity-level CRDT merging
   Epoch merges registered entity types without line-level conflict markers.
 
+  @persona.github_open_source_contributor
   Scenario: Merge concurrent text additions
     Given the default CRDT registry
     When I merge text/plain values:
@@ -9,6 +10,7 @@ Feature: Entity-level CRDT merging
     Then the merged text contains "left"
     And the merged text contains "right"
 
+  @persona.github_open_source_contributor
   Scenario: Merge text additions without dropping repeated lines
     Given the default CRDT registry
     When I merge text/plain values:
@@ -16,6 +18,7 @@ Feature: Entity-level CRDT merging
       | item\n   | item\nagain\nagain\n | item\nright\n |
     Then the merged text equals "item\nagain\nagain\nright\n"
 
+  @persona.github_open_source_contributor
   Scenario: Merge text without dropping repeated base lines
     Given the default CRDT registry
     When I merge text/plain values:
@@ -23,6 +26,7 @@ Feature: Entity-level CRDT merging
       | item\nitem\n | item\nitem\nleft\n | item\nitem\nright\n |
     Then the merged text equals "item\nitem\nleft\nright\n"
 
+  @persona.github_open_source_contributor
   Scenario: Merge text additions at their original positions
     Given the default CRDT registry
     When I merge text/plain values:
@@ -30,6 +34,7 @@ Feature: Entity-level CRDT merging
       | top\nend\n | top\nmiddle\nend\n | top\nend\ntail\n |
     Then the merged text equals "top\nmiddle\nend\ntail\n"
 
+  @persona.github_open_source_contributor
   Scenario: Report conflicting text replacements with line numbers
     Given the default CRDT registry
     When I merge text/plain values:
@@ -37,6 +42,7 @@ Feature: Entity-level CRDT merging
       | a\nb\n | a\nx\n  | a\ny\n  |
     Then the merge reports a conflict containing "line 2"
 
+  @persona.github_open_source_contributor
   Scenario: Merge independent JSON object keys
     Given the default CRDT registry
     When I merge application/json values:
@@ -47,20 +53,10 @@ Feature: Entity-level CRDT merging
       {"left":true,"name":"epoch","right":true}
       """
 
+  @persona.github_open_source_contributor
   Scenario: Report conflicting JSON scalar edits
     Given the default CRDT registry
     When I merge application/json values:
       | base          | left          | right         |
       | {"count": 1}  | {"count": 2}  | {"count": 3}  |
     Then the merge reports a conflict containing "count"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for merge.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/merge.feature | A GitHub open-source contributor | Reducing Maintainer And Contributor Burnout | trust | resolve competing changes with explicit policy and predictable outcomes |

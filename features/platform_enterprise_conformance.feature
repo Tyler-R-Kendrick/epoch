@@ -10,6 +10,7 @@ Feature: Epoch.Platform enterprise conformance
     And I create protected environment "production" in project "platform"
     And I create deployable "api-web" from repository "api" for project "platform"
 
+  @persona.security_compliance_responder
   Scenario: SSO, SCIM, service accounts, tokens, and sessions are audited
     Given I create platform user "admin" with email "admin@acme.test"
     And I configure SSO provider "okta" with protocol "oidc"
@@ -24,6 +25,7 @@ Feature: Epoch.Platform enterprise conformance
     And session "admin-browser" is revoked
     And the latest audit event is "identity.session.revoked"
 
+  @persona.security_compliance_responder
   Scenario: API idempotency, correlation, webhooks, and event stream are reproducible
     Given I open API request "req-1" with idempotency key "deploy-plan-1"
     When I generate an idempotent deploy plan for deployable "api-web" to environment "production"
@@ -36,6 +38,7 @@ Feature: Epoch.Platform enterprise conformance
     Then platform events include "deployment.plan.created"
     And platform events include "api.request.completed"
 
+  @persona.security_compliance_responder
   Scenario: Secret rotation, least privilege access, audit export, and retention are enforced
     Given I create service account "terraform" with scopes "secrets:read,audit:read"
     And I add secret reference "DATABASE_URL" with value "postgres://prod" to environment "production"
@@ -49,6 +52,7 @@ Feature: Epoch.Platform enterprise conformance
     Then compliance report includes "encrypted secrets at rest"
     And compliance report includes "audit retention 365d"
 
+  @persona.security_compliance_responder
   Scenario: Tenant export, delete, and typed errors carry safe diagnostics
     When I export tenant "acme"
     Then tenant export includes project "platform"
@@ -57,14 +61,3 @@ Feature: Epoch.Platform enterprise conformance
     And the platform action has a correlation id
     When I delete tenant export "acme"
     Then tenant export "acme" is deleted
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_enterprise_conformance.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_enterprise_conformance.feature | A security and compliance responder | Protecting Contributor Security | compliance | govern identity, tokens, sessions, webhooks, secrets, audit, compliance, and tenant data |
