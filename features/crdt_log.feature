@@ -1,6 +1,7 @@
 Feature: Operation-based CRDT event log
   Epoch stores CRDT operations as signed write-only events and materializes convergent views.
 
+  @persona.github_open_source_contributor
   Scenario: Offline agents converge independent map updates after sync
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -17,6 +18,7 @@ Feature: Operation-based CRDT event log
       {"alice":{"status":"draft"},"bob":{"status":"review"}}
       """
 
+  @persona.github_open_source_contributor
   Scenario: One actor can append repeated map updates to the same CRDT entity
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -27,6 +29,7 @@ Feature: Operation-based CRDT event log
       {"count":2}
       """
 
+  @persona.github_open_source_contributor
   Scenario: Offline agents converge concurrent text inserts after sync
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -36,14 +39,3 @@ Feature: Operation-based CRDT event log
     And I sync with the peer repository
     Then the repository materialized view "doc" equals text "AB"
     And the peer materialized view "doc" equals text "AB"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for crdt_log.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/crdt_log.feature | A GitHub open-source contributor | Preserving Agency And Portability | degraded state | keep collaborative map and text work moving while offline |

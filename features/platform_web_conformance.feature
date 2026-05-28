@@ -2,6 +2,7 @@ Feature: Epoch.Platform web console conformance
   The web console must expose the spec's role-aware, Primer-like, mobile-native
   operational surfaces without hiding required workflows in desktop-only areas.
 
+  @persona.platform_operator
   Scenario: Mobile console exposes scoped task actions and compact navigation
     Given an Epoch Platform web console model with Community enabled
     And the web console model role is "incident-responder"
@@ -20,6 +21,7 @@ Feature: Epoch.Platform web console conformance
     And the web console shows "Acknowledge"
     And the web console shows "Ask AI"
 
+  @persona.platform_operator
   Scenario: Desktop console exposes role-aware home modules and admin governance sections
     Given an Epoch Platform web console model with Community enabled
     And the web console model role is "maintainer"
@@ -33,6 +35,7 @@ Feature: Epoch.Platform web console conformance
     And the web console shows "upgrade and support bundle"
     And the web console has accessible label "Ask AI about platform"
 
+  @persona.platform_operator
   Scenario: Desktop console exposes accessible dense data, confirmations, and SDK equivalents
     Given an Epoch Platform web console model with Community disabled
     And the web console model table columns are "Name,State,Updated,Actions"
@@ -44,14 +47,3 @@ Feature: Epoch.Platform web console conformance
     And the web console shows "Updated"
     And the web console shows "Confirm production"
     And the web console shows "sdk.deployments.executePlan(plan.id)"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_web_conformance.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_web_conformance.feature | A platform operator | Trusting Current State | accessibility | complete web-console tasks across mobile, desktop, role-aware modules, dense data, confirmations, and SDK-equivalent copy |

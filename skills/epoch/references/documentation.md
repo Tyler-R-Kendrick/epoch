@@ -20,8 +20,8 @@ and Gherkin feature spec is reachable from the root `README.md` hierarchy.
 | Top-level value, quick start, navigation | `README.md`, `docs/README.md` |
 | Current architecture, actors, hooks, sync, storage, policy | `docs/design.md` |
 | Material decision, trade-off, dependency selection, rejected alternative | ADR under `docs/design-decisions/` and its index |
-| Community site methodology, persona, pain-point framing, design-thinking stage, user-centric success criteria, persona-driven feature scenarios, persona feature mapping, persona e2e coverage, or human-centered design workflow | `docs/community-human-centered-design.md`, `docs/persona-feature-matrix.md`, `docs/persona-e2e-journeys.md`, `features/community_persona_driven_design.feature`, `docs/features.md`, `docs/design.md`, ADR index, `AGENTS.md`, `CONTRIBUTING.md`, PR template, and `skills/epoch/` |
-| Implemented feature or acceptance criteria | `docs/features.md`, `docs/persona-feature-matrix.md`, `docs/persona-e2e-journeys.md`, relevant `features/*.feature`, user stories when flows change |
+| Community site methodology, persona, pain-point framing, design-thinking stage, user-centric success criteria, persona-driven product scenarios, persona feature mapping, or human-centered design workflow | `docs/community-human-centered-design.md`, `docs/persona-feature-matrix.md`, `docs/feature-scenario-inventory.md`, relevant product `features/*.feature`, `docs/features.md`, `docs/design.md`, ADR index, `AGENTS.md`, `CONTRIBUTING.md`, PR template, and `skills/epoch/` |
+| Implemented feature or acceptance criteria | `docs/features.md`, `docs/feature-scenario-inventory.md`, `docs/persona-feature-matrix.md`, relevant product `features/*.feature`, user stories when flows change |
 | CLI command, shorthand, binary, Git-compatible behavior | `docs/cli.md`, `skills/epoch/references/cli.md` |
 | SDK API, actor API, CRDT operation API, lifecycle hook API, Epoch.Platform Core/SDK/Web API | `docs/sdk.md`, `skills/epoch/references/core-sdk.md` |
 | WASM export or native unsupported behavior | `skills/epoch/references/wasm.md` and relevant public docs |

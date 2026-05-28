@@ -1,6 +1,7 @@
 Feature: CLI and WASM integration surfaces
   Epoch exposes tested command-line and WASM-facing entrypoints for agents and tools.
 
+  @persona.github_open_source_contributor
   Scenario: CLI records, verifies, lists, and resolves repository content
     Given a new workspace
     When I run the Epoch CLI with arguments:
@@ -37,6 +38,7 @@ Feature: CLI and WASM integration surfaces
     Then the CLI exits with code 0
     And the CLI output contains "\"ready\": true"
 
+  @persona.github_open_source_contributor
   Scenario: CLI policy, view, sync, Git import/export, and DR commands are covered
     Given a new workspace
     When I run the Epoch CLI with arguments:
@@ -126,6 +128,7 @@ Feature: CLI and WASM integration surfaces
     When I run the Epoch CLI export into a fresh Git repository
     Then the CLI output contains "exported"
 
+  @persona.github_open_source_contributor
   Scenario: CLI errors and Git compatibility command wrapper return failures
     Given a new workspace
     When I run the Epoch CLI with arguments:
@@ -146,6 +149,7 @@ Feature: CLI and WASM integration surfaces
     Then the CLI exits with code 1
     And the CLI error contains "not supported"
 
+  @persona.github_open_source_contributor
   Scenario: WASM exports support CRDT helpers and reject native Git operations
     Given a new workspace
     When I merge JSON through the WASM CRDT registry
@@ -154,14 +158,3 @@ Feature: CLI and WASM integration surfaces
     Then WASM Git fails with "native Git repository access is unavailable"
     When I run unsupported WASM Git clone for "https://example.invalid/repo.git"
     Then WASM Git fails with "native Git clone is unavailable"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for cli_wasm.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/cli_wasm.feature | A GitHub open-source contributor | Preserving Agency And Portability | accessibility | use CLI and WASM-safe surfaces across local and browser-hosted contexts |

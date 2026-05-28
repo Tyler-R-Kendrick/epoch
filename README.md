@@ -151,10 +151,10 @@ High-value entry points:
 | Platform web apps | [docs/platforms.md](docs/platforms.md) |
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
+| Executable feature scenario inventory | [docs/feature-scenario-inventory.md](docs/feature-scenario-inventory.md) |
 | Epoch.Platform product spec | [docs/epoch-platform-spec.md](docs/epoch-platform-spec.md) |
 | Community human-centered design | [docs/community-human-centered-design.md](docs/community-human-centered-design.md) |
 | Persona feature matrix | [docs/persona-feature-matrix.md](docs/persona-feature-matrix.md) |
-| Persona end-to-end journeys | [docs/persona-e2e-journeys.md](docs/persona-e2e-journeys.md) |
 | Reusable spec template | [docs/spec-template-outline.md](docs/spec-template-outline.md) |
 | Competition research | [docs/competition/README.md](docs/competition/README.md) |
 | Design decisions and ADRs | [docs/design-decisions/README.md](docs/design-decisions/README.md) |

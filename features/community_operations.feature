@@ -1,6 +1,7 @@
 Feature: Epoch Community Operations extension
   Community Operations is a separate deployable app for project-owned hosting, workflows, and agent sandboxes.
 
+  @persona.maintainer
   Scenario: Community maintainer operates project capabilities from a separate extension
     Given an Epoch Platform project with repository-hosted code, runner, workflow run, and agent sandbox
     When I open the Epoch Community Operations extension in a Playwright browser
@@ -15,15 +16,3 @@ Feature: Epoch Community Operations extension
     And the Community Operations browser exposes action "Promote"
     And the Community Operations browser exposes action "Rollback"
     And the Community Operations browser presents a visually validated operations dashboard
-
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for community_operations.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec                          | persona      | pain point                                  | human consideration | journey                                                               |
-        | features/community_operations.feature | A maintainer | Reducing Maintainer And Contributor Burnout | auditability        | operate community-owned hosting, workflows, and agent sandbox evidence |

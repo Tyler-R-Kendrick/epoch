@@ -9,6 +9,7 @@ Feature: Epoch.Platform Community conformance
     And I create project "platform" in organization "acme"
     And I create repository "api" in project "platform"
 
+  @persona.maintainer
   Scenario: Public showcases, topics, releases, contribution, and reputation are discoverable
     Given I enable Community through the platform SDK
     And I publish project "platform" to Community as "epoch-platform"
@@ -24,6 +25,7 @@ Feature: Epoch.Platform Community conformance
     When I search Community for "self-hosting"
     Then Community search includes project "epoch-platform"
 
+  @persona.maintainer
   Scenario: Abuse controls, blocking, takedowns, and legal hold are audited
     Given I enable Community through the platform SDK
     And I publish project "platform" to Community as "epoch-platform"
@@ -42,6 +44,7 @@ Feature: Epoch.Platform Community conformance
     And Community legal hold includes discussion "One"
     And the latest audit event is "community.legal_hold.exported"
 
+  @persona.maintainer
   Scenario: Disabled Community hides social APIs and workers without blocking Core
     When I try to create public profile "alice"
     Then the platform action fails with code "feature_disabled"
@@ -49,14 +52,3 @@ Feature: Epoch.Platform Community conformance
     And Community background workers are disabled
     When I create repository "private-api" in project "platform"
     Then the project "platform" overview lists repository "private-api"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_community_conformance.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_community_conformance.feature | A maintainer | Reducing Maintainer And Contributor Burnout | moderation | publish Community showcases, topics, releases, contribution guidance, reputation, search, abuse controls, and worker state |

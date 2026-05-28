@@ -29,7 +29,10 @@ points, and constraints unless a different persona is explicitly documented.
 The canonical design guide is
 [Epoch Community Human-Centered Design](../community-human-centered-design.md).
 Community changes should begin by adding or updating persona-driven Gherkin
-scenarios under `features/`, then identify:
+scenarios in the relevant product feature specs under `features/`, then
+recording those scenarios in
+[`docs/feature-scenario-inventory.md`](../feature-scenario-inventory.md), then
+identify:
 
 - the persona and contribution journey;
 - the design-thinking stage being validated;
@@ -40,6 +43,10 @@ scenarios under `features/`, then identify:
 - what happens when hosted dependencies, search, CI, AI assistance, or billing
   are degraded; and
 - how the workflow will be validated.
+
+Personas are user descriptions applied to product behavior scenarios. They must
+not be modeled as standalone feature files, e2e journey feature files, or
+matrix-only scenario outlines.
 
 ## Consequences
 

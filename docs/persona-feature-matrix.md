@@ -2,7 +2,13 @@
 
 This matrix applies the Community human-centered design method across the full
 executable feature surface. It is the audit bridge between `features/*.feature`,
-the feature registry, and persona-driven BDD.
+the feature registry, the [executable feature scenario inventory](feature-scenario-inventory.md),
+and persona-aware BDD scenarios.
+
+Personas are not features. They describe users whose needs shape real product
+scenarios. Keep persona coverage as tags and scenario context inside product
+feature files; do not create persona-only, human-centered-design-only, or
+e2e-journey feature specs.
 
 Use it when adding or changing a feature spec:
 
@@ -49,17 +55,18 @@ Use it when adding or changing a feature spec:
 | `features/platform_community_conformance.feature` | A maintainer | Publish Community showcases, topics, releases, contribution guidance, reputation, search, abuse controls, and worker state. | Reducing Maintainer And Contributor Burnout | Can public collaboration stay discoverable, moderated, and reversible without blocking core work? | Disabled Community hides social APIs and workers while Core continues; moderation, blocking, takedowns, and legal hold are audited. | moderation, legal hold, search freshness, reputation, portability | Community conformance scenarios cover showcases, topics, releases, contribution metadata, reputation, search, abuse controls, takedowns, blocking, legal hold, worker disablement, and Core continuity. |
 | `features/platform_web.feature` | A platform operator | Use the browser console on mobile/desktop and expose Community surfaces when enabled. | Trusting Current State | Can the web console show scope, readiness, and the next action clearly at different widths? | Community-disabled and Community-enabled models render different navigation and project surfaces. | accessibility, responsive design, scope clarity, moderation | Platform Web scenarios cover mobile operator navigation, Community-enabled navigation, and public project showcase rendering. |
 | `features/platform_web_conformance.feature` | A platform operator | Complete web-console tasks across mobile, desktop, role-aware home modules, dense data, confirmations, and SDK-equivalent copy. | Trusting Current State | Can operators complete high-stakes work without losing scope, accessibility, or SDK parity? | Mobile and desktop layouts preserve navigation, confirmations, and hidden Community state when disabled. | accessibility, responsive design, confirmation clarity, governance | Platform Web conformance scenarios cover mobile task actions, role-aware modules, admin governance sections, dense data, confirmations, and SDK-equivalent copy. |
-| `features/community_persona_driven_design.feature` | A GitHub open-source contributor | Keep Community design decisions anchored in persona scenarios before implementation. | Trusting Current State | Can agents and contributors prove that Community work solves a documented human problem? | The scenario catalog requires degraded-state behavior, validation evidence, and coverage for every executable feature spec. | human-centered design, design thinking, accessibility, moderation, portability | Community persona scenarios cover methodology, pain points, human considerations, all-feature mapping, and undocumented-spec detection. |
 | `features/platform_projects.feature` | A GitHub open-source contributor | Use a separate Community app for repository workflows while Platform Web hosts and deploys it. | Preserving Agency And Portability | Can Community own collaboration workflows without being trapped inside the hosting control plane? | Community CLI/Core/Web continue through the API boundary, Platform Web manages Community as a deployable service, and Community Web releases dogfood signed Epoch site history. | portability, package boundaries, deployability, rollback | Platform project scenarios cover deployable app registration, Community issue/proposal workflows, CLI listing, browser rendering, and signed site dogfooding. |
 | `features/community_operations.feature` | A maintainer | Operate project-owned hosting, workflow runs, preview deploys, runners, signed provenance, and agent sandbox outputs from a separate Community extension. | Reducing Maintainer And Contributor Burnout | Can maintainers see code runtime, workflow, sandbox, runner, provenance, promotion, and rollback state without making Platform Web own project collaboration? | The extension remains deployable through Platform Web, records browser evidence, and keeps Platform Core authoritative for deploys, jobs, runners, secrets, AI plans, and audit. | auditability, AI governance, deployability, rollback | Community Operations scenarios cover repository-hosted code, runtime, GitHub Actions-style workflow projection, agent sandbox output, runner health, signed provenance, actions, and visual browser evidence. |
-| `features/persona_e2e_journeys.feature` | A GitHub open-source contributor | Prove documented personas can complete real product workflows across repository, Community, Platform, web, operations, and governance surfaces. | Trusting Current State | Can every documented persona finish an end-to-end job with executable evidence instead of matrix-only intent? | The persona journey registry fails when a documented persona or executable feature spec lacks e2e coverage. | human-centered design, design thinking, accessibility, moderation, portability, compliance, cost | Persona e2e scenarios cover contributor signed local work and Community web, maintainer review/moderation, operator deploy/rollback, and security/compliance identity/secret/tenant flows. |
 
-## Undocumented Feature Capture Rule
+## Persona Scenario Guardrail
 
-`features/community_persona_driven_design.feature` includes an inventory
-scenario that reads the `features/` directory at runtime. If a new executable
-feature spec is added without a row in [features.md](features.md) and this
-matrix, the Cucumber suite fails.
+`test/unit/persona-feature-model.test.ts` reads the `features/` directory at
+runtime. It fails when a feature file treats personas as product features, when
+mechanical matrix-only persona scenarios are added, when documented persona
+tags are not used by real product scenarios, or when an executable feature spec
+is missing from [features.md](features.md), the
+[executable feature scenario inventory](feature-scenario-inventory.md), and
+this matrix.
 
 When a feature is mostly internal, document the closest human-facing reason it
 exists. For example, a storage, sync, or signing feature still serves the

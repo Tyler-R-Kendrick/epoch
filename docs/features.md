@@ -1,11 +1,13 @@
 # Epoch Current Feature Registry
 
 This registry describes features implemented in the current TypeScript prototype. It intentionally excludes roadmap items that do not have executable coverage in `features/`.
-Every executable feature spec is also mapped to a persona, journey, pain point,
-trust question, degraded-state behavior, human considerations, validation
-evidence, and executable e2e persona coverage in the
-[persona feature matrix](persona-feature-matrix.md) and
-[persona end-to-end journeys](persona-e2e-journeys.md).
+Every executable feature spec is also mapped to the user personas it serves in
+the [persona feature matrix](persona-feature-matrix.md). Personas describe the
+users in product scenarios; they are not standalone features.
+Scenario-level behavior is recorded in the
+[executable feature scenario inventory](feature-scenario-inventory.md), which
+lists every current `Scenario`, `Scenario Outline`, rule context, examples
+count, and persona tag from `features/`.
 
 ## Executable Feature Specs
 
@@ -31,9 +33,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/platform_community_conformance.feature`](../features/platform_community_conformance.feature) | Community showcases, topics, releases, reputation, search, abuse controls, takedowns, blocking, legal hold, worker disablement, and Core continuity. |
 | [`features/platform_web.feature`](../features/platform_web.feature) | Browser-rendered Epoch.Platform web console behavior across mobile and desktop navigation. |
 | [`features/platform_web_conformance.feature`](../features/platform_web_conformance.feature) | Mobile task completion, role-aware home modules, admin governance sections, dense data, confirmations, and SDK-equivalent web copy. |
-| [`features/community_persona_driven_design.feature`](../features/community_persona_driven_design.feature) | Persona-driven BDD contract for Community design thinking, user-centric design, and human-centered design, including contributor trust, degraded state, security, cost, accessibility, moderation, and portability scenarios. |
 | [`features/platform_projects.feature`](../features/platform_projects.feature) | Separation between the hosting control-plane web app and the Community API/Core/CLI/Web packages, including the browser-rendered Community design-system shell and Community Web dogfooding through signed Epoch site history. |
-| [`features/persona_e2e_journeys.feature`](../features/persona_e2e_journeys.feature) | Cross-persona end-to-end journeys that prove documented contributor, maintainer, operator, and security/compliance personas can complete real app workflows. |
 | [`features/community_operations.feature`](../features/community_operations.feature) | Separate Community Operations extension for hosted apps, workflow runs, agent sandboxes, runner status, signed provenance, and Platform Web descriptor registration. Evidence: [Community Operations evidence](evidence/community-operations/README.md), [Cucumber JSON](evidence/community-operations/community_operations.feature.json), and [Playwright WebM](evidence/community-operations/community_operations.webm). |
 
 ## F-001 - Signed Event Log

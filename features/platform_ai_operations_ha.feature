@@ -13,6 +13,7 @@ Feature: Epoch.Platform AI, operations, and HA/DR
     And I configure backup destination "s3://epoch-backups"
     And I add secret reference "DATABASE_URL" with value "postgres://prod" to environment "production"
 
+  @persona.platform_operator
   Scenario: AI context packs redact secrets, cite sources, and gate unsafe tools
     When I create AI context pack for actor "admin" scoped to project "platform" with sources "logs,checks,secrets"
     Then AI context does not contain secret value "postgres://prod"
@@ -26,6 +27,7 @@ Feature: Epoch.Platform AI, operations, and HA/DR
     When I record AI evaluation "secret-redaction" with score 1
     Then AI evaluation "secret-redaction" passes
 
+  @persona.platform_operator
   Scenario: Deployment failure diagnosis preserves logs, classifies failure, and creates follow-up work
     Given I generate a deploy plan for deployable "api-web" to environment "production"
     And I approve the deploy plan as "ops-lead"
@@ -38,6 +40,7 @@ Feature: Epoch.Platform AI, operations, and HA/DR
     Then issue "Fix health checks" exists
     And the latest audit event is "incident.follow_up_issue.created"
 
+  @persona.platform_operator
   Scenario: Operator dashboard and support bundle expose production readiness without leaking secrets
     When I generate operator dashboard
     Then operator dashboard service health is "healthy"
@@ -48,6 +51,7 @@ Feature: Epoch.Platform AI, operations, and HA/DR
     And support bundle includes "runner diagnostics"
     And support bundle redacts secret value "postgres://prod"
 
+  @persona.platform_operator
   Scenario: Backup, restore, failover, and RPO/RTO drills are coordinated
     When I start backup "nightly"
     And I verify backup "nightly"
@@ -59,14 +63,3 @@ Feature: Epoch.Platform AI, operations, and HA/DR
     Then failover drill "region outage" status is "passed"
     And documented RPO is "5 minutes"
     And documented RTO is "30 minutes"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_ai_operations_ha.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_ai_operations_ha.feature | A platform operator | Protecting Contributor Security | AI governance | use AI assistance, incident diagnosis, dashboards, support bundles, backups, restore, and failover drills |

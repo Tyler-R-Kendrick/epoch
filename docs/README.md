@@ -9,10 +9,10 @@ decisions, operations, or contribution workflow.
 | Document | Use it for |
 |---|---|
 | [Feature Registry](features.md) | Implemented feature IDs, behavior, and executable coverage links. |
+| [Executable Feature Scenario Inventory](feature-scenario-inventory.md) | Scenario-level records for every executable Gherkin scenario, persona tag, rule context, and examples count. |
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype, including platform conformance flows. |
 | [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, user-centric design, primary GitHub open-source contributor persona, pain points, and human considerations for Epoch Community. |
 | [Persona Feature Matrix](persona-feature-matrix.md) | Persona, journey, pain point, trust, degraded-state, and validation mapping for every executable feature spec. |
-| [Persona End-To-End Journeys](persona-e2e-journeys.md) | Executable e2e journey coverage for each documented persona and every executable feature spec. |
 | [Create Repository And Version Materialization Spec](create-repository-and-version-materialization.md) | Implemented create, push, version, and materialization user stories. |
 | [Specification Template Outline](spec-template-outline.md) | Reusable outline extracted from a conformance-grade app spec. |
 | [Epoch.Platform Specification](epoch-platform-spec.md) | Draft product and system spec for a self-hostable Epoch platform. |
