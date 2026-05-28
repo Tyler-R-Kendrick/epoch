@@ -30,6 +30,8 @@ The canonical design guide is
 [Epoch Community Human-Centered Design](../community-human-centered-design.md).
 Community changes should begin by adding or updating persona-driven Gherkin
 scenarios in the relevant product feature specs under `features/`, then
+recording those scenarios in
+[`docs/feature-scenario-inventory.md`](../feature-scenario-inventory.md), then
 identify:
 
 - the persona and contribution journey;

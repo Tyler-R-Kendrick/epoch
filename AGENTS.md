@@ -21,7 +21,7 @@ These instructions apply to the entire repository.
 - Treat documentation as part of every design, behavior, workflow, and public API change. Follow [`docs/documentation-freshness.md`](docs/documentation-freshness.md) before finishing work.
 - Update `README.md` and `docs/README.md` when top-level navigation, quick start, or discoverability changes.
 - Update `docs/design.md` for current architecture changes, and add or update ADRs under `docs/design-decisions/` for material design choices, trade-offs, dependency decisions, or rejected alternatives.
-- Update `docs/features.md`, relevant `features/*.feature` files, and user stories when implemented behavior or acceptance criteria change.
+- Update `docs/features.md`, `docs/feature-scenario-inventory.md`, relevant `features/*.feature` files, and user stories when implemented behavior or acceptance criteria change.
 - Update `docs/cli.md`, `docs/sdk.md`, `docs/HA-DR.md`, dependency docs, and `skills/epoch/` references when their public surfaces change.
 - Do not create orphaned docs. Every Markdown doc and feature spec must be reachable from the root `README.md` hierarchy, and `npm run docs:check` must pass.
 
@@ -32,7 +32,7 @@ These instructions apply to the entire repository.
 - Personas are users in real product scenarios, not features. Do not create `persona_*`, `*_persona_*`, `*_e2e_journeys`, human-centered-design, or similar persona/governance feature files.
 - Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update the relevant product feature scenarios under `features/` and use persona tags such as `@persona.github_open_source_contributor`, `@persona.maintainer`, `@persona.platform_operator`, or `@persona.security_compliance_responder` on those real behavior scenarios.
 - Do not add scenario outlines whose only purpose is proving a matrix row exists. Scenario outlines must exercise product behavior for a persona.
-- Keep [`docs/persona-feature-matrix.md`](docs/persona-feature-matrix.md) aligned with every executable product `features/*.feature` spec. New feature specs are incomplete until they appear in the feature registry and persona matrix.
+- Keep [`docs/persona-feature-matrix.md`](docs/persona-feature-matrix.md) and [`docs/feature-scenario-inventory.md`](docs/feature-scenario-inventory.md) aligned with every executable product `features/*.feature` spec. New or changed scenarios are incomplete until the feature registry, scenario inventory, and persona matrix record them.
 - Treat recent GitHub availability, security, free-vs-paid tier, and Copilot billing changes as research signals to re-verify before making product claims.
 
 ## Repository practices

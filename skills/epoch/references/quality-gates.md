@@ -25,13 +25,14 @@ includes Community API, Core, CLI, and Web packages. Community work should
 update persona scenarios before implementation, normally starting from the
 GitHub open-source contributor persona in the affected product feature spec.
 The persona feature-model unit test rejects persona-only feature files and
-matrix-only persona scenarios.
+matrix-only persona scenarios, and it requires every executable scenario to be
+recorded in the executable feature scenario inventory.
 
 ## Documentation expectations
 
 - Follow [Documentation Freshness](documentation.md) when design choices, features, public APIs, workflows, hooks, React surfaces, or agent guidance change.
 - Keep new docs reachable from `README.md` through `docs/README.md` or another linked index.
-- Update ADRs, feature docs, and skill references in the same change as the implementation.
+- Update ADRs, feature docs, the executable scenario inventory, and skill references in the same change as the implementation.
 
 ## TDD expectations
 

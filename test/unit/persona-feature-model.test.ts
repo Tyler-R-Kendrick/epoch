@@ -8,6 +8,15 @@ interface FeatureSpec {
   text: string;
 }
 
+interface ScenarioSpec {
+  featurePath: string;
+  keyword: "Scenario" | "Scenario Outline";
+  name: string;
+  personaTags: string[];
+  rule: string;
+  examples: number;
+}
+
 const personaTags = [
   "@persona.github_open_source_contributor",
   "@persona.maintainer",
@@ -17,10 +26,13 @@ const personaTags = [
 
 export function runPersonaFeatureModelTests(): void {
   const features = readFeatureSpecs();
+  const scenarios = readScenarioSpecs(features);
   featureFilesDoNotModelPersonasAsFeatures(features);
   featureFilesDoNotContainMechanicalPersonaContextScenarios(features);
-  documentedPersonaTagsAreUsedOnRealFeatureScenarios(features);
+  featureScenariosCarryPersonaContext(scenarios);
+  documentedPersonaTagsAreUsedOnRealFeatureScenarios(scenarios);
   executableFeatureSpecsStayDiscoverable(features);
+  executableScenarioInventoryDocumentsEveryScenario(scenarios);
 }
 
 function featureFilesDoNotModelPersonasAsFeatures(features: readonly FeatureSpec[]): void {
@@ -48,10 +60,20 @@ function featureFilesDoNotContainMechanicalPersonaContextScenarios(features: rea
   }
 }
 
-function documentedPersonaTagsAreUsedOnRealFeatureScenarios(features: readonly FeatureSpec[]): void {
-  const realFeatureText = features.map((feature) => feature.text).join("\n");
+function featureScenariosCarryPersonaContext(scenarios: readonly ScenarioSpec[]): void {
+  for (const scenario of scenarios) {
+    assert.notEqual(
+      scenario.personaTags.length,
+      0,
+      `${scenario.featurePath} ${scenario.keyword}: ${scenario.name} must have at least one persona tag`,
+    );
+  }
+}
+
+function documentedPersonaTagsAreUsedOnRealFeatureScenarios(scenarios: readonly ScenarioSpec[]): void {
+  const scenarioPersonaTags = new Set(scenarios.flatMap((scenario) => scenario.personaTags));
   for (const tag of personaTags) {
-    assert.match(realFeatureText, new RegExp(`${escapeForRegExp(tag)}\\s+Scenario`, "u"), `${tag} must tag a real product scenario`);
+    assert.ok(scenarioPersonaTags.has(tag), `${tag} must tag a real product scenario`);
   }
 }
 
@@ -62,6 +84,46 @@ function executableFeatureSpecsStayDiscoverable(features: readonly FeatureSpec[]
   for (const feature of features) {
     assert.match(featureRegistry, new RegExp(escapeForRegExp(feature.path), "u"), `${feature.path} is missing from docs/features.md`);
     assert.match(personaMatrix, new RegExp(escapeForRegExp(feature.path), "u"), `${feature.path} is missing from docs/persona-feature-matrix.md`);
+  }
+}
+
+function executableScenarioInventoryDocumentsEveryScenario(scenarios: readonly ScenarioSpec[]): void {
+  const featureRegistry = readFileSync("docs/features.md", "utf8");
+  const scenarioInventory = readFileSync("docs/feature-scenario-inventory.md", "utf8");
+  const expectedRows = new Set(scenarios.map((scenario) => expectedScenarioInventoryRow(scenario)));
+  const actualRows = scenarioInventory
+    .split(/\r?\n/u)
+    .filter((line) => /^\| `features\/.*` \| `@persona\./u.test(line));
+
+  assert.match(
+    featureRegistry,
+    /docs\/feature-scenario-inventory\.md|feature-scenario-inventory\.md/u,
+    "docs/features.md must link to the executable scenario inventory",
+  );
+
+  for (const scenario of scenarios) {
+    const row = expectedScenarioInventoryRow(scenario);
+    assert.ok(
+      scenarioInventory.includes(row),
+      `docs/feature-scenario-inventory.md is missing ${scenario.featurePath} ${scenario.keyword}: ${scenario.name}`,
+    );
+  }
+
+  assert.deepEqual(
+    new Set(actualRows),
+    expectedRows,
+    "docs/feature-scenario-inventory.md must not contain stale or malformed scenario records",
+  );
+
+  const scenarioCounts = scenarios.reduce((counts, scenario) => {
+    counts.set(scenario.featurePath, (counts.get(scenario.featurePath) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  for (const [featurePath, count] of scenarioCounts) {
+    assert.ok(
+      scenarioInventory.includes(`| \`${featurePath}\` | ${count} |`),
+      `docs/feature-scenario-inventory.md is missing the scenario count for ${featurePath}`,
+    );
   }
 }
 
@@ -77,6 +139,69 @@ function readFeatureSpecs(): readonly FeatureSpec[] {
         text: readFileSync(join("features", entry), "utf8"),
       };
     });
+}
+
+function readScenarioSpecs(features: readonly FeatureSpec[]): readonly ScenarioSpec[] {
+  const scenarios: ScenarioSpec[] = [];
+
+  for (const feature of features) {
+    let pendingTags: string[] = [];
+    let currentRule = "None";
+    let currentScenario: ScenarioSpec | undefined;
+
+    for (const line of feature.text.split(/\r?\n/u)) {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith("@")) {
+        pendingTags = trimmed.split(/\s+/u);
+        continue;
+      }
+
+      const rule = /^Rule:\s*(.+)$/u.exec(trimmed);
+      if (rule != null) {
+        currentRule = rule[1];
+        currentScenario = undefined;
+        continue;
+      }
+
+      const scenario = /^(Scenario|Scenario Outline):\s*(.+)$/u.exec(trimmed);
+      if (scenario != null) {
+        currentScenario = {
+          featurePath: feature.path,
+          keyword: scenario[1] as ScenarioSpec["keyword"],
+          name: scenario[2],
+          personaTags: pendingTags.filter((tag) => tag.startsWith("@persona.")),
+          rule: currentRule,
+          examples: 0,
+        };
+        scenarios.push(currentScenario);
+        pendingTags = [];
+        continue;
+      }
+
+      if (/^Examples:/u.test(trimmed) && currentScenario != null) {
+        currentScenario.examples += 1;
+      }
+    }
+  }
+
+  return scenarios;
+}
+
+function expectedScenarioInventoryRow(scenario: ScenarioSpec): string {
+  const cells = [
+    `\`${scenario.featurePath}\``,
+    `\`${scenario.personaTags.join(" ")}\``,
+    scenario.keyword,
+    escapeMarkdownTableCell(scenario.name),
+    escapeMarkdownTableCell(scenario.rule),
+    scenario.examples.toString(),
+  ];
+  return `| ${cells.join(" | ")} |`;
+}
+
+function escapeMarkdownTableCell(value: string): string {
+  return value.replace(/\\/gu, "\\\\").replace(/\|/gu, "\\|");
 }
 
 function escapeForRegExp(value: string): string {

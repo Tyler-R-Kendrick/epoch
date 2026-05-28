@@ -4,6 +4,10 @@ This registry describes features implemented in the current TypeScript prototype
 Every executable feature spec is also mapped to the user personas it serves in
 the [persona feature matrix](persona-feature-matrix.md). Personas describe the
 users in product scenarios; they are not standalone features.
+Scenario-level behavior is recorded in the
+[executable feature scenario inventory](feature-scenario-inventory.md), which
+lists every current `Scenario`, `Scenario Outline`, rule context, examples
+count, and persona tag from `features/`.
 
 ## Executable Feature Specs
 
