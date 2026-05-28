@@ -295,7 +295,12 @@ product. It consumes `Epoch.Community.Core` to read repository browsing, issue
 tracking, change review, discussions, maintainer profiles, release discovery,
 and organization-space data from an API client. It exports a generic deployment
 target so a host can register Community with Platform Web without Platform Web
-importing Community packages.
+importing Community packages. Its deployable static site can be produced by
+`materializeCommunityWebSiteWithEpoch()`, which stages the rendered site inside
+an `EpochRepository`, creates a draft view for the site change, records and
+approves that change, promotes it back to `main`, records a rollback target,
+creates a signed version, materializes that version, and writes an exported
+repository snapshot next to the static output.
 
 `Epoch.Community.API` owns the in-memory API implementation for the current
 prototype. `Epoch.Community.Core` owns shared community domain types and the API
@@ -303,7 +308,9 @@ client wrapper. `Epoch.Community.CLI` uses Core to list repositories and operate
 issue/change-review workflows from the command line.
 
 See [Epoch Platform Packages](platforms.md) and
-[ADR-0008](design-decisions/0008-separate-platform-web-and-community.md).
+[ADR-0008](design-decisions/0008-separate-platform-web-and-community.md). See
+[ADR-0010](design-decisions/0010-community-web-dogfoods-epoch.md) for the
+Community Web dogfooding decision.
 
 ## Non-Goals In The Current Prototype
 

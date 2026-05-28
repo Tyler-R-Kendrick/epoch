@@ -110,6 +110,10 @@ Implemented responsibilities:
   maintainer profiles, release discovery, and organization spaces from Core
   workflow data;
 - render Community repository summaries supplied by the client; and
+- materialize the deployable Community site through an `EpochRepository` via
+  `materializeCommunityWebSiteWithEpoch()`, including a draft view, signed
+  branch change, approval, merge to `main`, version, rollback target, and
+  exported repository snapshot; and
 - publish a generic Community deployment target that can be registered with
   `Epoch.Platform.Web`.
 
@@ -149,3 +153,14 @@ const web = createPlatformWebApp({
 
 This composition belongs at deployment or host-application wiring time, not in
 either platform package.
+
+Static Community Web releases should use the dogfooding helper at build time:
+
+```ts
+import { materializeCommunityWebSiteWithEpoch } from "@epoch/community-web";
+
+materializeCommunityWebSiteWithEpoch(community, {
+  repositoryRoot: "/tmp/epoch-community-site",
+  outputDirectory: "packages/Epoch.Community.Web/.vercel-output",
+});
+```

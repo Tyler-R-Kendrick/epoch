@@ -10,14 +10,18 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
   `@epoch/gen-ui`, `@epoch/redux`, `@epoch/xstate`
 - Platform Core package: `@epoch/platform-core`
 - Platform SDK package: `@epoch/platform-sdk`
-- Platform Community package: `@epoch/platform-community`
 - Platform Web package: `@epoch/platform-web`
+- Community packages: `@epoch/community-api`, `@epoch/community-core`,
+  `@epoch/community-cli`, `@epoch/community-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 - Browser integration root exports: `epoch/Epoch.Integration.Core`,
   `epoch/Epoch.React`, `epoch/Epoch.GenUI`, `epoch/Epoch.Redux`,
   `epoch/Epoch.XState`
-- Platform root exports: `epoch/Epoch.Platform.Core`, `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Community`, `epoch/Epoch.Platform.Web`
+- Platform and Community root exports: `epoch/Epoch.Platform.Core`,
+  `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Web`,
+  `epoch/Epoch.Community.API`, `epoch/Epoch.Community.Core`,
+  `epoch/Epoch.Community.CLI`, `epoch/Epoch.Community.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, transport and serialization helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
 
@@ -70,8 +74,12 @@ versioning, Redux action/slice tracking, or XState transition tracking.
 
 Use `@epoch/platform-core` for the platform domain service,
 `@epoch/platform-sdk` for headless automation,
-`@epoch/platform-community` for the optional public/internal Community module,
-and `@epoch/platform-web` for the browser-rendered console foundation. Use
+`@epoch/platform-web` for the browser-rendered hosting console foundation, and
+the `@epoch/community-*` packages for the separate Community API, Core client,
+CLI, and web app. `@epoch/community-web` exposes
+`materializeCommunityWebSiteWithEpoch()` so the static Community site is
+rendered through an Epoch repository with branch, approval, merge, signed
+version, verification, rollback-target, and exported-snapshot evidence. Use
 `createInMemoryPlatformCore()` for short-lived embedded flows and
 `createFileSystemPlatformCore()` for durable local state, hash-verified state
 envelopes, HMAC webhooks, manifest-hashed backup artifacts, and backup-artifact

@@ -26,3 +26,12 @@ Feature: Epoch platform project separation
     Then the Community browser shows repository "epoch/epoch"
     And the Community browser exposes workflow "Issues"
     And the Community browser exposes workflow "Change Reviews"
+
+  Scenario: Community Web dogfoods Epoch for site changes
+    Given the Epoch Community API has a repository named "epoch/epoch"
+    And the Epoch Community Web app definition
+    When I materialize Epoch Community Web through an Epoch site repository
+    Then the Community site history verifies successfully
+    And the Community site history includes view "site/community-web-dogfood"
+    And the Community site history includes event type "rollback"
+    And the Community site materialized version includes file "community/index.html"
