@@ -54,7 +54,7 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 ## Quick orientation
 
 - Workspace packages live in `packages/Epoch.Core`, `packages/Epoch.CLI`, `packages/Epoch.WASM`, `packages/Epoch.WASM.React`, `packages/Epoch.Platform.Core`, `packages/Epoch.Platform.Sdk`, `packages/Epoch.Platform.Web`, `packages/Epoch.Community.API`, `packages/Epoch.Community.Core`, `packages/Epoch.Community.CLI`, and `packages/Epoch.Community.Web`.
-- `Epoch.Platform.Web` is only the Epoch hosting control plane; `Epoch.Community.Web` is registered with Web through a deployable app descriptor, while Community API behavior lives in `Epoch.Community.API` and Web/CLI consume `Epoch.Community.Core`.
+- `Epoch.Platform.Web` is only the Epoch hosting control plane; `Epoch.Community.Web` is registered with Web through a deployable app descriptor, while Community API behavior lives in `Epoch.Community.API` and Web/CLI consume `Epoch.Community.Core`. Community Web site releases should use `materializeCommunityWebSiteWithEpoch()` so the static site is built from signed Epoch branch, merge, version, and rollback evidence.
 - Feature specifications live in `features/`; step definitions and lower-level tests live in `test/`.
 - Build output is generated into `dist/` directories and should not be committed.
 - Public behavior, architecture, design decisions, and agent workflows should be documented in the docs index, ADRs, feature registry, and relevant skill reference when they change.

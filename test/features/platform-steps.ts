@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { After, Before, Given, Then, When } from "@cucumber/cucumber";
 import { chromium, type Browser, type Page } from "playwright";
 import {
@@ -8,7 +11,13 @@ import {
 } from "@epoch/community-core";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
 import { main as communityCliMain } from "@epoch/community-cli";
-import { CommunityWebAppDefinition, createCommunityWebApp, renderCommunityWebDocument } from "@epoch/community-web";
+import {
+  CommunityWebAppDefinition,
+  MaterializedCommunityWebSite,
+  createCommunityWebApp,
+  materializeCommunityWebSiteWithEpoch,
+  renderCommunityWebDocument,
+} from "@epoch/community-web";
 import { PlatformWebAppDefinition, createPlatformWebApp } from "@epoch/platform-web";
 
 interface PlatformWorld {
@@ -21,6 +30,7 @@ interface PlatformWorld {
   cliExitCode?: number;
   browser?: Browser;
   page?: Page;
+  siteBuild?: MaterializedCommunityWebSite;
 }
 
 let platformState: PlatformWorld;
@@ -196,6 +206,35 @@ Then("the Community browser exposes the Epoch Community design system", async fu
   const navText = await platformState.page.locator("nav[aria-label=\"Community workflows\"]").innerText();
   assert.match(navText, /Repositories/u);
   assert.match(navText, /Change Reviews/u);
+});
+
+When("I materialize Epoch Community Web through an Epoch site repository", function () {
+  assert.ok(platformState.community);
+  const workspace = mkdtempSync(join(tmpdir(), "epoch-community-site-"));
+  platformState.siteBuild = materializeCommunityWebSiteWithEpoch(platformState.community, {
+    repositoryRoot: join(workspace, "repository"),
+    outputDirectory: join(workspace, "deploy"),
+  });
+});
+
+Then("the Community site history verifies successfully", function () {
+  assert.ok(platformState.siteBuild);
+  assert.deepEqual(platformState.siteBuild.history.verifyProblems, []);
+});
+
+Then("the Community site history includes view {string}", function (view: string) {
+  assert.ok(platformState.siteBuild);
+  assert.ok(platformState.siteBuild.history.views.includes(view));
+});
+
+Then("the Community site history includes event type {string}", function (eventType: string) {
+  assert.ok(platformState.siteBuild);
+  assert.ok(platformState.siteBuild.history.eventTypes.includes(eventType));
+});
+
+Then("the Community site materialized version includes file {string}", function (path: string) {
+  assert.ok(platformState.siteBuild);
+  assert.ok(platformState.siteBuild.materializedFiles.includes(path));
 });
 
 async function assertVisibleText(page: Page, expected: string): Promise<void> {
