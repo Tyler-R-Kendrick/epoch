@@ -297,6 +297,14 @@ and organization-space data from an API client. It exports a generic deployment
 target so a host can register Community with Platform Web without Platform Web
 importing Community packages.
 
+Community Web design is driven by design thinking, user-centric design, and
+human-centered design. The default persona is a GitHub open-source contributor
+who needs trustworthy repository state, security context, cost clarity,
+accessible contribution paths, and graceful recovery when hosted dependencies
+are degraded. See
+[Epoch Community Human-Centered Design](community-human-centered-design.md) and
+[ADR-0010](design-decisions/0010-community-human-centered-design.md).
+
 `Epoch.Community.API` owns the in-memory API implementation for the current
 prototype. `Epoch.Community.Core` owns shared community domain types and the API
 client wrapper. `Epoch.Community.CLI` uses Core to list repositories and operate

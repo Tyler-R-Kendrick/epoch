@@ -113,6 +113,14 @@ Implemented responsibilities:
 - publish a generic Community deployment target that can be registered with
   `Epoch.Platform.Web`.
 
+Community Web product design follows design thinking, user-centric design, and
+human-centered design through
+[Epoch Community Human-Centered Design](community-human-centered-design.md):
+the default persona is a GitHub open-source contributor, and future Community
+experience changes must account for contributor trust, security, cost,
+accessibility, moderation, availability, and portability before adding forge
+features.
+
 ## Boundary Rule
 
 The platform boundary is enforced by tests:

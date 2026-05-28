@@ -38,6 +38,7 @@ Follow [Documentation Freshness Policy](docs/documentation-freshness.md) for eve
 - update `README.md` and `docs/README.md` when navigation, quick start, or discoverability changes;
 - update `docs/design.md` for current architecture changes;
 - add or update ADRs under `docs/design-decisions/` for material design choices, trade-offs, dependency decisions, and rejected alternatives;
+- update [Community Human-Centered Design](docs/community-human-centered-design.md), agent instructions, and skill references when Community site methodology, personas, pain points, design-thinking flow, user-centric success criteria, or human-centered design workflow changes;
 - update `docs/features.md`, user stories, and Gherkin specs when implemented behavior changes; and
 - update `skills/epoch/` references when agent, CLI, SDK, WASM, React, hook, or quality-gate guidance changes.
 
@@ -47,6 +48,12 @@ Run `npm run docs:check` before review to catch broken links and orphaned docs.
 
 - Keep changes focused.
 - Explain behavior changes and validation commands in the PR description.
+- For Community experience changes, name the GitHub open-source contributor
+  persona or an explicit alternative persona, the pain point solved, and the
+  design-thinking stage, user-centric success criteria, trust, cost, security,
+  accessibility, moderation, degraded-state, and portability considerations.
+  Add or update persona-driven feature scenarios under `features/` before
+  implementation.
 - Do not commit generated `dist/`, `coverage/`, local repositories, logs, or secrets.
 - Do not lower coverage thresholds, disable lint rules, or skip tests to make CI pass.
 

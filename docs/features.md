@@ -27,6 +27,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/platform_web.feature`](../features/platform_web.feature) | Browser-rendered Epoch.Platform web console behavior across mobile and desktop navigation. |
 | [`features/platform_web_conformance.feature`](../features/platform_web_conformance.feature) | Mobile task completion, role-aware home modules, admin governance sections, dense data, confirmations, and SDK-equivalent web copy. |
 | [`features/platform_projects.feature`](../features/platform_projects.feature) | Separation between the hosting control-plane web app and the Community API/Core/CLI/Web packages. |
+| [`features/community_persona_driven_design.feature`](../features/community_persona_driven_design.feature) | Persona-driven BDD contract for Community design thinking, user-centric design, and human-centered design, including contributor trust, degraded state, security, cost, accessibility, moderation, and portability scenarios. |
 
 ## F-001 - Signed Event Log
 
