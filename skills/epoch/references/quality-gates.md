@@ -17,10 +17,14 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 | `npm run coverage` | Every behavior change | c8 coverage over unit/component tests and Cucumber features with enforced thresholds. |
 | `npm run verify` | Before review | Docs check, lint, typecheck, tests, and coverage in sequence. |
 
-Community package changes must keep the Community validation layers healthy:
-Gherkin browser scenarios driven by Playwright, Pact contract tests for
+Community package and experience changes must keep the Community validation
+layers healthy: design-thinking and user-centric persona-driven Gherkin
+scenarios, browser scenarios driven by Playwright, Pact contract tests for
 Core/API HTTP boundaries, focused unit coverage, and c8 coverage output that
-includes Community API, Core, CLI, and Web packages.
+includes Community API, Core, CLI, and Web packages. Community work should
+update persona scenarios before implementation, normally starting from the
+GitHub open-source contributor persona in
+`features/community_persona_driven_design.feature`.
 
 ## Documentation expectations
 

@@ -149,6 +149,7 @@ High-value entry points:
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
 | Epoch.Platform product spec | [docs/epoch-platform-spec.md](docs/epoch-platform-spec.md) |
+| Community human-centered design | [docs/community-human-centered-design.md](docs/community-human-centered-design.md) |
 | Reusable spec template | [docs/spec-template-outline.md](docs/spec-template-outline.md) |
 | Competition research | [docs/competition/README.md](docs/competition/README.md) |
 | Design decisions and ADRs | [docs/design-decisions/README.md](docs/design-decisions/README.md) |

@@ -88,3 +88,24 @@ Acceptance criteria:
 - Community Core and API are covered by Pact contract tests for their HTTP
   boundary.
 - Community API, Core, CLI, and Web appear in the c8 coverage report.
+
+### TOOL-008: Drive Community Work Through Persona Scenarios
+
+**As a** GitHub open-source contributor,
+**I want** Community features to begin with design-thinking and user-centric
+persona-driven Gherkin scenarios,
+**So that** contribution workflows solve real trust, security, cost,
+accessibility, moderation, degraded-state, and portability problems before
+implementation details are chosen.
+
+Acceptance criteria:
+
+- Community human-centered design documents the default persona as a GitHub
+  open-source contributor.
+- Community feature work adds or updates persona-driven scenarios under
+  `features/` before implementation.
+- Scenarios name the contributor journey, pain point, trust question,
+  degraded-state behavior, and validation evidence.
+- Scenarios name the design-thinking stage and user-centric success criteria.
+- Repository and agent instructions require Community work to keep those
+  persona scenarios current.

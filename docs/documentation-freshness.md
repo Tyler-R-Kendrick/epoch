@@ -23,6 +23,7 @@ Gherkin feature spec is reachable from the root `README.md` link hierarchy.
 | Value proposition, quick start, top-level navigation, contribution basics | `README.md` and `docs/README.md` |
 | Current architecture, storage model, event model, sync, policy, actors, hooks, or non-goals | `docs/design.md` |
 | Material design choice, trade-off, selected dependency, security-sensitive direction, or rejected alternative | New or updated ADR under `docs/design-decisions/` and the ADR index |
+| Community site design methodology, persona, pain-point framing, design-thinking stage, user-centric success criteria, persona-driven feature scenarios, or human-centered design workflow | `docs/community-human-centered-design.md`, `features/community_persona_driven_design.feature`, `docs/features.md`, `docs/design.md`, relevant ADRs, `AGENTS.md`, `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and `skills/epoch/` references |
 | Implemented product behavior or acceptance criteria | `docs/features.md`, relevant `features/*.feature`, and `docs/user-stories.md` when persona flows change |
 | CLI command, argument, shorthand, installed binary, or Git-compatible CLI behavior | `docs/cli.md` and `skills/epoch/references/cli.md` |
 | SDK API, actor API, CRDT operation API, lifecycle hooks, sync API, or Git-compatible core surface | `docs/sdk.md` and `skills/epoch/references/core-sdk.md` |

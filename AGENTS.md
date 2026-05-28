@@ -25,6 +25,13 @@ These instructions apply to the entire repository.
 - Update `docs/cli.md`, `docs/sdk.md`, `docs/HA-DR.md`, dependency docs, and `skills/epoch/` references when their public surfaces change.
 - Do not create orphaned docs. Every Markdown doc and feature spec must be reachable from the root `README.md` hierarchy, and `npm run docs:check` must pass.
 
+## Community design thinking and human-centered design
+
+- Design the Epoch Community site with design thinking, user-centric design, and human-centered design as the driving methodologies. Follow [`docs/community-human-centered-design.md`](docs/community-human-centered-design.md) and [`docs/design-decisions/0012-community-human-centered-design.md`](docs/design-decisions/0012-community-human-centered-design.md).
+- Use the default Community persona, a GitHub open-source contributor, unless a different persona is explicitly documented.
+- Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update persona-driven feature scenarios under `features/` and name the contributor journey, design-thinking stage, user-centric success criteria, pain point, trust question, security/privacy/cost/accessibility/moderation/portability considerations, degraded-state behavior, and validation evidence.
+- Treat recent GitHub availability, security, free-vs-paid tier, and Copilot billing changes as research signals to re-verify before making product claims.
+
 ## Repository practices
 
 - Keep changes small, intentional, and aligned with the existing TypeScript workspace structure.
