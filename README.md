@@ -132,12 +132,15 @@ Node commands.
 Start with the [documentation index](docs/README.md). It links the repository's
 architecture, SDK, CLI, feature, operations, design-decision, contribution, and
 agent-facing references so the docs stay discoverable as the project grows.
+The [visual design system](DESIGN.md) defines the current Epoch Community
+interface tokens and component vocabulary.
 
 High-value entry points:
 
 | Topic | Link |
 |---|---|
 | Architecture | [docs/design.md](docs/design.md) |
+| Visual design system | [DESIGN.md](DESIGN.md) |
 | Samples | [samples/README.md](samples/README.md) |
 | Notebooks | [notebooks/README.md](notebooks/README.md) |
 | CLI usage | [docs/cli.md](docs/cli.md) |

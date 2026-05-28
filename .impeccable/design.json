@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-26T17:53:22.2110152-05:00",
+  "title": "Design System: Epoch Community",
+  "extensions": {
+    "colorMeta": {
+      "surface": {
+        "role": "neutral",
+        "displayName": "Mist Surface",
+        "canonical": "#eef3f1",
+        "tonalRamp": ["#1d2724", "#34413d", "#4f5d59", "#6d7d78", "#8fa19b", "#b4c5bf", "#d6e3df", "#eef3f1"]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Raised Parchment",
+        "canonical": "#fbfbf8",
+        "tonalRamp": ["#20211f", "#3a3b37", "#585a54", "#777970", "#9a9c91", "#c0c2b7", "#e2e3dc", "#fbfbf8"]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Civic Ink",
+        "canonical": "#17221f",
+        "tonalRamp": ["#17221f", "#253430", "#3b4b46", "#566661", "#74847f", "#9eaaa6", "#c9d1ce", "#edf2f0"]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Copper Action",
+        "canonical": "#ba5e3f",
+        "tonalRamp": ["#30170f", "#572818", "#7d3b27", "#a04f35", "#ba5e3f", "#d48a72", "#e8bba9", "#f7e6df"]
+      },
+      "teal": {
+        "role": "secondary",
+        "displayName": "Registry Teal",
+        "canonical": "#2f7370",
+        "tonalRamp": ["#102523", "#1d3d3b", "#2f5a57", "#2f7370", "#51918d", "#81b7b2", "#b5d9d5", "#e0f0ed"]
+      },
+      "gold": {
+        "role": "tertiary",
+        "displayName": "Verified Gold",
+        "canonical": "#d8b765",
+        "tonalRamp": ["#31250f", "#554019", "#7a5f27", "#a4823d", "#d8b765", "#e4ca88", "#f0dfb6", "#fbf2db"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "App name in the first viewport only."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Repository descriptions and explanatory copy."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Compact UI labels, chips, visibility, and counts."
+      }
+    },
+    "shadows": [
+      {
+        "name": "low-product-lift",
+        "value": "0 16px 40px rgba(23, 34, 31, 0.08)",
+        "purpose": "Signed-history panel and workflow hover lift."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-product",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Short hover, focus, and panel state transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "560px"
+      },
+      {
+        "name": "tablet",
+        "value": "860px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main Community action for browsing repositories.",
+      "html": "<a class=\"ds-button-primary\" href=\"#repositories\">Browse Repositories</a>",
+      "css": ".ds-button-primary { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 4px; background: #17221f; color: #fbfbf8; font: 800 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; text-decoration: none; transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-button-primary:hover { background: #843927; transform: translateY(-1px); } .ds-button-primary:focus-visible { outline: 3px solid rgba(186, 94, 63, 0.42); outline-offset: 3px; }"
+    },
+    {
+      "name": "Workflow Link",
+      "kind": "nav",
+      "refersTo": "workflow-link",
+      "description": "Grid or rail item for one Community workflow.",
+      "html": "<a class=\"ds-workflow-link\" href=\"/community/change-review\"><span>Change Reviews</span><small>Review Epoch intents with maintainer decisions.</small></a>",
+      "css": ".ds-workflow-link { display: grid; gap: 4px; min-height: 112px; padding: 16px; border: 1px solid #cad8d2; border-radius: 8px; background: #fbfbf8; color: #17221f; text-decoration: none; transition: border-color 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-workflow-link span { font-weight: 800; } .ds-workflow-link small { color: #5f6a65; font-size: 0.82rem; line-height: 1.45; } .ds-workflow-link:hover { border-color: rgba(186, 94, 63, 0.46); box-shadow: 0 16px 40px rgba(23, 34, 31, 0.08); transform: translateY(-2px); } .ds-workflow-link:focus-visible { outline: 3px solid rgba(186, 94, 63, 0.42); outline-offset: 3px; }"
+    },
+    {
+      "name": "Repository Card",
+      "kind": "card",
+      "refersTo": "repository-card",
+      "description": "Primary record for repository discovery and workflow entry.",
+      "html": "<article class=\"ds-repo-card\"><p class=\"ds-repo-visibility\">public</p><h3>epoch/epoch</h3><p>Event-driven version control for signed, collaborative repository history.</p><dl><div><dt>Issues</dt><dd>0</dd></div><div><dt>Change Proposals</dt><dd>0</dd></div></dl></article>",
+      "css": ".ds-repo-card { display: grid; gap: 16px; padding: 24px; border: 1px solid #cad8d2; border-radius: 8px; background: #fbfbf8; color: #17221f; box-shadow: 0 1px 0 rgba(23, 34, 31, 0.04); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; } .ds-repo-card h3, .ds-repo-card p, .ds-repo-card dl { margin: 0; } .ds-repo-card h3 { font-size: 1.1rem; line-height: 1.2; } .ds-repo-card p { color: #5f6a65; line-height: 1.58; } .ds-repo-visibility { color: #843927; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; } .ds-repo-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 16px; border-top: 1px solid #cad8d2; } .ds-repo-card dt { color: #5f6a65; font-size: 0.78rem; font-weight: 700; } .ds-repo-card dd { margin: 2px 0 0; font-weight: 750; }"
+    },
+    {
+      "name": "Topic Chip",
+      "kind": "chip",
+      "refersTo": "topic-chip",
+      "description": "Non-interactive repository topic marker.",
+      "html": "<span class=\"ds-topic-chip\">crdt</span>",
+      "css": ".ds-topic-chip { display: inline-flex; align-items: center; border: 1px solid rgba(47, 115, 112, 0.24); border-radius: 999px; background: rgba(216, 236, 229, 0.6); color: #2f7370; font: 750 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; padding: 7px 10px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Signed Civic Workshop",
+    "overview": "Epoch Community is a product interface for people who need repository collaboration to feel accountable, local, and calm. The design should read as a working surface for maintainers: clear hierarchy, compact activity signals, visible trust structure, and enough warmth to feel public without sliding into social feed noise.",
+    "keyCharacteristics": [
+      "Restrained product density with generous row and card breathing room.",
+      "Mist green surface, near-black ink, copper action accents, teal state support, and a small gold signal for verified history.",
+      "System typography tuned for task clarity rather than brand spectacle.",
+      "Cards are used only for repository records and workflow entry points.",
+      "Motion is state feedback only: hover lift, focus ring, and reduced-motion compliance."
+    ],
+    "rules": [
+      {
+        "name": "The Surface Is Product Rule",
+        "body": "The page background must always expose the design system token, never the browser default.",
+        "section": "colors"
+      },
+      {
+        "name": "The Copper Rarity Rule",
+        "body": "Copper is for action and attention only. Do not use it as broad decoration or inactive chrome.",
+        "section": "colors"
+      },
+      {
+        "name": "The Product Type Rule",
+        "body": "Do not introduce display fonts or decorative type in Community UI. The work is the product.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Until Useful Rule",
+        "body": "Surfaces are flat at rest unless the element is a framed tool or a hoverable workflow target.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do expose CSS custom properties on `:root` so browser tests and future agents can verify the design system.",
+      "Do keep cards at 8px radius or below.",
+      "Do use semantic landmarks, skip links, visible focus, and reduced-motion handling.",
+      "Do keep repository actions concrete: Browse, View Issues, Review Changes.",
+      "Do keep Community visually separate from the hosting control plane while preserving shared product discipline."
+    ],
+    "donts": [
+      "Don't ship default browser typography, link lists, or white backgrounds.",
+      "Don't use gradient text, decorative glass, side-stripe borders, or hero-metric templates.",
+      "Don't add inactive saturated color, purple-blue gradients, dark terminal theming, or beige-only palettes.",
+      "Don't create dead controls. If an element looks actionable, it must navigate to a route or section.",
+      "Don't hide Community workflows in desktop-only navigation. Mobile users must still reach the workflow rail."
+    ]
+  }
+}

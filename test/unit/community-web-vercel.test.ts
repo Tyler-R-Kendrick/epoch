@@ -51,6 +51,11 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.match(html, /Branchable site changes/u);
   assert.match(html, /href="\/community\/repository-browsing"/u);
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
+  assert.match(html, /data-design-system="epoch-community"/u);
+  assert.match(html, /href="#community-content">Skip to content/u);
+  assert.match(html, /--epoch-color-surface: #eef3f1/u);
+  assert.match(html, /class="workflow-rail"/u);
+  assert.match(html, /class="repo-card"/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
 }
 
