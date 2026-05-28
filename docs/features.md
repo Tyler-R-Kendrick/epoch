@@ -34,6 +34,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/community_persona_driven_design.feature`](../features/community_persona_driven_design.feature) | Persona-driven BDD contract for Community design thinking, user-centric design, and human-centered design, including contributor trust, degraded state, security, cost, accessibility, moderation, and portability scenarios. |
 | [`features/platform_projects.feature`](../features/platform_projects.feature) | Separation between the hosting control-plane web app and the Community API/Core/CLI/Web packages, including the browser-rendered Community design-system shell and Community Web dogfooding through signed Epoch site history. |
 | [`features/persona_e2e_journeys.feature`](../features/persona_e2e_journeys.feature) | Cross-persona end-to-end journeys that prove documented contributor, maintainer, operator, and security/compliance personas can complete real app workflows. |
+| [`features/community_operations.feature`](../features/community_operations.feature) | Separate Community Operations extension for hosted apps, workflow runs, agent sandboxes, runner status, signed provenance, and Platform Web descriptor registration. Evidence: [Community Operations evidence](evidence/community-operations/README.md), [Cucumber JSON](evidence/community-operations/community_operations.feature.json), and [Playwright WebM](evidence/community-operations/community_operations.webm). |
 
 ## F-001 - Signed Event Log
 

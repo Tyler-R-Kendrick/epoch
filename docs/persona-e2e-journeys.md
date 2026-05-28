@@ -44,4 +44,5 @@ side drifts.
 | `features/platform_web_conformance.feature` | Operator accessible task completion, role-aware modules, governance, dense data, confirmation, and SDK-parity journey. |
 | `features/community_persona_driven_design.feature` | Contributor-centered design-thinking and persona-driven BDD governance journey. |
 | `features/platform_projects.feature` | Contributor Community app boundary, API/Core/CLI/Web workflow, and signed site dogfooding journey. |
+| `features/community_operations.feature` | Maintainer project-owned hosting, workflow, agent sandbox, runner, provenance, promotion, rollback, and browser-recorded evidence journey. |
 | `features/persona_e2e_journeys.feature` | Cross-persona executable proof that documented personas can complete end-to-end workflows. |

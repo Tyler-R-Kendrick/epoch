@@ -283,7 +283,8 @@ and invariants for:
 
 ## Platform Web Apps
 
-`Epoch.Platform.Web` and `Epoch.Community.Web` are separate projects.
+`Epoch.Platform.Web`, `Epoch.Community.Web`, and
+`Epoch.Community.Operations.Web` are separate projects.
 
 `Epoch.Platform.Web` is a PWA SPA definition for operating Epoch hosting
 infrastructure. It exposes deployable service descriptors for the Epoch node,
@@ -324,6 +325,19 @@ See [Epoch Platform Packages](platforms.md) and
 Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
 Community Web dogfooding decision.
+
+`Epoch.Community.Operations.Web` is a separate Coolify-inspired project
+operations extension. It consumes `Epoch.Platform.Sdk` and
+`Epoch.Platform.Core` contracts to project existing Platform state into hosted
+apps, preview deploys, GitHub Actions-style workflow runs, agent sandboxes,
+runners, secrets metadata, and signed activity. It exports a generic deployment
+target so Platform Web can register it without importing the extension package.
+It does not mutate Platform Core; Core remains authoritative for deployments,
+jobs, runners, secrets, AI plans, policy, and audit.
+
+See [Epoch Platform Packages](platforms.md),
+[ADR-0008](design-decisions/0008-separate-platform-web-and-community.md), and
+[ADR-0013](design-decisions/0013-community-operations-extension-package.md).
 
 ## Non-Goals In The Current Prototype
 

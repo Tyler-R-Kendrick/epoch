@@ -2,6 +2,8 @@ import { runPlatformWebConsoleTests } from "./component/platform-web-console.tes
 import { runAdvancedInfrastructureTests } from "./unit/advanced-infrastructure.test";
 import { runCommunityContractTests } from "./unit/community-contract.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
+import { runCommunityOperationsE2eArtifactTests } from "./unit/community-operations-e2e-artifacts.test";
+import { runCommunityOperationsWebTests } from "./unit/community-operations-web.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
@@ -20,6 +22,8 @@ async function main(): Promise<void> {
   runPlatformWebConsoleTests();
   await runCommunityContractTests();
   await runCommunityCoverageTests();
+  runCommunityOperationsE2eArtifactTests();
+  await runCommunityOperationsWebTests();
   await runCommunityWebVercelTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();
