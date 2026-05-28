@@ -12,7 +12,7 @@ These instructions apply to the entire repository.
   - `npm test`
   - `npm run coverage`
   - `npm run verify`
-- Preserve or improve coverage for changed behavior. Add new Gherkin scenarios, step definitions, or focused tests when adding or changing production behavior.
+- Preserve or improve coverage for changed behavior. Add new Gherkin scenarios only for user-visible product behavior, and use focused tests or docs checks for repository process, documentation, evidence, or governance requirements.
 - Do not lower coverage thresholds or weaken lint/typecheck settings to make a change pass.
 - Keep generated outputs such as `dist/`, `coverage/`, and temporary files out of commits.
 
@@ -30,7 +30,10 @@ These instructions apply to the entire repository.
 - Design the Epoch Community site with design thinking, user-centric design, and human-centered design as the driving methodologies. Follow [`docs/community-human-centered-design.md`](docs/community-human-centered-design.md) and [`docs/design-decisions/0012-community-human-centered-design.md`](docs/design-decisions/0012-community-human-centered-design.md).
 - Use the default Community persona, a GitHub open-source contributor, unless a different persona is explicitly documented.
 - Personas are users in real product scenarios, not features. Do not create `persona_*`, `*_persona_*`, `*_e2e_journeys`, human-centered-design, or similar persona/governance feature files.
-- Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update the relevant product feature scenarios under `features/` and use persona tags such as `@persona.github_open_source_contributor`, `@persona.maintainer`, `@persona.platform_operator`, or `@persona.security_compliance_responder` on those real behavior scenarios.
+- Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update the relevant product feature scenarios under `features/` when user-visible behavior changes, and use persona tags such as `@persona.github_open_source_contributor`, `@persona.maintainer`, `@persona.platform_operator`, or `@persona.security_compliance_responder` on those real behavior scenarios.
+- Every new `.feature` scenario must read as a user journey for its persona: name the persona with a tag, start from an app context the user would recognize, move through the app screens or workflow steps the user takes, end with the successful user outcome, and include signed/provenance state only when it affects the user's trust or decision.
+- Keep agent instructions, testing procedures, evidence recording, persona matrix audits, repository governance, and other process checks out of `.feature` scenarios.
+- Do not write `.feature` scenarios as screen inventories, implementation-stack checklists, or "browser shows" assertions. Browser automation belongs in step definitions; Gherkin belongs to the user's capability.
 - Do not add scenario outlines whose only purpose is proving a matrix row exists. Scenario outlines must exercise product behavior for a persona.
 - Keep [`docs/persona-feature-matrix.md`](docs/persona-feature-matrix.md) and [`docs/feature-scenario-inventory.md`](docs/feature-scenario-inventory.md) aligned with every executable product `features/*.feature` spec. New or changed scenarios are incomplete until the feature registry, scenario inventory, and persona matrix record them.
 - Treat recent GitHub availability, security, free-vs-paid tier, and Copilot billing changes as research signals to re-verify before making product claims.

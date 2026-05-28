@@ -64,13 +64,12 @@ Acceptance criteria:
 - Platform Web does not own repository browsing, issue, review, or discussion
   workflows.
 
-### OPS-020: Manage Community Project Operations
+### OPS-020: Manage Community Sandbox Workspaces
 
-**As a** community maintainer,
-**I want** a separate Community Operations app for hosted apps, previews,
-workflows, runners, and agent sandboxes,
-**So that** project capability work can stay close to signed collaboration
-history without mutating the hosting control plane.
+**As a** community contributor,
+**I want** a browser-based sandbox workspace for repository changes,
+**So that** I can contribute without local setup while maintainers still get
+checks, changed files, patch intent, preview, and signed provenance.
 
 Acceptance criteria:
 
@@ -78,10 +77,51 @@ Acceptance criteria:
   register without importing the implementation package.
 - Community Operations projects hosted apps, workflow runs, agent sandboxes,
   runner capacity, and signed activity from Platform SDK/Core state.
+- A contributor can start from a repository, choose a workspace template, review
+  the cost owner and security policy before launch, edit code, run checks, and
+  submit the workspace as a signed patch intent.
+- A contributor can resume an interrupted sandbox workspace without losing the
+  repository, goal, changed files, recovery state, or agent context needed to
+  continue from a signed workspace snapshot.
+- A maintainer can review a submitted sandbox workspace result, inspect changed
+  files and passing checks, see preview/provenance state, and approve or reject
+  the patch.
+- Hosted app cards show repository source, runtime, environment, deployment
+  health, runner, secret count, operator identity, signed event ID, and links
+  for create-preview, logs, promotion, and rollback actions.
 - GitHub Actions workflow definitions are represented as imported source
-  metadata, not as the execution authority.
-- The browser-rendered shell exposes app status, workflow status, sandbox
-  provenance, runner status, and promote/rollback actions.
+  metadata, with Epoch runner jobs named as the execution authority.
+- Workflow and sandbox cards show imported workflow source, run state, job
+  linkage, agent identity, model/provider, policy, input intent, output patch,
+  signed provenance, re-run, and sandbox-result actions.
+- Agent sandbox cards can show implementation-specific runtime metadata without
+  making that adapter part of Platform Core.
+- Runner and activity sections show capacity, online status, audit event IDs,
+  and signed provenance without exposing plaintext secrets.
+
+### OPS-021: Manage Community Agent Sandboxes
+
+**As a** maintainer,
+**I want** policy-bound agent sandboxes for signed patch intents,
+**So that** agents can help with repository work without bypassing human
+approval, secret policy, or provenance.
+
+Acceptance criteria:
+
+- A maintainer can start from a repository patch intent, choose an approved
+  agent, review sandbox policy and resource limits, and start an agent sandbox.
+- Agent sandbox runs are projected from the same Community Operations extension
+  model over Platform SDK/Core AI action plans, not from Platform Web or
+  Platform Core imports of Community Operations.
+- A running sandbox records the input intent, approved agent, policy summary,
+  resource limits, action plan id, and signed invocation event.
+- A completed sandbox result records transcript summary, changed files, checks,
+  output patch intent, preview id, and signed output event for maintainer
+  review.
+- A failed sandbox keeps the signed failure event and diagnosis visible when the
+  maintainer retries the run.
+- A retry creates a separate queued sandbox linked to the previous failed run
+  and preserves the no-secret policy and agent context needed to continue.
 
 ## Tooling Stories
 
@@ -114,7 +154,7 @@ Acceptance criteria:
 
 **As a** GitHub open-source contributor,
 **I want** Community features to begin with design-thinking and user-centric
-persona-driven Gherkin scenarios,
+product scenarios,
 **So that** contribution workflows solve real trust, security, cost,
 accessibility, moderation, degraded-state, and portability problems before
 implementation details are chosen.
@@ -123,9 +163,13 @@ Acceptance criteria:
 
 - Community human-centered design documents the default persona as a GitHub
   open-source contributor.
-- Community feature work adds or updates persona-driven scenarios in the
-  relevant product feature specs under `features/` before implementation.
+- Community feature work adds or updates persona-tagged scenarios in the
+  relevant product feature specs under `features/` when user-visible behavior
+  changes.
 - Personas are scenario context, not standalone features.
+- Agent instructions, test procedures, evidence recording, persona-matrix
+  audits, and repository governance checks are not encoded as `.feature`
+  scenarios.
 - Scenario-level persona records stay current in the executable feature
   scenario inventory.
 - Scenarios name the contributor journey, pain point, trust question,
