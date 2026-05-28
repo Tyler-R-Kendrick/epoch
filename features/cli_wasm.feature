@@ -154,3 +154,14 @@ Feature: CLI and WASM integration surfaces
     Then WASM Git fails with "native Git repository access is unavailable"
     When I run unsupported WASM Git clone for "https://example.invalid/repo.git"
     Then WASM Git fails with "native Git clone is unavailable"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for cli_wasm.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/cli_wasm.feature | A GitHub open-source contributor | Preserving Agency And Portability | accessibility | use CLI and WASM-safe surfaces across local and browser-hosted contexts |

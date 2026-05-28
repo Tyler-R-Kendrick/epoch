@@ -6,8 +6,8 @@ Community packages are still small, so this document is the product-design
 constraint for future Community Web, API, Core, and CLI work: start from people,
 prove the problem, then choose the smallest trustworthy workflow.
 
-This document complements the [feature registry](features.md), [current
-design](design.md), [platform package boundary](platforms.md), and
+This document complements the [feature registry](features.md), [persona feature
+matrix](persona-feature-matrix.md), [persona end-to-end journeys](persona-e2e-journeys.md), [current design](design.md), [platform package boundary](platforms.md), and
 [ADR-0012](design-decisions/0012-community-human-centered-design.md). It is
 not a substitute for executable feature coverage when behavior changes.
 
@@ -48,7 +48,11 @@ persona-driven Gherkin scenario under `features/`. Use
 [`features/community_persona_driven_design.feature`](../features/community_persona_driven_design.feature)
 as the standing scenario catalog for the default persona and human-centered
 design contract. The catalog must also keep the design-thinking loop and
-user-centric design checks visible.
+user-centric design checks visible. The
+[persona feature matrix](persona-feature-matrix.md) extends that contract across
+the full executable feature inventory, including supporting operator,
+maintainer, and security/compliance personas when those features protect the
+contributor experience indirectly.
 
 Each scenario must name:
 
@@ -254,3 +258,17 @@ A Community Web, API, Core, CLI, or workflow change is not ready until it has:
 - explicit consideration of security, privacy, cost, accessibility, moderation,
   and portability;
 - updated [agent instructions](../AGENTS.md), [documentation freshness](documentation-freshness.md), and [Epoch skill](../skills/epoch/SKILL.md) references when the design method or agent workflow changes.
+
+## Definition Of Done For Feature Specs
+
+Every executable feature spec in `features/` is not ready until it has:
+
+- a row in [features.md](features.md);
+- a row in the [persona feature matrix](persona-feature-matrix.md);
+- coverage in the [persona end-to-end journey registry](persona-e2e-journeys.md);
+- a named persona and contribution or operations journey;
+- a pain point and trust question;
+- degraded-state behavior and validation evidence; and
+- at least one relevant human consideration such as security, privacy, cost,
+  accessibility, moderation, portability, auditability, recovery, compliance,
+  or AI governance.

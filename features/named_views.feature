@@ -46,3 +46,14 @@ Feature: Named views
     And I create view "production-green" from "main"
     Then view "production-blue" has file "deploy.txt" with content "blue\n"
     And view "production-green" has file "deploy.txt" with content "green\n"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for named_views.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/named_views.feature | A GitHub open-source contributor | Preserving Agency And Portability | rollback | isolate experiments, promote work, and recover without disturbing main work |

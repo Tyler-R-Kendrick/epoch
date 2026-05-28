@@ -53,3 +53,14 @@ Feature: Entity-level CRDT merging
       | base          | left          | right         |
       | {"count": 1}  | {"count": 2}  | {"count": 3}  |
     Then the merge reports a conflict containing "count"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for merge.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/merge.feature | A GitHub open-source contributor | Reducing Maintainer And Contributor Burnout | trust | resolve competing changes with explicit policy and predictable outcomes |

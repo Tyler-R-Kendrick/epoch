@@ -49,3 +49,14 @@ Feature: Epoch.Platform Community conformance
     And Community background workers are disabled
     When I create repository "private-api" in project "platform"
     Then the project "platform" overview lists repository "private-api"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_community_conformance.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_community_conformance.feature | A maintainer | Reducing Maintainer And Contributor Burnout | moderation | publish Community showcases, topics, releases, contribution guidance, reputation, search, abuse controls, and worker state |

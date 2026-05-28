@@ -80,3 +80,14 @@ Feature: Epoch.Platform operations
     When I approve the Community project as moderator "mod"
     Then the Community project moderation state is "approved"
     And the latest audit event is "community.project.approved"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_operations.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_operations.feature | A platform operator | Avoiding Surprise Cost | auditability | move from first-run readiness through deploy, incident, AI action, rollback, and Community publication |

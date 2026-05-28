@@ -76,3 +76,14 @@ Feature: High availability and disaster recovery
     And the peer event log contains 2 events
     And the peer file "one.txt" blob content equals "one\n"
     And the peer file "two.txt" blob content equals "two\n"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for ha_dr.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/ha_dr.feature | A GitHub open-source contributor | Trusting Current State | recovery | recover signed work from compacts, seeds, peers, and cold backups |

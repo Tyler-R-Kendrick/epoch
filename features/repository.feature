@@ -346,3 +346,14 @@ Feature: Epoch repository event log
     Given a new workspace
     When I run unsupported Epoch Git command "rebase"
     Then Git compatibility fails with "not supported"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for repository.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/repository.feature | A GitHub open-source contributor | Trusting Current State | portability | create, record, version, verify, sync, review, import, and export signed repository work |

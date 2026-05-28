@@ -51,3 +51,14 @@ Feature: Epoch.Platform foundation
     And I publish project "platform" to Community as "epoch-platform"
     Then the platform capability "community" is enabled
     And the Community project public slug is "epoch-platform"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_core.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_core.feature | A platform operator | Trusting Current State | governance | start a headless platform, create deploy plans, approve protected execution, and keep Community optional |

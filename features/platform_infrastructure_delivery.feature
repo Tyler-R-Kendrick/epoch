@@ -54,3 +54,14 @@ Feature: Epoch.Platform infrastructure and delivery
     When I try to load invalid platform configuration section "database"
     Then the platform action fails with code "invalid_configuration"
     And the platform action suggests "Fix database configuration"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_infrastructure_delivery.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_infrastructure_delivery.feature | A platform operator | Avoiding Surprise Cost | cost | inspect infrastructure, plan dry runs, coordinate runners, retry jobs, reconcile loss, and validate config |

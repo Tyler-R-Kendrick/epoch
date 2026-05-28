@@ -34,3 +34,14 @@ Feature: Epoch.Platform web console
     And the web console shows "Start with a good first issue"
     And the web console shows "3 bookmarks"
     And the web console shows "2 discussions"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_web.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_web.feature | A platform operator | Trusting Current State | accessibility | use the browser console on mobile and desktop and expose Community surfaces when enabled |

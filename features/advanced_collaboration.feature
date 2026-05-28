@@ -147,3 +147,14 @@ Feature: Advanced Epoch collaboration and repository infrastructure
       | redact-plan       |
       | __LAST_BLOB_HASH__ |
     Then the CLI output contains "affectedEvents"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for advanced_collaboration.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/advanced_collaboration.feature | A GitHub open-source contributor | Protecting Contributor Security | privacy | collaborate with signed objects, gates, redactions, adapters, and reusable conflict resolutions |
