@@ -26,3 +26,4 @@ Feature: Epoch platform project separation
     Then the Community browser shows repository "epoch/epoch"
     And the Community browser exposes workflow "Issues"
     And the Community browser exposes workflow "Change Reviews"
+    And the Community browser exposes the Epoch Community design system

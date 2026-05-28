@@ -41,6 +41,7 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 | [WASM](references/wasm.md) | Browser/worker-safe exports, CRDT helpers, and unsupported native Git behavior. |
 | [Platform Packages](../../docs/platforms.md) | Separate Platform Web and Epoch Community API/Core/CLI/Web responsibilities and deployment boundary. |
 | [Community Human-Centered Design](../../docs/community-human-centered-design.md) | Community design thinking, user-centric design, GitHub open-source contributor persona, pain points, and human considerations. |
+| [Visual Design System](../../DESIGN.md) | Epoch Community tokens, component rules, accessibility guardrails, and visual direction. |
 | [Quality Gates](references/quality-gates.md) | Required TDD, lint, typecheck, test, coverage, and CI expectations. |
 | [Documentation Freshness](references/documentation.md) | Required README, docs index, ADR, feature, SDK, CLI, WASM, and skill-reference updates. |
 | [SDLC Subagent](references/sdlc.md) | Codex subagent checklist for enforcing feature-first TDD and the Epoch test trophy. |

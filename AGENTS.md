@@ -27,7 +27,7 @@ These instructions apply to the entire repository.
 
 ## Community design thinking and human-centered design
 
-- Design the Epoch Community site with design thinking, user-centric design, and human-centered design as the driving methodologies. Follow [`docs/community-human-centered-design.md`](docs/community-human-centered-design.md) and [`docs/design-decisions/0010-community-human-centered-design.md`](docs/design-decisions/0010-community-human-centered-design.md).
+- Design the Epoch Community site with design thinking, user-centric design, and human-centered design as the driving methodologies. Follow [`docs/community-human-centered-design.md`](docs/community-human-centered-design.md) and [`docs/design-decisions/0011-community-human-centered-design.md`](docs/design-decisions/0011-community-human-centered-design.md).
 - Use the default Community persona, a GitHub open-source contributor, unless a different persona is explicitly documented.
 - Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update persona-driven feature scenarios under `features/` and name the contributor journey, design-thinking stage, user-centric success criteria, pain point, trust question, security/privacy/cost/accessibility/moderation/portability considerations, degraded-state behavior, and validation evidence.
 - Treat recent GitHub availability, security, free-vs-paid tier, and Copilot billing changes as research signals to re-verify before making product claims.

@@ -8,7 +8,7 @@ prove the problem, then choose the smallest trustworthy workflow.
 
 This document complements the [feature registry](features.md), [current
 design](design.md), [platform package boundary](platforms.md), and
-[ADR-0010](design-decisions/0010-community-human-centered-design.md). It is
+[ADR-0011](design-decisions/0011-community-human-centered-design.md). It is
 not a substitute for executable feature coverage when behavior changes.
 
 ## Methodology Stack

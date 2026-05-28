@@ -174,6 +174,30 @@ Then("the Community browser exposes workflow {string}", async function (workflow
   await assertVisibleText(platformState.page, workflow);
 });
 
+Then("the Community browser exposes the Epoch Community design system", async function () {
+  assert.ok(platformState.page);
+
+  const designRoot = platformState.page.locator("[data-design-system=\"epoch-community\"]");
+  assert.equal(await designRoot.count(), 1);
+  assert.equal(await platformState.page.locator("a.skip-link[href=\"#community-content\"]").count(), 1);
+
+  const surfaceToken = await platformState.page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--epoch-color-surface")
+      .trim(),
+  );
+  assert.equal(surfaceToken, "#eef3f1");
+
+  const repositoryCard = platformState.page.locator(".repo-card").first();
+  const repositoryCardBox = await repositoryCard.boundingBox();
+  assert.ok(repositoryCardBox);
+  assert.ok(repositoryCardBox.width >= 280);
+
+  const navText = await platformState.page.locator("nav[aria-label=\"Community workflows\"]").innerText();
+  assert.match(navText, /Repositories/u);
+  assert.match(navText, /Change Reviews/u);
+});
+
 async function assertVisibleText(page: Page, expected: string): Promise<void> {
   const text = await page.locator("body").innerText();
   assert.match(text, new RegExp(expected.replace("/", "\\/"), "u"));

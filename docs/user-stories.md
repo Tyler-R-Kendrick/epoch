@@ -80,6 +80,8 @@ Acceptance criteria:
 - Community Web exports a deployable app descriptor that Platform Web can manage
   without importing Community packages.
 - Community Web is covered by a Gherkin feature driven through Playwright.
+- Community Web renders a branded design-system shell with discoverable
+  workflows, repository cards, visible focus, and skip-link navigation.
 - Community Core and API are covered by Pact contract tests for their HTTP
   boundary.
 - Community API, Core, CLI, and Web appear in the c8 coverage report.

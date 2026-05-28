@@ -24,6 +24,7 @@ decisions, operations, or contribution workflow.
 | Document | Use it for |
 |---|---|
 | [Current Design](design.md) | Current architecture, event model, sync, policy, CRDT surfaces, hooks, actors, and non-goals. |
+| [Visual Design System](../DESIGN.md) | Epoch Community visual tokens, component rules, accessibility guardrails, and design-system sidecar guidance. |
 | [CLI Reference](cli.md) | Source checkout commands, `epoch` shorthand, `epoch-git`, global linking, and command groups. |
 | [Core SDK Reference](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, and Git-compatible core surfaces. |
 | [Platform Core And SDK APIs](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, Git-compatible core surfaces, and `Epoch.Platform.Core` / `Epoch.Platform.Sdk` APIs. |
@@ -45,7 +46,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0007: Platform Community Module](design-decisions/0007-platform-community-module.md) | Historical record for the SDK-backed Community module before extraction into dedicated packages. |
 | [ADR-0008: Separate Platform Web And Community Apps](design-decisions/0008-separate-platform-web-and-community.md) | Keeps hosting operations and community collaboration in separate web-app packages. |
 | [ADR-0009: Native Working Tree Lifecycle](design-decisions/0009-native-working-tree-lifecycle.md) | Adds native signed working-tree lifecycle commands, ignore rules, and TOML repository config. |
-| [ADR-0010: Design Thinking And Human-Centered Design For Epoch Community](design-decisions/0010-community-human-centered-design.md) | Makes design thinking, user-centric design, human-centered design, and the GitHub open-source contributor persona the default method for Community work. |
+| [ADR-0011: Design Thinking And Human-Centered Design For Epoch Community](design-decisions/0011-community-human-centered-design.md) | Makes design thinking, user-centric design, human-centered design, and the GitHub open-source contributor persona the default method for Community work. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

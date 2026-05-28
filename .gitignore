@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .epoch/
+.agents/
+skills-lock.json
 node_modules/
 .npm-cache/
 dist/

@@ -1,4 +1,4 @@
-# ADR-0010: Design Thinking And Human-Centered Design For Epoch Community
+# ADR-0011: Design Thinking And Human-Centered Design For Epoch Community
 
 Status: Accepted
 

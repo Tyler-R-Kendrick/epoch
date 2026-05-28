@@ -295,7 +295,10 @@ product. It consumes `Epoch.Community.Core` to read repository browsing, issue
 tracking, change review, discussions, maintainer profiles, release discovery,
 and organization-space data from an API client. It exports a generic deployment
 target so a host can register Community with Platform Web without Platform Web
-importing Community packages.
+importing Community packages. Its rendered shell includes the Epoch Community
+visual design system: root design tokens, a skip link, responsive workflow rail,
+repository cards, and a signed-history graph documented in
+[DESIGN.md](../DESIGN.md).
 
 Community Web design is driven by design thinking, user-centric design, and
 human-centered design. The default persona is a GitHub open-source contributor
@@ -303,7 +306,7 @@ who needs trustworthy repository state, security context, cost clarity,
 accessible contribution paths, and graceful recovery when hosted dependencies
 are degraded. See
 [Epoch Community Human-Centered Design](community-human-centered-design.md) and
-[ADR-0010](design-decisions/0010-community-human-centered-design.md).
+[ADR-0011](design-decisions/0011-community-human-centered-design.md).
 
 `Epoch.Community.API` owns the in-memory API implementation for the current
 prototype. `Epoch.Community.Core` owns shared community domain types and the API
