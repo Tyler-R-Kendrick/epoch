@@ -59,3 +59,14 @@ Feature: Epoch.Platform AI, operations, and HA/DR
     Then failover drill "region outage" status is "passed"
     And documented RPO is "5 minutes"
     And documented RTO is "30 minutes"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_ai_operations_ha.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_ai_operations_ha.feature | A platform operator | Protecting Contributor Security | AI governance | use AI assistance, incident diagnosis, dashboards, support bundles, backups, restore, and failover drills |

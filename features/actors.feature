@@ -42,3 +42,14 @@ Feature: XState actor-driven Epoch repository
     Then the actor repository verifies successfully
     And the actor event log contains 1 event
     And the actor events include authors "bob"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for actors.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/actors.feature | A GitHub open-source contributor | Trusting Current State | identity | contribute through asynchronous actor workflows while preserving authorship |

@@ -57,3 +57,14 @@ Feature: Epoch.Platform enterprise conformance
     And the platform action has a correlation id
     When I delete tenant export "acme"
     Then tenant export "acme" is deleted
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_enterprise_conformance.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_enterprise_conformance.feature | A security and compliance responder | Protecting Contributor Security | compliance | govern identity, tokens, sessions, webhooks, secrets, audit, compliance, and tenant data |

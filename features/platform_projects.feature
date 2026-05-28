@@ -36,3 +36,14 @@ Feature: Epoch platform project separation
     And the Community site history includes view "site/community-web-dogfood"
     And the Community site history includes event type "rollback"
     And the Community site materialized version includes file "community/index.html"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_projects.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_projects.feature | A GitHub open-source contributor | Preserving Agency And Portability | portability | use a separate Community app for repository workflows while Platform Web hosts and deploys it |

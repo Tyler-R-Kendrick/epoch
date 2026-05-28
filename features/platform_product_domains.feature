@@ -83,3 +83,14 @@ Feature: Epoch.Platform product domains
     And the project "platform" overview lists repository "api"
     And the Community project public slug is "epoch-platform"
     And the latest deployment state is "succeeded"
+  Rule: Persona-driven feature acceptance
+    Scenario Outline: Persona context for platform_product_domains.feature
+      Given the Community human-centered design guidance is available
+      When an agent audits the executable feature spec "<feature spec>"
+      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
+      And the persona feature matrix captures pain point "<pain point>"
+      And the persona feature matrix captures human consideration "<human consideration>"
+
+      Examples:
+        | feature spec   | persona   | pain point   | human consideration   | journey   |
+        | features/platform_product_domains.feature | A maintainer | Reducing Maintainer And Contributor Burnout | moderation | govern environments, issues, review intents, packages, search, observability, profiles, reports, and snapshots |
