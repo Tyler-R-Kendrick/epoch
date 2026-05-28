@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-26
+last_researched: 2026-05-28
 ---
 
 # Competition Research
@@ -78,6 +78,9 @@ gossip-path: <product-path>/gossip.md
 | RhodeCode | Enterprise source code management across Git, Mercurial, and SVN with unified governance and review | [Profile](products/rhodecode/profile.md) | [Design](products/rhodecode/design/design.md) | [Feature](products/rhodecode/features/unified-scm-review.feature) | [Marketing](products/rhodecode/marketing.md) | [Gossip](products/rhodecode/gossip.md) |
 | Phorge | Maintained Phabricator fork with Differential review, Diffusion repositories, Maniphest tasks, Herald automation, and Audit workflows | [Profile](products/phorge/profile.md) | [Design](products/phorge/design/design.md) | [Feature](products/phorge/features/differential-review-and-audit.feature) | [Marketing](products/phorge/marketing.md) | [Gossip](products/phorge/gossip.md) |
 | Review Board | SCM-neutral review requests for code, screenshots, files, and legacy repository systems | [Profile](products/review-board/profile.md) | [Design](products/review-board/design/design.md) | [Feature](products/review-board/features/scm-neutral-review-request.feature) | [Marketing](products/review-board/marketing.md) | [Gossip](products/review-board/gossip.md) |
+| GitHub Copilot Coding Agent | GitHub-native delegated coding agent that turns issues and chat tasks into pull requests | [Profile](products/github-copilot-coding-agent/profile.md) | [Design](products/github-copilot-coding-agent/design/design.md) | [Feature](products/github-copilot-coding-agent/features/delegated-issue-to-pull-request.feature) | [Marketing](products/github-copilot-coding-agent/marketing.md) | [Gossip](products/github-copilot-coding-agent/gossip.md) |
+| Devin | Autonomous software engineer with hosted dev environments, GitHub collaboration, review, and event-driven automations | [Profile](products/devin/profile.md) | [Design](products/devin/design/design.md) | [Feature](products/devin/features/autonomous-engineering-session.feature) | [Marketing](products/devin/marketing.md) | [Gossip](products/devin/gossip.md) |
+| Claude Code | Terminal, IDE, desktop, and GitHub Actions coding agent for repo-local autonomous development | [Profile](products/claude-code/profile.md) | [Design](products/claude-code/design/design.md) | [Feature](products/claude-code/features/repo-local-agent-session.feature) | [Marketing](products/claude-code/marketing.md) | [Gossip](products/claude-code/gossip.md) |
 
 ## Research Dimensions
 
@@ -88,4 +91,3 @@ Each product folder uses the same sections:
 - `features/*.feature`: Gherkin descriptions of important user flows.
 - `marketing.md`: target customer, positioning, customer model, and excluded audiences.
 - `gossip.md`: public sentiment, issue reports, bugs, and adoption friction.
-
