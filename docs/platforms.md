@@ -27,7 +27,8 @@ Implemented responsibilities:
 
 `Epoch.Platform.Web` can manage the Community app only as a deployable service
 descriptor. It does not import `@epoch/community-web`,
-`@epoch/community-core`, `@epoch/community-api`, or `@epoch/community-cli`.
+`@epoch/community-core`, `@epoch/community-api`,
+`@epoch/community-operations-web`, or `@epoch/community-cli`.
 
 ## Epoch.Community.API
 
@@ -128,6 +129,37 @@ experience changes must account for contributor trust, security, cost,
 accessibility, moderation, availability, and portability before adding forge
 features.
 
+## Epoch.Community.Operations.Web
+
+Workspace package: `packages/Epoch.Community.Operations.Web`
+
+Published package name: `@epoch/community-operations-web`
+
+`Epoch.Community.Operations.Web` is a separate Coolify-inspired PWA shell for
+community-owned project operations. It consumes `@epoch/platform-sdk` and
+`@epoch/platform-core` contracts to project existing Platform state into hosted
+apps, preview deploys, GitHub Actions-style workflow runs, agent sandboxes,
+runner status, secrets metadata, and signed activity.
+
+Implemented responsibilities:
+
+- describe a standalone PWA app shell for Community Operations;
+- publish a generic deployment target that Platform Web can register without
+  importing the extension package;
+- project hosted app cards from existing repositories, deployables,
+  environments, deploy plans, deployments, runners, secrets, and audit events;
+- render workflow automation and workflow run cards where GitHub Actions is an
+  imported source format rather than the execution authority; and
+- render agent sandbox cards from extension metadata plus Platform AI plan
+  state, keeping signed output event IDs visible.
+
+`Epoch.Community.Operations.Web` does not mutate Platform Core. Platform Core
+remains the authority for deploys, jobs, runners, secrets, AI plans, and audit.
+Its end-to-end browser proof is recorded by
+`npm run e2e:community-operations`, which renders the extension with
+Playwright, writes Cucumber JSON evidence, and records a WebM linked from the
+feature registry.
+
 ## Boundary Rule
 
 The platform boundary is enforced by tests:
@@ -135,10 +167,15 @@ The platform boundary is enforced by tests:
 - `test/unit/platform-boundaries.test.ts` checks that Web treats Community as a
   deployable app, that Community owns the collaboration workflows, and that the
   package dependency direction stays Core-centered.
+- `test/unit/community-operations-web.test.ts` checks that Community Operations
+  projects Platform state into app, workflow, sandbox, runner, and activity
+  cards and can register with Platform Web as a deployable app descriptor.
 - `features/platform_projects.feature` captures the user-facing product split
   with executable scenarios.
 - `features/platform_projects.feature` also includes a Playwright-driven browser
   scenario for `Epoch.Community.Web`, including the design-system shell.
+- `features/community_operations.feature` includes a Playwright-driven browser
+  scenario for `Epoch.Community.Operations.Web`.
 - `test/unit/community-contract.test.ts` uses Pact to lock the
   `Epoch.Community.Core` HTTP client contract with `Epoch.Community.API`.
 - `test/unit/community-coverage.test.ts` covers Community API routing, CLI
@@ -152,13 +189,20 @@ The intended integration point is structural data:
 ```ts
 import { createInMemoryCommunityApi } from "@epoch/community-api";
 import { createCommunityClient } from "@epoch/community-core";
+import { createCommunityOperationsWebApp } from "@epoch/community-operations-web";
 import { createCommunityWebApp } from "@epoch/community-web";
 import { createPlatformWebApp } from "@epoch/platform-web";
+import { createInMemoryPlatformCore } from "@epoch/platform-core";
+import { EpochPlatformSdk } from "@epoch/platform-sdk";
 
 const client = createCommunityClient(createInMemoryCommunityApi());
 const community = await createCommunityWebApp({ client });
+const operations = await createCommunityOperationsWebApp({
+  platform: new EpochPlatformSdk(createInMemoryPlatformCore()),
+  projectId: "project_1",
+});
 const web = createPlatformWebApp({
-  deployableApps: [community.deploymentTarget],
+  deployableApps: [community.deploymentTarget, operations.deploymentTarget],
 });
 ```
 

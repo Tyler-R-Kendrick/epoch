@@ -17,7 +17,10 @@ separate service, and its static site build is itself materialized through an
 Epoch repository so site changes have signed branch, merge, version, and
 rollback evidence. Community behavior is split through
 `Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.CLI`, and
-`Epoch.Community.Web`. The full implemented feature list lives in the
+`Epoch.Community.Web`. `Epoch.Community.Operations.Web` is a separate
+Coolify-inspired deployable extension for project hosting, workflow, runner,
+and agent-sandbox operations over Platform SDK/Core state. The full implemented
+feature list lives in the
 [feature registry](docs/features.md).
 
 ## Why Epoch?

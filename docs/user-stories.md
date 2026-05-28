@@ -62,6 +62,25 @@ Acceptance criteria:
 - Platform Web does not own repository browsing, issue, review, or discussion
   workflows.
 
+### OPS-020: Manage Community Project Operations
+
+**As a** community maintainer,
+**I want** a separate Community Operations app for hosted apps, previews,
+workflows, runners, and agent sandboxes,
+**So that** project capability work can stay close to signed collaboration
+history without mutating the hosting control plane.
+
+Acceptance criteria:
+
+- Community Operations exports a deployable app descriptor that Platform Web can
+  register without importing the implementation package.
+- Community Operations projects hosted apps, workflow runs, agent sandboxes,
+  runner capacity, and signed activity from Platform SDK/Core state.
+- GitHub Actions workflow definitions are represented as imported source
+  metadata, not as the execution authority.
+- The browser-rendered shell exposes app status, workflow status, sandbox
+  provenance, runner status, and promote/rollback actions.
+
 ## Tooling Stories
 
 ### TOOL-007: Use The Epoch Community App
