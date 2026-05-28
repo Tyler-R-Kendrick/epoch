@@ -1,6 +1,7 @@
 Feature: Epoch platform project separation
   Epoch Platform Web and Epoch Community Web are separate products with separate responsibilities.
 
+  @persona.github_open_source_contributor
   Scenario: Web manages Community as a deployable Epoch app
     Given the Epoch Community API has a repository named "epoch/epoch"
     And the Epoch Community Web app definition
@@ -9,17 +10,20 @@ Feature: Epoch platform project separation
     And Epoch Platform Web does not expose GitHub-style community workflows
     And Epoch Community Web exposes GitHub-style community workflows from Core
 
+  @persona.github_open_source_contributor
   Scenario: Community owns repository collaboration workflows
     Given a Community repository named "epoch/epoch"
     When a contributor uses Epoch Community Core to open an issue and propose a change
     Then the Community project tracks the issue and proposal
     And the Community project can record a maintainer review
 
+  @persona.github_open_source_contributor
   Scenario: Community CLI uses the Core API client
     Given the Epoch Community API has a repository named "epoch/epoch"
     When I run the Epoch Community CLI to list repositories
     Then the Epoch Community CLI output contains "epoch/epoch"
 
+  @persona.github_open_source_contributor
   Scenario: Community Web renders repository workflows in a browser
     Given the Epoch Community API has a repository named "epoch/epoch"
     When I open Epoch Community Web in a Playwright browser
@@ -28,6 +32,7 @@ Feature: Epoch platform project separation
     And the Community browser exposes workflow "Change Reviews"
     And the Community browser exposes the Epoch Community design system
 
+  @persona.github_open_source_contributor
   Scenario: Community Web dogfoods Epoch for site changes
     Given the Epoch Community API has a repository named "epoch/epoch"
     And the Epoch Community Web app definition
@@ -36,14 +41,3 @@ Feature: Epoch platform project separation
     And the Community site history includes view "site/community-web-dogfood"
     And the Community site history includes event type "rollback"
     And the Community site materialized version includes file "community/index.html"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_projects.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_projects.feature | A GitHub open-source contributor | Preserving Agency And Portability | portability | use a separate Community app for repository workflows while Platform Web hosts and deploys it |

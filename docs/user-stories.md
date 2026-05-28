@@ -121,8 +121,9 @@ Acceptance criteria:
 
 - Community human-centered design documents the default persona as a GitHub
   open-source contributor.
-- Community feature work adds or updates persona-driven scenarios under
-  `features/` before implementation.
+- Community feature work adds or updates persona-driven scenarios in the
+  relevant product feature specs under `features/` before implementation.
+- Personas are scenario context, not standalone features.
 - Scenarios name the contributor journey, pain point, trust question,
   degraded-state behavior, and validation evidence.
 - Scenarios name the design-thinking stage and user-centric success criteria.

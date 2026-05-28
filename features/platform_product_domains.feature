@@ -12,6 +12,7 @@ Feature: Epoch.Platform product domains
     And I create deployable "api-web" from repository "api" for project "platform"
     And I register runner "local-runner" with capacity 2
 
+  @persona.maintainer
   Scenario: Environment approvals are governed by RBAC
     Given I create platform user "alice"
     And I create platform user "bob"
@@ -26,6 +27,7 @@ Feature: Epoch.Platform product domains
     Then the deploy plan approval is recorded for "bob"
     And the latest audit event is "deployment.plan.approved"
 
+  @persona.maintainer
   Scenario: Issues, intents, checks, and reviews form a forge workflow
     Given I create issue "Ship API" in project "platform"
     When I create review intent "Add API endpoint" for repository "api" linked to issue "Ship API"
@@ -39,6 +41,7 @@ Feature: Epoch.Platform product domains
     And issue "Ship API" is linked to the review intent
     And the latest audit event is "review_intent.merged"
 
+  @persona.maintainer
   Scenario: Packages, search, and observability connect platform surfaces
     Given I generate a deploy plan for deployable "api-web" to environment "production"
     And I approve the deploy plan as "ops-lead"
@@ -53,6 +56,7 @@ Feature: Epoch.Platform product domains
     Then observability runner count is 1
     And observability latest deployment state is "succeeded"
 
+  @persona.maintainer
   Scenario: Community profiles, follows, stars, discussions, reports, and feeds work together
     Given I enable Community through the platform SDK
     And I publish project "platform" to Community as "epoch-platform"
@@ -70,6 +74,7 @@ Feature: Epoch.Platform product domains
     Then the Community moderation queue is empty
     And the latest audit event is "community.report.resolved"
 
+  @persona.maintainer
   Scenario: Platform snapshots restore core and community state
     Given I enable Community through the platform SDK
     And I publish project "platform" to Community as "epoch-platform"
@@ -83,14 +88,3 @@ Feature: Epoch.Platform product domains
     And the project "platform" overview lists repository "api"
     And the Community project public slug is "epoch-platform"
     And the latest deployment state is "succeeded"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_product_domains.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_product_domains.feature | A maintainer | Reducing Maintainer And Contributor Burnout | moderation | govern environments, issues, review intents, packages, search, observability, profiles, reports, and snapshots |

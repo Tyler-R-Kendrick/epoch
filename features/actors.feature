@@ -1,6 +1,7 @@
 Feature: XState actor-driven Epoch repository
   Epoch coordinates repository work through asynchronous XState actors.
 
+  @persona.github_open_source_contributor
   Scenario: Asynchronous actor repository records and verifies a file
     Given a new workspace
     When I start an Epoch actor repository as "alice"
@@ -9,6 +10,7 @@ Feature: XState actor-driven Epoch repository
     And the actor event log contains 1 event
     And the actor events include authors "alice"
 
+  @persona.github_open_source_contributor
   Scenario: Concurrent actor users append independent events
     Given a new workspace
     When I start an Epoch actor repository as "alice"
@@ -21,6 +23,7 @@ Feature: XState actor-driven Epoch repository
     And the actor events include authors "alice,bob"
     And actor event authors have distinct signing keys
 
+  @persona.github_open_source_contributor
   Scenario: Actor event sync converges with a peer asynchronously
     Given a new workspace
     When I start an Epoch actor repository as "alice"
@@ -31,6 +34,7 @@ Feature: XState actor-driven Epoch repository
     And the peer repository verifies successfully
     And the peer event log contains 1 event
 
+  @persona.github_open_source_contributor
   Scenario: Actor upgrades an existing repository without user identity storage
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -42,14 +46,3 @@ Feature: XState actor-driven Epoch repository
     Then the actor repository verifies successfully
     And the actor event log contains 1 event
     And the actor events include authors "bob"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for actors.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/actors.feature | A GitHub open-source contributor | Trusting Current State | identity | contribute through asynchronous actor workflows while preserving authorship |

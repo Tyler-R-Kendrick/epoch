@@ -29,8 +29,10 @@ These instructions apply to the entire repository.
 
 - Design the Epoch Community site with design thinking, user-centric design, and human-centered design as the driving methodologies. Follow [`docs/community-human-centered-design.md`](docs/community-human-centered-design.md) and [`docs/design-decisions/0012-community-human-centered-design.md`](docs/design-decisions/0012-community-human-centered-design.md).
 - Use the default Community persona, a GitHub open-source contributor, unless a different persona is explicitly documented.
-- Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update persona-driven feature scenarios under `features/` and name the contributor journey, design-thinking stage, user-centric success criteria, pain point, trust question, security/privacy/cost/accessibility/moderation/portability considerations, degraded-state behavior, and validation evidence.
-- Keep [`docs/persona-feature-matrix.md`](docs/persona-feature-matrix.md) and [`docs/persona-e2e-journeys.md`](docs/persona-e2e-journeys.md) aligned with every executable `features/*.feature` spec. New feature specs are incomplete until they appear in the feature registry, persona matrix, and persona end-to-end journey registry.
+- Personas are users in real product scenarios, not features. Do not create `persona_*`, `*_persona_*`, `*_e2e_journeys`, human-centered-design, or similar persona/governance feature files.
+- Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update the relevant product feature scenarios under `features/` and use persona tags such as `@persona.github_open_source_contributor`, `@persona.maintainer`, `@persona.platform_operator`, or `@persona.security_compliance_responder` on those real behavior scenarios.
+- Do not add scenario outlines whose only purpose is proving a matrix row exists. Scenario outlines must exercise product behavior for a persona.
+- Keep [`docs/persona-feature-matrix.md`](docs/persona-feature-matrix.md) aligned with every executable product `features/*.feature` spec. New feature specs are incomplete until they appear in the feature registry and persona matrix.
 - Treat recent GitHub availability, security, free-vs-paid tier, and Copilot billing changes as research signals to re-verify before making product claims.
 
 ## Repository practices

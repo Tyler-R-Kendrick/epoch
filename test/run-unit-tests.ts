@@ -9,6 +9,7 @@ import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.te
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
+import { runPersonaFeatureModelTests } from "./unit/persona-feature-model.test";
 import { runSampleHelloWorldCliTests } from "./unit/sample-hello-world-cli.test";
 import { runSampleSelfEvolvingCanvasTests } from "./unit/sample-self-evolving-canvas.test";
 import { runSampleSelfEvolvingDashboardTests } from "./unit/sample-self-evolving-dashboard.test";
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   await runCommunityWebVercelTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();
+  runPersonaFeatureModelTests();
   runWasmReactStoreTests();
   runSampleHelloWorldCliTests();
   runSampleSelfEvolvingCanvasTests();

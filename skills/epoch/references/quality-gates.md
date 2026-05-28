@@ -18,13 +18,14 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 | `npm run verify` | Before review | Docs check, lint, typecheck, tests, and coverage in sequence. |
 
 Community package and experience changes must keep the Community validation
-layers healthy: design-thinking and user-centric persona-driven Gherkin
+layers healthy: design-thinking and user-centric persona-tagged product
 scenarios, browser scenarios driven by Playwright, Pact contract tests for
 Core/API HTTP boundaries, focused unit coverage, and c8 coverage output that
 includes Community API, Core, CLI, and Web packages. Community work should
 update persona scenarios before implementation, normally starting from the
-GitHub open-source contributor persona in
-`features/community_persona_driven_design.feature`.
+GitHub open-source contributor persona in the affected product feature spec.
+The persona feature-model unit test rejects persona-only feature files and
+matrix-only persona scenarios.
 
 ## Documentation expectations
 

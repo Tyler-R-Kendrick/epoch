@@ -10,6 +10,7 @@ Feature: Epoch.Platform operations
     And I create protected environment "production" in project "platform"
     And I create deployable "api-web" from repository "api" for project "platform"
 
+  @persona.platform_operator
   Scenario: First-run readiness requires infrastructure, backups, and a deployment
     When I inspect platform first-run readiness
     Then first-run readiness is not production ready
@@ -24,6 +25,7 @@ Feature: Epoch.Platform operations
     And I inspect platform first-run readiness
     Then first-run readiness is production ready
 
+  @persona.platform_operator
   Scenario: Deploy plans include secrets and impact summary without exposing plaintext
     Given I register runner "local-runner" with capacity 2
     And I add secret reference "DATABASE_URL" with value "postgres://secret" to environment "production"
@@ -33,6 +35,7 @@ Feature: Epoch.Platform operations
     And the deploy plan impact summary contains "1 deployable"
     And the deploy plan rollback strategy is "previous-successful-deployment"
 
+  @persona.platform_operator
   Scenario: Deploy execution creates runner job, logs, health state, and audit trail
     Given I register runner "local-runner" with capacity 2
     And I generate a deploy plan for deployable "api-web" to environment "production"
@@ -44,6 +47,7 @@ Feature: Epoch.Platform operations
     And the latest deployment logs contain "Deploy api-web to production"
     And the latest audit event is "deployment.executed"
 
+  @persona.platform_operator
   Scenario: Incident diagnosis and rollback preserve operator context
     Given I register runner "local-runner" with capacity 2
     And I generate a deploy plan for deployable "api-web" to environment "production"
@@ -60,6 +64,7 @@ Feature: Epoch.Platform operations
     Then the latest deployment state is "rolled_back"
     And the latest audit event is "deployment.rolled_back"
 
+  @persona.platform_operator
   Scenario: AI action plans are scoped, auditable, and approval gated
     Given I register runner "local-runner" with capacity 2
     When I ask AI to "rollback production" for project "platform"
@@ -72,6 +77,7 @@ Feature: Epoch.Platform operations
     And I execute the AI plan
     Then the latest audit event is "ai.plan.executed"
 
+  @persona.platform_operator
   Scenario: Community publication includes moderation before public visibility
     When I enable Community through the platform SDK
     And I publish project "platform" to Community as "epoch-platform"
@@ -80,14 +86,3 @@ Feature: Epoch.Platform operations
     When I approve the Community project as moderator "mod"
     Then the Community project moderation state is "approved"
     And the latest audit event is "community.project.approved"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for platform_operations.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/platform_operations.feature | A platform operator | Avoiding Surprise Cost | auditability | move from first-run readiness through deploy, incident, AI action, rollback, and Community publication |

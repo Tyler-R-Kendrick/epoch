@@ -1,6 +1,7 @@
 Feature: Advanced Epoch collaboration and repository infrastructure
   Epoch supports signed collaboration objects, gate policy, transports, operation events, media-aware merges, redactions, reusable conflict resolutions, and pluggable serialization.
 
+  @persona.github_open_source_contributor
   Scenario: Signed issues, reviews, CI, and gate policy project deterministic collaboration state
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -11,6 +12,7 @@ Feature: Advanced Epoch collaboration and repository infrastructure
     Then the collaboration projection contains issue "Track gate pipeline"
     And the gate status for the intent requiring review "approved" and CI "unit" passes
 
+  @persona.github_open_source_contributor
   Scenario: Repositories synchronize through an explicit memory transport
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -20,6 +22,7 @@ Feature: Advanced Epoch collaboration and repository infrastructure
     Then the peer repository verifies successfully
     And the peer recorded blob content equals "hello\n"
 
+  @persona.github_open_source_contributor
   Scenario: Reusable conflict resolutions are signed and exact-match only
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -34,6 +37,7 @@ Feature: Advanced Epoch collaboration and repository infrastructure
       {"flag":3}
       """
 
+  @persona.github_open_source_contributor
   Scenario: CLI records and reuses exact-match conflict resolutions
     Given a new workspace
     When I run the Epoch CLI with arguments:
@@ -67,12 +71,14 @@ Feature: Advanced Epoch collaboration and repository infrastructure
       | right.json       |
     Then the CLI output contains "\"flag\": 3"
 
+  @persona.github_open_source_contributor
   Scenario: Operation events explain repository command history
     Given a new workspace
     And I initialize an Epoch repository as "alice"
     When I append an operation event for command "checkout review" with status "succeeded"
     Then the operation event log contains command "checkout review" with status "succeeded"
 
+  @persona.github_open_source_contributor
   Scenario: Media-aware entity adapters merge tabular CSV by row identity
     Given the default CRDT registry
     When I merge text/csv values:
@@ -80,6 +86,7 @@ Feature: Advanced Epoch collaboration and repository infrastructure
       | id,name\n1,Alice\n   | id,name\n1,Alice\n2,Bob\n   | id,name\n1,Alice\n3,Carol\n |
     Then the merged text equals "id,name\n1,Alice\n2,Bob\n3,Carol\n"
 
+  @persona.github_open_source_contributor
   Scenario: Redaction events allow local secret cleanup without losing audit evidence
     Given a new workspace
     And I initialize an Epoch repository as "alice"
@@ -89,6 +96,7 @@ Feature: Advanced Epoch collaboration and repository infrastructure
     Then the repository verifies successfully
     And the redaction projection contains reason "secret committed"
 
+  @persona.github_open_source_contributor
   Scenario: Event serialization can be substituted by repository providers
     Given a new workspace
     When I initialize an Epoch repository with custom "toon" serialization as "alice"
@@ -96,6 +104,7 @@ Feature: Advanced Epoch collaboration and repository infrastructure
     Then the repository verifies successfully
     And serialized event files use extension ".toon"
 
+  @persona.github_open_source_contributor
   Scenario: CLI exposes collaboration, gate, operation, and redaction workflows
     Given a new workspace
     When I run the Epoch CLI with arguments:
@@ -147,14 +156,3 @@ Feature: Advanced Epoch collaboration and repository infrastructure
       | redact-plan       |
       | __LAST_BLOB_HASH__ |
     Then the CLI output contains "affectedEvents"
-  Rule: Persona-driven feature acceptance
-    Scenario Outline: Persona context for advanced_collaboration.feature
-      Given the Community human-centered design guidance is available
-      When an agent audits the executable feature spec "<feature spec>"
-      Then the persona feature matrix maps "<feature spec>" to persona "<persona>"
-      And the persona feature matrix captures pain point "<pain point>"
-      And the persona feature matrix captures human consideration "<human consideration>"
-
-      Examples:
-        | feature spec   | persona   | pain point   | human consideration   | journey   |
-        | features/advanced_collaboration.feature | A GitHub open-source contributor | Protecting Contributor Security | privacy | collaborate with signed objects, gates, redactions, adapters, and reusable conflict resolutions |
