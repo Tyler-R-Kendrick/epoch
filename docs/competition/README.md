@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-28
+last_researched: 2026-05-29
 ---
 
 # Competition Research
@@ -81,6 +81,9 @@ gossip-path: <product-path>/gossip.md
 | GitHub Copilot Coding Agent | GitHub-native delegated coding agent that turns issues and chat tasks into pull requests | [Profile](products/github-copilot-coding-agent/profile.md) | [Design](products/github-copilot-coding-agent/design/design.md) | [Feature](products/github-copilot-coding-agent/features/delegated-issue-to-pull-request.feature) | [Marketing](products/github-copilot-coding-agent/marketing.md) | [Gossip](products/github-copilot-coding-agent/gossip.md) |
 | Devin | Autonomous software engineer with hosted dev environments, GitHub collaboration, review, and event-driven automations | [Profile](products/devin/profile.md) | [Design](products/devin/design/design.md) | [Feature](products/devin/features/autonomous-engineering-session.feature) | [Marketing](products/devin/marketing.md) | [Gossip](products/devin/gossip.md) |
 | Claude Code | Terminal, IDE, desktop, and GitHub Actions coding agent for repo-local autonomous development | [Profile](products/claude-code/profile.md) | [Design](products/claude-code/design/design.md) | [Feature](products/claude-code/features/repo-local-agent-session.feature) | [Marketing](products/claude-code/marketing.md) | [Gossip](products/claude-code/gossip.md) |
+| OpenAI Codex | Multi-surface coding agent with app, CLI, IDE, cloud tasks, GitHub review, skills, and token-metered usage | [Profile](products/openai-codex/profile.md) | [Design](products/openai-codex/design/design.md) | [Feature](products/openai-codex/features/multi-agent-codex-session.feature) | [Marketing](products/openai-codex/marketing.md) | [Gossip](products/openai-codex/gossip.md) |
+| Google Jules | Asynchronous GitHub coding agent that clones repos into Cloud VMs, plans work, edits code, and publishes branches | [Profile](products/google-jules/profile.md) | [Design](products/google-jules/design/design.md) | [Feature](products/google-jules/features/asynchronous-github-agent.feature) | [Marketing](products/google-jules/marketing.md) | [Gossip](products/google-jules/gossip.md) |
+| Factory Droid | Enterprise agent-native software development platform with CLI, app, SDK, CI automation, Droid Computers, readiness, and governance | [Profile](products/factory-droid/profile.md) | [Design](products/factory-droid/design/design.md) | [Feature](products/factory-droid/features/governed-droid-development.feature) | [Marketing](products/factory-droid/marketing.md) | [Gossip](products/factory-droid/gossip.md) |
 
 ## Research Dimensions
 
