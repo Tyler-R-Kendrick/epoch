@@ -179,9 +179,9 @@ Then("the Community browser shows repository {string}", async function (slug: st
   await assertVisibleText(platformState.page, slug);
 });
 
-Then("the Community browser exposes workflow {string}", async function (workflow: string) {
+Then("the Community browser exposes channel {string}", async function (channel: string) {
   assert.ok(platformState.page);
-  await assertVisibleText(platformState.page, workflow);
+  await assertVisibleText(platformState.page, channel);
 });
 
 Then("the Community browser exposes the Epoch Community design system", async function () {
@@ -198,14 +198,8 @@ Then("the Community browser exposes the Epoch Community design system", async fu
   );
   assert.equal(surfaceToken, "#eef3f1");
 
-  const repositoryCard = platformState.page.locator(".repo-card").first();
-  const repositoryCardBox = await repositoryCard.boundingBox();
-  assert.ok(repositoryCardBox);
-  assert.ok(repositoryCardBox.width >= 280);
-
-  const navText = await platformState.page.locator("nav[aria-label=\"Community workflows\"]").innerText();
-  assert.match(navText, /Repositories/u);
-  assert.match(navText, /Change Reviews/u);
+  assert.equal(await platformState.page.locator("[data-community-channel-rail]").count(), 1);
+  assert.equal(await platformState.page.locator("[data-message-feed]").count(), 1);
 });
 
 When("I materialize Epoch Community Web through an Epoch site repository", function () {
@@ -239,5 +233,5 @@ Then("the Community site materialized version includes file {string}", function 
 
 async function assertVisibleText(page: Page, expected: string): Promise<void> {
   const text = await page.locator("body").innerText();
-  assert.match(text, new RegExp(expected.replace("/", "\\/"), "u"));
+  assert.match(text, new RegExp(expected.replace("/", "\\/"), "iu"));
 }

@@ -31,8 +31,8 @@ let agentSandboxState: CommunityAgentSandboxWorld = {
 
 After(async function () {
   await Promise.allSettled([
-    agentSandboxState.page?.close(),
-    agentSandboxState.browser?.close(),
+    closeWithTimeout(agentSandboxState.page?.close(), "agent sandbox page close"),
+    closeWithTimeout(agentSandboxState.browser?.close(), "agent sandbox browser close"),
   ]);
   agentSandboxState = {
     sandboxRuns: [],
@@ -377,4 +377,20 @@ function commaSeparated(value: string): string[] {
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+async function closeWithTimeout(task: Promise<unknown> | undefined, label: string): Promise<void> {
+  if (task === undefined) {
+    return;
+  }
+
+  await Promise.race([
+    task.then(() => undefined),
+    new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.warn(`${label} timed out; continuing cleanup`);
+        resolve();
+      }, 5_000);
+    }),
+  ]);
 }

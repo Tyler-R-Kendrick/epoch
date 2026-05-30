@@ -52,12 +52,14 @@ export interface CommunityWebAppDefinition {
   readonly workflows: readonly CommunityWorkflow[];
   readonly repositories: readonly CommunityRepository[];
   readonly deploymentTarget: CommunityDeploymentTarget;
+  readonly apiBaseUrl?: string;
   readonly siteHistory?: CommunitySiteEpochHistory;
 }
 
 export interface CreateCommunityWebAppOptions {
   readonly client: CommunityClient;
   readonly basePath?: string;
+  readonly apiBaseUrl?: string;
   readonly version?: string;
   readonly image?: string;
 }
@@ -140,6 +142,7 @@ export async function createCommunityWebApp(
       version: options.version,
       image: options.image,
     }),
+    apiBaseUrl: options.apiBaseUrl,
   };
 }
 
@@ -172,6 +175,7 @@ export function createCommunityDeploymentTarget(options: {
 }
 
 export function renderCommunityWebDocument(app: CommunityWebAppDefinition): string {
+  const conversations = communityConversations(app);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -185,45 +189,56 @@ ${communityStyles()}
 </head>
 <body>
   <a class="skip-link" href="#community-content">Skip to content</a>
-  <main id="epoch-community" data-design-system="epoch-community">
-    <header class="hero-shell" aria-label="Epoch Community overview">
-      <nav class="topbar" aria-label="Primary">
-        <a class="brand" href="${escapeHtml(app.pwa.startUrl)}" translate="no">
-          <span class="brand-mark" aria-hidden="true">EC</span>
-          <span>${escapeHtml(app.pwa.name)}</span>
-        </a>
-        <a class="topbar-link" href="${escapeHtml(routeFor(app, "release-discovery"))}">Latest Releases</a>
+  <main id="epoch-community" data-design-system="epoch-community" data-community-web-shell data-api-state="${app.apiBaseUrl === undefined ? "offline" : "connected"}">
+    <aside class="channel-rail" data-community-channel-rail aria-label="Community channels">
+      <a class="brand" href="${escapeHtml(app.pwa.startUrl)}" translate="no" aria-label="${escapeHtml(app.pwa.name)}">
+        <span class="brand-mark" aria-hidden="true">EC</span>
+      </a>
+      <nav class="channel-list" aria-label="Channels">
+        ${communityChannels.map((channel) => renderChannelButton(channel, conversations)).join("")}
       </nav>
-      <div class="hero-grid">
-        <section class="hero-copy">
-          <p class="eyebrow">Signed collaboration for repository history</p>
-          <h1>${escapeHtml(app.pwa.name)}</h1>
-          <p class="lede">A focused community surface for browsing Epoch repositories, reviewing signed intents, following releases, and understanding who maintains the work.</p>
-          <div class="hero-actions" aria-label="Primary community actions">
-            <a class="button button-primary" href="#repositories">Browse Repositories</a>
-            <a class="button button-secondary" href="${escapeHtml(routeFor(app, "change-review"))}">Review Changes</a>
-          </div>
-        </section>
-        <aside class="history-panel" aria-label="Signed history preview">
-          ${renderHistoryGraph(app)}
-        </aside>
+      <div class="rail-status" aria-live="polite">
+        <span class="status-dot ${app.apiBaseUrl === undefined ? "status-dot-muted" : ""}" aria-hidden="true"></span>
+        <span>${app.apiBaseUrl === undefined ? "Snapshot" : "Live"}</span>
       </div>
-    </header>
-    <nav class="workflow-rail" aria-label="Community workflows">
-      ${app.workflows.map((workflow) => renderWorkflowLink(app, workflow)).join("")}
-    </nav>
-    <section id="community-content" class="content-shell" aria-labelledby="repositories-title">
-      <div class="section-heading">
-        <p class="eyebrow">Public workspace</p>
-        <h2 id="repositories-title">Repositories</h2>
-        <p>Repository cards foreground maintainers, workflow counts, topics, and the next useful action.</p>
+    </aside>
+    <section id="community-content" class="feed-shell" aria-labelledby="community-title">
+      <header class="feed-header">
+        <div>
+          <p class="feed-kicker">epoch/epoch</p>
+          <h1 id="community-title">${escapeHtml(app.pwa.name)}</h1>
+        </div>
+        <div class="repository-strip" aria-label="Repository state">
+          ${renderRepositoryPills(app)}
+        </div>
+      </header>
+      ${app.apiBaseUrl === undefined ? `<p class="api-banner" data-api-unconfigured>API not connected. Showing the signed snapshot included with this build.</p>` : ""}
+      <div class="feed-toolbar" aria-label="Current channel">
+        <span class="channel-name" data-current-channel># ideas</span>
+        <span class="channel-topic" data-current-topic>Shape product ideas into signed intents, previews, and reviewable patches.</span>
       </div>
-      <div id="repositories" class="repo-grid">
-        ${app.repositories.length === 0 ? renderEmptyRepositories() : app.repositories.map((repository) => renderRepository(app, repository)).join("")}
-      </div>
+      <ol class="message-feed" data-message-feed aria-label="Community feed">
+        ${conversations.map(renderConversation).join("")}
+      </ol>
+      <form class="composer" data-comment-composer aria-label="Write a community message">
+        <label class="composer-label" for="community-message">Message #ideas</label>
+        <textarea id="community-message" name="message" rows="3" placeholder="Share a question, idea, review note, or preview result"></textarea>
+        <div class="composer-row">
+          <span data-composer-meta>Signed as @maya · visible to community</span>
+          <button type="submit">Send</button>
+        </div>
+      </form>
     </section>
     ${app.siteHistory === undefined ? "" : renderSiteHistory(app.siteHistory)}
   </main>
+  <script type="application/json" id="epoch-community-state">${escapeScriptJson(JSON.stringify({
+    apiBaseUrl: app.apiBaseUrl,
+    repositories: app.repositories,
+    conversations,
+  }))}</script>
+  <script>
+${communityRuntime()}
+  </script>
 </body>
 </html>`;
 }
@@ -343,104 +358,238 @@ function normalizedBasePath(path: string): string {
   return prefixed.endsWith("/") && prefixed.length > 1 ? prefixed.slice(0, -1) : prefixed;
 }
 
-function renderWorkflowLink(app: CommunityWebAppDefinition, workflow: CommunityWorkflow): string {
-  return `<a class="workflow-link" href="${escapeHtml(routeFor(app, workflow.id))}">
-    <span class="workflow-label">${escapeHtml(workflow.label)}</span>
-    <span class="workflow-purpose">${escapeHtml(workflow.purpose)}</span>
-  </a>`;
+type CommunityChannelId = "support" | "ideas" | "bugs" | "agent-runs" | "previews" | "governance";
+
+interface CommunityChannel {
+  readonly id: CommunityChannelId;
+  readonly label: string;
+  readonly topic: string;
 }
 
-function renderRepository(app: CommunityWebAppDefinition, repository: CommunityRepository): string {
-  const repositoryRoute = `${routeFor(app, "repository-browsing")}?repo=${encodeURIComponent(repository.slug)}`;
-  const issueRoute = `${routeFor(app, "issue-tracking")}?repo=${encodeURIComponent(repository.slug)}`;
-  const changeRoute = `${routeFor(app, "change-review")}?repo=${encodeURIComponent(repository.slug)}`;
-
-  return `<article class="repo-card" data-repository="${escapeHtml(repository.slug)}">
-    <div class="repo-card-header">
-      <div>
-        <p class="repo-visibility">${escapeHtml(repository.visibility)}</p>
-        <h3>${escapeHtml(repository.slug)}</h3>
-      </div>
-      <a class="repo-open-link" href="${escapeHtml(repositoryRoute)}">Open</a>
-    </div>
-    <p>${escapeHtml(repository.description)}</p>
-    ${renderRepositoryTopics(repository)}
-    <dl class="repo-facts" aria-label="${escapeHtml(repository.slug)} activity">
-      <div>
-        <dt>Maintainers</dt>
-        <dd>${repository.maintainers.map(escapeHtml).join(", ")}</dd>
-      </div>
-      <div>
-        <dt>Issues</dt>
-        <dd>${repository.issues.length}</dd>
-      </div>
-      <div>
-        <dt>Change Proposals</dt>
-        <dd>${repository.changeProposals.length}</dd>
-      </div>
-    </dl>
-    <div class="repo-actions" aria-label="${escapeHtml(repository.slug)} actions">
-      <a href="${escapeHtml(issueRoute)}">View Issues</a>
-      <a href="${escapeHtml(changeRoute)}">Review Changes</a>
-    </div>
-  </article>`;
+interface CommunityConversationView {
+  readonly id: string;
+  readonly channel: CommunityChannelId;
+  readonly repositorySlug: string;
+  readonly author: string;
+  readonly role: string;
+  readonly title: string;
+  readonly body: string;
+  readonly time: string;
+  readonly anchor: string;
+  readonly signature: string;
+  readonly visibility: string;
+  readonly state: string;
+  readonly reactions: readonly string[];
+  readonly linkedArtifact?: string;
 }
 
-function renderRepositoryTopics(repository: CommunityRepository): string {
-  if (repository.topics.length === 0) {
-    return `<p class="topic-empty">Default view: ${escapeHtml(repository.defaultView)}</p>`;
+const communityChannels: readonly CommunityChannel[] = [
+  { id: "support", label: "support", topic: "Get unstuck, accept answers, and turn repeated help into docs patches." },
+  { id: "ideas", label: "ideas", topic: "Shape product ideas into signed intents, previews, and reviewable patches." },
+  { id: "bugs", label: "bugs", topic: "Reproduce defects and connect reports to patches without losing context." },
+  { id: "agent-runs", label: "agent-runs", topic: "Watch policy-bound agents propose work while humans keep merge authority." },
+  { id: "previews", label: "previews", topic: "Review deploy previews, visual results, and release readiness in one thread." },
+  { id: "governance", label: "governance", topic: "Handle moderation, legal hold, witnesses, and signed release trust." },
+];
+
+function communityConversations(app: CommunityWebAppDefinition): readonly CommunityConversationView[] {
+  const repository = app.repositories[0];
+  const slug = repository?.slug ?? "epoch/epoch";
+  const maintainer = repository?.maintainers[0] ?? "maya";
+  const issueConversations = app.repositories.flatMap((repo) =>
+    repo.issues.map((issue) => ({
+      id: `issue-${issue.id}`,
+      channel: issue.labels.includes("bug") ? "bugs" as const : "support" as const,
+      repositorySlug: repo.slug,
+      author: issue.author,
+      role: "contributor",
+      title: issue.title,
+      body: issue.body.length === 0 ? "Can someone help confirm the next step?" : issue.body,
+      time: "10:12",
+      anchor: `issue:${issue.id}`,
+      signature: `sig:${issue.id.toLowerCase()}`,
+      visibility: "community",
+      state: issue.status,
+      reactions: ["reply", "follow"],
+    })),
+  );
+  const proposalConversations = app.repositories.flatMap((repo) =>
+    repo.changeProposals.map((proposal) => ({
+      id: `change-${proposal.id}`,
+      channel: "previews" as const,
+      repositorySlug: repo.slug,
+      author: proposal.author,
+      role: "contributor",
+      title: proposal.title,
+      body: proposal.body.length === 0 ? `${proposal.sourceView} -> ${proposal.targetView}` : proposal.body,
+      time: "10:28",
+      anchor: `change:${proposal.id}`,
+      signature: `sig:${proposal.id.toLowerCase()}`,
+      visibility: "community",
+      state: proposal.status,
+      reactions: ["review", "preview"],
+      linkedArtifact: proposal.sourceView,
+    })),
+  );
+
+  return [
+    ...issueConversations,
+    ...proposalConversations,
+    {
+      id: "idea-region-revenue",
+      channel: "ideas",
+      repositorySlug: slug,
+      author: "nora",
+      role: "contributor",
+      title: "Dashboard widget should group revenue by region",
+      body: "The current widget answers total revenue, but support threads keep asking which region changed. Could this become a small widget setting instead of a separate report?",
+      time: "09:41",
+      anchor: "app://dashboard/widgets/revenue",
+      signature: "sig:8f2a-region",
+      visibility: "community",
+      state: "discussion",
+      reactions: ["7 useful", "3 follow"],
+    },
+    {
+      id: "support-install-cache",
+      channel: "support",
+      repositorySlug: slug,
+      author: "liam",
+      role: "newcomer",
+      title: "Install cache fails after switching views",
+      body: "I can reproduce this after resuming a stale sandbox. The accepted answer should probably become a troubleshooting note.",
+      time: "09:58",
+      anchor: "docs://support/install-cache",
+      signature: "sig:42ab-cache",
+      visibility: "community",
+      state: "answerable",
+      reactions: ["4 same issue"],
+    },
+    {
+      id: "agent-preview-copy",
+      channel: "agent-runs",
+      repositorySlug: slug,
+      author: "agent-ui-reviewer",
+      role: "agent",
+      title: "Agent drafted copy cleanup for preview card",
+      body: "Policy allows copy and test updates only. Human review is still required before merge.",
+      time: "10:03",
+      anchor: "agent-run://ui-reviewer/173",
+      signature: "sig:agent-173",
+      visibility: "maintainers",
+      state: "needs review",
+      reactions: ["tests passed"],
+      linkedArtifact: "preview-173",
+    },
+    {
+      id: "preview-region-widget",
+      channel: "previews",
+      repositorySlug: slug,
+      author: maintainer,
+      role: "maintainer",
+      title: "Preview is ready for the region widget",
+      body: "The preview renders the chart setting and keeps the old total view as default. Please test keyboard navigation before approval.",
+      time: "10:19",
+      anchor: "preview://region-widget",
+      signature: "sig:preview-91c",
+      visibility: "community",
+      state: "review",
+      reactions: ["open preview", "a11y"],
+      linkedArtifact: "deploy-preview-91c",
+    },
+    {
+      id: "governance-release-witnesses",
+      channel: "governance",
+      repositorySlug: slug,
+      author: "samira",
+      role: "security",
+      title: "Release needs two witness signatures",
+      body: "The release is blocked until the maintainer signature and CI witness agree on the exported artifact hash.",
+      time: "10:31",
+      anchor: "release://0.1.0",
+      signature: "sig:release-witness",
+      visibility: "maintainers",
+      state: "blocked",
+      reactions: ["legal hold available"],
+    },
+  ];
+}
+
+function renderChannelButton(
+  channel: CommunityChannel,
+  conversations: readonly CommunityConversationView[],
+): string {
+  const count = conversations.filter((conversation) => conversation.channel === channel.id).length;
+  const selected = channel.id === "ideas";
+  return `<button class="channel-button" type="button" data-channel="${channel.id}" data-topic="${escapeHtml(channel.topic)}" aria-pressed="${selected ? "true" : "false"}">
+    <span># ${escapeHtml(channel.label)}</span>
+    <span class="channel-count">${count}</span>
+  </button>`;
+}
+
+function renderRepositoryPills(app: CommunityWebAppDefinition): string {
+  const repository = app.repositories[0];
+  if (repository === undefined) {
+    return `<span>No repository</span>`;
   }
 
-  return `<ul class="topic-list" aria-label="${escapeHtml(repository.slug)} topics">
-    ${repository.topics.map((topic) => `<li>${escapeHtml(topic)}</li>`).join("")}
-  </ul>`;
+  return [
+    repository.visibility,
+    `${repository.maintainers.length} maintainer${repository.maintainers.length === 1 ? "" : "s"}`,
+    `${repository.issues.length} issues`,
+    `${repository.changeProposals.length} changes`,
+  ].map((label) => `<span>${escapeHtml(label)}</span>`).join("");
 }
 
-function renderEmptyRepositories(): string {
-  return `<article class="repo-card empty-state">
-    <p class="repo-visibility">Empty State</p>
-    <h3>No repositories yet</h3>
-    <p>Connect a Community API source to show repository browsing, issues, change reviews, discussions, and releases here.</p>
-  </article>`;
+function renderConversation(conversation: CommunityConversationView): string {
+  const hidden = conversation.channel === "ideas" ? "" : " hidden";
+  return `<li class="feed-message" data-message data-channel="${conversation.channel}" data-message-id="${escapeHtml(conversation.id)}"${hidden}>
+    <button class="message-hitbox" type="button" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}"></button>
+    <div class="avatar" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
+    <article class="message-body">
+      <header class="message-meta">
+        <strong>${escapeHtml(conversation.author)}</strong>
+        <span>${escapeHtml(conversation.role)}</span>
+        <time>${escapeHtml(conversation.time)}</time>
+        <span data-message-state>${escapeHtml(conversation.state)}</span>
+      </header>
+      <h2>${escapeHtml(conversation.title)}</h2>
+      <p>${escapeHtml(conversation.body)}</p>
+      <footer class="message-footer">
+        <span>${escapeHtml(conversation.anchor)}</span>
+        <span>${escapeHtml(conversation.signature)}</span>
+        <span>${escapeHtml(conversation.visibility)}</span>
+      </footer>
+      <div class="reaction-row" aria-label="Reactions">
+        ${conversation.reactions.map((reaction) => `<span>${escapeHtml(reaction)}</span>`).join("")}
+      </div>
+      <div class="message-action-tray" data-message-actions hidden>
+        <dl>
+          <div><dt>Anchor</dt><dd>${escapeHtml(conversation.anchor)}</dd></div>
+          <div><dt>Signature</dt><dd>${escapeHtml(conversation.signature)}</dd></div>
+          <div><dt>Artifact</dt><dd>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug)}</dd></div>
+        </dl>
+        <div class="action-row">
+          <button type="button" data-action="intent">Mark intent</button>
+          <button type="button" data-action="agent">Request agent</button>
+          <button type="button" data-action="answer">Accept answer</button>
+          <button type="button" data-action="docs">Docs patch</button>
+          <button type="button" data-action="report">Report</button>
+        </div>
+        <p class="action-status" data-action-status>Human review required for signed project changes.</p>
+      </div>
+    </article>
+  </li>`;
 }
 
-function renderHistoryGraph(app: CommunityWebAppDefinition): string {
-  const issueCount = app.repositories.reduce((count, repository) => count + repository.issues.length, 0);
-  const changeCount = app.repositories.reduce((count, repository) => count + repository.changeProposals.length, 0);
-  const discussionCount = app.repositories.reduce((count, repository) => count + repository.discussions.length, 0);
-
-  return `<div class="history-graph">
-    <svg role="img" aria-labelledby="history-graph-title history-graph-desc" width="420" height="250" viewBox="0 0 420 250">
-      <title id="history-graph-title">Signed event graph</title>
-      <desc id="history-graph-desc">A simplified graph of repository, issue, review, and release events converging into verified history.</desc>
-      <path class="graph-rail" d="M44 186 C104 112 164 216 220 134 S318 64 376 104" />
-      <path class="graph-rail graph-rail-muted" d="M42 78 C104 122 142 42 206 74 S302 168 376 134" />
-      <circle class="graph-node graph-node-accent" cx="44" cy="186" r="11" />
-      <circle class="graph-node" cx="118" cy="126" r="9" />
-      <circle class="graph-node graph-node-teal" cx="205" cy="74" r="12" />
-      <circle class="graph-node" cx="220" cy="134" r="9" />
-      <circle class="graph-node graph-node-gold" cx="304" cy="86" r="10" />
-      <circle class="graph-node" cx="376" cy="134" r="12" />
-    </svg>
-    <dl class="history-stats" aria-label="Community totals">
-      <div>
-        <dt>Repositories</dt>
-        <dd>${app.repositories.length}</dd>
-      </div>
-      <div>
-        <dt>Issues</dt>
-        <dd>${issueCount}</dd>
-      </div>
-      <div>
-        <dt>Reviews</dt>
-        <dd>${changeCount}</dd>
-      </div>
-      <div>
-        <dt>Discussions</dt>
-        <dd>${discussionCount}</dd>
-      </div>
-    </dl>
-  </div>`;
+function initials(value: string): string {
+  return value
+    .split(/[^a-zA-Z0-9]+/u)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2);
 }
 
 function renderSiteHistory(history: CommunitySiteEpochHistory): string {
@@ -578,10 +727,6 @@ function withPlannedRelease(
   };
 }
 
-function routeFor(app: CommunityWebAppDefinition, workflowId: CommunityWorkflowId): string {
-  return app.routes.find((route) => route.workflow === workflowId)?.path ?? app.pwa.startUrl;
-}
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -589,6 +734,134 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll("\"", "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function escapeScriptJson(value: string): string {
+  return value.replaceAll("<", "\\u003c").replaceAll(">", "\\u003e").replaceAll("&", "\\u0026");
+}
+
+function communityRuntime(): string {
+  return `    (() => {
+      const stateElement = document.getElementById("epoch-community-state");
+      const state = stateElement === null ? { conversations: [], repositories: [] } : JSON.parse(stateElement.textContent || "{}");
+      let activeChannel = "ideas";
+      let selectedMessage = null;
+
+      const feed = document.querySelector("[data-message-feed]");
+      const channelName = document.querySelector("[data-current-channel]");
+      const channelTopic = document.querySelector("[data-current-topic]");
+      const composer = document.querySelector("[data-comment-composer]");
+      const composerLabel = document.querySelector(".composer-label");
+
+      function messages() {
+        return Array.from(document.querySelectorAll("[data-message]"));
+      }
+
+      function selectChannel(button) {
+        activeChannel = button.dataset.channel || "ideas";
+        selectedMessage = null;
+        document.querySelectorAll("[data-channel][aria-pressed]").forEach((item) => {
+          item.setAttribute("aria-pressed", item === button ? "true" : "false");
+        });
+        if (channelName) channelName.textContent = "# " + activeChannel;
+        if (channelTopic) channelTopic.textContent = button.dataset.topic || "";
+        if (composerLabel) composerLabel.textContent = "Message #" + activeChannel;
+        messages().forEach((message) => {
+          message.hidden = message.dataset.channel !== activeChannel;
+          message.removeAttribute("data-selected-message");
+          const tray = message.querySelector("[data-message-actions]");
+          if (tray) tray.hidden = true;
+        });
+      }
+
+      function selectMessage(id) {
+        selectedMessage = id;
+        messages().forEach((message) => {
+          const selected = message.dataset.messageId === id;
+          if (selected) {
+            message.setAttribute("data-selected-message", "true");
+          } else {
+            message.removeAttribute("data-selected-message");
+          }
+          const tray = message.querySelector("[data-message-actions]");
+          if (tray) tray.hidden = !selected;
+        });
+      }
+
+      async function postIntent(message, status) {
+        const repository = state.repositories && state.repositories[0];
+        if (!state.apiBaseUrl || !repository) return false;
+        const title = message.querySelector("h2")?.textContent || "Community intent";
+        const body = message.querySelector("p")?.textContent || "";
+        const response = await fetch(state.apiBaseUrl.replace(/\\/$/, "") + "/repositories/" + encodeURIComponent(repository.slug) + "/changes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            title,
+            author: "maya",
+            body,
+            sourceView: "community/" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+            targetView: repository.defaultView || "main",
+          }),
+        });
+        status.textContent = response.ok ? "Intent candidate recorded from the live API." : "Intent request failed.";
+        return response.ok;
+      }
+
+      function appendComment(text) {
+        if (!feed || text.trim().length === 0) return;
+        const id = "comment-" + Date.now();
+        const item = document.createElement("li");
+        item.className = "feed-message";
+        item.dataset.message = "";
+        item.dataset.channel = activeChannel;
+        item.dataset.messageId = id;
+        item.innerHTML = '<div class="avatar" aria-hidden="true">MY</div><article class="message-body"><header class="message-meta"><strong>maya</strong><span>maintainer</span><time>now</time><span>signed</span></header><h2>New reply</h2><p></p><footer class="message-footer"><span>anchor:composer</span><span>sig:pending-local</span><span>community</span></footer></article>';
+        const body = item.querySelector("p");
+        if (body) body.textContent = text.trim();
+        feed.append(item);
+      }
+
+      document.querySelectorAll("[data-channel][aria-pressed]").forEach((button) => {
+        button.addEventListener("click", () => selectChannel(button));
+      });
+      document.querySelectorAll("[data-select-message]").forEach((button) => {
+        button.addEventListener("click", () => selectMessage(button.dataset.selectMessage));
+      });
+      feed?.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element) || target.closest("[data-action]")) return;
+        const message = target.closest("[data-message]");
+        if (message && message.dataset.messageId) selectMessage(message.dataset.messageId);
+      });
+      document.querySelectorAll("[data-action]").forEach((button) => {
+        button.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          const message = button.closest("[data-message]");
+          const status = message?.querySelector("[data-action-status]");
+          if (!message || !status) return;
+          const action = button.dataset.action;
+          if (action === "intent") {
+            status.textContent = "Recording intent candidate...";
+            await postIntent(message, status);
+          } else if (action === "agent") {
+            status.textContent = "Agent run requested. Human review remains required.";
+          } else if (action === "answer") {
+            status.textContent = "Accepted answer captured for this thread.";
+          } else if (action === "docs") {
+            status.textContent = "Docs patch candidate linked to this conversation.";
+          } else if (action === "report") {
+            status.textContent = "Moderation report opened with legal-hold evidence.";
+          }
+        });
+      });
+      composer?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = composer.querySelector("textarea");
+        appendComment(input?.value || "");
+        if (input) input.value = "";
+      });
+    })();`;
 }
 
 function communityStyles(): string {
@@ -678,11 +951,381 @@ function communityStyles(): string {
     #epoch-community {
       min-height: 100vh;
       overflow-x: hidden;
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      background: #f6f2ea;
     }
 
     #community-content,
     #repositories {
       scroll-margin-top: var(--epoch-space-5);
+    }
+
+    .channel-rail {
+      position: sticky;
+      inset-block-start: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 1rem;
+      height: 100vh;
+      padding: 1rem;
+      border-inline-end: 1px solid #24302b;
+      background: #17221f;
+      color: #f7efe2;
+    }
+
+    .channel-rail .brand {
+      display: inline-flex;
+      width: 2.75rem;
+      height: 2.75rem;
+      align-items: center;
+      justify-content: center;
+      color: #f7efe2;
+    }
+
+    .channel-list {
+      display: grid;
+      align-content: start;
+      gap: 0.35rem;
+      min-width: 0;
+      overflow-y: auto;
+    }
+
+    .channel-button {
+      display: flex;
+      width: 100%;
+      min-height: 2.75rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.55rem 0.65rem;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #c9d0ca;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 750;
+      letter-spacing: 0;
+      text-align: start;
+    }
+
+    .channel-button:hover,
+    .channel-button[aria-pressed="true"] {
+      background: #26362f;
+      color: #fff9ed;
+    }
+
+    .channel-count {
+      display: grid;
+      min-width: 1.55rem;
+      height: 1.55rem;
+      place-items: center;
+      border-radius: 999px;
+      background: #394d43;
+      color: #fff9ed;
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rail-status {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #bac6bd;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .status-dot {
+      width: 0.62rem;
+      height: 0.62rem;
+      border-radius: 999px;
+      background: #69d391;
+      box-shadow: 0 0 0 4px rgba(105, 211, 145, 0.15);
+    }
+
+    .status-dot-muted {
+      background: #d8b765;
+      box-shadow: 0 0 0 4px rgba(216, 183, 101, 0.18);
+    }
+
+    .feed-shell {
+      display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+      height: 100vh;
+      min-width: 0;
+      background: #f6f2ea;
+    }
+
+    .feed-header,
+    .feed-toolbar,
+    .composer {
+      border-block-end: 1px solid #ded5c5;
+      background: rgba(255, 251, 242, 0.92);
+    }
+
+    .feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-width: 0;
+      padding: 0.95rem 1.25rem;
+    }
+
+    .feed-kicker {
+      margin: 0 0 0.2rem;
+      color: #756c5f;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .feed-header h1 {
+      max-width: none;
+      margin: 0;
+      font-size: 1.35rem;
+      line-height: 1.1;
+    }
+
+    .repository-strip {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: end;
+      gap: 0.45rem;
+      min-width: 0;
+    }
+
+    .repository-strip span,
+    .reaction-row span {
+      border: 1px solid #d7cbb8;
+      border-radius: 999px;
+      background: #fffaf0;
+      color: #4a4035;
+      font-size: 0.78rem;
+      font-weight: 750;
+      padding: 0.38rem 0.55rem;
+    }
+
+    .api-banner {
+      margin: 0;
+      padding: 0.7rem 1.25rem;
+      border-block-end: 1px solid #e0c991;
+      background: #fff4cf;
+      color: #5b4420;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .feed-toolbar {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      min-width: 0;
+      padding: 0.75rem 1.25rem;
+    }
+
+    .channel-name {
+      flex: 0 0 auto;
+      color: #1f2b25;
+      font-weight: 850;
+    }
+
+    .channel-topic {
+      min-width: 0;
+      color: #746b5f;
+      font-size: 0.9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .message-feed {
+      display: grid;
+      align-content: start;
+      gap: 0;
+      min-height: 0;
+      margin: 0;
+      padding: 0.55rem 0 1rem;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .feed-message {
+      position: relative;
+      display: grid;
+      grid-template-columns: 2.75rem minmax(0, 1fr);
+      gap: 0.85rem;
+      min-width: 0;
+      padding: 0.8rem 1.25rem;
+    }
+
+    .feed-message:hover,
+    .feed-message[data-selected-message="true"] {
+      background: #fffaf0;
+    }
+
+    .message-hitbox {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .avatar {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: 2.5rem;
+      height: 2.5rem;
+      place-items: center;
+      border-radius: 7px;
+      background: #315347;
+      color: #fff9ed;
+      font-size: 0.78rem;
+      font-weight: 850;
+    }
+
+    .message-body {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 0.42rem;
+      min-width: 0;
+      pointer-events: none;
+    }
+
+    .message-body button,
+    .message-body a,
+    .message-body textarea {
+      pointer-events: auto;
+    }
+
+    .message-meta,
+    .message-footer,
+    .reaction-row,
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+      min-width: 0;
+    }
+
+    .message-meta {
+      color: #746b5f;
+      font-size: 0.82rem;
+    }
+
+    .message-meta strong {
+      color: #1d2823;
+      font-size: 0.95rem;
+    }
+
+    .message-body h2 {
+      margin: 0;
+      color: #1d2823;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .message-body p {
+      max-width: 74ch;
+      margin: 0;
+      color: #3f443d;
+      line-height: 1.55;
+    }
+
+    .message-footer {
+      color: #756c5f;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 0.76rem;
+    }
+
+    .message-action-tray {
+      display: grid;
+      gap: 0.75rem;
+      margin-block-start: 0.55rem;
+      padding: 0.75rem;
+      border: 1px solid #d7cbb8;
+      border-radius: 8px;
+      background: #fffdf7;
+      box-shadow: 0 10px 30px rgba(32, 42, 36, 0.07);
+    }
+
+    .message-action-tray[hidden] {
+      display: none;
+    }
+
+    .message-action-tray dl {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin: 0;
+    }
+
+    .message-action-tray button,
+    .composer button {
+      min-height: 2.35rem;
+      border: 1px solid #26362f;
+      border-radius: 6px;
+      background: #1f2b25;
+      color: #fff9ed;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      padding: 0.45rem 0.65rem;
+    }
+
+    .message-action-tray button:not(:first-child) {
+      border-color: #d7cbb8;
+      background: #fffaf0;
+      color: #26362f;
+    }
+
+    .action-status {
+      margin: 0;
+      color: #746b5f;
+      font-size: 0.86rem;
+    }
+
+    .composer {
+      display: grid;
+      gap: 0.55rem;
+      padding: 0.85rem 1.25rem 1rem;
+      border-block-start: 1px solid #ded5c5;
+      border-block-end: 0;
+    }
+
+    .composer-label {
+      color: #3f443d;
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    .composer textarea {
+      width: 100%;
+      min-height: 4.5rem;
+      resize: vertical;
+      border: 1px solid #d7cbb8;
+      border-radius: 8px;
+      background: #fffdf7;
+      color: #1d2823;
+      font: inherit;
+      line-height: 1.45;
+      padding: 0.75rem;
+    }
+
+    .composer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      color: #746b5f;
+      font-size: 0.82rem;
     }
 
     .hero-shell {
@@ -1074,6 +1717,46 @@ function communityStyles(): string {
     }
 
     @media (max-width: 860px) {
+      #epoch-community {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+
+      .channel-rail {
+        position: sticky;
+        z-index: 4;
+        inset-block-start: 0;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-rows: auto;
+        height: auto;
+        padding: 0.65rem;
+      }
+
+      .channel-list {
+        grid-auto-columns: max-content;
+        grid-auto-flow: column;
+        grid-template-columns: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      .feed-shell {
+        height: calc(100vh - 4.05rem);
+      }
+
+      .feed-header {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .repository-strip {
+        justify-content: start;
+      }
+
+      .message-action-tray dl {
+        grid-template-columns: 1fr;
+      }
+
       .hero-grid {
         grid-template-columns: 1fr;
       }
@@ -1089,6 +1772,26 @@ function communityStyles(): string {
     }
 
     @media (max-width: 560px) {
+      .feed-toolbar,
+      .composer-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .channel-topic {
+        white-space: normal;
+      }
+
+      .feed-message {
+        grid-template-columns: 2.35rem minmax(0, 1fr);
+        padding-inline: 0.75rem;
+      }
+
+      .avatar {
+        width: 2.15rem;
+        height: 2.15rem;
+      }
+
       .hero-shell {
         padding-inline: var(--epoch-space-3);
       }
