@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-29
+last_researched: 2026-05-30
 ---
 
 # Competition Research
@@ -84,6 +84,9 @@ gossip-path: <product-path>/gossip.md
 | OpenAI Codex | Multi-surface coding agent with app, CLI, IDE, cloud tasks, GitHub review, skills, and token-metered usage | [Profile](products/openai-codex/profile.md) | [Design](products/openai-codex/design/design.md) | [Feature](products/openai-codex/features/multi-agent-codex-session.feature) | [Marketing](products/openai-codex/marketing.md) | [Gossip](products/openai-codex/gossip.md) |
 | Google Jules | Asynchronous GitHub coding agent that clones repos into Cloud VMs, plans work, edits code, and publishes branches | [Profile](products/google-jules/profile.md) | [Design](products/google-jules/design/design.md) | [Feature](products/google-jules/features/asynchronous-github-agent.feature) | [Marketing](products/google-jules/marketing.md) | [Gossip](products/google-jules/gossip.md) |
 | Factory Droid | Enterprise agent-native software development platform with CLI, app, SDK, CI automation, Droid Computers, readiness, and governance | [Profile](products/factory-droid/profile.md) | [Design](products/factory-droid/design/design.md) | [Feature](products/factory-droid/features/governed-droid-development.feature) | [Marketing](products/factory-droid/marketing.md) | [Gossip](products/factory-droid/gossip.md) |
+| Augment Code | Context Engine, MCP retrieval, coding agent, and contextual PR review for large codebases | [Profile](products/augment-code/profile.md) | [Design](products/augment-code/design/design.md) | [Feature](products/augment-code/features/context-engine-review.feature) | [Marketing](products/augment-code/marketing.md) | [Gossip](products/augment-code/gossip.md) |
+| Sourcegraph Amp | Terminal and editor coding agent with threads, multi-model routing, skills, subagents, plugins, MCP, and permissions | [Profile](products/sourcegraph-amp/profile.md) | [Design](products/sourcegraph-amp/design/design.md) | [Feature](products/sourcegraph-amp/features/threaded-agent-workflow.feature) | [Marketing](products/sourcegraph-amp/marketing.md) | [Gossip](products/sourcegraph-amp/gossip.md) |
+| Qodo | Multi-agent code review and quality platform for pull-request feedback, rule enforcement, and AI-generated code trust | [Profile](products/qodo/profile.md) | [Design](products/qodo/design/design.md) | [Feature](products/qodo/features/multi-agent-pr-review.feature) | [Marketing](products/qodo/marketing.md) | [Gossip](products/qodo/gossip.md) |
 
 ## Research Dimensions
 
