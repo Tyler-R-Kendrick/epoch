@@ -24,12 +24,12 @@ Feature: Epoch platform project separation
     Then the Epoch Community CLI output contains "epoch/epoch"
 
   @persona.github_open_source_contributor
-  Scenario: Community Web renders repository workflows in a browser
+  Scenario: Community Web renders repository collaboration in a browser
     Given the Epoch Community API has a repository named "epoch/epoch"
     When I open Epoch Community Web in a Playwright browser
     Then the Community browser shows repository "epoch/epoch"
-    And the Community browser exposes workflow "Issues"
-    And the Community browser exposes workflow "Change Reviews"
+    And the Community browser exposes channel "# ideas"
+    And the Community browser exposes channel "# support"
     And the Community browser exposes the Epoch Community design system
 
   @persona.github_open_source_contributor

@@ -106,6 +106,7 @@
     "lint": "eslint .",
     "docs:check": "node scripts/check-docs.mjs",
     "vercel:community-web": "node scripts/render-community-web.mjs",
+    "e2e:community-web": "node scripts/run-community-web-e2e.mjs",
     "notebooks:build": "node scripts/generate-notebooks.mjs",
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
     "test:features:runtime": "cucumber-js features/**/*.feature --require dist/test/features/**/*.js",

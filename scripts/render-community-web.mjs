@@ -23,6 +23,7 @@ const api = createInMemoryCommunityApi({
 const app = await createCommunityWebApp({
   client: api,
   basePath: "/community",
+  apiBaseUrl: process.env.EPOCH_COMMUNITY_API_URL,
 });
 const repositoryRoot = await mkdtemp(join(tmpdir(), "epoch-community-web-repository-"));
 

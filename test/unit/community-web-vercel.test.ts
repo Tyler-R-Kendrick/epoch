@@ -4,7 +4,11 @@ import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
-import { createCommunityWebApp, materializeCommunityWebSiteWithEpoch } from "@epoch/community-web";
+import {
+  createCommunityWebApp,
+  materializeCommunityWebSiteWithEpoch,
+  renderCommunityWebDocument,
+} from "@epoch/community-web";
 
 interface VercelConfig {
   readonly installCommand?: string;
@@ -19,6 +23,7 @@ interface VercelConfig {
 export async function runCommunityWebVercelTests(): Promise<void> {
   vercelConfigBuildsTheCommunityWebOutput();
   await communityWebMaterializesTheSiteThroughEpochHistory();
+  await communityWebHtmlIncludesLiveChannelExperience();
   renderScriptProducesDeployableCommunityHtml();
 }
 
@@ -45,18 +50,42 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   ], { stdio: "pipe" });
 
   const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
-  assert.match(html, /<h1>Epoch Community<\/h1>/u);
+  assert.match(html, /<h1 id="community-title">Epoch Community<\/h1>/u);
   assert.match(html, /epoch\/epoch/u);
   assert.match(html, /This site is built with Epoch/u);
-  assert.match(html, /Branchable site changes/u);
-  assert.match(html, /href="\/community\/repository-browsing"/u);
+  assert.match(html, /data-community-channel-rail/u);
+  assert.match(html, /data-message-feed/u);
+  assert.match(html, /Dashboard widget should group revenue by region/u);
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
   assert.match(html, /data-design-system="epoch-community"/u);
   assert.match(html, /href="#community-content">Skip to content/u);
   assert.match(html, /--epoch-color-surface: #eef3f1/u);
-  assert.match(html, /class="workflow-rail"/u);
-  assert.match(html, /class="repo-card"/u);
+  assert.doesNotMatch(html, /data-community-web-cockpit/u);
+  assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
+}
+
+async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
+  const app = await createCommunityWebApp({
+    client: createInMemoryCommunityApi({
+      repositories: [{
+        slug: "epoch/epoch",
+        displayName: "Epoch",
+        description: "Event-driven DVCS",
+        maintainers: ["alice"],
+      }],
+    }),
+    apiBaseUrl: "https://community.test",
+  });
+  const html = renderCommunityWebDocument(app);
+
+  assert.match(html, /data-community-web-shell/u);
+  assert.match(html, /data-api-state="connected"/u);
+  assert.match(html, /"apiBaseUrl":"https:\/\/community\.test"/u);
+  assert.match(html, /data-action="intent"/u);
+  assert.match(html, /data-action="agent"/u);
+  assert.match(html, /data-action="report"/u);
+  assert.match(html, /fetch\(state\.apiBaseUrl/u);
 }
 
 async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<void> {

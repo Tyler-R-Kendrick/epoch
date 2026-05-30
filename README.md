@@ -150,6 +150,7 @@ High-value entry points:
 | CLI usage | [docs/cli.md](docs/cli.md) |
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
 | Platform web apps | [docs/platforms.md](docs/platforms.md) |
+| Community Web experience | [docs/community-web-experience.md](docs/community-web-experience.md) |
 | Community Operations extension | [docs/community-operations.md](docs/community-operations.md) |
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
