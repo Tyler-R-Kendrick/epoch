@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-30
+last_researched: 2026-05-31
 ---
 
 # Competition Research
@@ -89,6 +89,9 @@ gossip-path: <product-path>/gossip.md
 | Qodo | Multi-agent code review and quality platform for pull-request feedback, rule enforcement, and AI-generated code trust | [Profile](products/qodo/profile.md) | [Design](products/qodo/design/design.md) | [Feature](products/qodo/features/multi-agent-pr-review.feature) | [Marketing](products/qodo/marketing.md) | [Gossip](products/qodo/gossip.md) |
 | JetBrains Junie | JetBrains-native and CLI coding agent with IDE rollback, approvals, MCP, AGENTS.md guidelines, and forge workflows | [Profile](products/jetbrains-junie/profile.md) | [Design](products/jetbrains-junie/design/design.md) | [Feature](products/jetbrains-junie/features/ide-native-agent-workflow.feature) | [Marketing](products/jetbrains-junie/marketing.md) | [Gossip](products/jetbrains-junie/gossip.md) |
 | Kiro | Spec-driven agentic IDE, CLI, and web workflow with steering, hooks, subagents, MCP, credits, and team governance | [Profile](products/kiro/profile.md) | [Design](products/kiro/design/design.md) | [Feature](products/kiro/features/spec-driven-agent-workflow.feature) | [Marketing](products/kiro/marketing.md) | [Gossip](products/kiro/gossip.md) |
+| Aider | Terminal-native open-source AI pair programmer with repo maps, BYOK model routing, lint/test loops, and automatic Git commits | [Profile](products/aider/profile.md) | [Design](products/aider/design/design.md) | [Feature](products/aider/features/git-native-pair-programming.feature) | [Marketing](products/aider/marketing.md) | [Gossip](products/aider/gossip.md) |
+| Cline | Open-source IDE, CLI, SDK, and Kanban coding agent with Plan/Act modes, checkpoints, MCP tools, and enterprise governance | [Profile](products/cline/profile.md) | [Design](products/cline/design/design.md) | [Feature](products/cline/features/plan-act-checkpoint-agent.feature) | [Marketing](products/cline/marketing.md) | [Gossip](products/cline/gossip.md) |
+| Continue | Open-source AI code assistant and agent platform with Chat, Plan, Agent, Edit, Autocomplete, reusable rules, MCP tools, and team-managed agents | [Profile](products/continue/profile.md) | [Design](products/continue/design/design.md) | [Feature](products/continue/features/configured-team-agent.feature) | [Marketing](products/continue/marketing.md) | [Gossip](products/continue/gossip.md) |
 
 ## Research Dimensions
 
