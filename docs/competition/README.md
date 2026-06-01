@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-05-31
+last_researched: 2026-06-01
 ---
 
 # Competition Research
@@ -58,6 +58,9 @@ gossip-path: <product-path>/gossip.md
 | Cursor | AI-native code editor with Agent modes, local checkpoints, background agents, rules, and Bugbot review | [Profile](products/cursor/profile.md) | [Design](products/cursor/design/design.md) | [Feature](products/cursor/features/agentic-editor-checkpoints.feature) | [Marketing](products/cursor/marketing.md) | [Gossip](products/cursor/gossip.md) |
 | Windsurf | Agentic IDE with Cascade, memories, workflows, real-time context, checkpoints, and preview deploys | [Profile](products/windsurf/profile.md) | [Design](products/windsurf/design/design.md) | [Feature](products/windsurf/features/cascade-agent-workflow.feature) | [Marketing](products/windsurf/marketing.md) | [Gossip](products/windsurf/gossip.md) |
 | Replit Agent | Browser-hosted AI app builder with autonomous planning, checkpoints, integrated runtime, and deployments | [Profile](products/replit-agent/profile.md) | [Design](products/replit-agent/design/design.md) | [Feature](products/replit-agent/features/agent-built-app-checkpoints.feature) | [Marketing](products/replit-agent/marketing.md) | [Gossip](products/replit-agent/gossip.md) |
+| Lovable | Prompt-to-full-stack app builder with hosted generation, Supabase integration, publishing, and GitHub sync | [Profile](products/lovable/profile.md) | [Design](products/lovable/design/design.md) | [Feature](products/lovable/features/fullstack-github-sync.feature) | [Marketing](products/lovable/marketing.md) | [Gossip](products/lovable/gossip.md) |
+| Bolt.new | Browser-native full-stack app builder using StackBlitz WebContainers, prompt generation, live preview, and GitHub import | [Profile](products/bolt-new/profile.md) | [Design](products/bolt-new/design/design.md) | [Feature](products/bolt-new/features/browser-fullstack-generation.feature) | [Marketing](products/bolt-new/marketing.md) | [Gossip](products/bolt-new/gossip.md) |
+| Google AI Studio Build | Google full-stack vibe-coding path with Gemini, Firebase services, cloud publish, and Antigravity handoff | [Profile](products/google-ai-studio-build/profile.md) | [Design](products/google-ai-studio-build/design/design.md) | [Feature](products/google-ai-studio-build/features/google-fullstack-build.feature) | [Marketing](products/google-ai-studio-build/marketing.md) | [Gossip](products/google-ai-studio-build/gossip.md) |
 | Zero | Query-driven Postgres sync engine for instant web apps with local reads and optimistic writes | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres read-path sync engine that streams SQL-defined Shapes to local apps, services, and agents | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack TypeScript local-first database with schemas, reactive queries, offline support, and a console | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
