@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-06-04
+last_researched: 2026-06-05
 ---
 
 # Competition Research
@@ -61,6 +61,9 @@ gossip-path: <product-path>/gossip.md
 | Lovable | Prompt-to-full-stack app builder | [Profile](products/lovable/profile.md) | [Design](products/lovable/design/design.md) | [Feature](products/lovable/features/fullstack-github-sync.feature) | [Marketing](products/lovable/marketing.md) | [Gossip](products/lovable/gossip.md) |
 | Bolt.new | Browser-native full-stack app builder | [Profile](products/bolt-new/profile.md) | [Design](products/bolt-new/design/design.md) | [Feature](products/bolt-new/features/browser-fullstack-generation.feature) | [Marketing](products/bolt-new/marketing.md) | [Gossip](products/bolt-new/gossip.md) |
 | Google AI Studio Build | Gemini and Firebase full-stack builder | [Profile](products/google-ai-studio-build/profile.md) | [Design](products/google-ai-studio-build/design/design.md) | [Feature](products/google-ai-studio-build/features/google-fullstack-build.feature) | [Marketing](products/google-ai-studio-build/marketing.md) | [Gossip](products/google-ai-studio-build/gossip.md) |
+| Base44 | Wix-owned managed AI app builder with auth, data, integrations, credits, GitHub sync, SDK, and CLI | [Profile](products/base44/profile.md) | [Design](products/base44/design/design.md) | [Feature](products/base44/features/managed-app-publish.feature) | [Marketing](products/base44/marketing.md) | [Gossip](products/base44/gossip.md) |
+| Tempo Labs | Design-to-React AI builder with visual editing, Figma/GitHub workflows, and planning-first UI generation | [Profile](products/tempo-labs/profile.md) | [Design](products/tempo-labs/design/design.md) | [Feature](products/tempo-labs/features/design-to-react-sync.feature) | [Marketing](products/tempo-labs/marketing.md) | [Gossip](products/tempo-labs/gossip.md) |
+| Anything Create | Prompt-to-web-and-mobile app builder with credits, publish, export, AI integrations, and generated QA claims | [Profile](products/anything-create/profile.md) | [Design](products/anything-create/design/design.md) | [Feature](products/anything-create/features/prompt-to-tested-publish.feature) | [Marketing](products/anything-create/marketing.md) | [Gossip](products/anything-create/gossip.md) |
 | Vercel v0 | Vercel-native AI app builder | [Profile](products/vercel-v0/profile.md) | [Design](products/vercel-v0/design/design.md) | [Feature](products/vercel-v0/features/github-to-vercel-agent-workflow.feature) | [Marketing](products/vercel-v0/marketing.md) | [Gossip](products/vercel-v0/gossip.md) |
 | Zero | Query-driven Postgres sync engine | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres Shape sync engine | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
