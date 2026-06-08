@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-06-07
+last_researched: 2026-06-08
 ---
 
 # Competition Research
@@ -71,6 +71,9 @@ gossip-path: <product-path>/gossip.md
 | Figma Make | Design-native prompt-to-app surface with functional prototypes, Make kits, Supabase, MCP connectors, publishing, and credit-metered model choice | [Profile](products/figma-make/profile.md) | [Design](products/figma-make/design/design.md) | [Feature](products/figma-make/features/design-native-functional-app.feature) | [Marketing](products/figma-make/marketing.md) | [Gossip](products/figma-make/gossip.md) |
 | Databutton | AI app developer for React and FastAPI apps with planning, code editor access, checkpoints, secrets, deployment, and human support tiers | [Profile](products/databutton/profile.md) | [Design](products/databutton/design/design.md) | [Feature](products/databutton/features/agent-built-react-fastapi-app.feature) | [Marketing](products/databutton/marketing.md) | [Gossip](products/databutton/gossip.md) |
 | Emergent.sh | Agentic app builder for prompt-to-full-stack and mobile-oriented apps with GitHub handoff, deployment, and credit-metered iteration | [Profile](products/emergent-sh/profile.md) | [Design](products/emergent-sh/design/design.md) | [Feature](products/emergent-sh/features/agentic-full-stack-build.feature) | [Marketing](products/emergent-sh/marketing.md) | [Gossip](products/emergent-sh/gossip.md) |
+| Ona | Gitpod successor for background agents, reproducible environments, guardrails, and cloud or VPC runner infrastructure | [Profile](products/ona/profile.md) | [Design](products/ona/design/design.md) | [Feature](products/ona/features/background-agent-environment.feature) | [Marketing](products/ona/marketing.md) | [Gossip](products/ona/gossip.md) |
+| Coder | Self-hosted cloud development environments and agent workspaces governed by Terraform templates and enterprise controls | [Profile](products/coder/profile.md) | [Design](products/coder/design/design.md) | [Feature](products/coder/features/template-governed-workspace.feature) | [Marketing](products/coder/marketing.md) | [Gossip](products/coder/gossip.md) |
+| CodeSandbox | Browser and SDK-driven isolated sandboxes for live previews, AI agents, code interpretation, evals, and CI | [Profile](products/codesandbox/profile.md) | [Design](products/codesandbox/design/design.md) | [Feature](products/codesandbox/features/programmable-ai-sandbox.feature) | [Marketing](products/codesandbox/marketing.md) | [Gossip](products/codesandbox/gossip.md) |
 | Zero | Query-driven Postgres sync engine | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres Shape sync engine | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
 | Triplit | Fullstack local-first TypeScript database | [Profile](products/triplit/profile.md) | [Design](products/triplit/design/design.md) | [Feature](products/triplit/features/fullstack-local-first-database.feature) | [Marketing](products/triplit/marketing.md) | [Gossip](products/triplit/gossip.md) |
