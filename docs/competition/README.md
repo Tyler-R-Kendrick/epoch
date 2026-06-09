@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-06-08
+last_researched: 2026-06-09
 ---
 
 # Competition Research
@@ -73,6 +73,9 @@ gossip-path: <product-path>/gossip.md
 | Emergent.sh | Agentic app builder for prompt-to-full-stack and mobile-oriented apps with GitHub handoff, deployment, and credit-metered iteration | [Profile](products/emergent-sh/profile.md) | [Design](products/emergent-sh/design/design.md) | [Feature](products/emergent-sh/features/agentic-full-stack-build.feature) | [Marketing](products/emergent-sh/marketing.md) | [Gossip](products/emergent-sh/gossip.md) |
 | Ona | Gitpod successor for background agents, reproducible environments, guardrails, and cloud or VPC runner infrastructure | [Profile](products/ona/profile.md) | [Design](products/ona/design/design.md) | [Feature](products/ona/features/background-agent-environment.feature) | [Marketing](products/ona/marketing.md) | [Gossip](products/ona/gossip.md) |
 | Coder | Self-hosted cloud development environments and agent workspaces governed by Terraform templates and enterprise controls | [Profile](products/coder/profile.md) | [Design](products/coder/design/design.md) | [Feature](products/coder/features/template-governed-workspace.feature) | [Marketing](products/coder/marketing.md) | [Gossip](products/coder/gossip.md) |
+| Gitpod | Zero-trust automated development environments across local, VPC, and on-prem runners | [Profile](products/gitpod/profile.md) | [Design](products/gitpod/design/design.md) | [Feature](products/gitpod/features/zero-trust-development-environment.feature) | [Marketing](products/gitpod/marketing.md) | [Gossip](products/gitpod/gossip.md) |
+| Daytona | Secure stateful sandboxes for running AI-generated code and computer-use workflows | [Profile](products/daytona/profile.md) | [Design](products/daytona/design/design.md) | [Feature](products/daytona/features/stateful-agent-sandbox.feature) | [Marketing](products/daytona/marketing.md) | [Gossip](products/daytona/gossip.md) |
+| E2B | Secure cloud sandboxes, code interpreter, templates, and MCP-enabled execution for AI agents | [Profile](products/e2b/profile.md) | [Design](products/e2b/design/design.md) | [Feature](products/e2b/features/mcp-enabled-agent-sandbox.feature) | [Marketing](products/e2b/marketing.md) | [Gossip](products/e2b/gossip.md) |
 | CodeSandbox | Browser and SDK-driven isolated sandboxes for live previews, AI agents, code interpretation, evals, and CI | [Profile](products/codesandbox/profile.md) | [Design](products/codesandbox/design/design.md) | [Feature](products/codesandbox/features/programmable-ai-sandbox.feature) | [Marketing](products/codesandbox/marketing.md) | [Gossip](products/codesandbox/gossip.md) |
 | Zero | Query-driven Postgres sync engine | [Profile](products/zero/profile.md) | [Design](products/zero/design/design.md) | [Feature](products/zero/features/query-driven-sync.feature) | [Marketing](products/zero/marketing.md) | [Gossip](products/zero/gossip.md) |
 | Electric | Postgres Shape sync engine | [Profile](products/electric/profile.md) | [Design](products/electric/design/design.md) | [Feature](products/electric/features/postgres-shape-sync.feature) | [Marketing](products/electric/marketing.md) | [Gossip](products/electric/gossip.md) |
