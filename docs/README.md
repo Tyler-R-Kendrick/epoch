@@ -23,6 +23,14 @@ decisions, operations, or contribution workflow.
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, HA/DR, and platform behavior. |
 
+## Competition Additions
+
+| Product | Profile | Design | Feature | Marketing | Gossip |
+|---|---|---|---|---|---|
+| Rork | [Profile](competition/products/rork/profile.md) | [Design](competition/products/rork/design/design.md) | [Feature](competition/products/rork/features/mobile-app-store-launch.feature) | [Marketing](competition/products/rork/marketing.md) | [Gossip](competition/products/rork/gossip.md) |
+| Magic Patterns | [Profile](competition/products/magic-patterns/profile.md) | [Design](competition/products/magic-patterns/design/design.md) | [Feature](competition/products/magic-patterns/features/design-system-prototype.feature) | [Marketing](competition/products/magic-patterns/marketing.md) | [Gossip](competition/products/magic-patterns/gossip.md) |
+| Framer AI | [Profile](competition/products/framer-ai/profile.md) | [Design](competition/products/framer-ai/design/design.md) | [Feature](competition/products/framer-ai/features/ai-marketing-site-workflow.feature) | [Marketing](competition/products/framer-ai/marketing.md) | [Gossip](competition/products/framer-ai/gossip.md) |
+
 ## Architecture And Public APIs
 
 | Document | Use it for |
