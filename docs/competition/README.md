@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-06-09
+last_researched: 2026-06-12
 ---
 
 # Competition Research
@@ -120,6 +120,9 @@ gossip-path: <product-path>/gossip.md
 | Aider | Terminal-native open-source AI pair programmer | [Profile](products/aider/profile.md) | [Design](products/aider/design/design.md) | [Feature](products/aider/features/git-native-pair-programming.feature) | [Marketing](products/aider/marketing.md) | [Gossip](products/aider/gossip.md) |
 | Cline | Open-source Plan/Act coding agent | [Profile](products/cline/profile.md) | [Design](products/cline/design/design.md) | [Feature](products/cline/features/plan-act-checkpoint-agent.feature) | [Marketing](products/cline/marketing.md) | [Gossip](products/cline/gossip.md) |
 | Continue | Open-source AI code assistant and team agent platform | [Profile](products/continue/profile.md) | [Design](products/continue/design/design.md) | [Feature](products/continue/features/configured-team-agent.feature) | [Marketing](products/continue/marketing.md) | [Gossip](products/continue/gossip.md) |
+| OpenHands | Open-source and enterprise platform for cloud coding agents | [Profile](products/openhands/profile.md) | [Design](products/openhands/design/design.md) | [Feature](products/openhands/features/github-resolver-agent.feature) | [Marketing](products/openhands/marketing.md) | [Gossip](products/openhands/gossip.md) |
+| Open SWE | LangChain open-source asynchronous coding-agent framework | [Profile](products/open-swe/profile.md) | [Design](products/open-swe/design/design.md) | [Feature](products/open-swe/features/asynchronous-internal-coding-agent.feature) | [Marketing](products/open-swe/marketing.md) | [Gossip](products/open-swe/gossip.md) |
+| SWE-agent | Research-first open-source GitHub issue fixing agent | [Profile](products/swe-agent/profile.md) | [Design](products/swe-agent/design/design.md) | [Feature](products/swe-agent/features/research-github-issue-agent.feature) | [Marketing](products/swe-agent/marketing.md) | [Gossip](products/swe-agent/gossip.md) |
 
 ## Research Dimensions
 
