@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+
+# Fast, local pre-commit gate (see DX.md / the Monorepo DX Playbook).
+# Whitespace and merge-conflict-marker hygiene on staged content.
+git diff --cached --check
+
+# Structural conventions + docs reachability (both run in milliseconds).
+npm run konsistent
+npm run docs:check
