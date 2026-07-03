@@ -164,6 +164,7 @@ High-value entry points:
 | User stories | [docs/user-stories.md](docs/user-stories.md) |
 | HA/DR operations | [docs/HA-DR.md](docs/HA-DR.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Developer experience (DX) baseline | [DX.md](DX.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Security policy | [SECURITY.md](SECURITY.md) |
 | Support | [SUPPORT.md](SUPPORT.md) |
