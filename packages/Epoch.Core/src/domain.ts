@@ -16,6 +16,8 @@ export const StorageName = {
   heads: "heads.json",
   identity: "identity.json",
   views: "views.json",
+  checkout: "checkout.json",
+  patches: "patches",
 } as const;
 
 export const EntityType = {
@@ -315,3 +317,32 @@ export type IntentCommentPayload = z.infer<typeof Schemas.intentCommentPayload>;
 export type VersionFile = z.infer<typeof Schemas.versionFile>;
 export type VersionEntity = z.infer<typeof Schemas.versionEntity>;
 export type VersionPayload = z.infer<typeof Schemas.versionPayload>;
+
+export const VirtualCheckoutFormat = "epoch-virtual-checkout-v1" as const;
+
+export const MaterializationMode = {
+  virtual: "virtual",
+  full: "full",
+} as const;
+
+export const VirtualRecordStatus = {
+  virtual: "virtual",
+  materialized: "materialized",
+} as const;
+
+export const VirtualCheckoutRecordSchema = Schemas.recordPayload.extend({
+  status: z.enum([VirtualRecordStatus.virtual, VirtualRecordStatus.materialized]),
+});
+
+export const VirtualCheckoutSchema = z.object({
+  format: z.literal(VirtualCheckoutFormat),
+  view: z.string().min(1),
+  base: z.string().min(1).optional(),
+  materialization: z.enum([MaterializationMode.virtual, MaterializationMode.full]),
+  frontier: z.array(z.string().min(1)),
+  patch: z.string().min(1).optional(),
+  records: z.array(VirtualCheckoutRecordSchema),
+});
+
+export type VirtualCheckoutRecord = z.infer<typeof VirtualCheckoutRecordSchema>;
+export type VirtualCheckout = z.infer<typeof VirtualCheckoutSchema>;

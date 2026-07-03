@@ -106,7 +106,7 @@ snapshots.
 | `version create [NAME] [--view VIEW] [--entity NAME] [--description TEXT]` | Create a signed version from a view/frontier. |
 | `versions` | List known versions by id, name, file count, and entity count. |
 | `version show VERSION` | Print a version manifest. |
-| `version materialize VERSION --out PATH [--force]` | Recreate version files, CRDT snapshots, and `epoch-version.json`. |
+| `version materialize VERSION --out PATH [--base REF] [--force]` | Recreate version files, CRDT snapshots, and `epoch-version.json`. With `--base` write only files that differ from another version/view and add an `epoch-virtual.json` manifest. |
 
 ## Review And Policy Commands
 
@@ -140,10 +140,28 @@ Use views as deterministic logical workspaces over the shared event log.
 |---|---|
 | `view-create NAME --parent VIEW --rule JSON` | Create a named view. |
 | `views` | List views and mark the current view. |
-| `checkout NAME` | Switch the current view. |
+| `checkout [--virtual\|--full] [--base REF] NAME` | Switch the current view and materialize its files. |
 | `view-delete NAME` | Delete a view. |
 | `view-diff LEFT RIGHT` | Show a JSON diff between views. |
 | `view-promote SOURCE TARGET` | Promote accepted content from one view into another. |
+
+## Virtual Working Tree Commands
+
+`epoch init` sets `[working_tree] materialization = "virtual"` in
+`.epoch/config.toml`, so `checkout` writes only the files a view changes relative
+to its base and leaves the rest virtual. The full tree is described in
+`.epoch/checkout.json`, and a rolling `base -> view` unified diff is written to
+`.epoch/patches/<hash>.patch`. These are regenerable caches and are not part of
+`verify`.
+
+| Command | Purpose |
+|---|---|
+| `checkout --virtual [--base REF] NAME` | Sparse checkout: write only files that differ from the base; leave unchanged files virtual. |
+| `checkout --full NAME` | Materialize the entire working tree (the previous default behavior). |
+| `preview [--view VIEW] [--base REF] [--context N]` | Print the rolling aggregate unified diff without materializing files. |
+| `hydrate [PATH...]` | Materialize still-virtual files (all, or the given paths) from the object store. |
+
+`status` reports still-virtual paths with a `V` marker rather than as deletions.
 
 ## Git Commands
 

@@ -21,6 +21,7 @@ and when the decision should be revisited.
 | [ADR-0011](0011-community-web-dogfoods-epoch.md) | Accepted | Build Community Web releases through Epoch site history so the project dogfoods branch, merge, version, and rollback evidence. |
 | [ADR-0012](0012-community-human-centered-design.md) | Accepted | Use design thinking, user-centric design, human-centered design, and the GitHub open-source contributor persona to drive Epoch Community design. |
 | [ADR-0013](0013-community-operations-extension-package.md) | Accepted | Add Community Operations as a separate deployable extension over Platform SDK/Core state. |
+| [ADR-0014](0014-virtual-working-tree-and-sparse-checkout.md) | Accepted | Add a virtual working tree with sparse checkout, rolling patch aggregates, and virtual-by-default init, keeping the object store fully verifiable. |
 
 ## Supporting Decision Records
 

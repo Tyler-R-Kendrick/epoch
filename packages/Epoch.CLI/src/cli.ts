@@ -325,10 +325,36 @@ function run(argv: string[], io: CliIO): void {
       }
       return;
     case CliCommand.checkout: {
-      if (parsed.args.length !== 1) throw new Error(CliText.checkoutUsage);
-      const state = repo.checkoutView(parsed.args[0]);
-      writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)`);
-      recordCliOperation(repo, "checkout", { view: parsed.args[0], intentIds: state.intentIds });
+      const options = parseOptions(parsed.args, { base: "" }, [CliOption.virtual, CliOption.full]);
+      if (options.positionals.length !== 1) throw new Error(CliText.checkoutUsage);
+      const virtual = isFlagEnabled(options, CliOption.virtual);
+      const full = isFlagEnabled(options, CliOption.full);
+      if (virtual && full) throw new Error(CliText.checkoutUsage);
+      const state = repo.checkoutView(options.positionals[0], {
+        materialization: full ? "full" : virtual ? "virtual" : undefined,
+        base: options.base === "" ? undefined : options.base,
+      });
+      const suffix = state.materialization === "virtual" ? ` [virtual: written=${state.written.length} virtual=${state.virtualPaths.length}]` : "";
+      writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)${suffix}`);
+      recordCliOperation(repo, "checkout", { view: options.positionals[0], intentIds: state.intentIds });
+      return;
+    }
+    case CliCommand.preview: {
+      const options = parseOptions(parsed.args, { view: "", base: "", context: "" });
+      if (options.positionals.length !== 0) throw new Error(CliText.previewUsage);
+      const contextLines = options.context === "" ? undefined : Number.parseInt(options.context, 10);
+      if (contextLines !== undefined && (!Number.isInteger(contextLines) || contextLines < 0)) throw new Error(CliText.previewUsage);
+      io.stdout.write(repo.previewPatch({
+        view: options.view === "" ? undefined : options.view,
+        base: options.base === "" ? undefined : options.base,
+        contextLines,
+      }));
+      return;
+    }
+    case CliCommand.hydrate: {
+      const options = parseOptions(parsed.args, {});
+      const hydrated = repo.hydrate(options.positionals.length > 0 ? options.positionals : undefined);
+      writeLine(io, `hydrated ${hydrated.length} file${hydrated.length === 1 ? "" : "s"}`);
       return;
     }
     case CliCommand.viewDelete: {
@@ -419,11 +445,16 @@ function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): vo
       return;
     }
     case "materialize": {
-      const options = parseOptions(args.slice(1), { out: "" }, [CliOption.force]);
+      const options = parseOptions(args.slice(1), { out: "", base: "" }, [CliOption.force]);
       if (options.positionals.length !== 1 || options.out === "") throw new Error(CliText.versionMaterializeUsage);
-      const result = repo.materializeVersion(options.positionals[0], { outDir: options.out, force: isFlagEnabled(options, CliOption.force) });
+      const result = repo.materializeVersion(options.positionals[0], {
+        outDir: options.out,
+        force: isFlagEnabled(options, CliOption.force),
+        base: options.base === "" ? undefined : options.base,
+      });
       const name = typeof result.version.payload.name === "string" ? result.version.payload.name : result.version.id;
-      writeLine(io, `materialized version ${name} to ${options.out}`);
+      const suffix = result.virtualPaths === undefined ? "" : ` [virtual: written=${result.files.length} virtual=${result.virtualPaths.length}]`;
+      writeLine(io, `materialized version ${name} to ${options.out}${suffix}`);
       return;
     }
     default:

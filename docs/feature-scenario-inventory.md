@@ -28,7 +28,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/platform_projects.feature` | 5 |
 | `features/platform_web.feature` | 3 |
 | `features/platform_web_conformance.feature` | 3 |
-| `features/repository.feature` | 25 |
+| `features/repository.feature` | 31 |
 | `features/wasm_react.feature` | 2 |
 
 ## Scenario Records
@@ -150,5 +150,11 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Git compatibility clone records provider metadata | None | 0 |
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Git compatibility commit records an Epoch merge event | None | 0 |
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Unsupported Git compatibility operations explain why | None | 0 |
+| `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Initialization defaults to virtual materialization | None | 0 |
+| `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Virtual checkout keeps unchanged files off disk | None | 0 |
+| `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Preview prints the rolling aggregate patch | None | 0 |
+| `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Hydrate realizes virtual files from the object store | None | 0 |
+| `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Full checkout restores the entire working tree | None | 0 |
+| `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Version materialization with a base writes only changed files | None | 0 |
 | `features/wasm_react.feature` | `@persona.github_open_source_contributor` | Scenario | React hook persists, rewinds, rematerializes, and resumes state changes in a browser | None | 0 |
 | `features/wasm_react.feature` | `@persona.github_open_source_contributor` | Scenario | Browser live repository hooks synchronize through a VFS | None | 0 |

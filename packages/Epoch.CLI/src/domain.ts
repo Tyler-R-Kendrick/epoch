@@ -42,6 +42,8 @@ export const CliCommand = {
   import: "import",
   export: "export",
   drPlan: "dr-plan",
+  preview: "preview",
+  hydrate: "hydrate",
 } as const;
 
 export const CliOption = {
@@ -73,6 +75,10 @@ export const CliOption = {
   scope: "scope",
   json: "json",
   noVersion: "no-version",
+  virtual: "virtual",
+  full: "full",
+  base: "base",
+  context: "context",
   repo: "--repo",
 } as const;
 
@@ -84,7 +90,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan>",
+  usage: "usage: epoch [--repo PATH] <create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
   pushUsage: "usage: epoch push [--author NAME] [--version NAME] [--message TEXT] [--no-version] [PATH...]",
   trackUsage: "usage: epoch track [--author NAME] [--type MIME] [--include-ignored] PATH",
@@ -110,14 +116,16 @@ export const CliText = {
   resolveUsage: "usage: epoch resolve --type MIME [--path ENTITY_PATH] [--record-resolution RESOLVED] BASE LEFT RIGHT",
   rollbackUsage: "usage: epoch rollback EVENT_ID",
   viewCreateUsage: "usage: epoch view-create [--rule JSON] [--parent VIEW] NAME",
-  checkoutUsage: "usage: epoch checkout VIEW",
+  checkoutUsage: "usage: epoch checkout [--virtual|--full] [--base REF] VIEW",
   viewDeleteUsage: "usage: epoch view-delete VIEW",
   viewDiffUsage: "usage: epoch view-diff FROM TO",
   viewPromoteUsage: "usage: epoch view-promote SOURCE TARGET",
   versionUsage: "usage: epoch version <create|show|materialize> ...",
   versionCreateUsage: "usage: epoch version create [--view VIEW] [--entity NAME] [--description TEXT] [NAME]",
   versionShowUsage: "usage: epoch version show VERSION",
-  versionMaterializeUsage: "usage: epoch version materialize VERSION --out PATH [--force]",
+  versionMaterializeUsage: "usage: epoch version materialize VERSION --out PATH [--base REF] [--force]",
+  previewUsage: "usage: epoch preview [--view VIEW] [--base REF] [--context N]",
+  hydrateUsage: "usage: epoch hydrate [PATH...]",
 } as const;
 
 export const ParsedArgsSchema = z.object({

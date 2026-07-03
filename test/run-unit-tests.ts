@@ -11,6 +11,7 @@ import { runPersonaFeatureModelTests } from "./unit/persona-feature-model.test";
 import { runSampleHelloWorldCliTests } from "./unit/sample-hello-world-cli.test";
 import { runSampleSelfEvolvingCanvasTests } from "./unit/sample-self-evolving-canvas.test";
 import { runSampleSelfEvolvingDashboardTests } from "./unit/sample-self-evolving-dashboard.test";
+import { runVirtualCheckoutTests } from "./unit/virtual-checkout.test";
 import { runWasmReactShadowDomTests } from "./component/wasm-react-shadow-dom.test";
 import { runWasmReactStoreTests } from "./unit/wasm-react-store.test";
 
@@ -29,6 +30,7 @@ async function main(): Promise<void> {
   runSampleHelloWorldCliTests();
   runSampleSelfEvolvingCanvasTests();
   runSampleSelfEvolvingDashboardTests();
+  runVirtualCheckoutTests();
   await runWasmReactShadowDomTests();
   console.log("unit and component tests passed");
 }
