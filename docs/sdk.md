@@ -85,6 +85,36 @@ const ignored = repository.checkIgnore("dist/app.js");
 const maxBytes = repository.configValue("working_tree.max_new_file_bytes");
 ```
 
+### Virtual Working Tree And Sparse Checkout
+
+`init` defaults `[working_tree] materialization` to `"virtual"`, so
+`checkoutView(name, options)` writes only files whose blob differs from a base
+view (the view's parent by default) and leaves the rest virtual. The result
+extends `ViewState` with `materialization`, `written`, `virtualPaths`, the parsed
+`manifest`, and an optional `patchPath`. The object store is untouched and
+`verify()` still passes.
+
+```ts
+const checkout = repository.checkoutView("feature");
+checkout.written;       // paths written to disk (changed vs base)
+checkout.virtualPaths;  // paths left virtual
+
+repository.previewPatch({ view: "feature", base: "main" }); // rolling base->view unified diff
+repository.hydrate(["docs/keep.md"]);                        // realize virtual files from blobs
+repository.hydrate();                                        // realize all remaining virtual files
+repository.checkoutView("feature", { materialization: "full" }); // whole-tree escape hatch
+
+const manifest = repository.readVirtualCheckout();           // .epoch/checkout.json (or undefined)
+repository.readRollingPatch("feature");                      // .epoch/patches/<hash>.patch text
+repository.virtualCheckoutStale(manifest!);                  // true once the frontier advances
+repository.refreshVirtualManifest("feature");                // recompute + rewrite the cache
+
+repository.materializeVersion(versionId, { outDir: "./out", base: "v1" }); // sparse export
+```
+
+The manifest, rolling patch, and `epoch-virtual.json` are regenerable local
+caches; they are never signed and are excluded from `verify()`.
+
 ## Async Actor API
 
 Use the XState-backed actor API when coordinating event-driven applications or

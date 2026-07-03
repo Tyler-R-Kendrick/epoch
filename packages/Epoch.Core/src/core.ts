@@ -29,7 +29,14 @@ import {
   VersionEntity,
   VersionFile,
   VersionPayload,
+  VirtualCheckout,
+  VirtualCheckoutRecord,
+  VirtualCheckoutSchema,
+  VirtualCheckoutFormat,
+  MaterializationMode,
+  VirtualRecordStatus,
 } from "./domain";
+import { formatUnifiedDiff } from "./patch";
 import { z } from "zod";
 
 export { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "./domain";
@@ -194,6 +201,8 @@ export interface EpochRepositoryConfig {
   readonly working_tree?: {
     readonly max_new_file_bytes?: number;
     readonly auto_track?: string;
+    readonly materialization?: MaterializationSetting;
+    readonly patch_context_lines?: number;
   };
   readonly ignore?: {
     readonly global_file?: string;
@@ -201,7 +210,7 @@ export interface EpochRepositoryConfig {
 }
 
 export interface WorkingTreeEntry {
-  readonly status: "tracked" | "modified" | "deleted" | "untracked" | "ignored";
+  readonly status: "tracked" | "modified" | "deleted" | "untracked" | "ignored" | "virtual";
   readonly path: string;
   readonly marker: string;
 }
@@ -234,6 +243,7 @@ export interface CreateVersionOptions {
 export interface MaterializeVersionOptions {
   readonly outDir: string;
   readonly force?: boolean;
+  readonly base?: string;
 }
 
 export interface MaterializeVersionResult {
@@ -241,6 +251,30 @@ export interface MaterializeVersionResult {
   readonly files: readonly string[];
   readonly entities: readonly string[];
   readonly manifestPath: string;
+  readonly virtualPaths?: readonly string[];
+  readonly virtualManifestPath?: string;
+}
+
+export type MaterializationSetting = "virtual" | "full";
+
+export interface CheckoutOptions {
+  readonly materialization?: MaterializationSetting;
+  readonly base?: string;
+  readonly hydrate?: readonly string[];
+}
+
+export interface CheckoutResult extends ViewState {
+  readonly materialization: MaterializationSetting;
+  readonly manifest: VirtualCheckout;
+  readonly written: readonly string[];
+  readonly virtualPaths: readonly string[];
+  readonly patchPath?: string;
+}
+
+export interface PreviewOptions {
+  readonly view?: string;
+  readonly base?: string;
+  readonly contextLines?: number;
 }
 
 interface LocalViewIndex {
@@ -437,6 +471,8 @@ export class EpochRepository {
   readonly headsPath: string;
   readonly identityPath: string;
   readonly viewsPath: string;
+  readonly checkoutPath: string;
+  readonly patchesDir: string;
   private readonly hooks: EpochHook[];
   private readonly serializer: EpochSerializationProvider;
   private compactPrefixCache?: { readonly manifestHash: string; readonly events: Map<string, Event> };
@@ -450,6 +486,8 @@ export class EpochRepository {
     this.headsPath = join(this.epochDir, StorageName.heads);
     this.identityPath = join(this.epochDir, StorageName.identity);
     this.viewsPath = join(this.epochDir, StorageName.views);
+    this.checkoutPath = join(this.epochDir, StorageName.checkout);
+    this.patchesDir = join(this.epochDir, StorageName.patches);
     this.hooks = [...(options.hooks ?? [])];
     this.serializer = options.serializer ?? JsonSerializationProvider;
   }
@@ -493,6 +531,10 @@ export class EpochRepository {
     }
     if (!existsAsFile(this.viewsPath)) {
       writeJson(this.viewsPath, emptyLocalViewIndex());
+    }
+    const localConfigPath = this.configPath("local");
+    if (!existsAsFile(localConfigPath)) {
+      writeFileSync(localConfigPath, `[working_tree]${TextToken.newline}materialization = "${MaterializationMode.virtual}"${TextToken.newline}`, JsonEncoding);
     }
     this.emitHook("repository.init.after", { author });
   }
@@ -583,8 +625,10 @@ export class EpochRepository {
     return this.localViewIndex().current ?? "main";
   }
 
-  checkoutView(name: string): ViewState {
+  checkoutView(name: string, options: CheckoutOptions = {}): CheckoutResult {
     const state = this.computeViewState(name);
+    const mode = this.materializationMode(options.materialization);
+
     const trackedPaths = new Set<string>();
     for (const event of this.events()) {
       if (event.type === "record" && typeof event.payload.path === "string") trackedPaths.add(event.payload.path);
@@ -594,13 +638,170 @@ export class EpochRepository {
       const target = resolveInside(this.root, path, "remove path", "repository root").absolute;
       if (existsAsFile(target)) unlinkSync(target);
     }
-    for (const [path, record] of Object.entries(state.records)) {
-      const target = resolveInside(this.root, path, "checkout path", "repository root").absolute;
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, readFileSync(join(this.blobsDir, record.blobSha256)));
+
+    const baseName = mode === MaterializationMode.virtual ? options.base ?? this.viewParent(name) : undefined;
+    const hasBase = baseName !== undefined;
+    const baseRecords = baseName === undefined ? {} : this.computeViewState(baseName).records;
+    const hydrateSet = new Set(options.hydrate ?? []);
+
+    const written: string[] = [];
+    const virtualPaths: string[] = [];
+    const records: VirtualCheckoutRecord[] = [];
+    for (const [path, record] of Object.entries(state.records).sort(([left], [right]) => left.localeCompare(right))) {
+      // Full mode writes everything. Virtual mode with a base writes only paths whose blob differs
+      // from that base; without a base every path stays virtual (nothing is pulled) until hydrated.
+      const materialize = mode === MaterializationMode.full
+        || hydrateSet.has(path)
+        || (hasBase && baseRecords[path]?.blobSha256 !== record.blobSha256);
+      if (materialize) {
+        const target = resolveInside(this.root, path, "checkout path", "repository root").absolute;
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, readFileSync(join(this.blobsDir, record.blobSha256)));
+        written.push(path);
+      } else {
+        virtualPaths.push(path);
+      }
+      records.push({
+        path,
+        entity_type: record.entityType,
+        blob_sha256: record.blobSha256,
+        size: record.size,
+        status: materialize ? VirtualRecordStatus.materialized : VirtualRecordStatus.virtual,
+      });
     }
+
     this.updateLocalViewIndex((index) => ({ ...index, current: name }));
-    return state;
+
+    const patchText = mode === MaterializationMode.virtual ? this.buildRollingPatch(baseRecords, state.records) : "";
+    const patchPath = patchText.length > 0 ? this.writeRollingPatch(name, patchText) : undefined;
+    const manifest: VirtualCheckout = {
+      format: VirtualCheckoutFormat,
+      view: name,
+      ...(baseName === undefined ? {} : { base: baseName }),
+      materialization: mode,
+      frontier: this.heads(),
+      ...(patchPath === undefined ? {} : { patch: patchPath }),
+      records,
+    };
+    this.writeVirtualCheckout(manifest);
+
+    return { ...state, materialization: mode, manifest, written, virtualPaths, ...(patchPath === undefined ? {} : { patchPath }) };
+  }
+
+  /** Materializes still-virtual paths (or a subset) from the object store, updating the manifest. */
+  hydrate(paths?: readonly string[]): string[] {
+    this.requireInitialized();
+    const manifest = this.readVirtualCheckout();
+    if (manifest === undefined) return [];
+    const requested = paths === undefined ? undefined : new Set(paths);
+    const hydrated: string[] = [];
+    const records = manifest.records.map((record) => {
+      if (record.status !== VirtualRecordStatus.virtual) return record;
+      if (requested !== undefined && !requested.has(record.path)) return record;
+      const target = resolveInside(this.root, record.path, "hydrate path", "repository root").absolute;
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(join(this.blobsDir, record.blob_sha256)));
+      hydrated.push(record.path);
+      return { ...record, status: VirtualRecordStatus.materialized };
+    });
+    if (hydrated.length > 0) this.writeVirtualCheckout({ ...manifest, records });
+    return hydrated.sort();
+  }
+
+  /** Renders the rolling aggregate unified diff of `base -> view` without touching the working tree. */
+  previewPatch(options: PreviewOptions = {}): string {
+    this.requireInitialized();
+    const view = options.view ?? this.currentView();
+    const baseName = options.base ?? this.viewParent(view);
+    const viewRecords = this.computeViewState(view).records;
+    const baseRecords = baseName === undefined ? {} : this.computeViewState(baseName).records;
+    return this.buildRollingPatch(baseRecords, viewRecords, options.contextLines ?? this.patchContextLines());
+  }
+
+  /** Reads the current virtual checkout manifest, treating a malformed cache as absent. */
+  readVirtualCheckout(): VirtualCheckout | undefined {
+    if (!existsAsFile(this.checkoutPath)) return undefined;
+    try {
+      return readJson(this.checkoutPath, VirtualCheckoutSchema);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Reads the rolling aggregate patch text for a view, if one has been written. */
+  readRollingPatch(view: string = this.currentView()): string | undefined {
+    const target = this.patchPathForView(view);
+    return existsAsFile(target) ? readFileSync(target, JsonEncoding) : undefined;
+  }
+
+  /** Recomputes and persists the virtual manifest + rolling patch, rolling the checkout forward. */
+  refreshVirtualManifest(view: string = this.currentView(), base?: string): VirtualCheckout {
+    return this.checkoutView(view, { materialization: MaterializationMode.virtual, ...(base === undefined ? {} : { base }) }).manifest;
+  }
+
+  /** True when the persisted manifest no longer matches the current head frontier. */
+  virtualCheckoutStale(manifest: VirtualCheckout): boolean {
+    const frontier = this.heads();
+    return manifest.frontier.length !== frontier.length || manifest.frontier.some((id, index) => id !== frontier[index]);
+  }
+
+  private materializationMode(explicit?: MaterializationSetting): MaterializationSetting {
+    if (explicit === MaterializationMode.virtual || explicit === MaterializationMode.full) return explicit;
+    const configured = this.isInitialized() ? this.repositoryConfig().working_tree?.materialization : undefined;
+    return configured === MaterializationMode.virtual ? MaterializationMode.virtual : MaterializationMode.full;
+  }
+
+  private patchContextLines(): number {
+    const configured = this.isInitialized() ? this.repositoryConfig().working_tree?.patch_context_lines : undefined;
+    return typeof configured === "number" && Number.isInteger(configured) && configured >= 0 ? configured : 3;
+  }
+
+  private viewParent(name: string): string | undefined {
+    return this.latestViewDefinitions().get(name)?.parentView;
+  }
+
+  private buildRollingPatch(
+    baseRecords: Readonly<Record<string, { readonly blobSha256: string; readonly entityType: string; readonly size: number }>>,
+    records: Readonly<Record<string, { readonly blobSha256: string; readonly entityType: string; readonly size: number }>>,
+    contextLines: number = this.patchContextLines(),
+  ): string {
+    const paths = [...new Set([...Object.keys(baseRecords), ...Object.keys(records)])].sort();
+    const diffs: string[] = [];
+    for (const path of paths) {
+      const before = baseRecords[path];
+      const after = records[path];
+      if (before !== undefined && after !== undefined && before.blobSha256 === after.blobSha256) continue;
+      const diff = formatUnifiedDiff({
+        path,
+        from: before === undefined ? undefined : this.readBlobBytes(before.blobSha256),
+        to: after === undefined ? undefined : this.readBlobBytes(after.blobSha256),
+        fromBlob: before?.blobSha256,
+        toBlob: after?.blobSha256,
+        contextLines,
+      });
+      if (diff.length > 0) diffs.push(diff);
+    }
+    return diffs.join("");
+  }
+
+  private readBlobBytes(blobSha256: string): Buffer | undefined {
+    const path = join(this.blobsDir, blobSha256);
+    return existsAsFile(path) ? readFileSync(path) : undefined;
+  }
+
+  private writeVirtualCheckout(manifest: VirtualCheckout): void {
+    writeJson(this.checkoutPath, manifest);
+  }
+
+  private patchPathForView(view: string): string {
+    return join(this.patchesDir, `${sha256(view)}.patch`);
+  }
+
+  private writeRollingPatch(view: string, patchText: string): string {
+    const target = this.patchPathForView(view);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, patchText, JsonEncoding);
+    return relative(this.epochDir, target);
   }
 
   deleteView(name: string): void {
@@ -840,11 +1041,19 @@ export class EpochRepository {
     const workspaceFiles = new Set(this.workspaceFiles());
     const reported = new Set<string>();
 
+    const virtualManifest = this.isInitialized() ? this.readVirtualCheckout() : undefined;
+    const virtualBlobs = new Map<string, string>();
+    for (const record of virtualManifest?.records ?? []) {
+      if (record.status === VirtualRecordStatus.virtual) virtualBlobs.set(record.path, record.blob_sha256);
+    }
+
     for (const [path, record] of [...records.entries()].sort(([left], [right]) => left.localeCompare(right))) {
       reported.add(path);
       const absolute = join(this.root, path);
       if (!existsAsFile(absolute)) {
-        entries.push({ status: "deleted", marker: "D", path });
+        entries.push(virtualBlobs.get(path) === record.blob_sha256
+          ? { status: "virtual", marker: "V", path }
+          : { status: "deleted", marker: "D", path });
         continue;
       }
       const data = readFileSync(absolute);
@@ -1003,12 +1212,27 @@ export class EpochRepository {
     }
     mkdirSync(targetRoot, { recursive: true });
 
+    const baseBlobs = options.base === undefined ? undefined : this.resolveBaseBlobs(options.base);
     const files: string[] = [];
+    const virtualPaths: string[] = [];
+    const virtualRecords: VirtualCheckoutRecord[] = [];
     for (const file of payload.files) {
-      const target = resolveInside(targetRoot, file.path, RepositoryText.writePath, "materialized output").absolute;
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, readFileSync(join(this.blobsDir, file.blob_sha256)));
-      files.push(file.path);
+      const materialize = baseBlobs === undefined || baseBlobs.get(file.path) !== file.blob_sha256;
+      if (materialize) {
+        const target = resolveInside(targetRoot, file.path, RepositoryText.writePath, "materialized output").absolute;
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, readFileSync(join(this.blobsDir, file.blob_sha256)));
+        files.push(file.path);
+      } else {
+        virtualPaths.push(file.path);
+      }
+      virtualRecords.push({
+        path: file.path,
+        entity_type: file.entity_type,
+        blob_sha256: file.blob_sha256,
+        size: file.size,
+        status: materialize ? VirtualRecordStatus.materialized : VirtualRecordStatus.virtual,
+      });
     }
 
     const entities: string[] = [];
@@ -1022,7 +1246,31 @@ export class EpochRepository {
 
     const manifestPath = join(targetRoot, "epoch-version.json");
     writeJson(manifestPath, { id: version.id, signature: version.signature, ...payload });
-    return { version, files: files.sort(), entities: entities.sort(), manifestPath };
+    if (baseBlobs === undefined) {
+      return { version, files: files.sort(), entities: entities.sort(), manifestPath };
+    }
+
+    const virtualManifestPath = join(targetRoot, "epoch-virtual.json");
+    const virtualManifest: VirtualCheckout = {
+      format: VirtualCheckoutFormat,
+      view: payload.view,
+      base: options.base,
+      materialization: MaterializationMode.virtual,
+      frontier: payload.frontier,
+      records: virtualRecords,
+    };
+    writeJson(virtualManifestPath, virtualManifest);
+    return { version, files: files.sort(), entities: entities.sort(), manifestPath, virtualPaths: virtualPaths.sort(), virtualManifestPath };
+  }
+
+  private resolveBaseBlobs(base: string): Map<string, string> {
+    const versions = this.versions();
+    const match = versions.find((event) => event.id === base) ?? versions.filter((event) => event.payload.name === base)[0];
+    if (match !== undefined) {
+      const parsed = Schemas.versionPayload.parse(match.payload);
+      return new Map(parsed.files.map((file) => [file.path, file.blob_sha256]));
+    }
+    return new Map(Object.entries(this.computeViewState(base).records).map(([path, record]) => [path, record.blobSha256]));
   }
 
   intentFile(path: string, entityType: string = EntityType.octetStream, author = this.identity(), metadata: EventMetadata = {}): Event {

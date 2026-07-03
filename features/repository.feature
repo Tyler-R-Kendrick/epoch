@@ -371,3 +371,117 @@ Feature: Epoch repository event log
     Given a new workspace
     When I run unsupported Epoch Git command "rebase"
     Then Git compatibility fails with "not supported"
+
+  @persona.github_open_source_contributor
+  Scenario: Initialization defaults to virtual materialization
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    And I run the Epoch CLI with arguments:
+      | config                       |
+      | get                          |
+      | working_tree.materialization |
+    Then the CLI output contains "virtual"
+
+  @persona.github_open_source_contributor
+  Scenario: Virtual checkout keeps unchanged files off disk
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    And I record "keep.txt" with content "keep\n" as "text/plain"
+    And I record "change.txt" with content "before\n" as "text/plain"
+    And I create view "feature" from "main"
+    And I checkout view "feature"
+    And I record "change.txt" with content "after\n" as "text/plain"
+    And I delete workspace file "keep.txt"
+    And I delete workspace file "change.txt"
+    When I checkout view "feature"
+    Then workspace file "change.txt" contains "after\n"
+    And workspace file "keep.txt" does not exist
+    And the working tree marks "keep.txt" as "virtual"
+
+  @persona.github_open_source_contributor
+  Scenario: Preview prints the rolling aggregate patch
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    And I record "change.txt" with content "before\n" as "text/plain"
+    And I create view "feature" from "main"
+    And I checkout view "feature"
+    And I record "change.txt" with content "after\n" as "text/plain"
+    When I run the Epoch CLI with arguments:
+      | preview |
+      | --view  |
+      | feature |
+      | --base  |
+      | main    |
+    Then the CLI output contains "@@"
+    And the CLI output contains "+after"
+
+  @persona.github_open_source_contributor
+  Scenario: Hydrate realizes virtual files from the object store
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    And I record "keep.txt" with content "keep\n" as "text/plain"
+    And I record "change.txt" with content "before\n" as "text/plain"
+    And I create view "feature" from "main"
+    And I checkout view "feature"
+    And I record "change.txt" with content "after\n" as "text/plain"
+    And I delete workspace file "keep.txt"
+    And I delete workspace file "change.txt"
+    And I checkout view "feature"
+    When I run the Epoch CLI with arguments:
+      | hydrate |
+    Then workspace file "keep.txt" contains "keep\n"
+    And workspace file "change.txt" contains "after\n"
+
+  @persona.github_open_source_contributor
+  Scenario: Full checkout restores the entire working tree
+    Given a new workspace
+    And I initialize an Epoch repository as "alice"
+    And I record "keep.txt" with content "keep\n" as "text/plain"
+    And I record "change.txt" with content "before\n" as "text/plain"
+    And I create view "feature" from "main"
+    And I checkout view "feature"
+    And I record "change.txt" with content "after\n" as "text/plain"
+    And I delete workspace file "keep.txt"
+    And I delete workspace file "change.txt"
+    When I run the Epoch CLI with arguments:
+      | checkout |
+      | --full   |
+      | feature  |
+    Then workspace file "keep.txt" contains "keep\n"
+    And workspace file "change.txt" contains "after\n"
+
+  @persona.github_open_source_contributor
+  Scenario: Version materialization with a base writes only changed files
+    Given a new workspace
+    When I write raw workspace file "site/a.txt" with content "a1\n"
+    And I write raw workspace file "site/b.txt" with content "b1\n"
+    And I run the Epoch CLI with arguments:
+      | push      |
+      | site      |
+      | --author  |
+      | alice     |
+      | --version |
+      | v1        |
+    And I write raw workspace file "site/a.txt" with content "a2\n"
+    And I run the Epoch CLI with arguments:
+      | push      |
+      | site      |
+      | --author  |
+      | alice     |
+      | --version |
+      | v2        |
+    And I run the Epoch CLI with arguments:
+      | version     |
+      | materialize |
+      | v2          |
+      | --out       |
+      | out         |
+      | --base      |
+      | v1          |
+    Then the CLI exits with code 0
+    And workspace file "out/site/a.txt" contains "a2\n"
+    And workspace file "out/site/b.txt" does not exist
+    And workspace file "out/epoch-virtual.json" exists

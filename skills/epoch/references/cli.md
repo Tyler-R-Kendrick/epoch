@@ -45,7 +45,7 @@ See the public [CLI docs](../../../docs/cli.md) for local linking and command de
 | `version create [NAME] [--view VIEW] [--entity NAME]` | Create a signed version manifest. |
 | `versions` | List known versions. |
 | `version show VERSION` | Print a version manifest. |
-| `version materialize VERSION --out PATH [--force]` | Recreate version files, snapshots, and `epoch-version.json`. |
+| `version materialize VERSION --out PATH [--base REF] [--force]` | Recreate version files, snapshots, and `epoch-version.json`; `--base` writes only changed files plus `epoch-virtual.json`. |
 
 ## Review and policy commands
 
@@ -79,10 +79,23 @@ Use views as deterministic logical workspaces over the shared event log.
 |---|---|
 | `view-create NAME --parent VIEW --rule JSON` | Create a named view. |
 | `views` | List views and mark the current view. |
-| `checkout NAME` | Switch the current view. |
+| `checkout [--virtual\|--full] [--base REF] NAME` | Switch the current view and materialize its files. |
 | `view-delete NAME` | Delete a view. |
 | `view-diff LEFT RIGHT` | Show a JSON diff between views. |
 | `view-promote SOURCE TARGET` | Promote accepted content from one view into another. |
+
+## Virtual working tree commands
+
+`init` defaults `[working_tree] materialization` to `virtual`, so `checkout`
+writes only the files a view changes and records `.epoch/checkout.json` plus a
+rolling `.epoch/patches/<hash>.patch` (regenerable caches, excluded from `verify`).
+
+| Command | Purpose |
+|---|---|
+| `checkout --virtual [--base REF] NAME` | Sparse checkout: write only changed files; leave the rest virtual. |
+| `checkout --full NAME` | Materialize the whole working tree. |
+| `preview [--view VIEW] [--base REF] [--context N]` | Print the rolling aggregate diff without materializing. |
+| `hydrate [PATH...]` | Materialize still-virtual files from the object store. |
 
 ## Git commands
 

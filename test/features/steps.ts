@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, setDefaultTimeout, Then, When } from "@cucumber/cucumber";
@@ -276,6 +276,24 @@ Then("the version manifest includes entity {string}", function (expected: string
 
 Then("workspace file {string} contains {string}", function (path: string, expected: string) {
   assert.equal(readFileSync(join(state.workspace, path), "utf8"), expected.replaceAll("\\n", "\n"));
+});
+
+Then("workspace file {string} exists", function (path: string) {
+  assert.equal(existsSync(join(state.workspace, path)), true, `expected ${path} to exist`);
+});
+
+Then("workspace file {string} does not exist", function (path: string) {
+  assert.equal(existsSync(join(state.workspace, path)), false, `expected ${path} to be absent`);
+});
+
+When("I delete workspace file {string}", function (path: string) {
+  rmSync(join(state.workspace, path), { force: true });
+});
+
+Then("the working tree marks {string} as {string}", function (path: string, status: string) {
+  const entry = state.repo.statusEntries().find((item) => item.path === path);
+  assert.ok(entry, `expected a working tree entry for ${path}`);
+  assert.equal(entry.status, status);
 });
 
 Then("workspace JSON file {string} has property {string} equal to {string}", function (path: string, propertyPath: string, expected: string) {

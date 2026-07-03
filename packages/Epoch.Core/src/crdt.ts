@@ -310,13 +310,13 @@ function mergeCsvRow(id: string, base: string[] | undefined, left: string[] | un
   throw new MergeConflictError(`$.${id}`);
 }
 
-interface TextHunk {
+export interface TextHunk {
   start: number;
   end: number;
   lines: string[];
 }
 
-function diffLines(base: string[], edited: string[]): TextHunk[] {
+export function diffLines(base: string[], edited: string[]): TextHunk[] {
   const lcs = Array.from({ length: base.length + 1 }, () => Array<number>(edited.length + 1).fill(0));
   for (let i = base.length - 1; i >= 0; i -= 1) {
     for (let j = edited.length - 1; j >= 0; j -= 1) {

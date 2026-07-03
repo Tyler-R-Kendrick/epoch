@@ -15,7 +15,10 @@ An initialized repository contains:
   blobs/
   compacts/
   events/
+  patches/
   users/
+  checkout.json
+  config.toml
   heads.json
   identity.json
   views.json
@@ -27,6 +30,21 @@ An initialized repository contains:
 - `heads.json` stores current event frontier IDs.
 - `views.json` stores current named-view state.
 - `compacts/` stores materialized log-prefix compacts and their manifest.
+- `config.toml` stores local repository config; `init` seeds `[working_tree] materialization = "virtual"`.
+- `checkout.json` and `patches/` are the virtual working tree cache (see below).
+
+### Virtual Working Tree
+
+`checkout` and `version materialize` support a virtual materialization mode that
+writes only the files a view changes relative to a base; unchanged files stay
+virtual. A virtual checkout records `checkout.json` (every path with its
+`blob_sha256`, `size`, and `virtual`/`materialized` status) and a rolling
+`base -> view` unified diff at `patches/<hash>.patch`. `previewPatch()` prints
+that aggregate without materializing, and `hydrate()` realizes virtual files from
+blobs on demand. These artifacts are regenerable local caches, like `views.json`
+and `compacts/`: they are not signed and are excluded from `verify()`, which
+still re-hashes whole-content blobs. `checkoutView()` with `materialization:
+"full"` restores whole-tree materialization.
 
 ## Event Model
 

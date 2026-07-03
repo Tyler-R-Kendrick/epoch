@@ -1,11 +1,13 @@
 export { BundleEpochTransport, EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, JsonSerializationProvider, MemoryEpochTransport, commitGit, createToonSerializationProvider } from "./core";
-export type { CollaborationProjection, CreateVersionOptions, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryCreateOptions, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, IdentityData, InclusionRule, IntentDecision, MaterializeVersionOptions, MaterializeVersionResult, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, PushOptions, PushResult, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
+export type { CheckoutOptions, CheckoutResult, CollaborationProjection, CreateVersionOptions, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryCreateOptions, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, IdentityData, InclusionRule, IntentDecision, MaterializationSetting, MaterializeVersionOptions, MaterializeVersionResult, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, PreviewOptions, PushOptions, PushResult, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
 export { EpochActorSystem, EpochUserActor } from "./actors";
-export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
-export type { CRDTOperation, EntityAdapter } from "./crdt";
+export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, diffLines, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
+export type { CRDTOperation, EntityAdapter, TextHunk } from "./crdt";
+export { applyUnifiedDiff, formatUnifiedDiff, isTextBlob } from "./patch";
+export type { UnifiedDiffInput } from "./patch";
 export { canonicalJson } from "./json";
-export { ActorCommand, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, Schemas, StorageName, Symbols } from "./domain";
-export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath, VersionEntity, VersionFile, VersionPayload } from "./domain";
+export { ActorCommand, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, MaterializationMode, Schemas, StorageName, Symbols, VirtualCheckoutFormat, VirtualCheckoutSchema, VirtualRecordStatus } from "./domain";
+export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath, VersionEntity, VersionFile, VersionPayload, VirtualCheckout, VirtualCheckoutRecord } from "./domain";
 export { createCompact, pruneEventLogBeforeCompact, restoreFromCompact, latestCompact, verifyCompact } from "./ha/compact";
 export type { Compact, CompactManifest, CompactManifestEntry } from "./ha/compact";
 export { SeedNodeService, bootstrapFromSeed, bootstrapFromSeeds } from "./ha/seed";
