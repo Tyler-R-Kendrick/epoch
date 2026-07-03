@@ -204,7 +204,7 @@ inline at all. Epoch records a signed pointer event
 (`{ blob_sha256, size, entity_type, locator }`) plus policy, while a tightly
 integrated artifact store — a first-party service, or a reused OCI registry or
 S3-compatible object store — holds the bytes and is presented as part of the DVCS.
-This is the [Git LFS](../competition/products/dvc/design/design.md),
+This is the [Git LFS](../competition/products/git-lfs/design/design.md),
 [DVC](../competition/products/dvc/design/design.md), and
 [lakeFS](../competition/products/lakefs/design/design.md) lineage, expressed as an
 `external-pointer` storage descriptor (Option 5).
