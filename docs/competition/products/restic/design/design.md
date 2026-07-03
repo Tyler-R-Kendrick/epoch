@@ -29,7 +29,7 @@ restic is a single-binary command-line tool; its "design" is the repository form
 
 ## What Works
 
-- The chunk-store-plus-index-plus-snapshot architecture is almost exactly what ADR-0015's Option 2 describes: content-addressed chunks, packs, an assembly index, and a tree that references ordered chunks. Epoch can adopt this shape and add signatures over the manifest.
+- The chunk-store-plus-snapshot architecture maps almost directly onto ADR-0015's Option 2 substrate: content-addressed chunks aggregated into packs under a signed manifest of ordered chunk hashes and offsets. restic's separate blob-to-pack assembly index is the concrete template for resolving a chunk to its byte range, and Epoch adds signatures over the manifest.
 - Chunking plaintext and encrypting each chunk afterward is the concrete resolution of ADR-0015's "dedup is weaker on encrypted inputs" caveat, and restic proves it at scale.
 - Reachability-based prune (snapshots as roots, repack partially-used packs) is a working model for the chunk-level garbage collection ADR-0015 flags as new machinery to build.
 - Serving one content-addressed format across many commodity backends is a clean template for Epoch's pluggable transport and availability tiers.

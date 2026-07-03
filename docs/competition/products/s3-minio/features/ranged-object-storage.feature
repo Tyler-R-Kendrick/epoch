@@ -15,7 +15,7 @@ Feature: Ranged object storage over an S3-compatible store
     Given a stored object and a client that needs a single chunk by offset and length
     When the client issues an HTTP Range GET for exactly that byte range
     Then only the requested bytes are transferred, not the whole object
-    And this is the chunk-range primitive Epoch's Option 6 transport fetches by
+    And that byte range is the chunk-range primitive Epoch's Option 6 transport rides on
 
   Scenario: Managing retention outside any signed store via lifecycle and versioning
     Given a bucket with object versioning and a lifecycle policy configured

@@ -15,7 +15,7 @@ BorgBackup is an open-source project, so its "marketing" is an adoption and posi
 
 - System administrators and self-hosters who want space-efficient, encrypted backups of servers and workstations.
 - Teams backing up snapshots with heavy cross-snapshot overlap, where global deduplication cuts storage dramatically.
-- Privacy-conscious users who need client-side (repository-side) encryption while still deduplicating.
+- Privacy-conscious users who need client-side encryption while still deduplicating.
 - Operators who want append-only backups that resist tampering or ransomware deleting history.
 
 ## Positioning
