@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-06-12
+last_researched: 2026-07-03
 ---
 
 # Competition Research
@@ -134,6 +134,13 @@ gossip-path: <product-path>/gossip.md
 | VFS for Git / Scalar | On-demand object hydration and partial clone at scale | [Profile](products/vfs-for-git/profile.md) | [Design](products/vfs-for-git/design/design.md) | [Feature](products/vfs-for-git/features/on-demand-object-hydration.feature) | [Marketing](products/vfs-for-git/marketing.md) | [Gossip](products/vfs-for-git/gossip.md) |
 | Diversion | Cloud-native large-file version control | [Profile](products/diversion/profile.md) | [Design](products/diversion/design/design.md) | [Feature](products/diversion/features/native-large-file-cloud-vcs.feature) | [Marketing](products/diversion/marketing.md) | [Gossip](products/diversion/gossip.md) |
 | Snowtrack (SnowFS) | Fast copy-on-write snapshots for large binaries | [Profile](products/snowtrack/profile.md) | [Design](products/snowtrack/design/design.md) | [Feature](products/snowtrack/features/fast-large-binary-snapshots.feature) | [Marketing](products/snowtrack/marketing.md) | [Gossip](products/snowtrack/gossip.md) |
+| restic | Content-defined deduplicated encrypted backup with pack files and reachability prune | [Profile](products/restic/profile.md) | [Design](products/restic/design/design.md) | [Feature](products/restic/features/content-defined-dedup-backup.feature) | [Marketing](products/restic/marketing.md) | [Gossip](products/restic/gossip.md) |
+| BorgBackup | Deduplicating encrypted backup with content-defined chunking and append-only segments | [Profile](products/borgbackup/profile.md) | [Design](products/borgbackup/design/design.md) | [Feature](products/borgbackup/features/deduplicating-encrypted-backup.feature) | [Marketing](products/borgbackup/marketing.md) | [Gossip](products/borgbackup/gossip.md) |
+| OSTree (libostree) | Content-addressed filesystem trees with static deltas and hardlinked checkouts | [Profile](products/ostree/profile.md) | [Design](products/ostree/design/design.md) | [Feature](products/ostree/features/content-addressed-tree-deltas.feature) | [Marketing](products/ostree/marketing.md) | [Gossip](products/ostree/gossip.md) |
+| Perkeep (Camlistore) | Content-addressed blobs with a signed permanode/claim overlay and a rebuildable index | [Profile](products/perkeep/profile.md) | [Design](products/perkeep/design/design.md) | [Feature](products/perkeep/features/content-addressed-blob-storage.feature) | [Marketing](products/perkeep/marketing.md) | [Gossip](products/perkeep/gossip.md) |
+| Tahoe-LAFS | Erasure-coded, capability-secured storage with quantifiable durability | [Profile](products/tahoe-lafs/profile.md) | [Design](products/tahoe-lafs/design/design.md) | [Feature](products/tahoe-lafs/features/erasure-coded-capability-storage.feature) | [Marketing](products/tahoe-lafs/marketing.md) | [Gossip](products/tahoe-lafs/gossip.md) |
+| OCI Registry / ORAS | Content-addressed artifact registry as an external blob substrate | [Profile](products/oci-oras/profile.md) | [Design](products/oci-oras/design/design.md) | [Feature](products/oci-oras/features/registry-as-artifact-store.feature) | [Marketing](products/oci-oras/marketing.md) | [Gossip](products/oci-oras/gossip.md) |
+| Amazon S3 / MinIO | Range-addressable object storage as an external blob substrate | [Profile](products/s3-minio/profile.md) | [Design](products/s3-minio/design/design.md) | [Feature](products/s3-minio/features/ranged-object-storage.feature) | [Marketing](products/s3-minio/marketing.md) | [Gossip](products/s3-minio/gossip.md) |
 
 ## Research Dimensions
 

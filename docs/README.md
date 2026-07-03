@@ -36,6 +36,7 @@ decisions, operations, or contribution workflow.
 | Document | Use it for |
 |---|---|
 | [Current Design](design.md) | Current architecture, event model, sync, policy, CRDT surfaces, hooks, actors, and non-goals. |
+| [Blob And Large-File Gap Analysis](blob-large-file-gap-analysis.md) | Competitive capability matrix and residual gaps behind Epoch's large-file direction, feeding the ADR-0018 reference architecture. |
 | [Visual Design System](../DESIGN.md) | Epoch Community visual tokens, component rules, accessibility guardrails, and design-system sidecar guidance. |
 | [CLI Reference](cli.md) | Source checkout commands, `epoch` shorthand, `epoch-git`, global linking, and command groups. |
 | [Core SDK Reference](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, and Git-compatible core surfaces. |
@@ -66,6 +67,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0015: Large-File And Blob Handling Options](design-decisions/0015-large-file-and-blob-handling-options.md) | Content-defined chunking with signed Merkle manifests behind a storage-descriptor seam. |
 | [ADR-0016: Entity-Aware Streaming And Targeted Checkout](design-decisions/0016-entity-aware-streaming-and-targeted-checkout.md) | Chunk-granular partial residency, entity-aware streaming, and signed exclusive locks. |
 | [ADR-0017: Konsistent Structural Conventions](design-decisions/0017-konsistent-structural-conventions.md) | Adopts konsistent as an npm-managed structural-convention gate for workspace layout. |
+| [ADR-0018: Blob Subsystem Reference Architecture](design-decisions/0018-blob-subsystem-reference-architecture.md) | Consolidates ADR-0015/0016 into one layered blob reference architecture mapped onto existing code seams. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
