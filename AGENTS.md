@@ -9,6 +9,7 @@ These instructions apply to the entire repository.
   - `npm run docs:check`
   - `npm run lint`
   - `npm run typecheck`
+  - `npm run konsistent`
   - `npm test`
   - `npm run coverage`
   - `npm run verify`
@@ -53,6 +54,7 @@ These instructions apply to the entire repository.
 | `npm run build` | Build Core, CLI, WASM, and test TypeScript outputs. |
 | `npm run docs:check` | Validate local Markdown links and docs/spec discoverability from `README.md`. |
 | `npm run lint` | Run ESLint over source, tests, and configuration. |
+| `npm run konsistent` | Enforce workspace structural conventions declared in `konsistent.json`. |
 | `npm run typecheck` | Run `tsgo --noEmit` for every workspace and test project. |
 | `npm test` | Build and execute the Cucumber feature suite. |
 | `npm run coverage` | Run Cucumber under c8 and enforce coverage thresholds. |

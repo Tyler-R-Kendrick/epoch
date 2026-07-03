@@ -8,7 +8,7 @@ Use the Epoch SDLC subagent when a Codex run adds or changes Epoch behavior. Its
 - Require focused unit tests for public SDK behavior and edge cases.
 - Require component-level tests when framework integrations render or subscribe to state.
 - Require headless Playwright validation when browser behavior is part of the acceptance criteria.
-- Require `npm run lint`, `npm run typecheck`, `npm test`, `npm run coverage`, and `npm run verify` before completion.
+- Require `npm run lint`, `npm run typecheck`, `npm run konsistent`, `npm test`, `npm run coverage`, and `npm run verify` before completion.
 
 ## Review checklist
 

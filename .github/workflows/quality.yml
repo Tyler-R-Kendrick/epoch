@@ -67,6 +67,27 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+  konsistent:
+    name: Konsistent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Konsistent
+        run: npm run konsistent
+        env:
+          KONSISTENT_NO_UPDATE_CHECK: "true"
+
   test:
     name: Test
     runs-on: ubuntu-latest
