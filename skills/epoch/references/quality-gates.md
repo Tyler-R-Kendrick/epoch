@@ -12,10 +12,11 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 |---|---|---|
 | `npm run docs:check` | Every change | Local Markdown links and docs/spec discoverability from `README.md`. |
 | `npm run lint` | Every source, script, or test change | ESLint rules over TypeScript, JavaScript scripts, tests, and configuration. |
+| `npm run konsistent` | Every workspace layout change | Structural conventions from `konsistent.json`: package and sample `package.json` manifests plus package `src/index.ts` entrypoints (Epoch.CLI excepted). |
 | `npm run typecheck` | Every source or test change | `tsgo --noEmit` for Core, CLI, WASM, WASM React, Platform Web, Community API, Community Core, Community CLI, Community Web, and tests. |
 | `npm test` | Every behavior change | Unit/component runtime tests plus Cucumber features against compiled TypeScript output. |
 | `npm run coverage` | Every behavior change | c8 coverage over unit/component tests and Cucumber features with enforced thresholds. |
-| `npm run verify` | Before review | Docs check, lint, typecheck, tests, and coverage in sequence. |
+| `npm run verify` | Before review | Docs check, lint, typecheck, konsistent, tests, and coverage in sequence. |
 
 Community package and experience changes must keep the Community validation
 layers healthy: design-thinking and user-centric docs, persona-tagged Gherkin
@@ -46,4 +47,4 @@ scenario inventory.
 
 ## CI expectations
 
-The GitHub Actions quality workflow installs dependencies with `npm ci` and runs docs check, lint, typecheck, test, and coverage as independent required gates.
+The GitHub Actions quality workflow installs dependencies with `npm ci` and runs docs check, lint, typecheck, konsistent, test, and coverage as independent required gates.

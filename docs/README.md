@@ -62,6 +62,10 @@ decisions, operations, or contribution workflow.
 | [ADR-0011: Community Web Dogfoods Epoch](design-decisions/0011-community-web-dogfoods-epoch.md) | Builds Community Web releases through signed Epoch site history. |
 | [ADR-0012: Design Thinking And Human-Centered Design For Epoch Community](design-decisions/0012-community-human-centered-design.md) | Makes design thinking, user-centric design, human-centered design, and the GitHub open-source contributor persona the default method for Community work. |
 | [ADR-0013: Community Operations Extension Package](design-decisions/0013-community-operations-extension-package.md) | Keeps Coolify-inspired project operations in a separate deployable extension over Platform SDK/Core state. |
+| [ADR-0014: Virtual Working Tree And Sparse Checkout](design-decisions/0014-virtual-working-tree-and-sparse-checkout.md) | Adds a virtual working tree with sparse checkout, rolling patch aggregates, and virtual-by-default init. |
+| [ADR-0015: Large-File And Blob Handling Options](design-decisions/0015-large-file-and-blob-handling-options.md) | Content-defined chunking with signed Merkle manifests behind a storage-descriptor seam. |
+| [ADR-0016: Entity-Aware Streaming And Targeted Checkout](design-decisions/0016-entity-aware-streaming-and-targeted-checkout.md) | Chunk-granular partial residency, entity-aware streaming, and signed exclusive locks. |
+| [ADR-0017: Konsistent Structural Conventions](design-decisions/0017-konsistent-structural-conventions.md) | Adopts konsistent as an npm-managed structural-convention gate for workspace layout. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

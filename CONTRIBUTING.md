@@ -16,6 +16,7 @@ Every source change must pass:
 - `npm run docs:check`
 - `npm run lint`
 - `npm run typecheck`
+- `npm run konsistent`
 - `npm test`
 - `npm run coverage`
 - `npm run verify`

@@ -104,6 +104,7 @@
     "build": "npm run build -w @epoch/core && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && tsgo -p tsconfig.test.json",
     "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
+    "konsistent": "konsistent",
     "docs:check": "node scripts/check-docs.mjs",
     "vercel:community-web": "node scripts/render-community-web.mjs",
     "e2e:community-web": "node scripts/run-community-web-e2e.mjs",
@@ -114,7 +115,7 @@
     "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
-    "verify": "npm run docs:check && npm run lint && npm run typecheck && npm test && npm run coverage"
+    "verify": "npm run docs:check && npm run lint && npm run typecheck && npm run konsistent && npm test && npm run coverage"
   },
   "keywords": [
     "dvcs",
@@ -136,6 +137,7 @@
     "c8": "^11.0.0",
     "eslint": "^10.3.0",
     "jsdom": "^29.1.1",
+    "konsistent": "^1.0.0-beta.1",
     "playwright": "^1.59.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

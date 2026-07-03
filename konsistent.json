@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/konsistent/konsistent.schema.json",
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "package-has-manifest",
+      "description": "Every workspace under packages/ is a directory that ships a package.json manifest.",
+      "paths": "packages/*",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["package.json"]
+      }
+    },
+    {
+      "name": "package-has-entrypoint",
+      "description": "Every workspace exposes a src/index.ts entrypoint. Epoch.CLI is the deliberate exception: it ships CLI entrypoints (src/cli.ts, src/cli-git.ts) instead of a barrel.",
+      "paths": ["packages/*", "!packages/Epoch.CLI"],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["src/index.ts"]
+      }
+    },
+    {
+      "name": "sample-has-manifest",
+      "description": "Every sample app under samples/ is a directory that ships a package.json manifest.",
+      "paths": ["samples/*", "!samples/README.md"],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["package.json"]
+      }
+    }
+  ]
+}
