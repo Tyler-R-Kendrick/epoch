@@ -17,6 +17,7 @@ decisions, operations, or contribution workflow.
 | [Create Repository And Version Materialization Spec](create-repository-and-version-materialization.md) | Implemented create, push, version, and materialization user stories. |
 | [Specification Template Outline](spec-template-outline.md) | Reusable outline extracted from a conformance-grade app spec. |
 | [Epoch.Platform Specification](epoch-platform-spec.md) | Draft product and system spec for a self-hostable Epoch platform. |
+| [Epoch Live Specification](epoch-live-spec.md) | Design-only spec for `@epoch/live`, a browser client positioned as a direct competitor to Redux and Yjs for rollback and data propagation. |
 | [Community Operations Extension](community-operations.md) | Product and API reference for the separate sandbox workspace, hosted-app, workflow, runner, and agent-sandbox operations package. |
 | [Samples](../samples/README.md) | Runnable minimal integrations for Epoch browser, Node backend, and repository workflows. |
 | [Notebooks](../notebooks/README.md) | Executable Node.js notebook examples for Epoch usage scenarios with stored results and output explanations. |
@@ -68,6 +69,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0016: Entity-Aware Streaming And Targeted Checkout](design-decisions/0016-entity-aware-streaming-and-targeted-checkout.md) | Chunk-granular partial residency, entity-aware streaming, and signed exclusive locks. |
 | [ADR-0017: Konsistent Structural Conventions](design-decisions/0017-konsistent-structural-conventions.md) | Adopts konsistent as an npm-managed structural-convention gate for workspace layout. |
 | [ADR-0018: Blob Subsystem Reference Architecture](design-decisions/0018-blob-subsystem-reference-architecture.md) | Consolidates ADR-0015/0016 into one layered blob reference architecture mapped onto existing code seams. |
+| [ADR-0019: Epoch Live Browser State And Propagation](design-decisions/0019-epoch-live-browser-state-and-propagation.md) | Designs `@epoch/live` as a browser client competing with Redux and Yjs for rollback and data propagation, advancing ADR-0003 Options 2 and 6. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
