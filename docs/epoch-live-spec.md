@@ -1,10 +1,11 @@
 # Epoch Live (`@epoch/live`) Specification
 
-Status: Draft v1 (design only). This document specifies a **proposed** browser
-client package, `@epoch/live` (folder `Epoch.Live` when built). No runtime code
-ships with this specification; it is the blueprint and competitive justification
-for a follow-up implementation. The decision to pursue this direction is recorded
-in [ADR-0019](design-decisions/0019-epoch-live-browser-state-and-propagation.md).
+Status: Draft v1 — implemented. This document specifies the `@epoch/live`
+browser client (`packages/Epoch.Live`), delivered as a composition layer over
+existing Epoch primitives with a runnable sample
+([`samples/epoch-live-collab`](../samples/epoch-live-collab/README.md)) plus
+unit, provider, and React coverage. The decision is recorded in
+[ADR-0019](design-decisions/0019-epoch-live-browser-state-and-propagation.md).
 
 ## 1. Normative Frame
 
@@ -57,9 +58,11 @@ deployment concerns behind the provider seam).
 
 - No authoritative server, relay, or seed for repository truth.
 - No signing of ephemeral presence into history.
-- No second CRDT engine; Collabs remains the backend (ADR-0002).
+- No second CRDT engine (the reference client uses a deterministic op-based
+  LWW-map fold; Collabs remains available for richer entities per ADR-0002).
 - No full patch-algebra rewrite of the event model.
-- No implementation code in the PR that introduces this document.
+- No bundled WebSocket-relay or WebRTC-signaling server; networked providers plug
+  in behind the provider seam.
 
 **Product principles.** Local-first and offline-capable by default; durable and
 auditable over convenient-but-ephemeral; familiar to Redux and Yjs developers;
@@ -154,8 +157,9 @@ never an event.
 
 ## 5. Public Contracts
 
-The following TypeScript signatures are **normative** for the proposed package.
-They are design targets; no code implements them yet.
+The following TypeScript signatures are **normative** and are implemented in
+`packages/Epoch.Live` (see its `src/index.ts` barrel). The shapes below are the
+design intent; the shipped types may add convenience fields.
 
 ### 5.1 Store
 

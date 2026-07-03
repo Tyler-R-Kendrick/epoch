@@ -2,11 +2,13 @@
 
 ## Status
 
-Accepted. Chosen design direction; implementation deferred to a follow-up change.
-This ADR advances [ADR-0003](0003-competitive-gap-design-options.md) Option 6
-(Browser Live Repository Surface) and Option 2 (Pluggable Sync And Availability
-Tiers) from options into a single packaged design. The full specification is
-[docs/epoch-live-spec.md](../epoch-live-spec.md).
+Accepted and implemented. This ADR advances
+[ADR-0003](0003-competitive-gap-design-options.md) Option 6 (Browser Live
+Repository Surface) and Option 2 (Pluggable Sync And Availability Tiers) from
+options into a single packaged design, now delivered as the `@epoch/live`
+package (`packages/Epoch.Live`) with a runnable sample
+(`samples/epoch-live-collab`) plus unit, provider, and React coverage. The full
+specification is [docs/epoch-live-spec.md](../epoch-live-spec.md).
 
 ## Context
 
@@ -40,9 +42,9 @@ direct competitor to either for rollback and data propagation.
 Design a new browser client package, `@epoch/live` (folder `Epoch.Live` when
 built), as a **direct competitor to Redux and Yjs** that unifies local state
 management and real-time collaboration on one signed, auditable Epoch history,
-with **rollback** and **data propagation** as the hero capabilities. This change
-delivers the design and competitive justification only; no runtime code or
-package registration lands with it.
+with **rollback** and **data propagation** as the hero capabilities. The design
+is delivered as the `@epoch/live` package, built as a composition layer over
+existing Epoch primitives rather than a fork.
 
 `@epoch/live` is a composition layer, not a fork. It reuses existing primitives:
 
@@ -116,16 +118,19 @@ Trade-offs:
   genuinely conflicting fields should be modeled as CRDT entities.
 - Networked providers (WebSocket relay, WebRTC) need deployment infrastructure to
   exercise end to end, so their conformance is validated behind the provider seam
-  rather than in-process.
-- Implementation is deferred; this ADR creates an expectation the codebase does
-  not yet satisfy until the follow-up change lands.
+  (via in-memory and duplex-channel test doubles) rather than against a live
+  server.
+- The default signer is a browser-safe content-integrity scheme; Ed25519
+  authenticity requires injecting a host signer (Node `crypto` or WebCrypto)
+  through the same interface.
 
 ## Non-Goals
 
 - No authoritative server, relay, or seed for repository truth.
 - No signing of ephemeral presence into history.
 - No second CRDT engine or patch-algebra rewrite of the event model.
-- No runtime code or `packages/Epoch.Live/` registration in this change.
+- No bundled WebSocket-relay or WebRTC-signaling server; those live behind the
+  provider seam as deployment concerns.
 
 ## Revisit Criteria
 
