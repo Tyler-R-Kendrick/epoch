@@ -26,6 +26,7 @@ and when the decision should be revisited.
 | [ADR-0016](0016-entity-aware-streaming-and-targeted-checkout.md) | Accepted | Extend the virtual working tree to chunk-granular partial residency with entity-aware streaming adapters, chunk-level live editing via signed manifest deltas, and signed exclusive locks, so contributors make targeted edits without holding every file or byte. |
 | [ADR-0017](0017-konsistent-structural-conventions.md) | Accepted | Adopt konsistent as an npm-managed structural-convention gate for workspace layout, using wildcard globs because dot-delimited package names defeat placeholder capture. |
 | [ADR-0018](0018-blob-subsystem-reference-architecture.md) | Accepted | Consolidate ADR-0015 and ADR-0016 into one layered blob reference architecture (L0 storage descriptor through L7 availability/external-pointer) mapped onto existing code seams, operationalizing the chosen shape without committing a build sequence. |
+| [ADR-0019](0019-epoch-live-browser-state-and-propagation.md) | Accepted | Design `@epoch/live` as a browser client competing with Redux and Yjs for rollback and data propagation, advancing ADR-0003 Options 2 and 6; design only, implementation deferred. |
 
 ## Supporting Decision Records
 

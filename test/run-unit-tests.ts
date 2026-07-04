@@ -4,10 +4,13 @@ import { runCommunityContractTests } from "./unit/community-contract.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
+import { runEpochLiveStoreTests } from "./unit/epoch-live-store.test";
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
 import { runPersonaFeatureModelTests } from "./unit/persona-feature-model.test";
+import { runEpochLiveReactTests } from "./component/epoch-live-react.test";
+import { runSampleEpochLiveCollabTests } from "./unit/sample-epoch-live-collab.test";
 import { runSampleHelloWorldCliTests } from "./unit/sample-hello-world-cli.test";
 import { runSampleSelfEvolvingCanvasTests } from "./unit/sample-self-evolving-canvas.test";
 import { runSampleSelfEvolvingDashboardTests } from "./unit/sample-self-evolving-dashboard.test";
@@ -27,11 +30,14 @@ async function main(): Promise<void> {
   await runPlatformBoundaryTests();
   runPersonaFeatureModelTests();
   runWasmReactStoreTests();
+  runEpochLiveStoreTests();
+  runSampleEpochLiveCollabTests();
   runSampleHelloWorldCliTests();
   runSampleSelfEvolvingCanvasTests();
   runSampleSelfEvolvingDashboardTests();
   runVirtualCheckoutTests();
   await runWasmReactShadowDomTests();
+  await runEpochLiveReactTests();
   console.log("unit and component tests passed");
 }
 
