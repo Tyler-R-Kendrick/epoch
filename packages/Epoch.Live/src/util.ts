@@ -1,18 +1,6 @@
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function stableJson(value: unknown): string {
-  if (value === undefined) return "null";
-  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
-  if (isRecord(value)) {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
+// Structural-equality and record helpers are shared with the wider Epoch
+// browser integration surface rather than duplicated here.
+export { isRecord, stableJson } from "@epoch/integration-core";
 
 export function normalizeJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;

@@ -1,0 +1,14 @@
+{
+  "name": "@epoch/live-redux",
+  "version": "0.1.0",
+  "description": "Store-contract compatibility facade for @epoch/live: exposes a getState/dispatch/subscribe surface via structural typing, with rollback control actions.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/live": "0.1.0"
+  }
+}

@@ -1,7 +1,12 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import type { LiveTarget } from "./materialize";
-import type { PresencePeer } from "./presence";
-import type { LiveAction, LiveCommit, LiveHistoryEntry, LiveStore } from "./store";
+import type {
+  LiveAction,
+  LiveCommit,
+  LiveHistoryEntry,
+  LiveStore,
+  LiveTarget,
+  PresencePeer,
+} from "@epoch/live";
 
 export interface LiveRollbackControls<TState extends object> {
   readonly rewind: (target: LiveTarget) => void;

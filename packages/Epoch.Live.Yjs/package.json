@@ -1,0 +1,14 @@
+{
+  "name": "@epoch/live-yjs",
+  "version": "0.1.0",
+  "description": "Shared-map compatibility binding for @epoch/live: bidirectional sync with any Y.Map-shaped CRDT object via structural typing.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/live": "0.1.0"
+  }
+}

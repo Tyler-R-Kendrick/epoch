@@ -4,7 +4,9 @@ import { runCommunityContractTests } from "./unit/community-contract.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
+import { runEpochLiveReduxTests } from "./unit/epoch-live-redux.test";
 import { runEpochLiveStoreTests } from "./unit/epoch-live-store.test";
+import { runEpochLiveYjsTests } from "./unit/epoch-live-yjs.test";
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
@@ -31,6 +33,8 @@ async function main(): Promise<void> {
   runPersonaFeatureModelTests();
   runWasmReactStoreTests();
   runEpochLiveStoreTests();
+  runEpochLiveReduxTests();
+  runEpochLiveYjsTests();
   runSampleEpochLiveCollabTests();
   runSampleHelloWorldCliTests();
   runSampleSelfEvolvingCanvasTests();

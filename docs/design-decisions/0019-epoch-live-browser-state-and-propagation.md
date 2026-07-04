@@ -5,10 +5,15 @@
 Accepted and implemented. This ADR advances
 [ADR-0003](0003-competitive-gap-design-options.md) Option 6 (Browser Live
 Repository Surface) and Option 2 (Pluggable Sync And Availability Tiers) from
-options into a single packaged design, now delivered as the `@epoch/live`
-package (`packages/Epoch.Live`) with a runnable sample
-(`samples/epoch-live-collab`) plus unit, provider, and React coverage. The full
-specification is [docs/epoch-live-spec.md](../epoch-live-spec.md).
+options into a single packaged design, delivered as the **framework-agnostic**
+`@epoch/live` core (`packages/Epoch.Live`) plus three compatibility extensions —
+`@epoch/live-react` (hooks), `@epoch/live-redux` (structural single-store
+facade), and `@epoch/live-yjs` (structural shared-map binding) — with a runnable
+sample (`samples/epoch-live-collab`) and unit, provider, compatibility, and
+React coverage. The core imports none of the state or collaboration libraries it
+competes with; compatibility is expressed through structural contracts in the
+extension packages. The full specification is
+[docs/epoch-live-spec.md](../epoch-live-spec.md).
 
 ## Context
 
@@ -66,8 +71,16 @@ existing Epoch primitives rather than a fork.
   verify-before-trust.
 - **L5 Presence / awareness** — an ephemeral, **unsigned** channel over the same
   providers, never written to the signed log.
-- **L6 React bindings** — `useLiveStore`, `useLiveSelector`, `useRollback`,
-  `useLiveHistory`, `usePresence` via `useSyncExternalStore`.
+- **L6 Framework and compatibility extensions** — separate packages so the core
+  stays dependency-clean: `@epoch/live-react` ships `useLiveStore`,
+  `useLiveSelector`, `useLiveRollback`, `useLiveHistory`, and `usePresence`;
+  `@epoch/live-redux` exposes a structural single-store facade
+  (`toCompatibleStore`: `getState` / `dispatch`-returns-action / `subscribe`)
+  plus undo/redo/rollback/rewind control actions; `@epoch/live-yjs` binds a
+  store entity to any shared-map-shaped CRDT object
+  (`bindLiveStoreToSharedMap`) via structural typing. Only the React extension
+  has a framework peer dependency; the other two import no third-party library
+  at all.
 
 The differentiator is that `@epoch/live` is simultaneously the local store
 (Redux's job) and the collaboration engine (Yjs's job) on one durable, signed
@@ -98,6 +111,24 @@ The full matrix and normative contracts are in
 | Durable state separate from ephemeral awareness | Presence is unsigned, ephemeral, and never in history (ADR-0003 Option 6). |
 | One CRDT backend | Reuses Collabs via `CRDTEventLog` (ADR-0002); no second engine. |
 | Small, composable surface | A composition layer over existing packages, not a rewrite. |
+
+## Relationship To Existing Packages (Overlap Review)
+
+An overlap review against the packages that already shipped browser state
+surfaces found real duplication in the first implementation. This table records
+the resolution so the seams stay explicit:
+
+| Existing surface | Overlap found | Resolution |
+|---|---|---|
+| `EpochReactStore` (`Epoch.WASM.React`) | Rewind / materialize / history over persisted events; state-diff-to-operations logic | `@epoch/live` keeps its own store because it adds signed events, verify-gated ingest, durable replicated rollback, and providers; the overlap is documented here rather than hidden. Folding the two stores is a candidate follow-up once `Epoch.WASM.React` consumers can absorb a schema change. |
+| `createEpochLiveRepository` (`Epoch.WASM.React`) | Event log over a virtual file system with append / subscribe / peer copy | `LiveLog` deliberately extends this shape with signatures, parent frontiers, event kinds, and verification, which the live repository schema cannot express without breaking its persisted format. Shared VFS contracts (`EpochVirtualFileSystem`, `createMemoryEpochVfs`) are reused, not redefined. |
+| `BrowserEpoch` (`Epoch.Integration.Core`) | Browser change hub with `stableJson` / `isRecord` helpers | `@epoch/live` now imports `stableJson` and `isRecord` from `@epoch/integration-core` instead of duplicating them. |
+| `Epoch.Redux` / `Epoch.XState` observers | Adapter packages that watch an external store | Different direction: the observers record changes from a foreign store into Epoch, while `@epoch/live-redux` exposes an Epoch-backed store through the foreign store's own contract. Both remain valid; the ADR-0003 observer pattern is unchanged. |
+
+Residual duplication (the hash helper and the internal diff/materialize pair in
+`Epoch.WASM.React`, plus `stableJson` copies in `Epoch.WASM.React` and
+`Epoch.Platform.Core`) predates this package and is noted as consolidation
+follow-up rather than expanded.
 
 ## Consequences
 
@@ -131,6 +162,11 @@ Trade-offs:
 - No second CRDT engine or patch-algebra rewrite of the event model.
 - No bundled WebSocket-relay or WebRTC-signaling server; those live behind the
   provider seam as deployment concerns.
+- No imports of the state or collaboration libraries Epoch Live competes with,
+  anywhere in the family: the core has no framework dependency at all, and the
+  compatibility extensions interoperate through structural contracts (only the
+  React hooks extension declares a framework peer dependency, since hooks cannot
+  exist without one).
 
 ## Revisit Criteria
 

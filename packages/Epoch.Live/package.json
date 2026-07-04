@@ -1,7 +1,7 @@
 {
   "name": "@epoch/live",
   "version": "0.1.0",
-  "description": "Browser client for signed live state: a rollback and data-propagation store competing with Redux and Yjs.",
+  "description": "Framework-agnostic browser client for signed live state with durable rollback and peer data propagation.",
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
@@ -11,13 +11,5 @@
   "dependencies": {
     "@epoch/integration-core": "0.1.0",
     "@epoch/wasm-react": "0.1.0"
-  },
-  "peerDependencies": {
-    "react": ">=18.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    }
   }
 }
