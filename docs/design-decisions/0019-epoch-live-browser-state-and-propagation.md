@@ -125,10 +125,17 @@ the resolution so the seams stay explicit:
 | `BrowserEpoch` (`Epoch.Integration.Core`) | Browser change hub with `stableJson` / `isRecord` helpers | `@epoch/live` now imports `stableJson` and `isRecord` from `@epoch/integration-core` instead of duplicating them. |
 | `Epoch.Redux` / `Epoch.XState` observers | Adapter packages that watch an external store | Different direction: the observers record changes from a foreign store into Epoch, while `@epoch/live-redux` exposes an Epoch-backed store through the foreign store's own contract. Both remain valid; the ADR-0003 observer pattern is unchanged. |
 
-Residual duplication (the hash helper and the internal diff/materialize pair in
-`Epoch.WASM.React`, plus `stableJson` copies in `Epoch.WASM.React` and
-`Epoch.Platform.Core`) predates this package and is noted as consolidation
-follow-up rather than expanded.
+Consolidation completed with this decision: `stableJson` and `isRecord` are
+single-sourced in `@epoch/wasm-react` (the dependency-free browser root) and
+re-exported by `@epoch/integration-core` and `@epoch/live`, and `Epoch.Core`
+keeps a single internal `isRecord` in its `json` module instead of per-file
+copies. Two duplications are kept deliberately: `Epoch.Platform.Core` retains
+its own `stableJson` because that package has zero dependencies by design and
+the helper feeds sha256 state hashes (importing a foreign implementation would
+couple hash stability to another package), and the hash helpers plus the
+internal diff/materialize pair in `Epoch.WASM.React` and `@epoch/live` stay
+separate because their outputs are embedded in persisted event identifiers with
+different formats.
 
 ## Consequences
 

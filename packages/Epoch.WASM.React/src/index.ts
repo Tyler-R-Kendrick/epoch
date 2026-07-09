@@ -467,7 +467,7 @@ function stableId(value: string): string {
   return hashString(value).padStart(8, "0").slice(0, 32);
 }
 
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   if (value === undefined) return "null";
   if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
   if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
@@ -508,7 +508,7 @@ function asRecord(value: object): Record<string, unknown> {
   return value;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

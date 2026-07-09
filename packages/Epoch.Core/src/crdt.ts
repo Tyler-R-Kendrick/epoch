@@ -1,5 +1,5 @@
 import { CRuntime, CText, CValueMap, SendEvent } from "@collabs/collabs";
-import { canonicalJson } from "./json";
+import { canonicalJson, isRecord } from "./json";
 import { EntityType, MergeText, TextToken } from "./domain";
 
 export interface CRDTDefinition {
@@ -420,10 +420,6 @@ function formatLineRange(start: number, end: number): string {
 
 function same(left: unknown, right: unknown): boolean {
   return canonicalJson(left) === canonicalJson(right);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function isString(value: unknown): value is string {

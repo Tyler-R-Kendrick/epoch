@@ -19,7 +19,6 @@ import {
   type LiveBroadcastChannel,
   type LiveChannel,
   type LiveEvent,
-  type LiveStore,
 } from "@epoch/live";
 import { createMemoryEpochVfs } from "@epoch/wasm-react";
 
@@ -46,6 +45,7 @@ export function runEpochLiveStoreTests(): void {
   storeSeedsAndHandlesDeletion();
   relayConvergesTwoPeersIncludingRollback();
   relayLateJoinCarriesPresence();
+  presenceExpiresWhenAPeerDisconnects();
   broadcastChannelProviderConverges();
   channelProviderConvergesAcrossTransports();
   providerRejectsUnverifiedEvents();
@@ -281,12 +281,38 @@ function relayLateJoinCarriesPresence(): void {
   );
 }
 
+function presenceExpiresWhenAPeerDisconnects(): void {
+  const relay = createInMemoryRelay();
+  const alice = createLiveStore<DocState>({ entity: "px", author: "alice", initialState: {} });
+  const bob = createLiveStore<DocState>({ entity: "px", author: "bob", initialState: {} });
+  const disconnectAlice = alice.connect(createInMemoryRelayProvider(relay));
+  bob.connect(createInMemoryRelayProvider(relay));
+
+  alice.presence.set({ cursor: 3 });
+  assert.ok(bob.presence.peers().some((peer) => peer.author === "alice"), "bob sees alice while connected");
+
+  disconnectAlice();
+  assert.ok(!bob.presence.peers().some((peer) => peer.author === "alice"), "relay leave evicts alice's presence");
+
+  const [left, right] = createChannelPair();
+  const carol = createLiveStore<DocState>({ entity: "px2", author: "carol", initialState: {} });
+  const dave = createLiveStore<DocState>({ entity: "px2", author: "dave", initialState: {} });
+  const disconnectCarol = carol.connect(createWebSocketRelayProvider(left));
+  dave.connect(createWebRTCProvider(right));
+
+  carol.presence.set({ typing: true });
+  assert.ok(dave.presence.peers().some((peer) => peer.author === "carol"));
+
+  disconnectCarol();
+  assert.ok(!dave.presence.peers().some((peer) => peer.author === "carol"), "channel disconnect evicts presence");
+}
+
 function broadcastChannelProviderConverges(): void {
   const factory = createFakeBroadcastFactory();
   const alice = createLiveStore<DocState>({ entity: "bc", author: "alice", initialState: {} });
   const bob = createLiveStore<DocState>({ entity: "bc", author: "bob", initialState: {} });
   const aliceProvider = createBroadcastChannelProvider({ channelName: "room", channelFactory: factory });
-  alice.connect(aliceProvider);
+  const disconnectAlice = alice.connect(aliceProvider);
   bob.connect(createBroadcastChannelProvider({ channelName: "room", channelFactory: factory }));
   assert.equal(aliceProvider.status(), "online");
 
@@ -294,6 +320,10 @@ function broadcastChannelProviderConverges(): void {
   assert.equal(bob.getState().title, "tab-sync", "cross-tab convergence over BroadcastChannel");
   alice.presence.set({ typing: true });
   assert.ok(bob.presence.peers().some((peer) => peer.author === "alice"));
+
+  disconnectAlice();
+  assert.equal(aliceProvider.status(), "offline");
+  assert.ok(!bob.presence.peers().some((peer) => peer.author === "alice"), "closing the tab evicts its presence");
 }
 
 function channelProviderConvergesAcrossTransports(): void {
@@ -362,6 +392,3 @@ function createChannelPair(): readonly [LiveChannel, LiveChannel] {
   };
   return [left, right];
 }
-
-// Referenced to satisfy exhaustive typing of the store handle in helpers above.
-export type { LiveStore };
