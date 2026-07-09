@@ -1,10 +1,16 @@
 import {
   createEpochLiveRepository,
   createMemoryEpochVfs,
+  isRecord,
+  stableJson,
   type EpochLiveRepository,
   type EpochLiveRepositoryEvent,
   type EpochVirtualFileSystem,
 } from "@epoch/wasm-react";
+
+// Single-sourced from @epoch/wasm-react so every browser package shares one
+// structural-equality implementation.
+export { isRecord, stableJson };
 
 export type EpochTrackedSurface = "gen-ui" | "redux" | "xstate" | string;
 
@@ -231,17 +237,6 @@ function normalizeJson<T>(value: T): T {
 function requireNonEmpty(value: string, label: string): string {
   if (value.trim().length === 0) throw new Error(`Epoch ${label} is required.`);
   return value;
-}
-
-export function stableJson(value: unknown): string {
-  if (value === undefined) return "null";
-  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
-  if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value);
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isTrackedChange(value: unknown): value is TrackedChange {

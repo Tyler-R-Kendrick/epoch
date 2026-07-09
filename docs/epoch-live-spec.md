@@ -1,10 +1,14 @@
 # Epoch Live (`@epoch/live`) Specification
 
-Status: Draft v1 — implemented. This document specifies the `@epoch/live`
-browser client (`packages/Epoch.Live`), delivered as a composition layer over
-existing Epoch primitives with a runnable sample
-([`samples/epoch-live-collab`](../samples/epoch-live-collab/README.md)) plus
-unit, provider, and React coverage. The decision is recorded in
+Status: Draft v1 — implemented. This document specifies the **framework-agnostic**
+`@epoch/live` browser client (`packages/Epoch.Live`) and its compatibility
+extensions `@epoch/live-react`, `@epoch/live-redux`, and `@epoch/live-yjs`,
+delivered as a composition layer over existing Epoch primitives with a runnable
+sample ([`samples/epoch-live-collab`](../samples/epoch-live-collab/README.md))
+plus unit, provider, compatibility, and React coverage. The core package imports
+none of the state or collaboration libraries it competes with; interop is
+expressed through structural contracts in the extensions. The decision is
+recorded in
 [ADR-0019](design-decisions/0019-epoch-live-browser-state-and-propagation.md).
 
 ## 1. Normative Frame
@@ -52,7 +56,10 @@ deployment concerns behind the provider seam).
    where inbound events are trusted only after `verify()`.
 5. Ephemeral presence/awareness distributed over the same providers but never
    written to signed history.
-6. React bindings with parity-or-better ergonomics versus `react-redux`.
+6. A framework-agnostic core with zero imports of the incumbent state or
+   collaboration libraries, plus extension packages that provide React hooks
+   and structural compatibility facades for incumbent store and shared-map
+   contracts with parity-or-better ergonomics.
 
 **Non-Goals (protect scope).**
 
@@ -63,6 +70,9 @@ deployment concerns behind the provider seam).
 - No full patch-algebra rewrite of the event model.
 - No bundled WebSocket-relay or WebRTC-signaling server; networked providers plug
   in behind the provider seam.
+- No imports of incumbent state or collaboration libraries anywhere in the
+  family; compatibility is structural, and only the React hooks extension
+  carries a framework peer dependency.
 
 **Product principles.** Local-first and offline-capable by default; durable and
 auditable over convenient-but-ephemeral; familiar to Redux and Yjs developers;
@@ -101,7 +111,7 @@ design is concrete, not aspirational.
 | L3 Rollback and time-travel (hero) | `rewind` preview; durable `rollbackTo`; `undo` / `redo` | `EpochRepository.rollback` (`core.ts:1545`); `rewind` / `materialize` / `history` (`Epoch.WASM.React`) |
 | L4 Data propagation (Yjs competitor) | `LiveProvider` seam over `EpochTransport`; BroadcastChannel, WebSocket relay, WebRTC | `EpochTransport` / `MemoryEpochTransport` / `BundleEpochTransport` / `exportToMemoryTransport` / `syncWithTransport` / `gossip` / `syncFrom` (`core.ts:83-121, 1472-1543`) |
 | L5 Presence / awareness (ephemeral) | `presence.set` / `presence.subscribe`; distributed over the same providers; **never signed** | new ephemeral channel; ADR-0003 Option 6 constraint |
-| L6 React bindings | `<LiveProvider>`, `useLiveStore`, `useLiveSelector`, `useRollback`, `useLiveHistory`, `usePresence` | `useEpochState` / `useEpochEntity` / `useEpochHistory` / `useEpochView` (`Epoch.WASM.React`); `EpochProvider` (`Epoch.React`) |
+| L6 Framework and compatibility extensions | `@epoch/live-react` hooks (`useLiveStore`, `useLiveSelector`, `useLiveRollback`, `useLiveHistory`, `usePresence`); `@epoch/live-redux` structural single-store facade + control actions; `@epoch/live-yjs` structural shared-map binding. Core ships none of these | `useEpochState` / `useEpochEntity` / `useEpochHistory` / `useEpochView` (`Epoch.WASM.React`); `EpochProvider` (`Epoch.React`) |
 | Persistence | Browser VFS, compaction-aware | `createStorageEpochVfs` (`Epoch.Integration.Core`); `ha/compact.ts` (`createCompact` / `restoreFromCompact` / `pruneEventLogBeforeCompact`) |
 
 **Abstraction layers, top to bottom:** configuration (store + provider options) →
@@ -236,12 +246,34 @@ export interface LivePresence {
 }
 ```
 
-### 5.5 React bindings
+### 5.5 Framework and compatibility extensions
 
-`<LiveProvider store={...}>`, `useLiveStore()`, `useLiveSelector(selector)`,
-`useRollback()` (returns `{ rewind, rollbackTo, undo, redo, history }`),
-`useLiveHistory()`, `usePresence()`. All `MUST` use `useSyncExternalStore` for
-tearing-free reads, following the existing `useEpochState` pattern.
+The core package `MUST NOT` import any UI framework or any incumbent state or
+collaboration library. Interop ships as separate extension packages:
+
+- **`@epoch/live-react`** — `useLiveStore()`, `useLiveSelector(selector)`,
+  `useLiveRollback()` (returns rewind / rollbackTo / undo / redo / history
+  controls), `useLiveHistory()`, `usePresence()`. Hooks `MUST` use
+  `useSyncExternalStore` for tearing-free reads, following the existing
+  `useEpochState` pattern. This is the only extension with a framework peer
+  dependency.
+- **`@epoch/live-redux`** — `toCompatibleStore(store)` wraps a live store in the
+  structural single-store contract (`getState()`, `dispatch(action)` returning
+  the action, `subscribe(listener)` returning an unsubscribe), so code written
+  against that contract — middleware pipelines, devtools bridges, existing
+  containers — can drive Epoch Live unchanged. Control action creators
+  (`undoAction`, `redoAction`, `rollbackAction`, `rewindAction`) express durable
+  history navigation as ordinary dispatched actions. Existing
+  `(state, action) => state` reducers pass directly into `createLiveStore`. The
+  package imports no third-party state library; compatibility is structural.
+- **`@epoch/live-yjs`** — `bindLiveStoreToSharedMap(store, map, options)`
+  bidirectionally binds a store entity to any shared-map-shaped CRDT object
+  (keyed `get`/`set`/`delete`, `forEach`, `observe`/`unobserve` with events
+  carrying changed keys and the transaction origin). Binding-originated
+  transactions are origin-stamped to prevent echo loops; remote map changes are
+  committed to the signed history as ordinary actions. The package imports no
+  third-party CRDT library; a real shared-map instance satisfies the contract
+  structurally.
 
 ### 5.6 Configuration and events
 
@@ -478,17 +510,25 @@ Recommended extensions:
 
 - Map a Redux slice to one `LiveStore` `entity`; keep the same reducer function
   signature so existing reducers `MAY` be reused verbatim.
+- Or migrate incrementally: wrap the live store with `@epoch/live-redux`'s
+  `toCompatibleStore` so existing code written against the single-store contract
+  keeps working, and adopt the control actions (`undoAction`, `rollbackAction`)
+  for durable history navigation.
 - Replace `store.subscribe` / `store.getState` with `subscribe` / `getState`; the
   action log becomes durable signed history instead of DevTools memory.
 - Time-travel debugging maps to `rewind`; production undo maps to `rollbackTo`.
 
 ### 17.2 Yjs migration notes
 
-- Map `Y.Map` / `Y.Text` to CRDT entities via `EntityRegistry` adapters.
-- Replace Yjs providers with `LiveProvider` implementations; awareness maps to
-  the ephemeral presence channel.
-- Gain a signed, verifiable, auditable history that Yjs does not provide; accept
-  a heavier, audit-oriented runtime in exchange.
+- Bridge incrementally with `@epoch/live-yjs`'s `bindLiveStoreToSharedMap`: keep
+  an existing shared map (and its providers) while Epoch Live mirrors it into
+  signed history, then retire the bridge once providers move to `LiveProvider`.
+- Map `Y.Map` / `Y.Text` equivalents to CRDT entities via `EntityRegistry`
+  adapters.
+- Replace CRDT network providers with `LiveProvider` implementations; awareness
+  maps to the ephemeral presence channel.
+- Gain a signed, verifiable, auditable history in exchange for a heavier,
+  audit-oriented runtime.
 
 ### 17.3 Glossary
 

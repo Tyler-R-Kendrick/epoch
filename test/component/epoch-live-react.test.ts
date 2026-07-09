@@ -3,14 +3,8 @@ import { JSDOM } from "jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
-import {
-  createLiveStore,
-  useLiveHistory,
-  useLiveSelector,
-  useLiveStore,
-  usePresence,
-  type LiveStore,
-} from "@epoch/live";
+import { createLiveStore, type LiveStore } from "@epoch/live";
+import { useLiveHistory, useLiveSelector, useLiveStore, usePresence } from "@epoch/live-react";
 
 interface CounterState {
   readonly count?: number;

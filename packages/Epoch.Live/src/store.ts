@@ -6,6 +6,7 @@ import {
   materializeAt,
   resolveRollbackTargetId,
   type LiveOp,
+  type LiveRollbackPayload,
   type LiveTarget,
 } from "./materialize";
 import { createPresenceHub, type LivePresence } from "./presence";
@@ -147,11 +148,12 @@ export function createLiveStore<TState extends object>(options: LiveStoreOptions
 
   function commitRollback(target: LiveTarget, reason: string): readonly LiveEvent[] {
     const targetId = resolveRollbackTargetId(log.all(), entity, target);
-    const event = log.append("rollback", entity, {
+    const payload = {
       target: targetId,
       reason,
       previousHeads: log.heads(),
-    });
+    } satisfies LiveRollbackPayload;
+    const event = log.append("rollback", entity, payload);
     finishLocalCommit([event]);
     return [event];
   }

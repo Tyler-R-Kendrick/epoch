@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CRDTEventLog, CRDTOperation, EntityRegistry } from "./crdt";
-import { canonicalJson } from "./json";
+import { canonicalJson, isRecord } from "./json";
 import {
   CryptoSpec,
   DefaultAuthor,
@@ -2268,10 +2268,6 @@ function isInclusionRule(value: unknown): value is InclusionRule {
     default:
       return false;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function existsAsFile(path: string): boolean {

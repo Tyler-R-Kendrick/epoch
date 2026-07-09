@@ -79,6 +79,9 @@ export function createInMemoryRelay(): LiveRelay {
     cleanups.get(endpoint)?.();
     cleanups.delete(endpoint);
     members.delete(endpoint);
+    const farewell = presenceLeaveMessage(endpoint);
+    if (farewell === undefined) return;
+    for (const other of members) other.ingestPresence(farewell);
   }
 
   return {
@@ -125,6 +128,7 @@ export function createBroadcastChannelProvider(options: BroadcastChannelProvider
   const name = options.channelName ?? "epoch-live";
   const factory = options.channelFactory ?? defaultBroadcastChannelFactory;
   let channel: LiveBroadcastChannel | undefined;
+  let connected: LiveSyncEndpoint | undefined;
   let status: LiveProviderStatus = "offline";
   let offLocal: (() => void) | undefined;
 
@@ -132,6 +136,7 @@ export function createBroadcastChannelProvider(options: BroadcastChannelProvider
     id: options.id ?? `broadcast:${name}`,
     connect(endpoint) {
       status = "connecting";
+      connected = endpoint;
       channel = factory(name);
       channel.onmessage = (event) => handleWireMessage(endpoint, event.data, (message) => channel?.postMessage(message));
       offLocal = wireLocalOutput(endpoint, (message) => channel?.postMessage(message));
@@ -140,10 +145,13 @@ export function createBroadcastChannelProvider(options: BroadcastChannelProvider
       status = "online";
     },
     disconnect() {
+      const farewell = connected === undefined ? undefined : presenceLeaveMessage(connected);
+      if (farewell !== undefined) channel?.postMessage({ type: "presence", presence: farewell } satisfies WireMessage);
       offLocal?.();
       offLocal = undefined;
       channel?.close();
       channel = undefined;
+      connected = undefined;
       status = "offline";
     },
     status: () => status,
@@ -169,6 +177,7 @@ export interface LiveChannel {
 }
 
 export function createChannelProvider(channel: LiveChannel, id = "channel"): LiveProvider {
+  let connected: LiveSyncEndpoint | undefined;
   let status: LiveProviderStatus = "offline";
   let offLocal: (() => void) | undefined;
 
@@ -176,6 +185,7 @@ export function createChannelProvider(channel: LiveChannel, id = "channel"): Liv
     id,
     connect(endpoint) {
       status = "connecting";
+      connected = endpoint;
       channel.onMessage((data) => {
         const parsed = safeParse(data);
         if (parsed !== undefined) handleWireMessage(endpoint, parsed, (message) => channel.send(JSON.stringify(message)));
@@ -186,9 +196,12 @@ export function createChannelProvider(channel: LiveChannel, id = "channel"): Liv
       status = "online";
     },
     disconnect() {
+      const farewell = connected === undefined ? undefined : presenceLeaveMessage(connected);
+      if (farewell !== undefined) channel.send(JSON.stringify({ type: "presence", presence: farewell } satisfies WireMessage));
       offLocal?.();
       offLocal = undefined;
       channel.close();
+      connected = undefined;
       status = "offline";
     },
     status: () => status,
@@ -206,6 +219,13 @@ export function createWebRTCProvider(channel: LiveChannel, id = "webrtc"): LiveP
 // ---------------------------------------------------------------------------
 // Shared wiring for channel-style providers.
 // ---------------------------------------------------------------------------
+
+/** A leave notice: same client and a bumped sequence so peers evict the entry. */
+function presenceLeaveMessage(endpoint: LiveSyncEndpoint): PresenceMessage | undefined {
+  const current = endpoint.exportPresence();
+  if (current === undefined) return undefined;
+  return { ...current, state: {}, seq: current.seq + 1, left: true };
+}
 
 function wireLocalOutput(endpoint: LiveSyncEndpoint, send: (message: WireMessage) => void): () => void {
   const offEvents = endpoint.onLocalEvents((events) => send({ type: "sync", events }));

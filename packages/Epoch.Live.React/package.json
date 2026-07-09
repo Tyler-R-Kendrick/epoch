@@ -1,0 +1,17 @@
+{
+  "name": "@epoch/live-react",
+  "version": "0.1.0",
+  "description": "React hooks extension for the framework-agnostic @epoch/live store.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/live": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  }
+}

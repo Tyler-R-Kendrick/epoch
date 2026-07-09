@@ -1,5 +1,9 @@
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export function canonicalJson(value: unknown): string {
   return JSON.stringify(sortJson(value));
 }

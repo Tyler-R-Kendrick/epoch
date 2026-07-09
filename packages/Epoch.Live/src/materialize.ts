@@ -7,11 +7,11 @@ export type LiveOp =
 
 export type LiveTarget = "latest" | number | string;
 
-export interface LiveRollbackPayload {
+export type LiveRollbackPayload = {
   readonly target: string;
   readonly reason: string;
   readonly previousHeads: readonly string[];
-}
+};
 
 /**
  * Materialize the latest converged state of an entity by folding its events in
