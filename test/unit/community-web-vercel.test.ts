@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
 import {
+  buildCommunityFeed,
+  channelForIssue,
   createCommunityWebApp,
   materializeCommunityWebSiteWithEpoch,
   renderCommunityWebDocument,
@@ -22,9 +24,109 @@ interface VercelConfig {
 
 export async function runCommunityWebVercelTests(): Promise<void> {
   vercelConfigBuildsTheCommunityWebOutput();
+  communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback();
   await communityWebMaterializesTheSiteThroughEpochHistory();
   await communityWebHtmlIncludesLiveChannelExperience();
+  await communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy();
   renderScriptProducesDeployableCommunityHtml();
+}
+
+function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
+  assert.equal(channelForIssue(["idea"]), "ideas");
+  assert.equal(channelForIssue(["bug", "a11y"]), "bugs");
+  assert.equal(channelForIssue(["help"]), "support");
+  assert.equal(channelForIssue(["agent"]), "agent-runs");
+
+  const emptyFeed = buildCommunityFeed({
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "Event-driven DVCS",
+      visibility: "public",
+      defaultView: "main",
+      maintainers: ["maya"],
+      topics: [],
+      issues: [],
+      changeProposals: [],
+      discussions: [],
+    }],
+    apiConnected: true,
+  });
+  assert.equal(emptyFeed.source, "snapshot");
+  assert.ok(emptyFeed.conversations.some((item) => item.title.includes("Dashboard widget")));
+  assert.ok(emptyFeed.conversations.every((item) => item.source === "snapshot"));
+
+  const liveFeed = buildCommunityFeed({
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "Event-driven DVCS",
+      visibility: "public",
+      defaultView: "main",
+      maintainers: ["maya"],
+      topics: [],
+      issues: [{
+        id: "IDEA-3",
+        title: "Dashboard widget should group revenue by region",
+        author: "nora",
+        body: "Region breakdown idea",
+        labels: ["idea"],
+        status: "open",
+        comments: [],
+      }, {
+        id: "BUG-17",
+        title: "Preview keyboard focus skips the chart setting",
+        author: "ren",
+        body: "Tab order bug",
+        labels: ["bug"],
+        status: "open",
+        comments: [],
+      }],
+      changeProposals: [{
+        id: "CHANGE-12",
+        title: "Keep preview cards attached to conversation state",
+        author: "maya",
+        body: "Attach previews",
+        sourceView: "maya/preview-card-thread",
+        targetView: "main",
+        status: "open",
+        reviews: [],
+      }],
+      discussions: [],
+    }],
+    apiConnected: true,
+  });
+  assert.equal(liveFeed.source, "api");
+  assert.equal(liveFeed.issues.length, 2);
+  assert.equal(liveFeed.changes.length, 1);
+  assert.ok(liveFeed.conversations.every((item) => item.source === "api"));
+  assert.ok(liveFeed.conversations.some((item) => item.channel === "ideas" && item.id === "issue-IDEA-3"));
+  assert.ok(liveFeed.conversations.some((item) => item.channel === "bugs" && item.id === "issue-BUG-17"));
+  assert.ok(liveFeed.conversations.some((item) => item.channel === "previews" && item.linkedProposalId === "CHANGE-12"));
+  assert.equal(
+    liveFeed.conversations.some((item) => item.id === "agent-preview-copy"),
+    false,
+    "live API feed must not mix hard-coded snapshot demos",
+  );
+
+  const offlineFeed = buildCommunityFeed({
+    repositories: liveFeed.issues.length > 0
+      ? [{
+        slug: "epoch/epoch",
+        displayName: "Epoch",
+        description: "Event-driven DVCS",
+        visibility: "public",
+        defaultView: "main",
+        maintainers: ["maya"],
+        topics: [],
+        issues: [],
+        changeProposals: [],
+        discussions: [],
+      }]
+      : [],
+    apiConnected: false,
+  });
+  assert.equal(offlineFeed.source, "snapshot");
 }
 
 function vercelConfigBuildsTheCommunityWebOutput(): void {
@@ -56,6 +158,10 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.match(html, /data-community-channel-rail/u);
   assert.match(html, /data-message-feed/u);
   assert.match(html, /Dashboard widget should group revenue by region/u);
+  assert.match(html, /data-feed-source="snapshot"/u);
+  assert.match(html, /data-api-unconfigured/u);
+  assert.match(html, /data-surface="issues"/u);
+  assert.match(html, /data-surface="changes"/u);
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
   assert.match(html, /data-design-system="epoch-community"/u);
   assert.match(html, /href="#community-content">Skip to content/u);
@@ -66,6 +172,65 @@ function renderScriptProducesDeployableCommunityHtml(): void {
 }
 
 async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
+  const api = createInMemoryCommunityApi({
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "Event-driven DVCS",
+      maintainers: ["alice"],
+    }],
+  });
+  await api.openIssue("epoch/epoch", {
+    id: "IDEA-3",
+    title: "Dashboard widget should group revenue by region",
+    author: "nora",
+    body: "Region breakdown idea",
+    labels: ["idea"],
+  });
+  await api.openIssue("epoch/epoch", {
+    id: "BUG-17",
+    title: "Preview keyboard focus skips the chart setting",
+    author: "ren",
+    body: "Tab order bug",
+    labels: ["bug"],
+  });
+  await api.proposeChange("epoch/epoch", {
+    id: "CHANGE-12",
+    title: "Keep preview cards attached to conversation state",
+    author: "maya",
+    body: "Attach previews",
+    sourceView: "maya/preview-card-thread",
+    targetView: "main",
+  });
+
+  const app = await createCommunityWebApp({
+    client: api,
+    apiBaseUrl: "https://community.test",
+  });
+  const html = renderCommunityWebDocument(app);
+
+  assert.match(html, /data-community-web-shell/u);
+  assert.match(html, /data-api-state="connected"/u);
+  assert.match(html, /data-feed-source="api"/u);
+  assert.match(html, /"apiBaseUrl":"https:\/\/community\.test"/u);
+  assert.match(html, /data-action="intent"/u);
+  assert.match(html, /data-action="agent"/u);
+  assert.match(html, /data-action="report"/u);
+  assert.match(html, /state\.apiBaseUrl/u);
+  assert.match(html, /refreshRepository/u);
+  assert.match(html, /commentOnIssue|\/comments/u);
+  assert.match(html, /Live API unavailable\. Intent promotion is disabled in snapshot mode\./u);
+  assert.match(html, /data-surface="issues"/u);
+  assert.match(html, /data-surface="changes"/u);
+  assert.match(html, /data-issue-id="IDEA-3"/u);
+  assert.match(html, /data-change-id="CHANGE-12"/u);
+  assert.match(html, /data-message-id="issue-IDEA-3"/u);
+  assert.doesNotMatch(html, /data-message-id="agent-preview-copy"/u);
+  assert.match(html, /handleComposerSubmit/u);
+  assert.match(html, /postChange|postIssue/u);
+}
+
+async function communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy(): Promise<void> {
   const app = await createCommunityWebApp({
     client: createInMemoryCommunityApi({
       repositories: [{
@@ -75,17 +240,17 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
         maintainers: ["alice"],
       }],
     }),
-    apiBaseUrl: "https://community.test",
   });
   const html = renderCommunityWebDocument(app);
 
-  assert.match(html, /data-community-web-shell/u);
-  assert.match(html, /data-api-state="connected"/u);
-  assert.match(html, /"apiBaseUrl":"https:\/\/community\.test"/u);
-  assert.match(html, /data-action="intent"/u);
-  assert.match(html, /data-action="agent"/u);
-  assert.match(html, /data-action="report"/u);
-  assert.match(html, /fetch\(state\.apiBaseUrl/u);
+  assert.match(html, /data-api-state="offline"/u);
+  assert.match(html, /data-feed-source="snapshot"/u);
+  assert.match(html, /data-api-unconfigured/u);
+  assert.match(html, /data-feed-honesty="snapshot"/u);
+  assert.match(html, /Live actions \(intent promotion\) are disabled/u);
+  assert.match(html, /data-snapshot-badge/u);
+  assert.match(html, /Dashboard widget should group revenue by region/u);
+  assert.match(html, /feed:snapshot/u);
 }
 
 async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<void> {

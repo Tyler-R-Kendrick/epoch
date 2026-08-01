@@ -34,6 +34,13 @@ Given("the Community Web live API has repository activity", async function () {
     }],
   });
   await api.openIssue("epoch/epoch", {
+    id: "IDEA-3",
+    title: "Dashboard widget should group revenue by region",
+    author: "nora",
+    body: "The current widget answers total revenue, but support threads keep asking which region changed. Could this become a small widget setting instead of a separate report?",
+    labels: ["idea"],
+  });
+  await api.openIssue("epoch/epoch", {
     id: "BUG-17",
     title: "Preview keyboard focus skips the chart setting",
     author: "ren",
@@ -67,7 +74,11 @@ Given("I open the Community Web channel experience", async function () {
     client: createCommunityClient(world.api),
     apiBaseUrl: "https://community.test",
   });
-  const browser = await chromium.launch();
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  const browser = await chromium.launch({
+    headless: true,
+    ...(executablePath !== undefined && executablePath.length > 0 ? { executablePath } : {}),
+  });
   const page = await browser.newPage({
     recordVideo: videoDir === undefined
       ? undefined
@@ -111,9 +122,14 @@ Then("the Community Web shows the channel rail and message feed", async function
   const page = requirePage();
   assert.equal(await page.locator("[data-community-channel-rail]").count(), 1);
   assert.equal(await page.locator("[data-message-feed]").count(), 1);
+  assert.equal(await page.locator('[data-feed-source="api"]').count(), 1);
   await assertVisible(page, "# ideas");
   await assertVisible(page, "Dashboard widget should group revenue by region");
   await assertVisible(page, "Message #ideas");
+  assert.equal(await page.locator("[data-surface=\"issues\"]").count(), 1);
+  assert.equal(await page.locator("[data-surface=\"changes\"]").count(), 1);
+  assert.equal(await page.locator("[data-issue-list] [data-issue-id=\"IDEA-3\"]").count(), 1);
+  assert.equal(await page.locator("[data-change-list] [data-change-id=\"CHANGE-12\"]").count(), 1);
 });
 
 Then("signed project actions are collapsed until I select a message", async function () {
@@ -128,11 +144,18 @@ Then("signed project actions are collapsed until I select a message", async func
 Then("the live API records a change proposal for the selected conversation", async function () {
   const page = requirePage();
   assert.ok(world.api);
-  await assertVisible(page, "Intent candidate recorded from the live API.");
+  await assertVisible(page, "Intent candidate recorded from the live API");
   const repository = await world.api.getRepository("epoch/epoch");
-  assert.ok(repository.changeProposals.some((proposal) =>
+  const promoted = repository.changeProposals.find((proposal) =>
     proposal.title === "Dashboard widget should group revenue by region"
-  ));
+  );
+  assert.ok(promoted);
+  await assertVisible(page, `proposal:${promoted.id}`);
+  assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
+  assert.equal(
+    await page.locator("[data-selected-message=\"true\"]").getAttribute("data-linked-proposal"),
+    promoted.id,
+  );
 });
 
 Then("the selected message shows that human review remains required", async function () {
@@ -143,8 +166,18 @@ Then("the selected message shows that human review remains required", async func
 Then("the reply appears in the message feed with signed comment metadata", async function () {
   const page = requirePage();
   await assertVisible(page, "Keyboard navigation works in the preview.");
-  await assertVisible(page, "sig:pending-local");
-  await assertVisible(page, "community");
+  // Live API persists the composer post as a signed issue (or local snapshot metadata offline).
+  const liveMeta = page.getByText("community", { exact: false });
+  await liveMeta.first().waitFor({ state: "visible", timeout: 5_000 });
+  assert.ok(world.api);
+  const repository = await world.api.getRepository("epoch/epoch");
+  assert.ok(
+    repository.issues.some((issue) =>
+      issue.title.includes("Keyboard navigation works in the preview.")
+      || issue.body.includes("Keyboard navigation works in the preview.")
+    ),
+    "composer message should be recorded as a live issue",
+  );
 });
 
 Then("the selected message shows legal-hold evidence status", async function () {

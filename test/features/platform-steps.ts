@@ -169,7 +169,7 @@ Then("the Epoch Community CLI output contains {string}", function (expected: str
 When("I open Epoch Community Web in a Playwright browser", { timeout: 60_000 }, async function () {
   assert.ok(platformState.client);
   platformState.community = await createCommunityWebApp({ client: platformState.client });
-  platformState.browser = await chromium.launch();
+  platformState.browser = await chromium.launch({ headless: true });
   platformState.page = await platformState.browser.newPage();
   await platformState.page.setContent(renderCommunityWebDocument(platformState.community));
 });

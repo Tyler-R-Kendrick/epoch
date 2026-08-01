@@ -5,7 +5,7 @@ Standard: the **Monorepo DX Playbook** (canonical in the `HoBo` repo → `docs/s
 
 ## Current state
 TS DVCS SDK/CLI/WASM monorepo — 20 workspaces. npm (engines-only, **not pinned**), ESLint 10, `tsgo` per-package
-(**no** project references/composite), Cucumber + node runner + Pact + c8 coverage. Build & typecheck are ~20-command
+(**no** project references/composite), Cucumber + node runner + official Pact (`npm run test:pact`) + c8 coverage. Build & typecheck are ~20-command
 `&&` chains. **No git hooks.** CI = a single `quality.yml` with **6 parallel un-cached jobs** (no concurrency, no
 path/affected filtering, redundant `npm ci` + rebuild). Vercel **direct** git auto-deploy.
 

@@ -29,6 +29,7 @@ and when the decision should be revisited.
 | [ADR-0019](0019-epoch-live-browser-state-and-propagation.md) | Accepted | Design `@epoch/live` as a browser client competing with Redux and Yjs for rollback and data propagation, advancing ADR-0003 Options 2 and 6; design only, implementation deferred. |
 | [ADR-0020](0020-community-federation-atproto-git-proxy.md) | Accepted (design) | Federate public Community social data via ATProto and require a Git compatibility proxy so clone URLs and live migration work while Epoch Core stays authoritative. |
 | [ADR-0021](0021-git-projection-and-live-migration.md) | Accepted (design) | Treat Git as a rebuildable projection and live-migration boundary (serve, import-live, export-live, dual-run) with signed mapping events; Epoch Core remains the system of record. |
+| [ADR-0022](0022-gossip-event-plane-atproto-public-artifacts.md) | Accepted | Gossip is the authoritative network event plane; ATProto dual-writes public artifacts only; hybrid resolve is local → gossip → AT. |
 
 ## Supporting Decision Records
 

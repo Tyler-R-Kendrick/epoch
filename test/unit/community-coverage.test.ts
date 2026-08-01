@@ -99,10 +99,23 @@ async function cliCoversIssueAndChangeWorkflows(): Promise<void> {
       maintainers: ["alice"],
     }],
   });
+  const withComment = await api.openIssue("epoch/epoch", {
+    title: "Commentable",
+    author: "bob",
+    body: "needs a reply",
+    labels: ["support"],
+  });
+  const commented = await api.commentOnIssue("epoch/epoch", withComment.issues[0]!.id, {
+    author: "alice",
+    body: "here is the answer",
+  });
+  assert.equal(commented.issues[0]?.comments.length, 1);
+  assert.equal(commented.issues[0]?.comments[0]?.body, "here is the answer");
+
   const context = { client: createCommunityClient(api) };
 
   assert.match((await runCli(["repositories"], context)).stdout, /epoch\/epoch/u);
-  assert.match((await runCli(["issues", "open", "epoch/epoch", "--title", "Coverage", "--author", "bob", "--label", "test"], context)).stdout, /ISSUE-1/u);
+  assert.match((await runCli(["issues", "open", "epoch/epoch", "--title", "Coverage", "--author", "bob", "--label", "test"], context)).stdout, /ISSUE-/u);
   assert.match((await runCli([
     "changes",
     "propose",

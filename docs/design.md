@@ -344,17 +344,23 @@ Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
 Community Web dogfooding decision.
 
-### Federated Community (shipped MVP)
+### Federated Community and gossip (shipped MVP)
 
 Public Community federation is implemented as an MVP in `@epoch/atproto`
-(`FederatedCommunity`, mock PDS, lexicons) per
-[ADR-0020](design-decisions/0020-community-federation-atproto-git-proxy.md) and
-[docs/community-atproto.md](community-atproto.md). Portable social metadata uses
-AT Protocol; the [Git compatibility proxy](git-compatibility-proxy.md) is the
-code-plane façade for git clients and live migration
-([ADR-0021](design-decisions/0021-git-projection-and-live-migration.md)).
+(`FederatedCommunity`, mock PDS, lexicons, public artifact dual-write) per
+[ADR-0020](design-decisions/0020-community-federation-atproto-git-proxy.md),
+[ADR-0022](design-decisions/0022-gossip-event-plane-atproto-public-artifacts.md),
+and [docs/community-atproto.md](community-atproto.md).
+
+- **Gossip** (`GossipPeer`, HTTP `/epoch/gossip`) is the authoritative network
+  event plane for signed events and blobs; path-based `gossip` remains.
+- **ATProto** carries public social metadata and optional public artifact
+  mirrors (`org.epoch.release`); AT CIDs are location hints only.
+- The [Git compatibility proxy](git-compatibility-proxy.md) is the Git façade
+  for clone/push and live migration ([ADR-0021](design-decisions/0021-git-projection-and-live-migration.md)).
+
 Epoch Core remains authoritative; Community disabled and local-only modes stay
-supported.
+supported. Private content never touches ATProto.
 
 `Epoch.Community.Operations.Web` is a separate Coolify-inspired project
 operations extension. It consumes `Epoch.Platform.Sdk` and

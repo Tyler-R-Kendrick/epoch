@@ -1,16 +1,21 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { MatchersV3, PactV3 } from "@pact-foundation/pact";
+import { MatchersV3 } from "@pact-foundation/pact";
 import {
   CommunityRepository,
   createHttpCommunityClient,
 } from "@epoch/community-core";
+import { createConsumerPact, PactConsumers, PactProviders } from "../pact/helpers";
 
+/**
+ * Consumer-driven contract: Epoch.Community.Core → Epoch.Community.API
+ * Official Pact JS consumer pattern (PactV3 + MatchersV3).
+ * @see https://docs.pact.io/implementation_guides/javascript/docs/consumer
+ */
 export async function runCommunityContractTests(): Promise<void> {
   await coreHttpClientHonorsTheCommunityApiRepositoryContract();
   await coreHttpClientHonorsTheCommunityApiIssueContract();
+  await coreHttpClientHonorsTheCommunityApiWorkflowsContract();
+  await coreHttpClientHonorsTheCommunityApiChangeProposalContract();
 }
 
 const repositoryExample: CommunityRepository = {
@@ -26,8 +31,15 @@ const repositoryExample: CommunityRepository = {
   discussions: [],
 };
 
+function communityPact(): ReturnType<typeof createConsumerPact> {
+  return createConsumerPact({
+    consumer: PactConsumers.communityCore,
+    provider: PactProviders.communityApi,
+  });
+}
+
 async function coreHttpClientHonorsTheCommunityApiRepositoryContract(): Promise<void> {
-  const provider = pact("repository-list");
+  const provider = communityPact();
   provider
     .given("community repositories exist")
     .uponReceiving("a request to list community repositories")
@@ -45,14 +57,13 @@ async function coreHttpClientHonorsTheCommunityApiRepositoryContract(): Promise<
   await provider.executeTest(async (mockServer) => {
     const client = createHttpCommunityClient({ baseUrl: mockServer.url });
     const repositories = await client.listRepositories();
-
     assert.equal(repositories[0].slug, "epoch/epoch");
     assert.deepEqual(repositories[0].maintainers, ["alice"]);
   });
 }
 
 async function coreHttpClientHonorsTheCommunityApiIssueContract(): Promise<void> {
-  const provider = pact("issue-open");
+  const provider = communityPact();
   const repositoryWithIssue: CommunityRepository = {
     ...repositoryExample,
     issues: [{
@@ -95,17 +106,89 @@ async function coreHttpClientHonorsTheCommunityApiIssueContract(): Promise<void>
       author: "bob",
       labels: ["coverage"],
     });
-
     assert.equal(repository.issues[0].id, "ISSUE-1");
     assert.equal(repository.issues[0].status, "open");
   });
 }
 
-function pact(name: string): PactV3 {
-  return new PactV3({
-    consumer: "Epoch.Community.Core",
-    provider: "Epoch.Community.API",
-    dir: mkdtempSync(join(tmpdir(), `epoch-community-pact-${name}-`)),
-    logLevel: "error",
+async function coreHttpClientHonorsTheCommunityApiWorkflowsContract(): Promise<void> {
+  const provider = communityPact();
+  provider
+    .given("community workflows are available")
+    .uponReceiving("a request to list community workflows")
+    .withRequest({
+      method: "GET",
+      path: "/workflows",
+      headers: { Accept: "application/json" },
+    })
+    .willRespondWith({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: MatchersV3.eachLike({
+        id: "repository-browsing",
+        label: "Repositories",
+        purpose: "Browse Epoch repositories",
+      }, 1),
+    });
+
+  await provider.executeTest(async (mockServer) => {
+    const client = createHttpCommunityClient({ baseUrl: mockServer.url });
+    const workflows = await client.listWorkflows();
+    assert.ok(workflows.length >= 1);
+    assert.equal(typeof workflows[0].id, "string");
+  });
+}
+
+async function coreHttpClientHonorsTheCommunityApiChangeProposalContract(): Promise<void> {
+  const provider = communityPact();
+  const withProposal: CommunityRepository = {
+    ...repositoryExample,
+    changeProposals: [{
+      id: "CHANGE-1",
+      title: "Ship pact gates",
+      author: "alice",
+      body: "wire provider verification",
+      sourceView: "feature/pact",
+      targetView: "main",
+      status: "open",
+      reviews: [],
+    }],
+  };
+
+  provider
+    .given("repository epoch/epoch exists")
+    .uponReceiving("a request to propose a community change")
+    .withRequest({
+      method: "POST",
+      path: "/repositories/epoch%2Fepoch/changes",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: {
+        title: "Ship pact gates",
+        author: "alice",
+        body: "wire provider verification",
+        sourceView: "feature/pact",
+        targetView: "main",
+      },
+    })
+    .willRespondWith({
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+      body: withProposal,
+    });
+
+  await provider.executeTest(async (mockServer) => {
+    const client = createHttpCommunityClient({ baseUrl: mockServer.url });
+    const repository = await client.proposeChange("epoch/epoch", {
+      title: "Ship pact gates",
+      author: "alice",
+      body: "wire provider verification",
+      sourceView: "feature/pact",
+      targetView: "main",
+    });
+    assert.equal(repository.changeProposals[0]?.id, "CHANGE-1");
+    assert.equal(repository.changeProposals[0]?.status, "open");
   });
 }

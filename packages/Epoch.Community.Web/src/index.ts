@@ -175,13 +175,20 @@ export function createCommunityDeploymentTarget(options: {
 }
 
 export function renderCommunityWebDocument(app: CommunityWebAppDefinition): string {
-  const conversations = communityConversations(app);
+  const feed = buildCommunityFeed({
+    repositories: app.repositories,
+    apiConnected: app.apiBaseUrl !== undefined,
+  });
+  const conversations = feed.conversations;
+  const live = app.apiBaseUrl !== undefined;
+  const snapshotMode = feed.source === "snapshot";
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="${escapeHtml(app.pwa.themeColor)}">
+  <meta name="color-scheme" content="light">
   <title>${escapeHtml(app.pwa.name)}</title>
   <style>
 ${communityStyles()}
@@ -189,52 +196,84 @@ ${communityStyles()}
 </head>
 <body>
   <a class="skip-link" href="#community-content">Skip to content</a>
-  <main id="epoch-community" data-design-system="epoch-community" data-community-web-shell data-api-state="${app.apiBaseUrl === undefined ? "offline" : "connected"}">
+  <main id="epoch-community" data-design-system="epoch-community" data-community-web-shell data-api-state="${live ? "connected" : "offline"}" data-feed-source="${feed.source}">
     <aside class="channel-rail" data-community-channel-rail aria-label="Community channels">
       <a class="brand" href="${escapeHtml(app.pwa.startUrl)}" translate="no" aria-label="${escapeHtml(app.pwa.name)}">
         <span class="brand-mark" aria-hidden="true">EC</span>
+        <span class="brand-text">
+          <span class="brand-name">Epoch</span>
+          <span class="brand-sub">epoch/epoch</span>
+        </span>
       </a>
-      <nav class="channel-list" aria-label="Channels">
+      <nav class="surface-list" aria-label="Repository surfaces">
+        <button class="surface-button" type="button" data-surface="channels" aria-pressed="true">Channels</button>
+        <button class="surface-button" type="button" data-surface="issues" aria-pressed="false">Issues <span class="channel-count">${feed.issues.length}</span></button>
+        <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
+      </nav>
+      <nav class="channel-list" data-channel-list aria-label="Channels">
         ${communityChannels.map((channel) => renderChannelButton(channel, conversations)).join("")}
       </nav>
       <div class="rail-status" aria-live="polite">
-        <span class="status-dot ${app.apiBaseUrl === undefined ? "status-dot-muted" : ""}" aria-hidden="true"></span>
-        <span>${app.apiBaseUrl === undefined ? "Snapshot" : "Live"}</span>
+        <span class="status-dot ${live && !snapshotMode ? "" : "status-dot-muted"}" aria-hidden="true"></span>
+        <span data-connection-label>${live ? (snapshotMode ? "Live · empty" : "Live") : "Snapshot"}</span>
       </div>
     </aside>
     <section id="community-content" class="feed-shell" aria-labelledby="community-title">
       <header class="feed-header">
-        <div>
-          <p class="feed-kicker">epoch/epoch</p>
+        <div class="feed-heading">
           <h1 id="community-title">${escapeHtml(app.pwa.name)}</h1>
+          <p class="feed-repo">epoch/epoch</p>
         </div>
-        <div class="repository-strip" aria-label="Repository state">
-          ${renderRepositoryPills(app)}
+        <div class="repository-meta" aria-label="Repository state">
+          ${renderRepositoryMeta(app, feed)}
         </div>
       </header>
-      ${app.apiBaseUrl === undefined ? `<p class="api-banner" data-api-unconfigured>API not connected. Showing the signed snapshot included with this build.</p>` : ""}
-      <div class="feed-toolbar" aria-label="Current channel">
+      ${renderFeedHonestyBanner(live, snapshotMode)}
+      <div class="feed-toolbar" aria-label="Current channel" data-channel-toolbar>
         <span class="channel-name" data-current-channel># ideas</span>
         <span class="channel-topic" data-current-topic>Shape product ideas into signed intents, previews, and reviewable patches.</span>
       </div>
-      <ol class="message-feed" data-message-feed aria-label="Community feed">
-        ${conversations.map(renderConversation).join("")}
-      </ol>
-      <form class="composer" data-comment-composer aria-label="Write a community message">
-        <label class="composer-label" for="community-message">Message #ideas</label>
-        <textarea id="community-message" name="message" rows="3" placeholder="Share a question, idea, review note, or preview result"></textarea>
-        <div class="composer-row">
-          <span data-composer-meta>Signed as @maya · visible to community</span>
-          <button type="submit">Send</button>
+      <div class="surface-stage" data-surface-panel="channels">
+        <ol class="message-feed" data-message-feed aria-label="Community feed">
+          ${conversations.map((conversation) => renderConversation(conversation)).join("")}
+        </ol>
+        <form class="composer" data-comment-composer aria-label="Write a community message">
+          <label class="composer-label" for="community-message">Message #ideas</label>
+          <textarea id="community-message" name="message" rows="2" placeholder="Write a message"></textarea>
+          <div class="composer-row">
+            <span data-composer-meta>Signed as @maya</span>
+            <button type="submit">Send</button>
+          </div>
+        </form>
+      </div>
+      <div class="surface-stage" data-surface-panel="issues" hidden>
+        <div class="feed-toolbar artifact-toolbar">
+          <span class="channel-name">Issues</span>
+          <span class="channel-topic">Open issues for this repository.</span>
         </div>
-      </form>
+        <ol class="artifact-list" data-issue-list aria-label="Issue list">
+          ${feed.issues.map(renderIssueListItem).join("") || emptyArtifactItem("No open issues in the connected repository.")}
+        </ol>
+      </div>
+      <div class="surface-stage" data-surface-panel="changes" hidden>
+        <div class="feed-toolbar artifact-toolbar">
+          <span class="channel-name">Changes</span>
+          <span class="channel-topic">Change proposals for this repository.</span>
+        </div>
+        <ol class="artifact-list" data-change-list aria-label="Change proposal list">
+          ${feed.changes.map(renderChangeListItem).join("") || emptyArtifactItem("No change proposals yet. Promote a message with Mark intent.")}
+        </ol>
+      </div>
+      ${app.siteHistory === undefined ? "" : renderSiteHistory(app.siteHistory)}
     </section>
-    ${app.siteHistory === undefined ? "" : renderSiteHistory(app.siteHistory)}
   </main>
   <script type="application/json" id="epoch-community-state">${escapeScriptJson(JSON.stringify({
     apiBaseUrl: app.apiBaseUrl,
     repositories: app.repositories,
     conversations,
+    feedSource: feed.source,
+    issues: feed.issues,
+    changes: feed.changes,
   }))}</script>
   <script>
 ${communityRuntime()}
@@ -358,7 +397,8 @@ function normalizedBasePath(path: string): string {
   return prefixed.endsWith("/") && prefixed.length > 1 ? prefixed.slice(0, -1) : prefixed;
 }
 
-type CommunityChannelId = "support" | "ideas" | "bugs" | "agent-runs" | "previews" | "governance";
+export type CommunityChannelId = "support" | "ideas" | "bugs" | "agent-runs" | "previews" | "governance";
+export type CommunityFeedSource = "api" | "snapshot";
 
 interface CommunityChannel {
   readonly id: CommunityChannelId;
@@ -366,7 +406,7 @@ interface CommunityChannel {
   readonly topic: string;
 }
 
-interface CommunityConversationView {
+export interface CommunityConversationView {
   readonly id: string;
   readonly channel: CommunityChannelId;
   readonly repositorySlug: string;
@@ -381,6 +421,41 @@ interface CommunityConversationView {
   readonly state: string;
   readonly reactions: readonly string[];
   readonly linkedArtifact?: string;
+  readonly linkedProposalId?: string;
+  readonly source: CommunityFeedSource;
+}
+
+export interface CommunityFeedIssueItem {
+  readonly id: string;
+  readonly title: string;
+  readonly author: string;
+  readonly status: string;
+  readonly labels: readonly string[];
+  readonly repositorySlug: string;
+  readonly channel: CommunityChannelId;
+}
+
+export interface CommunityFeedChangeItem {
+  readonly id: string;
+  readonly title: string;
+  readonly author: string;
+  readonly status: string;
+  readonly sourceView: string;
+  readonly targetView: string;
+  readonly repositorySlug: string;
+}
+
+export interface CommunityFeedBuildResult {
+  readonly source: CommunityFeedSource;
+  readonly conversations: readonly CommunityConversationView[];
+  readonly issues: readonly CommunityFeedIssueItem[];
+  readonly changes: readonly CommunityFeedChangeItem[];
+}
+
+export interface BuildCommunityFeedOptions {
+  readonly repositories: readonly CommunityRepository[];
+  /** True when a live Community API base URL is configured. */
+  readonly apiConnected: boolean;
 }
 
 const communityChannels: readonly CommunityChannel[] = [
@@ -392,14 +467,85 @@ const communityChannels: readonly CommunityChannel[] = [
   { id: "governance", label: "governance", topic: "Handle moderation, legal hold, witnesses, and signed release trust." },
 ];
 
-function communityConversations(app: CommunityWebAppDefinition): readonly CommunityConversationView[] {
-  const repository = app.repositories[0];
-  const slug = repository?.slug ?? "epoch/epoch";
-  const maintainer = repository?.maintainers[0] ?? "maya";
-  const issueConversations = app.repositories.flatMap((repo) =>
+/**
+ * Map issue labels onto channel-first surfaces.
+ * idea → ideas, bug → bugs, agent → agent-runs; default support.
+ */
+export function channelForIssue(labels: readonly string[]): CommunityChannelId {
+  const normalized = labels.map((label) => label.toLowerCase());
+  if (normalized.includes("idea") || normalized.includes("ideas")) {
+    return "ideas";
+  }
+  if (normalized.includes("bug") || normalized.includes("bugs")) {
+    return "bugs";
+  }
+  if (normalized.includes("agent") || normalized.includes("agent-run")) {
+    return "agent-runs";
+  }
+  if (normalized.includes("governance") || normalized.includes("security")) {
+    return "governance";
+  }
+  return "support";
+}
+
+/**
+ * Build the Community feed from API-backed repository state when connected and
+ * non-empty; otherwise fall back to an explicitly labeled snapshot demo feed.
+ * Live connected mode never mixes hard-coded demos into product activity.
+ */
+export function buildCommunityFeed(options: BuildCommunityFeedOptions): CommunityFeedBuildResult {
+  const issues = options.repositories.flatMap((repo) =>
+    repo.issues.map((issue) => ({
+      id: issue.id,
+      title: issue.title,
+      author: issue.author,
+      status: issue.status,
+      labels: issue.labels,
+      repositorySlug: repo.slug,
+      channel: channelForIssue(issue.labels),
+    })),
+  );
+  const changes = options.repositories.flatMap((repo) =>
+    repo.changeProposals.map((proposal) => ({
+      id: proposal.id,
+      title: proposal.title,
+      author: proposal.author,
+      status: proposal.status,
+      sourceView: proposal.sourceView,
+      targetView: proposal.targetView,
+      repositorySlug: repo.slug,
+    })),
+  );
+  const hasApiActivity = issues.length > 0 || changes.length > 0;
+
+  if (options.apiConnected && hasApiActivity) {
+    return {
+      source: "api",
+      conversations: [
+        ...apiIssueConversations(options.repositories),
+        ...apiProposalConversations(options.repositories),
+      ],
+      issues,
+      changes,
+    };
+  }
+
+  const repository = options.repositories[0];
+  return {
+    source: "snapshot",
+    conversations: snapshotConversations(repository),
+    issues,
+    changes,
+  };
+}
+
+function apiIssueConversations(
+  repositories: readonly CommunityRepository[],
+): readonly CommunityConversationView[] {
+  return repositories.flatMap((repo) =>
     repo.issues.map((issue) => ({
       id: `issue-${issue.id}`,
-      channel: issue.labels.includes("bug") ? "bugs" as const : "support" as const,
+      channel: channelForIssue(issue.labels),
       repositorySlug: repo.slug,
       author: issue.author,
       role: "contributor",
@@ -411,9 +557,15 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       visibility: "community",
       state: issue.status,
       reactions: ["reply", "follow"],
+      source: "api" as const,
     })),
   );
-  const proposalConversations = app.repositories.flatMap((repo) =>
+}
+
+function apiProposalConversations(
+  repositories: readonly CommunityRepository[],
+): readonly CommunityConversationView[] {
+  return repositories.flatMap((repo) =>
     repo.changeProposals.map((proposal) => ({
       id: `change-${proposal.id}`,
       channel: "previews" as const,
@@ -429,12 +581,18 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       state: proposal.status,
       reactions: ["review", "preview"],
       linkedArtifact: proposal.sourceView,
+      linkedProposalId: proposal.id,
+      source: "api" as const,
     })),
   );
+}
 
+function snapshotConversations(
+  repository: CommunityRepository | undefined,
+): readonly CommunityConversationView[] {
+  const slug = repository?.slug ?? "epoch/epoch";
+  const maintainer = repository?.maintainers[0] ?? "maya";
   return [
-    ...issueConversations,
-    ...proposalConversations,
     {
       id: "idea-region-revenue",
       channel: "ideas",
@@ -449,6 +607,7 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       visibility: "community",
       state: "discussion",
       reactions: ["7 useful", "3 follow"],
+      source: "snapshot",
     },
     {
       id: "support-install-cache",
@@ -464,6 +623,7 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       visibility: "community",
       state: "answerable",
       reactions: ["4 same issue"],
+      source: "snapshot",
     },
     {
       id: "agent-preview-copy",
@@ -480,6 +640,7 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       state: "needs review",
       reactions: ["tests passed"],
       linkedArtifact: "preview-173",
+      source: "snapshot",
     },
     {
       id: "preview-region-widget",
@@ -496,6 +657,7 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       state: "review",
       reactions: ["open preview", "a11y"],
       linkedArtifact: "deploy-preview-91c",
+      source: "snapshot",
     },
     {
       id: "governance-release-witnesses",
@@ -511,8 +673,19 @@ function communityConversations(app: CommunityWebAppDefinition): readonly Commun
       visibility: "maintainers",
       state: "blocked",
       reactions: ["legal hold available"],
+      source: "snapshot",
     },
   ];
+}
+
+function renderFeedHonestyBanner(live: boolean, snapshotMode: boolean): string {
+  if (!live) {
+    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot">API not connected. Showing the signed snapshot included with this build. Live actions (intent promotion) are disabled.</p>`;
+  }
+  if (snapshotMode) {
+    return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty">Live API connected, but this repository has no issues or changes yet. Channel demos are labeled snapshot samples until activity arrives.</p>`;
+  }
+  return `<p class="api-banner api-banner-live" data-feed-honesty="live" hidden>Live Community API — feed reflects repository activity.</p>`;
 }
 
 function renderChannelButton(
@@ -522,28 +695,49 @@ function renderChannelButton(
   const count = conversations.filter((conversation) => conversation.channel === channel.id).length;
   const selected = channel.id === "ideas";
   return `<button class="channel-button" type="button" data-channel="${channel.id}" data-topic="${escapeHtml(channel.topic)}" aria-pressed="${selected ? "true" : "false"}">
-    <span># ${escapeHtml(channel.label)}</span>
+    <span class="channel-button-label"># ${escapeHtml(channel.label)}</span>
     <span class="channel-count">${count}</span>
   </button>`;
 }
 
-function renderRepositoryPills(app: CommunityWebAppDefinition): string {
+function renderRepositoryMeta(
+  app: CommunityWebAppDefinition,
+  feed: CommunityFeedBuildResult,
+): string {
   const repository = app.repositories[0];
   if (repository === undefined) {
     return `<span>No repository</span>`;
   }
 
-  return [
+  const parts = [
     repository.visibility,
     `${repository.maintainers.length} maintainer${repository.maintainers.length === 1 ? "" : "s"}`,
-    `${repository.issues.length} issues`,
-    `${repository.changeProposals.length} changes`,
-  ].map((label) => `<span>${escapeHtml(label)}</span>`).join("");
+    `${feed.issues.length} issues`,
+    `${feed.changes.length} changes`,
+    feed.source === "api" ? "feed:live" : "feed:snapshot",
+  ];
+  return parts.map((label, index) =>
+    `${index === 0 ? "" : `<span class="meta-sep" aria-hidden="true">·</span>`}<span>${escapeHtml(label)}</span>`
+  ).join("");
+}
+
+function issueIdFromConversation(conversation: CommunityConversationView): string | undefined {
+  if (conversation.id.startsWith("issue-")) {
+    return conversation.id.slice("issue-".length);
+  }
+  return undefined;
 }
 
 function renderConversation(conversation: CommunityConversationView): string {
   const hidden = conversation.channel === "ideas" ? "" : " hidden";
-  return `<li class="feed-message" data-message data-channel="${conversation.channel}" data-message-id="${escapeHtml(conversation.id)}"${hidden}>
+  const linkedProposal = conversation.linkedProposalId === undefined
+    ? ""
+    : ` data-linked-proposal="${escapeHtml(conversation.linkedProposalId)}"`;
+  const issueId = issueIdFromConversation(conversation);
+  const issueAttr = issueId === undefined ? "" : ` data-issue-id="${escapeHtml(issueId)}"`;
+  const changeId = conversation.id.startsWith("change-") ? conversation.id.slice("change-".length) : undefined;
+  const changeAttr = changeId === undefined ? "" : ` data-change-id="${escapeHtml(changeId)}"`;
+  return `<li class="feed-message" data-message data-channel="${conversation.channel}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
     <button class="message-hitbox" type="button" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}"></button>
     <div class="avatar" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
     <article class="message-body">
@@ -552,6 +746,7 @@ function renderConversation(conversation: CommunityConversationView): string {
         <span>${escapeHtml(conversation.role)}</span>
         <time>${escapeHtml(conversation.time)}</time>
         <span data-message-state>${escapeHtml(conversation.state)}</span>
+        ${conversation.source === "snapshot" ? `<span data-snapshot-badge>snapshot sample</span>` : ""}
       </header>
       <h2>${escapeHtml(conversation.title)}</h2>
       <p>${escapeHtml(conversation.body)}</p>
@@ -559,15 +754,16 @@ function renderConversation(conversation: CommunityConversationView): string {
         <span>${escapeHtml(conversation.anchor)}</span>
         <span>${escapeHtml(conversation.signature)}</span>
         <span>${escapeHtml(conversation.visibility)}</span>
+        ${conversation.linkedProposalId === undefined ? "" : `<span data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`}
       </footer>
       <div class="reaction-row" aria-label="Reactions">
-        ${conversation.reactions.map((reaction) => `<span>${escapeHtml(reaction)}</span>`).join("")}
+        ${conversation.reactions.map((reaction) => `<button type="button" class="reaction" data-reaction="${escapeHtml(reaction)}">${escapeHtml(reaction)}</button>`).join("")}
       </div>
       <div class="message-action-tray" data-message-actions hidden>
         <dl>
           <div><dt>Anchor</dt><dd>${escapeHtml(conversation.anchor)}</dd></div>
           <div><dt>Signature</dt><dd>${escapeHtml(conversation.signature)}</dd></div>
-          <div><dt>Artifact</dt><dd>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug)}</dd></div>
+          <div><dt>Artifact</dt><dd data-tray-artifact>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug)}</dd></div>
         </dl>
         <div class="action-row">
           <button type="button" data-action="intent">Mark intent</button>
@@ -575,11 +771,34 @@ function renderConversation(conversation: CommunityConversationView): string {
           <button type="button" data-action="answer">Accept answer</button>
           <button type="button" data-action="docs">Docs patch</button>
           <button type="button" data-action="report">Report</button>
+          ${changeId === undefined ? "" : `<button type="button" data-action="approve">Approve change</button>`}
         </div>
         <p class="action-status" data-action-status>Human review required for signed project changes.</p>
       </div>
     </article>
   </li>`;
+}
+
+function renderIssueListItem(issue: CommunityFeedIssueItem): string {
+  return `<li class="artifact-item" data-issue-id="${escapeHtml(issue.id)}">
+    <span class="artifact-id">${escapeHtml(issue.id)}</span>
+    <strong>${escapeHtml(issue.title)}</strong>
+    <span class="artifact-meta">#${escapeHtml(issue.channel)} · ${escapeHtml(issue.status)} · ${escapeHtml(issue.author)}</span>
+    <span class="artifact-labels">${issue.labels.map((label) => escapeHtml(label)).join(", ") || "unlabeled"}</span>
+  </li>`;
+}
+
+function renderChangeListItem(change: CommunityFeedChangeItem): string {
+  return `<li class="artifact-item" data-change-id="${escapeHtml(change.id)}">
+    <span class="artifact-id">${escapeHtml(change.id)}</span>
+    <strong>${escapeHtml(change.title)}</strong>
+    <span class="artifact-meta">${escapeHtml(change.status)} · ${escapeHtml(change.author)}</span>
+    <span class="artifact-labels">${escapeHtml(change.sourceView)} → ${escapeHtml(change.targetView)}</span>
+  </li>`;
+}
+
+function emptyArtifactItem(message: string): string {
+  return `<li class="artifact-item artifact-empty">${escapeHtml(message)}</li>`;
 }
 
 function initials(value: string): string {
@@ -743,126 +962,613 @@ function escapeScriptJson(value: string): string {
 function communityRuntime(): string {
   return `    (() => {
       const stateElement = document.getElementById("epoch-community-state");
-      const state = stateElement === null ? { conversations: [], repositories: [] } : JSON.parse(stateElement.textContent || "{}");
+      const state = stateElement === null
+        ? { conversations: [], repositories: [], issues: [], changes: [], feedSource: "snapshot" }
+        : JSON.parse(stateElement.textContent || "{}");
       let activeChannel = "ideas";
       let selectedMessage = null;
+      const actor = "maya";
 
       const feed = document.querySelector("[data-message-feed]");
       const channelName = document.querySelector("[data-current-channel]");
       const channelTopic = document.querySelector("[data-current-topic]");
       const composer = document.querySelector("[data-comment-composer]");
       const composerLabel = document.querySelector(".composer-label");
+      const changeList = document.querySelector("[data-change-list]");
+      const issueList = document.querySelector("[data-issue-list]");
+      const shell = document.getElementById("epoch-community");
+      const connectionLabel = document.querySelector("[data-connection-label]");
+
+      const channelTopics = {
+        support: "Get unstuck, accept answers, and turn repeated help into docs patches.",
+        ideas: "Shape product ideas into signed intents, previews, and reviewable patches.",
+        bugs: "Reproduce defects and connect reports to patches without losing context.",
+        "agent-runs": "Watch policy-bound agents propose work while humans keep merge authority.",
+        previews: "Review deploy previews, visual results, and release readiness in one thread.",
+        governance: "Handle moderation, legal hold, witnesses, and signed release trust.",
+      };
+
+      function apiBase() {
+        return (state.apiBaseUrl || "").replace(/\\/$/, "");
+      }
+
+      function live() {
+        return Boolean(state.apiBaseUrl);
+      }
+
+      function repository() {
+        return state.repositories && state.repositories[0];
+      }
 
       function messages() {
         return Array.from(document.querySelectorAll("[data-message]"));
       }
 
-      function selectChannel(button) {
-        activeChannel = button.dataset.channel || "ideas";
-        selectedMessage = null;
-        document.querySelectorAll("[data-channel][aria-pressed]").forEach((item) => {
-          item.setAttribute("aria-pressed", item === button ? "true" : "false");
+      function channelLabel(channel) {
+        const map = {
+          ideas: "idea",
+          bugs: "bug",
+          support: "support",
+          "agent-runs": "agent",
+          previews: "preview",
+          governance: "governance",
+        };
+        return map[channel] || "support";
+      }
+
+      function channelForLabels(labels) {
+        const normalized = (labels || []).map((label) => String(label).toLowerCase());
+        if (normalized.includes("idea") || normalized.includes("ideas")) return "ideas";
+        if (normalized.includes("bug") || normalized.includes("bugs")) return "bugs";
+        if (normalized.includes("agent") || normalized.includes("agent-run")) return "agent-runs";
+        if (normalized.includes("governance") || normalized.includes("security") || normalized.includes("moderation")) return "governance";
+        if (normalized.includes("preview")) return "previews";
+        return "support";
+      }
+
+      function initials(value) {
+        return String(value || "?")
+          .split(/[^a-zA-Z0-9]+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0].toUpperCase())
+          .join("")
+          .slice(0, 2) || "?";
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      async function apiJson(method, path, body) {
+        const response = await fetch(apiBase() + path, {
+          method,
+          headers: {
+            Accept: "application/json",
+            ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
         });
-        if (channelName) channelName.textContent = "# " + activeChannel;
-        if (channelTopic) channelTopic.textContent = button.dataset.topic || "";
-        if (composerLabel) composerLabel.textContent = "Message #" + activeChannel;
+        const text = await response.text();
+        const parsed = text.length === 0 ? null : JSON.parse(text);
+        if (!response.ok) {
+          const message = parsed && parsed.error ? parsed.error : response.statusText;
+          throw new Error(message || ("HTTP " + response.status));
+        }
+        return parsed;
+      }
+
+      function selectSurface(surface) {
+        document.querySelectorAll("[data-surface]").forEach((button) => {
+          button.setAttribute("aria-pressed", button.dataset.surface === surface ? "true" : "false");
+        });
+        document.querySelectorAll("[data-surface-panel]").forEach((panel) => {
+          panel.hidden = panel.getAttribute("data-surface-panel") !== surface;
+        });
+        const channelList = document.querySelector("[data-channel-list]");
+        if (channelList) channelList.hidden = surface !== "channels";
+        const channelToolbar = document.querySelector("[data-channel-toolbar]");
+        if (channelToolbar) channelToolbar.hidden = surface !== "channels";
+      }
+
+      function applyChannelFilter() {
         messages().forEach((message) => {
           message.hidden = message.dataset.channel !== activeChannel;
-          message.removeAttribute("data-selected-message");
-          const tray = message.querySelector("[data-message-actions]");
-          if (tray) tray.hidden = true;
+          if (message.dataset.messageId !== selectedMessage) {
+            message.removeAttribute("data-selected-message");
+            const tray = message.querySelector("[data-message-actions]");
+            if (tray) tray.hidden = true;
+          }
         });
+        if (channelName) channelName.textContent = "# " + activeChannel;
+        if (channelTopic) channelTopic.textContent = channelTopics[activeChannel] || "";
+        if (composerLabel) composerLabel.textContent = "Message #" + activeChannel;
+        document.querySelectorAll("[data-channel][aria-pressed]").forEach((item) => {
+          item.setAttribute("aria-pressed", item.dataset.channel === activeChannel ? "true" : "false");
+        });
+      }
+
+      function selectChannel(channel) {
+        activeChannel = channel || "ideas";
+        selectedMessage = null;
+        selectSurface("channels");
+        applyChannelFilter();
+        if (feed) feed.scrollTop = 0;
       }
 
       function selectMessage(id) {
         selectedMessage = id;
         messages().forEach((message) => {
           const selected = message.dataset.messageId === id;
-          if (selected) {
-            message.setAttribute("data-selected-message", "true");
-          } else {
-            message.removeAttribute("data-selected-message");
-          }
+          if (selected) message.setAttribute("data-selected-message", "true");
+          else message.removeAttribute("data-selected-message");
           const tray = message.querySelector("[data-message-actions]");
           if (tray) tray.hidden = !selected;
         });
       }
 
-      async function postIntent(message, status) {
-        const repository = state.repositories && state.repositories[0];
-        if (!state.apiBaseUrl || !repository) return false;
+      function setStatus(message, text) {
+        const status = message?.querySelector("[data-action-status]");
+        if (status) status.textContent = text;
+      }
+
+      function renderIssueItem(issue) {
+        const channel = channelForLabels(issue.labels || []);
+        const labels = (issue.labels || []).join(", ") || "unlabeled";
+        return '<li class="artifact-item" data-issue-id="' + escapeHtml(issue.id) + '">'
+          + '<span class="artifact-id">' + escapeHtml(issue.id) + '</span>'
+          + '<strong>' + escapeHtml(issue.title) + '</strong>'
+          + '<span class="artifact-meta">#' + escapeHtml(channel) + ' · ' + escapeHtml(issue.status) + ' · ' + escapeHtml(issue.author) + '</span>'
+          + '<span class="artifact-labels">' + escapeHtml(labels) + '</span>'
+          + '</li>';
+      }
+
+      function renderChangeItem(change) {
+        return '<li class="artifact-item" data-change-id="' + escapeHtml(change.id) + '">'
+          + '<span class="artifact-id">' + escapeHtml(change.id) + '</span>'
+          + '<strong>' + escapeHtml(change.title) + '</strong>'
+          + '<span class="artifact-meta">' + escapeHtml(change.status) + ' · ' + escapeHtml(change.author) + '</span>'
+          + '<span class="artifact-labels">' + escapeHtml(change.sourceView || "") + ' → ' + escapeHtml(change.targetView || "") + '</span>'
+          + '<div class="artifact-actions">'
+          + '<button type="button" class="reaction" data-review-change="' + escapeHtml(change.id) + '">Approve</button>'
+          + '</div>'
+          + '</li>';
+      }
+
+      function renderMessageFromIssue(issue, repo) {
+        const channel = channelForLabels(issue.labels || []);
+        const id = "issue-" + issue.id;
+        const commentNote = issue.comments && issue.comments.length
+          ? " · " + issue.comments.length + " comment" + (issue.comments.length === 1 ? "" : "s")
+          : "";
+        return '<li class="feed-message" data-message data-channel="' + channel + '" data-message-id="' + escapeHtml(id) + '" data-feed-item-source="api" data-issue-id="' + escapeHtml(issue.id) + '">'
+          + '<button class="message-hitbox" type="button" data-select-message="' + escapeHtml(id) + '" aria-label="Open signed actions for ' + escapeHtml(issue.title) + '"></button>'
+          + '<div class="avatar" aria-hidden="true">' + escapeHtml(initials(issue.author)) + '</div>'
+          + '<article class="message-body">'
+          + '<header class="message-meta"><strong>' + escapeHtml(issue.author) + '</strong><span>contributor</span><time>live</time><span data-message-state>' + escapeHtml(issue.status + commentNote) + '</span></header>'
+          + '<h2>' + escapeHtml(issue.title) + '</h2>'
+          + '<p>' + escapeHtml(issue.body || "") + '</p>'
+          + (issue.comments && issue.comments.length
+            ? '<div class="thread-comments" data-thread-comments>' + issue.comments.map((comment) =>
+              '<div class="thread-comment"><strong>' + escapeHtml(comment.author) + '</strong> <span>' + escapeHtml(comment.body) + '</span></div>'
+            ).join("") + '</div>'
+            : '')
+          + '<footer class="message-footer"><span>issue:' + escapeHtml(issue.id) + '</span><span>sig:' + escapeHtml(issue.id.toLowerCase()) + '</span><span>community</span></footer>'
+          + '<div class="reaction-row" aria-label="Reactions">'
+          + '<button type="button" class="reaction" data-reaction="reply">reply</button>'
+          + '<button type="button" class="reaction" data-reaction="follow">follow</button>'
+          + '</div>'
+          + '<div class="message-action-tray" data-message-actions hidden>'
+          + '<dl><div><dt>Anchor</dt><dd>issue:' + escapeHtml(issue.id) + '</dd></div>'
+          + '<div><dt>Signature</dt><dd>sig:' + escapeHtml(issue.id.toLowerCase()) + '</dd></div>'
+          + '<div><dt>Artifact</dt><dd data-tray-artifact>' + escapeHtml(repo.slug) + '</dd></div></dl>'
+          + '<div class="action-row">'
+          + '<button type="button" data-action="intent">Mark intent</button>'
+          + '<button type="button" data-action="agent">Request agent</button>'
+          + '<button type="button" data-action="answer">Accept answer</button>'
+          + '<button type="button" data-action="docs">Docs patch</button>'
+          + '<button type="button" data-action="report">Report</button>'
+          + '</div>'
+          + '<p class="action-status" data-action-status>Human review required for signed project changes.</p>'
+          + '</div></article></li>';
+      }
+
+      function renderMessageFromChange(proposal, repo) {
+        const id = "change-" + proposal.id;
+        return '<li class="feed-message" data-message data-channel="previews" data-message-id="' + escapeHtml(id) + '" data-feed-item-source="api" data-change-id="' + escapeHtml(proposal.id) + '" data-linked-proposal="' + escapeHtml(proposal.id) + '">'
+          + '<button class="message-hitbox" type="button" data-select-message="' + escapeHtml(id) + '" aria-label="Open signed actions for ' + escapeHtml(proposal.title) + '"></button>'
+          + '<div class="avatar" aria-hidden="true">' + escapeHtml(initials(proposal.author)) + '</div>'
+          + '<article class="message-body">'
+          + '<header class="message-meta"><strong>' + escapeHtml(proposal.author) + '</strong><span>contributor</span><time>live</time><span data-message-state>' + escapeHtml(proposal.status) + '</span></header>'
+          + '<h2>' + escapeHtml(proposal.title) + '</h2>'
+          + '<p>' + escapeHtml(proposal.body || (proposal.sourceView + " -> " + proposal.targetView)) + '</p>'
+          + '<footer class="message-footer"><span>change:' + escapeHtml(proposal.id) + '</span><span>sig:' + escapeHtml(proposal.id.toLowerCase()) + '</span><span>community</span><span data-proposal-link>proposal:' + escapeHtml(proposal.id) + '</span></footer>'
+          + '<div class="reaction-row" aria-label="Reactions">'
+          + '<button type="button" class="reaction" data-reaction="review">review</button>'
+          + '<button type="button" class="reaction" data-reaction="preview">preview</button>'
+          + '</div>'
+          + '<div class="message-action-tray" data-message-actions hidden>'
+          + '<dl><div><dt>Anchor</dt><dd>change:' + escapeHtml(proposal.id) + '</dd></div>'
+          + '<div><dt>Signature</dt><dd>sig:' + escapeHtml(proposal.id.toLowerCase()) + '</dd></div>'
+          + '<div><dt>Artifact</dt><dd data-tray-artifact>' + escapeHtml(proposal.sourceView || repo.slug) + '</dd></div></dl>'
+          + '<div class="action-row">'
+          + '<button type="button" data-action="intent">Mark intent</button>'
+          + '<button type="button" data-action="agent">Request agent</button>'
+          + '<button type="button" data-action="answer">Accept answer</button>'
+          + '<button type="button" data-action="docs">Docs patch</button>'
+          + '<button type="button" data-action="report">Report</button>'
+          + '<button type="button" data-action="approve">Approve change</button>'
+          + '</div>'
+          + '<p class="action-status" data-action-status>Human review required for signed project changes.</p>'
+          + '</div></article></li>';
+      }
+
+      function updateChannelCounts(repo) {
+        const counts = { support: 0, ideas: 0, bugs: 0, "agent-runs": 0, previews: 0, governance: 0 };
+        for (const issue of repo.issues || []) {
+          counts[channelForLabels(issue.labels)] = (counts[channelForLabels(issue.labels)] || 0) + 1;
+        }
+        for (const _proposal of repo.changeProposals || []) {
+          counts.previews += 1;
+        }
+        document.querySelectorAll("[data-channel][aria-pressed]").forEach((button) => {
+          const countEl = button.querySelector(".channel-count");
+          if (countEl) countEl.textContent = String(counts[button.dataset.channel] || 0);
+        });
+        const issueCount = document.querySelector('[data-surface="issues"] .channel-count');
+        if (issueCount) issueCount.textContent = String((repo.issues || []).length);
+        const changeCount = document.querySelector('[data-surface="changes"] .channel-count');
+        if (changeCount) changeCount.textContent = String((repo.changeProposals || []).length);
+      }
+
+      function updateRepositoryMeta(repo) {
+        const meta = document.querySelector(".repository-meta");
+        if (!meta) return;
+        const parts = [
+          repo.visibility || "public",
+          (repo.maintainers || []).length + " maintainer" + ((repo.maintainers || []).length === 1 ? "" : "s"),
+          (repo.issues || []).length + " issues",
+          (repo.changeProposals || []).length + " changes",
+          live() ? "feed:live" : "feed:snapshot",
+        ];
+        meta.innerHTML = parts.map((part, index) =>
+          (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
+        ).join("");
+      }
+
+      function renderRepository(repo) {
+        state.repositories = [repo];
+        state.feedSource = live() ? "api" : state.feedSource;
+        if (shell) {
+          shell.dataset.feedSource = state.feedSource;
+          shell.dataset.apiState = live() ? "connected" : "offline";
+        }
+        if (connectionLabel) connectionLabel.textContent = live() ? "Live" : "Snapshot";
+        if (feed) {
+          const issueHtml = (repo.issues || []).map((issue) => renderMessageFromIssue(issue, repo)).join("");
+          const changeHtml = (repo.changeProposals || []).map((proposal) => renderMessageFromChange(proposal, repo)).join("");
+          feed.innerHTML = issueHtml + changeHtml;
+        }
+        if (issueList) {
+          issueList.innerHTML = (repo.issues || []).length
+            ? (repo.issues || []).map(renderIssueItem).join("")
+            : '<li class="artifact-item artifact-empty">No open issues in the connected repository.</li>';
+        }
+        if (changeList) {
+          changeList.innerHTML = (repo.changeProposals || []).length
+            ? (repo.changeProposals || []).map(renderChangeItem).join("")
+            : '<li class="artifact-item artifact-empty">No change proposals yet. Promote a message with Mark intent.</li>';
+        }
+        updateChannelCounts(repo);
+        updateRepositoryMeta(repo);
+        applyChannelFilter();
+        if (selectedMessage) selectMessage(selectedMessage);
+      }
+
+      async function refreshRepository() {
+        const repo = repository();
+        if (!live() || !repo) return null;
+        const updated = await apiJson("GET", "/repositories/" + encodeURIComponent(repo.slug));
+        renderRepository(updated);
+        return updated;
+      }
+
+      async function postIssue(input) {
+        const repo = repository();
+        if (!live() || !repo) throw new Error("Live API unavailable");
+        return apiJson("POST", "/repositories/" + encodeURIComponent(repo.slug) + "/issues", input);
+      }
+
+      async function postComment(issueId, body) {
+        const repo = repository();
+        if (!live() || !repo) throw new Error("Live API unavailable");
+        return apiJson(
+          "POST",
+          "/repositories/" + encodeURIComponent(repo.slug) + "/issues/" + encodeURIComponent(issueId) + "/comments",
+          { author: actor, body },
+        );
+      }
+
+      async function postChange(input) {
+        const repo = repository();
+        if (!live() || !repo) throw new Error("Live API unavailable");
+        return apiJson("POST", "/repositories/" + encodeURIComponent(repo.slug) + "/changes", input);
+      }
+
+      async function postReview(changeId, decision) {
+        const repo = repository();
+        if (!live() || !repo) throw new Error("Live API unavailable");
+        return apiJson(
+          "POST",
+          "/repositories/" + encodeURIComponent(repo.slug) + "/changes/" + encodeURIComponent(changeId) + "/reviews",
+          { reviewer: actor, decision, body: decision === "approved" ? "Approved from Community Web." : "" },
+        );
+      }
+
+      async function handleComposerSubmit(text) {
+        const body = text.trim();
+        if (!body) return;
+        if (!live()) {
+          // Snapshot mode: local-only append (fail closed for durable write).
+          const id = "comment-" + Date.now();
+          if (!feed) return;
+          const item = document.createElement("li");
+          item.className = "feed-message";
+          item.dataset.message = "";
+          item.dataset.channel = activeChannel;
+          item.dataset.messageId = id;
+          item.dataset.feedItemSource = "snapshot";
+          item.innerHTML = '<div class="avatar" aria-hidden="true">MY</div><article class="message-body"><header class="message-meta"><strong>maya</strong><span>maintainer</span><time>now</time><span>local only</span></header><h2>Local note</h2><p></p><footer class="message-footer"><span>anchor:composer</span><span>sig:pending-local</span><span>community</span></footer></article>';
+          item.querySelector("p").textContent = body;
+          feed.append(item);
+          return;
+        }
+
+        const selected = selectedMessage
+          ? document.querySelector('[data-message-id="' + CSS.escape(selectedMessage) + '"]')
+          : null;
+        const issueId = selected?.dataset.issueId;
+        if (issueId) {
+          const updated = await postComment(issueId, body);
+          renderRepository(updated);
+          selectMessage("issue-" + issueId);
+          return;
+        }
+
+        const title = body.split("\\n")[0].slice(0, 120) || "Community message";
+        const updated = await postIssue({
+          title,
+          author: actor,
+          body,
+          labels: [channelLabel(activeChannel)],
+        });
+        renderRepository(updated);
+        const created = (updated.issues || [])[updated.issues.length - 1];
+        if (created) {
+          selectChannel(channelForLabels(created.labels));
+          selectMessage("issue-" + created.id);
+        }
+      }
+
+      async function handleAction(action, message) {
         const title = message.querySelector("h2")?.textContent || "Community intent";
         const body = message.querySelector("p")?.textContent || "";
-        const response = await fetch(state.apiBaseUrl.replace(/\\/$/, "") + "/repositories/" + encodeURIComponent(repository.slug) + "/changes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            title,
-            author: "maya",
-            body,
-            sourceView: "community/" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-            targetView: repository.defaultView || "main",
-          }),
-        });
-        status.textContent = response.ok ? "Intent candidate recorded from the live API." : "Intent request failed.";
-        return response.ok;
-      }
+        const issueId = message.dataset.issueId;
+        const changeId = message.dataset.changeId;
+        const repo = repository();
 
-      function appendComment(text) {
-        if (!feed || text.trim().length === 0) return;
-        const id = "comment-" + Date.now();
-        const item = document.createElement("li");
-        item.className = "feed-message";
-        item.dataset.message = "";
-        item.dataset.channel = activeChannel;
-        item.dataset.messageId = id;
-        item.innerHTML = '<div class="avatar" aria-hidden="true">MY</div><article class="message-body"><header class="message-meta"><strong>maya</strong><span>maintainer</span><time>now</time><span>signed</span></header><h2>New reply</h2><p></p><footer class="message-footer"><span>anchor:composer</span><span>sig:pending-local</span><span>community</span></footer></article>';
-        const body = item.querySelector("p");
-        if (body) body.textContent = text.trim();
-        feed.append(item);
-      }
-
-      document.querySelectorAll("[data-channel][aria-pressed]").forEach((button) => {
-        button.addEventListener("click", () => selectChannel(button));
-      });
-      document.querySelectorAll("[data-select-message]").forEach((button) => {
-        button.addEventListener("click", () => selectMessage(button.dataset.selectMessage));
-      });
-      feed?.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof Element) || target.closest("[data-action]")) return;
-        const message = target.closest("[data-message]");
-        if (message && message.dataset.messageId) selectMessage(message.dataset.messageId);
-      });
-      document.querySelectorAll("[data-action]").forEach((button) => {
-        button.addEventListener("click", async (event) => {
-          event.stopPropagation();
-          const message = button.closest("[data-message]");
-          const status = message?.querySelector("[data-action-status]");
-          if (!message || !status) return;
-          const action = button.dataset.action;
+        if (!live()) {
           if (action === "intent") {
-            status.textContent = "Recording intent candidate...";
-            await postIntent(message, status);
-          } else if (action === "agent") {
-            status.textContent = "Agent run requested. Human review remains required.";
-          } else if (action === "answer") {
-            status.textContent = "Accepted answer captured for this thread.";
-          } else if (action === "docs") {
-            status.textContent = "Docs patch candidate linked to this conversation.";
-          } else if (action === "report") {
-            status.textContent = "Moderation report opened with legal-hold evidence.";
+            setStatus(message, "Live API unavailable. Intent promotion is disabled in snapshot mode.");
+          } else {
+            setStatus(message, "Live API unavailable. This action is disabled in snapshot mode.");
           }
-        });
+          return;
+        }
+
+        try {
+          if (action === "intent") {
+            setStatus(message, "Recording intent candidate...");
+            const updated = await postChange({
+              title,
+              author: actor,
+              body,
+              sourceView: "community/" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+              targetView: repo.defaultView || "main",
+            });
+            renderRepository(updated);
+            const proposal = (updated.changeProposals || []).filter((item) => item.title === title).slice(-1)[0]
+              || (updated.changeProposals || []).slice(-1)[0];
+            if (proposal) {
+              const next = document.querySelector('[data-message-id="change-' + CSS.escape(proposal.id) + '"]')
+                || document.querySelector('[data-message-id="' + CSS.escape(message.dataset.messageId) + '"]');
+              if (next) {
+                selectChannel("previews");
+                selectMessage("change-" + proposal.id);
+                setStatus(next, "Intent candidate recorded from the live API: " + proposal.id + " (" + proposal.status + ").");
+              }
+            }
+            return;
+          }
+
+          if (action === "agent") {
+            setStatus(message, "Opening agent-run issue...");
+            const updated = await postIssue({
+              title: "Agent: " + title,
+              author: "agent-ui-reviewer",
+              body: "Agent requested from conversation.\\n\\n" + body + "\\n\\nHuman review remains required.",
+              labels: ["agent"],
+            });
+            renderRepository(updated);
+            const created = (updated.issues || []).slice(-1)[0];
+            if (created) {
+              selectChannel("agent-runs");
+              selectMessage("issue-" + created.id);
+              setStatus(document.querySelector('[data-message-id="issue-' + CSS.escape(created.id) + '"]'), "Agent run requested. Human review remains required.");
+            }
+            return;
+          }
+
+          if (action === "answer") {
+            if (!issueId) {
+              setStatus(message, "Select an issue thread to accept an answer.");
+              return;
+            }
+            setStatus(message, "Recording accepted answer...");
+            const updated = await postComment(issueId, "Accepted answer: " + body);
+            renderRepository(updated);
+            selectMessage("issue-" + issueId);
+            setStatus(document.querySelector('[data-message-id="issue-' + CSS.escape(issueId) + '"]'), "Accepted answer captured for this thread.");
+            return;
+          }
+
+          if (action === "docs") {
+            setStatus(message, "Opening docs patch proposal...");
+            const updated = await postChange({
+              title: "Docs: " + title,
+              author: actor,
+              body: "Docs patch candidate linked from conversation.\\n\\n" + body,
+              sourceView: "docs/" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+              targetView: repo.defaultView || "main",
+            });
+            renderRepository(updated);
+            const proposal = (updated.changeProposals || []).slice(-1)[0];
+            if (proposal) {
+              selectChannel("previews");
+              selectMessage("change-" + proposal.id);
+              setStatus(document.querySelector('[data-message-id="change-' + CSS.escape(proposal.id) + '"]'), "Docs patch candidate linked to this conversation.");
+            }
+            return;
+          }
+
+          if (action === "report") {
+            setStatus(message, "Opening moderation report...");
+            const updated = await postIssue({
+              title: "Moderation: " + title,
+              author: actor,
+              body: "Moderation report / legal-hold evidence.\\n\\nSource: " + title + "\\n\\n" + body,
+              labels: ["governance", "moderation"],
+            });
+            renderRepository(updated);
+            const created = (updated.issues || []).slice(-1)[0];
+            if (created) {
+              selectChannel("governance");
+              selectMessage("issue-" + created.id);
+              setStatus(document.querySelector('[data-message-id="issue-' + CSS.escape(created.id) + '"]'), "Moderation report opened with legal-hold evidence.");
+            }
+            return;
+          }
+
+          if (action === "approve") {
+            if (!changeId) {
+              setStatus(message, "No change proposal on this message.");
+              return;
+            }
+            setStatus(message, "Submitting approval...");
+            const updated = await postReview(changeId, "approved");
+            renderRepository(updated);
+            selectMessage("change-" + changeId);
+            setStatus(document.querySelector('[data-message-id="change-' + CSS.escape(changeId) + '"]'), "Change approved by " + actor + ".");
+          }
+        } catch (error) {
+          setStatus(message, "Action failed: " + (error instanceof Error ? error.message : String(error)));
+        }
+      }
+
+      document.querySelectorAll("[data-surface]").forEach((button) => {
+        button.addEventListener("click", () => selectSurface(button.dataset.surface || "channels"));
       });
-      composer?.addEventListener("submit", (event) => {
+      document.querySelectorAll("[data-channel][aria-pressed]").forEach((button) => {
+        button.addEventListener("click", () => selectChannel(button.dataset.channel || "ideas"));
+      });
+
+      document.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const reviewButton = target.closest("[data-review-change]");
+        if (reviewButton) {
+          event.preventDefault();
+          try {
+            const updated = await postReview(reviewButton.getAttribute("data-review-change"), "approved");
+            renderRepository(updated);
+            selectSurface("changes");
+          } catch (error) {
+            console.error(error);
+          }
+          return;
+        }
+
+        const actionButton = target.closest("[data-action]");
+        if (actionButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          const message = actionButton.closest("[data-message]");
+          if (message) await handleAction(actionButton.dataset.action, message);
+          return;
+        }
+
+        const reactionButton = target.closest(".reaction[data-reaction]");
+        if (reactionButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          const message = reactionButton.closest("[data-message]");
+          if (!message) return;
+          const issueId = message.dataset.issueId;
+          if (live() && issueId) {
+            try {
+              const updated = await postComment(issueId, "Reaction: " + reactionButton.dataset.reaction);
+              renderRepository(updated);
+              selectMessage("issue-" + issueId);
+              setStatus(document.querySelector('[data-message-id="issue-' + CSS.escape(issueId) + '"]'), "Recorded reaction via comment.");
+            } catch (error) {
+              setStatus(message, "Reaction failed: " + (error instanceof Error ? error.message : String(error)));
+            }
+          } else {
+            setStatus(message, live() ? "Reactions attach to issue threads." : "Live API unavailable for reactions.");
+          }
+          return;
+        }
+
+        const selectButton = target.closest("[data-select-message]");
+        if (selectButton) {
+          selectMessage(selectButton.dataset.selectMessage);
+          return;
+        }
+
+        const message = target.closest("[data-message]");
+        if (message && message.dataset.messageId && !target.closest("[data-message-actions]")) {
+          selectMessage(message.dataset.messageId);
+        }
+      });
+
+      composer?.addEventListener("submit", async (event) => {
         event.preventDefault();
         const input = composer.querySelector("textarea");
-        appendComment(input?.value || "");
-        if (input) input.value = "";
+        const value = input?.value || "";
+        try {
+          await handleComposerSubmit(value);
+          if (input) input.value = "";
+        } catch (error) {
+          if (input) input.placeholder = "Send failed: " + (error instanceof Error ? error.message : String(error));
+        }
       });
+
+      selectSurface("channels");
+      if (live() && repository()) {
+        refreshRepository().catch((error) => {
+          if (connectionLabel) connectionLabel.textContent = "Live · error";
+          console.error(error);
+        });
+      }
     })();`;
 }
+
 
 function communityStyles(): string {
   return `    :root {
@@ -877,7 +1583,7 @@ function communityStyles(): string {
       --epoch-color-teal: #2f7370;
       --epoch-color-mint: #d8ece5;
       --epoch-color-gold: #d8b765;
-      --epoch-shadow-low: 0 16px 40px rgba(23, 34, 31, 0.08);
+      --epoch-shadow-low: 0 1px 0 rgba(23, 34, 31, 0.04);
       --epoch-radius-sm: 4px;
       --epoch-radius-md: 8px;
       --epoch-space-1: 0.5rem;
@@ -886,183 +1592,190 @@ function communityStyles(): string {
       --epoch-space-4: 1.5rem;
       --epoch-space-5: 2rem;
       --epoch-space-6: 3rem;
+      --rail-width: 15.5rem;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       font-size: 16px;
-      letter-spacing: 0;
       background: var(--epoch-color-surface);
+      color: var(--epoch-color-ink);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
-    html {
-      scroll-behavior: smooth;
+    html, body {
+      margin: 0;
+      height: 100%;
     }
 
     body {
       min-width: 320px;
-      margin: 0;
+      background: var(--epoch-color-surface);
       color: var(--epoch-color-ink);
-      background:
-        linear-gradient(90deg, rgba(47, 115, 112, 0.08) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(47, 115, 112, 0.06) 1px, transparent 1px),
-        var(--epoch-color-surface);
-      background-size: 42px 42px;
       -webkit-font-smoothing: antialiased;
-      -webkit-tap-highlight-color: rgba(186, 94, 63, 0.18);
       text-rendering: optimizeLegibility;
-      touch-action: manipulation;
     }
 
-    a {
-      color: inherit;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 0.2em;
-    }
-
-    a:hover {
-      color: var(--epoch-color-accent-strong);
-    }
-
-    a:focus-visible {
-      outline: 3px solid rgba(186, 94, 63, 0.42);
-      outline-offset: 3px;
+    a { color: inherit; text-decoration: none; }
+    a:hover { color: var(--epoch-color-accent-strong); }
+    a:focus-visible,
+    button:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--epoch-color-accent);
+      outline-offset: 2px;
     }
 
     .skip-link {
       position: fixed;
       inset-block-start: var(--epoch-space-3);
       inset-inline-start: var(--epoch-space-3);
-      z-index: 10;
+      z-index: 20;
       padding: var(--epoch-space-2) var(--epoch-space-3);
       border: 1px solid var(--epoch-color-ink);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface-raised);
-      color: var(--epoch-color-ink);
-      transform: translateY(-140%);
-      transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateY(-160%);
     }
-
-    .skip-link:focus-visible {
-      transform: translateY(0);
-    }
+    .skip-link:focus-visible { transform: none; }
 
     #epoch-community {
-      min-height: 100vh;
-      overflow-x: hidden;
       display: grid;
-      grid-template-columns: 17rem minmax(0, 1fr);
-      background: #f6f2ea;
-    }
-
-    #community-content,
-    #repositories {
-      scroll-margin-top: var(--epoch-space-5);
+      grid-template-columns: var(--rail-width) minmax(0, 1fr);
+      height: 100vh;
+      min-height: 100vh;
+      background: var(--epoch-color-surface);
     }
 
     .channel-rail {
-      position: sticky;
-      inset-block-start: 0;
       display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 1rem;
-      height: 100vh;
-      padding: 1rem;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 0.75rem;
+      padding: 0.85rem 0.65rem;
       border-inline-end: 1px solid #24302b;
-      background: #17221f;
-      color: #f7efe2;
+      background: var(--epoch-color-ink);
+      color: #e8efe9;
+      overflow: hidden;
     }
 
-    .channel-rail .brand {
-      display: inline-flex;
-      width: 2.75rem;
-      height: 2.75rem;
+    .brand {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.6rem;
       align-items: center;
-      justify-content: center;
-      color: #f7efe2;
+      padding: 0.25rem 0.4rem;
+      color: inherit;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 1.85rem;
+      height: 1.85rem;
+      border-radius: 3px;
+      background: #315347;
+      color: #eef6f1;
+      font-size: 0.68rem;
+      font-weight: 750;
+    }
+    .brand-text { display: grid; gap: 0.05rem; min-width: 0; }
+    .brand-name {
+      font-size: 0.95rem;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+    .brand-sub {
+      color: #9aaba2;
+      font-size: 0.75rem;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
+    .surface-list,
     .channel-list {
       display: grid;
       align-content: start;
-      gap: 0.35rem;
+      gap: 0.15rem;
       min-width: 0;
-      overflow-y: auto;
     }
-
+    .channel-list { overflow-y: auto; }
+    .surface-button,
     .channel-button {
       display: flex;
       width: 100%;
-      min-height: 2.75rem;
+      min-height: 1.9rem;
       align-items: center;
       justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.55rem 0.65rem;
+      gap: 0.5rem;
+      padding: 0.28rem 0.5rem;
       border: 0;
-      border-radius: 6px;
+      border-radius: 3px;
       background: transparent;
-      color: #c9d0ca;
+      color: #b7c3bc;
       cursor: pointer;
       font: inherit;
-      font-weight: 750;
-      letter-spacing: 0;
+      font-size: 0.9rem;
+      font-weight: 500;
       text-align: start;
     }
-
-    .channel-button:hover,
-    .channel-button[aria-pressed="true"] {
-      background: #26362f;
-      color: #fff9ed;
+    .surface-button:hover,
+    .channel-button:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #f0f4f1;
     }
-
+    .surface-button[aria-pressed="true"],
+    .channel-button[aria-pressed="true"] {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-weight: 600;
+    }
+    .surface-list {
+      padding-block-end: 0.45rem;
+      margin-block-end: 0.15rem;
+      border-block-end: 1px solid #2a3831;
+    }
+    .channel-button-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .channel-count {
-      display: grid;
-      min-width: 1.55rem;
-      height: 1.55rem;
-      place-items: center;
-      border-radius: 999px;
-      background: #394d43;
-      color: #fff9ed;
-      font-size: 0.78rem;
+      flex: 0 0 auto;
+      min-width: 1.25rem;
+      color: #9aaba2;
+      font-size: 0.75rem;
       font-variant-numeric: tabular-nums;
+      text-align: end;
+    }
+    .surface-button[aria-pressed="true"] .channel-count,
+    .channel-button[aria-pressed="true"] .channel-count {
+      color: #d5e0d9;
     }
 
     .rail-status {
       display: flex;
       align-items: center;
-      gap: 0.45rem;
-      color: #bac6bd;
-      font-size: 0.82rem;
-      font-weight: 700;
+      gap: 0.4rem;
+      padding: 0.35rem 0.55rem;
+      color: #9aaba2;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-block-start: 1px solid #2a3831;
     }
-
     .status-dot {
-      width: 0.62rem;
-      height: 0.62rem;
-      border-radius: 999px;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
       background: #69d391;
-      box-shadow: 0 0 0 4px rgba(105, 211, 145, 0.15);
     }
-
-    .status-dot-muted {
-      background: #d8b765;
-      box-shadow: 0 0 0 4px rgba(216, 183, 101, 0.18);
-    }
+    .status-dot-muted { background: var(--epoch-color-gold); }
 
     .feed-shell {
       display: grid;
-      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-      height: 100vh;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
       min-width: 0;
-      background: #f6f2ea;
-    }
-
-    .feed-header,
-    .feed-toolbar,
-    .composer {
-      border-block-end: 1px solid #ded5c5;
-      background: rgba(255, 251, 242, 0.92);
+      min-height: 0;
+      background: var(--epoch-color-surface-raised);
     }
 
     .feed-header {
@@ -1070,52 +1783,56 @@ function communityStyles(): string {
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      min-width: 0;
-      padding: 0.95rem 1.25rem;
+      padding: 0.7rem 1.15rem;
+      border-block-end: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
     }
-
-    .feed-kicker {
-      margin: 0 0 0.2rem;
-      color: #756c5f;
-      font-size: 0.78rem;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
+    .feed-heading { min-width: 0; }
     .feed-header h1 {
       max-width: none;
       margin: 0;
-      font-size: 1.35rem;
-      line-height: 1.1;
+      color: var(--epoch-color-ink);
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.25;
     }
-
-    .repository-strip {
+    .feed-repo {
+      margin: 0.1rem 0 0;
+      color: var(--epoch-color-muted);
+      font-size: 0.78rem;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    }
+    .repository-meta {
       display: flex;
       flex-wrap: wrap;
       justify-content: end;
-      gap: 0.45rem;
-      min-width: 0;
+      align-items: center;
+      gap: 0.35rem;
+      max-width: 28rem;
+      color: var(--epoch-color-muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      line-height: 1.3;
+      text-align: end;
     }
-
-    .repository-strip span,
-    .reaction-row span {
-      border: 1px solid #d7cbb8;
-      border-radius: 999px;
-      background: #fffaf0;
-      color: #4a4035;
-      font-size: 0.78rem;
-      font-weight: 750;
-      padding: 0.38rem 0.55rem;
+    .repository-meta .meta-sep {
+      color: #a8b3ad;
+      font-weight: 400;
     }
 
     .api-banner {
       margin: 0;
-      padding: 0.7rem 1.25rem;
+      padding: 0.55rem 1.15rem;
       border-block-end: 1px solid #e0c991;
       background: #fff4cf;
       color: #5b4420;
-      font-size: 0.86rem;
-      font-weight: 700;
+      font-size: 0.84rem;
+      font-weight: 650;
+    }
+    .api-banner-live {
+      border-block-end-color: #b7d8c8;
+      background: var(--epoch-color-mint);
+      color: #1f4a38;
     }
 
     .feed-toolbar {
@@ -1123,31 +1840,38 @@ function communityStyles(): string {
       align-items: baseline;
       gap: 0.75rem;
       min-width: 0;
-      padding: 0.75rem 1.25rem;
+      padding: 0.65rem 1.15rem;
+      border-block-end: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
     }
-
     .channel-name {
       flex: 0 0 auto;
-      color: #1f2b25;
-      font-weight: 850;
+      color: var(--epoch-color-ink);
+      font-size: 0.98rem;
+      font-weight: 750;
     }
-
     .channel-topic {
       min-width: 0;
-      color: #746b5f;
-      font-size: 0.9rem;
+      color: var(--epoch-color-muted);
+      font-size: 0.86rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .message-feed {
+    .surface-stage {
       display: grid;
-      align-content: start;
-      gap: 0;
+      grid-template-rows: minmax(0, 1fr) auto;
       min-height: 0;
+      height: 100%;
+    }
+    .surface-stage:has(.artifact-list) {
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .message-feed {
       margin: 0;
-      padding: 0.55rem 0 1rem;
+      padding: 0.35rem 0 0.75rem;
       overflow-y: auto;
       list-style: none;
     }
@@ -1155,15 +1879,17 @@ function communityStyles(): string {
     .feed-message {
       position: relative;
       display: grid;
-      grid-template-columns: 2.75rem minmax(0, 1fr);
-      gap: 0.85rem;
-      min-width: 0;
-      padding: 0.8rem 1.25rem;
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+      gap: 0.65rem;
+      padding: 0.45rem 1.15rem;
+      border-block: 1px solid transparent;
     }
-
-    .feed-message:hover,
+    .feed-message:hover {
+      background: #f5f2eb;
+      border-block-color: transparent;
+    }
     .feed-message[data-selected-message="true"] {
-      background: #fffaf0;
+      background: #ebe6db;
     }
 
     .message-hitbox {
@@ -1174,35 +1900,28 @@ function communityStyles(): string {
       background: transparent;
       cursor: pointer;
     }
-
     .avatar {
       position: relative;
       z-index: 1;
       display: grid;
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 2.15rem;
+      height: 2.15rem;
       place-items: center;
-      border-radius: 7px;
+      border-radius: 3px;
       background: #315347;
-      color: #fff9ed;
-      font-size: 0.78rem;
-      font-weight: 850;
+      color: #eef6f1;
+      font-size: 0.68rem;
+      font-weight: 700;
     }
-
     .message-body {
       position: relative;
       z-index: 1;
       display: grid;
-      gap: 0.42rem;
+      gap: 0.28rem;
       min-width: 0;
       pointer-events: none;
     }
-
-    .message-body button,
-    .message-body a,
-    .message-body textarea {
-      pointer-events: auto;
-    }
+    .message-body button { pointer-events: auto; }
 
     .message-meta,
     .message-footer,
@@ -1211,642 +1930,300 @@ function communityStyles(): string {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.45rem;
-      min-width: 0;
+      gap: 0.4rem;
     }
-
     .message-meta {
-      color: #746b5f;
-      font-size: 0.82rem;
+      color: var(--epoch-color-muted);
+      font-size: 0.78rem;
     }
-
     .message-meta strong {
-      color: #1d2823;
-      font-size: 0.95rem;
+      color: var(--epoch-color-ink);
+      font-size: 0.9rem;
+      font-weight: 700;
     }
-
     .message-body h2 {
       margin: 0;
-      color: #1d2823;
-      font-size: 1rem;
-      line-height: 1.25;
+      color: var(--epoch-color-ink);
+      font-size: 0.98rem;
+      font-weight: 700;
+      line-height: 1.3;
     }
-
     .message-body p {
-      max-width: 74ch;
+      max-width: 70ch;
       margin: 0;
-      color: #3f443d;
-      line-height: 1.55;
+      color: #3a423d;
+      font-size: 0.94rem;
+      line-height: 1.5;
     }
-
     .message-footer {
-      color: #756c5f;
-      font-family: "Cascadia Mono", Consolas, monospace;
-      font-size: 0.76rem;
+      color: var(--epoch-color-muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.72rem;
+    }
+    .message-footer span + span::before {
+      content: "·";
+      margin-inline-end: 0.4rem;
+      color: #a0aaa4;
+    }
+    [data-proposal-link] {
+      color: var(--epoch-color-teal);
+      font-weight: 700;
+    }
+    [data-snapshot-badge] {
+      border: 1px solid #d4c49a;
+      border-radius: 2px;
+      background: #f7f0d8;
+      color: #5b4420;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.05rem 0.3rem;
+    }
+    .reaction-row {
+      gap: 0.3rem;
+      margin-top: 0.2rem;
+    }
+    .reaction {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.65rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      pointer-events: auto;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+    .reaction:hover {
+      border-color: #a8b8b0;
+      background: #fff;
+      color: var(--epoch-color-ink);
+    }
+    .reaction:active {
+      background: var(--epoch-color-surface);
+      box-shadow: none;
+    }
+    .reaction:focus-visible {
+      outline: 2px solid var(--epoch-color-accent);
+      outline-offset: 1px;
     }
 
     .message-action-tray {
       display: grid;
-      gap: 0.75rem;
-      margin-block-start: 0.55rem;
-      padding: 0.75rem;
-      border: 1px solid #d7cbb8;
-      border-radius: 8px;
-      background: #fffdf7;
-      box-shadow: 0 10px 30px rgba(32, 42, 36, 0.07);
+      gap: 0.55rem;
+      margin-block-start: 0.35rem;
+      padding: 0.6rem 0.65rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: #faf8f3;
     }
-
-    .message-action-tray[hidden] {
-      display: none;
-    }
-
     .message-action-tray dl {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.65rem;
+      gap: 0.55rem;
       margin: 0;
     }
-
+    .message-action-tray dt {
+      color: var(--epoch-color-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .message-action-tray dd {
+      margin: 0.15rem 0 0;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.75rem;
+      word-break: break-word;
+    }
     .message-action-tray button,
     .composer button {
-      min-height: 2.35rem;
-      border: 1px solid #26362f;
-      border-radius: 6px;
-      background: #1f2b25;
-      color: #fff9ed;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2rem;
+      border: 1px solid var(--epoch-color-ink);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-ink);
+      color: #fff;
       cursor: pointer;
       font: inherit;
-      font-weight: 800;
-      padding: 0.45rem 0.65rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.35rem 0.7rem;
     }
-
-    .message-action-tray button:not(:first-child) {
-      border-color: #d7cbb8;
-      background: #fffaf0;
-      color: #26362f;
+    .message-action-tray button:hover,
+    .composer button:hover {
+      filter: brightness(1.08);
     }
-
+    .message-action-tray button:active,
+    .composer button:active {
+      filter: brightness(0.96);
+    }
+    .message-action-tray button:not([data-action="intent"]) {
+      border-color: #9eaea5;
+      background: #fff;
+      color: var(--epoch-color-ink);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+    .message-action-tray button:not([data-action="intent"]):hover {
+      border-color: var(--epoch-color-ink);
+      background: var(--epoch-color-surface);
+      filter: none;
+    }
+    .message-action-tray button[data-action="intent"] {
+      background: var(--epoch-color-teal);
+      border-color: #275f5c;
+    }
+    .message-action-tray button[data-action="intent"]:hover {
+      background: #356f6c;
+      filter: none;
+    }
     .action-status {
       margin: 0;
-      color: #746b5f;
-      font-size: 0.86rem;
+      color: var(--epoch-color-muted);
+      font-size: 0.84rem;
     }
 
     .composer {
       display: grid;
-      gap: 0.55rem;
-      padding: 0.85rem 1.25rem 1rem;
-      border-block-start: 1px solid #ded5c5;
-      border-block-end: 0;
+      gap: 0.35rem;
+      padding: 0.65rem 1.15rem 0.85rem;
+      border-block-start: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
     }
-
     .composer-label {
-      color: #3f443d;
-      font-size: 0.86rem;
-      font-weight: 800;
+      color: var(--epoch-color-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
     }
-
     .composer textarea {
       width: 100%;
-      min-height: 4.5rem;
+      min-height: 2.75rem;
       resize: vertical;
-      border: 1px solid #d7cbb8;
-      border-radius: 8px;
-      background: #fffdf7;
-      color: #1d2823;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: #fff;
+      color: var(--epoch-color-ink);
       font: inherit;
       line-height: 1.45;
-      padding: 0.75rem;
+      padding: 0.55rem 0.65rem;
     }
-
     .composer-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      color: #746b5f;
+      gap: 0.75rem;
+      color: var(--epoch-color-muted);
+      font-size: 0.76rem;
+    }
+    .composer button {
+      min-height: 1.9rem;
+      padding: 0.3rem 0.7rem;
       font-size: 0.82rem;
     }
 
-    .hero-shell {
-      padding: max(var(--epoch-space-4), env(safe-area-inset-top)) var(--epoch-space-4) var(--epoch-space-6);
-      background: linear-gradient(135deg, rgba(216, 236, 229, 0.92), rgba(238, 243, 241, 0.84));
+    .artifact-list {
+      margin: 0;
+      padding: 0.75rem 1.15rem 1rem;
+      overflow-y: auto;
+      list-style: none;
+      display: grid;
+      align-content: start;
+      gap: 0.45rem;
+    }
+    .artifact-item {
+      display: grid;
+      gap: 0.12rem;
+      padding: 0.55rem 0;
       border-block-end: 1px solid var(--epoch-color-line);
+      background: transparent;
     }
-
-    .topbar,
-    .hero-grid,
-    .workflow-rail,
-    .content-shell {
-      width: min(1160px, calc(100% - 2rem));
-      margin-inline: auto;
+    .artifact-item:last-child {
+      border-block-end: 0;
     }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--epoch-space-3);
-      margin-block-end: var(--epoch-space-6);
-    }
-
-    .brand,
-    .topbar-link,
-    .button,
-    .repo-open-link,
-    .repo-actions a {
-      border-radius: var(--epoch-radius-sm);
+    .artifact-id {
+      color: var(--epoch-color-teal);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.75rem;
       font-weight: 700;
-      text-decoration: none;
+    }
+    .artifact-item strong {
+      color: var(--epoch-color-ink);
+      font-size: 0.94rem;
+    }
+    .artifact-meta,
+    .artifact-labels {
+      color: var(--epoch-color-muted);
+      font-size: 0.8rem;
+    }
+    .artifact-empty {
+      color: var(--epoch-color-muted);
+      font-weight: 600;
+    }
+    .artifact-actions {
+      margin-top: 0.35rem;
+    }
+    .thread-comments {
+      display: grid;
+      gap: 0.35rem;
+      margin: 0.2rem 0 0.1rem;
+      padding: 0.45rem 0.55rem;
+      border-left: 2px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface);
+    }
+    .thread-comment {
+      color: #3a423d;
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+    .thread-comment strong {
+      color: var(--epoch-color-ink);
+      font-weight: 700;
+      margin-inline-end: 0.3rem;
     }
 
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--epoch-space-2);
-      min-width: 0;
+    #community-content section[aria-label="Epoch site history"] {
+      margin: 0.75rem 1.15rem 1rem;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-md);
+      background: var(--epoch-color-mint);
+    }
+    #community-content section[aria-label="Epoch site history"] h2 {
+      margin: 0 0 0.3rem;
       font-size: 0.95rem;
     }
-
-    .brand-mark {
-      display: grid;
-      width: 2.25rem;
-      height: 2.25rem;
-      place-items: center;
-      border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-ink);
-      color: var(--epoch-color-surface-raised);
-      font-size: 0.75rem;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .topbar-link {
-      padding: 0.55rem 0.75rem;
-      border: 1px solid var(--epoch-color-line);
-      background: rgba(251, 251, 248, 0.62);
-      color: var(--epoch-color-ink);
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
-      gap: var(--epoch-space-6);
-      align-items: center;
-    }
-
-    .hero-copy {
-      min-width: 0;
-    }
-
-    .eyebrow,
-    .repo-visibility {
-      margin: 0 0 var(--epoch-space-2);
-      color: var(--epoch-color-accent-strong);
-      font-size: 0.78rem;
-      font-weight: 800;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-
-    h1,
-    h2,
-    h3,
-    p {
-      overflow-wrap: break-word;
-    }
-
-    h1 {
-      max-width: 11ch;
+    #community-content section[aria-label="Epoch site history"] p,
+    #community-content section[aria-label="Epoch site history"] dl {
       margin: 0;
-      font-size: 4rem;
-      line-height: 0.95;
-      text-wrap: balance;
+      color: #3a423d;
+      font-size: 0.84rem;
     }
 
-    h2 {
-      margin: 0;
-      font-size: 1.85rem;
-      line-height: 1.1;
-      text-wrap: balance;
-    }
-
-    h3 {
-      margin: 0;
-      font-size: 1.1rem;
-      line-height: 1.2;
-    }
-
-    .lede {
-      max-width: 62ch;
-      margin: var(--epoch-space-4) 0 0;
-      color: var(--epoch-color-muted);
-      font-size: 1.08rem;
-      line-height: 1.7;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--epoch-space-2);
-      margin-block-start: var(--epoch-space-5);
-    }
-
-    .button {
-      display: inline-flex;
-      min-height: 44px;
-      align-items: center;
-      justify-content: center;
-      padding: 0.78rem 1rem;
-      border: 1px solid transparent;
-      transition:
-        background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .button:hover,
-    .repo-open-link:hover,
-    .repo-actions a:hover {
-      transform: translateY(-1px);
-    }
-
-    .button-primary {
-      background: var(--epoch-color-ink);
-      color: var(--epoch-color-surface-raised);
-    }
-
-    .button-primary:hover {
-      background: var(--epoch-color-accent-strong);
-      color: var(--epoch-color-surface-raised);
-    }
-
-    .button-secondary {
-      border-color: var(--epoch-color-line);
-      background: var(--epoch-color-surface-raised);
-      color: var(--epoch-color-ink);
-    }
-
-    .history-panel {
-      min-width: 0;
-      border: 1px solid rgba(23, 34, 31, 0.14);
-      border-radius: var(--epoch-radius-md);
-      background: rgba(251, 251, 248, 0.72);
-      box-shadow: var(--epoch-shadow-low);
-    }
-
-    .history-graph {
-      padding: var(--epoch-space-4);
-    }
-
-    .history-graph svg {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-
-    .graph-rail {
-      fill: none;
-      stroke: var(--epoch-color-ink);
-      stroke-linecap: round;
-      stroke-width: 3;
-    }
-
-    .graph-rail-muted {
-      opacity: 0.42;
-      stroke: var(--epoch-color-teal);
-    }
-
-    .graph-node {
-      fill: var(--epoch-color-surface-raised);
-      stroke: var(--epoch-color-ink);
-      stroke-width: 3;
-    }
-
-    .graph-node-accent {
-      fill: var(--epoch-color-accent);
-    }
-
-    .graph-node-teal {
-      fill: var(--epoch-color-teal);
-    }
-
-    .graph-node-gold {
-      fill: var(--epoch-color-gold);
-    }
-
-    .history-stats,
-    .repo-facts {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: var(--epoch-space-2);
-      margin: var(--epoch-space-3) 0 0;
-    }
-
-    .history-stats div,
-    .repo-facts div {
-      min-width: 0;
-    }
-
-    dt {
-      color: var(--epoch-color-muted);
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    dd {
-      margin: 0.15rem 0 0;
-      color: var(--epoch-color-ink);
-      font-size: 1rem;
-      font-weight: 750;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .workflow-rail {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(9.25rem, 1fr));
-      gap: var(--epoch-space-2);
-      margin-block: calc(-1 * var(--epoch-space-5)) var(--epoch-space-6);
-      overflow-x: auto;
-      padding: var(--epoch-space-2) 0 var(--epoch-space-3);
-      scroll-padding-inline: var(--epoch-space-3);
-    }
-
-    .workflow-link {
-      display: grid;
-      gap: 0.28rem;
-      min-height: 112px;
-      min-width: 0;
-      padding: var(--epoch-space-3);
-      border: 1px solid var(--epoch-color-line);
-      border-radius: var(--epoch-radius-md);
-      background: var(--epoch-color-surface-raised);
-      color: var(--epoch-color-ink);
-      text-decoration: none;
-      transition:
-        border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .workflow-link:hover {
-      border-color: rgba(186, 94, 63, 0.46);
-      box-shadow: var(--epoch-shadow-low);
-      transform: translateY(-2px);
-    }
-
-    .workflow-label {
-      font-weight: 800;
-    }
-
-    .workflow-purpose {
-      color: var(--epoch-color-muted);
-      font-size: 0.82rem;
-      line-height: 1.45;
-    }
-
-    .content-shell {
-      padding-block-end: var(--epoch-space-6);
-    }
-
-    .section-heading {
-      display: grid;
-      gap: var(--epoch-space-2);
-      max-width: 66ch;
-      margin-block-end: var(--epoch-space-4);
-    }
-
-    .section-heading p:last-child {
-      margin: 0;
-      color: var(--epoch-color-muted);
-      line-height: 1.6;
-    }
-
-    .repo-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
-      gap: var(--epoch-space-3);
-    }
-
-    .repo-card {
-      display: grid;
-      gap: var(--epoch-space-3);
-      min-width: 0;
-      padding: var(--epoch-space-4);
-      border: 1px solid var(--epoch-color-line);
-      border-radius: var(--epoch-radius-md);
-      background: var(--epoch-color-surface-raised);
-      box-shadow: 0 1px 0 rgba(23, 34, 31, 0.04);
-    }
-
-    .repo-card-header {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: var(--epoch-space-3);
-    }
-
-    .repo-card p {
-      margin: 0;
-      color: var(--epoch-color-muted);
-      line-height: 1.58;
-    }
-
-    .repo-open-link,
-    .repo-actions a {
-      display: inline-flex;
-      min-height: 40px;
-      align-items: center;
-      justify-content: center;
-      padding: 0.55rem 0.72rem;
-      border: 1px solid var(--epoch-color-line);
-      background: var(--epoch-color-surface);
-      transition:
-        background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
-        transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .repo-open-link {
-      flex: 0 0 auto;
-    }
-
-    .repo-open-link:hover,
-    .repo-actions a:hover {
-      border-color: rgba(47, 115, 112, 0.45);
-      background: var(--epoch-color-mint);
-      color: var(--epoch-color-ink);
-    }
-
-    .topic-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .topic-list li,
-    .topic-empty {
-      border: 1px solid rgba(47, 115, 112, 0.24);
-      border-radius: 999px;
-      background: rgba(216, 236, 229, 0.6);
-      color: var(--epoch-color-teal);
-      font-size: 0.78rem;
-      font-weight: 750;
-      line-height: 1;
-      padding: 0.45rem 0.6rem;
-    }
-
-    .repo-facts {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      padding-block-start: var(--epoch-space-3);
-      border-block-start: 1px solid var(--epoch-color-line);
-    }
-
-    .repo-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--epoch-space-2);
-    }
-
-    .empty-state {
-      border-style: dashed;
-    }
-
-    @media (max-width: 860px) {
+    @media (max-width: 800px) {
       #epoch-community {
         grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(0, 1fr);
-      }
-
-      .channel-rail {
-        position: sticky;
-        z-index: 4;
-        inset-block-start: 0;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        grid-template-rows: auto;
         height: auto;
-        padding: 0.65rem;
+        min-height: 100vh;
       }
-
-      .channel-list {
-        grid-auto-columns: max-content;
-        grid-auto-flow: column;
-        grid-template-columns: none;
-        overflow-x: auto;
-        overflow-y: hidden;
+      .channel-rail {
+        border-inline-end: 0;
+        border-block-end: 1px solid #24302b;
       }
-
-      .feed-shell {
-        height: calc(100vh - 4.05rem);
-      }
-
-      .feed-header {
-        align-items: start;
-        flex-direction: column;
-      }
-
-      .repository-strip {
-        justify-content: start;
-      }
-
-      .message-action-tray dl {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-grid {
-        grid-template-columns: 1fr;
-      }
-
-      h1 {
-        max-width: 100%;
-        font-size: 3rem;
-      }
-
-      .history-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 560px) {
-      .feed-toolbar,
-      .composer-row {
-        align-items: stretch;
-        flex-direction: column;
-      }
-
-      .channel-topic {
-        white-space: normal;
-      }
-
-      .feed-message {
-        grid-template-columns: 2.35rem minmax(0, 1fr);
-        padding-inline: 0.75rem;
-      }
-
-      .avatar {
-        width: 2.15rem;
-        height: 2.15rem;
-      }
-
-      .hero-shell {
-        padding-inline: var(--epoch-space-3);
-      }
-
-      .topbar,
-      .hero-grid,
-      .workflow-rail,
-      .content-shell {
-        width: min(100% - 1rem, 1160px);
-      }
-
-      .topbar {
-        align-items: stretch;
-        flex-direction: column;
-        margin-block-end: var(--epoch-space-5);
-      }
-
-      .topbar-link {
-        text-align: center;
-      }
-
-      h1 {
-        font-size: 2.35rem;
-      }
-
-      .workflow-rail {
-        grid-auto-columns: minmax(16rem, 82vw);
-        grid-auto-flow: column;
-        grid-template-columns: none;
-      }
-
-      .repo-card-header,
-      .repo-actions,
-      .hero-actions {
-        align-items: stretch;
-        flex-direction: column;
-      }
-
-      .repo-facts {
-        grid-template-columns: 1fr;
-      }
+      .channel-list { max-height: 10rem; }
+      .feed-shell { min-height: 70vh; }
+      .message-action-tray dl { grid-template-columns: 1fr; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      html {
-        scroll-behavior: auto;
-      }
-
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
+      * {
+        animation: none !important;
+        transition: none !important;
       }
     }`;
 }
+

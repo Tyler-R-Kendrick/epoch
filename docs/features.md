@@ -38,6 +38,17 @@ The current registry is backed by these Cucumber feature files:
 | [`features/community_sandbox_workspaces.feature`](../features/community_sandbox_workspaces.feature) | Community Sandbox Workspace journeys where a contributor launches, resumes, checks, and submits a signed patch from a sandbox workspace, and a maintainer reviews the result. |
 | [`features/community_agent_sandboxes.feature`](../features/community_agent_sandboxes.feature) | Community Agent Sandbox journeys where a maintainer starts a policy-bound agent run from a signed intent, reviews completed output, and retries failures without losing evidence. |
 
+### Unit-covered federation packages (no Cucumber yet)
+
+| Package / surface | Coverage |
+|---|---|
+| `@epoch/core` gossip (`GossipPeer`, HTTP `/epoch/gossip`, `gossipExchange`) | `test/unit/gossip-atproto-integration.test.ts` |
+| `@epoch/atproto` (modes, public release dual-write, hybrid resolve) | `test/unit/atproto-community.test.ts`, `test/unit/gossip-atproto-integration.test.ts` |
+| `@epoch/git-proxy` + Git projection | `test/unit/git-projection.test.ts`, `test/unit/git-proxy.test.ts` |
+
+See [ADR-0022](design-decisions/0022-gossip-event-plane-atproto-public-artifacts.md) and
+[docs/community-atproto.md](community-atproto.md).
+
 ## F-001 - Signed Event Log
 
 Every repository stores signed immutable events under `.epoch/events`.
