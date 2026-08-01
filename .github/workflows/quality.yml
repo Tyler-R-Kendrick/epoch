@@ -1,133 +1,31 @@
+# TEMPORARILY DISABLED — save GitHub Actions runner minutes.
+# Quality enforcement is local: `.githooks/*` + `npm run verify` (see AGENTS.md / DX.md).
+# To re-enable CI later, restore:
+#   on:
+#     pull_request:
+#     push:
+#       branches: [main]
+#
+# Manual one-off runs remain available via Actions → "Quality Gates" → Run workflow.
 name: Quality Gates
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# Safety net: even if someone re-adds push/PR triggers, jobs stay off until this is cleared.
+env:
+  EPOCH_CI_DISABLED: "1"
+
 jobs:
-  docs:
-    name: Docs
+  disabled:
+    name: CI disabled (local gates only)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Docs check
-        run: npm run docs:check
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-  typecheck:
-    name: Typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-  konsistent:
-    name: Konsistent
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Konsistent
-        run: npm run konsistent
-        env:
-          KONSISTENT_NO_UPDATE_CHECK: "true"
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browser
-        run: npx playwright install chromium
-
-      - name: Test
-        run: npm test
-
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browser
-        run: npx playwright install chromium
-
-      - name: Coverage
-        run: npm run coverage
+      - name: Explain
+        run: |
+          echo "GitHub Actions quality jobs are temporarily disabled to conserve runner minutes."
+          echo "Run locally: npm run gate:fast (commit) / npm run gate:push (push) / npm run verify (full)."
+          echo "Hooks: git config core.hooksPath .githooks (wired by npm prepare)."

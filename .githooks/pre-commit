@@ -1,13 +1,16 @@
 #!/usr/bin/env sh
 set -eu
 
-# Fast, local pre-commit gate (see DX.md / the Monorepo DX Playbook).
+# Fast local pre-commit gate (Monorepo DX Playbook + Epoch agent workflow).
+# Full suite runs on pre-push via `npm run gate:push` / `npm run verify`.
+#
+# Bypass (emergency only): SKIP_GIT_HOOKS=1 git commit ...
+if [ -n "${SKIP_GIT_HOOKS:-}" ] || [ -n "${CI:-}" ]; then
+  exit 0
+fi
+
 # Whitespace and merge-conflict-marker hygiene on staged content.
 git diff --cached --check
 
-# Structural conventions + docs reachability (both run in milliseconds).
-npm run konsistent
-npm run docs:check
-
-# Google DESIGN.md structural + token lint (conformant design system).
-npm run design:lint
+# Fast structural + docs + design + lint gates.
+npm run gate:fast
