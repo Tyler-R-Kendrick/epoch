@@ -19,6 +19,9 @@ import { runSampleSelfEvolvingDashboardTests } from "./unit/sample-self-evolving
 import { runVirtualCheckoutTests } from "./unit/virtual-checkout.test";
 import { runWasmReactShadowDomTests } from "./component/wasm-react-shadow-dom.test";
 import { runWasmReactStoreTests } from "./unit/wasm-react-store.test";
+import { runGitProjectionTests } from "./unit/git-projection.test";
+import { runGitProxyTests } from "./unit/git-proxy.test";
+import { runAtprotoCommunityTests } from "./unit/atproto-community.test";
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
@@ -40,6 +43,9 @@ async function main(): Promise<void> {
   runSampleSelfEvolvingCanvasTests();
   runSampleSelfEvolvingDashboardTests();
   runVirtualCheckoutTests();
+  runGitProjectionTests();
+  await runGitProxyTests();
+  await runAtprotoCommunityTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
   console.log("unit and component tests passed");

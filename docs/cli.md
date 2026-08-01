@@ -170,6 +170,12 @@ to its base and leaves the rest virtual. The full tree is described in
   directory.
 - `epoch-git` provides a Git-like command surface for integrations that expect
   clone, add, commit, and status behavior.
+- `epoch-git project --repo PATH [--rebuild]` projects Epoch content into a Git
+  working tree with signed mapping events.
+- `epoch-git serve --repo PATH [--port N]` starts the smart-HTTP Git façade
+  (`@epoch/git-proxy`).
+- `epoch-git mirror import|export|dual-run` runs live migration once against
+  configured remotes (see [Git Live Migration Cutover](git-live-migration-cutover.md)).
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.
 

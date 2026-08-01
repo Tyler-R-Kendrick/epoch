@@ -1,0 +1,15 @@
+{
+  "name": "@epoch/atproto",
+  "version": "0.1.0",
+  "description": "ATProto client, mock PDS, and Epoch Community federation.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/core": "0.1.0",
+    "@epoch/community-core": "0.1.0"
+  }
+}
