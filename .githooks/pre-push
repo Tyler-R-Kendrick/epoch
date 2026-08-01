@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+set -eu
+
+# Robust local pre-push gate — replaces GitHub Actions quality jobs while CI is off.
+# Runs the same intent as former Quality Gates (typecheck + tests + design/docs/lint).
+#
+# Bypass (emergency only): SKIP_GIT_HOOKS=1 git push ...
+# Or skip only the heavy suite: SKIP_VERIFY=1 git push ...
+if [ -n "${SKIP_GIT_HOOKS:-}" ] || [ -n "${CI:-}" ]; then
+  exit 0
+fi
+
+if [ -n "${SKIP_VERIFY:-}" ]; then
+  echo "pre-push: SKIP_VERIFY set — skipping gate:push" >&2
+  exit 0
+fi
+
+echo "pre-push: running local quality gate (CI disabled; hooks enforce)"
+npm run gate:push

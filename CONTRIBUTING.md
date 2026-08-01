@@ -6,22 +6,25 @@ Thank you for improving Epoch. This repository values small, well-tested changes
 
 ```bash
 npm ci
-npm run verify
+npm run prepare   # wires .githooks → core.hooksPath
+npm run gate:fast # commit bar
+npm run gate:push # push bar (CI substitute while Actions is off)
+npm run verify    # full bar (coverage + pact)
 ```
 
 ## Required quality gates
 
-Every source change must pass:
+**GitHub Actions quality jobs are temporarily disabled** (runner minutes). Enforcement is local:
 
-- `npm run docs:check`
-- `npm run lint`
-- `npm run typecheck`
-- `npm run konsistent`
-- `npm test`
-- `npm run coverage`
-- `npm run verify`
+| When | Command | Hook |
+|---|---|---|
+| Before commit | `npm run gate:fast` | `.githooks/pre-commit` |
+| Before push | `npm run gate:push` | `.githooks/pre-push` |
+| Before merge / release | `npm run verify` | manual / agent |
 
-The CI workflow enforces these same gates on pull requests and pushes to `main`.
+Every source change must pass at least `gate:push`; prefer `verify` for behavior changes.
+
+Emergency bypass only: `SKIP_GIT_HOOKS=1` or `SKIP_VERIFY=1` (document why).
 
 ## TDD workflow
 

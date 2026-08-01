@@ -142,6 +142,8 @@
     "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "design:lint": "designmd lint DESIGN.md",
+    "gate:fast": "npm run konsistent && npm run docs:check && npm run design:lint && npm run lint",
+    "gate:push": "npm run gate:fast && npm run typecheck && npm test",
     "konsistent": "konsistent",
     "docs:check": "node scripts/check-docs.mjs",
     "prepare": "node scripts/install-hooks.mjs",

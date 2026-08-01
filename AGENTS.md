@@ -5,14 +5,16 @@ These instructions apply to the entire repository.
 ## Required development workflow
 
 - Use test-driven development for behavior changes: write or update a failing feature/test first, implement the smallest change, then make the full suite pass.
-- Do not consider work complete until all required quality gates pass locally:
-  - `npm run docs:check`
-  - `npm run lint`
-  - `npm run typecheck`
-  - `npm run konsistent`
-  - `npm test`
-  - `npm run coverage`
-  - `npm run verify`
+- **GitHub Actions quality CI is temporarily disabled** (runner minutes). Enforcement is **local hooks + agent discipline**:
+  - After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`.
+  - `pre-commit` runs `npm run gate:fast` (konsistent, docs, design.md lint, eslint).
+  - `pre-push` runs `npm run gate:push` (gate:fast + typecheck + tests).
+  - Full bar remains `npm run verify` (adds coverage + pact). Agents must run **at least `gate:push`**, prefer **`verify`**, before claiming done.
+- Do not consider work complete until required quality gates pass locally:
+  - `npm run gate:fast` — commit-time bar
+  - `npm run gate:push` — push-time bar (CI substitute)
+  - `npm run verify` — full bar (docs, lint, design:lint, typecheck, konsistent, test, coverage, pact)
+- Never skip hooks to greenwash a change. Emergency bypass only: `SKIP_GIT_HOOKS=1` or `SKIP_VERIFY=1` (document why in the PR/commit body).
 - Preserve or improve coverage for changed behavior. Add new Gherkin scenarios only for user-visible product behavior, and use focused tests or docs checks for repository process, documentation, evidence, or governance requirements.
 - Do not lower coverage thresholds or weaken lint/typecheck settings to make a change pass.
 - Keep generated outputs such as `dist/`, `coverage/`, and temporary files out of commits.
@@ -58,4 +60,6 @@ These instructions apply to the entire repository.
 | `npm run typecheck` | Run `tsgo --noEmit` for every workspace and test project. |
 | `npm test` | Build and execute the Cucumber feature suite. |
 | `npm run coverage` | Run Cucumber under c8 and enforce coverage thresholds. |
-| `npm run verify` | Run lint, typecheck, tests, and coverage as the full local gate. |
+| `npm run gate:fast` | Commit-time gate: konsistent, docs:check, design:lint, lint. |
+| `npm run gate:push` | Push-time gate (CI substitute): gate:fast + typecheck + test. |
+| `npm run verify` | Full local gate: gate suite + coverage + pact. |
