@@ -2,7 +2,7 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-07-03
+last_researched: 2026-07-31
 ---
 
 # Competition Research
@@ -35,6 +35,7 @@ gossip-path: <product-path>/gossip.md
 | SourceHut | Minimal no-JavaScript forge with email-native workflows | [Profile](products/sourcehut/profile.md) | [Design](products/sourcehut/design/design.md) | [Feature](products/sourcehut/features/email-native-forge.feature) | [Marketing](products/sourcehut/marketing.md) | [Gossip](products/sourcehut/gossip.md) |
 | Fossil SCM | Self-contained DVCS with integrated project history | [Profile](products/fossil-scm/profile.md) | [Design](products/fossil-scm/design/design.md) | [Feature](products/fossil-scm/features/integrated-project-history.feature) | [Marketing](products/fossil-scm/marketing.md) | [Gossip](products/fossil-scm/gossip.md) |
 | Codeberg | Nonprofit Forgejo hosting for open source communities | [Profile](products/codeberg/profile.md) | [Design](products/codeberg/design/design.md) | [Feature](products/codeberg/features/community-forge-hosting.feature) | [Marketing](products/codeberg/marketing.md) | [Gossip](products/codeberg/gossip.md) |
+| Tangled | ATProto social coding forge with PDS metadata, Git knots, spindles, and AppView/Bobbin aggregation | [Profile](products/tangled/profile.md) | [Design](products/tangled/design/design.md) | [Feature](products/tangled/features/atproto-social-coding.feature) | [Marketing](products/tangled/marketing.md) | [Gossip](products/tangled/gossip.md) |
 | Zed DeltaDB | CRDT-backed operation-level version control | [Profile](products/zed-deltadb/profile.md) | [Design](products/zed-deltadb/design/design.md) | [Feature](products/zed-deltadb/features/operation-level-collaboration.feature) | [Marketing](products/zed-deltadb/marketing.md) | [Gossip](products/zed-deltadb/gossip.md) |
 | Automerge | Local-first CRDT repository and sync engine | [Profile](products/automerge/profile.md) | [Design](products/automerge/design/design.md) | [Feature](products/automerge/features/local-first-repository.feature) | [Marketing](products/automerge/marketing.md) | [Gossip](products/automerge/gossip.md) |
 | Yjs | Modular collaborative shared types | [Profile](products/yjs/profile.md) | [Design](products/yjs/design/design.md) | [Feature](products/yjs/features/collaborative-shared-types.feature) | [Marketing](products/yjs/marketing.md) | [Gossip](products/yjs/gossip.md) |

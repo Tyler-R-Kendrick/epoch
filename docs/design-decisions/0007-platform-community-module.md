@@ -44,6 +44,12 @@ Revisit this decision if Community becomes federated, requires a separate
 storage boundary for regulatory reasons, or introduces production workers whose
 availability model cannot be represented by Core capability discovery.
 
+**Federation follow-up:** Public Community federation via ATProto and the Git
+compatibility proxy is recorded in
+[ADR-0020](0020-community-federation-atproto-git-proxy.md) and
+[ADR-0021](0021-git-projection-and-live-migration.md). Local capability gating
+from this ADR remains in force (disabled / local-only / federated modes).
+
 ## Coverage
 
 - `test/unit/platform-community-module.test.ts`

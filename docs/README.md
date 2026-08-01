@@ -28,6 +28,7 @@ decisions, operations, or contribution workflow.
 
 | Product | Profile | Design | Feature | Marketing | Gossip |
 |---|---|---|---|---|---|
+| Tangled | [Profile](competition/products/tangled/profile.md) | [Design](competition/products/tangled/design/design.md) | [Feature](competition/products/tangled/features/atproto-social-coding.feature) | [Marketing](competition/products/tangled/marketing.md) | [Gossip](competition/products/tangled/gossip.md) |
 | Rork | [Profile](competition/products/rork/profile.md) | [Design](competition/products/rork/design/design.md) | [Feature](competition/products/rork/features/mobile-app-store-launch.feature) | [Marketing](competition/products/rork/marketing.md) | [Gossip](competition/products/rork/gossip.md) |
 | Magic Patterns | [Profile](competition/products/magic-patterns/profile.md) | [Design](competition/products/magic-patterns/design/design.md) | [Feature](competition/products/magic-patterns/features/design-system-prototype.feature) | [Marketing](competition/products/magic-patterns/marketing.md) | [Gossip](competition/products/magic-patterns/gossip.md) |
 | Framer AI | [Profile](competition/products/framer-ai/profile.md) | [Design](competition/products/framer-ai/design/design.md) | [Feature](competition/products/framer-ai/features/ai-marketing-site-workflow.feature) | [Marketing](competition/products/framer-ai/marketing.md) | [Gossip](competition/products/framer-ai/gossip.md) |
@@ -40,6 +41,9 @@ decisions, operations, or contribution workflow.
 | [Blob And Large-File Gap Analysis](blob-large-file-gap-analysis.md) | Competitive capability matrix and residual gaps behind Epoch's large-file direction, feeding the ADR-0018 reference architecture. |
 | [Visual Design System](../DESIGN.md) | Epoch Community visual tokens, component rules, accessibility guardrails, and design-system sidecar guidance. |
 | [CLI Reference](cli.md) | Source checkout commands, `epoch` shorthand, `epoch-git`, global linking, and command groups. |
+| [Git Compatibility Proxy](git-compatibility-proxy.md) | Git façade for ATProto/forge interop and live migration; Epoch remains authoritative (ADR-0020/0021). |
+| [Git Live Migration Cutover](git-live-migration-cutover.md) | Operator cutover recipe for import-live / export-live / dual-run and `epoch-git serve`. |
+| [Community ATProto](community-atproto.md) | Federated Community modes, mock PDS, lexicons, Epoch-native lexicons. |
 | [Core SDK Reference](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, and Git-compatible core surfaces. |
 | [Platform Core And SDK APIs](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, Git-compatible core surfaces, and `Epoch.Platform.Core` / `Epoch.Platform.Sdk` APIs. |
 | [Platform Packages](platforms.md) | Separate `Epoch.Platform.Web`, `Epoch.Community.*`, and Community Operations package responsibilities and integration boundary. |

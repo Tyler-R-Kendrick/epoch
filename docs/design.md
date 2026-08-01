@@ -344,6 +344,18 @@ Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
 Community Web dogfooding decision.
 
+### Federated Community (shipped MVP)
+
+Public Community federation is implemented as an MVP in `@epoch/atproto`
+(`FederatedCommunity`, mock PDS, lexicons) per
+[ADR-0020](design-decisions/0020-community-federation-atproto-git-proxy.md) and
+[docs/community-atproto.md](community-atproto.md). Portable social metadata uses
+AT Protocol; the [Git compatibility proxy](git-compatibility-proxy.md) is the
+code-plane façade for git clients and live migration
+([ADR-0021](design-decisions/0021-git-projection-and-live-migration.md)).
+Epoch Core remains authoritative; Community disabled and local-only modes stay
+supported.
+
 `Epoch.Community.Operations.Web` is a separate Coolify-inspired project
 operations extension. It consumes `Epoch.Platform.Sdk` and
 `Epoch.Platform.Core` contracts to project existing Platform state into hosted

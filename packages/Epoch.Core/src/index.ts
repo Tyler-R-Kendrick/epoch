@@ -17,3 +17,20 @@ export type { ColdBackup, ColdBackupOptions, StorageBackend } from "./ha/backup"
 export { disasterRecoveryPlan } from "./ha/dr-plan";
 export { EPOCH_GIT_PROVIDER, EpochCLIGit, EpochCoreGit, UnsupportedGitOperationError, readEpochGitRemote, unsupported } from "./git";
 export type { EpochGitCommandResult, EpochGitCommitResult, EpochGitRemote } from "./git";
+export {
+  GitMappingEventType,
+  appendMirrorCheckpoint,
+  epochContentHashes,
+  ingestGitToEpoch,
+  listGitMappingEvents,
+  projectEpochToGit,
+  rebuildProjectionCache,
+} from "./git-projection";
+export type {
+  GitMappingEventTypeName,
+  IngestGitToEpochOptions,
+  IngestGitToEpochResult,
+  MirrorCheckpoint,
+  ProjectEpochToGitOptions,
+  ProjectEpochToGitResult,
+} from "./git-projection";
