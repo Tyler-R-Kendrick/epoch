@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-responsive-craft",
+  "scenarioSlug": "design-power-user-audits-desktop-hierarchy-and-action-detail",
+  "personaIds": [
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:49:09.698Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 233798,
+    "sha256": "f33ca37601236d362e1d1c9edd357cb9726cf8a00021aa5fd2c8c0743c6618a5"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web` at 1440 by 900"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I open #ideas and select the dashboard-widget conversation"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the selected row, action tray, Anchor, Signature, and Intent values remain visually tied together"
+    },
+    {
+      "id": "claim-4",
+      "text": "And action labels wrap or size cleanly without card soup, overlap, or clipped text"
+    },
+    {
+      "id": "claim-5",
+      "text": "And trust styling remains subordinate to the proposal body"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-action-tray.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs design-power-user-audits-desktop-hierarchy-and-action-detail",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

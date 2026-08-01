@@ -9,6 +9,7 @@ import {
 } from "@epoch/community-operations-web";
 import { createInMemoryPlatformCore } from "@epoch/platform-core";
 import { EpochPlatformSdk } from "@epoch/platform-sdk";
+import { chromiumLaunchOptions } from "./playwright-options";
 
 interface CommunityAgentSandboxWorld {
   sdk?: EpochPlatformSdk;
@@ -341,7 +342,7 @@ async function renderAgentSandboxApp(): Promise<void> {
   });
 
   if (agentSandboxState.browser === undefined) {
-    agentSandboxState.browser = await chromium.launch({ headless: true });
+    agentSandboxState.browser = await chromium.launch(chromiumLaunchOptions({ headless: true }));
     agentSandboxState.page = await agentSandboxState.browser.newPage();
   }
   assert.ok(agentSandboxState.page);

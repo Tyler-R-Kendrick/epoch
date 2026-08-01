@@ -86,3 +86,5 @@ decisions, operations, or contribution workflow.
 | [Contributing](../CONTRIBUTING.md) | Coding workflow, testing expectations, and pull request checklist. |
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
+| [OptimizeXP Skill](../skills/optimizexp/SKILL.md) | Persona-driven UX, DX, and AX optimization harness and reference bundle. |
+| [SDLC Skill](../skills/sdlc/SKILL.md) | Full-loop planning, dispatch, stacked-PR, review, and merge coordinator. |

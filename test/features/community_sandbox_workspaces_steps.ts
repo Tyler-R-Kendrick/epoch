@@ -10,6 +10,7 @@ import {
 } from "@epoch/community-operations-web";
 import { createInMemoryPlatformCore } from "@epoch/platform-core";
 import { EpochPlatformSdk } from "@epoch/platform-sdk";
+import { chromiumLaunchOptions } from "./playwright-options";
 
 interface CommunitySandboxWorkspaceWorld {
   sdk?: EpochPlatformSdk;
@@ -342,7 +343,7 @@ async function renderSandboxWorkspaceApp(): Promise<void> {
   });
 
   if (sandboxWorkspaceState.browser === undefined) {
-    sandboxWorkspaceState.browser = await chromium.launch({ headless: true });
+    sandboxWorkspaceState.browser = await chromium.launch(chromiumLaunchOptions({ headless: true }));
     sandboxWorkspaceState.page = await sandboxWorkspaceState.browser.newPage();
   }
   assert.ok(sandboxWorkspaceState.page);

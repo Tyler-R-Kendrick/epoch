@@ -1,0 +1,126 @@
+{
+  "featureId": "community-web-daily-navigation",
+  "seed": "A forge and community power user moves between community channels Network Feed linked repository issues and another community without losing place.\nnpm run vercel:community-web",
+  "scannedAt": "2026-08-01T18:17:37.704Z",
+  "bindings": [
+    {
+      "kind": "package-script",
+      "id": "script:vercel:community-web",
+      "scriptName": "vercel:community-web",
+      "command": "pnpm run vercel:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"vercel:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:vercel:community-web",
+      "scriptName": "vercel:community-web",
+      "command": "pnpm run vercel:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"vercel:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:vercel:community-web",
+      "scriptName": "vercel:community-web",
+      "command": "pnpm run vercel:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"vercel:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:vercel:community-web",
+      "scriptName": "vercel:community-web",
+      "command": "pnpm run vercel:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"vercel:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:e2e:community-web",
+      "scriptName": "e2e:community-web",
+      "command": "pnpm run e2e:community-web",
+      "confidence": "high",
+      "reason": "script \"e2e:community-web\" matched seed keywords (score 17)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:build",
+      "scriptName": "build",
+      "command": "pnpm run build",
+      "confidence": "high",
+      "reason": "script \"build\" matched seed keywords (score 10)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:typecheck",
+      "scriptName": "typecheck",
+      "command": "pnpm run typecheck",
+      "confidence": "high",
+      "reason": "script \"typecheck\" matched seed keywords (score 10)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:test:runtime",
+      "scriptName": "test:runtime",
+      "command": "pnpm run test:runtime",
+      "confidence": "medium",
+      "reason": "script \"test:runtime\" matched seed keywords (score 7)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    }
+  ],
+  "packageScripts": [
+    "build",
+    "typecheck",
+    "lint",
+    "design:lint",
+    "gate:fast",
+    "gate:push",
+    "konsistent",
+    "docs:check",
+    "prepare",
+    "vercel:community-web",
+    "e2e:community-web",
+    "notebooks:build",
+    "features",
+    "test:features:runtime",
+    "test:unit:runtime",
+    "test:pact:consumer",
+    "test:pact:provider",
+    "test:pact",
+    "test:runtime",
+    "coverage",
+    "test",
+    "verify"
+  ],
+  "notes": [
+    "Discovered 8 candidate binding(s); high-confidence ones are wired into implementations.ts."
+  ]
+}

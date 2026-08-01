@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-responsive-craft",
+  "title": "A design-led app builder audits Community Web desktop narrow zoom focus and redu",
+  "experiences": [
+    "ux"
+  ],
+  "personas": [
+    "app-builder-design-power-user"
+  ],
+  "projects": [
+    "root"
+  ],
+  "scope": "global",
+  "interfaces": [
+    "web",
+    "native",
+    "docs",
+    "mcp"
+  ],
+  "driver": "web",
+  "surfaces": [
+    "pnpm run vercel:community-web"
+  ],
+  "tags": [
+    "@optimizexp",
+    "@ux"
+  ],
+  "generatedFromSeed": true,
+  "seedDigest": "e3d94cac16b342f4",
+  "personaResolution": "explicit --personas; config prefer/exclude (.optimizexp/config.json)",
+  "bindings": {
+    "steps": "steps/bindings.steps.ts",
+    "implementations": "steps/implementations.ts",
+    "tests": "test/community-web-responsive-craft.bindings.test.ts"
+  },
+  "implementationStatus": "wired",
+  "primaryCommand": "pnpm run vercel:community-web"
+}

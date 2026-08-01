@@ -17,6 +17,7 @@
 - [ ] Updated relevant README/docs/ADR/features/skill references, or explained why not applicable.
 - [ ] Updated `docs/feature-scenario-inventory.md` when Gherkin scenarios changed, or explained why not applicable.
 - [ ] Added new docs to `docs/README.md` or another linked index so they are not orphaned.
+- [ ] Validated changed skill frontmatter and focused skill harness tests, or explained why not applicable.
 
 ## Community Human-Centered Design
 

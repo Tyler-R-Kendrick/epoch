@@ -40,4 +40,5 @@ Feature: Epoch platform project separation
     Then the Community site history verifies successfully
     And the Community site history includes view "site/community-web-dogfood"
     And the Community site history includes event type "rollback"
+    And the materialized Community site presents scannable provenance facts
     And the Community site materialized version includes file "community/index.html"

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "global",
+  "label": "Repository-wide OptimizeXP",
+  "product": {},
+  "defaults": {
+    "experiences": [
+      "ux",
+      "dx",
+      "ax"
+    ],
+    "projects": "all",
+    "passes": "infinite",
+    "delight": true,
+    "survey": true,
+    "reportOnly": false,
+    "maxPersonas": 12,
+    "maxFeatures": 12,
+    "driver": "cli"
+  },
+  "personas": {
+    "requireSchemaVersion": 2,
+    "defaultPriority": 50
+  },
+  "features": {
+    "defaultDriver": "cli",
+    "includeProjectFeatureGlobs": true
+  },
+  "evidence": {
+    "preferVideo": true,
+    "overwritePrimary": true,
+    "nativeCaptureEnv": "OPTIMIZEXP_NATIVE_CAPTURE"
+  },
+  "safety": {
+    "forbidLiveNetworkByDefault": true,
+    "allowLocalInstall": true
+  },
+  "gitignore": {
+    "enabled": true,
+    "managed": true,
+    "ignore": {
+      "runs": true,
+      "busEntries": true,
+      "evidenceMedia": true,
+      "evidenceAll": false,
+      "initReport": false,
+      "osJunk": true
+    },
+    "extra": [],
+    "negate": []
+  },
+  "notes": [
+    "Global config owns monorepo defaults + bus/runs live under this tree.",
+    "Project configs live at <project>/.optimizexp/config.json and override defaults for that product surface.",
+    "CLI flags always win over this file.",
+    "gitignore: managed .gitignore ignores runs/, bus entries, large evidence media — customize via gitignore.extra/negate."
+  ]
+}

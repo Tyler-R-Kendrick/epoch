@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-responsive-craft",
+  "scenarioSlug": "design-power-user-audits-narrow-layout-and-touch-targets",
+  "personaIds": [
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:54:09.388Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 194245,
+    "sha256": "1334ecfc45899dbbcebe55f317b50fe012ac07e4a4afdbebb20849a37f9b6d0a"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web` at 390 by 844"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I inspect the rail, feed, composer, and selected-message tray"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the document has no horizontal overflow"
+    },
+    {
+      "id": "claim-4",
+      "text": "And primary controls remain at least 32 pixels high and do not overlap"
+    },
+    {
+      "id": "claim-5",
+      "text": "And the main conversation is not buried beneath an effectively full-page navigation wall"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-action-tray.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs design-power-user-audits-narrow-layout-and-touch-targets",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

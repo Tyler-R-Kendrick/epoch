@@ -170,6 +170,8 @@ High-value entry points:
 | Support | [SUPPORT.md](SUPPORT.md) |
 | PR template | [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) |
 | Issue templates | [.github/ISSUE_TEMPLATE/bug_report.md](.github/ISSUE_TEMPLATE/bug_report.md), [.github/ISSUE_TEMPLATE/feature_request.md](.github/ISSUE_TEMPLATE/feature_request.md) |
+| OptimizeXP agent skill | [skills/optimizexp/SKILL.md](skills/optimizexp/SKILL.md) |
+| SDLC agent skill | [skills/sdlc/SKILL.md](skills/sdlc/SKILL.md) |
 
 ## Contributing
 

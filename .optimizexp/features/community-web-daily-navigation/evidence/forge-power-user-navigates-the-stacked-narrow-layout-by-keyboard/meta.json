@@ -1,0 +1,61 @@
+{
+  "featureId": "community-web-daily-navigation",
+  "scenarioSlug": "forge-power-user-navigates-the-stacked-narrow-layout-by-keyboard",
+  "personaIds": [
+    "forge-community-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:48:40.592Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 117003,
+    "sha256": "928eb2449b4c9fcfae941d0cc64bf64f0f3b639208c5eb518280e6c66caee18c"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` in a 390 by 844 viewport from `npm run vercel:community-web`"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I use only Tab and Enter to reach Agent Guild and its agent-runs channel"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then focus is visible on every activated control"
+    },
+    {
+      "id": "claim-4",
+      "text": "And the selected community and channel remain visible and textually identified"
+    },
+    {
+      "id": "claim-5",
+      "text": "And the main feed is reachable without horizontal overflow or an unbounded rail"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-agent-guild-focus.png",
+    "03-agent-runs-focus.png",
+    "04-agent-runs-active.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-navigates-the-stacked-narrow-layout-by-keyboard",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

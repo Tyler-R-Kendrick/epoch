@@ -2,6 +2,10 @@
 
 Use the Epoch SDLC subagent when a Codex run adds or changes Epoch behavior. Its job is to enforce the repository workflow, not to own implementation.
 
+For full initiative coordination and delivery, use the repo-local
+[SDLC skill](../../sdlc/SKILL.md). For persona-driven UX, DX, or AX review, use
+the [OptimizeXP skill](../../optimizexp/SKILL.md).
+
 ## Mission
 
 - Require a failing Gherkin feature before production behavior changes.

@@ -10,6 +10,7 @@ import { main as epochCliMain, type CliIO } from "@epoch/cli";
 import { bootstrapFromSeed, canonicalJson, Compact, commitGit, createColdBackup, createCompact, CRDTRegistry, EpochActorSystem, EpochCLIGit, EpochCoreGit, EpochRepository, Event, pruneEventLogBeforeCompact, readEpochGitRemote, restoreFromColdBackup, restoreFromCompact, SyncResult } from "@epoch/core";
 import { CRDTRegistry as WasmCRDTRegistry, EpochWasmGit } from "@epoch/wasm";
 import { main as epochGitCliMain } from "epoch/Epoch.CLI.Git";
+import { chromiumLaunchOptions } from "./playwright-options";
 
 interface WorldState {
   workspace: string;
@@ -782,7 +783,7 @@ When("I run the Epoch WASM React browser demo", async function () {
   const url = state.browserServer.resolvedUrls?.local[0];
   assert.ok(url);
 
-  state.browserProcess = await chromium.launchServer({ headless: true });
+  state.browserProcess = await chromium.launchServer(chromiumLaunchOptions({ headless: true }));
   state.browser = await chromium.connect(state.browserProcess.wsEndpoint());
   state.browserPage = await state.browser.newPage({ viewport: { width: 640, height: 420 } });
   await state.browserPage.goto(url);
@@ -843,7 +844,7 @@ When("I run the Epoch WASM React live VFS browser demo", async function () {
   const url = state.browserServer.resolvedUrls?.local[0];
   assert.ok(url);
 
-  state.browserProcess = await chromium.launchServer({ headless: true });
+  state.browserProcess = await chromium.launchServer(chromiumLaunchOptions({ headless: true }));
   state.browser = await chromium.connect(state.browserProcess.wsEndpoint());
   state.browserPage = await state.browser.newPage({ viewport: { width: 640, height: 420 } });
   await state.browserPage.goto(url);

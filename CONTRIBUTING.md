@@ -47,6 +47,8 @@ Follow [Documentation Freshness Policy](docs/documentation-freshness.md) for eve
 - update `skills/epoch/` references when agent, CLI, SDK, WASM, React, hook, or quality-gate guidance changes.
 
 Run `npm run docs:check` before review to catch broken links and orphaned docs.
+When changing `skills/optimizexp/` or `skills/sdlc/`, also validate the skill
+frontmatter and run the affected harness tests before the repository gates.
 
 ## Pull request expectations
 
@@ -74,3 +76,5 @@ Run `npm run docs:check` before review to catch broken links and orphaned docs.
 | `test/features` | Cucumber step definitions. |
 | `docs` | Public documentation, ADRs, feature registry, executable scenario inventory, SDK/CLI references, and documentation freshness policy. |
 | `skills/epoch` | Distributable agent skill documentation and marketplace metadata. |
+| `skills/optimizexp` | Persona-driven UX, DX, and AX optimization skill, references, workflows, and harness. |
+| `skills/sdlc` | End-to-end planning, dispatch, stacked-PR, review, and merge coordinator skill. |

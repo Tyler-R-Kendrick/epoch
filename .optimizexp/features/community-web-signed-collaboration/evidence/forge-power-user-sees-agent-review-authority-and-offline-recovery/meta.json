@@ -1,0 +1,60 @@
+{
+  "featureId": "community-web-signed-collaboration",
+  "scenarioSlug": "forge-power-user-sees-agent-review-authority-and-offline-recovery",
+  "personaIds": [
+    "forge-community-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T19:19:17.486Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 213399,
+    "sha256": "a580189f0994c9066b00a0be5be93d8bf30939964ca2ceceea085b54a5b87616"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web` with mutation requests blocked"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I select the dashboard-widget idea, activate Request agent, and then activate Mark intent"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the interface states that human review remains required"
+    },
+    {
+      "id": "claim-4",
+      "text": "And a failed mutation is non-blaming and does not claim success"
+    },
+    {
+      "id": "claim-5",
+      "text": "And the selected message and a concrete retry or recovery path remain visible"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-agent-outcome.png",
+    "03-offline-outcome.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-sees-agent-review-authority-and-offline-recovery",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

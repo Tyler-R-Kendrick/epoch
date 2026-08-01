@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-first-use",
+  "scenarioSlug": "forge-power-user-orients-from-a-cold-desktop-entry",
+  "personaIds": [
+    "forge-community-power-user",
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:47:33.746Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 87035,
+    "sha256": "95b4f5478b36f713f2ebdc62134fa481181841151c2d5bdad2402b27acb79d53"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given the seeded Community Web server is running with `npm run vercel:community-web`"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I open `/community` in a fresh 1440 by 900 browser viewport"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then I can see \"Epoch Civic Workshop\", \"# general\", and the live or snapshot state in the first viewport"
+    },
+    {
+      "id": "claim-4",
+      "text": "And community messages and the \"Message #general\" composer are readable without horizontal clipping"
+    },
+    {
+      "id": "claim-5",
+      "text": "And the rail distinguishes Communities, Channels, and Linked projects"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-orients-from-a-cold-desktop-entry",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

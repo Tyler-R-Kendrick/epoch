@@ -1,0 +1,17 @@
+{
+  "status": "accepted",
+  "reviewer": "codex-root",
+  "relevance": "relevant",
+  "completeness": "complete",
+  "coverageMode": "full-journey",
+  "coveredClaims": [
+    "claim-1",
+    "claim-2",
+    "claim-3",
+    "claim-4",
+    "claim-5"
+  ],
+  "artifactSha256": "b0278b216c576b2c30b2e6b91d3959c8df7c89c96ac86531d871fcf7c2de3d05",
+  "reviewedAt": "2026-08-01T19:05:00.570Z",
+  "notes": "Playback shows idea selection, anchor/signature/artifact fields, Mark intent activation, preview transition, and the live API proposal result."
+}

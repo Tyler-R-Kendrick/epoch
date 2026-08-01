@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { After, Before, Given, Then, When } from "@cucumber/cucumber";
@@ -19,6 +19,7 @@ import {
   renderCommunityWebDocument,
 } from "@epoch/community-web";
 import { PlatformWebAppDefinition, createPlatformWebApp } from "@epoch/platform-web";
+import { chromiumLaunchOptions } from "./playwright-options";
 
 interface PlatformWorld {
   client?: CommunityClient;
@@ -169,7 +170,7 @@ Then("the Epoch Community CLI output contains {string}", function (expected: str
 When("I open Epoch Community Web in a Playwright browser", { timeout: 60_000 }, async function () {
   assert.ok(platformState.client);
   platformState.community = await createCommunityWebApp({ client: platformState.client });
-  platformState.browser = await chromium.launch({ headless: true });
+  platformState.browser = await chromium.launch(chromiumLaunchOptions({ headless: true }));
   platformState.page = await platformState.browser.newPage();
   await platformState.page.setContent(renderCommunityWebDocument(platformState.community));
 });
@@ -224,6 +225,17 @@ Then("the Community site history includes view {string}", function (view: string
 Then("the Community site history includes event type {string}", function (eventType: string) {
   assert.ok(platformState.siteBuild);
   assert.ok(platformState.siteBuild.history.eventTypes.includes(eventType));
+});
+
+Then("the materialized Community site presents scannable provenance facts", function () {
+  assert.ok(platformState.siteBuild);
+  const html = readFileSync(
+    join(platformState.siteBuild.outputDirectory, "community", "index.html"),
+    "utf8",
+  );
+  assert.match(html, /<dl class="site-history-facts">/u);
+  assert.match(html, /\.site-history-facts \{/u);
+  assert.match(html, /overflow-wrap: anywhere/u);
 });
 
 Then("the Community site materialized version includes file {string}", function (path: string) {
