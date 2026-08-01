@@ -341,7 +341,7 @@ async function renderAgentSandboxApp(): Promise<void> {
   });
 
   if (agentSandboxState.browser === undefined) {
-    agentSandboxState.browser = await chromium.launch();
+    agentSandboxState.browser = await chromium.launch({ headless: true });
     agentSandboxState.page = await agentSandboxState.browser.newPage();
   }
   assert.ok(agentSandboxState.page);

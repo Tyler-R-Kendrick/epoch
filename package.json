@@ -145,10 +145,13 @@
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
     "test:features:runtime": "cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test:unit:runtime": "node dist/test/run-unit-tests.js",
+    "test:pact:consumer": "npm run build -- --pretty false && node dist/test/pact/run-pact-consumer.js",
+    "test:pact:provider": "npm run build -- --pretty false && node dist/test/pact/run-pact-provider.js",
+    "test:pact": "npm run build -- --pretty false && node dist/test/pact/run-pact-tests.js",
     "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
-    "verify": "npm run docs:check && npm run lint && npm run typecheck && npm run konsistent && npm test && npm run coverage"
+    "verify": "npm run docs:check && npm run lint && npm run typecheck && npm run konsistent && npm test && npm run coverage && npm run test:pact"
   },
   "keywords": [
     "dvcs",
@@ -162,6 +165,7 @@
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
     "@pact-foundation/pact": "^16.4.0",
+    "@pact-foundation/pact-cli": "^18.1.1",
     "@types/jsdom": "^28.0.1",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",

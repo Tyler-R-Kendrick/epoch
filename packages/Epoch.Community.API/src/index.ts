@@ -1,4 +1,5 @@
 import type {
+  CommentOnCommunityIssueInput,
   CommunityApiTransport,
   CommunityChangeProposal,
   CommunityProposalStatus,
@@ -98,6 +99,31 @@ export function createInMemoryCommunityApi(
       });
       return cloneRepository(repository);
     },
+    async commentOnIssue(slug: string, issueId: string, input: CommentOnCommunityIssueInput) {
+      const current = repositoryBySlug(repositories, slug);
+      let found = false;
+      const issues = current.issues.map((issue) => {
+        if (issue.id !== issueId) {
+          return issue;
+        }
+        found = true;
+        return {
+          ...issue,
+          comments: [...issue.comments, {
+            author: input.author,
+            body: input.body,
+          }],
+        };
+      });
+      if (!found) {
+        throw new Error(`Community issue not found: ${issueId}`);
+      }
+      const repository = replaceRepository(repositories, {
+        ...current,
+        issues,
+      });
+      return cloneRepository(repository);
+    },
     async proposeChange(slug: string, input: ProposeCommunityChangeInput) {
       const current = repositoryBySlug(repositories, slug);
       const proposal: CommunityChangeProposal = {
@@ -177,6 +203,21 @@ export function createCommunityApiFetchHandler(
 
       if (segments[0] === "repositories" && segments[1] !== undefined && segments[2] === "issues" && segments.length === 3 && request.method === "POST") {
         return json(await api.openIssue(segments[1], await request.json() as OpenCommunityIssueInput), 201);
+      }
+
+      if (
+        segments[0] === "repositories"
+        && segments[1] !== undefined
+        && segments[2] === "issues"
+        && segments[3] !== undefined
+        && segments[4] === "comments"
+        && segments.length === 5
+        && request.method === "POST"
+      ) {
+        return json(
+          await api.commentOnIssue(segments[1], segments[3], await request.json() as CommentOnCommunityIssueInput),
+          201,
+        );
       }
 
       if (segments[0] === "repositories" && segments[1] !== undefined && segments[2] === "changes" && segments.length === 3 && request.method === "POST") {

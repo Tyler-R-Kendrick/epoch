@@ -90,6 +90,15 @@ export interface EpochTransport {
   exportSnapshot(): MemoryEpochTransportSnapshot;
 }
 
+/**
+ * Bidirectional peer for the gossip event plane. Peers exchange full
+ * MemoryEpochTransportSnapshot payloads (events + base64 blobs + heads).
+ * Independent of ATProto.
+ */
+export interface GossipPeer {
+  exchange(snapshot: MemoryEpochTransportSnapshot): Promise<MemoryEpochTransportSnapshot>;
+}
+
 export class MemoryEpochTransport implements EpochTransport {
   constructor(readonly snapshot: MemoryEpochTransportSnapshot) {}
 
@@ -1539,6 +1548,25 @@ export class EpochRepository {
       blobsCopied: inbound.blobsCopied + outbound.blobsCopied,
     });
     this.emitHook("repository.gossip.after", { peerRoot, result });
+    return result;
+  }
+
+  /**
+   * Bidirectional gossip over a GossipPeer (HTTP, in-process, etc.).
+   * Fires the same repository.gossip.before/after hooks as path gossip.
+   * Offline-safe: no ATProto dependency.
+   */
+  async gossipExchange(peer: GossipPeer, peerLabel = "peer"): Promise<SyncResult> {
+    this.requireInitialized();
+    this.emitHook("repository.gossip.before", { peerRoot: peerLabel });
+    const local = this.exportToMemoryTransport().exportSnapshot();
+    const remoteSnapshot = await peer.exchange(local);
+    const inbound = this.syncWithTransport(new MemoryEpochTransport(remoteSnapshot));
+    const result = Schemas.syncResult.parse({
+      eventsCopied: inbound.eventsCopied,
+      blobsCopied: inbound.blobsCopied,
+    });
+    this.emitHook("repository.gossip.after", { peerRoot: peerLabel, result });
     return result;
   }
 

@@ -13,6 +13,7 @@ decisions, operations, or contribution workflow.
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype, including platform conformance flows. |
 | [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, user-centric design, primary GitHub open-source contributor persona, pain points, and human considerations for Epoch Community. |
 | [Community Web Experience](community-web-experience.md) | Channel-first Community Web behavior, personas, browser evidence, and selected-message signed actions. |
+| [Community Web Competitive Evaluation](community-web-competitive-evaluation.md) | Scored compare/contrast vs GitHub and Tangled; wedge vs overall outcompete assessment. |
 | [Persona Feature Matrix](persona-feature-matrix.md) | Persona, journey, pain point, trust, degraded-state, and validation mapping for every executable feature spec. |
 | [Create Repository And Version Materialization Spec](create-repository-and-version-materialization.md) | Implemented create, push, version, and materialization user stories. |
 | [Specification Template Outline](spec-template-outline.md) | Reusable outline extracted from a conformance-grade app spec. |
@@ -44,6 +45,7 @@ decisions, operations, or contribution workflow.
 | [Git Compatibility Proxy](git-compatibility-proxy.md) | Git façade for ATProto/forge interop and live migration; Epoch remains authoritative (ADR-0020/0021). |
 | [Git Live Migration Cutover](git-live-migration-cutover.md) | Operator cutover recipe for import-live / export-live / dual-run and `epoch-git serve`. |
 | [Community ATProto](community-atproto.md) | Federated Community modes, mock PDS, lexicons, Epoch-native lexicons. |
+| [Pact Contracts](pact-contracts.md) | Official Pact consumer/provider contracts for HTTP service boundaries. |
 | [Core SDK Reference](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, and Git-compatible core surfaces. |
 | [Platform Core And SDK APIs](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, Git-compatible core surfaces, and `Epoch.Platform.Core` / `Epoch.Platform.Sdk` APIs. |
 | [Platform Packages](platforms.md) | Separate `Epoch.Platform.Web`, `Epoch.Community.*`, and Community Operations package responsibilities and integration boundary. |

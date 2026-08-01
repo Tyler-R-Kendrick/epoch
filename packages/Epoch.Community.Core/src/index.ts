@@ -102,12 +102,18 @@ export interface CommunityComment {
   readonly body: string;
 }
 
+export interface CommentOnCommunityIssueInput {
+  readonly author: string;
+  readonly body: string;
+}
+
 export interface CommunityApiTransport {
   listWorkflows(): Promise<readonly CommunityWorkflow[]>;
   listRepositories(): Promise<readonly CommunityRepository[]>;
   getRepository(slug: string): Promise<CommunityRepository>;
   createRepository(input: CreateCommunityRepositoryInput): Promise<CommunityRepository>;
   openIssue(slug: string, input: OpenCommunityIssueInput): Promise<CommunityRepository>;
+  commentOnIssue(slug: string, issueId: string, input: CommentOnCommunityIssueInput): Promise<CommunityRepository>;
   proposeChange(slug: string, input: ProposeCommunityChangeInput): Promise<CommunityRepository>;
   reviewChange(slug: string, proposalId: string, input: CommunityReviewInput): Promise<CommunityRepository>;
 }
@@ -126,6 +132,7 @@ export function createCommunityClient(transport: CommunityApiTransport): Communi
     getRepository: (slug) => transport.getRepository(slug),
     createRepository: (input) => transport.createRepository(input),
     openIssue: (slug, input) => transport.openIssue(slug, input),
+    commentOnIssue: (slug, issueId, input) => transport.commentOnIssue(slug, issueId, input),
     proposeChange: (slug, input) => transport.proposeChange(slug, input),
     reviewChange: (slug, proposalId, input) => transport.reviewChange(slug, proposalId, input),
   };
@@ -140,6 +147,7 @@ export function createHttpCommunityClient(options: CreateHttpCommunityClientOpti
     getRepository: (slug) => request("GET", repositoryPath(slug)),
     createRepository: (input) => request("POST", "/repositories", input),
     openIssue: (slug, input) => request("POST", `${repositoryPath(slug)}/issues`, input),
+    commentOnIssue: (slug, issueId, input) => request("POST", `${repositoryPath(slug)}/issues/${encodeURIComponent(issueId)}/comments`, input),
     proposeChange: (slug, input) => request("POST", `${repositoryPath(slug)}/changes`, input),
     reviewChange: (slug, proposalId, input) => request("POST", `${repositoryPath(slug)}/changes/${encodeURIComponent(proposalId)}/reviews`, input),
   });

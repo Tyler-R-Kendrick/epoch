@@ -30,6 +30,8 @@ export const CliCommand = {
   main: "main",
   resolve: "resolve",
   sync: "sync",
+  gossip: "gossip",
+  publishArtifacts: "publish-artifacts",
   rollback: "rollback",
   viewCreate: "view-create",
   views: "views",
@@ -79,6 +81,12 @@ export const CliOption = {
   full: "full",
   base: "base",
   context: "context",
+  peer: "peer",
+  did: "did",
+  visibility: "visibility",
+  mode: "mode",
+  serve: "serve",
+  port: "port",
   repo: "--repo",
 } as const;
 
@@ -90,7 +98,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate>",
+  usage: "usage: epoch [--repo PATH] <create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
   pushUsage: "usage: epoch push [--author NAME] [--version NAME] [--message TEXT] [--no-version] [PATH...]",
   trackUsage: "usage: epoch track [--author NAME] [--type MIME] [--include-ignored] PATH",

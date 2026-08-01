@@ -22,6 +22,7 @@ import { runWasmReactStoreTests } from "./unit/wasm-react-store.test";
 import { runGitProjectionTests } from "./unit/git-projection.test";
 import { runGitProxyTests } from "./unit/git-proxy.test";
 import { runAtprotoCommunityTests } from "./unit/atproto-community.test";
+import { runGossipAtprotoIntegrationTests } from "./unit/gossip-atproto-integration.test";
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
@@ -29,6 +30,9 @@ async function main(): Promise<void> {
   await runPlatformCommunityModuleTests();
   runPlatformWebConsoleTests();
   await runCommunityContractTests();
+  // Gossip HTTP consumer contracts (writes durable pacts/ for provider verification).
+  const { runGossipHttpConsumerContractTests } = await import("./pact/consumer/gossip-http.consumer.test");
+  await runGossipHttpConsumerContractTests();
   await runCommunityCoverageTests();
   await runCommunityWebVercelTests();
   await runEpochIntegrationSuiteTests();
@@ -46,6 +50,7 @@ async function main(): Promise<void> {
   runGitProjectionTests();
   await runGitProxyTests();
   await runAtprotoCommunityTests();
+  await runGossipAtprotoIntegrationTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
   console.log("unit and component tests passed");

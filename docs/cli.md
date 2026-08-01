@@ -63,7 +63,12 @@ binaries directly.
 | `cp FROM TO` | Copy a tracked path and record a signed `file.copy` event. |
 | `events` | Print event IDs, types, and payloads. |
 | `verify` | Verify signatures, DAG state, heads, blobs, and tamper evidence. |
-| `sync PEER_REPO` | Copy missing events and blobs from a peer repository. |
+| `sync PEER_REPO` | Bidirectional path gossip with a peer repository. |
+| `sync --peer URL` | Bidirectional HTTP gossip with a peer (`POST /epoch/gossip`). |
+| `gossip PEER_REPO` | Same as path `sync` (bidirectional local gossip). |
+| `gossip --peer URL` | HTTP gossip exchange with a remote peer. |
+| `gossip --serve [--port N]` | Serve HTTP gossip for this repository. |
+| `publish-artifacts VERSION\|EVENT_ID` | Dual-write public version blobs to AT (`federated` mode only). |
 | `rollback EVENT_ID` | Append a rollback event for an existing event. |
 | `dr-plan` | Print the disaster recovery plan. |
 | `op-log` | List signed operation events recorded by mutating CLI commands. |

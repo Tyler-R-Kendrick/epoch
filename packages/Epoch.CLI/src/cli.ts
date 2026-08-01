@@ -1,7 +1,19 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { CRDTRegistry, DefaultAuthor, disasterRecoveryPlan, dumpEntity, EntityType, EpochRepository, JsonEncoding, loadEntity } from "@epoch/core";
+import {
+  CRDTRegistry,
+  DefaultAuthor,
+  disasterRecoveryPlan,
+  dumpEntity,
+  EntityType,
+  EpochRepository,
+  gossipWithUrl,
+  JsonEncoding,
+  loadEntity,
+  startGossipServer,
+} from "@epoch/core";
 import type { EventMetadata } from "@epoch/core";
+import { FederatedCommunity, MockPds } from "@epoch/atproto";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 
 interface ParsedArgs {
@@ -19,7 +31,20 @@ const processCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
 
 export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): number {
   try {
-    run(argv, io);
+    // Bridge async CLI commands (gossip/network) into the existing sync entrypoint.
+    const result = run(argv, io);
+    if (result !== undefined && typeof (result as Promise<void>).then === "function") {
+      let exitCode = 0;
+      (result as Promise<void>)
+        .catch((error: unknown) => {
+          io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+          exitCode = 1;
+        })
+        .finally(() => {
+          if (require.main === module) process.exitCode = exitCode;
+        });
+      return 0;
+    }
     return 0;
   } catch (error) {
     io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -27,7 +52,7 @@ export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): nu
   }
 }
 
-function run(argv: string[], io: CliIO): void {
+function run(argv: string[], io: CliIO): void | Promise<void> {
   const parsed = parseGlobalArgs(argv);
   if (parsed.command === undefined) {
     throw new Error(CliText.usage);
@@ -136,11 +161,113 @@ function run(argv: string[], io: CliIO): void {
       return;
     }
     case CliCommand.sync: {
-      if (parsed.args.length !== 1) throw new Error(`usage: epoch ${parsed.command} PEER_REPO`);
-      const result = repo.sync(parsed.args[0]);
+      const options = parseOptions(parsed.args, { peer: "" });
+      const peerUrl = options.peer === "" ? undefined : options.peer;
+      if (peerUrl !== undefined) {
+        return (async () => {
+          const result = await gossipWithUrl(repo, peerUrl);
+          writeLine(io, `synced peer ${peerUrl}: ${result.eventsCopied} events and ${result.blobsCopied} blobs`);
+          recordCliOperation(repo, "sync", {
+            peer: peerUrl,
+            transport: "gossip-http",
+            eventsCopied: result.eventsCopied,
+            blobsCopied: result.blobsCopied,
+          });
+        })();
+      }
+      if (options.positionals.length !== 1) {
+        throw new Error(`usage: epoch sync PEER_REPO | epoch sync --peer URL`);
+      }
+      const result = repo.sync(options.positionals[0]);
       writeLine(io, `synced ${result.eventsCopied} events and ${result.blobsCopied} blobs`);
-      recordCliOperation(repo, "sync", { peer: parsed.args[0], eventsCopied: result.eventsCopied, blobsCopied: result.blobsCopied });
+      recordCliOperation(repo, "sync", {
+        peer: options.positionals[0],
+        eventsCopied: result.eventsCopied,
+        blobsCopied: result.blobsCopied,
+      });
       return;
+    }
+    case CliCommand.gossip: {
+      const options = parseOptions(parsed.args, { peer: "", port: "0" }, [CliOption.serve]);
+      if (isFlagEnabled(options, CliOption.serve)) {
+        return (async () => {
+          const port = Number(options.port || "0");
+          const server = await startGossipServer(repo, { port });
+          writeLine(io, `gossip server listening at ${server.url}`);
+          writeLine(io, `POST ${server.url}/epoch/gossip`);
+          await new Promise<void>((resolve) => {
+            process.on("SIGINT", () => {
+              server.close().finally(() => resolve());
+            });
+          });
+        })();
+      }
+      if (options.peer === "" && options.positionals.length !== 1) {
+        throw new Error(`usage: epoch gossip --peer URL | epoch gossip --serve [--port N] | epoch gossip PEER_REPO`);
+      }
+      if (options.peer !== "") {
+        return (async () => {
+          const result = await gossipWithUrl(repo, options.peer);
+          writeLine(io, `gossip ${options.peer}: events=${result.eventsCopied} blobs=${result.blobsCopied}`);
+          recordCliOperation(repo, "gossip", {
+            peer: options.peer,
+            transport: "gossip-http",
+            eventsCopied: result.eventsCopied,
+            blobsCopied: result.blobsCopied,
+          });
+        })();
+      }
+      const peerRoot = options.positionals[0];
+      const pathResult = repo.gossip(peerRoot);
+      writeLine(io, `gossip ${peerRoot}: events=${pathResult.eventsCopied} blobs=${pathResult.blobsCopied}`);
+      recordCliOperation(repo, "gossip", {
+        peer: peerRoot,
+        eventsCopied: pathResult.eventsCopied,
+        blobsCopied: pathResult.blobsCopied,
+      });
+      return;
+    }
+    case CliCommand.publishArtifacts: {
+      const options = parseOptions(parsed.args, {
+        did: "",
+        visibility: "public",
+        mode: "federated",
+        peer: "",
+      });
+      if (options.positionals.length !== 1) {
+        throw new Error(
+          "usage: epoch publish-artifacts [--did DID] [--visibility public|private] [--mode federated|local-only|disabled] [--peer GOSSIP_URL] VERSION|EVENT_ID",
+        );
+      }
+      return (async () => {
+        const mode = options.mode as "federated" | "local-only" | "disabled";
+        const visibility = options.visibility as "public" | "private";
+        const did = options.did === "" ? "did:plc:local" : options.did;
+        const gossipPeers = options.peer === "" ? [] : [options.peer];
+        const community = new FederatedCommunity({
+          mode,
+          pds: new MockPds(),
+          gossipPeers,
+        });
+        const published = await community.publishPublicArtifacts({
+          repository: repo,
+          versionOrEventId: options.positionals[0],
+          ownerDid: did,
+          visibility,
+          gossipPeers,
+        });
+        writeLine(
+          io,
+          `published ${published.artifacts.length} artifacts release=${published.atUri ?? "local-only"} version=${published.release.versionId}`,
+        );
+        recordCliOperation(repo, "publish-artifacts", {
+          versionId: published.release.versionId,
+          atUri: published.atUri,
+          artifactCount: published.artifacts.length,
+          mode,
+          visibility,
+        });
+      })();
     }
     case CliCommand.import: {
       const options = parseOptions(parsed.args, { version: "" });

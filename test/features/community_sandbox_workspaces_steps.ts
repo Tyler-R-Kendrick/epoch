@@ -342,7 +342,7 @@ async function renderSandboxWorkspaceApp(): Promise<void> {
   });
 
   if (sandboxWorkspaceState.browser === undefined) {
-    sandboxWorkspaceState.browser = await chromium.launch();
+    sandboxWorkspaceState.browser = await chromium.launch({ headless: true });
     sandboxWorkspaceState.page = await sandboxWorkspaceState.browser.newPage();
   }
   assert.ok(sandboxWorkspaceState.page);

@@ -21,7 +21,9 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 Community package and experience changes must keep the Community validation
 layers healthy: design-thinking and user-centric docs, persona-tagged Gherkin
 scenarios for user-visible product behavior, browser scenarios driven by
-Playwright, Pact contract tests for Core/API HTTP boundaries, focused unit
+Playwright, official Pact (`@pact-foundation/pact`) consumer contracts plus
+provider verification for HTTP service boundaries (Community API and Gossip
+HTTP; see `docs/pact-contracts.md` and `npm run test:pact`), focused unit
 coverage, and c8 coverage output that includes Community API, Core, CLI, and
 Web packages. Community work should name the GitHub open-source contributor
 persona or an explicit alternative, while keeping process, evidence-recording,

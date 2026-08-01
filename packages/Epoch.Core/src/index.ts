@@ -1,5 +1,15 @@
 export { BundleEpochTransport, EpochRepository, Event, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, JsonSerializationProvider, MemoryEpochTransport, commitGit, createToonSerializationProvider } from "./core";
-export type { CheckoutOptions, CheckoutResult, CollaborationProjection, CreateVersionOptions, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryCreateOptions, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, IdentityData, InclusionRule, IntentDecision, MaterializationSetting, MaterializeVersionOptions, MaterializeVersionResult, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, PreviewOptions, PushOptions, PushResult, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
+export type { CheckoutOptions, CheckoutResult, CollaborationProjection, CreateVersionOptions, EpochHook, EpochHookEvent, EpochHookName, EpochRepositoryCreateOptions, EpochRepositoryOptions, EpochSerializationProvider, EpochTransport, GatePolicy, GateStatus, GossipPeer, IdentityData, InclusionRule, IntentDecision, MaterializationSetting, MaterializeVersionOptions, MaterializeVersionResult, MemoryEpochTransportSnapshot, PolicyOptions, PolicyProjection, PreviewOptions, PushOptions, PushResult, RedactionPlan, SyncResult, ViewDefinition, ViewDiff, ViewMetadata, ViewState } from "./core";
+export {
+  HttpGossipPeer,
+  LocalGossipPeer,
+  NetworkEpochTransport,
+  gossipWithPeer,
+  gossipWithUrl,
+  parseSnapshot,
+  startGossipServer,
+} from "./gossip";
+export type { GossipServer } from "./gossip";
 export { EpochActorSystem, EpochUserActor } from "./actors";
 export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, diffLines, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
 export type { CRDTOperation, EntityAdapter, TextHunk } from "./crdt";
