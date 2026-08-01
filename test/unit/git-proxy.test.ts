@@ -44,13 +44,23 @@ async function smartHttpCloneAndPushWithRealGit(): Promise<void> {
     repository.recordFile("hello.txt", "text/plain", "alice");
     assert.deepEqual(repository.verify(), []);
 
+    // Materialize + project once before serving so clone cannot race an empty bare.
+    const { ensureProjection } = await import("@epoch/git-proxy");
+    const projected = ensureProjection(epochRoot, join(epochRoot, ".epoch", "git-projection"));
+    assert.ok(projected.paths.includes("hello.txt"), `projection missing hello.txt: ${projected.paths.join(",")}`);
+
     const server = await startGitProxy({ epochRoot, listenHost: "127.0.0.1", listenPort: 0 });
     try {
+      const lsBare = execFileSync("git", ["--git-dir", server.bareRoot, "ls-tree", "-r", "--name-only", "HEAD"], {
+        encoding: "utf8",
+      });
+      assert.match(lsBare, /hello\.txt/, `bare HEAD missing hello.txt; ls-tree=${lsBare}`);
+
       const cloneDir = join(root, "clone");
       await gitAsync(["clone", server.gitCloneUrl, cloneDir]);
       assert.ok(
         existsSync(join(cloneDir, "hello.txt")),
-        `expected hello.txt after clone from ${server.gitCloneUrl}; bare=${server.bareRoot}`,
+        `expected hello.txt after clone from ${server.gitCloneUrl}; bare=${server.bareRoot}; bareTree=${lsBare}`,
       );
       assert.equal(readFileSync(join(cloneDir, "hello.txt"), "utf8"), "hello-from-epoch\n");
 
