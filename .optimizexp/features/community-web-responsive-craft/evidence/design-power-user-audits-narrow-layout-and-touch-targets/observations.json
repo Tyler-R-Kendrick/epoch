@@ -1,0 +1,22 @@
+{
+  "title": "Epoch Community",
+  "heading": "Epoch Civic Workshop",
+  "activeLabels": [
+    "Epoch Civic Workshop\n          8",
+    "# ideas4"
+  ],
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "document": {
+    "width": 390,
+    "height": 1611
+  },
+  "horizontalOverflow": false,
+  "railHeight": 344.40625,
+  "railViewportRatio": 0.4080642772511848,
+  "minVisibleButtonHeight": 28,
+  "status": "Community channel message.",
+  "focused": "Open signed actions for Dashboard widget should group revenue by region"
+}

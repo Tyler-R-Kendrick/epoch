@@ -5,6 +5,7 @@ import { chromium, type Browser, type Page, type Route } from "playwright";
 import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
 import { type CommunityApiTransport, createCommunityClient } from "@epoch/community-core";
 import { createCommunityWebApp, renderCommunityWebDocument } from "@epoch/community-web";
+import { chromiumLaunchOptions } from "./playwright-options";
 
 interface CommunityWebWorld {
   readonly api?: CommunityApiTransport;
@@ -65,20 +66,39 @@ Given("the Community Web live API has repository activity", async function () {
 Given("I open the Community Web channel experience", async function () {
   assert.ok(world.api);
   assert.ok(world.apiHandler);
-  const videoDir = process.env.EPOCH_COMMUNITY_WEB_VIDEO_DIR;
-  if (videoDir !== undefined) {
-    mkdirSync(videoDir, { recursive: true });
-  }
-
   const app = await createCommunityWebApp({
     client: createCommunityClient(world.api),
     apiBaseUrl: "https://community.test",
   });
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-  const browser = await chromium.launch({
-    headless: true,
-    ...(executablePath !== undefined && executablePath.length > 0 ? { executablePath } : {}),
+  await openCommunityWebPage(app, world.apiHandler);
+});
+
+Given("Community Web is running from an honest snapshot", async function () {
+  const api = createInMemoryCommunityApi({
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "Event-driven version control for signed, collaborative repository history.",
+      maintainers: ["maya"],
+      topics: ["dvcs", "agents", "community"],
+    }],
   });
+  const app = await createCommunityWebApp({ client: createCommunityClient(api) });
+  world = { api };
+  await openCommunityWebPage(app);
+});
+
+async function openCommunityWebPage(
+  app: Awaited<ReturnType<typeof createCommunityWebApp>>,
+  apiHandler?: (request: Request) => Promise<Response>,
+): Promise<void> {
+  const videoDir = process.env.EPOCH_COMMUNITY_WEB_VIDEO_DIR;
+  if (videoDir !== undefined) {
+    mkdirSync(videoDir, { recursive: true });
+  }
+  const browser = await chromium.launch(chromiumLaunchOptions({
+    headless: true,
+  }));
   const page = await browser.newPage({
     recordVideo: videoDir === undefined
       ? undefined
@@ -88,10 +108,12 @@ Given("I open the Community Web channel experience", async function () {
       },
     viewport: { width: 1440, height: 960 },
   });
-  await page.route("https://community.test/**", (route) => routeCommunityApi(route, world.apiHandler));
+  if (apiHandler !== undefined) {
+    await page.route("https://community.test/**", (route) => routeCommunityApi(route, apiHandler));
+  }
   await page.setContent(renderCommunityWebDocument(app), { waitUntil: "domcontentloaded" });
   world = { ...world, browser, page };
-});
+}
 
 When("I open the Network Feed", async function () {
   const page = requirePage();
@@ -103,6 +125,10 @@ When("I switch to the Agent Guild community", async function () {
   const page = requirePage();
   await page.locator('[data-open-community="agent-guild"]').click();
   await page.locator("#community-title").waitFor({ state: "visible", timeout: 5_000 });
+});
+
+When("I open the agent-runs channel", async function () {
+  await requirePage().locator('button[data-channel="agent-runs"]').click();
 });
 
 When("I open the ideas channel in the active community", async function () {
@@ -140,6 +166,18 @@ When("I report the selected message", async function () {
   await page.locator("[data-selected-message=\"true\"] [data-action=\"report\"]").click();
 });
 
+When("I use Community Web at a narrow mobile width", async function () {
+  await requirePage().setViewportSize({ width: 390, height: 844 });
+});
+
+When("I zoom Community Web to 200 percent in a short viewport", async function () {
+  const page = requirePage();
+  await page.setViewportSize({ width: 720, height: 450 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+});
+
 Then("the Community Web shows a community with channels", async function () {
   const page = requirePage();
   assert.equal(await page.locator('[data-product-mode="community"]').count(), 1);
@@ -172,7 +210,7 @@ Then("the Community Web shows the Agent Guild channels", async function () {
   const page = requirePage();
   await assertVisible(page, "Agent Guild");
   assert.equal(await page.locator('[data-open-community="agent-guild"][aria-pressed="true"]').count(), 1);
-  assert.equal(await page.locator('button[data-channel="agent-runs"]').count(), 1);
+  assert.equal(await page.locator('button[data-channel="agent-runs"][aria-pressed="true"]').count(), 1);
 });
 
 Then("signed project actions are collapsed until I select a message", async function () {
@@ -206,6 +244,20 @@ Then("the selected message shows that human review remains required", async func
   await assertVisible(page, "Agent run requested. Human review remains required.");
 });
 
+Then("the selected message explains how to reconnect and retry Mark intent", async function () {
+  await assertVisible(
+    requirePage(),
+    "Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry Mark intent.",
+  );
+});
+
+Then("the snapshot banner explains how to reconnect for signed work", async function () {
+  await assertVisible(
+    requirePage(),
+    "To promote signed work, reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry the action.",
+  );
+});
+
 Then("the reply appears in the message feed with signed comment metadata", async function () {
   const page = requirePage();
   await assertVisible(page, "Keyboard navigation works in the preview.");
@@ -221,6 +273,71 @@ Then("the reply appears in the message feed with signed comment metadata", async
     ),
     "composer message should be recorded as a live issue",
   );
+});
+
+Then("the active conversation remains reachable without an oversized navigation rail", async function () {
+  const page = requirePage();
+  const rail = await page.locator("[data-community-channel-rail]").boundingBox();
+  const feed = await page.locator("[data-message-feed]").boundingBox();
+  assert.ok(rail);
+  assert.ok(feed);
+  assert.ok(rail.height <= 360, `navigation rail is ${rail.height}px tall`);
+  assert.ok(feed.y < 844, `message feed starts below the viewport at ${feed.y}px`);
+});
+
+Then("I can browse each navigation group without horizontal page overflow", async function () {
+  const page = requirePage();
+  const layout = await page.evaluate(() => ({
+    pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    groups: ["[data-community-list]", "[data-channel-list]", "[data-repo-list]"].map((selector) => {
+      const element = document.querySelector(selector);
+      if (element === null) {
+        throw new Error(`Missing element ${selector}`);
+      }
+      return getComputedStyle(element).overflowX;
+    }),
+  }));
+  assert.equal(layout.pageOverflows, false);
+  assert.ok(layout.groups.every((overflow) => overflow === "auto"), layout.groups.join(", "));
+});
+
+Then("conversation reactions meet the Community touch-target floor", async function () {
+  const heights = await requirePage().locator(".reaction:visible").evaluateAll((buttons) =>
+    buttons.map((button) => button.getBoundingClientRect().height)
+  );
+  assert.ok(heights.length > 0);
+  assert.ok(Math.min(...heights) >= 28, `smallest reaction is ${Math.min(...heights)}px tall`);
+});
+
+Then("Community state remains readable and announced", async function () {
+  const page = requirePage();
+  const heading = await page.locator(".feed-heading").boundingBox();
+  const state = page.locator("[data-header-meta]");
+  const stateBox = await state.boundingBox();
+  assert.ok(heading);
+  assert.ok(stateBox);
+  assert.ok(stateBox.y >= heading.y + heading.height, "Community state overlaps the heading");
+  assert.equal(await state.getAttribute("role"), "status");
+});
+
+Then("the current channel context remains labeled", async function () {
+  assert.equal(await requirePage().getByRole("group", { name: "Current channel" }).count(), 1);
+});
+
+Then("the zoomed navigation remains bounded above community content", async function () {
+  const page = requirePage();
+  const rail = await page.locator("[data-community-channel-rail]").boundingBox();
+  const content = await page.locator("#community-content").boundingBox();
+  assert.ok(rail);
+  assert.ok(content);
+  assert.ok(rail.height <= 300, `zoomed navigation rail is ${rail.height}px tall`);
+  assert.ok(content.y < 450, `zoomed community content starts below the viewport at ${content.y}px`);
+});
+
+Then("the zoomed document has no horizontal page overflow", async function () {
+  assert.equal(await requirePage().evaluate(() =>
+    document.documentElement.scrollWidth > document.documentElement.clientWidth
+  ), false);
 });
 
 Then("the selected message shows legal-hold evidence status", async function () {

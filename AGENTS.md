@@ -44,6 +44,7 @@ These instructions apply to the entire repository.
 ## Repository practices
 
 - Keep changes small, intentional, and aligned with the existing TypeScript workspace structure.
+- Keep reusable agent workflows under `skills/`; `skills/sdlc/` coordinates end-to-end delivery and `skills/optimizexp/` carries its executable experience-review harness. Validate changed skill frontmatter, links, and focused harness tests before the repository gates.
 - Update documentation when public CLI commands, SDK APIs, WASM exports, repository workflows, agent instructions, or design decisions change.
 - Prefer existing dependencies and standard library APIs. Add a dependency only when the benefit is clear and the dependency has been reviewed.
 - Treat Epoch history, identity, signatures, and content-addressed storage as security-sensitive code paths.

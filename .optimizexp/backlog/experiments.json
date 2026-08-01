@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-01T19:21:02.000Z",
+  "itemCount": 1,
+  "items": [
+    {
+      "id": "fr-community-site-provenance-grid",
+      "title": "Make site provenance facts scan as one unit",
+      "problem": "The default definition-list indentation and long rollback digest make a small proof panel look like raw generated output.",
+      "desiredOutcome": "The four existing facts align in a compact responsive grid, retain the complete digest, and remain readable on narrow screens.",
+      "hypothesis": "If we deliver \"The four existing facts align in a compact responsive grid, retain the complete digest, and remain readable on narrow screens.\", positive metrics rise on Community Web first viewport, Community Web responsive craft, Epoch site history.",
+      "source": "survey",
+      "sourceRefs": [
+        ".optimizexp/runs/20260801-ux-community-web/survey/app-builder-design-power-user.json",
+        ".optimizexp/runs/20260801-ux-community-web/survey/forge-community-power-user.json"
+      ],
+      "personas": [
+        "app-builder-design-power-user",
+        "forge-community-power-user"
+      ],
+      "featureIds": [
+        "community-web-responsive-craft",
+        "community-web-signed-collaboration"
+      ],
+      "surfaces": [
+        "Epoch site history"
+      ],
+      "experiences": [
+        "ux"
+      ],
+      "impactOn": {
+        "excitement": 1,
+        "easeOfUse": 1,
+        "perceivedOptimality": 2
+      },
+      "effort": "S",
+      "priorityScore": 58,
+      "status": "done",
+      "antiGoals": [
+        "do not hide or truncate the rollback digest",
+        "do not add animation, controls, or badges"
+      ],
+      "smallestExperiment": "Add a responsive CSS grid to the existing Epoch site-history definition list.",
+      "createdAt": "2026-08-01T19:16:29.475Z",
+      "updatedAt": "2026-08-01T19:21:02.000Z",
+      "runId": "20260801-ux-community-web"
+    }
+  ]
+}

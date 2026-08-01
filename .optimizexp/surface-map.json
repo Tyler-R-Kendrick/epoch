@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "projectId": "root",
+  "scannedAt": "2026-08-01T18:15:30.954Z",
+  "productName": "Epoch Community Web",
+  "packageDir": "packages/Epoch.Community.Web",
+  "binaries": [],
+  "defaultEntry": {
+    "command": "npm run vercel:community-web",
+    "interactive": true,
+    "driver": "web",
+    "notes": "Community Web opens at /community through the repository's local validation server."
+  },
+  "nonInteractiveHelp": null,
+  "commands": [
+    {
+      "id": "community-home",
+      "argv": ["/community"],
+      "kind": "default-entry"
+    },
+    {
+      "id": "network-feed",
+      "argv": ["Network Feed"],
+      "kind": "discoverability"
+    },
+    {
+      "id": "signed-action-tray",
+      "argv": ["#ideas", "select message", "Mark intent"],
+      "kind": "critical-path"
+    }
+  ],
+  "interactiveSurfaces": [
+    {
+      "id": "community-web-shell",
+      "entry": "http://127.0.0.1:4173/community",
+      "driver": "web",
+      "slashCommands": []
+    }
+  ],
+  "requiredJourneys": [
+    "community-web-first-use",
+    "community-web-daily-navigation",
+    "community-web-responsive-craft",
+    "community-web-signed-collaboration"
+  ],
+  "probes": []
+}

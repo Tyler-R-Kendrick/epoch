@@ -1,0 +1,61 @@
+{
+  "featureId": "community-web-daily-navigation",
+  "scenarioSlug": "forge-power-user-traverses-community-network-and-repository-planes",
+  "personaIds": [
+    "forge-community-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:48:17.421Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 299283,
+    "sha256": "2560d4730f6cd37a5cf89668cd43e098c89258d9b670ad02dca05b0a891e5d0a"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web` in Epoch Civic Workshop #general"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I open Network Feed, return to Epoch Civic Workshop, open linked project epoch/epoch, and open Issues"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then each active control and main heading agree about the current plane"
+    },
+    {
+      "id": "claim-4",
+      "text": "And Network Feed shows Following, Network, and Contributions tabs"
+    },
+    {
+      "id": "claim-5",
+      "text": "And linked repository issues do not replace the community identity in the rail"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-network-feed.png",
+    "03-linked-project.png",
+    "04-issues.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-traverses-community-network-and-repository-planes",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

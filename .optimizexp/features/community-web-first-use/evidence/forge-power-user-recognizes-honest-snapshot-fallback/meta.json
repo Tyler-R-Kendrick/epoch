@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-first-use",
+  "scenarioSlug": "forge-power-user-recognizes-honest-snapshot-fallback",
+  "personaIds": [
+    "forge-community-power-user",
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T19:04:14.781Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 123568,
+    "sha256": "1860e2866e7541e08520c52671f0e488f3f181b1d46ebfdf443d8b75150d7384"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given the Community Web document has no reachable mutation API"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I open `/community` and inspect its honesty banner and connection status"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the surface visibly says \"Snapshot\" or \"offline\""
+    },
+    {
+      "id": "claim-4",
+      "text": "And sample conversations remain usable for orientation"
+    },
+    {
+      "id": "claim-5",
+      "text": "And no control implies an unrecorded action succeeded"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-recognizes-honest-snapshot-fallback",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

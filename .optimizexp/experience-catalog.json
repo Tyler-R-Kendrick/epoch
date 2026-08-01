@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "projectId": "root",
+  "builtAt": "2026-08-01T18:16:08.751Z",
+  "experiences": [
+    {
+      "experienceId": "community-web-first-use-forge",
+      "personaId": "forge-community-power-user",
+      "intent": "Enter Epoch Community Web cold and understand the active community, channel, trust state, and next action without prior Epoch knowledge.",
+      "entryCommand": "npm run vercel:community-web, then open /community",
+      "driver": "web",
+      "observableSuccess": "The first viewport establishes community, active channel, live or snapshot honesty, readable messages, and a clear composer.",
+      "observableFailure": "The shell looks like an unfinished admin prototype, hides the active place, or overloads the first viewport with internal trust terminology.",
+      "confusionRisks": ["Discord clone without forge value", "repository dashboard presented as a community", "demo data mistaken for live state"],
+      "priority": "P0",
+      "featureId": "community-web-first-use",
+      "source": ["surface-map.defaultEntry", "mandatory-p0", "docs/community-web-experience.md"]
+    },
+    {
+      "experienceId": "community-web-daily-navigation-forge",
+      "personaId": "forge-community-power-user",
+      "intent": "Move from a community channel to Network Feed and a linked repository, then return without losing place or trust context.",
+      "entryCommand": "Open /community and use the rail navigation",
+      "driver": "web",
+      "observableSuccess": "Navigation preserves orientation, selection, and recognizable forge/community vocabulary at desktop and narrow widths.",
+      "observableFailure": "Controls compete, context disappears, or mobile layout turns the rail into an unscannable wall before content.",
+      "confusionRisks": ["network feed mistaken for the community home", "linked project replacing community identity", "controls that look active but do nothing"],
+      "priority": "P0",
+      "featureId": "community-web-daily-navigation",
+      "source": ["surface-map.interactiveSurfaces", "mandatory-p0", "docs/competition/community-channels-comparison.md"]
+    },
+    {
+      "experienceId": "community-web-responsive-craft-builder",
+      "personaId": "app-builder-design-power-user",
+      "intent": "Judge the rendered shell as a design-system power user across desktop, narrow viewport, keyboard focus, zoom, and reduced motion.",
+      "entryCommand": "Open /community at desktop and mobile viewports",
+      "driver": "web",
+      "observableSuccess": "Hierarchy, spacing, controls, focus, wrapping, contrast, and responsive composition remain intentional and usable.",
+      "observableFailure": "Clipping, overlap, giant empty regions, browser-default artifacts, tiny targets, or visual density breach the persona's strict clutter budget.",
+      "confusionRisks": ["design mockup rather than usable app", "desktop screenshot hiding narrow-layout failure", "visual polish masking inaccessible controls"],
+      "priority": "P0",
+      "featureId": "community-web-responsive-craft",
+      "source": ["surface-map.defaultEntry", "mandatory-p0", "DESIGN.md"]
+    },
+    {
+      "experienceId": "community-web-signed-collaboration-forge",
+      "personaId": "forge-community-power-user",
+      "intent": "Turn an idea-channel conversation into a signed intent and recover honestly when the live API action cannot complete.",
+      "entryCommand": "Open /community, choose #ideas, select a message, inspect the tray, and mark intent",
+      "driver": "web",
+      "observableSuccess": "The selected message, actor, anchor, signature, action consequence, review authority, and recovery state are visible in context.",
+      "observableFailure": "The action tray is visually noisy, trust badges are decorative, or failure leaves ambiguous mutation state.",
+      "confusionRisks": ["signed badge with no inspectable meaning", "agent action implying autonomous merge", "optimistic UI hiding API failure"],
+      "priority": "P0",
+      "featureId": "community-web-signed-collaboration",
+      "source": ["surface-map.commands", "mandatory-p0", "features/community_web_experience.feature"]
+    }
+  ]
+}

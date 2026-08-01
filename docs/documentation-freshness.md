@@ -13,8 +13,10 @@ Run the docs gate before review:
 npm run docs:check
 ```
 
-This validates local Markdown links and proves every Markdown document and
-Gherkin feature spec is reachable from the root `README.md` link hierarchy.
+This validates local Markdown links and proves every product Markdown document
+and Gherkin feature spec is reachable from the root `README.md` link hierarchy.
+Generated OptimizeXP run state under `.optimizexp/` is evidence, not product
+documentation, and is excluded from this navigation check.
 
 ## Update Matrix
 

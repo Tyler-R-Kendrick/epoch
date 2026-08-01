@@ -1,0 +1,17 @@
+{
+  "status": "accepted",
+  "reviewer": "codex-root",
+  "relevance": "relevant",
+  "completeness": "complete",
+  "coverageMode": "full-journey",
+  "coveredClaims": [
+    "claim-1",
+    "claim-2",
+    "claim-3",
+    "claim-4",
+    "claim-5"
+  ],
+  "artifactSha256": "f33ca37601236d362e1d1c9edd357cb9726cf8a00021aa5fd2c8c0743c6618a5",
+  "reviewedAt": "2026-08-01T19:04:59.388Z",
+  "notes": "Playback shows desktop hierarchy, the ideas channel, selected high-signal conversation, provenance fields, action tray, and composer."
+}

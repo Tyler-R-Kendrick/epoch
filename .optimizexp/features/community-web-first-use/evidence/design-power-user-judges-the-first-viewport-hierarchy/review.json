@@ -1,0 +1,17 @@
+{
+  "status": "accepted",
+  "reviewer": "codex-root",
+  "relevance": "relevant",
+  "completeness": "complete",
+  "coverageMode": "full-journey",
+  "coveredClaims": [
+    "claim-1",
+    "claim-2",
+    "claim-3",
+    "claim-4",
+    "claim-5"
+  ],
+  "artifactSha256": "a67e12719cd03c758803327cb52a3ae8574f01c1ad67ea79d91d1091f1759aad",
+  "reviewedAt": "2026-08-01T19:04:56.952Z",
+  "notes": "Playback shows the desktop cold entry, community-owned rail, live-state banner, heading hierarchy, feed, and composer through the final frame."
+}

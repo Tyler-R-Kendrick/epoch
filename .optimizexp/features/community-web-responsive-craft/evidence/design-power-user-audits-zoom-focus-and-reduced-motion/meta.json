@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-responsive-craft",
+  "scenarioSlug": "design-power-user-audits-zoom-focus-and-reduced-motion",
+  "personaIds": [
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:59:33.385Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 98928,
+    "sha256": "89c5a5091acb9ae3ac8ca46954b0c7f446a7b0593e1c8996e7606e546ee79e59"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web` with reduced motion requested"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I inspect the interface at 200 percent zoom and move focus through interactive controls"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then focus indication is visible without color-only meaning"
+    },
+    {
+      "id": "claim-4",
+      "text": "And labels remain readable without two-dimensional scrolling"
+    },
+    {
+      "id": "claim-5",
+      "text": "And no motion-dependent state or animated obstruction appears"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-zoom-focus.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs design-power-user-audits-zoom-focus-and-reduced-motion",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

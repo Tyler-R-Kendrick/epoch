@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-daily-navigation",
+  "title": "A forge and community power user moves between community channels Network Feed l",
+  "experiences": [
+    "ux"
+  ],
+  "personas": [
+    "forge-community-power-user"
+  ],
+  "projects": [
+    "root"
+  ],
+  "scope": "global",
+  "interfaces": [
+    "web",
+    "cli",
+    "docs"
+  ],
+  "driver": "web",
+  "surfaces": [
+    "pnpm run vercel:community-web"
+  ],
+  "tags": [
+    "@optimizexp",
+    "@ux"
+  ],
+  "generatedFromSeed": true,
+  "seedDigest": "24ec2e8d13858887",
+  "personaResolution": "explicit --personas; config prefer/exclude (.optimizexp/config.json)",
+  "bindings": {
+    "steps": "steps/bindings.steps.ts",
+    "implementations": "steps/implementations.ts",
+    "tests": "test/community-web-daily-navigation.bindings.test.ts"
+  },
+  "implementationStatus": "wired",
+  "primaryCommand": "pnpm run vercel:community-web"
+}

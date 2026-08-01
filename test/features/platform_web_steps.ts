@@ -7,6 +7,7 @@ import { After, Before, Given, Then, When } from "@cucumber/cucumber";
 import { chromium, type Browser, type Page } from "playwright";
 import { createServer, type ViteDevServer } from "vite";
 import type { PlatformConsoleModel } from "@epoch/platform-web";
+import { chromiumLaunchOptions } from "./playwright-options";
 
 interface PlatformWebState {
   workspace: string;
@@ -160,7 +161,7 @@ When("I render the Epoch Platform web console at width {int}", { timeout: 60_000
   const url = webState.server.resolvedUrls?.local[0];
   assert.ok(url);
 
-  webState.browser = await chromium.launch({ headless: true });
+  webState.browser = await chromium.launch(chromiumLaunchOptions({ headless: true }));
   webState.page = await webState.browser.newPage({ viewport: { width, height: 760 } });
   await webState.page.goto(url);
   await webState.page.locator("[data-epoch-platform-ready=\"true\"]").waitFor({ timeout: 10_000 });

@@ -8,6 +8,8 @@ import type {
   CommunityWorkflowId,
 } from "@epoch/community-core";
 
+const SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE = "Snapshot communities — channels belong to the community (not a repo). To promote signed work, reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry the action.";
+
 export interface PwaAppDescriptor {
   readonly name: string;
   readonly shortName: string;
@@ -262,11 +264,11 @@ ${communityStyles()}
           <h1 id="community-title">${escapeHtml(activeCommunity?.name ?? "Community")}</h1>
           <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
-        <div class="repository-meta" data-header-meta aria-label="Community state">
+        <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
           <span>${spaces.length} communities</span>
-          <span class="meta-sep" aria-hidden="true">·</span>
+          <span class="meta-sep" aria-hidden="true"></span>
           <span>${(activeCommunity?.channels.length ?? 0)} channels</span>
-          <span class="meta-sep" aria-hidden="true">·</span>
+          <span class="meta-sep" aria-hidden="true"></span>
           <span>${live ? "atproto:live" : "atproto:snapshot"}</span>
         </div>
       </header>
@@ -281,7 +283,7 @@ ${communityStyles()}
           ${followingItems.map(renderDevFeedItem).join("") || emptyDevFeedItem("No followed activity yet.")}
         </ol>
       </div>
-      <div class="feed-toolbar" aria-label="Current channel" data-channel-toolbar>
+      <div class="feed-toolbar" role="group" aria-label="Current channel" data-channel-toolbar>
         <span class="channel-name" data-current-channel># ${escapeHtml(defaultChannel)}</span>
         <span class="channel-topic" data-current-topic>${escapeHtml(activeCommunity?.channels.find((c) => c.id === defaultChannel)?.topic ?? "Community conversation")}</span>
       </div>
@@ -1145,7 +1147,7 @@ function snapshotConversations(
 
 function renderCommunityHonestyBanner(live: boolean, snapshotMode: boolean): string {
   if (!live) {
-    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot">Snapshot communities — channels belong to the community (not a repo). Live intent promotion disabled.</p>`;
+    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot">${escapeHtml(SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE)}</p>`;
   }
   if (snapshotMode) {
     return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty">Live API connected. Community channels are ready; linked-repo activity will appear when issues/changes arrive.</p>`;
@@ -1307,15 +1309,11 @@ function renderSiteHistory(history: CommunitySiteEpochHistory): string {
   return `<section aria-label="Epoch site history">
       <h2>This site is built with Epoch</h2>
       <p>Branchable site changes are recorded as signed Epoch events before the Community site is materialized for deployment.</p>
-      <dl>
-        <dt>Current view</dt>
-        <dd>${escapeHtml(history.currentView)}</dd>
-        <dt>Version</dt>
-        <dd>${escapeHtml(history.latestVersion.name)}</dd>
-        <dt>Rollback target</dt>
-        <dd>${escapeHtml(history.rollbackTarget.versionId)}</dd>
-        <dt>Verification</dt>
-        <dd>${history.verifyProblems.length === 0 ? "passed" : escapeHtml(history.verifyProblems.join(", "))}</dd>
+      <dl class="site-history-facts">
+        <div class="site-history-fact"><dt>Current view</dt><dd>${escapeHtml(history.currentView)}</dd></div>
+        <div class="site-history-fact"><dt>Version</dt><dd>${escapeHtml(history.latestVersion.name)}</dd></div>
+        <div class="site-history-fact"><dt>Rollback target</dt><dd>${escapeHtml(history.rollbackTarget.versionId)}</dd></div>
+        <div class="site-history-fact"><dt>Verification</dt><dd>${history.verifyProblems.length === 0 ? "passed" : escapeHtml(history.verifyProblems.join(", "))}</dd></div>
       </dl>
     </section>`;
 }
@@ -1621,7 +1619,7 @@ function communityRuntime(): string {
           if (honestyBanner) {
             honestyBanner.textContent = live()
               ? "Live community — social channels are community-owned; linked projects add issues, changes, and signed intents."
-              : "Snapshot communities — channels belong to the community (not a repo). Live intent promotion disabled.";
+              : ${JSON.stringify(SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE)};
           }
         } else {
           selectSurface("issues");
@@ -1919,7 +1917,7 @@ function communityRuntime(): string {
           const count = (state.devFeedItems || []).length;
           const parts = [count + " events", "network", live() ? "atproto:live" : "atproto:snapshot"];
           meta.innerHTML = parts.map((part, index) =>
-            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
+            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true"></span>') + "<span>" + escapeHtml(part) + "</span>"
           ).join("");
           return;
         }
@@ -1931,7 +1929,7 @@ function communityRuntime(): string {
             live() ? "community:live" : "community:snapshot",
           ];
           meta.innerHTML = parts.map((part, index) =>
-            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
+            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true"></span>') + "<span>" + escapeHtml(part) + "</span>"
           ).join("");
           return;
         }
@@ -1943,7 +1941,7 @@ function communityRuntime(): string {
           live() ? "project:live" : "project:snapshot",
         ];
         meta.innerHTML = parts.map((part, index) =>
-          (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
+          (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true"></span>') + "<span>" + escapeHtml(part) + "</span>"
         ).join("");
       }
 
@@ -2141,11 +2139,15 @@ function communityRuntime(): string {
         const repo = repository();
 
         if (!live()) {
-          if (action === "intent") {
-            setStatus(message, "Live API unavailable. Intent promotion is disabled in snapshot mode.");
-          } else {
-            setStatus(message, "Live API unavailable. This action is disabled in snapshot mode.");
-          }
+          const actionLabel = {
+            intent: "Mark intent",
+            agent: "Request agent",
+            answer: "Accept answer",
+            docs: "Docs patch",
+            report: "Report",
+            approve: "Approve change",
+          }[action] || "this action";
+          setStatus(message, "Live API unavailable. Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry " + actionLabel + ".");
           return;
         }
 
@@ -2501,12 +2503,13 @@ function communityStyles(): string {
     }
     .community-workspace-chrome {
       display: grid;
+      align-content: start;
       gap: 0.4rem;
       min-height: 0;
       overflow: hidden;
     }
     .community-workspace-chrome .channel-list {
-      max-height: 14rem;
+      max-height: min(20rem, 40vh);
       overflow-y: auto;
     }
     .product-mode-list {
@@ -2695,6 +2698,7 @@ function communityStyles(): string {
       color: #a8b3ad;
       font-weight: 400;
     }
+    .repository-meta .meta-sep::before { content: "·"; }
 
     .api-banner {
       margin: 0;
@@ -3012,7 +3016,7 @@ function communityStyles(): string {
     .reaction {
       display: inline-flex;
       align-items: center;
-      min-height: 1.65rem;
+      min-height: 1.75rem;
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface-raised);
@@ -3237,6 +3241,26 @@ function communityStyles(): string {
       color: #2d3531;
       font-size: 0.82rem;
     }
+    .site-history-facts {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.65rem 1rem;
+      padding-block-start: 0.7rem;
+    }
+    .site-history-fact { min-width: 0; }
+    .site-history-fact dt {
+      color: var(--epoch-color-muted);
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .site-history-fact dd {
+      margin: 0.15rem 0 0;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.74rem;
+      overflow-wrap: anywhere;
+    }
 
     @media (max-width: 800px) {
       #epoch-community {
@@ -3245,12 +3269,41 @@ function communityStyles(): string {
         min-height: 100vh;
       }
       .channel-rail {
+        grid-template-rows: auto;
+        gap: 0.35rem;
         border-inline-end: 0;
         border-block-end: 1px solid #1c2622;
       }
-      .channel-list { max-height: 10rem; }
+      .site-history-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .community-list,
+      .community-workspace-chrome .channel-list,
+      .repo-list {
+        grid-auto-columns: max-content;
+        grid-auto-flow: column;
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-block-end: 0.15rem;
+      }
+      .feed-header {
+        align-items: start;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .repository-meta {
+        justify-content: start;
+        max-width: none;
+        text-align: start;
+      }
       .feed-shell { min-height: 70vh; }
       .message-action-tray dl { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 800px) and (max-height: 600px) {
+      .channel-rail {
+        max-height: 32vh;
+        overflow-y: auto;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -3260,4 +3313,3 @@ function communityStyles(): string {
       }
     }`;
 }
-

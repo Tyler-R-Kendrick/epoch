@@ -1,0 +1,68 @@
+{
+  "featureId": "community-web-first-use",
+  "scenarioSlug": "design-power-user-identifies-the-primary-participation-action",
+  "personaIds": [
+    "forge-community-power-user",
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:47:16.815Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 94710,
+    "sha256": "d25e0f86b3ae89816ab7f7a0dbba9483670be332dea00ca33b38dd7cc7d3619c"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web`"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I scan the first viewport without prior Epoch vocabulary"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the message composer is visually attached to the active channel"
+    },
+    {
+      "id": "claim-4",
+      "text": "And its input and Send action are recognizable without relying on color alone"
+    },
+    {
+      "id": "claim-5",
+      "text": "And provenance labels do not overpower message content"
+    },
+    {
+      "id": "claim-6",
+      "text": "Given persona \"forge-community-power-user\" is active"
+    },
+    {
+      "id": "claim-7",
+      "text": "And feature \"community-web-first-use\" is under optimizexp review"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-composer-focus.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs design-power-user-identifies-the-primary-participation-action",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

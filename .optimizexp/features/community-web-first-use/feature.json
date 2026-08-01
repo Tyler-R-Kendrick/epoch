@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-first-use",
+  "title": "Cold Community Web entry clearly orients expert forge community and design-led b",
+  "experiences": [
+    "ux"
+  ],
+  "personas": [
+    "forge-community-power-user",
+    "app-builder-design-power-user"
+  ],
+  "projects": [
+    "root"
+  ],
+  "scope": "global",
+  "interfaces": [
+    "web",
+    "cli",
+    "docs",
+    "native",
+    "mcp"
+  ],
+  "driver": "web",
+  "surfaces": [
+    "pnpm run vercel:community-web"
+  ],
+  "tags": [
+    "@optimizexp",
+    "@ux"
+  ],
+  "generatedFromSeed": true,
+  "seedDigest": "8272d67938f268eb",
+  "personaResolution": "explicit --personas; config prefer/exclude (.optimizexp/config.json)",
+  "bindings": {
+    "steps": "steps/bindings.steps.ts",
+    "implementations": "steps/implementations.ts",
+    "tests": "test/community-web-first-use.bindings.test.ts"
+  },
+  "implementationStatus": "wired",
+  "primaryCommand": "pnpm run vercel:community-web"
+}

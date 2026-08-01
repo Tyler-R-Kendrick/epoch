@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-signed-collaboration",
+  "title": "A forge community maintainer selects an idea inspects provenance promotes signed",
+  "experiences": [
+    "ux"
+  ],
+  "personas": [
+    "forge-community-power-user"
+  ],
+  "projects": [
+    "root"
+  ],
+  "scope": "global",
+  "interfaces": [
+    "web",
+    "cli",
+    "docs"
+  ],
+  "driver": "web",
+  "surfaces": [
+    "pnpm run vercel:community-web"
+  ],
+  "tags": [
+    "@optimizexp",
+    "@ux"
+  ],
+  "generatedFromSeed": true,
+  "seedDigest": "a6414f660a3a8129",
+  "personaResolution": "explicit --personas; config prefer/exclude (.optimizexp/config.json)",
+  "bindings": {
+    "steps": "steps/bindings.steps.ts",
+    "implementations": "steps/implementations.ts",
+    "tests": "test/community-web-signed-collaboration.bindings.test.ts"
+  },
+  "implementationStatus": "wired",
+  "primaryCommand": "pnpm run vercel:community-web"
+}

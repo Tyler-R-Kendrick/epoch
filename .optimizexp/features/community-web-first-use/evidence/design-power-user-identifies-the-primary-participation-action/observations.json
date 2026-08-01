@@ -1,0 +1,22 @@
+{
+  "title": "Epoch Community",
+  "heading": "Epoch Civic Workshop",
+  "activeLabels": [
+    "Epoch Civic Workshop\n          8",
+    "# general1"
+  ],
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "document": {
+    "width": 1440,
+    "height": 900
+  },
+  "horizontalOverflow": false,
+  "railHeight": 900,
+  "railViewportRatio": 1,
+  "minVisibleButtonHeight": 28,
+  "status": "Community channel message.",
+  "focused": null
+}

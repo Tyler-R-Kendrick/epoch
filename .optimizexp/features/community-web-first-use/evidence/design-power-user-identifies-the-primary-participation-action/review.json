@@ -1,0 +1,19 @@
+{
+  "status": "accepted",
+  "reviewer": "codex-root",
+  "relevance": "relevant",
+  "completeness": "complete",
+  "coverageMode": "full-journey",
+  "coveredClaims": [
+    "claim-1",
+    "claim-2",
+    "claim-3",
+    "claim-4",
+    "claim-5",
+    "claim-6",
+    "claim-7"
+  ],
+  "artifactSha256": "d25e0f86b3ae89816ab7f7a0dbba9483670be332dea00ca33b38dd7cc7d3619c",
+  "reviewedAt": "2026-08-01T19:04:57.355Z",
+  "notes": "Playback shows the complete desktop entry and a clearly visible focus ring on the primary message composer without obscuring the feed."
+}

@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-first-use",
+  "scenarioSlug": "design-power-user-judges-the-first-viewport-hierarchy",
+  "personaIds": [
+    "forge-community-power-user",
+    "app-builder-design-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:47:03.744Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 87315,
+    "sha256": "a67e12719cd03c758803327cb52a3ae8574f01c1ad67ea79d91d1091f1759aad"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given the seeded Community Web server is running with `npm run vercel:community-web`"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I open `/community` in a fresh 1440 by 900 browser viewport"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the dark rail and light work surface create a clear reading order"
+    },
+    {
+      "id": "claim-4",
+      "text": "And author, message, trust metadata, and composer have distinct visual weights"
+    },
+    {
+      "id": "claim-5",
+      "text": "And no browser-default control, clipped label, or accidental empty region dominates the viewport"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs design-power-user-judges-the-first-viewport-hierarchy",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

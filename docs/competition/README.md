@@ -9,6 +9,9 @@ last_researched: 2026-08-01
 
 This directory captures competitive research for Epoch in a stable, parseable layout.
 
+The [OptimizeXP competitor power-user panel](../../.optimizexp/README.md)
+translates these dossiers into schema-v2 UX, DX, and AX review personas.
+
 Cross-product messaging/social design comparison for Community Web:
 [messaging-social-design-comparison.md](messaging-social-design-comparison.md).
 

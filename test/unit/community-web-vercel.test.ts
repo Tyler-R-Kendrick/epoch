@@ -278,7 +278,7 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
   assert.match(html, /state\.apiBaseUrl/u);
   assert.match(html, /refreshRepository/u);
   assert.match(html, /commentOnIssue|\/comments/u);
-  assert.match(html, /Live API unavailable\. Intent promotion is disabled in snapshot mode\./u);
+  assert.match(html, /Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry/u);
   assert.match(html, /data-surface="issues"/u);
   assert.match(html, /data-surface="changes"/u);
   assert.match(html, /data-issue-id="IDEA-3"/u);
@@ -312,6 +312,7 @@ async function communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy():
   assert.match(html, /Dashboard widget should group revenue by region/u);
   assert.match(html, /Welcome to Epoch Civic Workshop/u);
   assert.match(html, /atproto:snapshot|community:snapshot/u);
+  assert.doesNotMatch(html, /class="meta-sep" aria-hidden="true">·<\/span>/u);
 }
 
 async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<void> {
@@ -349,6 +350,9 @@ async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<voi
   assert.match(html, /This site is built with Epoch/u);
   assert.match(html, /Branchable site changes/u);
   assert.match(html, /Rollback target/u);
+  assert.match(html, /<dl class="site-history-facts">/u);
+  assert.match(html, /\.site-history-facts \{/u);
+  assert.match(html, /overflow-wrap: anywhere/u);
 
   const manifest = JSON.parse(readFileSync(join(outputDirectory, "epoch-version.json"), "utf8")) as {
     readonly name: string;

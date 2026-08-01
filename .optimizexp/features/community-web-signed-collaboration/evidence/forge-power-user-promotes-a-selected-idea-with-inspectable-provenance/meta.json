@@ -1,0 +1,60 @@
+{
+  "featureId": "community-web-signed-collaboration",
+  "scenarioSlug": "forge-power-user-promotes-a-selected-idea-with-inspectable-provenance",
+  "personaIds": [
+    "forge-community-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-01T18:50:02.768Z",
+  "runId": "20260801-ux-community-web",
+  "screen": {
+    "widthPx": null,
+    "heightPx": null,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 234850,
+    "sha256": "b0278b216c576b2c30b2e6b91d3959c8df7c89c96ac86531d871fcf7c2de3d05"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I opened `/community` from `npm run vercel:community-web` and selected #ideas"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I select \"Dashboard widget should group revenue by region\" and activate Mark intent"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the selected conversation exposes Anchor, Signature, and Intent values"
+    },
+    {
+      "id": "claim-4",
+      "text": "And the visible status names the recorded proposal or clearly says the action failed"
+    },
+    {
+      "id": "claim-5",
+      "text": "And I can still identify the actor, source message, and active community"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-provenance.png",
+    "03-intent-outcome.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-promotes-a-selected-idea-with-inspectable-provenance",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}
