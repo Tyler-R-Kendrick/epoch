@@ -61,5 +61,5 @@ These instructions apply to the entire repository.
 | `npm test` | Build and execute the Cucumber feature suite. |
 | `npm run coverage` | Run Cucumber under c8 and enforce coverage thresholds. |
 | `npm run gate:fast` | Commit-time gate: konsistent, docs:check, design:lint, lint. |
-| `npm run gate:push` | Push-time gate (CI substitute): gate:fast + typecheck + test. |
+| `npm run gate:push` | Push-time gate (CI substitute): gate:fast + typecheck + build + unit tests. |
 | `npm run verify` | Full local gate: gate suite + coverage + pact. |
