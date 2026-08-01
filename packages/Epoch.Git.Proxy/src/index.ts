@@ -245,7 +245,6 @@ async function handleWithHttpBackend(
   res.statusCode = split.status;
   // Prefer explicit close so git clients do not stall on keep-alive edge cases.
   res.setHeader("Connection", "close");
-  res.end(split.body);
 
   if (isReceive && req.method === "POST" && res.statusCode >= 200 && res.statusCode < 300) {
     // After push into bare, update worktree and ingest into Epoch.
@@ -273,6 +272,8 @@ async function handleWithHttpBackend(
       author: ctx.author,
     });
   }
+
+  res.end(split.body);
 }
 
 function splitCgi(output: Buffer): {

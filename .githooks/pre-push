@@ -16,4 +16,7 @@ if [ -n "${SKIP_VERIFY:-}" ]; then
 fi
 
 echo "pre-push: running local quality gate (CI disabled; hooks enforce)"
+# Git exports repository-local variables to hooks; clear them before tests spawn
+# Git against temporary repositories.
+unset $(git rev-parse --local-env-vars)
 npm run gate:push
