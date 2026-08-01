@@ -23,6 +23,7 @@ import { runGitProjectionTests } from "./unit/git-projection.test";
 import { runGitProxyTests } from "./unit/git-proxy.test";
 import { runAtprotoCommunityTests } from "./unit/atproto-community.test";
 import { runGossipAtprotoIntegrationTests } from "./unit/gossip-atproto-integration.test";
+import { runIdentityBridgeTests } from "./unit/identity-bridge.test";
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
   await runGitProxyTests();
   await runAtprotoCommunityTests();
   await runGossipAtprotoIntegrationTests();
+  await runIdentityBridgeTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
   console.log("unit and component tests passed");

@@ -6,8 +6,11 @@ import { join } from "node:path";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
 import {
   buildCommunityFeed,
+  buildCommunitySpaces,
+  buildDevFeed,
   channelForIssue,
   createCommunityWebApp,
+  filterDevFeedItems,
   materializeCommunityWebSiteWithEpoch,
   renderCommunityWebDocument,
 } from "@epoch/community-web";
@@ -25,10 +28,55 @@ interface VercelConfig {
 export async function runCommunityWebVercelTests(): Promise<void> {
   vercelConfigBuildsTheCommunityWebOutput();
   communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback();
+  communityDevFeedBuildsVerbLedNetworkTimeline();
   await communityWebMaterializesTheSiteThroughEpochHistory();
   await communityWebHtmlIncludesLiveChannelExperience();
   await communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy();
   renderScriptProducesDeployableCommunityHtml();
+}
+
+function communityDevFeedBuildsVerbLedNetworkTimeline(): void {
+  const repos = [{
+    slug: "epoch/epoch",
+    displayName: "Epoch",
+    description: "Event-driven DVCS",
+    visibility: "public" as const,
+    defaultView: "main",
+    maintainers: ["maya"],
+    topics: [],
+    issues: [{
+      id: "IDEA-3",
+      title: "Dashboard widget should group revenue by region",
+      author: "nora",
+      body: "Region breakdown idea",
+      labels: ["idea"],
+      status: "open" as const,
+      comments: [],
+    }],
+    changeProposals: [],
+    discussions: [],
+  }];
+  const spaces = buildCommunitySpaces(repos);
+  assert.ok(spaces.length >= 2);
+  assert.ok(spaces[0]?.channels.some((channel) => channel.id === "general"));
+  assert.ok(spaces[0]?.channels.some((channel) => channel.id === "showcase"));
+  assert.ok((spaces[0]?.linkedRepos.length ?? 0) >= 1);
+
+  const devFeed = buildDevFeed({
+    repositories: repos,
+    apiConnected: true,
+  });
+  assert.ok(devFeed.items.length > 0);
+  assert.ok(devFeed.items.some((item) => item.kind === "star"));
+  assert.ok(devFeed.items.some((item) => item.kind === "follow"));
+  assert.ok(devFeed.items.some((item) => item.kind === "issue_open" && item.actor.handle === "nora"));
+  const following = filterDevFeedItems(devFeed.items, "following");
+  const contributions = filterDevFeedItems(devFeed.items, "contributions");
+  assert.ok(following.length > 0);
+  assert.ok(contributions.every((item) => item.tabs.includes("contributions")));
+
+  const feed = buildCommunityFeed({ repositories: repos, apiConnected: true });
+  assert.ok(feed.conversations.some((item) => item.channel === "general" && item.communityId === "epoch-civic"));
 }
 
 function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
@@ -152,12 +200,19 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   ], { stdio: "pipe" });
 
   const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
-  assert.match(html, /<h1 id="community-title">Epoch Community<\/h1>/u);
+  assert.match(html, /<h1 id="community-title">Epoch Civic Workshop<\/h1>/u);
   assert.match(html, /epoch\/epoch/u);
   assert.match(html, /This site is built with Epoch/u);
   assert.match(html, /data-community-channel-rail/u);
+  assert.match(html, /data-product-mode="community"/u);
+  assert.match(html, /data-community-list/u);
+  assert.match(html, /data-channel="general"/u);
+  assert.match(html, /data-open-community="agent-guild"/u);
+  assert.match(html, /data-product-mode="network"/u);
+  assert.match(html, /data-dev-feed/u);
   assert.match(html, /data-message-feed/u);
   assert.match(html, /Dashboard widget should group revenue by region/u);
+  assert.match(html, /Welcome to Epoch Civic Workshop/u);
   assert.match(html, /data-feed-source="snapshot"/u);
   assert.match(html, /data-api-unconfigured/u);
   assert.match(html, /data-surface="issues"/u);
@@ -165,7 +220,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
   assert.match(html, /data-design-system="epoch-community"/u);
   assert.match(html, /href="#community-content">Skip to content/u);
-  assert.match(html, /--epoch-color-surface: #eef3f1/u);
+  assert.match(html, /--epoch-color-surface: #f3f6f4/u);
   assert.doesNotMatch(html, /data-community-web-cockpit/u);
   assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
@@ -211,6 +266,10 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
 
   assert.match(html, /data-community-web-shell/u);
   assert.match(html, /data-api-state="connected"/u);
+  assert.match(html, /data-product-mode="community"/u);
+  assert.match(html, /data-community-list/u);
+  assert.match(html, /data-channel="general"/u);
+  assert.match(html, /data-dev-feed/u);
   assert.match(html, /data-feed-source="api"/u);
   assert.match(html, /"apiBaseUrl":"https:\/\/community\.test"/u);
   assert.match(html, /data-action="intent"/u);
@@ -244,13 +303,15 @@ async function communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy():
   const html = renderCommunityWebDocument(app);
 
   assert.match(html, /data-api-state="offline"/u);
+  assert.match(html, /data-product-mode="community"/u);
   assert.match(html, /data-feed-source="snapshot"/u);
   assert.match(html, /data-api-unconfigured/u);
   assert.match(html, /data-feed-honesty="snapshot"/u);
-  assert.match(html, /Live actions \(intent promotion\) are disabled/u);
+  assert.match(html, /Snapshot communities|channels belong to the community/u);
   assert.match(html, /data-snapshot-badge/u);
   assert.match(html, /Dashboard widget should group revenue by region/u);
-  assert.match(html, /feed:snapshot/u);
+  assert.match(html, /Welcome to Epoch Civic Workshop/u);
+  assert.match(html, /atproto:snapshot|community:snapshot/u);
 }
 
 async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<void> {

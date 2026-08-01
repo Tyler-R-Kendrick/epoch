@@ -129,8 +129,8 @@ export async function createCommunityWebApp(
       shortName: "Epoch Community",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#17221f",
-      backgroundColor: "#eef3f1",
+      themeColor: "#0f1614",
+      backgroundColor: "#f3f6f4",
       offlineShell: true,
     },
     routes,
@@ -179,9 +179,20 @@ export function renderCommunityWebDocument(app: CommunityWebAppDefinition): stri
     repositories: app.repositories,
     apiConnected: app.apiBaseUrl !== undefined,
   });
+  const spaces = buildCommunitySpaces(app.repositories);
+  const devFeed = buildDevFeed({
+    repositories: app.repositories,
+    apiConnected: app.apiBaseUrl !== undefined,
+  });
   const conversations = feed.conversations;
   const live = app.apiBaseUrl !== undefined;
   const snapshotMode = feed.source === "snapshot";
+  const primaryRepo = app.repositories[0]?.slug ?? "epoch/epoch";
+  const activeCommunity = spaces[0];
+  const activeCommunityId = activeCommunity?.id ?? "epoch-civic";
+  const defaultChannel = activeCommunity?.channels[0]?.id ?? "general";
+  const communityConversations = conversations.filter((item) => item.communityId === activeCommunityId);
+  const followingItems = filterDevFeedItems(devFeed.items, "following");
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -196,52 +207,93 @@ ${communityStyles()}
 </head>
 <body>
   <a class="skip-link" href="#community-content">Skip to content</a>
-  <main id="epoch-community" data-design-system="epoch-community" data-community-web-shell data-api-state="${live ? "connected" : "offline"}" data-feed-source="${feed.source}">
-    <aside class="channel-rail" data-community-channel-rail aria-label="Community channels">
+  <main id="epoch-community" data-design-system="epoch-community" data-community-web-shell data-product-mode="community" data-active-community="${escapeHtml(activeCommunityId)}" data-api-state="${live ? "connected" : "offline"}" data-feed-source="${feed.source}" data-dev-feed-source="${devFeed.source}">
+    <aside class="channel-rail" data-community-channel-rail aria-label="Community navigation">
       <a class="brand" href="${escapeHtml(app.pwa.startUrl)}" translate="no" aria-label="${escapeHtml(app.pwa.name)}">
         <span class="brand-mark" aria-hidden="true">EC</span>
         <span class="brand-text">
           <span class="brand-name">Epoch</span>
-          <span class="brand-sub">epoch/epoch</span>
+          <span class="brand-sub" data-brand-sub>${escapeHtml(activeCommunity?.name ?? "Communities")}</span>
         </span>
       </a>
-      <nav class="surface-list" aria-label="Repository surfaces">
-        <button class="surface-button" type="button" data-surface="channels" aria-pressed="true">Channels</button>
-        <button class="surface-button" type="button" data-surface="issues" aria-pressed="false">Issues <span class="channel-count">${feed.issues.length}</span></button>
-        <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
+      <nav class="surface-list product-mode-list" aria-label="Discovery">
+        <button class="surface-button" type="button" data-product-mode="network" aria-pressed="false">Network Feed</button>
       </nav>
-      <nav class="channel-list" data-channel-list aria-label="Channels">
-        ${communityChannels.map((channel) => renderChannelButton(channel, conversations)).join("")}
+      <div class="rail-section-label">Communities</div>
+      <nav class="community-list" data-community-list aria-label="Communities">
+        ${spaces.map((space) => `
+        <button class="channel-button community-button" type="button" data-open-community="${escapeHtml(space.id)}" aria-pressed="${space.id === activeCommunityId ? "true" : "false"}">
+          <span class="channel-button-label">${escapeHtml(space.name)}</span>
+          <span class="channel-count">${space.channels.length}</span>
+        </button>`).join("")}
       </nav>
+      <div class="community-workspace-chrome" data-community-workspace-chrome>
+        <div class="rail-section-label">Channels</div>
+        <nav class="channel-list" data-channel-list aria-label="Community channels">
+          ${(activeCommunity?.channels ?? communityChannels).map((channel) =>
+            renderChannelButton(channel, communityConversations, channel.id === defaultChannel),
+          ).join("")}
+        </nav>
+        <div class="rail-section-label">Linked projects</div>
+        <nav class="repo-list" data-repo-list aria-label="Linked repositories">
+          ${(activeCommunity?.linkedRepos ?? [primaryRepo]).map((slug) => {
+            const repo = app.repositories.find((item) => item.slug === slug);
+            const count = repo?.issues.length ?? 0;
+            return `
+        <button class="channel-button repo-button" type="button" data-open-repo="${escapeHtml(slug)}" aria-pressed="false">
+          <span class="channel-button-label">${escapeHtml(slug)}</span>
+          <span class="channel-count">${count}</span>
+        </button>`;
+          }).join("")}
+        </nav>
+        <nav class="surface-list repo-surface-list" data-repo-surfaces hidden aria-label="Repository surfaces">
+          <button class="surface-button" type="button" data-surface="issues" aria-pressed="false">Issues <span class="channel-count">${feed.issues.length}</span></button>
+          <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
+        </nav>
+      </div>
       <div class="rail-status" aria-live="polite">
         <span class="status-dot ${live && !snapshotMode ? "" : "status-dot-muted"}" aria-hidden="true"></span>
-        <span data-connection-label>${live ? (snapshotMode ? "Live · empty" : "Live") : "Snapshot"}</span>
+        <span data-connection-label>${live ? (snapshotMode ? "Live · empty" : "Live · communities") : "Snapshot · communities"}</span>
       </div>
     </aside>
     <section id="community-content" class="feed-shell" aria-labelledby="community-title">
       <header class="feed-header">
         <div class="feed-heading">
-          <h1 id="community-title">${escapeHtml(app.pwa.name)}</h1>
-          <p class="feed-repo">epoch/epoch</p>
+          <h1 id="community-title">${escapeHtml(activeCommunity?.name ?? "Community")}</h1>
+          <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
-        <div class="repository-meta" aria-label="Repository state">
-          ${renderRepositoryMeta(app, feed)}
+        <div class="repository-meta" data-header-meta aria-label="Community state">
+          <span>${spaces.length} communities</span>
+          <span class="meta-sep" aria-hidden="true">·</span>
+          <span>${(activeCommunity?.channels.length ?? 0)} channels</span>
+          <span class="meta-sep" aria-hidden="true">·</span>
+          <span>${live ? "atproto:live" : "atproto:snapshot"}</span>
         </div>
       </header>
-      ${renderFeedHonestyBanner(live, snapshotMode)}
+      ${renderCommunityHonestyBanner(live, snapshotMode)}
+      <div class="surface-stage" data-surface-panel="network" hidden>
+        <div class="feed-tabs" role="tablist" aria-label="Network Dev Feed tabs">
+          <button class="feed-tab" type="button" role="tab" data-feed-tab="following" aria-selected="true">Following</button>
+          <button class="feed-tab" type="button" role="tab" data-feed-tab="network" aria-selected="false">Network</button>
+          <button class="feed-tab" type="button" role="tab" data-feed-tab="contributions" aria-selected="false">Contributions</button>
+        </div>
+        <ol class="dev-feed" data-dev-feed aria-label="Network Dev Feed">
+          ${followingItems.map(renderDevFeedItem).join("") || emptyDevFeedItem("No followed activity yet.")}
+        </ol>
+      </div>
       <div class="feed-toolbar" aria-label="Current channel" data-channel-toolbar>
-        <span class="channel-name" data-current-channel># ideas</span>
-        <span class="channel-topic" data-current-topic>Shape product ideas into signed intents, previews, and reviewable patches.</span>
+        <span class="channel-name" data-current-channel># ${escapeHtml(defaultChannel)}</span>
+        <span class="channel-topic" data-current-topic>${escapeHtml(activeCommunity?.channels.find((c) => c.id === defaultChannel)?.topic ?? "Community conversation")}</span>
       </div>
       <div class="surface-stage" data-surface-panel="channels">
-        <ol class="message-feed" data-message-feed aria-label="Community feed">
-          ${conversations.map((conversation) => renderConversation(conversation)).join("")}
+        <ol class="message-feed" data-message-feed aria-label="Community channel messages">
+          ${conversations.map((conversation) => renderConversation(conversation, defaultChannel, activeCommunityId)).join("")}
         </ol>
         <form class="composer" data-comment-composer aria-label="Write a community message">
-          <label class="composer-label" for="community-message">Message #ideas</label>
-          <textarea id="community-message" name="message" rows="2" placeholder="Write a message"></textarea>
+          <label class="composer-label" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
+          <textarea id="community-message" name="message" rows="2" placeholder="Write a message in this community channel"></textarea>
           <div class="composer-row">
-            <span data-composer-meta>Signed as @maya</span>
+            <span data-composer-meta>Signed as @maya · ${escapeHtml(activeCommunity?.name ?? "community")}</span>
             <button type="submit">Send</button>
           </div>
         </form>
@@ -249,16 +301,16 @@ ${communityStyles()}
       <div class="surface-stage" data-surface-panel="issues" hidden>
         <div class="feed-toolbar artifact-toolbar">
           <span class="channel-name">Issues</span>
-          <span class="channel-topic">Open issues for this repository.</span>
+          <span class="channel-topic">Linked repository issues (forge list, not community hangout).</span>
         </div>
         <ol class="artifact-list" data-issue-list aria-label="Issue list">
-          ${feed.issues.map(renderIssueListItem).join("") || emptyArtifactItem("No open issues in the connected repository.")}
+          ${feed.issues.map(renderIssueListItem).join("") || emptyArtifactItem("No open issues in linked repositories.")}
         </ol>
       </div>
       <div class="surface-stage" data-surface-panel="changes" hidden>
         <div class="feed-toolbar artifact-toolbar">
           <span class="channel-name">Changes</span>
-          <span class="channel-topic">Change proposals for this repository.</span>
+          <span class="channel-topic">Change proposals for linked repositories.</span>
         </div>
         <ol class="artifact-list" data-change-list aria-label="Change proposal list">
           ${feed.changes.map(renderChangeListItem).join("") || emptyArtifactItem("No change proposals yet. Promote a message with Mark intent.")}
@@ -274,6 +326,12 @@ ${communityStyles()}
     feedSource: feed.source,
     issues: feed.issues,
     changes: feed.changes,
+    devFeedItems: devFeed.items,
+    devFeedSource: devFeed.source,
+    communities: spaces,
+    productMode: "community",
+    activeCommunity: activeCommunityId,
+    activeRepo: primaryRepo,
   }))}</script>
   <script>
 ${communityRuntime()}
@@ -397,19 +455,95 @@ function normalizedBasePath(path: string): string {
   return prefixed.endsWith("/") && prefixed.length > 1 ? prefixed.slice(0, -1) : prefixed;
 }
 
-export type CommunityChannelId = "support" | "ideas" | "bugs" | "agent-runs" | "previews" | "governance";
+export type CommunityChannelId =
+  | "general"
+  | "showcase"
+  | "support"
+  | "ideas"
+  | "bugs"
+  | "agent-runs"
+  | "previews"
+  | "governance";
 export type CommunityFeedSource = "api" | "snapshot";
+/** network = cross-community Dev Feed; community = Discord-like space; repo = linked project forge lists */
+export type ProductMode = "network" | "community" | "repo";
+export type DevFeedTab = "following" | "network" | "contributions" | "community";
+export type DevFeedKind =
+  | "follow"
+  | "star"
+  | "repo_create"
+  | "release"
+  | "issue_open"
+  | "proposal"
+  | "review"
+  | "intent"
+  | "agent_run"
+  | "contribution"
+  | "community_post";
+export type CommunityChannelKind = "social" | "work";
 
 interface CommunityChannel {
   readonly id: CommunityChannelId;
   readonly label: string;
   readonly topic: string;
+  readonly kind: CommunityChannelKind;
+}
+
+/** Discord-analog: a community owns channels; repos are optional linked projects. */
+export interface CommunitySpace {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly description: string;
+  readonly channels: readonly CommunityChannel[];
+  readonly linkedRepos: readonly string[];
+}
+
+export interface DevFeedActor {
+  readonly handle: string;
+  readonly displayName?: string;
+  readonly did?: string;
+  readonly role?: string;
+}
+
+export interface DevFeedObject {
+  readonly type: "repo" | "issue" | "proposal" | "actor" | "release";
+  readonly label: string;
+  readonly hrefHint?: string;
+}
+
+export interface DevFeedItem {
+  readonly id: string;
+  readonly kind: DevFeedKind;
+  readonly actor: DevFeedActor;
+  readonly verb: string;
+  readonly object?: DevFeedObject;
+  readonly body?: string;
+  readonly repoSlug?: string;
+  readonly channelHint?: CommunityChannelId;
+  readonly trust: {
+    readonly sig?: string;
+    readonly anchor?: string;
+    readonly atUri?: string;
+    readonly source: "api" | "atproto" | "snapshot";
+  };
+  readonly createdAt: string;
+  readonly tabs: readonly DevFeedTab[];
+}
+
+export interface DevFeedBuildResult {
+  readonly source: CommunityFeedSource;
+  readonly items: readonly DevFeedItem[];
+  readonly followingHandles: readonly string[];
 }
 
 export interface CommunityConversationView {
   readonly id: string;
   readonly channel: CommunityChannelId;
-  readonly repositorySlug: string;
+  /** Community that owns this channel conversation (Discord-like). */
+  readonly communityId: string;
+  /** Optional linked repo when the message is forge-backed. */
+  readonly repositorySlug?: string;
   readonly author: string;
   readonly role: string;
   readonly title: string;
@@ -458,14 +592,61 @@ export interface BuildCommunityFeedOptions {
   readonly apiConnected: boolean;
 }
 
-const communityChannels: readonly CommunityChannel[] = [
-  { id: "support", label: "support", topic: "Get unstuck, accept answers, and turn repeated help into docs patches." },
-  { id: "ideas", label: "ideas", topic: "Shape product ideas into signed intents, previews, and reviewable patches." },
-  { id: "bugs", label: "bugs", topic: "Reproduce defects and connect reports to patches without losing context." },
-  { id: "agent-runs", label: "agent-runs", topic: "Watch policy-bound agents propose work while humans keep merge authority." },
-  { id: "previews", label: "previews", topic: "Review deploy previews, visual results, and release readiness in one thread." },
-  { id: "governance", label: "governance", topic: "Handle moderation, legal hold, witnesses, and signed release trust." },
+const defaultWorkChannels: readonly CommunityChannel[] = [
+  { id: "support", label: "support", kind: "work", topic: "Get unstuck, accept answers, and turn repeated help into docs patches." },
+  { id: "ideas", label: "ideas", kind: "work", topic: "Shape product ideas into signed intents, previews, and reviewable patches." },
+  { id: "bugs", label: "bugs", kind: "work", topic: "Reproduce defects and connect reports to patches without losing context." },
+  { id: "agent-runs", label: "agent-runs", kind: "work", topic: "Watch policy-bound agents propose work while humans keep merge authority." },
+  { id: "previews", label: "previews", kind: "work", topic: "Review deploy previews, visual results, and release readiness in one thread." },
+  { id: "governance", label: "governance", kind: "work", topic: "Handle moderation, legal hold, witnesses, and signed release trust." },
 ];
+
+const defaultSocialChannels: readonly CommunityChannel[] = [
+  { id: "general", label: "general", kind: "social", topic: "Day-to-day community hangout — independent of any single repository." },
+  { id: "showcase", label: "showcase", kind: "social", topic: "Share demos, screenshots, and wins with the community." },
+];
+
+/** @deprecated use community space channels; kept as union of defaults for label maps */
+const communityChannels: readonly CommunityChannel[] = [
+  ...defaultSocialChannels,
+  ...defaultWorkChannels,
+];
+
+/**
+ * Build first-class communities (Discord servers analog).
+ * Channels belong to the community; repositories are linked projects.
+ */
+export function buildCommunitySpaces(
+  repositories: readonly CommunityRepository[],
+): readonly CommunitySpace[] {
+  const slugs = repositories.map((repo) => repo.slug);
+  const primary = slugs[0] ?? "epoch/epoch";
+  const secondary = slugs[1];
+  return [
+    {
+      id: "epoch-civic",
+      name: "Epoch Civic Workshop",
+      slug: "epoch-civic",
+      description: "Signed civic hangout for maintainers, contributors, and agents — community channels first, linked repos second.",
+      channels: [...defaultSocialChannels, ...defaultWorkChannels],
+      linkedRepos: secondary ? [primary, secondary] : [primary],
+    },
+    {
+      id: "agent-guild",
+      name: "Agent Guild",
+      slug: "agent-guild",
+      description: "Community for policy-bound agents, human review culture, and agent-run showcases.",
+      channels: [
+        { id: "general", label: "general", kind: "social", topic: "Agent operators and reviewers hang out here." },
+        { id: "showcase", label: "showcase", kind: "social", topic: "Show agent runs, traces, and demos." },
+        { id: "agent-runs", label: "agent-runs", kind: "work", topic: "Active agent runs awaiting human review." },
+        { id: "ideas", label: "ideas", kind: "work", topic: "Agent product ideas promoted toward signed intents." },
+        { id: "governance", label: "governance", kind: "work", topic: "Agent policy, hold, and witness discussion." },
+      ],
+      linkedRepos: [primary],
+    },
+  ];
+}
 
 /**
  * Map issue labels onto channel-first surfaces.
@@ -485,11 +666,233 @@ export function channelForIssue(labels: readonly string[]): CommunityChannelId {
   if (normalized.includes("governance") || normalized.includes("security")) {
     return "governance";
   }
+  if (normalized.includes("showcase") || normalized.includes("demo")) {
+    return "showcase";
+  }
   return "support";
 }
 
+export function defaultCommunityIdForRepo(
+  spaces: readonly CommunitySpace[],
+  repoSlug: string,
+): string {
+  const match = spaces.find((space) => space.linkedRepos.includes(repoSlug));
+  return match?.id ?? spaces[0]?.id ?? "epoch-civic";
+}
+
 /**
- * Build the Community feed from API-backed repository state when connected and
+ * Build the network Dev Feed (ATProto-style contribution timeline).
+ * Combines repository activity with social graph verbs (follow/star/create/release).
+ * When API-connected with activity, contribution events are live; social verbs may
+ * still include an honest snapshot/AT sample so the network plane is never empty-looking
+ * without labeling.
+ */
+export function buildDevFeed(options: BuildCommunityFeedOptions): DevFeedBuildResult {
+  const repoFeed = buildCommunityFeed(options);
+  const contributionItems = contributionDevFeedItems(options.repositories, repoFeed.source);
+  const socialItems = socialDevFeedItems(options.repositories, repoFeed.source);
+  const items = [...socialItems, ...contributionItems].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
+  return {
+    source: repoFeed.source,
+    items,
+    followingHandles: ["maya", "nora", "lea", "ren", "sam"],
+  };
+}
+
+export function filterDevFeedItems(
+  items: readonly DevFeedItem[],
+  tab: DevFeedTab,
+): readonly DevFeedItem[] {
+  return items.filter((item) => item.tabs.includes(tab));
+}
+
+function contributionDevFeedItems(
+  repositories: readonly CommunityRepository[],
+  source: CommunityFeedSource,
+): readonly DevFeedItem[] {
+  const issueItems = repositories.flatMap((repo) =>
+    repo.issues.map((issue, index) => ({
+      id: `dev-issue-${repo.slug}-${issue.id}`,
+      kind: "issue_open" as const,
+      actor: { handle: issue.author, role: "contributor" },
+      verb: "opened",
+      object: { type: "issue" as const, label: `${issue.id}: ${issue.title}`, hrefHint: issue.id },
+      body: issue.body.slice(0, 180) || undefined,
+      repoSlug: repo.slug,
+      channelHint: channelForIssue(issue.labels),
+      trust: {
+        sig: `sig:${issue.id.toLowerCase()}`,
+        anchor: `issue:${issue.id}`,
+        atUri: source === "api" ? `at://did:plc:demo/org.epoch.issue/${issue.id}` : undefined,
+        source: source === "api" ? "api" as const : "snapshot" as const,
+      },
+      createdAt: `2026-08-01T1${index % 6}:1${index % 9}:00Z`,
+      tabs: ["following", "network", "contributions"] as const,
+    })),
+  );
+  const proposalItems = repositories.flatMap((repo) =>
+    repo.changeProposals.map((proposal, index) => ({
+      id: `dev-change-${repo.slug}-${proposal.id}`,
+      kind: "proposal" as const,
+      actor: { handle: proposal.author, role: "contributor" },
+      verb: "proposed",
+      object: { type: "proposal" as const, label: `${proposal.id}: ${proposal.title}`, hrefHint: proposal.id },
+      body: proposal.body.slice(0, 180) || undefined,
+      repoSlug: repo.slug,
+      channelHint: "previews" as const,
+      trust: {
+        sig: `sig:${proposal.id.toLowerCase()}`,
+        anchor: `change:${proposal.id}`,
+        atUri: source === "api" ? `at://did:plc:demo/org.epoch.proposal/${proposal.id}` : undefined,
+        source: source === "api" ? "api" as const : "snapshot" as const,
+      },
+      createdAt: `2026-08-01T1${(index + 2) % 6}:2${index % 9}:00Z`,
+      tabs: ["following", "network", "contributions"] as const,
+    })),
+  );
+  const agentItems = repositories.flatMap((repo) =>
+    repo.issues
+      .filter((issue) => issue.labels.some((label) => label.toLowerCase().includes("agent")))
+      .map((issue, index) => ({
+        id: `dev-agent-${repo.slug}-${issue.id}`,
+        kind: "agent_run" as const,
+        actor: { handle: "agent-ui-reviewer", role: "agent" },
+        verb: "posted a run for",
+        object: { type: "issue" as const, label: issue.id, hrefHint: issue.id },
+        body: "Policy-bound agent work requires human review before merge.",
+        repoSlug: repo.slug,
+        channelHint: "agent-runs" as const,
+        trust: {
+          sig: `sig:agent-${issue.id.toLowerCase()}`,
+          anchor: `agent-run://${issue.id}`,
+          source: source === "api" ? "api" as const : "snapshot" as const,
+        },
+        createdAt: `2026-08-01T12:${30 + index}:00Z`,
+        tabs: ["network", "contributions"] as const,
+      })),
+  );
+  return [...issueItems, ...proposalItems, ...agentItems];
+}
+
+function socialDevFeedItems(
+  repositories: readonly CommunityRepository[],
+  source: CommunityFeedSource,
+): readonly DevFeedItem[] {
+  const primary = repositories[0]?.slug ?? "epoch/epoch";
+  const secondary = repositories[1]?.slug ?? "epoch/community-kit";
+  const trustSource = source === "api" ? "atproto" as const : "snapshot" as const;
+  return [
+    {
+      id: "dev-star-lea-epoch",
+      kind: "star",
+      actor: { handle: "lea", did: "did:plc:lea", role: "contributor" },
+      verb: "starred",
+      object: { type: "repo", label: primary },
+      repoSlug: primary,
+      trust: {
+        sig: "sig:star-lea",
+        atUri: "at://did:plc:lea/org.epoch.feed.star/1",
+        source: trustSource,
+      },
+      createdAt: "2026-08-01T14:20:00Z",
+      tabs: ["following", "network"],
+    },
+    {
+      id: "dev-follow-maya-nora",
+      kind: "follow",
+      actor: { handle: "maya", did: "did:plc:maya", role: "maintainer" },
+      verb: "followed",
+      object: { type: "actor", label: "@nora" },
+      trust: {
+        atUri: "at://did:plc:maya/org.epoch.graph.follow/nora",
+        source: trustSource,
+      },
+      createdAt: "2026-08-01T14:05:00Z",
+      tabs: ["following", "network"],
+    },
+    {
+      id: "dev-create-maya-epoch",
+      kind: "repo_create",
+      actor: { handle: "maya", did: "did:plc:maya", role: "maintainer" },
+      verb: "created",
+      object: { type: "repo", label: primary },
+      repoSlug: primary,
+      body: "Event-driven DVCS for signed collaborative history.",
+      trust: {
+        sig: "sig:repo-create",
+        atUri: "at://did:plc:maya/org.epoch.repo/epoch",
+        source: trustSource,
+      },
+      createdAt: "2026-08-01T09:00:00Z",
+      tabs: ["following", "network", "contributions"],
+    },
+    {
+      id: "dev-release-maya",
+      kind: "release",
+      actor: { handle: "maya", did: "did:plc:maya", role: "maintainer" },
+      verb: "released",
+      object: { type: "release", label: "v0.2.0" },
+      repoSlug: primary,
+      body: "Signed artifacts with sha256 witnesses.",
+      trust: {
+        sig: "sig:release-0.2.0",
+        anchor: "release://0.2.0",
+        atUri: "at://did:plc:maya/org.epoch.release/0.2.0",
+        source: trustSource,
+      },
+      createdAt: "2026-08-01T13:40:00Z",
+      tabs: ["following", "network", "contributions"],
+    },
+    {
+      id: "dev-star-sam-kit",
+      kind: "star",
+      actor: { handle: "sam", did: "did:plc:sam", role: "contributor" },
+      verb: "starred",
+      object: { type: "repo", label: secondary },
+      repoSlug: secondary,
+      trust: {
+        atUri: "at://did:plc:sam/org.epoch.feed.star/kit",
+        source: trustSource,
+      },
+      createdAt: "2026-08-01T13:10:00Z",
+      tabs: ["network"],
+    },
+    {
+      id: "dev-follow-ren-lea",
+      kind: "follow",
+      actor: { handle: "ren", did: "did:plc:ren", role: "contributor" },
+      verb: "followed",
+      object: { type: "actor", label: "@lea" },
+      trust: {
+        atUri: "at://did:plc:ren/org.epoch.graph.follow/lea",
+        source: trustSource,
+      },
+      createdAt: "2026-08-01T12:50:00Z",
+      tabs: ["network"],
+    },
+    {
+      id: "dev-contribution-ren",
+      kind: "contribution",
+      actor: { handle: "ren", role: "contributor" },
+      verb: "signed a contribution on",
+      object: { type: "repo", label: primary },
+      repoSlug: primary,
+      body: "Patch event on preview keyboard focus.",
+      trust: {
+        sig: "sig:contrib-ren",
+        anchor: "event://preview-focus",
+        source: source === "api" ? "api" : "snapshot",
+      },
+      createdAt: "2026-08-01T12:15:00Z",
+      tabs: ["following", "contributions"],
+    },
+  ];
+}
+
+/**
+ * Build the repository channel feed from API-backed repository state when connected and
  * non-empty; otherwise fall back to an explicitly labeled snapshot demo feed.
  * Live connected mode never mixes hard-coded demos into product activity.
  */
@@ -518,10 +921,12 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
   );
   const hasApiActivity = issues.length > 0 || changes.length > 0;
 
+  const spaces = buildCommunitySpaces(options.repositories);
   if (options.apiConnected && hasApiActivity) {
     return {
       source: "api",
       conversations: [
+        ...communitySocialConversations(spaces, "api"),
         ...apiIssueConversations(options.repositories),
         ...apiProposalConversations(options.repositories),
       ],
@@ -533,7 +938,10 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
   const repository = options.repositories[0];
   return {
     source: "snapshot",
-    conversations: snapshotConversations(repository),
+    conversations: [
+      ...communitySocialConversations(spaces, "snapshot"),
+      ...snapshotConversations(repository),
+    ],
     issues,
     changes,
   };
@@ -542,10 +950,12 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
 function apiIssueConversations(
   repositories: readonly CommunityRepository[],
 ): readonly CommunityConversationView[] {
+  const spaces = buildCommunitySpaces(repositories);
   return repositories.flatMap((repo) =>
     repo.issues.map((issue) => ({
       id: `issue-${issue.id}`,
       channel: channelForIssue(issue.labels),
+      communityId: defaultCommunityIdForRepo(spaces, repo.slug),
       repositorySlug: repo.slug,
       author: issue.author,
       role: "contributor",
@@ -565,10 +975,12 @@ function apiIssueConversations(
 function apiProposalConversations(
   repositories: readonly CommunityRepository[],
 ): readonly CommunityConversationView[] {
+  const spaces = buildCommunitySpaces(repositories);
   return repositories.flatMap((repo) =>
     repo.changeProposals.map((proposal) => ({
       id: `change-${proposal.id}`,
       channel: "previews" as const,
+      communityId: defaultCommunityIdForRepo(spaces, repo.slug),
       repositorySlug: repo.slug,
       author: proposal.author,
       role: "contributor",
@@ -587,15 +999,64 @@ function apiProposalConversations(
   );
 }
 
+/** Social community messages that do not require a repository (Discord #general / #showcase). */
+function communitySocialConversations(
+  spaces: readonly CommunitySpace[],
+  source: CommunityFeedSource,
+): readonly CommunityConversationView[] {
+  return spaces.flatMap((space) => {
+    const items: CommunityConversationView[] = [];
+    if (space.channels.some((channel) => channel.id === "general")) {
+      items.push({
+        id: `${space.id}-general-welcome`,
+        channel: "general",
+        communityId: space.id,
+        author: "maya",
+        role: "maintainer",
+        title: `Welcome to ${space.name}`,
+        body: "This channel is the community hangout — no repository required. Link a project only when conversation becomes signed work.",
+        time: "09:05",
+        anchor: `community://${space.slug}/general`,
+        signature: `sig:${space.slug}-welcome`,
+        visibility: "community",
+        state: "open",
+        reactions: ["wave", "follow"],
+        source,
+      });
+    }
+    if (space.channels.some((channel) => channel.id === "showcase")) {
+      items.push({
+        id: `${space.id}-showcase-demo`,
+        channel: "showcase",
+        communityId: space.id,
+        author: "lea",
+        role: "contributor",
+        title: "Shipped a calmer dual-plane shell",
+        body: "Community channels first, linked repos second. Dropping a preview for folks hanging out here.",
+        time: "11:22",
+        anchor: `community://${space.slug}/showcase`,
+        signature: `sig:${space.slug}-showcase`,
+        visibility: "community",
+        state: "open",
+        reactions: ["nice", "follow"],
+        source,
+      });
+    }
+    return items;
+  });
+}
+
 function snapshotConversations(
   repository: CommunityRepository | undefined,
 ): readonly CommunityConversationView[] {
   const slug = repository?.slug ?? "epoch/epoch";
   const maintainer = repository?.maintainers[0] ?? "maya";
+  const communityId = "epoch-civic";
   return [
     {
       id: "idea-region-revenue",
       channel: "ideas",
+      communityId,
       repositorySlug: slug,
       author: "nora",
       role: "contributor",
@@ -612,6 +1073,7 @@ function snapshotConversations(
     {
       id: "support-install-cache",
       channel: "support",
+      communityId,
       repositorySlug: slug,
       author: "liam",
       role: "newcomer",
@@ -628,6 +1090,7 @@ function snapshotConversations(
     {
       id: "agent-preview-copy",
       channel: "agent-runs",
+      communityId: "agent-guild",
       repositorySlug: slug,
       author: "agent-ui-reviewer",
       role: "agent",
@@ -645,6 +1108,7 @@ function snapshotConversations(
     {
       id: "preview-region-widget",
       channel: "previews",
+      communityId,
       repositorySlug: slug,
       author: maintainer,
       role: "maintainer",
@@ -662,6 +1126,7 @@ function snapshotConversations(
     {
       id: "governance-release-witnesses",
       channel: "governance",
+      communityId,
       repositorySlug: slug,
       author: "samira",
       role: "security",
@@ -688,13 +1153,99 @@ function renderFeedHonestyBanner(live: boolean, snapshotMode: boolean): string {
   return `<p class="api-banner api-banner-live" data-feed-honesty="live" hidden>Live Community API — feed reflects repository activity.</p>`;
 }
 
+function renderDevFeedHonestyBanner(live: boolean, snapshotMode: boolean): string {
+  if (!live) {
+    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot" data-dev-feed-banner>Snapshot Dev Feed — ATProto graph samples + signed contribution demo. Live mutations disabled.</p>`;
+  }
+  if (snapshotMode) {
+    return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty" data-dev-feed-banner>Live API connected with empty repository activity. Showing labeled ATProto network samples until contributions arrive.</p>`;
+  }
+  return `<p class="api-banner api-banner-live" data-feed-honesty="live" data-dev-feed-banner>Live Dev Feed — Community API contributions + ATProto-observed follows, stars, and releases.</p>`;
+}
+
+function renderCommunityHonestyBanner(live: boolean, snapshotMode: boolean): string {
+  if (!live) {
+    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot">Snapshot communities — channels belong to the community (not a repo). Live intent promotion disabled.</p>`;
+  }
+  if (snapshotMode) {
+    return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty">Live API connected. Community channels are ready; linked-repo activity will appear when issues/changes arrive.</p>`;
+  }
+  return `<p class="api-banner api-banner-live" data-feed-honesty="live">Live community — social channels are community-owned; linked projects add issues, changes, and signed intents.</p>`;
+}
+
+function renderDevFeedMeta(devFeed: DevFeedBuildResult, live: boolean): string {
+  const parts = [
+    `${devFeed.items.length} events`,
+    `${devFeed.followingHandles.length} following`,
+    live ? (devFeed.source === "api" ? "atproto:live" : "atproto:sample") : "atproto:snapshot",
+  ];
+  return parts.map((label, index) =>
+    index === 0
+      ? `<span>${escapeHtml(label)}</span>`
+      : `<span class="meta-sep" aria-hidden="true">·</span><span>${escapeHtml(label)}</span>`,
+  ).join("");
+}
+
+function emptyDevFeedItem(message: string): string {
+  return `<li class="dev-feed-item dev-feed-empty"><p>${escapeHtml(message)}</p></li>`;
+}
+
+function renderDevFeedItem(item: DevFeedItem): string {
+  const objectHtml = item.object
+    ? item.object.type === "repo" || item.object.type === "issue" || item.object.type === "proposal"
+      ? `<button class="dev-feed-object" type="button" data-feed-open-repo="${escapeHtml(item.repoSlug ?? "")}" data-feed-channel="${escapeHtml(item.channelHint ?? "")}" data-feed-issue="${escapeHtml(item.object.type === "issue" ? item.object.hrefHint ?? "" : "")}" data-feed-change="${escapeHtml(item.object.type === "proposal" ? item.object.hrefHint ?? "" : "")}">${escapeHtml(item.object.label)}</button>`
+      : `<span class="dev-feed-object-text">${escapeHtml(item.object.label)}</span>`
+    : "";
+  const trustBits = [
+    item.trust.sig ? escapeHtml(item.trust.sig) : "",
+    item.trust.anchor ? escapeHtml(item.trust.anchor) : "",
+    item.trust.atUri ? escapeHtml(item.trust.atUri) : "",
+    `src:${item.trust.source}`,
+  ].filter(Boolean);
+  const openRepo = item.repoSlug
+    ? `<button class="dev-feed-action" type="button" data-feed-open-repo="${escapeHtml(item.repoSlug)}" data-feed-channel="${escapeHtml(item.channelHint ?? "ideas")}">Open workspace</button>`
+    : "";
+  const channelHint = item.channelHint
+    ? `<button class="dev-feed-action" type="button" data-feed-open-repo="${escapeHtml(item.repoSlug ?? "")}" data-feed-channel="${escapeHtml(item.channelHint)}">Open #${escapeHtml(item.channelHint)}</button>`
+    : "";
+  return `<li class="dev-feed-item" data-dev-feed-item data-kind="${escapeHtml(item.kind)}" data-tabs="${escapeHtml(item.tabs.join(","))}">
+    <div class="avatar" aria-hidden="true">${escapeHtml(initials(item.actor.handle))}</div>
+    <article class="dev-feed-body">
+      <header class="dev-feed-meta">
+        <strong class="dev-feed-handle">@${escapeHtml(item.actor.handle)}</strong>
+        <span class="dev-feed-verb">${escapeHtml(item.verb)}</span>
+        ${objectHtml}
+        <time datetime="${escapeHtml(item.createdAt)}">${escapeHtml(formatFeedTime(item.createdAt))}</time>
+      </header>
+      ${item.body ? `<p>${escapeHtml(item.body)}</p>` : ""}
+      <footer class="dev-feed-trust">${trustBits.map((bit) => `<span>${bit}</span>`).join("")}</footer>
+      <div class="dev-feed-actions">${openRepo}${channelHint}</div>
+    </article>
+  </li>`;
+}
+
+function formatFeedTime(iso: string): string {
+  const hour = iso.slice(11, 16);
+  return hour || "now";
+}
+
+function initials(handle: string): string {
+  return handle
+    .split(/[^a-zA-Z0-9]+/u)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2) || "?";
+}
+
 function renderChannelButton(
   channel: CommunityChannel,
   conversations: readonly CommunityConversationView[],
+  selected = false,
 ): string {
   const count = conversations.filter((conversation) => conversation.channel === channel.id).length;
-  const selected = channel.id === "ideas";
-  return `<button class="channel-button" type="button" data-channel="${channel.id}" data-topic="${escapeHtml(channel.topic)}" aria-pressed="${selected ? "true" : "false"}">
+  return `<button class="channel-button" type="button" data-channel="${channel.id}" data-channel-kind="${channel.kind}" data-topic="${escapeHtml(channel.topic)}" aria-pressed="${selected ? "true" : "false"}">
     <span class="channel-button-label"># ${escapeHtml(channel.label)}</span>
     <span class="channel-count">${count}</span>
   </button>`;
@@ -728,8 +1279,13 @@ function issueIdFromConversation(conversation: CommunityConversationView): strin
   return undefined;
 }
 
-function renderConversation(conversation: CommunityConversationView): string {
-  const hidden = conversation.channel === "ideas" ? "" : " hidden";
+function renderConversation(
+  conversation: CommunityConversationView,
+  activeChannel: CommunityChannelId = "general",
+  activeCommunityId?: string,
+): string {
+  const inCommunity = activeCommunityId === undefined || conversation.communityId === activeCommunityId;
+  const hidden = inCommunity && conversation.channel === activeChannel ? "" : " hidden";
   const linkedProposal = conversation.linkedProposalId === undefined
     ? ""
     : ` data-linked-proposal="${escapeHtml(conversation.linkedProposalId)}"`;
@@ -737,7 +1293,7 @@ function renderConversation(conversation: CommunityConversationView): string {
   const issueAttr = issueId === undefined ? "" : ` data-issue-id="${escapeHtml(issueId)}"`;
   const changeId = conversation.id.startsWith("change-") ? conversation.id.slice("change-".length) : undefined;
   const changeAttr = changeId === undefined ? "" : ` data-change-id="${escapeHtml(changeId)}"`;
-  return `<li class="feed-message" data-message data-channel="${conversation.channel}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
+  return `<li class="feed-message" data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
     <button class="message-hitbox" type="button" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}"></button>
     <div class="avatar" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
     <article class="message-body">
@@ -763,7 +1319,7 @@ function renderConversation(conversation: CommunityConversationView): string {
         <dl>
           <div><dt>Anchor</dt><dd>${escapeHtml(conversation.anchor)}</dd></div>
           <div><dt>Signature</dt><dd>${escapeHtml(conversation.signature)}</dd></div>
-          <div><dt>Artifact</dt><dd data-tray-artifact>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug)}</dd></div>
+          <div><dt>Artifact</dt><dd data-tray-artifact>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug ?? conversation.communityId)}</dd></div>
         </dl>
         <div class="action-row">
           <button type="button" data-action="intent">Mark intent</button>
@@ -799,16 +1355,6 @@ function renderChangeListItem(change: CommunityFeedChangeItem): string {
 
 function emptyArtifactItem(message: string): string {
   return `<li class="artifact-item artifact-empty">${escapeHtml(message)}</li>`;
-}
-
-function initials(value: string): string {
-  return value
-    .split(/[^a-zA-Z0-9]+/u)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
-    .slice(0, 2);
 }
 
 function renderSiteHistory(history: CommunitySiteEpochHistory): string {
@@ -963,13 +1509,18 @@ function communityRuntime(): string {
   return `    (() => {
       const stateElement = document.getElementById("epoch-community-state");
       const state = stateElement === null
-        ? { conversations: [], repositories: [], issues: [], changes: [], feedSource: "snapshot" }
+        ? { conversations: [], repositories: [], issues: [], changes: [], feedSource: "snapshot", devFeedItems: [], communities: [], productMode: "community", activeCommunity: "epoch-civic", activeRepo: "epoch/epoch" }
         : JSON.parse(stateElement.textContent || "{}");
-      let activeChannel = "ideas";
+      let activeChannel = "general";
       let selectedMessage = null;
+      let productMode = state.productMode || "community";
+      let activeFeedTab = "following";
+      let activeCommunity = state.activeCommunity || (state.communities && state.communities[0] && state.communities[0].id) || "epoch-civic";
+      let activeRepo = state.activeRepo || (state.repositories && state.repositories[0] && state.repositories[0].slug) || "epoch/epoch";
       const actor = "maya";
 
       const feed = document.querySelector("[data-message-feed]");
+      const devFeedList = document.querySelector("[data-dev-feed]");
       const channelName = document.querySelector("[data-current-channel]");
       const channelTopic = document.querySelector("[data-current-topic]");
       const composer = document.querySelector("[data-comment-composer]");
@@ -978,8 +1529,19 @@ function communityRuntime(): string {
       const issueList = document.querySelector("[data-issue-list]");
       const shell = document.getElementById("epoch-community");
       const connectionLabel = document.querySelector("[data-connection-label]");
+      const titleEl = document.getElementById("community-title");
+      const contextSub = document.querySelector("[data-context-sub]");
+      const brandSub = document.querySelector("[data-brand-sub]");
+      const communityChrome = document.querySelector("[data-community-workspace-chrome]");
+      const channelToolbar = document.querySelector("[data-channel-toolbar]");
+      const channelList = document.querySelector("[data-channel-list]");
+      const repoList = document.querySelector("[data-repo-list]");
+      const repoSurfaces = document.querySelector("[data-repo-surfaces]");
+      const honestyBanner = document.querySelector("[data-feed-honesty]");
 
       const channelTopics = {
+        general: "Day-to-day community hangout — independent of any single repository.",
+        showcase: "Share demos, screenshots, and wins with the community.",
         support: "Get unstuck, accept answers, and turn repeated help into docs patches.",
         ideas: "Shape product ideas into signed intents, previews, and reviewable patches.",
         bugs: "Reproduce defects and connect reports to patches without losing context.",
@@ -1006,6 +1568,8 @@ function communityRuntime(): string {
 
       function channelLabel(channel) {
         const map = {
+          general: "general",
+          showcase: "showcase",
           ideas: "idea",
           bugs: "bug",
           support: "support",
@@ -1013,7 +1577,7 @@ function communityRuntime(): string {
           previews: "preview",
           governance: "governance",
         };
-        return map[channel] || "support";
+        return map[channel] || "general";
       }
 
       function channelForLabels(labels) {
@@ -1023,6 +1587,8 @@ function communityRuntime(): string {
         if (normalized.includes("agent") || normalized.includes("agent-run")) return "agent-runs";
         if (normalized.includes("governance") || normalized.includes("security") || normalized.includes("moderation")) return "governance";
         if (normalized.includes("preview")) return "previews";
+        if (normalized.includes("showcase") || normalized.includes("demo")) return "showcase";
+        if (normalized.includes("general")) return "general";
         return "support";
       }
 
@@ -1063,6 +1629,173 @@ function communityRuntime(): string {
         return parsed;
       }
 
+      function currentCommunity() {
+        return (state.communities || []).find((space) => space.id === activeCommunity) || (state.communities || [])[0];
+      }
+
+      function selectProductMode(mode) {
+        if (mode === "network") productMode = "network";
+        else if (mode === "repo") productMode = "repo";
+        else productMode = "community";
+        if (shell) {
+          shell.dataset.productMode = productMode;
+          shell.dataset.activeCommunity = activeCommunity;
+        }
+        document.querySelectorAll("button[data-product-mode]").forEach((button) => {
+          button.setAttribute("aria-pressed", button.dataset.productMode === productMode ? "true" : "false");
+        });
+        if (communityChrome) communityChrome.hidden = productMode === "network";
+        if (repoSurfaces) repoSurfaces.hidden = productMode !== "repo";
+        if (productMode === "network") {
+          selectSurface("network");
+          if (titleEl) titleEl.textContent = "Network Feed";
+          if (contextSub) contextSub.textContent = feedTabLabel(activeFeedTab) + " · cross-community ATProto activity";
+          if (brandSub) brandSub.textContent = "Network · ATProto";
+          if (channelToolbar) channelToolbar.hidden = true;
+          if (honestyBanner) {
+            honestyBanner.textContent = live()
+              ? "Live Network Feed — cross-community ATProto follows, stars, releases, and contributions."
+              : "Snapshot Network Feed — labeled ATProto samples. Live mutations disabled.";
+          }
+          renderDevFeedTab(activeFeedTab);
+        } else if (productMode === "community") {
+          const space = currentCommunity();
+          selectSurface("channels");
+          if (titleEl) titleEl.textContent = space ? space.name : "Community";
+          if (brandSub) brandSub.textContent = space ? space.name : "Communities";
+          if (channelToolbar) channelToolbar.hidden = false;
+          document.querySelectorAll("[data-open-community]").forEach((button) => {
+            button.setAttribute("aria-pressed", button.dataset.openCommunity === activeCommunity ? "true" : "false");
+          });
+          document.querySelectorAll("[data-open-repo]").forEach((button) => {
+            button.setAttribute("aria-pressed", "false");
+          });
+          renderCommunityChannels();
+          selectChannel(activeChannel || (space && space.channels[0] && space.channels[0].id) || "general");
+          if (honestyBanner) {
+            honestyBanner.textContent = live()
+              ? "Live community — social channels are community-owned; linked projects add issues, changes, and signed intents."
+              : "Snapshot communities — channels belong to the community (not a repo). Live intent promotion disabled.";
+          }
+        } else {
+          selectSurface("issues");
+          if (titleEl) titleEl.textContent = activeRepo;
+          if (contextSub) contextSub.textContent = "Linked project · forge lists";
+          if (brandSub) brandSub.textContent = activeRepo;
+          if (channelToolbar) channelToolbar.hidden = true;
+          document.querySelectorAll("[data-open-repo]").forEach((button) => {
+            button.setAttribute("aria-pressed", button.dataset.openRepo === activeRepo ? "true" : "false");
+          });
+        }
+      }
+
+      function feedTabLabel(tab) {
+        if (tab === "network") return "Network";
+        if (tab === "contributions") return "Contributions";
+        return "Following";
+      }
+
+      function renderCommunityChannels() {
+        const space = currentCommunity();
+        if (!channelList || !space) return;
+        const counts = {};
+        (state.conversations || []).forEach((item) => {
+          if (item.communityId !== space.id) return;
+          counts[item.channel] = (counts[item.channel] || 0) + 1;
+        });
+        channelList.innerHTML = (space.channels || []).map((channel) => {
+          const selected = channel.id === activeChannel;
+          return '<button class="channel-button" type="button" data-channel="' + escapeHtml(channel.id)
+            + '" data-channel-kind="' + escapeHtml(channel.kind || "social")
+            + '" data-topic="' + escapeHtml(channel.topic || "")
+            + '" aria-pressed="' + (selected ? "true" : "false") + '">'
+            + '<span class="channel-button-label"># ' + escapeHtml(channel.label || channel.id) + '</span>'
+            + '<span class="channel-count">' + (counts[channel.id] || 0) + '</span></button>';
+        }).join("");
+        channelList.querySelectorAll("[data-channel]").forEach((button) => {
+          button.addEventListener("click", () => selectChannel(button.dataset.channel || "general"));
+        });
+        if (repoList) {
+          repoList.innerHTML = (space.linkedRepos || []).map((slug) => {
+            const repo = (state.repositories || []).find((item) => item.slug === slug);
+            const count = repo && repo.issues ? repo.issues.length : 0;
+            return '<button class="channel-button repo-button" type="button" data-open-repo="' + escapeHtml(slug)
+              + '" aria-pressed="' + (productMode === "repo" && activeRepo === slug ? "true" : "false") + '">'
+              + '<span class="channel-button-label">' + escapeHtml(slug) + '</span>'
+              + '<span class="channel-count">' + count + '</span></button>';
+          }).join("");
+          repoList.querySelectorAll("[data-open-repo]").forEach((button) => {
+            button.addEventListener("click", () => openRepository(button.dataset.openRepo || activeRepo));
+          });
+        }
+      }
+
+      function openCommunity(communityId) {
+        activeCommunity = communityId || activeCommunity;
+        const space = currentCommunity();
+        activeChannel = (space && space.channels[0] && space.channels[0].id) || "general";
+        selectedMessage = null;
+        selectProductMode("community");
+      }
+
+      function renderDevFeedTab(tab) {
+        activeFeedTab = tab || "following";
+        document.querySelectorAll("[data-feed-tab]").forEach((button) => {
+          button.setAttribute("aria-selected", button.dataset.feedTab === activeFeedTab ? "true" : "false");
+        });
+        if (!devFeedList) return;
+        const items = (state.devFeedItems || []).filter((item) => (item.tabs || []).includes(activeFeedTab));
+        if (items.length === 0) {
+          devFeedList.innerHTML = '<li class="dev-feed-item dev-feed-empty"><p>No activity in ' + escapeHtml(feedTabLabel(activeFeedTab)) + ' yet.</p></li>';
+          return;
+        }
+        devFeedList.innerHTML = items.map(renderDevFeedItemClient).join("");
+        if (contextSub && productMode === "network") {
+          contextSub.textContent = feedTabLabel(activeFeedTab) + " · cross-community ATProto activity";
+        }
+      }
+
+      function renderDevFeedItemClient(item) {
+        const objectLabel = item.object ? escapeHtml(item.object.label) : "";
+        const repo = item.repoSlug || "";
+        const channel = item.channelHint || "";
+        const objectBtn = item.object && (item.object.type === "repo" || item.object.type === "issue" || item.object.type === "proposal")
+          ? '<button class="dev-feed-object" type="button" data-feed-open-repo="' + escapeHtml(repo) + '" data-feed-channel="' + escapeHtml(channel) + '">' + objectLabel + '</button>'
+          : (objectLabel ? '<span class="dev-feed-object-text">' + objectLabel + '</span>' : "");
+        const trust = [
+          item.trust && item.trust.sig ? escapeHtml(item.trust.sig) : "",
+          item.trust && item.trust.anchor ? escapeHtml(item.trust.anchor) : "",
+          item.trust && item.trust.atUri ? escapeHtml(item.trust.atUri) : "",
+          item.trust ? "src:" + escapeHtml(item.trust.source) : "",
+        ].filter(Boolean).map((bit) => "<span>" + bit + "</span>").join("");
+        const open = repo
+          ? '<button class="dev-feed-action" type="button" data-feed-open-repo="' + escapeHtml(repo) + '" data-feed-channel="' + escapeHtml(channel || "ideas") + '">Open project</button>'
+          : "";
+        const openCh = channel
+          ? '<button class="dev-feed-action" type="button" data-feed-open-community="' + escapeHtml(activeCommunity) + '" data-feed-channel="' + escapeHtml(channel) + '">Open #' + escapeHtml(channel) + '</button>'
+          : "";
+        const time = (item.createdAt || "").slice(11, 16) || "now";
+        return '<li class="dev-feed-item" data-dev-feed-item data-kind="' + escapeHtml(item.kind) + '">'
+          + '<div class="avatar" aria-hidden="true">' + escapeHtml(initials(item.actor && item.actor.handle)) + '</div>'
+          + '<article class="dev-feed-body"><header class="dev-feed-meta">'
+          + '<strong class="dev-feed-handle">@' + escapeHtml(item.actor && item.actor.handle) + '</strong>'
+          + '<span class="dev-feed-verb">' + escapeHtml(item.verb) + '</span>'
+          + objectBtn
+          + '<time>' + escapeHtml(time) + '</time></header>'
+          + (item.body ? '<p>' + escapeHtml(item.body) + '</p>' : '')
+          + '<footer class="dev-feed-trust">' + trust + '</footer>'
+          + '<div class="dev-feed-actions">' + open + openCh + '</div></article></li>';
+      }
+
+      function openRepository(slug, channel) {
+        activeRepo = slug || activeRepo;
+        selectProductMode("repo");
+        if (channel) {
+          // Jump into community channel context for the linked project conversation.
+          activeChannel = channel;
+        }
+      }
+
       function selectSurface(surface) {
         document.querySelectorAll("[data-surface]").forEach((button) => {
           button.setAttribute("aria-pressed", button.dataset.surface === surface ? "true" : "false");
@@ -1070,32 +1803,39 @@ function communityRuntime(): string {
         document.querySelectorAll("[data-surface-panel]").forEach((panel) => {
           panel.hidden = panel.getAttribute("data-surface-panel") !== surface;
         });
-        const channelList = document.querySelector("[data-channel-list]");
-        if (channelList) channelList.hidden = surface !== "channels";
-        const channelToolbar = document.querySelector("[data-channel-toolbar]");
         if (channelToolbar) channelToolbar.hidden = surface !== "channels";
       }
 
       function applyChannelFilter() {
         messages().forEach((message) => {
-          message.hidden = message.dataset.channel !== activeChannel;
+          const sameCommunity = !message.dataset.communityId || message.dataset.communityId === activeCommunity;
+          message.hidden = !(sameCommunity && message.dataset.channel === activeChannel);
           if (message.dataset.messageId !== selectedMessage) {
             message.removeAttribute("data-selected-message");
             const tray = message.querySelector("[data-message-actions]");
             if (tray) tray.hidden = true;
           }
         });
+        const space = currentCommunity();
+        const channelMeta = space && (space.channels || []).find((item) => item.id === activeChannel);
         if (channelName) channelName.textContent = "# " + activeChannel;
-        if (channelTopic) channelTopic.textContent = channelTopics[activeChannel] || "";
+        if (channelTopic) channelTopic.textContent = (channelMeta && channelMeta.topic) || channelTopics[activeChannel] || "";
         if (composerLabel) composerLabel.textContent = "Message #" + activeChannel;
+        if (contextSub && productMode === "community") {
+          contextSub.textContent = "# " + activeChannel + " · community channel";
+        }
+        const composerMeta = document.querySelector("[data-composer-meta]");
+        if (composerMeta && space) composerMeta.textContent = "Signed as @" + actor + " · " + space.name;
         document.querySelectorAll("[data-channel][aria-pressed]").forEach((item) => {
           item.setAttribute("aria-pressed", item.dataset.channel === activeChannel ? "true" : "false");
         });
       }
 
       function selectChannel(channel) {
-        activeChannel = channel || "ideas";
+        activeChannel = channel || "general";
         selectedMessage = null;
+        if (productMode === "network") selectProductMode("community");
+        else if (productMode === "repo") selectProductMode("community");
         selectSurface("channels");
         applyChannelFilter();
         if (feed) feed.scrollTop = 0;
@@ -1146,7 +1886,7 @@ function communityRuntime(): string {
         const commentNote = issue.comments && issue.comments.length
           ? " · " + issue.comments.length + " comment" + (issue.comments.length === 1 ? "" : "s")
           : "";
-        return '<li class="feed-message" data-message data-channel="' + channel + '" data-message-id="' + escapeHtml(id) + '" data-feed-item-source="api" data-issue-id="' + escapeHtml(issue.id) + '">'
+        return '<li class="feed-message" data-message data-channel="' + channel + '" data-community-id="' + escapeHtml(activeCommunity) + '" data-message-id="' + escapeHtml(id) + '" data-feed-item-source="api" data-issue-id="' + escapeHtml(issue.id) + '">'
           + '<button class="message-hitbox" type="button" data-select-message="' + escapeHtml(id) + '" aria-label="Open signed actions for ' + escapeHtml(issue.title) + '"></button>'
           + '<div class="avatar" aria-hidden="true">' + escapeHtml(initials(issue.author)) + '</div>'
           + '<article class="message-body">'
@@ -1180,7 +1920,7 @@ function communityRuntime(): string {
 
       function renderMessageFromChange(proposal, repo) {
         const id = "change-" + proposal.id;
-        return '<li class="feed-message" data-message data-channel="previews" data-message-id="' + escapeHtml(id) + '" data-feed-item-source="api" data-change-id="' + escapeHtml(proposal.id) + '" data-linked-proposal="' + escapeHtml(proposal.id) + '">'
+        return '<li class="feed-message" data-message data-channel="previews" data-community-id="' + escapeHtml(activeCommunity) + '" data-message-id="' + escapeHtml(id) + '" data-feed-item-source="api" data-change-id="' + escapeHtml(proposal.id) + '" data-linked-proposal="' + escapeHtml(proposal.id) + '">'
           + '<button class="message-hitbox" type="button" data-select-message="' + escapeHtml(id) + '" aria-label="Open signed actions for ' + escapeHtml(proposal.title) + '"></button>'
           + '<div class="avatar" aria-hidden="true">' + escapeHtml(initials(proposal.author)) + '</div>'
           + '<article class="message-body">'
@@ -1227,14 +1967,34 @@ function communityRuntime(): string {
       }
 
       function updateRepositoryMeta(repo) {
-        const meta = document.querySelector(".repository-meta");
+        const meta = document.querySelector("[data-header-meta]");
         if (!meta) return;
+        if (productMode === "network") {
+          const count = (state.devFeedItems || []).length;
+          const parts = [count + " events", "network", live() ? "atproto:live" : "atproto:snapshot"];
+          meta.innerHTML = parts.map((part, index) =>
+            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
+          ).join("");
+          return;
+        }
+        if (productMode === "community") {
+          const space = currentCommunity();
+          const parts = [
+            (state.communities || []).length + " communities",
+            ((space && space.channels) || []).length + " channels",
+            live() ? "community:live" : "community:snapshot",
+          ];
+          meta.innerHTML = parts.map((part, index) =>
+            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
+          ).join("");
+          return;
+        }
         const parts = [
           repo.visibility || "public",
           (repo.maintainers || []).length + " maintainer" + ((repo.maintainers || []).length === 1 ? "" : "s"),
           (repo.issues || []).length + " issues",
           (repo.changeProposals || []).length + " changes",
-          live() ? "feed:live" : "feed:snapshot",
+          live() ? "project:live" : "project:snapshot",
         ];
         meta.innerHTML = parts.map((part, index) =>
           (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true">·</span>') + "<span>" + escapeHtml(part) + "</span>"
@@ -1242,17 +2002,86 @@ function communityRuntime(): string {
       }
 
       function renderRepository(repo) {
-        state.repositories = [repo];
+        // Preserve multi-repo list; refresh the active slug in place when possible.
+        const repos = Array.isArray(state.repositories) ? state.repositories.slice() : [];
+        const idx = repos.findIndex((item) => item.slug === repo.slug);
+        if (idx >= 0) repos[idx] = repo;
+        else repos[0] = repo;
+        state.repositories = repos;
         state.feedSource = live() ? "api" : state.feedSource;
         if (shell) {
           shell.dataset.feedSource = state.feedSource;
           shell.dataset.apiState = live() ? "connected" : "offline";
         }
-        if (connectionLabel) connectionLabel.textContent = live() ? "Live" : "Snapshot";
+        if (connectionLabel) {
+          connectionLabel.textContent = live()
+            ? (productMode === "feed" ? "Live · ATProto" : "Live")
+            : "Snapshot · ATProto";
+        }
         if (feed) {
+          // Preserve community-owned social messages (no repo required); refresh forge-backed rows.
+          const social = (state.conversations || []).filter((item) =>
+            item.channel === "general" || item.channel === "showcase" || (item.id && String(item.id).indexOf("issue-") !== 0 && String(item.id).indexOf("change-") !== 0 && !item.repositorySlug),
+          );
+          const socialHtml = social.map((item) => {
+            const hidden = (item.communityId && item.communityId !== activeCommunity) || item.channel !== activeChannel ? " hidden" : "";
+            return '<li class="feed-message" data-message data-channel="' + escapeHtml(item.channel)
+              + '" data-community-id="' + escapeHtml(item.communityId || activeCommunity)
+              + '" data-message-id="' + escapeHtml(item.id) + '" data-feed-item-source="' + escapeHtml(item.source || "api") + '"' + hidden + '>'
+              + '<button class="message-hitbox" type="button" data-select-message="' + escapeHtml(item.id) + '" aria-label="Open signed actions for ' + escapeHtml(item.title) + '"></button>'
+              + '<div class="avatar" aria-hidden="true">' + escapeHtml(initials(item.author)) + '</div>'
+              + '<article class="message-body"><header class="message-meta"><strong>' + escapeHtml(item.author) + '</strong><span>' + escapeHtml(item.role || "member") + '</span><time>' + escapeHtml(item.time || "now") + '</time><span data-message-state>' + escapeHtml(item.state || "open") + '</span></header>'
+              + '<h2>' + escapeHtml(item.title) + '</h2><p>' + escapeHtml(item.body || "") + '</p>'
+              + '<footer class="message-footer"><span>' + escapeHtml(item.anchor || "") + '</span><span>' + escapeHtml(item.signature || "") + '</span><span>community</span></footer>'
+              + '<div class="reaction-row">' + (item.reactions || []).map((reaction) => '<button type="button" class="reaction" data-reaction="' + escapeHtml(reaction) + '">' + escapeHtml(reaction) + '</button>').join("") + '</div>'
+              + '<div class="message-action-tray" data-message-actions hidden><p class="action-status" data-action-status>Community channel message.</p></div></article></li>';
+          }).join("");
           const issueHtml = (repo.issues || []).map((issue) => renderMessageFromIssue(issue, repo)).join("");
           const changeHtml = (repo.changeProposals || []).map((proposal) => renderMessageFromChange(proposal, repo)).join("");
-          feed.innerHTML = issueHtml + changeHtml;
+          // Merge issue/change conversations back into state for channel counts.
+          const spaces = state.communities || [];
+          const communityId = activeCommunity;
+          const issueConvos = (repo.issues || []).map((issue) => ({
+            id: "issue-" + issue.id,
+            channel: channelForLabels(issue.labels || []),
+            communityId,
+            repositorySlug: repo.slug,
+            author: issue.author,
+            role: "contributor",
+            title: issue.title,
+            body: issue.body || "",
+            time: "live",
+            anchor: "issue:" + issue.id,
+            signature: "sig:" + String(issue.id).toLowerCase(),
+            visibility: "community",
+            state: issue.status,
+            reactions: ["reply", "follow"],
+            source: "api",
+          }));
+          const changeConvos = (repo.changeProposals || []).map((proposal) => ({
+            id: "change-" + proposal.id,
+            channel: "previews",
+            communityId,
+            repositorySlug: repo.slug,
+            author: proposal.author,
+            role: "contributor",
+            title: proposal.title,
+            body: proposal.body || "",
+            time: "live",
+            anchor: "change:" + proposal.id,
+            signature: "sig:" + String(proposal.id).toLowerCase(),
+            visibility: "community",
+            state: proposal.status,
+            reactions: ["review", "preview"],
+            linkedProposalId: proposal.id,
+            source: "api",
+          }));
+          const retained = (state.conversations || []).filter((item) =>
+            !(item.repositorySlug === repo.slug && (String(item.id).indexOf("issue-") === 0 || String(item.id).indexOf("change-") === 0)),
+          );
+          state.conversations = retained.concat(issueConvos, changeConvos);
+          feed.innerHTML = socialHtml + issueHtml + changeHtml;
+          void spaces;
         }
         if (issueList) {
           issueList.innerHTML = (repo.issues || []).length
@@ -1266,7 +2095,8 @@ function communityRuntime(): string {
         }
         updateChannelCounts(repo);
         updateRepositoryMeta(repo);
-        applyChannelFilter();
+        if (productMode === "community" || productMode === "repo") applyChannelFilter();
+        if (productMode === "community") renderCommunityChannels();
         if (selectedMessage) selectMessage(selectedMessage);
       }
 
@@ -1321,11 +2151,13 @@ function communityRuntime(): string {
           item.className = "feed-message";
           item.dataset.message = "";
           item.dataset.channel = activeChannel;
+          item.dataset.communityId = activeCommunity;
           item.dataset.messageId = id;
           item.dataset.feedItemSource = "snapshot";
           item.innerHTML = '<div class="avatar" aria-hidden="true">MY</div><article class="message-body"><header class="message-meta"><strong>maya</strong><span>maintainer</span><time>now</time><span>local only</span></header><h2>Local note</h2><p></p><footer class="message-footer"><span>anchor:composer</span><span>sig:pending-local</span><span>community</span></footer></article>';
           item.querySelector("p").textContent = body;
           feed.append(item);
+          applyChannelFilter();
           return;
         }
 
@@ -1480,16 +2312,53 @@ function communityRuntime(): string {
         }
       }
 
+      document.querySelectorAll("button[data-product-mode]").forEach((button) => {
+        button.addEventListener("click", () => selectProductMode(button.dataset.productMode || "community"));
+      });
+      document.querySelectorAll("[data-feed-tab]").forEach((button) => {
+        button.addEventListener("click", () => renderDevFeedTab(button.dataset.feedTab || "following"));
+      });
+      document.querySelectorAll("[data-open-community]").forEach((button) => {
+        button.addEventListener("click", () => openCommunity(button.dataset.openCommunity || activeCommunity));
+      });
+      document.querySelectorAll("[data-open-repo]").forEach((button) => {
+        button.addEventListener("click", () => openRepository(button.dataset.openRepo || activeRepo));
+      });
       document.querySelectorAll("[data-surface]").forEach((button) => {
-        button.addEventListener("click", () => selectSurface(button.dataset.surface || "channels"));
+        button.addEventListener("click", () => {
+          if (productMode !== "repo") selectProductMode("repo");
+          selectSurface(button.dataset.surface || "issues");
+        });
       });
       document.querySelectorAll("[data-channel][aria-pressed]").forEach((button) => {
-        button.addEventListener("click", () => selectChannel(button.dataset.channel || "ideas"));
+        button.addEventListener("click", () => selectChannel(button.dataset.channel || "general"));
       });
 
       document.addEventListener("click", async (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
+
+        const feedCommunity = target.closest("[data-feed-open-community]");
+        if (feedCommunity) {
+          event.preventDefault();
+          openCommunity(feedCommunity.getAttribute("data-feed-open-community") || activeCommunity);
+          const channel = feedCommunity.getAttribute("data-feed-channel");
+          if (channel) selectChannel(channel);
+          return;
+        }
+
+        const feedOpen = target.closest("[data-feed-open-repo]");
+        if (feedOpen) {
+          event.preventDefault();
+          const channel = feedOpen.getAttribute("data-feed-channel");
+          if (channel) {
+            selectProductMode("community");
+            selectChannel(channel);
+          } else {
+            openRepository(feedOpen.getAttribute("data-feed-open-repo") || activeRepo);
+          }
+          return;
+        }
 
         const reviewButton = target.closest("[data-review-change]");
         if (reviewButton) {
@@ -1497,6 +2366,7 @@ function communityRuntime(): string {
           try {
             const updated = await postReview(reviewButton.getAttribute("data-review-change"), "approved");
             renderRepository(updated);
+            if (productMode !== "repo") selectProductMode("repo");
             selectSurface("changes");
           } catch (error) {
             console.error(error);
@@ -1559,7 +2429,7 @@ function communityRuntime(): string {
         }
       });
 
-      selectSurface("channels");
+      selectProductMode("community");
       if (live() && repository()) {
         refreshRepository().catch((error) => {
           if (connectionLabel) connectionLabel.textContent = "Live · error";
@@ -1573,17 +2443,28 @@ function communityRuntime(): string {
 function communityStyles(): string {
   return `    :root {
       color-scheme: light;
-      --epoch-color-surface: #eef3f1;
-      --epoch-color-surface-raised: #fbfbf8;
-      --epoch-color-ink: #17221f;
-      --epoch-color-muted: #5f6a65;
-      --epoch-color-line: #cad8d2;
-      --epoch-color-accent: #ba5e3f;
-      --epoch-color-accent-strong: #843927;
-      --epoch-color-teal: #2f7370;
-      --epoch-color-mint: #d8ece5;
-      --epoch-color-gold: #d8b765;
-      --epoch-shadow-low: 0 1px 0 rgba(23, 34, 31, 0.04);
+      --epoch-color-primary: #0f1614;
+      --epoch-color-surface: #f3f6f4;
+      --epoch-color-surface-raised: #ffffff;
+      --epoch-color-surface-sunken: #e8eeeb;
+      --epoch-color-ink: #0f1614;
+      --epoch-color-muted: #5c6762;
+      --epoch-color-line: #d7e0db;
+      --epoch-color-accent: #b4532f;
+      --epoch-color-accent-strong: #8f3f28;
+      --epoch-color-teal: #2a6f6c;
+      --epoch-color-mint: #d5ebe3;
+      --epoch-color-gold: #c9a24a;
+      --epoch-color-rail: #101714;
+      --epoch-color-rail-text: #d7e2dc;
+      --epoch-color-rail-muted: #8fa099;
+      --epoch-color-rail-hover: #1a2420;
+      --epoch-color-rail-active: #24322c;
+      --epoch-color-success: #1a5c3e;
+      --epoch-color-warning-bg: #fff6df;
+      --epoch-color-warning-ink: #5b4420;
+      --epoch-shadow-low: 0 1px 0 rgba(15, 22, 20, 0.04);
+      --epoch-radius-xs: 2px;
       --epoch-radius-sm: 4px;
       --epoch-radius-md: 8px;
       --epoch-space-1: 0.5rem;
@@ -1647,21 +2528,66 @@ function communityStyles(): string {
 
     .channel-rail {
       display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
-      gap: 0.75rem;
-      padding: 0.85rem 0.65rem;
-      border-inline-end: 1px solid #24302b;
-      background: var(--epoch-color-ink);
-      color: #e8efe9;
+      grid-template-rows: auto auto auto auto 1fr auto;
+      gap: 0.55rem;
+      padding: 0.75rem 0.55rem;
+      border-inline-end: 1px solid #1c2622;
+      background: var(--epoch-color-rail);
+      color: var(--epoch-color-rail-text);
       overflow: hidden;
+    }
+    .rail-section-label {
+      padding: 0.35rem 0.55rem 0.1rem;
+      color: var(--epoch-color-rail-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .community-list,
+    .repo-list {
+      display: grid;
+      align-content: start;
+      gap: 0.1rem;
+      min-width: 0;
+      max-height: 7.5rem;
+      overflow-y: auto;
+    }
+    .community-workspace-chrome {
+      display: grid;
+      gap: 0.4rem;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .community-workspace-chrome .channel-list {
+      max-height: 14rem;
+      overflow-y: auto;
+    }
+    .product-mode-list {
+      border-block-end: 1px solid #1c2622;
+      padding-block-end: 0.4rem;
+    }
+    .community-button[aria-pressed="true"]::before,
+    .channel-button[aria-pressed="true"]::before {
+      content: "";
+      position: absolute;
+      inset-block: 0.35rem;
+      inset-inline-start: 0;
+      width: 2px;
+      border-radius: 1px;
+      background: var(--epoch-color-accent);
+    }
+    .repo-surface-list {
+      border-block-start: 1px solid #1c2622;
+      padding-block-start: 0.35rem;
     }
 
     .brand {
       display: grid;
       grid-template-columns: auto 1fr;
-      gap: 0.6rem;
+      gap: 0.55rem;
       align-items: center;
-      padding: 0.25rem 0.4rem;
+      padding: 0.2rem 0.4rem 0.35rem;
       color: inherit;
     }
     .brand-mark {
@@ -1669,21 +2595,23 @@ function communityStyles(): string {
       place-items: center;
       width: 1.85rem;
       height: 1.85rem;
-      border-radius: 3px;
-      background: #315347;
-      color: #eef6f1;
+      border-radius: var(--epoch-radius-sm);
+      background: #1f3d34;
+      color: #e8f3ee;
       font-size: 0.68rem;
       font-weight: 750;
+      letter-spacing: -0.02em;
     }
     .brand-text { display: grid; gap: 0.05rem; min-width: 0; }
     .brand-name {
-      font-size: 0.95rem;
-      font-weight: 750;
+      font-size: 0.92rem;
+      font-weight: 700;
       line-height: 1.1;
+      letter-spacing: -0.01em;
     }
     .brand-sub {
-      color: #9aaba2;
-      font-size: 0.75rem;
+      color: var(--epoch-color-rail-muted);
+      font-size: 0.72rem;
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1694,44 +2622,45 @@ function communityStyles(): string {
     .channel-list {
       display: grid;
       align-content: start;
-      gap: 0.15rem;
+      gap: 0.1rem;
       min-width: 0;
     }
     .channel-list { overflow-y: auto; }
     .surface-button,
     .channel-button {
+      position: relative;
       display: flex;
       width: 100%;
-      min-height: 1.9rem;
+      min-height: 2rem;
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
-      padding: 0.28rem 0.5rem;
+      padding: 0.3rem 0.55rem;
       border: 0;
-      border-radius: 3px;
+      border-radius: var(--epoch-radius-sm);
       background: transparent;
-      color: #b7c3bc;
+      color: var(--epoch-color-rail-muted);
       cursor: pointer;
       font: inherit;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 500;
       text-align: start;
     }
     .surface-button:hover,
     .channel-button:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #f0f4f1;
+      background: var(--epoch-color-rail-hover);
+      color: var(--epoch-color-rail-text);
     }
     .surface-button[aria-pressed="true"],
     .channel-button[aria-pressed="true"] {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--epoch-color-rail-active);
       color: #fff;
-      font-weight: 600;
+      font-weight: 650;
     }
     .surface-list {
-      padding-block-end: 0.45rem;
-      margin-block-end: 0.15rem;
-      border-block-end: 1px solid #2a3831;
+      padding-block-end: 0.4rem;
+      margin-block-end: 0.1rem;
+      border-block-end: 1px solid #1c2622;
     }
     .channel-button-label {
       min-width: 0;
@@ -1742,31 +2671,31 @@ function communityStyles(): string {
     .channel-count {
       flex: 0 0 auto;
       min-width: 1.25rem;
-      color: #9aaba2;
-      font-size: 0.75rem;
+      color: var(--epoch-color-rail-muted);
+      font-size: 0.72rem;
       font-variant-numeric: tabular-nums;
       text-align: end;
     }
     .surface-button[aria-pressed="true"] .channel-count,
     .channel-button[aria-pressed="true"] .channel-count {
-      color: #d5e0d9;
+      color: #c5d2cb;
     }
 
     .rail-status {
       display: flex;
       align-items: center;
       gap: 0.4rem;
-      padding: 0.35rem 0.55rem;
-      color: #9aaba2;
-      font-size: 0.78rem;
+      padding: 0.4rem 0.55rem;
+      color: var(--epoch-color-rail-muted);
+      font-size: 0.76rem;
       font-weight: 600;
-      border-block-start: 1px solid #2a3831;
+      border-block-start: 1px solid #1c2622;
     }
     .status-dot {
-      width: 0.5rem;
-      height: 0.5rem;
+      width: 0.45rem;
+      height: 0.45rem;
       border-radius: 50%;
-      background: #69d391;
+      background: var(--epoch-color-success);
     }
     .status-dot-muted { background: var(--epoch-color-gold); }
 
@@ -1783,7 +2712,7 @@ function communityStyles(): string {
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      padding: 0.7rem 1.15rem;
+      padding: 0.65rem 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
     }
@@ -1794,12 +2723,13 @@ function communityStyles(): string {
       color: var(--epoch-color-ink);
       font-size: 1.05rem;
       font-weight: 700;
-      line-height: 1.25;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
     }
     .feed-repo {
       margin: 0.1rem 0 0;
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     }
     .repository-meta {
@@ -1810,7 +2740,7 @@ function communityStyles(): string {
       gap: 0.35rem;
       max-width: 28rem;
       color: var(--epoch-color-muted);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 500;
       line-height: 1.3;
       text-align: end;
@@ -1822,17 +2752,17 @@ function communityStyles(): string {
 
     .api-banner {
       margin: 0;
-      padding: 0.55rem 1.15rem;
+      padding: 0.5rem 1.15rem;
       border-block-end: 1px solid #e0c991;
-      background: #fff4cf;
-      color: #5b4420;
-      font-size: 0.84rem;
+      background: var(--epoch-color-warning-bg);
+      color: var(--epoch-color-warning-ink);
+      font-size: 0.82rem;
       font-weight: 650;
     }
     .api-banner-live {
       border-block-end-color: #b7d8c8;
       background: var(--epoch-color-mint);
-      color: #1f4a38;
+      color: #1a4a3c;
     }
 
     .feed-toolbar {
@@ -1840,20 +2770,21 @@ function communityStyles(): string {
       align-items: baseline;
       gap: 0.75rem;
       min-width: 0;
-      padding: 0.65rem 1.15rem;
+      padding: 0.55rem 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
     }
     .channel-name {
       flex: 0 0 auto;
       color: var(--epoch-color-ink);
-      font-size: 0.98rem;
-      font-weight: 750;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
     }
     .channel-topic {
       min-width: 0;
       color: var(--epoch-color-muted);
-      font-size: 0.86rem;
+      font-size: 0.84rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1868,10 +2799,157 @@ function communityStyles(): string {
     .surface-stage:has(.artifact-list) {
       grid-template-rows: auto minmax(0, 1fr);
     }
+    .surface-stage[data-surface-panel="network"] {
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .feed-tabs {
+      display: flex;
+      gap: 0.15rem;
+      padding: 0.45rem 1.15rem 0;
+      border-block-end: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
+    }
+    .feed-tab {
+      appearance: none;
+      border: 0;
+      border-block-end: 2px solid transparent;
+      background: transparent;
+      color: var(--epoch-color-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 600;
+      padding: 0.55rem 0.7rem;
+    }
+    .feed-tab:hover {
+      color: var(--epoch-color-ink);
+    }
+    .feed-tab[aria-selected="true"] {
+      color: var(--epoch-color-ink);
+      border-block-end-color: var(--epoch-color-accent);
+    }
+
+    .dev-feed {
+      margin: 0;
+      padding: 0.25rem 0 1rem;
+      overflow-y: auto;
+      list-style: none;
+    }
+    .dev-feed-item {
+      display: grid;
+      grid-template-columns: 2.15rem minmax(0, 1fr);
+      gap: 0.6rem;
+      padding: 0.55rem 1.15rem;
+      border-block-end: 1px solid var(--epoch-color-line);
+    }
+    .dev-feed-item:hover {
+      background: var(--epoch-color-surface);
+    }
+    .dev-feed-item:last-child {
+      border-block-end: 0;
+    }
+    .dev-feed-empty {
+      display: block;
+      color: var(--epoch-color-muted);
+      font-weight: 600;
+    }
+    .dev-feed-body {
+      display: grid;
+      gap: 0.28rem;
+      min-width: 0;
+    }
+    .dev-feed-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem;
+      color: var(--epoch-color-muted);
+      font-size: 0.82rem;
+    }
+    .dev-feed-handle {
+      color: var(--epoch-color-ink);
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .dev-feed-verb {
+      color: var(--epoch-color-muted);
+      font-weight: 500;
+    }
+    .dev-feed-object,
+    .dev-feed-object-text {
+      color: var(--epoch-color-teal);
+      font-weight: 700;
+    }
+    .dev-feed-object {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      color: var(--epoch-color-teal);
+      padding: 0;
+      text-align: start;
+    }
+    .dev-feed-object:hover {
+      color: var(--epoch-color-accent-strong);
+      text-decoration: underline;
+    }
+    .dev-feed-meta time {
+      margin-inline-start: auto;
+      font-variant-numeric: tabular-nums;
+    }
+    .dev-feed-body p {
+      max-width: 70ch;
+      margin: 0;
+      color: #2d3531;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .dev-feed-trust {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      color: var(--epoch-color-muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.7rem;
+    }
+    .dev-feed-trust span + span::before {
+      content: "·";
+      margin-inline-end: 0.35rem;
+      color: #a0aaa4;
+    }
+    .dev-feed-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-block-start: 0.1rem;
+    }
+    .dev-feed-action {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.7rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 0.15rem 0.55rem;
+    }
+    .dev-feed-action:hover {
+      border-color: var(--epoch-color-ink);
+      background: var(--epoch-color-surface);
+    }
 
     .message-feed {
       margin: 0;
-      padding: 0.35rem 0 0.75rem;
+      padding: 0.25rem 0 0.5rem;
       overflow-y: auto;
       list-style: none;
     }
@@ -1879,17 +2957,17 @@ function communityStyles(): string {
     .feed-message {
       position: relative;
       display: grid;
-      grid-template-columns: 2.25rem minmax(0, 1fr);
-      gap: 0.65rem;
-      padding: 0.45rem 1.15rem;
+      grid-template-columns: 2.15rem minmax(0, 1fr);
+      gap: 0.6rem;
+      padding: 0.4rem 1.15rem;
       border-block: 1px solid transparent;
     }
     .feed-message:hover {
-      background: #f5f2eb;
+      background: var(--epoch-color-surface);
       border-block-color: transparent;
     }
     .feed-message[data-selected-message="true"] {
-      background: #ebe6db;
+      background: var(--epoch-color-surface-sunken);
     }
 
     .message-hitbox {
@@ -1904,12 +2982,12 @@ function communityStyles(): string {
       position: relative;
       z-index: 1;
       display: grid;
-      width: 2.15rem;
-      height: 2.15rem;
+      width: 2.1rem;
+      height: 2.1rem;
       place-items: center;
-      border-radius: 3px;
-      background: #315347;
-      color: #eef6f1;
+      border-radius: var(--epoch-radius-sm);
+      background: #1f3d34;
+      color: #e8f3ee;
       font-size: 0.68rem;
       font-weight: 700;
     }
@@ -1917,7 +2995,7 @@ function communityStyles(): string {
       position: relative;
       z-index: 1;
       display: grid;
-      gap: 0.28rem;
+      gap: 0.22rem;
       min-width: 0;
       pointer-events: none;
     }
@@ -1930,39 +3008,42 @@ function communityStyles(): string {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
     }
     .message-meta {
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: 0.76rem;
     }
     .message-meta strong {
       color: var(--epoch-color-ink);
       font-size: 0.9rem;
       font-weight: 700;
+      letter-spacing: -0.01em;
     }
     .message-body h2 {
       margin: 0;
       color: var(--epoch-color-ink);
-      font-size: 0.98rem;
+      font-size: 0.95rem;
       font-weight: 700;
       line-height: 1.3;
+      letter-spacing: -0.01em;
     }
     .message-body p {
       max-width: 70ch;
       margin: 0;
-      color: #3a423d;
+      color: #2d3531;
       font-size: 0.94rem;
       line-height: 1.5;
     }
     .message-footer {
       color: var(--epoch-color-muted);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
+      opacity: 0.92;
     }
     .message-footer span + span::before {
       content: "·";
-      margin-inline-end: 0.4rem;
+      margin-inline-end: 0.35rem;
       color: #a0aaa4;
     }
     [data-proposal-link] {
@@ -1971,16 +3052,16 @@ function communityStyles(): string {
     }
     [data-snapshot-badge] {
       border: 1px solid #d4c49a;
-      border-radius: 2px;
-      background: #f7f0d8;
-      color: #5b4420;
-      font-size: 0.7rem;
+      border-radius: var(--epoch-radius-xs);
+      background: var(--epoch-color-warning-bg);
+      color: var(--epoch-color-warning-ink);
+      font-size: 0.68rem;
       font-weight: 600;
       padding: 0.05rem 0.3rem;
     }
     .reaction-row {
-      gap: 0.3rem;
-      margin-top: 0.2rem;
+      gap: 0.28rem;
+      margin-top: 0.15rem;
     }
     .reaction {
       display: inline-flex;
@@ -1992,20 +3073,18 @@ function communityStyles(): string {
       color: var(--epoch-color-ink);
       cursor: pointer;
       font: inherit;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 600;
-      padding: 0.15rem 0.5rem;
+      padding: 0.12rem 0.45rem;
       pointer-events: auto;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
     }
     .reaction:hover {
-      border-color: #a8b8b0;
-      background: #fff;
+      border-color: #b0bfb7;
+      background: var(--epoch-color-surface);
       color: var(--epoch-color-ink);
     }
     .reaction:active {
-      background: var(--epoch-color-surface);
-      box-shadow: none;
+      background: var(--epoch-color-surface-sunken);
     }
     .reaction:focus-visible {
       outline: 2px solid var(--epoch-color-accent);
@@ -2014,29 +3093,30 @@ function communityStyles(): string {
 
     .message-action-tray {
       display: grid;
-      gap: 0.55rem;
-      margin-block-start: 0.35rem;
-      padding: 0.6rem 0.65rem;
+      gap: 0.5rem;
+      margin-block-start: 0.3rem;
+      padding: 0.55rem 0.6rem;
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
-      background: #faf8f3;
+      background: var(--epoch-color-surface);
     }
     .message-action-tray dl {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.55rem;
+      gap: 0.5rem;
       margin: 0;
     }
     .message-action-tray dt {
       color: var(--epoch-color-muted);
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.02em;
     }
     .message-action-tray dd {
-      margin: 0.15rem 0 0;
+      margin: 0.12rem 0 0;
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       word-break: break-word;
     }
     .message-action-tray button,
@@ -2051,23 +3131,23 @@ function communityStyles(): string {
       color: #fff;
       cursor: pointer;
       font: inherit;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 600;
-      padding: 0.35rem 0.7rem;
+      padding: 0.3rem 0.7rem;
     }
     .message-action-tray button:hover,
     .composer button:hover {
-      filter: brightness(1.08);
+      background: var(--epoch-color-accent-strong);
+      border-color: var(--epoch-color-accent-strong);
     }
     .message-action-tray button:active,
     .composer button:active {
       filter: brightness(0.96);
     }
     .message-action-tray button:not([data-action="intent"]) {
-      border-color: #9eaea5;
-      background: #fff;
+      border-color: #b0bfb7;
+      background: var(--epoch-color-surface-raised);
       color: var(--epoch-color-ink);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
     }
     .message-action-tray button:not([data-action="intent"]):hover {
       border-color: var(--epoch-color-ink);
@@ -2076,28 +3156,30 @@ function communityStyles(): string {
     }
     .message-action-tray button[data-action="intent"] {
       background: var(--epoch-color-teal);
-      border-color: #275f5c;
+      border-color: #215955;
     }
     .message-action-tray button[data-action="intent"]:hover {
-      background: #356f6c;
+      background: #32807c;
+      border-color: #215955;
       filter: none;
     }
     .action-status {
       margin: 0;
       color: var(--epoch-color-muted);
-      font-size: 0.84rem;
+      font-size: 0.82rem;
     }
 
     .composer {
       display: grid;
       gap: 0.35rem;
-      padding: 0.65rem 1.15rem 0.85rem;
+      padding: 0.7rem 1.15rem 0.9rem;
       border-block-start: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
+      box-shadow: var(--epoch-shadow-low);
     }
     .composer-label {
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 600;
     }
     .composer textarea {
@@ -2106,11 +3188,16 @@ function communityStyles(): string {
       resize: vertical;
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
-      background: #fff;
+      background: var(--epoch-color-surface-raised);
       color: var(--epoch-color-ink);
       font: inherit;
       line-height: 1.45;
-      padding: 0.55rem 0.65rem;
+      padding: 0.55rem 0.7rem;
+    }
+    .composer textarea:focus {
+      border-color: var(--epoch-color-accent);
+      outline: 2px solid color-mix(in srgb, var(--epoch-color-accent) 35%, transparent);
+      outline-offset: 0;
     }
     .composer-row {
       display: flex;
@@ -2118,26 +3205,26 @@ function communityStyles(): string {
       justify-content: space-between;
       gap: 0.75rem;
       color: var(--epoch-color-muted);
-      font-size: 0.76rem;
+      font-size: 0.74rem;
     }
     .composer button {
-      min-height: 1.9rem;
-      padding: 0.3rem 0.7rem;
-      font-size: 0.82rem;
+      min-height: 2rem;
+      padding: 0.3rem 0.85rem;
+      font-size: 0.8rem;
     }
 
     .artifact-list {
       margin: 0;
-      padding: 0.75rem 1.15rem 1rem;
+      padding: 0.65rem 1.15rem 1rem;
       overflow-y: auto;
       list-style: none;
       display: grid;
       align-content: start;
-      gap: 0.45rem;
+      gap: 0;
     }
     .artifact-item {
       display: grid;
-      gap: 0.12rem;
+      gap: 0.1rem;
       padding: 0.55rem 0;
       border-block-end: 1px solid var(--epoch-color-line);
       background: transparent;
@@ -2148,35 +3235,36 @@ function communityStyles(): string {
     .artifact-id {
       color: var(--epoch-color-teal);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 700;
     }
     .artifact-item strong {
       color: var(--epoch-color-ink);
-      font-size: 0.94rem;
+      font-size: 0.92rem;
     }
     .artifact-meta,
     .artifact-labels {
       color: var(--epoch-color-muted);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
     }
     .artifact-empty {
       color: var(--epoch-color-muted);
       font-weight: 600;
     }
     .artifact-actions {
-      margin-top: 0.35rem;
+      margin-top: 0.3rem;
     }
     .thread-comments {
       display: grid;
-      gap: 0.35rem;
-      margin: 0.2rem 0 0.1rem;
-      padding: 0.45rem 0.55rem;
+      gap: 0.3rem;
+      margin: 0.15rem 0 0.05rem;
+      padding: 0.4rem 0.55rem;
       border-left: 2px solid var(--epoch-color-line);
       background: var(--epoch-color-surface);
+      border-radius: 0 var(--epoch-radius-sm) var(--epoch-radius-sm) 0;
     }
     .thread-comment {
-      color: #3a423d;
+      color: #2d3531;
       font-size: 0.86rem;
       line-height: 1.4;
     }
@@ -2187,21 +3275,21 @@ function communityStyles(): string {
     }
 
     #community-content section[aria-label="Epoch site history"] {
-      margin: 0.75rem 1.15rem 1rem;
-      padding: 0.75rem 0.85rem;
+      margin: 0.65rem 1.15rem 1rem;
+      padding: 0.7rem 0.85rem;
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-md);
       background: var(--epoch-color-mint);
     }
     #community-content section[aria-label="Epoch site history"] h2 {
       margin: 0 0 0.3rem;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
     }
     #community-content section[aria-label="Epoch site history"] p,
     #community-content section[aria-label="Epoch site history"] dl {
       margin: 0;
-      color: #3a423d;
-      font-size: 0.84rem;
+      color: #2d3531;
+      font-size: 0.82rem;
     }
 
     @media (max-width: 800px) {
@@ -2212,7 +3300,7 @@ function communityStyles(): string {
       }
       .channel-rail {
         border-inline-end: 0;
-        border-block-end: 1px solid #24302b;
+        border-block-end: 1px solid #1c2622;
       }
       .channel-list { max-height: 10rem; }
       .feed-shell { min-height: 70vh; }

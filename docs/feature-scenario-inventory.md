@@ -14,6 +14,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
 | `features/community_web_experience.feature` | 5 |
+| `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
 | `features/merge.feature` | 7 |
@@ -63,6 +64,11 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer requests an agent from a selected conversation | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor adds a unified signed comment to the current channel | None | 0 |
 | `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Moderator reports a selected conversation for legal hold | None | 0 |
+| `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Valid mutual binding verifies without trusting the index | None | 0 |
+| `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Rollback after revocation is rejected | None | 0 |
+| `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Mix-and-match plane proofs fail closed | None | 0 |
+| `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Agent attestation is scoped expiring and rate-limited | None | 0 |
+| `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Protocol-shaped AT proof rejects tampering | None | 0 |
 | `features/crdt_log.feature` | `@persona.github_open_source_contributor` | Scenario | Offline agents converge independent map updates after sync | None | 0 |
 | `features/crdt_log.feature` | `@persona.github_open_source_contributor` | Scenario | One actor can append repeated map updates to the same CRDT entity | None | 0 |
 | `features/crdt_log.feature` | `@persona.github_open_source_contributor` | Scenario | Offline agents converge concurrent text inserts after sync | None | 0 |

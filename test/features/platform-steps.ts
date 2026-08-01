@@ -196,7 +196,7 @@ Then("the Community browser exposes the Epoch Community design system", async fu
       .getPropertyValue("--epoch-color-surface")
       .trim(),
   );
-  assert.equal(surfaceToken, "#eef3f1");
+  assert.equal(surfaceToken, "#f3f6f4");
 
   assert.equal(await platformState.page.locator("[data-community-channel-rail]").count(), 1);
   assert.equal(await platformState.page.locator("[data-message-feed]").count(), 1);

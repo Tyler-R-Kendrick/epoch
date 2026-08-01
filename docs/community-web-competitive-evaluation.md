@@ -24,11 +24,11 @@
 
 ### Intent (strong)
 
-- Channel-first social workspace for a project (not a GitHub clone).
-- Channels: `support`, `ideas`, `bugs`, `agent-runs`, `previews`, `governance`.
+- **Dual-plane:** Dev Feed home (ATProto-observed follows/stars/creates/releases + contributions) and Repo Workspace channels (signed intent wedge).
+- Channels: `support`, `ideas`, `bugs`, `agent-runs`, `previews`, `governance` (after selecting a repo).
 - Message selected → action tray: signed anchors, signatures, intent promotion, agent request, docs-patch, accepted answer, moderation.
 - Primary persona: GitHub open-source contributor ([community-human-centered-design.md](community-human-centered-design.md)).
-- Design system: “Signed Civic Workshop” ([DESIGN.md](../DESIGN.md)).
+- Design system: “Signed Civic Workshop” ([DESIGN.md](../DESIGN.md)); feed comparison: [dev-feed-comparison.md](competition/dev-feed-comparison.md).
 
 ### Reality (prototype)
 
@@ -51,7 +51,7 @@
 | Dimension | Wt | Epoch | GitHub | Tangled |
 |---|---:|---:|---:|---:|
 | Contribution workflow maturity | 15% | **3** | **10** | **7** |
-| Social discovery & network effects | 12% | **2** | **10** | **8** |
+| Social discovery & network effects | 12% | **5** | **10** | **8** |
 | Trust, provenance, auditability | 15% | **7** | **5** | **6** |
 | Offline / degraded / self-host | 12% | **6** | **2** | **7** |
 | Agent-native collaboration UX | 12% | **7** | **5** | **3** |
@@ -70,8 +70,8 @@
 
 | | GitHub | Tangled | Epoch Community Web |
 |---|---|---|---|
-| Metaphor | Repo forge + social proof | Social feed + decentralized forge | **Project channels** |
-| Home | Repo / dashboard / explore | Timeline (stars/follows/creates) | **#ideas feed** |
+| Metaphor | Repo forge + social proof | Social feed + decentralized forge | **Communities (Discord-like) + network feed + linked projects** |
+| Home | Repo / dashboard / explore | Timeline (stars/follows/creates) | **Community channels** (`#general`…) with Network Feed discovery |
 | Unit of work | Issue / PR | Issue / PR / star / follow | **Message → intent / agent / mod** |
 | Code plane | Git hosting | Git on knots | Epoch events (+ Git proxy elsewhere) |
 | Identity | GitHub account | AT DID / handle | Signed authors; AT not in Web UX yet |

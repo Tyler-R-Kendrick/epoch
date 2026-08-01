@@ -1,0 +1,68 @@
+{
+  "lexicon": 1,
+  "id": "org.epoch.identity.binding",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Mutual Nostr↔ATProto identity binding record (Epoch Identity Bridge v2). Record key (rkey) is the Nostr pubkey hex.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": [
+          "epochAuthorId",
+          "nostrPubkey",
+          "bindingNonce",
+          "bindingVersion",
+          "seqno",
+          "revoked",
+          "createdAt"
+        ],
+        "properties": {
+          "epochAuthorId": {
+            "type": "string",
+            "description": "Epoch author id (same as Nostr epoch-author tag)."
+          },
+          "nostrPubkey": {
+            "type": "string",
+            "description": "Nostr hex pubkey (64 hex chars)."
+          },
+          "nostrDid": {
+            "type": "string",
+            "description": "Optional did:nostr projection; never required for resolvability."
+          },
+          "bindingNonce": {
+            "type": "string",
+            "description": "32-byte shared nonce as 64 hex characters."
+          },
+          "bindingVersion": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 2
+          },
+          "seqno": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "prevBindingEventId": {
+            "type": "string",
+            "description": "Previous Nostr binding event id at this address."
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "expiration": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "statement": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

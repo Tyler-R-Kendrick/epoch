@@ -2,12 +2,21 @@
 competition_schema: 1
 product_root: docs/competition/products
 generated_by: document-competition
-last_researched: 2026-07-31
+last_researched: 2026-08-01
 ---
 
 # Competition Research
 
 This directory captures competitive research for Epoch in a stable, parseable layout.
+
+Cross-product messaging/social design comparison for Community Web:
+[messaging-social-design-comparison.md](messaging-social-design-comparison.md).
+
+Dev feed / network home comparison (X · Bluesky · Tangled · GitHub):
+[dev-feed-comparison.md](dev-feed-comparison.md).
+
+Community-owned channels comparison (Discord-led):
+[community-channels-comparison.md](community-channels-comparison.md).
 
 ## Paths
 
@@ -24,6 +33,11 @@ gossip-path: <product-path>/gossip.md
 
 | Product | Primary Competitive Angle | Profile | Design | Features | Marketing | Gossip |
 |---|---|---|---|---|---|---|
+| Discord | Community-first servers with channels independent of repositories | [Profile](products/discord/profile.md) | [Design](products/discord/design/design.md) | [Feature](products/discord/features/community-server-channels.feature) | [Marketing](products/discord/marketing.md) | [Gossip](products/discord/gossip.md) |
+| Slack | Channel-first workplace messaging density and composer grammar | [Profile](products/slack/profile.md) | [Design](products/slack/design/design.md) | [Feature](products/slack/features/channel-composer-collaboration.feature) | [Marketing](products/slack/marketing.md) | [Gossip](products/slack/gossip.md) |
+| Telegram | Content-first low-chrome messaging speed | [Profile](products/telegram/profile.md) | [Design](products/telegram/design/design.md) | [Feature](products/telegram/features/fast-content-first-chat.feature) | [Marketing](products/telegram/marketing.md) | [Gossip](products/telegram/gossip.md) |
+| X | High-density public timeline scan and action-row grammar | [Profile](products/x-com/profile.md) | [Design](products/x-com/design/design.md) | [Feature](products/x-com/features/timeline-scan-actions.feature) | [Marketing](products/x-com/marketing.md) | [Gossip](products/x-com/gossip.md) |
+| Bluesky | Soft approachable feed with portable handle identity | [Profile](products/bluesky/profile.md) | [Design](products/bluesky/design/design.md) | [Feature](products/bluesky/features/soft-feed-portable-identity.feature) | [Marketing](products/bluesky/marketing.md) | [Gossip](products/bluesky/gossip.md) |
 | GitHub | Default forge and developer collaboration UX | [Profile](products/github/profile.md) | [Design](products/github/design/design.md) | [Feature](products/github/features/repository-collaboration.feature) | [Marketing](products/github/marketing.md) | [Gossip](products/github/gossip.md) |
 | Cursor Origin | Agent-first Git forge rebuilt for machine-scale parallel commit, clone, review, and AI conflict resolution — the direct GitHub replacement | [Profile](products/cursor-origin/profile.md) | [Design](products/cursor-origin/design/design.md) | [Feature](products/cursor-origin/features/agent-scale-git-forge.feature) | [Marketing](products/cursor-origin/marketing.md) | [Gossip](products/cursor-origin/gossip.md) |
 | GitLab | DevSecOps forge with governed merge requests, CI/CD, security, and AI orchestration | [Profile](products/gitlab/profile.md) | [Design](products/gitlab/design/design.md) | [Feature](products/gitlab/features/merge-request-governance.feature) | [Marketing](products/gitlab/marketing.md) | [Gossip](products/gitlab/gossip.md) |

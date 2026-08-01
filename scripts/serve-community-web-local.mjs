@@ -24,7 +24,13 @@ const api = createInMemoryCommunityApi({
     displayName: "Epoch",
     description: "Event-driven version control for signed, collaborative repository history.",
     maintainers: ["maya"],
-    topics: ["dvcs", "agents", "community"],
+    topics: ["dvcs", "agents", "community", "atproto"],
+  }, {
+    slug: "epoch/community-kit",
+    displayName: "Community Kit",
+    description: "Shared ATProto-facing community templates and feed seeds.",
+    maintainers: ["lea"],
+    topics: ["community", "atproto"],
   }],
 });
 
@@ -42,6 +48,27 @@ await api.openIssue("epoch/epoch", {
   body: "The preview works visually, but tab order jumps from the toolbar to the footer.",
   labels: ["bug"],
 });
+await api.openIssue("epoch/epoch", {
+  id: "IDEA-4",
+  title: "Signed reaction summary on channel headers",
+  author: "sam",
+  body: "Maintainers want a compact count of intents and open reviews without opening each thread.",
+  labels: ["idea"],
+});
+await api.openIssue("epoch/epoch", {
+  id: "IDEA-5",
+  title: "Agent run cards should link back to the originating intent",
+  author: "lea",
+  body: "When an agent posts a run, the message should carry a one-click path to the signed intent and patch preview.",
+  labels: ["idea"],
+});
+await api.openIssue("epoch/epoch", {
+  id: "BUG-18",
+  title: "Composer loses draft when switching channels",
+  author: "ren",
+  body: "Draft text should stick per channel for the session so switching #ideas and #bugs does not discard work.",
+  labels: ["bug"],
+});
 await api.proposeChange("epoch/epoch", {
   id: "CHANGE-12",
   title: "Keep preview cards attached to conversation state",
@@ -49,6 +76,13 @@ await api.proposeChange("epoch/epoch", {
   body: "Preview status should stay attached to the conversation where review happens.",
   sourceView: "maya/preview-card-thread",
   targetView: "main",
+});
+await api.openIssue("epoch/community-kit", {
+  id: "KIT-1",
+  title: "Publish feed verb templates for AppView clients",
+  author: "sam",
+  body: "Standardize follow/star/create/release verb cards for Epoch Dev Feed consumers.",
+  labels: ["idea"],
 });
 
 const apiHandler = createCommunityApiFetchHandler(api);
@@ -117,6 +151,6 @@ server.listen(port, host, () => {
   console.log(`Epoch Community Web (live + seeded) → http://${host}:${port}/community`);
   console.log(`Healthz → http://${host}:${port}/healthz`);
   console.log(`API base → ${apiBaseUrl}`);
-  console.log("Seeded: IDEA-3 (ideas), BUG-17 (bugs), CHANGE-12 (changes/previews)");
+  console.log("Seeded: epoch/epoch + epoch/community-kit; Dev Feed social + contribution events");
   console.log("Writes persist in-process: compose, comment, intent, agent, docs, report, approve");
 });
