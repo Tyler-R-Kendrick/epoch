@@ -101,8 +101,18 @@ function syncBareFromProjection(projectionRoot: string, bareRoot: string): void 
   git(projectionRoot, ["remote", "add", "epoch-bare", bareRoot]);
   try {
     git(projectionRoot, ["push", "--force", "epoch-bare", "HEAD:refs/heads/main"]);
-  } catch {
-    // empty projection: still ensure bare exists
+  } catch (error) {
+    // Empty projection has no commits yet; still ensure bare exists for http-backend.
+    let hasHead = false;
+    try {
+      git(projectionRoot, ["rev-parse", "HEAD"]);
+      hasHead = true;
+    } catch {
+      hasHead = false;
+    }
+    if (hasHead) {
+      throw error;
+    }
   }
   // Allow http fetch without auth.
   execFileSync("git", ["--git-dir", bareRoot, "config", "http.receivepack", "true"], { stdio: "pipe" });

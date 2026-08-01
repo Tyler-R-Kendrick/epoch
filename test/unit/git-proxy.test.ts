@@ -48,6 +48,10 @@ async function smartHttpCloneAndPushWithRealGit(): Promise<void> {
     try {
       const cloneDir = join(root, "clone");
       await gitAsync(["clone", server.gitCloneUrl, cloneDir]);
+      assert.ok(
+        existsSync(join(cloneDir, "hello.txt")),
+        `expected hello.txt after clone from ${server.gitCloneUrl}; bare=${server.bareRoot}`,
+      );
       assert.equal(readFileSync(join(cloneDir, "hello.txt"), "utf8"), "hello-from-epoch\n");
 
       writeFileSync(join(cloneDir, "from-client.txt"), "pushed\n");
