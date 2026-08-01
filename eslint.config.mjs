@@ -15,11 +15,13 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "packages/**/scripts/**/*.mjs"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
       globals: {
+        Buffer: "readonly",
+        Request: "readonly",
         console: "readonly",
         process: "readonly",
         URL: "readonly"

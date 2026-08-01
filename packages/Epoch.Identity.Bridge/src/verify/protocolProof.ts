@@ -251,17 +251,15 @@ export class ProtocolAtProofVerifier implements AtProofVerifier {
       commitRev: slice.commitRev,
       commitRoot: slice.commitRoot,
     });
-    let sigOk = false;
     try {
-      sigOk = schnorr.verify(
+      if (!schnorr.verify(
         hexToBytes(slice.commitSig),
         hexToBytes(digest),
         hexToBytes(slice.commitKey),
-      );
+      )) {
+        throw new Error("proof-invalid");
+      }
     } catch {
-      sigOk = false;
-    }
-    if (!sigOk) {
       throw new Error("proof-invalid");
     }
 

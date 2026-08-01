@@ -278,6 +278,7 @@ async function federationModesGossipVsAtPublish(): Promise<void> {
 }
 
 function shaOf(text: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- keep lazy crypto load for test helper
   const { createHash } = require("node:crypto") as typeof import("node:crypto");
   return createHash("sha256").update(text).digest("hex");
 }

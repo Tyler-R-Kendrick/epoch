@@ -109,11 +109,6 @@ function sha256File(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function writeBlob(targetRoot: string, path: string, data: Buffer): void {
-  const absolute = join(targetRoot, path);
-  mkdirSync(dirname(absolute), { recursive: true });
-  writeFileSync(absolute, data);
-}
 
 /**
  * Project current Epoch materialization into a Git working tree and commit.

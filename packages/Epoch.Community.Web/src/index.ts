@@ -1143,26 +1143,6 @@ function snapshotConversations(
   ];
 }
 
-function renderFeedHonestyBanner(live: boolean, snapshotMode: boolean): string {
-  if (!live) {
-    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot">API not connected. Showing the signed snapshot included with this build. Live actions (intent promotion) are disabled.</p>`;
-  }
-  if (snapshotMode) {
-    return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty">Live API connected, but this repository has no issues or changes yet. Channel demos are labeled snapshot samples until activity arrives.</p>`;
-  }
-  return `<p class="api-banner api-banner-live" data-feed-honesty="live" hidden>Live Community API — feed reflects repository activity.</p>`;
-}
-
-function renderDevFeedHonestyBanner(live: boolean, snapshotMode: boolean): string {
-  if (!live) {
-    return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot" data-dev-feed-banner>Snapshot Dev Feed — ATProto graph samples + signed contribution demo. Live mutations disabled.</p>`;
-  }
-  if (snapshotMode) {
-    return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty" data-dev-feed-banner>Live API connected with empty repository activity. Showing labeled ATProto network samples until contributions arrive.</p>`;
-  }
-  return `<p class="api-banner api-banner-live" data-feed-honesty="live" data-dev-feed-banner>Live Dev Feed — Community API contributions + ATProto-observed follows, stars, and releases.</p>`;
-}
-
 function renderCommunityHonestyBanner(live: boolean, snapshotMode: boolean): string {
   if (!live) {
     return `<p class="api-banner" data-api-unconfigured data-feed-honesty="snapshot">Snapshot communities — channels belong to the community (not a repo). Live intent promotion disabled.</p>`;
@@ -1171,19 +1151,6 @@ function renderCommunityHonestyBanner(live: boolean, snapshotMode: boolean): str
     return `<p class="api-banner" data-api-empty data-feed-honesty="live-empty">Live API connected. Community channels are ready; linked-repo activity will appear when issues/changes arrive.</p>`;
   }
   return `<p class="api-banner api-banner-live" data-feed-honesty="live">Live community — social channels are community-owned; linked projects add issues, changes, and signed intents.</p>`;
-}
-
-function renderDevFeedMeta(devFeed: DevFeedBuildResult, live: boolean): string {
-  const parts = [
-    `${devFeed.items.length} events`,
-    `${devFeed.followingHandles.length} following`,
-    live ? (devFeed.source === "api" ? "atproto:live" : "atproto:sample") : "atproto:snapshot",
-  ];
-  return parts.map((label, index) =>
-    index === 0
-      ? `<span>${escapeHtml(label)}</span>`
-      : `<span class="meta-sep" aria-hidden="true">·</span><span>${escapeHtml(label)}</span>`,
-  ).join("");
 }
 
 function emptyDevFeedItem(message: string): string {
@@ -1249,27 +1216,6 @@ function renderChannelButton(
     <span class="channel-button-label"># ${escapeHtml(channel.label)}</span>
     <span class="channel-count">${count}</span>
   </button>`;
-}
-
-function renderRepositoryMeta(
-  app: CommunityWebAppDefinition,
-  feed: CommunityFeedBuildResult,
-): string {
-  const repository = app.repositories[0];
-  if (repository === undefined) {
-    return `<span>No repository</span>`;
-  }
-
-  const parts = [
-    repository.visibility,
-    `${repository.maintainers.length} maintainer${repository.maintainers.length === 1 ? "" : "s"}`,
-    `${feed.issues.length} issues`,
-    `${feed.changes.length} changes`,
-    feed.source === "api" ? "feed:live" : "feed:snapshot",
-  ];
-  return parts.map((label, index) =>
-    `${index === 0 ? "" : `<span class="meta-sep" aria-hidden="true">·</span>`}<span>${escapeHtml(label)}</span>`
-  ).join("");
 }
 
 function issueIdFromConversation(conversation: CommunityConversationView): string | undefined {
