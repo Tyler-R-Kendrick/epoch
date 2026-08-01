@@ -88,3 +88,4 @@ decisions, operations, or contribution workflow.
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [OptimizeXP Skill](../skills/optimizexp/SKILL.md) | Persona-driven UX, DX, and AX optimization harness and reference bundle. |
 | [SDLC Skill](../skills/sdlc/SKILL.md) | Full-loop planning, dispatch, stacked-PR, review, and merge coordinator. |
+| [SDLC Dispatch Log](plans/dispatch-log.md) | Durable initiative outcomes, delivery PRs, merge commits, and failure classifications. |
