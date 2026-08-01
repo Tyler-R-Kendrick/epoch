@@ -109,7 +109,10 @@ When("I open the ideas channel in the active community", async function () {
   const page = requirePage();
   await page.locator('button[data-channel="ideas"]').click();
   await page.locator("[data-surface-panel=\"channels\"]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
-  await page.getByText("Dashboard widget should group revenue by region").first().waitFor({ state: "visible", timeout: 5_000 });
+  await page.locator(
+    "[data-surface-panel=\"channels\"]:not([hidden]) [data-message]:not([hidden]) h2",
+    { hasText: "Dashboard widget should group revenue by region" },
+  ).first().waitFor({ state: "visible", timeout: 5_000 });
 });
 
 When("I select the {string} community message", async function (title: string) {
