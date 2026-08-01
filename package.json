@@ -143,7 +143,7 @@
     "lint": "eslint .",
     "design:lint": "designmd lint DESIGN.md",
     "gate:fast": "npm run konsistent && npm run docs:check && npm run design:lint && npm run lint",
-    "gate:push": "npm run gate:fast && npm run typecheck && npm test",
+    "gate:push": "npm run gate:fast && npm run typecheck && npm run build -- --pretty false && npm run test:unit:runtime",
     "konsistent": "konsistent",
     "docs:check": "node scripts/check-docs.mjs",
     "prepare": "node scripts/install-hooks.mjs",

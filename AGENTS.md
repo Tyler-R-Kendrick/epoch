@@ -8,8 +8,8 @@ These instructions apply to the entire repository.
 - **GitHub Actions quality CI is temporarily disabled** (runner minutes). Enforcement is **local hooks + agent discipline**:
   - After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`.
   - `pre-commit` runs `npm run gate:fast` (konsistent, docs, design.md lint, eslint).
-  - `pre-push` runs `npm run gate:push` (gate:fast + typecheck + tests).
-  - Full bar remains `npm run verify` (adds coverage + pact). Agents must run **at least `gate:push`**, prefer **`verify`**, before claiming done.
+  - `pre-push` runs `npm run gate:push` (gate:fast + typecheck + build + unit tests).
+  - Full bar remains `npm run verify` (adds feature/browser suite, coverage, pact). Agents must run **at least `gate:push`**, and **`verify`** when changing browser-visible or contract behavior, before claiming done.
 - Do not consider work complete until required quality gates pass locally:
   - `npm run gate:fast` — commit-time bar
   - `npm run gate:push` — push-time bar (CI substitute)

@@ -19,8 +19,8 @@ npm run verify    # full bar (coverage + pact)
 | When | Command | Hook |
 |---|---|---|
 | Before commit | `npm run gate:fast` | `.githooks/pre-commit` |
-| Before push | `npm run gate:push` | `.githooks/pre-push` |
-| Before merge / release | `npm run verify` | manual / agent |
+| Before push | `npm run gate:push` | `.githooks/pre-push` (units; not full browser suite) |
+| Before merge / release | `npm run verify` | manual / agent (features + coverage + pact) |
 
 Every source change must pass at least `gate:push`; prefer `verify` for behavior changes.
 
