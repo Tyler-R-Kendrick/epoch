@@ -93,6 +93,28 @@ Given("I open the Community Web channel experience", async function () {
   world = { ...world, browser, page };
 });
 
+When("I open the Network Feed", async function () {
+  const page = requirePage();
+  await page.locator('button[data-product-mode="network"]').click();
+  await page.locator("[data-surface-panel=\"network\"]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
+});
+
+When("I switch to the Agent Guild community", async function () {
+  const page = requirePage();
+  await page.locator('[data-open-community="agent-guild"]').click();
+  await page.locator("#community-title").waitFor({ state: "visible", timeout: 5_000 });
+});
+
+When("I open the ideas channel in the active community", async function () {
+  const page = requirePage();
+  await page.locator('button[data-channel="ideas"]').click();
+  await page.locator("[data-surface-panel=\"channels\"]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
+  await page.locator(
+    "[data-surface-panel=\"channels\"]:not([hidden]) [data-message]:not([hidden]) h2",
+    { hasText: "Dashboard widget should group revenue by region" },
+  ).first().waitFor({ state: "visible", timeout: 5_000 });
+});
+
 When("I select the {string} community message", async function (title: string) {
   await selectCommunityMessage(title);
 });
@@ -118,18 +140,39 @@ When("I report the selected message", async function () {
   await page.locator("[data-selected-message=\"true\"] [data-action=\"report\"]").click();
 });
 
-Then("the Community Web shows the channel rail and message feed", async function () {
+Then("the Community Web shows a community with channels", async function () {
   const page = requirePage();
-  assert.equal(await page.locator("[data-community-channel-rail]").count(), 1);
-  assert.equal(await page.locator("[data-message-feed]").count(), 1);
-  assert.equal(await page.locator('[data-feed-source="api"]').count(), 1);
-  await assertVisible(page, "# ideas");
-  await assertVisible(page, "Dashboard widget should group revenue by region");
-  await assertVisible(page, "Message #ideas");
-  assert.equal(await page.locator("[data-surface=\"issues\"]").count(), 1);
-  assert.equal(await page.locator("[data-surface=\"changes\"]").count(), 1);
-  assert.equal(await page.locator("[data-issue-list] [data-issue-id=\"IDEA-3\"]").count(), 1);
-  assert.equal(await page.locator("[data-change-list] [data-change-id=\"CHANGE-12\"]").count(), 1);
+  assert.equal(await page.locator('[data-product-mode="community"]').count(), 1);
+  assert.equal(await page.locator("[data-community-list]").count(), 1);
+  assert.equal(await page.locator("[data-channel-list]").count(), 1);
+  assert.equal(await page.locator("[data-surface-panel=\"channels\"]:not([hidden])").count(), 1);
+  await assertVisible(page, "Epoch Civic Workshop");
+  await assertVisible(page, "# general");
+  await assertVisible(page, "Welcome to Epoch Civic Workshop");
+});
+
+Then("the active channel does not require a repository", async function () {
+  const page = requirePage();
+  // Social hangout channel is community-owned.
+  assert.equal(await page.locator('button[data-channel="general"][aria-pressed="true"]').count(), 1);
+  await assertVisible(page, "no repository required");
+});
+
+Then("the Community Web shows the Network Feed with activity tabs", async function () {
+  const page = requirePage();
+  assert.equal(await page.locator("[data-surface-panel=\"network\"]:not([hidden])").count(), 1);
+  assert.equal(await page.locator('[data-feed-tab="following"]').count(), 1);
+  assert.equal(await page.locator('[data-feed-tab="network"]').count(), 1);
+  assert.equal(await page.locator('[data-feed-tab="contributions"]').count(), 1);
+  const feedText = await page.locator("[data-dev-feed]").innerText();
+  assert.match(feedText, /starred|followed|opened|released|proposed/i);
+});
+
+Then("the Community Web shows the Agent Guild channels", async function () {
+  const page = requirePage();
+  await assertVisible(page, "Agent Guild");
+  assert.equal(await page.locator('[data-open-community="agent-guild"][aria-pressed="true"]').count(), 1);
+  assert.equal(await page.locator('button[data-channel="agent-runs"]').count(), 1);
 });
 
 Then("signed project actions are collapsed until I select a message", async function () {

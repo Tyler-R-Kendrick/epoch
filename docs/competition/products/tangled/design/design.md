@@ -53,10 +53,18 @@ workflows.
   product center of gravity.
 - Git remains underneath for code, so Git workflow complexity is inherited.
 
+## Feed Structure (home)
+
+Tangled’s **home is a social coding timeline**, not a repository channel list:
+
+- Verb-led cards: `followed`, `starred`, `created`, with handle + object.
+- Network discovery is chronological and identity-forward (AT handles).
+- Repositories are **drill-in destinations** from the feed, not the only chrome.
+
 ## Epoch Design Takeaways
 
-- Channel-first Community Web can stay Epoch-native; do not abandon human-
-  centered channel UX for timeline-only forge patterns.
+- **Do not** ship channel-only Community Web — that omits Tangled’s home story.
+- **Do** make Dev Feed the default home; keep channels as the repo workbench.
 - Clone URLs and trust signals (signed events, verify state) should be as
   visible as stars/follows when federation is on.
 - Keep private/enterprise mode visually and navigationally distinct from

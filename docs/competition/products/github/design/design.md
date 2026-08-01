@@ -34,9 +34,19 @@ GitHub's product UI is powered by Primer: a dense, utilitarian, accessible desig
 - Status colors and icon conventions make CI, review, issue, and PR states scannable.
 - Public design docs and token packages make the ecosystem easy to emulate.
 
+## Feed Structure (home)
+
+GitHub’s dashboard home is a **contribution-oriented feed**, not a chat room:
+
+- Tabs such as **For you** and **Following** (chronological activity from people/repos you follow).
+- Event types: stars, releases, pushes, PR/issue activity — contribution grammar.
+- Left rail: repositories and navigation; center: feed; drill-in to repo/issue/PR.
+- Density is high and utilitarian (Primer), with status semantics over social theater.
+
 ## UX Breakdowns
 
 - Breadth creates chrome overload: non-developers often struggle to distinguish source browsing, releases, clone/download actions, issues, and PRs.
 - The repository page optimizes for contributors more than consumers; "Code" as the download/clone entry point is not self-explanatory to casual users.
 - Complex org, permissions, Actions, Packages, Copilot, and billing surfaces can feel internally inconsistent despite Primer's shared foundations.
+- Feed algorithm changes (“For you”) can bury pure chronological Following activity.
 

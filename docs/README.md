@@ -14,6 +14,7 @@ decisions, operations, or contribution workflow.
 | [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, user-centric design, primary GitHub open-source contributor persona, pain points, and human considerations for Epoch Community. |
 | [Community Web Experience](community-web-experience.md) | Channel-first Community Web behavior, personas, browser evidence, and selected-message signed actions. |
 | [Community Web Competitive Evaluation](community-web-competitive-evaluation.md) | Scored compare/contrast vs GitHub and Tangled; wedge vs overall outcompete assessment. |
+| [Identity Bridge](identity-bridge.md) | Nostr ↔ ATProto mutual identity binding (v2); pure verifier; witness index. |
 | [Persona Feature Matrix](persona-feature-matrix.md) | Persona, journey, pain point, trust, degraded-state, and validation mapping for every executable feature spec. |
 | [Create Repository And Version Materialization Spec](create-repository-and-version-materialization.md) | Implemented create, push, version, and materialization user stories. |
 | [Specification Template Outline](spec-template-outline.md) | Reusable outline extracted from a conformance-grade app spec. |

@@ -8,3 +8,6 @@ git diff --cached --check
 # Structural conventions + docs reachability (both run in milliseconds).
 npm run konsistent
 npm run docs:check
+
+# Google DESIGN.md structural + token lint (conformant design system).
+npm run design:lint

@@ -30,6 +30,7 @@ and when the decision should be revisited.
 | [ADR-0020](0020-community-federation-atproto-git-proxy.md) | Accepted (design) | Federate public Community social data via ATProto and require a Git compatibility proxy so clone URLs and live migration work while Epoch Core stays authoritative. |
 | [ADR-0021](0021-git-projection-and-live-migration.md) | Accepted (design) | Treat Git as a rebuildable projection and live-migration boundary (serve, import-live, export-live, dual-run) with signed mapping events; Epoch Core remains the system of record. |
 | [ADR-0022](0022-gossip-event-plane-atproto-public-artifacts.md) | Accepted | Gossip is the authoritative network event plane; ATProto dual-writes public artifacts only; hybrid resolve is local → gossip → AT. |
+| [ADR-0023](0023-three-plane-identity-binding.md) | Accepted | Link Epoch Ed25519, Nostr BIP-340, and AT DIDs via mutual dual-signed hash-chained bindings; client-side verify; witness index non-authoritative. |
 
 ## Supporting Decision Records
 

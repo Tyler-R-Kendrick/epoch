@@ -90,8 +90,10 @@ export function ensureProjection(epochRoot: string, projectionRoot: string, auth
 function syncBareFromProjection(projectionRoot: string, bareRoot: string): void {
   mkdirSync(dirname(bareRoot), { recursive: true });
   if (!existsSync(bareRoot)) {
-    execFileSync("git", ["init", "--bare", bareRoot], { stdio: "pipe" });
+    execFileSync("git", ["-c", "init.defaultBranch=main", "init", "--bare", bareRoot], { stdio: "pipe" });
   }
+  // Keep bare default branch on main so smart-HTTP clones check out projected content.
+  execFileSync("git", ["--git-dir", bareRoot, "symbolic-ref", "HEAD", "refs/heads/main"], { stdio: "pipe" });
   // Push all refs from projection worktree into bare.
   try {
     git(projectionRoot, ["remote", "remove", "epoch-bare"]);
@@ -101,8 +103,14 @@ function syncBareFromProjection(projectionRoot: string, bareRoot: string): void 
   git(projectionRoot, ["remote", "add", "epoch-bare", bareRoot]);
   try {
     git(projectionRoot, ["push", "--force", "epoch-bare", "HEAD:refs/heads/main"]);
-  } catch {
-    // empty projection: still ensure bare exists
+  } catch (error) {
+    // Empty projection has no commits yet; still ensure bare exists for http-backend.
+    try {
+      git(projectionRoot, ["rev-parse", "HEAD"]);
+    } catch {
+      return;
+    }
+    throw error;
   }
   // Allow http fetch without auth.
   execFileSync("git", ["--git-dir", bareRoot, "config", "http.receivepack", "true"], { stdio: "pipe" });

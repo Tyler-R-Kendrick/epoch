@@ -1,0 +1,70 @@
+{
+  "didDocument": {
+    "id": "did:plc:vector-valid",
+    "verificationMethod": [
+      {
+        "id": "did:plc:vector-valid#atproto",
+        "type": "Multikey",
+        "publicKeyMultibase": "zaa336b5a9cd2c6c5ee5fabb5ec208d60cf322a03c1144fb7e0629f6dfcec4ea9"
+      }
+    ]
+  },
+  "nostrEvent": {
+    "id": "3b62df0739d3f4803a9c3f1cd8bda448606fb20d0034cd4043bbe6bbec6b532a",
+    "kind": 30422,
+    "pubkey": "2d11312b996292f8dd75be7bc35a5553a05ff73a4437564a2e55c4a553389ac3",
+    "created_at": 1785576318,
+    "tags": [
+      [
+        "d",
+        "did:plc:vector-valid"
+      ],
+      [
+        "epoch-author",
+        "vector-author"
+      ],
+      [
+        "at-did",
+        "did:plc:vector-valid"
+      ],
+      [
+        "binding-nonce",
+        "d90c7ab21d3d80fdb68712265f62e4304bd8f32f1f79a4952e88658592f20aad"
+      ],
+      [
+        "binding-version",
+        "2"
+      ],
+      [
+        "seqno",
+        "1"
+      ],
+      [
+        "revoked",
+        "false"
+      ]
+    ],
+    "content": "Epoch identity binding v2: nostr<->atproto. Verify both directions.",
+    "sig": "d81011b8a221fa121959717303e39c129d3f8a957e1331c909277961d74133b07a3753cf551ae4cd53674025e7ce6c9da0885eab17e5f4a4466247bd7c2991fe"
+  },
+  "nostrChain": [],
+  "atProof": {
+    "record": {
+      "$type": "org.epoch.identity.binding",
+      "epochAuthorId": "vector-author",
+      "nostrPubkey": "2d11312b996292f8dd75be7bc35a5553a05ff73a4437564a2e55c4a553389ac3",
+      "nostrDid": "did:nostr:2d11312b996292f8dd75be7bc35a5553a05ff73a4437564a2e55c4a553389ac3",
+      "bindingNonce": "d90c7ab21d3d80fdb68712265f62e4304bd8f32f1f79a4952e88658592f20aad",
+      "bindingVersion": 2,
+      "seqno": 1,
+      "revoked": false,
+      "createdAt": "2026-08-01T09:25:18.063Z"
+    },
+    "carSliceB64": "eyJ2ZXJzaW9uIjoxLCJkaWQiOiJkaWQ6cGxjOnZlY3Rvci12YWxpZCIsImNvbGxlY3Rpb24iOiJvcmcuZXBvY2guaWRlbnRpdHkuYmluZGluZyIsInJrZXkiOiIyZDExMzEyYjk5NjI5MmY4ZGQ3NWJlN2JjMzVhNTU1M2EwNWZmNzNhNDQzNzU2NGEyZTU1YzRhNTUzMzg5YWMzIiwicmVjb3JkIjp7IiR0eXBlIjoib3JnLmVwb2NoLmlkZW50aXR5LmJpbmRpbmciLCJlcG9jaEF1dGhvcklkIjoidmVjdG9yLWF1dGhvciIsIm5vc3RyUHVia2V5IjoiMmQxMTMxMmI5OTYyOTJmOGRkNzViZTdiYzM1YTU1NTNhMDVmZjczYTQ0Mzc1NjRhMmU1NWM0YTU1MzM4OWFjMyIsIm5vc3RyRGlkIjoiZGlkOm5vc3RyOjJkMTEzMTJiOTk2MjkyZjhkZDc1YmU3YmMzNWE1NTUzYTA1ZmY3M2E0NDM3NTY0YTJlNTVjNGE1NTMzODlhYzMiLCJiaW5kaW5nTm9uY2UiOiJkOTBjN2FiMjFkM2Q4MGZkYjY4NzEyMjY1ZjYyZTQzMDRiZDhmMzJmMWY3OWE0OTUyZTg4NjU4NTkyZjIwYWFkIiwiYmluZGluZ1ZlcnNpb24iOjIsInNlcW5vIjoxLCJyZXZva2VkIjpmYWxzZSwiY3JlYXRlZEF0IjoiMjAyNi0wOC0wMVQwOToyNToxOC4wNjNaIn0sInJlY29yZENpZCI6IjE0Yjk3YmUwZjliMzJlYzNiODgzMmQyMjRhMGY2OWViYjc0NWNhZDc0NWI1NWFmNjc1OTkzZTJiY2M1YjNiMjQiLCJjb21taXRSZXYiOiIzbDE5ZmJjYTQ2NDcxIiwiaW5jbHVzaW9uUGF0aCI6W3sic2libGluZyI6IjA3ZjU3Y2FjZTk5OWFjNjljMDRhODMxYzM0OTZmNzNiZTljZGQ3ZTg0ZTlkOTEyNWFiOTA3NDllZWI0OTIzZGQiLCJzaWRlIjoiUiJ9LHsic2libGluZyI6ImU1MmIzMTM4MTQzY2NmOGIzOTgxZjk4ZmZhYjJhZjAwNDZiNzYyZGEwNzRmM2E4M2MyODUxMGRiYTlkY2Y1NDUiLCJzaWRlIjoiTCJ9XSwiY29tbWl0Um9vdCI6Ijk1NTNhNmRjNzU0NjRkYTQwZmUzMzVmZjVkYmFlNGMyZDNhMTkzZmRiYzg4ZDQ1ZWNiOGViNjNjNDY1OWJjZmEiLCJjb21taXRTaWciOiI2NzNiYjQ2OWM0YWVmMmZhNjQxNDdhZDI2NTFhYzJkYmY1MjVlYWJlYjEzYWI2YzM4NzM3NjEwYTAxNTJlNzU5ZWYzZjBjYzAzY2I2ZDBlYTI2M2U1NTcyZjExZTY5MWE1MjYwYjM2MGNhZmY1ZmY1OTZjNWE4MGJkOTM5NzRkYiIsImNvbW1pdEtleSI6ImFhMzM2YjVhOWNkMmM2YzVlZTVmYWJiNWVjMjA4ZDYwY2YzMjJhMDNjMTE0NGZiN2UwNjI5ZjZkZmNlYzRlYTkifQ",
+    "recordCid": "14b97be0f9b32ec3b8832d224a0f69ebb745cad745b55af675993e2bcc5b3b24",
+    "commitRev": "3l19fbca46471",
+    "commitSigCheck": "passed"
+  },
+  "nowUnix": 1785576318,
+  "protocol": true
+}

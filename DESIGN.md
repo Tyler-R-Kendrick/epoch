@@ -1,85 +1,200 @@
 ---
+version: alpha
 name: Epoch Community
-description: A trust-first community interface for signed repository collaboration.
+description: Signed civic workshop interface for channel-first repository collaboration. Competes on polish with Slack density, Telegram restraint, X scan rhythm, and Bluesky surface quality — without chat cosplay or metric theater.
 colors:
-  surface: "#eef3f1"
-  surface-raised: "#fbfbf8"
-  ink: "#17221f"
-  muted: "#5f6a65"
-  line: "#cad8d2"
-  accent: "#ba5e3f"
-  accent-strong: "#843927"
-  teal: "#2f7370"
-  mint: "#d8ece5"
-  gold: "#d8b765"
+  primary: "#0f1614"
+  secondary: "#5c6762"
+  tertiary: "#b4532f"
+  neutral: "#f3f6f4"
+  surface: "#f3f6f4"
+  surface-raised: "#ffffff"
+  surface-sunken: "#e8eeeb"
+  ink: "#0f1614"
+  muted: "#5c6762"
+  line: "#d7e0db"
+  accent: "#b4532f"
+  accent-strong: "#8f3f28"
+  teal: "#2a6f6c"
+  mint: "#d5ebe3"
+  gold: "#c9a24a"
+  rail: "#101714"
+  rail-text: "#d7e2dc"
+  rail-muted: "#8fa099"
+  rail-hover: "#1a2420"
+  rail-active: "#24322c"
+  success: "#1a5c3e"
+  warning-bg: "#fff6df"
+  warning-ink: "#5b4420"
 typography:
   display:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "4rem"
-    fontWeight: 800
-    lineHeight: 0.95
-    letterSpacing: "0"
+    fontSize: "2.5rem"
+    fontWeight: 750
+    lineHeight: 1.05
+    letterSpacing: "-0.02em"
   headline:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "1.85rem"
-    fontWeight: 800
-    lineHeight: 1.1
-    letterSpacing: "0"
+    fontSize: "1.25rem"
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: "-0.01em"
   title:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "1.1rem"
-    fontWeight: 800
-    lineHeight: 1.2
-    letterSpacing: "0"
+    fontSize: "0.98rem"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "0em"
   body:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "1rem"
+    fontSize: "0.94rem"
     fontWeight: 400
-    lineHeight: 1.6
-    letterSpacing: "0"
+    lineHeight: 1.5
+    letterSpacing: "0em"
   label:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
     fontSize: "0.78rem"
-    fontWeight: 800
-    lineHeight: 1
-    letterSpacing: "0"
+    fontWeight: 650
+    lineHeight: 1.2
+    letterSpacing: "0em"
+  meta:
+    fontFamily: "ui-monospace, Cascadia Mono, Consolas, monospace"
+    fontSize: "0.72rem"
+    fontWeight: 500
+    lineHeight: 1.3
+    letterSpacing: "0em"
 rounded:
+  xs: "2px"
   sm: "4px"
   md: "8px"
 spacing:
-  xs: "8px"
-  sm: "12px"
-  md: "16px"
-  lg: "24px"
-  xl: "32px"
-  xxl: "48px"
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "24px"
+  xxl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.ink}"
+    backgroundColor: "{colors.primary}"
     textColor: "{colors.surface-raised}"
     typography: "{typography.label}"
     rounded: "{rounded.sm}"
-    padding: "12px 16px"
-    height: "44px"
+    padding: "8px 14px"
+    height: "36px"
+  button-primary-hover:
+    backgroundColor: "{colors.accent-strong}"
+    textColor: "{colors.surface-raised}"
   button-secondary:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.ink}"
     typography: "{typography.label}"
     rounded: "{rounded.sm}"
-    padding: "12px 16px"
-    height: "44px"
-  repository-card:
+    padding: "8px 14px"
+    height: "36px"
+  button-intent:
+    backgroundColor: "{colors.teal}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "8px 14px"
+    height: "36px"
+  channel-rail:
+    backgroundColor: "{colors.rail}"
+    textColor: "{colors.rail-text}"
+    typography: "{typography.body}"
+    padding: "12px 10px"
+  channel-button:
+    backgroundColor: "{colors.rail}"
+    textColor: "{colors.rail-muted}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+    padding: "6px 10px"
+    height: "32px"
+  channel-button-active:
+    backgroundColor: "{colors.rail-active}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.title}"
+    rounded: "{rounded.sm}"
+  feed-message:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    padding: "8px 18px"
+  feed-message-hover:
+    backgroundColor: "{colors.neutral}"
+    textColor: "{colors.ink}"
+  composer:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.ink}"
     typography: "{typography.body}"
     rounded: "{rounded.md}"
-    padding: "24px"
-  workflow-link:
+    padding: "12px 18px"
+  reaction:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "4px 8px"
+    height: "28px"
+  status-live:
+    backgroundColor: "{colors.mint}"
+    textColor: "{colors.teal}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "8px 18px"
+  status-snapshot:
+    backgroundColor: "{colors.warning-bg}"
+    textColor: "{colors.warning-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "8px 18px"
+  trust-meta:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.muted}"
+    typography: "{typography.meta}"
+  focus-ring:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.accent-strong}"
+    rounded: "{rounded.sm}"
+  surface-sunken-panel:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.ink}"
     typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "16px"
+    rounded: "{rounded.sm}"
+    padding: "8px 10px"
+  gold-signal:
+    backgroundColor: "{colors.gold}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.xs}"
+    padding: "2px 6px"
+  hairline-divider:
+    backgroundColor: "{colors.line}"
+    textColor: "{colors.ink}"
+    height: "1px"
+  channel-button-hover:
+    backgroundColor: "{colors.rail-hover}"
+    textColor: "{colors.rail-text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+  status-success-dot:
+    backgroundColor: "{colors.success}"
+    textColor: "{colors.surface-raised}"
+    rounded: "{rounded.xs}"
+    size: "8px"
+  accent-chip:
+    backgroundColor: "{colors.accent-strong}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "4px 8px"
+  accent-mark:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.xs}"
+    padding: "2px 4px"
 ---
 
 # Design System: Epoch Community
@@ -88,126 +203,225 @@ components:
 
 **Creative North Star: "The Signed Civic Workshop"**
 
-Epoch Community is a product interface for people who need repository collaboration to feel accountable, local, and calm. The design should read as a working surface for maintainers: clear hierarchy, compact activity signals, visible trust structure, and enough warmth to feel public without sliding into social feed noise.
+Epoch Community is a channel-first workbench for signed repository collaboration. It must feel as **sleek and intentional** as the best messaging and social products people already live in — Slack's place model, Telegram's restraint, X's scan rhythm, Bluesky's clean light surfaces — while remaining unmistakably a **trust-first workshop**, not a chat app or viral feed.
 
-The interface rejects default browser styling, generic SaaS hero drama, decorative glass, gradient text, oversized cards, and dark terminal cosplay. It should feel like a practical community workbench where signed events, maintainers, reviews, and releases are easy to scan.
+The interface rejects default browser styling, generic SaaS hero drama, decorative glass, gradient text, pill spam, purple-blue AI-slop gradients, dark terminal cosplay, and pure-black social fatigue. Cards are rare. Messages are flat work rows. Signatures and anchors are first-class meta, never fake presence theater.
 
-**Key Characteristics:**
+**Competitive synthesis (steal / refuse):**
 
-- Restrained product density with generous row and card breathing room.
-- Mist green surface, near-black ink, copper action accents, teal state support, and a small gold signal for verified history.
-- System typography tuned for task clarity rather than brand spectacle.
-- Cards are used only for repository records and workflow entry points.
-- Motion is state feedback only: hover lift, focus ring, and reduced-motion compliance.
+| Source | Steal | Refuse |
+|---|---|---|
+| Slack | Dark rail, `#channel` places, sticky composer, hover secondary actions, dense expert scan | Aubergine brand wash, huddle/presence chrome, feature sprawl |
+| Telegram | Content-first restraint, single rare accent discipline, instant action feedback | Message bubbles, avatar-only identity, sticker-first energy |
+| X | Hairline feed rhythm, compact identity line, constant secondary action grammar | Pure black default, metric theater, global viral home |
+| Bluesky | Clean white feed, soft borders, approachable hierarchy, visible handles/identity | Generic sky-blue brand, algorithm-tab cosplay as core |
+
+**Key characteristics:**
+
+- Dark charcoal rail + clean white feed (Slack place grammar, Bluesky surface quality).
+- High scan density with calm surfaces (X rhythm without hostility).
+- Copper action rarity + teal workflow support + gold trust-only signal.
+- System typography with strong weights; mono only for anchors/signatures.
+- Rectangular controls ≤8px radius; no pills, glass, or gradient text.
+- Live vs snapshot honesty is always visible when the API is not connected.
 
 ## 2. Colors
 
-The palette is a cool civic workshop palette: mist surface, ink structure, copper action, teal support, and gold verification.
+The palette is a cool civic workshop: mist page edge, pure raised work surface, deep ink, copper action, teal support, gold verification, charcoal rail.
 
 ### Primary
 
-- **Civic Ink**: The default text, primary button, brand mark, and graph rail color. It anchors the product and keeps the interface serious.
-- **Copper Action**: The primary accent for action states, section eyebrows, and high-signal hover treatment. Use it sparingly.
+- **Primary / Civic Ink (`primary`, `ink`)**: Default text, primary filled buttons, structural weight. Near-black green-charcoal — deeper and sleeker than mid gray-green.
+- **Copper Action (`accent`, `tertiary`)**: The sole interaction driver for high-signal actions, focus rings, and rare emphasis. Use sparingly (Telegram/X accent rarity).
 
 ### Secondary
 
-- **Registry Teal**: Workflow and topic support color. It appears in the event graph and topic chips.
-- **Verified Gold**: A small verification signal used only where signed history or release confidence needs emphasis.
+- **Registry Teal (`teal`)**: Intent/workflow support — not the primary brand wash.
+- **Verified Gold (`gold`)**: Trust and verification only (signed history, verified state). Never decorative.
+- **Quiet Muted (`muted`, `secondary`)**: Meta, timestamps, secondary labels.
 
-### Neutral
+### Neutral surfaces
 
-- **Mist Surface**: The page background token. It prevents the app from reading as default white.
-- **Raised Parchment**: The card and panel surface token. It is close to neutral, not decorative cream.
-- **Quiet Muted**: Secondary text, purposes, and descriptions.
-- **Ledger Line**: Borders and dividers.
+- **Mist / Neutral (`surface`, `neutral`)**: Page edge and subtle hover wash.
+- **Raised White (`surface-raised`)**: Main feed and composer — clean like Bluesky/X light, not parchment-muddy.
+- **Sunken (`surface-sunken`)**: Thread nests and recessed panels.
+- **Ledger Line (`line`)**: Hairline borders and dividers.
 
-### Named Rules
+### Rail
 
-**The Surface Is Product Rule.** The page background must always expose the design system token, never the browser default.
+- **Rail (`rail`)**: Deep charcoal green for orientation chrome.
+- **Rail text / muted / hover / active**: Readable hierarchy on dark chrome; active channel is clearly selected without purple.
 
-**The Copper Rarity Rule.** Copper is for action and attention only. Do not use it as broad decoration or inactive chrome.
+### Named rules
+
+**The Surface Is Product Rule.** Never ship browser-default white/gray without tokens. Feed uses `surface-raised`; page edge may use `surface`.
+
+**The Copper Rarity Rule.** Copper is for action and attention only — never large inactive fills.
+
+**The Rail Is Place, Feed Is Work Rule.** Dark rail orients; light feed does the work (Slack grammar).
+
+**The Trust Color Rule.** Gold and signature meta mark accountability. Do not invent presence dots or vanity metrics.
 
 ## 3. Typography
 
-**Display Font:** System UI stack with platform-native fallbacks.
-**Body Font:** System UI stack with platform-native fallbacks.
-**Label/Mono Font:** System UI stack with tabular numeric features where counts appear.
+**Display / Body:** System UI stack (platform-native).  
+**Meta / Mono:** `ui-monospace` stack for anchors, signatures, repo paths only.
 
-**Character:** Typography is sober and operational. Display type can be large in the first viewport, but labels, cards, nav, and data stay compact and native.
+Typography is operational and sleek: slightly tighter than marketing sites, stronger author weight (X), readable body (Bluesky), no decorative display fonts.
 
 ### Hierarchy
 
-- **Display** (800, 4rem, 0.95): App name in the first viewport only.
-- **Headline** (800, 1.85rem, 1.1): Section titles such as repository lists.
-- **Title** (800, 1.1rem, 1.2): Repository names and workflow labels.
-- **Body** (400, 1rem, 1.6): Repository descriptions and explanatory copy, capped around 65ch.
-- **Label** (800, 0.78rem, 0 letter spacing): Eyebrows, visibility states, topic chips, and compact UI labels.
+- **Display** (750, 2.5rem): Rare — marketing or empty-state only, not the app shell header.
+- **Headline** (700, 1.25rem): Shell titles (repo name area).
+- **Title** (700, 0.98rem): Message titles, active channel name, strong labels.
+- **Body** (400, 0.94rem, 1.5): Message content; max ~70ch.
+- **Label** (650, 0.78rem): Buttons, eyebrows, counts.
+- **Meta** (500, 0.72rem mono): `anchor:…`, `sig:…`, paths.
 
-### Named Rules
+### Named rules
 
-**The Product Type Rule.** Do not introduce display fonts or decorative type in Community UI. The work is the product.
+**The Product Type Rule.** No Fraunces/Inter-display/marketing fonts in Community UI.
 
-## 4. Elevation
+**The Author First Rule.** Display name is the strongest text in a message row; role and time are muted; mono trust line is quietest.
 
-Epoch Community uses tonal layering first and shadows second. Repository cards rest flat with a border. Workflow tiles and the signed-history preview may lift on hover or sit above the surface with one low, soft shadow.
+## 4. Layout
 
-### Shadow Vocabulary
+Community Web is a **dual-plane product**:
 
-- **Low Product Lift**: Use for the signed-history panel and hoverable workflow links. It should feel like depth, not decoration.
-- **Card Rest**: Repository cards use border and a one-pixel tonal shadow only.
+### Plane A — Community (default home, Discord lesson)
 
-### Named Rules
+A **community space** owns social + work channels. No repository is required to chat in `#general` or `#showcase`.
 
-**The Flat Until Useful Rule.** Surfaces are flat at rest unless the element is a framed tool or a hoverable workflow target.
+1. **Rail**: brand, Network Feed entry, **Communities** list, active community **Channels**, **Linked projects**.
+2. **Shell**: community header → honesty → channel toolbar → messages + sticky composer.
 
-## 5. Components
+### Plane B — Network Feed (cross-community discovery)
 
-### Buttons
+ATProto-observed follows/stars/releases/contributions across communities (X/Tangled/GitHub grammar).
 
-- **Shape:** Precise rectangle with slight rounding (4px).
-- **Primary:** Civic Ink background, Raised Parchment text, 44px minimum height.
-- **Hover / Focus:** Copper Strong hover background for primary actions, visible 3px copper focus ring on all links and buttons.
-- **Secondary / Ghost / Tertiary:** Raised surface, Ledger Line border, ink text. Use for alternate workflow links.
+### Plane C — Linked project (forge lists)
 
-### Chips
+Issues / Changes for a repository hanging off a community — secondary to hangout channels.
 
-- **Style:** Mist and teal tint with pill shape for repository topics.
-- **State:** Chips are informational only in the current shell. Do not make them look like active filters until filtering exists.
+### Density
 
-### Cards / Containers
+- Network feed and message rows ≈ `8px 18px` (Slack/X scan).
+- Channel rows ≈ 32px tall; community switcher always visible (Discord).
+- Hairline separators and hover washes instead of stacked cards.
+- Composer is sticky on community channels.
+- Max content width for body text ~70ch.
 
-- **Corner Style:** Slightly rounded (8px).
-- **Background:** Raised Parchment on Mist Surface.
-- **Shadow Strategy:** Repository cards use Card Rest. Workflow links use Low Product Lift only on hover.
-- **Border:** Ledger Line, always present.
-- **Internal Padding:** 24px on repository cards, 16px on workflow links.
+### Responsive
 
-### Inputs / Fields
+- Below ~800px: single column; rail stacks above feed; channel list height-capped.
+- Touch targets for primary actions ≥32px; critical actions prefer ≥36px.
 
-The current Community shell does not ship input controls. Future inputs must use Raised Parchment background, Ledger Line border, 4px radius, 44px minimum height, and the same copper focus ring.
+### Named rules
 
-### Navigation
+**The Community Owns Channels Rule.** Channels belong to a community space (Discord server analog), not exclusively to a git repo.
 
-Top navigation is compact and utility-first. The workflow rail is horizontally scrollable on small screens, grid-based on desktop, and every link carries both label and purpose.
+**The Hangout Without A Repo Rule.** `#general` / `#showcase` must work with zero linked repositories.
 
-### Signed History Graph
+**The Linked Project Is Secondary Rule.** Repos appear under a community as linked projects; they do not replace the community switcher.
 
-The graph is the signature visual. It should remain an accessible SVG with a title and description, using the palette roles directly: ink rails, teal support path, copper source node, gold verification node.
+**The Network Is Discovery Rule.** Cross-community Dev Feed is for observation; daily life is inside a community channel.
 
-## 6. Do's and Don'ts
+**The Contribution Verb Rule.** Network feed items lead with `@actor` + verb + object (Tangled/GitHub).
 
-### Do:
+**The Composer Never Leaves Rule.** Writing controls stay sticky to the active community channel.
 
-- **Do** expose CSS custom properties on `:root` so browser tests and future agents can verify the design system.
-- **Do** keep cards at 8px radius or below.
-- **Do** use semantic landmarks, skip links, visible focus, and reduced-motion handling.
-- **Do** keep repository actions concrete: Browse, View Issues, Review Changes.
-- **Do** keep Community visually separate from the hosting control plane while preserving shared product discipline.
+**The Flat Feed Rule.** Feed items are rows with hover wash, not elevated cards.
 
-### Don't:
+## 5. Elevation
 
-- **Don't** ship default browser typography, link lists, or white backgrounds.
-- **Don't** use gradient text, decorative glass, side-stripe borders, or hero-metric templates.
-- **Don't** add inactive saturated color, purple-blue gradients, dark terminal theming, or beige-only palettes.
-- **Don't** create dead controls. If an element looks actionable, it must navigate to a route or section.
-- **Don't** hide Community workflows in desktop-only navigation. Mobile users must still reach the workflow rail.
+Tonal layering first; shadows second and rare.
+
+### Shadow vocabulary
+
+- **Hairline only (default):** Borders via `line` / rail edge colors.
+- **Low product lift:** Optional `0 1px 0 rgba(15, 22, 20, 0.04)` on composer top edge or framed trays — depth, not decoration.
+- **No modal glass / blur stacks** in the default shell.
+
+### Named rules
+
+**The Flat Until Useful Rule.** Surfaces stay flat at rest. Hover may tint; it must not grow a marketing shadow.
+
+## 6. Shapes
+
+- **xs 2px:** badges, mono chips.
+- **sm 4px:** buttons, inputs, channel rows, avatars (square-soft, not circles-as-identity).
+- **md 8px:** composer frame, action tray, history panel — maximum for product chrome.
+
+### Named rules
+
+**The No Pill Rule.** Do not ship fully rounded pills, capsules, or bubble messages.
+
+**The Square Avatar Rule.** Avatars are short rounded squares (workbench), not social circles — unless a future profile surface explicitly needs circles.
+
+## 7. Components
+
+### Channel rail
+
+- Background `rail`; text `rail-text` / `rail-muted`.
+- Active channel / active repo: `rail-active` fill, white text, optional 2px copper leading edge.
+- Hover: `rail-hover` wash.
+- Counts are tabular, muted, end-aligned.
+- Product mode **Dev Feed** is always available above the repository list.
+
+### Dev Feed items
+
+- Avatar + `@handle` + verb + object (repo/issue/proposal/actor/release).
+- Quiet mono trust line: `sig` / `anchor` / `atUri` / source.
+- Secondary actions: Open workspace, Open #channel — not engagement counts.
+- Tabs use copper underline for selected state (Bluesky-style tabs, Epoch accent).
+
+### Feed messages
+
+- Grid: avatar (2.15rem) + body.
+- Hover: `neutral` wash; selected: slightly deeper sunken tint.
+- Meta line: **author** · role · time · optional honesty badge.
+- Footer trust line: mono anchor/sig — present, quiet.
+- Reaction controls: rectangular bordered buttons, not emoji-only ghosts.
+
+### Actions
+
+- **Primary:** ink fill, white text; hover shifts toward `accent-strong` for high-signal commit actions when appropriate.
+- **Secondary:** white fill, line border, ink text.
+- **Intent:** teal fill (workflow), not copper (copper stays rare).
+- Action tray uses a constant row grammar (X) with rectangular Slack-like tools.
+
+### Composer
+
+- Sticky bottom; white surface; 1px line top border.
+- Textarea: white, line border, 4px radius, focus copper ring.
+- Send is a real button (filled), not plain text.
+
+### Honesty banners
+
+- Live: mint background, teal ink.
+- Snapshot/offline: warning-bg / warning-ink — never silent.
+
+### Focus
+
+- 2px copper focus ring, 2px offset, on all interactive controls.
+
+## 8. Do's and Don'ts
+
+### Do
+
+- **Do** expose CSS custom properties on `:root` matching these tokens for tests and agents.
+- **Do** keep the dark rail + white feed split.
+- **Do** keep density high enough to scan; prefer hover washes over card stacks.
+- **Do** show live vs snapshot honesty.
+- **Do** keep signature/anchor meta visible and quiet.
+- **Do** use rectangular, obvious buttons for real actions.
+- **Do** validate this file with `npm run design:lint` (Google `@google/design.md`).
+
+### Don't
+
+- **Don't** ship bubbles, pills, glassmorphism, gradient text, or purple-blue AI chrome.
+- **Don't** use pure black (`#000`) as the default brand surface.
+- **Don't** invent fake online presence or vanity engagement metrics.
+- **Don't** hide dead controls that look clickable.
+- **Don't** replace system type with decorative display fonts.
+- **Don't** let trust meta overpower message body hierarchy.
