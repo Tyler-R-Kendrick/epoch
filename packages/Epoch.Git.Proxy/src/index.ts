@@ -90,8 +90,10 @@ export function ensureProjection(epochRoot: string, projectionRoot: string, auth
 function syncBareFromProjection(projectionRoot: string, bareRoot: string): void {
   mkdirSync(dirname(bareRoot), { recursive: true });
   if (!existsSync(bareRoot)) {
-    execFileSync("git", ["init", "--bare", bareRoot], { stdio: "pipe" });
+    execFileSync("git", ["-c", "init.defaultBranch=main", "init", "--bare", bareRoot], { stdio: "pipe" });
   }
+  // Keep bare default branch on main so smart-HTTP clones check out projected content.
+  execFileSync("git", ["--git-dir", bareRoot, "symbolic-ref", "HEAD", "refs/heads/main"], { stdio: "pipe" });
   // Push all refs from projection worktree into bare.
   try {
     git(projectionRoot, ["remote", "remove", "epoch-bare"]);
