@@ -43,3 +43,7 @@ Block Buzz is a free, open-source **collaboration workspace** where **humans and
 
 - [agents-as-members.feature](features/agents-as-members.feature)
 - [branch-as-room.feature](features/branch-as-room.feature)
+
+## OptimizeXP persona
+
+`buzz-power-user` (`.optimizexp/personas/buzz-power-user.md`) must **research current Buzz features** (README, CHANGELOG/releases, official screenshots) **before** scoring Epoch. Dossier text alone is insufficient.
