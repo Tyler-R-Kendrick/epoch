@@ -240,11 +240,15 @@ ${communityStyles()}
         <nav class="agent-list" data-agent-list aria-label="Member agents">
           ${defaultCommunityAgents
             .filter((agent) => agent.communityIds.includes(activeCommunityId))
-            .map((agent) => `
-        <button class="channel-button agent-member" type="button" data-agent-member="${escapeHtml(agent.id)}" data-agent-status="${escapeHtml(agent.status)}" aria-label="Member agent ${escapeHtml(agent.displayName)}, harness ${escapeHtml(agent.harness)}, ${escapeHtml(agent.status)}">
+            .map((agent) => {
+              const kind = agent.sessionKind === "live" ? "live" : "sample";
+              const statusLabel = `${kind} · ${agent.status}`;
+              return `
+        <button class="channel-button agent-member" type="button" data-agent-member="${escapeHtml(agent.id)}" data-agent-status="${escapeHtml(agent.status)}" data-agent-session-kind="${escapeHtml(kind)}" aria-label="Member agent ${escapeHtml(agent.displayName)}, harness ${escapeHtml(agent.harness)}, ${escapeHtml(statusLabel)}">
           <span class="channel-button-label">@${escapeHtml(agent.displayName)}</span>
-          <span class="agent-meta">${escapeHtml(agent.harness)} · ${escapeHtml(agent.status)}</span>
-        </button>`).join("") || `
+          <span class="agent-meta">${escapeHtml(agent.harness)} · ${escapeHtml(statusLabel)}</span>
+        </button>`;
+            }).join("") || `
         <p class="agent-list-empty">No member agents in this community yet.</p>`}
         </nav>
         <div class="rail-section-label">Linked projects</div>
@@ -603,6 +607,11 @@ export interface CommunityAgentMember {
   readonly managedBy: string;
   readonly scope: string;
   readonly status: "idle" | "working" | "needs-review";
+  /**
+   * `sample` = seed/demo membership (never claim live ACP Working).
+   * `live` = real harness session (only then may UI assert live Working).
+   */
+  readonly sessionKind: "sample" | "live";
   readonly communityIds: readonly string[];
 }
 
@@ -661,6 +670,7 @@ const defaultCommunityAgents: readonly CommunityAgentMember[] = [
     managedBy: "maya",
     scope: "copy + tests only",
     status: "needs-review",
+    sessionKind: "sample",
     communityIds: ["epoch-civic", "agent-guild"],
   },
   {
@@ -670,6 +680,7 @@ const defaultCommunityAgents: readonly CommunityAgentMember[] = [
     managedBy: "lea",
     scope: "read history + draft plans",
     status: "working",
+    sessionKind: "sample",
     communityIds: ["epoch-civic", "agent-guild"],
   },
   {
@@ -679,6 +690,7 @@ const defaultCommunityAgents: readonly CommunityAgentMember[] = [
     managedBy: "maya",
     scope: "open draft PRs under policy",
     status: "idle",
+    sessionKind: "sample",
     communityIds: ["agent-guild", "epoch-civic"],
   },
 ];
@@ -1839,6 +1851,11 @@ function communityRuntime(): string {
 
       const communityAgents = ${JSON.stringify(defaultCommunityAgents)};
 
+      function agentStatusLabel(agent) {
+        const kind = agent.sessionKind === "live" ? "live" : "sample";
+        return kind + " · " + agent.status;
+      }
+
       function renderAgentMembers(communityId) {
         const agentList = document.querySelector("[data-agent-list]");
         if (!agentList) return;
@@ -1847,20 +1864,31 @@ function communityRuntime(): string {
           agentList.innerHTML = '<p class="agent-list-empty">No member agents in this community yet.</p>';
           return;
         }
-        agentList.innerHTML = members.map((agent) =>
-          '<button class="channel-button agent-member" type="button" data-agent-member="' + escapeHtml(agent.id)
+        agentList.innerHTML = members.map((agent) => {
+          const kind = agent.sessionKind === "live" ? "live" : "sample";
+          const label = agentStatusLabel(agent);
+          return '<button class="channel-button agent-member" type="button" data-agent-member="' + escapeHtml(agent.id)
           + '" data-agent-status="' + escapeHtml(agent.status)
-          + '" aria-label="Member agent ' + escapeHtml(agent.displayName) + ', harness ' + escapeHtml(agent.harness) + ', ' + escapeHtml(agent.status) + '">'
+          + '" data-agent-session-kind="' + escapeHtml(kind)
+          + '" aria-label="Member agent ' + escapeHtml(agent.displayName) + ', harness ' + escapeHtml(agent.harness) + ', ' + escapeHtml(label) + '">'
           + '<span class="channel-button-label">@' + escapeHtml(agent.displayName) + '</span>'
-          + '<span class="agent-meta">' + escapeHtml(agent.harness) + ' · ' + escapeHtml(agent.status) + '</span></button>'
-        ).join("");
+          + '<span class="agent-meta">' + escapeHtml(agent.harness) + ' · ' + escapeHtml(label) + '</span></button>';
+        }).join("");
         agentList.querySelectorAll("[data-agent-member]").forEach((button) => {
           button.addEventListener("click", () => {
             selectChannel("agent-runs");
             const status = document.querySelector("[data-agent-working-status]");
-            if (status) {
-              status.textContent = "@" + (button.querySelector(".channel-button-label")?.textContent || "agent").replace(/^@/, "")
-                + ": open agent-runs for harness receipts";
+            if (!status) return;
+            const kind = button.getAttribute("data-agent-session-kind") || "sample";
+            const name = (button.querySelector(".channel-button-label")?.textContent || "agent").replace(/^@/, "");
+            if (kind === "live") {
+              status.textContent = "@" + name + ": open agent-runs for live harness receipts";
+              status.setAttribute("data-agent-live", "true");
+              status.removeAttribute("data-agent-sample");
+            } else {
+              status.textContent = "@" + name + ": sample member · open agent-runs for harness receipts (not a live ACP session)";
+              status.setAttribute("data-agent-sample", "true");
+              status.removeAttribute("data-agent-live");
             }
           });
         });
@@ -1869,16 +1897,33 @@ function communityRuntime(): string {
       function updateAgentWorkingStatus() {
         const status = document.querySelector("[data-agent-working-status]");
         if (!status) return;
-        const working = (communityAgents || []).filter((agent) =>
-          (agent.communityIds || []).includes(activeCommunity) && agent.status === "working"
+        const inCommunity = (communityAgents || []).filter((agent) =>
+          (agent.communityIds || []).includes(activeCommunity)
         );
-        if (working.length === 0) {
-          status.textContent = "";
+        const liveWorking = inCommunity.filter((agent) =>
+          agent.status === "working" && agent.sessionKind === "live"
+        );
+        const sampleWorking = inCommunity.filter((agent) =>
+          agent.status === "working" && agent.sessionKind !== "live"
+        );
+        // Honesty: never claim live Working without a real ACP session.
+        if (liveWorking.length > 0) {
+          status.textContent = liveWorking.map((agent) =>
+            "@" + agent.displayName + " · " + agent.harness + ": Working"
+          ).join(" · ");
+          status.setAttribute("data-agent-live", "true");
+          status.removeAttribute("data-agent-sample");
+          return;
+        }
+        if (sampleWorking.length > 0) {
+          status.textContent = "Sample member agents · not a live ACP session";
+          status.setAttribute("data-agent-sample", "true");
           status.removeAttribute("data-agent-live");
           return;
         }
-        status.textContent = working.map((agent) => "@" + agent.displayName + " · " + agent.harness + ": Working").join(" · ");
-        status.setAttribute("data-agent-live", "true");
+        status.textContent = "";
+        status.removeAttribute("data-agent-live");
+        status.removeAttribute("data-agent-sample");
       }
 
       function openCommunity(communityId) {
@@ -3039,6 +3084,11 @@ function communityStyles(): string {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .agent-working-status[data-agent-sample="true"] {
+      color: var(--epoch-color-ink-muted);
+      border-color: var(--epoch-color-line);
+      background: var(--epoch-color-surface-sunken, #e8eeeb);
     }
     .agent-working-status[data-agent-live="true"] {
       color: var(--epoch-color-success);

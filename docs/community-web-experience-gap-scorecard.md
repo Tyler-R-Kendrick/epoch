@@ -29,7 +29,7 @@ Related: [community-web-experience.md](community-web-experience.md), [community-
 | `promote` | Talk → signed work | GitHub, Buzz | **partial** | github, forge, buzz | yes | Review state on promoted message |
 | `agents_member` | Agents as members | Buzz | **partial** | buzz, agentic, discord | no (ACP external) | Live ACP into `#agent-runs` |
 | `receipts` | Reconstruct why shipped | Buzz, GH | **missing** | buzz, forge, slack | yes | Search messages + intents + agent runs |
-| `honesty` | Live vs sample | Epoch | **partial** | buzz, forge, tangled | yes | Working only when session live |
+| `honesty` | Live vs sample | Epoch | **partial** | buzz, forge, tangled | yes | Sample vs live sessionKind shipped (2026-08-03); live ACP still open |
 | `craft` | Density + calm | Slack, X, Telegram, DESIGN.md | **partial** | design personas, telegram | yes | Craft pass vs DESIGN.md |
 | `persistence` | Multi-user durable community | All live products | **missing** | discord, slack, forge | yes | Persist beyond process lifetime |
 
@@ -99,3 +99,4 @@ Configured in [packages/Epoch.Community.Web/.optimizexp/config.json](../packages
 | Date | Change |
 |---|---|
 | 2026-08-03 | Initial scorecard after competitor analysis + PR #85/#86/#87 merge |
+| 2026-08-03 | optimizexp `community-competitive-20260803-1719`: sample\|live agent session honesty |
