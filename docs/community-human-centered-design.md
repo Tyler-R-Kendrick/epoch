@@ -91,6 +91,9 @@ For Community work, the pull request or design note must answer:
 - What security, privacy, cost, accessibility, and moderation concerns were
   considered?
 - How will the change be validated beyond "it renders"?
+- **Would this persona reject the UI for lacking craft, playfulness, wonder, or
+  design-philosophy adherence?** (If yes, list fails and fix before merge.)
+- **What adversarial critique did each relevant persona raise, and what changed?**
 
 ## Primary Persona
 
@@ -119,11 +122,24 @@ Daily context:
 Goals:
 
 - find a project that is alive, safe, welcoming, and worth their time;
+- **feel invited** — the product should spark curiosity and craft pride, not
+  read as a gray wireframe or generic SaaS admin;
 - understand how to make a useful contribution without hidden rules;
 - submit changes without accidentally leaking secrets, breaking policy, or
   triggering unexpected cost;
 - recover from outages, stale indexes, failed automation, or lost context;
 - keep control of their identity, contribution history, and local work.
+
+Aesthetic and experience bar (this persona is **harsh**):
+
+- Rejects lifeless “correct” UIs: if hierarchy, density, type, and color do not
+  feel intentional, the product is unfinished.
+- Expects **playfulness as craft** — responsive controls, warm place identity,
+  delightful micro-feedback — never carnival AI-slop.
+- Expects **wonder** from signed proof and clear community place (Discord-grade
+  belonging + Epoch trust), not from decoration.
+- Holds the product to root [DESIGN.md](../DESIGN.md) philosophy (Signed Civic
+  Workshop). Drift from named rules is a defect, not taste.
 
 When hosted services are degraded, this persona still needs to judge current
 repository state, keep useful local work moving, and understand whether the
@@ -252,6 +268,94 @@ Design implications:
 9. Keep accessibility, moderation, privacy, and global async collaboration in
    the definition of done.
 10. Validate with scenarios that show the contributor can finish the job.
+11. Treat visual craft, playfulness, and wonder as product quality — not optional
+    polish after “it works.”
+12. Fail closed on design-philosophy drift: if it violates root [DESIGN.md](../DESIGN.md)
+    or feels like AI-slop / generic SaaS / dead wireframe, personas reject it.
+
+## Experience Quality: Craft, Playfulness, And Wonder
+
+Personas do **not** accept “functionally correct but lifeless” Community UI.
+Open-source people already live in dense tools (GitHub, Slack, Discord). They
+still notice when a product feels proud, crafted, and inviting versus flat,
+generic, or cold.
+
+### What “playfulness” and “wonder” mean here
+
+| Allowed (craft delight) | Forbidden (spectacle / slop) |
+|---|---|
+| Warm hierarchy, confident type, copper rarity that *sparks* action | Gradient text, glassmorphism, purple-blue AI chrome |
+| Micro-feedback that feels responsive and alive (focus, hover, send) | Fake presence, vanity metrics, confetti for no reason |
+| Signature signed-history / trust visuals that create *awe of proof* | Decorative orbs, pill spam, hero-metric cosplay |
+| Community channels that feel like a hangout with personality | Repo-only wireframe pretending to be social |
+| Soft breathing room + high scan density (Bluesky calm + Slack skill) | Sparse empty SaaS or cramped illegible walls |
+
+Wonder comes from **signed civic craft**: seeing that collaboration is real,
+accountable, and beautiful enough to *want* to stay — not from carnival UI.
+
+### Persona stance: critical by default
+
+Each persona below must **adversarially critique** Community visuals before a
+change is accepted. Neutrality is failure. “Looks fine” is not a valid review.
+
+| Persona | Adversarial lens | Instant reject if… |
+|---|---|---|
+| GitHub open-source contributor | “Would I proudly open this on stream / in a mentor session?” | UI feels like a stub, default browser chrome, or boring admin template |
+| Maintainer | “Does this reduce burnout or add gray mush to moderate?” | No clear place hierarchy; signed work hidden; social hangout dead |
+| Platform operator | “Would I demo this to a customer without apologizing?” | Tokens ignored; inconsistent density; broken a11y focus |
+| Security / compliance responder | “Does trust look *serious and legible* or decorative?” | Trust meta as noise, or no honest live/snapshot signaling |
+
+## Adversarial Design Critique Protocol
+
+Before finishing any Community Web (or Community-facing surface) change, agents
+and reviewers must run this critique **in the voice of the primary persona**,
+then at least one supporting persona. Write the critique in the PR or design
+note. Soft language is banned: use **pass / fail** with fixes.
+
+### Critique template (required)
+
+```text
+Persona: <tag / name>
+Surface: <route or component>
+DESIGN.md north star check: pass | fail — <why>
+Craft (hierarchy, density, typography, color rarity): pass | fail — <why>
+Playfulness / wonder (craft delight, not slop): pass | fail — <why>
+Competitive bar (vs Discord/Slack/X/Bluesky/Tangled where relevant): pass | fail — <why>
+Accessibility / honesty / trust legibility: pass | fail — <why>
+Unacceptable issues (must fix before merge):
+- ...
+Delight opportunities (should fix this pass if cheap):
+- ...
+```
+
+### Automatic fail conditions (any one blocks “done”)
+
+1. **Design philosophy violation** of root [DESIGN.md](../DESIGN.md) named rules
+   (Copper Rarity, Community Owns Channels, Network Is Discovery, Flat Feed,
+   No Pill / No Glass / No Gradient Text, Surface Is Product, etc.).
+2. **Lifeless product** — correct layout with no craft hierarchy, no intentional
+   type scale, no signature trust visual language, no sense of place.
+3. **AI-slop tells** — capsules, glass, purple gradients, fake social proof,
+   decorative motion without state meaning.
+4. **Competitor regression** — clearly worse place-model or feed scan than the
+   competitor we just studied for that surface (document which).
+5. **Honesty failure** — live vs snapshot / federation mode unclear.
+6. **Trust theater** — signatures/anchors missing where signed work matters, or
+   so loud they crush message content.
+7. **Hangout without a soul** — community channels that read as empty admin
+   lists with no invitation to participate.
+
+### Pass bar (all required)
+
+- Persona would **choose** to stay in the product for a real contribution window.
+- Visual system matches DESIGN.md tokens (colors, radii ≤8px, rail/feed split,
+  copper rarity, teal intent, gold only for verification).
+- At least one moment of **craft delight** or **proof wonder** is intentional
+  (e.g. signed action tray clarity, copper active channel edge, network verb
+  cards, community welcome that feels human).
+- Degraded/snapshot states are plainspoken, not embarrassing afterthoughts.
+- Adversarial critique is written and residual fails are fixed or explicitly
+  scheduled with persona impact.
 
 ## Definition Of Done For Community Experience Changes
 
@@ -264,6 +368,10 @@ A Community Web, API, Core, CLI, or workflow change is not ready until it has:
   stale, risky, or quota-limited states;
 - explicit consideration of security, privacy, cost, accessibility, moderation,
   and portability;
+- **an adversarial persona design critique** (template above) with zero open
+  automatic-fail conditions;
+- **DESIGN.md conformance** for any visual change (`npm run design:lint` when
+  tokens change; visual check against named rules when shell CSS changes);
 - updated [agent instructions](../AGENTS.md), [documentation freshness](documentation-freshness.md), and [Epoch skill](../skills/epoch/SKILL.md) references when the design method or agent workflow changes.
 
 ## Definition Of Done For Feature Specs

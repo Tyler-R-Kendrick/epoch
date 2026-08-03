@@ -46,6 +46,12 @@ Following · Network · Contributions — verb-led ATProto/contribution cards wi
 
 Do not replace Discord with forge-only chrome. Do not abandon signed intents for pure chat.
 
+## Persona bar (adversarial)
+
+Community Web must pass [adversarial persona critique](community-human-centered-design.md#adversarial-design-critique-protocol).
+Personas treat **lifeless styling**, **missing craft delight / wonder**, and
+**DESIGN.md philosophy drift** as product defects — not taste preferences.
+
 See:
 
 - [community-channels-comparison.md](competition/community-channels-comparison.md)

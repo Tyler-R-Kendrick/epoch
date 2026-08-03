@@ -224,6 +224,9 @@ The interface rejects default browser styling, generic SaaS hero drama, decorati
 - System typography with strong weights; mono only for anchors/signatures.
 - Rectangular controls ≤8px radius; no pills, glass, or gradient text.
 - Live vs snapshot honesty is always visible when the API is not connected.
+- **Craft delight and proof wonder are required.** Personas reject lifeless “correct” shells. Playfulness means responsive, warm, intentional place identity — never AI-slop spectacle. Wonder comes from signed civic proof and clear community belonging.
+
+**Persona enforcement:** Community UI is incomplete until adversarial persona critique passes (see [community-human-centered-design.md](docs/community-human-centered-design.md#adversarial-design-critique-protocol)).
 
 ## 2. Colors
 

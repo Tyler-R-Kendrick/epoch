@@ -11,7 +11,7 @@ decisions, operations, or contribution workflow.
 | [Feature Registry](features.md) | Implemented feature IDs, behavior, and executable coverage links. |
 | [Executable Feature Scenario Inventory](feature-scenario-inventory.md) | Scenario-level records for every executable Gherkin scenario, persona tag, rule context, and examples count. |
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype, including platform conformance flows. |
-| [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, user-centric design, primary GitHub open-source contributor persona, pain points, and human considerations for Epoch Community. |
+| [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, personas (adversarial critics), craft/playfulness/wonder bar, DESIGN.md adherence, pain points, and human considerations for Epoch Community. |
 | [Community Web Experience](community-web-experience.md) | Channel-first Community Web behavior, personas, browser evidence, and selected-message signed actions. |
 | [Community Web Competitive Evaluation](community-web-competitive-evaluation.md) | Scored compare/contrast vs GitHub and Tangled; wedge vs overall outcompete assessment. |
 | [Identity Bridge](identity-bridge.md) | Nostr ↔ ATProto mutual identity binding (v2); pure verifier; witness index. |
@@ -86,6 +86,3 @@ decisions, operations, or contribution workflow.
 | [Contributing](../CONTRIBUTING.md) | Coding workflow, testing expectations, and pull request checklist. |
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
-| [OptimizeXP Skill](../skills/optimizexp/SKILL.md) | Persona-driven UX, DX, and AX optimization harness and reference bundle. |
-| [SDLC Skill](../skills/sdlc/SKILL.md) | Full-loop planning, dispatch, stacked-PR, review, and merge coordinator. |
-| [SDLC Dispatch Log](plans/dispatch-log.md) | Durable initiative outcomes, delivery PRs, merge commits, and failure classifications. |

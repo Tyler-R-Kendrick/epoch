@@ -33,6 +33,7 @@ These instructions apply to the entire repository.
 - Design the Epoch Community site with design thinking, user-centric design, and human-centered design as the driving methodologies. Follow [`docs/community-human-centered-design.md`](docs/community-human-centered-design.md) and [`docs/design-decisions/0012-community-human-centered-design.md`](docs/design-decisions/0012-community-human-centered-design.md).
 - Use the default Community persona, a GitHub open-source contributor, unless a different persona is explicitly documented.
 - Personas are users in real product scenarios, not features. Do not create `persona_*`, `*_persona_*`, `*_e2e_journeys`, human-centered-design, or similar persona/governance feature files.
+- **Personas are adversarial critics of experience quality.** They must reject lifeless styling, missing playfulness/wonder (craft delight, not AI-slop), and design-philosophy drift from root [`DESIGN.md`](DESIGN.md). “It works” is not acceptance. Run the [adversarial design critique protocol](docs/community-human-centered-design.md#adversarial-design-critique-protocol) for every Community-facing visual or interaction change; write pass/fail critique in the PR/design note; fix automatic fails before claiming done.
 - Before changing Community Web, API, Core, CLI, workflows, docs, or specs, add or update the relevant product feature scenarios under `features/` when user-visible behavior changes, and use persona tags such as `@persona.github_open_source_contributor`, `@persona.maintainer`, `@persona.platform_operator`, or `@persona.security_compliance_responder` on those real behavior scenarios.
 - Every new `.feature` scenario must read as a user journey for its persona: name the persona with a tag, start from an app context the user would recognize, move through the app screens or workflow steps the user takes, end with the successful user outcome, and include signed/provenance state only when it affects the user's trust or decision.
 - Keep agent instructions, testing procedures, evidence recording, persona matrix audits, repository governance, and other process checks out of `.feature` scenarios.
@@ -44,7 +45,6 @@ These instructions apply to the entire repository.
 ## Repository practices
 
 - Keep changes small, intentional, and aligned with the existing TypeScript workspace structure.
-- Keep reusable agent workflows under `skills/`; `skills/sdlc/` coordinates end-to-end delivery and `skills/optimizexp/` carries its executable experience-review harness. Validate changed skill frontmatter, links, and focused harness tests before the repository gates.
 - Update documentation when public CLI commands, SDK APIs, WASM exports, repository workflows, agent instructions, or design decisions change.
 - Prefer existing dependencies and standard library APIs. Add a dependency only when the benefit is clear and the dependency has been reviewed.
 - Treat Epoch history, identity, signatures, and content-addressed storage as security-sensitive code paths.

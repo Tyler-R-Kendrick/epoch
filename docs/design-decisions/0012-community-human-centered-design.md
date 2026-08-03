@@ -41,12 +41,17 @@ identify:
 - the trust, cost, security, privacy, accessibility, moderation, and
   portability considerations;
 - what happens when hosted dependencies, search, CI, AI assistance, or billing
-  are degraded; and
-- how the workflow will be validated.
+  are degraded;
+- how the workflow will be validated;
+- **adversarial persona critique of craft, playfulness/wonder, and DESIGN.md
+  philosophy adherence** (see the critique protocol in the human-centered design
+  guide) — lifeless or philosophy-violating UI is unacceptable even when
+  functionally correct.
 
 Personas are user descriptions applied to product behavior scenarios. They must
 not be modeled as standalone feature files, e2e journey feature files, or
-matrix-only scenario outlines.
+matrix-only scenario outlines. Personas are **critical reviewers** of experience
+quality: they reject AI-slop, generic SaaS chrome, and design-system drift.
 
 ## Consequences
 
@@ -57,6 +62,8 @@ Positive:
   evidence instead of private design intent.
 - Reliability, security, and billing context become part of UX definition of
   done rather than late operational caveats.
+- Craft, playfulness (as craft delight), wonder (as proof/place awe), and root
+  DESIGN.md adherence are persona fail conditions, not optional polish.
 - Agent instructions and skills now have a concrete persona and checklist for
   future Community work.
 - The Community package boundary remains compatible with the existing
