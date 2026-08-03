@@ -166,7 +166,8 @@
     "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
-    "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run typecheck && npm run konsistent && npm test && npm run coverage && npm run test:pact"
+    "a11y:community-web": "node scripts/run-community-web-axe.mjs",
+    "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run a11y:community-web && npm run coverage && npm run test:pact"
   },
   "keywords": [
     "dvcs",
@@ -187,6 +188,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@typescript/native-preview": "^7.0.0-dev.20260504.1",
+    "axe-core": "^4.12.1",
     "c8": "^11.0.0",
     "eslint": "^10.3.0",
     "jsdom": "^29.1.1",
