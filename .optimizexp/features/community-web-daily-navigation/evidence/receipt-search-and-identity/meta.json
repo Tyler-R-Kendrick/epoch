@@ -1,0 +1,65 @@
+{
+  "featureId": "community-web-daily-navigation",
+  "scenarioSlug": "receipt-search-and-identity",
+  "personaIds": [
+    "slack-power-user",
+    "buzz-power-user",
+    "bluesky-power-user",
+    "github-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-03T18:27:43.803Z",
+  "runId": "community-persona-uplift-20260803-1823",
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 382264,
+    "sha256": "fd5bae46ac550e214b9e97ffd6d993afe7ea49352360bb69550d3f92f1d06bdc"
+  },
+  "claims": [
+    {
+      "id": "claim-search",
+      "text": "Receipt search filters messages/intents/harnesses community-wide"
+    },
+    {
+      "id": "claim-identity",
+      "text": "Identity chip marks sample session · not AT login"
+    },
+    {
+      "id": "claim-promote",
+      "text": "Promote/intent receipt cards visible on agent and change messages"
+    },
+    {
+      "id": "claim-share",
+      "text": "Share a ship remains available for showcase path"
+    }
+  ],
+  "repro": {
+    "url": "http://127.0.0.1:8787/community",
+    "via": "capture-evidence"
+  },
+  "degraded": false,
+  "notes": [
+    "persona uplift: search + identity honesty + promote receipts",
+    "{\"authState\":\"sample-session\",\"authNote\":\"session sample · not AT login\",\"searchPresent\":true,\"afterGoose\":{\"status\":\"1 receipt match in community\",\"hits\":1,\"visibleAgents\":1},\"afterIntent\":{\"status\":\"2 receipt matches in community\",\"hits\":2,\"promote\":4},\"promoteReceiptsInDom\":4,\"promoteVisibleOnAgentRuns\":2,\"shareShip\":true}"
+  ],
+  "observations": {
+    "authState": "sample-session",
+    "authNote": "session sample · not AT login",
+    "searchPresent": true,
+    "afterGoose": {
+      "status": "1 receipt match in community",
+      "hits": 1,
+      "visibleAgents": 1
+    },
+    "afterIntent": {
+      "status": "2 receipt matches in community",
+      "hits": 2,
+      "promote": 4
+    },
+    "promoteReceiptsInDom": 4,
+    "promoteVisibleOnAgentRuns": 2,
+    "shareShip": true
+  }
+}

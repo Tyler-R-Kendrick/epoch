@@ -280,9 +280,10 @@ ${communityStyles()}
           <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
         <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
-          <span class="identity-chip" data-identity-chip title="Portable ATProto identity (session)">
+          <span class="identity-chip" data-identity-chip data-auth-state="sample-session" title="Portable ATProto identity (sample session — not a live AT login)">
             <span class="identity-handle">@maya.epoch.community</span>
             <span class="identity-did">did:plc:maya</span>
+            <span class="identity-auth-note" data-auth-note>session sample · not AT login</span>
           </span>
           <span class="meta-sep" aria-hidden="true"></span>
           <span>${spaces.length} communities</span>
@@ -306,6 +307,11 @@ ${communityStyles()}
       <div class="feed-toolbar" role="group" aria-label="Current channel" data-channel-toolbar>
         <span class="channel-name" data-current-channel># ${escapeHtml(defaultChannel)}</span>
         <span class="channel-topic" data-current-topic>${escapeHtml(activeCommunity?.channels.find((c) => c.id === defaultChannel)?.topic ?? "Community conversation")}</span>
+        <label class="receipt-search" data-receipt-search-wrap>
+          <span class="visually-hidden">Search messages, intents, and agent receipts</span>
+          <input type="search" data-receipt-search placeholder="Search receipts…" autocomplete="off" enterkeyhint="search" />
+        </label>
+        <span class="receipt-search-status" data-receipt-search-status role="status" aria-live="polite"></span>
         <span class="members-strip" data-members-strip role="status" aria-label="Community members">
           <span class="members-label">Members</span>
           <span class="member-pill" title="maya">MY</span>
@@ -1406,6 +1412,19 @@ function renderConversation(
         ${conversation.intentId ? `<a class="message-artifact-link" href="#intent-${escapeHtml(conversation.intentId)}" data-intent-link="${escapeHtml(conversation.intentId)}">Open signed intent</a>` : ""}
       </div>`
     : "";
+  const promoteReceipt = conversation.linkedProposalId !== undefined
+    ? `<div class="message-promote-receipt" data-promote-receipt data-proposal-id="${escapeHtml(conversation.linkedProposalId)}">
+        <span class="promote-receipt-label">Signed promote</span>
+        <strong data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</strong>
+        <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")} · human review required</span>
+      </div>`
+    : conversation.intentId
+    ? `<div class="message-promote-receipt" data-promote-receipt data-intent-id="${escapeHtml(conversation.intentId)}">
+        <span class="promote-receipt-label">Signed intent</span>
+        <strong data-intent-meta>intent:${escapeHtml(conversation.intentId)}</strong>
+        <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")}</span>
+      </div>`
+    : "";
   return `<li class="feed-message${agentClass}" data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
     <button class="message-hitbox" type="button" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}"></button>
     <div class="avatar${isAgent ? " avatar-agent" : ""}" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
@@ -1422,6 +1441,7 @@ function renderConversation(
       <h2>${escapeHtml(conversation.title)}</h2>
       <p>${escapeHtml(conversation.body)}</p>
       ${artifactCard}
+      ${promoteReceipt}
       <footer class="message-footer">
         <span>${escapeHtml(conversation.anchor)}</span>
         <span>${escapeHtml(conversation.signature)}</span>
@@ -2057,22 +2077,54 @@ function communityRuntime(): string {
         if (composerMeta && space) composerMeta.textContent = "Signed as @" + actor + " · " + space.name;
       }
 
+      function receiptSearchQuery() {
+        const input = document.querySelector("[data-receipt-search]");
+        return input && typeof input.value === "string" ? input.value.trim().toLowerCase() : "";
+      }
+
       function applyChannelFilter() {
+        const q = receiptSearchQuery();
+        const searchStatus = document.querySelector("[data-receipt-search-status]");
+        let hits = 0;
         messages().forEach((message) => {
           const sameCommunity = !message.dataset.communityId || message.dataset.communityId === activeCommunity;
-          message.hidden = !(sameCommunity && message.dataset.channel === activeChannel);
+          const channelOk = message.dataset.channel === activeChannel;
+          const text = (message.textContent || "").toLowerCase();
+          const match = !q || text.includes(q);
+          // Empty query: channel filter. Non-empty: search receipts across channels in the community.
+          const visible = sameCommunity && (q ? match : channelOk);
+          message.hidden = !visible;
+          if (q && visible) {
+            hits += 1;
+            message.setAttribute("data-search-hit", "true");
+          } else {
+            message.removeAttribute("data-search-hit");
+          }
           if (message.dataset.messageId !== selectedMessage) {
             message.removeAttribute("data-selected-message");
             const tray = message.querySelector("[data-message-actions]");
             if (tray) tray.hidden = true;
           }
         });
+        if (searchStatus) {
+          searchStatus.textContent = q
+            ? (hits + " receipt match" + (hits === 1 ? "" : "es") + " in community")
+            : "";
+        }
         const space = currentCommunity();
         const channelMeta = space && (space.channels || []).find((item) => item.id === activeChannel);
-        if (channelName) channelName.textContent = "# " + activeChannel;
-        if (channelTopic) channelTopic.textContent = (channelMeta && channelMeta.topic) || channelTopics[activeChannel] || "";
+        if (channelName) {
+          channelName.textContent = q ? "# search · " + activeChannel : "# " + activeChannel;
+        }
+        if (channelTopic) {
+          channelTopic.textContent = q
+            ? "Searching messages, intents, harness labels, and promote receipts"
+            : ((channelMeta && channelMeta.topic) || channelTopics[activeChannel] || "");
+        }
         if (contextSub && productMode === "community") {
-          contextSub.textContent = "# " + activeChannel + " · community channel";
+          contextSub.textContent = q
+            ? "Receipt search · community-wide"
+            : ("# " + activeChannel + " · community channel");
         }
         applyComposerChrome();
         document.querySelectorAll("[data-channel][aria-pressed]").forEach((item) => {
@@ -2105,7 +2157,7 @@ function communityRuntime(): string {
         const input = composerInput();
         if (!input) return;
         if (!input.value.trim()) {
-          input.value = "Shipping: \\nWhat: \\nLink: \\nWho can try it: ";
+          input.value = "Shipping: \\nWhat: \\nLink: \\nWho can try it: \\nNetwork: appears on Network Feed when AT is live (sample until then)";
           composerDrafts.set(draftKey(activeCommunity, "showcase"), input.value);
         }
         input.focus();
@@ -2198,6 +2250,10 @@ function communityRuntime(): string {
           + '<header class="message-meta"><strong>' + escapeHtml(proposal.author) + '</strong><span>contributor</span><time>live</time><span data-message-state>' + escapeHtml(proposal.status) + '</span></header>'
           + '<h2>' + escapeHtml(proposal.title) + '</h2>'
           + '<p>' + escapeHtml(proposal.body || (proposal.sourceView + " -> " + proposal.targetView)) + '</p>'
+          + '<div class="message-promote-receipt" data-promote-receipt data-proposal-id="' + escapeHtml(proposal.id) + '">'
+          + '<span class="promote-receipt-label">Signed promote</span>'
+          + '<strong data-proposal-link>proposal:' + escapeHtml(proposal.id) + '</strong>'
+          + '<span class="promote-receipt-state" data-promote-state>' + escapeHtml(proposal.status || "open") + ' · human review required</span></div>'
           + '<footer class="message-footer"><span>change:' + escapeHtml(proposal.id) + '</span><span>sig:' + escapeHtml(proposal.id.toLowerCase()) + '</span><span>community</span><span data-proposal-link>proposal:' + escapeHtml(proposal.id) + '</span></footer>'
           + '<div class="reaction-row" aria-label="Reactions">'
           + '<button type="button" class="reaction" data-reaction="review">review</button>'
@@ -2245,9 +2301,10 @@ function communityRuntime(): string {
       }
 
       function identityChipHtml() {
-        return '<span class="identity-chip" data-identity-chip title="Portable ATProto identity (session)">'
+        return '<span class="identity-chip" data-identity-chip data-auth-state="sample-session" title="Portable ATProto identity (sample session — not a live AT login)">'
           + '<span class="identity-handle">@' + escapeHtml(actor) + '.epoch.community</span>'
           + '<span class="identity-did">did:plc:' + escapeHtml(actor) + '</span>'
+          + '<span class="identity-auth-note" data-auth-note>session sample · not AT login</span>'
           + '</span>';
       }
 
@@ -2353,6 +2410,15 @@ function communityRuntime(): string {
               + '<time>' + escapeHtml(item.time || "now") + '</time><span data-message-state>' + escapeHtml(item.state || "open") + '</span></header>'
               + '<h2>' + escapeHtml(item.title) + '</h2><p>' + escapeHtml(item.body || "") + '</p>'
               + artifact
+              + (item.linkedProposalId
+                ? '<div class="message-promote-receipt" data-promote-receipt data-proposal-id="' + escapeHtml(item.linkedProposalId) + '"><span class="promote-receipt-label">Signed promote</span><strong data-proposal-link>proposal:'
+                  + escapeHtml(item.linkedProposalId) + '</strong><span class="promote-receipt-state" data-promote-state>'
+                  + escapeHtml(item.state || "open") + ' · human review required</span></div>'
+                : (item.intentId
+                  ? '<div class="message-promote-receipt" data-promote-receipt data-intent-id="' + escapeHtml(item.intentId) + '"><span class="promote-receipt-label">Signed intent</span><strong data-intent-meta>intent:'
+                    + escapeHtml(item.intentId) + '</strong><span class="promote-receipt-state" data-promote-state>'
+                    + escapeHtml(item.state || "open") + '</span></div>'
+                  : ""))
               + '<footer class="message-footer"><span>' + escapeHtml(item.anchor || "") + '</span><span>' + escapeHtml(item.signature || "") + '</span><span>' + escapeHtml(item.visibility || "community") + '</span>'
               + (item.intentId ? '<span data-intent-meta>intent:' + escapeHtml(item.intentId) + '</span>' : "")
               + (item.linkedProposalId ? '<span data-proposal-link>proposal:' + escapeHtml(item.linkedProposalId) + '</span>' : "")
@@ -2545,12 +2611,29 @@ function communityRuntime(): string {
             const proposal = (updated.changeProposals || []).filter((item) => item.title === title).slice(-1)[0]
               || (updated.changeProposals || []).slice(-1)[0];
             if (proposal) {
+              // Stamp promote receipt on the originating message when it still exists.
+              message.setAttribute("data-linked-proposal", proposal.id);
+              if (!message.querySelector("[data-promote-receipt]")) {
+                const body = message.querySelector(".message-body");
+                if (body) {
+                  const receipt = document.createElement("div");
+                  receipt.className = "message-promote-receipt";
+                  receipt.setAttribute("data-promote-receipt", "true");
+                  receipt.setAttribute("data-proposal-id", proposal.id);
+                  receipt.innerHTML = '<span class="promote-receipt-label">Signed promote</span><strong data-proposal-link>proposal:'
+                    + escapeHtml(proposal.id) + '</strong><span class="promote-receipt-state" data-promote-state>'
+                    + escapeHtml(proposal.status || "open") + " · human review required</span>";
+                  const footer = body.querySelector(".message-footer");
+                  if (footer) body.insertBefore(receipt, footer);
+                  else body.appendChild(receipt);
+                }
+              }
               const next = document.querySelector('[data-message-id="change-' + CSS.escape(proposal.id) + '"]')
                 || document.querySelector('[data-message-id="' + CSS.escape(message.dataset.messageId) + '"]');
               if (next) {
                 selectChannel("previews");
                 selectMessage("change-" + proposal.id);
-                setStatus(next, "Intent candidate recorded from the live API: " + proposal.id + " (" + proposal.status + ").");
+                setStatus(next, "Promote receipt recorded: proposal:" + proposal.id + " (" + proposal.status + "). Human review still required.");
               }
             }
             return;
@@ -2771,6 +2854,11 @@ function communityRuntime(): string {
       applyComposerChrome();
       renderAgentMembers(activeCommunity);
       updateAgentWorkingStatus();
+      const receiptSearch = document.querySelector("[data-receipt-search]");
+      if (receiptSearch) {
+        receiptSearch.addEventListener("input", () => applyChannelFilter());
+        receiptSearch.addEventListener("search", () => applyChannelFilter());
+      }
       if (live() && repository()) {
         refreshRepository().catch((error) => {
           if (connectionLabel) connectionLabel.textContent = "Live · error";
@@ -3197,6 +3285,15 @@ function communityStyles(): string {
       font-size: 0.68rem;
       font-weight: 500;
     }
+    .identity-auth-note {
+      color: var(--epoch-color-muted);
+      font-size: 0.64rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .identity-chip[data-auth-state="sample-session"] {
+      border-style: dashed;
+    }
     @media (max-width: 720px) {
       .identity-did {
         /* Collapse DID under handle on narrow viewports; full DID remains in title. */
@@ -3216,6 +3313,73 @@ function communityStyles(): string {
       .members-count {
         display: none;
       }
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .receipt-search {
+      display: inline-flex;
+      flex: 0 1 12rem;
+      min-width: 8rem;
+      align-items: center;
+    }
+    .receipt-search input {
+      width: 100%;
+      min-height: 2rem;
+      padding: 0.3rem 0.55rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface);
+      color: var(--epoch-color-ink);
+      font: inherit;
+      font-size: 0.82rem;
+    }
+    .receipt-search input:focus {
+      outline: 2px solid var(--epoch-color-accent, #c47a3a);
+      outline-offset: 1px;
+    }
+    .receipt-search-status {
+      flex: 0 1 auto;
+      color: var(--epoch-color-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .message-promote-receipt {
+      display: grid;
+      gap: 0.15rem;
+      margin: 0.45rem 0 0.35rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--epoch-color-line);
+      border-inline-start: 3px solid var(--epoch-color-accent, #c47a3a);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-sunken, #e8eeeb);
+    }
+    .promote-receipt-label {
+      color: var(--epoch-color-muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .message-promote-receipt strong {
+      color: var(--epoch-color-ink);
+      font-size: 0.86rem;
+    }
+    .promote-receipt-state {
+      color: var(--epoch-color-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .feed-message[data-search-hit="true"] {
+      box-shadow: inset 3px 0 0 var(--epoch-color-accent, #c47a3a);
     }
 
     .api-banner {
