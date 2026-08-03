@@ -22,16 +22,16 @@ Related: [community-web-experience.md](community-web-experience.md), [community-
 
 | id | Dimension | Competitor bars | Status | Persona owners | Implementable now? | Smallest experiment |
 |---|---|---|---|---|---|---|
-| `belong` | Community-owned hangout | Discord, Slack | **partial** | discord, slack, forge | yes | Durable multi-user community store |
-| `discover` | Network builder discovery | X, Tangled, Bluesky, GH | **partial** | x-com, tangled, bluesky, github | yes | Real feed or stricter sample + drill-in |
-| `identity` | Portable who | Bluesky, Tangled | **partial** | bluesky, tangled | yes | AT handle session + fail-closed |
-| `share` | Share what I built | Discord, X, GH | **partial** | discord, github, x-com | yes | Network-visible ship from Share a ship |
-| `promote` | Talk → signed work | GitHub, Buzz | **partial** | github, forge, buzz | yes | Review state on promoted message |
-| `agents_member` | Agents as members | Buzz | **partial** | buzz, agentic, discord | no (ACP external) | Live ACP into `#agent-runs` |
-| `receipts` | Reconstruct why shipped | Buzz, GH | **partial** | buzz, forge, slack | yes | Search messages + intents + agent runs |
-| `honesty` | Live vs sample | Epoch | **partial** | buzz, forge, tangled | yes | Sample vs live sessionKind shipped (2026-08-03); live ACP still open |
-| `craft` | Density + calm | Slack, X, Telegram, DESIGN.md | **partial** | design personas, telegram | yes | Craft pass vs DESIGN.md |
-| `persistence` | Multi-user durable community | All live products | **missing** | discord, slack, forge | yes | Persist beyond process lifetime |
+| `belong` | Community-owned hangout | Discord, Slack | **partial** | discord, slack, forge | yes | Multi-user presence beyond local durable API |
+| `discover` | Network builder discovery | X, Tangled, Bluesky, GH | **partial** | x-com, tangled, bluesky, github | yes | Live AT-observed feed |
+| `identity` | Portable who | Bluesky, Tangled | **partial** | bluesky, tangled | yes | Full AT OAuth link (api-session honesty shipped) |
+| `share` | Share what I built | Discord, X, GH | **partial** | discord, github, x-com | yes | Network event emission when AT live |
+| `promote` | Talk → signed work | GitHub, Buzz | **partial** | github, forge, buzz | yes | Merge/export evidence beyond approve |
+| `agents_member` | Agents as members | Buzz | **partial** | buzz, agentic, discord | yes | Wire real ACP into `liveAgentIds` |
+| `receipts` | Reconstruct why shipped | Buzz, GH | **partial** | buzz, forge, slack | yes | Deeper search index / server search |
+| `honesty` | Live vs sample | Epoch | **partial** | buzz, forge, tangled | yes | Sample vs live agents + session auth states shipped |
+| `craft` | Density + calm | Slack, X, Telegram, DESIGN.md | **partial** | design personas, telegram | yes | Ongoing craft passes |
+| `persistence` | Multi-user durable community | All live products | **partial** | discord, slack, forge | yes | File-backed API shipped; multi-node HA next |
 
 Status enum: `proven` | `partial` | `missing` | `external-blocked`.
 
@@ -39,20 +39,23 @@ Status enum: `proven` | `partial` | `missing` | `external-blocked`.
 
 ## Status snapshot (2026-08-03)
 
-### Proven enough for chrome (not production multiplayer)
+### Shipped and tested (local production path)
 
-- Community switcher + social channels without repo (`belong` partial)
-- Share a ship + sticky drafts (`share` partial)
-- Agents rail + multi-agent samples + harness/managed-by after live refresh (`agents_member` partial UI)
-- Live/snapshot honesty banners (`honesty` partial)
+- Community switcher + social channels without repo
+- Share a ship + sticky drafts
+- Agents rail, harness/managed-by, sample|live session kinds (`EPOCH_LIVE_AGENT_IDS`)
+- **Receipt search** across community messages/intents/harnesses
+- **Promote/intent receipt cards** with review state
+- **State-driven identity** (`sample-session` | `api-session` | `authenticated`)
+- **File-backed Community API persistence** (`EPOCH_COMMUNITY_API_STATE`, default `.data/community-api.json`)
+- Live/snapshot honesty banners
 
-### Still missing / blocked for “significantly better”
+### Remaining product gaps (not missing UI chrome)
 
-1. **persistence** — in-memory Community API seed is not a hangout
-2. **identity** — handle/DID chip without real AT session
-3. **promote** — incomplete review/merge evidence loop in UI
-4. **agents_member** — no live ACP Working truth
-5. **receipts** — no unified search
+1. **Multi-node / multi-user HA** — file-backed local durability is not a federated hangout
+2. **Full AT OAuth** — api-session is honest; authenticated requires OAuth wiring
+3. **Deep forge merge trail** — promote + approve exist; package/export pipeline is separate
+4. **Real ACP harness control plane** — `liveAgentIds` is the integration seam; harness process is external
 
 ---
 
@@ -82,15 +85,15 @@ Configured in [packages/Epoch.Community.Web/.optimizexp/config.json](../packages
 
 ---
 
-## Product phases (Stream C)
+## Product phases
 
-| Phase | Dimensions moved | Focus |
+| Phase | Dimensions | Status |
 |---|---|---|
-| C0 | honesty, agents_member | Regression + honesty audit |
-| C1 | persistence, identity, belong | Durable store + AT session honesty |
-| C2 | promote, receipts | Full promote/review UI |
-| C3 | agents_member | Live ACP / Working truth |
-| C4 | belong, receipts | Unread + search |
+| C0 | honesty, agents_member sample|live | shipped |
+| C1 | persistence (file), identity api-session | shipped |
+| C2 | promote receipts, receipts search | shipped |
+| C3 | real ACP process attach | open (seam: `liveAgentIds`) |
+| C4 | AT OAuth authenticated + multi-node | open |
 
 ---
 
@@ -101,3 +104,4 @@ Configured in [packages/Epoch.Community.Web/.optimizexp/config.json](../packages
 | 2026-08-03 | Initial scorecard after competitor analysis + PR #85/#86/#87 merge |
 | 2026-08-03 | optimizexp `community-competitive-20260803-1719`: sample\|live agent session honesty |
 | 2026-08-03 | optimizexp community-persona-uplift: receipt search, promote cards, identity sample-session |
+| 2026-08-03 | Production skeptic fix: file-backed API, state-driven identity, liveAgentIds, cucumber+unit tests; scorecard docs aligned |
