@@ -1,46 +1,79 @@
 ---
 type: Reference
 title: "Epoch Community OptimizeXP initiative state"
-description: "Closed SDLC state for the competitor-persona Community Web optimization run."
+description: "SDLC state for Community Web competitive personas, Buzz agents-as-members, and optimizexp review-cycle work."
 tags: [epoch, plans, sdlc, optimizexp, community]
 ---
 
-# Initiative: optimize Epoch Community Web for competitor power users
+# Initiative: Epoch Community competitive experience + OptimizeXP
 
-- **Phase:** closed
+- **Phase:** closed (session land 2026-08-03)
 - **Slug:** `epoch-community-optimizexp`
 - **Opened:** 2026-08-01
-- **Closed:** 2026-08-01
-- **Host:** Codex
+- **Session closeout:** 2026-08-03
+- **Host:** Grok Build / Codex
 
 ## Goal
 
-Copy Epoch-local OptimizeXP and SDLC skills, model documented competitor power users,
-run the Community Web review loop through Pareto equilibrium, and land every accepted
-reduction with durable browser evidence.
+Make Epoch Community Web competitive as a **signed community hangout + network discovery +
+agents-as-members** wedge; land competitor research, personas, product experiments, and a
+durable OptimizeXP competitive review cycle on `main`.
 
-## Outcome
+## Session outcomes (2026-08-03)
 
-- OptimizeXP run `20260801-ux-community-web` completed at `pareto-equilibrium`.
-- Harm improved from `25/4` to `5/1`; delight improved from `21` to `25`, with the
-  minimum persona score improving from `3` to `4`.
-- Eleven P0 journey recordings and their manifests, observations, reviews, and replay
-  instructions were committed.
-- PR [#81](https://github.com/Tyler-R-Kendrick/epoch/pull/81) was squash-merged as
-  `474cb915b006d91bec75a18689de25338ca15811`.
+| PR | Title | Merge |
+|---|---|---|
+| [#84](https://github.com/Tyler-R-Kendrick/epoch/pull/84) | Sync sdlc + optimizexp skills from HoBo | merged |
+| [#85](https://github.com/Tyler-R-Kendrick/epoch/pull/85) | Designer personas from HoBo | merged |
+| [#86](https://github.com/Tyler-R-Kendrick/epoch/pull/86) | Competitor power users + share path / drafts / identity | merged |
+| [#87](https://github.com/Tyler-R-Kendrick/epoch/pull/87) | Block Buzz dossier + agents-as-members | merged |
+| [#88](https://github.com/Tyler-R-Kendrick/epoch/pull/88) | Competitive gap scorecard + Community Web panels | merged |
+| [#89](https://github.com/Tyler-R-Kendrick/epoch/pull/89) | Honest sample vs live agent session status | merged |
+
+### OptimizeXP runs
+
+| Run | Stop | Notes |
+|---|---|---|
+| `buzz-agent-member-20260803-1126` | pareto-equilibrium | Agents-as-members UI |
+| `community-competitive-20260803-1719` | pareto-equilibrium | Competitive panel + honesty experiment + scorecard |
+
+### Product landed
+
+- Community-owned channels + Network Feed dual-plane (prior)
+- Share a ship, sticky drafts, AT identity chip, members strip
+- Agents rail, multi-agent handoffs, harness/managed-by/intent receipts
+- Client feed retention of agent messages through live API refresh
+- `sessionKind: sample | live` honesty (no fake live Working for seeds)
+
+### Process landed
+
+- Living scorecard: `docs/community-web-experience-gap-scorecard.md`
+- Machine twin: `.optimizexp/competitive/community-web-dimensions.json`
+- Project panel config: `packages/Epoch.Community.Web/.optimizexp/config.json`
+- Skill: `skills/optimizexp/references/competitive-coverage.md`
+
+## Residual (not this session — Stream C)
+
+- Durable multi-user community persistence
+- Real AT handle/session login
+- Complete promote → review → merge evidence UI
+- Live ACP agent sessions
+- Search / unread power hangout
 
 ## Delivery decisions
 
-- Backend: sequential fallback; no delegated or cloud implementation work.
-- Single product PR followed by this required docs-only closeout PR.
-- The copied skills use Epoch's `skills/` path and repository lint/docs conventions.
-- A leaked Git hook environment discovered during pre-push validation was recovered,
-  fixed at the hook boundary, and revalidated without bypassing the delivery gate.
+- Backend: sequential fallback; coordinator implemented inline
+- Sibling PR fan-out then rebase #87 onto #86 for `index.ts` keep-both
+- Billing-red CI: not applicable (local gate:push enforced)
+- Unrelated open PR #75 (design explorations) **not** session scope — left open
 
 ## Validation
 
-- `npm run verify`: 133 scenarios, 1,287 steps, 91.78% statement coverage, Pact green.
-- `npm run gate:push`: green after rebase and in the actual pre-push hook.
-- OptimizeXP doctor: zero findings; strict evidence: four valid features; final axe:
-  26 passes, zero violations, zero incomplete.
-- Vercel preview and provider status checks passed; no actionable review comments remained.
+- Local `gate:push` / unit tests green on delivery branches
+- Playwright evidence for agents-as-members + agent session honesty
+- OptimizeXP assert-complete + mark-complete for both 2026-08-03 runs
+
+## Prior closeout (2026-08-01)
+
+- OptimizeXP run `20260801-ux-community-web` at pareto-equilibrium
+- PR [#81](https://github.com/Tyler-R-Kendrick/epoch/pull/81) squash-merged
