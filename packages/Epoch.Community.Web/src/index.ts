@@ -7,6 +7,7 @@ import type {
   CommunityWorkflow,
   CommunityWorkflowId,
 } from "@epoch/community-core";
+import { epochTokensCss } from "@epoch/design-tokens";
 
 const SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE = "Snapshot communities — channels belong to the community (not a repo). To promote signed work, reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry the action.";
 
@@ -2993,40 +2994,14 @@ function communityRuntime(): string {
 
 
 function communityStyles(): string {
-  return `    :root {
-      color-scheme: light;
-      --epoch-color-primary: #0f1614;
-      --epoch-color-surface: #f3f6f4;
-      --epoch-color-surface-raised: #ffffff;
-      --epoch-color-surface-sunken: #e8eeeb;
-      --epoch-color-ink: #0f1614;
-      --epoch-color-muted: #5c6762;
-      --epoch-color-line: #d7e0db;
-      --epoch-color-accent: #b4532f;
-      --epoch-color-accent-strong: #8f3f28;
-      --epoch-color-teal: #2a6f6c;
-      --epoch-color-mint: #d5ebe3;
-      --epoch-color-gold: #c9a24a;
-      --epoch-color-rail: #101714;
-      --epoch-color-rail-text: #d7e2dc;
-      --epoch-color-rail-muted: #8fa099;
-      --epoch-color-rail-hover: #1a2420;
-      --epoch-color-rail-active: #24322c;
-      --epoch-color-success: #1a5c3e;
-      --epoch-color-warning-bg: #fff6df;
-      --epoch-color-warning-ink: #5b4420;
+  return `${epochTokensCss}
+
+    :root {
       --epoch-shadow-low: 0 1px 0 rgba(15, 22, 20, 0.04);
-      --epoch-radius-xs: 2px;
-      --epoch-radius-sm: 4px;
-      --epoch-radius-md: 8px;
-      --epoch-space-1: 0.5rem;
-      --epoch-space-2: 0.75rem;
-      --epoch-space-3: 1rem;
-      --epoch-space-4: 1.5rem;
-      --epoch-space-5: 2rem;
-      --epoch-space-6: 3rem;
+      --epoch-space-2: var(--epoch-space-md);
+      --epoch-space-3: var(--epoch-space-lg);
       --rail-width: 15.5rem;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-family: var(--epoch-font-ui);
       font-size: 16px;
       background: var(--epoch-color-surface);
       color: var(--epoch-color-ink);
@@ -3297,9 +3272,9 @@ function communityStyles(): string {
       white-space: nowrap;
     }
     .agent-working-status[data-agent-sample="true"] {
-      color: var(--epoch-color-ink-muted);
+      color: var(--epoch-color-muted);
       border-color: var(--epoch-color-line);
-      background: var(--epoch-color-surface-sunken, #e8eeeb);
+      background: var(--epoch-color-surface-sunken);
     }
     .agent-working-status[data-agent-live="true"] {
       color: var(--epoch-color-success);
@@ -3424,7 +3399,7 @@ function communityStyles(): string {
     }
     .identity-chip[data-auth-state="authenticated"] {
       border-style: solid;
-      border-color: var(--epoch-color-accent, #c47a3a);
+      border-color: var(--epoch-color-accent);
     }
     @media (max-width: 720px) {
       .identity-did {
@@ -3475,7 +3450,7 @@ function communityStyles(): string {
       font-size: 0.82rem;
     }
     .receipt-search input:focus {
-      outline: 2px solid var(--epoch-color-accent, #c47a3a);
+      outline: 2px solid var(--epoch-color-accent);
       outline-offset: 1px;
     }
     .receipt-search-status {
@@ -3490,9 +3465,9 @@ function communityStyles(): string {
       margin: 0.45rem 0 0.35rem;
       padding: 0.45rem 0.55rem;
       border: 1px solid var(--epoch-color-line);
-      border-inline-start: 3px solid var(--epoch-color-accent, #c47a3a);
+      border-inline-start: 3px solid var(--epoch-color-accent);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface-sunken, #e8eeeb);
+      background: var(--epoch-color-surface-sunken);
     }
     .promote-receipt-label {
       color: var(--epoch-color-muted);
@@ -3511,7 +3486,7 @@ function communityStyles(): string {
       font-weight: 600;
     }
     .feed-message[data-search-hit="true"] {
-      box-shadow: inset 3px 0 0 var(--epoch-color-accent, #c47a3a);
+      box-shadow: inset 3px 0 0 var(--epoch-color-accent);
     }
 
     .api-banner {

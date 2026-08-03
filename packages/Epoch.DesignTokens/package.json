@@ -1,0 +1,11 @@
+{
+  "name": "@epoch/design-tokens",
+  "version": "0.1.0",
+  "description": "Epoch design tokens generated from DESIGN.md frontmatter (colors, typography, rounded, spacing).",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  }
+}

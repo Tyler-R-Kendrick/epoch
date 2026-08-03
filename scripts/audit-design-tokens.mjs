@@ -4,7 +4,10 @@
 //
 // Report mode (default): prints findings, writes .optimizexp/audits/token-conformance.json,
 // always exits 0 so gates stay green while known drift is burned down.
-// Enforce mode (--enforce): exits 1 when any enforced finding class is present.
+// Enforce mode (--enforce): exits 1 when any finding class is present.
+// Structural enforce mode (--enforce-structural): exits 1 only for structural classes
+// (undefined-token, var-fallback, var-fallback-mismatch, design-json-drift); the palette
+// classes stay report-only while their literals are burned down.
 //
 // Finding classes:
 //   undefined-token       var(--epoch-*) used but the custom property is never defined
@@ -22,9 +25,23 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const enforce = process.argv.includes("--enforce");
+const enforceStructural = process.argv.includes("--enforce-structural");
+
+const STRUCTURAL_RULES = new Set([
+  "undefined-token",
+  "var-fallback",
+  "var-fallback-mismatch",
+  "design-json-drift",
+]);
 
 const SCANNED_PACKAGES = [
-  { id: "community-web", path: "packages/Epoch.Community.Web/src/index.ts" },
+  {
+    id: "community-web",
+    path: "packages/Epoch.Community.Web/src/index.ts",
+    // Community Web's :root token block is generated (@epoch/design-tokens) and
+    // inlined at render time, so its definitions live in the generated module.
+    extraDefinitionPaths: ["packages/Epoch.DesignTokens/src/tokens.generated.ts"],
+  },
   { id: "community-operations-web", path: "packages/Epoch.Community.Operations.Web/src/index.ts" },
   { id: "platform-web", path: "packages/Epoch.Platform.Web/src/index.ts" },
 ];
@@ -70,9 +87,15 @@ function scanPackage(pkg, palette) {
   const source = readFileSync(join(root, pkg.path), "utf8");
 
   const defined = new Map();
-  for (const match of source.matchAll(/(--[\w-]+)\s*:\s*([^;\n]+)[;\n]/gu)) {
-    if (!defined.has(match[1])) {
-      defined.set(match[1], match[2].trim());
+  const definitionSources = [
+    source,
+    ...(pkg.extraDefinitionPaths ?? []).map((path) => readFileSync(join(root, path), "utf8")),
+  ];
+  for (const definitionSource of definitionSources) {
+    for (const match of definitionSource.matchAll(/(--[\w-]+)\s*:\s*([^;\n]+)[;\n]/gu)) {
+      if (!defined.has(match[1])) {
+        defined.set(match[1], match[2].trim());
+      }
     }
   }
 
@@ -184,7 +207,7 @@ function main() {
 
   const report = {
     tool: "audit-design-tokens",
-    mode: enforce ? "enforce" : "report",
+    mode: enforce ? "enforce" : enforceStructural ? "enforce-structural" : "report",
     designMdPalette: Object.fromEntries(palette),
     summary,
     pass: findings.length === 0,
@@ -203,6 +226,8 @@ function main() {
   console.log(`report: .optimizexp/audits/token-conformance.json (${report.mode} mode)`);
 
   if (enforce && total > 0) {
+    process.exitCode = 1;
+  } else if (enforceStructural && findings.some((finding) => STRUCTURAL_RULES.has(finding.rule))) {
     process.exitCode = 1;
   }
 }

@@ -1,6 +1,6 @@
 {
   "tool": "audit-design-tokens",
-  "mode": "report",
+  "mode": "enforce-structural",
   "designMdPalette": {
     "primary": "#0f1614",
     "secondary": "#5c6762",
@@ -27,293 +27,213 @@
     "warning-ink": "#5b4420"
   },
   "summary": {
-    "undefined-token": 1,
-    "var-fallback": 2,
-    "var-fallback-mismatch": 4,
-    "near-miss-palette": 70,
+    "near-miss-palette": 66,
     "off-palette-hex": 2,
     "ops-token-not-aliased": 8
   },
   "pass": false,
   "findings": [
     {
-      "rule": "undefined-token",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3300,
-      "detail": "--epoch-color-ink-muted is used but never defined; the declaration silently does nothing"
-    },
-    {
-      "rule": "var-fallback",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3302,
-      "detail": "var(--epoch-color-surface-sunken, #e8eeeb) carries a literal fallback; tokens are inlined first, drop it"
-    },
-    {
-      "rule": "var-fallback-mismatch",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3427,
-      "detail": "var(--epoch-color-accent, #c47a3a) fallback disagrees with defined value #b4532f"
-    },
-    {
-      "rule": "var-fallback-mismatch",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3478,
-      "detail": "var(--epoch-color-accent, #c47a3a) fallback disagrees with defined value #b4532f"
-    },
-    {
-      "rule": "var-fallback-mismatch",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3493,
-      "detail": "var(--epoch-color-accent, #c47a3a) fallback disagrees with defined value #b4532f"
-    },
-    {
-      "rule": "var-fallback",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3495,
-      "detail": "var(--epoch-color-surface-sunken, #e8eeeb) carries a literal fallback; tokens are inlined first, drop it"
-    },
-    {
-      "rule": "var-fallback-mismatch",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3514,
-      "detail": "var(--epoch-color-accent, #c47a3a) fallback disagrees with defined value #b4532f"
-    },
-    {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3086,
+      "line": 3061,
       "detail": "#1c2622 is within 3 RGB of palette rail-hover (#1a2420) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3120,
+      "line": 3095,
       "detail": "#1c2622 is within 3 RGB of palette rail-hover (#1a2420) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3134,
+      "line": 3109,
       "detail": "#1c2622 is within 3 RGB of palette rail-hover (#1a2420) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3152,
+      "line": 3127,
       "detail": "#1f3d34 is within 14 RGB of palette rail-active (#24322c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3153,
+      "line": 3128,
       "detail": "#e8f3ee is within 6 RGB of palette surface-sunken (#e8eeeb) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3210,
+      "line": 3185,
       "detail": "#fff is within 0 RGB of palette surface-raised (#ffffff) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3216,
+      "line": 3191,
       "detail": "#1c2622 is within 3 RGB of palette rail-hover (#1a2420) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3317,
+      "line": 3292,
       "detail": "#c5d2cb is within 28 RGB of palette line (#d7e0db) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3328,
+      "line": 3303,
       "detail": "#1c2622 is within 3 RGB of palette rail-hover (#1a2420) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3385,
+      "line": 3360,
       "detail": "#a8b3ad is within 37 RGB of palette rail-muted (#8fa099) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3427,
-      "detail": "#c47a3a is within 43 RGB of palette gold (#c9a24a) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3478,
-      "detail": "#c47a3a is within 43 RGB of palette gold (#c9a24a) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3493,
-      "detail": "#c47a3a is within 43 RGB of palette gold (#c9a24a) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3514,
-      "detail": "#c47a3a is within 43 RGB of palette gold (#c9a24a) but not equal"
     },
     {
       "rule": "off-palette-hex",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3520,
+      "line": 3495,
       "detail": "#e0c991 is not in the DESIGN.md palette"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3527,
+      "line": 3502,
       "detail": "#b7d8c8 is within 38 RGB of palette line (#d7e0db) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3529,
+      "line": 3504,
       "detail": "#1a4a3c is within 18 RGB of palette success (#1a5c3e) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3708,
+      "line": 3683,
       "detail": "#2d3531 is within 11 RGB of palette rail-active (#24322c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3723,
+      "line": 3698,
       "detail": "#a0aaa4 is within 23 RGB of palette rail-muted (#8fa099) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3790,
+      "line": 3765,
       "detail": "#1f3d34 is within 14 RGB of palette rail-active (#24322c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3791,
+      "line": 3766,
       "detail": "#e8f3ee is within 6 RGB of palette surface-sunken (#e8eeeb) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3835,
+      "line": 3810,
       "detail": "#2d3531 is within 11 RGB of palette rail-active (#24322c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3848,
+      "line": 3823,
       "detail": "#a0aaa4 is within 23 RGB of palette rail-muted (#8fa099) but not equal"
     },
     {
       "rule": "off-palette-hex",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3855,
+      "line": 3830,
       "detail": "#d4c49a is not in the DESIGN.md palette"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3883,
+      "line": 3858,
       "detail": "#b0bfb7 is within 54 RGB of palette rail-muted (#8fa099) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3932,
+      "line": 3907,
       "detail": "#fff is within 0 RGB of palette surface-raised (#ffffff) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3949,
+      "line": 3924,
       "detail": "#b0bfb7 is within 54 RGB of palette rail-muted (#8fa099) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3960,
+      "line": 3935,
       "detail": "#215955 is within 24 RGB of palette success (#1a5c3e) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3963,
+      "line": 3938,
       "detail": "#32807c is within 25 RGB of palette teal (#2a6f6c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 3964,
+      "line": 3939,
       "detail": "#215955 is within 24 RGB of palette success (#1a5c3e) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 4083,
+      "line": 4058,
       "detail": "#2d3531 is within 11 RGB of palette rail-active (#24322c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 4107,
+      "line": 4082,
       "detail": "#2d3531 is within 11 RGB of palette rail-active (#24322c) but not equal"
     },
     {
       "rule": "near-miss-palette",
       "package": "community-web",
       "file": "packages/Epoch.Community.Web/src/index.ts",
-      "line": 4148,
+      "line": 4123,
       "detail": "#1c2622 is within 3 RGB of palette rail-hover (#1a2420) but not equal"
     },
     {

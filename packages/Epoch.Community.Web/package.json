@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@epoch/core": "0.1.0",
-    "@epoch/community-core": "0.1.0"
+    "@epoch/community-core": "0.1.0",
+    "@epoch/design-tokens": "0.1.0"
   }
 }
