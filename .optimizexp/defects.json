@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "description": "Standing defect ledger. Open P0/P1 defects that intersect a run's projects block OptimizeXP completion (assert-complete). Closing a defect requires an evidence path proving the fix.",
+  "defects": [
+    {
+      "id": "EPX-D001",
+      "title": "Client renderer drops the action tray on social messages",
+      "severity": "P0",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "The client runtime's social-message builder replaces the full action tray (Mark intent / Request agent / Accept answer / Docs patch / Report) with a static 'Community channel message.' paragraph, so any live refresh silently strips signed actions from community-owned messages. Server renderConversation and the client builder are drifted duplicates.",
+      "evidence": [],
+      "closeRequires": "Client-rendered social messages carry the same action tray as server-rendered ones; renderer-parity test enforces the signature."
+    },
+    {
+      "id": "EPX-D002",
+      "title": "--epoch-color-ink-muted is used but never defined",
+      "severity": "P1",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "The .agent-working-status[data-agent-sample=\"true\"] rule references var(--epoch-color-ink-muted), which no :root block defines, so the rule silently does nothing.",
+      "evidence": [],
+      "closeRequires": "token-conformance audit reports zero undefined-token findings for community-web."
+    },
+    {
+      "id": "EPX-D003",
+      "title": "Wrong copper fallback #c47a3a shipped in four rules",
+      "severity": "P1",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "Four rules use var(--epoch-color-accent, #c47a3a) — identity chip authenticated border, receipt-search focus ring, promote-receipt leading edge, search-hit inset shadow. The real accent is #b4532f; #c47a3a appears nowhere in DESIGN.md.",
+      "evidence": [],
+      "closeRequires": "token-conformance audit reports zero var-fallback-mismatch findings for community-web."
+    },
+    {
+      "id": "EPX-D004",
+      "title": "Shipped receipt search bypasses the tested helper",
+      "severity": "P1",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "messageMatchesReceiptSearch is exported and unit-tested but has zero production call sites; the client runtime re-implements matching inline in applyChannelFilter, so tests verify a function the UI never runs.",
+      "evidence": [],
+      "closeRequires": "The client runtime executes messageMatchesReceiptSearch (single implementation); renderer-parity test enforces it."
+    },
+    {
+      "id": "EPX-D005",
+      "title": "Hard-coded fake member presence in the channel toolbar",
+      "severity": "P0",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "The members strip renders four literal member pills and a hard-coded '4 here' count regardless of state, directly violating DESIGN.md's rule against inventing fake online presence. The 'presence is sample/session' caption labels the dishonesty instead of removing it.",
+      "evidence": [],
+      "closeRequires": "Members strip derives from real loaded state (e.g. signers present in channel receipts) or is removed."
+    },
+    {
+      "id": "EPX-D006",
+      "title": ".impeccable/design.json contradicts DESIGN.md on six canonical colors",
+      "severity": "P1",
+      "status": "closed",
+      "openedAt": "2026-08-03",
+      "closedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "design.json (generatedAt 2026-05-26) declared surface #eef3f1, surface-raised #fbfbf8, ink #17221f, accent #ba5e3f, teal #2f7370, gold #d8b765 while DESIGN.md defines #f3f6f4 / #ffffff / #0f1614 / #b4532f / #2a6f6c / #c9a24a. ADR-0010 declares both files a machine-readable contract, but only DESIGN.md was linted.",
+      "evidence": [".optimizexp/audits/token-conformance.json"],
+      "closeRequires": "design-json-drift findings are zero; audit gates the contract from now on."
+    },
+    {
+      "id": "EPX-D007",
+      "title": "E2E evidence script is stale and platform-locked",
+      "severity": "P1",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": "scripts/run-community-web-e2e.mjs asserts a cucumber scenario name that no longer exists in features/community_web_experience.feature and hard-codes npm.cmd/npx.cmd Windows binaries, so a fresh evidence run fails on Linux.",
+      "evidence": [],
+      "closeRequires": "Script runs green on Linux against current scenario names and produces fresh evidence artifacts."
+    },
+    {
+      "id": "EPX-D008",
+      "title": "OptimizeXP backlog contains malformed generated entries",
+      "severity": "P1",
+      "status": "open",
+      "openedAt": "2026-08-03",
+      "projects": ["community-web"],
+      "summary": ".optimizexp/backlog/experiments.json has items with hypotheses interpolating literal \"undefined\" and empty featureIds/surfaces/experiences, so survey-to-backlog ranking is partly untrustworthy.",
+      "evidence": [],
+      "closeRequires": "Backlog validates against schema (no literal undefined/null in strings, required fields non-empty); writer fixed so it cannot regress."
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import { runPlatformWebConsoleTests } from "./component/platform-web-console.tes
 import { runAdvancedInfrastructureTests } from "./unit/advanced-infrastructure.test";
 import { runCommunityContractTests } from "./unit/community-contract.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
+import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
 import { runEpochLiveReduxTests } from "./unit/epoch-live-redux.test";
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
   await runGossipHttpConsumerContractTests();
   await runCommunityCoverageTests();
   await runCommunityWebVercelTests();
+  await runCommunityWebRenderParityTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();
   runPersonaFeatureModelTests();
