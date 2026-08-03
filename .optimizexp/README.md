@@ -24,6 +24,8 @@ user of a competitor.
 | [Design-led app builder power user](personas/app-builder-design-power-user.md) | Prompt-to-app, design-to-code, preview, publishing, and rollback | UX, AX |
 | [Asset-scale storage and distribution power user](personas/asset-distribution-power-user.md) | Large binaries, chunking, partial materialization, distribution, backup, and recovery | DX |
 | [Designer](personas/designer.md) / [Product designer](personas/product-designer.md) / craft lenses | Community social craft + DESIGN.md | UX |
+| [Screen reader power user](personas/screen-reader-power-user.md) | Assistive-tech community membership; accessibility-tree truth, focus order, live regions | UX |
+| [Community moderator](personas/community-moderator.md) | Moderation queues, unread/notification design, trust-safety receipts | UX |
 
 ## Community Web competitive coverage
 

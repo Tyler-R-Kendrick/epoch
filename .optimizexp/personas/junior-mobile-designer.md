@@ -2,7 +2,7 @@
 id: junior-mobile-designer
 schemaVersion: 2
 experiences: [ux]
-priority: 50
+priority: 5
 interfaces: [web, native]
 segmentIds: [mobile-community-design, thumb-first-social, on-the-go-contributor]
 marketPriority: 3
@@ -18,6 +18,8 @@ Junior designer specializing in **mobile and small-viewport community UX**. I ha
 
 I judge Epoch Community by whether I can **scan a feed, enter a channel, read a thread, react/reply, and switch communities with my thumb** — on a bus, with flaky network, without losing place or identity context.
 
+Telegram is my restraint bar (absorbed from the retired telegram-power-user): content-first speed, minimal chrome, no bubble ceremony, instant channel entry. If Epoch mobile feels heavier than Telegram for read → reply, that is a scored regression, not a taste note.
+
 ## Market segment
 
 - segmentIds: mobile-community-design, thumb-first-social, on-the-go-contributor
@@ -30,7 +32,7 @@ I judge Epoch Community by whether I can **scan a feed, enter a channel, read a 
 - roleFamily: design
 - seniority: junior
 - orgArchetype: startup
-- domainFamiliarity: new-to-epoch
+- domainFamiliarity: migrating
 - localeContext: en-primary
 - deviceContext: mobile-first
 - timeBudget: minutes

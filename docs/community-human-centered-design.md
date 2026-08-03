@@ -312,6 +312,17 @@ and reviewers must run this critique **in the voice of the primary persona**,
 then at least one supporting persona. Write the critique in the PR or design
 note. Soft language is banned: use **pass / fail** with fixes.
 
+**Artifact checks are prerequisites, not suggestions.** Before any pass/fail is
+written, the reviewer must (1) read the token-conformance audit
+(`npm run design:audit` → `.optimizexp/audits/token-conformance.json`) — if it
+is missing or failing on enforced classes, craft cannot be scored and the
+critique records that instead; (2) inspect the rendered DOM for at least one
+claim (screenshots alone are inadmissible — screenshot-only review is how the
+client renderer shipped social messages without action trays); (3) check the
+standing defect ledger (`.optimizexp/defects.json`) — an open defect on the
+reviewed surface caps the critique at fail until addressed or explicitly
+scheduled; (4) cite evidence paths for every judgment.
+
 ### Critique template (required)
 
 ```text
@@ -344,6 +355,9 @@ Delight opportunities (should fix this pass if cheap):
    so loud they crush message content.
 7. **Hangout without a soul** — community channels that read as empty admin
    lists with no invitation to participate.
+8. **Family incoherence** — Community, Operations, and Platform Web opened side
+   by side do not read as one product family (divergent palettes, near-miss
+   token copies, or rules honored in one surface and violated in another).
 
 ### Pass bar (all required)
 
