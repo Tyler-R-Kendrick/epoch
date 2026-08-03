@@ -33,6 +33,50 @@ export async function runCommunityOperationsWebTests(): Promise<void> {
   opsTokensAliasEpochTokens(html);
   opsDocumentCarriesNoDriftedPalette(html);
   opsKeySurfacesRender(html);
+  emptyModerationQueueInvitesRatherThanLies(html);
+  await moderationQueueSurfacesCommunityReports(sdk, project.id);
+}
+
+function emptyModerationQueueInvitesRatherThanLies(html: string): void {
+  assert.match(html, /id="moderation"/u);
+  assert.match(html, /No moderation reports/u);
+  // With nothing open there is no count to show — an empty queue must not
+  // manufacture urgency.
+  assert.ok(!html.includes("data-moderation-open>"), "empty queue must not render an open count");
+}
+
+async function moderationQueueSurfacesCommunityReports(
+  sdk: EpochPlatformSdk,
+  projectId: string,
+): Promise<void> {
+  // Report actions open a moderation-labelled record in the community; the ops
+  // queue must be derived from those same signed records.
+  const app = await createCommunityOperationsWebApp({
+    platform: sdk,
+    projectId,
+    communityRepositories: [{
+      slug: "epoch/epoch",
+      issues: [
+        { id: "MOD-1", title: "Moderation: heated thread in #general", author: "maya", status: "open", labels: ["governance", "moderation"] },
+        { id: "MOD-2", title: "Moderation: resolved spam report", author: "lea", status: "closed", labels: ["moderation"] },
+        { id: "IDEA-9", title: "Not a moderation record", author: "ren", status: "open", labels: ["idea"] },
+      ],
+    }],
+  });
+
+  assert.equal(app.moderationReports.length, 2, "only moderation-labelled records join the queue");
+  assert.equal(app.moderationReports[0]?.id, "MOD-1", "open reports sort ahead of closed ones");
+  assert.equal(app.moderationReports[0]?.open, true);
+  assert.equal(app.moderationReports[1]?.open, false);
+
+  const html = renderCommunityOperationsDocument(app);
+  assert.match(html, /Moderation: heated thread in #general/u);
+  assert.match(html, /data-moderation-report="MOD-1"/u);
+  assert.match(html, /data-moderation-open="true"/u);
+  assert.match(html, /1 open/u);
+  assert.match(html, /open · needs a decision/u);
+  assert.match(html, /href="\/community\/c\/governance"/u);
+  assert.ok(!html.includes("IDEA-9"), "non-moderation issues must not leak into the queue");
 }
 
 function opsDocumentInlinesEpochTokens(html: string): void {

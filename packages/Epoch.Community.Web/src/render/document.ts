@@ -16,6 +16,7 @@ import { renderChannelButton } from "../view/rail";
 import { renderSiteHistory } from "../view/site-history";
 import { asListState, renderEmptyState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
+import { renderServiceWorkerRegistration } from "./pwa";
 import { communityStyles } from "./styles";
 
 let cachedRuntimeBundle: string | undefined;
@@ -74,6 +75,7 @@ export function renderCommunityWebDocument(app: CommunityWebAppDefinition): stri
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="${escapeHtml(app.pwa.themeColor)}">
   <meta name="color-scheme" content="light">
+  <link rel="manifest" href="${escapeHtml(manifestHref(app))}">
   <title>${escapeHtml(app.pwa.name)}</title>
   <style>
 ${communityStyles()}
@@ -255,6 +257,15 @@ ${communityStyles()}
   <script>
 ${communityRuntimeBundle()}
   </script>
+  <script>
+    ${renderServiceWorkerRegistration(app)}
+  </script>
 </body>
 </html>`;
+}
+
+/** Manifest sits beside the page so the SSG output and the app agree. */
+function manifestHref(app: CommunityWebAppDefinition): string {
+  const base = app.pwa.startUrl.endsWith("/") ? app.pwa.startUrl : `${app.pwa.startUrl}/`;
+  return `${base}manifest.webmanifest`;
 }

@@ -360,6 +360,24 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.doesNotMatch(html, /data-community-web-cockpit/u);
   assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
+
+  // The PWA descriptor claims offlineShell; these assets are what back it.
+  assert.match(html, /<link rel="manifest" href="\/community\/manifest\.webmanifest">/u);
+  assert.match(html, /serviceWorker/u);
+  const manifest = JSON.parse(
+    readFileSync(join(outputDirectory, "community", "manifest.webmanifest"), "utf8"),
+  ) as { name?: string; start_url?: string; display?: string; theme_color?: string };
+  assert.equal(manifest.name, "Epoch Community");
+  assert.equal(manifest.start_url, "/community");
+  assert.equal(manifest.display, "standalone");
+  assert.equal(manifest.theme_color, "#0f1614");
+  const serviceWorker = readFileSync(join(outputDirectory, "community", "sw.js"), "utf8");
+  assert.match(serviceWorker, /addEventListener\("install"/u);
+  assert.match(serviceWorker, /addEventListener\("fetch"/u);
+  // Navigations fall back to the cached shell; everything else stays
+  // network-first so cached API data never poses as live community state.
+  assert.match(serviceWorker, /request\.mode === "navigate"/u);
+  assert.match(serviceWorker, /caches\.match\(SHELL_URL\)/u);
 }
 
 async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
