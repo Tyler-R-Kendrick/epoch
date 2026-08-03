@@ -52,8 +52,10 @@ Host workflow (if any): load from `workflows/<host>/` after reading `references/
 4. **Persona selection** (single set for the whole run — review **and** feature fan-out):
    1. `--personas` if set → exactly those ids
    2. Else if any personas generated this run → exactly those ids
-   3. Else → all on-disk personas intersecting experiences (fallback: all on-disk)
-   4. Apply `--max-personas`
+   3. Else if project/global config defines `personas.defaultPanel` + `personas.panels.<name>` → that panel
+   4. Else → all on-disk personas intersecting experiences (fallback: all on-disk)
+   5. Apply `--max-personas` without dropping sole owners of competitive dimensions when coverage applies
+   6. If competitive coverage applies: load [competitive-coverage.md](competitive-coverage.md) and prior scorecard
 5. **Feature seeds** (`--feature` …): for each seed, create write-scope `features/<id>/` (global or project-local) with **one** `<id>-<persona>.feature` **per selected persona**, plus `steps/` bindings, Vitest stubs, and discovery-wired implementations when code exists (`references/features.md`). Tag `feature.json.projects` + `scope` from project selection. Resolve personas from **global + selected project** trees. Harness: `generate-feature.mts`. Do not delete `evidence/` on regenerate.
 6. **Select features for review:** `--features` list if set; else features whose `projects` tag intersects project selection (missing tag ≈ `root`).
 7. List surfaces; prefer smallest set covering critical paths within selected projects.
@@ -333,6 +335,9 @@ Write `summary.md` **before** mark-complete:
 - Experiments (harm + uplift) + rejected past-peak / constraint failures
 - Persona survey + top backlog
 - Segment coverage (which KYC personas judged)
+- **Competitive scorecard** path + dimension status deltas (when coverage applies)
+
+When competitive coverage applies, also write `runs/<id>/competitive-scorecard.json` and update `.optimizexp/competitive/*-dimensions.json` before assert-complete (see [competitive-coverage.md](competitive-coverage.md)).
 
 ### Resume after compaction / handoff
 

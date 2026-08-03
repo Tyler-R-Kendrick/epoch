@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-experience-gap",
+  "product": "Epoch.Community.Web",
+  "scorecardDoc": "docs/community-web-experience-gap-scorecard.md",
+  "lastUpdated": "2026-08-03",
+  "refuse": [
+    "discord-voice-nitro",
+    "x-metric-theater",
+    "github-actions-marketplace-clone",
+    "nostr-monoculture-replacing-atproto",
+    "fake-live-multiplayer",
+    "fake-agent-working-without-session"
+  ],
+  "dimensions": [
+    {
+      "id": "belong",
+      "title": "Community-owned hangout",
+      "competitorBars": ["discord", "slack"],
+      "epochClaim": "Communities own channels; social hangout does not require a repository",
+      "status": "partial",
+      "personaIds": ["discord-power-user", "slack-power-user", "forge-community-power-user"],
+      "featureIds": ["community-web-first-use", "community-web-daily-navigation"],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-first-use/evidence/forge-power-user-orients-from-a-cold-desktop-entry/"
+      ],
+      "metricFloor": { "harms": 1, "friction": 1, "uncertainty": 1 },
+      "implementableNow": true,
+      "smallestExperiment": "Durable multi-user community/channel store beyond in-memory seed",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "discover",
+      "title": "Network builder discovery",
+      "competitorBars": ["x-com", "tangled", "bluesky", "github"],
+      "epochClaim": "Dual-plane Network Feed with verb-led ATProto/coding activity",
+      "status": "partial",
+      "personaIds": ["x-com-power-user", "tangled-power-user", "bluesky-power-user", "github-power-user"],
+      "featureIds": ["community-web-daily-navigation"],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-daily-navigation/evidence/network-and-identity/"
+      ],
+      "metricFloor": { "harms": 1, "friction": 2, "uncertainty": 2 },
+      "implementableNow": true,
+      "smallestExperiment": "Real AT-observed feed or stricter sample labels + open-to-community drill-in",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "identity",
+      "title": "Portable who",
+      "competitorBars": ["bluesky", "tangled"],
+      "epochClaim": "Handle/DID chip + signed author; eventual AT session",
+      "status": "partial",
+      "personaIds": ["bluesky-power-user", "tangled-power-user"],
+      "featureIds": ["community-web-daily-navigation", "community-web-signed-collaboration"],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-daily-navigation/evidence/network-and-identity/"
+      ],
+      "metricFloor": { "harms": 1, "friction": 2, "uncertainty": 2 },
+      "implementableNow": true,
+      "smallestExperiment": "AT handle link/session path with fail-closed when unauthenticated",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "share",
+      "title": "Share what I built",
+      "competitorBars": ["discord", "x-com", "github"],
+      "epochClaim": "Share a ship → #showcase (+ network visibility)",
+      "status": "partial",
+      "personaIds": ["discord-power-user", "github-power-user", "x-com-power-user"],
+      "featureIds": ["community-web-daily-navigation"],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-daily-navigation/evidence/composer-draft-and-share-ship/"
+      ],
+      "metricFloor": { "harms": 1, "friction": 1, "uncertainty": 1 },
+      "implementableNow": true,
+      "smallestExperiment": "Network-visible ship event from Share a ship",
+      "lastRunId": "community-competitor-opt-20260803-1048",
+      "lastScoredAt": "2026-08-03T16:06:00.000Z"
+    },
+    {
+      "id": "promote",
+      "title": "Talk → signed work",
+      "competitorBars": ["github", "block-buzz"],
+      "epochClaim": "Message → intent → proposal → review evidence in-room",
+      "status": "partial",
+      "personaIds": ["github-power-user", "forge-community-power-user", "buzz-power-user"],
+      "featureIds": ["community-web-signed-collaboration"],
+      "evidencePaths": [],
+      "metricFloor": { "harms": 1, "friction": 2, "uncertainty": 2 },
+      "implementableNow": true,
+      "smallestExperiment": "Surface review state on channel message after promote",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "agents_member",
+      "title": "Agents as members",
+      "competitorBars": ["block-buzz"],
+      "epochClaim": "Member agents with harness, managed-by, intent receipts, Working honesty",
+      "status": "partial",
+      "personaIds": ["buzz-power-user", "agentic-coding-power-user", "discord-power-user"],
+      "featureIds": ["community-web-first-use"],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-first-use/evidence/buzz-agent-members/"
+      ],
+      "metricFloor": { "harms": 1, "friction": 1, "uncertainty": 1 },
+      "implementableNow": false,
+      "smallestExperiment": "Live ACP session into #agent-runs (control plane external)",
+      "lastRunId": "buzz-agent-member-20260803-1126",
+      "lastScoredAt": "2026-08-03T16:46:00.000Z"
+    },
+    {
+      "id": "receipts",
+      "title": "Reconstruct why shipped",
+      "competitorBars": ["block-buzz", "github"],
+      "epochClaim": "Searchable signed trail across chat, intents, agent runs",
+      "status": "missing",
+      "personaIds": ["buzz-power-user", "forge-community-power-user", "slack-power-user"],
+      "featureIds": [],
+      "evidencePaths": [],
+      "metricFloor": { "harms": 1, "friction": 3, "uncertainty": 3 },
+      "implementableNow": true,
+      "smallestExperiment": "Naive search over messages + intents + agent runs",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "honesty",
+      "title": "Live vs sample honesty",
+      "competitorBars": ["epoch"],
+      "epochClaim": "Never fake multiplayer, live feed, or agent Working",
+      "status": "partial",
+      "personaIds": ["buzz-power-user", "forge-community-power-user", "tangled-power-user"],
+      "featureIds": ["community-web-first-use", "community-web-signed-collaboration"],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-first-use/evidence/forge-power-user-recognizes-honest-snapshot-fallback/"
+      ],
+      "metricFloor": { "harms": 0, "friction": 1, "uncertainty": 1 },
+      "implementableNow": true,
+      "smallestExperiment": "Hide Working unless live session; keep snapshot labels",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "craft",
+      "title": "Density and calm craft",
+      "competitorBars": ["slack", "x-com", "telegram", "design-md"],
+      "epochClaim": "Civic workshop craft: scan density without metric theater",
+      "status": "partial",
+      "personaIds": ["app-builder-design-power-user", "product-designer", "designer", "telegram-power-user"],
+      "featureIds": ["community-web-responsive-craft", "community-web-first-use"],
+      "evidencePaths": [],
+      "metricFloor": { "harms": 1, "friction": 1, "uncertainty": 1 },
+      "implementableNow": true,
+      "smallestExperiment": "Craft pass against DESIGN.md + messaging-social comparison",
+      "lastRunId": null,
+      "lastScoredAt": null
+    },
+    {
+      "id": "persistence",
+      "title": "Multi-user durable community",
+      "competitorBars": ["discord", "slack", "github", "tangled", "block-buzz"],
+      "epochClaim": "Non-seed durable community backend",
+      "status": "missing",
+      "personaIds": ["discord-power-user", "slack-power-user", "forge-community-power-user"],
+      "featureIds": [],
+      "evidencePaths": [],
+      "metricFloor": { "harms": 2, "friction": 3, "uncertainty": 3 },
+      "implementableNow": true,
+      "smallestExperiment": "Persist communities/channels/messages beyond process lifetime",
+      "lastRunId": null,
+      "lastScoredAt": null
+    }
+  ],
+  "panels": {
+    "community-competitive": [
+      "discord-power-user",
+      "slack-power-user",
+      "github-power-user",
+      "tangled-power-user",
+      "bluesky-power-user",
+      "x-com-power-user",
+      "buzz-power-user",
+      "forge-community-power-user",
+      "agentic-coding-power-user",
+      "app-builder-design-power-user"
+    ],
+    "community-craft": [
+      "app-builder-design-power-user",
+      "product-designer",
+      "designer",
+      "telegram-power-user"
+    ],
+    "community-agents": [
+      "buzz-power-user",
+      "agentic-coding-power-user",
+      "discord-power-user"
+    ]
+  },
+  "defaultPanel": "community-competitive"
+}

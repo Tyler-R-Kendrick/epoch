@@ -44,7 +44,9 @@ Uses:
 5. Resolve **persona set** for the run (same set drives feature fan-out) by merging **global + selected project** scopes (project-local shadows global on same id):
    - `--personas` list if set, else
    - personas generated this run if any, else
+   - project `personas.defaultPanel` panel list if configured (e.g. Community Web `community-competitive`), else
    - all personas intersecting experiences.
+   When competitive coverage applies (project `competitive.scorecard` or Community Web features), load `references/competitive-coverage.md` and keep dimension owners in the panel.
 6. **Doctor (preflight):** audit structure, personas, feature quality, maps; repair safely; optional snapshot.
    **Standing approval:** invoking OptimizeXP authorizes its safe, in-scope preflight repairs; apply them without asking again. This does not authorize destructive, networked, secret-bearing, or unrelated changes.
    ```bash
@@ -77,8 +79,8 @@ Uses:
     Confirm `status: running`, `stopPolicy: infinite-until-pareto-equilibrium` (unless `--no-delight`), and `INCOMPLETE.md`. Resume matching incomplete runs instead of starting a fake-complete story.
 13. Execute the **review loop** (`references/review-loop.md` + `equilibrium.md`): every act uses **harness capture-evidence** (stamped meta); harm_reduce → delight → **assert-complete** → **mark-complete**.
 14. Personas must be judged with **cognitive thresholds** and (for new/rewritten files) **v2 KYC models** (`persona-models.md`, `cognitive-thresholds.md`).
-15. **Survey + backlog** on harm floor entry and at closeout (`persona-survey.md`, `experiment-backlog.md`).
-16. **Closeout (required):** write `summary.md` with `stopReason` → `assert-complete` (exit 0) → `mark-complete --stop-reason …`. Paste assert JSON in the user report. assert-complete now fails on missing surface-map, template-only features, unstamped evidence, P0 coverage gaps.
+15. **Survey + backlog** on harm floor entry and at closeout (`persona-survey.md`, `experiment-backlog.md`). Competitive runs also answer parity/dealbreaker questions and write `competitive-scorecard.json` (`competitive-coverage.md`).
+16. **Closeout (required):** write `summary.md` with `stopReason` → `assert-complete` (exit 0) → `mark-complete --stop-reason …`. Paste assert JSON in the user report. assert-complete now fails on missing surface-map, template-only features, unstamped evidence, P0 coverage gaps. Competitive products with `requireScorecardOnComplete` must ship a run scorecard artifact.
 17. When opening PRs: incremental commits + stacked PR + **post-pr-evidence** (`references/pr-delivery.md`).
 
 ## Flags
@@ -125,6 +127,7 @@ Use the [reference index](references/index.md) to route to the minimum context n
 - `references/equilibrium.md` — Pareto / inverted-U stop policy
 - `references/persona-models.md` — KYC demographic/psychographic models
 - `references/persona-survey.md` — survey + feature requests
+- `references/competitive-coverage.md` — competitor gap scorecards, panels, currency (when product has a scorecard)
 - `references/experiment-backlog.md` — ranked uplift backlog
 - `references/metric-scorecard.md` — formal scores (+ positive, cognitive)
 - `references/agent-bus.md` — write-ahead bus
@@ -323,6 +326,8 @@ After harm floor: delight_maximize until equilibrium (default). `--no-delight` �
 .optimizexp/runs/<run-id>/COMPLETE.md    # after mark-complete
 .optimizexp/runs/<run-id>/baseline.json|iterations/|summary.md
 .optimizexp/runs/<run-id>/survey/|backlog.json|positive-scores.json
+.optimizexp/runs/<run-id>/competitive-scorecard.json   # when competitive coverage applies
+.optimizexp/competitive/*-dimensions.json              # living dimension statuses
 .optimizexp/backlog/experiments.json
 .optimizexp/bus/entries/*-expect.json|*-outcome.json|*-survey.json
 .optimizexp/features/<feature>/evidence/<scenario>/{manifest,meta,primary.*}
