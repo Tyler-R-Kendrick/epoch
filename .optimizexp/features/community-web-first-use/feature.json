@@ -7,7 +7,14 @@
   ],
   "personas": [
     "forge-community-power-user",
-    "app-builder-design-power-user"
+    "app-builder-design-power-user",
+    "discord-power-user",
+    "slack-power-user",
+    "telegram-power-user",
+    "x-com-power-user",
+    "bluesky-power-user",
+    "github-power-user",
+    "tangled-power-user"
   ],
   "projects": [
     "root"

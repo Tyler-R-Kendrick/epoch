@@ -1,9 +1,9 @@
 # Replay: community-web-first-use / forge-power-user-orients-from-a-cold-desktop-entry
 
-Captured: 2026-08-01T18:47:33.746Z
-Driver: native
-Run: 20260801-ux-community-web
-Primary SHA-256: 95b4f5478b36f713f2ebdc62134fa481181841151c2d5bdad2402b27acb79d53
+Captured: 2026-08-03T15:59:09.966Z
+Driver: web
+Run: community-competitor-opt-20260803-1048
+Primary SHA-256: a22a5cfd1d96e4db4be0ae485fd035467438a193f7073fa2486bdab82fceeb7c
 
 ## Playback
 
@@ -13,8 +13,8 @@ Primary SHA-256: 95b4f5478b36f713f2ebdc62134fa481181841151c2d5bdad2402b27acb79d5
 
 ```json
 {
-  "widthPx": null,
-  "heightPx": null,
+  "widthPx": 1280,
+  "heightPx": 720,
   "cols": null,
   "rows": null
 }

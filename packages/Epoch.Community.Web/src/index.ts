@@ -265,11 +265,16 @@ ${communityStyles()}
           <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
         <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
+          <span class="identity-chip" data-identity-chip title="Portable ATProto identity (session)">
+            <span class="identity-handle">@maya.epoch.community</span>
+            <span class="identity-did">did:plc:maya</span>
+          </span>
+          <span class="meta-sep" aria-hidden="true"></span>
           <span>${spaces.length} communities</span>
           <span class="meta-sep" aria-hidden="true"></span>
           <span>${(activeCommunity?.channels.length ?? 0)} channels</span>
           <span class="meta-sep" aria-hidden="true"></span>
-          <span>${live ? "atproto:live" : "atproto:snapshot"}</span>
+          <span data-atproto-status>${live ? "atproto:live" : "atproto:snapshot"}</span>
         </div>
       </header>
       ${renderCommunityHonestyBanner(live, snapshotMode)}
@@ -286,6 +291,14 @@ ${communityStyles()}
       <div class="feed-toolbar" role="group" aria-label="Current channel" data-channel-toolbar>
         <span class="channel-name" data-current-channel># ${escapeHtml(defaultChannel)}</span>
         <span class="channel-topic" data-current-topic>${escapeHtml(activeCommunity?.channels.find((c) => c.id === defaultChannel)?.topic ?? "Community conversation")}</span>
+        <span class="members-strip" data-members-strip role="status" aria-label="Community members">
+          <span class="members-label">Members</span>
+          <span class="member-pill" title="maya">MY</span>
+          <span class="member-pill" title="lea">LE</span>
+          <span class="member-pill" title="ren">RE</span>
+          <span class="member-pill" title="nora">NO</span>
+          <span class="members-count" data-members-count>4 here · presence is sample/session</span>
+        </span>
       </div>
       <div class="surface-stage" data-surface-panel="channels">
         <ol class="message-feed" data-message-feed aria-label="Community channel messages">
@@ -293,9 +306,10 @@ ${communityStyles()}
         </ol>
         <form class="composer" data-comment-composer aria-label="Write a community message">
           <label class="composer-label" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
-          <textarea id="community-message" name="message" rows="2" placeholder="Write a message in this community channel"></textarea>
+          <textarea id="community-message" name="message" rows="2" data-composer-input placeholder="Write a message in this community channel"></textarea>
           <div class="composer-row">
             <span data-composer-meta>Signed as @maya · ${escapeHtml(activeCommunity?.name ?? "community")}</span>
+            <button class="composer-share" type="button" data-share-ship>Share a ship</button>
             <button type="submit">Send</button>
           </div>
         </form>
@@ -1462,6 +1476,8 @@ function communityRuntime(): string {
       let activeCommunity = state.activeCommunity || (state.communities && state.communities[0] && state.communities[0].id) || "epoch-civic";
       let activeRepo = state.activeRepo || (state.repositories && state.repositories[0] && state.repositories[0].slug) || "epoch/epoch";
       const actor = "maya";
+      /** Session drafts keyed by communityId + channel — Slack/Discord power-user expectation (BUG-18). */
+      const composerDrafts = new Map();
 
       const feed = document.querySelector("[data-message-feed]");
       const devFeedList = document.querySelector("[data-dev-feed]");
@@ -1469,6 +1485,8 @@ function communityRuntime(): string {
       const channelTopic = document.querySelector("[data-current-topic]");
       const composer = document.querySelector("[data-comment-composer]");
       const composerLabel = document.querySelector(".composer-label");
+      const composerInput = () => composer?.querySelector("textarea") || document.getElementById("community-message");
+      const shareShipButton = document.querySelector("[data-share-ship]");
       const changeList = document.querySelector("[data-change-list]");
       const issueList = document.querySelector("[data-issue-list]");
       const shell = document.getElementById("epoch-community");
@@ -1675,11 +1693,13 @@ function communityRuntime(): string {
       }
 
       function openCommunity(communityId) {
+        saveComposerDraft();
         activeCommunity = communityId || activeCommunity;
         const space = currentCommunity();
         activeChannel = (space && space.channels[0] && space.channels[0].id) || "general";
         selectedMessage = null;
         selectProductMode("community");
+        restoreComposerDraft();
       }
 
       function renderDevFeedTab(tab) {
@@ -1750,6 +1770,57 @@ function communityRuntime(): string {
         if (channelToolbar) channelToolbar.hidden = surface !== "channels";
       }
 
+      function draftKey(communityId, channel) {
+        return String(communityId || "community") + "::" + String(channel || "general");
+      }
+
+      function saveComposerDraft() {
+        const input = composerInput();
+        if (!input) return;
+        composerDrafts.set(draftKey(activeCommunity, activeChannel), input.value);
+      }
+
+      function restoreComposerDraft() {
+        const input = composerInput();
+        if (!input) return;
+        const saved = composerDrafts.get(draftKey(activeCommunity, activeChannel));
+        input.value = typeof saved === "string" ? saved : "";
+      }
+
+      function composerPlaceholder(channel) {
+        const placeholders = {
+          general: "Write a hangout message — no repository required",
+          showcase: "Share what you're building — demo, release, or project link",
+          support: "Ask for help or post a solved answer for the community",
+          ideas: "Propose an idea that can become a signed intent",
+          bugs: "Report a defect with steps and expected result",
+          "agent-runs": "Link an agent run to its originating intent",
+          previews: "Share a preview URL and what reviewers should check",
+          governance: "Record a moderation, witness, or release trust note",
+        };
+        return placeholders[channel] || "Write a message in this community channel";
+      }
+
+      function applyComposerChrome() {
+        const input = composerInput();
+        if (composerLabel) composerLabel.textContent = "Message #" + activeChannel;
+        if (input) {
+          input.placeholder = composerPlaceholder(activeChannel);
+          input.setAttribute("data-active-channel", activeChannel);
+        }
+        if (shareShipButton) {
+          const showcase = activeChannel === "showcase";
+          shareShipButton.hidden = false;
+          shareShipButton.textContent = showcase ? "Ship template" : "Share a ship";
+          shareShipButton.setAttribute("aria-label", showcase
+            ? "Insert a share-what-you-built template in #showcase"
+            : "Open #showcase to share what you are building");
+        }
+        const composerMeta = document.querySelector("[data-composer-meta]");
+        const space = currentCommunity();
+        if (composerMeta && space) composerMeta.textContent = "Signed as @" + actor + " · " + space.name;
+      }
+
       function applyChannelFilter() {
         messages().forEach((message) => {
           const sameCommunity = !message.dataset.communityId || message.dataset.communityId === activeCommunity;
@@ -1764,25 +1835,44 @@ function communityRuntime(): string {
         const channelMeta = space && (space.channels || []).find((item) => item.id === activeChannel);
         if (channelName) channelName.textContent = "# " + activeChannel;
         if (channelTopic) channelTopic.textContent = (channelMeta && channelMeta.topic) || channelTopics[activeChannel] || "";
-        if (composerLabel) composerLabel.textContent = "Message #" + activeChannel;
         if (contextSub && productMode === "community") {
           contextSub.textContent = "# " + activeChannel + " · community channel";
         }
-        const composerMeta = document.querySelector("[data-composer-meta]");
-        if (composerMeta && space) composerMeta.textContent = "Signed as @" + actor + " · " + space.name;
+        applyComposerChrome();
         document.querySelectorAll("[data-channel][aria-pressed]").forEach((item) => {
           item.setAttribute("aria-pressed", item.dataset.channel === activeChannel ? "true" : "false");
         });
       }
 
       function selectChannel(channel) {
+        saveComposerDraft();
         activeChannel = channel || "general";
         selectedMessage = null;
         if (productMode === "network") selectProductMode("community");
         else if (productMode === "repo") selectProductMode("community");
         selectSurface("channels");
         applyChannelFilter();
+        restoreComposerDraft();
         if (feed) feed.scrollTop = 0;
+        const input = composerInput();
+        if (input && activeChannel === "showcase") input.focus();
+      }
+
+      function openShareShip() {
+        saveComposerDraft();
+        if (activeChannel !== "showcase") {
+          selectChannel("showcase");
+        } else {
+          applyComposerChrome();
+        }
+        const input = composerInput();
+        if (!input) return;
+        if (!input.value.trim()) {
+          input.value = "Shipping: \\nWhat: \\nLink: \\nWho can try it: ";
+          composerDrafts.set(draftKey(activeCommunity, "showcase"), input.value);
+        }
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
       }
 
       function selectMessage(id) {
@@ -1910,39 +2000,46 @@ function communityRuntime(): string {
         if (changeCount) changeCount.textContent = String((repo.changeProposals || []).length);
       }
 
+      function identityChipHtml() {
+        return '<span class="identity-chip" data-identity-chip title="Portable ATProto identity (session)">'
+          + '<span class="identity-handle">@' + escapeHtml(actor) + '.epoch.community</span>'
+          + '<span class="identity-did">did:plc:' + escapeHtml(actor) + '</span>'
+          + '</span>';
+      }
+
+      function renderMetaParts(parts) {
+        return identityChipHtml()
+          + parts.map((part) => '<span class="meta-sep" aria-hidden="true"></span><span>' + escapeHtml(part) + '</span>').join("");
+      }
+
       function updateRepositoryMeta(repo) {
         const meta = document.querySelector("[data-header-meta]");
         if (!meta) return;
         if (productMode === "network") {
           const count = (state.devFeedItems || []).length;
-          const parts = [count + " events", "network", live() ? "atproto:live" : "atproto:snapshot"];
-          meta.innerHTML = parts.map((part, index) =>
-            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true"></span>') + "<span>" + escapeHtml(part) + "</span>"
-          ).join("");
+          meta.innerHTML = renderMetaParts([
+            count + " events",
+            "network",
+            live() ? "atproto:live" : "atproto:snapshot",
+          ]);
           return;
         }
         if (productMode === "community") {
           const space = currentCommunity();
-          const parts = [
+          meta.innerHTML = renderMetaParts([
             (state.communities || []).length + " communities",
             ((space && space.channels) || []).length + " channels",
             live() ? "community:live" : "community:snapshot",
-          ];
-          meta.innerHTML = parts.map((part, index) =>
-            (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true"></span>') + "<span>" + escapeHtml(part) + "</span>"
-          ).join("");
+          ]);
           return;
         }
-        const parts = [
+        meta.innerHTML = renderMetaParts([
           repo.visibility || "public",
           (repo.maintainers || []).length + " maintainer" + ((repo.maintainers || []).length === 1 ? "" : "s"),
           (repo.issues || []).length + " issues",
           (repo.changeProposals || []).length + " changes",
           live() ? "project:live" : "project:snapshot",
-        ];
-        meta.innerHTML = parts.map((part, index) =>
-          (index === 0 ? "" : '<span class="meta-sep" aria-hidden="true"></span>') + "<span>" + escapeHtml(part) + "</span>"
-        ).join("");
+        ]);
       }
 
       function renderRepository(repo) {
@@ -2367,17 +2464,28 @@ function communityRuntime(): string {
 
       composer?.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const input = composer.querySelector("textarea");
+        const input = composerInput();
         const value = input?.value || "";
         try {
           await handleComposerSubmit(value);
           if (input) input.value = "";
+          composerDrafts.set(draftKey(activeCommunity, activeChannel), "");
         } catch (error) {
           if (input) input.placeholder = "Send failed: " + (error instanceof Error ? error.message : String(error));
         }
       });
 
+      const liveComposerInput = composerInput();
+      liveComposerInput?.addEventListener("input", () => {
+        saveComposerDraft();
+      });
+      shareShipButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        openShareShip();
+      });
+
       selectProductMode("community");
+      applyComposerChrome();
       if (live() && repository()) {
         refreshRepository().catch((error) => {
           if (connectionLabel) connectionLabel.textContent = "Live · error";
@@ -2687,7 +2795,7 @@ function communityStyles(): string {
       justify-content: end;
       align-items: center;
       gap: 0.35rem;
-      max-width: 28rem;
+      max-width: 34rem;
       color: var(--epoch-color-muted);
       font-size: 0.78rem;
       font-weight: 500;
@@ -2699,6 +2807,48 @@ function communityStyles(): string {
       font-weight: 400;
     }
     .repository-meta .meta-sep::before { content: "·"; }
+    .identity-chip {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: end;
+      gap: 0.05rem;
+      padding: 0.2rem 0.45rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface);
+      text-align: end;
+    }
+    .identity-handle {
+      color: var(--epoch-color-ink);
+      font-weight: 700;
+      font-size: 0.78rem;
+    }
+    .identity-did {
+      color: var(--epoch-color-muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.68rem;
+      font-weight: 500;
+    }
+    @media (max-width: 720px) {
+      .identity-did {
+        /* Collapse DID under handle on narrow viewports; full DID remains in title. */
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .identity-chip {
+        position: relative;
+      }
+      .members-count {
+        display: none;
+      }
+    }
 
     .api-banner {
       margin: 0;
@@ -2717,10 +2867,11 @@ function communityStyles(): string {
 
     .feed-toolbar {
       display: flex;
-      align-items: baseline;
-      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem 0.75rem;
       min-width: 0;
-      padding: 0.55rem 1.15rem;
+      padding: 0.45rem 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
     }
@@ -2732,9 +2883,45 @@ function communityStyles(): string {
       letter-spacing: -0.01em;
     }
     .channel-topic {
+      flex: 1 1 10rem;
       min-width: 0;
       color: var(--epoch-color-muted);
       font-size: 0.84rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .members-strip {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 0.3rem;
+      margin-inline-start: auto;
+      color: var(--epoch-color-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .members-label {
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.66rem;
+    }
+    .member-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.4rem;
+      height: 1.4rem;
+      border-radius: 999px;
+      background: var(--epoch-color-mint);
+      color: var(--epoch-color-success);
+      font-size: 0.62rem;
+      font-weight: 700;
+    }
+    .members-count {
+      color: var(--epoch-color-muted);
+      font-weight: 500;
+      max-width: 11rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -2788,9 +2975,9 @@ function communityStyles(): string {
     }
     .dev-feed-item {
       display: grid;
-      grid-template-columns: 2.15rem minmax(0, 1fr);
-      gap: 0.6rem;
-      padding: 0.55rem 1.15rem;
+      grid-template-columns: 2rem minmax(0, 1fr);
+      gap: 0.5rem;
+      padding: 0.38rem 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
     }
     .dev-feed-item:hover {
@@ -3131,6 +3318,21 @@ function communityStyles(): string {
       color: var(--epoch-color-muted);
       font-size: 0.76rem;
       font-weight: 600;
+    }
+    .composer-share {
+      border: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface);
+      color: var(--epoch-color-ink);
+      border-radius: var(--epoch-radius-sm);
+      padding: 0.4rem 0.7rem;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .composer-share:hover {
+      border-color: var(--epoch-color-teal);
+      color: var(--epoch-color-teal);
     }
     .composer textarea {
       width: 100%;

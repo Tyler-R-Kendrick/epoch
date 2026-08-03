@@ -1,47 +1,99 @@
 {
   "schemaVersion": 1,
   "projectId": "root",
-  "scannedAt": "2026-08-01T18:15:30.954Z",
-  "productName": "Epoch Community Web",
-  "packageDir": "packages/Epoch.Community.Web",
-  "binaries": [],
-  "defaultEntry": {
-    "command": "npm run vercel:community-web",
-    "interactive": true,
-    "driver": "web",
-    "notes": "Community Web opens at /community through the repository's local validation server."
-  },
-  "nonInteractiveHelp": null,
-  "commands": [
+  "scannedAt": "2026-08-03T15:48:07.340Z",
+  "productName": "epoch",
+  "packageDir": ".",
+  "binaries": [
     {
-      "id": "community-home",
-      "argv": ["/community"],
-      "kind": "default-entry"
+      "name": "epoch",
+      "binPath": "/home/codex/.herdr/worktrees/epoch/packages/Epoch.CLI/dist/cli.js",
+      "packageName": "epoch"
     },
     {
-      "id": "network-feed",
-      "argv": ["Network Feed"],
+      "name": "epoch-git",
+      "binPath": "/home/codex/.herdr/worktrees/epoch/packages/Epoch.CLI/dist/cli-git.js",
+      "packageName": "epoch"
+    },
+    {
+      "name": "epoch-community",
+      "binPath": "/home/codex/.herdr/worktrees/epoch/packages/Epoch.Community.CLI/dist/index.js",
+      "packageName": "epoch"
+    }
+  ],
+  "defaultEntry": {
+    "command": "epoch",
+    "interactive": true,
+    "driver": "tui",
+    "notes": "interactive markers in README"
+  },
+  "nonInteractiveHelp": {
+    "command": "epoch help",
+    "driver": "cli"
+  },
+  "commands": [
+    {
+      "id": "help",
+      "argv": [
+        "help"
+      ],
       "kind": "discoverability"
     },
     {
-      "id": "signed-action-tray",
-      "argv": ["#ideas", "select message", "Mark intent"],
-      "kind": "critical-path"
+      "id": "status",
+      "argv": [
+        "status"
+      ],
+      "kind": "verb"
+    },
+    {
+      "id": "auth",
+      "argv": [
+        "auth"
+      ],
+      "kind": "verb"
+    },
+    {
+      "id": "config",
+      "argv": [
+        "config"
+      ],
+      "kind": "verb"
+    },
+    {
+      "id": "agent",
+      "argv": [
+        "agent"
+      ],
+      "kind": "verb"
     }
   ],
   "interactiveSurfaces": [
     {
-      "id": "community-web-shell",
-      "entry": "http://127.0.0.1:4173/community",
-      "driver": "web",
-      "slashCommands": []
+      "id": "default-tty-chat",
+      "entry": "bare-tty",
+      "driver": "tui",
+      "slashCommands": [
+        "/verbs",
+        "/agent",
+        "/config",
+        "/help"
+      ]
     }
   ],
   "requiredJourneys": [
-    "community-web-first-use",
-    "community-web-daily-navigation",
-    "community-web-responsive-craft",
-    "community-web-signed-collaboration"
+    "default-entry-cold-start",
+    "help-discoverability",
+    "happy-critical-path",
+    "failure-actionable",
+    "in-session-discoverability"
   ],
-  "probes": []
+  "probes": [
+    {
+      "command": "node \"/home/codex/.herdr/worktrees/epoch/packages/Epoch.CLI/dist/cli.js\" help",
+      "exitCode": 1,
+      "stdoutDigest": "1420c5330302983d",
+      "capturedAt": "2026-08-03T15:48:07.200Z"
+    }
+  ]
 }
