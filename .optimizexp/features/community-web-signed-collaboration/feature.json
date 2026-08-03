@@ -13,7 +13,8 @@
     "x-com-power-user",
     "bluesky-power-user",
     "github-power-user",
-    "tangled-power-user"
+    "tangled-power-user",
+    "buzz-power-user"
   ],
   "projects": [
     "root"

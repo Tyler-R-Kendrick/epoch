@@ -15,6 +15,7 @@ user of a competitor.
 | [Bluesky power user](personas/bluesky-power-user.md) | Bluesky ATProto portable identity and soft feeds | UX, DX |
 | [GitHub power user](personas/github-power-user.md) | GitHub contribution feed, forge baseline, social coding | UX, DX |
 | [Tangled power user](personas/tangled-power-user.md) | Tangled ATProto social coding timeline, knots, AppView | UX, DX, AX |
+| [Buzz power user](personas/buzz-power-user.md) | Block Buzz: agents as members, signed event log, harness-swappable ACP agents | UX, DX, AX |
 | [Version-control and review power user](personas/vcs-review-power-user.md) | Advanced DVCS semantics, operation logs, stacks, visual Git, and review systems | DX |
 | [Local-first state and data power user](personas/local-first-data-power-user.md) | CRDTs, reactive sync, state history, data branching, and materialization | DX |
 | [Provenance and policy power user](personas/provenance-policy-power-user.md) | Signing, attestations, supply-chain policy, vulnerability context, and admission | DX |

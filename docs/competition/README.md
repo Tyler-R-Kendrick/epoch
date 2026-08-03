@@ -21,6 +21,10 @@ Dev feed / network home comparison (X · Bluesky · Tangled · GitHub):
 Community-owned channels comparison (Discord-led):
 [community-channels-comparison.md](community-channels-comparison.md).
 
+AI-native room concepts (Block Buzz):
+[ai-native-room-concepts.md](ai-native-room-concepts.md).
+
+
 ## Paths
 
 ```text
@@ -37,6 +41,7 @@ gossip-path: <product-path>/gossip.md
 | Product | Primary Competitive Angle | Profile | Design | Features | Marketing | Gossip |
 |---|---|---|---|---|---|---|
 | Discord | Community-first servers with channels independent of repositories | [Profile](products/discord/profile.md) | [Design](products/discord/design/design.md) | [Feature](products/discord/features/community-server-channels.feature) | [Marketing](products/discord/marketing.md) | [Gossip](products/discord/gossip.md) |
+| Block Buzz | AI-native workspace: humans + agents as channel members on a Nostr relay (signed event log) | [Profile](products/block-buzz/profile.md) | [Design](products/block-buzz/design/design.md) | [Feature](products/block-buzz/features/agents-as-members.feature) | [Marketing](products/block-buzz/marketing.md) | [Gossip](products/block-buzz/gossip.md) |
 | Slack | Channel-first workplace messaging density and composer grammar | [Profile](products/slack/profile.md) | [Design](products/slack/design/design.md) | [Feature](products/slack/features/channel-composer-collaboration.feature) | [Marketing](products/slack/marketing.md) | [Gossip](products/slack/gossip.md) |
 | Telegram | Content-first low-chrome messaging speed | [Profile](products/telegram/profile.md) | [Design](products/telegram/design/design.md) | [Feature](products/telegram/features/fast-content-first-chat.feature) | [Marketing](products/telegram/marketing.md) | [Gossip](products/telegram/gossip.md) |
 | X | High-density public timeline scan and action-row grammar | [Profile](products/x-com/profile.md) | [Design](products/x-com/design/design.md) | [Feature](products/x-com/features/timeline-scan-actions.feature) | [Marketing](products/x-com/marketing.md) | [Gossip](products/x-com/gossip.md) |

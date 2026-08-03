@@ -151,10 +151,20 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
   assert.ok(liveFeed.conversations.some((item) => item.channel === "ideas" && item.id === "issue-IDEA-3"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "bugs" && item.id === "issue-BUG-17"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "previews" && item.linkedProposalId === "CHANGE-12"));
+  // Member-agent samples are intentional on the live path (Buzz agents-as-members),
+  // labeled source=api — not mixed snapshot forge demos.
+  assert.ok(
+    liveFeed.conversations.some((item) => item.role === "agent" && item.id === "agent-handoff-scout" && item.harness === "goose"),
+    "live API feed includes member-agent handoff samples with harness",
+  );
+  assert.ok(
+    liveFeed.conversations.filter((item) => item.role === "agent").every((item) => item.source === "api"),
+    "member-agent samples on live path use api source labels",
+  );
   assert.equal(
-    liveFeed.conversations.some((item) => item.id === "agent-preview-copy"),
+    liveFeed.conversations.some((item) => item.id === "idea-region-revenue" || item.id === "support-install-cache"),
     false,
-    "live API feed must not mix hard-coded snapshot demos",
+    "live API feed must not mix hard-coded snapshot forge demos",
   );
 
   const offlineFeed = buildCommunityFeed({
@@ -284,7 +294,12 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
   assert.match(html, /data-issue-id="IDEA-3"/u);
   assert.match(html, /data-change-id="CHANGE-12"/u);
   assert.match(html, /data-message-id="issue-IDEA-3"/u);
-  assert.doesNotMatch(html, /data-message-id="agent-preview-copy"/u);
+  // Live connected shell includes labeled member-agent handoffs (not snapshot forge demos).
+  assert.match(html, /data-message-id="agent-handoff-scout"/u);
+  assert.match(html, /data-author-role="agent"/u);
+  assert.match(html, /data-agent-list/u);
+  assert.match(html, /data-agent-harness/u);
+  assert.doesNotMatch(html, /data-message-id="idea-region-revenue"/u);
   assert.match(html, /handleComposerSubmit/u);
   assert.match(html, /postChange|postIssue/u);
 }

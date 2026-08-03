@@ -236,6 +236,17 @@ ${communityStyles()}
             renderChannelButton(channel, communityConversations, channel.id === defaultChannel),
           ).join("")}
         </nav>
+        <div class="rail-section-label">Agents</div>
+        <nav class="agent-list" data-agent-list aria-label="Member agents">
+          ${defaultCommunityAgents
+            .filter((agent) => agent.communityIds.includes(activeCommunityId))
+            .map((agent) => `
+        <button class="channel-button agent-member" type="button" data-agent-member="${escapeHtml(agent.id)}" data-agent-status="${escapeHtml(agent.status)}" aria-label="Member agent ${escapeHtml(agent.displayName)}, harness ${escapeHtml(agent.harness)}, ${escapeHtml(agent.status)}">
+          <span class="channel-button-label">@${escapeHtml(agent.displayName)}</span>
+          <span class="agent-meta">${escapeHtml(agent.harness)} · ${escapeHtml(agent.status)}</span>
+        </button>`).join("") || `
+        <p class="agent-list-empty">No member agents in this community yet.</p>`}
+        </nav>
         <div class="rail-section-label">Linked projects</div>
         <nav class="repo-list" data-repo-list aria-label="Linked repositories">
           ${(activeCommunity?.linkedRepos ?? [primaryRepo]).map((slug) => {
@@ -309,6 +320,7 @@ ${communityStyles()}
           <textarea id="community-message" name="message" rows="2" data-composer-input placeholder="Write a message in this community channel"></textarea>
           <div class="composer-row">
             <span data-composer-meta>Signed as @maya · ${escapeHtml(activeCommunity?.name ?? "community")}</span>
+            <span class="agent-working-status" data-agent-working-status role="status" aria-live="polite"></span>
             <button class="composer-share" type="button" data-share-ship>Share a ship</button>
             <button type="submit">Send</button>
           </div>
@@ -573,6 +585,25 @@ export interface CommunityConversationView {
   readonly linkedArtifact?: string;
   readonly linkedProposalId?: string;
   readonly source: CommunityFeedSource;
+  /** Buzz-aligned: ACP harness id when author is a member agent. */
+  readonly harness?: string;
+  /** Buzz-aligned: human manager of a member agent ("managed by"). */
+  readonly managedBy?: string;
+  /** Optional signed intent id for agent work receipts. */
+  readonly intentId?: string;
+  /** Optional in-channel artifact card label (e.g. PR title). */
+  readonly artifactCard?: string;
+}
+
+/** First-class channel member that is an AI agent (Buzz "agents as members"). */
+export interface CommunityAgentMember {
+  readonly id: string;
+  readonly displayName: string;
+  readonly harness: string;
+  readonly managedBy: string;
+  readonly scope: string;
+  readonly status: "idle" | "working" | "needs-review";
+  readonly communityIds: readonly string[];
 }
 
 export interface CommunityFeedIssueItem {
@@ -620,6 +651,36 @@ const defaultWorkChannels: readonly CommunityChannel[] = [
 const defaultSocialChannels: readonly CommunityChannel[] = [
   { id: "general", label: "general", kind: "social", topic: "Day-to-day community hangout — independent of any single repository." },
   { id: "showcase", label: "showcase", kind: "social", topic: "Share demos, screenshots, and wins with the community." },
+];
+
+const defaultCommunityAgents: readonly CommunityAgentMember[] = [
+  {
+    id: "agent-ui-reviewer",
+    displayName: "ui-reviewer",
+    harness: "claude-code",
+    managedBy: "maya",
+    scope: "copy + tests only",
+    status: "needs-review",
+    communityIds: ["epoch-civic", "agent-guild"],
+  },
+  {
+    id: "agent-scout",
+    displayName: "scout",
+    harness: "goose",
+    managedBy: "lea",
+    scope: "read history + draft plans",
+    status: "working",
+    communityIds: ["epoch-civic", "agent-guild"],
+  },
+  {
+    id: "agent-patcher",
+    displayName: "patcher",
+    harness: "codex",
+    managedBy: "maya",
+    scope: "open draft PRs under policy",
+    status: "idle",
+    communityIds: ["agent-guild", "epoch-civic"],
+  },
 ];
 
 /** @deprecated use community space channels; kept as union of defaults for label maps */
@@ -943,6 +1004,7 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
       source: "api",
       conversations: [
         ...communitySocialConversations(spaces, "api"),
+        ...agentMemberConversations(spaces, options.repositories[0]?.slug ?? "epoch/epoch", "api"),
         ...apiIssueConversations(options.repositories),
         ...apiProposalConversations(options.repositories),
       ],
@@ -956,11 +1018,91 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
     source: "snapshot",
     conversations: [
       ...communitySocialConversations(spaces, "snapshot"),
+      ...agentMemberConversations(spaces, repository?.slug ?? "epoch/epoch", "snapshot"),
       ...snapshotConversations(repository),
     ],
     issues,
     changes,
   };
+}
+
+/** Buzz-aligned multi-agent handoff samples (member agents, harness, intent receipts). */
+function agentMemberConversations(
+  spaces: readonly CommunitySpace[],
+  slug: string,
+  source: CommunityFeedSource,
+): readonly CommunityConversationView[] {
+  const communityId = spaces[0]?.id ?? "epoch-civic";
+  const guildId = spaces.find((space) => space.id === "agent-guild")?.id ?? communityId;
+  return [
+    {
+      id: "agent-handoff-scout",
+      channel: "agent-runs",
+      communityId,
+      repositorySlug: slug,
+      author: "scout",
+      role: "agent",
+      title: "Scout: incident memory pass for install-cache failures",
+      body: "@patcher I searched six months of #support + linked issues. Root themes: stale sandbox resume, cache path drift after view switch. Draft plan posted; waiting for scoped implementation.",
+      time: "10:01",
+      anchor: "agent-run://scout/201",
+      signature: "sig:agent-scout-201",
+      visibility: "community",
+      state: "handoff",
+      reactions: ["receipts"],
+      linkedArtifact: "intent://install-cache-hardening",
+      source,
+      harness: "goose",
+      managedBy: "lea",
+      intentId: "intent-install-cache",
+      artifactCard: "Intent · install-cache-hardening",
+    },
+    {
+      id: "agent-handoff-patcher",
+      channel: "agent-runs",
+      communityId,
+      repositorySlug: slug,
+      author: "patcher",
+      role: "agent",
+      title: "Patcher: draft PR for install-cache hardening",
+      body: "@scout plan accepted under policy. Opened a draft change with tests only; @maya human review still required before promote.",
+      time: "10:02",
+      anchor: "agent-run://patcher/202",
+      signature: "sig:agent-patcher-202",
+      visibility: "community",
+      state: "needs review",
+      reactions: ["tests passed"],
+      linkedArtifact: "change://install-cache-hardening",
+      linkedProposalId: "CHANGE-install-cache",
+      source,
+      harness: "codex",
+      managedBy: "maya",
+      intentId: "intent-install-cache",
+      artifactCard: "Epoch · draft change CHANGE-install-cache",
+    },
+    {
+      id: "agent-preview-copy",
+      channel: "agent-runs",
+      communityId: guildId,
+      repositorySlug: slug,
+      author: "ui-reviewer",
+      role: "agent",
+      title: "ui-reviewer drafted copy cleanup for preview card",
+      body: "Policy allows copy and test updates only. Human review is still required before merge. Intent linked for receipts.",
+      time: "10:03",
+      anchor: "agent-run://ui-reviewer/173",
+      signature: "sig:agent-173",
+      visibility: "maintainers",
+      state: "needs review",
+      reactions: ["tests passed"],
+      linkedArtifact: "preview-173",
+      source,
+      harness: "claude-code",
+      managedBy: "maya",
+      intentId: "intent-preview-copy",
+      artifactCard: "Intent · preview-copy-cleanup",
+    },
+  ];
 }
 
 function apiIssueConversations(
@@ -1104,24 +1246,6 @@ function snapshotConversations(
       source: "snapshot",
     },
     {
-      id: "agent-preview-copy",
-      channel: "agent-runs",
-      communityId: "agent-guild",
-      repositorySlug: slug,
-      author: "agent-ui-reviewer",
-      role: "agent",
-      title: "Agent drafted copy cleanup for preview card",
-      body: "Policy allows copy and test updates only. Human review is still required before merge.",
-      time: "10:03",
-      anchor: "agent-run://ui-reviewer/173",
-      signature: "sig:agent-173",
-      visibility: "maintainers",
-      state: "needs review",
-      reactions: ["tests passed"],
-      linkedArtifact: "preview-173",
-      source: "snapshot",
-    },
-    {
       id: "preview-region-widget",
       channel: "previews",
       communityId,
@@ -1255,23 +1379,42 @@ function renderConversation(
   const issueAttr = issueId === undefined ? "" : ` data-issue-id="${escapeHtml(issueId)}"`;
   const changeId = conversation.id.startsWith("change-") ? conversation.id.slice("change-".length) : undefined;
   const changeAttr = changeId === undefined ? "" : ` data-change-id="${escapeHtml(changeId)}"`;
-  return `<li class="feed-message" data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
+  const isAgent = conversation.role === "agent";
+  const agentClass = isAgent ? " feed-message-agent" : "";
+  const harnessBadge = conversation.harness
+    ? `<span class="agent-harness" data-agent-harness title="ACP harness">${escapeHtml(conversation.harness)}</span>`
+    : "";
+  const managedBy = conversation.managedBy
+    ? `<span class="agent-managed-by" data-agent-managed-by>managed by @${escapeHtml(conversation.managedBy)}</span>`
+    : "";
+  const artifactCard = conversation.artifactCard
+    ? `<div class="message-artifact-card" data-artifact-card>
+        <span class="message-artifact-kind">${escapeHtml(isAgent ? "Agent receipt" : "Artifact")}</span>
+        <strong>${escapeHtml(conversation.artifactCard)}</strong>
+        ${conversation.intentId ? `<a class="message-artifact-link" href="#intent-${escapeHtml(conversation.intentId)}" data-intent-link="${escapeHtml(conversation.intentId)}">Open signed intent</a>` : ""}
+      </div>`
+    : "";
+  return `<li class="feed-message${agentClass}" data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
     <button class="message-hitbox" type="button" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}"></button>
-    <div class="avatar" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
+    <div class="avatar${isAgent ? " avatar-agent" : ""}" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
     <article class="message-body">
       <header class="message-meta">
         <strong>${escapeHtml(conversation.author)}</strong>
-        <span>${escapeHtml(conversation.role)}</span>
+        <span>${escapeHtml(isAgent ? "member agent" : conversation.role)}</span>
+        ${harnessBadge}
+        ${managedBy}
         <time>${escapeHtml(conversation.time)}</time>
         <span data-message-state>${escapeHtml(conversation.state)}</span>
         ${conversation.source === "snapshot" ? `<span data-snapshot-badge>snapshot sample</span>` : ""}
       </header>
       <h2>${escapeHtml(conversation.title)}</h2>
       <p>${escapeHtml(conversation.body)}</p>
+      ${artifactCard}
       <footer class="message-footer">
         <span>${escapeHtml(conversation.anchor)}</span>
         <span>${escapeHtml(conversation.signature)}</span>
         <span>${escapeHtml(conversation.visibility)}</span>
+        ${conversation.intentId ? `<span data-intent-meta>intent:${escapeHtml(conversation.intentId)}</span>` : ""}
         ${conversation.linkedProposalId === undefined ? "" : `<span data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`}
       </footer>
       <div class="reaction-row" aria-label="Reactions">
@@ -1690,6 +1833,52 @@ function communityRuntime(): string {
             button.addEventListener("click", () => openRepository(button.dataset.openRepo || activeRepo));
           });
         }
+        renderAgentMembers(space.id);
+        updateAgentWorkingStatus();
+      }
+
+      const communityAgents = ${JSON.stringify(defaultCommunityAgents)};
+
+      function renderAgentMembers(communityId) {
+        const agentList = document.querySelector("[data-agent-list]");
+        if (!agentList) return;
+        const members = (communityAgents || []).filter((agent) => (agent.communityIds || []).includes(communityId));
+        if (members.length === 0) {
+          agentList.innerHTML = '<p class="agent-list-empty">No member agents in this community yet.</p>';
+          return;
+        }
+        agentList.innerHTML = members.map((agent) =>
+          '<button class="channel-button agent-member" type="button" data-agent-member="' + escapeHtml(agent.id)
+          + '" data-agent-status="' + escapeHtml(agent.status)
+          + '" aria-label="Member agent ' + escapeHtml(agent.displayName) + ', harness ' + escapeHtml(agent.harness) + ', ' + escapeHtml(agent.status) + '">'
+          + '<span class="channel-button-label">@' + escapeHtml(agent.displayName) + '</span>'
+          + '<span class="agent-meta">' + escapeHtml(agent.harness) + ' · ' + escapeHtml(agent.status) + '</span></button>'
+        ).join("");
+        agentList.querySelectorAll("[data-agent-member]").forEach((button) => {
+          button.addEventListener("click", () => {
+            selectChannel("agent-runs");
+            const status = document.querySelector("[data-agent-working-status]");
+            if (status) {
+              status.textContent = "@" + (button.querySelector(".channel-button-label")?.textContent || "agent").replace(/^@/, "")
+                + ": open agent-runs for harness receipts";
+            }
+          });
+        });
+      }
+
+      function updateAgentWorkingStatus() {
+        const status = document.querySelector("[data-agent-working-status]");
+        if (!status) return;
+        const working = (communityAgents || []).filter((agent) =>
+          (agent.communityIds || []).includes(activeCommunity) && agent.status === "working"
+        );
+        if (working.length === 0) {
+          status.textContent = "";
+          status.removeAttribute("data-agent-live");
+          return;
+        }
+        status.textContent = working.map((agent) => "@" + agent.displayName + " · " + agent.harness + ": Working").join(" · ");
+        status.setAttribute("data-agent-live", "true");
       }
 
       function openCommunity(communityId) {
@@ -1700,6 +1889,8 @@ function communityRuntime(): string {
         selectedMessage = null;
         selectProductMode("community");
         restoreComposerDraft();
+        renderAgentMembers(activeCommunity);
+        updateAgentWorkingStatus();
       }
 
       function renderDevFeedTab(tab) {
@@ -1853,6 +2044,7 @@ function communityRuntime(): string {
         selectSurface("channels");
         applyChannelFilter();
         restoreComposerDraft();
+        updateAgentWorkingStatus();
         if (feed) feed.scrollTop = 0;
         const input = composerInput();
         if (input && activeChannel === "showcase") input.focus();
@@ -1983,12 +2175,19 @@ function communityRuntime(): string {
       }
 
       function updateChannelCounts(repo) {
-        const counts = { support: 0, ideas: 0, bugs: 0, "agent-runs": 0, previews: 0, governance: 0 };
+        const counts = { support: 0, ideas: 0, bugs: 0, "agent-runs": 0, previews: 0, governance: 0, general: 0, showcase: 0 };
         for (const issue of repo.issues || []) {
           counts[channelForLabels(issue.labels)] = (counts[channelForLabels(issue.labels)] || 0) + 1;
         }
         for (const _proposal of repo.changeProposals || []) {
           counts.previews += 1;
+        }
+        for (const item of state.conversations || []) {
+          if (item.role === "agent") {
+            counts["agent-runs"] = (counts["agent-runs"] || 0) + 1;
+          } else if (item.channel === "general" || item.channel === "showcase") {
+            counts[item.channel] = (counts[item.channel] || 0) + 1;
+          }
         }
         document.querySelectorAll("[data-channel][aria-pressed]").forEach((button) => {
           const countEl = button.querySelector(".channel-count");
@@ -2060,9 +2259,11 @@ function communityRuntime(): string {
             : "Snapshot · ATProto";
         }
         if (feed) {
-          // Preserve community-owned social messages (no repo required); refresh forge-backed rows.
+          // Preserve community-owned social + member-agent messages; refresh forge-backed rows.
           const social = (state.conversations || []).filter((item) =>
-            item.channel === "general" || item.channel === "showcase" || (item.id && String(item.id).indexOf("issue-") !== 0 && String(item.id).indexOf("change-") !== 0 && !item.repositorySlug),
+            item.role !== "agent" && (
+              item.channel === "general" || item.channel === "showcase" || (item.id && String(item.id).indexOf("issue-") !== 0 && String(item.id).indexOf("change-") !== 0 && !item.repositorySlug)
+            ),
           );
           const socialHtml = social.map((item) => {
             const hidden = (item.communityId && item.communityId !== activeCommunity) || item.channel !== activeChannel ? " hidden" : "";
@@ -2077,9 +2278,46 @@ function communityRuntime(): string {
               + '<div class="reaction-row">' + (item.reactions || []).map((reaction) => '<button type="button" class="reaction" data-reaction="' + escapeHtml(reaction) + '">' + escapeHtml(reaction) + '</button>').join("") + '</div>'
               + '<div class="message-action-tray" data-message-actions hidden><p class="action-status" data-action-status>Community channel message.</p></div></article></li>';
           }).join("");
+          const agentHtml = (state.conversations || []).filter((item) => item.role === "agent").map((item) => {
+            const hidden = (item.communityId && item.communityId !== activeCommunity) || item.channel !== activeChannel ? " hidden" : "";
+            const harness = item.harness
+              ? '<span class="agent-harness" data-agent-harness title="ACP harness">' + escapeHtml(item.harness) + '</span>'
+              : "";
+            const managed = item.managedBy
+              ? '<span class="agent-managed-by" data-agent-managed-by>managed by @' + escapeHtml(item.managedBy) + '</span>'
+              : "";
+            const artifact = item.artifactCard
+              ? '<div class="message-artifact-card" data-artifact-card><span class="message-artifact-kind">Agent receipt</span><strong>'
+                + escapeHtml(item.artifactCard) + '</strong>'
+                + (item.intentId
+                  ? '<a class="message-artifact-link" href="#intent-' + escapeHtml(item.intentId) + '" data-intent-link="' + escapeHtml(item.intentId) + '">Open signed intent</a>'
+                  : "")
+                + '</div>'
+              : "";
+            const proposalAttr = item.linkedProposalId
+              ? ' data-linked-proposal="' + escapeHtml(item.linkedProposalId) + '"'
+              : "";
+            return '<li class="feed-message feed-message-agent" data-message data-channel="' + escapeHtml(item.channel || "agent-runs")
+              + '" data-community-id="' + escapeHtml(item.communityId || activeCommunity)
+              + '" data-message-id="' + escapeHtml(item.id) + '" data-feed-item-source="' + escapeHtml(item.source || "api")
+              + '" data-author-role="agent"' + proposalAttr + hidden + '>'
+              + '<button class="message-hitbox" type="button" data-select-message="' + escapeHtml(item.id) + '" aria-label="Open signed actions for ' + escapeHtml(item.title) + '"></button>'
+              + '<div class="avatar avatar-agent" aria-hidden="true">' + escapeHtml(initials(item.author)) + '</div>'
+              + '<article class="message-body"><header class="message-meta"><strong>' + escapeHtml(item.author) + '</strong><span>member agent</span>'
+              + harness + managed
+              + '<time>' + escapeHtml(item.time || "now") + '</time><span data-message-state>' + escapeHtml(item.state || "open") + '</span></header>'
+              + '<h2>' + escapeHtml(item.title) + '</h2><p>' + escapeHtml(item.body || "") + '</p>'
+              + artifact
+              + '<footer class="message-footer"><span>' + escapeHtml(item.anchor || "") + '</span><span>' + escapeHtml(item.signature || "") + '</span><span>' + escapeHtml(item.visibility || "community") + '</span>'
+              + (item.intentId ? '<span data-intent-meta>intent:' + escapeHtml(item.intentId) + '</span>' : "")
+              + (item.linkedProposalId ? '<span data-proposal-link>proposal:' + escapeHtml(item.linkedProposalId) + '</span>' : "")
+              + '</footer>'
+              + '<div class="reaction-row">' + (item.reactions || []).map((reaction) => '<button type="button" class="reaction" data-reaction="' + escapeHtml(reaction) + '">' + escapeHtml(reaction) + '</button>').join("") + '</div>'
+              + '<div class="message-action-tray" data-message-actions hidden><p class="action-status" data-action-status>Human review required for signed project changes.</p></div></article></li>';
+          }).join("");
           const issueHtml = (repo.issues || []).map((issue) => renderMessageFromIssue(issue, repo)).join("");
           const changeHtml = (repo.changeProposals || []).map((proposal) => renderMessageFromChange(proposal, repo)).join("");
-          // Merge issue/change conversations back into state for channel counts.
+          // Merge issue/change conversations back into state for channel counts; keep agent members.
           const spaces = state.communities || [];
           const communityId = activeCommunity;
           const issueConvos = (repo.issues || []).map((issue) => ({
@@ -2121,7 +2359,7 @@ function communityRuntime(): string {
             !(item.repositorySlug === repo.slug && (String(item.id).indexOf("issue-") === 0 || String(item.id).indexOf("change-") === 0)),
           );
           state.conversations = retained.concat(issueConvos, changeConvos);
-          feed.innerHTML = socialHtml + issueHtml + changeHtml;
+          feed.innerHTML = socialHtml + agentHtml + issueHtml + changeHtml;
           void spaces;
         }
         if (issueList) {
@@ -2486,6 +2724,8 @@ function communityRuntime(): string {
 
       selectProductMode("community");
       applyComposerChrome();
+      renderAgentMembers(activeCommunity);
+      updateAgentWorkingStatus();
       if (live() && repository()) {
         refreshRepository().catch((error) => {
           if (connectionLabel) connectionLabel.textContent = "Live · error";
@@ -2724,6 +2964,84 @@ function communityStyles(): string {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .agent-list {
+      display: grid;
+      gap: 0.15rem;
+      padding: 0 0.35rem 0.45rem;
+    }
+    .agent-member {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.1rem;
+      min-height: auto;
+      padding-block: 0.35rem;
+    }
+    .agent-meta {
+      color: var(--epoch-color-rail-muted);
+      font-size: 0.68rem;
+      font-weight: 500;
+    }
+    .agent-list-empty {
+      margin: 0;
+      padding: 0.25rem 0.45rem;
+      color: var(--epoch-color-rail-muted);
+      font-size: 0.72rem;
+    }
+    .avatar-agent {
+      background: var(--epoch-color-mint);
+      color: var(--epoch-color-success);
+      font-size: 0.65rem;
+    }
+    .agent-harness,
+    .agent-managed-by {
+      color: var(--epoch-color-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .agent-harness {
+      padding: 0.05rem 0.35rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-xs);
+      background: var(--epoch-color-surface-sunken);
+    }
+    .message-artifact-card {
+      display: grid;
+      gap: 0.2rem;
+      margin: 0.45rem 0;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface);
+    }
+    .message-artifact-kind {
+      color: var(--epoch-color-muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .message-artifact-link {
+      color: var(--epoch-color-teal);
+      font-size: 0.82rem;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .message-artifact-link:hover {
+      text-decoration: underline;
+    }
+    .agent-working-status {
+      flex: 1 1 auto;
+      min-width: 0;
+      color: var(--epoch-color-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .agent-working-status[data-agent-live="true"] {
+      color: var(--epoch-color-success);
     }
     .channel-count {
       flex: 0 0 auto;

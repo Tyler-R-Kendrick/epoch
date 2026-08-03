@@ -1,0 +1,76 @@
+{
+  "featureId": "community-web-first-use",
+  "scenarioSlug": "buzz-agent-members",
+  "personaIds": [
+    "buzz-power-user",
+    "agentic-coding-power-user",
+    "forge-community-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-03T16:38:06.001Z",
+  "runId": "buzz-agent-member-20260803-1126",
+  "screen": {
+    "widthPx": 1280,
+    "heightPx": 720,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 319569,
+    "sha256": "31dc808c508c2429a48af3b74d19afd910353f931b2e248fe70962f7ecae8eed"
+  },
+  "claims": [
+    {
+      "id": "claim-agents-rail",
+      "text": "Agents membership rail lists member agents with harness and status"
+    },
+    {
+      "id": "claim-agent-messages",
+      "text": "#agent-runs shows agent-authored messages with role=agent"
+    },
+    {
+      "id": "claim-harness",
+      "text": "Agent messages expose ACP harness labels (goose/codex/claude-code)"
+    },
+    {
+      "id": "claim-managed-by",
+      "text": "Agent messages show managed-by human ownership"
+    },
+    {
+      "id": "claim-intent",
+      "text": "Agent handoffs link intent/artifact receipts"
+    }
+  ],
+  "frames": [],
+  "repro": {
+    "url": "http://127.0.0.1:8787/community",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "agents-as-members live after client feed retention fix",
+    "{\"agentsInDom\":3,\"visibleAgents\":2,\"members\":3,\"harnesses\":[\"goose\",\"codex\",\"claude-code\"],\"managed\":[\"managed by @lea\",\"managed by @maya\",\"managed by @maya\"],\"intents\":9,\"working\":\"@ui-reviewer: open agent-runs for harness receipts\",\"list\":true}"
+  ],
+  "observations": {
+    "agentsInDom": 3,
+    "visibleAgents": 2,
+    "members": 3,
+    "harnesses": [
+      "goose",
+      "codex",
+      "claude-code"
+    ],
+    "managed": [
+      "managed by @lea",
+      "managed by @maya",
+      "managed by @maya"
+    ],
+    "intents": 9,
+    "working": "@ui-reviewer: open agent-runs for harness receipts",
+    "list": true
+  }
+}
