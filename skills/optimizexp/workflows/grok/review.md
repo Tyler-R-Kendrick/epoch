@@ -5,7 +5,7 @@ If `review.rhai` cannot run, follow `../claude-code/review.md` steps verbatim.
 Use the `workflow` tool only when registering/running Rhai. Cross-agent scorer:
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode init --run "$RUN_ID" --experiences "$EXPERIENCES"
 # status / should-stop / equilibrium / assert-complete / mark-complete
 ```

@@ -2,9 +2,9 @@
 /**
  * Explore a product project → surface-map.json (+ optional experience-catalog).
  *
- * node --import tsx skills/optimizexp/harness/explore-app.mts --project code
- * node --import tsx skills/optimizexp/harness/explore-app.mts --mode validate --project code
- * node --import tsx skills/optimizexp/harness/explore-app.mts --mode catalog --project code --personas developer
+ * node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --project code
+ * node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --mode validate --project code
+ * node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --mode catalog --project code --personas developer
  */
 import process from "node:process";
 import { listProjects, resolveProjects } from "./lib/projects.mts";

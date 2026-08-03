@@ -80,6 +80,7 @@ function listDirs(dir: string): string[] {
 		.map((d) => d.name);
 }
 
+
 function packageScripts(root: string): Record<string, string> {
 	const p = path.join(root, "package.json");
 	if (!existsSync(p)) return {};

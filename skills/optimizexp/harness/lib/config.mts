@@ -25,7 +25,7 @@ import {
 	type ExperienceType,
 } from "./experience-types.mts";
 import {
-	globalScope,
+		globalScope,
 	relFromRepo,
 	repoRoot,
 	scopeForProject,
@@ -392,7 +392,7 @@ export function resolveConfig(input?: {
 	const globalFile = loadConfigFile(globalConfigPath(root));
 	problems.push(...globalFile.problems.map((p) => `global: ${p}`));
 	if (globalFile.config) {
-		resolved = applyConfigDocument(resolved, globalFile.config);
+		resolved = applyConfigDocument(resolved, globalFile.config, "global");
 		sources.push(relFromRepo(globalFile.path, root));
 	}
 
@@ -411,7 +411,7 @@ export function resolveConfig(input?: {
 					`project(${focus.id}): config.projectId "${projFile.config.projectId}" != folder project id`,
 				);
 			}
-			resolved = applyConfigDocument(resolved, projFile.config);
+			resolved = applyConfigDocument(resolved, projFile.config, "project");
 			resolved.kind = "project";
 			resolved.projectId = focus.id;
 			resolved.label = projFile.config.label ?? focus.label;
@@ -431,7 +431,9 @@ export function resolveConfig(input?: {
 function applyConfigDocument(
 	base: ResolvedOptimizexpConfig,
 	doc: OptimizexpConfig,
+	layer: "global" | "project",
 ): ResolvedOptimizexpConfig {
+	void layer;
 	const next: ResolvedOptimizexpConfig = {
 		...base,
 		product: { ...base.product, ...doc.product },

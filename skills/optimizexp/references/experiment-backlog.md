@@ -100,7 +100,7 @@ Harm_reduce S/M findings take precedence if primary regresses (regime switch bac
 ## Global merge
 
 ```bash
-node --import tsx skills/optimizexp/harness/survey.mts \
+node --import tsx .agents/skills/optimizexp/harness/survey.mts \
   --mode rank-backlog --run <runId> --global
 ```
 

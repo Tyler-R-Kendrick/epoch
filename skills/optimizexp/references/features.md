@@ -130,20 +130,20 @@ The set of personas is **not** “always everyone” and **not** “always one d
 ### Harness
 
 ```bash
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --mode resolve-personas --experiences dx
 
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --seed "Staged agent check is narrow and actionable" \
   --id agent-check-staged \
   --experiences dx \
   --personas developer,coding-agent
 
 # re-scan repo and rewrite implementations.ts from discovery
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --mode implement --id agent-check-staged
 
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --mode validate --id agent-check-staged
 
 pnpm run test:file .optimizexp/features/agent-check-staged/test/agent-check-staged.bindings.test.ts

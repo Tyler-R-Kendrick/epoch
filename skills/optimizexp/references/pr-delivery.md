@@ -55,7 +55,7 @@ Do **not** force-install stack extensions without user permission. If missing, n
 After `gh pr view` shows a PR for the branch:
 
 ```bash
-node --import tsx skills/optimizexp/harness/post-pr-evidence.mts \
+node --import tsx .agents/skills/optimizexp/harness/post-pr-evidence.mts \
   --feature <feature-id> \
   --pr <number|url> \
   # or auto-detect PR for current branch

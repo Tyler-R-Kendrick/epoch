@@ -13,10 +13,10 @@ timestamp: 2026-07-31T00:00:00Z
 ## Invocation
 
 ```bash
-node --import tsx skills/optimizexp/harness/doctor.mts check --project code
-node --import tsx skills/optimizexp/harness/doctor.mts repair --project code
-node --import tsx skills/optimizexp/harness/doctor.mts snapshot --project code
-node --import tsx skills/optimizexp/harness/doctor.mts check --json
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts check --project code
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts repair --project code
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts snapshot --project code
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts check --json
 ```
 
 Aliases: `fix` → `repair`, `snap` → `snapshot`.

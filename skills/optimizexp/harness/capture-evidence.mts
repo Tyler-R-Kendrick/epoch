@@ -2,8 +2,8 @@
 /**
  * OptimizeXP evidence harness — drive scenarios and capture persona-visible evidence.
  *
- * node --import tsx skills/optimizexp/harness/capture-evidence.mts --help
- * node --experimental-strip-types skills/optimizexp/harness/capture-evidence.mts --help
+ * node --import tsx .agents/skills/optimizexp/harness/capture-evidence.mts --help
+ * node --experimental-strip-types .agents/skills/optimizexp/harness/capture-evidence.mts --help
  */
 import {
 	existsSync,
@@ -30,9 +30,9 @@ import {
 	evidenceDir,
 	evidenceDirInScope,
 	featureDir,
-	findFeature,
+		findFeature,
 	listFeatures,
-	repoRoot,
+		repoRoot,
 	writeScopeFromSelection,
 	type FeatureLocation,
 } from "./lib/paths.mts";
@@ -116,6 +116,7 @@ function resolveFeatureLoc(
 	}
 	return loc;
 }
+
 
 function initFeature(args: Record<string, string>) {
 	const root = repoRoot();

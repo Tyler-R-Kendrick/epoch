@@ -38,7 +38,7 @@ Complete only after assert-complete ok + mark-complete.
 2. **If `--init` only:** run `harness/init.mts` (honor `--projects`); read `INIT.md`; stop unless also reviewing.
 3. **Init run (before product edits)**
    ```bash
-   node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+   node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
      --mode init --run "$RUN_ID" --experiences "$EXPERIENCES" \
      --personas "$PERSONA_IDS" --features "$FEATURE_IDS" --projects "$PROJECT_IDS"
    ```
@@ -55,7 +55,7 @@ Complete only after assert-complete ok + mark-complete.
    6. **Verify** with new evidence.
    7. **should-stop** (cycle only):
       ```bash
-      node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+      node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
         --mode should-stop --run "$RUN_ID" --iteration "$pass" \
         --scores … --prev-scores … \
         --implementable-findings "$OPEN_S_M_COUNT"

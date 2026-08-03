@@ -3,14 +3,14 @@
  * OptimizeXP init — traverse the repo, seed UX/DX/AX personas from product signals,
  * then scaffold feature folders/scenarios/bindings for discovered journeys.
  *
- * node --import tsx skills/optimizexp/harness/init.mts --help
- * node --experimental-strip-types skills/optimizexp/harness/init.mts --dry-run
+ * node --import tsx .agents/skills/optimizexp/harness/init.mts --help
+ * node --experimental-strip-types .agents/skills/optimizexp/harness/init.mts --dry-run
  */
 import { spawnSync } from "node:child_process";
 import {
 	existsSync,
 	mkdirSync,
-	writeFileSync,
+		writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -22,7 +22,7 @@ import {
 	relFromRepo,
 	repoRoot,
 	scopeForProject,
-} from "./lib/paths.mts";
+	} from "./lib/paths.mts";
 import { findPersona } from "./lib/persona-resolve.mts";
 import {
 	discoverProduct,
@@ -36,13 +36,13 @@ import {
 	resolveProjects,
 } from "./lib/projects.mts";
 import {
-	ensureGlobalConfig,
+		ensureGlobalConfig,
 	ensureProjectConfig,
 	loadConfigFile,
 	resolveConfig,
 	globalConfigPath,
 	projectConfigPath,
-} from "./lib/config.mts";
+	} from "./lib/config.mts";
 import {
 	ensureGlobalGitignore,
 	ensureProjectGitignore,
@@ -110,7 +110,7 @@ Does not overwrite existing persona/feature files unless --force.
 }
 
 function skillHarness(root: string, file: string): string {
-	const a = path.join(root, "skills/optimizexp/harness", file);
+	const a = path.join(root, ".agents/skills/optimizexp/harness", file);
 	if (existsSync(a)) return a;
 	return path.join(root, ".claude/skills/optimizexp/harness", file);
 }

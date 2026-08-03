@@ -21,7 +21,7 @@ import {
 	personasDir,
 	relFromRepo,
 	repoRoot,
-	scopesForSelection,
+		scopesForSelection,
 	type OptimizexpScope,
 } from "./paths.mts";
 import {
@@ -33,8 +33,8 @@ import {
 import {
 	ensureGlobalConfig,
 	ensureProjectConfig,
-	loadConfigFile,
-} from "./config.mts";
+		loadConfigFile,
+	} from "./config.mts";
 import {
 	ensureGlobalGitignore,
 	ensureProjectGitignore,

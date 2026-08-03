@@ -1,6 +1,6 @@
 /**
  * Stop / closeout gate tests for optimizexp review-loop.
- * Run: node --import tsx --test skills/optimizexp/harness/test/review-loop-stop-gate.test.mts
+ * Run: node --import tsx --test .agents/skills/optimizexp/harness/test/review-loop-stop-gate.test.mts
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -17,14 +17,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-// harness/test → harness → optimizexp → skills → repo root
+// harness/test → harness → optimizexp → skills → .agents → repo root
 const REPO = path.resolve(
 	path.dirname(new URL(import.meta.url).pathname),
-	"../../../..",
+	"../../../../..",
 );
 const RL = path.join(
 	REPO,
-	"skills/optimizexp/workflows/cross-agent/review-loop.mts",
+	".agents/skills/optimizexp/workflows/cross-agent/review-loop.mts",
 );
 
 function runRl(

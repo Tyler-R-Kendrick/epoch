@@ -3,7 +3,7 @@
  * Regression: the seed-section regex once used `[\\s\\S]` inside a regex
  * literal, which matches literal "\s" text and always captured empty, forcing
  * generatedFromSeed:true personas to fail validation.
- * Run: node --import tsx --test skills/optimizexp/harness/test/generate-persona-validate.test.mts
+ * Run: node --import tsx --test .agents/skills/optimizexp/harness/test/generate-persona-validate.test.mts
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -13,18 +13,18 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-// harness/test → harness → optimizexp → skills → repo root
+// harness/test → harness → optimizexp → skills → .agents → repo root
 const REPO = path.resolve(
 	path.dirname(new URL(import.meta.url).pathname),
-	"../../../..",
+	"../../../../..",
 );
 const GP = path.join(
 	REPO,
-	"skills/optimizexp/harness/generate-persona.mts",
+	".agents/skills/optimizexp/harness/generate-persona.mts",
 );
 // Real schema-v2 seed-generated persona used as the valid template.
 const TEMPLATE = readFileSync(
-	path.join(import.meta.dirname, "fixtures/role-sre.txt"),
+	path.join(REPO, ".optimizexp/personas/role-sre.md"),
 	"utf8",
 );
 

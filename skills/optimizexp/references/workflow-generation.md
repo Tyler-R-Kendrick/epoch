@@ -11,7 +11,7 @@ timestamp: 2026-07-30T00:00:00Z
 Each coding-agent host that supports workflows gets a folder under this skill:
 
 ```text
-skills/optimizexp/workflows/
+.agents/skills/optimizexp/workflows/
   claude-code/
   codex/
   cursor/

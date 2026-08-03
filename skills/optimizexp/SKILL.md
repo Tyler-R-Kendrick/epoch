@@ -34,7 +34,7 @@ Uses:
 
 1. **Bare invocation (no flags):** treat as **all experiences** (`ux` + `dx` + `ax`) and **all projects**. First check whether init is needed:
    ```bash
-   node --import tsx skills/optimizexp/harness/init.mts --mode needs-init
+   node --import tsx .agents/skills/optimizexp/harness/init.mts --mode needs-init
    # exit 0 → needs init; exit 1 → already bootstrapped enough to review
    ```
    If `needsInit: true`, run full init (`harness/init.mts`, all experiences, **all projects**), then **continue** into the review loop with all experiences + all projects. If false, skip init and review immediately. Details: `references/init.md` § Auto-init on bare run.
@@ -48,21 +48,21 @@ Uses:
 6. **Doctor (preflight):** audit structure, personas, feature quality, maps; repair safely; optional snapshot.
    **Standing approval:** invoking OptimizeXP authorizes its safe, in-scope preflight repairs; apply them without asking again. This does not authorize destructive, networked, secret-bearing, or unrelated changes.
    ```bash
-   node --import tsx skills/optimizexp/harness/doctor.mts check --project <id>
-   node --import tsx skills/optimizexp/harness/doctor.mts repair --project <id>
-   node --import tsx skills/optimizexp/harness/doctor.mts snapshot --project <id>
+   node --import tsx .agents/skills/optimizexp/harness/doctor.mts check --project <id>
+   node --import tsx .agents/skills/optimizexp/harness/doctor.mts repair --project <id>
+   node --import tsx .agents/skills/optimizexp/harness/doctor.mts snapshot --project <id>
    ```
    See `references/doctor.md`. Doctor exit 0 ≠ optimizexp complete.
 7. **CRITICAL — Explore + feature generation (quality bottleneck):**
    ```bash
    # a) Surface map + experience catalog (default entry, help, interactive, persona stacks)
-   node --import tsx skills/optimizexp/harness/explore-app.mts --project <id> --personas …
+   node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --project <id> --personas …
    # b) Plan EXPERIENCE.md (rubber-duck + adversarial) then scaffold — see feature-quality.md
-   node --import tsx skills/optimizexp/harness/generate-feature.mts --mode plan --id … --experience-id cold-start-tty-chat --project <id>
+   node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --mode plan --id … --experience-id cold-start-tty-chat --project <id>
    # fill EXPERIENCE.md → accept + [x] adversarial boxes
-   node --import tsx skills/optimizexp/harness/generate-feature.mts --mode rubberduck-check --id …
-   node --import tsx skills/optimizexp/harness/generate-feature.mts --mode from-catalog --project <id> --personas …
-   node --import tsx skills/optimizexp/harness/generate-feature.mts --mode validate --id …
+   node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --mode rubberduck-check --id …
+   node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --mode from-catalog --project <id> --personas …
+   node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --mode validate --id …
    ```
    **Illegal:** score a surface without an accepted feature for that experience. **Illegal:** template-only Gherkin (`When I exercise the surface…` alone). **Illegal:** skip **default entry / chat** when surface-map says interactive.
 8. If **`--feature` …** present: still require EXPERIENCE.md rubberduck-check before treating the feature as reviewable (`references/features.md` + `feature-quality.md`).
@@ -71,7 +71,7 @@ Uses:
 11. Load progressive-disclosure references below (only what you need) — **always** load `feature-quality.md` when generating or validating features; load `doctor.md` for preflight.
 12. **Open/create a run first** (before product edits):
     ```bash
-    node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+    node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
       --mode init --run <runId> --experiences … --personas … --features … --projects …
     ```
     Confirm `status: running`, `stopPolicy: infinite-until-pareto-equilibrium` (unless `--no-delight`), and `INCOMPLETE.md`. Resume matching incomplete runs instead of starting a fake-complete story.
@@ -164,7 +164,7 @@ Use the [reference index](references/index.md) to route to the minimum context n
 0. **Completion contract (non-negotiable).** It is **illegal** to tell the user optimizexp is done unless:
 
    ```bash
-   node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+   node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
      --mode assert-complete --run <runId>
    # exit 0 and "ok": true — then mark-complete
    ```
@@ -260,32 +260,32 @@ Config merge: skill builtins → global config → project config (single-projec
 
 ```bash
 # Doctor — preflight / repair / snapshot (structure, personas, features, maps)
-node --import tsx skills/optimizexp/harness/doctor.mts check --project code
-node --import tsx skills/optimizexp/harness/doctor.mts repair --project code
-node --import tsx skills/optimizexp/harness/doctor.mts snapshot --project code --json
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts check --project code
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts repair --project code
+node --import tsx .agents/skills/optimizexp/harness/doctor.mts snapshot --project code --json
 
-node --import tsx skills/optimizexp/harness/init.mts --mode needs-init
-node --import tsx skills/optimizexp/harness/init.mts --mode list-projects
-node --import tsx skills/optimizexp/harness/init.mts --mode ensure-config
-node --import tsx skills/optimizexp/harness/init.mts --mode validate-config
-node --import tsx skills/optimizexp/harness/init.mts
-node --import tsx skills/optimizexp/harness/init.mts --projects site,cli
-node --import tsx skills/optimizexp/harness/init.mts --dry-run
-node --import tsx skills/optimizexp/harness/explore-app.mts --project code
-node --import tsx skills/optimizexp/harness/generate-persona.mts \
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode needs-init
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode list-projects
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode ensure-config
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode validate-config
+node --import tsx .agents/skills/optimizexp/harness/init.mts
+node --import tsx .agents/skills/optimizexp/harness/init.mts --projects site,cli
+node --import tsx .agents/skills/optimizexp/harness/init.mts --dry-run
+node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --project code
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts \
   --seed "A junior frontend engineer who panics at monorepo gates" --id junior-frontend
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --seed "Staged agent check is narrow and actionable" --id agent-check-staged \
   --experiences dx --personas developer,coding-agent
-node --import tsx skills/optimizexp/harness/generate-feature.mts --mode implement --id agent-check-staged
-node --import tsx skills/optimizexp/harness/generate-feature.mts --mode validate --id agent-check-staged
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --mode implement --id agent-check-staged
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --mode validate --id agent-check-staged
 pnpm run test:file .optimizexp/features/agent-check-staged/test/agent-check-staged.bindings.test.ts
-node --import tsx skills/optimizexp/harness/capture-evidence.mts --mode capture \
+node --import tsx .agents/skills/optimizexp/harness/capture-evidence.mts --mode capture \
   --feature <id> --scenario <title-or-slug> --driver cli|tui|web|native --command '…'
-node --import tsx skills/optimizexp/harness/post-pr-evidence.mts --feature <id> [--pr N]
-node --import tsx skills/optimizexp/harness/survey.mts --mode template --run <runId>
-node --import tsx skills/optimizexp/harness/survey.mts --mode aggregate --run <runId>
-node --import tsx skills/optimizexp/harness/survey.mts --mode rank-backlog --run <runId> --global
+node --import tsx .agents/skills/optimizexp/harness/post-pr-evidence.mts --feature <id> [--pr N]
+node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode template --run <runId>
+node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode aggregate --run <runId>
+node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode rank-backlog --run <runId> --global
 ```
 
 Drivers: **cli** (replayable `primary.cast` + generated `REPLAY.html` + transcript), **tui** (asciinema cast when present, otherwise the same local cast), **web** (Playwright/browser MCP video), **native** (computer-use via `OPTIMIZEXP_NATIVE_CAPTURE`).

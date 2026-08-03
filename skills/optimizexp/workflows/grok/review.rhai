@@ -30,7 +30,7 @@ fn run(args) {
 
     let baseline = agent(#{
         prompt: `You are the OptimizeXP coordinator.
-Read skills/optimizexp/SKILL.md and references/review-loop.md, agent-bus.md, flags.md.
+Read .agents/skills/optimizexp/SKILL.md and references/review-loop.md, agent-bus.md, flags.md.
 Init run ${run_id} with --passes ${passes}.
 Outer cycles default infinite: each cycle to true plateau; then re-survey.
 Stop invocation when metrics all 0 OR irreducible (no new S/M findings after re-survey).

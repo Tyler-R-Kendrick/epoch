@@ -215,6 +215,7 @@ Use the [reference index](references/index.md) to route by phase.
 - Brainstorm / plan / Linear / loops / cascade: remaining files under `references/`
 - Raw `gh stack` CLI for agents: companion skill `gh-stack`
 - Repo git/PR hygiene: `repo` skill → `references/git-pr.md`
+- Durable coordinator state: [`docs/plans/dispatch-log.md`](../../docs/plans/dispatch-log.md)
 
 ## Invocation examples
 

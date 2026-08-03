@@ -11,7 +11,7 @@ timestamp: 2026-07-30T00:00:00Z
 Skill-local harness under:
 
 ```text
-skills/optimizexp/harness/
+.agents/skills/optimizexp/harness/
   init.mts                 # --init repo traverse → personas + features
   capture-evidence.mts     # evidence capture
   generate-persona.mts     # --persona seed → formal persona.md
@@ -39,7 +39,7 @@ skills/optimizexp/harness/
 Invoke (repo root):
 
 ```bash
-node --import tsx skills/optimizexp/harness/capture-evidence.mts --help
+node --import tsx .agents/skills/optimizexp/harness/capture-evidence.mts --help
 # or: node --experimental-strip-types …
 ```
 
@@ -154,9 +154,9 @@ Scorecard CLI: `harness/scorecard.mts` (`validate` | `build` | `compare`).
 | `rank-backlog` | Rank experiments → `runs/<id>/backlog.json`; `--global` merges `.optimizexp/backlog/experiments.json` |
 
 ```bash
-node --import tsx skills/optimizexp/harness/survey.mts --mode template --run <runId>
-node --import tsx skills/optimizexp/harness/survey.mts --mode aggregate --run <runId>
-node --import tsx skills/optimizexp/harness/survey.mts --mode rank-backlog --run <runId> --global
+node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode template --run <runId>
+node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode aggregate --run <runId>
+node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode rank-backlog --run <runId> --global
 ```
 
 See `persona-survey.md`, `experiment-backlog.md`, `positive-metrics.md`.

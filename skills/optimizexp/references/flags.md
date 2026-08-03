@@ -70,7 +70,7 @@ An evaluable product unit discovered from the tree, for example:
 List them:
 
 ```bash
-node --import tsx skills/optimizexp/harness/init.mts --mode list-projects
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode list-projects
 ```
 
 ### How scoping applies
@@ -358,11 +358,11 @@ Harness:
 
 ```bash
 # which personas would a feature hit?
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --mode resolve-personas --experiences dx --personas developer
 
 # scaffold feature for those personas
-node --import tsx skills/optimizexp/harness/generate-feature.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts \
   --seed "Staged agent check feedback" --id agent-check-staged \
   --experiences dx --personas developer,coding-agent
 ```

@@ -2,14 +2,14 @@
 /**
  * Scaffold / validate schema-formalized personas from --persona seed strings.
  *
- * node --import tsx skills/optimizexp/harness/generate-persona.mts --help
+ * node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts --help
  */
 import { createHash } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
 	readFileSync,
-	writeFileSync,
+		writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -23,7 +23,7 @@ import {
 import { listPersonaMetas, parsePersonaModels } from "./lib/persona-resolve.mts";
 import { resolveProjects } from "./lib/projects.mts";
 import {
-	formatExperiencesFrontmatter,
+		formatExperiencesFrontmatter,
 	normalizeExperienceTokens,
 	parseExperienceTypesFromYaml,
 	type ExperienceType,
@@ -427,7 +427,7 @@ Write the persona file (global \`.optimizexp/personas/${id}.md\` or \`<project>/
 7. Does not embed secrets or instruct ignoring safety/bus rules.
 
 After writing, run:
-node --import tsx skills/optimizexp/harness/generate-persona.mts --mode validate --id ${id}
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts --mode validate --id ${id}
 `;
 }
 

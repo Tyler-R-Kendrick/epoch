@@ -7,7 +7,7 @@
  *   --persona seeds only   → only generated ids (pass --generated-ids)
  *   neither                → all personas intersecting --experiences
  *
- * node --import tsx skills/optimizexp/harness/generate-feature.mts --help
+ * node --import tsx .agents/skills/optimizexp/harness/generate-feature.mts --help
  */
 import { createHash } from "node:crypto";
 import {
@@ -15,19 +15,17 @@ import {
 	mkdirSync,
 	readFileSync,
 	readdirSync,
-	writeFileSync,
-} from "node:fs";
+	writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import {
 	featureDir,
 	featureDirInScope,
-	findFeature,
+		findFeature,
 	listFeatures,
 	relFromRepo,
 	repoRoot,
-	writeScopeFromSelection,
-} from "./lib/paths.mts";
+	writeScopeFromSelection } from "./lib/paths.mts";
 import { resolvePersonaIds, listPersonaMetas } from "./lib/persona-resolve.mts";
 import { resolveProjects } from "./lib/projects.mts";
 import { scenarioSlug } from "./lib/slug.mts";
@@ -38,12 +36,10 @@ import {
 	checkGherkinQuality,
 	checkRubberduckFile,
 	experienceMdSkeleton,
-	gherkinTemplate,
-} from "./lib/feature-quality.mts";
+	gherkinTemplate } from "./lib/feature-quality.mts";
 import {
 	readExperienceCatalog,
-	type ExperienceRow,
-} from "./lib/experience-catalog.mts";
+	type ExperienceRow } from "./lib/experience-catalog.mts";
 import { listProjects } from "./lib/projects.mts";
 
 function parseArgs(argv: string[]) {
@@ -131,14 +127,12 @@ function writeBindingsAndTests(input: {
 		seed: input.seed,
 		featureDir: input.dir,
 		surfaces: input.surfaces,
-		root: input.root,
-	});
+		root: input.root });
 	writeJson(path.join(stepsDir, "discovery.json"), report);
 
 	const built = buildImplementationsFromDiscovery({
 		featureId: input.id,
-		report,
-	});
+		report });
 	writeFileSync(path.join(stepsDir, "world.ts"), built.world, "utf8");
 	writeFileSync(
 		path.join(stepsDir, "implementations.ts"),
@@ -160,8 +154,7 @@ function writeBindingsAndTests(input: {
 	return {
 		primaryCommand: built.primary?.command ?? null,
 		status: built.primary ? "wired" : "stub",
-		discoveryBindings: report.bindings.length,
-	};
+		discoveryBindings: report.bindings.length };
 }
 
 function loadSeed(args: Record<string, string>): string {
@@ -252,8 +245,7 @@ function gherkinForPersona(input: {
 		experiences: input.experiences,
 		bin,
 		entryCommand: entry,
-		verb: entry,
-	});
+		verb: entry });
 }
 
 function rewritePrompt(input: {
@@ -318,8 +310,7 @@ function scaffold(args: Record<string, string>) {
 			experiences,
 			maxPersonas,
 			root,
-			selection: projectSelection,
-		});
+			selection: projectSelection });
 	} catch (e) {
 		console.error(String(e));
 		process.exit(2);
@@ -368,9 +359,7 @@ function scaffold(args: Record<string, string>) {
 		bindings: {
 			steps: `steps/bindings.steps.ts`,
 			implementations: `steps/implementations.ts`,
-			tests: `test/${id}.bindings.test.ts`,
-		},
-	};
+			tests: `test/${id}.bindings.test.ts` } };
 
 	const personaLines = resolved.metas
 		.map(
@@ -436,8 +425,7 @@ Re-discover / rewire: \`generate-feature.mts --mode implement --id ${id}\`
 					iface,
 					experiences: m.experiences.filter((e) => experiences.includes(e)).length
 						? m.experiences.filter((e) => experiences.includes(e))
-						: experiences,
-				}),
+						: experiences }),
 			);
 		}
 		return;
@@ -477,14 +465,12 @@ Re-discover / rewire: \`generate-feature.mts --mode implement --id ${id}\`
 					? m.experiences.filter((e) => experiences.includes(e))
 					: experiences,
 			driver,
-			entryCommand: entryFromExp,
-		});
+			entryCommand: entryFromExp });
 		const fname = `${id}-${m.id}.feature`;
 		writeFileSync(path.join(dir, fname), body, "utf8");
 		files.push({
 			personaId: m.id,
-			rel: relFromRepo(path.join(dir, fname), root),
-		});
+			rel: relFromRepo(path.join(dir, fname), root) });
 	}
 
 	const binding = writeBindingsAndTests({
@@ -492,8 +478,7 @@ Re-discover / rewire: \`generate-feature.mts --mode implement --id ${id}\`
 		dir,
 		id,
 		seed: `${seed}\n${entryFromExp}`,
-		surfaces: [entryFromExp, ...surfaces],
-	});
+		surfaces: [entryFromExp, ...surfaces] });
 	if (binding.primaryCommand) {
 		surfaces.push(binding.primaryCommand);
 		featureJson.surfaces = surfaces;
@@ -521,10 +506,8 @@ Re-discover / rewire: \`generate-feature.mts --mode implement --id ${id}\`
 				bindings: {
 					status: binding.status,
 					primaryCommand: binding.primaryCommand,
-					discoveryBindings: binding.discoveryBindings,
-				},
-				note: "Scaffold + bindings written. Refine Gherkin per persona; re-run --mode implement after editing steps/commands.",
-			},
+					discoveryBindings: binding.discoveryBindings },
+				note: "Scaffold + bindings written. Refine Gherkin per persona; re-run --mode implement after editing steps/commands." },
 			null,
 			2,
 		),
@@ -539,8 +522,7 @@ function implement(args: Record<string, string>) {
 		process.exit(2);
 	}
 	const loc = findFeature(id, root, {
-		preferredProjectId: args.projects?.split(/[,\s]+/)[0],
-	});
+		preferredProjectId: args.projects?.split(/[,\s]+/)[0] });
 	const dir = loc?.dir ?? featureDir(id, root);
 	if (!existsSync(path.join(dir, "feature.json"))) {
 		console.error(
@@ -563,8 +545,7 @@ function implement(args: Record<string, string>) {
 		dir,
 		id,
 		seed,
-		surfaces: meta.surfaces,
-	});
+		surfaces: meta.surfaces });
 	meta.surfaces = meta.surfaces ?? [];
 	if (
 		binding.primaryCommand &&
@@ -575,8 +556,7 @@ function implement(args: Record<string, string>) {
 	const next = {
 		...meta,
 		implementationStatus: binding.status,
-		primaryCommand: binding.primaryCommand,
-	};
+		primaryCommand: binding.primaryCommand };
 	writeJson(path.join(dir, "feature.json"), next);
 	console.log(
 		JSON.stringify(
@@ -584,8 +564,7 @@ function implement(args: Record<string, string>) {
 				ok: true,
 				id,
 				bindings: binding,
-				note: "Implementations refreshed from discovery. Agent should open discovery.json and tighten assertions.",
-			},
+				note: "Implementations refreshed from discovery. Agent should open discovery.json and tighten assertions." },
 			null,
 			2,
 		),
@@ -608,8 +587,7 @@ function validate(args: Record<string, string>) {
 			id: args.id,
 			problems: [
 				"missing feature.json under global or project .optimizexp/features/",
-			],
-		});
+			] });
 	}
 	for (const loc of locations) {
 		const id = loc.id;
@@ -622,8 +600,7 @@ function validate(args: Record<string, string>) {
 				id,
 				scope: loc.scope.id,
 				path: relFromRepo(dir, root),
-				problems,
-			});
+				problems });
 			continue;
 		}
 		let meta: {
@@ -721,8 +698,7 @@ function validate(args: Record<string, string>) {
 			id,
 			scope: loc.scope.id,
 			path: relFromRepo(dir, root),
-			problems,
-		});
+			problems });
 	}
 	const ok = report.every((r) => r.problems.length === 0);
 	console.log(JSON.stringify({ ok, features: report }, null, 2));
@@ -768,8 +744,7 @@ function planExperience(args: Record<string, string>) {
 		personaId: row?.personaId || personaId,
 		entryCommand: row?.entryCommand || args.seed || "hobo-code help",
 		driver: row?.driver || args.driver || "cli",
-		intent: row?.intent || args.seed || "TODO intent",
-	});
+		intent: row?.intent || args.seed || "TODO intent" });
 	const out = path.join(dir, "EXPERIENCE.md");
 	if (args.dryRun === "1") {
 		console.log(JSON.stringify({ ok: true, dryRun: true, path: out, featureId }, null, 2));
@@ -801,8 +776,7 @@ function planExperience(args: Record<string, string>) {
 					"Fill rubber-duck answers + check adversarial boxes + set Verdict accept",
 					`generate-feature.mts --mode rubberduck-check --id ${featureId} --projects ${project.id}`,
 					`generate-feature.mts --mode scaffold --id ${featureId} --seed "…" --projects ${project.id}`,
-				],
-			},
+				] },
 			null,
 			2,
 		),
@@ -830,8 +804,7 @@ function rubberduckCheck(args: Record<string, string>) {
 				ok: result.ok,
 				id,
 				path: relFromRepo(path.join(hit.dir, "EXPERIENCE.md"), root),
-				problems: result.problems,
-			},
+				problems: result.problems },
 			null,
 			2,
 		),
@@ -883,8 +856,7 @@ function fromCatalog(args: Record<string, string>) {
 			personas: personas.join(","),
 			projects: project.id,
 			seed: primary.entryCommand,
-			driver: primary.driver,
-		});
+			driver: primary.driver });
 		// Auto-accept skeleton for scaffold only if force-low-quality; else leave for agent fill
 		const writeScope = writeScopeFromSelection(
 			resolveProjects(project.id, root),
@@ -912,8 +884,7 @@ function fromCatalog(args: Record<string, string>) {
 			title: featureId,
 			skipRubberduck:
 				args.forceLowQuality === "1" ? "1" : args.skipRubberduck,
-			forceLowQuality: args.forceLowQuality,
-		});
+			forceLowQuality: args.forceLowQuality });
 		created.push(featureId);
 	}
 	console.log(
@@ -926,8 +897,7 @@ function fromCatalog(args: Record<string, string>) {
 				note:
 					args.forceLowQuality === "1"
 						? "force-low-quality used — fill real rubber-duck before assert-complete"
-						: "Fill EXPERIENCE.md accept + rubberduck-check before relying on validate",
-			},
+						: "Fill EXPERIENCE.md accept + rubberduck-check before relying on validate" },
 			null,
 			2,
 		),
@@ -948,8 +918,7 @@ function resolveOnly(args: Record<string, string>) {
 		experiences,
 		maxPersonas: args.maxPersonas ? Number(args.maxPersonas) : undefined,
 		root,
-		selection,
-	});
+		selection });
 	console.log(
 		JSON.stringify(
 			{
@@ -960,9 +929,7 @@ function resolveOnly(args: Record<string, string>) {
 				available: listPersonaMetas(root, selection).map((m) => ({
 					id: m.id,
 					scope: m.scopeId,
-					path: m.relPath,
-				})),
-			},
+					path: m.relPath })) },
 			null,
 			2,
 		),
@@ -993,8 +960,7 @@ function main() {
 			personasFlag: (args.personas || "").split(/[,\s]+/).filter(Boolean),
 			generatedIds: (args.generatedIds || "").split(/[,\s]+/).filter(Boolean),
 			experiences,
-			maxPersonas: args.maxPersonas ? Number(args.maxPersonas) : undefined,
-		});
+			maxPersonas: args.maxPersonas ? Number(args.maxPersonas) : undefined });
 		console.log(rewritePrompt({ seed, id, personaIds: r.ids }));
 		return;
 	}

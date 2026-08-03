@@ -1,6 +1,6 @@
 /**
  * Unit tests: evidence-backed scoring validation (rubric checks + ref existence).
- * Run: node --import tsx --test skills/optimizexp/harness/test/evidence-checks.test.mts
+ * Run: node --import tsx --test .agents/skills/optimizexp/harness/test/evidence-checks.test.mts
  */
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

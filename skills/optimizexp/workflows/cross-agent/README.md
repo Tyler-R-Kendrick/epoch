@@ -3,9 +3,9 @@
 For hosts without native workflows (or as a scoring co-processor for all hosts).
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts --help
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts --help
 # without installed deps:
-node --experimental-strip-types skills/optimizexp/workflows/cross-agent/review-loop.mts --help
+node --experimental-strip-types .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts --help
 ```
 
 Modes: `init` | `status` | `should-stop` | `equilibrium` | `assert-complete` | `mark-complete` | `validate-bus` | `read-bus` | `aggregate-bus` | `score` | `plateau`.

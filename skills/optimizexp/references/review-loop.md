@@ -76,11 +76,11 @@ Write `baseline.json` and iteration `000/scores.json`.
 Agents **must read the bus** before predicting again — especially after being wrong.
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode read-bus --run <runId> --limit 20
 
 # mismatches only (failed expectations / positive score deltas)
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode read-bus --run <runId> --mismatches-only
 ```
 
@@ -119,7 +119,7 @@ See also `references/agent-bus.md` § Reading the bus.
 Exercise the surface **and** capture what the persona sees:
 
 ```bash
-node --import tsx skills/optimizexp/harness/capture-evidence.mts --mode capture \
+node --import tsx .agents/skills/optimizexp/harness/capture-evidence.mts --mode capture \
   --feature <id> --scenario <slug> --driver <cli|tui|web|native> \
   --command '…'   # or --url / --native-cmd
 ```
@@ -155,7 +155,7 @@ Write the bus **outcome** entry:
 Helpers:
 
 ```bash
-node --import tsx skills/optimizexp/harness/scorecard.mts --mode compare \
+node --import tsx .agents/skills/optimizexp/harness/scorecard.mts --mode compare \
   --expect <expect.json> --act <act.json> --outcome <outcome.json>
 ```
 
@@ -164,7 +164,7 @@ node --import tsx skills/optimizexp/harness/scorecard.mts --mode compare \
 Roll up **outcome** scorecards into cells (not predictions):
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode aggregate-bus --run <runId>
 ```
 
