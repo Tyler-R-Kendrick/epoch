@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T16:44:00.000Z",
+  "updatedAt": "2026-08-03T17:29:00.000Z",
   "runs": [
     "buzz-agent-member-20260803-1126"
   ],
@@ -153,8 +153,45 @@
       "completedAt": "2026-08-03T16:40:00.000Z",
       "runId": "buzz-agent-member-20260803-1126",
       "note": "Shipped in this run."
+    },
+    {
+      "title": "Agent session honesty (sample vs live Working)",
+      "competitiveDimension": "honesty",
+      "status": "done",
+      "effort": "S",
+      "priorityScore": 50,
+      "source": "experiment",
+      "runId": "community-competitive-20260803-1719",
+      "completedAt": "2026-08-03T17:25:00.000Z",
+      "note": "sessionKind + chip labels"
+    },
+    {
+      "title": "Durable multi-user community store",
+      "competitiveDimension": "persistence",
+      "status": "ready",
+      "effort": "L",
+      "priorityScore": 45,
+      "source": "survey",
+      "personas": [
+        "discord-power-user",
+        "slack-power-user"
+      ],
+      "runId": "community-competitive-20260803-1719"
+    },
+    {
+      "title": "Live ACP Working from real sessions",
+      "competitiveDimension": "agents_member",
+      "status": "blocked-external",
+      "effort": "L",
+      "priorityScore": 40,
+      "source": "survey",
+      "personas": [
+        "buzz-power-user"
+      ],
+      "note": "Requires ACP control plane",
+      "runId": "community-competitive-20260803-1719"
     }
   ],
-  "itemCount": 4,
+  "itemCount": 7,
   "implementableUpliftRemaining": 0
 }

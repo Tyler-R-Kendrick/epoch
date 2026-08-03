@@ -1,0 +1,33 @@
+# agent-session-honesty
+
+```json
+{
+  "workingText": "@scout: sample member · open agent-runs for harness receipts (not a live ACP session)",
+  "sampleAttr": "true",
+  "liveAttr": null,
+  "members": [
+    {
+      "id": "agent-ui-reviewer",
+      "kind": "sample",
+      "status": "needs-review",
+      "text": "@ui-reviewerclaude-code · sample · needs-review"
+    },
+    {
+      "id": "agent-scout",
+      "kind": "sample",
+      "status": "working",
+      "text": "@scoutgoose · sample · working"
+    },
+    {
+      "id": "agent-patcher",
+      "kind": "sample",
+      "status": "idle",
+      "text": "@patchercodex · sample · idle"
+    }
+  ],
+  "agents": 3,
+  "shareShip": true,
+  "identityDid": true,
+  "general": true
+}
+```

@@ -1,0 +1,79 @@
+{
+  "featureId": "community-web-first-use",
+  "scenarioSlug": "agent-session-honesty",
+  "personaIds": [
+    "buzz-power-user",
+    "agentic-coding-power-user",
+    "discord-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-03T17:21:05.445Z",
+  "runId": "community-competitive-20260803-1719",
+  "screen": {
+    "widthPx": 1280,
+    "heightPx": 720
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 245060,
+    "sha256": "66d2fa1bdbcfe52c9113d2725e8567c9275c563893dbcae9f177aedbe74f7654"
+  },
+  "claims": [
+    {
+      "id": "claim-sample-kind",
+      "text": "Agent rail labels members as sample · status, not bare live Working"
+    },
+    {
+      "id": "claim-status-chip",
+      "text": "Composer status chip says sample members, not live ACP session"
+    },
+    {
+      "id": "claim-no-live-attr",
+      "text": "data-agent-live is not set for sample-only Working"
+    },
+    {
+      "id": "claim-agent-stream",
+      "text": "#agent-runs still shows agent-authored handoff messages"
+    }
+  ],
+  "repro": {
+    "url": "http://127.0.0.1:8787/community",
+    "via": "capture-evidence"
+  },
+  "degraded": false,
+  "notes": [
+    "C0 honesty: sample agents never claim live ACP Working",
+    "{\"workingText\":\"@scout: sample member · open agent-runs for harness receipts (not a live ACP session)\",\"sampleAttr\":\"true\",\"liveAttr\":null,\"members\":[{\"id\":\"agent-ui-reviewer\",\"kind\":\"sample\",\"status\":\"needs-review\",\"text\":\"@ui-reviewerclaude-code · sample · needs-review\"},{\"id\":\"agent-scout\",\"kind\":\"sample\",\"status\":\"working\",\"text\":\"@scoutgoose · sample · working\"},{\"id\":\"agent-patcher\",\"kind\":\"sample\",\"status\":\"idle\",\"text\":\"@patchercodex · sample · idle\"}],\"agents\":3,\"shareShip\":true,\"identityDid\":true,\"general\":true}"
+  ],
+  "observations": {
+    "workingText": "@scout: sample member · open agent-runs for harness receipts (not a live ACP session)",
+    "sampleAttr": "true",
+    "liveAttr": null,
+    "members": [
+      {
+        "id": "agent-ui-reviewer",
+        "kind": "sample",
+        "status": "needs-review",
+        "text": "@ui-reviewerclaude-code · sample · needs-review"
+      },
+      {
+        "id": "agent-scout",
+        "kind": "sample",
+        "status": "working",
+        "text": "@scoutgoose · sample · working"
+      },
+      {
+        "id": "agent-patcher",
+        "kind": "sample",
+        "status": "idle",
+        "text": "@patchercodex · sample · idle"
+      }
+    ],
+    "agents": 3,
+    "shareShip": true,
+    "identityDid": true,
+    "general": true
+  }
+}
