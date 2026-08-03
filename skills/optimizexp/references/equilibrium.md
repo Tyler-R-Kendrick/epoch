@@ -156,7 +156,7 @@ Two consecutive past-peak failures → prefer `stopReason: inverted-u-peak` if n
 
 ```bash
 # Candidate equilibrium (not invocation complete)
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode equilibrium --run <runId> \
   --scores curr.json --prev-scores prev.json \
   --implementable-harm 0 --implementable-uplift 0 \
@@ -164,9 +164,9 @@ node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --regime delight_maximize
 
 # Legal completion certificate (required before claiming done)
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode assert-complete --run <runId>
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode mark-complete --run <runId> --stop-reason pareto-equilibrium
 ```
 

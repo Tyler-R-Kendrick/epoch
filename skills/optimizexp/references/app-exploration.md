@@ -26,8 +26,8 @@ Exploration produces a machine-readable **surface map** that **feeds** the exper
 Before generating features for a project (init, bare optimizexp, or explicit):
 
 ```bash
-node --import tsx skills/optimizexp/harness/explore-app.mts --project code
-node --import tsx skills/optimizexp/harness/explore-app.mts --mode validate --project code
+node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --project code
+node --import tsx .agents/skills/optimizexp/harness/explore-app.mts --mode validate --project code
 ```
 
 ## Output

@@ -2,10 +2,10 @@
 /**
  * OptimizeXP doctor — audit + safe repair of optimizexp workspaces.
  *
- * node --import tsx skills/optimizexp/harness/doctor.mts --help
- * node --import tsx skills/optimizexp/harness/doctor.mts check --project code
- * node --import tsx skills/optimizexp/harness/doctor.mts repair --project code
- * node --import tsx skills/optimizexp/harness/doctor.mts snapshot --project code
+ * node --import tsx .agents/skills/optimizexp/harness/doctor.mts --help
+ * node --import tsx .agents/skills/optimizexp/harness/doctor.mts check --project code
+ * node --import tsx .agents/skills/optimizexp/harness/doctor.mts repair --project code
+ * node --import tsx .agents/skills/optimizexp/harness/doctor.mts snapshot --project code
  */
 import process from "node:process";
 import { resolveProjects } from "./lib/projects.mts";
@@ -78,9 +78,9 @@ Does NOT:
   · Mark optimizexp review complete (still need dual-regime loop)
 
 Examples:
-  node --import tsx skills/optimizexp/harness/doctor.mts check --project code
-  node --import tsx skills/optimizexp/harness/doctor.mts repair --project code
-  node --import tsx skills/optimizexp/harness/doctor.mts snapshot --project code --json
+  node --import tsx .agents/skills/optimizexp/harness/doctor.mts check --project code
+  node --import tsx .agents/skills/optimizexp/harness/doctor.mts repair --project code
+  node --import tsx .agents/skills/optimizexp/harness/doctor.mts snapshot --project code --json
 `);
 }
 

@@ -2,14 +2,14 @@
 /**
  * Post OptimizeXP feature evidence to a GitHub PR (size-aware, multi-comment).
  *
- * node --import tsx skills/optimizexp/harness/post-pr-evidence.mts --feature <id> [--pr N]
+ * node --import tsx .agents/skills/optimizexp/harness/post-pr-evidence.mts --feature <id> [--pr N]
  */
 import {
 	existsSync,
 	readdirSync,
 	readFileSync,
 	statSync,
-	mkdirSync,
+		mkdirSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";

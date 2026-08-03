@@ -174,7 +174,7 @@ Judges **must** cite model fields in scorecard rationales when they drive a scor
 Validate:
 
 ```bash
-node --import tsx skills/optimizexp/harness/generate-persona.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts \
   --mode validate --id product-app-developer
 ```
 

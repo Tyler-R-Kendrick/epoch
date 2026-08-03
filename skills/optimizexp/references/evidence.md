@@ -94,7 +94,7 @@ Capture writes `review.json` with `status: "pending"`. Playback must be
 reviewed by a human or independent agent:
 
 ```bash
-node --import tsx skills/optimizexp/harness/capture-evidence.mts \
+node --import tsx .agents/skills/optimizexp/harness/capture-evidence.mts \
   --mode review --feature <id> --scenario <slug> --reviewer <agent-or-human> \
   --relevant yes --complete yes --covered-claims all \
   --notes "Playback covered entry, each action, and the visible outcome."

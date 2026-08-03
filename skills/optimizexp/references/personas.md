@@ -189,20 +189,20 @@ Scaffold + schema check (agent still responsible for quality rewrite before/afte
 
 ```bash
 # global (default)
-node --import tsx skills/optimizexp/harness/generate-persona.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts \
   --seed "A junior frontend engineer who panics at monorepo gates" \
   --id junior-frontend
 
 # project-local
-node --import tsx skills/optimizexp/harness/generate-persona.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts \
   --seed "A marketer reviewing the public site hero" \
   --id site-marketer --project site --experiences ux
 
-node --import tsx skills/optimizexp/harness/generate-persona.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts \
   --mode validate --id junior-frontend
 
 # seed from file
-node --import tsx skills/optimizexp/harness/generate-persona.mts \
+node --import tsx .agents/skills/optimizexp/harness/generate-persona.mts \
   --seed-file /tmp/seed.txt --id brand-designer --experiences ux
 ```
 

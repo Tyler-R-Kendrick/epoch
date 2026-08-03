@@ -318,7 +318,7 @@ export function discoverProjectOptimizexpDirs(
 }
 
 export function skillHarnessDir(root = repoRoot()): string {
-	const agents = path.join(root, "skills/optimizexp/harness");
+	const agents = path.join(root, ".agents/skills/optimizexp/harness");
 	if (existsSync(agents)) return agents;
 	return path.join(root, ".claude/skills/optimizexp/harness");
 }

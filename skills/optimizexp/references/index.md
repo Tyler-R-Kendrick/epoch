@@ -23,7 +23,7 @@ Progressive-disclosure bundle for the optimizexp skill. Route by need; do not lo
 - [app-exploration.md](app-exploration.md) — surface-map
 - [doctor.md](doctor.md) — check / repair / snapshot workspace health
 - [evidence.md](evidence.md) — what personas see; overwrite + media policy
-- [interface-patterns.md](interface-patterns.md) — API, TUI, web, mobile, and desktop evidence standards
+- [interface-patterns.md](interface-patterns.md) — formal API, TUI, and GUI standards + evidence forms
 - [harness.md](harness.md) — capture drivers and CLI
 - [pr-delivery.md](pr-delivery.md) — incremental commits, stacked PRs, post evidence
 - [workflow-generation.md](workflow-generation.md) — author and regenerate agent workflows

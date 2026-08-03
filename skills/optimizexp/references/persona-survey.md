@@ -159,7 +159,7 @@ Answers are **first person as the persona**. Cite evidence paths when visual/CLI
 ## Aggregate
 
 ```bash
-node --import tsx skills/optimizexp/harness/survey.mts \
+node --import tsx .agents/skills/optimizexp/harness/survey.mts \
   --mode aggregate --run <runId>
 ```
 

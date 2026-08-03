@@ -2,7 +2,7 @@
 /**
  * Validate / build / compare formal metric scorecards for bus entries.
  *
- * node --import tsx skills/optimizexp/harness/scorecard.mts --help
+ * node --import tsx .agents/skills/optimizexp/harness/scorecard.mts --help
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";

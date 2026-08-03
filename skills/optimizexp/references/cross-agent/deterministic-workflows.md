@@ -39,13 +39,13 @@ Agent (any host)
 ## Minimum CLI
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode init \
   --run 20260730-dx-ax-demo \
   --experiences dx,ax \
   --personas developer,agent-operator
 
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode score --scores path/to/cells.json
 ```
 

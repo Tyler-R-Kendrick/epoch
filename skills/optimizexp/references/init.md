@@ -22,7 +22,7 @@ Init alone does **not** run the full persona review loop. **Bare** `/optimizexp`
 When the user invokes optimizexp **with no flags**:
 
 ```bash
-node --import tsx skills/optimizexp/harness/init.mts --mode needs-init
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode needs-init
 # exit 0 + needsInit:true  → run init (ux+dx+ax), then full review
 # exit 1 + needsInit:false → skip init, full review with ux+dx+ax
 ```
@@ -49,10 +49,10 @@ Explicit `--init` always runs bootstrap. Explicit `--dx` / `--persona` / etc. do
 ```
 
 ```bash
-node --import tsx skills/optimizexp/harness/init.mts --mode needs-init
-node --import tsx skills/optimizexp/harness/init.mts
-node --import tsx skills/optimizexp/harness/init.mts --dry-run
-node --import tsx skills/optimizexp/harness/init.mts --experiences ux,dx --max-features 6
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode needs-init
+node --import tsx .agents/skills/optimizexp/harness/init.mts
+node --import tsx .agents/skills/optimizexp/harness/init.mts --dry-run
+node --import tsx .agents/skills/optimizexp/harness/init.mts --experiences ux,dx --max-features 6
 ```
 
 | Flag | Meaning |

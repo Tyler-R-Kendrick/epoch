@@ -2,10 +2,10 @@
 /**
  * OptimizeXP persona survey + experiment backlog helpers.
  *
- *   node --import tsx skills/optimizexp/harness/survey.mts --mode template --run <id>
- *   node --import tsx skills/optimizexp/harness/survey.mts --mode validate --path <file>
- *   node --import tsx skills/optimizexp/harness/survey.mts --mode aggregate --run <id>
- *   node --import tsx skills/optimizexp/harness/survey.mts --mode rank-backlog --run <id> [--global]
+ *   node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode template --run <id>
+ *   node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode validate --path <file>
+ *   node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode aggregate --run <id>
+ *   node --import tsx .agents/skills/optimizexp/harness/survey.mts --mode rank-backlog --run <id> [--global]
  */
 import {
 	existsSync,

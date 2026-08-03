@@ -159,7 +159,7 @@ Harness / review-loop `validate-bus` checks:
 CLI:
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts --mode validate-bus
-node --import tsx skills/optimizexp/harness/scorecard.mts --mode validate --entry path.json
-node --import tsx skills/optimizexp/harness/scorecard.mts --mode compare --expect e.json --act a.json --outcome o.json
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts --mode validate-bus
+node --import tsx .agents/skills/optimizexp/harness/scorecard.mts --mode validate --entry path.json
+node --import tsx .agents/skills/optimizexp/harness/scorecard.mts --mode compare --expect e.json --act a.json --outcome o.json
 ```

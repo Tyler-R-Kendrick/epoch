@@ -165,14 +165,14 @@ Multi-project / all-projects reviews use **global** config for defaults; each pr
 
 ```bash
 # write missing templates (never overwrites unless --force)
-node --import tsx skills/optimizexp/harness/init.mts --mode ensure-config
-node --import tsx skills/optimizexp/harness/init.mts --mode ensure-config --projects site
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode ensure-config
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode ensure-config --projects site
 
 # validate JSON + merge
-node --import tsx skills/optimizexp/harness/init.mts --mode validate-config
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode validate-config
 
 # init also ensures global + selected project configs
-node --import tsx skills/optimizexp/harness/init.mts --projects site
+node --import tsx .agents/skills/optimizexp/harness/init.mts --projects site
 ```
 
 Implementation: `harness/lib/config.mts` (`resolveConfig`, `ensureGlobalConfig`, `ensureProjectConfig`).
@@ -242,7 +242,7 @@ Lines **outside** that block are preserved (user rules). Regenerating (`ensure-c
 | `negate` | Force-track paths (`!pattern`) after ignores |
 
 ```bash
-node --import tsx skills/optimizexp/harness/init.mts --mode ensure-config
+node --import tsx .agents/skills/optimizexp/harness/init.mts --mode ensure-config
 # refreshes .optimizexp/.gitignore and <project>/.optimizexp/.gitignore
 ```
 

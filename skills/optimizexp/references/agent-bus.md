@@ -128,7 +128,7 @@ Predicted scores must move toward the last judged scores unless a real reduction
 The bus is not write-only. When **pass > 1**, agents load recent entries **before each re-expect** to inform and correct behavior. Reading prior-run bus entries is always useful at baseline.
 
 ```bash
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode read-bus --run <runId> [--limit 20] [--mismatches-only] [--persona developer] [--feature agent-check-staged]
 ```
 
@@ -372,15 +372,15 @@ First-person **as the persona**:
 
 ```bash
 # validate all bus entries (kinds + scorecards + outcome comparisons)
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts --mode validate-bus
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts --mode validate-bus
 
 # read feedback / lessons for the next expect
-node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
   --mode read-bus --run <runId> --mismatches-only
 
 # single entry / compare
-node --import tsx skills/optimizexp/harness/scorecard.mts --mode validate --entry path.json
-node --import tsx skills/optimizexp/harness/scorecard.mts --mode compare --expect e.json --act a.json --outcome o.json
+node --import tsx .agents/skills/optimizexp/harness/scorecard.mts --mode validate --entry path.json
+node --import tsx .agents/skills/optimizexp/harness/scorecard.mts --mode compare --expect e.json --act a.json --outcome o.json
 ```
 
 ## Optional markdown view

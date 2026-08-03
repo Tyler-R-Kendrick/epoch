@@ -12,9 +12,9 @@ Follow the dual-regime loop in `../claude-code/review.md` and `references/review
 6. **Derive → implement → continue.** Product green ≠ complete. Feature wired ≠ complete.
 7. **Invocation complete** only when:
    ```bash
-   node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+   node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
      --mode assert-complete --run "$RUN_ID"   # must exit 0
-   node --import tsx skills/optimizexp/workflows/cross-agent/review-loop.mts \
+   node --import tsx .agents/skills/optimizexp/workflows/cross-agent/review-loop.mts \
      --mode mark-complete --run "$RUN_ID" --stop-reason pareto-equilibrium
    ```
    Paste assert-complete JSON in the final report.
