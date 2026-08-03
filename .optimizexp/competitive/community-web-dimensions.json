@@ -276,14 +276,18 @@
         "community-web-responsive-craft",
         "community-web-first-use"
       ],
-      "evidencePaths": [],
+      "evidencePaths": [
+        ".optimizexp/audits/token-conformance.json",
+        ".optimizexp/features/community-web-responsive-craft/evidence/design-power-user-audits-narrow-layout-and-touch-targets/",
+        "docs/evidence/community-web/community_web.feature.json"
+      ],
       "metricFloor": {
         "harms": 1,
         "friction": 1,
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Craft pass against DESIGN.md + messaging-social comparison",
+      "smallestExperiment": "Craft moments (provenance reveal, artifact seal, contribution lineage) recorded as scenario evidence",
       "lastRunId": "community-persona-uplift-20260803-1823",
       "lastScoredAt": "2026-08-03T18:34:00.000Z"
     },
@@ -304,8 +308,12 @@
         "slack-power-user",
         "community-moderator"
       ],
-      "featureIds": [],
-      "evidencePaths": [],
+      "featureIds": [
+        "community-web-daily-navigation"
+      ],
+      "evidencePaths": [
+        ".optimizexp/features/community-web-daily-navigation/evidence/composer-draft-and-share-ship/"
+      ],
       "metricFloor": {
         "harms": 2,
         "friction": 3,

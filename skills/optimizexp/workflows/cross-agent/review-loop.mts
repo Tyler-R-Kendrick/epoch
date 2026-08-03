@@ -1379,8 +1379,15 @@ function validateCompetitiveScorecard(
 		for (const dimension of dims.dimensions) {
 			const id = dimension.id ?? "unknown";
 			const evidence = dimension.evidencePaths ?? [];
+			// A dimension honestly marked missing / external-blocked claims nothing,
+			// so it owes no evidence. Anything claiming partial or better must cite
+			// evidence that exists, or the claim is unfalsifiable.
+			const claimsSomething =
+				dimension.status !== "missing" && dimension.status !== "external-blocked";
 			if (evidence.length === 0) {
-				missing.push(`dimension_empty_evidence:${id}`);
+				if (claimsSomething) {
+					missing.push(`dimension_empty_evidence:${id}`);
+				}
 			} else {
 				for (const evidencePath of evidence) {
 					if (!existsSync(path.join(root, evidencePath))) {

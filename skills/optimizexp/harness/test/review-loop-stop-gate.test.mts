@@ -725,6 +725,34 @@ describe("optimizexp artifact-truth gates", () => {
 		}
 	});
 
+	it("dimensions marked missing owe no evidence; partial ones do", () => {
+		const dir = seedRepo();
+		const run = "t-evidence";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedWebProduct(dir);
+			bindRunToProduct(dir, run);
+			writeFileSync(
+				path.join(dir, ".optimizexp/competitive/demo-web-dimensions.json"),
+				JSON.stringify({
+					schemaVersion: 1,
+					dimensions: [
+						{ id: "gap", status: "missing", evidencePaths: [], featureIds: [] },
+						{ id: "blocked", status: "external-blocked", evidencePaths: [], featureIds: [] },
+						{ id: "claimed", status: "partial", evidencePaths: [], featureIds: [] },
+					],
+				}) + "\n",
+			);
+			const { json } = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			const missing = json.missing as string[];
+			assert.ok(!missing.includes("dimension_empty_evidence:gap"), JSON.stringify(missing));
+			assert.ok(!missing.includes("dimension_empty_evidence:blocked"));
+			assert.ok(missing.includes("dimension_empty_evidence:claimed"));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("mobile evidence gate accepts a narrow-viewport capture", () => {
 		const dir = seedRepo();
 		const run = "t-mobile";
