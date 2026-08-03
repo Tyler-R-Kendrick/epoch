@@ -219,6 +219,12 @@ export function communityStyles(): string {
       color: var(--epoch-color-rail-muted);
       font-size: var(--epoch-type-meta-size);
       font-weight: 500;
+      /* One line: the rail is narrow, and "needs-review" breaking at its
+         hyphen read as a layout accident. The full value stays in the
+         button's accessible name. */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .agent-list-empty {
       margin: 0;
@@ -574,7 +580,9 @@ export function communityStyles(): string {
     .members-count {
       color: var(--epoch-color-muted);
       font-weight: 500;
-      max-width: 11rem;
+      /* Wide enough for the honest provenance phrase; truncating it to
+         "…from rec…" turned a trust signal into noise. */
+      max-width: 14rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -583,7 +591,12 @@ export function communityStyles(): string {
     .surface-stage {
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
+      /* A grid item's automatic minimum size is its content, so without these
+         the stage grew to its widest message and the feed was clipped by the
+         shell's overflow rather than wrapping. */
+      grid-template-columns: minmax(0, 1fr);
       min-height: 0;
+      min-width: 0;
       height: 100%;
     }
     .surface-stage:has(.artifact-list) {
@@ -740,8 +753,16 @@ export function communityStyles(): string {
     .message-feed {
       margin: 0;
       padding: var(--epoch-space-xs) 0 var(--epoch-space-sm);
+      min-width: 0;
       overflow-y: auto;
       list-style: none;
+    }
+    /* Signed anchors and at:// URIs are long unbroken tokens; they must wrap
+       rather than widen the feed past the viewport. */
+    .message-footer span,
+    .message-body h2,
+    .message-body p {
+      overflow-wrap: anywhere;
     }
 
     .feed-message {
@@ -1219,13 +1240,49 @@ export function communityStyles(): string {
       }
       .channel-rail {
         grid-template-rows: auto;
-        gap: var(--epoch-space-xs);
-        max-height: 38vh;
+        gap: 0;
+        /* Size to content instead of a 38vh scroll box. Six stacked sections
+           never fit in 38vh, so the rail used to show half-rows of clipped
+           text — a desktop rail squeezed onto a phone. Each section scrolls
+           horizontally instead, and the feed still opens above the fold. */
+        max-height: none;
         border-inline-end: 0;
         border-block-end: 1px solid var(--epoch-color-rail-line);
         overflow-x: hidden;
-        overflow-y: auto;
+        overflow-y: visible;
         max-width: 100%;
+        padding-block-end: var(--epoch-space-xs);
+      }
+      /* Section labels sit beside their strips instead of above them: on a
+         phone four label lines cost more vertical budget than the navigation
+         they describe. Children alternate label/strip, so a two-column grid
+         pairs them without extra markup. */
+      .channel-rail,
+      .community-workspace-chrome {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        column-gap: var(--epoch-space-sm);
+        row-gap: var(--epoch-space-xs);
+      }
+      .channel-rail > .brand,
+      .channel-rail > .product-mode-list,
+      .channel-rail > .community-workspace-chrome,
+      .channel-rail > .rail-status {
+        grid-column: 1 / -1;
+      }
+      .rail-section-label {
+        padding: 0 0 0 var(--epoch-space-sm);
+      }
+      .channel-rail .brand {
+        padding-block: var(--epoch-space-xs);
+      }
+      /* The harness/status detail stays in the accessible name; on a phone the
+         rail shows who the agent is, not a second line of metadata. */
+      .agent-member .agent-meta {
+        display: none;
+      }
+      .rail-status {
+        padding-block: var(--epoch-space-xs);
       }
       .site-history-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .community-list,
@@ -1263,6 +1320,17 @@ export function communityStyles(): string {
       }
       .feed-shell { min-height: 70vh; min-width: 0; }
       .message-action-tray dl { grid-template-columns: 1fr; }
+      /* Orientation is worth three lines on a desktop; on a phone it must not
+         push the first message past the fold. */
+      .first-run-strip {
+        gap: var(--epoch-space-sm);
+        padding: var(--epoch-space-sm) var(--epoch-space-md);
+      }
+      .first-run-lines {
+        gap: 0.1rem;
+        padding-inline-start: var(--epoch-space-md);
+        font-size: var(--epoch-type-meta-size);
+      }
     }
 
     @media (max-width: 800px) and (max-height: 600px) {

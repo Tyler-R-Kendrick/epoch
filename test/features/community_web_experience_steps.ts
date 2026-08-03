@@ -352,6 +352,19 @@ Then("I can browse each navigation group without horizontal page overflow", asyn
   }));
   assert.equal(layout.pageOverflows, false);
   assert.ok(layout.groups.every((overflow) => overflow === "auto"), layout.groups.join(", "));
+
+  // The page-level check alone gave a false pass: an ancestor with
+  // overflow-x: hidden suppressed the document scrollbar while the message
+  // feed itself rendered wider than the viewport and clipped message text.
+  const feed = await page.evaluate(() => {
+    const element = document.querySelector(".message-feed");
+    if (element === null) throw new Error("Missing .message-feed");
+    return { scrollWidth: element.scrollWidth, clientWidth: element.clientWidth };
+  });
+  assert.ok(
+    feed.scrollWidth <= feed.clientWidth,
+    `message feed content is clipped: scrollWidth ${feed.scrollWidth} > clientWidth ${feed.clientWidth}`,
+  );
 });
 
 Then("conversation reactions meet the Community touch-target floor", async function () {

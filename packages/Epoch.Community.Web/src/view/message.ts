@@ -13,7 +13,7 @@ export function renderSignerStrip(conversations: readonly CommunityConversationV
     .join("");
   const count = signers.length === 0
     ? "No signed receipts yet"
-    : `${signers.length} signer${signers.length === 1 ? "" : "s"} · derived from receipts`;
+    : `${signers.length} signer${signers.length === 1 ? "" : "s"} · from receipts`;
   return `<span class="members-label">Signers</span>
           ${pills}
           <span class="members-count" data-members-count>${count}</span>`;
