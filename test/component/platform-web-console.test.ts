@@ -20,6 +20,14 @@ export function runPlatformWebConsoleTests(): void {
     assert.match(root?.textContent ?? "", /platform \/ production \/ api-web/);
     assert.equal(root?.querySelector("[aria-label=\"Ask AI about platform\"]")?.textContent, "AI");
     assert.ok(!root?.textContent?.includes("Community review"));
+
+    // The console inlines the shared @epoch/design-tokens :root block and styles
+    // itself with it — the raw GitHub-Primer palette must never come back.
+    const styleText = root?.querySelector("style")?.textContent ?? "";
+    assert.match(styleText, /--epoch-color-ink: #0f1614;/);
+    assert.match(styleText, /var\(--epoch-color-success\)/);
+    assert.ok(!styleText.includes("#1f883d"), "platform console must not re-introduce Primer green #1f883d");
+    assert.ok(!styleText.includes("#f6f8fa"), "platform console must not re-introduce Primer gray #f6f8fa");
   });
 
   withPlatformConsoleDom(1180, (root) => {

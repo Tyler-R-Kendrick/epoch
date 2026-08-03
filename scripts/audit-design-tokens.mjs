@@ -5,9 +5,12 @@
 // Report mode (default): prints findings, writes .optimizexp/audits/token-conformance.json,
 // always exits 0 so gates stay green while known drift is burned down.
 // Enforce mode (--enforce): exits 1 when any finding class is present.
-// Structural enforce mode (--enforce-structural): exits 1 only for structural classes
-// (undefined-token, var-fallback, var-fallback-mismatch, design-json-drift); the palette
-// classes stay report-only while their literals are burned down.
+// Structural enforce mode (--enforce-structural): exits 1 for structural classes
+// (undefined-token, var-fallback, var-fallback-mismatch, design-json-drift) everywhere,
+// plus every rule listed for a package in PACKAGE_ENFORCED_RULES. All web surfaces have
+// burned their palette drift to zero, so every class is now enforced for every package
+// and --enforce-structural is equivalent to --enforce; the per-package map remains the
+// staging mechanism if a new surface ever needs a report-only burn-down window.
 //
 // Finding classes:
 //   undefined-token       var(--epoch-*) used but the custom property is never defined
@@ -34,18 +37,39 @@ const STRUCTURAL_RULES = new Set([
   "design-json-drift",
 ]);
 
+const PALETTE_RULES = ["near-miss-palette", "off-palette-hex", "ops-token-not-aliased"];
+
+// Rules that fail --enforce-structural per package, in addition to STRUCTURAL_RULES.
+// Every surface is fully enforced now; move a package back to [] only while an
+// explicitly scheduled burn-down is in flight.
+const PACKAGE_ENFORCED_RULES = new Map([
+  ["community-web", PALETTE_RULES],
+  ["community-operations-web", PALETTE_RULES],
+  ["platform-web", PALETTE_RULES],
+]);
+
+// All three web surfaces inline the generated @epoch/design-tokens :root block at
+// render time, so the --epoch-* definitions live in the generated module.
+const TOKEN_DEFINITIONS = ["packages/Epoch.DesignTokens/src/tokens.generated.ts"];
+
 const SCANNED_PACKAGES = [
   {
     id: "community-web",
     // Directory scan: the Community Web source is decomposed into modules
     // (model/, view/, render/, client/), so every .ts file is scanned.
     path: "packages/Epoch.Community.Web/src",
-    // Community Web's :root token block is generated (@epoch/design-tokens) and
-    // inlined at render time, so its definitions live in the generated module.
-    extraDefinitionPaths: ["packages/Epoch.DesignTokens/src/tokens.generated.ts"],
+    extraDefinitionPaths: TOKEN_DEFINITIONS,
   },
-  { id: "community-operations-web", path: "packages/Epoch.Community.Operations.Web/src/index.ts" },
-  { id: "platform-web", path: "packages/Epoch.Platform.Web/src/index.ts" },
+  {
+    id: "community-operations-web",
+    path: "packages/Epoch.Community.Operations.Web/src/index.ts",
+    extraDefinitionPaths: TOKEN_DEFINITIONS,
+  },
+  {
+    id: "platform-web",
+    path: "packages/Epoch.Platform.Web/src/index.ts",
+    extraDefinitionPaths: TOKEN_DEFINITIONS,
+  },
 ];
 
 // Euclidean RGB distance below which a literal is "trying to be" a palette color.
@@ -250,9 +274,12 @@ function main() {
   }
   console.log(`report: .optimizexp/audits/token-conformance.json (${report.mode} mode)`);
 
+  const enforcedUnderStructural = (finding) =>
+    STRUCTURAL_RULES.has(finding.rule)
+    || (PACKAGE_ENFORCED_RULES.get(finding.package) ?? []).includes(finding.rule);
   if (enforce && total > 0) {
     process.exitCode = 1;
-  } else if (enforceStructural && findings.some((finding) => STRUCTURAL_RULES.has(finding.rule))) {
+  } else if (enforceStructural && findings.some(enforcedUnderStructural)) {
     process.exitCode = 1;
   }
 }

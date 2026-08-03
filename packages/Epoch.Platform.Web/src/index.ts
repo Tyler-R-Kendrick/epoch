@@ -1,3 +1,5 @@
+import { epochTokensCss } from "@epoch/design-tokens";
+
 export interface PwaAppDescriptor {
   readonly name: string;
   readonly shortName: string;
@@ -181,7 +183,7 @@ export function createPlatformWebApp(options: CreatePlatformWebAppOptions = {}):
       shortName: "Epoch Web",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#2f6f4e",
+      themeColor: "#2a6f6c",
       backgroundColor: "#ffffff",
       offlineShell: true,
     },
@@ -474,11 +476,12 @@ function pluralize(count: number, singular: string): string {
 
 function styles(): string {
   return `
+    ${epochTokensCss}
     .epoch-platform-shell {
       min-height: 100vh;
-      background: #f6f8fa;
-      color: #1f2328;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--epoch-color-surface);
+      color: var(--epoch-color-ink);
+      font-family: var(--epoch-font-ui);
       display: grid;
       grid-template-rows: auto auto 1fr;
     }
@@ -487,8 +490,8 @@ function styles(): string {
       align-items: center;
       justify-content: space-between;
       padding: 16px;
-      border-bottom: 1px solid #d0d7de;
-      background: #ffffff;
+      border-bottom: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
     }
     .epoch-platform-header h1 {
       margin: 0;
@@ -497,7 +500,7 @@ function styles(): string {
     }
     .epoch-platform-kicker {
       margin: 0 0 2px;
-      color: #57606a;
+      color: var(--epoch-color-muted);
       font-size: 12px;
       text-transform: uppercase;
     }
@@ -505,36 +508,36 @@ function styles(): string {
     .epoch-platform-command,
     .epoch-platform-primary {
       min-height: 44px;
-      border: 1px solid #1f883d;
+      border: 1px solid var(--epoch-color-success);
       border-radius: 6px;
-      background: #1f883d;
-      color: #ffffff;
+      background: var(--epoch-color-success);
+      color: var(--epoch-color-surface-raised);
       font-weight: 600;
       padding: 0 14px;
     }
     .epoch-platform-command {
       margin-left: 8px;
-      border-color: #d0d7de;
-      background: #ffffff;
-      color: #24292f;
+      border-color: var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
     }
     .epoch-platform-nav {
       display: flex;
       gap: 4px;
       padding: 8px 12px;
-      border-bottom: 1px solid #d0d7de;
-      background: #ffffff;
+      border-bottom: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
       overflow-x: auto;
     }
     .epoch-platform-nav a {
-      color: #24292f;
+      color: var(--epoch-color-ink);
       text-decoration: none;
       padding: 8px 10px;
       border-radius: 6px;
       white-space: nowrap;
     }
     .epoch-platform-nav a:first-child {
-      background: #eaeef2;
+      background: var(--epoch-color-surface-sunken);
       font-weight: 600;
     }
     .epoch-platform-main {
@@ -549,9 +552,9 @@ function styles(): string {
     .epoch-platform-work,
     .epoch-platform-panel,
     .epoch-platform-community {
-      background: #ffffff;
-      border: 1px solid #d0d7de;
-      border-radius: 8px;
+      background: var(--epoch-color-surface-raised);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-md);
       padding: 14px;
     }
     .epoch-platform-status {
@@ -568,21 +571,21 @@ function styles(): string {
       font-weight: 600;
     }
     .epoch-platform-state.ready {
-      color: #116329;
-      background: #dafbe1;
+      color: var(--epoch-color-success);
+      background: var(--epoch-color-mint);
     }
     .epoch-platform-state.blocked {
-      color: #9a6700;
-      background: #fff8c5;
+      color: var(--epoch-color-warning-ink);
+      background: var(--epoch-color-warning-bg);
     }
     .epoch-platform-health {
-      color: #57606a;
-      background: #f6f8fa;
+      color: var(--epoch-color-muted);
+      background: var(--epoch-color-surface);
     }
     .epoch-platform-scope {
       margin: 0 0 8px;
-      color: #57606a;
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      color: var(--epoch-color-muted);
+      font-family: var(--epoch-font-mono);
       font-size: 13px;
     }
     .epoch-platform-work h2,
@@ -593,7 +596,7 @@ function styles(): string {
     }
     .epoch-platform-work p {
       margin: 0 0 14px;
-      color: #57606a;
+      color: var(--epoch-color-muted);
     }
     .epoch-platform-metrics {
       display: grid;
@@ -605,7 +608,7 @@ function styles(): string {
       min-width: 0;
     }
     .epoch-platform-metrics dt {
-      color: #57606a;
+      color: var(--epoch-color-muted);
       font-size: 12px;
     }
     .epoch-platform-metrics dd {
@@ -628,11 +631,11 @@ function styles(): string {
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      border-top: 1px solid #d8dee4;
+      border-top: 1px solid var(--epoch-color-line);
       padding-top: 6px;
     }
     .epoch-platform-list span {
-      color: #57606a;
+      color: var(--epoch-color-muted);
     }
     .epoch-platform-table div {
       display: grid;
@@ -643,9 +646,9 @@ function styles(): string {
     .epoch-platform-panel code {
       display: block;
       margin-top: 10px;
-      color: #24292f;
-      background: #f6f8fa;
-      border: 1px solid #d8dee4;
+      color: var(--epoch-color-ink);
+      background: var(--epoch-color-surface);
+      border: 1px solid var(--epoch-color-line);
       border-radius: 6px;
       padding: 8px;
       overflow-wrap: anywhere;
@@ -658,10 +661,10 @@ function styles(): string {
     }
     .epoch-platform-mobile-actions button {
       min-height: 44px;
-      border: 1px solid #d0d7de;
+      border: 1px solid var(--epoch-color-line);
       border-radius: 6px;
-      background: #ffffff;
-      color: #24292f;
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
       padding: 0 12px;
     }
     [data-navigation-mode="desktop"] .epoch-platform-main {
@@ -680,7 +683,7 @@ function styles(): string {
       bottom: 0;
       z-index: 5;
       justify-content: space-around;
-      border-top: 1px solid #d0d7de;
+      border-top: 1px solid var(--epoch-color-line);
       border-bottom: 0;
     }
   `;

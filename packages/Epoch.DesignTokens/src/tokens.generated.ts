@@ -11,21 +11,31 @@ export const epochTokens = {
     "surface-raised": "#ffffff",
     "surface-sunken": "#e8eeeb",
     ink: "#0f1614",
+    "ink-soft": "#2d3531",
+    "ink-faint": "#a0aaa4",
     muted: "#5c6762",
     line: "#d7e0db",
+    "line-strong": "#b0bfb7",
     accent: "#b4532f",
     "accent-strong": "#8f3f28",
     teal: "#2a6f6c",
+    "teal-deep": "#215955",
+    "teal-hover": "#32807c",
     mint: "#d5ebe3",
+    "mint-strong": "#b7d8c8",
     gold: "#c9a24a",
+    avatar: "#1f3d34",
+    "avatar-ink": "#e8f3ee",
     rail: "#101714",
     "rail-text": "#d7e2dc",
     "rail-muted": "#8fa099",
     "rail-hover": "#1a2420",
     "rail-active": "#24322c",
+    "rail-line": "#1c2622",
     success: "#1a5c3e",
     "warning-bg": "#fff6df",
     "warning-ink": "#5b4420",
+    "warning-line": "#e0c991",
   },
   typography: {
     display: {
@@ -96,21 +106,31 @@ export const epochTokensCss: string = `:root {
   --epoch-color-surface-raised: #ffffff;
   --epoch-color-surface-sunken: #e8eeeb;
   --epoch-color-ink: #0f1614;
+  --epoch-color-ink-soft: #2d3531;
+  --epoch-color-ink-faint: #a0aaa4;
   --epoch-color-muted: #5c6762;
   --epoch-color-line: #d7e0db;
+  --epoch-color-line-strong: #b0bfb7;
   --epoch-color-accent: #b4532f;
   --epoch-color-accent-strong: #8f3f28;
   --epoch-color-teal: #2a6f6c;
+  --epoch-color-teal-deep: #215955;
+  --epoch-color-teal-hover: #32807c;
   --epoch-color-mint: #d5ebe3;
+  --epoch-color-mint-strong: #b7d8c8;
   --epoch-color-gold: #c9a24a;
+  --epoch-color-avatar: #1f3d34;
+  --epoch-color-avatar-ink: #e8f3ee;
   --epoch-color-rail: #101714;
   --epoch-color-rail-text: #d7e2dc;
   --epoch-color-rail-muted: #8fa099;
   --epoch-color-rail-hover: #1a2420;
   --epoch-color-rail-active: #24322c;
+  --epoch-color-rail-line: #1c2622;
   --epoch-color-success: #1a5c3e;
   --epoch-color-warning-bg: #fff6df;
   --epoch-color-warning-ink: #5b4420;
+  --epoch-color-warning-line: #e0c991;
   --epoch-radius-xs: 2px;
   --epoch-radius-sm: 4px;
   --epoch-radius-md: 8px;

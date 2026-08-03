@@ -1,3 +1,4 @@
+import { epochTokensCss } from "@epoch/design-tokens";
 import type {
   AiActionPlan,
   AuditEvent,
@@ -220,8 +221,8 @@ export async function createCommunityOperationsWebApp(
       shortName: "Epoch Ops",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#17221f",
-      backgroundColor: "#f4f7f5",
+      themeColor: "#0f1614",
+      backgroundColor: "#f3f6f4",
       offlineShell: true,
     },
     deploymentTarget: createCommunityOperationsDeploymentTarget({
@@ -673,18 +674,20 @@ function escapeHtml(value: string): string {
 }
 
 function communityOperationsStyles(): string {
-  return `    :root {
-      color-scheme: light;
-      --ops-surface: #f4f7f5;
-      --ops-card: #ffffff;
-      --ops-ink: #17221f;
-      --ops-muted: #60706a;
-      --ops-line: #cbd8d3;
-      --ops-accent: #2f7370;
-      --ops-action: #ba5e3f;
-      --ops-good: #2d7a46;
-      --ops-radius: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  return `${epochTokensCss}
+
+    /* Ops tokens alias the shared Epoch palette (ADR-0010): no local color drift. */
+    :root {
+      --ops-surface: var(--epoch-color-surface);
+      --ops-card: var(--epoch-color-surface-raised);
+      --ops-ink: var(--epoch-color-ink);
+      --ops-muted: var(--epoch-color-muted);
+      --ops-line: var(--epoch-color-line);
+      --ops-accent: var(--epoch-color-teal);
+      --ops-action: var(--epoch-color-accent);
+      --ops-good: var(--epoch-color-success);
+      --ops-radius: var(--epoch-radius-md);
+      font-family: var(--epoch-font-ui);
       letter-spacing: 0;
       background: var(--ops-surface);
     }
@@ -701,7 +704,7 @@ function communityOperationsStyles(): string {
     a { color: inherit; }
 
     a:focus-visible {
-      outline: 3px solid rgba(186, 94, 63, 0.42);
+      outline: 3px solid color-mix(in srgb, var(--ops-action) 42%, transparent);
       outline-offset: 3px;
     }
 
@@ -712,7 +715,7 @@ function communityOperationsStyles(): string {
       z-index: 10;
       padding: 0.65rem 0.85rem;
       border: 1px solid var(--ops-ink);
-      border-radius: 4px;
+      border-radius: var(--epoch-radius-sm);
       background: var(--ops-card);
       transform: translateY(-140%);
     }
@@ -747,9 +750,12 @@ function communityOperationsStyles(): string {
     h1, h2, h3, p { overflow-wrap: break-word; }
 
     h1 {
+      /* App name in the first viewport: the DESIGN.md display level, nothing larger. */
       margin: 0;
-      font-size: 2.75rem;
-      line-height: 1;
+      font-size: var(--epoch-type-display-size);
+      font-weight: var(--epoch-type-display-weight);
+      line-height: var(--epoch-type-display-leading);
+      letter-spacing: var(--epoch-type-display-tracking);
     }
 
     h2 {
@@ -812,7 +818,7 @@ function communityOperationsStyles(): string {
       justify-content: center;
       padding: 0.58rem 0.75rem;
       border: 1px solid var(--ops-line);
-      border-radius: 4px;
+      border-radius: var(--epoch-radius-sm);
       background: var(--ops-card);
       font-weight: 750;
       text-decoration: none;
@@ -822,7 +828,7 @@ function communityOperationsStyles(): string {
     .actions a:first-child {
       border-color: var(--ops-action);
       background: var(--ops-action);
-      color: #ffffff;
+      color: var(--ops-card);
     }
 
     .ops-grid {
@@ -847,7 +853,7 @@ function communityOperationsStyles(): string {
       border: 1px solid var(--ops-line);
       border-radius: var(--ops-radius);
       background: var(--ops-card);
-      box-shadow: 0 1px 0 rgba(23, 34, 31, 0.05);
+      box-shadow: 0 1px 0 color-mix(in srgb, var(--ops-ink) 5%, transparent);
     }
 
     .ops-card p {
@@ -865,7 +871,7 @@ function communityOperationsStyles(): string {
 
     .status {
       border-radius: 999px;
-      background: rgba(47, 115, 112, 0.12);
+      background: color-mix(in srgb, var(--ops-accent) 12%, transparent);
       color: var(--ops-accent);
       font-size: 0.78rem;
       font-weight: 800;

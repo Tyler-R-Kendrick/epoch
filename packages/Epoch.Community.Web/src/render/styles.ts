@@ -63,17 +63,17 @@ export function communityStyles(): string {
     .channel-rail {
       display: grid;
       grid-template-rows: auto auto auto auto 1fr auto;
-      gap: 0.55rem;
-      padding: 0.75rem 0.55rem;
-      border-inline-end: 1px solid #1c2622;
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-md) var(--epoch-space-sm);
+      border-inline-end: 1px solid var(--epoch-color-rail-line);
       background: var(--epoch-color-rail);
       color: var(--epoch-color-rail-text);
       overflow: hidden;
     }
     .rail-section-label {
-      padding: 0.35rem 0.55rem 0.1rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm) 0.1rem;
       color: var(--epoch-color-rail-muted);
-      font-size: 0.68rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -90,7 +90,7 @@ export function communityStyles(): string {
     .community-workspace-chrome {
       display: grid;
       align-content: start;
-      gap: 0.4rem;
+      gap: var(--epoch-space-sm);
       min-height: 0;
       overflow: hidden;
     }
@@ -99,8 +99,8 @@ export function communityStyles(): string {
       overflow-y: auto;
     }
     .product-mode-list {
-      border-block-end: 1px solid #1c2622;
-      padding-block-end: 0.4rem;
+      border-block-end: 1px solid var(--epoch-color-rail-line);
+      padding-block-end: var(--epoch-space-sm);
     }
     .community-button[aria-pressed="true"]::before,
     .channel-button[aria-pressed="true"]::before {
@@ -113,16 +113,16 @@ export function communityStyles(): string {
       background: var(--epoch-color-accent);
     }
     .repo-surface-list {
-      border-block-start: 1px solid #1c2622;
-      padding-block-start: 0.35rem;
+      border-block-start: 1px solid var(--epoch-color-rail-line);
+      padding-block-start: var(--epoch-space-xs);
     }
 
     .brand {
       display: grid;
       grid-template-columns: auto 1fr;
-      gap: 0.55rem;
+      gap: var(--epoch-space-sm);
       align-items: center;
-      padding: 0.2rem 0.4rem 0.35rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm) var(--epoch-space-xs);
       color: inherit;
     }
     .brand-mark {
@@ -131,22 +131,22 @@ export function communityStyles(): string {
       width: 1.85rem;
       height: 1.85rem;
       border-radius: var(--epoch-radius-sm);
-      background: #1f3d34;
-      color: #e8f3ee;
-      font-size: 0.68rem;
+      background: var(--epoch-color-avatar);
+      color: var(--epoch-color-avatar-ink);
+      font-size: var(--epoch-type-meta-size);
       font-weight: 750;
       letter-spacing: -0.02em;
     }
     .brand-text { display: grid; gap: 0.05rem; min-width: 0; }
     .brand-name {
-      font-size: 0.92rem;
+      font-size: var(--epoch-type-body-size);
       font-weight: 700;
       line-height: 1.1;
       letter-spacing: -0.01em;
     }
     .brand-sub {
       color: var(--epoch-color-rail-muted);
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -161,6 +161,11 @@ export function communityStyles(): string {
       min-width: 0;
     }
     .channel-list { overflow-y: auto; }
+    .surface-list {
+      padding-block-end: var(--epoch-space-sm);
+      margin-block-end: 0.1rem;
+      border-block-end: 1px solid var(--epoch-color-rail-line);
+    }
     .surface-button,
     .channel-button {
       position: relative;
@@ -169,15 +174,15 @@ export function communityStyles(): string {
       min-height: 2rem;
       align-items: center;
       justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.3rem 0.55rem;
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-xs) var(--epoch-space-sm);
       border: 0;
       border-radius: var(--epoch-radius-sm);
       background: transparent;
       color: var(--epoch-color-rail-muted);
       cursor: pointer;
       font: inherit;
-      font-size: 0.88rem;
+      font-size: var(--epoch-type-body-size);
       font-weight: 500;
       text-align: start;
     }
@@ -189,13 +194,8 @@ export function communityStyles(): string {
     .surface-button[aria-pressed="true"],
     .channel-button[aria-pressed="true"] {
       background: var(--epoch-color-rail-active);
-      color: #fff;
+      color: var(--epoch-color-surface-raised);
       font-weight: 650;
-    }
-    .surface-list {
-      padding-block-end: 0.4rem;
-      margin-block-end: 0.1rem;
-      border-block-end: 1px solid #1c2622;
     }
     .channel-button-label {
       min-width: 0;
@@ -205,63 +205,63 @@ export function communityStyles(): string {
     }
     .agent-list {
       display: grid;
-      gap: 0.15rem;
-      padding: 0 0.35rem 0.45rem;
+      gap: var(--epoch-space-xs);
+      padding: 0 var(--epoch-space-xs) var(--epoch-space-sm);
     }
     .agent-member {
       flex-direction: column;
       align-items: stretch;
       gap: 0.1rem;
       min-height: auto;
-      padding-block: 0.35rem;
+      padding-block: var(--epoch-space-xs);
     }
     .agent-meta {
       color: var(--epoch-color-rail-muted);
-      font-size: 0.68rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 500;
     }
     .agent-list-empty {
       margin: 0;
-      padding: 0.25rem 0.45rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm);
       color: var(--epoch-color-rail-muted);
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
     }
     .avatar-agent {
       background: var(--epoch-color-mint);
       color: var(--epoch-color-success);
-      font-size: 0.65rem;
+      font-size: var(--epoch-type-meta-size);
     }
     .agent-harness,
     .agent-managed-by {
       color: var(--epoch-color-muted);
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 600;
     }
     .agent-harness {
-      padding: 0.05rem 0.35rem;
+      padding: 0.05rem var(--epoch-space-xs);
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-xs);
       background: var(--epoch-color-surface-sunken);
     }
     .message-artifact-card {
       display: grid;
-      gap: 0.2rem;
-      margin: 0.45rem 0;
-      padding: 0.45rem 0.55rem;
+      gap: var(--epoch-space-xs);
+      margin: var(--epoch-space-sm) 0;
+      padding: var(--epoch-space-sm) var(--epoch-space-sm);
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface);
     }
     .message-artifact-kind {
       color: var(--epoch-color-muted);
-      font-size: 0.7rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
     .message-artifact-link {
       color: var(--epoch-color-teal);
-      font-size: 0.82rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 650;
       text-decoration: none;
     }
@@ -272,7 +272,7 @@ export function communityStyles(): string {
       flex: 1 1 auto;
       min-width: 0;
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -290,24 +290,24 @@ export function communityStyles(): string {
       flex: 0 0 auto;
       min-width: 1.25rem;
       color: var(--epoch-color-rail-muted);
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       font-variant-numeric: tabular-nums;
       text-align: end;
     }
     .surface-button[aria-pressed="true"] .channel-count,
     .channel-button[aria-pressed="true"] .channel-count {
-      color: #c5d2cb;
+      color: var(--epoch-color-rail-text);
     }
 
     .rail-status {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.4rem 0.55rem;
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-sm) var(--epoch-space-sm);
       color: var(--epoch-color-rail-muted);
-      font-size: 0.76rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
-      border-block-start: 1px solid #1c2622;
+      border-block-start: 1px solid var(--epoch-color-rail-line);
     }
     .status-dot {
       width: 0.45rem;
@@ -329,8 +329,8 @@ export function communityStyles(): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      padding: 0.65rem 1.15rem;
+      gap: var(--epoch-space-lg);
+      padding: var(--epoch-space-md) 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
     }
@@ -339,7 +339,7 @@ export function communityStyles(): string {
       max-width: none;
       margin: 0;
       color: var(--epoch-color-ink);
-      font-size: 1.05rem;
+      font-size: var(--epoch-type-title-size);
       font-weight: 700;
       line-height: 1.2;
       letter-spacing: -0.01em;
@@ -347,7 +347,7 @@ export function communityStyles(): string {
     .feed-repo {
       margin: 0.1rem 0 0;
       color: var(--epoch-color-muted);
-      font-size: 0.75rem;
+      font-size: var(--epoch-type-label-size);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     }
     .repository-meta {
@@ -355,16 +355,16 @@ export function communityStyles(): string {
       flex-wrap: wrap;
       justify-content: end;
       align-items: center;
-      gap: 0.35rem;
+      gap: var(--epoch-space-xs);
       max-width: 34rem;
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 500;
       line-height: 1.3;
       text-align: end;
     }
     .repository-meta .meta-sep {
-      color: #a8b3ad;
+      color: var(--epoch-color-ink-faint);
       font-weight: 400;
     }
     .repository-meta .meta-sep::before { content: "·"; }
@@ -373,7 +373,7 @@ export function communityStyles(): string {
       flex-direction: column;
       align-items: end;
       gap: 0.05rem;
-      padding: 0.2rem 0.45rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm);
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface);
@@ -382,17 +382,17 @@ export function communityStyles(): string {
     .identity-handle {
       color: var(--epoch-color-ink);
       font-weight: 700;
-      font-size: 0.78rem;
+      font-size: var(--epoch-type-label-size);
     }
     .identity-did {
       color: var(--epoch-color-muted);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.68rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 500;
     }
     .identity-auth-note {
       color: var(--epoch-color-muted);
-      font-size: 0.64rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 600;
       letter-spacing: 0.02em;
     }
@@ -400,10 +400,7 @@ export function communityStyles(): string {
     .identity-chip[data-auth-state="unauthenticated"] {
       border-style: dashed;
     }
-    .identity-chip[data-auth-state="api-session"] {
-      border-style: solid;
-      border-color: var(--epoch-color-line);
-    }
+    /* api-session keeps the base solid line border from .identity-chip. */
     .identity-chip[data-auth-state="authenticated"] {
       border-style: solid;
       border-color: var(--epoch-color-accent);
@@ -448,13 +445,13 @@ export function communityStyles(): string {
     .receipt-search input {
       width: 100%;
       min-height: 2rem;
-      padding: 0.3rem 0.55rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm);
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface);
       color: var(--epoch-color-ink);
       font: inherit;
-      font-size: 0.82rem;
+      font-size: var(--epoch-type-label-size);
     }
     .receipt-search input:focus {
       outline: 2px solid var(--epoch-color-accent);
@@ -463,14 +460,14 @@ export function communityStyles(): string {
     .receipt-search-status {
       flex: 0 1 auto;
       color: var(--epoch-color-muted);
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 600;
     }
     .message-promote-receipt {
       display: grid;
-      gap: 0.15rem;
-      margin: 0.45rem 0 0.35rem;
-      padding: 0.45rem 0.55rem;
+      gap: var(--epoch-space-xs);
+      margin: var(--epoch-space-sm) 0 var(--epoch-space-xs);
+      padding: var(--epoch-space-sm) var(--epoch-space-sm);
       border: 1px solid var(--epoch-color-line);
       border-inline-start: 3px solid var(--epoch-color-accent);
       border-radius: var(--epoch-radius-sm);
@@ -478,18 +475,18 @@ export function communityStyles(): string {
     }
     .promote-receipt-label {
       color: var(--epoch-color-muted);
-      font-size: 0.68rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .message-promote-receipt strong {
       color: var(--epoch-color-ink);
-      font-size: 0.86rem;
+      font-size: var(--epoch-type-label-size);
     }
     .promote-receipt-state {
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
     }
     .feed-message[data-search-hit="true"] {
@@ -498,33 +495,33 @@ export function communityStyles(): string {
 
     .api-banner {
       margin: 0;
-      padding: 0.5rem 1.15rem;
-      border-block-end: 1px solid #e0c991;
+      padding: var(--epoch-space-sm) 1.15rem;
+      border-block-end: 1px solid var(--epoch-color-warning-line);
       background: var(--epoch-color-warning-bg);
       color: var(--epoch-color-warning-ink);
-      font-size: 0.82rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 650;
     }
     .api-banner-live {
-      border-block-end-color: #b7d8c8;
+      border-block-end-color: var(--epoch-color-mint-strong);
       background: var(--epoch-color-mint);
-      color: #1a4a3c;
+      color: var(--epoch-color-success);
     }
 
     .feed-toolbar {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.55rem 0.75rem;
+      gap: var(--epoch-space-sm) var(--epoch-space-md);
       min-width: 0;
-      padding: 0.45rem 1.15rem;
+      padding: var(--epoch-space-sm) 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
     }
     .channel-name {
       flex: 0 0 auto;
       color: var(--epoch-color-ink);
-      font-size: 0.95rem;
+      font-size: var(--epoch-type-title-size);
       font-weight: 700;
       letter-spacing: -0.01em;
     }
@@ -532,7 +529,7 @@ export function communityStyles(): string {
       flex: 1 1 10rem;
       min-width: 0;
       color: var(--epoch-color-muted);
-      font-size: 0.84rem;
+      font-size: var(--epoch-type-label-size);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -541,16 +538,16 @@ export function communityStyles(): string {
       display: inline-flex;
       flex: 0 0 auto;
       align-items: center;
-      gap: 0.3rem;
+      gap: var(--epoch-space-xs);
       margin-inline-start: auto;
       color: var(--epoch-color-muted);
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 600;
     }
     .members-label {
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      font-size: 0.66rem;
+      font-size: var(--epoch-type-meta-size);
     }
     .member-pill {
       display: inline-flex;
@@ -561,7 +558,7 @@ export function communityStyles(): string {
       border-radius: 999px;
       background: var(--epoch-color-mint);
       color: var(--epoch-color-success);
-      font-size: 0.62rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
     }
     .members-count {
@@ -588,8 +585,8 @@ export function communityStyles(): string {
 
     .feed-tabs {
       display: flex;
-      gap: 0.15rem;
-      padding: 0.45rem 1.15rem 0;
+      gap: var(--epoch-space-xs);
+      padding: var(--epoch-space-sm) 1.15rem 0;
       border-block-end: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
     }
@@ -601,9 +598,9 @@ export function communityStyles(): string {
       color: var(--epoch-color-muted);
       cursor: pointer;
       font: inherit;
-      font-size: 0.86rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
-      padding: 0.55rem 0.7rem;
+      padding: var(--epoch-space-sm) var(--epoch-space-md);
     }
     .feed-tab:hover {
       color: var(--epoch-color-ink);
@@ -615,15 +612,15 @@ export function communityStyles(): string {
 
     .dev-feed {
       margin: 0;
-      padding: 0.25rem 0 1rem;
+      padding: var(--epoch-space-xs) 0 var(--epoch-space-lg);
       overflow-y: auto;
       list-style: none;
     }
     .dev-feed-item {
       display: grid;
       grid-template-columns: 2rem minmax(0, 1fr);
-      gap: 0.5rem;
-      padding: 0.38rem 1.15rem;
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-sm) 1.15rem;
       border-block-end: 1px solid var(--epoch-color-line);
     }
     .dev-feed-item:hover {
@@ -639,20 +636,20 @@ export function communityStyles(): string {
     }
     .dev-feed-body {
       display: grid;
-      gap: 0.28rem;
+      gap: var(--epoch-space-xs);
       min-width: 0;
     }
     .dev-feed-meta {
       display: flex;
       flex-wrap: wrap;
       align-items: baseline;
-      gap: 0.35rem;
+      gap: var(--epoch-space-xs);
       color: var(--epoch-color-muted);
-      font-size: 0.82rem;
+      font-size: var(--epoch-type-label-size);
     }
     .dev-feed-handle {
       color: var(--epoch-color-ink);
-      font-size: 0.92rem;
+      font-size: var(--epoch-type-body-size);
       font-weight: 700;
       letter-spacing: -0.01em;
     }
@@ -687,27 +684,27 @@ export function communityStyles(): string {
     .dev-feed-body p {
       max-width: 70ch;
       margin: 0;
-      color: #2d3531;
-      font-size: 0.92rem;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-body-size);
       line-height: 1.45;
     }
     .dev-feed-trust {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.35rem;
+      gap: var(--epoch-space-xs);
       color: var(--epoch-color-muted);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.7rem;
+      font-size: var(--epoch-type-meta-size);
     }
     .dev-feed-trust span + span::before {
       content: "·";
-      margin-inline-end: 0.35rem;
-      color: #a0aaa4;
+      margin-inline-end: var(--epoch-space-xs);
+      color: var(--epoch-color-ink-faint);
     }
     .dev-feed-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.35rem;
+      gap: var(--epoch-space-xs);
       margin-block-start: 0.1rem;
     }
     .dev-feed-action {
@@ -721,9 +718,9 @@ export function communityStyles(): string {
       color: var(--epoch-color-ink);
       cursor: pointer;
       font: inherit;
-      font-size: 0.76rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
-      padding: 0.15rem 0.55rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm);
     }
     .dev-feed-action:hover {
       border-color: var(--epoch-color-ink);
@@ -732,7 +729,7 @@ export function communityStyles(): string {
 
     .message-feed {
       margin: 0;
-      padding: 0.25rem 0 0.5rem;
+      padding: var(--epoch-space-xs) 0 var(--epoch-space-sm);
       overflow-y: auto;
       list-style: none;
     }
@@ -741,8 +738,8 @@ export function communityStyles(): string {
       position: relative;
       display: grid;
       grid-template-columns: 2.15rem minmax(0, 1fr);
-      gap: 0.6rem;
-      padding: 0.4rem 1.15rem;
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-sm) 1.15rem;
       border-block: 1px solid transparent;
     }
     .feed-message:hover {
@@ -769,16 +766,16 @@ export function communityStyles(): string {
       height: 2.1rem;
       place-items: center;
       border-radius: var(--epoch-radius-sm);
-      background: #1f3d34;
-      color: #e8f3ee;
-      font-size: 0.68rem;
+      background: var(--epoch-color-avatar);
+      color: var(--epoch-color-avatar-ink);
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
     }
     .message-body {
       position: relative;
       z-index: 1;
       display: grid;
-      gap: 0.22rem;
+      gap: var(--epoch-space-xs);
       min-width: 0;
       pointer-events: none;
     }
@@ -791,22 +788,22 @@ export function communityStyles(): string {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.35rem;
+      gap: var(--epoch-space-xs);
     }
     .message-meta {
       color: var(--epoch-color-muted);
-      font-size: 0.76rem;
+      font-size: var(--epoch-type-label-size);
     }
     .message-meta strong {
       color: var(--epoch-color-ink);
-      font-size: 0.9rem;
+      font-size: var(--epoch-type-body-size);
       font-weight: 700;
       letter-spacing: -0.01em;
     }
     .message-body h2 {
       margin: 0;
       color: var(--epoch-color-ink);
-      font-size: 0.95rem;
+      font-size: var(--epoch-type-title-size);
       font-weight: 700;
       line-height: 1.3;
       letter-spacing: -0.01em;
@@ -814,37 +811,37 @@ export function communityStyles(): string {
     .message-body p {
       max-width: 70ch;
       margin: 0;
-      color: #2d3531;
-      font-size: 0.94rem;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-body-size);
       line-height: 1.5;
     }
     .message-footer {
       color: var(--epoch-color-muted);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.7rem;
+      font-size: var(--epoch-type-meta-size);
       opacity: 0.92;
     }
     .message-footer span + span::before {
       content: "·";
-      margin-inline-end: 0.35rem;
-      color: #a0aaa4;
+      margin-inline-end: var(--epoch-space-xs);
+      color: var(--epoch-color-ink-faint);
     }
     [data-proposal-link] {
       color: var(--epoch-color-teal);
       font-weight: 700;
     }
     [data-snapshot-badge] {
-      border: 1px solid #d4c49a;
+      border: 1px solid var(--epoch-color-warning-line);
       border-radius: var(--epoch-radius-xs);
       background: var(--epoch-color-warning-bg);
       color: var(--epoch-color-warning-ink);
-      font-size: 0.68rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 600;
-      padding: 0.05rem 0.3rem;
+      padding: 0.05rem var(--epoch-space-xs);
     }
     .reaction-row {
-      gap: 0.28rem;
-      margin-top: 0.15rem;
+      gap: var(--epoch-space-xs);
+      margin-top: var(--epoch-space-xs);
     }
     .reaction {
       display: inline-flex;
@@ -856,13 +853,13 @@ export function communityStyles(): string {
       color: var(--epoch-color-ink);
       cursor: pointer;
       font: inherit;
-      font-size: 0.76rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
-      padding: 0.12rem 0.45rem;
+      padding: 0.12rem var(--epoch-space-sm);
       pointer-events: auto;
     }
     .reaction:hover {
-      border-color: #b0bfb7;
+      border-color: var(--epoch-color-line-strong);
       background: var(--epoch-color-surface);
       color: var(--epoch-color-ink);
     }
@@ -876,9 +873,9 @@ export function communityStyles(): string {
 
     .message-action-tray {
       display: grid;
-      gap: 0.5rem;
-      margin-block-start: 0.3rem;
-      padding: 0.55rem 0.6rem;
+      gap: var(--epoch-space-sm);
+      margin-block-start: var(--epoch-space-xs);
+      padding: var(--epoch-space-sm) var(--epoch-space-sm);
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface);
@@ -886,12 +883,12 @@ export function communityStyles(): string {
     .message-action-tray dl {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.5rem;
+      gap: var(--epoch-space-sm);
       margin: 0;
     }
     .message-action-tray dt {
       color: var(--epoch-color-muted);
-      font-size: 0.66rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.02em;
@@ -899,7 +896,7 @@ export function communityStyles(): string {
     .message-action-tray dd {
       margin: 0.12rem 0 0;
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       word-break: break-word;
     }
     .message-action-tray button,
@@ -911,12 +908,12 @@ export function communityStyles(): string {
       border: 1px solid var(--epoch-color-ink);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-ink);
-      color: #fff;
+      color: var(--epoch-color-surface-raised);
       cursor: pointer;
       font: inherit;
-      font-size: 0.8rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
-      padding: 0.3rem 0.7rem;
+      padding: var(--epoch-space-xs) var(--epoch-space-md);
     }
     .message-action-tray button:hover,
     .composer button:hover {
@@ -928,7 +925,7 @@ export function communityStyles(): string {
       filter: brightness(0.96);
     }
     .message-action-tray button:not([data-action="intent"]) {
-      border-color: #b0bfb7;
+      border-color: var(--epoch-color-line-strong);
       background: var(--epoch-color-surface-raised);
       color: var(--epoch-color-ink);
     }
@@ -939,30 +936,30 @@ export function communityStyles(): string {
     }
     .message-action-tray button[data-action="intent"] {
       background: var(--epoch-color-teal);
-      border-color: #215955;
+      border-color: var(--epoch-color-teal-deep);
     }
     .message-action-tray button[data-action="intent"]:hover {
-      background: #32807c;
-      border-color: #215955;
+      background: var(--epoch-color-teal-hover);
+      border-color: var(--epoch-color-teal-deep);
       filter: none;
     }
     .action-status {
       margin: 0;
       color: var(--epoch-color-muted);
-      font-size: 0.82rem;
+      font-size: var(--epoch-type-label-size);
     }
 
     .composer {
       display: grid;
-      gap: 0.35rem;
-      padding: 0.7rem 1.15rem 0.9rem;
+      gap: var(--epoch-space-xs);
+      padding: var(--epoch-space-md) 1.15rem var(--epoch-space-lg);
       border-block-start: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
       box-shadow: var(--epoch-shadow-low);
     }
     .composer-label {
       color: var(--epoch-color-muted);
-      font-size: 0.76rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
     }
     .composer-share {
@@ -970,9 +967,9 @@ export function communityStyles(): string {
       background: var(--epoch-color-surface);
       color: var(--epoch-color-ink);
       border-radius: var(--epoch-radius-sm);
-      padding: 0.4rem 0.7rem;
+      padding: var(--epoch-space-sm) var(--epoch-space-md);
       font: inherit;
-      font-size: 0.82rem;
+      font-size: var(--epoch-type-label-size);
       font-weight: 600;
       cursor: pointer;
     }
@@ -990,7 +987,7 @@ export function communityStyles(): string {
       color: var(--epoch-color-ink);
       font: inherit;
       line-height: 1.45;
-      padding: 0.55rem 0.7rem;
+      padding: var(--epoch-space-sm) var(--epoch-space-md);
     }
     .composer textarea:focus {
       border-color: var(--epoch-color-accent);
@@ -1001,19 +998,13 @@ export function communityStyles(): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 0.75rem;
+      gap: var(--epoch-space-md);
       color: var(--epoch-color-muted);
-      font-size: 0.74rem;
+      font-size: var(--epoch-type-meta-size);
     }
-    .composer button {
-      min-height: 2rem;
-      padding: 0.3rem 0.85rem;
-      font-size: 0.8rem;
-    }
-
     .artifact-list {
       margin: 0;
-      padding: 0.65rem 1.15rem 1rem;
+      padding: var(--epoch-space-md) 1.15rem var(--epoch-space-lg);
       overflow-y: auto;
       list-style: none;
       display: grid;
@@ -1023,7 +1014,7 @@ export function communityStyles(): string {
     .artifact-item {
       display: grid;
       gap: 0.1rem;
-      padding: 0.55rem 0;
+      padding: var(--epoch-space-sm) 0;
       border-block-end: 1px solid var(--epoch-color-line);
       background: transparent;
     }
@@ -1033,80 +1024,80 @@ export function communityStyles(): string {
     .artifact-id {
       color: var(--epoch-color-teal);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.72rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
     }
     .artifact-item strong {
       color: var(--epoch-color-ink);
-      font-size: 0.92rem;
+      font-size: var(--epoch-type-body-size);
     }
     .artifact-meta,
     .artifact-labels {
       color: var(--epoch-color-muted);
-      font-size: 0.78rem;
+      font-size: var(--epoch-type-label-size);
     }
     .artifact-empty {
       color: var(--epoch-color-muted);
       font-weight: 600;
     }
     .artifact-actions {
-      margin-top: 0.3rem;
+      margin-top: var(--epoch-space-xs);
     }
     .thread-comments {
       display: grid;
-      gap: 0.3rem;
-      margin: 0.15rem 0 0.05rem;
-      padding: 0.4rem 0.55rem;
+      gap: var(--epoch-space-xs);
+      margin: var(--epoch-space-xs) 0 0.05rem;
+      padding: var(--epoch-space-sm) var(--epoch-space-sm);
       border-left: 2px solid var(--epoch-color-line);
       background: var(--epoch-color-surface);
       border-radius: 0 var(--epoch-radius-sm) var(--epoch-radius-sm) 0;
     }
     .thread-comment {
-      color: #2d3531;
-      font-size: 0.86rem;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-label-size);
       line-height: 1.4;
     }
     .thread-comment strong {
       color: var(--epoch-color-ink);
       font-weight: 700;
-      margin-inline-end: 0.3rem;
+      margin-inline-end: var(--epoch-space-xs);
     }
 
     #community-content section[aria-label="Epoch site history"] {
-      margin: 0.65rem 1.15rem 1rem;
-      padding: 0.7rem 0.85rem;
+      margin: var(--epoch-space-md) 1.15rem var(--epoch-space-lg);
+      padding: var(--epoch-space-md) var(--epoch-space-md);
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-md);
       background: var(--epoch-color-mint);
     }
     #community-content section[aria-label="Epoch site history"] h2 {
-      margin: 0 0 0.3rem;
-      font-size: 0.92rem;
+      margin: 0 0 var(--epoch-space-xs);
+      font-size: var(--epoch-type-body-size);
     }
     #community-content section[aria-label="Epoch site history"] p,
     #community-content section[aria-label="Epoch site history"] dl {
       margin: 0;
-      color: #2d3531;
-      font-size: 0.82rem;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-label-size);
     }
     .site-history-facts {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 0.65rem 1rem;
-      padding-block-start: 0.7rem;
+      gap: var(--epoch-space-md) var(--epoch-space-lg);
+      padding-block-start: var(--epoch-space-md);
     }
     .site-history-fact { min-width: 0; }
     .site-history-fact dt {
       color: var(--epoch-color-muted);
-      font-size: 0.66rem;
+      font-size: var(--epoch-type-meta-size);
       font-weight: 700;
       letter-spacing: 0.02em;
       text-transform: uppercase;
     }
     .site-history-fact dd {
-      margin: 0.15rem 0 0;
+      margin: var(--epoch-space-xs) 0 0;
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: 0.74rem;
+      font-size: var(--epoch-type-meta-size);
       overflow-wrap: anywhere;
     }
 
@@ -1124,10 +1115,10 @@ export function communityStyles(): string {
       }
       .channel-rail {
         grid-template-rows: auto;
-        gap: 0.35rem;
+        gap: var(--epoch-space-xs);
         max-height: 38vh;
         border-inline-end: 0;
-        border-block-end: 1px solid #1c2622;
+        border-block-end: 1px solid var(--epoch-color-rail-line);
         overflow-x: hidden;
         overflow-y: auto;
         max-width: 100%;
@@ -1142,7 +1133,7 @@ export function communityStyles(): string {
         max-height: none;
         overflow-x: auto;
         overflow-y: hidden;
-        padding-block-end: 0.15rem;
+        padding-block-end: var(--epoch-space-xs);
       }
       .feed-toolbar {
         min-width: 0;
@@ -1159,7 +1150,7 @@ export function communityStyles(): string {
       .feed-header {
         align-items: start;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: var(--epoch-space-xs);
       }
       .repository-meta {
         justify-content: start;

@@ -154,6 +154,8 @@ When("I render the Epoch Platform web console at width {int}", { timeout: 60_000
     resolve: {
       alias: [
         { find: "@epoch/platform-web", replacement: join(process.cwd(), "packages", "Epoch.Platform.Web", "src", "index.ts") },
+        // platform-web inlines the shared design tokens; resolve them from source too.
+        { find: "@epoch/design-tokens", replacement: join(process.cwd(), "packages", "Epoch.DesignTokens", "src", "index.ts") },
       ],
     },
   });
