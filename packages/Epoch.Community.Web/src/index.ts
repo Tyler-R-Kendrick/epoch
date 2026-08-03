@@ -23,6 +23,7 @@ export type {
   DevFeedObject,
   DevFeedItem,
   DevFeedBuildResult,
+  CommunityConversationComment,
   CommunityConversationView,
   CommunityAgentMember,
   CommunityFeedIssueItem,

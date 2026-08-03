@@ -16,6 +16,9 @@ export function renderChangeListItem(change: CommunityFeedChangeItem): string {
     <strong>${escapeHtml(change.title)}</strong>
     <span class="artifact-meta">${escapeHtml(change.status)} · ${escapeHtml(change.author)}</span>
     <span class="artifact-labels">${escapeHtml(change.sourceView)} → ${escapeHtml(change.targetView)}</span>
+    <div class="artifact-actions">
+      <button type="button" class="reaction" data-review-change="${escapeHtml(change.id)}">Approve</button>
+    </div>
   </li>`;
 }
 

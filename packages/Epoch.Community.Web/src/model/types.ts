@@ -207,6 +207,12 @@ export interface DevFeedBuildResult {
   readonly followingHandles: readonly string[];
 }
 
+/** Thread comment carried by a conversation (issue replies, accepted answers). */
+export interface CommunityConversationComment {
+  readonly author: string;
+  readonly body: string;
+}
+
 export interface CommunityConversationView {
   readonly id: string;
   readonly channel: CommunityChannelId;
@@ -224,6 +230,8 @@ export interface CommunityConversationView {
   readonly visibility: string;
   readonly state: string;
   readonly reactions: readonly string[];
+  /** Thread comments rendered inside the message body (issue replies). */
+  readonly comments?: readonly CommunityConversationComment[];
   readonly linkedArtifact?: string;
   readonly linkedProposalId?: string;
   readonly source: CommunityFeedSource;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { After, Given, Then, When } from "@cucumber/cucumber";
-import { chromium, type Browser, type Page, type Route } from "playwright";
+import { chromium, type Browser, type Page, type Response as PlaywrightResponse, type Route } from "playwright";
 import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
 import { type CommunityApiTransport, createCommunityClient } from "@epoch/community-core";
 import { createCommunityWebApp, renderCommunityWebDocument } from "@epoch/community-web";
@@ -12,6 +12,8 @@ interface CommunityWebWorld {
   readonly apiHandler?: (request: Request) => Promise<Response>;
   readonly browser?: Browser;
   readonly page?: Page;
+  /** Resolves when the runtime's boot-time refreshRepository GET has been answered (live API mode only). */
+  readonly initialRefresh?: Promise<PlaywrightResponse | undefined>;
 }
 
 let world: CommunityWebWorld = {};
@@ -108,11 +110,18 @@ async function openCommunityWebPage(
       },
     viewport: { width: 1440, height: 960 },
   });
+  let initialRefresh: Promise<PlaywrightResponse | undefined> | undefined;
   if (apiHandler !== undefined) {
     await page.route("https://community.test/**", (route) => routeCommunityApi(route, apiHandler));
+    // Register before setContent: the runtime refreshes the repository from the
+    // live API during boot, and the response must not be missed by a late waiter.
+    initialRefresh = page.waitForResponse(
+      (response) => response.request().method() === "GET" && response.url().includes("/repositories/"),
+      { timeout: 10_000 },
+    ).catch(() => undefined);
   }
   await page.setContent(renderCommunityWebDocument(app), { waitUntil: "domcontentloaded" });
-  world = { ...world, browser, page };
+  world = { ...world, browser, page, initialRefresh };
 }
 
 When("I open the Network Feed", async function () {
@@ -143,6 +152,18 @@ When("I open the ideas channel in the active community", async function () {
 
 When("I select the {string} community message", async function (title: string) {
   await selectCommunityMessage(title);
+});
+
+When("the community repository refreshes from the live API", async function () {
+  const page = requirePage();
+  assert.ok(world.initialRefresh, "live API scenarios track the runtime's boot-time repository refresh");
+  const response = await world.initialRefresh;
+  assert.ok(response, "the runtime should refresh the repository from the live API on load");
+  // renderRepository rebuilds the whole feed just after the response resolves;
+  // wait for the client-rendered welcome message to be back in the feed.
+  await page.waitForTimeout(200);
+  await page.locator('[data-message-id="epoch-civic-general-welcome"]')
+    .waitFor({ state: "attached", timeout: 5_000 });
 });
 
 When("I mark the selected message as an intent candidate", async function () {
@@ -384,6 +405,24 @@ Then("the Community Web shows a signed promote receipt for the new proposal", as
   await receipt.first().waitFor({ state: "visible", timeout: 8_000 });
   await assertVisible(page, `proposal:${promoted.id}`);
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
+});
+
+Then("the selected message keeps the Mark intent and Report signed actions", async function () {
+  const page = requirePage();
+  const selected = page.locator('[data-selected-message="true"]');
+  await selected.waitFor({ state: "attached", timeout: 5_000 });
+  await selected.locator("[data-message-actions]").waitFor({ state: "visible", timeout: 5_000 });
+  // EPX-D001: client-rendered social messages must keep the signed action tray after a live refresh.
+  assert.equal(
+    await selected.locator('[data-action="intent"]').count(),
+    1,
+    "Mark intent action must survive a live client refresh on community-owned messages",
+  );
+  assert.equal(
+    await selected.locator('[data-action="report"]').count(),
+    1,
+    "Report action must survive a live client refresh on community-owned messages",
+  );
 });
 
 Then("the identity chip uses auth state {string}", async function (authState: string) {

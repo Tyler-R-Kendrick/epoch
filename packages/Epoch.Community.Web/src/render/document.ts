@@ -1,18 +1,44 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { CommunityWebAppDefinition } from "../model/types";
 import { defaultCommunityAgents, defaultSocialChannels, defaultWorkChannels } from "../model/channels";
 import { buildDevFeed, filterDevFeedItems } from "../model/dev-feed";
 import { buildCommunityFeed } from "../model/feed";
-import { defaultSessionForApi, resolveSessionAuthNote, withLiveAgentSessions } from "../model/session";
+import { defaultSessionForApi, withLiveAgentSessions } from "../model/session";
 import { buildCommunitySpaces } from "../model/spaces";
-import { communityRuntime } from "../client/runtime";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
 import { renderCommunityHonestyBanner } from "../view/honesty";
 import { escapeHtml, escapeScriptJson } from "../view/html";
+import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderChannelButton } from "../view/rail";
 import { renderSiteHistory } from "../view/site-history";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 import { communityStyles } from "./styles";
+
+let cachedRuntimeBundle: string | undefined;
+
+/**
+ * The client runtime is a real compiled entry (src/client/main.ts) bundled by
+ * Vite into dist/client/runtime.js and inlined here so the document stays a
+ * single self-contained HTML string (Vercel SSG, Playwright setContent, Epoch
+ * dogfooding all rely on that contract). This module compiles to CJS at
+ * dist/render/document.js, so the bundle is resolved relative to __dirname.
+ */
+function communityRuntimeBundle(): string {
+  if (cachedRuntimeBundle === undefined) {
+    const bundlePath = join(__dirname, "..", "client", "runtime.js");
+    try {
+      cachedRuntimeBundle = readFileSync(bundlePath, "utf8");
+    } catch {
+      throw new Error(
+        `Community Web client runtime bundle missing at ${bundlePath}. `
+        + "Build it with: npm run build -w @epoch/community-web (vite build emits dist/client/runtime.js).",
+      );
+    }
+  }
+  return cachedRuntimeBundle;
+}
 
 export function renderCommunityWebDocument(app: CommunityWebAppDefinition): string {
   const feed = buildCommunityFeed({
@@ -28,7 +54,6 @@ export function renderCommunityWebDocument(app: CommunityWebAppDefinition): stri
   const live = app.apiBaseUrl !== undefined;
   const snapshotMode = feed.source === "snapshot";
   const session = app.session ?? defaultSessionForApi(app.apiBaseUrl);
-  const sessionNote = resolveSessionAuthNote(session.authState);
   const communityAgents = withLiveAgentSessions(defaultCommunityAgents, app.liveAgentIds);
   const primaryRepo = app.repositories[0]?.slug ?? "epoch/epoch";
   const activeCommunity = spaces[0];
@@ -121,11 +146,7 @@ ${communityStyles()}
           <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
         <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
-          <span class="identity-chip" data-identity-chip data-auth-state="${escapeHtml(session.authState)}" title="Portable ATProto identity (${escapeHtml(sessionNote)})">
-            <span class="identity-handle">@${escapeHtml(session.handle.replace(/^@/, ""))}</span>
-            <span class="identity-did">${escapeHtml(session.did)}</span>
-            <span class="identity-auth-note" data-auth-note>${escapeHtml(sessionNote)}</span>
-          </span>
+          ${renderIdentityChip(session)}
           <span class="meta-sep" aria-hidden="true"></span>
           <span>${spaces.length} communities</span>
           <span class="meta-sep" aria-hidden="true"></span>
@@ -211,7 +232,7 @@ ${communityStyles()}
     activeRepo: primaryRepo,
   }))}</script>
   <script>
-${communityRuntime()}
+${communityRuntimeBundle()}
   </script>
 </body>
 </html>`;

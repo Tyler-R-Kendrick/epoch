@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
@@ -40,6 +40,18 @@ export async function runCommunityWebVercelTests(): Promise<void> {
   await communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy();
   await communityWebHtmlIncludesReceiptSearchPromoteAndIdentity();
   renderScriptProducesDeployableCommunityHtml();
+  inlinedRuntimeBundleStaysWithinByteBudget();
+}
+
+function inlinedRuntimeBundleStaysWithinByteBudget(): void {
+  // The compiled client entry is inlined into every rendered document, so the
+  // unminified IIFE has a hard byte budget to keep the self-contained page lean.
+  const bundlePath = join("packages", "Epoch.Community.Web", "dist", "client", "runtime.js");
+  const bundleBytes = statSync(bundlePath).size;
+  assert.ok(
+    bundleBytes < 60_000,
+    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 60,000 bytes (keep the unminified IIFE lean)`,
+  );
 }
 
 function communityReceiptSearchAndSessionHelpersArePure(): void {

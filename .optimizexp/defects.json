@@ -6,11 +6,12 @@
       "id": "EPX-D001",
       "title": "Client renderer drops the action tray on social messages",
       "severity": "P0",
-      "status": "open",
+      "status": "closed",
       "openedAt": "2026-08-03",
+      "closedAt": "2026-08-03",
       "projects": ["community-web"],
-      "summary": "The client runtime's social-message builder replaces the full action tray (Mark intent / Request agent / Accept answer / Docs patch / Report) with a static 'Community channel message.' paragraph, so any live refresh silently strips signed actions from community-owned messages. Server renderConversation and the client builder are drifted duplicates.",
-      "evidence": [],
+      "summary": "The client runtime's social-message builder replaced the full action tray (Mark intent / Request agent / Accept answer / Docs patch / Report) with a static community-channel paragraph, so live refreshes silently stripped signed actions from community-owned messages. The client is now a compiled TypeScript entry (src/client/main.ts, bundled by Vite and inlined at render time) that renders every refreshed message — social, agent, issue, change — through the shared view renderConversation, so client-rendered social messages carry the same signed action tray as server-rendered ones and the drifted duplicate builders are deleted.",
+      "evidence": ["features/community_web_experience.feature", "test/unit/community-web-render-parity.test.ts"],
       "closeRequires": "Client-rendered social messages carry the same action tray as server-rendered ones; renderer-parity test enforces the signature."
     },
     {

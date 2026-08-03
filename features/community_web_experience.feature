@@ -104,6 +104,14 @@ Feature: Community Web community-first experience
     And I mark the selected message as an intent candidate
     Then the Community Web shows a signed promote receipt for the new proposal
 
+  @persona.github_open_source_contributor
+  Scenario: Contributor keeps signed actions after a live refresh
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    When the community repository refreshes from the live API
+    And I select the "Welcome to Epoch Civic Workshop" community message
+    Then the selected message keeps the Mark intent and Report signed actions
+
   @persona.bluesky_power_user
   Scenario: Contributor sees state-driven identity honesty on a live API session
     Given the Community Web live API has repository activity

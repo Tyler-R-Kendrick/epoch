@@ -55,6 +55,14 @@ export function renderConversation(
         ${conversation.intentId ? `<a class="message-artifact-link" href="#intent-${escapeHtml(conversation.intentId)}" data-intent-link="${escapeHtml(conversation.intentId)}">Open signed intent</a>` : ""}
       </div>`
     : "";
+  const comments = conversation.comments ?? [];
+  const commentNote = comments.length > 0
+    ? ` · ${comments.length} comment${comments.length === 1 ? "" : "s"}`
+    : "";
+  const threadComments = comments.length > 0
+    ? `<div class="thread-comments" data-thread-comments>${comments.map((comment) =>
+      `<div class="thread-comment"><strong>${escapeHtml(comment.author)}</strong> <span>${escapeHtml(comment.body)}</span></div>`).join("")}</div>`
+    : "";
   const promoteReceipt = conversation.linkedProposalId !== undefined
     ? `<div class="message-promote-receipt" data-promote-receipt data-proposal-id="${escapeHtml(conversation.linkedProposalId)}">
         <span class="promote-receipt-label">Signed promote</span>
@@ -78,11 +86,12 @@ export function renderConversation(
         ${harnessBadge}
         ${managedBy}
         <time>${escapeHtml(conversation.time)}</time>
-        <span data-message-state>${escapeHtml(conversation.state)}</span>
+        <span data-message-state>${escapeHtml(conversation.state + commentNote)}</span>
         ${conversation.source === "snapshot" ? `<span data-snapshot-badge>snapshot sample</span>` : ""}
       </header>
       <h2>${escapeHtml(conversation.title)}</h2>
       <p>${escapeHtml(conversation.body)}</p>
+      ${threadComments}
       ${artifactCard}
       ${promoteReceipt}
       <footer class="message-footer">

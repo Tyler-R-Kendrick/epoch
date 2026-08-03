@@ -49,7 +49,10 @@ export const defaultCommunityAgents: readonly CommunityAgentMember[] = [
 
 /**
  * Map issue labels onto channel-first surfaces.
- * idea → ideas, bug → bugs, agent → agent-runs; default support.
+ * idea → ideas, bug → bugs, agent → agent-runs, moderation → governance,
+ * preview → previews, general → general; default support.
+ * Single source for server render and the compiled client runtime — the union of
+ * what the two drifted copies handled (client added preview/general/moderation).
  */
 export function channelForIssue(labels: readonly string[]): CommunityChannelId {
   const normalized = labels.map((label) => label.toLowerCase());
@@ -62,11 +65,17 @@ export function channelForIssue(labels: readonly string[]): CommunityChannelId {
   if (normalized.includes("agent") || normalized.includes("agent-run")) {
     return "agent-runs";
   }
-  if (normalized.includes("governance") || normalized.includes("security")) {
+  if (normalized.includes("governance") || normalized.includes("security") || normalized.includes("moderation")) {
     return "governance";
+  }
+  if (normalized.includes("preview") || normalized.includes("previews")) {
+    return "previews";
   }
   if (normalized.includes("showcase") || normalized.includes("demo")) {
     return "showcase";
+  }
+  if (normalized.includes("general")) {
+    return "general";
   }
   return "support";
 }

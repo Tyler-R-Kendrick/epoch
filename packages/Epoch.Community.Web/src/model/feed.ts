@@ -166,6 +166,7 @@ function apiIssueConversations(
       visibility: "community",
       state: issue.status,
       reactions: ["reply", "follow"],
+      comments: issue.comments.map((comment) => ({ author: comment.author, body: comment.body })),
       source: "api" as const,
     })),
   );
