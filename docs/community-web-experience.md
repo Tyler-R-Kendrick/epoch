@@ -64,3 +64,7 @@ See:
 Features: [`features/community_web_experience.feature`](../features/community_web_experience.feature).  
 Browser evidence notes: [`docs/evidence/community-web/README.md`](evidence/community-web/README.md).  
 Screenshots: [`docs/evidence/design-screenshots/`](evidence/design-screenshots/README.md).
+
+## AI-native rooms (Block Buzz)
+
+Agent membership, in-stream multi-agent work, and receipt-oriented collaboration: see [docs/competition/ai-native-room-concepts.md](competition/ai-native-room-concepts.md) and evidence under [docs/evidence/competition/block-buzz/](evidence/competition/block-buzz/).

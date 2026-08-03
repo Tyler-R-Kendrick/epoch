@@ -95,3 +95,7 @@ North star remains **The Signed Civic Workshop**, upgraded with:
 Local validation captures (Community Web + public competitor marketing/login shells):
 
 - [docs/evidence/design-screenshots/](../evidence/design-screenshots/README.md)
+
+## Related: AI-native rooms
+
+Block Buzz reframes channel competition around **agents as members**. See [ai-native-room-concepts.md](ai-native-room-concepts.md) and [products/block-buzz/](products/block-buzz/).
