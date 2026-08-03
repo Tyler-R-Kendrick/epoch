@@ -86,3 +86,27 @@ Feature: Community Web community-first experience
     When I select the "Dashboard widget should group revenue by region" community message
     And I report the selected message
     Then the selected message shows legal-hold evidence status
+
+  @persona.slack_power_user
+  Scenario: Contributor searches community receipts by harness and intent
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    When I search community receipts for "goose"
+    Then the receipt search reports at least one match
+    And a visible agent receipt includes harness "goose"
+
+  @persona.github_power_user
+  Scenario: Maintainer sees promote receipt after recording an intent
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    And I open the ideas channel in the active community
+    When I select the "Dashboard widget should group revenue by region" community message
+    And I mark the selected message as an intent candidate
+    Then the Community Web shows a signed promote receipt for the new proposal
+
+  @persona.bluesky_power_user
+  Scenario: Contributor sees state-driven identity honesty on a live API session
+    Given the Community Web live API has repository activity
+    When I open the Community Web channel experience
+    Then the identity chip uses auth state "api-session"
+    And the identity chip explains that AT OAuth is not linked

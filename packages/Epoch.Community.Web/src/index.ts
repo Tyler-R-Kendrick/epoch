@@ -56,6 +56,17 @@ export interface CommunityWebAppDefinition {
   readonly deploymentTarget: CommunityDeploymentTarget;
   readonly apiBaseUrl?: string;
   readonly siteHistory?: CommunitySiteEpochHistory;
+  readonly session?: CommunitySessionIdentity;
+  readonly liveAgentIds?: readonly string[];
+}
+
+/** Viewer identity rendered in the header chip (state-driven, not hard-coded sample only). */
+export type CommunityAuthState = "authenticated" | "api-session" | "sample-session" | "unauthenticated";
+
+export interface CommunitySessionIdentity {
+  readonly handle: string;
+  readonly did: string;
+  readonly authState: CommunityAuthState;
 }
 
 export interface CreateCommunityWebAppOptions {
@@ -64,6 +75,10 @@ export interface CreateCommunityWebAppOptions {
   readonly apiBaseUrl?: string;
   readonly version?: string;
   readonly image?: string;
+  /** When set, drives the identity chip; otherwise derived from api connectivity. */
+  readonly session?: CommunitySessionIdentity;
+  /** Agent ids that have a live ACP session (sessionKind becomes live). */
+  readonly liveAgentIds?: readonly string[];
 }
 
 export interface CommunitySiteEpochOperation {
@@ -145,7 +160,60 @@ export async function createCommunityWebApp(
       image: options.image,
     }),
     apiBaseUrl: options.apiBaseUrl,
+    session: options.session ?? defaultSessionForApi(options.apiBaseUrl),
+    liveAgentIds: options.liveAgentIds ?? [],
   };
+}
+
+export function defaultSessionForApi(apiBaseUrl: string | undefined): CommunitySessionIdentity {
+  if (apiBaseUrl === undefined) {
+    return {
+      handle: "maya.epoch.community",
+      did: "did:plc:maya",
+      authState: "sample-session",
+    };
+  }
+  return {
+    handle: "maya.epoch.community",
+    did: "did:plc:maya",
+    authState: "api-session",
+  };
+}
+
+export function resolveSessionAuthNote(authState: CommunityAuthState): string {
+  switch (authState) {
+    case "authenticated":
+      return "AT session linked";
+    case "api-session":
+      return "live API session · AT OAuth not linked";
+    case "unauthenticated":
+      return "not signed in";
+    case "sample-session":
+    default:
+      return "session sample · not AT login";
+  }
+}
+
+/** Pure receipt search predicate used by the channel toolbar and unit tests. */
+export function messageMatchesReceiptSearch(text: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q.length === 0) return true;
+  return text.toLowerCase().includes(q);
+}
+
+export function withLiveAgentSessions(
+  agents: readonly CommunityAgentMember[],
+  liveAgentIds: readonly string[] | undefined,
+): readonly CommunityAgentMember[] {
+  if (liveAgentIds === undefined || liveAgentIds.length === 0) {
+    return agents;
+  }
+  const live = new Set(liveAgentIds);
+  return agents.map((agent) =>
+    live.has(agent.id) || live.has(agent.displayName)
+      ? { ...agent, sessionKind: "live" as const, status: agent.status === "idle" ? "working" : agent.status }
+      : agent
+  );
 }
 
 export function createCommunityDeploymentTarget(options: {
@@ -189,6 +257,9 @@ export function renderCommunityWebDocument(app: CommunityWebAppDefinition): stri
   const conversations = feed.conversations;
   const live = app.apiBaseUrl !== undefined;
   const snapshotMode = feed.source === "snapshot";
+  const session = app.session ?? defaultSessionForApi(app.apiBaseUrl);
+  const sessionNote = resolveSessionAuthNote(session.authState);
+  const communityAgents = withLiveAgentSessions(defaultCommunityAgents, app.liveAgentIds);
   const primaryRepo = app.repositories[0]?.slug ?? "epoch/epoch";
   const activeCommunity = spaces[0];
   const activeCommunityId = activeCommunity?.id ?? "epoch-civic";
@@ -238,7 +309,7 @@ ${communityStyles()}
         </nav>
         <div class="rail-section-label">Agents</div>
         <nav class="agent-list" data-agent-list aria-label="Member agents">
-          ${defaultCommunityAgents
+          ${communityAgents
             .filter((agent) => agent.communityIds.includes(activeCommunityId))
             .map((agent) => {
               const kind = agent.sessionKind === "live" ? "live" : "sample";
@@ -280,10 +351,10 @@ ${communityStyles()}
           <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
         <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
-          <span class="identity-chip" data-identity-chip data-auth-state="sample-session" title="Portable ATProto identity (sample session — not a live AT login)">
-            <span class="identity-handle">@maya.epoch.community</span>
-            <span class="identity-did">did:plc:maya</span>
-            <span class="identity-auth-note" data-auth-note>session sample · not AT login</span>
+          <span class="identity-chip" data-identity-chip data-auth-state="${escapeHtml(session.authState)}" title="Portable ATProto identity (${escapeHtml(sessionNote)})">
+            <span class="identity-handle">@${escapeHtml(session.handle.replace(/^@/, ""))}</span>
+            <span class="identity-did">${escapeHtml(session.did)}</span>
+            <span class="identity-auth-note" data-auth-note>${escapeHtml(sessionNote)}</span>
           </span>
           <span class="meta-sep" aria-hidden="true"></span>
           <span>${spaces.length} communities</span>
@@ -366,6 +437,9 @@ ${communityStyles()}
     changes: feed.changes,
     devFeedItems: devFeed.items,
     devFeedSource: devFeed.source,
+    session,
+    liveAgentIds: app.liveAgentIds ?? [],
+    communityAgents,
     communities: spaces,
     productMode: "community",
     activeCommunity: activeCommunityId,
@@ -1869,7 +1943,9 @@ function communityRuntime(): string {
         updateAgentWorkingStatus();
       }
 
-      const communityAgents = ${JSON.stringify(defaultCommunityAgents)};
+      const communityAgents = Array.isArray(state.communityAgents) && state.communityAgents.length > 0
+        ? state.communityAgents
+        : ${JSON.stringify(defaultCommunityAgents)};
 
       function agentStatusLabel(agent) {
         const kind = agent.sessionKind === "live" ? "live" : "sample";
@@ -2300,11 +2376,29 @@ function communityRuntime(): string {
         if (changeCount) changeCount.textContent = String((repo.changeProposals || []).length);
       }
 
+      function sessionIdentity() {
+        const session = state.session || {};
+        const authState = session.authState
+          || (live() ? "api-session" : "sample-session");
+        const handle = (session.handle || (actor + ".epoch.community")).replace(/^@/, "");
+        const did = session.did || ("did:plc:" + actor);
+        const note = authState === "authenticated"
+          ? "AT session linked"
+          : authState === "api-session"
+            ? "live API session · AT OAuth not linked"
+            : authState === "unauthenticated"
+              ? "not signed in"
+              : "session sample · not AT login";
+        return { authState, handle, did, note };
+      }
+
       function identityChipHtml() {
-        return '<span class="identity-chip" data-identity-chip data-auth-state="sample-session" title="Portable ATProto identity (sample session — not a live AT login)">'
-          + '<span class="identity-handle">@' + escapeHtml(actor) + '.epoch.community</span>'
-          + '<span class="identity-did">did:plc:' + escapeHtml(actor) + '</span>'
-          + '<span class="identity-auth-note" data-auth-note>session sample · not AT login</span>'
+        const identity = sessionIdentity();
+        return '<span class="identity-chip" data-identity-chip data-auth-state="' + escapeHtml(identity.authState)
+          + '" title="Portable ATProto identity (' + escapeHtml(identity.note) + ')">'
+          + '<span class="identity-handle">@' + escapeHtml(identity.handle) + '</span>'
+          + '<span class="identity-did">' + escapeHtml(identity.did) + '</span>'
+          + '<span class="identity-auth-note" data-auth-note>' + escapeHtml(identity.note) + '</span>'
           + '</span>';
       }
 
@@ -2633,7 +2727,11 @@ function communityRuntime(): string {
               if (next) {
                 selectChannel("previews");
                 selectMessage("change-" + proposal.id);
-                setStatus(next, "Promote receipt recorded: proposal:" + proposal.id + " (" + proposal.status + "). Human review still required.");
+                setStatus(
+                  next,
+                  "Intent candidate recorded from the live API: " + proposal.id
+                    + " (" + proposal.status + "). Promote receipt recorded. Human review still required.",
+                );
               }
             }
             return;
@@ -3291,8 +3389,17 @@ function communityStyles(): string {
       font-weight: 600;
       letter-spacing: 0.02em;
     }
-    .identity-chip[data-auth-state="sample-session"] {
+    .identity-chip[data-auth-state="sample-session"],
+    .identity-chip[data-auth-state="unauthenticated"] {
       border-style: dashed;
+    }
+    .identity-chip[data-auth-state="api-session"] {
+      border-style: solid;
+      border-color: var(--epoch-color-line);
+    }
+    .identity-chip[data-auth-state="authenticated"] {
+      border-style: solid;
+      border-color: var(--epoch-color-accent, #c47a3a);
     }
     @media (max-width: 720px) {
       .identity-did {
@@ -3997,20 +4104,31 @@ function communityStyles(): string {
     }
 
     @media (max-width: 800px) {
+      html, body {
+        max-width: 100%;
+        overflow-x: hidden;
+      }
       #epoch-community {
         grid-template-columns: 1fr;
         height: auto;
         min-height: 100vh;
+        max-width: 100%;
+        overflow-x: hidden;
       }
       .channel-rail {
         grid-template-rows: auto;
         gap: 0.35rem;
+        max-height: 38vh;
         border-inline-end: 0;
         border-block-end: 1px solid #1c2622;
+        overflow-x: hidden;
+        overflow-y: auto;
+        max-width: 100%;
       }
       .site-history-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .community-list,
       .community-workspace-chrome .channel-list,
+      .agent-list,
       .repo-list {
         grid-auto-columns: max-content;
         grid-auto-flow: column;
@@ -4018,6 +4136,18 @@ function communityStyles(): string {
         overflow-x: auto;
         overflow-y: hidden;
         padding-block-end: 0.15rem;
+      }
+      .feed-toolbar {
+        min-width: 0;
+      }
+      .receipt-search {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .receipt-search input {
+        min-width: 0;
+        width: 100%;
       }
       .feed-header {
         align-items: start;
@@ -4029,7 +4159,7 @@ function communityStyles(): string {
         max-width: none;
         text-align: start;
       }
-      .feed-shell { min-height: 70vh; }
+      .feed-shell { min-height: 70vh; min-width: 0; }
       .message-action-tray dl { grid-template-columns: 1fr; }
     }
 

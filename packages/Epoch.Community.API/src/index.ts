@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import type {
   CommentOnCommunityIssueInput,
   CommunityApiTransport,
@@ -14,6 +16,16 @@ import type {
 
 export interface CreateInMemoryCommunityApiOptions {
   readonly repositories?: readonly CreateCommunityRepositoryInput[];
+  /**
+   * When set, load repository state from this JSON file on boot and rewrite it
+   * after every mutating API call so local/dev servers survive process restarts.
+   */
+  readonly persistencePath?: string;
+}
+
+export interface CommunityApiPersistedState {
+  readonly schemaVersion: 1;
+  readonly repositories: readonly CommunityRepository[];
 }
 
 const workflowCatalog: readonly CommunityWorkflow[] = [
@@ -58,10 +70,25 @@ export function createInMemoryCommunityApi(
   options: CreateInMemoryCommunityApiOptions = {},
 ): CommunityApiTransport {
   const repositories = new Map<string, CommunityRepository>();
-  for (const input of options.repositories ?? []) {
-    const repository = createCommunityRepository(input);
-    repositories.set(repository.slug, repository);
+  const persistencePath = options.persistencePath;
+
+  if (persistencePath !== undefined && existsSync(persistencePath)) {
+    loadPersistedRepositories(persistencePath, repositories);
+  } else {
+    for (const input of options.repositories ?? []) {
+      const repository = createCommunityRepository(input);
+      repositories.set(repository.slug, repository);
+    }
+    if (persistencePath !== undefined) {
+      persistRepositories(persistencePath, repositories);
+    }
   }
+
+  const persist = (): void => {
+    if (persistencePath !== undefined) {
+      persistRepositories(persistencePath, repositories);
+    }
+  };
 
   return {
     async listWorkflows() {
@@ -80,6 +107,7 @@ export function createInMemoryCommunityApi(
 
       const repository = createCommunityRepository(input);
       repositories.set(repository.slug, repository);
+      persist();
       return cloneRepository(repository);
     },
     async openIssue(slug: string, input: OpenCommunityIssueInput) {
@@ -97,6 +125,7 @@ export function createInMemoryCommunityApi(
         ...current,
         issues: [...current.issues, issue],
       });
+      persist();
       return cloneRepository(repository);
     },
     async commentOnIssue(slug: string, issueId: string, input: CommentOnCommunityIssueInput) {
@@ -122,6 +151,7 @@ export function createInMemoryCommunityApi(
         ...current,
         issues,
       });
+      persist();
       return cloneRepository(repository);
     },
     async proposeChange(slug: string, input: ProposeCommunityChangeInput) {
@@ -140,6 +170,7 @@ export function createInMemoryCommunityApi(
         ...current,
         changeProposals: [...current.changeProposals, proposal],
       });
+      persist();
       return cloneRepository(repository);
     },
     async reviewChange(slug: string, proposalId: string, input: CommunityReviewInput) {
@@ -172,9 +203,36 @@ export function createInMemoryCommunityApi(
         ...current,
         changeProposals,
       });
+      persist();
       return cloneRepository(repository);
     },
   };
+}
+
+function loadPersistedRepositories(
+  persistencePath: string,
+  repositories: Map<string, CommunityRepository>,
+): void {
+  const raw = readFileSync(persistencePath, "utf8");
+  const parsed = JSON.parse(raw) as CommunityApiPersistedState;
+  if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.repositories)) {
+    throw new Error(`Invalid Community API persistence file: ${persistencePath}`);
+  }
+  for (const repository of parsed.repositories) {
+    repositories.set(repository.slug, cloneRepository(repository));
+  }
+}
+
+function persistRepositories(
+  persistencePath: string,
+  repositories: ReadonlyMap<string, CommunityRepository>,
+): void {
+  mkdirSync(path.dirname(persistencePath), { recursive: true });
+  const body: CommunityApiPersistedState = {
+    schemaVersion: 1,
+    repositories: [...repositories.values()].map(cloneRepository),
+  };
+  writeFileSync(persistencePath, `${JSON.stringify(body, null, 2)}\n`, "utf8");
 }
 
 export function createCommunityApiFetchHandler(

@@ -166,6 +166,14 @@ When("I report the selected message", async function () {
   await page.locator("[data-selected-message=\"true\"] [data-action=\"report\"]").click();
 });
 
+When("I search community receipts for {string}", async function (query: string) {
+  const page = requirePage();
+  const search = page.locator("[data-receipt-search]");
+  await search.waitFor({ state: "visible", timeout: 5_000 });
+  await search.fill(query);
+  await page.waitForTimeout(200);
+});
+
 When("I use Community Web at a narrow mobile width", async function () {
   await requirePage().setViewportSize({ width: 390, height: 844 });
 });
@@ -343,6 +351,50 @@ Then("the zoomed document has no horizontal page overflow", async function () {
 Then("the selected message shows legal-hold evidence status", async function () {
   const page = requirePage();
   await assertVisible(page, "Moderation report opened with legal-hold evidence.");
+});
+
+Then("the receipt search reports at least one match", async function () {
+  const page = requirePage();
+  const status = page.locator("[data-receipt-search-status]");
+  await status.waitFor({ state: "visible", timeout: 5_000 });
+  const text = await status.innerText();
+  assert.match(text, /[1-9]\d* receipt match/i);
+});
+
+Then("a visible agent receipt includes harness {string}", async function (harness: string) {
+  const page = requirePage();
+  const hit = page.locator('[data-author-role="agent"][data-search-hit="true"]:visible, [data-author-role="agent"]:not([hidden])');
+  await hit.first().waitFor({ state: "visible", timeout: 5_000 });
+  const text = await hit.first().innerText();
+  assert.match(text, new RegExp(harness, "i"));
+});
+
+Then("the Community Web shows a signed promote receipt for the new proposal", async function () {
+  const page = requirePage();
+  assert.ok(world.api);
+  await assertVisible(page, "Intent candidate recorded from the live API");
+  const repository = await world.api.getRepository("epoch/epoch");
+  const promoted = repository.changeProposals.find((proposal) =>
+    proposal.title === "Dashboard widget should group revenue by region"
+  );
+  assert.ok(promoted);
+  const receipt = page.locator(
+    `[data-promote-receipt][data-proposal-id="${promoted.id}"], [data-message]:not([hidden]) [data-promote-receipt]`,
+  ).filter({ hasText: `proposal:${promoted.id}` });
+  await receipt.first().waitFor({ state: "visible", timeout: 8_000 });
+  await assertVisible(page, `proposal:${promoted.id}`);
+  assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
+});
+
+Then("the identity chip uses auth state {string}", async function (authState: string) {
+  const page = requirePage();
+  const chip = page.locator("[data-identity-chip]");
+  await chip.first().waitFor({ state: "visible", timeout: 5_000 });
+  assert.equal(await chip.first().getAttribute("data-auth-state"), authState);
+});
+
+Then("the identity chip explains that AT OAuth is not linked", async function () {
+  await assertVisible(requirePage(), "AT OAuth not linked");
 });
 
 async function routeCommunityApi(

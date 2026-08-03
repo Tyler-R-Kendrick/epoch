@@ -103,9 +103,9 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "AT handle link/session path with fail-closed when unauthenticated",
+      "smallestExperiment": "AT OAuth authenticated path; api-session honesty shipped",
       "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastScoredAt": "2026-08-03T18:37:49.532Z"
     },
     {
       "id": "share",
@@ -164,9 +164,9 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Surface review state on channel message after promote",
+      "smallestExperiment": "Merge/export trail next; promote receipt cards shipped",
       "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastScoredAt": "2026-08-03T18:37:49.532Z"
     },
     {
       "id": "agents_member",
@@ -192,10 +192,10 @@
         "friction": 1,
         "uncertainty": 1
       },
-      "implementableNow": false,
-      "smallestExperiment": "Live ACP session into #agent-runs (control plane external)",
+      "implementableNow": true,
+      "smallestExperiment": "Attach real ACP to liveAgentIds",
       "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastScoredAt": "2026-08-03T18:37:49.532Z"
     },
     {
       "id": "receipts",
@@ -221,9 +221,9 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Naive search over messages + intents + agent runs",
+      "smallestExperiment": "Server-side/index search next; UI search shipped",
       "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastScoredAt": "2026-08-03T18:37:49.532Z"
     },
     {
       "id": "honesty",
@@ -251,9 +251,9 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Shipped sample|live sessionKind; keep live ACP for later",
+      "smallestExperiment": "Keep sample|live + auth states honest",
       "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastScoredAt": "2026-08-03T18:37:49.532Z"
     },
     {
       "id": "craft",
@@ -298,7 +298,7 @@
         "block-buzz"
       ],
       "epochClaim": "Non-seed durable community backend",
-      "status": "missing",
+      "status": "partial",
       "personaIds": [
         "discord-power-user",
         "slack-power-user",
@@ -312,9 +312,9 @@
         "uncertainty": 3
       },
       "implementableNow": true,
-      "smallestExperiment": "Persist communities/channels/messages beyond process lifetime",
+      "smallestExperiment": "Multi-node HA next; file-backed API shipped",
       "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastScoredAt": "2026-08-03T18:37:49.532Z"
     }
   ],
   "panels": {
