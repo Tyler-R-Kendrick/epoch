@@ -318,11 +318,21 @@ export function communityStyles(): string {
     .status-dot-muted { background: var(--epoch-color-gold); }
 
     .feed-shell {
-      display: grid;
-      grid-template-rows: auto auto auto minmax(0, 1fr);
+      display: flex;
+      flex-direction: column;
       min-width: 0;
       min-height: 0;
       background: var(--epoch-color-surface-raised);
+    }
+    /* Chrome keeps its content height and the visible stage absorbs the rest.
+       Order-independent on purpose: a positional grid template silently gave
+       the flexible row to the toolbar the first time a banner was added. */
+    .feed-shell > * {
+      flex: none;
+    }
+    .feed-shell > .surface-stage {
+      flex: 1 1 auto;
+      min-height: 0;
     }
 
     .feed-header {
@@ -1042,6 +1052,100 @@ export function communityStyles(): string {
     }
     .artifact-actions {
       margin-top: var(--epoch-space-xs);
+    }
+    /* Empty / loading / error state system — one voice across every list. */
+    .state-block {
+      display: grid;
+      gap: var(--epoch-space-xs);
+      padding: var(--epoch-space-lg) var(--epoch-space-md);
+      max-width: 46ch;
+    }
+    .state-title {
+      margin: 0;
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-title-size);
+      font-weight: var(--epoch-type-title-weight);
+      line-height: var(--epoch-type-title-leading);
+    }
+    .state-action {
+      margin: 0;
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-body-size);
+      line-height: var(--epoch-type-body-leading);
+    }
+    .state-block[data-state-tone="degraded"] .state-title {
+      color: var(--epoch-color-warning-ink);
+    }
+    .state-retry {
+      justify-self: start;
+      min-height: var(--epoch-space-xxl);
+      padding: var(--epoch-space-xs) var(--epoch-space-md);
+      border: 1px solid var(--epoch-color-line-strong);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-label-size);
+      font-weight: var(--epoch-type-label-weight);
+    }
+    .feed-state {
+      display: block;
+      border-block-end: 0;
+    }
+    .artifact-empty .state-block,
+    .dev-feed-empty .state-block {
+      padding-inline: 0;
+    }
+    /* Search match highlight — teal marks the query, copper stays reserved. */
+    .message-body mark {
+      padding: 0 var(--epoch-space-xs);
+      border-radius: var(--epoch-radius-xs);
+      background: var(--epoch-color-mint);
+      color: var(--epoch-color-teal-deep);
+    }
+    /* Unread: count text plus a mark, never colour alone. */
+    .channel-unread {
+      min-width: var(--epoch-space-lg);
+      padding: 0 var(--epoch-space-xs);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-accent);
+      color: var(--epoch-color-surface-raised);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-label-weight);
+      text-align: center;
+    }
+    .channel-button[data-channel-has-unread="true"] .channel-button-label {
+      font-weight: var(--epoch-type-label-weight);
+      color: var(--epoch-color-rail-text);
+    }
+    /* First-run orientation strip — a strip, never a modal or a tour. */
+    .first-run-strip {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--epoch-space-md);
+      padding: var(--epoch-space-md) var(--epoch-space-lg);
+      border-block-end: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-sunken);
+    }
+    .first-run-lines {
+      display: grid;
+      gap: var(--epoch-space-xs);
+      margin: 0;
+      padding-inline-start: var(--epoch-space-lg);
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-label-size);
+      line-height: var(--epoch-type-body-leading);
+    }
+    .first-run-dismiss {
+      flex: none;
+      min-height: var(--epoch-space-xxl);
+      padding: var(--epoch-space-xs) var(--epoch-space-md);
+      border: 1px solid var(--epoch-color-line-strong);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-label-size);
+      font-weight: var(--epoch-type-label-weight);
     }
     .thread-comments {
       display: grid;

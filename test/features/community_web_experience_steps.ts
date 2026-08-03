@@ -14,7 +14,12 @@ interface CommunityWebWorld {
   readonly page?: Page;
   /** Resolves when the runtime's boot-time refreshRepository GET has been answered (live API mode only). */
   readonly initialRefresh?: Promise<PlaywrightResponse | undefined>;
+  /** Rendered document, kept so a scenario can reopen the page in the same origin. */
+  readonly document?: string;
 }
+
+/** Matches the deployed route: vercel.json rewrites /community/* to the page. */
+const COMMUNITY_PAGE_PATH = "/community";
 
 let world: CommunityWebWorld = {};
 
@@ -110,18 +115,37 @@ async function openCommunityWebPage(
       },
     viewport: { width: 1440, height: 960 },
   });
+  const document = renderCommunityWebDocument(app);
+  // Serve the document from a real origin instead of setContent: an opaque
+  // origin has no usable localStorage, and durable preferences (last-read
+  // watermarks, first-run dismissal) are part of the shipped experience.
+  await page.route("https://community.test/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/" || pathname === COMMUNITY_PAGE_PATH || pathname.startsWith(`${COMMUNITY_PAGE_PATH}/`)) {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: document,
+      });
+      return;
+    }
+    if (apiHandler === undefined) {
+      await route.fulfill({ status: 404, contentType: "text/plain", body: "no api" });
+      return;
+    }
+    await routeCommunityApi(route, apiHandler);
+  });
   let initialRefresh: Promise<PlaywrightResponse | undefined> | undefined;
   if (apiHandler !== undefined) {
-    await page.route("https://community.test/**", (route) => routeCommunityApi(route, apiHandler));
-    // Register before setContent: the runtime refreshes the repository from the
+    // Register before navigation: the runtime refreshes the repository from the
     // live API during boot, and the response must not be missed by a late waiter.
     initialRefresh = page.waitForResponse(
       (response) => response.request().method() === "GET" && response.url().includes("/repositories/"),
       { timeout: 10_000 },
     ).catch(() => undefined);
   }
-  await page.setContent(renderCommunityWebDocument(app), { waitUntil: "domcontentloaded" });
-  world = { ...world, browser, page, initialRefresh };
+  await page.goto(`https://community.test${COMMUNITY_PAGE_PATH}`, { waitUntil: "domcontentloaded" });
+  world = { ...world, browser, page, initialRefresh, document, apiHandler };
 }
 
 When("I open the Network Feed", async function () {
@@ -483,3 +507,111 @@ async function closeWithTimeout(task: Promise<unknown> | undefined, label: strin
     }),
   ]);
 }
+
+// ── Experience layer: empty states, search clearing, unread, first run ───────
+
+When("I open the support channel in the active community", async function () {
+  const page = requirePage();
+  await page.locator('button[data-channel="support"]').click();
+  await page.locator('[data-surface-panel="channels"]:not([hidden])').waitFor({ state: "visible", timeout: 5_000 });
+});
+
+When("I press Escape in the receipt search", async function () {
+  const page = requirePage();
+  const search = page.locator("[data-receipt-search]");
+  await search.focus();
+  await search.press("Escape");
+  await page.waitForTimeout(150);
+});
+
+When("the ideas channel gains activity after I last read it", async function () {
+  const page = requirePage();
+  // Simulate having read #ideas when it was empty: the watermark is the message
+  // count seen, so a lower watermark is exactly what storage would hold.
+  await page.evaluate(() => {
+    const key = "epoch-community:last-read";
+    const raw = window.localStorage.getItem(key);
+    const map: Record<string, number> = raw === null ? {} : JSON.parse(raw) as Record<string, number>;
+    map["epoch-civic|ideas"] = 0;
+    window.localStorage.setItem(key, JSON.stringify(map));
+  });
+  // Re-render badges by selecting another channel.
+  await page.locator('button[data-channel="general"]').click();
+  await page.waitForTimeout(150);
+});
+
+When("I dismiss the first-run orientation strip", async function () {
+  const page = requirePage();
+  await page.locator("[data-first-run-dismiss]").click();
+  await page.locator("[data-first-run-strip]").waitFor({ state: "hidden", timeout: 5_000 });
+});
+
+When("I reopen the Community Web channel experience", async function () {
+  const page = requirePage();
+  await page.goto(`https://community.test${COMMUNITY_PAGE_PATH}`, { waitUntil: "domcontentloaded" });
+  await page.locator("[data-community-web-shell]").waitFor({ state: "visible", timeout: 5_000 });
+});
+
+Then("the channel shows an empty state naming a next action", async function () {
+  const page = requirePage();
+  const state = page.locator('.message-feed [data-state-item]:not([hidden]) [data-state-kind="empty"]');
+  await state.waitFor({ state: "visible", timeout: 5_000 });
+  const title = await state.locator(".state-title").innerText();
+  const action = await state.locator(".state-action").innerText();
+  assert.match(title, /No questions in #support yet\./u);
+  assert.ok(action.trim().length > 0, "empty state must offer a next action");
+  assert.match(action, /Ask what you are stuck on/u);
+});
+
+Then("the feed shows a zero-result state naming {string}", async function (query: string) {
+  const page = requirePage();
+  const state = page.locator('.message-feed [data-state-item]:not([hidden]) [data-state-kind="empty"]');
+  await state.waitFor({ state: "visible", timeout: 5_000 });
+  const title = await state.locator(".state-title").innerText();
+  assert.ok(title.includes(query), `zero-result state should name the query, got: ${title}`);
+  const action = await state.locator(".state-action").innerText();
+  assert.match(action, /Search covers messages, intents, harness labels, and promote receipts/u);
+});
+
+Then("the receipt search is empty and announces the channel", async function () {
+  const page = requirePage();
+  const value = await page.locator("[data-receipt-search]").inputValue();
+  assert.equal(value, "");
+  const status = await page.locator("[data-receipt-search-status]").innerText();
+  assert.match(status, /Search cleared\./u);
+  const visible = await page.locator('[data-surface-panel="channels"]:not([hidden]) [data-message]:not([hidden])').count();
+  assert.ok(visible > 0, "clearing search must restore the channel messages");
+});
+
+Then("no channel shows an unread count on a first visit", async function () {
+  const page = requirePage();
+  const unread = await page.locator("[data-channel-has-unread]").count();
+  assert.equal(unread, 0, "a first visit must not mark every channel unread");
+});
+
+Then("the ideas channel shows an unread count", async function () {
+  const page = requirePage();
+  const button = page.locator('button[data-channel="ideas"]');
+  await button.locator("[data-channel-unread]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
+  const count = await button.locator("[data-channel-unread]").innerText();
+  assert.match(count.trim(), /^[1-9]\d*$/u);
+  const label = await button.getAttribute("aria-label");
+  assert.match(label ?? "", /unread/u, "unread must be readable, not colour-only");
+});
+
+Then("the first-run orientation strip explains the rail, feed, and promote path", async function () {
+  const page = requirePage();
+  const strip = page.locator("[data-first-run-strip]");
+  await strip.waitFor({ state: "visible", timeout: 5_000 });
+  const text = await strip.innerText();
+  assert.match(text, /rail/iu);
+  assert.match(text, /signed work/iu);
+  assert.match(text, /Promote a message/iu);
+});
+
+Then("the first-run orientation strip stays dismissed", async function () {
+  const page = requirePage();
+  await page.waitForTimeout(200);
+  const visible = await page.locator("[data-first-run-strip]:not([hidden])").count();
+  assert.equal(visible, 0, "dismissal must persist across reopening the page");
+});

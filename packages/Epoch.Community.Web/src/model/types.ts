@@ -157,6 +157,10 @@ export interface CommunityChannel {
   readonly label: string;
   readonly topic: string;
   readonly kind: CommunityChannelKind;
+  /** Empty-state headline for this channel: names the object and its absence. */
+  readonly emptyTitle: string;
+  /** Empty-state next verb — what the reader can do here right now. */
+  readonly emptyAction: string;
 }
 
 /** Discord-analog: a community owns channels; repos are optional linked projects. */

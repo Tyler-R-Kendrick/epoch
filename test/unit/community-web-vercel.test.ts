@@ -45,12 +45,17 @@ export async function runCommunityWebVercelTests(): Promise<void> {
 
 function inlinedRuntimeBundleStaysWithinByteBudget(): void {
   // The compiled client entry is inlined into every rendered document, so the
-  // unminified IIFE has a hard byte budget to keep the self-contained page lean.
+  // unminified IIFE carries a byte budget to keep the self-contained page lean.
+  // Raised from 60,000 when the experience layer landed (empty/loading/error
+  // states, search highlighting, the unread watermark, and the first-run strip):
+  // ~5KB of real behaviour, and the bundle gzips to roughly 16KB on the wire.
+  // The budget exists to catch runaway growth, so it should only move with a
+  // named feature that justifies it.
   const bundlePath = join("packages", "Epoch.Community.Web", "dist", "client", "runtime.js");
   const bundleBytes = statSync(bundlePath).size;
   assert.ok(
-    bundleBytes < 60_000,
-    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 60,000 bytes (keep the unminified IIFE lean)`,
+    bundleBytes < 75_000,
+    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 75,000 bytes (keep the unminified IIFE lean)`,
   );
 }
 

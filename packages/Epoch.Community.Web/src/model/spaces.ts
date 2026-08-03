@@ -1,6 +1,6 @@
 import type { CommunityRepository } from "@epoch/community-core";
 import type { CommunitySpace } from "./types";
-import { defaultSocialChannels, defaultWorkChannels } from "./channels";
+import { defaultSocialChannels, defaultWorkChannels, deriveChannel } from "./channels";
 
 /**
  * Build first-class communities (Discord servers analog).
@@ -27,11 +27,31 @@ export function buildCommunitySpaces(
       slug: "agent-guild",
       description: "Community for policy-bound agents, human review culture, and agent-run showcases.",
       channels: [
-        { id: "general", label: "general", kind: "social", topic: "Agent operators and reviewers hang out here." },
-        { id: "showcase", label: "showcase", kind: "social", topic: "Show agent runs, traces, and demos." },
-        { id: "agent-runs", label: "agent-runs", kind: "work", topic: "Active agent runs awaiting human review." },
-        { id: "ideas", label: "ideas", kind: "work", topic: "Agent product ideas promoted toward signed intents." },
-        { id: "governance", label: "governance", kind: "work", topic: "Agent policy, hold, and witness discussion." },
+        deriveChannel("general", {
+          topic: "Agent operators and reviewers hang out here.",
+          emptyTitle: "No messages in #general yet.",
+          emptyAction: "Introduce yourself and the agents you operate.",
+        }),
+        deriveChannel("showcase", {
+          topic: "Show agent runs, traces, and demos.",
+          emptyTitle: "No agent runs shown yet.",
+          emptyAction: "Post a run, a trace, or a demo.",
+        }),
+        deriveChannel("agent-runs", {
+          topic: "Active agent runs awaiting human review.",
+          emptyTitle: "No runs awaiting review.",
+          emptyAction: "Requested agent work lands here for human review.",
+        }),
+        deriveChannel("ideas", {
+          topic: "Agent product ideas promoted toward signed intents.",
+          emptyTitle: "No agent ideas yet.",
+          emptyAction: "Propose one — it can become a signed intent.",
+        }),
+        deriveChannel("governance", {
+          topic: "Agent policy, hold, and witness discussion.",
+          emptyTitle: "No policy records yet.",
+          emptyAction: "Agent policy, holds, and witness decisions are recorded here.",
+        }),
       ],
       linkedRepos: [primary],
     },

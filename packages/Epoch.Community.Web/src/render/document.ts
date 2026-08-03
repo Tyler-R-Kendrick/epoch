@@ -1,18 +1,20 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CommunityWebAppDefinition } from "../model/types";
-import { defaultCommunityAgents, defaultSocialChannels, defaultWorkChannels } from "../model/channels";
+import { defaultCommunityAgents, defaultSocialChannels, defaultWorkChannels, emptyCopyForChannel } from "../model/channels";
 import { buildDevFeed, filterDevFeedItems } from "../model/dev-feed";
 import { buildCommunityFeed } from "../model/feed";
 import { defaultSessionForApi, withLiveAgentSessions } from "../model/session";
 import { buildCommunitySpaces } from "../model/spaces";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
+import { renderFirstRunStrip } from "../view/first-run";
 import { renderCommunityHonestyBanner } from "../view/honesty";
 import { escapeHtml, escapeScriptJson } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderChannelButton } from "../view/rail";
 import { renderSiteHistory } from "../view/site-history";
+import { asListState, renderEmptyState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 import { communityStyles } from "./styles";
 
@@ -61,6 +63,10 @@ export function renderCommunityWebDocument(app: CommunityWebAppDefinition): stri
   const defaultChannel = activeCommunity?.channels[0]?.id ?? "general";
   const communityConversations = conversations.filter((item) => item.communityId === activeCommunityId);
   const followingItems = filterDevFeedItems(devFeed.items, "following");
+  const defaultChannelEmptyCopy = emptyCopyForChannel(defaultChannel);
+  const defaultChannelHasMessages = communityConversations.some(
+    (item) => item.channel === defaultChannel,
+  );
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -156,6 +162,7 @@ ${communityStyles()}
         </div>
       </header>
       ${renderCommunityHonestyBanner(live, snapshotMode)}
+      ${renderFirstRunStrip()}
       <div class="surface-stage" data-surface-panel="network" hidden>
         <div class="feed-tabs" role="tablist" aria-label="Network Dev Feed tabs">
           <button class="feed-tab" type="button" role="tab" data-feed-tab="following" aria-selected="true">Following</button>
@@ -163,7 +170,10 @@ ${communityStyles()}
           <button class="feed-tab" type="button" role="tab" data-feed-tab="contributions" aria-selected="false">Contributions</button>
         </div>
         <ol class="dev-feed" data-dev-feed aria-label="Network Dev Feed">
-          ${followingItems.map(renderDevFeedItem).join("") || emptyDevFeedItem("No followed activity yet.")}
+          ${followingItems.map(renderDevFeedItem).join("") || emptyDevFeedItem(
+            "No followed activity yet.",
+            "Follow builders and communities to fill this feed.",
+          )}
         </ol>
       </div>
       <div class="feed-toolbar" role="group" aria-label="Current channel" data-channel-toolbar>
@@ -181,6 +191,11 @@ ${communityStyles()}
       <div class="surface-stage" data-surface-panel="channels">
         <ol class="message-feed" data-message-feed aria-label="Community channel messages">
           ${conversations.map((conversation) => renderConversation(conversation, defaultChannel, activeCommunityId)).join("")}
+          ${asListState(
+            renderEmptyState(defaultChannelEmptyCopy),
+            "feed-state",
+            { hidden: defaultChannelHasMessages },
+          )}
         </ol>
         <form class="composer" data-comment-composer aria-label="Write a community message">
           <label class="composer-label" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
@@ -199,7 +214,10 @@ ${communityStyles()}
           <span class="channel-topic">Linked repository issues (forge list, not community hangout).</span>
         </div>
         <ol class="artifact-list" data-issue-list aria-label="Issue list">
-          ${feed.issues.map(renderIssueListItem).join("") || emptyArtifactItem("No open issues in linked repositories.")}
+          ${feed.issues.map(renderIssueListItem).join("") || emptyArtifactItem(
+            "No open issues in linked repositories.",
+            "Open one from a conversation with Mark intent, or from the project itself.",
+          )}
         </ol>
       </div>
       <div class="surface-stage" data-surface-panel="changes" hidden>
@@ -208,7 +226,10 @@ ${communityStyles()}
           <span class="channel-topic">Change proposals for linked repositories.</span>
         </div>
         <ol class="artifact-list" data-change-list aria-label="Change proposal list">
-          ${feed.changes.map(renderChangeListItem).join("") || emptyArtifactItem("No change proposals yet. Promote a message with Mark intent.")}
+          ${feed.changes.map(renderChangeListItem).join("") || emptyArtifactItem(
+            "No change proposals yet.",
+            "Promote a message with Mark intent to turn talk into a reviewable change.",
+          )}
         </ol>
       </div>
       ${app.siteHistory === undefined ? "" : renderSiteHistory(app.siteHistory)}

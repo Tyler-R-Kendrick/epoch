@@ -118,3 +118,42 @@ Feature: Community Web community-first experience
     When I open the Community Web channel experience
     Then the identity chip uses auth state "api-session"
     And the identity chip explains that AT OAuth is not linked
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor sees an inviting empty state in a quiet channel
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    When I open the support channel in the active community
+    Then the channel shows an empty state naming a next action
+
+  @persona.slack_power_user
+  Scenario: Contributor searching with no matches sees the query named back
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    When I search community receipts for "zzzznomatch"
+    Then the feed shows a zero-result state naming "zzzznomatch"
+
+  @persona.slack_power_user
+  Scenario: Contributor clears receipt search with Escape
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    And I search community receipts for "goose"
+    When I press Escape in the receipt search
+    Then the receipt search is empty and announces the channel
+
+  @persona.maintainer
+  Scenario: Contributor sees unread only for channels with new activity
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    Then no channel shows an unread count on a first visit
+    When the ideas channel gains activity after I last read it
+    Then the ideas channel shows an unread count
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor dismisses the first-run orientation strip
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    Then the first-run orientation strip explains the rail, feed, and promote path
+    When I dismiss the first-run orientation strip
+    And I reopen the Community Web channel experience
+    Then the first-run orientation strip stays dismissed

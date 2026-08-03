@@ -1,9 +1,13 @@
 import type { DevFeedItem } from "../model/types";
 import { formatFeedTime } from "../model/dev-feed";
 import { escapeHtml, initials } from "./html";
+import { asListState, renderEmptyState } from "./states";
 
-export function emptyDevFeedItem(message: string): string {
-  return `<li class="dev-feed-item dev-feed-empty"><p>${escapeHtml(message)}</p></li>`;
+export function emptyDevFeedItem(title: string, action?: string): string {
+  return asListState(
+    renderEmptyState({ title, action }),
+    "dev-feed-item dev-feed-empty",
+  );
 }
 
 export function renderDevFeedItem(item: DevFeedItem): string {

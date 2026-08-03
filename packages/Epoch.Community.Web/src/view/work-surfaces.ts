@@ -1,5 +1,6 @@
 import type { CommunityFeedChangeItem, CommunityFeedIssueItem } from "../model/types";
 import { escapeHtml } from "./html";
+import { asListState, renderEmptyState } from "./states";
 
 export function renderIssueListItem(issue: CommunityFeedIssueItem): string {
   return `<li class="artifact-item" data-issue-id="${escapeHtml(issue.id)}">
@@ -22,6 +23,9 @@ export function renderChangeListItem(change: CommunityFeedChangeItem): string {
   </li>`;
 }
 
-export function emptyArtifactItem(message: string): string {
-  return `<li class="artifact-item artifact-empty">${escapeHtml(message)}</li>`;
+export function emptyArtifactItem(title: string, action?: string): string {
+  return asListState(
+    renderEmptyState({ title, action }),
+    "artifact-item artifact-empty",
+  );
 }

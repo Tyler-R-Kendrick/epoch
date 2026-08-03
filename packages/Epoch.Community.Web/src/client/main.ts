@@ -21,6 +21,7 @@ import {
   defaultCommunityAgents,
   defaultSocialChannels,
   defaultWorkChannels,
+  emptyCopyForChannel,
 } from "../model/channels";
 import { messageMatchesReceiptSearch } from "../model/search";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
@@ -29,6 +30,7 @@ import { escapeHtml } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderChannelButton } from "../view/rail";
+import { asListState, renderEmptyState, renderSearchZeroState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 
 /** Serialized shape of the #epoch-community-state JSON island. */
@@ -480,6 +482,161 @@ function applyComposerChrome(): void {
   if (composerMeta && space) composerMeta.textContent = `Signed as @${actor} · ${space.name}`;
 }
 
+// ── Durable local preferences ────────────────────────────────────────────────
+// localStorage throws on opaque origins (the test harness renders via
+// setContent) and in some privacy modes. Every access degrades to "no stored
+// preference" rather than breaking the app.
+
+const STORAGE_PREFIX = "epoch-community:";
+const LAST_READ_KEY = `${STORAGE_PREFIX}last-read`;
+const FIRST_RUN_KEY = `${STORAGE_PREFIX}first-run-dismissed`;
+
+function readStoredValue(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredValue(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* preference simply does not persist */
+  }
+}
+
+function readLastReadMap(): Record<string, number> {
+  const raw = readStoredValue(LAST_READ_KEY);
+  if (raw === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, number>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function lastReadKey(communityId: string, channel: string): string {
+  return `${communityId}|${channel}`;
+}
+
+// ── Unread ───────────────────────────────────────────────────────────────────
+// Derived from real loaded receipts: the watermark is how many messages this
+// member had already seen in a channel. A channel with no watermark is NOT
+// unread — a first visit must never light up every channel (ADR-0025).
+
+function channelMessageCount(communityId: string, channel: string): number {
+  return (state.conversations ?? []).filter(
+    (item) => (item.communityId ?? communityId) === communityId && item.channel === channel,
+  ).length;
+}
+
+function markChannelRead(communityId: string, channel: string): void {
+  const map = readLastReadMap();
+  map[lastReadKey(communityId, channel)] = channelMessageCount(communityId, channel);
+  writeStoredValue(LAST_READ_KEY, JSON.stringify(map));
+}
+
+function updateUnreadBadges(): void {
+  const map = readLastReadMap();
+  document.querySelectorAll<HTMLElement>("[data-channel][aria-pressed]").forEach((button) => {
+    const channel = button.dataset.channel;
+    const slot = button.querySelector<HTMLElement>("[data-channel-unread]");
+    if (channel === undefined || slot === null) return;
+    const seen = map[lastReadKey(activeCommunity, channel)];
+    const total = channelMessageCount(activeCommunity, channel);
+    const unread = seen === undefined ? 0 : Math.max(0, total - seen);
+    if (unread > 0) {
+      // Not colour-only: the count is text, and the button's accessible name
+      // carries it for members who never see the dot.
+      slot.textContent = String(unread);
+      slot.hidden = false;
+      button.setAttribute("data-channel-has-unread", "true");
+      button.setAttribute("aria-label", `# ${channel}, ${unread} unread`);
+    } else {
+      slot.textContent = "";
+      slot.hidden = true;
+      button.removeAttribute("data-channel-has-unread");
+      button.removeAttribute("aria-label");
+    }
+  });
+}
+
+// ── First-run orientation ────────────────────────────────────────────────────
+
+function revealFirstRunStrip(): void {
+  const strip = document.querySelector<HTMLElement>("[data-first-run-strip]");
+  if (strip === null) return;
+  strip.hidden = readStoredValue(FIRST_RUN_KEY) !== null;
+}
+
+function dismissFirstRunStrip(): void {
+  const strip = document.querySelector<HTMLElement>("[data-first-run-strip]");
+  if (strip !== null) strip.hidden = true;
+  writeStoredValue(FIRST_RUN_KEY, "1");
+}
+
+// ── Search highlighting ──────────────────────────────────────────────────────
+// Original text is kept so highlighting is reversible and never compounds.
+
+const originalText = new WeakMap<Element, string>();
+
+function highlightTargets(message: HTMLElement): HTMLElement[] {
+  return Array.from(
+    message.querySelectorAll<HTMLElement>(".message-body > h2, .message-body > p"),
+  );
+}
+
+function clearHighlight(message: HTMLElement): void {
+  highlightTargets(message).forEach((element) => {
+    const original = originalText.get(element);
+    if (original !== undefined) element.textContent = original;
+  });
+}
+
+function applyHighlight(message: HTMLElement, query: string): void {
+  highlightTargets(message).forEach((element) => {
+    const source = originalText.get(element) ?? element.textContent ?? "";
+    originalText.set(element, source);
+    const lower = source.toLowerCase();
+    let cursor = 0;
+    let html = "";
+    for (;;) {
+      const index = lower.indexOf(query, cursor);
+      if (index < 0) break;
+      html += escapeHtml(source.slice(cursor, index));
+      html += `<mark>${escapeHtml(source.slice(index, index + query.length))}</mark>`;
+      cursor = index + query.length;
+    }
+    if (cursor === 0) {
+      element.textContent = source;
+      return;
+    }
+    html += escapeHtml(source.slice(cursor));
+    element.innerHTML = html;
+  });
+}
+
+// ── Feed state ───────────────────────────────────────────────────────────────
+
+function updateFeedState(visibleCount: number, query: string): void {
+  const stateItem = document.querySelector<HTMLElement>(".message-feed [data-state-item]");
+  if (stateItem === null) return;
+  if (visibleCount > 0) {
+    stateItem.hidden = true;
+    return;
+  }
+  const copy = emptyCopyForChannel(activeChannel);
+  stateItem.innerHTML = query
+    ? renderSearchZeroState(query)
+    : renderEmptyState({ title: copy.title, action: copy.action });
+  stateItem.hidden = false;
+}
+
 function receiptSearchQuery(): string {
   const input = document.querySelector<HTMLInputElement>("[data-receipt-search]");
   return input && typeof input.value === "string" ? input.value.trim().toLowerCase() : "";
@@ -500,8 +657,10 @@ function applyChannelFilter(): void {
     if (q && visible) {
       hits += 1;
       message.setAttribute("data-search-hit", "true");
+      applyHighlight(message, q);
     } else {
       message.removeAttribute("data-search-hit");
+      clearHighlight(message);
     }
     if (message.dataset.messageId !== selectedMessage) {
       message.removeAttribute("data-selected-message");
@@ -514,6 +673,10 @@ function applyChannelFilter(): void {
       ? `${hits} receipt match${hits === 1 ? "" : "es"} in community`
       : "";
   }
+  const visibleCount = q
+    ? hits
+    : messages().filter((message) => !message.hidden).length;
+  updateFeedState(visibleCount, q);
   const space = currentCommunity();
   const channelMeta = space?.channels?.find((item) => item.id === activeChannel);
   if (channelName) {
@@ -533,6 +696,7 @@ function applyChannelFilter(): void {
   document.querySelectorAll<HTMLElement>("[data-channel][aria-pressed]").forEach((item) => {
     item.setAttribute("aria-pressed", item.dataset.channel === activeChannel ? "true" : "false");
   });
+  updateUnreadBadges();
 }
 
 function selectChannel(channel: string): void {
@@ -544,6 +708,9 @@ function selectChannel(channel: string): void {
   }
   syncRoute(`/community/c/${activeChannel}`);
   selectSurface("channels");
+  // Opening a channel is what marks it read; the watermark is the message count
+  // this member has now seen.
+  markChannelRead(activeCommunity, activeChannel);
   applyChannelFilter();
   restoreComposerDraft();
   updateAgentWorkingStatus();
@@ -767,9 +934,12 @@ function renderRepository(repo: CommunityRepository): void {
     // EPX-D001 closed here: every message — social, agent, issue, change — renders
     // through the shared renderConversation, so client refreshes keep the full
     // signed action tray and stay byte-identical with server-rendered markup.
+    // The empty-state item lives in the same <ol>, so it must survive a refresh
+    // that replaces the message list wholesale.
     feed.innerHTML = [...social, ...agents, ...issueConvos, ...changeConvos]
       .map((conversation) => renderConversation(conversation, activeChannel, activeCommunity))
-      .join("");
+      .join("")
+      + asListState(renderEmptyState(emptyCopyForChannel(activeChannel)), "feed-state", { hidden: true });
     updateSignerStrip();
   }
   if (issueList) {
@@ -1099,7 +1269,24 @@ function wireEventHandlers(): void {
   if (receiptSearch) {
     receiptSearch.addEventListener("input", () => applyChannelFilter());
     receiptSearch.addEventListener("search", () => applyChannelFilter());
+    receiptSearch.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || receiptSearch.value === "") return;
+      event.preventDefault();
+      receiptSearch.value = "";
+      applyChannelFilter();
+      const status = document.querySelector<HTMLElement>("[data-receipt-search-status]");
+      // Announce the return to the channel: clearing must not be silent for
+      // anyone reading through the live region.
+      if (status) status.textContent = `Search cleared. Showing # ${activeChannel}.`;
+      receiptSearch.focus();
+    });
   }
+
+  document.querySelector<HTMLElement>("[data-first-run-dismiss]")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      dismissFirstRunStrip();
+    });
 }
 
 async function handleDelegatedClick(event: MouseEvent): Promise<void> {
@@ -1197,6 +1384,8 @@ function boot(): void {
   applyComposerChrome();
   renderAgentMembers(activeCommunity);
   updateAgentWorkingStatus();
+  revealFirstRunStrip();
+  updateUnreadBadges();
   booting = false;
   if (live() && repository()) {
     refreshRepository().catch((error) => {
