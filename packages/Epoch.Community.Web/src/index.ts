@@ -303,7 +303,7 @@ ${communityStyles()}
       <div class="community-workspace-chrome" data-community-workspace-chrome>
         <div class="rail-section-label">Channels</div>
         <nav class="channel-list" data-channel-list aria-label="Community channels">
-          ${(activeCommunity?.channels ?? communityChannels).map((channel) =>
+          ${(activeCommunity?.channels ?? [...defaultSocialChannels, ...defaultWorkChannels]).map((channel) =>
             renderChannelButton(channel, communityConversations, channel.id === defaultChannel),
           ).join("")}
         </nav>
@@ -383,13 +383,8 @@ ${communityStyles()}
           <input type="search" data-receipt-search placeholder="Search receipts…" autocomplete="off" enterkeyhint="search" />
         </label>
         <span class="receipt-search-status" data-receipt-search-status role="status" aria-live="polite"></span>
-        <span class="members-strip" data-members-strip role="status" aria-label="Community members">
-          <span class="members-label">Members</span>
-          <span class="member-pill" title="maya">MY</span>
-          <span class="member-pill" title="lea">LE</span>
-          <span class="member-pill" title="ren">RE</span>
-          <span class="member-pill" title="nora">NO</span>
-          <span class="members-count" data-members-count>4 here · presence is sample/session</span>
+        <span class="members-strip" data-members-strip role="status" aria-label="Signers in loaded receipts">
+          ${renderSignerStrip(conversations)}
         </span>
       </div>
       <div class="surface-stage" data-surface-panel="channels">
@@ -773,12 +768,6 @@ const defaultCommunityAgents: readonly CommunityAgentMember[] = [
     sessionKind: "sample",
     communityIds: ["agent-guild", "epoch-civic"],
   },
-];
-
-/** @deprecated use community space channels; kept as union of defaults for label maps */
-const communityChannels: readonly CommunityChannel[] = [
-  ...defaultSocialChannels,
-  ...defaultWorkChannels,
 ];
 
 /**
@@ -1438,6 +1427,24 @@ function initials(handle: string): string {
     .slice(0, 2) || "?";
 }
 
+/**
+ * Honest presence: the strip lists distinct receipt authors from the loaded
+ * conversations. No invented "online" counts — only who has actually signed.
+ */
+function renderSignerStrip(conversations: readonly CommunityConversationView[]): string {
+  const signers = [...new Set(conversations.map((conversation) => conversation.author))];
+  const pills = signers
+    .slice(0, 4)
+    .map((author) => `<span class="member-pill" title="${escapeHtml(author)}">${escapeHtml(initials(author))}</span>`)
+    .join("");
+  const count = signers.length === 0
+    ? "No signed receipts yet"
+    : `${signers.length} signer${signers.length === 1 ? "" : "s"} · derived from receipts`;
+  return `<span class="members-label">Signers</span>
+          ${pills}
+          <span class="members-count" data-members-count>${count}</span>`;
+}
+
 function renderChannelButton(
   channel: CommunityChannel,
   conversations: readonly CommunityConversationView[],
@@ -1714,6 +1721,9 @@ function escapeScriptJson(value: string): string {
 
 function communityRuntime(): string {
   return `    (() => {
+      // Single search implementation: the exported, unit-tested helper is inlined
+      // verbatim so server tests and the shipped runtime execute the same code.
+      ${messageMatchesReceiptSearch.toString()}
       const stateElement = document.getElementById("epoch-community-state");
       const state = stateElement === null
         ? { conversations: [], repositories: [], issues: [], changes: [], feedSource: "snapshot", devFeedItems: [], communities: [], productMode: "community", activeCommunity: "epoch-civic", activeRepo: "epoch/epoch" }
@@ -2166,7 +2176,7 @@ function communityRuntime(): string {
           const sameCommunity = !message.dataset.communityId || message.dataset.communityId === activeCommunity;
           const channelOk = message.dataset.channel === activeChannel;
           const text = (message.textContent || "").toLowerCase();
-          const match = !q || text.includes(q);
+          const match = messageMatchesReceiptSearch(text, q);
           // Empty query: channel filter. Non-empty: search receipts across channels in the community.
           const visible = sameCommunity && (q ? match : channelOk);
           message.hidden = !visible;
@@ -2376,6 +2386,24 @@ function communityRuntime(): string {
         if (changeCount) changeCount.textContent = String((repo.changeProposals || []).length);
       }
 
+      function updateSignerStrip() {
+        // Mirrors renderSignerStrip: distinct receipt authors, never invented presence.
+        const strip = document.querySelector("[data-members-strip]");
+        if (!strip) return;
+        const signers = [];
+        (state.conversations || []).forEach((item) => {
+          if (item.author && signers.indexOf(item.author) < 0) signers.push(item.author);
+        });
+        const pills = signers.slice(0, 4).map((author) =>
+          '<span class="member-pill" title="' + escapeHtml(author) + '">' + escapeHtml(initials(author)) + '</span>'
+        ).join("");
+        const count = signers.length === 0
+          ? "No signed receipts yet"
+          : signers.length + " signer" + (signers.length === 1 ? "" : "s") + " · derived from receipts";
+        strip.innerHTML = '<span class="members-label">Signers</span>' + pills
+          + '<span class="members-count" data-members-count>' + count + '</span>';
+      }
+
       function sessionIdentity() {
         const session = state.session || {};
         const authState = session.authState
@@ -2450,9 +2478,7 @@ function communityRuntime(): string {
           shell.dataset.apiState = live() ? "connected" : "offline";
         }
         if (connectionLabel) {
-          connectionLabel.textContent = live()
-            ? (productMode === "feed" ? "Live · ATProto" : "Live")
-            : "Snapshot · ATProto";
+          connectionLabel.textContent = live() ? "Live" : "Snapshot · ATProto";
         }
         if (feed) {
           // Preserve community-owned social + member-agent messages; refresh forge-backed rows.
@@ -2523,7 +2549,6 @@ function communityRuntime(): string {
           const issueHtml = (repo.issues || []).map((issue) => renderMessageFromIssue(issue, repo)).join("");
           const changeHtml = (repo.changeProposals || []).map((proposal) => renderMessageFromChange(proposal, repo)).join("");
           // Merge issue/change conversations back into state for channel counts; keep agent members.
-          const spaces = state.communities || [];
           const communityId = activeCommunity;
           const issueConvos = (repo.issues || []).map((issue) => ({
             id: "issue-" + issue.id,
@@ -2565,7 +2590,7 @@ function communityRuntime(): string {
           );
           state.conversations = retained.concat(issueConvos, changeConvos);
           feed.innerHTML = socialHtml + agentHtml + issueHtml + changeHtml;
-          void spaces;
+          updateSignerStrip();
         }
         if (issueList) {
           issueList.innerHTML = (repo.issues || []).length
