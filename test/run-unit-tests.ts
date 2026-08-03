@@ -12,6 +12,7 @@ import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
 import { runPersonaFeatureModelTests } from "./unit/persona-feature-model.test";
+import { runPersonaMapTests } from "./unit/persona-map.test";
 import { runEpochLiveReactTests } from "./component/epoch-live-react.test";
 import { runSampleEpochLiveCollabTests } from "./unit/sample-epoch-live-collab.test";
 import { runSampleHelloWorldCliTests } from "./unit/sample-hello-world-cli.test";
@@ -41,6 +42,7 @@ async function main(): Promise<void> {
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();
   runPersonaFeatureModelTests();
+  runPersonaMapTests();
   runWasmReactStoreTests();
   runEpochLiveStoreTests();
   runEpochLiveReduxTests();

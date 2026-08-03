@@ -37,6 +37,22 @@ and treat craft, playfulness, wonder, and DESIGN.md adherence as pass/fail.
 | A platform operator | A person running Epoch Platform or deploying Community for a team, organization, or public forge. | Production readiness, auditability, cost visibility, rollback, degraded-state diagnosis, accessibility, and safe automation. | Would not demo without apology; inconsistent tokens; broken focus; snapshot honesty missing; “works in staging” aesthetics. |
 | A security and compliance responder | A person accountable for secrets, identity, policy, audit, tenant data, signing evidence, and incident response. | Least privilege, secret redaction, safe diagnostics, retention, export/delete guarantees, and provenance. | Trust theater (decorative sigs); no live/snapshot honesty; provenance buried; playful chrome that obscures policy truth. |
 
+### HCD tag ↔ OptimizeXP persona reconciliation
+
+The four HCD personas above are Gherkin-tag identities (`@persona.*` in root
+`features/*.feature`). The OptimizeXP review personas in `.optimizexp/personas/`
+are judgment instruments for the same people. The machine-readable mapping is
+[.optimizexp/persona-map.json](../.optimizexp/persona-map.json), enforced by
+`test/unit/persona-map.test.ts` (total mapping, no orphans, default panel must
+cover contributor and maintainer).
+
+| HCD tag | OptimizeXP personas |
+|---|---|
+| `github_open_source_contributor` | designer, product-designer, junior-mobile-designer, screen-reader-power-user, sota-frontier-ai-native-tui-designer, app-builder-design-power-user, steve-jobs, jony-ive, naoto-fukasawa, discord-, slack-, github-, bluesky-, tangled-, buzz-power-user |
+| `maintainer` | community-moderator, forge-community-power-user, vcs-review-power-user |
+| `platform_operator` | build-sandbox-, asset-distribution-, local-first-data-, agentic-coding-power-user |
+| `security_compliance_responder` | provenance-policy-power-user |
+
 ## Feature Mapping
 
 | Feature spec | Primary persona | Contributor journey | Pain point | Trust question | Degraded-state behavior | Human considerations | Validation evidence |

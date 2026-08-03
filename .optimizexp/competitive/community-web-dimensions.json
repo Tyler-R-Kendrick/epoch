@@ -25,7 +25,7 @@
       "personaIds": [
         "discord-power-user",
         "slack-power-user",
-        "forge-community-power-user"
+        "community-moderator"
       ],
       "featureIds": [
         "community-web-first-use",
@@ -56,9 +56,8 @@
       "epochClaim": "Dual-plane Network Feed with verb-led ATProto/coding activity",
       "status": "partial",
       "personaIds": [
-        "x-com-power-user",
-        "tangled-power-user",
         "bluesky-power-user",
+        "tangled-power-user",
         "github-power-user"
       ],
       "featureIds": [
@@ -120,7 +119,7 @@
       "personaIds": [
         "discord-power-user",
         "github-power-user",
-        "x-com-power-user"
+        "bluesky-power-user"
       ],
       "featureIds": [
         "community-web-daily-navigation"
@@ -149,7 +148,7 @@
       "status": "partial",
       "personaIds": [
         "github-power-user",
-        "forge-community-power-user",
+        "tangled-power-user",
         "buzz-power-user"
       ],
       "featureIds": [
@@ -208,8 +207,8 @@
       "status": "partial",
       "personaIds": [
         "buzz-power-user",
-        "forge-community-power-user",
-        "slack-power-user"
+        "slack-power-user",
+        "tangled-power-user"
       ],
       "featureIds": [],
       "evidencePaths": [
@@ -235,7 +234,7 @@
       "status": "partial",
       "personaIds": [
         "buzz-power-user",
-        "forge-community-power-user",
+        "slack-power-user",
         "tangled-power-user"
       ],
       "featureIds": [
@@ -267,10 +266,11 @@
       "epochClaim": "Civic workshop craft: scan density without metric theater",
       "status": "partial",
       "personaIds": [
-        "app-builder-design-power-user",
-        "product-designer",
         "designer",
-        "telegram-power-user"
+        "product-designer",
+        "app-builder-design-power-user",
+        "junior-mobile-designer",
+        "screen-reader-power-user"
       ],
       "featureIds": [
         "community-web-responsive-craft",
@@ -302,7 +302,7 @@
       "personaIds": [
         "discord-power-user",
         "slack-power-user",
-        "forge-community-power-user"
+        "community-moderator"
       ],
       "featureIds": [],
       "evidencePaths": [],
@@ -315,32 +315,31 @@
       "smallestExperiment": "Multi-node HA next; file-backed API shipped",
       "lastRunId": "community-persona-uplift-20260803-1823",
       "lastScoredAt": "2026-08-03T18:37:49.532Z"
+    },
+    {
+      "id": "moderation-notifications",
+      "title": "Moderation receipts and honest unread",
+      "competitorBars": [
+        "discord",
+        "slack",
+        "github"
+      ],
+      "epochClaim": "Reports become signed receipts with visible outcomes; unread and notification state derive from real receipts, never invented urgency",
+      "status": "missing",
+      "personaIds": [
+        "community-moderator",
+        "screen-reader-power-user",
+        "discord-power-user"
+      ],
+      "featureIds": [],
+      "evidencePaths": [],
+      "metricFloor": {
+        "harms": 1,
+        "friction": 1,
+        "uncertainty": 1
+      },
+      "implementableNow": true,
+      "smallestExperiment": "Route the existing Report action into a moderation queue surface with a signed receipt and a member-visible state"
     }
-  ],
-  "panels": {
-    "community-competitive": [
-      "discord-power-user",
-      "slack-power-user",
-      "github-power-user",
-      "tangled-power-user",
-      "bluesky-power-user",
-      "x-com-power-user",
-      "buzz-power-user",
-      "forge-community-power-user",
-      "agentic-coding-power-user",
-      "app-builder-design-power-user"
-    ],
-    "community-craft": [
-      "app-builder-design-power-user",
-      "product-designer",
-      "designer",
-      "telegram-power-user"
-    ],
-    "community-agents": [
-      "buzz-power-user",
-      "agentic-coding-power-user",
-      "discord-power-user"
-    ]
-  },
-  "defaultPanel": "community-competitive"
+  ]
 }

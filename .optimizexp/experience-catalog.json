@@ -221,7 +221,7 @@
     },
     {
       "experienceId": "cold-start-tty-chat",
-      "personaId": "x-com-power-user",
+      "personaId": "bluesky-power-user",
       "intent": "Cold-start the product TTY/chat and recognize it is not a stock third-party agent UI",
       "entryCommand": "epoch",
       "driver": "tui",
@@ -240,7 +240,7 @@
     },
     {
       "experienceId": "in-session-discoverability",
-      "personaId": "x-com-power-user",
+      "personaId": "bluesky-power-user",
       "intent": "From inside the interactive session, find product surfaces without leaving",
       "entryCommand": "epoch  # then /verbs or in-session help",
       "driver": "tui",
@@ -258,7 +258,7 @@
     },
     {
       "experienceId": "help-discoverability",
-      "personaId": "x-com-power-user",
+      "personaId": "bluesky-power-user",
       "intent": "List verbs and next steps without tribal knowledge",
       "entryCommand": "epoch help",
       "driver": "cli",
@@ -276,7 +276,7 @@
     },
     {
       "experienceId": "failure-actionable",
-      "personaId": "x-com-power-user",
+      "personaId": "bluesky-power-user",
       "intent": "Mistype or unknown verb yields actionable remediation",
       "entryCommand": "epoch not-a-real-verb-zz",
       "driver": "cli",

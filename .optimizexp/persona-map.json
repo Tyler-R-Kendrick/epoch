@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "description": "Reconciliation between the HCD persona tags used in root features/*.feature Gherkin (docs/persona-feature-matrix.md) and the OptimizeXP review personas in .optimizexp/personas/. Every OptimizeXP persona maps to exactly one HCD tag; every HCD tag has at least one persona. Enforced by test/unit/persona-map.test.ts.",
+  "map": {
+    "github_open_source_contributor": [
+      "designer",
+      "product-designer",
+      "junior-mobile-designer",
+      "screen-reader-power-user",
+      "sota-frontier-ai-native-tui-designer",
+      "app-builder-design-power-user",
+      "steve-jobs",
+      "jony-ive",
+      "naoto-fukasawa",
+      "discord-power-user",
+      "slack-power-user",
+      "github-power-user",
+      "bluesky-power-user",
+      "tangled-power-user",
+      "buzz-power-user"
+    ],
+    "maintainer": [
+      "community-moderator",
+      "forge-community-power-user",
+      "vcs-review-power-user"
+    ],
+    "platform_operator": [
+      "build-sandbox-power-user",
+      "asset-distribution-power-user",
+      "local-first-data-power-user",
+      "agentic-coding-power-user"
+    ],
+    "security_compliance_responder": [
+      "provenance-policy-power-user"
+    ]
+  },
+  "retired": {
+    "telegram-power-user": "Merged into junior-mobile-designer (Telegram restraint bar).",
+    "x-com-power-user": "Merged into bluesky-power-user (scan rhythm, metric-theater refusal)."
+  }
+}
