@@ -19,8 +19,8 @@
 //   ops-token-not-aliased --ops-* token defined as a literal instead of aliasing --epoch-*
 //   design-json-drift     .impeccable/design.json canonical color disagrees with DESIGN.md
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,7 +37,9 @@ const STRUCTURAL_RULES = new Set([
 const SCANNED_PACKAGES = [
   {
     id: "community-web",
-    path: "packages/Epoch.Community.Web/src/index.ts",
+    // Directory scan: the Community Web source is decomposed into modules
+    // (model/, view/, render/, client/), so every .ts file is scanned.
+    path: "packages/Epoch.Community.Web/src",
     // Community Web's :root token block is generated (@epoch/design-tokens) and
     // inlined at render time, so its definitions live in the generated module.
     extraDefinitionPaths: ["packages/Epoch.DesignTokens/src/tokens.generated.ts"],
@@ -82,13 +84,34 @@ function lineOf(source, index) {
   return source.slice(0, index).split("\n").length;
 }
 
+function listTsFilesRecursively(directory) {
+  const files = [];
+  for (const entry of readdirSync(directory).sort()) {
+    const path = join(directory, entry);
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      files.push(...listTsFilesRecursively(path));
+    } else if (stat.isFile() && entry.endsWith(".ts")) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
 function scanPackage(pkg, palette) {
   const findings = [];
-  const source = readFileSync(join(root, pkg.path), "utf8");
+  const packageRoot = join(root, pkg.path);
+  const sourcePaths = statSync(packageRoot).isDirectory()
+    ? listTsFilesRecursively(packageRoot).map((path) => relative(root, path))
+    : [pkg.path];
+  const sources = sourcePaths.map((path) => ({
+    path,
+    source: readFileSync(join(root, path), "utf8"),
+  }));
 
   const defined = new Map();
   const definitionSources = [
-    source,
+    ...sources.map((entry) => entry.source),
     ...(pkg.extraDefinitionPaths ?? []).map((path) => readFileSync(join(root, path), "utf8")),
   ];
   for (const definitionSource of definitionSources) {
@@ -99,73 +122,75 @@ function scanPackage(pkg, palette) {
     }
   }
 
-  for (const match of source.matchAll(/var\(\s*(--epoch-[\w-]+)\s*[),]/gu)) {
-    if (!defined.has(match[1])) {
-      findings.push({
-        rule: "undefined-token",
-        package: pkg.id,
-        file: pkg.path,
-        line: lineOf(source, match.index),
-        detail: `${match[1]} is used but never defined; the declaration silently does nothing`,
-      });
-    }
-  }
-
-  for (const match of source.matchAll(/var\(\s*(--[\w-]+)\s*,\s*([^)]+)\)/gu)) {
-    const token = match[1];
-    const fallback = match[2].trim();
-    const definedValue = defined.get(token);
-    const mismatch = definedValue !== undefined
-      && fallback.toLowerCase() !== definedValue.toLowerCase();
-    findings.push({
-      rule: mismatch ? "var-fallback-mismatch" : "var-fallback",
-      package: pkg.id,
-      file: pkg.path,
-      line: lineOf(source, match.index),
-      detail: mismatch
-        ? `var(${token}, ${fallback}) fallback disagrees with defined value ${definedValue}`
-        : `var(${token}, ${fallback}) carries a literal fallback; tokens are inlined first, drop it`,
-    });
-  }
-
   const paletteValues = new Set(palette.values());
-  for (const match of source.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/gu)) {
-    const hex = match[0].toLowerCase();
-    if (paletteValues.has(hex)) {
-      continue;
-    }
-    let nearest = null;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const [name, value] of palette) {
-      const distance = rgbDistance(hex, value);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearest = { name, value };
+  for (const { path, source } of sources) {
+    for (const match of source.matchAll(/var\(\s*(--epoch-[\w-]+)\s*[),]/gu)) {
+      if (!defined.has(match[1])) {
+        findings.push({
+          rule: "undefined-token",
+          package: pkg.id,
+          file: path,
+          line: lineOf(source, match.index),
+          detail: `${match[1]} is used but never defined; the declaration silently does nothing`,
+        });
       }
     }
-    const nearMiss = nearest !== null && nearestDistance <= NEAR_MISS_DISTANCE;
-    findings.push({
-      rule: nearMiss ? "near-miss-palette" : "off-palette-hex",
-      package: pkg.id,
-      file: pkg.path,
-      line: lineOf(source, match.index),
-      detail: nearMiss
-        ? `${hex} is within ${Math.round(nearestDistance)} RGB of palette ${nearest.name} (${nearest.value}) but not equal`
-        : `${hex} is not in the DESIGN.md palette`,
-    });
-  }
 
-  if (pkg.id === "community-operations-web") {
-    for (const match of source.matchAll(/(--ops-[\w-]+)\s*:\s*([^;\n]+)[;\n]/gu)) {
-      const value = match[2].trim();
-      if (!/^var\(\s*--epoch-[\w-]+\s*\)$/u.test(value) && !/^\d/u.test(value)) {
-        findings.push({
-          rule: "ops-token-not-aliased",
-          package: pkg.id,
-          file: pkg.path,
-          line: lineOf(source, match.index),
-          detail: `${match[1]}: ${value} defines its own value instead of aliasing an --epoch-* token`,
-        });
+    for (const match of source.matchAll(/var\(\s*(--[\w-]+)\s*,\s*([^)]+)\)/gu)) {
+      const token = match[1];
+      const fallback = match[2].trim();
+      const definedValue = defined.get(token);
+      const mismatch = definedValue !== undefined
+        && fallback.toLowerCase() !== definedValue.toLowerCase();
+      findings.push({
+        rule: mismatch ? "var-fallback-mismatch" : "var-fallback",
+        package: pkg.id,
+        file: path,
+        line: lineOf(source, match.index),
+        detail: mismatch
+          ? `var(${token}, ${fallback}) fallback disagrees with defined value ${definedValue}`
+          : `var(${token}, ${fallback}) carries a literal fallback; tokens are inlined first, drop it`,
+      });
+    }
+
+    for (const match of source.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/gu)) {
+      const hex = match[0].toLowerCase();
+      if (paletteValues.has(hex)) {
+        continue;
+      }
+      let nearest = null;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      for (const [name, value] of palette) {
+        const distance = rgbDistance(hex, value);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearest = { name, value };
+        }
+      }
+      const nearMiss = nearest !== null && nearestDistance <= NEAR_MISS_DISTANCE;
+      findings.push({
+        rule: nearMiss ? "near-miss-palette" : "off-palette-hex",
+        package: pkg.id,
+        file: path,
+        line: lineOf(source, match.index),
+        detail: nearMiss
+          ? `${hex} is within ${Math.round(nearestDistance)} RGB of palette ${nearest.name} (${nearest.value}) but not equal`
+          : `${hex} is not in the DESIGN.md palette`,
+      });
+    }
+
+    if (pkg.id === "community-operations-web") {
+      for (const match of source.matchAll(/(--ops-[\w-]+)\s*:\s*([^;\n]+)[;\n]/gu)) {
+        const value = match[2].trim();
+        if (!/^var\(\s*--epoch-[\w-]+\s*\)$/u.test(value) && !/^\d/u.test(value)) {
+          findings.push({
+            rule: "ops-token-not-aliased",
+            package: pkg.id,
+            file: path,
+            line: lineOf(source, match.index),
+            detail: `${match[1]}: ${value} defines its own value instead of aliasing an --epoch-* token`,
+          });
+        }
       }
     }
   }
