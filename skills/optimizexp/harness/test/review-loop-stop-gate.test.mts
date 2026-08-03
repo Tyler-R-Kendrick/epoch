@@ -544,3 +544,211 @@ describe("optimizexp stop gate", () => {
 		}
 	});
 });
+
+describe("optimizexp artifact-truth gates", () => {
+	function seedWebProduct(dir: string) {
+		const pkg = path.join(dir, "packages/DemoWeb/.optimizexp");
+		mkdirSync(pkg, { recursive: true });
+		writeFileSync(
+			path.join(pkg, "config.json"),
+			JSON.stringify({
+				schemaVersion: 1,
+				kind: "project",
+				product: { id: "demo-web", package: "@demo/web", entry: "packages/DemoWeb" },
+				defaults: { driver: "web" },
+				features: { idPrefix: "demo-web-" },
+				competitive: {
+					scorecard: ".optimizexp/competitive/demo-web-dimensions.json",
+					requireScorecardOnComplete: true,
+				},
+			}) + "\n",
+		);
+		mkdirSync(path.join(dir, ".optimizexp/competitive"), { recursive: true });
+		writeFileSync(
+			path.join(dir, ".optimizexp/competitive/demo-web-dimensions.json"),
+			JSON.stringify({
+				schemaVersion: 1,
+				dimensions: [
+					{
+						id: "craft",
+						status: "partial",
+						evidencePaths: [],
+						featureIds: ["demo-web-first-use"],
+						lastRunId: "someone-else",
+					},
+				],
+			}) + "\n",
+		);
+	}
+
+	function bindRunToProduct(dir: string, run: string) {
+		const scopePath = path.join(dir, ".optimizexp/runs", run, "scope.json");
+		const scope = JSON.parse(readFileSync(scopePath, "utf8"));
+		scope.features = ["demo-web-first-use"];
+		writeFileSync(scopePath, JSON.stringify(scope) + "\n");
+	}
+
+	it("scorecard, defects, token audit, and mobile evidence block a bound web run", () => {
+		const dir = seedRepo();
+		const run = "t-truth";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedWebProduct(dir);
+			bindRunToProduct(dir, run);
+			writeFileSync(
+				path.join(dir, ".optimizexp/defects.json"),
+				JSON.stringify({
+					defects: [
+						{ id: "D-OPEN", severity: "P0", status: "open", projects: ["demo-web"] },
+						{ id: "D-CLOSED", severity: "P0", status: "closed", projects: ["demo-web"] },
+						{ id: "D-OTHER", severity: "P1", status: "open", projects: ["unrelated"] },
+					],
+				}) + "\n",
+			);
+			const { json } = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			const missing = json.missing as string[];
+			assert.ok(missing.includes("standing_defect_open:D-OPEN"), JSON.stringify(missing));
+			assert.ok(!missing.includes("standing_defect_open:D-CLOSED"));
+			assert.ok(!missing.includes("standing_defect_open:D-OTHER"));
+			assert.ok(missing.includes("scorecard_artifact_missing:demo-web"));
+			assert.ok(missing.includes("dimension_empty_evidence:craft"));
+			assert.ok(missing.includes("dimension_not_rescored:craft"));
+			assert.ok(missing.includes("token_audit_missing"));
+			assert.ok(missing.includes("mobile_evidence_missing"));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("token audit enforces only failing classes and clears when clean", () => {
+		const dir = seedRepo();
+		const run = "t-audit";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedWebProduct(dir);
+			bindRunToProduct(dir, run);
+			mkdirSync(path.join(dir, ".optimizexp/audits"), { recursive: true });
+			writeFileSync(
+				path.join(dir, ".optimizexp/audits/token-conformance.json"),
+				JSON.stringify({ summary: { "undefined-token": 1, "near-miss-palette": 40 } }) + "\n",
+			);
+			const failing = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			const failingMissing = failing.json.missing as string[];
+			assert.ok(failingMissing.includes("token_audit_failing:undefined-token"));
+			assert.ok(!failingMissing.some((m) => m.includes("near-miss-palette")));
+
+			writeFileSync(
+				path.join(dir, ".optimizexp/audits/token-conformance.json"),
+				JSON.stringify({ summary: { "near-miss-palette": 40 } }) + "\n",
+			);
+			const clean = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			const cleanMissing = clean.json.missing as string[];
+			assert.ok(!cleanMissing.some((m) => m.startsWith("token_audit")));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("dimension status upgrades require a design-council verdict", () => {
+		const dir = seedRepo();
+		const run = "t-council";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedWebProduct(dir);
+			bindRunToProduct(dir, run);
+			const runDir = path.join(dir, ".optimizexp/runs", run);
+			writeFileSync(
+				path.join(runDir, "competitive-scorecard.json"),
+				JSON.stringify({
+					runId: run,
+					dimensions: [{ id: "craft", status: "proven" }],
+				}) + "\n",
+			);
+			const blocked = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(blocked.json.missing as string[]).includes("council_verdict_missing:craft"),
+			);
+
+			writeFileSync(path.join(runDir, "design-council.md"), "# Verdict\npass\n");
+			const allowed = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				!(allowed.json.missing as string[]).includes("council_verdict_missing:craft"),
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("malformed backlog items block completion until repaired", () => {
+		const dir = seedRepo();
+		const run = "t-backlog";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "dx"]);
+			mkdirSync(path.join(dir, ".optimizexp/backlog"), { recursive: true });
+			writeFileSync(
+				path.join(dir, ".optimizexp/backlog/experiments.json"),
+				JSON.stringify({
+					items: [
+						{
+							title: "Collapse DID under handle",
+							hypothesis: 'If we deliver "undefined", positive metrics rise.',
+						},
+					],
+				}) + "\n",
+			);
+			const bad = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(bad.json.missing as string[]).some((m) => m.startsWith("backlog_malformed:")),
+				JSON.stringify(bad.json.missing),
+			);
+
+			writeFileSync(
+				path.join(dir, ".optimizexp/backlog/experiments.json"),
+				JSON.stringify({
+					items: [
+						{
+							id: "fr-collapse-did",
+							title: "Collapse DID under handle",
+							problem: "DID wraps on mobile.",
+							desiredOutcome: "DID collapses under the handle on mobile.",
+							hypothesis: 'If we deliver "DID collapses under the handle on mobile.", positive metrics rise.',
+						},
+					],
+				}) + "\n",
+			);
+			const good = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				!(good.json.missing as string[]).some((m) => m.startsWith("backlog_malformed:")),
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("mobile evidence gate accepts a narrow-viewport capture", () => {
+		const dir = seedRepo();
+		const run = "t-mobile";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedWebProduct(dir);
+			bindRunToProduct(dir, run);
+			const evDir = path.join(dir, "evidence/mobile-check");
+			mkdirSync(evDir, { recursive: true });
+			writeFileSync(
+				path.join(evDir, "meta.json"),
+				JSON.stringify({ screen: { widthPx: 390, heightPx: 844 } }) + "\n",
+			);
+			writeFileSync(
+				path.join(dir, ".optimizexp/bus/entries", `x-${run}-outcome.json`),
+				JSON.stringify({ evidence: { path: "evidence/mobile-check" } }) + "\n",
+			);
+			const { json } = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				!(json.missing as string[]).includes("mobile_evidence_missing"),
+				JSON.stringify(json.missing),
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+});

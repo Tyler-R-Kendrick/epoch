@@ -339,6 +339,19 @@ Write `summary.md` **before** mark-complete:
 
 When competitive coverage applies, also write `runs/<id>/competitive-scorecard.json` and update `.optimizexp/competitive/*-dimensions.json` before assert-complete (see [competitive-coverage.md](competitive-coverage.md)).
 
+### Artifact-truth gates (assert-complete)
+
+assert-complete blocks completion on artifact state, not just loop bookkeeping. A run binds to a product via `scope.projects` containing the product id **or** any `scope.features` entry matching the product config's `features.idPrefix`. For bound products:
+
+- `scorecard_artifact_missing:<product>` / `scorecard_dimensions_missing:<path>` — `requireScorecardOnComplete` products need the run scorecard and the dimensions file.
+- `dimension_empty_evidence:<id>` / `dimension_evidence_missing:<id>:<path>` — every dimension must cite evidence paths that exist on disk. Unfalsifiable claims are not scoreable.
+- `dimension_not_rescored:<id>` — a mutating run touching a dimension's featureIds must leave `lastRunId` = this run.
+- `council_verdict_missing:<id>` — upgrading a dimension's status (e.g. partial → proven) requires `runs/<id>/design-council.md`.
+- `backlog_malformed:<file>:<id>` — backlog items need id/title/problem/desiredOutcome and must never contain literal "undefined".
+- `standing_defect_open:<id>` — open P0/P1 defects in `.optimizexp/defects.json` scoped to a bound product block completion; closing a defect requires an evidence path.
+- `token_audit_missing` / `token_audit_failing:<rule>` — web-driver products need `.optimizexp/audits/token-conformance.json` (from `npm run design:audit`) with zero `undefined-token`, `var-fallback-mismatch`, `design-json-drift` findings.
+- `mobile_evidence_missing` — mutating UX runs on web products need at least one bus-linked evidence capture with `screen.widthPx` ≤ 480.
+
 ### Resume after compaction / handoff
 
 ```bash

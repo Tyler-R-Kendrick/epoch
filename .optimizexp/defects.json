@@ -87,11 +87,12 @@
       "id": "EPX-D008",
       "title": "OptimizeXP backlog contains malformed generated entries",
       "severity": "P1",
-      "status": "open",
+      "status": "closed",
       "openedAt": "2026-08-03",
+      "closedAt": "2026-08-03",
       "projects": ["community-web"],
-      "summary": ".optimizexp/backlog/experiments.json has items with hypotheses interpolating literal \"undefined\" and empty featureIds/surfaces/experiences, so survey-to-backlog ranking is partly untrustworthy.",
-      "evidence": [],
+      "summary": ".optimizexp/backlog/experiments.json had items with missing id/problem/desiredOutcome and hypotheses interpolating literal \"undefined\". Records repaired in place, the survey writer now refuses to interpolate empty outcomes, and assert-complete validates backlog integrity so it cannot regress.",
+      "evidence": [".optimizexp/backlog/experiments.json", "skills/optimizexp/harness/test/review-loop-stop-gate.test.mts"],
       "closeRequires": "Backlog validates against schema (no literal undefined/null in strings, required fields non-empty); writer fixed so it cannot regress."
     }
   ]

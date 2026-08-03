@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T17:29:00.000Z",
+  "updatedAt": "2026-08-03T00:00:00.000Z",
   "runs": [
     "buzz-agent-member-20260803-1126"
   ],
@@ -49,7 +49,7 @@
     },
     {
       "title": "Collapse DID under handle on mobile.",
-      "hypothesis": "If we deliver \"undefined\", positive metrics rise on target surfaces.",
+      "hypothesis": "If we deliver \"Collapse DID under handle on mobile\", positive metrics rise on target surfaces.",
       "source": "survey",
       "sourceRefs": [
         ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/app-builder-design-power-user.json",
@@ -85,7 +85,10 @@
       "updatedAt": "2026-08-03T16:03:42.877Z",
       "runId": "community-competitor-opt-20260803-1048",
       "completedAt": "2026-08-03T16:05:00Z",
-      "note": "Applied media query collapsing .identity-did under handle on max-width 720px"
+      "note": "Applied media query collapsing .identity-did under handle on max-width 720px",
+      "id": "fr-collapse-did-under-handle-on-mobile",
+      "problem": "Recovered record: persona surveys ranked this without a captured problem statement; see sourceRefs.",
+      "desiredOutcome": "Collapse DID under handle on mobile"
     },
     {
       "title": "Wire real ACP session Working badges",
@@ -118,7 +121,10 @@
       "createdAt": "2026-08-03T16:44:00.000Z",
       "updatedAt": "2026-08-03T16:44:00.000Z",
       "runId": "buzz-agent-member-20260803-1126",
-      "note": "Not implementable in this package-only pass; residual for platform."
+      "note": "Not implementable in this package-only pass; residual for platform.",
+      "id": "fr-wire-real-acp-session-working-badges",
+      "problem": "Recovered record: persona surveys ranked this without a captured problem statement; see sourceRefs.",
+      "desiredOutcome": "Wire real ACP session Working badges"
     },
     {
       "title": "Agents-as-members stream + harness receipts",
@@ -152,7 +158,10 @@
       "updatedAt": "2026-08-03T16:40:00.000Z",
       "completedAt": "2026-08-03T16:40:00.000Z",
       "runId": "buzz-agent-member-20260803-1126",
-      "note": "Shipped in this run."
+      "note": "Shipped in this run.",
+      "id": "fr-agents-as-members-stream-harness-receipts",
+      "problem": "Recovered record: persona surveys ranked this without a captured problem statement; see sourceRefs.",
+      "desiredOutcome": "Agents-as-members stream + harness receipts"
     },
     {
       "title": "Agent session honesty (sample vs live Working)",
@@ -163,7 +172,10 @@
       "source": "experiment",
       "runId": "community-competitive-20260803-1719",
       "completedAt": "2026-08-03T17:25:00.000Z",
-      "note": "sessionKind + chip labels"
+      "note": "sessionKind + chip labels",
+      "id": "fr-agent-session-honesty-sample-vs-live-working",
+      "problem": "Recovered record: persona surveys ranked this without a captured problem statement; see sourceRefs.",
+      "desiredOutcome": "Agent session honesty (sample vs live Working)"
     },
     {
       "title": "Durable multi-user community store",
@@ -176,7 +188,10 @@
         "discord-power-user",
         "slack-power-user"
       ],
-      "runId": "community-competitive-20260803-1719"
+      "runId": "community-competitive-20260803-1719",
+      "id": "fr-durable-multi-user-community-store",
+      "problem": "Recovered record: persona surveys ranked this without a captured problem statement; see sourceRefs.",
+      "desiredOutcome": "Durable multi-user community store"
     },
     {
       "title": "Live ACP Working from real sessions",
@@ -189,7 +204,10 @@
         "buzz-power-user"
       ],
       "note": "Requires ACP control plane",
-      "runId": "community-competitive-20260803-1719"
+      "runId": "community-competitive-20260803-1719",
+      "id": "fr-live-acp-working-from-real-sessions",
+      "problem": "Recovered record: persona surveys ranked this without a captured problem statement; see sourceRefs.",
+      "desiredOutcome": "Live ACP Working from real sessions"
     }
   ],
   "itemCount": 7,

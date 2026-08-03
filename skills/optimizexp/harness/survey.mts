@@ -452,12 +452,20 @@ function modeRankBacklog(root: string, runId: string, global: boolean) {
 			const effort = fr.effortHint ?? "M";
 			const score = priorityScore(fr, 1, minPos);
 			const existing = byId.get(fr.id);
+			// Never interpolate a missing outcome into generated text — a backlog
+			// item that says "undefined" fails assert-complete backlog integrity.
+			const outcome = (fr.desiredOutcome ?? "").trim();
+			const deliverable = outcome !== "" ? outcome : (fr.title ?? "").trim();
+			if (deliverable === "") {
+				console.error(`skip backlog item without outcome or title: ${fr.id}`);
+				continue;
+			}
 			const item: BacklogItem = {
 				id: fr.id,
 				title: fr.title,
 				problem: fr.problem,
-				desiredOutcome: fr.desiredOutcome,
-				hypothesis: `If we deliver "${fr.desiredOutcome}", positive metrics rise on ${s.surfaces?.join(", ") || "target surfaces"}.`,
+				desiredOutcome: outcome !== "" ? outcome : deliverable,
+				hypothesis: `If we deliver "${deliverable}", positive metrics rise on ${s.surfaces?.join(", ") || "target surfaces"}.`,
 				source: fr.source || "survey",
 				sourceRefs: [
 					`.optimizexp/runs/${runId}/survey/${s.persona}.json`,
