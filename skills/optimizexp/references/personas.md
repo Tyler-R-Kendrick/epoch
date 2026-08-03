@@ -143,6 +143,30 @@ When `generatedFromSeed: true`, also **Source seed** (verbatim user seed for aud
 
 Extra sections allowed after the required ones. Optional narrative section **Experience involvement** may explain *why* those tracks were chosen (frontmatter remains authoritative).
 
+### Competitor-grounded personas (recommended additive sections)
+
+When a persona is grounded in a named competitor (Discord, Buzz, Tangled, …), include:
+
+```markdown
+## Competitor grounding
+- primaryProducts: [discord]
+- currencyPolicy: research-before-respond | dossier-ok | none
+- researchSources: […]   # required when currencyPolicy is research-before-respond
+
+## Dimension ownership
+- primaryDimensions: [belong, share]
+- secondaryDimensions: [craft]
+- autoFailIf: […]
+```
+
+| `currencyPolicy` | Meaning |
+|---|---|
+| `research-before-respond` | Must open live primary sources before scoring (Buzz) |
+| `dossier-ok` | Local `docs/competition/products/<slug>/` sufficient unless user asks for currency |
+| `none` | Composite / non-competitor persona |
+
+Dimension ids for Community Web live in `.optimizexp/competitive/community-web-dimensions.json`. See [competitive-coverage.md](competitive-coverage.md).
+
 ## Generate from product init
 
 `/optimizexp --init` discovers product signals and creates **UX / DX / AX** personas (e.g. `product-app-developer`, `product-end-user`). See `references/init.md`. Prefer init for first-time setup; use `--persona` for one-off seeds.
@@ -242,9 +266,10 @@ Concatenate with the persona markdown body. That composite string is the **perso
 
 1. Generated ids from this invocation’s `--persona` seeds (after rewrite).
 2. Plus / instead: `--personas` / `--use-personas` id lists (must exist on disk; still filtered by valid `experiences` when running experience-scoped reviews if the skill also applies intersection — explicit ids win for “I named them”).
-3. Else all personas whose formal frontmatter **`experiences` ∩ run experiences ≠ ∅**.
-4. Personas with missing/invalid `experiences` are **never** auto-selected.
-5. Time-box: sort by `priority`, then id; apply `--max-personas N`.
+3. Else if project/global config defines **`personas.defaultPanel`** and a `personas.panels.<name>` list, and the run did not pass `--personas`, use that panel (e.g. Community Web `community-competitive`).
+4. Else all personas whose formal frontmatter **`experiences` ∩ run experiences ≠ ∅**.
+5. Personas with missing/invalid `experiences` are **never** auto-selected.
+6. Time-box: sort by `priority` / `marketPriority`, then id; apply `--max-personas N` **without dropping the only owner of a required competitive dimension** when competitive coverage applies — prefer trimming secondary personas.
 
 ## Authoring new personas (manual)
 

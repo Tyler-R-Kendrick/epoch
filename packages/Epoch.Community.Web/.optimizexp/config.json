@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "kind": "project",
+  "label": "Epoch Community Web",
+  "product": {
+    "id": "community-web",
+    "package": "@epoch/community-web",
+    "entry": "packages/Epoch.Community.Web"
+  },
+  "defaults": {
+    "experiences": ["ux", "ax", "dx"],
+    "driver": "web",
+    "passes": "infinite",
+    "delight": true,
+    "survey": true,
+    "reportOnly": false,
+    "maxPersonas": 12
+  },
+  "personas": {
+    "requireSchemaVersion": 2,
+    "defaultPanel": "community-competitive",
+    "panels": {
+      "community-competitive": [
+        "discord-power-user",
+        "slack-power-user",
+        "github-power-user",
+        "tangled-power-user",
+        "bluesky-power-user",
+        "x-com-power-user",
+        "buzz-power-user",
+        "forge-community-power-user",
+        "agentic-coding-power-user",
+        "app-builder-design-power-user"
+      ],
+      "community-craft": [
+        "app-builder-design-power-user",
+        "product-designer",
+        "designer",
+        "telegram-power-user"
+      ],
+      "community-agents": [
+        "buzz-power-user",
+        "agentic-coding-power-user",
+        "discord-power-user"
+      ]
+    }
+  },
+  "competitive": {
+    "scorecard": ".optimizexp/competitive/community-web-dimensions.json",
+    "scorecardDoc": "docs/community-web-experience-gap-scorecard.md",
+    "requireScorecardOnComplete": true,
+    "requireCurrencyForPolicies": ["research-before-respond"]
+  },
+  "features": {
+    "defaultDriver": "web",
+    "idPrefix": "community-web-"
+  },
+  "evidence": {
+    "preferVideo": true,
+    "overwritePrimary": true
+  },
+  "notes": [
+    "Default panel is community-competitive so bare optimizexp captures competitor gaps.",
+    "Override with --personas or document panel choice in run scope.json.",
+    "Update competitive scorecard dimensions after every mutating experiment."
+  ]
+}

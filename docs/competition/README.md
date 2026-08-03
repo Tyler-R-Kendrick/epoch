@@ -24,6 +24,9 @@ Community-owned channels comparison (Discord-led):
 AI-native room concepts (Block Buzz):
 [ai-native-room-concepts.md](ai-native-room-concepts.md).
 
+Living Community Web **experience gap scorecard** (dimensions scored every optimizexp):
+[community-web-experience-gap-scorecard.md](../community-web-experience-gap-scorecard.md).
+
 
 ## Paths
 

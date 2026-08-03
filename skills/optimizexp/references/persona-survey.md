@@ -55,6 +55,20 @@ Agents **must** use this instrument (can add optional free-text only under `extr
 | `q_never` | What should we **never** do on this path? | harms guardrails / anti-goals |
 | `q_recommend` | Would you recommend this experience to a peer? (yes/mixed/no + why) | desirability alignment |
 
+### Competitive extension (when coverage applies)
+
+When the run is **competitive-covered** (project `competitive.scorecard`, Community Web features, or selected competitor personas — see [competitive-coverage.md](competitive-coverage.md)), agents **must** also answer:
+
+| Id | Prompt | Maps to |
+|---|---|---|
+| `q_competitor_bar` | Which product is your **home bar** for this path (Discord / Slack / GitHub / Tangled / Bluesky / X / Buzz / other)? | Grounding |
+| `q_parity` | On a scale of 0–5, how **close** is Epoch to that bar on **this** journey? Why? | Competitive parity + backlog |
+| `q_epoch_only` | What did Epoch do that your bar product does **not**? | Differentiator keep-list |
+| `q_dealbreaker` | What is still a **dealbreaker** vs switching or dual-wielding? | Gap map / P0 fuel |
+| `q_dimension` | Which **scorecard dimensions** failed or stayed weak? (ids: belong, discover, identity, share, promote, agents_member, receipts, honesty, craft, persistence) | Scorecard update |
+
+Feature requests from these answers should include `"competitiveDimension": "<id>"` when a single dimension dominates. Aggregate into `runs/<id>/competitive-scorecard.json`.
+
 Answers are **first person as the persona**. Cite evidence paths when visual/CLI transcript informed the score.
 
 ## Response schema (`survey/<persona>.json`)
@@ -199,3 +213,4 @@ Writes `survey/aggregate.json`:
 - [positive-metrics.md](positive-metrics.md)
 - [experiment-backlog.md](experiment-backlog.md)
 - [agent-bus.md](agent-bus.md) — feelings/desirability feed survey
+- [competitive-coverage.md](competitive-coverage.md) — parity questions + scorecard

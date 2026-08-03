@@ -68,3 +68,7 @@ Screenshots: [`docs/evidence/design-screenshots/`](evidence/design-screenshots/R
 ## AI-native rooms (Block Buzz)
 
 Agent membership, in-stream multi-agent work, and receipt-oriented collaboration: see [docs/competition/ai-native-room-concepts.md](competition/ai-native-room-concepts.md) and evidence under [docs/evidence/competition/block-buzz/](evidence/competition/block-buzz/).
+
+## Experience gap scorecard
+
+Competitive dimensions (belong, discover, identity, share, promote, agents-as-members, receipts, honesty, craft, persistence) are tracked in [community-web-experience-gap-scorecard.md](community-web-experience-gap-scorecard.md) and `.optimizexp/competitive/community-web-dimensions.json`. OptimizeXP Community Web runs must update that scorecard — see `skills/optimizexp/references/competitive-coverage.md`.

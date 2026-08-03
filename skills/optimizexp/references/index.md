@@ -12,6 +12,7 @@ Progressive-disclosure bundle for the optimizexp skill. Route by need; do not lo
 - [equilibrium.md](equilibrium.md) — Pareto stop: harm floor → delight max under constraints
 - [persona-models.md](persona-models.md) — KYC-lite demographic/psychographic + segments
 - [persona-survey.md](persona-survey.md) — pseudo survey → feature requests
+- [competitive-coverage.md](competitive-coverage.md) — competitor gap scorecards, panels, currency, closeout
 - [experiment-backlog.md](experiment-backlog.md) — rank/auto-apply uplift experiments
 - [metric-scorecard.md](metric-scorecard.md) — formal `scores` (+ optional `positive`, `cognitive`)
 - [agent-bus.md](agent-bus.md) — write-ahead expect / act / outcome log

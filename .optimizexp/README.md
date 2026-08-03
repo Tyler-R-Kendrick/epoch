@@ -23,6 +23,21 @@ user of a competitor.
 | [Agentic coding power user](personas/agentic-coding-power-user.md) | Coding agents, AI review, checkpoints, permissions, and handoff | DX, AX |
 | [Design-led app builder power user](personas/app-builder-design-power-user.md) | Prompt-to-app, design-to-code, preview, publishing, and rollback | UX, AX |
 | [Asset-scale storage and distribution power user](personas/asset-distribution-power-user.md) | Large binaries, chunking, partial materialization, distribution, backup, and recovery | DX |
+| [Designer](personas/designer.md) / [Product designer](personas/product-designer.md) / craft lenses | Community social craft + DESIGN.md | UX |
+
+## Community Web competitive coverage
+
+Default Community Web OptimizeXP panel is **`community-competitive`** (see
+`packages/Epoch.Community.Web/.optimizexp/config.json`).
+
+Living gap scorecard:
+
+- [docs/community-web-experience-gap-scorecard.md](../docs/community-web-experience-gap-scorecard.md)
+- Machine twin: [competitive/community-web-dimensions.json](competitive/community-web-dimensions.json)
+- Skill ritual: `skills/optimizexp/references/competitive-coverage.md`
+
+Every Community Web optimizexp run must update dimension statuses and write
+`runs/<id>/competitive-scorecard.json` (not only cold-entry scores).
 
 Validate the panel with:
 
