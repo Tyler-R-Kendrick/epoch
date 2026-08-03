@@ -7,17 +7,14 @@
   ],
   "personas": [
     "forge-community-power-user",
-<<<<<<< HEAD
     "discord-power-user",
     "slack-power-user",
     "telegram-power-user",
     "x-com-power-user",
     "bluesky-power-user",
     "github-power-user",
-    "tangled-power-user"
-=======
+    "tangled-power-user",
     "buzz-power-user"
->>>>>>> 54f6abb (docs: capture Block Buzz competitor and critical AI-native persona)
   ],
   "projects": [
     "root"

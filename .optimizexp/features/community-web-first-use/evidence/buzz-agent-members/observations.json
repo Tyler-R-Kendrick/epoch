@@ -1,0 +1,18 @@
+{
+  "agentsInDom": 3,
+  "visibleAgents": 2,
+  "members": 3,
+  "harnesses": [
+    "goose",
+    "codex",
+    "claude-code"
+  ],
+  "managed": [
+    "managed by @lea",
+    "managed by @maya",
+    "managed by @maya"
+  ],
+  "intents": 9,
+  "working": "@ui-reviewer: open agent-runs for harness receipts",
+  "list": true
+}

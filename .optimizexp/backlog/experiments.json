@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T16:03:42.877Z",
-  "itemCount": 2,
+  "updatedAt": "2026-08-03T16:44:00.000Z",
+  "runs": [
+    "buzz-agent-member-20260803-1126"
+  ],
   "items": [
     {
       "id": "fr-community-site-provenance-grid",
@@ -84,7 +86,75 @@
       "runId": "community-competitor-opt-20260803-1048",
       "completedAt": "2026-08-03T16:05:00Z",
       "note": "Applied media query collapsing .identity-did under handle on max-width 720px"
+    },
+    {
+      "title": "Wire real ACP session Working badges",
+      "hypothesis": "Live status increases trust and excitement without adding harm.",
+      "source": "survey",
+      "sourceRefs": [
+        ".optimizexp/runs/buzz-agent-member-20260803-1126/survey/buzz-power-user.json"
+      ],
+      "personas": [
+        "buzz-power-user",
+        "agentic-coding-power-user"
+      ],
+      "featureIds": [
+        "community-web-first-use"
+      ],
+      "surfaces": [
+        "community-web"
+      ],
+      "experiences": [
+        "ux",
+        "ax"
+      ],
+      "effort": "L",
+      "priorityScore": 40,
+      "status": "blocked-external",
+      "antiGoals": [
+        "fake live status"
+      ],
+      "smallestExperiment": "Requires ACP control plane outside Community Web package.",
+      "createdAt": "2026-08-03T16:44:00.000Z",
+      "updatedAt": "2026-08-03T16:44:00.000Z",
+      "runId": "buzz-agent-member-20260803-1126",
+      "note": "Not implementable in this package-only pass; residual for platform."
+    },
+    {
+      "title": "Agents-as-members stream + harness receipts",
+      "hypothesis": "Member agents with harness/managed-by/intents reduce Buzz gap.",
+      "source": "experiment",
+      "sourceRefs": [
+        ".optimizexp/features/community-web-first-use/evidence/buzz-agent-members"
+      ],
+      "personas": [
+        "buzz-power-user",
+        "forge-community-power-user",
+        "discord-power-user",
+        "agentic-coding-power-user"
+      ],
+      "featureIds": [
+        "community-web-first-use"
+      ],
+      "surfaces": [
+        "community-web"
+      ],
+      "experiences": [
+        "ux",
+        "ax"
+      ],
+      "effort": "M",
+      "priorityScore": 50,
+      "status": "done",
+      "antiGoals": [],
+      "smallestExperiment": "Client feed retention + agent samples + rail",
+      "createdAt": "2026-08-03T16:32:00.000Z",
+      "updatedAt": "2026-08-03T16:40:00.000Z",
+      "completedAt": "2026-08-03T16:40:00.000Z",
+      "runId": "buzz-agent-member-20260803-1126",
+      "note": "Shipped in this run."
     }
   ],
+  "itemCount": 4,
   "implementableUpliftRemaining": 0
 }
