@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-01T19:21:02.000Z",
-  "itemCount": 1,
+  "updatedAt": "2026-08-03T16:03:42.877Z",
+  "itemCount": 2,
   "items": [
     {
       "id": "fr-community-site-provenance-grid",
@@ -44,6 +44,47 @@
       "createdAt": "2026-08-01T19:16:29.475Z",
       "updatedAt": "2026-08-01T19:21:02.000Z",
       "runId": "20260801-ux-community-web"
+    },
+    {
+      "title": "Collapse DID under handle on mobile.",
+      "hypothesis": "If we deliver \"undefined\", positive metrics rise on target surfaces.",
+      "source": "survey",
+      "sourceRefs": [
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/app-builder-design-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/bluesky-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/discord-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/forge-community-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/github-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/slack-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/tangled-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/telegram-power-user.json",
+        ".optimizexp/runs/community-competitor-opt-20260803-1048/survey/x-com-power-user.json"
+      ],
+      "personas": [
+        "app-builder-design-power-user",
+        "bluesky-power-user",
+        "discord-power-user",
+        "forge-community-power-user",
+        "github-power-user",
+        "slack-power-user",
+        "tangled-power-user",
+        "telegram-power-user",
+        "x-com-power-user"
+      ],
+      "featureIds": [],
+      "surfaces": [],
+      "experiences": [],
+      "effort": "M",
+      "priorityScore": 39,
+      "status": "done",
+      "antiGoals": [],
+      "smallestExperiment": "Smallest safe change for: Collapse DID under handle on mobile.",
+      "createdAt": "2026-08-03T16:03:42.877Z",
+      "updatedAt": "2026-08-03T16:03:42.877Z",
+      "runId": "community-competitor-opt-20260803-1048",
+      "completedAt": "2026-08-03T16:05:00Z",
+      "note": "Applied media query collapsing .identity-did under handle on max-width 720px"
     }
-  ]
+  ],
+  "implementableUpliftRemaining": 0
 }

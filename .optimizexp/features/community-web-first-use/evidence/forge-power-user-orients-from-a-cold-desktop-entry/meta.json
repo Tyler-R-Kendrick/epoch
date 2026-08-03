@@ -3,23 +3,30 @@
   "scenarioSlug": "forge-power-user-orients-from-a-cold-desktop-entry",
   "personaIds": [
     "forge-community-power-user",
-    "app-builder-design-power-user"
+    "app-builder-design-power-user",
+    "discord-power-user",
+    "slack-power-user",
+    "telegram-power-user",
+    "x-com-power-user",
+    "bluesky-power-user",
+    "github-power-user",
+    "tangled-power-user"
   ],
-  "interface": "native",
-  "driver": "native",
-  "capturedAt": "2026-08-01T18:47:33.746Z",
-  "runId": "20260801-ux-community-web",
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-03T15:59:09.966Z",
+  "runId": "community-competitor-opt-20260803-1048",
   "screen": {
-    "widthPx": null,
-    "heightPx": null,
+    "widthPx": 1280,
+    "heightPx": 720,
     "cols": null,
     "rows": null
   },
   "primary": {
     "file": "primary.webm",
     "kind": "video",
-    "bytes": 87035,
-    "sha256": "95b4f5478b36f713f2ebdc62134fa481181841151c2d5bdad2402b27acb79d53"
+    "bytes": 159121,
+    "sha256": "a22a5cfd1d96e4db4be0ae485fd035467438a193f7073fa2486bdab82fceeb7c"
   },
   "claims": [
     {
@@ -43,17 +50,14 @@
       "text": "And the rail distinguishes Communities, Channels, and Linked projects"
     }
   ],
-  "frames": [
-    "01-entry.png",
-    "99-outcome.png"
-  ],
+  "frames": [],
   "repro": {
-    "nativeCmd": "rtk node .optimizexp/harness/community-web-capture.mjs forge-power-user-orients-from-a-cold-desktop-entry",
+    "url": "http://127.0.0.1:8787/community",
     "via": "capture-evidence"
   },
   "exitCode": null,
   "degraded": false,
   "notes": [
-    "native command exit 0"
+    "playwright screenshot captured"
   ]
 }

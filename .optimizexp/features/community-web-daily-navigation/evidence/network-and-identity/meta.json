@@ -1,0 +1,14 @@
+{
+  "featureId": "community-web-daily-navigation",
+  "scenarioSlug": "network-and-identity",
+  "driver": "web",
+  "capturedAt": "2026-08-03T16:01:14.395Z",
+  "primary": {
+    "file": "primary.png",
+    "kind": "image"
+  },
+  "degraded": false,
+  "notes": [
+    "identity survives mode switch; members strip; network feed"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "showcaseClearedOrDifferent": true,
+  "generalRestored": "draft for general hangout",
+  "generalOk": true,
+  "afterShareChannel": "# showcase",
+  "afterShareVal": "shipping my feature",
+  "placeholder": "Share what you're building — demo, release, or project link",
+  "shareOpensShowcase": true
+}

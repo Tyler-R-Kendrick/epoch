@@ -1,0 +1,15 @@
+{
+  "featureId": "community-web-daily-navigation",
+  "scenarioSlug": "composer-draft-and-share-ship",
+  "driver": "web",
+  "capturedAt": "2026-08-03T15:57:13.926Z",
+  "runId": "community-competitor-opt",
+  "primary": {
+    "file": "primary.png",
+    "kind": "image"
+  },
+  "degraded": false,
+  "notes": [
+    "playwright interaction: per-channel drafts + share a ship"
+  ]
+}
