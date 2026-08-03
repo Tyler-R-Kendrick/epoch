@@ -278,6 +278,7 @@
       ],
       "evidencePaths": [
         ".optimizexp/audits/token-conformance.json",
+        "docs/evidence/community-web/axe.json",
         ".optimizexp/features/community-web-responsive-craft/evidence/design-power-user-audits-narrow-layout-and-touch-targets/",
         "docs/evidence/community-web/community_web.feature.json"
       ],
@@ -287,7 +288,7 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Craft moments (provenance reveal, artifact seal, contribution lineage) recorded as scenario evidence",
+      "smallestExperiment": "Craft moments are covered by scenarios; next pass is motion and iconography specification",
       "lastRunId": "community-persona-uplift-20260803-1823",
       "lastScoredAt": "2026-08-03T18:34:00.000Z"
     },
@@ -333,21 +334,25 @@
         "github"
       ],
       "epochClaim": "Reports become signed receipts with visible outcomes; unread and notification state derive from real receipts, never invented urgency",
-      "status": "missing",
+      "status": "partial",
       "personaIds": [
         "community-moderator",
         "screen-reader-power-user",
         "discord-power-user"
       ],
-      "featureIds": [],
-      "evidencePaths": [],
+      "featureIds": [
+        "community-web-daily-navigation"
+      ],
+      "evidencePaths": [
+        "docs/evidence/community-web/community_web.feature.json"
+      ],
       "metricFloor": {
         "harms": 1,
         "friction": 1,
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Route the existing Report action into a moderation queue surface with a signed receipt and a member-visible state"
+      "smallestExperiment": "Moderator decision actions (resolve, hold) recorded from the ops queue itself"
     }
   ]
 }

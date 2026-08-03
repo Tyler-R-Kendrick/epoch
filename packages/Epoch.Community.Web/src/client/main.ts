@@ -623,6 +623,41 @@ function applyHighlight(message: HTMLElement, query: string): void {
 
 // ── Feed state ───────────────────────────────────────────────────────────────
 
+// ── Contribution lineage ─────────────────────────────────────────────────────
+
+/**
+ * Mark the origin message and its resulting change row as one contribution,
+ * then move the reader to the change. The dimension the scorecard calls
+ * `promote` is otherwise invisible: you can promote a message and never see
+ * that the two records are the same piece of work.
+ */
+function showLineage(proposalId: string): void {
+  if (proposalId === "") return;
+  document.querySelectorAll<HTMLElement>("[data-lineage-origin]").forEach((element) => {
+    element.removeAttribute("data-lineage-origin");
+  });
+  document.querySelectorAll<HTMLElement>("[data-lineage-target]").forEach((element) => {
+    element.removeAttribute("data-lineage-target");
+  });
+
+  const origin = document.querySelector<HTMLElement>(
+    `[data-message][data-linked-proposal="${CSS.escape(proposalId)}"]`,
+  );
+  origin?.setAttribute("data-lineage-origin", "true");
+
+  const row = document.querySelector<HTMLElement>(
+    `[data-change-list] [data-change-id="${CSS.escape(proposalId)}"]`,
+  );
+  if (row === null) {
+    if (origin) setStatus(origin, "Lineage: this change is not in the linked project list yet.");
+    return;
+  }
+  row.setAttribute("data-lineage-target", "true");
+  if (productMode !== "repo") selectProductMode("repo");
+  selectSurface("changes");
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
 function updateFeedState(visibleCount: number, query: string): void {
   const stateItem = document.querySelector<HTMLElement>(".message-feed [data-state-item]");
   if (stateItem === null) return;
@@ -1349,6 +1384,39 @@ async function handleDelegatedClick(event: MouseEvent): Promise<void> {
       }
     } else {
       setStatus(message, live() ? "Reactions attach to issue threads." : "Live API unavailable for reactions.");
+    }
+    return;
+  }
+
+  // Contribution lineage: follow a promoted message across to the change it
+  // became, highlighting both ends so the path from talk to reviewable work is
+  // visible rather than implied.
+  const lineageButton = target.closest<HTMLElement>("[data-view-lineage]");
+  if (lineageButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const proposalId = lineageButton.getAttribute("data-view-lineage") ?? "";
+    showLineage(proposalId);
+    return;
+  }
+
+  // Provenance reveal: the signature mark expands the record behind it.
+  const signatureMark = target.closest<HTMLElement>("[data-signature-reveal]");
+  if (signatureMark) {
+    event.preventDefault();
+    event.stopPropagation();
+    const message = signatureMark.closest<HTMLElement>("[data-message]");
+    const panel = message?.querySelector<HTMLElement>("[data-provenance-panel]");
+    if (panel) {
+      const opening = panel.hidden;
+      panel.hidden = !opening;
+      signatureMark.setAttribute("aria-expanded", opening ? "true" : "false");
+      if (opening) {
+        // Restart the underline draw on each open.
+        panel.removeAttribute("data-provenance-revealed");
+        void panel.offsetWidth;
+        panel.setAttribute("data-provenance-revealed", "true");
+      }
     }
     return;
   }

@@ -14,7 +14,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 694145
+              "duration": 685862
             }
           },
           {
@@ -22,7 +22,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 1845235
+              "duration": 763714
             }
           },
           {
@@ -30,7 +30,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 753751
+              "duration": 480553
             }
           },
           {
@@ -39,11 +39,11 @@
             "line": 7,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 754056
+              "duration": 998415
             }
           },
           {
@@ -52,11 +52,11 @@
             "line": 8,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 367818416
+              "duration": 572736206
             }
           },
           {
@@ -65,11 +65,11 @@
             "line": 9,
             "name": "the Community Web shows a community with channels",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:161"
+              "location": "dist/test/features/community_web_experience_steps.js:199"
             },
             "result": {
               "status": "passed",
-              "duration": 125346655
+              "duration": 175067356
             }
           },
           {
@@ -78,11 +78,11 @@
             "line": 10,
             "name": "the active channel does not require a repository",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:171"
+              "location": "dist/test/features/community_web_experience_steps.js:209"
             },
             "result": {
               "status": "passed",
-              "duration": 23247591
+              "duration": 32500697
             }
           },
           {
@@ -90,7 +90,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 717824
+              "duration": 995288
             }
           },
           {
@@ -98,7 +98,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 186779
+              "duration": 498998
             }
           },
           {
@@ -106,7 +106,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 249242
+              "duration": 313697
             }
           },
           {
@@ -114,7 +114,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 433602180
+              "duration": 477932441
             }
           },
           {
@@ -122,7 +122,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 194333
+              "duration": 166125
             }
           },
           {
@@ -130,7 +130,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 164835
+              "duration": 128189
             }
           }
         ],
@@ -154,7 +154,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 41642
+              "duration": 93483
             }
           },
           {
@@ -162,7 +162,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 751097
+              "duration": 817490
             }
           },
           {
@@ -170,7 +170,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 344163
+              "duration": 367057
             }
           },
           {
@@ -179,11 +179,11 @@
             "line": 14,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 159630
+              "duration": 281390
             }
           },
           {
@@ -192,11 +192,11 @@
             "line": 15,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 362313224
+              "duration": 441755952
             }
           },
           {
@@ -205,11 +205,11 @@
             "line": 16,
             "name": "I open the Network Feed",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:105"
+              "location": "dist/test/features/community_web_experience_steps.js:132"
             },
             "result": {
               "status": "passed",
-              "duration": 129752403
+              "duration": 200969448
             }
           },
           {
@@ -218,11 +218,11 @@
             "line": 17,
             "name": "the Community Web shows the Network Feed with activity tabs",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:177"
+              "location": "dist/test/features/community_web_experience_steps.js:215"
             },
             "result": {
               "status": "passed",
-              "duration": 35561753
+              "duration": 39865099
             }
           },
           {
@@ -230,7 +230,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 217501
+              "duration": 239078
             }
           },
           {
@@ -238,7 +238,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 54094
+              "duration": 63469
             }
           },
           {
@@ -246,7 +246,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 20923
+              "duration": 78476
             }
           },
           {
@@ -254,7 +254,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 382253698
+              "duration": 449476783
             }
           },
           {
@@ -262,7 +262,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 80223
+              "duration": 116621
             }
           },
           {
@@ -270,7 +270,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 21434
+              "duration": 36788
             }
           }
         ],
@@ -294,7 +294,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 18168
+              "duration": 29597
             }
           },
           {
@@ -302,7 +302,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 628619
+              "duration": 5552457
             }
           },
           {
@@ -310,7 +310,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 256898
+              "duration": 867516
             }
           },
           {
@@ -319,11 +319,11 @@
             "line": 21,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 111353
+              "duration": 681485
             }
           },
           {
@@ -332,11 +332,11 @@
             "line": 22,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 304459719
+              "duration": 558510670
             }
           },
           {
@@ -345,11 +345,11 @@
             "line": 23,
             "name": "I switch to the Agent Guild community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:110"
+              "location": "dist/test/features/community_web_experience_steps.js:137"
             },
             "result": {
               "status": "passed",
-              "duration": 138827936
+              "duration": 351806693
             }
           },
           {
@@ -358,11 +358,11 @@
             "line": 24,
             "name": "I open the agent-runs channel",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:115"
+              "location": "dist/test/features/community_web_experience_steps.js:142"
             },
             "result": {
               "status": "passed",
-              "duration": 64846398
+              "duration": 141548442
             }
           },
           {
@@ -371,11 +371,11 @@
             "line": 25,
             "name": "the Community Web shows the Agent Guild channels",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:186"
+              "location": "dist/test/features/community_web_experience_steps.js:224"
             },
             "result": {
               "status": "passed",
-              "duration": 32863764
+              "duration": 60988037
             }
           },
           {
@@ -383,7 +383,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 216479
+              "duration": 307549
             }
           },
           {
@@ -391,7 +391,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 64811
+              "duration": 87542
             }
           },
           {
@@ -399,7 +399,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 41029
+              "duration": 31995
             }
           },
           {
@@ -407,7 +407,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 375433906
+              "duration": 567875447
             }
           },
           {
@@ -415,7 +415,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 71956
+              "duration": 2787432
             }
           },
           {
@@ -423,7 +423,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 31539
+              "duration": 112347
             }
           }
         ],
@@ -447,7 +447,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 20922
+              "duration": 35955
             }
           },
           {
@@ -455,7 +455,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 756507
+              "duration": 841566
             }
           },
           {
@@ -463,7 +463,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 277821
+              "duration": 386650
             }
           },
           {
@@ -472,11 +472,11 @@
             "line": 29,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 351613
+              "duration": 182278
             }
           },
           {
@@ -485,11 +485,11 @@
             "line": 30,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 365544708
+              "duration": 696737978
             }
           },
           {
@@ -498,11 +498,11 @@
             "line": 31,
             "name": "I open the ideas channel in the active community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:118"
+              "location": "dist/test/features/community_web_experience_steps.js:145"
             },
             "result": {
               "status": "passed",
-              "duration": 135180637
+              "duration": 271479319
             }
           },
           {
@@ -511,11 +511,11 @@
             "line": 32,
             "name": "I select the \"Dashboard widget should group revenue by region\" community message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:124"
+              "location": "dist/test/features/community_web_experience_steps.js:151"
             },
             "result": {
               "status": "passed",
-              "duration": 66023127
+              "duration": 146334998
             }
           },
           {
@@ -524,11 +524,11 @@
             "line": 33,
             "name": "I mark the selected message as an intent candidate",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:127"
+              "location": "dist/test/features/community_web_experience_steps.js:165"
             },
             "result": {
               "status": "passed",
-              "duration": 63696693
+              "duration": 121967736
             }
           },
           {
@@ -537,11 +537,11 @@
             "line": 34,
             "name": "the live API records a change proposal for the selected conversation",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:200"
+              "location": "dist/test/features/community_web_experience_steps.js:238"
             },
             "result": {
               "status": "passed",
-              "duration": 68342614
+              "duration": 118598762
             }
           },
           {
@@ -549,7 +549,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 224602
+              "duration": 424170
             }
           },
           {
@@ -557,7 +557,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 58460
+              "duration": 74203
             }
           },
           {
@@ -565,7 +565,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 22227
+              "duration": 29389
             }
           },
           {
@@ -573,7 +573,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 398323761
+              "duration": 572144662
             }
           },
           {
@@ -581,7 +581,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 97737
+              "duration": 90253
             }
           },
           {
@@ -589,7 +589,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 23748
+              "duration": 1760357
             }
           }
         ],
@@ -613,7 +613,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 28519
+              "duration": 46690
             }
           },
           {
@@ -621,7 +621,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 752465
+              "duration": 847714
             }
           },
           {
@@ -629,7 +629,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 315336
+              "duration": 564448
             }
           },
           {
@@ -638,11 +638,11 @@
             "line": 38,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 430225
+              "duration": 1278762
             }
           },
           {
@@ -651,11 +651,11 @@
             "line": 39,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 352134524
+              "duration": 721449370
             }
           },
           {
@@ -664,11 +664,11 @@
             "line": 40,
             "name": "I open the ideas channel in the active community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:118"
+              "location": "dist/test/features/community_web_experience_steps.js:145"
             },
             "result": {
               "status": "passed",
-              "duration": 145658688
+              "duration": 356373763
             }
           },
           {
@@ -677,11 +677,11 @@
             "line": 41,
             "name": "I select the \"Dashboard widget should group revenue by region\" community message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:124"
+              "location": "dist/test/features/community_web_experience_steps.js:151"
             },
             "result": {
               "status": "passed",
-              "duration": 57121095
+              "duration": 183034561
             }
           },
           {
@@ -690,11 +690,11 @@
             "line": 42,
             "name": "I request an agent from the selected message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:131"
+              "location": "dist/test/features/community_web_experience_steps.js:169"
             },
             "result": {
               "status": "passed",
-              "duration": 71803001
+              "duration": 327898930
             }
           },
           {
@@ -703,11 +703,11 @@
             "line": 43,
             "name": "the selected message shows that human review remains required",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:211"
+              "location": "dist/test/features/community_web_experience_steps.js:249"
             },
             "result": {
               "status": "passed",
-              "duration": 53586618
+              "duration": 102029558
             }
           },
           {
@@ -715,7 +715,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 447073
+              "duration": 3344273
             }
           },
           {
@@ -723,7 +723,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 74496
+              "duration": 292959
             }
           },
           {
@@ -731,7 +731,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 19993
+              "duration": 46065
             }
           },
           {
@@ -739,7 +739,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 412694591
+              "duration": 641504340
             }
           },
           {
@@ -747,7 +747,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 61504
+              "duration": 83942
             }
           },
           {
@@ -755,7 +755,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 26590
+              "duration": 34784
             }
           }
         ],
@@ -779,7 +779,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 23240
+              "duration": 34369
             }
           },
           {
@@ -787,7 +787,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 887044
+              "duration": 2110554
             }
           },
           {
@@ -795,7 +795,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 626817
+              "duration": 7321068
             }
           },
           {
@@ -804,11 +804,11 @@
             "line": 47,
             "name": "Community Web is running from an honest snapshot",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:68"
+              "location": "dist/test/features/community_web_experience_steps.js:72"
             },
             "result": {
               "status": "passed",
-              "duration": 364256078
+              "duration": 1866548130
             }
           },
           {
@@ -817,11 +817,11 @@
             "line": 48,
             "name": "the snapshot banner explains how to reconnect for signed work",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:218"
+              "location": "dist/test/features/community_web_experience_steps.js:256"
             },
             "result": {
               "status": "passed",
-              "duration": 49139218
+              "duration": 483526025
             }
           },
           {
@@ -830,11 +830,11 @@
             "line": 49,
             "name": "I open the ideas channel in the active community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:118"
+              "location": "dist/test/features/community_web_experience_steps.js:145"
             },
             "result": {
               "status": "passed",
-              "duration": 97614168
+              "duration": 444779618
             }
           },
           {
@@ -843,11 +843,11 @@
             "line": 50,
             "name": "I select the \"Dashboard widget should group revenue by region\" community message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:124"
+              "location": "dist/test/features/community_web_experience_steps.js:151"
             },
             "result": {
               "status": "passed",
-              "duration": 68801564
+              "duration": 438670308
             }
           },
           {
@@ -856,11 +856,11 @@
             "line": 51,
             "name": "I mark the selected message as an intent candidate",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:127"
+              "location": "dist/test/features/community_web_experience_steps.js:165"
             },
             "result": {
               "status": "passed",
-              "duration": 52153443
+              "duration": 229299441
             }
           },
           {
@@ -869,11 +869,11 @@
             "line": 52,
             "name": "the selected message explains how to reconnect and retry Mark intent",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:215"
+              "location": "dist/test/features/community_web_experience_steps.js:253"
             },
             "result": {
               "status": "passed",
-              "duration": 13414162
+              "duration": 55543152
             }
           },
           {
@@ -881,7 +881,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 197605
+              "duration": 290989
             }
           },
           {
@@ -889,7 +889,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 59068
+              "duration": 262764
             }
           },
           {
@@ -897,7 +897,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 96418
+              "duration": 43117
             }
           },
           {
@@ -905,7 +905,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 421882402
+              "duration": 753805012
             }
           },
           {
@@ -913,7 +913,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 257790
+              "duration": 107897
             }
           },
           {
@@ -921,7 +921,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 38872
+              "duration": 53427
             }
           }
         ],
@@ -945,7 +945,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 20298
+              "duration": 24161
             }
           },
           {
@@ -953,7 +953,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 656961
+              "duration": 1138127
             }
           },
           {
@@ -961,7 +961,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 303563
+              "duration": 478558
             }
           },
           {
@@ -970,11 +970,11 @@
             "line": 56,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 158836
+              "duration": 220377
             }
           },
           {
@@ -983,11 +983,11 @@
             "line": 57,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 331040425
+              "duration": 1508712948
             }
           },
           {
@@ -996,11 +996,11 @@
             "line": 58,
             "name": "I open the ideas channel in the active community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:118"
+              "location": "dist/test/features/community_web_experience_steps.js:145"
             },
             "result": {
               "status": "passed",
-              "duration": 131364889
+              "duration": 775981092
             }
           },
           {
@@ -1009,11 +1009,11 @@
             "line": 59,
             "name": "I add a community reply \"Keyboard navigation works in the preview.\"",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:135"
+              "location": "dist/test/features/community_web_experience_steps.js:173"
             },
             "result": {
               "status": "passed",
-              "duration": 88628935
+              "duration": 471306679
             }
           },
           {
@@ -1022,11 +1022,11 @@
             "line": 60,
             "name": "the reply appears in the message feed with signed comment metadata",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:221"
+              "location": "dist/test/features/community_web_experience_steps.js:259"
             },
             "result": {
               "status": "passed",
-              "duration": 45906275
+              "duration": 398902211
             }
           },
           {
@@ -1034,7 +1034,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 218006
+              "duration": 323795
             }
           },
           {
@@ -1042,7 +1042,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 56733
+              "duration": 81651
             }
           },
           {
@@ -1050,7 +1050,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 21313
+              "duration": 37597
             }
           },
           {
@@ -1058,7 +1058,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 345029947
+              "duration": 893234540
             }
           },
           {
@@ -1066,7 +1066,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 84138
+              "duration": 85091
             }
           },
           {
@@ -1074,7 +1074,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 26490
+              "duration": 32390
             }
           }
         ],
@@ -1098,7 +1098,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 19486
+              "duration": 22601
             }
           },
           {
@@ -1106,7 +1106,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 407696
+              "duration": 3206684
             }
           },
           {
@@ -1114,7 +1114,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 314018
+              "duration": 758630
             }
           },
           {
@@ -1123,11 +1123,11 @@
             "line": 64,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 141886
+              "duration": 190386
             }
           },
           {
@@ -1136,11 +1136,11 @@
             "line": 65,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 381494580
+              "duration": 5017705432
             }
           },
           {
@@ -1149,11 +1149,11 @@
             "line": 66,
             "name": "I use Community Web at a narrow mobile width",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:151"
+              "location": "dist/test/features/community_web_experience_steps.js:189"
             },
             "result": {
               "status": "passed",
-              "duration": 9460928
+              "duration": 76613080
             }
           },
           {
@@ -1162,11 +1162,11 @@
             "line": 67,
             "name": "the active conversation remains reachable without an oversized navigation rail",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:232"
+              "location": "dist/test/features/community_web_experience_steps.js:270"
             },
             "result": {
               "status": "passed",
-              "duration": 113798568
+              "duration": 451782847
             }
           },
           {
@@ -1175,11 +1175,11 @@
             "line": 68,
             "name": "I can browse each navigation group without horizontal page overflow",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:241"
+              "location": "dist/test/features/community_web_experience_steps.js:279"
             },
             "result": {
               "status": "passed",
-              "duration": 4170632
+              "duration": 43318409
             }
           },
           {
@@ -1188,11 +1188,11 @@
             "line": 69,
             "name": "conversation reactions meet the Community touch-target floor",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:256"
+              "location": "dist/test/features/community_web_experience_steps.js:304"
             },
             "result": {
               "status": "passed",
-              "duration": 9413631
+              "duration": 40642266
             }
           },
           {
@@ -1201,11 +1201,11 @@
             "line": 70,
             "name": "Community state remains readable and announced",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:261"
+              "location": "dist/test/features/community_web_experience_steps.js:309"
             },
             "result": {
               "status": "passed",
-              "duration": 23602995
+              "duration": 227419934
             }
           },
           {
@@ -1214,11 +1214,11 @@
             "line": 71,
             "name": "the current channel context remains labeled",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:271"
+              "location": "dist/test/features/community_web_experience_steps.js:319"
             },
             "result": {
               "status": "passed",
-              "duration": 22066499
+              "duration": 30671124
             }
           },
           {
@@ -1226,7 +1226,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 221051
+              "duration": 343904
             }
           },
           {
@@ -1234,7 +1234,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 49326
+              "duration": 84361
             }
           },
           {
@@ -1242,7 +1242,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 29939
+              "duration": 31244
             }
           },
           {
@@ -1250,7 +1250,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 496655684
+              "duration": 729979081
             }
           },
           {
@@ -1258,7 +1258,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 67696
+              "duration": 65613
             }
           },
           {
@@ -1266,7 +1266,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 26490
+              "duration": 25309
             }
           }
         ],
@@ -1290,7 +1290,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 19384
+              "duration": 104567
             }
           },
           {
@@ -1298,7 +1298,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 2988244
+              "duration": 730093
             }
           },
           {
@@ -1306,7 +1306,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 2195079
+              "duration": 1055147
             }
           },
           {
@@ -1315,11 +1315,11 @@
             "line": 75,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 211915
+              "duration": 164348
             }
           },
           {
@@ -1328,11 +1328,11 @@
             "line": 76,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 415811020
+              "duration": 528278861
             }
           },
           {
@@ -1341,11 +1341,11 @@
             "line": 77,
             "name": "I zoom Community Web to 200 percent in a short viewport",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:154"
+              "location": "dist/test/features/community_web_experience_steps.js:192"
             },
             "result": {
               "status": "passed",
-              "duration": 31225080
+              "duration": 43755529
             }
           },
           {
@@ -1354,11 +1354,11 @@
             "line": 78,
             "name": "the zoomed navigation remains bounded above community content",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:274"
+              "location": "dist/test/features/community_web_experience_steps.js:322"
             },
             "result": {
               "status": "passed",
-              "duration": 144539733
+              "duration": 204732036
             }
           },
           {
@@ -1367,11 +1367,11 @@
             "line": 79,
             "name": "the zoomed document has no horizontal page overflow",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:283"
+              "location": "dist/test/features/community_web_experience_steps.js:331"
             },
             "result": {
               "status": "passed",
-              "duration": 1761199
+              "duration": 3300003
             }
           },
           {
@@ -1379,7 +1379,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 383743
+              "duration": 558245
             }
           },
           {
@@ -1387,7 +1387,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 90835
+              "duration": 869135
             }
           },
           {
@@ -1395,7 +1395,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 25169
+              "duration": 31037
             }
           },
           {
@@ -1403,7 +1403,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 397627624
+              "duration": 519551440
             }
           },
           {
@@ -1411,7 +1411,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 407188
+              "duration": 72696
             }
           },
           {
@@ -1419,7 +1419,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 58460
+              "duration": 26870
             }
           }
         ],
@@ -1443,7 +1443,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 24155
+              "duration": 18642
             }
           },
           {
@@ -1451,7 +1451,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 737038
+              "duration": 732276
             }
           },
           {
@@ -1459,7 +1459,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 521975
+              "duration": 420036
             }
           },
           {
@@ -1468,11 +1468,11 @@
             "line": 83,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 441188
+              "duration": 275164
             }
           },
           {
@@ -1481,11 +1481,11 @@
             "line": 84,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 330902090
+              "duration": 417946639
             }
           },
           {
@@ -1494,11 +1494,11 @@
             "line": 85,
             "name": "I open the ideas channel in the active community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:118"
+              "location": "dist/test/features/community_web_experience_steps.js:145"
             },
             "result": {
               "status": "passed",
-              "duration": 142199113
+              "duration": 174183149
             }
           },
           {
@@ -1507,11 +1507,11 @@
             "line": 86,
             "name": "I select the \"Dashboard widget should group revenue by region\" community message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:124"
+              "location": "dist/test/features/community_web_experience_steps.js:151"
             },
             "result": {
               "status": "passed",
-              "duration": 75980634
+              "duration": 79331889
             }
           },
           {
@@ -1520,11 +1520,11 @@
             "line": 87,
             "name": "I report the selected message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:140"
+              "location": "dist/test/features/community_web_experience_steps.js:178"
             },
             "result": {
               "status": "passed",
-              "duration": 62023081
+              "duration": 50311466
             }
           },
           {
@@ -1533,11 +1533,11 @@
             "line": 88,
             "name": "the selected message shows legal-hold evidence status",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:286"
+              "location": "dist/test/features/community_web_experience_steps.js:334"
             },
             "result": {
               "status": "passed",
-              "duration": 25443459
+              "duration": 38013971
             }
           },
           {
@@ -1545,7 +1545,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 251701
+              "duration": 288078
             }
           },
           {
@@ -1553,7 +1553,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 77946
+              "duration": 73008
             }
           },
           {
@@ -1561,7 +1561,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 34203
+              "duration": 30827
             }
           },
           {
@@ -1569,7 +1569,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 409382485
+              "duration": 361564484
             }
           },
           {
@@ -1577,7 +1577,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 204406
+              "duration": 160808
             }
           },
           {
@@ -1585,7 +1585,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 32782
+              "duration": 27495
             }
           }
         ],
@@ -1609,7 +1609,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 16340
+              "duration": 17288
             }
           },
           {
@@ -1617,7 +1617,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 701515
+              "duration": 723008
             }
           },
           {
@@ -1625,7 +1625,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 294734
+              "duration": 320469
             }
           },
           {
@@ -1634,11 +1634,11 @@
             "line": 92,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 142293
+              "duration": 126333
             }
           },
           {
@@ -1647,11 +1647,11 @@
             "line": 93,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 384176924
+              "duration": 456334507
             }
           },
           {
@@ -1660,11 +1660,11 @@
             "line": 94,
             "name": "I search community receipts for \"goose\"",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:144"
+              "location": "dist/test/features/community_web_experience_steps.js:182"
             },
             "result": {
               "status": "passed",
-              "duration": 294849416
+              "duration": 346665638
             }
           },
           {
@@ -1673,11 +1673,11 @@
             "line": 95,
             "name": "the receipt search reports at least one match",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:290"
+              "location": "dist/test/features/community_web_experience_steps.js:338"
             },
             "result": {
               "status": "passed",
-              "duration": 18319193
+              "duration": 10088059
             }
           },
           {
@@ -1686,11 +1686,11 @@
             "line": 96,
             "name": "a visible agent receipt includes harness \"goose\"",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:297"
+              "location": "dist/test/features/community_web_experience_steps.js:345"
             },
             "result": {
               "status": "passed",
-              "duration": 22812469
+              "duration": 15812761
             }
           },
           {
@@ -1698,7 +1698,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 1146255
+              "duration": 235275
             }
           },
           {
@@ -1706,7 +1706,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 151528
+              "duration": 66135
             }
           },
           {
@@ -1714,7 +1714,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 48512
+              "duration": 40514
             }
           },
           {
@@ -1722,7 +1722,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 442600474
+              "duration": 323999501
             }
           },
           {
@@ -1730,7 +1730,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 62519
+              "duration": 72488
             }
           },
           {
@@ -1738,7 +1738,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 28925
+              "duration": 31452
             }
           }
         ],
@@ -1762,7 +1762,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 12585
+              "duration": 19371
             }
           },
           {
@@ -1770,7 +1770,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 619611
+              "duration": 681556
             }
           },
           {
@@ -1778,7 +1778,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 243175
+              "duration": 315990
             }
           },
           {
@@ -1787,11 +1787,11 @@
             "line": 100,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 82920
+              "duration": 95712
             }
           },
           {
@@ -1800,11 +1800,11 @@
             "line": 101,
             "name": "I open the Community Web channel experience",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
+              "location": "dist/test/features/community_web_experience_steps.js:63"
             },
             "result": {
               "status": "passed",
-              "duration": 317403904
+              "duration": 363774231
             }
           },
           {
@@ -1813,11 +1813,11 @@
             "line": 102,
             "name": "I open the ideas channel in the active community",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:118"
+              "location": "dist/test/features/community_web_experience_steps.js:145"
             },
             "result": {
               "status": "passed",
-              "duration": 154323328
+              "duration": 119815149
             }
           },
           {
@@ -1826,11 +1826,11 @@
             "line": 103,
             "name": "I select the \"Dashboard widget should group revenue by region\" community message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:124"
+              "location": "dist/test/features/community_web_experience_steps.js:151"
             },
             "result": {
               "status": "passed",
-              "duration": 64720386
+              "duration": 42448047
             }
           },
           {
@@ -1839,11 +1839,11 @@
             "line": 104,
             "name": "I mark the selected message as an intent candidate",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:127"
+              "location": "dist/test/features/community_web_experience_steps.js:165"
             },
             "result": {
               "status": "passed",
-              "duration": 51766958
+              "duration": 65496828
             }
           },
           {
@@ -1852,11 +1852,11 @@
             "line": 105,
             "name": "the Community Web shows a signed promote receipt for the new proposal",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:304"
+              "location": "dist/test/features/community_web_experience_steps.js:352"
             },
             "result": {
               "status": "passed",
-              "duration": 50556717
+              "duration": 104368996
             }
           },
           {
@@ -1864,7 +1864,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 193275
+              "duration": 223505
             }
           },
           {
@@ -1872,7 +1872,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 62145
+              "duration": 73321
             }
           },
           {
@@ -1880,7 +1880,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 21217
+              "duration": 26557
             }
           },
           {
@@ -1888,7 +1888,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 345810096
+              "duration": 377748228
             }
           },
           {
@@ -1896,7 +1896,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 322898
+              "duration": 62281
             }
           },
           {
@@ -1904,7 +1904,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 31775
+              "duration": 23225
             }
           }
         ],
@@ -1918,17 +1918,17 @@
       },
       {
         "description": "",
-        "id": "community-web-community-first-experience;contributor-sees-state-driven-identity-honesty-on-a-live-api-session",
+        "id": "community-web-community-first-experience;contributor-keeps-signed-actions-after-a-live-refresh",
         "keyword": "Scenario",
         "line": 108,
-        "name": "Contributor sees state-driven identity honesty on a live API session",
+        "name": "Contributor keeps signed actions after a live refresh",
         "steps": [
           {
             "keyword": "Before",
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 20112
+              "duration": 15414
             }
           },
           {
@@ -1936,7 +1936,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 738612
+              "duration": 641459
             }
           },
           {
@@ -1944,7 +1944,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 335166
+              "duration": 291098
             }
           },
           {
@@ -1953,50 +1953,63 @@
             "line": 109,
             "name": "the Community Web live API has repository activity",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:22"
+              "location": "dist/test/features/community_web_experience_steps.js:26"
             },
             "result": {
               "status": "passed",
-              "duration": 173464
+              "duration": 91860
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 110,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 434598118
             }
           },
           {
             "arguments": [],
             "keyword": "When ",
-            "line": 110,
-            "name": "I open the Community Web channel experience",
-            "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:59"
-            },
-            "result": {
-              "status": "passed",
-              "duration": 330693923
-            }
-          },
-          {
-            "arguments": [],
-            "keyword": "Then ",
             "line": 111,
-            "name": "the identity chip uses auth state \"api-session\"",
+            "name": "the community repository refreshes from the live API",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:316"
+              "location": "dist/test/features/community_web_experience_steps.js:154"
             },
             "result": {
               "status": "passed",
-              "duration": 67879678
+              "duration": 246812475
             }
           },
           {
             "arguments": [],
             "keyword": "And ",
             "line": 112,
-            "name": "the identity chip explains that AT OAuth is not linked",
+            "name": "I select the \"Welcome to Epoch Civic Workshop\" community message",
             "match": {
-              "location": "dist/test/features/community_web_experience_steps.js:322"
+              "location": "dist/test/features/community_web_experience_steps.js:151"
             },
             "result": {
               "status": "passed",
-              "duration": 12869763
+              "duration": 34778034
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 113,
+            "name": "the selected message keeps the Mark intent and Report signed actions",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:364"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 58866961
             }
           },
           {
@@ -2004,7 +2017,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 441256
+              "duration": 285682
             }
           },
           {
@@ -2012,7 +2025,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 90100
+              "duration": 78528
             }
           },
           {
@@ -2020,7 +2033,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 26246
+              "duration": 24371
             }
           },
           {
@@ -2028,7 +2041,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 297987503
+              "duration": 473587558
             }
           },
           {
@@ -2036,7 +2049,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 57017
+              "duration": 90194
             }
           },
           {
@@ -2044,14 +2057,1225 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 24234
+              "duration": 28016
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.github_open_source_contributor",
+            "line": 107
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-sees-state-driven-identity-honesty-on-a-live-api-session",
+        "keyword": "Scenario",
+        "line": 116,
+        "name": "Contributor sees state-driven identity honesty on a live API session",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 19996
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 812889
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 383062
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 117,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 151642
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 118,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 466966125
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 119,
+            "name": "the identity chip uses auth state \"api-session\"",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:373"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 97481460
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 120,
+            "name": "the identity chip explains that AT OAuth is not linked",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:379"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 37015071
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 269749
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 384937
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 27183
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 561438386
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 71551
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 29371
             }
           }
         ],
         "tags": [
           {
             "name": "@persona.bluesky_power_user",
-            "line": 107
+            "line": 115
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-sees-an-inviting-empty-state-in-a-quiet-channel",
+        "keyword": "Scenario",
+        "line": 123,
+        "name": "Contributor sees an inviting empty state in a quiet channel",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 16767
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 780393
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 363690
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 124,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 133519
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 125,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 476507399
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 126,
+            "name": "I open the support channel in the active community",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:422"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 161660067
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 127,
+            "name": "the channel shows an empty state naming a next action",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:459"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 36553583
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 245064
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 282454
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 79987
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 448803639
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 73112
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 26453
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.github_open_source_contributor",
+            "line": 122
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-searching-with-no-matches-sees-the-query-named-back",
+        "keyword": "Scenario",
+        "line": 130,
+        "name": "Contributor searching with no matches sees the query named back",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 17809
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3067734
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 480131
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 131,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 166536
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 132,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 530088756
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 133,
+            "name": "I search community receipts for \"zzzznomatch\"",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:182"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 317963868
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 134,
+            "name": "the feed shows a zero-result state naming \"zzzznomatch\"",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:469"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 29180507
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 273799
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 68215
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 23954
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 421280400
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 87066
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 36868
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.slack_power_user",
+            "line": 129
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-clears-receipt-search-with-escape",
+        "keyword": "Scenario",
+        "line": 137,
+        "name": "Contributor clears receipt search with Escape",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 25828
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1434505
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 638829
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 138,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 338473
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 139,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 492744207
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 140,
+            "name": "I search community receipts for \"goose\"",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:182"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 294879990
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 141,
+            "name": "I press Escape in the receipt search",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:427"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 197719246
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 142,
+            "name": "the receipt search is empty and announces the channel",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:478"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 26256197
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 271925
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 62487
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 28119
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 358810726
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 106228
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 206521
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.slack_power_user",
+            "line": 136
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-sees-unread-only-for-channels-with-new-activity",
+        "keyword": "Scenario",
+        "line": 145,
+        "name": "Contributor sees unread only for channels with new activity",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 20307
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 758285
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 361906
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 146,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 123829
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 147,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 447085750
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 148,
+            "name": "no channel shows an unread count on a first visit",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:487"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 66381285
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 149,
+            "name": "the ideas channel gains activity after I last read it",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:434"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 256140564
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 150,
+            "name": "the ideas channel shows an unread count",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:492"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 37047162
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 255677
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 68527
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 23432
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 423232613
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 66548
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 23744
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.maintainer",
+            "line": 144
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-dismisses-the-first-run-orientation-strip",
+        "keyword": "Scenario",
+        "line": 153,
+        "name": "Contributor dismisses the first-run orientation strip",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 16350
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1049061
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 837436
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 154,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 419604
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 155,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 424693049
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 156,
+            "name": "the first-run orientation strip explains the rail, feed, and promote path",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:501"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 83494628
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 157,
+            "name": "I dismiss the first-run orientation strip",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:449"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 89775765
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 158,
+            "name": "I reopen the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:454"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 127147862
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 159,
+            "name": "the first-run orientation strip stays dismissed",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:510"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 207457399
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 277132
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 66133
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 23328
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 422564621
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 78837
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 24058
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.github_open_source_contributor",
+            "line": 152
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;contributor-reveals-the-record-behind-a-signature",
+        "keyword": "Scenario",
+        "line": 162,
+        "name": "Contributor reveals the record behind a signature",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 17600
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 788279
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 318998
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 163,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 117163
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 164,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 545498433
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 165,
+            "name": "I reveal the provenance of the \"Welcome to Epoch Civic Workshop\" message",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:517"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 212867253
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 166,
+            "name": "the provenance panel names the signature, anchor, and source",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:532"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 83613459
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 268592
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 63841
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 50927
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 491451238
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 87273
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 76756
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.security_compliance_responder",
+            "line": 161
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "community-web-community-first-experience;maintainer-follows-a-promoted-message-to-the-change-it-became",
+        "keyword": "Scenario",
+        "line": 169,
+        "name": "Maintainer follows a promoted message to the change it became",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 20100
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 802131
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3476074
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 170,
+            "name": "the Community Web live API has repository activity",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:26"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 194857
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 171,
+            "name": "I open the Community Web channel experience",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:63"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 480281184
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 172,
+            "name": "I open the ideas channel in the active community",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:145"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 270011119
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 173,
+            "name": "I select the \"Dashboard widget should group revenue by region\" community message",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:151"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 83557635
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 174,
+            "name": "I mark the selected message as an intent candidate",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:165"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 127888859
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 175,
+            "name": "I view the lineage of the promoted message",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:525"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 134654171
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 176,
+            "name": "the origin message and the resulting change are marked as one contribution",
+            "match": {
+              "location": "dist/test/features/community_web_experience_steps.js:550"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 53033230
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 309000
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 72380
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 26348
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 550879750
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 81441
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 28014
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@persona.github_power_user",
+            "line": 168
           }
         ],
         "type": "scenario"

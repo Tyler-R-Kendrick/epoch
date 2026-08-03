@@ -157,3 +157,20 @@ Feature: Community Web community-first experience
     When I dismiss the first-run orientation strip
     And I reopen the Community Web channel experience
     Then the first-run orientation strip stays dismissed
+
+  @persona.security_compliance_responder
+  Scenario: Contributor reveals the record behind a signature
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    When I reveal the provenance of the "Welcome to Epoch Civic Workshop" message
+    Then the provenance panel names the signature, anchor, and source
+
+  @persona.github_power_user
+  Scenario: Maintainer follows a promoted message to the change it became
+    Given the Community Web live API has repository activity
+    And I open the Community Web channel experience
+    And I open the ideas channel in the active community
+    And I select the "Dashboard widget should group revenue by region" community message
+    And I mark the selected message as an intent candidate
+    When I view the lineage of the promoted message
+    Then the origin message and the resulting change are marked as one contribution

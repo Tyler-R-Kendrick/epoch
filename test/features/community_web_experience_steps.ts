@@ -23,6 +23,9 @@ const COMMUNITY_PAGE_PATH = "/community";
 
 let world: CommunityWebWorld = {};
 
+/** Title of the message whose provenance a scenario revealed. */
+let revealedMessageTitle = "";
+
 After(async function () {
   await Promise.allSettled([
     closeWithTimeout(world.page?.context().close(), "community web browser context close"),
@@ -627,4 +630,53 @@ Then("the first-run orientation strip stays dismissed", async function () {
   await page.waitForTimeout(200);
   const visible = await page.locator("[data-first-run-strip]:not([hidden])").count();
   assert.equal(visible, 0, "dismissal must persist across reopening the page");
+});
+
+// ── Craft moments: provenance reveal and contribution lineage ────────────────
+
+When("I reveal the provenance of the {string} message", async function (title: string) {
+  const page = requirePage();
+  const message = page.locator("[data-message]:not([hidden])", { hasText: title }).first();
+  await message.waitFor({ state: "visible", timeout: 5_000 });
+  await message.locator("[data-signature-reveal]").click();
+  await message.locator("[data-provenance-panel]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
+  revealedMessageTitle = title;
+});
+
+When("I view the lineage of the promoted message", async function () {
+  const page = requirePage();
+  const lineage = page.locator("[data-message]:not([hidden]) [data-view-lineage]").first();
+  await lineage.waitFor({ state: "visible", timeout: 5_000 });
+  await lineage.click();
+  await page.locator('[data-lineage-target="true"]').waitFor({ state: "visible", timeout: 5_000 });
+});
+
+Then("the provenance panel names the signature, anchor, and source", async function () {
+  const page = requirePage();
+  assert.ok(revealedMessageTitle, "a message must be revealed first");
+  const message = page.locator("[data-message]:not([hidden])", { hasText: revealedMessageTitle }).first();
+  const panel = message.locator("[data-provenance-panel]:not([hidden])");
+  await panel.waitFor({ state: "visible", timeout: 5_000 });
+  const text = await panel.innerText();
+  // Labels are uppercased by CSS, so innerText returns them transformed.
+  assert.match(text, /signature/iu);
+  assert.match(text, /anchor/iu);
+  assert.match(text, /source/iu);
+  // The values themselves, not just the labels.
+  assert.match(text, /sig:/u);
+  // The panel must state which side of the honesty line the record came from.
+  assert.match(text, /live Community API|snapshot sample/u);
+  const expanded = await message.locator("[data-signature-reveal]").getAttribute("aria-expanded");
+  assert.equal(expanded, "true", "the signature mark must report its expanded state");
+});
+
+Then("the origin message and the resulting change are marked as one contribution", async function () {
+  const page = requirePage();
+  await page.locator('[data-lineage-target="true"]').waitFor({ state: "visible", timeout: 5_000 });
+  assert.equal(await page.locator('[data-lineage-origin="true"]').count(), 1, "origin message must be marked");
+  assert.equal(await page.locator('[data-lineage-target="true"]').count(), 1, "resulting change must be marked");
+  const originProposal = await page.locator('[data-lineage-origin="true"]').getAttribute("data-linked-proposal");
+  const targetChange = await page.locator('[data-lineage-target="true"]').getAttribute("data-change-id");
+  assert.ok(originProposal);
+  assert.equal(originProposal, targetChange, "both ends must reference the same proposal");
 });

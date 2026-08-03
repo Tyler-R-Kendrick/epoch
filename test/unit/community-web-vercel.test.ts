@@ -338,7 +338,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
   assert.match(html, /<h1 id="community-title">Epoch Civic Workshop<\/h1>/u);
   assert.match(html, /epoch\/epoch/u);
-  assert.match(html, /This site is built with Epoch/u);
+  assert.match(html, /data-site-seal/u);
   assert.match(html, /data-community-channel-rail/u);
   assert.match(html, /data-product-mode="community"/u);
   assert.match(html, /data-community-list/u);
@@ -506,10 +506,15 @@ async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<voi
   assert.ok(result.materializedFiles.includes("community/epoch-site-history.json"));
 
   const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
-  assert.match(html, /This site is built with Epoch/u);
-  assert.match(html, /Branchable site changes/u);
+  // The dogfooded provenance is now a one-line seal that expands to the
+  // operation chain, rather than a buried section.
+  assert.match(html, /data-site-seal/u);
+  assert.match(html, /Built as Epoch version community-site-dogfooded/u);
+  assert.match(html, /recorded operations/u);
+  assert.match(html, /recorded as signed Epoch events/u);
   assert.match(html, /Rollback target/u);
   assert.match(html, /<dl class="site-history-facts">/u);
+  assert.match(html, /class="site-seal-chain"/u);
   assert.match(html, /\.site-history-facts \{/u);
   assert.match(html, /overflow-wrap: anywhere/u);
 

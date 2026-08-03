@@ -19,6 +19,38 @@ export function renderSignerStrip(conversations: readonly CommunityConversationV
           <span class="members-count" data-members-count>${count}</span>`;
 }
 
+/**
+ * Provenance reveal.
+ *
+ * The signature in the footer was decorative text — the exact "trust theater"
+ * the critique protocol auto-fails on. It is now a disclosure that expands the
+ * record behind the mark: what was signed, where it is anchored, who can see
+ * it, and whether this came from the live API or a snapshot. Every value is
+ * already-loaded state, so the panel can never claim verification the data
+ * does not support.
+ */
+function renderProvenancePanel(conversation: CommunityConversationView): string {
+  const rows: readonly (readonly [string, string])[] = [
+    ["Signature", conversation.signature],
+    ["Anchor", conversation.anchor],
+    ["Author", `@${conversation.author}`],
+    ["Visibility", conversation.visibility],
+    ["Source", conversation.source === "api" ? "live Community API" : "snapshot sample"],
+    ...(conversation.intentId === undefined
+      ? []
+      : [["Intent", `intent:${conversation.intentId}`] as const]),
+    ...(conversation.linkedProposalId === undefined
+      ? []
+      : [["Proposal", `proposal:${conversation.linkedProposalId}`] as const]),
+  ];
+  return `<div class="signature-provenance" id="provenance-${escapeHtml(conversation.id)}" data-provenance-panel hidden>
+        <dl>
+          ${rows.map(([term, value]) =>
+            `<div><dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}
+        </dl>
+      </div>`;
+}
+
 function issueIdFromConversation(conversation: CommunityConversationView): string | undefined {
   if (conversation.id.startsWith("issue-")) {
     return conversation.id.slice("issue-".length);
@@ -68,6 +100,11 @@ export function renderConversation(
         <span class="promote-receipt-label">Signed promote</span>
         <strong data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</strong>
         <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")} · human review required</span>
+        <button
+          type="button"
+          class="lineage-link"
+          data-view-lineage="${escapeHtml(conversation.linkedProposalId)}"
+        >View lineage</button>
       </div>`
     : conversation.intentId
     ? `<div class="message-promote-receipt" data-promote-receipt data-intent-id="${escapeHtml(conversation.intentId)}">
@@ -96,11 +133,19 @@ export function renderConversation(
       ${promoteReceipt}
       <footer class="message-footer">
         <span>${escapeHtml(conversation.anchor)}</span>
-        <span>${escapeHtml(conversation.signature)}</span>
+        <button
+          type="button"
+          class="signature-mark"
+          data-signature-reveal="${escapeHtml(conversation.id)}"
+          aria-expanded="false"
+          aria-controls="provenance-${escapeHtml(conversation.id)}"
+          aria-label="Show provenance for ${escapeHtml(conversation.title)}"
+        >${escapeHtml(conversation.signature)}</button>
         <span>${escapeHtml(conversation.visibility)}</span>
         ${conversation.intentId ? `<span data-intent-meta>intent:${escapeHtml(conversation.intentId)}</span>` : ""}
         ${conversation.linkedProposalId === undefined ? "" : `<span data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`}
       </footer>
+      ${renderProvenancePanel(conversation)}
       <div class="reaction-row" aria-label="Reactions">
         ${conversation.reactions.map((reaction) => `<button type="button" class="reaction" data-reaction="${escapeHtml(reaction)}">${escapeHtml(reaction)}</button>`).join("")}
       </div>

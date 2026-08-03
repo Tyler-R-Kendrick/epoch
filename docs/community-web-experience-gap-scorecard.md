@@ -32,7 +32,7 @@ Related: [community-web-experience.md](community-web-experience.md), [community-
 | `honesty` | Live vs sample | Epoch | **partial** | buzz, forge, tangled | yes | Sample vs live agents + session auth states shipped |
 | `craft` | Density + calm | Slack, X, Telegram, DESIGN.md | **partial** | designer, product-designer, app-builder, junior-mobile, screen-reader | yes | Ongoing craft passes |
 | `persistence` | Multi-user durable community | All live products | **partial** | discord, slack, moderator | yes | File-backed API shipped; multi-node HA next |
-| `moderation-notifications` | Moderation receipts + honest unread | Discord, Slack, GH | **missing** | moderator, screen-reader, discord | yes | Route Report into a moderation queue with a signed receipt and a member-visible state |
+| `moderation-notifications` | Moderation receipts + honest unread | Discord, Slack, GH | **partial** | moderator, screen-reader, discord | yes | Moderator decision actions (resolve, hold) recorded from the ops queue itself |
 
 Status enum: `proven` | `partial` | `missing` | `external-blocked`.
 

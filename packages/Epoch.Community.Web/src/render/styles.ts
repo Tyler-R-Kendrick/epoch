@@ -1074,6 +1074,142 @@ export function communityStyles(): string {
     .artifact-actions {
       margin-top: var(--epoch-space-xs);
     }
+    /* Proof wonder: a promoted message and the change it became read as one
+       contribution, connected by the action colour that earned the link. */
+    .lineage-link {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--epoch-color-accent);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-label-weight);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    [data-lineage-origin="true"],
+    [data-lineage-target="true"] {
+      position: relative;
+      background: var(--epoch-color-surface-sunken);
+    }
+    [data-lineage-origin="true"]::before,
+    [data-lineage-target="true"]::before {
+      content: "";
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: 0;
+      width: 2px;
+      background: var(--epoch-color-accent);
+    }
+
+    /* Proof wonder: the page states, truthfully, that it is an Epoch artifact. */
+    .site-seal {
+      border-block-start: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface);
+    }
+    .site-seal summary {
+      display: flex;
+      align-items: center;
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-sm) var(--epoch-space-lg);
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-meta-size);
+      cursor: pointer;
+    }
+    .site-seal summary::-webkit-details-marker { display: none; }
+    .site-seal-mark {
+      color: var(--epoch-color-gold);
+    }
+    .site-seal-line {
+      font-family: var(--epoch-font-mono);
+      overflow-wrap: anywhere;
+    }
+    .site-seal-body {
+      display: grid;
+      gap: var(--epoch-space-md);
+      padding: 0 var(--epoch-space-lg) var(--epoch-space-md);
+    }
+    .site-seal-body p {
+      margin: 0;
+      max-width: 70ch;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-body-size);
+      line-height: var(--epoch-type-body-leading);
+    }
+    .site-seal-chain {
+      display: grid;
+      gap: var(--epoch-space-xs);
+      margin: 0;
+      padding-inline-start: var(--epoch-space-lg);
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-meta-size);
+    }
+    .site-seal-chain code {
+      color: var(--epoch-color-teal);
+      font-family: var(--epoch-font-mono);
+    }
+
+    /* Proof wonder: the signature is a disclosure, not decoration. Copper is
+       earned here because a signature is the one thing this product proves. */
+    .signature-mark {
+      position: relative;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .signature-mark::after {
+      content: "";
+      position: absolute;
+      inset-inline: 0;
+      inset-block-end: -2px;
+      height: 1px;
+      background: var(--epoch-color-accent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .signature-mark:hover::after,
+    .signature-mark:focus-visible::after,
+    .signature-mark[aria-expanded="true"]::after {
+      transform: scaleX(1);
+    }
+    .signature-provenance {
+      margin-block-start: var(--epoch-space-xs);
+      padding: var(--epoch-space-sm) var(--epoch-space-md);
+      border-inline-start: 2px solid var(--epoch-color-accent);
+      background: var(--epoch-color-surface);
+      border-radius: var(--epoch-radius-sm);
+    }
+    .signature-provenance dl {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      gap: var(--epoch-space-xs) var(--epoch-space-md);
+      margin: 0;
+    }
+    .signature-provenance dt {
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-label-weight);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .signature-provenance dd {
+      margin: 0;
+      color: var(--epoch-color-ink);
+      font-family: var(--epoch-font-mono);
+      font-size: var(--epoch-type-meta-size);
+      overflow-wrap: anywhere;
+    }
+    .signature-provenance[data-provenance-revealed="true"] {
+      animation: provenance-reveal 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes provenance-reveal {
+      from { opacity: 0; transform: translateY(-2px); }
+      to { opacity: 1; transform: none; }
+    }
+
     /* Empty / loading / error state system — one voice across every list. */
     .state-block {
       display: grid;
