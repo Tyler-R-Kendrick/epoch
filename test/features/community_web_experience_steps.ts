@@ -247,9 +247,13 @@ Then("the Community Web shows a community with channels", async function () {
 
 Then("the active channel does not require a repository", async function () {
   const page = requirePage();
-  // Social hangout channel is community-owned.
+  // Social hangout channel is community-owned: it is active and writable with no
+  // linked project selected. This asserts the rule rather than a sentence about it.
   assert.equal(await page.locator('button[data-channel="general"][aria-pressed="true"]').count(), 1);
-  await assertVisible(page, "no repository required");
+  assert.equal(await page.locator("[data-repo-surfaces]:not([hidden])").count(), 0);
+  const composer = page.locator("[data-comment-composer]");
+  assert.equal(await composer.getAttribute("data-composer-available"), "true");
+  assert.equal(await page.locator("[data-composer-input]").isDisabled(), false);
 });
 
 Then("the Community Web shows the Network Feed with activity tabs", async function () {
@@ -503,7 +507,7 @@ Then("the identity chip uses auth state {string}", async function (authState: st
 });
 
 Then("the identity chip explains that AT OAuth is not linked", async function () {
-  await assertVisible(requirePage(), "AT OAuth not linked");
+  await assertVisible(requirePage(), "AT not linked");
 });
 
 async function routeCommunityApi(

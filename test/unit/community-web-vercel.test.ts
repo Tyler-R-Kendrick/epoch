@@ -67,7 +67,7 @@ function communityReceiptSearchAndSessionHelpersArePure(): void {
 
   assert.equal(defaultSessionForApi(undefined).authState, "sample-session");
   assert.equal(defaultSessionForApi("https://community.test").authState, "api-session");
-  assert.equal(resolveSessionAuthNote("api-session"), "live API session · AT OAuth not linked");
+  assert.equal(resolveSessionAuthNote("api-session"), "AT not linked");
   assert.equal(resolveSessionAuthNote("authenticated"), "AT session linked");
 
   const agents = withLiveAgentSessions([
@@ -155,7 +155,7 @@ async function communityWebHtmlIncludesReceiptSearchPromoteAndIdentity(): Promis
   assert.match(html, /data-receipt-search/u);
   assert.match(html, /data-promote-receipt/u);
   assert.match(html, /data-identity-chip[^>]*data-auth-state="api-session"/u);
-  assert.match(html, /live API session · AT OAuth not linked/u);
+  assert.match(html, /AT not linked/u);
   assert.match(html, /data-agent-member="agent-scout"[^>]*data-agent-session-kind="live"/u);
   assert.match(html, /data-message-id="agent-handoff-scout"/u);
   assert.match(html, /"authState":"api-session"/u);
@@ -366,7 +366,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
   assert.match(html, /data-design-system="epoch-community"/u);
   assert.match(html, /href="#community-content">Skip to content/u);
-  assert.match(html, /--epoch-color-surface: #f3f6f4/u);
+  assert.match(html, /--epoch-color-surface: #ecefea/u);
   assert.doesNotMatch(html, /data-community-web-cockpit/u);
   assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");

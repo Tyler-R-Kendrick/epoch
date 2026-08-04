@@ -117,10 +117,10 @@ export function communityStyles(): string {
     .channel-button[aria-pressed="true"]::before {
       content: "";
       position: absolute;
-      inset-block: 0.35rem;
+      inset-block: 0.2rem;
       inset-inline-start: 0;
-      width: 2px;
-      border-radius: 1px;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
       background: var(--epoch-color-accent);
     }
     .repo-surface-list {
@@ -398,41 +398,42 @@ export function communityStyles(): string {
     }
     .repository-meta .meta-sep::before { content: "·"; }
     .identity-chip {
-      display: inline-flex;
+      display: flex;
       flex-direction: column;
-      align-items: end;
+      align-items: start;
       gap: 0.05rem;
-      padding: var(--epoch-space-xs) var(--epoch-space-sm);
-      border: 1px solid var(--epoch-color-line);
-      border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface);
-      text-align: end;
+      width: 100%;
+      padding: var(--epoch-space-sm);
+      border: 0;
+      border-block-start: 1px solid var(--epoch-color-rail-line);
+      border-radius: 0;
+      background: transparent;
+      text-align: start;
     }
     .identity-handle {
-      color: var(--epoch-color-ink);
+      color: var(--epoch-color-rail-text);
       font-weight: 700;
       font-size: var(--epoch-type-label-size);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
     .identity-did {
-      color: var(--epoch-color-muted);
+      color: var(--epoch-color-rail-muted);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
       font-size: var(--epoch-type-meta-size);
       font-weight: 500;
     }
     .identity-auth-note {
-      color: var(--epoch-color-muted);
+      color: var(--epoch-color-rail-muted);
       font-size: var(--epoch-type-meta-size);
       font-weight: 600;
       letter-spacing: 0.02em;
     }
-    .identity-chip[data-auth-state="sample-session"],
-    .identity-chip[data-auth-state="unauthenticated"] {
-      border-style: dashed;
-    }
-    /* api-session keeps the base solid line border from .identity-chip. */
-    .identity-chip[data-auth-state="authenticated"] {
-      border-style: solid;
-      border-color: var(--epoch-color-accent);
+    /* Auth state was carried by border style on a card that no longer exists.
+       It now rides on the handle: copper marks a real AT session. */
+    .identity-chip[data-auth-state="authenticated"] .identity-handle {
+      color: var(--epoch-color-accent);
     }
     @media (max-width: 720px) {
       .identity-did {
@@ -748,13 +749,17 @@ export function communityStyles(): string {
       background: var(--epoch-color-surface);
     }
 
+    .message-feed { background: var(--epoch-color-surface-raised); }
     .message-feed {
+      display: flex;
+      flex-direction: column;
       margin: 0;
       padding: var(--epoch-space-xs) 0 var(--epoch-space-sm);
       min-width: 0;
       overflow-y: auto;
       list-style: none;
     }
+
     /* Signed anchors and at:// URIs are long unbroken tokens; they must wrap
        rather than widen the feed past the viewport. */
     .message-footer span,
@@ -1253,12 +1258,18 @@ export function communityStyles(): string {
       width: 2rem;
       height: 2rem;
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface-sunken);
-      color: var(--epoch-color-teal-deep);
+      background: var(--epoch-color-avatar);
+      color: var(--epoch-color-avatar-ink);
       font-size: var(--epoch-type-meta-size);
       font-weight: var(--epoch-type-label-weight);
+      letter-spacing: 0.01em;
     }
-    .row-lead-agent { background: var(--epoch-color-mint); }
+    /* People are deep green, agents are mint: the two member kinds are told
+       apart by hue, not by reading a label. */
+    .row-lead-agent {
+      background: var(--epoch-color-mint);
+      color: var(--epoch-color-teal-deep);
+    }
     .row-lead-empty { background: none; }
     /* Above the full-bleed selection hitbox so tray and action buttons receive
        their own clicks. */
@@ -1272,7 +1283,19 @@ export function communityStyles(): string {
       color: var(--epoch-color-muted);
       font-size: var(--epoch-type-meta-size);
     }
-    .row-actor { color: var(--epoch-color-ink); font-weight: var(--epoch-type-label-weight); }
+    .row-actor {
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-title-size);
+      font-weight: var(--epoch-type-title-weight);
+      letter-spacing: -0.01em;
+    }
+    /* Rows without an author (issues, changes, network objects) keep the object
+       as the strongest text — the rule is about message rows. */
+    .row:has(.row-actor) .row-title,
+    .row:has(.row-actor) .row-heading {
+      font-size: var(--epoch-type-body-size);
+      font-weight: 650;
+    }
     .row-heading { margin: 0; }
     .row-heading,
     .row-title,
@@ -1317,13 +1340,13 @@ export function communityStyles(): string {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: var(--epoch-space-sm);
+      gap: var(--epoch-space-xs) var(--epoch-space-md);
       padding-block-start: var(--epoch-space-xs);
       color: var(--epoch-color-muted);
       font-size: var(--epoch-type-meta-size);
     }
     .row-foot-facts { display: flex; flex-wrap: wrap; gap: var(--epoch-space-sm); }
-    .row-foot-actions { display: flex; flex-wrap: wrap; gap: var(--epoch-space-xs); margin-inline-start: auto; }
+    .row-foot-actions { display: flex; flex-wrap: wrap; gap: var(--epoch-space-xs); }
     .row-receipt-mark {
       display: inline-block;
       width: 6px;
@@ -1346,22 +1369,45 @@ export function communityStyles(): string {
     .row-state { color: var(--epoch-color-muted); }
     .row-state:empty { display: none; }
 
-    .row-state,
+    .row.row-state,
     .row-origin {
       grid-template-columns: minmax(0, 1fr);
-      padding-block: var(--epoch-space-xl) var(--epoch-space-md);
       border-block-end: 1px solid var(--epoch-color-line);
+    }
+    .row.row-state { padding-block: var(--epoch-space-xl) var(--epoch-space-md); }
+    .row-origin {
+      gap: var(--epoch-space-xs);
+      padding-block: 3.5rem var(--epoch-space-lg);
     }
     .row-origin-title {
       margin: 0;
-      font-size: var(--epoch-type-title-size);
-      font-weight: var(--epoch-type-title-weight);
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-headline-size);
+      font-weight: var(--epoch-type-display-weight);
+      line-height: var(--epoch-type-headline-leading);
+      letter-spacing: var(--epoch-type-headline-tracking);
     }
     .row-origin-note {
       margin: 0;
       color: var(--epoch-color-muted);
-      font-size: var(--epoch-type-body-size);
+      font-size: var(--epoch-type-label-size);
+      font-weight: var(--epoch-type-label-weight);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
+
+    /* ── Tonal layering (DESIGN 5: tonal first, shadows rare) ─────────────── */
+    /* Chrome recedes to surface; the feed advances to raised white. Before this
+       every band rendered white, so shell and content read as one flat plane. */
+    .feed-header,
+    .feed-toolbar,
+    .composer {
+      background: var(--epoch-color-surface);
+    }
+    .feed-shell { background: var(--epoch-color-surface); }
+    .surface-stage { background: var(--epoch-color-surface-raised); }
+    .dev-feed,
+    .artifact-list { background: var(--epoch-color-surface-raised); }
 
     /* ── Four button treatments, not thirteen ─────────────────────────────── */
     .button-primary,
@@ -1661,6 +1707,15 @@ export function communityStyles(): string {
         max-height: 32vh;
         overflow-y: auto;
       }
+    }
+
+    /* Row-level secondary controls run at the contract's 32px floor rather than
+       the 36px reserved for primary actions; at 36px each row grew to 188px. */
+    .row-foot .button-chip,
+    .row-foot .reaction {
+      min-height: 2rem;
+      padding: 0 var(--epoch-space-sm);
+      font-size: var(--epoch-type-meta-size);
     }
 
     @media (prefers-reduced-motion: reduce) {

@@ -23,6 +23,7 @@ import {
   defaultWorkChannels,
   emptyCopyForChannel,
 } from "../model/channels";
+import { byTime } from "../model/feed";
 import { messageMatchesReceiptSearch } from "../model/search";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
 import { LIVE_EMPTY_MESSAGE, SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE, renderStateChip } from "../view/honesty";
@@ -746,7 +747,7 @@ function applyChannelFilter(): void {
   if (contextSub && productMode === "community") {
     contextSub.textContent = q
       ? "Receipt search · community-wide"
-      : `# ${activeChannel} · community channel`;
+      : `# ${activeChannel}`;
   }
   applyComposerChrome();
   document.querySelectorAll<HTMLElement>("[data-channel][aria-pressed]").forEach((item) => {
@@ -972,8 +973,8 @@ function renderRepository(repo: CommunityRepository): void {
     // signed action tray and stay byte-identical with server-rendered markup.
     // The empty-state item lives in the same <ol>, so it must survive a refresh
     // that replaces the message list wholesale.
-    feed.innerHTML = renderChannelOrigin(activeChannel, currentCommunity()?.name ?? "this community")
-      + [...social, ...agents, ...issueConvos, ...changeConvos]
+    feed.innerHTML = renderChannelOrigin(activeChannel)
+      + byTime([...social, ...agents, ...issueConvos, ...changeConvos])
       .map((conversation) => renderConversation(conversation, activeChannel, activeCommunity))
       .join("")
       + asListState(renderEmptyState(emptyCopyForChannel(activeChannel)), "feed-state", { hidden: true });

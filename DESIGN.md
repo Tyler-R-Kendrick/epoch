@@ -6,16 +6,16 @@ colors:
   primary: "#0f1614"
   secondary: "#5c6762"
   tertiary: "#b4532f"
-  neutral: "#f3f6f4"
-  surface: "#f3f6f4"
+  neutral: "#ecefea"
+  surface: "#ecefea"
   surface-raised: "#ffffff"
-  surface-sunken: "#e8eeeb"
+  surface-sunken: "#dfe4dd"
   ink: "#0f1614"
   ink-soft: "#2d3531"
   ink-faint: "#a0aaa4"
   muted: "#5c6762"
-  line: "#d7e0db"
-  line-strong: "#b0bfb7"
+  line: "#d2d9d2"
+  line-strong: "#a6b1a8"
   accent: "#b4532f"
   accent-strong: "#8f3f28"
   teal: "#2a6f6c"
@@ -45,25 +45,25 @@ typography:
     letterSpacing: "-0.02em"
   headline:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "1.25rem"
+    fontSize: "1.375rem"
     fontWeight: 700
     lineHeight: 1.2
-    letterSpacing: "-0.01em"
+    letterSpacing: "-0.015em"
   title:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "0.98rem"
+    fontSize: "1.0625rem"
     fontWeight: 700
     lineHeight: 1.25
     letterSpacing: "0em"
   body:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "0.94rem"
+    fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0em"
   label:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "0.78rem"
+    fontSize: "0.8125rem"
     fontWeight: 650
     lineHeight: 1.2
     letterSpacing: "0em"
