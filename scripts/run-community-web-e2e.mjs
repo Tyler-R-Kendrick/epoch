@@ -12,8 +12,10 @@ rmSync(videoScratch, { recursive: true, force: true });
 mkdirSync(videoScratch, { recursive: true });
 mkdirSync(evidenceDir, { recursive: true });
 
-run("npm.cmd", ["run", "build", "--", "--pretty", "false"]);
-run("npx.cmd", [
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+run(npm, ["run", "build", "--", "--pretty", "false"]);
+run(npx, [
   "cucumber-js",
   "features/community_web_experience.feature",
   "--require",
@@ -40,7 +42,7 @@ assertNonEmpty(webmPath);
 const json = JSON.parse(readText(jsonPath));
 const names = JSON.stringify(json);
 for (const expected of [
-  "Maintainer opens the channel feed and sees social conversations first",
+  "Contributor opens a community and sees community-owned channels first",
   "Maintainer promotes a community idea into an intent",
   "Contributor adds a unified signed comment to the current channel",
 ]) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { After, Given, Then, When } from "@cucumber/cucumber";
-import { chromium, type Browser, type Page, type Route } from "playwright";
+import { chromium, type Browser, type Page, type Response as PlaywrightResponse, type Route } from "playwright";
 import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
 import { type CommunityApiTransport, createCommunityClient } from "@epoch/community-core";
 import { createCommunityWebApp, renderCommunityWebDocument } from "@epoch/community-web";
@@ -12,9 +12,19 @@ interface CommunityWebWorld {
   readonly apiHandler?: (request: Request) => Promise<Response>;
   readonly browser?: Browser;
   readonly page?: Page;
+  /** Resolves when the runtime's boot-time refreshRepository GET has been answered (live API mode only). */
+  readonly initialRefresh?: Promise<PlaywrightResponse | undefined>;
+  /** Rendered document, kept so a scenario can reopen the page in the same origin. */
+  readonly document?: string;
 }
 
+/** Matches the deployed route: vercel.json rewrites /community/* to the page. */
+const COMMUNITY_PAGE_PATH = "/community";
+
 let world: CommunityWebWorld = {};
+
+/** Title of the message whose provenance a scenario revealed. */
+let revealedMessageTitle = "";
 
 After(async function () {
   await Promise.allSettled([
@@ -108,11 +118,37 @@ async function openCommunityWebPage(
       },
     viewport: { width: 1440, height: 960 },
   });
+  const document = renderCommunityWebDocument(app);
+  // Serve the document from a real origin instead of setContent: an opaque
+  // origin has no usable localStorage, and durable preferences (last-read
+  // watermarks, first-run dismissal) are part of the shipped experience.
+  await page.route("https://community.test/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/" || pathname === COMMUNITY_PAGE_PATH || pathname.startsWith(`${COMMUNITY_PAGE_PATH}/`)) {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: document,
+      });
+      return;
+    }
+    if (apiHandler === undefined) {
+      await route.fulfill({ status: 404, contentType: "text/plain", body: "no api" });
+      return;
+    }
+    await routeCommunityApi(route, apiHandler);
+  });
+  let initialRefresh: Promise<PlaywrightResponse | undefined> | undefined;
   if (apiHandler !== undefined) {
-    await page.route("https://community.test/**", (route) => routeCommunityApi(route, apiHandler));
+    // Register before navigation: the runtime refreshes the repository from the
+    // live API during boot, and the response must not be missed by a late waiter.
+    initialRefresh = page.waitForResponse(
+      (response) => response.request().method() === "GET" && response.url().includes("/repositories/"),
+      { timeout: 10_000 },
+    ).catch(() => undefined);
   }
-  await page.setContent(renderCommunityWebDocument(app), { waitUntil: "domcontentloaded" });
-  world = { ...world, browser, page };
+  await page.goto(`https://community.test${COMMUNITY_PAGE_PATH}`, { waitUntil: "domcontentloaded" });
+  world = { ...world, browser, page, initialRefresh, document, apiHandler };
 }
 
 When("I open the Network Feed", async function () {
@@ -136,13 +172,25 @@ When("I open the ideas channel in the active community", async function () {
   await page.locator('button[data-channel="ideas"]').click();
   await page.locator("[data-surface-panel=\"channels\"]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
   await page.locator(
-    "[data-surface-panel=\"channels\"]:not([hidden]) [data-message]:not([hidden]) h2",
+    "[data-surface-panel=\"channels\"]:not([hidden]) [data-message]:not([hidden]) .row-heading",
     { hasText: "Dashboard widget should group revenue by region" },
   ).first().waitFor({ state: "visible", timeout: 5_000 });
 });
 
 When("I select the {string} community message", async function (title: string) {
   await selectCommunityMessage(title);
+});
+
+When("the community repository refreshes from the live API", async function () {
+  const page = requirePage();
+  assert.ok(world.initialRefresh, "live API scenarios track the runtime's boot-time repository refresh");
+  const response = await world.initialRefresh;
+  assert.ok(response, "the runtime should refresh the repository from the live API on load");
+  // renderRepository rebuilds the whole feed just after the response resolves;
+  // wait for the client-rendered welcome message to be back in the feed.
+  await page.waitForTimeout(200);
+  await page.locator('[data-message-id="epoch-civic-general-welcome"]')
+    .waitFor({ state: "attached", timeout: 5_000 });
 });
 
 When("I mark the selected message as an intent candidate", async function () {
@@ -285,28 +333,63 @@ Then("the reply appears in the message feed with signed comment metadata", async
 
 Then("the active conversation remains reachable without an oversized navigation rail", async function () {
   const page = requirePage();
-  const rail = await page.locator("[data-community-channel-rail]").boundingBox();
   const feed = await page.locator("[data-message-feed]").boundingBox();
-  assert.ok(rail);
   assert.ok(feed);
-  assert.ok(rail.height <= 360, `navigation rail is ${rail.height}px tall`);
-  assert.ok(feed.y < 844, `message feed starts below the viewport at ${feed.y}px`);
+  // The rail is a sheet on narrow screens: it must not occupy the content
+  // column at rest. Four stacked horizontal scrollers used to eat 83% of the
+  // first screen before the first message.
+  // The sheet slides on a 180ms transition; settle before measuring.
+  await page.waitForTimeout(300);
+  const rail = await page.evaluate(() => {
+    const element = document.querySelector("[data-community-channel-rail]");
+    if (element === null) return null;
+    const box = element.getBoundingClientRect();
+    return { right: Math.round(box.right), width: Math.round(box.width) };
+  });
+  assert.ok(rail);
+  assert.ok(
+    rail.right <= 1,
+    `rail must be off-canvas until requested on a narrow screen; its right edge is at ${rail.right}px`,
+  );
+  assert.ok(feed.y < 844 * 0.4, `message feed starts at ${feed.y}px — chrome is eating the first screen`);
+  // And there must be a visible way to open it.
+  await page.locator("[data-rail-toggle]").waitFor({ state: "visible", timeout: 5_000 });
 });
-
 Then("I can browse each navigation group without horizontal page overflow", async function () {
   const page = requirePage();
   const layout = await page.evaluate(() => ({
     pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    // Navigation is a vertical list in the sheet. It used to be four
+    // horizontally-scrolling strips that clipped mid-word ("# su\u2310") and hid
+    // six of nine channels behind a sideways swipe inside a vertical drawer.
     groups: ["[data-community-list]", "[data-channel-list]", "[data-repo-list]"].map((selector) => {
       const element = document.querySelector(selector);
-      if (element === null) {
-        throw new Error(`Missing element ${selector}`);
-      }
-      return getComputedStyle(element).overflowX;
+      if (element === null) throw new Error(`Missing element ${selector}`);
+      return {
+        selector,
+        overflowX: getComputedStyle(element).overflowX,
+        clipped: element.scrollWidth > element.clientWidth + 1,
+      };
     }),
   }));
   assert.equal(layout.pageOverflows, false);
-  assert.ok(layout.groups.every((overflow) => overflow === "auto"), layout.groups.join(", "));
+  for (const group of layout.groups) {
+    assert.notEqual(group.overflowX, "auto", `${group.selector} must not scroll sideways`);
+    assert.equal(group.clipped, false, `${group.selector} clips its own content horizontally`);
+  }
+
+  // The page-level check alone gave a false pass: an ancestor with
+  // overflow-x: hidden suppressed the document scrollbar while the message
+  // feed itself rendered wider than the viewport and clipped message text.
+  const feed = await page.evaluate(() => {
+    const element = document.querySelector(".message-feed");
+    if (element === null) throw new Error("Missing .message-feed");
+    return { scrollWidth: element.scrollWidth, clientWidth: element.clientWidth };
+  });
+  assert.ok(
+    feed.scrollWidth <= feed.clientWidth,
+    `message feed content is clipped: scrollWidth ${feed.scrollWidth} > clientWidth ${feed.clientWidth}`,
+  );
 });
 
 Then("conversation reactions meet the Community touch-target floor", async function () {
@@ -324,8 +407,16 @@ Then("Community state remains readable and announced", async function () {
   const stateBox = await state.boundingBox();
   assert.ok(heading);
   assert.ok(stateBox);
-  assert.ok(stateBox.y >= heading.y + heading.height, "Community state overlaps the heading");
+  // The header is a single row now, so state sits beside the heading rather
+  // than stacked beneath it — but the two must not overlap.
+  assert.ok(
+    stateBox.x >= heading.x + heading.width || stateBox.y >= heading.y + heading.height,
+    "Community state overlaps the heading",
+  );
   assert.equal(await state.getAttribute("role"), "status");
+  // Liveness is stated once, in words, not by colour alone.
+  const text = (await state.innerText()).trim();
+  assert.match(text, /^(live|snapshot)$/u, `header state should be one word, got: ${text}`);
 });
 
 Then("the current channel context remains labeled", async function () {
@@ -386,6 +477,24 @@ Then("the Community Web shows a signed promote receipt for the new proposal", as
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
 });
 
+Then("the selected message keeps the Mark intent and Report signed actions", async function () {
+  const page = requirePage();
+  const selected = page.locator('[data-selected-message="true"]');
+  await selected.waitFor({ state: "attached", timeout: 5_000 });
+  await selected.locator("[data-message-actions]").waitFor({ state: "visible", timeout: 5_000 });
+  // EPX-D001: client-rendered social messages must keep the signed action tray after a live refresh.
+  assert.equal(
+    await selected.locator('[data-action="intent"]').count(),
+    1,
+    "Mark intent action must survive a live client refresh on community-owned messages",
+  );
+  assert.equal(
+    await selected.locator('[data-action="report"]').count(),
+    1,
+    "Report action must survive a live client refresh on community-owned messages",
+  );
+});
+
 Then("the identity chip uses auth state {string}", async function (authState: string) {
   const page = requirePage();
   const chip = page.locator("[data-identity-chip]");
@@ -444,3 +553,131 @@ async function closeWithTimeout(task: Promise<unknown> | undefined, label: strin
     }),
   ]);
 }
+
+// ── Experience layer: empty states, search clearing, unread, first run ───────
+
+When("I open the support channel in the active community", async function () {
+  const page = requirePage();
+  await page.locator('button[data-channel="support"]').click();
+  await page.locator('[data-surface-panel="channels"]:not([hidden])').waitFor({ state: "visible", timeout: 5_000 });
+});
+
+When("I press Escape in the receipt search", async function () {
+  const page = requirePage();
+  const search = page.locator("[data-receipt-search]");
+  await search.focus();
+  await search.press("Escape");
+  await page.waitForTimeout(150);
+});
+
+When("the ideas channel gains activity after I last read it", async function () {
+  const page = requirePage();
+  // Simulate having read #ideas when it was empty: the watermark is the message
+  // count seen, so a lower watermark is exactly what storage would hold.
+  await page.evaluate(() => {
+    const key = "epoch-community:last-read";
+    const raw = window.localStorage.getItem(key);
+    const map: Record<string, number> = raw === null ? {} : JSON.parse(raw) as Record<string, number>;
+    map["epoch-civic|ideas"] = 0;
+    window.localStorage.setItem(key, JSON.stringify(map));
+  });
+  // Re-render badges by selecting another channel.
+  await page.locator('button[data-channel="general"]').click();
+  await page.waitForTimeout(150);
+});
+
+Then("the channel shows an empty state naming a next action", async function () {
+  const page = requirePage();
+  const state = page.locator('.message-feed [data-state-item]:not([hidden]) [data-state-kind="empty"]');
+  await state.waitFor({ state: "visible", timeout: 5_000 });
+  const title = await state.locator(".state-title").innerText();
+  const action = await state.locator(".state-action").innerText();
+  assert.match(title, /No questions in #support yet\./u);
+  assert.ok(action.trim().length > 0, "empty state must offer a next action");
+  assert.match(action, /Ask what you are stuck on/u);
+});
+
+Then("the feed shows a zero-result state naming {string}", async function (query: string) {
+  const page = requirePage();
+  const state = page.locator('.message-feed [data-state-item]:not([hidden]) [data-state-kind="empty"]');
+  await state.waitFor({ state: "visible", timeout: 5_000 });
+  const title = await state.locator(".state-title").innerText();
+  assert.ok(title.includes(query), `zero-result state should name the query, got: ${title}`);
+  const action = await state.locator(".state-action").innerText();
+  assert.match(action, /Search covers messages, intents, harness labels, and promote receipts/u);
+});
+
+Then("the receipt search is empty and announces the channel", async function () {
+  const page = requirePage();
+  const value = await page.locator("[data-receipt-search]").inputValue();
+  assert.equal(value, "");
+  const status = await page.locator("[data-receipt-search-status]").innerText();
+  assert.match(status, /Search cleared\./u);
+  const visible = await page.locator('[data-surface-panel="channels"]:not([hidden]) [data-message]:not([hidden])').count();
+  assert.ok(visible > 0, "clearing search must restore the channel messages");
+});
+
+Then("no channel shows an unread count on a first visit", async function () {
+  const page = requirePage();
+  const unread = await page.locator("[data-channel-has-unread]").count();
+  assert.equal(unread, 0, "a first visit must not mark every channel unread");
+});
+
+Then("the ideas channel shows an unread count", async function () {
+  const page = requirePage();
+  const button = page.locator('button[data-channel="ideas"]');
+  await button.locator("[data-channel-unread]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
+  const count = await button.locator("[data-channel-unread]").innerText();
+  assert.match(count.trim(), /^[1-9]\d*$/u);
+  const label = await button.getAttribute("aria-label");
+  assert.match(label ?? "", /unread/u, "unread must be readable, not colour-only");
+});
+
+// ── Craft moments: provenance reveal and contribution lineage ────────────────
+
+When("I reveal the provenance of the {string} message", async function (title: string) {
+  const page = requirePage();
+  const message = page.locator("[data-message]:not([hidden])", { hasText: title }).first();
+  await message.waitFor({ state: "visible", timeout: 5_000 });
+  await message.locator("[data-signature-reveal]").click();
+  await message.locator("[data-provenance-panel]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
+  revealedMessageTitle = title;
+});
+
+When("I view the lineage of the promoted message", async function () {
+  const page = requirePage();
+  const lineage = page.locator("[data-message]:not([hidden]) [data-view-lineage]").first();
+  await lineage.waitFor({ state: "visible", timeout: 5_000 });
+  await lineage.click();
+  await page.locator('[data-lineage-target="true"]').waitFor({ state: "visible", timeout: 5_000 });
+});
+
+Then("the provenance panel names the signature, anchor, and source", async function () {
+  const page = requirePage();
+  assert.ok(revealedMessageTitle, "a message must be revealed first");
+  const message = page.locator("[data-message]:not([hidden])", { hasText: revealedMessageTitle }).first();
+  const panel = message.locator("[data-provenance-panel]:not([hidden])");
+  await panel.waitFor({ state: "visible", timeout: 5_000 });
+  const text = await panel.innerText();
+  // Labels are uppercased by CSS, so innerText returns them transformed.
+  assert.match(text, /signature/iu);
+  assert.match(text, /anchor/iu);
+  assert.match(text, /source/iu);
+  // The values themselves, not just the labels.
+  assert.match(text, /sig:/u);
+  // The panel must state which side of the honesty line the record came from.
+  assert.match(text, /live Community API|snapshot sample/u);
+  const expanded = await message.locator("[data-signature-reveal]").getAttribute("aria-expanded");
+  assert.equal(expanded, "true", "the signature mark must report its expanded state");
+});
+
+Then("the origin message and the resulting change are marked as one contribution", async function () {
+  const page = requirePage();
+  await page.locator('[data-lineage-target="true"]').waitFor({ state: "visible", timeout: 5_000 });
+  assert.equal(await page.locator('[data-lineage-origin="true"]').count(), 1, "origin message must be marked");
+  assert.equal(await page.locator('[data-lineage-target="true"]').count(), 1, "resulting change must be marked");
+  const originProposal = await page.locator('[data-lineage-origin="true"]').getAttribute("data-linked-proposal");
+  const targetChange = await page.locator('[data-lineage-target="true"]').getAttribute("data-change-id");
+  assert.ok(originProposal);
+  assert.equal(originProposal, targetChange, "both ends must reference the same proposal");
+});

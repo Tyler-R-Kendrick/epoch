@@ -21,6 +21,7 @@
     "packages/Epoch.Platform.Core",
     "packages/Epoch.Platform.Sdk",
     "packages/Epoch.Platform.Web",
+    "packages/Epoch.DesignTokens",
     "packages/Epoch.Community.Core",
     "packages/Epoch.Community.API",
     "packages/Epoch.Community.Web",
@@ -100,6 +101,10 @@
       "types": "./packages/Epoch.Platform.Web/src/index.ts",
       "default": "./packages/Epoch.Platform.Web/dist/index.js"
     },
+    "./Epoch.DesignTokens": {
+      "types": "./packages/Epoch.DesignTokens/src/index.ts",
+      "default": "./packages/Epoch.DesignTokens/dist/index.js"
+    },
     "./Epoch.Community.Core": {
       "types": "./packages/Epoch.Community.Core/src/index.ts",
       "default": "./packages/Epoch.Community.Core/dist/index.js"
@@ -138,11 +143,13 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/core && npm run build -w @epoch/git-proxy && npm run build -w @epoch/atproto && npm run build -w @epoch/identity-bridge && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/live && npm run build -w @epoch/live-react && npm run build -w @epoch/live-redux && npm run build -w @epoch/live-yjs && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && npm run build -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/core && npm run build -w @epoch/git-proxy && npm run build -w @epoch/atproto && npm run build -w @epoch/identity-bridge && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/live && npm run build -w @epoch/live-react && npm run build -w @epoch/live-redux && npm run build -w @epoch/live-yjs && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/design-tokens && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && npm run build -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/design-tokens && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "design:lint": "designmd lint DESIGN.md",
-    "gate:fast": "npm run konsistent && npm run docs:check && npm run design:lint && npm run lint",
+    "design:audit": "node scripts/audit-design-tokens.mjs --enforce-structural",
+    "tokens:generate": "node packages/Epoch.DesignTokens/scripts/generate-tokens.mjs",
+    "gate:fast": "npm run konsistent && npm run docs:check && npm run design:lint && npm run design:audit && npm run lint",
     "gate:push": "npm run gate:fast && npm run typecheck && npm run build -- --pretty false && npm run test:unit:runtime",
     "konsistent": "konsistent",
     "docs:check": "node scripts/check-docs.mjs",
@@ -159,7 +166,8 @@
     "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
-    "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run typecheck && npm run konsistent && npm test && npm run coverage && npm run test:pact"
+    "a11y:community-web": "node scripts/run-community-web-axe.mjs",
+    "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run a11y:community-web && npm run coverage && npm run test:pact"
   },
   "keywords": [
     "dvcs",
@@ -180,6 +188,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@typescript/native-preview": "^7.0.0-dev.20260504.1",
+    "axe-core": "^4.12.1",
     "c8": "^11.0.0",
     "eslint": "^10.3.0",
     "jsdom": "^29.1.1",

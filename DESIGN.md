@@ -11,21 +11,31 @@ colors:
   surface-raised: "#ffffff"
   surface-sunken: "#e8eeeb"
   ink: "#0f1614"
+  ink-soft: "#2d3531"
+  ink-faint: "#a0aaa4"
   muted: "#5c6762"
   line: "#d7e0db"
+  line-strong: "#b0bfb7"
   accent: "#b4532f"
   accent-strong: "#8f3f28"
   teal: "#2a6f6c"
+  teal-deep: "#215955"
+  teal-hover: "#32807c"
   mint: "#d5ebe3"
+  mint-strong: "#b7d8c8"
   gold: "#c9a24a"
+  avatar: "#1f3d34"
+  avatar-ink: "#e8f3ee"
   rail: "#101714"
   rail-text: "#d7e2dc"
   rail-muted: "#8fa099"
   rail-hover: "#1a2420"
   rail-active: "#24322c"
+  rail-line: "#1c2622"
   success: "#1a5c3e"
   warning-bg: "#fff6df"
   warning-ink: "#5b4420"
+  warning-line: "#e0c991"
 typography:
   display:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
@@ -195,6 +205,46 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.xs}"
     padding: "2px 4px"
+  avatar:
+    backgroundColor: "{colors.avatar}"
+    textColor: "{colors.avatar-ink}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.sm}"
+    size: "34px"
+  message-copy:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink-soft}"
+    typography: "{typography.body}"
+  meta-separator:
+    backgroundColor: "{colors.ink-faint}"
+    textColor: "{colors.ink}"
+    typography: "{typography.meta}"
+    height: "1px"
+  hairline-strong:
+    backgroundColor: "{colors.line-strong}"
+    textColor: "{colors.ink}"
+    height: "1px"
+  button-intent-hover:
+    backgroundColor: "{colors.teal-hover}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+  intent-edge:
+    backgroundColor: "{colors.teal-deep}"
+    textColor: "{colors.surface-raised}"
+    height: "1px"
+  live-hairline:
+    backgroundColor: "{colors.mint-strong}"
+    textColor: "{colors.ink}"
+    height: "1px"
+  snapshot-hairline:
+    backgroundColor: "{colors.warning-line}"
+    textColor: "{colors.warning-ink}"
+    height: "1px"
+  rail-divider:
+    backgroundColor: "{colors.rail-line}"
+    textColor: "{colors.rail-text}"
+    height: "1px"
 ---
 
 # Design System: Epoch Community
@@ -239,21 +289,27 @@ The palette is a cool civic workshop: mist page edge, pure raised work surface, 
 
 ### Secondary
 
-- **Registry Teal (`teal`)**: Intent/workflow support — not the primary brand wash.
+- **Registry Teal (`teal`)**: Intent/workflow support — not the primary brand wash. `teal-deep` edges intent buttons; `teal-hover` is the intent hover fill.
 - **Verified Gold (`gold`)**: Trust and verification only (signed history, verified state). Never decorative.
 - **Quiet Muted (`muted`, `secondary`)**: Meta, timestamps, secondary labels.
+- **Soft Ink (`ink-soft`)**: Long-form body copy inside messages and threads — one step quieter than `ink`.
+- **Faint Ink (`ink-faint`)**: The quietest glyphs — `·` separators between meta spans.
+- **Identity Pine (`avatar`, `avatar-ink`)**: Square-soft avatar and brand-mark fill with its pale mint initial color.
 
 ### Neutral surfaces
 
 - **Mist / Neutral (`surface`, `neutral`)**: Page edge and subtle hover wash.
 - **Raised White (`surface-raised`)**: Main feed and composer — clean like Bluesky/X light, not parchment-muddy.
 - **Sunken (`surface-sunken`)**: Thread nests and recessed panels.
-- **Ledger Line (`line`)**: Hairline borders and dividers.
+- **Ledger Line (`line`)**: Hairline borders and dividers. `line-strong` borders secondary buttons and hover states that need one more step of contrast.
+- **Mint Line (`mint-strong`)**: Border for mint/live honesty surfaces.
+- **Warning Line (`warning-line`)**: Border for snapshot/warning honesty surfaces and badges.
 
 ### Rail
 
 - **Rail (`rail`)**: Deep charcoal green for orientation chrome.
 - **Rail text / muted / hover / active**: Readable hierarchy on dark chrome; active channel is clearly selected without purple.
+- **Rail line (`rail-line`)**: Hairline section dividers on the dark rail.
 
 ### Named rules
 

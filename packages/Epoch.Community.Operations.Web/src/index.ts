@@ -1,3 +1,4 @@
+import { epochTokensCss } from "@epoch/design-tokens";
 import type {
   AiActionPlan,
   AuditEvent,
@@ -188,6 +189,64 @@ export interface CommunityOperationsWebAppDefinition {
   readonly agentSandboxes: readonly CommunityAgentSandboxRun[];
   readonly runnerSummary: CommunityRunnerSummary;
   readonly activity: readonly CommunityOperationsActivity[];
+  readonly moderationReports: readonly CommunityModerationReport[];
+}
+
+/**
+ * A moderation report as a moderator sees it: the signed record that a Report
+ * action opened in the community, surfaced as a queue instead of leaving the
+ * moderator to notice it scrolling past in #governance.
+ */
+export interface CommunityModerationReport {
+  readonly id: string;
+  readonly title: string;
+  readonly author: string;
+  readonly status: string;
+  readonly repositorySlug: string;
+  /** Community channel the report is recorded in. */
+  readonly channel: string;
+  /** True while the report still needs a moderator decision. */
+  readonly open: boolean;
+}
+
+/** Repository shape needed to derive reports — matches CommunityRepository. */
+interface ModerationSourceRepository {
+  readonly slug: string;
+  readonly issues: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly author: string;
+    readonly status: string;
+    readonly labels?: readonly string[];
+  }[];
+}
+
+/**
+ * Derive the moderation queue from community issues. Report actions label
+ * their records `moderation`, so the queue is real signed records, never a
+ * separate store that could disagree with the community.
+ */
+export function moderationReportsFromRepositories(
+  repositories: readonly ModerationSourceRepository[],
+): readonly CommunityModerationReport[] {
+  const reports: CommunityModerationReport[] = [];
+  for (const repository of repositories) {
+    for (const issue of repository.issues) {
+      const labels = (issue.labels ?? []).map((label) => label.toLowerCase());
+      if (!labels.includes("moderation")) continue;
+      reports.push({
+        id: issue.id,
+        title: issue.title,
+        author: issue.author,
+        status: issue.status,
+        repositorySlug: repository.slug,
+        channel: "governance",
+        open: issue.status.toLowerCase() !== "closed" && issue.status.toLowerCase() !== "resolved",
+      });
+    }
+  }
+  // Open reports first: the queue exists to show what still needs a decision.
+  return reports.sort((left, right) => Number(right.open) - Number(left.open));
 }
 
 export interface CreateCommunityOperationsWebAppOptions {
@@ -202,6 +261,8 @@ export interface CreateCommunityOperationsWebAppOptions {
   readonly workspaceTemplates?: readonly CommunitySandboxWorkspaceTemplate[];
   readonly sandboxWorkspaces?: readonly CommunitySandboxWorkspaceSession[];
   readonly workspaceReviews?: readonly CommunitySandboxWorkspaceReview[];
+  /** Community repositories whose moderation-labelled issues form the queue. */
+  readonly communityRepositories?: readonly ModerationSourceRepository[];
 }
 
 export async function createCommunityOperationsWebApp(
@@ -220,8 +281,8 @@ export async function createCommunityOperationsWebApp(
       shortName: "Epoch Ops",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#17221f",
-      backgroundColor: "#f4f7f5",
+      themeColor: "#0f1614",
+      backgroundColor: "#f3f6f4",
       offlineShell: true,
     },
     deploymentTarget: createCommunityOperationsDeploymentTarget({
@@ -242,6 +303,7 @@ export async function createCommunityOperationsWebApp(
     agentSandboxes: sandboxRunsWithPlatformPlans(snapshot, options.sandboxRuns ?? []),
     runnerSummary: runnerSummary(snapshot.runners),
     activity: activityFromAudit(snapshot.auditEvents, snapshot.platformEvents),
+    moderationReports: moderationReportsFromRepositories(options.communityRepositories ?? []),
   };
 }
 
@@ -302,6 +364,7 @@ ${communityOperationsStyles()}
       </dl>
     </header>
     <nav class="ops-tabs" aria-label="Community operations sections">
+      <a href="#moderation">Moderation</a>
       <a href="#apps">Apps</a>
       <a href="#workspaces">Sandbox Workspaces</a>
       <a href="#workspace-reviews">Workspace Reviews</a>
@@ -312,6 +375,12 @@ ${communityOperationsStyles()}
       <a href="#activity">Activity</a>
     </nav>
     <section id="operations-content" class="ops-grid" aria-label="Community operations dashboard">
+      <section id="moderation" class="ops-section" aria-labelledby="moderation-title" data-moderation-queue>
+        <h2 id="moderation-title">Moderation${openModerationCount(app.moderationReports) === 0 ? "" : ` <span class="ops-queue-count" data-moderation-open>${openModerationCount(app.moderationReports)} open</span>`}</h2>
+        ${app.moderationReports.length === 0
+          ? emptyCard("No moderation reports", "Reports filed from a community message appear here as signed records awaiting a decision.")
+          : app.moderationReports.map(renderModerationReport).join("")}
+      </section>
       <section id="apps" class="ops-section" aria-labelledby="apps-title">
         <h2 id="apps-title">Apps</h2>
         ${app.hostedApps.length === 0 ? emptyCard("No hosted apps", "Connect Platform state to show deployable apps here.") : app.hostedApps.map(renderHostedApp).join("")}
@@ -647,6 +716,26 @@ function renderActivity(activity: CommunityOperationsActivity): string {
   </li>`;
 }
 
+function openModerationCount(reports: readonly CommunityModerationReport[]): number {
+  return reports.filter((report) => report.open).length;
+}
+
+function renderModerationReport(report: CommunityModerationReport): string {
+  // State is text, not colour alone: moderators triage these at speed and some
+  // read them with assistive tech.
+  const state = report.open ? "open · needs a decision" : `${report.status} · closed`;
+  return `<article class="ops-card" data-moderation-report="${escapeHtml(report.id)}" data-moderation-open="${report.open ? "true" : "false"}">
+    <h3>${escapeHtml(report.title)}</h3>
+    <p>${escapeHtml(state)}</p>
+    <dl>
+      <div><dt>Reported by</dt><dd>${escapeHtml(report.author)}</dd></div>
+      <div><dt>Record</dt><dd><code>${escapeHtml(report.id)}</code></dd></div>
+      <div><dt>Project</dt><dd>${escapeHtml(report.repositorySlug)}</dd></div>
+    </dl>
+    <p class="ops-card-actions"><a href="/community/c/${escapeHtml(report.channel)}">Open #${escapeHtml(report.channel)} in the community</a></p>
+  </article>`;
+}
+
 function renderAction(action: CommunityOperationsAction): string {
   return `<a href="#${escapeHtml(action.toLowerCase().replaceAll(" ", "-"))}">${escapeHtml(action)}</a>`;
 }
@@ -673,20 +762,16 @@ function escapeHtml(value: string): string {
 }
 
 function communityOperationsStyles(): string {
-  return `    :root {
-      color-scheme: light;
-      --ops-surface: #f4f7f5;
-      --ops-card: #ffffff;
-      --ops-ink: #17221f;
-      --ops-muted: #60706a;
-      --ops-line: #cbd8d3;
-      --ops-accent: #2f7370;
-      --ops-action: #ba5e3f;
-      --ops-good: #2d7a46;
-      --ops-radius: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  return `${epochTokensCss}
+
+    /* The --ops-* alias layer is gone. Its values were correct but its names
+       inverted the vocabulary — "accent" meant teal here and copper in
+       Community Web — which guaranteed the two would drift. Ops consumes the
+       shared tokens directly (ADR-0010). */
+    :root {
+      font-family: var(--epoch-font-ui);
       letter-spacing: 0;
-      background: var(--ops-surface);
+      background: var(--epoch-color-surface);
     }
 
     * { box-sizing: border-box; }
@@ -694,14 +779,14 @@ function communityOperationsStyles(): string {
     body {
       min-width: 320px;
       margin: 0;
-      color: var(--ops-ink);
-      background: var(--ops-surface);
+      color: var(--epoch-color-ink);
+      background: var(--epoch-color-surface);
     }
 
     a { color: inherit; }
 
     a:focus-visible {
-      outline: 3px solid rgba(186, 94, 63, 0.42);
+      outline: 3px solid color-mix(in srgb, var(--epoch-color-accent) 42%, transparent);
       outline-offset: 3px;
     }
 
@@ -711,9 +796,9 @@ function communityOperationsStyles(): string {
       inset-inline-start: 1rem;
       z-index: 10;
       padding: 0.65rem 0.85rem;
-      border: 1px solid var(--ops-ink);
-      border-radius: 4px;
-      background: var(--ops-card);
+      border: 1px solid var(--epoch-color-ink);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
       transform: translateY(-140%);
     }
 
@@ -738,7 +823,7 @@ function communityOperationsStyles(): string {
 
     .eyebrow {
       margin: 0 0 0.5rem;
-      color: var(--ops-action);
+      color: var(--epoch-color-accent);
       font-size: 0.78rem;
       font-weight: 800;
       text-transform: uppercase;
@@ -747,9 +832,12 @@ function communityOperationsStyles(): string {
     h1, h2, h3, p { overflow-wrap: break-word; }
 
     h1 {
+      /* App name in the first viewport: the DESIGN.md display level, nothing larger. */
       margin: 0;
-      font-size: 2.75rem;
-      line-height: 1;
+      font-size: var(--epoch-type-display-size);
+      font-weight: var(--epoch-type-display-weight);
+      line-height: var(--epoch-type-display-leading);
+      letter-spacing: var(--epoch-type-display-tracking);
     }
 
     h2 {
@@ -765,7 +853,7 @@ function communityOperationsStyles(): string {
     .lede {
       max-width: 62ch;
       margin: 1rem 0 0;
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
       line-height: 1.6;
     }
 
@@ -781,13 +869,13 @@ function communityOperationsStyles(): string {
     .card-facts div {
       min-width: 0;
       padding: 0.8rem;
-      border: 1px solid var(--ops-line);
-      border-radius: var(--ops-radius);
-      background: var(--ops-card);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
     }
 
     dt {
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
       font-size: 0.75rem;
       font-weight: 750;
     }
@@ -807,22 +895,22 @@ function communityOperationsStyles(): string {
     .ops-tabs a,
     .actions a {
       display: inline-flex;
-      min-height: 40px;
+      min-height: 2.25rem;
       align-items: center;
       justify-content: center;
       padding: 0.58rem 0.75rem;
-      border: 1px solid var(--ops-line);
-      border-radius: 4px;
-      background: var(--ops-card);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
       font-weight: 750;
       text-decoration: none;
       white-space: nowrap;
     }
 
     .actions a:first-child {
-      border-color: var(--ops-action);
-      background: var(--ops-action);
-      color: #ffffff;
+      border-color: var(--epoch-color-ink);
+      background: var(--epoch-color-ink);
+      color: var(--epoch-color-surface-raised);
     }
 
     .ops-grid {
@@ -844,15 +932,35 @@ function communityOperationsStyles(): string {
       gap: 0.85rem;
       min-width: 0;
       padding: 1rem;
-      border: 1px solid var(--ops-line);
-      border-radius: var(--ops-radius);
-      background: var(--ops-card);
-      box-shadow: 0 1px 0 rgba(23, 34, 31, 0.05);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      box-shadow: 0 1px 0 color-mix(in srgb, var(--epoch-color-ink) 5%, transparent);
+    }
+    /* Moderation queue: open reports carry a copper leading edge, the one
+       place the action colour is earned in this dashboard. */
+    .ops-card[data-moderation-open="true"] {
+      border-inline-start: 3px solid var(--epoch-color-accent);
+    }
+    .ops-queue-count {
+      display: inline-block;
+      margin-inline-start: var(--epoch-space-sm);
+      padding: 0 var(--epoch-space-sm);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-accent);
+      color: var(--epoch-color-surface-raised);
+      font-size: var(--epoch-type-label-size);
+      font-weight: var(--epoch-type-label-weight);
+      vertical-align: middle;
+    }
+    .ops-card-actions {
+      margin: 0;
+      font-size: var(--epoch-type-label-size);
     }
 
     .ops-card p {
       margin: 0;
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
       line-height: 1.55;
     }
 
@@ -864,9 +972,9 @@ function communityOperationsStyles(): string {
     }
 
     .status {
-      border-radius: 999px;
-      background: rgba(47, 115, 112, 0.12);
-      color: var(--ops-accent);
+      border-radius: var(--epoch-radius-sm);
+      background: color-mix(in srgb, var(--epoch-color-teal) 12%, transparent);
+      color: var(--epoch-color-teal);
       font-size: 0.78rem;
       font-weight: 800;
       padding: 0.35rem 0.55rem;
@@ -876,7 +984,7 @@ function communityOperationsStyles(): string {
     .card-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     .provenance-note {
-      border-inline-start: 3px solid var(--ops-good);
+      border-inline-start: 3px solid var(--epoch-color-success);
       padding-inline-start: 0.7rem;
     }
 
@@ -902,13 +1010,13 @@ function communityOperationsStyles(): string {
       display: flex;
       justify-content: space-between;
       gap: 1rem;
-      border-top: 1px solid var(--ops-line);
+      border-top: 1px solid var(--epoch-color-line);
       padding-top: 0.5rem;
     }
 
     code {
       overflow-wrap: anywhere;
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
     }
 
     .empty { border-style: dashed; }

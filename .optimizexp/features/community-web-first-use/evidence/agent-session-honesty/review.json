@@ -12,5 +12,7 @@
   ],
   "artifactSha256": "66d2fa1bdbcfe52c9113d2725e8567c9275c563893dbcae9f177aedbe74f7654",
   "reviewedAt": "2026-08-03T17:21:05.445Z",
-  "notes": "Playback covers community entry, Agents rail with sample·status labels, composer chip stating sample members not live ACP, agent-runs handoffs still visible. Full honesty journey for C0 experiment."
+  "notes": "Playback covers community entry, Agents rail with sample\u00b7status labels, composer chip stating sample members not live ACP, agent-runs handoffs still visible. Full honesty journey for C0 experiment.",
+  "defects": [],
+  "authoredBy": "optimizexp-community-competitive"
 }

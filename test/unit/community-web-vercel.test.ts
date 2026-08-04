@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
@@ -40,6 +40,23 @@ export async function runCommunityWebVercelTests(): Promise<void> {
   await communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy();
   await communityWebHtmlIncludesReceiptSearchPromoteAndIdentity();
   renderScriptProducesDeployableCommunityHtml();
+  inlinedRuntimeBundleStaysWithinByteBudget();
+}
+
+function inlinedRuntimeBundleStaysWithinByteBudget(): void {
+  // The compiled client entry is inlined into every rendered document, so the
+  // unminified IIFE carries a byte budget to keep the self-contained page lean.
+  // Raised from 60,000 when the experience layer landed (empty/loading/error
+  // states, search highlighting, the unread watermark, and the first-run strip):
+  // ~5KB of real behaviour, and the bundle gzips to roughly 16KB on the wire.
+  // The budget exists to catch runaway growth, so it should only move with a
+  // named feature that justifies it.
+  const bundlePath = join("packages", "Epoch.Community.Web", "dist", "client", "runtime.js");
+  const bundleBytes = statSync(bundlePath).size;
+  assert.ok(
+    bundleBytes < 75_000,
+    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 75,000 bytes (keep the unminified IIFE lean)`,
+  );
 }
 
 function communityReceiptSearchAndSessionHelpersArePure(): void {
@@ -256,19 +273,29 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
   assert.equal(liveFeed.source, "api");
   assert.equal(liveFeed.issues.length, 2);
   assert.equal(liveFeed.changes.length, 1);
-  assert.ok(liveFeed.conversations.every((item) => item.source === "api"));
+  // Conversations derived from repository state are API activity. Seeded community
+  // fixtures are not — they stay visible but stay labelled snapshot, because calling
+  // demo content "api" is the deception this product exists to refuse.
+  assert.ok(
+    liveFeed.conversations
+      .filter((item) => item.id.startsWith("issue-") || item.id.startsWith("change-"))
+      .every((item) => item.source === "api"),
+  );
+  assert.ok(
+    liveFeed.conversations.every((item) => item.source === "api" || item.source === "snapshot"),
+  );
   assert.ok(liveFeed.conversations.some((item) => item.channel === "ideas" && item.id === "issue-IDEA-3"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "bugs" && item.id === "issue-BUG-17"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "previews" && item.linkedProposalId === "CHANGE-12"));
   // Member-agent samples are intentional on the live path (Buzz agents-as-members),
-  // labeled source=api — not mixed snapshot forge demos.
+  // but they are samples, so they carry source=snapshot rather than posing as API activity.
   assert.ok(
     liveFeed.conversations.some((item) => item.role === "agent" && item.id === "agent-handoff-scout" && item.harness === "goose"),
     "live API feed includes member-agent handoff samples with harness",
   );
   assert.ok(
-    liveFeed.conversations.filter((item) => item.role === "agent").every((item) => item.source === "api"),
-    "member-agent samples on live path use api source labels",
+    liveFeed.conversations.filter((item) => item.role === "agent").every((item) => item.source === "snapshot"),
+    "member-agent samples on live path are labelled snapshot, not api",
   );
   assert.equal(
     liveFeed.conversations.some((item) => item.id === "idea-region-revenue" || item.id === "support-install-cache"),
@@ -321,7 +348,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
   assert.match(html, /<h1 id="community-title">Epoch Civic Workshop<\/h1>/u);
   assert.match(html, /epoch\/epoch/u);
-  assert.match(html, /This site is built with Epoch/u);
+  assert.match(html, /data-site-seal/u);
   assert.match(html, /data-community-channel-rail/u);
   assert.match(html, /data-product-mode="community"/u);
   assert.match(html, /data-community-list/u);
@@ -343,6 +370,24 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.doesNotMatch(html, /data-community-web-cockpit/u);
   assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
+
+  // The PWA descriptor claims offlineShell; these assets are what back it.
+  assert.match(html, /<link rel="manifest" href="\/community\/manifest\.webmanifest">/u);
+  assert.match(html, /serviceWorker/u);
+  const manifest = JSON.parse(
+    readFileSync(join(outputDirectory, "community", "manifest.webmanifest"), "utf8"),
+  ) as { name?: string; start_url?: string; display?: string; theme_color?: string };
+  assert.equal(manifest.name, "Epoch Community");
+  assert.equal(manifest.start_url, "/community");
+  assert.equal(manifest.display, "standalone");
+  assert.equal(manifest.theme_color, "#0f1614");
+  const serviceWorker = readFileSync(join(outputDirectory, "community", "sw.js"), "utf8");
+  assert.match(serviceWorker, /addEventListener\("install"/u);
+  assert.match(serviceWorker, /addEventListener\("fetch"/u);
+  // Navigations fall back to the cached shell; everything else stays
+  // network-first so cached API data never poses as live community state.
+  assert.match(serviceWorker, /request\.mode === "navigate"/u);
+  assert.match(serviceWorker, /caches\.match\(SHELL_URL\)/u);
 }
 
 async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
@@ -431,11 +476,15 @@ async function communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy():
   assert.match(html, /data-feed-source="snapshot"/u);
   assert.match(html, /data-api-unconfigured/u);
   assert.match(html, /data-feed-honesty="snapshot"/u);
-  assert.match(html, /Snapshot communities|channels belong to the community/u);
+  // The banner is degraded-state only now, and says what to do rather than
+  // re-explaining the product.
+  assert.match(html, /Snapshot data\. To promote signed work, reconnect/u);
+  assert.match(html, /data-state="snapshot"/u);
   assert.match(html, /data-snapshot-badge/u);
   assert.match(html, /Dashboard widget should group revenue by region/u);
   assert.match(html, /Welcome to Epoch Civic Workshop/u);
-  assert.match(html, /atproto:snapshot|community:snapshot/u);
+  // Liveness is stated once, by the header state chip.
+  assert.match(html, /class="state-chip"[^>]*data-state="snapshot"/u);
   assert.doesNotMatch(html, /class="meta-sep" aria-hidden="true">·<\/span>/u);
 }
 
@@ -471,10 +520,15 @@ async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<voi
   assert.ok(result.materializedFiles.includes("community/epoch-site-history.json"));
 
   const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
-  assert.match(html, /This site is built with Epoch/u);
-  assert.match(html, /Branchable site changes/u);
+  // The dogfooded provenance is now a one-line seal that expands to the
+  // operation chain, rather than a buried section.
+  assert.match(html, /data-site-seal/u);
+  assert.match(html, /Built as Epoch version community-site-dogfooded/u);
+  assert.match(html, /recorded operations/u);
+  assert.match(html, /recorded as signed Epoch events/u);
   assert.match(html, /Rollback target/u);
   assert.match(html, /<dl class="site-history-facts">/u);
+  assert.match(html, /class="site-seal-chain"/u);
   assert.match(html, /\.site-history-facts \{/u);
   assert.match(html, /overflow-wrap: anywhere/u);
 

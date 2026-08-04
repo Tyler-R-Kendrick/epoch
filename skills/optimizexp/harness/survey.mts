@@ -452,12 +452,32 @@ function modeRankBacklog(root: string, runId: string, global: boolean) {
 			const effort = fr.effortHint ?? "M";
 			const score = priorityScore(fr, 1, minPos);
 			const existing = byId.get(fr.id);
+			// Never interpolate a missing outcome into generated text — a backlog
+			// item that says "undefined" fails assert-complete backlog integrity.
+			const outcome = (fr.desiredOutcome ?? "").trim();
+			const deliverable = outcome !== "" ? outcome : (fr.title ?? "").trim();
+			// assert-complete requires id, title, problem and desiredOutcome to be
+			// non-empty and free of the literal "undefined"; emitting an item that
+			// fails that check just moves the failure to closeout.
+			const required = {
+				id: (fr.id ?? "").trim(),
+				title: (fr.title ?? "").trim(),
+				problem: (fr.problem ?? "").trim(),
+				desiredOutcome: outcome !== "" ? outcome : deliverable,
+			};
+			const missing = Object.entries(required)
+				.filter(([, value]) => value === "" || /\bundefined\b/u.test(value))
+				.map(([key]) => key);
+			if (deliverable === "" || missing.length > 0) {
+				console.error(`skip malformed backlog item ${fr.id || "(no id)"}: ${missing.join(", ") || "no outcome or title"}`);
+				continue;
+			}
 			const item: BacklogItem = {
 				id: fr.id,
 				title: fr.title,
-				problem: fr.problem,
-				desiredOutcome: fr.desiredOutcome,
-				hypothesis: `If we deliver "${fr.desiredOutcome}", positive metrics rise on ${s.surfaces?.join(", ") || "target surfaces"}.`,
+				problem: required.problem,
+				desiredOutcome: outcome !== "" ? outcome : deliverable,
+				hypothesis: `If we deliver "${deliverable}", positive metrics rise on ${s.surfaces?.join(", ") || "target surfaces"}.`,
 				source: fr.source || "survey",
 				sourceRefs: [
 					`.optimizexp/runs/${runId}/survey/${s.persona}.json`,

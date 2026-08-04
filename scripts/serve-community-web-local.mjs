@@ -16,7 +16,12 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { createInMemoryCommunityApi, createCommunityApiFetchHandler } from "../packages/Epoch.Community.API/dist/index.js";
 import { createCommunityClient } from "../packages/Epoch.Community.Core/dist/index.js";
-import { createCommunityWebApp, renderCommunityWebDocument } from "../packages/Epoch.Community.Web/dist/index.js";
+import {
+  createCommunityWebApp,
+  renderCommunityWebDocument,
+  renderServiceWorker,
+  renderWebManifest,
+} from "../packages/Epoch.Community.Web/dist/index.js";
 
 const port = Number(process.env.PORT ?? "8787");
 const host = process.env.HOST ?? "127.0.0.1";
@@ -102,8 +107,8 @@ if (!seededAlready) {
 const apiHandler = createCommunityApiFetchHandler(api);
 const client = createCommunityClient(api);
 
-async function renderLiveDocument() {
-  const app = await createCommunityWebApp({
+async function buildLiveApp() {
+  return await createCommunityWebApp({
     client,
     basePath: "/community",
     apiBaseUrl,
@@ -116,7 +121,10 @@ async function renderLiveDocument() {
     },
     liveAgentIds,
   });
-  return renderCommunityWebDocument(app);
+}
+
+async function renderLiveDocument() {
+  return renderCommunityWebDocument(await buildLiveApp());
 }
 
 const server = createServer(async (req, res) => {
@@ -151,7 +159,25 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (path === "/" || path === "/community" || path === "/community/" || path === "/community/index.html") {
+    // PWA shell assets, matching what the SSG build writes beside the page.
+    if (path === "/community/manifest.webmanifest") {
+      res.writeHead(200, { "Content-Type": "application/manifest+json; charset=utf-8" });
+      res.end(renderWebManifest(await buildLiveApp()));
+      return;
+    }
+
+    if (path === "/community/sw.js") {
+      res.writeHead(200, {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      res.end(renderServiceWorker(await buildLiveApp()));
+      return;
+    }
+
+    // Same rewrite the deployment uses (vercel.json): every /community/* path
+    // renders the page, so deep links like /community/c/ideas survive a reload.
+    if (path === "/" || path === "/community" || path.startsWith("/community/")) {
       const html = await renderLiveDocument();
       res.writeHead(200, {
         "Content-Type": "text/html; charset=utf-8",

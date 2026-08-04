@@ -13,6 +13,8 @@ decisions, operations, or contribution workflow.
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype, including platform conformance flows. |
 | [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, personas (adversarial critics), craft/playfulness/wonder bar, DESIGN.md adherence, pain points, and human considerations for Epoch Community. |
 | [Community Web Experience](community-web-experience.md) | Channel-first Community Web behavior, personas, browser evidence, and selected-message signed actions. |
+| [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
+| [Design Critique Record](evidence/design-critique/README.md) | Both adversarial critique rounds against Community Web, the findings worked, measured before/after, and the residual list. |
 | [Community Web Competitive Evaluation](community-web-competitive-evaluation.md) | Scored compare/contrast vs GitHub and Tangled; wedge vs overall outcompete assessment. |
 | [Identity Bridge](identity-bridge.md) | Nostr ↔ ATProto mutual identity binding (v2); pure verifier; witness index. |
 | [Persona Feature Matrix](persona-feature-matrix.md) | Persona, journey, pain point, trust, degraded-state, and validation mapping for every executable feature spec. |

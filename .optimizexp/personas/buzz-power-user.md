@@ -134,7 +134,9 @@ Buzz currency check (<ISO date>):
 - Swapping harness preserves room history and agent continuity.
 - Human social channels still feel like hangouts (Discord lesson), not agent CI output.
 
-## Failure modes I hate (auto-fail if present)
+## Failure modes I hate
+
+Auto-fail if present:
 
 | Failure | Why it fails a Buzz-shaped critic |
 |---|---|

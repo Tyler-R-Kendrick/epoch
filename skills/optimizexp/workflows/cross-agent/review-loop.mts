@@ -1066,6 +1066,48 @@ function scoresEquivalent(
  * baseline.json — or carries the exact same score values — was copied, not
  * re-measured, unless the scorecard carries an explicit `justification`.
  */
+/**
+ * A panel that agrees perfectly did not deliberate.
+ *
+ * Every historical run gave byte-identical integers to all ten personas across
+ * every iteration (2/3/3 → 1/2/2 → 1/1/1). Unanimity across Discord, GitHub,
+ * Bluesky and design lenses is one author filling a matrix, and it is the reason
+ * no criticism ever surfaced: disagreement is where criticism comes from.
+ */
+function lintScoreDivergence(root: string, runId: string): string[] {
+	const runDir = runDirOf(root, runId);
+	const problems: string[] = [];
+	for (const iter of listIterationDirs(runDir)) {
+		const scoresPath = path.join(runDir, "iterations", iter, "scores.json");
+		if (!existsSync(scoresPath)) continue;
+		let card: ScoresFile;
+		try {
+			card = JSON.parse(readFileSync(scoresPath, "utf8")) as ScoresFile;
+		} catch {
+			continue;
+		}
+		const cells = Array.isArray(card.cells) ? card.cells : [];
+		const personas = new Set(cells.map((cell) => cell.persona));
+		// One or two voices cannot meaningfully diverge; three is a panel.
+		if (personas.size < 3) continue;
+		const vectors = new Set(
+			cells.map((cell) => `${cell.harms}/${cell.friction}/${cell.uncertainty}`),
+		);
+		// A converged harm floor legitimately reaches one shared vector — that is
+		// the documented terminal state, not a fabricated panel. What is not
+		// legitimate is unanimity while there is still harm to disagree about.
+		const [first] = cells;
+		const atFloor = first !== undefined
+			&& first.harms <= 1 && first.friction <= 1 && first.uncertainty <= 1;
+		if (vectors.size === 1 && !atFloor) {
+			problems.push(
+				`scores_unanimous_across_personas:iterations/${iter}/scores.json`,
+			);
+		}
+	}
+	return problems;
+}
+
 function lintCopiedScores(root: string, runId: string): string[] {
 	const runDir = runDirOf(root, runId);
 	const baselinePath = path.join(runDir, "baseline.json");
@@ -1257,6 +1299,346 @@ function modeStatus(args: Record<string, string | boolean>, root: string) {
 /**
  * Fail-closed completion certificate. Only legal way to claim optimizexp done.
  */
+// ── Artifact-truth gates ─────────────────────────────────────────────────────
+// Completion must be blocked by the state of real artifacts (scorecard evidence,
+// backlog integrity, standing defects, token conformance, mobile captures), not
+// only by loop bookkeeping. See docs/community-web-experience-gap-scorecard.md.
+
+type ProductOptimizexpConfig = {
+	dir: string;
+	product?: { id?: string };
+	defaults?: { driver?: string; experiences?: string[] };
+	features?: { idPrefix?: string };
+	competitive?: {
+		scorecard?: string;
+		requireScorecardOnComplete?: boolean;
+	};
+};
+
+type ScorecardDimension = {
+	id?: string;
+	status?: string;
+	evidencePaths?: string[];
+	featureIds?: string[];
+	lastRunId?: string;
+};
+
+const DIMENSION_STATUS_RANK: Record<string, number> = {
+	missing: 0,
+	"external-blocked": 0,
+	partial: 1,
+	proven: 2,
+	strong: 2,
+};
+
+function readJsonFile<T>(p: string): T | null {
+	try {
+		return JSON.parse(readFileSync(p, "utf8")) as T;
+	} catch {
+		return null;
+	}
+}
+
+/** Every .optimizexp/config.json that declares a product (root and packages/*). */
+function listProductConfigs(root: string): ProductOptimizexpConfig[] {
+	const candidates = [path.join(root, ".optimizexp", "config.json")];
+	const pkgs = path.join(root, "packages");
+	if (existsSync(pkgs)) {
+		for (const name of readdirSync(pkgs)) {
+			candidates.push(path.join(pkgs, name, ".optimizexp", "config.json"));
+		}
+	}
+	const out: ProductOptimizexpConfig[] = [];
+	for (const candidate of candidates) {
+		if (!existsSync(candidate)) continue;
+		const parsed = readJsonFile<Omit<ProductOptimizexpConfig, "dir">>(candidate);
+		if (parsed && typeof parsed === "object") {
+			out.push({ ...parsed, dir: path.dirname(path.dirname(candidate)) });
+		}
+	}
+	return out;
+}
+
+/**
+ * Products a run touches. Runs usually carry projects:["root"] and bind to a
+ * product through its feature id prefix (e.g. community-web-*), so match on
+ * either the product id in scope.projects or a feature id prefix hit.
+ */
+function productsForRun(
+	root: string,
+	scope: Record<string, unknown>,
+): ProductOptimizexpConfig[] {
+	const featureIds = Array.isArray(scope.features)
+		? (scope.features as string[])
+		: [];
+	const projectIds = Array.isArray(scope.projects)
+		? (scope.projects as string[])
+		: [];
+	return listProductConfigs(root).filter((cfg) => {
+		const id = cfg.product?.id;
+		if (id !== undefined && projectIds.includes(id)) return true;
+		const prefix = cfg.features?.idPrefix;
+		return prefix !== undefined && prefix !== "" &&
+			featureIds.some((featureId) => featureId.startsWith(prefix));
+	});
+}
+
+/** (a)+(e) requireScorecardOnComplete: artifact, per-dimension evidence, rescore, council. */
+function validateCompetitiveScorecard(
+	root: string,
+	runDir: string,
+	runId: string,
+	scope: Record<string, unknown>,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	const missing: string[] = [];
+	const featureIds = Array.isArray(scope.features)
+		? (scope.features as string[])
+		: [];
+	const mutating = !scope.reportOnly;
+	for (const cfg of products) {
+		if (!cfg.competitive?.requireScorecardOnComplete) continue;
+		const productId = cfg.product?.id ?? path.basename(cfg.dir);
+		const runScorecardPath = path.join(runDir, "competitive-scorecard.json");
+		const runScorecard = existsSync(runScorecardPath)
+			? readJsonFile<{ dimensions?: ScorecardDimension[] }>(runScorecardPath)
+			: null;
+		if (runScorecard === null) {
+			missing.push(`scorecard_artifact_missing:${productId}`);
+		}
+		const dimsRel = cfg.competitive.scorecard;
+		if (dimsRel === undefined) {
+			missing.push(`scorecard_dimensions_unconfigured:${productId}`);
+			continue;
+		}
+		const dims = readJsonFile<{ dimensions?: ScorecardDimension[] }>(
+			path.join(root, dimsRel),
+		);
+		if (dims?.dimensions === undefined) {
+			missing.push(`scorecard_dimensions_missing:${dimsRel}`);
+			continue;
+		}
+		for (const dimension of dims.dimensions) {
+			const id = dimension.id ?? "unknown";
+			const evidence = dimension.evidencePaths ?? [];
+			// A dimension honestly marked missing / external-blocked claims nothing,
+			// so it owes no evidence. Anything claiming partial or better must cite
+			// evidence that exists, or the claim is unfalsifiable.
+			const claimsSomething =
+				dimension.status !== "missing" && dimension.status !== "external-blocked";
+			if (evidence.length === 0) {
+				if (claimsSomething) {
+					missing.push(`dimension_empty_evidence:${id}`);
+				}
+			} else {
+				for (const evidencePath of evidence) {
+					if (!existsSync(path.join(root, evidencePath))) {
+						missing.push(`dimension_evidence_missing:${id}:${evidencePath}`);
+					}
+				}
+			}
+			const touched = (dimension.featureIds ?? []).some((featureId) =>
+				featureIds.includes(featureId),
+			);
+			if (mutating && touched && dimension.lastRunId !== runId) {
+				missing.push(`dimension_not_rescored:${id}`);
+			}
+			// (e) Status upgrades need a design-council verdict on file.
+			const scored = runScorecard?.dimensions?.find((d) => d.id === dimension.id);
+			if (
+				scored?.status !== undefined &&
+				dimension.status !== undefined &&
+				(DIMENSION_STATUS_RANK[scored.status] ?? 0) >
+					(DIMENSION_STATUS_RANK[dimension.status] ?? 0) &&
+				!existsSync(path.join(runDir, "design-council.md"))
+			) {
+				missing.push(`council_verdict_missing:${id}`);
+			}
+		}
+	}
+	return missing;
+}
+
+/** (b) Backlog items must be well-formed; generated text must never leak "undefined". */
+function validateBacklogIntegrity(root: string, runDir: string): string[] {
+	const missing: string[] = [];
+	const backlogPaths = [
+		path.join(runDir, "backlog.json"),
+		path.join(root, ".optimizexp", "backlog", "experiments.json"),
+	];
+	for (const backlogPath of backlogPaths) {
+		if (!existsSync(backlogPath)) continue;
+		const rel = path.relative(root, backlogPath);
+		const backlog = readJsonFile<{
+			items?: Record<string, unknown>[];
+		}>(backlogPath);
+		if (backlog === null) {
+			missing.push(`backlog_invalid_json:${rel}`);
+			continue;
+		}
+		for (const [index, item] of (backlog.items ?? []).entries()) {
+			const label = String(item.id ?? index);
+			const required = ["id", "title", "problem", "desiredOutcome"];
+			const incomplete = required.some((field) => {
+				const value = item[field];
+				return typeof value !== "string" || value.trim() === "";
+			});
+			const leaked = Object.values(item).some(
+				(value) =>
+					typeof value === "string" && /\bundefined\b/u.test(value),
+			);
+			if (incomplete || leaked) {
+				missing.push(`backlog_malformed:${rel}:${label}`);
+			}
+		}
+	}
+	return missing;
+}
+
+/** (c) Open P0/P1 defects on a touched product block completion. */
+function validateStandingDefects(
+	root: string,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	const ledger = readJsonFile<{
+		defects?: {
+			id?: string;
+			severity?: string;
+			status?: string;
+			projects?: string[];
+		}[];
+	}>(path.join(root, ".optimizexp", "defects.json"));
+	if (ledger?.defects === undefined) return [];
+	const productIds = new Set(
+		products.map((cfg) => cfg.product?.id ?? path.basename(cfg.dir)),
+	);
+	const missing: string[] = [];
+	for (const defect of ledger.defects) {
+		if (defect.status !== "open") continue;
+		if (defect.severity !== "P0" && defect.severity !== "P1") continue;
+		const scoped = defect.projects ?? [];
+		const intersects =
+			scoped.length === 0 ||
+			scoped.includes("all") ||
+			scoped.some((project) => productIds.has(project));
+		if (intersects) {
+			missing.push(`standing_defect_open:${defect.id ?? "unknown"}`);
+		}
+	}
+	return missing;
+}
+
+/** (d) Web products require a passing token-conformance audit (enforced classes). */
+function validateTokenAudit(
+	root: string,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	if (!products.some((cfg) => cfg.defaults?.driver === "web")) return [];
+	const auditPath = path.join(
+		root,
+		".optimizexp",
+		"audits",
+		"token-conformance.json",
+	);
+	const audit = readJsonFile<{ summary?: Record<string, number> }>(auditPath);
+	if (audit === null) {
+		return ["token_audit_missing"];
+	}
+	const enforced = [
+		"undefined-token",
+		"var-fallback-mismatch",
+		"design-json-drift",
+	];
+	return enforced
+		.filter((rule) => (audit.summary?.[rule] ?? 0) > 0)
+		.map((rule) => `token_audit_failing:${rule}`);
+}
+
+/**
+ * (g) Mutating UX runs on a web product must ship an executed Adversarial Design
+ * Critique. The protocol is mandated by DESIGN.md, AGENTS.md and the PR template,
+ * and had been executed exactly zero times — its template appeared in the repo only
+ * as a definition and a blank block. Requiring the artifact is what turns it on.
+ */
+function validateDesignCritique(
+	root: string,
+	runDir: string,
+	scope: Record<string, unknown>,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	const experiences = Array.isArray(scope.experiences)
+		? (scope.experiences as string[])
+		: [];
+	if (
+		scope.reportOnly === true ||
+		!experiences.includes("ux") ||
+		!products.some((cfg) => cfg.defaults?.driver === "web")
+	) {
+		return [];
+	}
+	const critiquePath = path.join(runDir, "design-critique.md");
+	if (!existsSync(critiquePath)) {
+		return ["design_critique_missing"];
+	}
+	const critique = readFileSync(critiquePath, "utf8");
+	const problems: string[] = [];
+	// Soft language is banned by the protocol; a critique with no verdict token is
+	// prose, not a judgement.
+	if (!/\bFAIL\b/u.test(critique) && !/\bPASS\b/u.test(critique)) {
+		problems.push("design_critique_has_no_verdict");
+	}
+	// A critique that never names the reviewing persona is unattributable.
+	if (!/persona/iu.test(critique)) {
+		problems.push("design_critique_missing_persona");
+	}
+	// Unresolved automatic fails block completion outright.
+	if (/automatic[- ]fail/iu.test(critique) && /\bFAIL\b/u.test(critique)) {
+		const unresolved = /^\s*[-*]?\s*\[ \]/mu.test(critique);
+		if (unresolved) problems.push("design_critique_has_open_fails");
+	}
+	return problems;
+}
+
+/** (f) Mutating UX runs on a web product need at least one narrow-viewport capture. */
+function validateMobileEvidence(
+	root: string,
+	runId: string,
+	scope: Record<string, unknown>,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	const experiences = Array.isArray(scope.experiences)
+		? (scope.experiences as string[])
+		: [];
+	if (
+		scope.reportOnly === true ||
+		!experiences.includes("ux") ||
+		!products.some((cfg) => cfg.defaults?.driver === "web")
+	) {
+		return [];
+	}
+	const busDir = path.join(root, ".optimizexp", "bus", "entries");
+	if (!existsSync(busDir)) return ["mobile_evidence_missing"];
+	for (const entry of readdirSync(busDir)) {
+		if (!entry.includes(runId) || !entry.endsWith("-outcome.json")) continue;
+		const body = readJsonFile<{ evidence?: { path?: string } }>(
+			path.join(busDir, entry),
+		);
+		const evidencePath = body?.evidence?.path;
+		if (evidencePath === undefined) continue;
+		const abs = path.isAbsolute(evidencePath)
+			? evidencePath
+			: path.join(root, evidencePath);
+		const meta = readJsonFile<{ screen?: { widthPx?: number | null } }>(
+			path.join(abs, "meta.json"),
+		);
+		const width = meta?.screen?.widthPx;
+		if (typeof width === "number" && width <= 480) {
+			return [];
+		}
+	}
+	return ["mobile_evidence_missing"];
+}
+
 function modeAssertComplete(
 	args: Record<string, string | boolean>,
 	root: string,
@@ -1323,6 +1705,7 @@ function modeAssertComplete(
 		missing.push("bus_complete_triples_lt_1");
 	}
 	missing.push(...lintCopiedScores(root, runId));
+	missing.push(...lintScoreDivergence(root, runId));
 	// Completion is run-scoped. Missing runId entries must never count for this run.
 	const busValidation = validateBusForRun(root, runId);
 	missing.push(...busValidation);
@@ -1515,6 +1898,37 @@ function modeAssertComplete(
 			missing.push("evidence_not_from_harness");
 		}
 	}
+
+	// ── Artifact-truth gates: the loop cannot claim equilibrium past its artifacts ──
+	const runProducts = productsForRun(root, scope as Record<string, unknown>);
+	missing.push(
+		...validateCompetitiveScorecard(
+			root,
+			runDir,
+			runId,
+			scope as Record<string, unknown>,
+			runProducts,
+		),
+	);
+	missing.push(...validateBacklogIntegrity(root, runDir));
+	missing.push(...validateStandingDefects(root, runProducts));
+	missing.push(...validateTokenAudit(root, runProducts));
+	missing.push(
+		...validateDesignCritique(
+			root,
+			runDir,
+			scope as Record<string, unknown>,
+			runProducts,
+		),
+	);
+	missing.push(
+		...validateMobileEvidence(
+			root,
+			runId,
+			scope as Record<string, unknown>,
+			runProducts,
+		),
+	);
 
 	// Prefer mark-complete to set status complete; assert can pass while still running
 	// if all artifacts present (ready-to-mark). status complete is not required for ok.

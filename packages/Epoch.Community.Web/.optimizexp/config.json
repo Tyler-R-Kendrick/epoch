@@ -18,25 +18,27 @@
   },
   "personas": {
     "requireSchemaVersion": 2,
-    "defaultPanel": "community-competitive",
+    "defaultPanel": "community-product",
     "panels": {
-      "community-competitive": [
+      "community-product": [
+        "designer",
+        "product-designer",
+        "junior-mobile-designer",
+        "screen-reader-power-user",
+        "community-moderator",
+        "app-builder-design-power-user",
         "discord-power-user",
         "slack-power-user",
         "github-power-user",
-        "tangled-power-user",
         "bluesky-power-user",
-        "x-com-power-user",
-        "buzz-power-user",
-        "forge-community-power-user",
-        "agentic-coding-power-user",
-        "app-builder-design-power-user"
+        "tangled-power-user",
+        "buzz-power-user"
       ],
-      "community-craft": [
-        "app-builder-design-power-user",
-        "product-designer",
-        "designer",
-        "telegram-power-user"
+      "design-council": [
+        "steve-jobs",
+        "jony-ive",
+        "naoto-fukasawa",
+        "designer"
       ],
       "community-agents": [
         "buzz-power-user",
@@ -60,8 +62,10 @@
     "overwritePrimary": true
   },
   "notes": [
-    "Default panel is community-competitive so bare optimizexp captures competitor gaps.",
+    "Default panel is community-product: half design-craft lenses, half competitor bars, so bare optimizexp judges craft and competitive gaps together.",
+    "design-council runs are triggered, not default: dimension status upgrades, milestone closeouts, and DESIGN.md edits require a runs/<id>/design-council.md verdict.",
     "Override with --personas or document panel choice in run scope.json.",
-    "Update competitive scorecard dimensions after every mutating experiment."
+    "Update competitive scorecard dimensions after every mutating experiment.",
+    "Panels live here only; .optimizexp/competitive/community-web-dimensions.json holds no panel block (sync-checked by test/unit/persona-map.test.ts)."
   ]
 }

@@ -5,6 +5,8 @@ import { createInMemoryCommunityApi } from "../packages/Epoch.Community.API/dist
 import {
   createCommunityWebApp,
   materializeCommunityWebSiteWithEpoch,
+  renderServiceWorker,
+  renderWebManifest,
 } from "../packages/Epoch.Community.Web/dist/index.js";
 
 const outputDirectory = outputDirectoryFromArgs(process.argv.slice(2))
@@ -31,6 +33,10 @@ materializeCommunityWebSiteWithEpoch(app, {
   repositoryRoot,
   outputDirectory,
 });
+// PWA shell assets sit beside the page so the descriptor's offlineShell claim
+// is actually backed by a manifest and a service worker.
+await writeFile(join(outputDirectory, "community", "manifest.webmanifest"), renderWebManifest(app));
+await writeFile(join(outputDirectory, "community", "sw.js"), renderServiceWorker(app));
 await writeFile(join(outputDirectory, "healthz"), "ok\n");
 
 function outputDirectoryFromArgs(args) {
