@@ -1722,8 +1722,8 @@ export function communityStyles(): string {
       }
       #epoch-community {
         grid-template-columns: 1fr;
-        height: auto;
-        min-height: 100vh;
+        height: 100dvh;
+        min-height: 100dvh;
         max-width: 100%;
         overflow-x: hidden;
       }
