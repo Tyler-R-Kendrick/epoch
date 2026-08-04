@@ -34,6 +34,8 @@ export default [
       globals: {
         window: "readonly", document: "readonly", location: "readonly", history: "readonly",
         addEventListener: "readonly", setInterval: "readonly", setTimeout: "readonly",
+        clearInterval: "readonly", clearTimeout: "readonly", AbortController: "readonly",
+        DOMException: "readonly", Promise: "readonly",
         navigator: "readonly", getComputedStyle: "readonly", Date: "readonly",
         // Chrome's built-in Prompt API. Feature-detected at every call site.
         LanguageModel: "readonly",
@@ -41,7 +43,14 @@ export default [
     },
   },
   {
-    files: ["scripts/**/*.mjs", "packages/**/scripts/**/*.mjs", "docs/design-explorations/**/build-*.mjs"],
+    files: [
+      "scripts/**/*.mjs",
+      "packages/**/scripts/**/*.mjs",
+      // Node tooling for the design explorations. faults.mjs is a Node script
+      // whose page.evaluate callbacks are browser code, so it needs both.
+      "docs/design-explorations/**/build-*.mjs",
+      "docs/design-explorations/**/faults.mjs",
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -51,7 +60,7 @@ export default [
         console: "readonly",
         process: "readonly",
         URL: "readonly"
-      }
+      , document: "readonly", window: "readonly", getComputedStyle: "readonly"}
     }
   },
   ...tseslint.configs.recommended,

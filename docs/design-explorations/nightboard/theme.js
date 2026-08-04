@@ -19,6 +19,7 @@
   var styleEl = document.createElement("style");
   document.head.appendChild(styleEl);
   var current = 0;
+  var abortController = null;
 
   /* Token names a theme may set. Anything else is discarded. */
   var TOKENS = [
@@ -94,114 +95,159 @@
 
   /* ── Generation ────────────────────────────────────────────────────────── */
 
-  var SCHEMA = {
-    type: "object",
-    additionalProperties: false,
-    required: COLOR_TOKENS.map(function (t) { return t.replace("--nb-", ""); }),
-    properties: COLOR_TOKENS.reduce(function (acc, t) {
-      acc[t.replace("--nb-", "")] = { type: "string", pattern: "^#[0-9a-fA-F]{6}$" };
-      return acc;
-    }, {
-      glow: { type: "string", maxLength: 60 },
-      cell: { type: "string", maxLength: 12 },
-      line: { type: "string", maxLength: 6 },
-    }),
+  var TOKEN_OF = {
+    bg: "--nb-bg", surface: "--nb-surface", ink: "--nb-ink", inkDim: "--nb-ink-dim",
+    inkFaint: "--nb-ink-faint", rule: "--nb-rule", accent: "--nb-accent",
+    accentInk: "--nb-accent-ink", signed: "--nb-signed", live: "--nb-live",
+    warn: "--nb-warn", danger: "--nb-danger", agent: "--nb-agent",
+    glow: "--nb-glow", scan: "--nb-scan",
   };
 
-  function briefFor(description) {
-    return [
-      "You are theming a terminal bulletin board for a software community.",
-      "It is a character-grid interface: monospaced, dense, keyboard-operated.",
-      "",
-      "Return colours for these roles:",
-      "bg (page), surface (panels), ink (default text), ink-dim, ink-faint,",
-      "rule (hairlines), accent (the one reserved colour, used only for the path",
-      "from conversation to signed work, and for focus), accent-ink (text on",
-      "accent), signed (verification marks), live (healthy), warn (stale),",
-      "danger (destructive), agent (automated participants).",
-      "",
-      "Hard requirements:",
-      "- ink on bg must reach at least 7:1 contrast; ink-dim on bg at least 4.5:1.",
-      "- accent must be clearly distinct from signed, live, warn and danger.",
-      "- Keep it coherent: this is one world, not a palette of unrelated hues.",
-      "",
-      "Theme to create: " + description,
-    ].join("\n");
+  /** Current computed value, so a partial theme layers on what is already there. */
+  function currentToken(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
-  async function availability() {
-    if (typeof LanguageModel === "undefined") return "absent";
-    try {
-      return await LanguageModel.availability({
-        expectedInputs: [{ type: "text", languages: ["en"] }],
-        expectedOutputs: [{ type: "text", languages: ["en"] }],
-      });
-    } catch {
-      // A browser that has the global but rejects the query is, for our
-      // purposes, a browser without it.
-      return "absent";
-    }
+  function fromThemeNode(props) {
+    var tokens = {};
+    Object.keys(TOKEN_OF).forEach(function (key) {
+      var v = props[key];
+      if (typeof v === "string" && v.trim() !== "") tokens[TOKEN_OF[key]] = v.trim();
+    });
+    return sanitize(tokens).tokens;
   }
 
+  /**
+   * Generation, streamed through OpenUI Lang.
+   *
+   * The first version used one non-streaming call against a 13-field required
+   * schema. A small on-device model frequently cannot satisfy that, so it
+   * returned nothing usable and the panel sat there looking idle — which is
+   * what "I told it to make everything blue and nothing happened" was.
+   *
+   * Now every field is optional, partial results apply as they arrive, and the
+   * theme layers over the current one instead of replacing it wholesale.
+   */
   async function generate(description, report) {
-    var state = await availability();
+    var R = window.NBResilient;
+    if (!R) { report("The resilience layer did not load.", "rejected"); return null; }
+    if (typeof window.OpenUILang === "undefined" || typeof window.NB_OPENUI === "undefined") {
+      report("The OpenUI parser did not load. Run build-openui.mjs.", "rejected");
+      return null;
+    }
+
+    var state = await R.availability();
     if (state === "absent" || state === "unavailable") {
       report(
         "On-device generation is not available in this browser.\n\n" +
-        "It needs Chrome's built-in Prompt API (the LanguageModel global), which " +
-        "runs the model locally — no key and no server. Everything below still " +
-        "works: edit the tokens by hand, or use Export prompt with any external " +
-        "tool and paste the result back.",
+        "It needs Chrome's built-in Prompt API (the LanguageModel global). " +
+        "Everything else still works: edit tokens by hand below, or use " +
+        "Copy system prompt with any external model and paste its openui-lang " +
+        "into the source box.",
         "unavailable"
       );
       return null;
     }
 
-    var session;
+    if (abortController) abortController.abort();
+    abortController = new AbortController();
+    var signal = abortController.signal;
+    $("[data-gen-cancel]").hidden = false;
+
+    var session = null;
+    var applied = null;
     try {
-      report(
-        state === "available"
-          ? "Thinking…"
-          : "Fetching the on-device model. This happens once and can take a few minutes.",
-        "busy"
-      );
-      session = await LanguageModel.create({
-        monitor: function (m) {
-          m.addEventListener("downloadprogress", function (e) {
-            report("Downloading the on-device model — " + Math.round(e.loaded * 100) + "%", "busy");
-          });
-        },
-        initialPrompts: [{
-          role: "system",
-          content: "You return only theme colours as JSON. You never return CSS, markup, scripts or URLs.",
-        }],
-      });
-      var raw = await session.prompt(briefFor(description), { responseConstraint: SCHEMA });
-      var parsed = JSON.parse(raw);
-      var result = sanitize(parsed);
-      var tokens = result.tokens;
+      var result = await R.withRetry(async function () {
+        report(state === "available" ? "Opening a session…" : "Preparing the on-device model…", "busy");
+        session = await R.openSession({
+          report: report,
+          signal: signal,
+          initialPrompts: [{ role: "system", content: window.NB_OPENUI.systemPrompt }],
+        });
 
-      // The model is asked for contrast; whether it delivered is measured here.
+        var parser = window.OpenUILang.createStreamingParser(window.NB_OPENUI.schema, "Theme");
+        var seen = 0;
+        report("Composing the theme…", "busy");
+
+        var raw = await R.streamPrompt(session, "Create a theme: " + description, {
+          report: report,
+          signal: signal,
+          onChunk: function (acc, delta) {
+            var tree;
+            // The streaming parser wants the next chunk, not the transcript.
+            try { tree = parser.push(delta); } catch { return; }
+            if (!tree || !tree.root || tree.root.typeName !== "Theme") return;
+            var tokens = fromThemeNode(tree.root.props || {});
+            var count = Object.keys(tokens).length;
+            if (count > seen) {
+              // Apply as it streams: this is the part that makes it feel live,
+              // and it means a truncated answer still produces a usable theme.
+              seen = count;
+              applyTokens(tokens, tree.root.props.name || description.slice(0, 32));
+              report("Streaming — " + count + " of 15 colours applied…", "busy");
+            }
+          },
+        });
+        if (seen === 0) {
+          var e = new Error("the model returned no usable Theme");
+          e.raw = raw;
+          throw e;
+        }
+        return { raw: raw, parser: parser };
+      }, { tries: 3, report: report, signal: signal });
+
+      var finalTree = result.parser.push("");
+      applied = fromThemeNode((finalTree && finalTree.root && finalTree.root.props) || {});
+      $("[data-gen-ui-source]").value = result.raw;
+      $("[data-token-editor]").value = Object.keys(applied)
+        .map(function (k) { return k + ": " + applied[k] + ";"; }).join("\n");
+
+      // Contrast is checked against what is actually on screen, because a
+      // partial theme inherits the rest from the theme underneath it.
+      var bg = applied["--nb-bg"] || currentToken("--nb-bg");
+      var ink = applied["--nb-ink"] || currentToken("--nb-ink");
       var notes = [];
-      if (tokens["--nb-ink"] && tokens["--nb-bg"]) {
-        var c = contrast(tokens["--nb-ink"], tokens["--nb-bg"]);
-        if (c < 4.5) notes.push("ink on bg is only " + c.toFixed(1) + ":1 — below the 4.5:1 floor, so this theme is not accepted");
+      if (HEX.test(bg) && HEX.test(ink)) {
+        var ratio = contrast(ink, bg);
+        if (ratio < 4.5) {
+          notes.push("ink on bg is " + ratio.toFixed(1) + ":1, below the 4.5:1 floor");
+        }
       }
-      if (notes.length) { report(notes.join("\n"), "rejected"); return null; }
-      if (result.rejected.length) notes.push("discarded: " + result.rejected.join(", "));
-
-      applyTokens(tokens, description.slice(0, 40));
-      $("[data-theme-note]").textContent = "Generated on-device from: " + description;
-      $("[data-token-editor]").value = Object.keys(tokens)
-        .map(function (k) { return k + ": " + tokens[k] + ";"; }).join("\n");
-      report("Applied." + (notes.length ? "\n" + notes.join("\n") : ""), "ok");
-      return tokens;
+      $("[data-theme-note]").textContent = "Generated on device from: " + description;
+      report(
+        "Applied " + Object.keys(applied).length + " colours." +
+        (notes.length ? "\nwarning: " + notes.join("; ") : "") +
+        "\nUse Export to DESIGN.md to carry this into the design system.",
+        notes.length ? "rejected" : "ok"
+      );
+      return applied;
     } catch (err) {
-      report("Generation failed: " + (err && err.message ? err.message : String(err)), "rejected");
+      if (err && err.name === "AbortError") { report("Cancelled.", ""); return null; }
+      report(
+        "Generation failed: " + ((err && err.message) || String(err)) +
+        (err && err.raw ? "\n\nThe model said:\n" + String(err.raw).slice(0, 300) : "") +
+        "\n\nThe manual editor below reaches the same surface.",
+        "rejected"
+      );
       return null;
     } finally {
-      if (session && session.destroy) session.destroy();
+      $("[data-gen-cancel]").hidden = true;
+      if (session && session.destroy) { try { session.destroy(); } catch { /* already gone */ } }
     }
+  }
+
+  /** Emit the live tokens as DESIGN.md frontmatter, so a theme can leave the page. */
+  function designMd() {
+    var names = Object.keys(TOKEN_OF).map(function (k) { return TOKEN_OF[k]; });
+    var lines = names.map(function (n) {
+      var v = currentToken(n);
+      return "  " + n.replace("--nb-", "") + ': "' + v + '"';
+    });
+    return [
+      "---",
+      "name: " + (document.body.dataset.theme || "Nightboard theme"),
+      "colors:",
+    ].concat(lines).concat(["---", ""]).join("\n");
   }
 
   /* ── Panel ─────────────────────────────────────────────────────────────── */
@@ -279,10 +325,24 @@
       report("Loaded " + t.name + " into the editor.", "ok");
     });
 
+    $("[data-gen-cancel]").addEventListener("click", function () {
+      if (abortController) abortController.abort();
+    });
+
+    $("[data-export-design]").addEventListener("click", function () {
+      var text = designMd();
+      navigator.clipboard.writeText(text).then(
+        function () { report("DESIGN.md frontmatter copied — paste it into DESIGN.md and run tokens:generate.", "ok"); },
+        function () { $("[data-token-editor]").value = text; report("Clipboard unavailable — frontmatter placed in the editor.", "ok"); }
+      );
+    });
+
     $("[data-export-prompt]").addEventListener("click", function () {
-      var text = briefFor("<describe your theme here>") +
-        "\n\nReturn a block of CSS custom properties only, like:\n" +
-        TOKENS.slice(0, 6).map(function (t) { return t + ": #000000;"; }).join("\n");
+      // Hand out the same generated OpenUI Lang prompt the page uses, so an
+      // external model is given identical instructions rather than a paraphrase.
+      var text = (window.NB_OPENUI ? window.NB_OPENUI.systemPrompt + "\n\n" : "") +
+        "Create a theme: <describe it here>\n" +
+        "Reply with a single line: root = Theme(\"Name\", \"#bg\", \"#surface\", \"#ink\", …)";
       navigator.clipboard.writeText(text).then(
         function () { report("Prompt copied. Paste it into any external tool, then paste its tokens below.", "ok"); },
         function () { $("[data-token-editor]").value = text; report("Clipboard unavailable — prompt placed in the editor instead.", "ok"); }
@@ -292,7 +352,7 @@
     // The API reports four states, not three. "downloadable" means the model is
     // supported but not yet on the device — reporting that as unavailable told
     // people the feature was missing when it was one download away.
-    availability().then(function (s) {
+    window.NBResilient.availability().then(function (s) {
       var note = $("[data-gen-availability]");
       var text = {
         available: "On-device model ready.",

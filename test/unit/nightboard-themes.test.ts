@@ -107,18 +107,36 @@ export function runNightboardThemeTests(): void {
   const openui = librarySandbox.NB_OPENUI;
   assert.ok(openui, "openui-library.js must define window.NB_OPENUI");
   const components = Object.keys(openui.schema.properties ?? {});
-  assert.deepEqual(components.sort(), ["Channel", "Fact", "Notice", "Panel", "Post"],
-    "the generated library must match the components the renderer knows");
+  assert.deepEqual(components.sort(), ["Channel", "Fact", "Notice", "Panel", "Post", "Theme"],
+    "the generated library must match the components something knows how to handle");
   assert.ok(openui.systemPrompt.includes("openui-lang"),
     "the generated system prompt must instruct the model in openui-lang");
 
-  // Every component the library offers must be renderable, or a model can emit
-  // something that silently disappears.
+  // Every component the library offers must be handled somewhere, or a model
+  // can emit one that silently disappears. View components render in
+  // generate.js; Theme is applied by the garden panel as tokens, not markup.
   const renderer = readFileSync(join(ROOT, "generate.js"), "utf8");
+  const themePanel = readFileSync(join(ROOT, "theme.js"), "utf8");
   for (const component of components) {
+    if (component === "Theme") {
+      assert.ok(themePanel.includes('typeName !== "Theme"'),
+        "theme.js must consume the Theme component");
+      continue;
+    }
     assert.ok(renderer.includes(`case "${component}"`),
       `generate.js has no renderer for ${component}, so a model could emit one that vanishes`);
   }
+
+  // The resilience layer is what keeps a failed generation from looking idle.
+  // Its absence is the defect that produced "I asked for blue and nothing
+  // happened", so its presence is asserted rather than assumed.
+  const resilient = readFileSync(join(ROOT, "resilient.js"), "utf8");
+  for (const capability of ["withRetry", "streamPrompt", "openSession", "isTransient"]) {
+    assert.ok(resilient.includes(`function ${capability}`),
+      `resilient.js must provide ${capability}`);
+  }
+  assert.ok(themePanel.includes("promptStreaming") || resilient.includes("promptStreaming"),
+    "generation must stream rather than block on a single call");
 
   // The parser is a vendored build artifact; it has to be present and it must
   // not have dragged Zod in with it.

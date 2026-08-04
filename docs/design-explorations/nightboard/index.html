@@ -99,12 +99,16 @@
   <input data-gen-input placeholder="a rainy harbour at midnight, cold and quiet" aria-label="Describe a theme">
   <div class="nb-row">
     <button type="button" data-gen-run>Generate</button>
+    <button type="button" data-gen-cancel hidden>Cancel</button>
     <button type="button" data-export-prompt>Export prompt</button>
+    <button type="button" data-export-design>Export to DESIGN.md</button>
   </div>
   <div data-gen-status role="status">Describe a mood, a place, or a machine.</div>
-  <p>Runs in your browser through Chrome's built-in Prompt API. No key, no
-     server, nothing leaves the page. Output is constrained to token values and
-     re-checked here for contrast before it is allowed to apply.</p>
+  <p>Streams openui-lang through Chrome's built-in Prompt API, on device. No key,
+     no server, nothing leaves the page. Colours apply <em>as they arrive</em>,
+     every field is optional, and a partial answer layers over the current theme
+     rather than being discarded. Transient faults retry with backoff; anything
+     else is reported with what the model actually said.</p>
 
   <h3>Edit tokens</h3>
   <textarea data-token-editor aria-label="Theme tokens" placeholder="--nb-bg: #001b12;&#10;--nb-ink: #86f7c4;"></textarea>
@@ -140,6 +144,7 @@
 <script src="data.js"></script>
 <script src="themes.js"></script>
 <script src="app.js"></script>
+<script src="resilient.js"></script>
 <script src="openui-parser.js"></script>
 <script src="openui-library.js"></script>
 <script src="theme.js"></script>

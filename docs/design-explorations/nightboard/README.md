@@ -67,18 +67,53 @@ line, different phosphor.
 
 ### Generating one
 
-The garden panel generates a theme **on your device** using Chrome's built-in
-Prompt API (`LanguageModel`). No key, no server, nothing leaves the page.
+Describe a theme and it **streams in through OpenUI Lang**, on device, via
+Chrome's built-in Prompt API. No key, no server, nothing leaves the page.
 
-The model is constrained by a JSON schema to emit token values only, so it
-cannot return markup, a script, or a URL even when asked. Output is then checked
-again here — schema-shaped is not the same as safe — and a generated theme whose
-body text falls below 4.5:1 on its own ground is refused rather than applied.
+Colours apply **as they arrive**. Every field is optional and a partial answer
+layers over the current theme, so a truncated or half-understood response still
+produces something usable instead of nothing. `Export to DESIGN.md` writes the
+live tokens back out as frontmatter.
 
-The API reports four states, and the panel says which one you are in:
-`available`, `downloading`, `downloadable` (supported, model not fetched yet),
-and unavailable. Where it is unavailable the panel says so plainly, and manual
-token editing reaches exactly the same surface.
+#### Assume it fails
+
+The first version assumed a session opens, a prompt returns, and output parses.
+All three are optimistic, and when any failed the panel just sat there looking
+idle — which is the worst outcome, because you cannot tell *thinking* from
+*broken*.
+
+- **Streaming everywhere.** Both panels use `promptStreaming`, and both hand the
+  parser a true delta rather than the transcript so far.
+- **The download talks.** `downloadprogress` can fire rarely or not at all until
+  it completes, so a heartbeat reports elapsed time alongside it and says why
+  the wait is silent. Percentages are normalised because `loaded` has shipped as
+  both 0–1 and 0–100.
+- **Transient faults retry** with backoff — eviction, quota, busy sessions. A
+  malformed answer does not retry: it would produce the same answer and waste
+  your battery.
+- **A stall watchdog** reports after 25s of no tokens, because a hung stream
+  otherwise looks exactly like a slow one, forever.
+- **Cancel** aborts the session mid-stream.
+- **Failures say what the model actually said**, truncated, rather than a bare
+  "failed".
+
+Run the fault suite — it injects a mock model to make each of these actually
+happen, because resilience that has never been made to fail is a claim:
+
+```
+npm run nightboard:faults
+```
+
+It covers: a silent download, a 0–100 progress scale, a transient failure that
+retries and succeeds, a permanent failure, a truncated stream, a whole-text
+stream that must not double, multi-chunk delta streaming, cancellation, and an
+unavailable model.
+
+That last-but-two case exists because it caught a real bug: I was feeding the
+streaming parser the accumulated transcript instead of the next chunk, so
+anything arriving in more than one chunk produced nothing at all. Single-chunk
+tests passed and hid it — which is exactly the shape of the failure reported
+against the first version.
 
 ## Composing views — OpenUI Lang
 

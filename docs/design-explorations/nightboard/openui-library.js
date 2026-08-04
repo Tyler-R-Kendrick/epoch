@@ -18,6 +18,9 @@ window.NB_OPENUI = {
    },
    "Fact": {
     "$ref": "#/$defs/Fact"
+   },
+   "Theme": {
+    "$ref": "#/$defs/Theme"
    }
   },
   "required": [
@@ -25,7 +28,8 @@ window.NB_OPENUI = {
    "Post",
    "Notice",
    "Channel",
-   "Fact"
+   "Fact",
+   "Theme"
   ],
   "additionalProperties": false,
   "$defs": {
@@ -158,8 +162,66 @@ window.NB_OPENUI = {
     ],
     "additionalProperties": false,
     "description": "One labelled fact in a detail panel, such as a signature or an anchor."
+   },
+   "Theme": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "bg": {
+      "type": "string"
+     },
+     "surface": {
+      "type": "string"
+     },
+     "ink": {
+      "type": "string"
+     },
+     "inkDim": {
+      "type": "string"
+     },
+     "inkFaint": {
+      "type": "string"
+     },
+     "rule": {
+      "type": "string"
+     },
+     "accent": {
+      "type": "string"
+     },
+     "accentInk": {
+      "type": "string"
+     },
+     "signed": {
+      "type": "string"
+     },
+     "live": {
+      "type": "string"
+     },
+     "warn": {
+      "type": "string"
+     },
+     "danger": {
+      "type": "string"
+     },
+     "agent": {
+      "type": "string"
+     },
+     "glow": {
+      "type": "string"
+     },
+     "scan": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false,
+    "description": "A complete board theme. Every colour is a 6-digit hex. Emit as many as you can; anything omitted keeps the current value, so a partial theme is still useful."
    }
   }
  },
- "systemPrompt": "You are an AI assistant that responds using openui-lang, a declarative UI language. Your ENTIRE response must be valid openui-lang code — no markdown, no explanations, just openui-lang.\n\n## Syntax Rules\n\n1. Each statement is on its own line: `identifier = Expression`\n2. `root` is the entry point — every program must define `root = Panel(...)`\n3. Expressions are: strings (\"...\"), numbers, booleans (true/false), null, arrays ([...]), objects ({...}), or component calls TypeName(arg1, arg2, ...)\n4. Use references for readability: define `name = ...` on one line, then use `name` later\n5. EVERY variable (except root) MUST be referenced by at least one other variable. Unreferenced variables are silently dropped and will NOT render. Always include defined variables in their parent's children/items array.\n6. Arguments are POSITIONAL (order matters, not names). Write `Stack([children], \"row\", \"l\")` NOT `Stack([children], direction: \"row\", gap: \"l\")` — colon syntax is NOT supported and silently breaks\n7. Optional arguments can be omitted from the end\n- Strings use double quotes with backslash escaping\n\n## Component Signatures\n\nArguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for better streaming.\n\n### Board\nundefined — A titled group of posts, facts, channels or notices. The root of any generated view.\nundefined — One thing that happened on the board, by a person or an agent. Agents must always show who supervises them.\nundefined — A queued-arrival banner. Never auto-merges; always asks.\nundefined — A place on the board you can go to.\nundefined — One labelled fact in a detail panel, such as a signature or an anchor.\nThis is a terminal bulletin board for a software community.\nEvery person, channel and post is fictional. Never imply real adoption, activity volume or social proof.\nAgent posts must name a supervisor and state that human review is required before anything merges.\nState is carried by words as well as colour; never rely on colour alone.\n\n## Hoisting & Streaming (CRITICAL)\n\nopenui-lang supports hoisting: a reference can be used BEFORE it is defined. The parser resolves all references after the full input is parsed.\n\nDuring streaming, the output is re-parsed on every chunk. Undefined references are temporarily unresolved and appear once their definitions stream in. This creates a progressive top-down reveal — structure first, then data fills in.\n\n**Recommended statement order for optimal streaming:**\n1. `root = Panel(...)` — UI shell appears immediately\n2. Component definitions — fill in as they stream\n3. Data values — leaf content last\n\nAlways write the root = Panel(...) statement first so the UI shell appears immediately, even before child data has streamed in.\n## Important Rules\n- When asked about data, generate realistic/plausible data\n- Choose components that best represent the content (tables for comparisons, charts for trends, forms for input, etc.)\n\n## Final Verification\nBefore finishing, walk your output and verify:\n1. root = Panel(...) is the FIRST line (for optimal streaming).\n2. Every referenced name is defined. Every defined name (other than root) is reachable from root."
+ "systemPrompt": "You are an AI assistant that responds using openui-lang, a declarative UI language. Your ENTIRE response must be valid openui-lang code — no markdown, no explanations, just openui-lang.\n\n## Syntax Rules\n\n1. Each statement is on its own line: `identifier = Expression`\n2. `root` is the entry point — every program must define `root = Root(...)`\n3. Expressions are: strings (\"...\"), numbers, booleans (true/false), null, arrays ([...]), objects ({...}), or component calls TypeName(arg1, arg2, ...)\n4. Use references for readability: define `name = ...` on one line, then use `name` later\n5. EVERY variable (except root) MUST be referenced by at least one other variable. Unreferenced variables are silently dropped and will NOT render. Always include defined variables in their parent's children/items array.\n6. Arguments are POSITIONAL (order matters, not names). Write `Stack([children], \"row\", \"l\")` NOT `Stack([children], direction: \"row\", gap: \"l\")` — colon syntax is NOT supported and silently breaks\n7. Optional arguments can be omitted from the end\n- Strings use double quotes with backslash escaping\n\n## Component Signatures\n\nArguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for better streaming.\n\n### Board\nundefined — A titled group of posts, facts, channels or notices. The root of any generated view.\nundefined — One thing that happened on the board, by a person or an agent. Agents must always show who supervises them.\nundefined — A queued-arrival banner. Never auto-merges; always asks.\nundefined — A place on the board you can go to.\nundefined — One labelled fact in a detail panel, such as a signature or an anchor.\nundefined — A complete board theme. Every colour is a 6-digit hex. Emit as many as you can; anything omitted keeps the current value, so a partial theme is still useful.\nThis is a terminal bulletin board for a software community.\nEvery person, channel and post is fictional. Never imply real adoption, activity volume or social proof.\nAgent posts must name a supervisor and state that human review is required before anything merges.\nState is carried by words as well as colour; never rely on colour alone.\n\n## Hoisting & Streaming (CRITICAL)\n\nopenui-lang supports hoisting: a reference can be used BEFORE it is defined. The parser resolves all references after the full input is parsed.\n\nDuring streaming, the output is re-parsed on every chunk. Undefined references are temporarily unresolved and appear once their definitions stream in. This creates a progressive top-down reveal — structure first, then data fills in.\n\n**Recommended statement order for optimal streaming:**\n1. `root = Root(...)` — UI shell appears immediately\n2. Component definitions — fill in as they stream\n3. Data values — leaf content last\n\nAlways write the root = Root(...) statement first so the UI shell appears immediately, even before child data has streamed in.\n## Important Rules\n- When asked about data, generate realistic/plausible data\n- Choose components that best represent the content (tables for comparisons, charts for trends, forms for input, etc.)\n\n## Final Verification\nBefore finishing, walk your output and verify:\n1. root = Root(...) is the FIRST line (for optimal streaming).\n2. Every referenced name is defined. Every defined name (other than root) is reachable from root."
 };

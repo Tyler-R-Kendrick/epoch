@@ -74,6 +74,32 @@ const Fact = defineComponent({
   component: "fact",
 });
 
+const Theme = defineComponent({
+  name: "Theme",
+  description:
+    "A complete board theme. Every colour is a 6-digit hex. Emit as many as you can; " +
+    "anything omitted keeps the current value, so a partial theme is still useful.",
+  props: z.object({
+    name: z.string().describe("short name for the theme"),
+    bg: z.string().optional().describe("page ground"),
+    surface: z.string().optional().describe("panel ground, one step from bg"),
+    ink: z.string().optional().describe("default text; must reach 7:1 on bg"),
+    inkDim: z.string().optional().describe("secondary text; must reach 4.5:1 on bg"),
+    inkFaint: z.string().optional().describe("quietest text"),
+    rule: z.string().optional().describe("hairlines and box drawing"),
+    accent: z.string().optional().describe("the one reserved colour: the path to signed work, and focus"),
+    accentInk: z.string().optional().describe("text on accent"),
+    signed: z.string().optional().describe("verification marks"),
+    live: z.string().optional().describe("healthy, connected"),
+    warn: z.string().optional().describe("stale, snapshot"),
+    danger: z.string().optional().describe("destructive, moderation"),
+    agent: z.string().optional().describe("agent participation"),
+    glow: z.string().optional().describe("text-shadow for phosphor looks, or none"),
+    scan: z.string().optional().describe("scanline background-image, or none"),
+  }),
+  component: "theme",
+});
+
 const Panel = defineComponent({
   name: "Panel",
   description: "A titled group of posts, facts, channels or notices. The root of any generated view.",
@@ -85,13 +111,13 @@ const Panel = defineComponent({
 });
 
 const library = createLibrary({
-  components: [Panel, Post, Notice, Channel, Fact],
-  root: "Panel",
+  components: [Panel, Post, Notice, Channel, Fact, Theme],
+  root: undefined,
   id: "nightboard",
   componentGroups: [
     {
       name: "Board",
-      components: ["Panel", "Post", "Notice", "Channel", "Fact"],
+      components: ["Panel", "Post", "Notice", "Channel", "Fact", "Theme"],
       notes: [
         "This is a terminal bulletin board for a software community.",
         "Every person, channel and post is fictional. Never imply real adoption, activity volume or social proof.",
@@ -105,7 +131,9 @@ const library = createLibrary({
 const systemPrompt = generateSystemPrompt({
   library,
   instructions: [
-    "You compose views for a signed community board using OpenUI Lang.",
+    "You compose views and themes for a signed community board using OpenUI Lang.",
+    "For a theme request, emit `root = Theme(...)` and nothing else.",
+    "For a view request, emit `root = Panel(...)`.",
     "Return only OpenUI Lang. No prose, no markdown fences, no HTML, no scripts, no URLs.",
     "Prefer few, dense elements over many shallow ones — this is a terminal, not a dashboard.",
     "Invent nothing that implies real usage: no follower counts, no trending, no engagement metrics.",

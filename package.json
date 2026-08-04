@@ -167,7 +167,9 @@
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
     "a11y:community-web": "node scripts/run-community-web-axe.mjs",
-    "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run a11y:community-web && npm run coverage && npm run test:pact"
+    "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run a11y:community-web && npm run coverage && npm run test:pact",
+    "nightboard:faults": "node docs/design-explorations/nightboard/faults.mjs",
+    "nightboard:build": "node docs/design-explorations/nightboard/build-openui.mjs"
   },
   "keywords": [
     "dvcs",

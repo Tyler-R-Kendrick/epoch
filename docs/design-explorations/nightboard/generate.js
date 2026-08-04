@@ -119,26 +119,30 @@
       return;
     }
 
+    var R = window.NBResilient;
     var session;
+    var controller = new AbortController();
+    var signal = controller.signal;
     var parser = window.OpenUILang.createStreamingParser(window.NB_OPENUI.schema, "Panel");
     try {
       status("Composing…", "busy");
-      session = await LanguageModel.create({
-        initialPrompts: [{ role: "system", content: window.NB_OPENUI.systemPrompt }],
-        monitor: function (m) {
-          m.addEventListener("downloadprogress", function (e) {
-            status("Fetching the on-device model — " + Math.round(e.loaded * 100) + "%", "busy");
-          });
+      session = await R.withRetry(function () {
+        return R.openSession({
+          report: status,
+          signal: signal,
+          initialPrompts: [{ role: "system", content: window.NB_OPENUI.systemPrompt }],
+        });
+      }, { tries: 3, report: status, signal: signal });
+
+      var raw = await window.NBResilient.streamPrompt(session, description, {
+        report: status,
+        signal: signal,
+        onChunk: function (_acc, delta) {
+          // A tree at every chunk: this is why the DSL is streaming-first. The
+          // parser takes the next chunk, never the transcript so far.
+          try { paint(parser.push(delta)); } catch { /* mid-token, wait */ }
         },
       });
-
-      var stream = session.promptStreaming(description);
-      var raw = "";
-      for await (var chunk of stream) {
-        raw += chunk;
-        // A tree at every chunk: this is why the DSL is streaming-first.
-        paint(parser.push(chunk));
-      }
       $("[data-gen-ui-source]").value = raw;
       status("Composed. The source is below; it renders through the same hooks every theme styles.", "ok");
     } catch (err) {
