@@ -1,10 +1,23 @@
 # Epoch
 
-Epoch is a TypeScript prototype for a signed, event-driven Distributed Version
-Control System. It keeps the useful parts of Git, such as offline work and
-content-addressed history, while experimenting with append-only intent events,
-cryptographic author identity, deterministic policy, local sync, and
-CRDT-backed shared state.
+Epoch is a signed, event-driven Distributed Version Control System — a
+successor to Git, prototyped in TypeScript. It keeps the useful parts of Git,
+such as offline work and content-addressed history, while adding append-only
+intent events, cryptographic author identity, deterministic policy, local sync,
+and CRDT-backed shared state.
+
+**Epoch.Community.Web is to Epoch what GitHub is to Git**: the community
+experience built on the DVCS. It is the central place where an open-source
+community follows the work of the people and projects it cares about, where
+maintainers manage contributions as signed intents, and where members engage
+each other — messaging, questions, decisions, showcases — in the same context
+as the work itself. Its participants include professional developers, citizen
+builders building in the open, and agents committing concurrently under human
+oversight. Every so often the community's work is materialized into an
+**epoch** — a point-in-time snapshot of the project, credited to everyone who
+took part — which gives the product its name. Epoch is the link that makes all
+of it trustworthy; the sample projects that appear in documentation and designs
+are placeholders and can be swapped at any time.
 
 The repository is currently a research-friendly implementation split into a
 Core SDK, Node CLI, WASM-safe exports, browser integration adapters, an
@@ -26,7 +39,15 @@ feature list lives in the
 
 ## Why Epoch?
 
-Epoch is for exploring repository workflows where:
+Developers already talk about their work everywhere except where the work
+lives: chat on Discord or Slack, announcements on X, questions that used to go
+to Stack Overflow, long-form on Reddit. GitHub suits none of those
+interactions, and it makes following a person's in-progress work, welcoming
+non-code contributors, or celebrating a release as a community milestone harder
+than it should be. Epoch exists to bring those disparate interactions into one
+community home built around the project itself.
+
+Epoch itself supports repository workflows where:
 
 - history should be auditable and tamper-evident by default;
 - authorship is based on local Ed25519 identities instead of a central account

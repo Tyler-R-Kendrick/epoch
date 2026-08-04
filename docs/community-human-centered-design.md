@@ -1,7 +1,16 @@
 # Epoch Community Human-Centered Design
 
 Epoch Community is designed through design thinking, user-centric design, and
-human-centered design, not feature parity with any existing forge. The current
+human-centered design, not feature parity with any existing forge. The product
+it serves is Epoch.Community.Web — to Epoch what GitHub is to Git: one central
+place to follow the work of people and projects, manage contributions to your
+own projects, and engage a community whose builders now include professional
+developers, citizen builders building in the open, and agents contributing
+concurrently under human oversight. Epoch, the signed DVCS underneath, is the
+link that makes collaboration trustworthy, and its primitives (intents,
+anchors, epochs, verified identity) are surfaced as legible product concepts
+rather than hidden; the epoch — the point-in-time materialization of what the
+community built — is the defining artifact. The current
 Community packages are still small, so this document is the product-design
 constraint for future Community Web, API, Core, and CLI work: start from people,
 prove the problem, then choose the smallest trustworthy workflow.

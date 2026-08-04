@@ -26,6 +26,7 @@ decisions, operations, or contribution workflow.
 | [Samples](../samples/README.md) | Runnable minimal integrations for Epoch browser, Node backend, and repository workflows. |
 | [Notebooks](../notebooks/README.md) | Executable Node.js notebook examples for Epoch usage scenarios with stored results and output explanations. |
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
+| [Design Explorations](design-explorations/00-foundation.md) | Ten candidate successor-experience design loops (philosophy, design system, hardened mockup, screenshot evidence) with the shared persona foundation and distinctness ledger. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, HA/DR, and platform behavior. |
 
 ## Competition Additions

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atrium — paper-radio · project home · Epoch Community</title>
+<style>
+  :root{
+    --bg:#faf9f7; --panel:#ffffff; --line:#eae7e1; --ink:#1c1917; --mut:#6f6a63; --faint:#a39d94;
+    --em:#047857; --em-soft:#e8f5ef; --em-line:#c6e5d6;
+    --amber:#b45309; --amber-soft:#fbf1e2;
+    --indigo:#4f46e5;
+    --sans:"Seravek","Segoe UI",-apple-system,Verdana,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink);background:var(--bg);
+    width:1600px;height:1000px;margin:0 auto;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:99px;padding:3px 11px;}
+  .av{display:inline-grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;flex:none;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 1px 3px rgba(28,25,23,.04);}
+
+  .top{height:56px;display:flex;align-items:center;gap:22px;padding:0 36px;border-bottom:1px solid var(--line);background:var(--panel);}
+  .top .logo{font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;}
+  .top .logo i{width:24px;height:24px;border-radius:50%;background:var(--em);display:grid;place-items:center;color:#fff;font-style:normal;font-size:12px;}
+  .top nav{display:flex;gap:20px;color:var(--mut);font-size:13.5px;font-weight:600;}
+  .top nav .on{color:var(--ink);border-bottom:2px solid var(--em);padding-bottom:17px;margin-bottom:-19px;}
+  .top .right{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--mut);font-size:13px;}
+
+  .wrap{padding:26px 36px 0;height:944px;overflow:hidden;}
+
+  /* identity row */
+  .ident{display:flex;align-items:center;gap:18px;margin-bottom:20px;}
+  .mark{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#065f46,#059669);
+    display:grid;place-items:center;color:#fff;font-size:24px;font-weight:800;}
+  .ident h1{font-size:26px;font-weight:800;letter-spacing:-.3px;}
+  .ident .tag{color:var(--mut);font-size:14px;margin-top:1px;}
+  .ident .meta{display:flex;gap:8px;margin-top:7px;}
+  .ident .join{margin-left:auto;background:var(--ink);color:#fff;border-radius:12px;padding:11px 22px;font-weight:700;font-size:14px;}
+  .ident .watching{color:var(--mut);font-size:12.5px;text-align:right;margin-top:6px;}
+
+  .grid{display:grid;grid-template-columns:1fr 384px;gap:20px;}
+
+  /* epoch hero */
+  .hero{border:1px solid var(--em-line);background:linear-gradient(180deg,#f2faf6,#ffffff);
+    border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:22px;margin-bottom:18px;}
+  .ring{width:74px;height:74px;flex:none;}
+  .hero h2{font-size:17px;font-weight:800;}
+  .hero p{color:var(--mut);font-size:13px;margin-top:2px;max-width:520px;}
+  .hero .acts{margin-left:auto;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .hero .cta{background:var(--em);color:#fff;border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;}
+  .hero .sub{color:var(--faint);font-size:11.5px;}
+
+  /* activity */
+  .sect-h{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;}
+  .sect-h h3{font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);}
+  .sect-h a{font-size:12.5px;color:var(--em);font-weight:700;}
+  .feed{display:flex;flex-direction:column;}
+  .ev{display:flex;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line);}
+  .ev:last-child{border-bottom:0;}
+  .ev .av{width:30px;height:30px;font-size:12px;}
+  .ev .body{min-width:0;}
+  .ev .body b{font-weight:700;}
+  .ev .t{color:var(--faint);font-size:11.5px;margin-left:6px;}
+  .ev .quote{color:var(--mut);font-size:13px;margin-top:2px;}
+  .ev .obj{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;
+    padding:5px 11px;margin-top:7px;font-size:12.5px;font-weight:600;background:#fff;}
+  .ev .obj .st{font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;}
+  .st.merged{background:var(--em-soft);color:var(--em);}
+  .st.review{background:#eef0fe;color:var(--indigo);}
+  .st.shipped{background:var(--amber-soft);color:var(--amber);}
+
+  /* right column cards */
+  .rc{padding:16px 18px;margin-bottom:16px;}
+  .rc h3{font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);margin-bottom:10px;}
+  .chrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .chrow:last-child{border-bottom:0;}
+  .chrow .nm{font-weight:600;}
+  .chrow .nm span{color:var(--faint);font-weight:400;}
+  .chrow .live{color:var(--em);font-size:11.5px;font-weight:700;}
+  .chrow .cnt{color:var(--faint);font-size:12px;}
+  .about p{color:var(--mut);font-size:13px;}
+  .about .fact{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line);}
+  .about .fact:last-child{border:0;}
+  .about .fact b{font-weight:700;}
+  .crew{display:flex;align-items:center;}
+  .crew .av{width:30px;height:30px;font-size:12px;border:2px solid #fff;margin-left:-8px;}
+  .crew .av:first-child{margin-left:0;}
+  .crew .agent{border:2px dashed var(--faint);background:#f3f2ef;color:var(--mut);}
+  .crew .more{margin-left:10px;color:var(--mut);font-size:12.5px;}
+  .crew-note{font-size:11.5px;color:var(--faint);margin-top:8px;}
+
+  /* epochs strip */
+  .strip{margin-top:18px;}
+  .epochs{display:flex;gap:14px;align-items:stretch;}
+  .ep{flex:1;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:13px 16px;}
+  .ep .no{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;}
+  .ep b{display:block;font-size:14.5px;margin-top:1px;}
+  .ep .meta2{color:var(--mut);font-size:12px;margin-top:3px;}
+  .ep.now{border-color:var(--em-line);background:linear-gradient(180deg,#f2faf6,#fff);}
+  .ep.now .no{color:var(--em);}
+  .ep .bar{height:5px;border-radius:99px;background:#e8e6e1;margin-top:9px;overflow:hidden;}
+  .ep .bar i{display:block;height:100%;width:72%;background:var(--em);border-radius:99px;}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <span class="logo"><i>E</i> Epoch Community</span>
+    <nav>
+      <a class="on" href="#">Home</a><a href="#">Channels</a><a href="#">Intents</a><a href="#">Epochs</a><a href="#">Workspaces</a><a href="#">People</a>
+    </nav>
+    <div class="right"><span>⌘K</span><span class="av" style="width:28px;height:28px;background:#2563eb;font-size:11px;">JW</span></div>
+  </header>
+
+  <div class="wrap">
+    <div class="ident">
+      <div class="mark">◍</div>
+      <div>
+        <h1>paper-radio</h1>
+        <div class="tag">A community podcast app for the small harbors the big platforms forgot.</div>
+        <div class="meta">
+          <span class="chip" style="background:var(--em-soft);color:var(--em);">✓ verified maintainers</span>
+          <span class="chip" style="background:#f3f2ef;color:var(--mut);">1,204 members</span>
+          <span class="chip" style="background:#f3f2ef;color:var(--mut);">audio · local-first</span>
+          <span class="chip" style="background:var(--amber-soft);color:var(--amber);">Epoch 12 shipped · 214 credited</span>
+        </div>
+      </div>
+      <div style="margin-left:auto;text-align:right;">
+        <a class="join chip" style="border-radius:12px;padding:11px 22px;font-size:14px;background:var(--ink);color:#fff;" href="#">Join this community</a>
+        <div class="watching">no fork required · your work stays credited to you</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <main>
+        <section class="hero" aria-label="Epoch 13 in progress">
+          <svg class="ring" viewBox="0 0 74 74" role="img" aria-label="Epoch 13 is 72 percent assembled">
+            <circle cx="37" cy="37" r="31" fill="none" stroke="#e3e0da" stroke-width="7"/>
+            <circle cx="37" cy="37" r="31" fill="none" stroke="#047857" stroke-width="7"
+                    stroke-dasharray="140.3 194.8" stroke-linecap="round" transform="rotate(-90 37 37)"/>
+            <text x="37" y="34" text-anchor="middle" font-size="15" font-weight="800" fill="#1c1917">72%</text>
+            <text x="37" y="48" text-anchor="middle" font-size="8.5" fill="#6f6a63">EPOCH 13</text>
+          </svg>
+          <div>
+            <h2>Now assembling: Epoch 13 — "The Harbor Season"</h2>
+            <p>Offline listening (lena's idea), the rebuilt tuner, six languages, episode art. 9 of 12 intents landed; ships Friday 17:00 with every name read aloud.</p>
+          </div>
+          <div class="acts">
+            <a class="cta" href="#">See what's going in →</a>
+            <span class="sub">217 names on the plaque so far · 11 first-timers</span>
+          </div>
+        </section>
+
+        <div class="sect-h"><h3>Happening now</h3><a href="#">open channels →</a></div>
+        <div class="feed card" style="padding:4px 18px;">
+          <div class="ev">
+            <span class="av" style="background:#2563eb;">JW</span>
+            <div class="body">
+              <b>june wu</b> filed an intent from lena's idea <span class="t">18 min ago · from #ideas</span>
+              <div class="obj">▤ #518 · Let listeners keep episodes for offline weeks <span class="st review">in review</span></div>
+            </div>
+          </div>
+          <div class="ev">
+            <span class="av" style="background:#16a34a;">MO</span>
+            <div class="body">
+              <b>mira okafor</b> merged an intent <span class="t">1 h ago</span>
+              <div class="obj">▤ #517 · Rebuild the tuner from the antenna up <span class="st merged">merged · signed</span></div>
+            </div>
+          </div>
+          <div class="ev">
+            <span class="av" style="background:#ea580c;">LF</span>
+            <div class="body">
+              <b>lena fischer</b> <span class="t">2 h ago · #show-and-tell</span>
+              <div class="quote">"Twelve episode-art frames, done. You shouldn't need design training to make your episode look loved."</div>
+            </div>
+          </div>
+          <div class="ev">
+            <span class="av" style="background:#0d9488;">NH</span>
+            <div class="body">
+              <b>nadia haddad</b> answered a question in #support <span class="t">3 h ago</span>
+              <div class="quote">"How do I add my harbor?" — answered, and captured into the docs as intent #516.</div>
+            </div>
+          </div>
+          <div class="ev">
+            <span class="av" style="background:#9ca3af;">t</span>
+            <div class="body">
+              <b>tomo</b> <span class="t" style="margin-left:6px;">agent · supervised</span> <span class="t">this morning</span>
+              <div class="quote">Weekly digest drafted — waiting for mira's review before it posts.</div>
+            </div>
+          </div>
+        </div>
+
+        <section class="strip" aria-label="Epochs">
+          <div class="sect-h"><h3>Epochs — the story of this project</h3><a href="#">all 13 →</a></div>
+          <div class="epochs">
+            <div class="ep"><span class="no">Epoch 11</span><b>"First Light"</b><div class="meta2">Feb 2026 · 148 credited</div></div>
+            <div class="ep"><span class="no">Epoch 12</span><b>"The Offline Winter"</b><div class="meta2">28 Jun 2026 · 214 credited</div></div>
+            <div class="ep now"><span class="no">Epoch 13 · assembling</span><b>"The Harbor Season"</b><div class="meta2">ships Friday · 9/12 intents in</div><div class="bar"><i></i></div></div>
+          </div>
+        </section>
+      </main>
+
+      <aside>
+        <div class="card rc" aria-label="Channels">
+          <h3>Channels</h3>
+          <div class="chrow"><span class="nm"><span>#</span> support</span><span class="live">3 waiting — help!</span></div>
+          <div class="chrow"><span class="nm"><span>#</span> ideas</span><span class="cnt">1 becoming an intent now</span></div>
+          <div class="chrow"><span class="nm"><span>#</span> show-and-tell</span><span class="cnt">lena, 16:00 today</span></div>
+          <div class="chrow"><span class="nm"><span>#</span> governance</span><span class="live">vote closes 18:00</span></div>
+          <div class="chrow"><span class="nm"><span>#</span> previews</span><span class="cnt">Epoch 13 rc2 live</span></div>
+        </div>
+
+        <div class="card rc about" aria-label="About">
+          <h3>About</h3>
+          <p>Started by mira in a harbor town with bad signal and good taste. Every contribution — code, words, art, testing — lands with equal credit, permanently.</p>
+          <div style="margin-top:8px;">
+            <div class="fact"><span>First reply to a newcomer</span><b>41 min</b></div>
+            <div class="fact"><span>Contributions this month</span><b>87</b></div>
+            <div class="fact"><span>First-timers this epoch</span><b>11</b></div>
+            <div class="fact"><span>Open calls (no code needed)</span><b>3</b></div>
+          </div>
+        </div>
+
+        <div class="card rc" aria-label="People building this week">
+          <h3>Building this week</h3>
+          <div class="crew">
+            <span class="av" style="background:#16a34a;">MO</span>
+            <span class="av" style="background:#2563eb;">JW</span>
+            <span class="av" style="background:#ea580c;">LF</span>
+            <span class="av" style="background:#0d9488;">NH</span>
+            <span class="av" style="background:#7c3aed;">SA</span>
+            <span class="av" style="background:#db2777;">PR</span>
+            <span class="av agent">t</span>
+            <span class="more">+ 11 more</span>
+          </div>
+          <div class="crew-note">Dashed ring = agent participant. tomo works under mira's rules; anyone can read its log, mira can pause it anytime.</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+</body>
+</html>

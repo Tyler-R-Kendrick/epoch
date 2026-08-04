@@ -1,5 +1,18 @@
 # Community Web Experience
 
+Community Web is to Epoch what GitHub is to Git: the community experience
+built on the Epoch DVCS. It is the central place where people follow the work
+of others, maintainers manage the contributions to their own projects, and
+communities engage together — replacing the scatter of Discord, Slack, X,
+Reddit, and Stack Overflow around today's forges. Epoch's native primitives —
+signed intents, anchors, epochs, verified identity, and policy-bound agents —
+surface as first-class product concepts inside the flow of community
+conversation, the way Git's branches and merges became GitHub's branches and
+pull requests. Participants include professional developers, citizen builders
+building in the open, and agents contributing concurrently under human
+oversight; the defining artifact is the epoch, a point-in-time materialization
+of the project the community built, credited to everyone who took part.
+
 Community Web is a **community-first** social coding surface inspired by Discord’s server model, with Epoch trust and ATProto network discovery.
 
 ## Three planes

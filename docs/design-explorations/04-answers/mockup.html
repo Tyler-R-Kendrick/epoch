@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Answers — How do I keep episodes for offline ferry rides? · paper-radio</title>
+<style>
+  :root{
+    --bg:#fbf8f1; --panel:#fffdf8; --line:#eae4d6; --ink:#211d16; --mut:#6d675b; --faint:#a29a8a;
+    --teal:#0f766e; --teal-soft:#e6f2f0; --teal-line:#bcdcd8;
+    --green:#15803d; --green-soft:#e9f5ec;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:-apple-system,"Segoe UI",Verdana,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);font-size:14px;line-height:1.6;color:var(--ink);background:var(--bg);
+    width:1600px;height:1000px;margin:0 auto;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  a{color:var(--teal);text-decoration:none;font-weight:600;}
+  .av{display:inline-grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;flex:none;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:99px;padding:2px 10px;}
+
+  .top{height:54px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;align-items:center;gap:18px;padding:0 40px;}
+  .top .logo{font-weight:800;font-size:15px;display:flex;gap:8px;align-items:center;}
+  .top .logo i{width:24px;height:24px;border-radius:7px;background:var(--teal);color:#fff;display:grid;place-items:center;font-style:normal;font-size:12px;}
+  .top .bc{color:var(--faint);font-size:13px;}
+  .top .bc b{color:var(--ink);}
+  .top .ask{margin-left:auto;background:var(--teal);color:#fff;border-radius:9px;padding:8px 16px;font-weight:700;font-size:13px;}
+
+  .wrap{display:flex;gap:36px;padding:30px 40px 0;height:946px;overflow:hidden;}
+  .main{width:980px;flex:none;}
+
+  .qhead .status{display:flex;gap:8px;margin-bottom:12px;}
+  h1{font-family:var(--serif);font-size:31px;font-weight:400;line-height:1.25;letter-spacing:-.2px;}
+  .qmeta{display:flex;gap:16px;color:var(--faint);font-size:12.5px;margin:10px 0 0;}
+  .qmeta b{color:var(--mut);font-weight:600;}
+
+  .qbody{display:flex;gap:16px;margin-top:18px;padding-bottom:20px;border-bottom:1px solid var(--line);}
+  .qbody .av{width:40px;height:40px;font-size:15px;}
+  .qbody p{font-size:15px;color:#3a352b;max-width:760px;}
+  .qbody .who{font-size:12.5px;color:var(--faint);margin-top:8px;}
+  .qbody .who b{color:var(--mut);}
+
+  .ans{display:flex;gap:16px;padding:22px 0;border-bottom:1px solid var(--line);}
+  .ans .vote{width:44px;text-align:center;color:var(--faint);flex:none;}
+  .ans .vote .n{font-size:19px;font-weight:800;color:var(--ink);}
+  .ans .vote .arr{font-size:15px;}
+  .ans .body{min-width:0;flex:1;}
+  .accepted{background:var(--panel);border:1px solid var(--teal-line);border-radius:16px;padding:20px 24px;margin-top:20px;}
+  .accepted .badge-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .accepted .acc{background:var(--green-soft);color:var(--green);}
+  .ans p, .accepted p{font-size:15px;color:#3a352b;max-width:760px;}
+  .steps{margin:12px 0 4px 2px;max-width:740px;}
+  .steps li{margin:6px 0 6px 18px;font-size:14.5px;color:#3a352b;}
+  .code{font-family:var(--mono);font-size:12.5px;background:#f4efe4;border:1px solid var(--line);
+    border-radius:8px;padding:10px 14px;margin:10px 0;color:#484130;max-width:740px;}
+  .byline{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:12.5px;color:var(--faint);}
+  .byline .av{width:26px;height:26px;font-size:10px;}
+  .byline b{color:var(--mut);}
+
+  .captured{display:flex;align-items:center;gap:14px;background:var(--teal-soft);border:1px solid var(--teal-line);
+    border-radius:12px;padding:13px 18px;margin-top:16px;}
+  .captured .ic{width:34px;height:34px;border-radius:9px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:15px;flex:none;}
+  .captured b{display:block;font-size:13.5px;color:#134e4a;}
+  .captured span{font-size:12.5px;color:#3f6f6a;}
+  .captured .go{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--teal);white-space:nowrap;}
+
+  .other-h{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-top:20px;}
+
+  /* right rail */
+  .rail{flex:1;overflow:hidden;}
+  .rbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .rbox h2{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;}
+  .hl{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line);}
+  .hl:last-child{border:0;}
+  .hl b{font-weight:700;}
+  .rel{padding:7px 0;font-size:13.5px;border-bottom:1px solid var(--line);}
+  .rel:last-child{border:0;}
+  .rel .st2{font-size:11px;color:var(--green);font-weight:700;margin-right:6px;}
+  .rel .st2.open{color:#b45309;}
+  .tags{display:flex;flex-wrap:wrap;gap:7px;}
+  .tags span{background:var(--teal-soft);color:var(--teal);border-radius:7px;padding:3px 10px;font-size:12px;font-weight:600;}
+  .promise{font-size:12px;color:var(--mut);background:none;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;}
+  .promise b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <span class="logo"><i>E</i> Answers</span>
+    <span class="bc">paper-radio / <b>#support</b> / question</span>
+    <button class="ask">Ask the community</button>
+  </header>
+
+  <div class="wrap">
+    <main class="main">
+      <div class="qhead">
+        <div class="status">
+          <span class="chip" style="background:var(--green-soft);color:var(--green);">✓ Answered · accepted by the asker</span>
+          <span class="chip" style="background:var(--teal-soft);color:var(--teal);">Captured into the docs</span>
+        </div>
+        <h1>How do I keep episodes playing on a ferry with no signal?</h1>
+        <div class="qmeta">
+          <span>asked <b>yesterday 18:12</b></span><span>by <b>r. beck</b> — first question, welcomed by nadia</span>
+          <span><b>412</b> views</span><span><b>3</b> answers</span>
+        </div>
+      </div>
+
+      <div class="qbody">
+        <span class="av" style="background:#b45309;">RB</span>
+        <div>
+          <p>I commute across the sound twice a day. Ten minutes out, the signal dies and the episode dies with it. Is there a way to keep a few episodes on the phone — fetched at home, played on the water? On old phones too, ideally.</p>
+          <div class="who">asked in <b>#support</b> · tagged offline, playback · anyone may answer — plain words welcome</div>
+        </div>
+      </div>
+
+      <section class="accepted" aria-label="Accepted answer">
+        <div class="badge-row">
+          <span class="chip acc">✓ Accepted answer</span>
+          <span class="chip" style="background:#f4efe4;color:var(--mut);">44 found this helpful</span>
+        </div>
+        <p>Since Epoch 13 rc2 there's an offline shelf built into the tuner. It came from a proposal by another ferry commuter, so it does exactly what you're describing:</p>
+        <ol class="steps">
+          <li>Open <b>Settings → Listening → Offline shelf</b> and choose how many episodes to keep (default 5).</li>
+          <li>Episodes fetch on wi-fi only, and the shelf caps itself on older phones — you'll see the cap stated in plain words.</li>
+          <li>On the water, the player falls back to the shelf automatically. Nothing to press.</li>
+        </ol>
+        <div class="code">tuner ▸ shelf: keep 5 · fetch on wi-fi · cap 200 MB on this phone</div>
+        <div class="byline">
+          <span class="av" style="background:#2563eb;">JW</span>
+          answered by <b>june wu</b> · she built the shelf · <b>✓ verified</b> · yesterday 19:04 — 52 minutes after asking
+        </div>
+        <div class="captured">
+          <span class="ic">✎</span>
+          <div>
+            <b>This answer became documentation.</b>
+            <span>Captured from this thread into <span style="font-family:var(--mono);font-size:11.5px;">guides/offline-listening.md</span> as intent #521 — merged, credited to june wu &amp; r. beck.</span>
+          </div>
+          <a class="go" href="#">Read the guide →</a>
+        </div>
+      </section>
+
+      <div class="other-h">2 more answers</div>
+      <div class="ans">
+        <div class="vote"><div class="arr">▲</div><div class="n">12</div><div class="arr">▽</div></div>
+        <div class="body">
+          <p>Until you're on 13: a workaround is starring episodes at home — the player pre-buffers starred items for about 20 minutes of playback.</p>
+          <div class="byline"><span class="av" style="background:#7c3aed;">SA</span> <b>sam adeyemi</b> · field-tests on three old phones · yesterday 18:40</div>
+        </div>
+      </div>
+      <div class="ans" style="border-bottom:0;">
+        <div class="vote"><div class="arr">▲</div><div class="n">6</div><div class="arr">▽</div></div>
+        <div class="body">
+          <p>Adding for other harbors: the shelf respects metered connections too — it will never fetch over data unless you tell it to.</p>
+          <div class="byline"><span class="av" style="background:#0d9488;">NH</span> <b>nadia haddad</b> · mentor · today 08:15</div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="rail" aria-label="Channel health and related">
+      <div class="rbox">
+        <h2>#support, this week</h2>
+        <div class="hl"><span>Median first answer</span><b>41 min</b></div>
+        <div class="hl"><span>Unanswered over 24 h</span><b>0</b></div>
+        <div class="hl"><span>Answers captured into docs</span><b>7</b></div>
+        <div class="hl"><span>First-time askers welcomed</span><b>5 of 5</b></div>
+      </div>
+
+      <div class="rbox">
+        <h2>Related questions</h2>
+        <div class="rel"><span class="st2">✓</span>Does the shelf work for live shows?</div>
+        <div class="rel"><span class="st2">✓</span>How do I add my harbor to tide-tables?</div>
+        <div class="rel"><span class="st2 open">●</span>Can I share a shelf between two phones?</div>
+        <div class="rel"><span class="st2 open">●</span>Offline art — does episode art cache too?</div>
+      </div>
+
+      <div class="rbox">
+        <h2>Tags</h2>
+        <div class="tags"><span>offline</span><span>playback</span><span>old-phones</span><span>epoch-13</span></div>
+      </div>
+
+      <div class="promise">
+        <b>How answers work here.</b> Accepted answers can be captured straight into the project's docs as a signed intent — the asker and answerer are both credited, permanently. Questions never rot in chat.
+      </div>
+    </aside>
+  </div>
+
+</body>
+</html>
