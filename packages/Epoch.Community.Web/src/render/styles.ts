@@ -647,7 +647,8 @@ export function communityStyles(): string {
     }
     .feed-tab[aria-selected="true"] {
       color: var(--epoch-color-ink);
-      border-block-end-color: var(--epoch-color-accent);
+      font-weight: 700;
+      border-block-end-color: var(--epoch-color-ink);
     }
 
     .dev-feed {
@@ -1337,10 +1338,14 @@ export function communityStyles(): string {
       padding: 0;
       border: 0;
       background: none;
-      color: var(--epoch-color-teal);
+      color: var(--epoch-color-ink);
+      text-decoration: underline;
+      text-underline-offset: 0.18em;
+      text-decoration-thickness: 1px;
       cursor: pointer;
       text-align: start;
     }
+    .row-object:hover { text-decoration-thickness: 2px; }
     .row-text {
       margin: 0;
       max-width: 70ch;
@@ -1392,7 +1397,7 @@ export function communityStyles(): string {
       padding: 0;
       border: 0;
       background: none;
-      color: var(--epoch-color-teal);
+      color: var(--epoch-color-muted);
       font-family: var(--epoch-font-mono);
       font-size: var(--epoch-type-meta-size);
       font-weight: var(--epoch-type-label-weight);
