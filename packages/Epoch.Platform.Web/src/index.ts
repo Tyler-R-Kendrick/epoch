@@ -183,8 +183,8 @@ export function createPlatformWebApp(options: CreatePlatformWebAppOptions = {}):
       shortName: "Epoch Web",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#0f1614",
-      backgroundColor: "#ecefea",
+      themeColor: "#1a1a17",
+      backgroundColor: "#f4f2ea",
       offlineShell: true,
     },
     routes,
@@ -477,6 +477,15 @@ function pluralize(count: number, singular: string): string {
 function styles(): string {
   return `
     ${epochTokensCss}
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
+    }
     .epoch-platform-shell {
       min-height: 100vh;
       background: var(--epoch-color-surface);

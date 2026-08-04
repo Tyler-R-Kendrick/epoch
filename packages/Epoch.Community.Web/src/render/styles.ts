@@ -113,16 +113,22 @@ export function communityStyles(): string {
       border-block-end: 1px solid var(--epoch-color-rail-line);
       padding-block-end: var(--epoch-space-sm);
     }
+    /* The control circle, not a side-tab: orienteering marks a control with a
+       ring you run to, and the shape is what carries the meaning. */
     .community-button[aria-pressed="true"]::before,
     .channel-button[aria-pressed="true"]::before {
       content: "";
       position: absolute;
-      inset-block: 0.2rem;
-      inset-inline-start: 0;
-      width: 3px;
-      border-radius: 0 2px 2px 0;
-      background: var(--epoch-color-accent);
+      inset-inline-start: 0.3rem;
+      inset-block-start: 50%;
+      translate: 0 -50%;
+      width: 0.5rem;
+      height: 0.5rem;
+      border: 2px solid var(--epoch-color-control);
+      border-radius: 50%;
     }
+    .community-button[aria-pressed="true"],
+    .channel-button[aria-pressed="true"] { padding-inline: 1.5rem var(--epoch-space-sm); }
     .repo-surface-list {
       border-block-start: 1px solid var(--epoch-color-rail-line);
       padding-block-start: var(--epoch-space-xs);
@@ -205,8 +211,9 @@ export function communityStyles(): string {
     .surface-button[aria-pressed="true"],
     .channel-button[aria-pressed="true"] {
       background: var(--epoch-color-rail-active);
-      color: var(--epoch-color-surface-raised);
-      font-weight: 650;
+      color: var(--epoch-color-ink);
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px var(--epoch-color-line);
     }
     .channel-button-label {
       min-width: 0;
@@ -495,10 +502,9 @@ export function communityStyles(): string {
       gap: var(--epoch-space-xs);
       margin: var(--epoch-space-sm) 0 var(--epoch-space-xs);
       padding: var(--epoch-space-sm) var(--epoch-space-sm);
-      border: 1px solid var(--epoch-color-line);
-      border-inline-start: 3px solid var(--epoch-color-accent);
+      border: 1px solid var(--epoch-color-control);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface-sunken);
+      background: var(--epoch-color-surface-raised);
     }
     .promote-receipt-label {
       color: var(--epoch-color-muted);
@@ -641,7 +647,8 @@ export function communityStyles(): string {
     }
     .feed-tab[aria-selected="true"] {
       color: var(--epoch-color-ink);
-      border-block-end-color: var(--epoch-color-accent);
+      font-weight: 700;
+      border-block-end-color: var(--epoch-color-ink);
     }
 
     .dev-feed {
@@ -1331,10 +1338,14 @@ export function communityStyles(): string {
       padding: 0;
       border: 0;
       background: none;
-      color: var(--epoch-color-teal);
+      color: var(--epoch-color-ink);
+      text-decoration: underline;
+      text-underline-offset: 0.18em;
+      text-decoration-thickness: 1px;
       cursor: pointer;
       text-align: start;
     }
+    .row-object:hover { text-decoration-thickness: 2px; }
     .row-text {
       margin: 0;
       max-width: 70ch;
@@ -1386,7 +1397,7 @@ export function communityStyles(): string {
       padding: 0;
       border: 0;
       background: none;
-      color: var(--epoch-color-teal);
+      color: var(--epoch-color-muted);
       font-family: var(--epoch-font-mono);
       font-size: var(--epoch-type-meta-size);
       font-weight: var(--epoch-type-label-weight);
@@ -1422,6 +1433,102 @@ export function communityStyles(): string {
       text-transform: uppercase;
     }
 
+    /* ── The legend (DESIGN 2) ───────────────────────────────────────────── */
+    /* Permanent and identical on every plane. It is what lets the interface
+       stop explaining itself, so it is chrome that earns its space. */
+    .legend {
+      flex: none;
+      margin-block-start: auto;
+      padding-block: var(--epoch-space-sm);
+      border-block-start: 1px solid var(--epoch-color-rail-line);
+    }
+    .legend-list {
+      display: grid;
+      gap: 0.1rem;
+      margin: 0 0 var(--epoch-space-xs);
+      padding: 0 var(--epoch-space-sm);
+      list-style: none;
+    }
+    .legend-list + .legend-list {
+      padding-block-start: var(--epoch-space-xs);
+      border-block-start: 1px dotted var(--epoch-color-rail-line);
+    }
+    .legend-entry {
+      display: grid;
+      grid-template-columns: 1rem minmax(0, 1fr);
+      gap: var(--epoch-space-sm);
+      align-items: center;
+      min-height: 1.35rem;
+    }
+    .legend-swatch {
+      width: 1rem;
+      height: 0.7rem;
+      border: 1px solid var(--epoch-color-line-strong);
+    }
+    /* Shape carries the meaning alongside hue, so the legend itself obeys the
+       rule that state is never colour-alone. */
+    .legend-swatch[data-legend-shape="ring"] {
+      width: 0.7rem;
+      height: 0.7rem;
+      border-width: 2px;
+      border-radius: 50%;
+      background: none !important;
+    }
+    .legend-swatch[data-legend-shape="mark"] {
+      width: 0.45rem;
+      height: 0.45rem;
+      border: 0;
+      border-radius: var(--epoch-radius-xs);
+    }
+    .legend-swatch-runnable { background: var(--epoch-color-runnable); }
+    .legend-swatch-rough { background: var(--epoch-color-rough); }
+    .legend-swatch-marsh { background: var(--epoch-color-marsh); }
+    .legend-swatch-control { border-color: var(--epoch-color-control); }
+    .legend-swatch-out-of-bounds { border-color: var(--epoch-color-out-of-bounds); }
+    .legend-swatch-gold { background: var(--epoch-color-gold); }
+    .legend-label {
+      color: var(--epoch-color-rail-muted);
+      font-size: var(--epoch-type-meta-size);
+      font-family: var(--epoch-font-ui);
+    }
+    @media (max-width: 800px) { .legend { display: none; } }
+
+    /* ── Terrain (DESIGN 2: the legend) ──────────────────────────────────── */
+    /* Social channels are runnable, work channels are rough. The ground is read
+       before the label, which is how a legend saves a sentence. */
+    .channel-button[data-channel-kind="social"] {
+      box-shadow: inset 3px 0 0 var(--epoch-color-runnable), inset 4px 0 0 var(--epoch-color-line-strong);
+    }
+    .channel-button[data-channel-kind="work"] { box-shadow: inset 3px 0 0 var(--epoch-color-rough-strong); }
+    .channel-button[aria-pressed="true"][data-channel-kind] { box-shadow: inset 0 0 0 1px var(--epoch-color-line); }
+
+    /* Marsh marks a message anchored to something concrete. Terrain is ground,
+       never text weight, so it rides as a tint behind the notation. The element
+       itself arrives with the inline-anchor change (PR #97); this is the world
+       it lands in. */
+    .row-anchor {
+      align-self: start;
+      justify-self: start;
+      width: fit-content;
+      max-width: 100%;
+      padding: .12rem .4rem;
+      background: var(--epoch-color-marsh);
+      border: 1px solid var(--epoch-color-marsh-strong);
+      color: var(--epoch-color-ink);
+    }
+    .row-anchor-mark { display: none; }
+
+    /* The reserved course. Focus and the promote path wear control; nothing
+       else may. */
+    a:focus-visible,
+    button:focus-visible,
+    textarea:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
+    }
+    .row[data-selected-message="true"] { background: var(--epoch-color-surface); box-shadow: inset 3px 0 0 var(--epoch-color-control); }
+
     /* ── Tonal layering (DESIGN 5: tonal first, shadows rare) ─────────────── */
     /* Chrome recedes to surface; the feed advances to raised white. Before this
        every band rendered white, so shell and content read as one flat plane. */
@@ -1452,10 +1559,17 @@ export function communityStyles(): string {
       font-weight: var(--epoch-type-label-weight);
       cursor: pointer;
     }
+    /* The primary action is the end of the course, so it wears the control ink.
+       This is the canonical declaration; an earlier duplicate shadowed it and
+       primaries silently rendered ink. */
     .button-primary {
-      background: var(--epoch-color-ink);
-      border-color: var(--epoch-color-ink);
+      background: var(--epoch-color-control);
+      border-color: var(--epoch-color-control);
       color: var(--epoch-color-surface-raised);
+    }
+    .button-primary:hover {
+      background: var(--epoch-color-accent-strong);
+      border-color: var(--epoch-color-accent-strong);
     }
     .button-intent {
       background: var(--epoch-color-teal);
@@ -1530,12 +1644,13 @@ export function communityStyles(): string {
       background: var(--epoch-color-mint);
       color: var(--epoch-color-teal-deep);
     }
-    /* Unread: count text plus a mark, never colour alone. */
+    /* Unread: count text plus a mark, never colour alone — and never the
+       reserved course ink, which belongs to the promote path, not to state. */
     .channel-unread {
       min-width: var(--epoch-space-lg);
       padding: 0 var(--epoch-space-xs);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-accent);
+      background: var(--epoch-color-ink);
       color: var(--epoch-color-surface-raised);
       font-size: var(--epoch-type-meta-size);
       font-weight: var(--epoch-type-label-weight);
@@ -1611,8 +1726,8 @@ export function communityStyles(): string {
       }
       #epoch-community {
         grid-template-columns: 1fr;
-        height: auto;
-        min-height: 100vh;
+        height: 100dvh;
+        min-height: 100dvh;
         max-width: 100%;
         overflow-x: hidden;
       }

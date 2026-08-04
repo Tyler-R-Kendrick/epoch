@@ -10,10 +10,28 @@ export default [
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**",
-      ".agents/**"
+      ".agents/**",
+      // Vendored agent-skill trees installed by `npx impeccable install`.
+      // Third-party source, reproducible from the devDependency, not ours to lint.
+      ".claude/**",
+      ".codex/**",
+      ".github/skills/**",
+      ".github/agents/**",
+      ".github/hooks/**",
+      ".grok/**"
     ]
   },
   js.configs.recommended,
+  {
+    // Design-exploration galleries are browser documents loaded by <script>,
+    // not modules: they legitimately read window and define no exports.
+    files: ["docs/design-explorations/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: { window: "readonly", document: "readonly", location: "readonly", history: "readonly", addEventListener: "readonly" },
+    },
+  },
   {
     files: ["scripts/**/*.mjs", "packages/**/scripts/**/*.mjs"],
     languageOptions: {

@@ -33,6 +33,7 @@ and when the decision should be revisited.
 | [ADR-0023](0023-three-plane-identity-binding.md) | Accepted | Link Epoch Ed25519, Nostr BIP-340, and AT DIDs via mutual dual-signed hash-chained bindings; client-side verify; witness index non-authoritative. |
 | [ADR-0024](0024-community-theming-deferral.md) | Accepted | Community Web stays light-only by declared decision; token layer must remain inversion-ready; dark-mode recipe and revisit criteria recorded. |
 | [ADR-0025](0025-community-unread-model.md) | Accepted | Unread is a local watermark over real receipts; a channel with no watermark is never unread; count is text, not colour-only; server push out of scope. |
+| [ADR-0026](0026-community-visual-world-course-line.md) | Accepted | The Community visual world is Course Line (ISOM legend discipline): every ink means one thing, one reserved control ink carries the conversation-to-signed-work path, light rail. Overrides the concept roll on named grounds. |
 
 ## Supporting Decision Records
 

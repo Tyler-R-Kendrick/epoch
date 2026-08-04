@@ -3,70 +3,81 @@ version: alpha
 name: Epoch Community
 description: Signed civic workshop interface for channel-first repository collaboration. Competes on polish with Slack density, Telegram restraint, X scan rhythm, and Bluesky surface quality — without chat cosplay or metric theater.
 colors:
-  primary: "#0f1614"
-  secondary: "#5c6762"
-  tertiary: "#b4532f"
-  neutral: "#ecefea"
-  surface: "#ecefea"
+  primary: "#1a1a17"
+  secondary: "#5f6058"
+  tertiary: "#a300a3"
+  neutral: "#f4f2ea"
+  surface: "#f4f2ea"
   surface-raised: "#ffffff"
-  surface-sunken: "#dfe4dd"
-  ink: "#0f1614"
-  ink-soft: "#2d3531"
-  ink-faint: "#a0aaa4"
-  muted: "#5c6762"
-  line: "#d2d9d2"
-  line-strong: "#a6b1a8"
-  accent: "#b4532f"
-  accent-strong: "#8f3f28"
-  teal: "#2a6f6c"
-  teal-deep: "#215955"
-  teal-hover: "#32807c"
-  mint: "#d5ebe3"
-  mint-strong: "#b7d8c8"
-  gold: "#c9a24a"
-  avatar: "#1f3d34"
-  avatar-ink: "#e8f3ee"
-  rail: "#101714"
-  rail-text: "#d7e2dc"
-  rail-muted: "#8fa099"
-  rail-hover: "#1a2420"
-  rail-active: "#24322c"
-  rail-line: "#1c2622"
-  success: "#1a5c3e"
-  warning-bg: "#fff6df"
-  warning-ink: "#5b4420"
-  warning-line: "#e0c991"
+  surface-sunken: "#e6e3d7"
+  ink: "#1a1a17"
+  ink-soft: "#33342d"
+  ink-faint: "#8d8e84"
+  muted: "#5f6058"
+  line: "#d5d2c4"
+  line-strong: "#a8a596"
+  accent: "#a300a3"
+  accent-strong: "#7a007a"
+  runnable: "#ffffff"
+  rough: "#cde3bb"
+  rough-strong: "#9dc384"
+  open-land: "#f8ea9f"
+  open-land-strong: "#e0cc63"
+  marsh: "#a5d8ec"
+  marsh-strong: "#6bb6d6"
+  contour: "#a8703c"
+  contour-soft: "#d8b48c"
+  out-of-bounds: "#e03a2f"
+  control: "#a300a3"
+  gold: "#b8860b"
+  teal: "#1f6f5c"
+  teal-deep: "#175346"
+  teal-hover: "#268a72"
+  mint: "#d4ebe0"
+  mint-strong: "#a9d4c1"
+  avatar: "#2b2b26"
+  avatar-ink: "#f4f2ea"
+  rail: "#f4f2ea"
+  rail-text: "#1a1a17"
+  rail-muted: "#5f6058"
+  rail-hover: "#e9e6db"
+  rail-active: "#ffffff"
+  rail-line: "#d5d2c4"
+  success: "#1f6f5c"
+  warning-bg: "#fdf3d4"
+  warning-ink: "#6b4e0c"
+  warning-line: "#d8b44a"
 typography:
   display:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "2.5rem"
+    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontSize: "2.25rem"
     fontWeight: 750
     lineHeight: 1.05
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
-    fontSize: "1.375rem"
+    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontSize: "1.3125rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "-0.015em"
   title:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
     fontSize: "1.0625rem"
     fontWeight: 700
     lineHeight: 1.25
     letterSpacing: "0em"
   body:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0em"
   label:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 650
     lineHeight: 1.2
-    letterSpacing: "0em"
+    letterSpacing: "0.06em"
   meta:
     fontFamily: "ui-monospace, Cascadia Mono, Consolas, monospace"
     fontSize: "0.72rem"
@@ -280,58 +291,94 @@ The interface rejects default browser styling, generic SaaS hero drama, decorati
 
 ## 2. Colors
 
-The palette is a cool civic workshop: mist page edge, pure raised work surface, deep ink, copper action, teal support, gold verification, charcoal rail.
+The palette is an orienteering legend. Every ink means exactly one thing, and a
+reader learns the vocabulary by consulting the legend rather than by reading a
+sentence about it. This replaces explanation with notation — the answer to a
+product that once spent 54% of its text explaining itself.
 
-### Primary
+### The legend
 
-- **Primary / Civic Ink (`primary`, `ink`)**: Default text, primary filled buttons, structural weight. Near-black green-charcoal — deeper and sleeker than mid gray-green.
-- **Copper Action (`accent`, `tertiary`)**: The sole interaction driver for high-signal actions, focus rings, and rare emphasis. Use sparingly (Telegram/X accent rarity).
+Terrain inks describe *where you are*. They are grounds, never emphasis.
 
-### Secondary
+- **Runnable (`runnable`)** — social channel. Open going, no barrier to entry:
+  `#general`, `#showcase`. White, because a hangout should not look like work.
+- **Rough (`rough`)** — work channel. Slower going, still open to anyone:
+  `#ideas`, `#bugs`, `#agent-runs`. `rough-strong` for its border.
+- **Open land (`open-land`)** — showcase and celebration surfaces.
+  `open-land-strong` for its border.
+- **Marsh (`marsh`)** — anchored to code. A message tied to a file, a line, or
+  an agent run carries marsh, because it is where the terrain gets specific.
+  `marsh-strong` for its border.
+- **Contour (`contour`)** — structural rules, dividers, and the ruling of the
+  page. Contours are the truth of the ground and never shout; `contour-soft` is
+  the hairline weight.
 
-- **Registry Teal (`teal`)**: Intent/workflow support — not the primary brand wash. `teal-deep` edges intent buttons; `teal-hover` is the intent hover fill.
-- **Verified Gold (`gold`)**: Trust and verification only (signed history, verified state). Never decorative.
-- **Quiet Muted (`muted`, `secondary`)**: Meta, timestamps, secondary labels.
-- **Soft Ink (`ink-soft`)**: Long-form body copy inside messages and threads — one step quieter than `ink`.
-- **Faint Ink (`ink-faint`)**: The quietest glyphs — `·` separators between meta spans.
-- **Identity Pine (`avatar`, `avatar-ink`)**: Square-soft avatar and brand-mark fill with its pale mint initial color.
+Course inks describe *what is happening*. They are reserved and rare.
+
+- **Control (`control`, `accent`, `tertiary`)** — the active leg. This ink is
+  reserved for the path from conversation to signed work: control circles,
+  the leg line, the promote and sign actions, and focus. Nothing decorative may
+  wear it. `accent-strong` is its pressed state.
+- **Out of bounds (`out-of-bounds`)** — destructive and forbidden. Moderation
+  removal, failed signature, and anything that cannot be undone.
+- **Gold (`gold`)** — trust and verification only, as before. Signature marks
+  and verified state, never decoration.
+
+Support inks carry state that is not terrain and not the course.
+
+- **Teal (`teal`, `teal-deep`, `teal-hover`)** — intent and workflow support.
+- **Mint (`mint`, `mint-strong`)** — live and healthy state.
+- **Warning (`warning-bg`, `warning-ink`, `warning-line`)** — snapshot,
+  degraded, and stale state. Never silent.
 
 ### Neutral surfaces
 
-- **Mist / Neutral (`surface`, `neutral`)**: Page edge and subtle hover wash.
-- **Raised White (`surface-raised`)**: Main feed and composer — clean like Bluesky/X light, not parchment-muddy.
-- **Sunken (`surface-sunken`)**: Thread nests and recessed panels.
-- **Ledger Line (`line`)**: Hairline borders and dividers. `line-strong` borders secondary buttons and hover states that need one more step of contrast.
-- **Mint Line (`mint-strong`)**: Border for mint/live honesty surfaces.
-- **Warning Line (`warning-line`)**: Border for snapshot/warning honesty surfaces and badges.
+- **Paper (`surface`, `neutral`)** — the page ground the map is printed on.
+- **Raised (`surface-raised`)** — the sheet the terrain and content sit on.
+- **Sunken (`surface-sunken`)** — recessed panels and nested threads.
+- **Line / line-strong** — hairline and emphasis rules.
+- **Ink / ink-soft / ink-faint / muted** — text weights, darkest to quietest.
 
 ### Rail
 
-- **Rail (`rail`)**: Deep charcoal green for orientation chrome.
-- **Rail text / muted / hover / active**: Readable hierarchy on dark chrome; active channel is clearly selected without purple.
-- **Rail line (`rail-line`)**: Hairline section dividers on the dark rail.
+The rail is **light** in this world. ISOM prints its legend on the same paper as
+its map; a dark rail would make orientation a different medium from the work.
+
+- **Rail (`rail`)** — paper, one step down from the raised sheet.
+- **Rail text / muted / hover / active** — hierarchy on paper; the active
+  channel is marked by the control ink and by weight, never by colour alone.
+- **Rail line (`rail-line`)** — contour hairline between legend sections.
 
 ### Named rules
 
-**The Surface Is Product Rule.** Never ship browser-default white/gray without tokens. Feed uses `surface-raised`; page edge may use `surface`.
+**The Legend Rule.** Every ink in the product appears in the legend with exactly
+one meaning. An ink used for two things is a defect, not a style choice.
 
-**The Copper Rarity Rule.** Copper is for action and attention only — never large inactive fills.
+**The Reserved Course Rule.** The control ink belongs to the conversation-to-
+signed-work path and to focus. It may never be spent on branding, decoration,
+hover wash, or a call to action that is not on that path.
 
-**The Rail Is Place, Feed Is Work Rule.** Dark rail orients; light feed does the work (Slack grammar).
+**The Terrain Is Ground Rule.** Terrain inks are grounds behind content. They
+never carry text weight, and they never compete with the course.
 
-**The Trust Color Rule.** Gold and signature meta mark accountability. Do not invent presence dots or vanity metrics.
+**The Trust Color Rule.** Gold and signature meta mark accountability. Do not
+invent presence dots or vanity metrics.
+
+**The Legend Is Not A Sentence Rule.** When a reader needs to learn what
+something means, extend the legend. Do not add an explanatory string to the
+interface.
 
 ## 3. Typography
 
-**Display / Body:** System UI stack (platform-native).  
+**Display / Body:** Helvetica Neue / Inter, falling back to the platform UI stack.
 **Meta / Mono:** `ui-monospace` stack for anchors, signatures, repo paths only.
 
 Typography is operational and sleek: slightly tighter than marketing sites, stronger author weight (X), readable body (Bluesky), no decorative display fonts.
 
 ### Hierarchy
 
-- **Display** (750, 2.5rem): Rare — marketing or empty-state only, not the app shell header.
-- **Headline** (700, 1.375rem): Shell titles (repo name area), channel origin marker.
+- **Display** (750, 2.25rem): Rare — marketing or empty-state only, not the app shell header.
+- **Headline** (700, 1.3125rem): Shell titles (repo name area), channel origin marker.
 - **Title** (700, 1.0625rem): Message author, object subject lines, active channel name.
 - **Body** (400, 0.9375rem, 1.5): Message content; max ~70ch.
 - **Label** (650, 0.8125rem): Buttons, eyebrows, counts.
@@ -340,6 +387,8 @@ Typography is operational and sleek: slightly tighter than marketing sites, stro
 ### Named rules
 
 **The Product Type Rule.** No Fraunces/Inter-display/marketing fonts in Community UI.
+
+**The Notation Rule.** Mono is notation, not decoration: anchors, signatures, repository paths, control numbers and measured values. Prose never sets in mono, and notation never sets in the body face.
 
 **The Author First Rule.** Display name is the strongest text in a message row; role and time are muted; mono trust line is quietest. A conversational message has no subject line above it — only messages about an object (promoted intent, agent run, issue) carry a Title.
 

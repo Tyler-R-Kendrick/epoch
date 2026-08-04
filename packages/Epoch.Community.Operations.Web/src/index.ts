@@ -281,8 +281,8 @@ export async function createCommunityOperationsWebApp(
       shortName: "Epoch Ops",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#0f1614",
-      backgroundColor: "#ecefea",
+      themeColor: "#1a1a17",
+      backgroundColor: "#f4f2ea",
       offlineShell: true,
     },
     deploymentTarget: createCommunityOperationsDeploymentTarget({
@@ -786,8 +786,8 @@ function communityOperationsStyles(): string {
     a { color: inherit; }
 
     a:focus-visible {
-      outline: 3px solid color-mix(in srgb, var(--epoch-color-accent) 42%, transparent);
-      outline-offset: 3px;
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
     }
 
     .skip-link {
@@ -823,7 +823,7 @@ function communityOperationsStyles(): string {
 
     .eyebrow {
       margin: 0 0 0.5rem;
-      color: var(--epoch-color-accent);
+      color: var(--epoch-color-muted);
       font-size: 0.78rem;
       font-weight: 800;
       text-transform: uppercase;
@@ -937,17 +937,29 @@ function communityOperationsStyles(): string {
       background: var(--epoch-color-surface-raised);
       box-shadow: 0 1px 0 color-mix(in srgb, var(--epoch-color-ink) 5%, transparent);
     }
-    /* Moderation queue: open reports carry a copper leading edge, the one
-       place the action colour is earned in this dashboard. */
+    /* Moderation queue: an open report is a control you have to run to, marked
+       by the same circle idiom the community rail uses. Out-of-bounds ink, not
+       the reserved course ink — moderation is not the promote path. */
     .ops-card[data-moderation-open="true"] {
-      border-inline-start: 3px solid var(--epoch-color-accent);
+      position: relative;
+      padding-inline-start: 1.6rem;
+    }
+    .ops-card[data-moderation-open="true"]::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0.55rem;
+      inset-block-start: 1.15rem;
+      width: 0.55rem;
+      height: 0.55rem;
+      border: 2px solid var(--epoch-color-out-of-bounds);
+      border-radius: 50%;
     }
     .ops-queue-count {
       display: inline-block;
       margin-inline-start: var(--epoch-space-sm);
       padding: 0 var(--epoch-space-sm);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-accent);
+      background: var(--epoch-color-out-of-bounds);
       color: var(--epoch-color-surface-raised);
       font-size: var(--epoch-type-label-size);
       font-weight: var(--epoch-type-label-weight);
@@ -984,7 +996,7 @@ function communityOperationsStyles(): string {
     .card-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     .provenance-note {
-      border-inline-start: 3px solid var(--epoch-color-success);
+      border-inline-start: 1px solid var(--epoch-color-line-strong);
       padding-inline-start: 0.7rem;
     }
 

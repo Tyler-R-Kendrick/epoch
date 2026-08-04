@@ -4,7 +4,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ignoredDirectories = new Set([".agents", ".git", ".optimizexp", "coverage", "dist", "node_modules"]);
+// Harness directories hold vendored agent-skill trees (impeccable installs a
+// full copy into each). They are third-party docs reproducible from a
+// devDependency, not repository documentation that README must index.
+const ignoredDirectories = new Set([
+  ".agents", ".claude", ".codex", ".git", ".grok", ".optimizexp",
+  "coverage", "dist", "node_modules",
+]);
+
+// .github holds repository-authored documentation (PULL_REQUEST_TEMPLATE.md)
+// alongside vendored agent-skill trees. Skipping the whole directory stopped
+// validating our own template, so only the vendored subtrees are ignored.
+const ignoredPaths = new Set([
+  ".github/skills", ".github/agents", ".github/hooks",
+]);
 const markdownLinkPattern = /!?\[[^\]]*]\(([^)]+)\)/g;
 
 function listFiles(directory) {
@@ -14,7 +27,8 @@ function listFiles(directory) {
   for (const entry of entries) {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!ignoredDirectories.has(entry.name)) {
+      const relative = path.relative(repoRoot, absolutePath).split(path.sep).join("/");
+      if (!ignoredDirectories.has(entry.name) && !ignoredPaths.has(relative)) {
         files.push(...listFiles(absolutePath));
       }
       continue;

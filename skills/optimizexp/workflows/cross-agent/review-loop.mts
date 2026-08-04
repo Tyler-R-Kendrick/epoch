@@ -1599,6 +1599,88 @@ function validateDesignCritique(
 	return problems;
 }
 
+
+/**
+ * (h) Mutating UX runs on a web product must carry an impeccable detector pass.
+ *
+ * The loop's own metrics cannot encode ugliness: harm is "offensive/unsafe",
+ * friction is "wasted steps", uncertainty is "ambiguous results", and a visually
+ * incoherent screen that is safe, fast and unambiguous scores 0/0/0. Five
+ * completed runs proved it — the panel converged on a harm floor while the
+ * product had 13 button treatments, three row components and 28 controls under
+ * 32px. Personas can now fail a standing state, but a persona is still a model
+ * writing prose about a screenshot.
+ *
+ * impeccable's detector is not. It reports mechanical anti-patterns with file
+ * and line, and it cannot be reasoned out of a finding. Requiring its report as
+ * run evidence gives the loop one input that does not negotiate.
+ *
+ * Findings are not required to be zero — some are contextually intentional, and
+ * the tool says so itself. They are required to be *adjudicated*: every finding
+ * either fixed, or waived in detector-waivers.json with a reason. Silence is
+ * what this gate refuses.
+ */
+function validateDetectorPass(
+	root: string,
+	runDir: string,
+	scope: Record<string, unknown>,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	const experiences = Array.isArray(scope.experiences)
+		? (scope.experiences as string[])
+		: [];
+	if (
+		scope.reportOnly === true ||
+		!experiences.includes("ux") ||
+		!products.some((cfg) => cfg.defaults?.driver === "web")
+	) {
+		return [];
+	}
+	const reportPath = path.join(runDir, "detector.json");
+	const report = readJsonFile<{
+		findings?: readonly { rule?: string; file?: string; line?: number }[];
+	}>(reportPath);
+	if (report === null) return ["detector_report_missing"];
+	if (!Array.isArray(report.findings)) return ["detector_report_malformed"];
+
+	const waiverPath = path.join(runDir, "detector-waivers.json");
+	const waivers = readJsonFile<{
+		waived?: readonly {
+			rule?: string;
+			file?: string;
+			line?: number;
+			reason?: string;
+		}[];
+	}>(waiverPath);
+	// Keyed on line as well as rule and file. Without it, two findings of the
+	// same rule in one file were cleared by a single reasoned waiver, so a run
+	// could complete with an unadjudicated finding — the exact hole this gate
+	// exists to close. A waiver that omits a line still covers the file, which
+	// keeps a deliberate file-wide exemption expressible.
+	const waived = new Set<string>();
+	for (const w of waivers?.waived ?? []) {
+		if (typeof w.reason !== "string" || w.reason.trim().length <= 12) continue;
+		waived.add(`${w.rule ?? ""}:${w.file ?? ""}:${w.line ?? "*"}`);
+	}
+
+	const problems: string[] = [];
+	for (const finding of report.findings) {
+		const base = `${finding.rule ?? ""}:${finding.file ?? ""}`;
+		const key = `${base}:${finding.line ?? "*"}`;
+		if (!waived.has(key) && !waived.has(`${base}:*`)) {
+			problems.push(`detector_finding_unadjudicated:${finding.rule ?? "unknown"}`);
+		}
+	}
+	// A waiver without a real reason is a rubber stamp, which is the failure mode
+	// this whole apparatus exists to prevent.
+	for (const w of waivers?.waived ?? []) {
+		if (typeof w.reason !== "string" || w.reason.trim().length <= 12) {
+			problems.push(`detector_waiver_unreasoned:${w.rule ?? "unknown"}`);
+		}
+	}
+	return [...new Set(problems)];
+}
+
 /** (f) Mutating UX runs on a web product need at least one narrow-viewport capture. */
 function validateMobileEvidence(
 	root: string,
@@ -1913,6 +1995,9 @@ function modeAssertComplete(
 	missing.push(...validateBacklogIntegrity(root, runDir));
 	missing.push(...validateStandingDefects(root, runProducts));
 	missing.push(...validateTokenAudit(root, runProducts));
+	missing.push(
+		...validateDetectorPass(root, runDir, scope as Record<string, unknown>, runProducts),
+	);
 	missing.push(
 		...validateDesignCritique(
 			root,

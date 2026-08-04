@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Epoch Community — ten directions</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font:400 14px/1.5 ui-sans-serif,system-ui,sans-serif;background:#0b0c0d;color:#e7e9e8;
+       display:grid;grid-template-rows:auto auto minmax(0,1fr)}
+
+  /* ── Picker chrome. Deliberately neutral: it must not lend its own taste to
+        any of the ten, so it stays achromatic and sits outside the frame. ── */
+  .bar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:.7rem 1rem;background:#141618;border-block-end:1px solid #24282b}
+  .bar h1{margin:0;font:600 13px/1 ui-sans-serif;letter-spacing:.02em}
+  .bar h1 span{color:#8b9490;font-weight:400}
+  .tabs{display:flex;gap:.25rem;flex-wrap:wrap;flex:1;min-width:0}
+  .tab{padding:.4rem .6rem;border:1px solid #2b3033;border-radius:2px;background:#191c1e;color:#b9c0bd;
+       font:500 12px/1 ui-sans-serif;cursor:pointer;white-space:nowrap}
+  .tab:hover{border-color:#3d4448;color:#e7e9e8}
+  .tab[aria-pressed=true]{background:#e7e9e8;border-color:#e7e9e8;color:#121416}
+  .tab .k{font:500 10px/1 ui-monospace,monospace;opacity:.6;margin-inline-end:.35rem}
+  .vp{display:flex;gap:.25rem}
+  .vp button{padding:.4rem .55rem;border:1px solid #2b3033;background:#191c1e;color:#b9c0bd;border-radius:2px;
+             font:500 11px/1 ui-monospace,monospace;cursor:pointer}
+  .vp button[aria-pressed=true]{background:#2b3033;color:#fff}
+
+  .brief{padding:.7rem 1rem;background:#101214;border-block-end:1px solid #24282b;display:flex;gap:1rem;align-items:baseline;flex-wrap:wrap}
+  .brief b{font:600 13px/1.4 ui-sans-serif}
+  .brief .fam{font:500 10px/1.4 ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7f8b86;
+              border:1px solid #2b3033;padding:.15rem .4rem;border-radius:2px}
+  .brief p{margin:0;color:#9aa4a0;font-size:13px;max-width:88ch}
+
+  /* The stage frames each direction so nothing bleeds into the chrome. */
+  .stage{overflow:auto;padding:1rem;background:#0b0c0d;display:grid;place-items:start center}
+  .frame{width:100%;max-width:none;height:100%;min-height:44rem;overflow:hidden;border:1px solid #24282b;background:#fff;
+         box-shadow:0 1px 0 #ffffff0a}
+  .stage[data-vp="tablet"] .frame{max-width:53rem}
+  .stage[data-vp="phone"] .frame{max-width:24.5rem}
+  .frame{border:1px solid #24282b}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+  <header class="bar">
+    <h1>Epoch Community <span>· ten directions</span></h1>
+    <nav class="tabs" id="tabs" aria-label="Design direction"></nav>
+    <div class="vp" role="group" aria-label="Viewport">
+      <button data-vp="desk" aria-pressed="true">1440</button>
+      <button data-vp="tablet" aria-pressed="false">840</button>
+      <button data-vp="phone" aria-pressed="false">390</button>
+    </div>
+  </header>
+
+  <div class="brief" id="brief"></div>
+  <main class="stage" id="stage" data-vp="desk">
+    <iframe class="frame" id="frame" title="Design direction preview"></iframe>
+  </main>
+
+<script src="data.js"></script>
+<script src="designs-a.js"></script>
+<script src="designs-b.js"></script>
+<script>
+(function(){
+  var D = window.EPOCH_DESIGNS, tabs = document.getElementById("tabs"),
+      brief = document.getElementById("brief"), frame = document.getElementById("frame"),
+      stage = document.getElementById("stage"), styleEl = document.createElement("style"), cur = 0;
+  document.head.appendChild(styleEl);
+
+  D.forEach(function(d, i){
+    var b = document.createElement("button");
+    b.className = "tab"; b.type = "button"; b.setAttribute("aria-pressed", i === 0);
+    b.innerHTML = '<span class="k">' + (i + 1) % 10 + '</span>' + d.name;
+    b.addEventListener("click", function(){ show(i); });
+    tabs.appendChild(b);
+  });
+
+  function show(i){
+    cur = i;
+    var d = D[i];
+    Array.prototype.forEach.call(tabs.children, function(b, n){ b.setAttribute("aria-pressed", n === i); });
+    // Written into the iframe document so the direction's own media queries
+    // resolve against the frame width the picker sets, not the browser's.
+    var doc = frame.contentDocument;
+    doc.open();
+    doc.write('<!doctype html><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;height:100%}'
+      + 'body{font:400 14px/1.5 ui-sans-serif,system-ui,sans-serif}'
+      + '@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}'
+      + d.css + '</style>' + d.render());
+    doc.close();
+    brief.innerHTML = '<b>' + d.name + '</b><span class="fam">' + d.family + '</span><p>' + d.thesis + '</p>';
+    try { history.replaceState(null, "", "#" + d.id); } catch (e) {}
+    document.title = "Epoch Community — " + d.name;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".vp button"), function(b){
+    b.addEventListener("click", function(){
+      stage.dataset.vp = b.dataset.vp;
+      document.querySelectorAll(".vp button").forEach(function(o){ o.setAttribute("aria-pressed", o === b); });
+    });
+  });
+
+  // Number keys jump directly; arrows walk the set. A ten-way comparison is
+  // only useful if switching is faster than remembering what you just saw.
+  addEventListener("keydown", function(e){
+    if (e.target.matches("input,textarea")) return;
+    if (e.key >= "0" && e.key <= "9") { var n = (parseInt(e.key, 10) + 9) % 10; if (D[n]) show(n); }
+    if (e.key === "ArrowRight") show((cur + 1) % D.length);
+    if (e.key === "ArrowLeft") show((cur - 1 + D.length) % D.length);
+  });
+
+  var want = D.findIndex(function(d){ return "#" + d.id === location.hash; });
+  show(want > -1 ? want : 0);
+})();
+</script>
+</body>
+</html>

@@ -82,10 +82,10 @@ async function moderationQueueSurfacesCommunityReports(
 }
 
 function opsDocumentInlinesEpochTokens(html: string): void {
-  assert.match(html, /--epoch-color-ink: #0f1614;/u);
-  assert.match(html, /--epoch-color-teal: #2a6f6c;/u);
-  assert.match(html, /--epoch-color-accent: #b4532f;/u);
-  assert.match(html, /--epoch-type-display-size: 2\.5rem;/u);
+  assert.match(html, /--epoch-color-ink: #1a1a17;/u);
+  assert.match(html, /--epoch-color-teal: #1f6f5c;/u);
+  assert.match(html, /--epoch-color-accent: #a300a3;/u);
+  assert.match(html, /--epoch-type-display-size: 2\.25rem;/u);
 }
 
 function opsTokensAliasEpochTokens(html: string): void {
@@ -94,7 +94,13 @@ function opsTokensAliasEpochTokens(html: string): void {
   // Web — which guaranteed drift. Ops consumes the shared tokens directly.
   assert.ok(!/--ops-[\w-]+\s*:/u.test(html), "the private ops vocabulary must not be re-declared");
   assert.match(html, /var\(--epoch-color-surface\)/u);
-  assert.match(html, /var\(--epoch-color-accent\)/u);
+  // Was --epoch-color-accent. Ops no longer spends the control ink: under the
+  // Reserved Course Rule that ink belongs to the conversation-to-signed-work
+  // path and to focus, and an eyebrow and a queue-count badge are neither. The
+  // assertion's point is that Ops consumes the shared tokens rather than a
+  // private alias vocabulary, so it now names inks Ops legitimately carries.
+  assert.match(html, /var\(--epoch-color-control\)/u);
+  assert.match(html, /var\(--epoch-color-out-of-bounds\)/u);
 }
 
 function opsDocumentCarriesNoDriftedPalette(html: string): void {

@@ -379,7 +379,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
   assert.match(html, /data-design-system="epoch-community"/u);
   assert.match(html, /href="#community-content">Skip to content/u);
-  assert.match(html, /--epoch-color-surface: #ecefea/u);
+  assert.match(html, /--epoch-color-surface: #f4f2ea/u);
   assert.doesNotMatch(html, /data-community-web-cockpit/u);
   assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
@@ -393,7 +393,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.equal(manifest.name, "Epoch Community");
   assert.equal(manifest.start_url, "/community");
   assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.theme_color, "#0f1614");
+  assert.equal(manifest.theme_color, "#1a1a17");
   const serviceWorker = readFileSync(join(outputDirectory, "community", "sw.js"), "utf8");
   assert.match(serviceWorker, /addEventListener\("install"/u);
   assert.match(serviceWorker, /addEventListener\("fetch"/u);
