@@ -27,6 +27,7 @@ decisions, operations, or contribution workflow.
 | [Notebooks](../notebooks/README.md) | Executable Node.js notebook examples for Epoch usage scenarios with stored results and output explanations. |
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
+| [Ten Directions (2026 redesign)](design-explorations/redesign-2026/README.md) | Ten candidate replacement design worlds for the product family, each a different information architecture, with a runtime picker for side-by-side review. |
 | [Design Explorations](design-explorations/00-foundation.md) | Ten candidate successor-experience design loops (philosophy, design system, hardened mockup, screenshot evidence) with the shared persona foundation and distinctness ledger. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, HA/DR, and platform behavior. |
 
