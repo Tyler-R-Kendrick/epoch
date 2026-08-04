@@ -25,7 +25,7 @@ import {
 } from "../model/channels";
 import { messageMatchesReceiptSearch } from "../model/search";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
-import { SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE } from "../view/honesty";
+import { SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE, renderStateChip } from "../view/honesty";
 import { escapeHtml } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
@@ -449,17 +449,19 @@ function restoreComposerDraft(): void {
 }
 
 function composerPlaceholder(channel: string): string {
+  // A placeholder is a prompt, not a lesson. The channel topic already says what
+  // this place is for; the box only needs to say where you are typing.
   const placeholders: Record<string, string> = {
-    general: "Write a hangout message — no repository required",
-    showcase: "Share what you're building — demo, release, or project link",
-    support: "Ask for help or post a solved answer for the community",
-    ideas: "Propose an idea that can become a signed intent",
-    bugs: "Report a defect with steps and expected result",
-    "agent-runs": "Link an agent run to its originating intent",
-    previews: "Share a preview URL and what reviewers should check",
-    governance: "Record a moderation, witness, or release trust note",
+    general: "Message #general",
+    showcase: "Share what you built",
+    support: "Ask a question",
+    ideas: "Propose an idea",
+    bugs: "Report a defect",
+    "agent-runs": "Link an agent run",
+    previews: "Share a preview",
+    governance: "Record a note",
   };
-  return placeholders[channel] || "Write a message in this community channel";
+  return placeholders[channel] || `Message #${channel}`;
 }
 
 function applyComposerChrome(): void {
@@ -478,8 +480,7 @@ function applyComposerChrome(): void {
       : "Open #showcase to share what you are building");
   }
   const composerMeta = document.querySelector<HTMLElement>("[data-composer-meta]");
-  const space = currentCommunity();
-  if (composerMeta && space) composerMeta.textContent = `Signed as @${actor} · ${space.name}`;
+  if (composerMeta) composerMeta.textContent = `signed as @${actor}`;
 }
 
 // ── Durable local preferences ────────────────────────────────────────────────
@@ -489,7 +490,6 @@ function applyComposerChrome(): void {
 
 const STORAGE_PREFIX = "epoch-community:";
 const LAST_READ_KEY = `${STORAGE_PREFIX}last-read`;
-const FIRST_RUN_KEY = `${STORAGE_PREFIX}first-run-dismissed`;
 
 function readStoredValue(key: string): string | null {
   try {
@@ -564,20 +564,6 @@ function updateUnreadBadges(): void {
       button.removeAttribute("aria-label");
     }
   });
-}
-
-// ── First-run orientation ────────────────────────────────────────────────────
-
-function revealFirstRunStrip(): void {
-  const strip = document.querySelector<HTMLElement>("[data-first-run-strip]");
-  if (strip === null) return;
-  strip.hidden = readStoredValue(FIRST_RUN_KEY) !== null;
-}
-
-function dismissFirstRunStrip(): void {
-  const strip = document.querySelector<HTMLElement>("[data-first-run-strip]");
-  if (strip !== null) strip.hidden = true;
-  writeStoredValue(FIRST_RUN_KEY, "1");
 }
 
 // ── Search highlighting ──────────────────────────────────────────────────────
@@ -898,40 +884,20 @@ function sessionIdentity(): CommunitySessionIdentity {
   };
 }
 
-function renderMetaParts(parts: readonly string[]): string {
-  return renderIdentityChip(sessionIdentity())
-    + parts.map((part) => `<span class="meta-sep" aria-hidden="true"></span><span>${escapeHtml(part)}</span>`).join("");
-}
-
-function updateRepositoryMeta(repo: CommunityRepository): void {
+/**
+ * The header states one thing: whether what you are reading is live.
+ *
+ * It previously rebuilt itself per plane with counts and a duplicate identity
+ * chip, which is how "community:live" ended up orphaned on its own wrapped line
+ * and how liveness came to be declared eight times on one screen.
+ */
+function updateRepositoryMeta(_repo: CommunityRepository): void {
   const meta = document.querySelector<HTMLElement>("[data-header-meta]");
-  if (!meta) return;
-  if (productMode === "network") {
-    const count = (state.devFeedItems ?? []).length;
-    meta.innerHTML = renderMetaParts([
-      `${count} events`,
-      "network",
-      live() ? "atproto:live" : "atproto:snapshot",
-    ]);
-    return;
-  }
-  if (productMode === "community") {
-    const space = currentCommunity();
-    meta.innerHTML = renderMetaParts([
-      `${(state.communities ?? []).length} communities`,
-      `${(space?.channels ?? []).length} channels`,
-      live() ? "community:live" : "community:snapshot",
-    ]);
-    return;
-  }
-  const maintainers = repo.maintainers ?? [];
-  meta.innerHTML = renderMetaParts([
-    repo.visibility || "public",
-    `${maintainers.length} maintainer${maintainers.length === 1 ? "" : "s"}`,
-    `${(repo.issues ?? []).length} issues`,
-    `${(repo.changeProposals ?? []).length} changes`,
-    live() ? "project:live" : "project:snapshot",
-  ]);
+  if (meta) meta.innerHTML = renderStateChip(live(), state.feedSource === "snapshot");
+  // Identity lives in the rail footer now; keep its auth state honest after a
+  // live refresh rather than leaving the server-rendered value to go stale.
+  const railIdentity = document.querySelector<HTMLElement>("[data-rail-identity] [data-identity-chip]");
+  if (railIdentity) railIdentity.outerHTML = renderIdentityChip(sessionIdentity());
 }
 
 function renderRepository(repo: CommunityRepository): void {
@@ -1251,7 +1217,48 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
   }
 }
 
+/**
+ * On a phone the rail is a sheet. Selecting anything inside it closes the sheet,
+ * so navigation costs one tap and returns you to content rather than leaving a
+ * wall of chrome between you and the conversation.
+ */
+function setRailOpen(open: boolean): void {
+  if (shell === null) return;
+  if (open) shell.setAttribute("data-rail-open", "true");
+  else shell.removeAttribute("data-rail-open");
+  document.querySelector<HTMLElement>("[data-rail-toggle]")
+    ?.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function railIsOpen(): boolean {
+  return shell?.getAttribute("data-rail-open") === "true";
+}
+
+function wireRailSheet(): void {
+  document.querySelector<HTMLElement>("[data-rail-toggle]")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      setRailOpen(!railIsOpen());
+    });
+  document.querySelector<HTMLElement>("[data-community-channel-rail]")
+    ?.addEventListener("click", (event) => {
+      if ((event.target as Element | null)?.closest("button, a")) setRailOpen(false);
+    });
+  // The scrim is a pseudo-element on the shell, so a click outside the rail
+  // while the sheet is open is a dismissal.
+  shell?.addEventListener("click", (event) => {
+    if (!railIsOpen()) return;
+    const target = event.target as Element | null;
+    if (target?.closest("[data-community-channel-rail]") || target?.closest("[data-rail-toggle]")) return;
+    setRailOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && railIsOpen()) setRailOpen(false);
+  });
+}
+
 function wireEventHandlers(): void {
+  wireRailSheet();
   document.querySelectorAll<HTMLElement>("button[data-product-mode]").forEach((button) => {
     button.addEventListener("click", () => selectProductMode(button.dataset.productMode || "community"));
   });
@@ -1316,12 +1323,6 @@ function wireEventHandlers(): void {
       receiptSearch.focus();
     });
   }
-
-  document.querySelector<HTMLElement>("[data-first-run-dismiss]")
-    ?.addEventListener("click", (event) => {
-      event.preventDefault();
-      dismissFirstRunStrip();
-    });
 }
 
 async function handleDelegatedClick(event: MouseEvent): Promise<void> {
@@ -1452,7 +1453,6 @@ function boot(): void {
   applyComposerChrome();
   renderAgentMembers(activeCommunity);
   updateAgentWorkingStatus();
-  revealFirstRunStrip();
   updateUnreadBadges();
   booting = false;
   if (live() && repository()) {

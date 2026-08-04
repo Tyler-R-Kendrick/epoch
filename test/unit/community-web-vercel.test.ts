@@ -466,11 +466,15 @@ async function communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy():
   assert.match(html, /data-feed-source="snapshot"/u);
   assert.match(html, /data-api-unconfigured/u);
   assert.match(html, /data-feed-honesty="snapshot"/u);
-  assert.match(html, /Snapshot communities|channels belong to the community/u);
+  // The banner is degraded-state only now, and says what to do rather than
+  // re-explaining the product.
+  assert.match(html, /Snapshot data\. To promote signed work, reconnect/u);
+  assert.match(html, /data-state="snapshot"/u);
   assert.match(html, /data-snapshot-badge/u);
   assert.match(html, /Dashboard widget should group revenue by region/u);
   assert.match(html, /Welcome to Epoch Civic Workshop/u);
-  assert.match(html, /atproto:snapshot|community:snapshot/u);
+  // Liveness is stated once, by the header state chip.
+  assert.match(html, /class="state-chip"[^>]*data-state="snapshot"/u);
   assert.doesNotMatch(html, /class="meta-sep" aria-hidden="true">·<\/span>/u);
 }
 

@@ -60,15 +60,27 @@ export function communityStyles(): string {
       background: var(--epoch-color-surface);
     }
 
+    /* Order-independent, like .feed-shell. The positional template
+       (auto auto auto auto 1fr auto) assumed six children forever: hiding the
+       workspace chrome on the Network plane shifted every child up a track, so
+       the status block inherited the 1fr row and stretched, leaving ~384px of
+       orphaned black. */
     .channel-rail {
-      display: grid;
-      grid-template-rows: auto auto auto auto 1fr auto;
+      display: flex;
+      flex-direction: column;
       gap: var(--epoch-space-sm);
       padding: var(--epoch-space-md) var(--epoch-space-sm);
       border-inline-end: 1px solid var(--epoch-color-rail-line);
       background: var(--epoch-color-rail);
       color: var(--epoch-color-rail-text);
       overflow: hidden;
+    }
+    .channel-rail > * {
+      flex: none;
+    }
+    .channel-rail > .community-workspace-chrome {
+      flex: 1 1 auto;
+      min-height: 0;
     }
     .rail-section-label {
       padding: var(--epoch-space-xs) var(--epoch-space-sm) 0.1rem;
@@ -275,11 +287,10 @@ export function communityStyles(): string {
       text-decoration: underline;
     }
     .agent-working-status {
-      flex: 1 1 auto;
-      min-width: 0;
+      /* Was a full-width sunken slab louder than the primary action beside it. */
       color: var(--epoch-color-muted);
-      font-size: var(--epoch-type-label-size);
-      font-weight: 600;
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-meta-weight);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -846,6 +857,11 @@ export function communityStyles(): string {
       font-size: var(--epoch-type-body-size);
       line-height: 1.5;
     }
+    /* The anchor/signature line duplicated what the provenance disclosure and
+       the action tray already show — three renderings of the same fields, and
+       on the network plane the trust string was longer than the message. */
+    .message-footer span:not([data-intent-meta]):not([data-proposal-link]) { display: none; }
+    .message-footer .signature-mark { display: inline; }
     .message-footer {
       color: var(--epoch-color-muted);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -980,13 +996,18 @@ export function communityStyles(): string {
       font-size: var(--epoch-type-label-size);
     }
 
+    /* The Composer Never Leaves Rule, actually implemented. It was never sticky
+       on any viewport; on a phone it sat ~100px below the fold. */
     .composer {
+      position: sticky;
+      inset-block-end: 0;
+      z-index: 2;
       display: grid;
       gap: var(--epoch-space-xs);
-      padding: var(--epoch-space-md) 1.15rem var(--epoch-space-lg);
+      padding: var(--epoch-space-sm) 1.15rem;
+      padding-block-end: calc(var(--epoch-space-sm) + env(safe-area-inset-bottom, 0px));
       border-block-start: 1px solid var(--epoch-color-line);
       background: var(--epoch-color-surface-raised);
-      box-shadow: var(--epoch-shadow-low);
     }
     .composer-label {
       color: var(--epoch-color-muted);
@@ -1028,7 +1049,7 @@ export function communityStyles(): string {
     .composer-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: var(--epoch-space-md);
       color: var(--epoch-color-muted);
       font-size: var(--epoch-type-meta-size);
@@ -1099,6 +1120,47 @@ export function communityStyles(): string {
       inset-inline-start: 0;
       width: 2px;
       background: var(--epoch-color-accent);
+    }
+
+    /* Header: one liveness statement, and the phone's way into the rail. */
+    .rail-toggle {
+      display: none;
+      min-width: var(--epoch-space-xxl);
+      min-height: var(--epoch-space-xxl);
+      padding: 0;
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-title-size);
+      cursor: pointer;
+    }
+    .state-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--epoch-space-xs);
+      padding: 0 var(--epoch-space-sm);
+      min-height: var(--epoch-space-xl);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface);
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-meta-weight);
+    }
+    .state-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--epoch-radius-xs);
+      background: var(--epoch-color-success);
+    }
+    .state-chip[data-state="snapshot"] .state-dot,
+    .state-chip[data-state="live-empty"] .state-dot {
+      background: var(--epoch-color-gold);
+    }
+    .rail-identity {
+      margin-block-start: auto;
+      padding-block-start: var(--epoch-space-sm);
+      border-block-start: 1px solid var(--epoch-color-rail-line);
     }
 
     /* Proof wonder: the page states, truthfully, that it is an Epoch artifact. */
@@ -1374,29 +1436,41 @@ export function communityStyles(): string {
         max-width: 100%;
         overflow-x: hidden;
       }
-      .channel-rail {
-        grid-template-rows: auto;
-        gap: 0;
-        /* Size to content instead of a 38vh scroll box. Six stacked sections
-           never fit in 38vh, so the rail used to show half-rows of clipped
-           text — a desktop rail squeezed onto a phone. Each section scrolls
-           horizontally instead, and the feed still opens above the fold. */
-        max-height: none;
-        border-inline-end: 0;
-        border-block-end: 1px solid var(--epoch-color-rail-line);
-        overflow-x: hidden;
-        overflow-y: visible;
-        max-width: 100%;
-        padding-block-end: var(--epoch-space-xs);
-      }
-      /* Section labels sit beside their strips instead of above them: on a
-         phone four label lines cost more vertical budget than the navigation
-         they describe. Children alternate label/strip, so a two-column grid
-         pairs them without extra markup. */
-      .channel-rail,
-      .community-workspace-chrome {
-        grid-template-columns: auto minmax(0, 1fr);
+      /* The rail becomes a sheet. Four stacked horizontal scrollers with
+         mid-word clipping were eating 83% of the first screen; navigation now
+         costs one 32px control until you ask for it. */
+      .rail-toggle {
+        display: inline-flex;
         align-items: center;
+        justify-content: center;
+      }
+      #epoch-community {
+        position: relative;
+      }
+      .channel-rail {
+        position: fixed;
+        inset-block: 0;
+        inset-inline-start: 0;
+        z-index: 30;
+        width: min(84vw, 20rem);
+        transform: translateX(-101%);
+        transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+        overflow-y: auto;
+      }
+      #epoch-community[data-rail-open="true"] .channel-rail {
+        transform: none;
+      }
+      #epoch-community[data-rail-open="true"]::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: color-mix(in srgb, var(--epoch-color-ink) 45%, transparent);
+      }
+      /* In a sheet the rail is a normal vertical list again — the horizontal
+         scroller strips only existed to survive a 38vh height cap. */
+      .community-workspace-chrome {
+        grid-template-columns: minmax(0, 1fr);
         column-gap: var(--epoch-space-sm);
         row-gap: var(--epoch-space-xs);
       }
@@ -1445,15 +1519,34 @@ export function communityStyles(): string {
         width: 100%;
       }
       .feed-header {
-        align-items: start;
-        flex-direction: column;
-        gap: var(--epoch-space-xs);
+        align-items: center;
+        flex-direction: row;
+        gap: var(--epoch-space-sm);
+        padding-block: var(--epoch-space-sm);
+      }
+      /* One line of place on a phone: the channel context lives in the surface
+         header directly below, so repeating it here is pure chrome. */
+      .feed-header .feed-repo { display: none; }
+      .feed-header h1 {
+        font-size: var(--epoch-type-title-size);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .repository-meta {
         justify-content: start;
         max-width: none;
         text-align: start;
       }
+      /* Surface header is one row on a phone: the topic sentence and the
+         signer strip were costing two extra rows above the first message. */
+      .feed-toolbar .channel-topic,
+      .feed-toolbar .members-strip { display: none; }
+      .feed-toolbar { gap: var(--epoch-space-sm); }
+      /* Send is the only thing in the composer row that must never shrink. */
+      .composer-row .agent-working-status { display: none; }
+      .composer-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .composer-row > button { flex: none; }
       .feed-shell { min-height: 70vh; min-width: 0; }
       .message-action-tray dl { grid-template-columns: 1fr; }
       /* Orientation is worth three lines on a desktop; on a phone it must not

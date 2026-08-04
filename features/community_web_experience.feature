@@ -149,14 +149,6 @@ Feature: Community Web community-first experience
     When the ideas channel gains activity after I last read it
     Then the ideas channel shows an unread count
 
-  @persona.github_open_source_contributor
-  Scenario: Contributor dismisses the first-run orientation strip
-    Given the Community Web live API has repository activity
-    And I open the Community Web channel experience
-    Then the first-run orientation strip explains the rail, feed, and promote path
-    When I dismiss the first-run orientation strip
-    And I reopen the Community Web channel experience
-    Then the first-run orientation strip stays dismissed
 
   @persona.security_compliance_responder
   Scenario: Contributor reveals the record behind a signature

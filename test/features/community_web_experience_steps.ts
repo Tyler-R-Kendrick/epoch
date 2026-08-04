@@ -333,14 +333,28 @@ Then("the reply appears in the message feed with signed comment metadata", async
 
 Then("the active conversation remains reachable without an oversized navigation rail", async function () {
   const page = requirePage();
-  const rail = await page.locator("[data-community-channel-rail]").boundingBox();
   const feed = await page.locator("[data-message-feed]").boundingBox();
-  assert.ok(rail);
   assert.ok(feed);
-  assert.ok(rail.height <= 360, `navigation rail is ${rail.height}px tall`);
-  assert.ok(feed.y < 844, `message feed starts below the viewport at ${feed.y}px`);
+  // The rail is a sheet on narrow screens: it must not occupy the content
+  // column at rest. Four stacked horizontal scrollers used to eat 83% of the
+  // first screen before the first message.
+  // The sheet slides on a 180ms transition; settle before measuring.
+  await page.waitForTimeout(300);
+  const rail = await page.evaluate(() => {
+    const element = document.querySelector("[data-community-channel-rail]");
+    if (element === null) return null;
+    const box = element.getBoundingClientRect();
+    return { right: Math.round(box.right), width: Math.round(box.width) };
+  });
+  assert.ok(rail);
+  assert.ok(
+    rail.right <= 1,
+    `rail must be off-canvas until requested on a narrow screen; its right edge is at ${rail.right}px`,
+  );
+  assert.ok(feed.y < 844 * 0.4, `message feed starts at ${feed.y}px — chrome is eating the first screen`);
+  // And there must be a visible way to open it.
+  await page.locator("[data-rail-toggle]").waitFor({ state: "visible", timeout: 5_000 });
 });
-
 Then("I can browse each navigation group without horizontal page overflow", async function () {
   const page = requirePage();
   const layout = await page.evaluate(() => ({
@@ -385,8 +399,16 @@ Then("Community state remains readable and announced", async function () {
   const stateBox = await state.boundingBox();
   assert.ok(heading);
   assert.ok(stateBox);
-  assert.ok(stateBox.y >= heading.y + heading.height, "Community state overlaps the heading");
+  // The header is a single row now, so state sits beside the heading rather
+  // than stacked beneath it — but the two must not overlap.
+  assert.ok(
+    stateBox.x >= heading.x + heading.width || stateBox.y >= heading.y + heading.height,
+    "Community state overlaps the heading",
+  );
   assert.equal(await state.getAttribute("role"), "status");
+  // Liveness is stated once, in words, not by colour alone.
+  const text = (await state.innerText()).trim();
+  assert.match(text, /^(live|snapshot)$/u, `header state should be one word, got: ${text}`);
 });
 
 Then("the current channel context remains labeled", async function () {
@@ -556,18 +578,6 @@ When("the ideas channel gains activity after I last read it", async function () 
   await page.waitForTimeout(150);
 });
 
-When("I dismiss the first-run orientation strip", async function () {
-  const page = requirePage();
-  await page.locator("[data-first-run-dismiss]").click();
-  await page.locator("[data-first-run-strip]").waitFor({ state: "hidden", timeout: 5_000 });
-});
-
-When("I reopen the Community Web channel experience", async function () {
-  const page = requirePage();
-  await page.goto(`https://community.test${COMMUNITY_PAGE_PATH}`, { waitUntil: "domcontentloaded" });
-  await page.locator("[data-community-web-shell]").waitFor({ state: "visible", timeout: 5_000 });
-});
-
 Then("the channel shows an empty state naming a next action", async function () {
   const page = requirePage();
   const state = page.locator('.message-feed [data-state-item]:not([hidden]) [data-state-kind="empty"]');
@@ -613,23 +623,6 @@ Then("the ideas channel shows an unread count", async function () {
   assert.match(count.trim(), /^[1-9]\d*$/u);
   const label = await button.getAttribute("aria-label");
   assert.match(label ?? "", /unread/u, "unread must be readable, not colour-only");
-});
-
-Then("the first-run orientation strip explains the rail, feed, and promote path", async function () {
-  const page = requirePage();
-  const strip = page.locator("[data-first-run-strip]");
-  await strip.waitFor({ state: "visible", timeout: 5_000 });
-  const text = await strip.innerText();
-  assert.match(text, /rail/iu);
-  assert.match(text, /signed work/iu);
-  assert.match(text, /Promote a message/iu);
-});
-
-Then("the first-run orientation strip stays dismissed", async function () {
-  const page = requirePage();
-  await page.waitForTimeout(200);
-  const visible = await page.locator("[data-first-run-strip]:not([hidden])").count();
-  assert.equal(visible, 0, "dismissal must persist across reopening the page");
 });
 
 // ── Craft moments: provenance reveal and contribution lineage ────────────────

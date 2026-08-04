@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 4 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 21 |
+| `features/community_web_experience.feature` | 20 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -77,7 +77,6 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Contributor searching with no matches sees the query named back | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Contributor clears receipt search with Escape | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Contributor sees unread only for channels with new activity | None | 0 |
-| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor dismisses the first-run orientation strip | None | 0 |
 | `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Contributor reveals the record behind a signature | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_power_user` | Scenario | Maintainer follows a promoted message to the change it became | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Valid mutual binding verifies without trusting the index | None | 0 |

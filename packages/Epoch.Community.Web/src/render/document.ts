@@ -7,8 +7,7 @@ import { buildCommunityFeed } from "../model/feed";
 import { defaultSessionForApi, withLiveAgentSessions } from "../model/session";
 import { buildCommunitySpaces } from "../model/spaces";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
-import { renderFirstRunStrip } from "../view/first-run";
-import { renderCommunityHonestyBanner } from "../view/honesty";
+import { renderCommunityHonestyBanner, renderStateChip } from "../view/honesty";
 import { escapeHtml, escapeScriptJson } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
@@ -84,7 +83,7 @@ ${communityStyles()}
 <body>
   <a class="skip-link" href="#community-content">Skip to content</a>
   <main id="epoch-community" data-design-system="epoch-community" data-community-web-shell data-product-mode="community" data-active-community="${escapeHtml(activeCommunityId)}" data-api-state="${live ? "connected" : "offline"}" data-feed-source="${feed.source}" data-dev-feed-source="${devFeed.source}">
-    <aside class="channel-rail" data-community-channel-rail aria-label="Community navigation">
+    <aside id="community-rail" class="channel-rail" data-community-channel-rail aria-label="Community navigation">
       <a class="brand" href="${escapeHtml(app.pwa.startUrl)}" translate="no" aria-label="${escapeHtml(app.pwa.name)}">
         <span class="brand-mark" aria-hidden="true">EC</span>
         <span class="brand-text">
@@ -142,29 +141,25 @@ ${communityStyles()}
           <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
         </nav>
       </div>
-      <div class="rail-status" aria-live="polite">
-        <span class="status-dot ${live && !snapshotMode ? "" : "status-dot-muted"}" aria-hidden="true"></span>
-        <span data-connection-label>${live ? (snapshotMode ? "Live · empty" : "Live · communities") : "Snapshot · communities"}</span>
+      <div class="rail-identity" data-rail-identity>
+        ${renderIdentityChip(session)}
+        <span class="visually-hidden" data-connection-label>${live ? "live" : "snapshot"}</span>
       </div>
     </aside>
     <section id="community-content" class="feed-shell" aria-labelledby="community-title">
       <header class="feed-header">
+        <button class="rail-toggle" type="button" data-rail-toggle aria-expanded="false" aria-controls="community-rail" aria-label="Show communities and channels">
+          <span aria-hidden="true">☰</span>
+        </button>
         <div class="feed-heading">
           <h1 id="community-title">${escapeHtml(activeCommunity?.name ?? "Community")}</h1>
           <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
         </div>
         <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
-          ${renderIdentityChip(session)}
-          <span class="meta-sep" aria-hidden="true"></span>
-          <span>${spaces.length} communities</span>
-          <span class="meta-sep" aria-hidden="true"></span>
-          <span>${(activeCommunity?.channels.length ?? 0)} channels</span>
-          <span class="meta-sep" aria-hidden="true"></span>
-          <span data-atproto-status>${live ? "atproto:live" : "atproto:snapshot"}</span>
+          ${renderStateChip(live, snapshotMode)}
         </div>
       </header>
       ${renderCommunityHonestyBanner(live, snapshotMode)}
-      ${renderFirstRunStrip()}
       <div class="surface-stage" data-surface-panel="network" hidden>
         <div class="feed-tabs" role="tablist" aria-label="Network Dev Feed tabs">
           <button class="feed-tab" type="button" role="tab" data-feed-tab="following" aria-selected="true">Following</button>
@@ -200,13 +195,12 @@ ${communityStyles()}
           )}
         </ol>
         <form class="composer" data-comment-composer aria-label="Write a community message">
-          <label class="composer-label" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
-          <textarea id="community-message" name="message" rows="2" data-composer-input placeholder="Write a message in this community channel"></textarea>
+          <label class="composer-label visually-hidden" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
+          <textarea id="community-message" name="message" rows="1" data-composer-input placeholder="Message #${escapeHtml(defaultChannel)}"></textarea>
           <div class="composer-row">
-            <span data-composer-meta>Signed as @maya · ${escapeHtml(activeCommunity?.name ?? "community")}</span>
+            <span class="composer-meta" data-composer-meta>signed as @maya</span>
             <span class="agent-working-status" data-agent-working-status role="status" aria-live="polite"></span>
-            <button class="composer-share" type="button" data-share-ship>Share a ship</button>
-            <button type="submit">Send</button>
+            <button class="button-primary" type="submit">Send</button>
           </div>
         </form>
       </div>
