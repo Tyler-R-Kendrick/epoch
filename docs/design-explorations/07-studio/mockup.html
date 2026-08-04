@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio — Saturday build: the offline shelf · paper-radio</title>
+<style>
+  :root{
+    --bg:#f6f5f3; --panel:#ffffff; --line:#e6e3de; --ink:#22201c; --mut:#6f6b64; --faint:#a5a097;
+    --mira:#8b5cf6; --june:#2563eb; --lena:#f97316; --sam:#0d9488; --tomo:#8a8f98;
+    --green:#16a34a; --green-soft:#e9f7ee; --amber:#b45309; --amber-soft:#fcf1e1;
+    --indigo:#4f46e5;
+    --sans:-apple-system,"Segoe UI","Inter",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);font-size:13.5px;line-height:1.5;color:var(--ink);
+    background:var(--bg);
+    background-image:radial-gradient(circle,#dedbd5 1px,transparent 1px);
+    background-size:22px 22px;
+    width:1600px;height:1000px;margin:0 auto;overflow:hidden;display:flex;flex-direction:column;
+    -webkit-font-smoothing:antialiased;}
+  .av{display:inline-grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;flex:none;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 11px;}
+  button{font:inherit;cursor:pointer;border:0;background:none;color:inherit;}
+
+  .top{height:58px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;
+    align-items:center;gap:16px;padding:0 24px;flex:none;}
+  .top .session{display:flex;align-items:center;gap:10px;}
+  .top .session .live{width:9px;height:9px;border-radius:50%;background:#ef4444;}
+  .top .session b{font-size:15px;}
+  .top .session span{color:var(--faint);font-size:12.5px;}
+  .presence{display:flex;align-items:center;margin-left:12px;}
+  .presence .av{width:32px;height:32px;font-size:12px;border:3px solid;margin-left:-8px;background-clip:padding-box;}
+  .presence .av:first-child{margin-left:0;}
+  .presence .agent{border-style:dashed !important;background:#eceae6;color:var(--mut);}
+  .presence .lbl{margin-left:12px;font-size:12px;color:var(--mut);}
+  .top .bundle{margin-left:auto;background:var(--ink);color:#fff;border-radius:11px;padding:10px 18px;font-weight:700;font-size:13px;}
+  .top .bundle small{display:block;font-size:10.5px;font-weight:500;color:#c9c6c0;}
+
+  .stage{flex:1;display:flex;gap:18px;padding:18px 24px;min-height:0;}
+
+  /* board */
+  .board{flex:1;display:flex;gap:16px;min-width:0;}
+  .col{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .col h2{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);
+    display:flex;align-items:center;gap:8px;margin:0 4px 10px;}
+  .col h2 .n{background:#e8e5e0;border-radius:99px;padding:0 8px;font-size:11px;color:var(--mut);}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+    margin-bottom:10px;box-shadow:0 1px 2px rgba(34,32,28,.04);position:relative;}
+  .card b{font-size:13px;font-weight:700;display:block;line-height:1.35;}
+  .card .sub{color:var(--mut);font-size:12px;margin-top:3px;}
+  .owner{display:flex;align-items:center;gap:7px;margin-top:9px;}
+  .owner .av{width:20px;height:20px;font-size:9px;}
+  .owner span{font-size:11.5px;color:var(--mut);font-weight:600;}
+  .editing{position:absolute;top:-9px;right:10px;font-size:10px;font-weight:800;color:#fff;
+    border-radius:99px;padding:2px 9px;}
+  .card.ring-june{border-color:var(--june);box-shadow:0 0 0 1.5px var(--june);}
+  .card.ring-lena{border-color:var(--lena);box-shadow:0 0 0 1.5px var(--lena);}
+  .card.ring-tomo{border:1.5px dashed var(--tomo);}
+  .card.done{opacity:.72;}
+  .card.done b{text-decoration:line-through;text-decoration-thickness:1.5px;text-decoration-color:#b8b4ad;}
+  .card .check{color:var(--green);font-weight:800;font-size:11.5px;margin-top:8px;display:inline-block;}
+  .drафт{}
+  .add-card{border:1.5px dashed var(--line);border-radius:12px;color:var(--faint);text-align:center;
+    padding:10px;font-size:12.5px;font-weight:600;}
+
+  /* right side: checks + chat */
+  .side{width:360px;flex:none;display:flex;flex-direction:column;gap:16px;min-height:0;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;}
+  .panel h3{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:10px;}
+  .chk{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px;border-bottom:1px solid #f0eeea;}
+  .chk:last-child{border:0;}
+  .chk .s{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:10px;flex:none;}
+  .chk .ok{background:var(--green-soft);color:var(--green);}
+  .chk .run{background:var(--amber-soft);color:var(--amber);}
+  .chk code{font-family:var(--mono);font-size:11.5px;color:var(--mut);}
+  .chk .t{margin-left:auto;color:var(--faint);font-size:11px;font-variant-numeric:tabular-nums;}
+
+  .chat{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .chat .msgs{flex:1;overflow:hidden;}
+  .m{display:flex;gap:9px;margin-bottom:11px;}
+  .m .av{width:26px;height:26px;font-size:10px;}
+  .m b{font-size:12.5px;}
+  .m .t{color:var(--faint);font-size:10.5px;margin-left:4px;font-weight:400;}
+  .m p{font-size:12.5px;color:#3a3833;}
+  .voice{display:inline-flex;align-items:center;gap:8px;background:#f1efeb;border-radius:99px;padding:5px 12px;margin-top:4px;font-size:11.5px;color:var(--mut);}
+  .voice .bars{display:flex;gap:2px;align-items:flex-end;height:12px;}
+  .voice .bars i{width:2.5px;background:var(--june);border-radius:2px;}
+  .compose{border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--faint);font-size:12.5px;margin-top:8px;}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <div class="session">
+      <span class="live" aria-hidden="true"></span>
+      <div><b>Saturday build — the offline shelf</b><br><span>paper-radio workspace · live for 1h 24m · anyone may join &amp; watch</span></div>
+    </div>
+    <div class="presence" aria-label="Four people building: mira, june, lena, and tomo the supervised agent">
+      <span class="av" style="background:#16a34a;border-color:var(--mira);">MO</span>
+      <span class="av" style="background:#2563eb;border-color:var(--june);">JW</span>
+      <span class="av" style="background:#ea580c;border-color:var(--lena);">LF</span>
+      <span class="av agent" style="border-color:var(--tomo);">t</span>
+      <span class="lbl">4 building · colors = who's where · dashed = agent (mira can pause)</span>
+    </div>
+    <button class="bundle">Bundle today's work → 2 intent drafts<small>everything stays credited to who did it</small></button>
+  </header>
+
+  <div class="stage">
+    <main class="board" aria-label="Session board">
+      <div class="col">
+        <h2>To do <span class="n">3</span></h2>
+        <div class="card">
+          <b>Storage-cap copy in plain words</b>
+          <div class="sub">good first task — no code, ships in Epoch 13</div>
+          <div class="owner"><span style="font-size:11.5px;color:var(--faint);font-weight:600;">unclaimed — take it</span></div>
+        </div>
+        <div class="card">
+          <b>Shelf icon for the player bar</b>
+          <div class="sub">16px + 24px, warm like the rest</div>
+          <div class="owner"><span class="av" style="background:#ea580c;">LF</span><span>lena — next up</span></div>
+        </div>
+        <div class="card">
+          <b>Metered-connection guard</b>
+          <div class="sub">never fetch over data uninvited</div>
+          <div class="owner"><span class="av" style="background:#2563eb;">JW</span><span>june — after cache tests</span></div>
+        </div>
+        <div class="add-card">+ add a task — voice or type</div>
+      </div>
+
+      <div class="col">
+        <h2>Doing <span class="n">3</span></h2>
+        <div class="card ring-june">
+          <span class="editing" style="background:var(--june);">june · editing now</span>
+          <b>Cache eviction for the shelf</b>
+          <div class="sub"><code style="font-family:var(--mono);font-size:11px;">tuner/shelf.ts</code> · oldest-first, cap-aware</div>
+          <div class="owner"><span class="av" style="background:#2563eb;">JW</span><span>live in the workspace</span></div>
+        </div>
+        <div class="card ring-lena">
+          <span class="editing" style="background:var(--lena);">lena · sketching</span>
+          <b>Offline-shelf empty state</b>
+          <div class="sub">"Nothing shelved yet — star an episode at home"</div>
+          <div class="owner"><span class="av" style="background:#ea580c;">LF</span><span>drawing in the canvas</span></div>
+        </div>
+        <div class="card ring-tomo">
+          <span class="editing" style="background:var(--tomo);">tomo · agent</span>
+          <b>Changelog entries for today's work</b>
+          <div class="sub">drafts only — <b style="display:inline;font-size:12px;">mira reviews before anything ships</b></div>
+          <div class="owner"><span class="av agent" style="background:#eceae6;color:var(--mut);border:1.5px dashed var(--tomo);">t</span><span>working alongside, never over, june's files</span></div>
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>Done today <span class="n">4</span></h2>
+        <div class="card done"><b>Shelf keeps 5, wi-fi only</b><span class="check">✓ tests green · into intent draft #1</span></div>
+        <div class="card done"><b>Old-phone cap at 200 MB</b><span class="check">✓ sam verified on-device · draft #1</span></div>
+        <div class="card done"><b>Guide: "Listening where the signal dies"</b><span class="check">✓ reads well aloud · draft #2</span></div>
+        <div class="card done"><b>Player falls back without a tap</b><span class="check">✓ demoed live at 14:20 · draft #1</span></div>
+      </div>
+    </main>
+
+    <aside class="side">
+      <div class="panel" aria-label="Checks">
+        <h3>Checks — running on every save</h3>
+        <div class="chk"><span class="s ok">✓</span><code>tuner · unit</code><span>84 passing</span><span class="t">12s</span></div>
+        <div class="chk"><span class="s ok">✓</span><code>shelf · on-device</code><span>3 phones</span><span class="t">41s</span></div>
+        <div class="chk"><span class="s ok">✓</span><code>guides · reads-aloud</code><span>plain words</span><span class="t">3s</span></div>
+        <div class="chk"><span class="s run">◔</span><code>cache · soak</code><span>running — june's last save</span><span class="t">1m…</span></div>
+      </div>
+
+      <div class="panel chat" aria-label="Session chat">
+        <h3>Session chat</h3>
+        <div class="msgs">
+          <div class="m"><span class="av" style="background:#16a34a;">MO</span>
+            <div><b>mira</b><span class="t">14:31</span><p>lena that empty state line is going straight in the release notes</p></div></div>
+          <div class="m"><span class="av" style="background:#2563eb;">JW</span>
+            <div><b>june</b><span class="t">14:33</span>
+              <p>eviction passing locally — listen to the click when the shelf swaps:</p>
+              <span class="voice">▶ <span class="bars"><i style="height:5px;"></i><i style="height:10px;"></i><i style="height:7px;"></i><i style="height:12px;"></i><i style="height:4px;"></i><i style="height:9px;"></i></span> 0:07</span>
+            </div></div>
+          <div class="m"><span class="av" style="background:#ea580c;">LF</span>
+            <div><b>lena</b><span class="t">14:34</span><p>that click is so satisfying?? shipping a sound in my first epoch 😭</p></div></div>
+          <div class="m"><span class="av" style="background:#eceae6;color:var(--mut);border:1.5px dashed var(--tomo);">t</span>
+            <div><b>tomo</b><span class="t">14:35 · agent</span><p>Two changelog drafts ready for review. Flagging: the soak test is 40s slower than yesterday.</p></div></div>
+        </div>
+        <div class="compose">Message the session — or hold space to talk</div>
+      </div>
+    </aside>
+  </div>
+
+</body>
+</html>

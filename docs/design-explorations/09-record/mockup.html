@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Record — lena fischer · Epoch Community</title>
+<style>
+  :root{
+    --bg:#fffdf8; --line:#ece7db; --line-strong:#d9d2c2; --ink:#1d1a15; --mut:#6e675b; --faint:#a59d8d;
+    --burg:#9f1239; --burg-soft:#fbeef1;
+    --green:#15803d;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:-apple-system,"Segoe UI",Verdana,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);font-size:14px;line-height:1.6;color:var(--ink);background:var(--bg);
+    width:1600px;height:1000px;margin:0 auto;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  a{color:var(--burg);text-decoration:none;font-weight:600;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 11px;}
+
+  .top{height:54px;display:flex;align-items:center;gap:16px;padding:0 56px;border-bottom:1px solid var(--line);}
+  .top .logo{font-weight:700;font-size:14px;letter-spacing:.02em;}
+  .top .bc{color:var(--faint);font-size:13px;}
+  .top .right{margin-left:auto;display:flex;gap:16px;align-items:center;color:var(--mut);font-size:13px;}
+
+  .wrap{display:flex;gap:56px;padding:44px 56px 0;height:946px;overflow:hidden;}
+  .left{width:430px;flex:none;}
+
+  .portrait{width:108px;height:108px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ea580c);
+    display:grid;place-items:center;color:#fff;font-size:40px;font-weight:700;font-family:var(--serif);}
+  h1{font-family:var(--serif);font-size:44px;font-weight:400;letter-spacing:-.5px;margin-top:18px;line-height:1.05;}
+  .role{color:var(--mut);font-size:15px;margin-top:6px;}
+  .role b{color:var(--ink);font-weight:700;}
+  .badges{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .bio{color:var(--mut);font-size:14.5px;margin-top:18px;max-width:360px;}
+  .nums{display:flex;gap:30px;margin-top:26px;padding-top:22px;border-top:1px solid var(--line);}
+  .nums .n{font-family:var(--serif);font-size:31px;font-variant-numeric:tabular-nums;}
+  .nums .l{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:2px;}
+  .endorse{margin-top:26px;border-left:2px solid var(--burg);padding:2px 0 2px 16px;}
+  .endorse p{font-family:var(--serif);font-style:italic;font-size:15.5px;color:#463f33;}
+  .endorse .who{font-size:12px;color:var(--faint);margin-top:6px;font-style:normal;}
+  .portable{margin-top:26px;border:1px dashed var(--line-strong);border-radius:12px;padding:14px 16px;font-size:12.5px;color:var(--mut);}
+  .portable b{color:var(--ink);}
+  .portable .exp{display:inline-block;margin-top:6px;font-size:12.5px;}
+
+  /* record */
+  .right{flex:1;min-width:0;}
+  .rec-h{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid var(--ink);padding-bottom:10px;}
+  .rec-h h2{font-family:var(--serif);font-size:21px;font-weight:400;}
+  .rec-h span{color:var(--faint);font-size:12.5px;}
+  .rec-h .filter{margin-left:auto;color:var(--mut);font-size:12.5px;}
+  .group{margin-top:18px;}
+  .group h3{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);}
+  .group h3 .comm{width:20px;height:20px;border-radius:7px;display:inline-grid;place-items:center;color:#fff;font-size:10px;}
+  .row{display:flex;align-items:baseline;gap:14px;padding:10px 2px;border-bottom:1px solid var(--line);}
+  .row .what{font-size:14.5px;min-width:0;}
+  .row .what b{font-weight:700;}
+  .row .kind{color:var(--faint);font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;width:92px;flex:none;}
+  .row .ep{margin-left:auto;white-space:nowrap;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;}
+  .row .ep .onq{color:var(--burg);font-weight:700;}
+  .row.first .what::after{content:"first credit";font-size:10px;font-weight:800;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--burg);background:var(--burg-soft);border-radius:99px;padding:2px 8px;margin-left:9px;
+    position:relative;top:-1px;}
+  .verified-note{margin-top:16px;color:var(--faint);font-size:12px;display:flex;align-items:center;gap:8px;}
+  .verified-note .v{color:var(--green);font-weight:800;}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <span class="logo">EPOCH COMMUNITY</span>
+    <span class="bc">people / lena fischer</span>
+    <div class="right"><span>Follow</span><span>Message</span><span style="display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#2563eb;color:#fff;font-weight:700;font-size:11px;">JW</span></div>
+  </header>
+
+  <div class="wrap">
+    <section class="left" aria-label="Identity">
+      <div class="portrait">L</div>
+      <h1>lena fischer</h1>
+      <div class="role"><b>Citizen builder.</b> Draws what software feels like.</div>
+      <div class="badges">
+        <span class="chip" style="background:var(--burg-soft);color:var(--burg);">✓ verified identity — hers alone</span>
+        <span class="chip" style="background:#f4f0e8;color:var(--mut);">building in the open since May</span>
+      </div>
+      <p class="bio">Ferry commuter, illustrator, zero pull requests, two shipped features. Proof that a community that credits every kind of hand gets every kind of hand.</p>
+
+      <div class="nums">
+        <div><div class="n">31</div><div class="l">contributions</div></div>
+        <div><div class="n">2</div><div class="l">epochs credited</div></div>
+        <div><div class="n">3</div><div class="l">communities</div></div>
+        <div><div class="n">412</div><div class="l">followers</div></div>
+      </div>
+
+      <div class="endorse">
+        <p>"Half of what makes Epoch 13 good came from people contributing for the first time anywhere. Lena first among them."</p>
+        <div class="who">— mira okafor, maintainer of paper-radio, in the Epoch 13 notes</div>
+      </div>
+
+      <div class="portable">
+        <b>This record belongs to lena, not to this server.</b> Every line below is signed and portable — she can export it, host it elsewhere, or hand it to an employer, and it stays verifiable.
+        <a class="exp" href="#">Export record →</a>
+      </div>
+    </section>
+
+    <main class="right" aria-label="Contribution record">
+      <div class="rec-h">
+        <h2>The record</h2>
+        <span>every entry credited on a shipped epoch or signed intent</span>
+        <span class="filter">All kinds ▾ · Newest first</span>
+      </div>
+
+      <div class="group">
+        <h3><span class="comm" style="background:#065f46;">◍</span> paper-radio</h3>
+        <div class="row">
+          <span class="kind">Proposal</span>
+          <span class="what"><b>Offline listening</b> — proposed in #ideas, adopted by community vote</span>
+          <span class="ep"><span class="onq">◔ Epoch 13 · ships Fri</span></span>
+        </div>
+        <div class="row">
+          <span class="kind">Art</span>
+          <span class="what"><b>Twelve episode-art frames</b> — templates any host can fill in</span>
+          <span class="ep"><span class="onq">◔ Epoch 13</span></span>
+        </div>
+        <div class="row">
+          <span class="kind">Copy</span>
+          <span class="what"><b>Offline-shelf empty state</b> — "star an episode at home"</span>
+          <span class="ep"><span class="onq">◔ Epoch 13</span></span>
+        </div>
+        <div class="row first">
+          <span class="kind">Testing</span>
+          <span class="what"><b>Every rc build tested on the boat</b> — 9 field reports</span>
+          <span class="ep">Epoch 12 · 28 Jun</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3><span class="comm" style="background:#6d28d9;">✶</span> knot</h3>
+        <div class="row">
+          <span class="kind">Docs</span>
+          <span class="what"><b>Size guides for pattern cards</b> — with priya's translations</span>
+          <span class="ep">Epoch 4 · 12 Jun</span>
+        </div>
+        <div class="row">
+          <span class="kind">Answer</span>
+          <span class="what"><b>"Can I chart from a photo of hand-drawn work?"</b> — accepted, captured into docs</span>
+          <span class="ep">intent #204 · merged</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3><span class="comm" style="background:#334155;">✧</span> moth-light</h3>
+        <div class="row">
+          <span class="kind">Founding</span>
+          <span class="what"><b>Early neighbor #3</b> — drew the porch-light mark, wrote the welcome page</span>
+          <span class="ep">Epoch 1 · forming</span>
+        </div>
+      </div>
+
+      <div class="verified-note">
+        <span class="v">✓</span> 31 of 31 entries independently verifiable · credit is permanent — names are added, never removed
+      </div>
+    </main>
+  </div>
+
+</body>
+</html>

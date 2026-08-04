@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assembly — Epoch 13 · paper-radio</title>
+<style>
+  :root{
+    --bg:#101014; --panel:#17171d; --panel2:#1d1d24; --line:#2a2a33; --line-soft:#232329;
+    --ink:#f4f2ed; --mut:#a3a0a8; --faint:#6e6b75;
+    --amber:#f59e0b; --amber-deep:#b45309; --amber-soft:rgba(245,158,11,.12);
+    --green:#34d399; --green-soft:rgba(52,211,153,.12);
+    --sans:-apple-system,"Segoe UI","Inter",Helvetica,Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink);background:var(--bg);
+    width:1600px;height:1000px;margin:0 auto;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  .av{display:inline-grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;flex:none;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 11px;}
+
+  .top{height:54px;display:flex;align-items:center;gap:16px;padding:0 44px;border-bottom:1px solid var(--line-soft);flex-wrap:nowrap;white-space:nowrap;}
+  .top .logo{font-weight:800;display:flex;align-items:center;gap:9px;}
+  .top .logo i{width:24px;height:24px;border-radius:7px;background:var(--amber);color:#101014;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:900;}
+  .top .bc{color:var(--faint);font-size:13px;}
+  .top .right{margin-left:auto;display:flex;gap:10px;align-items:center;}
+  .ghost{border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--mut);}
+  .prime{background:var(--amber);color:#161006;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:800;}
+
+  .stage{display:flex;gap:48px;padding:34px 44px 0;height:946px;overflow:hidden;}
+  .left{width:560px;flex:none;}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);}
+  .big{font-size:150px;font-weight:900;letter-spacing:-6px;line-height:.95;margin:6px 0 0 -6px;}
+  .name{font-size:29px;font-weight:300;color:var(--ink);letter-spacing:.4px;margin-top:2px;}
+  .name b{font-weight:800;}
+  .sub{color:var(--mut);font-size:14px;margin-top:10px;max-width:460px;}
+
+  .count{display:flex;gap:26px;margin-top:30px;}
+  .cnt .n{font-size:38px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+  .cnt .l{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:2px;}
+  .cnt.amber .n{color:var(--amber);}
+
+  .meter{margin-top:28px;}
+  .meter .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut);margin-bottom:8px;}
+  .meter .row b{color:var(--ink);}
+  .bar{height:10px;border-radius:99px;background:var(--panel2);overflow:hidden;display:flex;}
+  .bar i{display:block;height:100%;background:var(--amber);width:75%;}
+  .bar em{display:block;height:100%;background:var(--amber-soft);width:8%;}
+
+  .credits{margin-top:30px;border-top:1px solid var(--line-soft);padding-top:20px;}
+  .credits h2{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);}
+  .crew{display:flex;align-items:center;margin-top:12px;}
+  .crew .av{width:34px;height:34px;font-size:13px;border:2px solid var(--bg);margin-left:-9px;}
+  .crew .av:first-child{margin-left:0;}
+  .crew .agent{border:2px dashed var(--faint);background:var(--panel2);color:var(--mut);}
+  .crew .more{margin-left:12px;color:var(--mut);font-size:13px;}
+  .credits p{color:var(--mut);font-size:13px;margin-top:10px;max-width:430px;}
+  .credits p b{color:var(--ink);}
+  .plaque-link{display:inline-block;margin-top:10px;color:var(--amber);font-weight:700;font-size:13px;}
+
+  /* right: manifest */
+  .right{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .man-h{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;}
+  .man-h h2{font-size:15px;font-weight:800;}
+  .man-h span{color:var(--faint);font-size:12.5px;}
+  .list{border:1px solid var(--line-soft);border-radius:14px;background:var(--panel);overflow:hidden;}
+  .it{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line-soft);}
+  .it:last-child{border:0;}
+  .it .mark{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:13px;flex:none;
+    background:var(--green-soft);color:var(--green);}
+  .it.pending .mark{background:var(--amber-soft);color:var(--amber);}
+  .it b{font-size:13.5px;font-weight:600;display:block;}
+  .it .by{color:var(--faint);font-size:12px;}
+  .it .by em{font-style:normal;color:var(--mut);}
+  .it .st{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--green);white-space:nowrap;}
+  .it.pending .st{color:var(--amber);}
+
+  .past{margin-top:22px;}
+  .past h2{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:12px;}
+  .past .row2{display:flex;gap:14px;}
+  .pe{flex:1;border:1px solid var(--line-soft);border-radius:12px;padding:13px 16px;background:var(--panel);}
+  .pe .no{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--faint);}
+  .pe b{display:block;font-size:14px;margin-top:2px;}
+  .pe span{color:var(--faint);font-size:12px;}
+  .pe .open{color:var(--amber);font-size:12px;font-weight:700;margin-top:6px;display:inline-block;}
+
+  .footline{margin-top:auto;padding:16px 2px 18px;color:var(--faint);font-size:12px;border-top:1px solid var(--line-soft);}
+  .footline b{color:var(--mut);}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <span class="logo"><i>E</i> Assembly</span>
+    <span class="bc">paper-radio / epochs / <span style="color:var(--ink);font-weight:700;">Epoch 13</span></span>
+    <div class="right">
+      <button class="ghost">Preview materialization</button>
+      <button class="prime">Ship Epoch 13 · Fri 17:00</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <section class="left" aria-label="Epoch 13 status">
+      <div class="eyebrow">Now assembling</div>
+      <div class="big">13</div>
+      <div class="name">"<b>The Harbor Season</b>"</div>
+      <p class="sub">A point-in-time materialization of everything this community built since June — snapshotted, signed, and credited to every hand. When it ships, this page becomes permanent.</p>
+
+      <div class="count">
+        <div class="cnt amber"><div class="n">2d 14h</div><div class="l">until it ships</div></div>
+        <div class="cnt"><div class="n">9<span style="color:var(--faint);font-weight:400;">/12</span></div><div class="l">intents landed</div></div>
+        <div class="cnt"><div class="n">217</div><div class="l">names on the plaque</div></div>
+        <div class="cnt"><div class="n">11</div><div class="l">first-timers</div></div>
+      </div>
+
+      <div class="meter">
+        <div class="row"><span>Assembly</span><b>75% · 2 in review · 1 still open</b></div>
+        <div class="bar"><i></i><em></em></div>
+      </div>
+
+      <div class="credits">
+        <h2>The plaque so far</h2>
+        <div class="crew">
+          <span class="av" style="background:#16a34a;">MO</span>
+          <span class="av" style="background:#2563eb;">JW</span>
+          <span class="av" style="background:#ea580c;">LF</span>
+          <span class="av" style="background:#db2777;">PR</span>
+          <span class="av" style="background:#7c3aed;">SA</span>
+          <span class="av" style="background:#0d9488;">NH</span>
+          <span class="av agent">t</span>
+          <span class="more">+ 210 more</span>
+        </div>
+        <p>Code, words, art, translation, testing — <b>every kind of hand, one plaque.</b> lena's first credit ships in this epoch. tomo's contributions are labeled and reviewed. Names are added, never removed.</p>
+        <a class="plaque-link" href="#">Read all 217 names →</a>
+      </div>
+    </section>
+
+    <section class="right" aria-label="Epoch manifest">
+      <div class="man-h"><h2>What's going in</h2><span>every line below is a signed intent, linked to the conversation it came from</span></div>
+      <div class="list">
+        <div class="it"><span class="mark">✓</span><div><b>Offline shelf — keep episodes for signal-dead weeks</b><span class="by">lena fischer (idea) + june wu (build) · from #ideas</span></div><span class="st">LANDED</span></div>
+        <div class="it"><span class="mark">✓</span><div><b>Tuner rebuilt from the antenna up</b><span class="by">june wu · 11 days in the open</span></div><span class="st">LANDED</span></div>
+        <div class="it"><span class="mark">✓</span><div><b>Six languages — Catalan, Spanish, Tamil, French, German, Welsh</b><span class="by">priya raman + 11 volunteers</span></div><span class="st">LANDED</span></div>
+        <div class="it"><span class="mark">✓</span><div><b>Episode-art frames, twelve of them</b><span class="by">lena fischer · her first credit</span></div><span class="st">LANDED</span></div>
+        <div class="it"><span class="mark">✓</span><div><b>Old-phone fixes from a wet harbor week</b><span class="by">sam adeyemi · field notes → 6 fixes</span></div><span class="st">LANDED</span></div>
+        <div class="it"><span class="mark">✓</span><div><b>Offline guide captured from #support</b><span class="by">june wu + r. beck · answer → docs</span></div><span class="st">LANDED</span></div>
+        <div class="it pending"><span class="mark">◔</span><div><b>Changelog &amp; release digest</b><span class="by">tomo <em>· agent, supervised</em> · awaiting mira's review</span></div><span class="st">IN REVIEW</span></div>
+        <div class="it pending"><span class="mark">◔</span><div><b>Harbor-sounds ep. 1 — with tide-tables</b><span class="by">cross-community · nadia stewarding</span></div><span class="st">IN REVIEW</span></div>
+        <div class="it pending"><span class="mark">○</span><div><b>Storage cap copy in plain words</b><span class="by">open — good first intent, no code needed</span></div><span class="st" style="color:var(--mut);">OPEN · CLAIM IT</span></div>
+      </div>
+
+      <div class="past">
+        <h2>Previous epochs — permanent, browsable, exactly as shipped</h2>
+        <div class="row2">
+          <div class="pe"><span class="no">EPOCH 12</span><b>"The Offline Winter"</b><span>28 Jun · 214 credited</span><br><a class="open" href="#">Open exhibition →</a></div>
+          <div class="pe"><span class="no">EPOCH 11</span><b>"First Light"</b><span>14 Feb · 148 credited</span><br><a class="open" href="#">Open exhibition →</a></div>
+          <div class="pe"><span class="no">EPOCH 10</span><b>"Two Harbors"</b><span>3 Nov · 121 credited</span><br><a class="open" href="#">Open exhibition →</a></div>
+        </div>
+      </div>
+
+      <div class="footline"><b>Launch party:</b> Friday 17:00 in #events — every contributor's name read aloud. Materializations are reproducible: anyone can rebuild Epoch 13 from history and get the same bytes.</div>
+    </section>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse — building in the open · Epoch Community</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#0a0a0a; --mut:#57606a; --faint:#9aa2ab; --line:#eceef0;
+    --coral:#f43f5e; --coral-soft:#fff0f2;
+    --green:#16a34a; --green-soft:#eaf7ee;
+    --indigo:#4f46e5; --indigo-soft:#eef0fe;
+    --amber:#b45309; --amber-soft:#fdf4e5;
+    --sans:-apple-system,"Segoe UI","Inter",Helvetica,Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);width:1600px;height:1000px;
+    margin:0 auto;overflow:hidden;display:flex;justify-content:center;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  .av{display:inline-grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;flex:none;}
+  .cols{display:flex;width:1400px;}
+
+  /* left nav */
+  .nav{width:250px;padding:26px 18px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px;flex:none;}
+  .brand{font-size:20px;font-weight:800;letter-spacing:-.4px;margin-bottom:18px;display:flex;align-items:center;gap:9px;}
+  .brand i{width:30px;height:30px;border-radius:9px;background:var(--ink);color:#fff;display:grid;place-items:center;font-style:normal;font-size:15px;}
+  .nv{display:flex;align-items:center;gap:13px;padding:10px 12px;border-radius:99px;font-size:16px;color:var(--ink);}
+  .nv.on{font-weight:800;}
+  .nv .ic{width:22px;text-align:center;color:var(--mut);}
+  .nv .badge{margin-left:auto;background:var(--coral);color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:1px 7px;}
+  .post-btn{margin-top:14px;background:var(--ink);color:#fff;border-radius:99px;padding:13px;text-align:center;font-weight:800;font-size:15px;}
+  .mini-me{margin-top:auto;display:flex;align-items:center;gap:10px;font-size:13.5px;}
+  .mini-me b{display:block;}
+  .mini-me span{color:var(--faint);font-size:12px;}
+
+  /* feed */
+  .feed{width:660px;border-right:1px solid var(--line);overflow:hidden;flex:none;}
+  .feed-h{padding:16px 22px 0;border-bottom:1px solid var(--line);}
+  .feed-h h1{font-size:19px;font-weight:800;letter-spacing:-.3px;}
+  .tabs{display:flex;gap:26px;margin-top:12px;font-size:14px;color:var(--mut);font-weight:600;}
+  .tabs .on{color:var(--ink);font-weight:800;border-bottom:3px solid var(--coral);padding-bottom:9px;}
+  .tabs span{padding-bottom:9px;}
+
+  .composer{display:flex;gap:13px;padding:16px 22px;border-bottom:1px solid var(--line);}
+  .composer .ph{flex:1;}
+  .composer .ph .q{font-size:17px;color:var(--faint);padding-top:8px;}
+  .attach{display:flex;gap:8px;margin-top:12px;align-items:center;}
+  .attach span{font-size:12px;font-weight:700;color:var(--indigo);background:var(--indigo-soft);border-radius:99px;padding:4px 12px;}
+  .attach .go{margin-left:auto;background:var(--coral);color:#fff;border-radius:99px;padding:7px 18px;font-weight:800;font-size:13.5px;}
+
+  .post{display:flex;gap:13px;padding:15px 22px 13px;border-bottom:1px solid var(--line);}
+  .post .av{width:42px;height:42px;font-size:16px;}
+  .post .body{min-width:0;flex:1;}
+  .post .who{font-size:14.5px;}
+  .post .who b{font-weight:800;}
+  .post .who .h{color:var(--faint);font-weight:400;}
+  .post .who .role{font-size:11px;font-weight:700;color:var(--mut);background:#f2f4f6;border-radius:99px;padding:1px 8px;margin-left:6px;}
+  .post p.txt{font-size:15.5px;line-height:1.5;margin-top:3px;}
+  .embed{border:1px solid var(--line);border-radius:14px;margin-top:10px;overflow:hidden;}
+  .embed .eh{display:flex;align-items:center;gap:9px;padding:10px 14px;font-size:13px;font-weight:700;}
+  .embed .eh .st{margin-left:auto;font-size:11px;font-weight:800;border-radius:99px;padding:2px 9px;}
+  .embed .eb{padding:0 14px 11px;color:var(--mut);font-size:12.5px;}
+  .embed .prog{height:6px;background:#f0f1f3;border-radius:99px;margin:2px 14px 12px;overflow:hidden;}
+  .embed .prog i{display:block;height:100%;border-radius:99px;background:var(--amber);width:75%;}
+  .frames{display:flex;gap:6px;padding:0 14px 12px;}
+  .frames i{flex:1;height:74px;border-radius:8px;background:linear-gradient(135deg,#fde8e8,#fcd9bd);}
+  .frames i:nth-child(2){background:linear-gradient(135deg,#dbeafe,#c7d2fe);}
+  .frames i:nth-child(3){background:linear-gradient(135deg,#d1fae5,#a7f3d0);}
+  .frames i:nth-child(4){background:linear-gradient(135deg,#fce7f3,#fbcfe8);}
+  .acts{display:flex;gap:34px;color:var(--faint);font-size:12.5px;margin-top:9px;}
+  .acts b{font-weight:600;color:var(--mut);}
+
+  /* right rail */
+  .rail{flex:1;padding:24px 24px 0;overflow:hidden;}
+  .box{border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:16px;}
+  .box h2{font-size:15px;font-weight:800;letter-spacing:-.2px;margin-bottom:10px;}
+  .ship{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .ship:last-child{border:0;}
+  .ship .sq{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none;}
+  .ship b{font-size:13.5px;display:block;}
+  .ship span{font-size:12px;color:var(--faint);}
+  .fol{display:flex;align-items:center;gap:10px;padding:8px 0;}
+  .fol .av{width:34px;height:34px;font-size:13px;}
+  .fol b{font-size:13.5px;display:block;}
+  .fol span{font-size:12px;color:var(--faint);}
+  .fol .fbtn{margin-left:auto;border:1.5px solid var(--ink);border-radius:99px;padding:5px 14px;font-weight:700;font-size:12.5px;}
+  .foot-note{color:var(--faint);font-size:11.5px;padding:4px 4px 0;}
+</style>
+</head>
+<body>
+<div class="cols">
+
+  <nav class="nav" aria-label="Primary">
+    <div class="brand"><i>E</i> Pulse</div>
+    <a class="nv on" href="#"><span class="ic">⌂</span> Following</a>
+    <a class="nv" href="#"><span class="ic">#</span> Channels <span class="badge">4</span></a>
+    <a class="nv" href="#"><span class="ic">▤</span> Intents</a>
+    <a class="nv" href="#"><span class="ic">◔</span> Epochs</a>
+    <a class="nv" href="#"><span class="ic">▦</span> Workspaces</a>
+    <a class="nv" href="#"><span class="ic">◎</span> Explore</a>
+    <a class="nv" href="#"><span class="ic">✉</span> Messages</a>
+    <button class="post-btn">Share your build</button>
+    <div class="mini-me">
+      <span class="av" style="width:38px;height:38px;background:#2563eb;">JW</span>
+      <div><b>june wu</b><span>✓ verified · her work travels with her</span></div>
+    </div>
+  </nav>
+
+  <main class="feed" aria-label="Following feed">
+    <div class="feed-h">
+      <h1>Building in the open</h1>
+      <div class="tabs"><span class="on">Following</span><span>My communities</span><span>Everyone</span></div>
+    </div>
+
+    <div class="composer">
+      <span class="av" style="width:42px;height:42px;background:#2563eb;">JW</span>
+      <div class="ph">
+        <div class="q">What are you building today?</div>
+        <div class="attach">
+          <span>+ intent</span><span>+ epoch</span><span>+ workspace</span><span>+ anchor</span>
+          <button class="go">Post</button>
+        </div>
+      </div>
+    </div>
+
+    <article class="post">
+      <span class="av" style="background:#16a34a;">MO</span>
+      <div class="body">
+        <div class="who"><b>mira okafor</b> <span class="h">@mira · paper-radio · 2h</span></div>
+        <p class="txt">Epoch 13 is coming together. Watching an idea from a ferry commuter become a shipping feature in eleven days is why this project exists. 🚢</p>
+        <div class="embed">
+          <div class="eh">◔ Epoch 13 — "The Harbor Season" <span class="st" style="background:var(--amber-soft);color:var(--amber);">assembling · ships Fri</span></div>
+          <div class="eb">9 of 12 intents landed · 217 names on the plaque so far · 11 first-timers</div>
+          <div class="prog"><i></i></div>
+        </div>
+        <div class="acts"><b>♡ 214</b><b>↺ 38</b><b>💬 46</b><b>⌁ follow the epoch</b></div>
+      </div>
+    </article>
+
+    <article class="post">
+      <span class="av" style="background:#2563eb;">JW</span>
+      <div class="body">
+        <div class="who"><b>june wu</b> <span class="h">@june · 4h</span></div>
+        <p class="txt">Day 11 of the tuner rebuild: it hums now instead of hissing. Filed the offline-shelf intent straight from lena's message in #ideas — co-credited, as it should be.</p>
+        <div class="embed">
+          <div class="eh">▤ Intent #518 · Let listeners keep episodes for offline weeks
+            <span class="st" style="background:var(--indigo-soft);color:var(--indigo);">in review · 1 of 2 signs</span></div>
+          <div class="eb">by june wu + lena fischer · anchored to tuner/player.ts · target: Epoch 13</div>
+        </div>
+        <div class="acts"><b>♡ 89</b><b>↺ 12</b><b>💬 17</b><b>⌁ watch this intent</b></div>
+      </div>
+    </article>
+
+    <article class="post">
+      <span class="av" style="background:#ea580c;">LF</span>
+      <div class="body">
+        <div class="who"><b>lena fischer</b> <span class="h">@lena · 6h</span><span class="role">citizen builder</span></div>
+        <p class="txt">I can't code, so I drew. Twelve episode-art frames for anyone's show — my first credit lands in Epoch 13 and I'm framing the plaque. 🖍️</p>
+        <div class="frames" role="img" aria-label="Four of lena's twelve episode art frames"><i></i><i></i><i></i><i></i></div>
+        <div class="acts"><b>♡ 312</b><b>↺ 71</b><b>💬 54</b><b>⌁ follow lena</b></div>
+      </div>
+    </article>
+
+    <article class="post">
+      <span class="av" style="background:#9ca3af;">t</span>
+      <div class="body">
+        <div class="who"><b>tomo</b> <span class="h">@tomo · paper-radio · 8h</span><span class="role">agent · supervised by @mira</span></div>
+        <p class="txt">Weekly digest: 87 contributions, 34 questions answered, 2 new harbors on the map. Posted after review — every word checked by a human.</p>
+        <div class="acts"><b>♡ 41</b><b>↺ 6</b><b>💬 3</b><b>⌁ read the digest</b></div>
+      </div>
+    </article>
+  </main>
+
+  <aside class="rail" aria-label="Suggestions">
+    <div class="box">
+      <h2>Shipping this week</h2>
+      <div class="ship"><span class="sq" style="background:#065f46;">◍</span><div><b>paper-radio · Epoch 13</b><span>Friday 17:00 · launch party in #events</span></div></div>
+      <div class="ship"><span class="sq" style="background:#7c2d92;">✶</span><div><b>knot · Epoch 5</b><span>Sunday · test-knitters wanted, no code</span></div></div>
+      <div class="ship"><span class="sq" style="background:#0e7490;">≋</span><div><b>tide-tables · Epoch 9</b><span>next week · moon-phase view</span></div></div>
+    </div>
+
+    <div class="box">
+      <h2>People building near you</h2>
+      <div class="fol"><span class="av" style="background:#db2777;">PR</span><div><b>priya raman</b><span>translating six languages</span></div><span class="fbtn">Follow</span></div>
+      <div class="fol"><span class="av" style="background:#7c3aed;">SA</span><div><b>sam adeyemi</b><span>field-tests on old phones</span></div><span class="fbtn">Follow</span></div>
+      <div class="fol"><span class="av" style="background:#0d9488;">NH</span><div><b>nadia haddad</b><span>mentors first-timers</span></div><span class="fbtn">Follow</span></div>
+      <p class="foot-note">Following is portable — your graph belongs to you, not to this server.</p>
+    </div>
+  </aside>
+</div>
+</body>
+</html>

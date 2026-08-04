@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbit — explore communities · Epoch Community</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#101014; --mut:#5d6470; --faint:#9aa1ac; --line:#e9ebee;
+    --vio:#7c3aed; --rose:#e11d48; --cyan:#0891b2; --em:#059669; --amber:#d97706; --blue:#2563eb;
+    --sans:"Avenir Next","Segoe UI",-apple-system,Helvetica,Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--ink);background:var(--bg);
+    width:1600px;height:1000px;margin:0 auto;overflow:hidden;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:99px;padding:4px 13px;}
+
+  .top{height:56px;display:flex;align-items:center;gap:18px;padding:0 44px;border-bottom:1px solid var(--line);}
+  .top .logo{font-weight:800;font-size:16px;display:flex;align-items:center;gap:9px;}
+  .top .logo i{width:26px;height:26px;border-radius:50%;background:conic-gradient(from 200deg,#7c3aed,#2563eb,#059669,#d97706,#e11d48,#7c3aed);
+    display:grid;place-items:center;color:#fff;font-style:normal;font-size:12px;font-weight:900;}
+  .top nav{display:flex;gap:20px;color:var(--mut);font-weight:600;font-size:13.5px;}
+  .top nav .on{color:var(--ink);}
+  .top .me{margin-left:auto;display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#2563eb;color:#fff;font-weight:700;font-size:12px;}
+
+  .hero{padding:34px 44px 6px;display:flex;align-items:flex-end;gap:30px;}
+  .hero h1{font-size:38px;font-weight:800;letter-spacing:-1px;line-height:1.05;}
+  .hero h1 em{font-style:normal;background:linear-gradient(90deg,#7c3aed,#2563eb 40%,#059669);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p{color:var(--mut);margin-top:8px;font-size:15px;}
+  .search{margin-left:auto;width:520px;border:1.5px solid var(--line);border-radius:16px;padding:15px 20px;
+    color:var(--faint);font-size:14.5px;box-shadow:0 2px 10px rgba(16,16,20,.05);}
+
+  .topics{display:flex;gap:9px;padding:20px 44px 6px;flex-wrap:wrap;}
+  .topics .t{border:1.5px solid var(--line);color:var(--mut);}
+  .topics .t b{color:var(--ink);font-weight:800;}
+  .topics .t.on{border-color:var(--ink);background:var(--ink);color:#fff;}
+  .topics .t.on b{color:#fff;}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr) 330px;gap:18px;padding:18px 44px 0;height:706px;overflow:hidden;}
+
+  .cc{border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 1px 4px rgba(16,16,20,.04);}
+  .cc .cover{height:86px;position:relative;}
+  .cc .cover .mark{position:absolute;left:16px;bottom:-18px;width:44px;height:44px;border-radius:14px;
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:19px;border:3px solid #fff;}
+  .cc .bd{padding:24px 18px 14px;display:flex;flex-direction:column;flex:1;}
+  .cc h2{font-size:17px;font-weight:800;letter-spacing:-.2px;}
+  .cc .tag{color:var(--mut);font-size:12.5px;margin-top:3px;}
+  .cc .stats{display:flex;gap:14px;color:var(--faint);font-size:11.5px;margin-top:10px;font-weight:600;}
+  .cc .stats b{color:var(--ink);font-weight:800;}
+  .calls{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;}
+  .calls span{font-size:11px;font-weight:700;border-radius:8px;padding:3px 9px;}
+  .cc .foot{margin-top:auto;display:flex;align-items:center;gap:8px;padding-top:12px;}
+  .cc .join{border:1.5px solid var(--ink);border-radius:99px;padding:6px 15px;font-weight:800;font-size:12.5px;}
+  .cc .welcome{color:var(--em);font-size:11px;font-weight:700;}
+  .cc .new-badge{position:absolute;right:12px;top:12px;background:#fff;border-radius:99px;font-size:10.5px;font-weight:800;padding:3px 10px;}
+
+  /* right rail */
+  .rail{display:flex;flex-direction:column;gap:16px;overflow:hidden;}
+  .rbox{border:1px solid var(--line);border-radius:18px;padding:16px 18px;}
+  .rbox h3{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:11px;}
+  .call{padding:10px 0;border-bottom:1px solid var(--line);}
+  .call:last-child{border:0;}
+  .call b{font-size:13.5px;display:block;line-height:1.35;}
+  .call .why{font-size:12px;color:var(--mut);margin-top:2px;}
+  .call .why em{font-style:normal;font-weight:700;color:var(--vio);}
+  .call .go{font-size:12px;font-weight:800;color:var(--blue);margin-top:4px;display:inline-block;}
+  .portable{border:1.5px dashed var(--line);border-radius:16px;padding:13px 16px;font-size:12.5px;color:var(--mut);}
+  .portable b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <span class="logo"><i>E</i> Epoch Community</span>
+    <nav><a href="#">Home</a><a href="#">Following</a><a class="on" href="#">Explore</a><a href="#">Intents</a><a href="#">Epochs</a></nav>
+    <span class="me">JW</span>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>Find <em>your people</em>,<br>not just repositories.</h1>
+      <p>3,412 communities building in the open — every contribution credited, every epoch celebrated.</p>
+    </div>
+    <div class="search">Search communities, topics, people…&nbsp; try "harbor" or "knitting"&nbsp;&nbsp;⌘K</div>
+  </section>
+
+  <div class="topics" aria-label="Topics">
+    <span class="chip t on">All</span>
+    <span class="chip t">Audio <b>214</b></span>
+    <span class="chip t">Sea &amp; weather <b>96</b></span>
+    <span class="chip t">Fiber arts <b>132</b></span>
+    <span class="chip t">Food <b>301</b></span>
+    <span class="chip t">Neighborhood <b>187</b></span>
+    <span class="chip t">Nature <b>158</b></span>
+    <span class="chip t">Games &amp; play <b>420</b></span>
+    <span class="chip t">Words &amp; web <b>377</b></span>
+  </div>
+
+  <div class="grid">
+    <article class="cc">
+      <div class="cover" style="background:radial-gradient(120% 160% at 20% 0%,#d8f3e6,#f3fbf7 55%,#fff);">
+        <span class="mark" style="background:#065f46;">◍</span>
+      </div>
+      <div class="bd">
+        <h2>paper-radio</h2>
+        <div class="tag">A podcast app for the small harbors the big platforms forgot.</div>
+        <div class="stats"><span><b>1,204</b> members</span><span><b>13</b> epochs</span><span><b>41m</b> first reply</span></div>
+        <div class="calls">
+          <span style="background:#eef0fe;color:#4f46e5;">episode-art hands — no code</span>
+          <span style="background:#e6f2f0;color:#0f766e;">Welsh translators</span>
+        </div>
+        <div class="foot"><a class="join" href="#">Join</a><span class="welcome">✓ welcomes first-timers · 11 this epoch</span></div>
+      </div>
+    </article>
+
+    <article class="cc">
+      <div class="cover" style="background:radial-gradient(120% 160% at 80% 0%,#e4defc,#f6f3fe 55%,#fff);">
+        <span class="mark" style="background:#6d28d9;">✶</span>
+      </div>
+      <div class="bd">
+        <h2>knot</h2>
+        <div class="tag">Knitting patterns charted, translated, and test-knit by a hundred pairs of hands.</div>
+        <div class="stats"><span><b>486</b> members</span><span><b>4</b> epochs</span><span><b>1h</b> first reply</span></div>
+        <div class="calls">
+          <span style="background:#fdf2f8;color:#be185d;">test-knitters — beginners wanted</span>
+          <span style="background:#fef3c7;color:#b45309;">chart reviewers</span>
+        </div>
+        <div class="foot"><a class="join" href="#">Join</a><span class="welcome">✓ Epoch 5 ships Sunday</span></div>
+      </div>
+    </article>
+
+    <article class="cc">
+      <div class="cover" style="background:radial-gradient(120% 160% at 50% 0%,#d5ecf6,#eef8fc 55%,#fff);">
+        <span class="mark" style="background:#0e7490;">≋</span>
+      </div>
+      <div class="bd">
+        <h2>tide-tables</h2>
+        <div class="tag">Tide charts for small harbors, kept by the people who sail them.</div>
+        <div class="stats"><span><b>312</b> members</span><span><b>8</b> epochs</span><span><b>2h</b> first reply</span></div>
+        <div class="calls">
+          <span style="background:#e0f2fe;color:#0369a1;">harbormasters — add your harbor</span>
+          <span style="background:#eef0fe;color:#4f46e5;">moon-phase testers</span>
+        </div>
+        <div class="foot"><a class="join" href="#">Join</a><span class="welcome">✓ collaborates with paper-radio</span></div>
+      </div>
+    </article>
+
+    <article class="cc">
+      <div class="cover" style="background:radial-gradient(120% 160% at 30% 0%,#fde8d7,#fef5ec 55%,#fff);">
+        <span class="mark" style="background:#c2410c;">☼</span>
+      </div>
+      <div class="bd">
+        <h2>salt-line</h2>
+        <div class="tag">An open recipe box — every dish traced to the kitchen it came from.</div>
+        <div class="stats"><span><b>268</b> members</span><span><b>6</b> epochs</span><span><b>55m</b> first reply</span></div>
+        <div class="calls">
+          <span style="background:#ecfdf5;color:#047857;">recipe photographers</span>
+          <span style="background:#fef3c7;color:#b45309;">taste-testers (yes, really)</span>
+        </div>
+        <div class="foot"><a class="join" href="#">Join</a><span class="welcome">✓ potluck thread with paper-radio</span></div>
+      </div>
+    </article>
+
+    <article class="cc">
+      <div class="cover" style="background:radial-gradient(120% 160% at 70% 0%,#fbe0e8,#fdf1f5 55%,#fff);">
+        <span class="mark" style="background:#be123c;">⌂</span>
+      </div>
+      <div class="bd">
+        <h2>lantern</h2>
+        <div class="tag">Neighborhood events, posted by neighbors, owned by no one.</div>
+        <div class="stats"><span><b>154</b> members</span><span><b>3</b> epochs</span><span><b>3h</b> first reply</span></div>
+        <div class="calls">
+          <span style="background:#e6f2f0;color:#0f766e;">Spanish translator — priya mentors</span>
+        </div>
+        <div class="foot"><a class="join" href="#">Join</a><span class="welcome">✓ mentored open calls</span></div>
+      </div>
+    </article>
+
+    <article class="cc" style="position:relative;">
+      <div class="cover" style="background:radial-gradient(120% 160% at 50% 0%,#e2e8f0,#f1f5f9 55%,#fff);">
+        <span class="mark" style="background:#334155;">✧</span>
+        <span class="new-badge" style="color:#7c3aed;">NEW THIS WEEK</span>
+      </div>
+      <div class="bd">
+        <h2>moth-light</h2>
+        <div class="tag">Porch-light naturalists logging what flies in after dark.</div>
+        <div class="stats"><span><b>4</b> members</span><span><b>0</b> epochs — first one forming</span></div>
+        <div class="calls">
+          <span style="background:#f3e8ff;color:#7c3aed;">founding members wanted</span>
+        </div>
+        <div class="foot"><a class="join" href="#">Be an early neighbor</a></div>
+      </div>
+    </article>
+
+    <aside class="rail" aria-label="Open calls for you">
+      <div class="rbox">
+        <h3>Open calls, matched to you</h3>
+        <div class="call">
+          <b>paper-radio needs episode-art hands</b>
+          <div class="why">because you follow lena · <em>no code needed</em> · credit on Epoch 13</div>
+          <a class="go" href="#">Raise your hand →</a>
+        </div>
+        <div class="call">
+          <b>tide-tables: moon-phase view testers</b>
+          <div class="why">because you sail · 20 minutes on your phone</div>
+          <a class="go" href="#">Raise your hand →</a>
+        </div>
+        <div class="call">
+          <b>knot: chart a beginner pattern</b>
+          <div class="why">because Epoch 5 ships Sunday · mentored</div>
+          <a class="go" href="#">Raise your hand →</a>
+        </div>
+        <div class="portable" style="margin-top:12px;">
+          <b>Joining costs nothing and locks nothing.</b> Your identity, followers, and credit travel with you — that's the Epoch underneath.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+</body>
+</html>
