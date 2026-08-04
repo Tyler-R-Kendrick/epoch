@@ -107,7 +107,8 @@ export function communityStyles(): string {
       overflow: hidden;
     }
     .community-workspace-chrome .channel-list {
-      max-height: min(20rem, 40vh);
+      /* Scrolls within the rail rather than clipping a row in half. */
+      min-height: 0;
       overflow-y: auto;
     }
     .product-mode-list {
@@ -224,7 +225,10 @@ export function communityStyles(): string {
       flex-direction: column;
       align-items: stretch;
       gap: 0.1rem;
-      min-height: auto;
+      /* Agent rows are navigation, not labels: they carry the same touch floor
+         as every other control (they were 26px). */
+      min-height: 2.75rem;
+      justify-content: center;
       padding-block: var(--epoch-space-xs);
     }
     .agent-meta {
@@ -998,6 +1002,15 @@ export function communityStyles(): string {
 
     /* The Composer Never Leaves Rule, actually implemented. It was never sticky
        on any viewport; on a phone it sat ~100px below the fold. */
+    .composer[data-composer-available="false"] textarea {
+      background: var(--epoch-color-surface);
+      color: var(--epoch-color-muted);
+      cursor: not-allowed;
+    }
+    .composer[data-composer-available="false"] .button-primary {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
     .composer {
       position: sticky;
       inset-block-end: 0;
@@ -1647,11 +1660,6 @@ export function communityStyles(): string {
       }
       .channel-rail .brand {
         padding-block: var(--epoch-space-xs);
-      }
-      /* The harness/status detail stays in the accessible name; on a phone the
-         rail shows who the agent is, not a second line of metadata. */
-      .agent-member .agent-meta {
-        display: none;
       }
       .rail-status {
         padding-block: var(--epoch-space-xs);

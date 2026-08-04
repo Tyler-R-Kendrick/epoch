@@ -1,0 +1,174 @@
+{
+  "desktop/community": {
+    "header": {
+      "y": 0,
+      "h": 60
+    },
+    "banner": null,
+    "composer": {
+      "y": 863,
+      "h": 97
+    },
+    "rowHeights": [
+      151
+    ],
+    "textOrigins": [
+      306
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 974
+  },
+  "desktop/network": {
+    "header": {
+      "y": 0,
+      "h": 60
+    },
+    "banner": null,
+    "composer": null,
+    "rowHeights": [
+      104,
+      151,
+      73,
+      116,
+      151,
+      129,
+      129,
+      151,
+      129,
+      151,
+      129,
+      129
+    ],
+    "textOrigins": [
+      306
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 2243
+  },
+  "desktop/issues": {
+    "header": {
+      "y": 0,
+      "h": 60
+    },
+    "banner": null,
+    "composer": null,
+    "rowHeights": [
+      91,
+      91,
+      91,
+      91,
+      91
+    ],
+    "textOrigins": [
+      306
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 961
+  },
+  "desktop/changes": {
+    "header": {
+      "y": 0,
+      "h": 60
+    },
+    "banner": null,
+    "composer": null,
+    "rowHeights": [
+      109
+    ],
+    "textOrigins": [
+      306
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 696
+  },
+  "mobile/community": {
+    "header": {
+      "y": 0,
+      "h": 49
+    },
+    "banner": null,
+    "composer": {
+      "y": 747,
+      "h": 97
+    },
+    "rowHeights": [
+      196
+    ],
+    "textOrigins": [
+      58
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 789
+  },
+  "mobile/network": {
+    "header": {
+      "y": 0,
+      "h": 49
+    },
+    "banner": null,
+    "composer": null,
+    "rowHeights": [
+      104,
+      181,
+      73,
+      116,
+      181,
+      159,
+      129,
+      181,
+      159,
+      226,
+      181,
+      151
+    ],
+    "textOrigins": [
+      58
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 2200
+  },
+  "mobile/issues": {
+    "header": {
+      "y": 0,
+      "h": 49
+    },
+    "banner": null,
+    "composer": null,
+    "rowHeights": [
+      111,
+      111,
+      111,
+      111,
+      111
+    ],
+    "textOrigins": [
+      58
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 866
+  },
+  "mobile/changes": {
+    "header": {
+      "y": 0,
+      "h": 49
+    },
+    "banner": null,
+    "composer": null,
+    "rowHeights": [
+      151
+    ],
+    "textOrigins": [
+      58
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 621
+  }
+}

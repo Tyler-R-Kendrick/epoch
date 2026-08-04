@@ -183,8 +183,8 @@ export function createPlatformWebApp(options: CreatePlatformWebAppOptions = {}):
       shortName: "Epoch Web",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#2a6f6c",
-      backgroundColor: "#ffffff",
+      themeColor: "#0f1614",
+      backgroundColor: "#f3f6f4",
       offlineShell: true,
     },
     routes,
@@ -507,9 +507,9 @@ function styles(): string {
     .epoch-platform-ai,
     .epoch-platform-command,
     .epoch-platform-primary {
-      min-height: 44px;
+      min-height: 32px;
       border: 1px solid var(--epoch-color-success);
-      border-radius: 6px;
+      border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-success);
       color: var(--epoch-color-surface-raised);
       font-weight: 600;
@@ -533,7 +533,7 @@ function styles(): string {
       color: var(--epoch-color-ink);
       text-decoration: none;
       padding: 8px 10px;
-      border-radius: 6px;
+      border-radius: var(--epoch-radius-sm);
       white-space: nowrap;
     }
     .epoch-platform-nav a:first-child {
@@ -649,7 +649,7 @@ function styles(): string {
       color: var(--epoch-color-ink);
       background: var(--epoch-color-surface);
       border: 1px solid var(--epoch-color-line);
-      border-radius: 6px;
+      border-radius: var(--epoch-radius-sm);
       padding: 8px;
       overflow-wrap: anywhere;
     }
@@ -660,9 +660,9 @@ function styles(): string {
       margin-top: 10px;
     }
     .epoch-platform-mobile-actions button {
-      min-height: 44px;
+      min-height: 32px;
       border: 1px solid var(--epoch-color-line);
-      border-radius: 6px;
+      border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface-raised);
       color: var(--epoch-color-ink);
       padding: 0 12px;

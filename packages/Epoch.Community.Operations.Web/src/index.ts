@@ -764,20 +764,14 @@ function escapeHtml(value: string): string {
 function communityOperationsStyles(): string {
   return `${epochTokensCss}
 
-    /* Ops tokens alias the shared Epoch palette (ADR-0010): no local color drift. */
+    /* The --ops-* alias layer is gone. Its values were correct but its names
+       inverted the vocabulary — "accent" meant teal here and copper in
+       Community Web — which guaranteed the two would drift. Ops consumes the
+       shared tokens directly (ADR-0010). */
     :root {
-      --ops-surface: var(--epoch-color-surface);
-      --ops-card: var(--epoch-color-surface-raised);
-      --ops-ink: var(--epoch-color-ink);
-      --ops-muted: var(--epoch-color-muted);
-      --ops-line: var(--epoch-color-line);
-      --ops-accent: var(--epoch-color-teal);
-      --ops-action: var(--epoch-color-accent);
-      --ops-good: var(--epoch-color-success);
-      --ops-radius: var(--epoch-radius-md);
       font-family: var(--epoch-font-ui);
       letter-spacing: 0;
-      background: var(--ops-surface);
+      background: var(--epoch-color-surface);
     }
 
     * { box-sizing: border-box; }
@@ -785,14 +779,14 @@ function communityOperationsStyles(): string {
     body {
       min-width: 320px;
       margin: 0;
-      color: var(--ops-ink);
-      background: var(--ops-surface);
+      color: var(--epoch-color-ink);
+      background: var(--epoch-color-surface);
     }
 
     a { color: inherit; }
 
     a:focus-visible {
-      outline: 3px solid color-mix(in srgb, var(--ops-action) 42%, transparent);
+      outline: 3px solid color-mix(in srgb, var(--epoch-color-accent) 42%, transparent);
       outline-offset: 3px;
     }
 
@@ -802,9 +796,9 @@ function communityOperationsStyles(): string {
       inset-inline-start: 1rem;
       z-index: 10;
       padding: 0.65rem 0.85rem;
-      border: 1px solid var(--ops-ink);
+      border: 1px solid var(--epoch-color-ink);
       border-radius: var(--epoch-radius-sm);
-      background: var(--ops-card);
+      background: var(--epoch-color-surface-raised);
       transform: translateY(-140%);
     }
 
@@ -829,7 +823,7 @@ function communityOperationsStyles(): string {
 
     .eyebrow {
       margin: 0 0 0.5rem;
-      color: var(--ops-action);
+      color: var(--epoch-color-accent);
       font-size: 0.78rem;
       font-weight: 800;
       text-transform: uppercase;
@@ -859,7 +853,7 @@ function communityOperationsStyles(): string {
     .lede {
       max-width: 62ch;
       margin: 1rem 0 0;
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
       line-height: 1.6;
     }
 
@@ -875,13 +869,13 @@ function communityOperationsStyles(): string {
     .card-facts div {
       min-width: 0;
       padding: 0.8rem;
-      border: 1px solid var(--ops-line);
-      border-radius: var(--ops-radius);
-      background: var(--ops-card);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
     }
 
     dt {
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
       font-size: 0.75rem;
       font-weight: 750;
     }
@@ -905,18 +899,18 @@ function communityOperationsStyles(): string {
       align-items: center;
       justify-content: center;
       padding: 0.58rem 0.75rem;
-      border: 1px solid var(--ops-line);
+      border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
-      background: var(--ops-card);
+      background: var(--epoch-color-surface-raised);
       font-weight: 750;
       text-decoration: none;
       white-space: nowrap;
     }
 
     .actions a:first-child {
-      border-color: var(--ops-action);
-      background: var(--ops-action);
-      color: var(--ops-card);
+      border-color: var(--epoch-color-accent);
+      background: var(--epoch-color-accent);
+      color: var(--epoch-color-surface-raised);
     }
 
     .ops-grid {
@@ -938,22 +932,22 @@ function communityOperationsStyles(): string {
       gap: 0.85rem;
       min-width: 0;
       padding: 1rem;
-      border: 1px solid var(--ops-line);
-      border-radius: var(--ops-radius);
-      background: var(--ops-card);
-      box-shadow: 0 1px 0 color-mix(in srgb, var(--ops-ink) 5%, transparent);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
+      box-shadow: 0 1px 0 color-mix(in srgb, var(--epoch-color-ink) 5%, transparent);
     }
     /* Moderation queue: open reports carry a copper leading edge, the one
        place the action colour is earned in this dashboard. */
     .ops-card[data-moderation-open="true"] {
-      border-inline-start: 3px solid var(--ops-action);
+      border-inline-start: 3px solid var(--epoch-color-accent);
     }
     .ops-queue-count {
       display: inline-block;
       margin-inline-start: var(--epoch-space-sm);
       padding: 0 var(--epoch-space-sm);
       border-radius: var(--epoch-radius-sm);
-      background: var(--ops-action);
+      background: var(--epoch-color-accent);
       color: var(--epoch-color-surface-raised);
       font-size: var(--epoch-type-label-size);
       font-weight: var(--epoch-type-label-weight);
@@ -966,7 +960,7 @@ function communityOperationsStyles(): string {
 
     .ops-card p {
       margin: 0;
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
       line-height: 1.55;
     }
 
@@ -979,8 +973,8 @@ function communityOperationsStyles(): string {
 
     .status {
       border-radius: var(--epoch-radius-sm);
-      background: color-mix(in srgb, var(--ops-accent) 12%, transparent);
-      color: var(--ops-accent);
+      background: color-mix(in srgb, var(--epoch-color-teal) 12%, transparent);
+      color: var(--epoch-color-teal);
       font-size: 0.78rem;
       font-weight: 800;
       padding: 0.35rem 0.55rem;
@@ -990,7 +984,7 @@ function communityOperationsStyles(): string {
     .card-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     .provenance-note {
-      border-inline-start: 3px solid var(--ops-good);
+      border-inline-start: 3px solid var(--epoch-color-success);
       padding-inline-start: 0.7rem;
     }
 
@@ -1016,13 +1010,13 @@ function communityOperationsStyles(): string {
       display: flex;
       justify-content: space-between;
       gap: 1rem;
-      border-top: 1px solid var(--ops-line);
+      border-top: 1px solid var(--epoch-color-line);
       padding-top: 0.5rem;
     }
 
     code {
       overflow-wrap: anywhere;
-      color: var(--ops-muted);
+      color: var(--epoch-color-muted);
     }
 
     .empty { border-style: dashed; }

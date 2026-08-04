@@ -43,6 +43,8 @@ function emptyModerationQueueInvitesRatherThanLies(html: string): void {
   // With nothing open there is no count to show — an empty queue must not
   // manufacture urgency.
   assert.ok(!html.includes("data-moderation-open>"), "empty queue must not render an open count");
+  // One product family: no pills anywhere.
+  assert.ok(!html.includes("999px"), "Operations must not re-introduce capsule pills");
 }
 
 async function moderationQueueSurfacesCommunityReports(
@@ -87,10 +89,12 @@ function opsDocumentInlinesEpochTokens(html: string): void {
 }
 
 function opsTokensAliasEpochTokens(html: string): void {
-  assert.match(html, /--ops-surface: var\(--epoch-color-surface\);/u);
-  assert.match(html, /--ops-accent: var\(--epoch-color-teal\);/u);
-  assert.match(html, /--ops-action: var\(--epoch-color-accent\);/u);
-  assert.match(html, /--ops-radius: var\(--epoch-radius-md\);/u);
+  // The alias layer is gone entirely. Its values were right but its names
+  // inverted the vocabulary — "accent" meant teal here and copper in Community
+  // Web — which guaranteed drift. Ops consumes the shared tokens directly.
+  assert.ok(!/--ops-[\w-]+\s*:/u.test(html), "the private ops vocabulary must not be re-declared");
+  assert.match(html, /var\(--epoch-color-surface\)/u);
+  assert.match(html, /var\(--epoch-color-accent\)/u);
 }
 
 function opsDocumentCarriesNoDriftedPalette(html: string): void {

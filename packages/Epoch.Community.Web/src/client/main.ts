@@ -234,6 +234,7 @@ function selectProductMode(mode: string): void {
     if (brandSub) brandSub.textContent = currentCommunity()?.name ?? "Communities";
     if (channelToolbar) channelToolbar.hidden = true;
     applyHonestyBanner();
+    applyComposerAvailability();
     renderDevFeedTab(activeFeedTab);
   } else if (productMode === "community") {
     const space = currentCommunity();
@@ -250,6 +251,7 @@ function selectProductMode(mode: string): void {
     renderCommunityChannels();
     selectChannel(activeChannel || space?.channels[0]?.id || "general");
     applyHonestyBanner();
+    applyComposerAvailability();
   } else {
     syncRoute(`/community/repo/${activeRepo}`);
     selectSurface("issues");
@@ -261,6 +263,7 @@ function selectProductMode(mode: string): void {
       button.setAttribute("aria-pressed", button.dataset.openRepo === activeRepo ? "true" : "false");
     });
     applyHonestyBanner();
+    applyComposerAvailability();
   }
 }
 
@@ -270,6 +273,30 @@ function selectProductMode(mode: string): void {
  * on the third, so opening a linked project showed community copy over a forge
  * list — and its colour stayed frozen at server-render while its text changed.
  */
+/**
+ * The Composer Never Leaves Rule. It used to exist only inside the channels
+ * stage, so three of four surfaces had no way to write and the content area
+ * jumped ~141px on every toggle. It now lives in the shell and reports why it
+ * is unavailable instead of vanishing.
+ */
+function applyComposerAvailability(): void {
+  const form = document.querySelector<HTMLFormElement>("[data-comment-composer]");
+  const input = composerInput();
+  const send = form?.querySelector<HTMLButtonElement>("button[type=\"submit\"]");
+  if (form === null) return;
+  const postable = productMode === "community";
+  form.setAttribute("data-composer-available", postable ? "true" : "false");
+  if (input) {
+    input.disabled = !postable;
+    if (!postable) {
+      input.placeholder = productMode === "network"
+        ? "Open a channel to post"
+        : "Open a channel to post — linked projects are read-only here";
+    }
+  }
+  if (send) send.disabled = !postable;
+}
+
 function applyHonestyBanner(): void {
   if (honestyBanner === null) return;
   const degraded = !live();

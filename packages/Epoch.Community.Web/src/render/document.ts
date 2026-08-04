@@ -194,15 +194,6 @@ ${communityStyles()}
             { hidden: defaultChannelHasMessages },
           )}
         </ol>
-        <form class="composer" data-comment-composer aria-label="Write a community message">
-          <label class="composer-label visually-hidden" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
-          <textarea id="community-message" name="message" rows="1" data-composer-input placeholder="Message #${escapeHtml(defaultChannel)}"></textarea>
-          <div class="composer-row">
-            <span class="composer-meta" data-composer-meta>signed as @maya</span>
-            <span class="agent-working-status" data-agent-working-status role="status" aria-live="polite"></span>
-            <button class="button-primary" type="submit">Send</button>
-          </div>
-        </form>
       </div>
       <div class="surface-stage" data-surface-panel="issues" hidden>
         <div class="feed-toolbar artifact-toolbar">
@@ -228,6 +219,15 @@ ${communityStyles()}
           )}
         </ol>
       </div>
+      <form class="composer" data-comment-composer aria-label="Write a community message">
+        <label class="composer-label visually-hidden" for="community-message">Message #${escapeHtml(defaultChannel)}</label>
+        <textarea id="community-message" name="message" rows="1" data-composer-input placeholder="Message #${escapeHtml(defaultChannel)}"></textarea>
+        <div class="composer-row">
+          <span class="composer-meta" data-composer-meta>signed as @maya</span>
+          <span class="agent-working-status" data-agent-working-status role="status" aria-live="polite"></span>
+          <button class="button-primary" type="submit">Send</button>
+        </div>
+      </form>
       ${app.siteHistory === undefined ? "" : renderSiteHistory(app.siteHistory)}
     </section>
   </main>
