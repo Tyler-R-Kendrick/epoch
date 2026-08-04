@@ -754,5 +754,16 @@
     // browser agent cannot see them.
     window.NB_APP.toolCount = registered;
     window.NB_APP.toolHost = native ? "document.modelContext" : "in-page registry";
+    // The cold-start banner states only facts the board can actually assert —
+    // its name, its epoch and how many tools are really registered — which is
+    // why it can be drawn at all. It is written after tools install because
+    // the count is one of those facts.
+    state.out.unshift(window.NB_ASCII.banner(
+      { name: window.NB_DATA.board.name, node: state.path, epoch: window.NB_DATA.board.epoch,
+        landed: window.NB_DATA.board.landed, total: window.NB_DATA.board.total,
+        ships: window.NB_DATA.board.ships },
+      registered, window.NB_APP.toolHost,
+    ));
+    render();
   }
 })();

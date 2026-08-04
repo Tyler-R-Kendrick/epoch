@@ -169,6 +169,26 @@
       },
     });
 
+    /* ── The optional canvas lens ──────────────────────────────────────── */
+
+    MCP.registerTool({
+      name: "fx_asciify",
+      description: "Turn the whole board into live ASCII around the cursor. Requires HTML-in-canvas, which most browsers do not have; ask with on=false to turn it off.",
+      inputSchema: {
+        type: "object",
+        properties: { on: { type: "boolean", description: "true to enable, false to disable" } },
+        required: ["on"],
+      },
+      execute: async function (args) {
+        var FX = window.NB_FX;
+        if (!args.on) { FX.disable(); return MCP.text("asciify off"); }
+        var res = FX.enable();
+        // Reporting "ok" for an effect that silently did nothing is the whole
+        // failure mode here — an unsupported browser has to say so.
+        return res.ok ? MCP.text("asciify on") : MCP.fail("cannot: " + res.reason);
+      },
+    });
+
     /* ── The data ──────────────────────────────────────────────────────── */
 
     MCP.registerTool({

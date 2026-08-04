@@ -13,6 +13,8 @@ export default [
       "docs/design-explorations/nightboard/openui-parser.js",
       "docs/design-explorations/nightboard/graphql-engine.js",
       "docs/design-explorations/nightboard/openui-library.js",
+      // Vendored from CanvasUI and bundled; see its header for how to rebuild.
+      "docs/design-explorations/nightboard/asciify.js",
       ".agents/**",
       // Vendored agent-skill trees installed by `npx impeccable install`.
       // Third-party source, reproducible from the devDependency, not ours to lint.
@@ -38,6 +40,7 @@ export default [
         clearInterval: "readonly", clearTimeout: "readonly", AbortController: "readonly",
         DOMException: "readonly", Promise: "readonly",
         navigator: "readonly", getComputedStyle: "readonly", Date: "readonly",
+        ResizeObserver: "readonly", devicePixelRatio: "readonly",
         // Chrome's built-in Prompt API. Feature-detected at every call site.
         LanguageModel: "readonly",
       },

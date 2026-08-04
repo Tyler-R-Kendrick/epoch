@@ -238,5 +238,69 @@ export function runNightboardThemeTests(): void {
     assert.ok(contract.includes(hook), `CONTRACT.md must document ${hook}`);
   }
 
+  // ── The ASCII layer ──────────────────────────────────────────────────────
+  // These glyphs are readings, not decoration, so they are testable: a
+  // sparkline that does not track its series and a sigil that collides are both
+  // lies told in a font nobody reads closely.
+  const ascii: {
+    NB_ASCII?: {
+      sparkline: (v: number[], w?: number) => string;
+      gauge: (d: number, t: number, w?: number) => string;
+      sigil: (t: string, w?: number) => string;
+      rule: (c: string, w?: number) => string;
+      branch: (last: boolean, depth: number) => string;
+      banner: (b: Record<string, unknown>, n: number, host: string) => string;
+      BLOCKS: string[];
+    };
+  } = {};
+  new Function("window", readFileSync(join(ROOT, "ascii.js"), "utf8"))(ascii);
+  const A = ascii.NB_ASCII;
+  assert.ok(A, "ascii.js must expose NB_ASCII");
+
+  const spark = A.sparkline([0, 1, 2, 3, 4, 5, 6, 7], 8);
+  assert.equal(spark.length, 8, "a sparkline must be exactly the width asked for");
+  assert.equal(spark[0], A.BLOCKS[0], "the minimum of a rising series is the empty block");
+  assert.equal(spark[7], A.BLOCKS[A.BLOCKS.length - 1], "its maximum is the full block");
+  assert.equal(A.sparkline([3, 3, 3, 3], 4), A.BLOCKS[A.BLOCKS.length - 1].repeat(4),
+    "a flat series must render flat, so the console can detect and drop it");
+
+  assert.equal(A.gauge(0, 10, 4), "[····]", "an empty gauge shows no fill");
+  assert.equal(A.gauge(10, 10, 4), "[████]", "a full gauge is full");
+  assert.equal(A.gauge(5, 10, 4), "[██··]", "a half gauge is half");
+  assert.equal(A.gauge(1, 0, 4), "[····]", "a gauge with no total must not divide by zero");
+
+  // A signature mark is only useful if equal inputs match and unequal ones do not.
+  assert.equal(A.sigil("sig:maya-promote", 4), A.sigil("sig:maya-promote", 4),
+    "the same signature must always draw the same mark");
+  const marks = new Set(["lea-install", "nora-repro", "scout-188", "maya-promote", "sam-ack"]
+    .map((s) => A.sigil("sig:" + s, 4)));
+  assert.equal(marks.size, 5, "distinct signatures must draw distinct marks");
+  for (const ch of [...marks].join("")) {
+    const code = ch.codePointAt(0) ?? 0;
+    assert.ok(code >= 0x2800 && code <= 0x28ff, "a sigil cell must be a braille pattern");
+  }
+
+  assert.equal(A.rule("hi", 12).length, 12, "a rule fills the width it is given");
+  assert.ok(A.rule("hi", 12).includes(" hi "), "a rule carries its caption inline");
+  assert.ok(A.branch(true, 1).startsWith("└─"), "the last child closes its branch");
+  assert.ok(A.branch(false, 1).startsWith("├─"), "any other child continues it");
+
+  // The banner may only state facts the board can assert. It is given them.
+  const banner = A.banner(
+    { name: "EPOCH", node: "/", epoch: 13, landed: 9, total: 12, ships: "FRI" }, 11, "in-page registry");
+  assert.ok(banner.includes("epoch 13") && banner.includes("11 tools"),
+    "the banner must state the epoch and the real tool count");
+  const widths = new Set(banner.split("\n").map((l) => [...l].length));
+  assert.equal(widths.size, 1, "every banner line must be the same width or the box breaks");
+
+  // The optional canvas lens must be capability-gated, and must be able to fail.
+  const fx = readFileSync(join(ROOT, "fx.js"), "utf8");
+  assert.ok(fx.includes("supportsHtmlInCanvas"), "fx.js must ask the browser before drawing");
+  assert.ok(fx.includes("function disable"), "an effect that cannot be undone is damage");
+  const toolsSrc = readFileSync(join(ROOT, "tools.js"), "utf8");
+  assert.ok(toolsSrc.includes("fx_asciify"), "the lens must be reachable as a tool");
+  assert.ok(/fx_asciify[\s\S]*?MCP\.fail\("cannot: /.test(toolsSrc),
+    "an unsupported browser must be reported as a failure, not as ok");
+
   console.log("nightboard theme tests passed");
 }

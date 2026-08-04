@@ -195,7 +195,8 @@ Every capability the surface has is registered as a
 `document.modelContext.registerTool`:
 
 `board_navigate` · `board_list` · `board_where` · `view_set` · `stream_load` ·
-`stream_pause` · `theme_set` · `theme_use` · `graph_query` · `graph_schema`
+`stream_pause` · `theme_set` · `theme_use` · `graph_query` · `graph_schema` ·
+`fx_asciify`
 
 WebMCP is a W3C proposal and is not shipping in any browser, so the page
 registers against the native object when it exists and against an identical
@@ -226,7 +227,45 @@ is navigation state rather than a mode you get stuck in:
   product's claim stated outright.
 - **raw** — plain transcript, for when structure is in the way.
 
-## The garden
+## Drawing with characters
+
+The retro-futurism is earned by **drawing with characters**, not by wearing a CRT
+filter. Everything `ascii.js` renders encodes something the board actually knows,
+so if the reading goes the glyphs go with it:
+
+- **Channel sparklines** (`▁▂▄█`) — when the conversation in a channel happened,
+  bucketed, so a column tells you where activity is before you read a name. A
+  channel with fewer than four posts, or one whose line comes out flat, draws
+  nothing: a bar that cannot vary is a badge pretending to be a chart.
+- **The epoch gauge** (`[█████████···]`) — how much of the epoch has landed,
+  under the graph where the lineage merges.
+- **Receipt sigils** (`⡽⠸⢛⠀`) — the signature folded into four braille cells.
+  A hash is unreadable and a checkmark says nothing; a mark gives a receipt a
+  *shape*, so two that differ look different. Braille rather than shade blocks
+  because a dotted cell reads as a code where a shaded one reads as a rendering
+  fault.
+- **Diff rules and transcript branches** (`── @@ 09:05 @@ … ─────`, `└─`) —
+  structure drawn the way a terminal draws it.
+- **The cold-start banner** — stated once at boot, and every line in it is a fact
+  the board can assert: its name, the epoch, and how many tools really
+  registered.
+
+It is all plain text in the DOM, so it themes with the tokens, copies as text,
+and costs nothing.
+
+### The canvas lens (optional)
+
+`fx_asciify` wraps [CanvasUI](https://canvasui.dev)'s `asciify`, which redraws
+the whole surface as live ASCII in a radius around the cursor while the HTML
+underneath stays interactive. It needs HTML-in-canvas (`<canvas layoutsubtree>`),
+which is flag-gated — `--enable-blink-features=CanvasDrawElement` in Chromium and
+absent elsewhere. So it is off by default, capability-checked before it mounts,
+and **reports failure rather than returning ok for an effect that did nothing**;
+a fault case holds that line. Turning it off puts the DOM back exactly where it
+was.
+
+Unlike the glyphs above, the lens carries no information — which is why it has to
+be asked for.
 
 ## The garden
 

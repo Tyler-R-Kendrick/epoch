@@ -56,10 +56,14 @@
         (p.subject ? "<b>" + esc(p.subject) + "</b>" : "") +
         "<p>" + esc(p.body) + "</p>" +
         (p.anchor ? '<span data-c="anchor">↳ ' + esc(p.anchor) + "</span>" : "") +
-        '<span data-c="receipt"><span data-c="mark" aria-hidden="true">◆</span>' + esc(p.sig) + "</span>" +
+        '<span data-c="receipt"><span data-c="mark" aria-hidden="true">◆</span>' +
+        '<span class="cn-sigil" aria-hidden="true">' + window.NB_ASCII.sigil(p.sig, 4) + "</span>" +
+        esc(p.sig) + "</span>" +
         "</div></div>";
     }).join("") +
-      '<div class="cn-merge">merges into epoch ' + D.board.epoch + " · ships " + esc(D.board.ships) + "</div></div>";
+      '<div class="cn-merge">└─ epoch ' + D.board.epoch + "  " +
+      window.NB_ASCII.gauge(D.board.landed, D.board.total, 12) + "  " +
+      D.board.landed + "/" + D.board.total + " landed · ships " + esc(D.board.ships) + "</div></div>";
   }
 
   /** Entries as patches. One representation for talk and code. */
@@ -73,7 +77,8 @@
         return '<div class="cn-l cn-add"><span>' + n + "</span><code>+ " + esc(t.trim()) + "</code></div>";
       }).join("");
       return '<div class="cn-hunk">' +
-        '<div class="cn-hh">@@ ' + esc(p.at) + " @@ " + esc(p.who) + " · " + esc(p.state) + "</div>" +
+        '<div class="cn-hh">' + esc(window.NB_ASCII.rule(
+          "@@ " + p.at + " @@ " + p.who + " · " + p.state, 84)) + "</div>" +
         (p.subject ? '<div class="cn-l cn-ctx"><span></span><code>  ' + esc(p.subject) + "</code></div>" : "") +
         lines +
         '<div class="cn-l cn-meta"><span></span><code>' + esc(p.sig) +
@@ -85,8 +90,9 @@
   function viewRaw(entries) {
     var posts = entries.filter(function (e) { return e.post; }).map(function (e) { return e.post; });
     if (!posts.length) return '<p class="cn-empty">Nothing here.</p>';
-    return '<pre class="cn-raw">' + posts.map(function (p) {
-      return esc(p.at + "  " + p.who.padEnd(9) + " " + (p.subject ? p.subject + " — " : "") + p.body);
+    return '<pre class="cn-raw">' + posts.map(function (p, i) {
+      return esc(window.NB_ASCII.branch(i === posts.length - 1, 1) +
+        p.at + "  " + p.who.padEnd(9) + " " + (p.subject ? p.subject + " — " : "") + p.body);
     }).join("\n\n") + "</pre>";
   }
 
@@ -103,6 +109,33 @@
 
   /* ── Columns ───────────────────────────────────────────────────────────── */
 
+  /** Activity per channel, bucketed, for the column sparkline. */
+  function activityOf(entry, path) {
+    if (entry.kind !== "dir") return null;
+    var A = window.NB_ASCII;
+    var full = MAP.resolve(path, entry.name);
+    var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
+    var kids = MAP.list(full, live) || [];
+    var posts = kids.filter(function (k) { return k.post; }).map(function (k) { return k.post; });
+    // Under four posts a resampled line is all one height — a solid bar that
+    // reads as a badge and says nothing. A reading that cannot vary is noise.
+    if (posts.length < 4) return null;
+    var buckets = [0, 0, 0, 0, 0, 0, 0, 0];
+    var mins = posts.map(function (p) {
+      var t = String(p.at).split(":");
+      return Number(t[0]) * 60 + Number(t[1]);
+    });
+    var lo = Math.min.apply(null, mins), hi = Math.max.apply(null, mins);
+    mins.forEach(function (m) {
+      var i = hi === lo ? 0 : Math.floor(((m - lo) / (hi - lo)) * (buckets.length - 1));
+      buckets[i] += 1;
+    });
+    var line = A.sparkline(buckets, 8);
+    var distinct = {};
+    line.split("").forEach(function (ch) { distinct[ch] = 1; });
+    return Object.keys(distinct).length > 1 ? line : null;
+  }
+
   function columnHtml(path, entries, cursor, focused, index, filter) {
     var shown = entries;
     if (filter) {
@@ -112,13 +145,15 @@
     }
     var items = shown.map(function (e, i) {
       var isDir = e.kind === "dir";
+      var spark = activityOf(e, path);
       return '<button type="button" class="cn-item" data-col="' + index + '" data-i="' + i + '"' +
         ' data-kind="' + esc(e.kind) + '"' + (e.meta ? ' data-meta="' + esc(e.meta) + '"' : "") +
         (i === cursor ? ' aria-current="true"' : "") + ">" +
         '<span class="cn-sig" aria-hidden="true">' + (isDir ? "▸" : e.kind === "agent" ? "*" : "·") + "</span>" +
         '<span class="cn-name">' + esc(e.name) + "</span>" +
         (e.unread ? '<span class="cn-badge">' + e.unread + "</span>" :
-          '<span class="cn-hint">' + esc(e.hint || "") + "</span>") +
+          '<span class="cn-hint">' + (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span> " : "") +
+          esc(e.hint || "") + "</span>") +
         "</button>";
     }).join("");
     return '<div class="cn-col" data-column="' + index + '"' + (focused ? ' data-focus="true"' : "") + ">" +
@@ -176,6 +211,12 @@
     [data-exp="console"] .cn-item[data-meta="needs-review"] .cn-name{color:var(--nb-warn)}
     [data-exp="console"] .cn-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     [data-exp="console"] .cn-hint{color:var(--nb-ink-faint);font-size:.82em;white-space:nowrap}
+    /* ASCII carries readings here, so it takes ink weight rather than decoration. */
+    [data-exp="console"] .cn-spark{color:var(--nb-live);letter-spacing:-.06em;opacity:.7;font-size:.9em}
+    /* On a selected row the live ink fights the selection wash, so it defers. */
+    [data-exp="console"] [aria-current="true"] .cn-spark{color:currentColor}
+    [data-exp="console"] .cn-sigil{color:var(--nb-signed);letter-spacing:-.05em;margin-inline-end:.35rem}
+    [data-exp="console"] .cn-merge{font-variant-numeric:tabular-nums}
     [data-exp="console"] .cn-badge{background:var(--nb-accent);color:var(--nb-accent-ink);padding:0 .35rem;font-size:.8em}
 
     /* Preview: the graph, the diff, or the raw transcript. */

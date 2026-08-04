@@ -156,6 +156,20 @@ const CASES = [
       return /No on-device model/.test(s) && /channels\/bugs/.test(path);
     },
   },
+  {
+    // The canvas lens needs HTML-in-canvas, which this Chromium does not have.
+    // The failure that matters is not "it did not draw" — it is a tool that
+    // returns ok for an effect that silently did nothing, which is how an agent
+    // ends up insisting the board changed when it did not.
+    name: "an unsupported canvas lens fails instead of no-opping",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const res = await page.evaluate(() => window.NB_MCP.call("fx_asciify", { on: true }));
+      const intact = await page.evaluate(() => !!document.querySelector("[data-exp='console'] .cn-item"));
+      log((res.content[0].text || "").slice(0, 70) + " | board intact: " + intact);
+      return res.isError === true && /HTML-in-canvas|did not load/.test(res.content[0].text) && intact;
+    },
+  },
 ];
 
 async function ask(page, text, waitMs) {
