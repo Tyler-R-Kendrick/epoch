@@ -786,8 +786,8 @@ function communityOperationsStyles(): string {
     a { color: inherit; }
 
     a:focus-visible {
-      outline: 3px solid color-mix(in srgb, var(--epoch-color-accent) 42%, transparent);
-      outline-offset: 3px;
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
     }
 
     .skip-link {
@@ -823,7 +823,7 @@ function communityOperationsStyles(): string {
 
     .eyebrow {
       margin: 0 0 0.5rem;
-      color: var(--epoch-color-accent);
+      color: var(--epoch-color-muted);
       font-size: 0.78rem;
       font-weight: 800;
       text-transform: uppercase;
@@ -959,7 +959,7 @@ function communityOperationsStyles(): string {
       margin-inline-start: var(--epoch-space-sm);
       padding: 0 var(--epoch-space-sm);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-accent);
+      background: var(--epoch-color-out-of-bounds);
       color: var(--epoch-color-surface-raised);
       font-size: var(--epoch-type-label-size);
       font-weight: var(--epoch-type-label-weight);

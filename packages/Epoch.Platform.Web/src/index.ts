@@ -477,6 +477,15 @@ function pluralize(count: number, singular: string): string {
 function styles(): string {
   return `
     ${epochTokensCss}
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
+    }
     .epoch-platform-shell {
       min-height: 100vh;
       background: var(--epoch-color-surface);
