@@ -98,16 +98,20 @@ export function communityStyles(): string {
       overflow-y: auto;
     }
     .community-workspace-chrome {
-      display: grid;
-      align-content: start;
+      display: flex;
+      flex-direction: column;
       gap: var(--epoch-space-sm);
       min-height: 0;
       overflow: hidden;
     }
     .community-workspace-chrome .channel-list {
-      /* Scrolls within the rail rather than clipping a row in half. */
-      min-height: 0;
+      /* Scrolls within the rail and takes the space the fixed sections do not
+         need. The fade tells you the list continues; a row sliced in half at the
+         boundary reads as a layout accident instead. */
+      flex: 1 1 auto;
+      min-height: 6rem;
       overflow-y: auto;
+      mask-image: linear-gradient(to bottom, black calc(100% - 1.1rem), transparent 100%);
     }
     .product-mode-list {
       border-block-end: 1px solid var(--epoch-color-rail-line);
@@ -165,9 +169,6 @@ export function communityStyles(): string {
       color: var(--epoch-color-rail-muted);
       font-size: var(--epoch-type-meta-size);
       font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .surface-list,
@@ -222,6 +223,11 @@ export function communityStyles(): string {
       white-space: nowrap;
     }
     .agent-list {
+      /* Capped like the community list. Agents are members you check on, not
+         the thing you navigate with; channels get the rail's spare height. */
+      flex: none;
+      max-height: 6.5rem;
+      overflow-y: auto;
       display: grid;
       gap: var(--epoch-space-xs);
       padding: 0 var(--epoch-space-xs) var(--epoch-space-sm);
@@ -1439,12 +1445,13 @@ export function communityStyles(): string {
     .legend {
       flex: none;
       margin-block-start: auto;
-      padding-block: var(--epoch-space-sm);
+      padding-block: var(--epoch-space-xs);
       border-block-start: 1px solid var(--epoch-color-rail-line);
     }
+    .legend .rail-section-label { padding-block: var(--epoch-space-xs) 0.05rem; }
     .legend-list {
       display: grid;
-      gap: 0.1rem;
+      gap: 0.05rem;
       margin: 0 0 var(--epoch-space-xs);
       padding: 0 var(--epoch-space-sm);
       list-style: none;
@@ -1455,10 +1462,10 @@ export function communityStyles(): string {
     }
     .legend-entry {
       display: grid;
-      grid-template-columns: 1rem minmax(0, 1fr);
-      gap: var(--epoch-space-sm);
+      grid-template-columns: 0.85rem minmax(0, 1fr);
+      gap: var(--epoch-space-xs);
       align-items: center;
-      min-height: 1.35rem;
+      min-height: 1.15rem;
     }
     .legend-swatch {
       width: 1rem;
@@ -1490,6 +1497,9 @@ export function communityStyles(): string {
       color: var(--epoch-color-rail-muted);
       font-size: var(--epoch-type-meta-size);
       font-family: var(--epoch-font-ui);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     @media (max-width: 800px) { .legend { display: none; } }
 
