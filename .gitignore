@@ -13,3 +13,15 @@ coverage/
 .vercel
 packages/Epoch.Community.Web/.vercel-output/
 .data/
+
+# Impeccable installs a full copy of its skill tree into every detected harness
+# (~3.4M each). They are vendor artifacts reproducible from the devDependency
+# with `npx impeccable install`, so the dependency is tracked and the copies are not.
+.claude/skills/impeccable/
+.claude/hooks/
+.claude/commands/impeccable*
+.codex/
+.github/skills/
+.github/agents/
+.github/hooks/
+.grok/

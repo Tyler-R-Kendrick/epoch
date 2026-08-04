@@ -4,7 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ignoredDirectories = new Set([".agents", ".git", ".optimizexp", "coverage", "dist", "node_modules"]);
+// Harness directories hold vendored agent-skill trees (impeccable installs a
+// full copy into each). They are third-party docs reproducible from a
+// devDependency, not repository documentation that README must index.
+const ignoredDirectories = new Set([
+  ".agents", ".claude", ".codex", ".git", ".github", ".grok", ".optimizexp",
+  "coverage", "dist", "node_modules",
+]);
 const markdownLinkPattern = /!?\[[^\]]*]\(([^)]+)\)/g;
 
 function listFiles(directory) {

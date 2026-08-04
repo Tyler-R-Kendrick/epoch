@@ -10,7 +10,15 @@ export default [
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**",
-      ".agents/**"
+      ".agents/**",
+      // Vendored agent-skill trees installed by `npx impeccable install`.
+      // Third-party source, reproducible from the devDependency, not ours to lint.
+      ".claude/**",
+      ".codex/**",
+      ".github/skills/**",
+      ".github/agents/**",
+      ".github/hooks/**",
+      ".grok/**"
     ]
   },
   js.configs.recommended,
