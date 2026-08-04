@@ -1433,6 +1433,66 @@ export function communityStyles(): string {
       text-transform: uppercase;
     }
 
+    /* ── The legend (DESIGN 2) ───────────────────────────────────────────── */
+    /* Permanent and identical on every plane. It is what lets the interface
+       stop explaining itself, so it is chrome that earns its space. */
+    .legend {
+      flex: none;
+      margin-block-start: auto;
+      padding-block: var(--epoch-space-sm);
+      border-block-start: 1px solid var(--epoch-color-rail-line);
+    }
+    .legend-list {
+      display: grid;
+      gap: 0.1rem;
+      margin: 0 0 var(--epoch-space-xs);
+      padding: 0 var(--epoch-space-sm);
+      list-style: none;
+    }
+    .legend-list + .legend-list {
+      padding-block-start: var(--epoch-space-xs);
+      border-block-start: 1px dotted var(--epoch-color-rail-line);
+    }
+    .legend-entry {
+      display: grid;
+      grid-template-columns: 1rem minmax(0, 1fr);
+      gap: var(--epoch-space-sm);
+      align-items: center;
+      min-height: 1.35rem;
+    }
+    .legend-swatch {
+      width: 1rem;
+      height: 0.7rem;
+      border: 1px solid var(--epoch-color-line-strong);
+    }
+    /* Shape carries the meaning alongside hue, so the legend itself obeys the
+       rule that state is never colour-alone. */
+    .legend-swatch[data-legend-shape="ring"] {
+      width: 0.7rem;
+      height: 0.7rem;
+      border-width: 2px;
+      border-radius: 50%;
+      background: none !important;
+    }
+    .legend-swatch[data-legend-shape="mark"] {
+      width: 0.45rem;
+      height: 0.45rem;
+      border: 0;
+      border-radius: var(--epoch-radius-xs);
+    }
+    .legend-swatch-runnable { background: var(--epoch-color-runnable); }
+    .legend-swatch-rough { background: var(--epoch-color-rough); }
+    .legend-swatch-marsh { background: var(--epoch-color-marsh); }
+    .legend-swatch-control { border-color: var(--epoch-color-control); }
+    .legend-swatch-out-of-bounds { border-color: var(--epoch-color-out-of-bounds); }
+    .legend-swatch-gold { background: var(--epoch-color-gold); }
+    .legend-label {
+      color: var(--epoch-color-rail-muted);
+      font-size: var(--epoch-type-meta-size);
+      font-family: var(--epoch-font-ui);
+    }
+    @media (max-width: 800px) { .legend { display: none; } }
+
     /* ── Terrain (DESIGN 2: the legend) ──────────────────────────────────── */
     /* Social channels are runnable, work channels are rough. The ground is read
        before the label, which is how a legend saves a sentence. */
@@ -1446,6 +1506,9 @@ export function communityStyles(): string {
        it lands in. */
     .row-anchor {
       align-self: start;
+      justify-self: start;
+      width: fit-content;
+      max-width: 100%;
       padding: .12rem .4rem;
       background: var(--epoch-color-marsh);
       border: 1px solid var(--epoch-color-marsh-strong);

@@ -12,6 +12,7 @@ import { escapeHtml, escapeScriptJson } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderAgentMemberButton, renderChannelButton } from "../view/rail";
+import { renderLegend } from "../view/legend";
 import { renderSiteHistory } from "../view/site-history";
 import { asListState, renderChannelOrigin, renderEmptyState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
@@ -133,6 +134,7 @@ ${communityStyles()}
           <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
         </nav>
       </div>
+      ${renderLegend()}
       <div class="rail-identity" data-rail-identity>
         ${renderIdentityChip(session)}
         <span class="visually-hidden" data-connection-label>${live ? "live" : "snapshot"}</span>
