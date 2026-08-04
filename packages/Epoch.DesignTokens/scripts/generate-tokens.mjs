@@ -152,6 +152,31 @@ function buildModule(colors, typography, rounded, spacing) {
   ].join("\n");
 }
 
+
+/**
+ * Derive a token's tonal ramp from its own canonical value.
+ *
+ * The ramp used to be hand-authored, so regenerating locked the canonical to
+ * DESIGN.md and left the ramp describing whatever colour was there before. That
+ * produced entries like "Copper Action" whose canonical was magenta and whose
+ * eight ramp stops were all copper — a file that looks generated, reads as
+ * authoritative, and is wrong. A derived ramp cannot disagree with its value.
+ */
+function rampFor(hex) {
+  const m = /^#([0-9a-f]{6})$/iu.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (t) => {
+    // Negative t darkens toward black, positive lightens toward white.
+    const to = t < 0 ? 0 : 255;
+    const k = Math.abs(t);
+    const c = (v) => Math.round(v + (to - v) * k);
+    return `#${[c(r), c(g), c(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  };
+  return [-0.82, -0.62, -0.4, -0.18, 0, 0.32, 0.58, 0.84].map((t) => (t === 0 ? hex.toLowerCase() : mix(t)));
+}
+
 function rewriteDesignJson(colors) {
   const path = join(repoRoot, ".impeccable", "design.json");
   let text = readFileSync(path, "utf8");
@@ -169,6 +194,22 @@ function rewriteDesignJson(colors) {
       throw new Error(`design.json colorMeta entry not found for ${name}`);
     }
     text = text.replace(pattern, `$1${hex}$2`);
+
+    // Keep the ramp honest: derive it from the canonical rather than leaving
+    // whatever colour the previous world used.
+    const ramp = rampFor(hex);
+    if (ramp !== null) {
+      const rampPattern = new RegExp(
+        `("${name}":\\s*\\{[^{}]*?"tonalRamp":\\s*)\\[[^\\]]*\\]`,
+        "u",
+      );
+      if (rampPattern.test(text)) {
+        text = text.replace(
+          rampPattern,
+          `$1[\n        ${ramp.map((c) => `"${c}"`).join(",\n        ")}\n      ]`,
+        );
+      }
+    }
   }
   const stamp = `${new Date().toISOString().slice(0, 10)}T00:00:00.0000000Z`;
   text = text.replace(/"generatedAt":\s*"[^"]*"/u, `"generatedAt": "${stamp}"`);
