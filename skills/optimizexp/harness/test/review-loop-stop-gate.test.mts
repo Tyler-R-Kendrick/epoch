@@ -780,3 +780,91 @@ describe("optimizexp artifact-truth gates", () => {
 		}
 	});
 });
+
+describe("optimizexp criticism gates", () => {
+	function seedUxWebRun(dir: string, run: string) {
+		const pkg = path.join(dir, "packages/DemoWeb/.optimizexp");
+		mkdirSync(pkg, { recursive: true });
+		writeFileSync(
+			path.join(pkg, "config.json"),
+			JSON.stringify({
+				schemaVersion: 1,
+				kind: "project",
+				product: { id: "demo-web", entry: "packages/DemoWeb" },
+				defaults: { driver: "web" },
+				features: { idPrefix: "demo-web-" },
+			}) + "\n",
+		);
+		const scopePath = path.join(dir, ".optimizexp/runs", run, "scope.json");
+		const scope = JSON.parse(readFileSync(scopePath, "utf8"));
+		scope.features = ["demo-web-first-use"];
+		writeFileSync(scopePath, JSON.stringify(scope) + "\n");
+	}
+
+	it("a unanimous persona panel fails validation", () => {
+		const dir = seedRepo();
+		const run = "t-unanimous";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			const runDir = path.join(dir, ".optimizexp/runs", run);
+			mkdirSync(path.join(runDir, "iterations/001"), { recursive: true });
+			const cells = ["discord", "github", "bluesky", "designer"].map((persona) => ({
+				persona, surface: "web", harms: 1, friction: 1, uncertainty: 1,
+			}));
+			writeFileSync(
+				path.join(runDir, "iterations/001/scores.json"),
+				JSON.stringify({ iteration: 1, cells, metric_total: 12, metric_max: 3 }) + "\n",
+			);
+			const unanimous = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(unanimous.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
+				JSON.stringify(unanimous.json.missing),
+			);
+
+			// One dissenting voice is enough to show the panel deliberated.
+			cells[3] = { persona: "designer", surface: "web", harms: 3, friction: 2, uncertainty: 1 };
+			writeFileSync(
+				path.join(runDir, "iterations/001/scores.json"),
+				JSON.stringify({ iteration: 1, cells, metric_total: 18, metric_max: 3 }) + "\n",
+			);
+			const diverged = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				!(diverged.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("a UX web run without an executed design critique cannot complete", () => {
+		const dir = seedRepo();
+		const run = "t-critique";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedUxWebRun(dir, run);
+			const missingCritique = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(missingCritique.json.missing as string[]).includes("design_critique_missing"),
+				JSON.stringify(missingCritique.json.missing),
+			);
+
+			// Prose without a verdict is not a judgement.
+			const runDir = path.join(dir, ".optimizexp/runs", run);
+			writeFileSync(path.join(runDir, "design-critique.md"), "# Notes\nThe screens look nice.\n");
+			const noVerdict = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			const noVerdictMissing = noVerdict.json.missing as string[];
+			assert.ok(noVerdictMissing.includes("design_critique_has_no_verdict"));
+			assert.ok(noVerdictMissing.includes("design_critique_missing_persona"));
+
+			writeFileSync(
+				path.join(runDir, "design-critique.md"),
+				"# Critique\nPersona: designer\nVerdict: FAIL — three row components.\n",
+			);
+			const judged = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			const judgedMissing = judged.json.missing as string[];
+			assert.ok(!judgedMissing.some((m) => m.startsWith("design_critique")));
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+});

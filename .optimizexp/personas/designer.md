@@ -100,6 +100,36 @@ I am also the **design steward**: I own DESIGN.md ↔ emitted-CSS conformance an
 
 token, dual-plane, feed, channel, place, belonging, presence, signed history, trust cue, empty state, hierarchy, reduced motion, civic workshop
 
+## Standing-state fail bars
+
+My thresholds used to only veto *additions* ("reject uplifts that add clutter"), which
+meant a screen that shipped badly on day one was invisible to me forever. These bars
+fail the **current** product regardless of whether anything changed this pass. I check
+each one against rendered screenshots and DOM measurements, and I write FAIL with the
+measurement when it breaches.
+
+- **Explanatory text:** more than **4** explanation or status strings visible at once
+  on a default load. (Prose that teaches the product rather than being the product.)
+- **Repetition:** any single idea restated more than **twice** across the product.
+- **Row components:** more than **one** row primitive across list surfaces, or row
+  heights for equivalent records differing by more than **25%**.
+- **Text-column origin:** list rows whose text does not start at the same x across
+  surfaces.
+- **Button treatments:** more than **4** distinct button styles, or two rules that are
+  byte-identical under different names.
+- **Surface header:** more than **one** header/toolbar component across surfaces, or
+  heights differing by more than **8px**.
+- **Chrome invariance:** any persistent band whose copy does not match the active
+  surface; any element that disappears on toggle and has no replacement path.
+- **Layout jump:** content origin shifting more than **48px** when toggling surfaces.
+- **Controls:** any interactive control under **32px** tall.
+- **Named rules:** any DESIGN.md named rule violated by the shipped product.
+- **Family:** Community, Operations, and Platform Web differing in primary-action
+  colour, radius scale, or control height.
+
+Any breach is a FAIL, written as `FAIL <bar>: <measurement> — <fix direction>`. I do
+not average breaches away against things that work.
+
 ## Review instructions
 
 Artifact checks I run before scoring:

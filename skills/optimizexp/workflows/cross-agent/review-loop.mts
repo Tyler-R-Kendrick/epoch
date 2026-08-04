@@ -1066,6 +1066,42 @@ function scoresEquivalent(
  * baseline.json — or carries the exact same score values — was copied, not
  * re-measured, unless the scorecard carries an explicit `justification`.
  */
+/**
+ * A panel that agrees perfectly did not deliberate.
+ *
+ * Every historical run gave byte-identical integers to all ten personas across
+ * every iteration (2/3/3 → 1/2/2 → 1/1/1). Unanimity across Discord, GitHub,
+ * Bluesky and design lenses is one author filling a matrix, and it is the reason
+ * no criticism ever surfaced: disagreement is where criticism comes from.
+ */
+function lintScoreDivergence(root: string, runId: string): string[] {
+	const runDir = runDirOf(root, runId);
+	const problems: string[] = [];
+	for (const iter of listIterationDirs(runDir)) {
+		const scoresPath = path.join(runDir, "iterations", iter, "scores.json");
+		if (!existsSync(scoresPath)) continue;
+		let card: ScoresFile;
+		try {
+			card = JSON.parse(readFileSync(scoresPath, "utf8")) as ScoresFile;
+		} catch {
+			continue;
+		}
+		const cells = Array.isArray(card.cells) ? card.cells : [];
+		const personas = new Set(cells.map((cell) => cell.persona));
+		// One or two voices cannot meaningfully diverge; three is a panel.
+		if (personas.size < 3) continue;
+		const vectors = new Set(
+			cells.map((cell) => `${cell.harms}/${cell.friction}/${cell.uncertainty}`),
+		);
+		if (vectors.size === 1) {
+			problems.push(
+				`scores_unanimous_across_personas:iterations/${iter}/scores.json`,
+			);
+		}
+	}
+	return problems;
+}
+
 function lintCopiedScores(root: string, runId: string): string[] {
 	const runDir = runDirOf(root, runId);
 	const baselinePath = path.join(runDir, "baseline.json");
@@ -1512,6 +1548,51 @@ function validateTokenAudit(
 		.map((rule) => `token_audit_failing:${rule}`);
 }
 
+/**
+ * (g) Mutating UX runs on a web product must ship an executed Adversarial Design
+ * Critique. The protocol is mandated by DESIGN.md, AGENTS.md and the PR template,
+ * and had been executed exactly zero times — its template appeared in the repo only
+ * as a definition and a blank block. Requiring the artifact is what turns it on.
+ */
+function validateDesignCritique(
+	root: string,
+	runDir: string,
+	scope: Record<string, unknown>,
+	products: readonly ProductOptimizexpConfig[],
+): string[] {
+	const experiences = Array.isArray(scope.experiences)
+		? (scope.experiences as string[])
+		: [];
+	if (
+		scope.reportOnly === true ||
+		!experiences.includes("ux") ||
+		!products.some((cfg) => cfg.defaults?.driver === "web")
+	) {
+		return [];
+	}
+	const critiquePath = path.join(runDir, "design-critique.md");
+	if (!existsSync(critiquePath)) {
+		return ["design_critique_missing"];
+	}
+	const critique = readFileSync(critiquePath, "utf8");
+	const problems: string[] = [];
+	// Soft language is banned by the protocol; a critique with no verdict token is
+	// prose, not a judgement.
+	if (!/\bFAIL\b/u.test(critique) && !/\bPASS\b/u.test(critique)) {
+		problems.push("design_critique_has_no_verdict");
+	}
+	// A critique that never names the reviewing persona is unattributable.
+	if (!/persona/iu.test(critique)) {
+		problems.push("design_critique_missing_persona");
+	}
+	// Unresolved automatic fails block completion outright.
+	if (/automatic[- ]fail/iu.test(critique) && /\bFAIL\b/u.test(critique)) {
+		const unresolved = /^\s*[-*]?\s*\[ \]/mu.test(critique);
+		if (unresolved) problems.push("design_critique_has_open_fails");
+	}
+	return problems;
+}
+
 /** (f) Mutating UX runs on a web product need at least one narrow-viewport capture. */
 function validateMobileEvidence(
 	root: string,
@@ -1618,6 +1699,7 @@ function modeAssertComplete(
 		missing.push("bus_complete_triples_lt_1");
 	}
 	missing.push(...lintCopiedScores(root, runId));
+	missing.push(...lintScoreDivergence(root, runId));
 	// Completion is run-scoped. Missing runId entries must never count for this run.
 	const busValidation = validateBusForRun(root, runId);
 	missing.push(...busValidation);
@@ -1825,6 +1907,14 @@ function modeAssertComplete(
 	missing.push(...validateBacklogIntegrity(root, runDir));
 	missing.push(...validateStandingDefects(root, runProducts));
 	missing.push(...validateTokenAudit(root, runProducts));
+	missing.push(
+		...validateDesignCritique(
+			root,
+			runDir,
+			scope as Record<string, unknown>,
+			runProducts,
+		),
+	);
 	missing.push(
 		...validateMobileEvidence(
 			root,

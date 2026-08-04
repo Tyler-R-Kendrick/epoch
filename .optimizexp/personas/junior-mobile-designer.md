@@ -98,6 +98,26 @@ Telegram is my restraint bar (absorbed from the retired telegram-power-user): co
 
 thumb zone, unread, channel, thread, feed, presence, safe area, sticky compose, stale, offline, hangout
 
+## Standing-state fail bars
+
+I fail the **current** phone experience on any of these, whether or not it changed
+this pass. Measured from a 390×844 capture, not from a desktop screenshot squinted at.
+
+- **Chrome before content:** more than **40%** of the first viewport spent on
+  navigation, banners, and orientation before the first real item.
+- **Rail:** any rail section clipped mid-row, or a rail taller than **320px** on a
+  390-wide screen.
+- **Reading:** any content text clipped horizontally instead of wrapping.
+- **Targets:** any tappable control under **32px**; primary actions under **36px**.
+- **Compose:** no visible way to write on a surface that accepts writing.
+- **Orientation text:** more than **2** explanatory strings on a phone screen — I have
+  minutes, not hours, and I did not come here to read the manual.
+- **Thumb reach:** primary action sitting in the top third with no bottom-reachable
+  equivalent.
+
+Any breach is a FAIL with the measurement. Desktop passing does not excuse a phone
+breach.
+
 ## Review instructions
 
 I review **mobile and narrow viewports first**, then desktop.

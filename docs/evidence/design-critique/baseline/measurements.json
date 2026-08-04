@@ -1,0 +1,320 @@
+{
+  "desktop/community": {
+    "rail": {
+      "y": 0,
+      "h": 960,
+      "w": 248
+    },
+    "header": {
+      "y": 0,
+      "h": 103,
+      "w": 1192
+    },
+    "banner": {
+      "y": 103,
+      "h": 32,
+      "w": 1192
+    },
+    "firstRun": {
+      "y": 135,
+      "h": 89,
+      "w": 1192
+    },
+    "toolbar": {
+      "y": 224,
+      "h": 49,
+      "w": 1192
+    },
+    "artifactToolbar": null,
+    "composer": {
+      "y": 812,
+      "h": 148,
+      "w": 1192
+    },
+    "messageRows": [
+      164
+    ],
+    "devFeedRows": [],
+    "artifactRows": [],
+    "minControlHeight": 14,
+    "controlsUnder32": 3,
+    "visibleText": 1417
+  },
+  "desktop/network": {
+    "rail": {
+      "y": 0,
+      "h": 960,
+      "w": 248
+    },
+    "header": {
+      "y": 0,
+      "h": 103,
+      "w": 1192
+    },
+    "banner": {
+      "y": 103,
+      "h": 32,
+      "w": 1192
+    },
+    "firstRun": {
+      "y": 135,
+      "h": 89,
+      "w": 1192
+    },
+    "toolbar": null,
+    "artifactToolbar": null,
+    "composer": null,
+    "messageRows": [],
+    "devFeedRows": [
+      86,
+      133,
+      59,
+      112,
+      133,
+      112,
+      112,
+      133,
+      112,
+      133,
+      112,
+      111
+    ],
+    "artifactRows": [],
+    "minControlHeight": 15,
+    "controlsUnder32": 28,
+    "visibleText": 3256
+  },
+  "desktop/issues": {
+    "rail": {
+      "y": 0,
+      "h": 960,
+      "w": 248
+    },
+    "header": {
+      "y": 0,
+      "h": 103,
+      "w": 1192
+    },
+    "banner": {
+      "y": 103,
+      "h": 32,
+      "w": 1192
+    },
+    "firstRun": {
+      "y": 135,
+      "h": 89,
+      "w": 1192
+    },
+    "toolbar": null,
+    "artifactToolbar": {
+      "y": 224,
+      "h": 36,
+      "w": 1192
+    },
+    "composer": null,
+    "messageRows": [],
+    "devFeedRows": [],
+    "artifactRows": [
+      84,
+      84,
+      84,
+      84,
+      83
+    ],
+    "minControlHeight": 32,
+    "controlsUnder32": 0,
+    "visibleText": 1337
+  },
+  "desktop/changes": {
+    "rail": {
+      "y": 0,
+      "h": 960,
+      "w": 248
+    },
+    "header": {
+      "y": 0,
+      "h": 103,
+      "w": 1192
+    },
+    "banner": {
+      "y": 103,
+      "h": 32,
+      "w": 1192
+    },
+    "firstRun": {
+      "y": 135,
+      "h": 89,
+      "w": 1192
+    },
+    "toolbar": null,
+    "artifactToolbar": null,
+    "composer": null,
+    "messageRows": [],
+    "devFeedRows": [],
+    "artifactRows": [
+      116
+    ],
+    "minControlHeight": 28,
+    "controlsUnder32": 1,
+    "visibleText": 1031
+  },
+  "mobile/community": {
+    "rail": {
+      "y": 0,
+      "h": 285,
+      "w": 390
+    },
+    "header": {
+      "y": 285,
+      "h": 127,
+      "w": 390
+    },
+    "banner": {
+      "y": 412,
+      "h": 62,
+      "w": 390
+    },
+    "firstRun": {
+      "y": 474,
+      "h": 124,
+      "w": 390
+    },
+    "toolbar": {
+      "y": 597,
+      "h": 106,
+      "w": 390
+    },
+    "artifactToolbar": null,
+    "composer": {
+      "y": 942,
+      "h": 156,
+      "w": 390
+    },
+    "messageRows": [
+      227
+    ],
+    "devFeedRows": [],
+    "artifactRows": [],
+    "minControlHeight": 14,
+    "controlsUnder32": 6,
+    "visibleText": 1308
+  },
+  "mobile/network": {
+    "rail": {
+      "y": 0,
+      "h": 171,
+      "w": 390
+    },
+    "header": {
+      "y": 171,
+      "h": 127,
+      "w": 390
+    },
+    "banner": {
+      "y": 298,
+      "h": 47,
+      "w": 390
+    },
+    "firstRun": {
+      "y": 345,
+      "h": 124,
+      "w": 390
+    },
+    "toolbar": null,
+    "artifactToolbar": null,
+    "composer": null,
+    "messageRows": [],
+    "devFeedRows": [
+      122,
+      244,
+      77,
+      148,
+      244,
+      236,
+      149,
+      244,
+      222,
+      288,
+      244,
+      168
+    ],
+    "artifactRows": [],
+    "minControlHeight": 15,
+    "controlsUnder32": 28,
+    "visibleText": 3256
+  },
+  "mobile/issues": {
+    "rail": {
+      "y": 0,
+      "h": 370,
+      "w": 390
+    },
+    "header": {
+      "y": 370,
+      "h": 127,
+      "w": 390
+    },
+    "banner": {
+      "y": 497,
+      "h": 62,
+      "w": 390
+    },
+    "firstRun": {
+      "y": 559,
+      "h": 124,
+      "w": 390
+    },
+    "toolbar": null,
+    "artifactToolbar": {
+      "y": 683,
+      "h": 36,
+      "w": 390
+    },
+    "composer": null,
+    "messageRows": [],
+    "devFeedRows": [],
+    "artifactRows": [
+      102,
+      102,
+      102,
+      102,
+      101
+    ],
+    "minControlHeight": 26,
+    "controlsUnder32": 3,
+    "visibleText": 1254
+  },
+  "mobile/changes": {
+    "rail": {
+      "y": 0,
+      "h": 370,
+      "w": 390
+    },
+    "header": {
+      "y": 370,
+      "h": 127,
+      "w": 390
+    },
+    "banner": {
+      "y": 497,
+      "h": 62,
+      "w": 390
+    },
+    "firstRun": {
+      "y": 559,
+      "h": 124,
+      "w": 390
+    },
+    "toolbar": null,
+    "artifactToolbar": null,
+    "composer": null,
+    "messageRows": [],
+    "devFeedRows": [],
+    "artifactRows": [
+      134
+    ],
+    "minControlHeight": 26,
+    "controlsUnder32": 4,
+    "visibleText": 948
+  }
+}

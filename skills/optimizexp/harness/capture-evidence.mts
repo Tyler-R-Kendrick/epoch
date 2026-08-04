@@ -423,10 +423,17 @@ function capture(args: Record<string, string>) {
 	writeJson(path.join(outDir, "review.json"), {
 		status: "pending",
 		reviewer: "",
+		// A review by whoever authored the change is a confirmation, not a review.
+		authoredBy: metaOut.runId ?? "",
 		relevance: "pending",
 		completeness: "pending",
 		coverageMode: "single-state",
 		coveredClaims: [],
+		// Defects are first-class. Without somewhere to put a fault, every review
+		// degenerates into "playback shows [list of things that exist]" — which is
+		// how a measured 28px control was once cited as grounds for acceptance.
+		// Each entry: { element, observation, measurement, severity: P0|P1|P2 }.
+		defects: [],
 		artifactSha256: metaOut.primary.sha256,
 		reviewedAt: "",
 		notes: "Playback review required before this evidence can support a score.",

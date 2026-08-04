@@ -3,13 +3,25 @@ import path from "node:path";
 
 export type EvidenceClaim = { id: string; text: string };
 
+/** A fault found during playback. Reviews without a place for these only confirm. */
+export type EvidenceDefect = {
+	element?: string;
+	observation?: string;
+	/** Numeric or quoted proof — "row height 164px", "\"sample\" appears 7 times". */
+	measurement?: string;
+	severity?: "P0" | "P1" | "P2";
+};
+
 export type EvidenceReview = {
 	status?: "pending" | "accepted" | "rejected";
 	reviewer?: string;
+	/** Run that produced the capture; a reviewer equal to this is a self-review. */
+	authoredBy?: string;
 	relevance?: "relevant" | "irrelevant";
 	completeness?: "complete" | "partial";
 	coverageMode?: "full-journey" | "single-state";
 	coveredClaims?: string[];
+	defects?: EvidenceDefect[];
 	artifactSha256?: string;
 	reviewedAt?: string;
 	notes?: string;
@@ -18,6 +30,7 @@ export type EvidenceReview = {
 type EvidenceMeta = {
 	driver?: string;
 	degraded?: boolean;
+	runId?: string;
 	claims?: EvidenceClaim[];
 	primary?: { file?: string; kind?: string; sha256?: string; bytes?: number };
 };
@@ -53,6 +66,26 @@ export function validateEvidenceReview(dir: string): string[] {
 		problems.push("evidence_review_notes_missing_or_too_short");
 	}
 	if (meta.degraded) problems.push("degraded_capture_not_acceptable_proof");
+	// A review by the run that produced the capture is a confirmation, not a review.
+	const authoredBy = (review.authoredBy ?? meta.runId ?? "").trim();
+	if (authoredBy !== "" && review.reviewer?.trim() === authoredBy) {
+		problems.push("evidence_review_is_self_review");
+	}
+	// Defects must be an explicit decision. An empty array is a claim that the
+	// surface is clean; omitting the field means nobody looked for faults.
+	if (!Array.isArray(review.defects)) {
+		problems.push("evidence_review_missing_defect_list");
+	} else {
+		for (const [index, defect] of review.defects.entries()) {
+			const label = defect.element?.trim() || String(index);
+			if (!defect.observation?.trim() || !defect.measurement?.trim()) {
+				problems.push(`evidence_defect_unsubstantiated:${label}`);
+			}
+			if (!["P0", "P1", "P2"].includes(defect.severity ?? "")) {
+				problems.push(`evidence_defect_severity_invalid:${label}`);
+			}
+		}
+	}
 	const claims = meta.claims ?? [];
 	const covered = new Set(review.coveredClaims ?? []);
 	for (const claim of claims) {
