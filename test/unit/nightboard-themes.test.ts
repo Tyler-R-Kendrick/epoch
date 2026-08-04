@@ -173,6 +173,17 @@ export function runNightboardThemeTests(): void {
   assert.ok(consoleSource.includes("scroll-snap-type"),
     "columns must swipe on narrow viewports, not just scroll");
 
+  // The agent must only be able to do what a person could do by typing, and
+  // every AG-UI event the console renders must be one the agent emits.
+  const agent = readFileSync(join(ROOT, "agent.js"), "utf8");
+  for (const event of ["RUN_STARTED", "RUN_ERROR", "TOOL_CALL_ARGS", "TOOL_CALL_RESULT"]) {
+    assert.ok(agent.includes(event), `agent must emit ${event}`);
+    assert.ok(readFileSync(join(ROOT, "app.js"), "utf8").includes(event),
+      `console must handle ${event}, or the agent can fail invisibly`);
+  }
+  assert.ok(agent.includes("isTransient"),
+    "a mid-stream fault must be retried, not just one while opening the session");
+
   // Completion is the difference between a shell and a prompt that echoes.
   const complete = readFileSync(join(ROOT, "complete.js"), "utf8");
   for (const capability of ["function score", "function commonPrefix", "function globalDirs", "ghost"]) {

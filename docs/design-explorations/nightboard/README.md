@@ -67,9 +67,13 @@ rather than two features that happen to agree.
 ```
 /channels/general/003-scout-drafted-a-plan
 /members/scout
-/projects/civic-tuner
+/projects/civic-tuner/changes/001-scout-change-12
 /epochs/13
 ```
+
+A linked project owns channels of its own — `issues`, `changes`, `releases` —
+because the community's rooms are where people are and a project's rooms are
+where its work is. Conflating them was why `projects` felt like a dead end.
 
 ### Navigation
 
@@ -90,26 +94,49 @@ Pointer and touch are peers, not fallbacks: every entry, breadcrumb segment and
 view chip is a real button, columns swipe with scroll-snap on a phone, and every
 control clears the 32px floor wherever the pointer is coarse.
 
+### The input box: CLI or AI
+
+One box, two readings, toggled with the chip at the prompt or `Alt+A`.
+
+**CLI** — the text is a command. Wrong input is an error, which is what a shell
+owes you.
+
+**AI** — the text is intent. It goes to an agent that interprets it into tool
+calls, and a failed call is **repaired rather than rejected**: the error is fed
+back once and the agent chooses again. "take me to the bug reports" lands at
+`/channels/bugs` even when the first attempt guesses `/chat/bugz`.
+
+The agent speaks [AG-UI](https://github.com/ag-ui-protocol) — the Agent-User
+Interaction Protocol from CopilotKit — so the console is a plain event consumer
+and does not know the agent happens to be running on the device rather than on a
+server. `RUN_STARTED`, `TOOL_CALL_ARGS`, `TOOL_CALL_RESULT`, `RUN_ERROR` all
+appear in the transcript, which is why a failed run is visible instead of silent.
+
+Its tools are the console's own verbs — `navigate`, `view`, `search`, `theme`,
+`load`, `say` — so the agent can do nothing you could not do by typing.
+
+**The garden is gone as a panel.** Theming is just another tool: type
+*"make everything blue"* and the board restyles, because a separate window for
+changing the look was one more place to go for something you should be able to
+ask for.
+
+### The prompt has focus
+
+The input is where you are. It holds focus on load and after every action;
+`Esc` hands steering to the columns, and `i` or `:` brings it straight back.
+Arrow keys take focus to the columns implicitly, so nothing needs remembering.
+
 ### The command line
 
-What "power user" has to mean, concretely:
-
-- **Ghost text.** The likeliest completion appears ahead of the cursor in dim
-  type; `→` or `End` accepts it.
-- **Fuzzy, ranked.** `cd cgen` reaches `/channels/general`. Scoring rewards
-  prefixes, word starts and tight runs, so it reads intent rather than letters.
-- **Local and global merged.** Completion searches the current directory *and*
-  the whole tree, ranked together. Falling back only when the local set was
-  empty meant one weak nearby match could hide the obvious destination — `cd ch`
-  matching a post name instead of `/channels`. Proximity is a tiebreaker worth
-  12 points, not a veto.
-- **Basenames score.** `/channels` never *starts* with `ch`, so global paths are
-  scored on their last segment and displayed absolute.
-- **Tab discipline.** Tab completes the longest unambiguous prefix first, and
-  only cycles once there is nothing left to add. Shift-Tab cycles backwards.
-- **History** on `↑↓`, `cd -` for the previous directory, `..` completes.
-
-`find` searches names across the tree; `grep` searches post bodies.
+- **Ghost text.** The likeliest completion appears ahead of the cursor; `→` or
+  `End` accepts it.
+- **Fuzzy, ranked.** `cd cgen` reaches `/channels/general`.
+- **Local and global merged**, ranked together, with proximity worth 12 points
+  as a tiebreaker rather than a veto.
+- **`cd` resolves like completion does.** `cd bugs` and `cd tuner` work from
+  anywhere; execution refusing what completion offered made the completion look
+  like a liar.
+- **Tab discipline**, history on `↑↓`, `cd -`.
 
 ### Views
 

@@ -28,6 +28,12 @@
     return String(i + 1).padStart(3, "0") + "-" + slug(p.who) + "-" + slug((p.subject || p.body).slice(0, 22));
   }
 
+  function projectPosts(projectSlug, channel) {
+    return (D.projectPosts || []).filter(function (p) {
+      return p.project === projectSlug && p.channel === channel;
+    });
+  }
+
   function postsIn(channel, extra) {
     return D.posts.concat(extra || []).filter(function (p) { return p.channel === channel; });
   }
@@ -76,10 +82,27 @@
       }
       return null;
     }
+    // Projects own channels of their own, so the tree keeps going instead of
+    // stopping at a name you cannot open.
     if (parts[0] === "projects") {
       if (parts.length === 1) {
         return D.projects.map(function (p) {
-          return { name: slug(p.slug), kind: "file", meta: "linked project", hint: p.open + " open" };
+          return { name: slug(p.slug), kind: "dir", meta: "linked project",
+            hint: (p.channels || []).length + " channels · " + p.open + " open" };
+        });
+      }
+      var proj = D.projects.filter(function (p) { return slug(p.slug) === parts[1]; })[0];
+      if (!proj) return null;
+      if (parts.length === 2) {
+        return (proj.channels || []).map(function (c) {
+          return { name: c, kind: "dir", meta: "work",
+            hint: projectPosts(parts[1], c).length + " posts" };
+        });
+      }
+      if (parts.length === 3) {
+        return projectPosts(parts[1], parts[2]).map(function (p, i) {
+          return { name: postName(p, i), kind: "file", post: p, meta: p.state,
+            hint: p.who + " · " + p.at };
         });
       }
       return null;
@@ -123,10 +146,12 @@
   /** The post at a path, if the path names one. */
   function postAt(path, extra) {
     var parts = split(path);
-    if (parts.length !== 3 || parts[0] !== "channels") return null;
-    var entries = list(join(parts.slice(0, 2)), extra);
+    var isChannelPost = parts.length === 3 && parts[0] === "channels";
+    var isProjectPost = parts.length === 4 && parts[0] === "projects";
+    if (!isChannelPost && !isProjectPost) return null;
+    var entries = list(join(parts.slice(0, -1)), extra);
     if (!entries) return null;
-    var hit = entries.filter(function (e) { return e.name === parts[2]; })[0];
+    var hit = entries.filter(function (e) { return e.name === parts[parts.length - 1]; })[0];
     return hit ? hit.post : null;
   }
 

@@ -180,6 +180,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@ag-ui/core": "^0.0.57",
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
     "@google/design.md": "^0.4.0",

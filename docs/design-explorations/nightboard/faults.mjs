@@ -37,7 +37,10 @@ function mockScript(spec) {
               if (spec.throwOnAttempt && spec.throwOnAttempt >= mine) {
                 throw new Error(spec.throwMessage || "model is busy");
               }
-              const chunks = spec.chunks || [];
+              const byAttempt = spec.chunksByAttempt;
+              const chunks = byAttempt
+                ? [byAttempt[Math.min(mine - 1, byAttempt.length - 1)]]
+                : (spec.chunks || []);
               let acc = "";
               for (const c of chunks) {
                 if (o && o.signal && o.signal.aborted) throw new DOMException("aborted", "AbortError");
@@ -55,121 +58,112 @@ function mockScript(spec) {
   })();`;
 }
 
-const THEME_LANG =
-  'root = Theme("Deep Blue", "#04122a", "#0a1e3d", "#cfe2ff", "#8fb2e0", "#5d7fae", "#1d3a63", ' +
-  '"#4d9fff", "#02101f", "#ffd166", "#4dd6a0", "#ffb454", "#ff6b6b", "#7cc4ff")';
+const TOOL_OK = JSON.stringify({ tool: "navigate", path: "/channels/bugs" });
+const TOOL_BAD = JSON.stringify({ tool: "navigate", path: "/nowhere/at/all" });
 
 const CASES = [
   {
-    name: "silent download reports progress anyway",
-    spec: { availability: "downloadable", createDelay: 6000, chunks: [THEME_LANG] },
+    name: "silent model fetch keeps reporting",
+    spec: { availability: "downloadable", createDelay: 6000, chunks: [TOOL_OK] },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(5200);
-      const s = await page.textContent("[data-gen-status]");
+      await ask(page, "go to bugs", 5200);
+      const s = await transcript(page);
       log(s);
-      return /Waited \d+s|Fetching the on-device model/.test(s);
+      return /Fetching the on-device model|Waited \d+s/.test(s);
     },
   },
   {
-    name: "download percentage normalises a 0-100 scale",
+    name: "download percentage never exceeds 100",
     spec: {
       availability: "downloadable",
-      downloadEvents: [{ loaded: 25, after: 60 }, { loaded: 80, after: 60 }],
-      createDelay: 300,
-      chunks: [THEME_LANG],
+      downloadEvents: [{ loaded: 40, after: 50 }, { loaded: 95, after: 50 }],
+      createDelay: 250, chunks: [TOOL_OK],
     },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(500);
-      const seen = await page.evaluate(() => window.__pct || "");
-      log(seen || "(captured via status)");
-      return !/\d{3,}%/.test(await page.textContent("[data-gen-status]"));
+      await ask(page, "go to bugs", 1200);
+      const s = await transcript(page);
+      log(s.slice(0, 90));
+      return !/\d{3,}%/.test(s);
     },
   },
   {
-    name: "transient failure retries and then succeeds",
-    spec: { throwOnAttempt: 1, throwMessage: "model is busy", chunks: [THEME_LANG] },
+    name: "transient failure retries then succeeds",
+    spec: { throwOnAttempt: 1, throwMessage: "model is busy", chunks: [TOOL_OK] },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(2500);
-      const s = await page.textContent("[data-gen-status]");
-      log(s.split("\n")[0]);
-      return /Applied \d+ colours/.test(s);
+      await ask(page, "go to bugs", 3000);
+      const path = await page.textContent(".cn-ps1");
+      log(path);
+      return /channels\/bugs/.test(path);
     },
   },
   {
-    name: "permanent failure reports what the model actually said",
-    spec: { chunks: ["I'd be happy to help you with a blue theme!"] },
+    name: "a bad tool call is repaired, not rejected",
+    spec: { chunksByAttempt: [TOOL_BAD, TOOL_OK] },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(2500);
-      const s = await page.textContent("[data-gen-status]");
-      log(s.split("\n")[0]);
-      return /no usable Theme/.test(s) && /happy to help/.test(s);
+      await ask(page, "take me to the bug reports", 3200);
+      const s = await transcript(page);
+      const path = await page.textContent(".cn-ps1");
+      log(path + " | " + s.replace(/\s+/g, " ").slice(0, 70));
+      return /channels\/bugs/.test(path) && /failed/.test(s);
     },
   },
   {
-    name: "a truncated stream still applies what arrived",
-    spec: { chunks: ['root = Theme("Half", "#04122a", "#0a1e3d", "#cfe2ff"'] },
+    name: "prose instead of a tool call fails loudly",
+    spec: { chunks: ["Sure! I can help you find the bug reports."] },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(2000);
-      const bg = await page.evaluate(() =>
-        getComputedStyle(document.documentElement).getPropertyValue("--nb-bg").trim());
-      log("bg=" + bg);
-      return bg === "#04122a";
+      await ask(page, "go to bugs", 3200);
+      const s = await transcript(page);
+      log(s.replace(/\s+/g, " ").slice(0, 80));
+      return /error|did not return JSON/i.test(s);
+    },
+  },
+  {
+    name: "multi-chunk delta streaming still parses",
+    spec: { chunkDelay: 6, chunks: TOOL_OK.match(/.{1,12}/g) },
+    check: async (page, log) => {
+      await ask(page, "go to bugs", 2600);
+      const path = await page.textContent(".cn-ps1");
+      log(path);
+      return /channels\/bugs/.test(path);
     },
   },
   {
     name: "whole-text-per-chunk streams do not double",
-    spec: { wholeTextEachChunk: true, chunks: THEME_LANG.match(/.{1,40}/g) },
+    spec: { wholeTextEachChunk: true, chunks: TOOL_OK.match(/.{1,12}/g) },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(2500);
-      const src = await page.inputValue("[data-gen-ui-source]");
-      log("len=" + src.length + " expected=" + THEME_LANG.length);
-      return src.length === THEME_LANG.length;
+      await ask(page, "go to bugs", 2600);
+      const path = await page.textContent(".cn-ps1");
+      log(path);
+      return /channels\/bugs/.test(path);
     },
   },
   {
-    name: "multi-chunk delta streaming applies the theme",
-    spec: { chunkDelay: 8, chunks: THEME_LANG.match(/.{1,24}/g) },
-    check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(2500);
-      const bg = await page.evaluate(() =>
-        getComputedStyle(document.documentElement).getPropertyValue("--nb-bg").trim());
-      const theme = await page.evaluate(() => document.body.dataset.theme);
-      log("bg=" + bg + " theme=" + theme);
-      return bg === "#04122a" && theme === "Deep Blue";
-    },
-  },
-  {
-    name: "cancel stops the stream",
-    spec: { chunkDelay: 400, chunks: THEME_LANG.match(/.{1,10}/g), hang: true },
-    check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(600);
-      await page.click("[data-gen-cancel]");
-      await page.waitForTimeout(400);
-      const s = await page.textContent("[data-gen-status]");
-      log(s);
-      return /Cancelled/.test(s);
-    },
-  },
-  {
-    name: "an unavailable model falls back with instructions",
+    name: "an unavailable model leaves CLI mode working",
     spec: { availability: "unavailable" },
     check: async (page, log) => {
-      await page.click("[data-gen-run]");
-      await page.waitForTimeout(600);
-      const s = await page.textContent("[data-gen-status]");
-      log(s.split("\n")[0]);
-      return /not available/.test(s) && /manual|by hand/i.test(s);
+      await ask(page, "go to bugs", 900);
+      const s = await transcript(page);
+      // The point is not the message; it is that the surface still works.
+      await page.click("[data-mode-toggle]");
+      await page.keyboard.type("cd bugs");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(400);
+      const path = await page.textContent(".cn-ps1");
+      log(s.replace(/\s+/g, " ").slice(0, 60) + " | then " + path);
+      return /No on-device model/.test(s) && /channels\/bugs/.test(path);
     },
   },
 ];
+
+async function ask(page, text, waitMs) {
+  await page.keyboard.type(text);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(waitMs);
+}
+
+async function transcript(page) {
+  return page.$eval(".cn-out", (el) => el.textContent).catch(() => "");
+}
 
 const browser = await chromium.launch();
 let failed = 0;
@@ -181,8 +175,10 @@ for (const testCase of CASES) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(BASE, { waitUntil: "networkidle" });
-  await page.click("[data-garden-open]");
-  await page.fill("[data-gen-input]", "make everything blue");
+  await page.waitForTimeout(250);
+  // Every case runs through AI mode, because that is where the faults live.
+  await page.click("[data-mode-toggle]");
+  await page.waitForTimeout(150);
 
   let detail = "";
   let ok = false;

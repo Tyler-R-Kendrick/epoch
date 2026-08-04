@@ -36,7 +36,58 @@
     histIndex: -1,
     out: [],
     prev: "/",
+    ai: false,
+    events: [],
+    busy: false,
   };
+
+  var themeStyle = document.createElement("style");
+  document.head.appendChild(themeStyle);
+  var themeIndex = 0;
+
+  var TOKEN_OF = {
+    bg: "--nb-bg", surface: "--nb-surface", ink: "--nb-ink", inkDim: "--nb-ink-dim",
+    inkFaint: "--nb-ink-faint", rule: "--nb-rule", accent: "--nb-accent",
+    accentInk: "--nb-accent-ink", signed: "--nb-signed", live: "--nb-live",
+    warn: "--nb-warn", danger: "--nb-danger", agent: "--nb-agent",
+  };
+
+  function setTheme(i) {
+    themeIndex = (i + window.NB_THEMES.length) % window.NB_THEMES.length;
+    var t = window.NB_THEMES[themeIndex];
+    themeStyle.textContent = t.css;
+    document.body.dataset.theme = t.name;
+    var n = $("[data-theme-name]"); if (n) n.textContent = t.name;
+    var note = $("[data-theme-note]"); if (note) note.textContent = t.note;
+    var sel = $("[data-theme-select]"); if (sel) sel.value = t.id;
+  }
+
+  /**
+   * Apply generated tokens over the current theme.
+   *
+   * Partial is fine and expected: anything the agent omits keeps its current
+   * value, so "make the accent blue" changes one thing rather than demanding a
+   * complete palette. Values are validated here because a schema the page did
+   * not enforce is not a safety measure.
+   */
+  function applyTokens(tokens, label) {
+    var hex = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+    var css = [];
+    var taken = 0;
+    Object.keys(tokens || {}).forEach(function (k) {
+      var name = TOKEN_OF[k] || (k.indexOf("--") === 0 ? k : null);
+      if (!name) return;
+      var v = String(tokens[k]).trim();
+      if (!hex.test(v)) return;
+      css.push(name + ":" + v);
+      taken += 1;
+    });
+    if (!taken) return 0;
+    themeStyle.textContent = window.NB_THEMES[themeIndex].css + ":root{" + css.join(";") + "}";
+    document.body.dataset.theme = label || "custom";
+    var n = $("[data-theme-name]"); if (n) n.textContent = label || "custom";
+    return taken;
+  }
 
   var experiences = window.NB_EXPERIENCES;
   var current = 0;
@@ -62,13 +113,12 @@
     mount.dataset.exp = exp().id;
     mount.innerHTML = exp().render(state);
     wireSurface();
-    if (state.cliOpen) {
-      var input = $("[data-cli]");
-      if (input) {
-        input.value = cliValue;
-        if (!keepCli) input.focus();
-        paintGhost();
-      }
+    var input = $("[data-cli]");
+    if (input) {
+      input.value = cliValue;
+      paintGhost();
+      // The prompt is where you are unless you deliberately went to the columns.
+      if (!state.columnFocus && !keepCli) input.focus();
     }
     var cur = mount.querySelector('.cn-col[data-focus="true"] .cn-item[aria-current="true"]');
     if (cur) cur.scrollIntoView({ block: "nearest" });
@@ -106,12 +156,17 @@
       var parts = MAP.split(target);
       var dir = MAP.join(parts.slice(0, -1));
       if (MAP.isDir(dir, state.merged)) {
+        // Only a leaf that actually exists counts as arriving. Reporting
+        // success for a name that is not there made every caller believe a
+        // typo had worked, which is why `cd bugs` silently did nothing.
+        var probe = MAP.list(dir, state.merged) || [];
+        var leaf = parts[parts.length - 1];
+        var found = probe.findIndex(function (e) { return e.name === leaf; });
+        if (found === -1) return false;
         state.prev = state.path;
         state.path = dir;
         state.filter = "";
-        var list = entries();
-        var i = list.findIndex(function (e) { return e.name === parts[parts.length - 1]; });
-        state.cursor = i === -1 ? 0 : i;
+        state.cursor = found;
         state.focus = 1;
         render(opts && opts.keepCli);
         return true;
@@ -199,13 +254,6 @@
 
   /* ── Command line ──────────────────────────────────────────────────────── */
 
-  function openCli(seed) {
-    state.cliOpen = true;
-    cliValue = seed || "";
-    recompute();
-    render();
-  }
-
   function closeCli() {
     state.cliOpen = false;
     state.completion = null;
@@ -264,7 +312,18 @@
 
     if (cmd === "cd") {
       var dest = arg === "-" ? state.prev : arg;
-      if (!navigate(dest || "/", { keepCli: true })) out.push("cd: no such path: " + arg);
+      if (!navigate(dest || "/", { keepCli: true })) {
+        // Completion already resolves `bugs` to /channels/bugs from anywhere;
+        // execution refusing the same input made the two disagree, which reads
+        // as the completion lying. One resolver, one answer.
+        var guess = window.NB_COMPLETE.analyse("cd " + dest, { cwd: state.path, extra: state.merged });
+        var best = guess && guess.candidates && guess.candidates[0];
+        if (best && navigate(best.value, { keepCli: true })) {
+          out.push("cd: " + dest + " → " + state.path);
+        } else {
+          out.push("cd: no such path: " + dest);
+        }
+      }
     } else if (cmd === "ls") {
       var l = MAP.list(MAP.resolve(state.path, arg || "."), state.merged);
       out.push(l ? l.map(function (e) { return (e.kind === "dir" ? "▸ " : "  ") + e.name; }).join("  ") : "ls: not a directory");
@@ -316,6 +375,83 @@
     cliValue = "";
     recompute();
     render();
+  }
+
+  /**
+   * The agent's tools are the console's own verbs, so it can do nothing a
+   * person could not do by typing — and every call reports success or a reason,
+   * which is what makes self-healing possible rather than decorative.
+   */
+  function execute(call) {
+    if (!call || !call.tool) return { ok: false, message: "no tool chosen" };
+    if (call.tool === "navigate") {
+      if (!call.path) return { ok: false, message: "navigate needs a path" };
+      var ok = navigate(call.path, { keepCli: true });
+      return ok ? { ok: true, message: "at " + state.path }
+        : { ok: false, message: "no such path: " + call.path };
+    }
+    if (call.tool === "view") {
+      if (["graph", "diff", "raw"].indexOf(call.mode) === -1) {
+        return { ok: false, message: "view must be graph, diff or raw" };
+      }
+      state.view = call.mode; render(true);
+      return { ok: true, message: "view " + call.mode };
+    }
+    if (call.tool === "search") {
+      if (!call.text) return { ok: false, message: "search needs text" };
+      run("grep " + call.text);
+      return { ok: true, message: "searched" };
+    }
+    if (call.tool === "theme") {
+      var n = applyTokens(call.tokens || {}, "asked for");
+      return n ? { ok: true, message: "restyled " + n + " tokens" }
+        : { ok: false, message: "no valid hex colours in that theme" };
+    }
+    if (call.tool === "load") { mergePending(); return { ok: true, message: "loaded" }; }
+    if (call.tool === "say") { return { ok: true, message: call.text || "" }; }
+    return { ok: false, message: "unknown tool: " + call.tool };
+  }
+
+  /** Render AG-UI events into the transcript above the prompt. */
+  function onEvent(ev) {
+    var E = window.NB_AGENT.EVENT;
+    var line = null;
+    if (ev.type === E.RUN_STARTED) line = ["›", ev.input];
+    else if (ev.type === "PROGRESS") line = ["…", ev.message];
+    else if (ev.type === E.TOOL_CALL_ARGS) {
+      var a = ev.args || {};
+      line = [a.tool, a.path || a.mode || a.text || (a.tokens ? Object.keys(a.tokens).length + " colours" : "")];
+    } else if (ev.type === E.TOOL_CALL_RESULT) line = [ev.ok ? "ok" : "failed", ev.content];
+    else if (ev.type === E.TEXT_MESSAGE_CONTENT) line = ["", ev.delta];
+    else if (ev.type === E.RUN_ERROR) line = ["error", ev.message];
+    if (!line) return;
+    state.events.push({ type: ev.type, a: line[0], b: line[1] });
+    if (state.events.length > 24) state.events = state.events.slice(-24);
+    state.out = state.events.map(function (e) {
+      return '<span class="cn-ev" data-ev="' + e.type + '"><b>' + e.a + "</b><span>" + e.b + "</span></span>";
+    });
+    render(true);
+    var pane = $(".cn-out");
+    if (pane) pane.scrollTop = pane.scrollHeight;
+  }
+
+  async function ask(text) {
+    if (state.busy) return;
+    state.busy = true;
+    var here = (MAP.list(state.path, state.merged) || []).map(function (e) { return e.name; });
+    try {
+      await window.NB_AGENT.run(text, {
+        cwd: state.path, here: here, execute: execute, signal: undefined,
+      }, onEvent);
+    } finally {
+      state.busy = false;
+      focusCli();
+    }
+  }
+
+  function focusCli() {
+    var el = $("[data-cli]");
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   }
 
   /* ── Input ─────────────────────────────────────────────────────────────── */
@@ -373,8 +509,32 @@
       });
       cli.addEventListener("keydown", function (ev) {
         if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
-        if (ev.key === "Enter") { ev.preventDefault(); return run(cli.value); }
-        if (ev.key === "Escape") { ev.preventDefault(); return closeCli(); }
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          var text = cli.value;
+          cliValue = "";
+          cli.value = "";
+          recompute();
+          // The toggle decides how the same box is read: a command, or intent.
+          if (state.ai) { render(true); return ask(text); }
+          return run(text);
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          // Esc hands steering to the columns; it does not close anything,
+          // because the prompt is the default place to be.
+          state.columnFocus = true;
+          cli.blur();
+          return status("columns — ←→↑↓ to move, i or : to return to the prompt");
+        }
+        if (ev.altKey && ev.key.toLowerCase() === "a") {
+          ev.preventDefault();
+          state.ai = !state.ai;
+          render(true);
+          return status(state.ai
+            ? "ai — your words are interpreted, bad commands repaired"
+            : "cli — your words are commands");
+        }
         if (ev.key === "ArrowRight" || ev.key === "End") {
           if (cli.selectionStart === cli.value.length && acceptGhost()) ev.preventDefault();
           return;
@@ -396,6 +556,15 @@
   function wireGlobal() {
     document.addEventListener("click", function (ev) {
       if (ev.target.closest("[data-merge]")) return mergePending();
+      if (ev.target.closest("[data-mode-toggle]")) {
+        state.ai = !state.ai;
+        state.columnFocus = false;
+        render();
+        focusCli();
+        return status(state.ai
+          ? "ai — your words are interpreted, bad commands repaired"
+          : "cli — your words are commands");
+      }
       if (ev.target.closest("[data-live-toggle]")) {
         state.live = !state.live;
         status(state.live ? "stream resumed" : "stream paused");
@@ -403,20 +572,35 @@
     });
 
     document.addEventListener("keydown", function (ev) {
-      if (state.cliOpen) return;
       if (ev.target.matches("input, textarea, select")) return;
       var k = ev.key;
 
-      if (k === ":" || k === ">") { ev.preventDefault(); return openCli(""); }
+      if (ev.altKey && k.toLowerCase() === "a") {
+        ev.preventDefault();
+        state.ai = !state.ai;
+        state.columnFocus = false;
+        render();
+        return status(state.ai ? "ai — words are interpreted" : "cli — words are commands");
+      }
+      // Anything that is not steering hands focus back to the prompt, so the
+      // input is where you are by default and returning is one key.
+      if (k === ":" || k === "i" || k === ">") {
+        ev.preventDefault();
+        state.columnFocus = false;
+        render();
+        return focusCli();
+      }
       if (k === "/") { ev.preventDefault(); state.filter = ""; state.focus = 1; render(); return status("filter: type to narrow, Esc to clear"); }
-      if (k === "Escape") { if (state.filter) { state.filter = ""; render(); } return; }
+      if (k === "Escape") {
+        if (state.filter) { state.filter = ""; render(true); return; }
+        state.columnFocus = false; render(); return focusCli();
+      }
       if (k === "v") { ev.preventDefault(); var order = ["graph", "diff", "raw"]; state.view = order[(order.indexOf(state.view) + 1) % 3]; render(); return status("view: " + state.view); }
       if (k.toLowerCase() === "r") { ev.preventDefault(); return mergePending(); }
-      if (k.toLowerCase() === "t") { ev.preventDefault(); return window.NB_THEME && window.NB_THEME.cycle(); }
-      if (k.toLowerCase() === "g" && !ev.metaKey) { ev.preventDefault(); return window.NB_THEME && window.NB_THEME.openPanel(); }
+      if (k.toLowerCase() === "t" && state.columnFocus) { ev.preventDefault(); return setTheme(themeIndex + 1); }
 
-      if (k === "ArrowDown" || k === "j") { ev.preventDefault(); return moveCursor(1); }
-      if (k === "ArrowUp" || k === "k") { ev.preventDefault(); return moveCursor(-1); }
+      if (k === "ArrowDown" || k === "j") { ev.preventDefault(); state.columnFocus = true; return moveCursor(1); }
+      if (k === "ArrowUp" || k === "k") { ev.preventDefault(); state.columnFocus = true; return moveCursor(-1); }
       if (k === "ArrowRight" || k === "l" || k === "Enter") { ev.preventDefault(); return descend(); }
       if (k === "ArrowLeft" || k === "h") { ev.preventDefault(); return ascend(); }
       if (k === "Home") { ev.preventDefault(); state.cursor = 0; return render(); }
@@ -424,7 +608,7 @@
 
       // Any printable key starts an incremental filter, the way a file manager
       // does — no mode to enter, no key to remember.
-      if (k.length === 1 && /[a-z0-9-]/i.test(k)) {
+      if (k.length === 1 && /[a-z0-9-]/i.test(k) && state.columnFocus) {
         state.filter += k;
         state.cursor = 0;
         render();
@@ -440,6 +624,19 @@
   }
 
   function boot() {
+    setTheme(0);
+    var tsel = $("[data-theme-select]");
+    if (tsel) {
+      window.NB_THEMES.forEach(function (t) {
+        var o = document.createElement("option");
+        o.value = t.id; o.textContent = t.name;
+        tsel.appendChild(o);
+      });
+      tsel.value = window.NB_THEMES[0].id;
+      tsel.addEventListener("change", function () {
+        window.NB_THEMES.forEach(function (t, i) { if (t.id === tsel.value) setTheme(i); });
+      });
+    }
     expStyle.textContent = exp().css;
     $("[data-exp-thesis]").textContent = exp().thesis;
     var sel = $("[data-exp-select]");

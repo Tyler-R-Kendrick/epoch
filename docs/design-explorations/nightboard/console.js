@@ -229,6 +229,15 @@
     [data-exp="console"] .cn-cand[aria-current=true] i{color:inherit;opacity:.8}
     [data-exp="console"] .cn-prompt{display:flex;align-items:center;gap:.4rem;padding:.35rem .8rem}
     [data-exp="console"] .cn-ps1{color:var(--nb-accent);white-space:nowrap}
+    [data-exp="console"] .cn-mode{font:inherit;background:none;border:1px solid var(--nb-rule);
+      color:var(--nb-ink-dim);cursor:pointer;padding:0 .5rem;min-height:1.7rem;border-radius:var(--nb-radius)}
+    [data-exp="console"] .cn-mode[aria-pressed=true]{background:var(--nb-agent);color:var(--nb-bg);
+      border-color:var(--nb-agent)}
+    [data-exp="console"] .cn-ev{display:grid;grid-template-columns:5.5rem minmax(0,1fr);gap:.6rem;padding:.1rem 0}
+    [data-exp="console"] .cn-ev b{color:var(--nb-ink-faint);font-weight:400;font-size:.85em}
+    [data-exp="console"] .cn-ev[data-ev=TOOL_CALL_ARGS] b{color:var(--nb-agent)}
+    [data-exp="console"] .cn-ev[data-ev=RUN_ERROR] b,[data-exp="console"] .cn-ev[data-ev=RUN_ERROR] span{color:var(--nb-danger)}
+    [data-exp="console"] .cn-ev[data-ev=TEXT_MESSAGE_CONTENT] span{color:var(--nb-ink)}
     [data-exp="console"] .cn-input-wrap{position:relative;flex:1;min-width:0}
     [data-exp="console"] .cn-ghost{position:absolute;inset:0;pointer-events:none;color:var(--nb-ink-faint);
       white-space:pre;overflow:hidden}
@@ -317,7 +326,11 @@
         '<div class="cn-cli" data-open="' + (state.cliOpen && cand.candidates.length > 1) + '">' +
         '<div class="cn-menu">' + menu + "</div>" +
         '<div class="cn-out">' + (state.out || []).slice(-8).join("\n") + "</div>" +
-        '<div class="cn-prompt"><span class="cn-ps1">' + esc(path) + ' $</span>' +
+        '<div class="cn-prompt">' +
+        '<button type="button" class="cn-mode" data-mode-toggle aria-pressed="' + (state.ai ? "true" : "false") +
+        '" title="Alt+A — in AI mode your words are interpreted before they run">' +
+        (state.ai ? "ai" : "cli") + "</button>" +
+        '<span class="cn-ps1">' + esc(path) + (state.ai ? " ›" : " $") + "</span>" +
         '<span class="cn-input-wrap"><span class="cn-ghost" data-ghost></span>' +
         '<input class="cn-input" data-cli autocomplete="off" spellcheck="false" aria-label="Command"></span>' +
         "</div></div>"
