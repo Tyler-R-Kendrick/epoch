@@ -17,16 +17,10 @@ export function renderChannelButton(
 }
 
 /**
- * One member-agent rail row.
- *
- * The server document and the client runtime each hand-maintained a copy of this
- * markup, so quieting the row in one place left the other rendering
- * "@ui-reviewer claude-code · samp" clipped at the rail edge. Same drift class as
- * the feed ordering; same fix — one function, both callers.
- *
- * The row shows the fact that changes (status). Harness and session kind are
- * real and stay reachable, in the accessible name and the tooltip, rather than
- * being three gray strings competing for a 250px column.
+ * One member-agent rail row, shared by the server document and the client
+ * runtime — separate copies drifted until one rendered "@ui-reviewer
+ * claude-code · samp" clipped. Shows the fact that changes; harness and session
+ * kind stay in the accessible name and tooltip rather than crowding a 250px column.
  */
 export function renderAgentMemberButton(agent: CommunityAgentMember): string {
   const kind = agent.sessionKind === "live" ? "live" : "sample";
