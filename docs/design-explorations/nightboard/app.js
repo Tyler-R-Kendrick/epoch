@@ -36,7 +36,7 @@
     histIndex: -1,
     out: [],
     prev: "/",
-    ai: false,
+    ai: true,
     events: [],
     busy: false,
   };
@@ -110,6 +110,14 @@
 
   function render(keepCli) {
     var mount = $("[data-mount]");
+    // Re-rendering replaces the input the user may be typing into. Anything
+    // that redraws — the live stream tick, a warm-up finishing — would
+    // otherwise silently eat the rest of a half-typed command. Capture where
+    // the caret was and put it back.
+    var prior = document.activeElement;
+    var hadFocus = prior && prior.hasAttribute && prior.hasAttribute("data-cli");
+    var caret = hadFocus ? prior.selectionStart : null;
+
     mount.dataset.exp = exp().id;
     mount.innerHTML = exp().render(state);
     wireSurface();
@@ -117,11 +125,28 @@
     if (input) {
       input.value = cliValue;
       paintGhost();
-      // The prompt is where you are unless you deliberately went to the columns.
-      if (!state.columnFocus && !keepCli) input.focus();
+      if (hadFocus || (!state.columnFocus && !keepCli)) {
+        input.focus();
+        var at = caret == null ? cliValue.length : Math.min(caret, cliValue.length);
+        try { input.setSelectionRange(at, at); } catch { /* not a text input */ }
+      }
     }
     var cur = mount.querySelector('.cn-col[data-focus="true"] .cn-item[aria-current="true"]');
     if (cur) cur.scrollIntoView({ block: "nearest" });
+  }
+
+  /** Move the menu highlight without re-rendering the input under the caret. */
+  function highlightCandidate() {
+    var menu = document.querySelector(".cn-menu");
+    if (!menu) return;
+    Array.prototype.forEach.call(menu.children, function (el, i) {
+      if (i === state.candIndex) {
+        el.setAttribute("aria-current", "true");
+        el.scrollIntoView({ block: "nearest" });
+      } else {
+        el.removeAttribute("aria-current");
+      }
+    });
   }
 
   function paintGhost() {
@@ -449,6 +474,13 @@
     }
   }
 
+  /** Does this line already name a command the console can run itself? */
+  function isCommand(text) {
+    var first = String(text || "").trim().split(/\s+/)[0];
+    if (!first) return false;
+    return window.NB_COMPLETE.COMMANDS.some(function (c) { return c.name === first; });
+  }
+
   function focusCli() {
     var el = $("[data-cli]");
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
@@ -498,6 +530,7 @@
         var menu = mount.querySelector(".cn-menu");
         var wrap = mount.querySelector(".cn-cli");
         if (wrap) wrap.dataset.open = String(!!(state.completion && state.completion.candidates.length > 1));
+        state.candIndex = 0;
         if (menu) {
           menu.innerHTML = (state.completion ? state.completion.candidates : []).slice(0, 40)
             .map(function (c, i) {
@@ -511,12 +544,26 @@
         if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
         if (ev.key === "Enter") {
           ev.preventDefault();
+          var cc = state.completion;
+          // A highlighted candidate is a choice already made; Enter accepts it
+          // rather than running a half-typed line.
+          if (cc && cc.candidates.length > 1 && state.candIndex > 0) {
+            cliValue = cliValue.slice(0, cc.replaceFrom) + cc.candidates[state.candIndex].value;
+            cli.value = cliValue;
+            recompute();
+            render(true);
+            focusCli();
+            return;
+          }
           var text = cli.value;
           cliValue = "";
           cli.value = "";
           recompute();
-          // The toggle decides how the same box is read: a command, or intent.
-          if (state.ai) { render(true); return ask(text); }
+          // AI mode is a superset of CLI, not a replacement. Anything that is
+          // already a valid command runs directly: sending `cd ..` to a model
+          // is slower, less reliable, and fails outright while the model is
+          // still downloading. Interpretation is for input that needs it.
+          if (state.ai && !isCommand(text)) { render(true); return ask(text); }
           return run(text);
         }
         if (ev.key === "Escape") {
@@ -541,6 +588,15 @@
         }
         if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
           ev.preventDefault();
+          var c = state.completion;
+          // With a menu open, the arrows belong to the menu; history is what
+          // they mean only when there is nothing to choose between.
+          if (c && c.candidates.length > 1) {
+            var n = c.candidates.length;
+            state.candIndex = ((state.candIndex + (ev.key === "ArrowDown" ? 1 : -1)) % n + n) % n;
+            highlightCandidate();
+            return;
+          }
           if (!state.history.length) return;
           var dir = ev.key === "ArrowUp" ? 1 : -1;
           state.histIndex = Math.max(-1, Math.min(state.history.length - 1, state.histIndex + dir));
@@ -623,8 +679,62 @@
     });
   }
 
+  /**
+   * Acquire the model as early as the browser permits.
+   *
+   * Chrome refuses `LanguageModel.create()` without a user gesture while the
+   * model still needs downloading — "Requires a user gesture when availability
+   * is downloading or downloadable" — so warming unconditionally at load fails
+   * on a first visit and succeeds on every visit after, which is a confusing
+   * thing to ship. Once it is cached, availability reports "available" and it
+   * warms with no interaction at all.
+   *
+   * Either way it happens once and the session is reused for every turn.
+   */
+  async function warmModel() {
+    if (!window.NB_AGENT || !window.NB_AGENT.warm) return;
+    var avail = await window.NBResilient.availability();
+
+    if (avail === "absent" || avail === "unavailable") {
+      state.ai = false;
+      render(true);
+      return status("no on-device model here — cli mode, Alt+A to switch");
+    }
+
+    if (avail === "available") {
+      status("loading the on-device model…");
+      await window.NB_AGENT.warm(function (m) { if (!state.busy) status(m); });
+      var st = window.NBResilient.modelState();
+      if (st.state !== "ready") { state.ai = false; render(true); }
+      return status(st.state === "ready"
+        ? "model ready — ai mode. Alt+A for cli."
+        : "model unavailable (" + (st.error || "unknown") + ") — cli mode, Alt+A to switch");
+    }
+
+    // Needs downloading, so it needs a gesture. Say so plainly and take the
+    // first one that arrives rather than nagging.
+    status("ai needs to fetch the on-device model once — press any key or click to start");
+    var armed = false;
+    var start = async function () {
+      if (armed) return;
+      armed = true;
+      window.removeEventListener("keydown", start, true);
+      window.removeEventListener("pointerdown", start, true);
+      status("fetching the on-device model, once…");
+      await window.NB_AGENT.warm(function (m) { if (!state.busy) status(m); });
+      var st2 = window.NBResilient.modelState();
+      if (st2.state !== "ready") { state.ai = false; render(true); }
+      status(st2.state === "ready"
+        ? "model ready — ai mode. Alt+A for cli."
+        : "model unavailable (" + (st2.error || "unknown") + ") — cli mode, Alt+A to switch");
+    };
+    window.addEventListener("keydown", start, true);
+    window.addEventListener("pointerdown", start, true);
+  }
+
   function boot() {
     setTheme(0);
+    warmModel();
     var tsel = $("[data-theme-select]");
     if (tsel) {
       window.NB_THEMES.forEach(function (t) {

@@ -71,6 +71,10 @@
     };
   }
 
+  function baseSystemPrompt() {
+    return systemPrompt({ cwd: "/channels/general", here: [] });
+  }
+
   function systemPrompt(ctx) {
     return [
       "You operate a terminal board for a software community. The board is a filesystem.",
@@ -113,14 +117,13 @@
       return null;
     }
 
-    var session = null;
+    var session;
     try {
       emit({ type: EVENT.THINKING_START, runId: runId });
+      // The shared session, warmed at boot. Turns after the first pay nothing.
       session = await R.withRetry(function () {
-        return R.openSession({
+        return R.session({
           report: function (m, k) { emit({ type: "PROGRESS", runId: runId, message: m, kind: k }); },
-          signal: ctx.signal,
-          initialPrompts: [{ role: "system", content: systemPrompt(ctx) }],
         });
       }, { tries: 2, report: function (m) { emit({ type: "PROGRESS", runId: runId, message: m }); }, signal: ctx.signal });
 
@@ -132,9 +135,12 @@
       // loops forever is just a slower way to fail.
       while (attempt < 2) {
         attempt += 1;
+        // Context travels with the turn, because the session is shared and its
+        // system prompt was fixed when it was warmed.
+        var where = "\n\n[you are at " + ctx.cwd + "; here: " + ctx.here.slice(0, 24).join(", ") + "]";
         var ask = attempt === 1
-          ? input
-          : input + "\n\nThat failed: " + lastError + "\nChoose a different tool or a path that exists.";
+          ? input + where
+          : input + where + "\nThat failed: " + lastError + "\nChoose a different tool or a path that exists.";
 
         var raw;
         try {
@@ -205,13 +211,20 @@
       if (err && err.name === "AbortError") {
         emit({ type: EVENT.RUN_ERROR, runId: runId, message: "cancelled" });
       } else {
+        // A session can be evicted under memory pressure. Drop the shared one so
+        // the next turn rebuilds rather than reusing a corpse forever.
+        if (R.isTransient(err)) R.invalidate();
         emit({ type: EVENT.RUN_ERROR, runId: runId, message: (err && err.message) || String(err) });
       }
       return null;
-    } finally {
-      if (session && session.destroy) { try { session.destroy(); } catch { /* already gone */ } }
     }
   }
 
-  window.NB_AGENT = { run: run, EVENT: EVENT, TOOLS: TOOLS };
+  /** Start acquiring the model now, so the first message is not the one that waits. */
+  function warm(report) {
+    return window.NBResilient.warm({ initialPrompt: baseSystemPrompt(), report: report })
+      .catch(function () { /* reported through modelState; CLI mode is unaffected */ });
+  }
+
+  window.NB_AGENT = { run: run, warm: warm, EVENT: EVENT, TOOLS: TOOLS };
 })();

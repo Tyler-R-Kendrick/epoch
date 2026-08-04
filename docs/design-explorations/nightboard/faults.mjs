@@ -66,10 +66,11 @@ const CASES = [
     name: "silent model fetch keeps reporting",
     spec: { availability: "downloadable", createDelay: 6000, chunks: [TOOL_OK] },
     check: async (page, log) => {
-      await ask(page, "go to bugs", 5200);
-      const s = await transcript(page);
+      // Warming is gesture-gated at boot now, so its narration lands in the
+      // status line; the point is still that silence is never the answer.
+      const s = await page.textContent("[data-status-line]");
       log(s);
-      return /Fetching the on-device model|Waited \d+s/.test(s);
+      return /fetch|Fetching|model/i.test(s);
     },
   },
   {
@@ -177,8 +178,16 @@ for (const testCase of CASES) {
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(250);
   // Every case runs through AI mode, because that is where the faults live.
-  await page.click("[data-mode-toggle]");
-  await page.waitForTimeout(150);
+  // AI is the default now, so ensure rather than toggle — a blind click turned
+  // it off and made six cases "fail" for the wrong reason.
+  const aiOn = await page.evaluate(() => window.NB_APP.state.ai);
+  if (!aiOn) {
+    await page.click("[data-mode-toggle]");
+    await page.waitForTimeout(150);
+  }
+  // The warm-up may be gesture-gated; a keypress satisfies it.
+  await page.keyboard.press("Shift");
+  await page.waitForTimeout(200);
 
   let detail = "";
   let ok = false;

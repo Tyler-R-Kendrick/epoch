@@ -94,9 +94,10 @@ Pointer and touch are peers, not fallbacks: every entry, breadcrumb segment and
 view chip is a real button, columns swipe with scroll-snap on a phone, and every
 control clears the 32px floor wherever the pointer is coarse.
 
-### The input box: CLI or AI
+### The input box: AI or CLI
 
-One box, two readings, toggled with the chip at the prompt or `Alt+A`.
+One box, two readings. **AI is the default**; `Alt+A` or the chip at the prompt
+switches.
 
 **CLI** — the text is a command. Wrong input is an error, which is what a shell
 owes you.
@@ -105,6 +106,11 @@ owes you.
 calls, and a failed call is **repaired rather than rejected**: the error is fed
 back once and the agent chooses again. "take me to the bug reports" lands at
 `/channels/bugs` even when the first attempt guesses `/chat/bugz`.
+
+**AI mode is a superset of CLI, not a replacement.** Anything that is already a
+valid command runs directly — sending `cd ..` to a model is slower, less
+reliable, and fails outright while the model is still downloading.
+Interpretation is for input that needs it.
 
 The agent speaks [AG-UI](https://github.com/ag-ui-protocol) — the Agent-User
 Interaction Protocol from CopilotKit — so the console is a plain event consumer
@@ -119,6 +125,28 @@ Its tools are the console's own verbs — `navigate`, `view`, `search`, `theme`,
 *"make everything blue"* and the board restyles, because a separate window for
 changing the look was one more place to go for something you should be able to
 ask for.
+
+### The model is acquired once
+
+The session is warmed at load and **reused for every turn**. The first version
+opened and destroyed one per message, so every message paid the full startup
+cost.
+
+Chrome refuses `LanguageModel.create()` without a user gesture while the model
+still needs downloading — *"Requires a user gesture when availability is
+downloading or downloadable"*. So on a first visit the board says it needs one
+fetch and starts on your first keypress or click; on every visit after,
+availability reports `available` and it warms with no interaction. The download
+itself lives in the browser profile, so it survives reloads.
+
+If warming fails, the status line names the reason and the board drops to CLI
+mode rather than leaving AI on and silently broken.
+
+**Testing note.** Playwright's bundled Chromium ships a *placeholder*
+`LanguageModel`: `create()` resolves, `downloadprogress` fires, and `prompt()`
+returns "On-device model is not available in Chromium, this API is just a
+placeholder". Every AI-mode result in the fault suite is therefore against an
+injected mock, and real behaviour needs Chrome with the model present.
 
 ### The prompt has focus
 
@@ -136,7 +164,10 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
 - **`cd` resolves like completion does.** `cd bugs` and `cd tuner` work from
   anywhere; execution refusing what completion offered made the completion look
   like a liar.
-- **Tab discipline**, history on `↑↓`, `cd -`.
+- **Arrows belong to the menu when it is open.** `↑↓` walk the candidates and
+  `Enter` accepts the highlighted one; they only mean history when there is
+  nothing to choose between.
+- **Tab discipline**, `cd -`, and `..` completes.
 
 ### Views
 

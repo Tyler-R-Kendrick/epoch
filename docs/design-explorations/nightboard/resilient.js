@@ -185,7 +185,87 @@
     throw lastError;
   }
 
+  /* ── One session, warmed once ───────────────────────────────────────────
+   *
+   * The first version opened a session per turn and destroyed it in `finally`,
+   * so every message paid the full startup cost and the model was effectively
+   * re-acquired each time. The download itself persists in the browser profile
+   * across reloads; what did not persist was any attempt to hold on to it.
+   *
+   * This keeps exactly one session, starts warming it at boot, and hands the
+   * same one to every turn. It is only rebuilt if it actually breaks — a
+   * session can be evicted under memory pressure, and pretending otherwise
+   * would trade one bug for a worse one.
+   */
+  var shared = { session: null, promise: null, prompt: null, state: "cold", error: null };
+  var READY_KEY = "nb-model-ready";
+
+  function wasReadyBefore() {
+    try { return window.localStorage.getItem(READY_KEY) === "1"; } catch { return false; }
+  }
+  function rememberReady() {
+    try { window.localStorage.setItem(READY_KEY, "1"); } catch { /* private mode */ }
+  }
+
+  /**
+   * Begin acquiring the model. Safe to call repeatedly — the same promise comes
+   * back, so a click during warm-up joins the in-flight load instead of racing
+   * a second one.
+   */
+  function warm(opts) {
+    var o = opts || {};
+    if (shared.promise) return shared.promise;
+    shared.state = "warming";
+    shared.prompt = o.initialPrompt || null;
+    shared.promise = (async function () {
+      var avail = await availability();
+      if (avail === "absent" || avail === "unavailable") {
+        shared.state = "unavailable";
+        throw new Error("no on-device model in this browser");
+      }
+      var session = await openSession({
+        report: o.report || function () {},
+        initialPrompts: shared.prompt ? [{ role: "system", content: shared.prompt }] : undefined,
+      });
+      shared.session = session;
+      shared.state = "ready";
+      shared.error = null;
+      rememberReady();
+      return session;
+    })();
+    shared.promise.catch(function (err) {
+      // Record why, and leave the state saying "failed" rather than "warming".
+      // A warm-up that dies silently leaves the UI claiming it is still loading
+      // forever, which is the same lie as a spinner that never resolves.
+      shared.state = "failed";
+      shared.error = (err && err.message) || String(err);
+      shared.promise = null;
+    });
+    return shared.promise;
+  }
+
+  /** The shared session, warming it first if nobody has yet. */
+  async function session(opts) {
+    if (shared.session) return shared.session;
+    return warm(opts);
+  }
+
+  /** Drop the shared session so the next turn rebuilds it. */
+  function invalidate() {
+    shared.session = null;
+    shared.promise = null;
+    shared.state = "cold";
+  }
+
+  function modelState() {
+    return { state: shared.state, error: shared.error || null, seenBefore: wasReadyBefore() };
+  }
+
   window.NBResilient = {
+    warm: warm,
+    session: session,
+    invalidate: invalidate,
+    modelState: modelState,
     availability: availability,
     openSession: openSession,
     streamPrompt: streamPrompt,
