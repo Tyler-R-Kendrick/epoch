@@ -14,6 +14,18 @@ import { buildCommunitySpaces, defaultCommunityIdForRepo } from "./spaces";
  * non-empty; otherwise fall back to an explicitly labeled snapshot demo feed.
  * Live connected mode never mixes hard-coded demos into product activity.
  */
+
+/**
+ * Channel messages read in the order they were sent. Builder order grouped by
+ * source (social fixtures, then agent members, then forge items), which put a
+ * 09:40 agent reply after a 09:47 human one in the same thread.
+ */
+export function byTime(
+  conversations: readonly CommunityConversationView[],
+): readonly CommunityConversationView[] {
+  return [...conversations].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+}
+
 export function buildCommunityFeed(options: BuildCommunityFeedOptions): CommunityFeedBuildResult {
   const issues = options.repositories.flatMap((repo) =>
     repo.issues.map((issue) => ({
@@ -43,7 +55,7 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
   if (options.apiConnected && hasApiActivity) {
     return {
       source: "api",
-      conversations: [
+      conversations: byTime([
         // These are seeded community fixtures, not API activity. Labelling them
         // "api" contradicted the contract three lines above and presented demo
         // content as live product state — the exact dishonesty this product
@@ -52,7 +64,7 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
         ...agentMemberConversations(spaces, options.repositories[0]?.slug ?? "epoch/epoch", "snapshot"),
         ...apiIssueConversations(options.repositories),
         ...apiProposalConversations(options.repositories),
-      ],
+      ]),
       issues,
       changes,
     };
@@ -61,11 +73,11 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
   const repository = options.repositories[0];
   return {
     source: "snapshot",
-    conversations: [
+    conversations: byTime([
       ...communitySocialConversations(spaces, "snapshot"),
       ...agentMemberConversations(spaces, repository?.slug ?? "epoch/epoch", "snapshot"),
       ...snapshotConversations(repository),
-    ],
+    ]),
     issues,
     changes,
   };
@@ -211,6 +223,10 @@ function communitySocialConversations(
   return spaces.flatMap((space) => {
     const items: CommunityConversationView[] = [];
     if (space.channels.some((channel) => channel.id === "general")) {
+      // #general is the product's landing screen. A single message explaining the
+      // product is a brochure, not a hangout: it demonstrates nothing about what
+      // Epoch does that Slack does not. This is a short real conversation that
+      // ends in the one move only this product makes — talk becoming signed work.
       items.push({
         id: `${space.id}-general-welcome`,
         channel: "general",
@@ -218,13 +234,80 @@ function communitySocialConversations(
         author: "maya",
         role: "maintainer",
         title: `Welcome to ${space.name}`,
-        body: "This channel is the community hangout — no repository required. Link a project only when conversation becomes signed work.",
+        body: "Hangout first. Link a project when conversation becomes work.",
         time: "09:05",
         anchor: `community://${space.slug}/general`,
         signature: `sig:${space.slug}-welcome`,
         visibility: "community",
         state: "open",
         reactions: ["wave", "follow"],
+        source,
+      });
+      items.push({
+        id: `${space.id}-general-lea-install`,
+        channel: "general",
+        communityId: space.id,
+        author: "lea",
+        role: "contributor",
+        title: "Cold installs are taking ~4 minutes",
+        body: "Same on two machines. Warm runs are fine, so I think it is the dependency cache and not the build itself.",
+        time: "09:18",
+        anchor: `community://${space.slug}/general`,
+        signature: `sig:${space.slug}-lea-install`,
+        visibility: "community",
+        state: "open",
+        reactions: ["same here"],
+        source,
+      });
+      items.push({
+        id: `${space.id}-general-nora-repro`,
+        channel: "general",
+        communityId: space.id,
+        author: "nora",
+        role: "contributor",
+        title: "Reproduced on a clean container",
+        body: "3m52s cold, 14s warm. The cache key includes the lockfile hash and the OS image tag, so it misses on every image bump.",
+        time: "09:31",
+        anchor: `community://${space.slug}/general`,
+        signature: `sig:${space.slug}-nora-repro`,
+        visibility: "community",
+        state: "open",
+        reactions: ["confirmed"],
+        source,
+      });
+      items.push({
+        id: `${space.id}-general-scout-plan`,
+        channel: "general",
+        communityId: space.id,
+        author: "scout",
+        role: "agent",
+        title: "Drafted a plan to split the cache key",
+        body: "Key on the lockfile hash only and restore the OS layer separately. Scoped to CI config; no runtime changes. Human review required before anything merges.",
+        time: "09:40",
+        anchor: `agent-run://scout/188`,
+        signature: `sig:${space.slug}-scout-188`,
+        visibility: "community",
+        state: "needs review",
+        reactions: ["tests passed"],
+        harness: "goose",
+        managedBy: "maya",
+        source,
+      });
+      items.push({
+        id: `${space.id}-general-maya-promote`,
+        channel: "general",
+        communityId: space.id,
+        author: "maya",
+        role: "maintainer",
+        title: "Promoted this thread to a signed intent",
+        body: "Carrying Nora's measurements and Scout's plan across as receipts, so the change arrives with its evidence attached.",
+        time: "09:47",
+        anchor: `community://${space.slug}/general`,
+        signature: `sig:${space.slug}-maya-promote`,
+        visibility: "community",
+        state: "promoted",
+        reactions: ["thanks"],
+        linkedArtifact: "intent://install-cache",
         source,
       });
     }

@@ -153,7 +153,7 @@ ${communityStyles()}
         </button>
         <div class="feed-heading">
           <h1 id="community-title">${escapeHtml(activeCommunity?.name ?? "Community")}</h1>
-          <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)} · community channel</p>
+          <p class="feed-repo" data-context-sub># ${escapeHtml(defaultChannel)}</p>
         </div>
         <div class="repository-meta" data-header-meta role="status" aria-label="Community state">
           ${renderStateChip(live, snapshotMode)}
@@ -187,7 +187,7 @@ ${communityStyles()}
       </div>
       <div class="surface-stage" data-surface-panel="channels">
         <ol class="message-feed" data-message-feed aria-label="Community channel messages">
-          ${renderChannelOrigin(defaultChannel, activeCommunity?.name ?? "this community")}
+          ${renderChannelOrigin(defaultChannel)}
           ${conversations.map((conversation) => renderConversation(conversation, defaultChannel, activeCommunityId)).join("")}
           ${asListState(
             renderEmptyState(defaultChannelEmptyCopy),

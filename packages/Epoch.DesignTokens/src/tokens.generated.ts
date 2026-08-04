@@ -6,16 +6,16 @@ export const epochTokens = {
     primary: "#0f1614",
     secondary: "#5c6762",
     tertiary: "#b4532f",
-    neutral: "#f3f6f4",
-    surface: "#f3f6f4",
+    neutral: "#ecefea",
+    surface: "#ecefea",
     "surface-raised": "#ffffff",
-    "surface-sunken": "#e8eeeb",
+    "surface-sunken": "#dfe4dd",
     ink: "#0f1614",
     "ink-soft": "#2d3531",
     "ink-faint": "#a0aaa4",
     muted: "#5c6762",
-    line: "#d7e0db",
-    "line-strong": "#b0bfb7",
+    line: "#d2d9d2",
+    "line-strong": "#a6b1a8",
     accent: "#b4532f",
     "accent-strong": "#8f3f28",
     teal: "#2a6f6c",
@@ -47,28 +47,28 @@ export const epochTokens = {
     },
     headline: {
       fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
-      fontSize: "1.25rem",
+      fontSize: "1.375rem",
       fontWeight: 700,
       lineHeight: 1.2,
-      letterSpacing: "-0.01em",
+      letterSpacing: "-0.015em",
     },
     title: {
       fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
-      fontSize: "0.98rem",
+      fontSize: "1.0625rem",
       fontWeight: 700,
       lineHeight: 1.25,
       letterSpacing: "0em",
     },
     body: {
       fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
-      fontSize: "0.94rem",
+      fontSize: "0.9375rem",
       fontWeight: 400,
       lineHeight: 1.5,
       letterSpacing: "0em",
     },
     label: {
       fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
-      fontSize: "0.78rem",
+      fontSize: "0.8125rem",
       fontWeight: 650,
       lineHeight: 1.2,
       letterSpacing: "0em",
@@ -101,16 +101,16 @@ export const epochTokensCss: string = `:root {
   --epoch-color-primary: #0f1614;
   --epoch-color-secondary: #5c6762;
   --epoch-color-tertiary: #b4532f;
-  --epoch-color-neutral: #f3f6f4;
-  --epoch-color-surface: #f3f6f4;
+  --epoch-color-neutral: #ecefea;
+  --epoch-color-surface: #ecefea;
   --epoch-color-surface-raised: #ffffff;
-  --epoch-color-surface-sunken: #e8eeeb;
+  --epoch-color-surface-sunken: #dfe4dd;
   --epoch-color-ink: #0f1614;
   --epoch-color-ink-soft: #2d3531;
   --epoch-color-ink-faint: #a0aaa4;
   --epoch-color-muted: #5c6762;
-  --epoch-color-line: #d7e0db;
-  --epoch-color-line-strong: #b0bfb7;
+  --epoch-color-line: #d2d9d2;
+  --epoch-color-line-strong: #a6b1a8;
   --epoch-color-accent: #b4532f;
   --epoch-color-accent-strong: #8f3f28;
   --epoch-color-teal: #2a6f6c;
@@ -146,19 +146,19 @@ export const epochTokensCss: string = `:root {
   --epoch-type-display-weight: 750;
   --epoch-type-display-leading: 1.05;
   --epoch-type-display-tracking: -0.02em;
-  --epoch-type-headline-size: 1.25rem;
+  --epoch-type-headline-size: 1.375rem;
   --epoch-type-headline-weight: 700;
   --epoch-type-headline-leading: 1.2;
-  --epoch-type-headline-tracking: -0.01em;
-  --epoch-type-title-size: 0.98rem;
+  --epoch-type-headline-tracking: -0.015em;
+  --epoch-type-title-size: 1.0625rem;
   --epoch-type-title-weight: 700;
   --epoch-type-title-leading: 1.25;
   --epoch-type-title-tracking: 0em;
-  --epoch-type-body-size: 0.94rem;
+  --epoch-type-body-size: 0.9375rem;
   --epoch-type-body-weight: 400;
   --epoch-type-body-leading: 1.5;
   --epoch-type-body-tracking: 0em;
-  --epoch-type-label-size: 0.78rem;
+  --epoch-type-label-size: 0.8125rem;
   --epoch-type-label-weight: 650;
   --epoch-type-label-leading: 1.2;
   --epoch-type-label-tracking: 0em;

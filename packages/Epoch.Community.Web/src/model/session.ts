@@ -20,12 +20,12 @@ export function resolveSessionAuthNote(authState: CommunityAuthState): string {
     case "authenticated":
       return "AT session linked";
     case "api-session":
-      return "live API session · AT OAuth not linked";
+      return "AT not linked";
     case "unauthenticated":
       return "not signed in";
     case "sample-session":
     default:
-      return "session sample · not AT login";
+      return "sample session";
   }
 }
 
@@ -42,4 +42,22 @@ export function withLiveAgentSessions(
       ? { ...agent, sessionKind: "live" as const, status: agent.status === "idle" ? "working" : agent.status }
       : agent
   );
+}
+
+/**
+ * The unshortened statement behind the chip's short label. The visible chip is
+ * three lines in a 250px rail, so the long form lives on the chip's title
+ * instead of being dropped: shortening the label must not lose the fact.
+ */
+export function resolveSessionAuthDetail(authState: CommunityAuthState): string {
+  switch (authState) {
+    case "authenticated":
+      return "AT Protocol session linked";
+    case "api-session":
+      return "Live Community API session; AT Protocol OAuth is not linked";
+    case "unauthenticated":
+      return "Not signed in";
+    default:
+      return "Sample session; not an AT Protocol login";
+  }
 }

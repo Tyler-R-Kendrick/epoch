@@ -1,5 +1,5 @@
 import type { CommunitySessionIdentity } from "../model/types";
-import { resolveSessionAuthNote } from "../model/session";
+import { resolveSessionAuthDetail, resolveSessionAuthNote } from "../model/session";
 import { escapeHtml } from "./html";
 
 /**
@@ -9,7 +9,8 @@ import { escapeHtml } from "./html";
  */
 export function renderIdentityChip(session: CommunitySessionIdentity): string {
   const note = resolveSessionAuthNote(session.authState);
-  return `<span class="identity-chip" data-identity-chip data-auth-state="${escapeHtml(session.authState)}" title="Portable ATProto identity (${escapeHtml(note)})">
+  const detail = resolveSessionAuthDetail(session.authState);
+  return `<span class="identity-chip" data-identity-chip data-auth-state="${escapeHtml(session.authState)}" title="Portable ATProto identity — ${escapeHtml(detail)}">
             <span class="identity-handle">@${escapeHtml(session.handle.replace(/^@/, ""))}</span>
             <span class="identity-did">${escapeHtml(session.did)}</span>
             <span class="identity-auth-note" data-auth-note>${escapeHtml(note)}</span>

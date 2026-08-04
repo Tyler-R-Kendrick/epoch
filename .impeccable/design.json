@@ -1,13 +1,13 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-03T00:00:00.0000000Z",
+  "generatedAt": "2026-08-04T00:00:00.0000000Z",
   "title": "Design System: Epoch Community",
   "extensions": {
     "colorMeta": {
       "surface": {
         "role": "neutral",
         "displayName": "Mist Surface",
-        "canonical": "#f3f6f4",
+        "canonical": "#ecefea",
         "tonalRamp": ["#1d2724", "#34413d", "#4f5d59", "#6d7d78", "#8fa19b", "#b4c5bf", "#d6e3df", "#f3f6f4"]
       },
       "surface-raised": {

@@ -184,7 +184,7 @@ export function createPlatformWebApp(options: CreatePlatformWebAppOptions = {}):
       startUrl: basePath,
       display: "standalone",
       themeColor: "#0f1614",
-      backgroundColor: "#f3f6f4",
+      backgroundColor: "#ecefea",
       offlineShell: true,
     },
     routes,
