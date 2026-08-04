@@ -44,3 +44,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | None; cucumber 13/13; gate:push green |
 | Notes | Skeptic gaps closed: persistence (file), identity (api-session), receipt/promote tests, scorecard docs consistent. Residual: multi-node HA, full AT OAuth, real ACP process, deep merge trail. `/sdlc finish` final 2026-08-03. |
+
+## 2026-08-03 — Community Web design redesign (rejected round reworked)
+
+| Field | Value |
+|---|---|
+| Initiative | [`community-design-redesign`](community-design-redesign/sdlc-state.md) |
+| Backend | Sequential; coordinator inline with subagent critique |
+| PRs | `community-experience-redesign` — 24 commits |
+| Design critique | 3 rounds; round 1 FAIL 0/8 auto-fails clear, round 2 FAIL 3/8, round 3 worked the list |
+| Result | **success** |
+| Failure class | None. One process failure caught by the reviewer: evidence generated mid-change did not depict the shipped build; regenerated last. |
+| Notes | The prior session was rejected for not changing the design. Forensics found the design personas had never run, all ten personas returned identical scores, the metrics cannot encode "ugly", `review.json` had no defect field, and the critique protocol had been executed zero times. Process teeth landed first, then the redesign was judged by the critique rather than by the author. Measured: controls under 32px 28→0, mobile chrome 83%→12%, three row components→one, thirteen button treatments→four. |
