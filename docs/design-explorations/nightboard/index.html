@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nightboard — Epoch Civic Workshop</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Chrome for the garden panel itself. It is deliberately outside the theme
+     contract: a theme must never be able to hide the controls that change it. */
+  .nb-garden{position:fixed;inset-block:0;inset-inline-end:0;width:min(30rem,94vw);z-index:40;
+    background:#0b0b0b;color:#d8d8d8;border-inline-start:1px solid #333;overflow:auto;padding:1rem 1.1rem;
+    font:13px/1.55 ui-monospace,Consolas,monospace}
+  .nb-garden[hidden]{display:none}
+  .nb-garden h2{margin:0 0 .2rem;font-size:14px;letter-spacing:.1em;text-transform:uppercase}
+  .nb-garden h3{margin:1.2rem 0 .35rem;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a}
+  .nb-garden p{margin:.3rem 0;color:#a8a8a8}
+  .nb-garden textarea,.nb-garden input{width:100%;background:#000;color:#d8d8d8;border:1px solid #333;
+    font:inherit;padding:.4rem .5rem;border-radius:0}
+  .nb-garden textarea{min-height:9rem;resize:vertical}
+  .nb-garden button{font:inherit;background:#161616;color:#e8e8e8;border:1px solid #3a3a3a;
+    padding:.42rem .7rem;cursor:pointer;min-height:2rem}
+  .nb-garden button:hover{border-color:#666}
+  .nb-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-block-start:.45rem}
+  .nb-garden [data-gen-status]{white-space:pre-wrap;margin-block-start:.5rem;padding:.45rem .55rem;border:1px solid #333;min-height:2.2rem}
+  .nb-garden [data-gen-status][data-state="ok"]{border-color:#2f7d4f;color:#9ee8b8}
+  .nb-garden [data-gen-status][data-state="rejected"]{border-color:#8a3b32;color:#ffb0a4}
+  .nb-garden [data-gen-status][data-state="busy"]{border-color:#7a6a20;color:#e8d89a}
+  .nb-garden [data-gen-availability][data-state="live"]{color:#9ee8b8}
+  .nb-garden [data-gen-availability][data-state="snapshot"]{color:#e8c98a}
+  .nb-garden a{color:#9fd0ff}
+</style>
+</head>
+<body data-theme="Nightboard" data-rail="closed">
+
+<header data-region="masthead">
+  <button type="button" data-rail-toggle class="nb-only-narrow" aria-label="Show channels">☰</button>
+  <b data-c="board">EPOCH CIVIC WORKSHOP</b>
+  <span data-c="meta">node 1 of 1</span>
+  <span data-c="meta">EPOCH 13 · 9/12 LANDED · SHIPS FRI 17:00</span>
+  <span data-c="state" data-conn data-state="live">live</span>
+  <span style="margin-inline-start:auto;display:flex;gap:.4rem;flex-wrap:wrap">
+    <button type="button" data-c="action" data-live-toggle>pause stream</button>
+    <select data-theme-select aria-label="Theme"></select>
+    <button type="button" data-c="action" data-garden-open>Garden</button>
+  </span>
+</header>
+
+<nav data-region="rail" aria-label="Board navigation">
+  <div class="nb-group-label" id="lbl-channels">CHANNELS</div>
+  <div data-channel-list role="group" aria-labelledby="lbl-channels"></div>
+
+  <div class="nb-group-label" id="lbl-members">WHO'S ON</div>
+  <div data-member-list role="group" aria-labelledby="lbl-members"></div>
+
+  <div class="nb-group-label" id="lbl-projects">LINKED PROJECTS</div>
+  <div data-project-list role="group" aria-labelledby="lbl-projects"></div>
+
+  <section data-c="legend" aria-labelledby="lbl-legend">
+    <div class="nb-group-label" id="lbl-legend">LEGEND</div>
+    <ul>
+      <li data-c="entry"><span data-c="swatch" data-state="live"></span><span data-c="label">live / healthy</span></li>
+      <li data-c="entry"><span data-c="swatch" data-state="signed"></span><span data-c="label">signed</span></li>
+      <li data-c="entry"><span data-c="swatch" data-state="needs-review"></span><span data-c="label">needs review</span></li>
+      <li data-c="entry"><span data-c="swatch" data-state="promoted"></span><span data-c="label">became work</span></li>
+      <li data-c="entry"><span data-c="swatch" data-kind="agent"></span><span data-c="label">agent</span></li>
+    </ul>
+  </section>
+</nav>
+
+<div class="nb-main">
+  <div data-region="notice" hidden aria-live="polite"></div>
+  <main data-region="stream" tabindex="-1" aria-label="Live stream"></main>
+  <section data-region="detail" hidden aria-label="Selected post"></section>
+  <form data-region="composer" onsubmit="return false">
+    <label class="nb-sr" for="nb-msg">Message this channel</label>
+    <textarea id="nb-msg" rows="1" placeholder="Type a message…"></textarea>
+    <button type="submit" data-c="action">Send</button>
+  </form>
+</div>
+
+<footer data-region="status">
+  <span data-status-line></span>
+  <span style="margin-inline-start:auto"><b data-theme-name>Nightboard</b> · <span data-theme-note></span></span>
+</footer>
+
+<aside class="nb-garden" data-garden hidden aria-label="Theme garden">
+  <h2>The garden</h2>
+  <p>Markup is fixed; themes are CSS alone. Every hook a theme can reach is in
+     <a href="CONTRACT.md">CONTRACT.md</a>.</p>
+
+  <h3>Generate on device</h3>
+  <p data-gen-availability>Checking for an on-device model…</p>
+  <input data-gen-input placeholder="a rainy harbour at midnight, cold and quiet" aria-label="Describe a theme">
+  <div class="nb-row">
+    <button type="button" data-gen-run>Generate</button>
+    <button type="button" data-export-prompt>Export prompt</button>
+  </div>
+  <div data-gen-status role="status">Describe a mood, a place, or a machine.</div>
+  <p>Runs in your browser through Chrome's built-in Prompt API. No key, no
+     server, nothing leaves the page. Output is constrained to token values and
+     re-checked here for contrast before it is allowed to apply.</p>
+
+  <h3>Edit tokens</h3>
+  <textarea data-token-editor aria-label="Theme tokens" placeholder="--nb-bg: #001b12;&#10;--nb-ink: #86f7c4;"></textarea>
+  <div class="nb-row">
+    <button type="button" data-token-apply>Apply</button>
+    <button type="button" data-token-load>Load current theme</button>
+    <button type="button" data-garden-close>Close</button>
+  </div>
+
+  <h3>On OpenUI</h3>
+  <p>OpenUI is a self-hosted Python and React app that needs an LLM backend, so
+     it cannot run inside this page — there is no npm package or embeddable
+     widget. <b>Export prompt</b> copies the contract and current tokens for use
+     there or in any other tool; paste the returned tokens into the editor above.</p>
+</aside>
+
+<script src="data.js"></script>
+<script src="themes.js"></script>
+<script src="app.js"></script>
+<script src="theme.js"></script>
+</body>
+</html>

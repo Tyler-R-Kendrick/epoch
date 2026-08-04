@@ -29,7 +29,13 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
-      globals: { window: "readonly", document: "readonly", location: "readonly", history: "readonly", addEventListener: "readonly" },
+      globals: {
+        window: "readonly", document: "readonly", location: "readonly", history: "readonly",
+        addEventListener: "readonly", setInterval: "readonly", setTimeout: "readonly",
+        navigator: "readonly", getComputedStyle: "readonly", Date: "readonly",
+        // Chrome's built-in Prompt API. Feature-detected at every call site.
+        LanguageModel: "readonly",
+      },
     },
   },
   {
