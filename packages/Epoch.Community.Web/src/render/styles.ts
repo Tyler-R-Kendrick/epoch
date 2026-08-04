@@ -1654,8 +1654,7 @@ export function communityStyles(): string {
       .composer-row > button { flex: none; }
       .feed-shell { min-height: 70vh; min-width: 0; }
       .message-action-tray dl { grid-template-columns: 1fr; }
-      /* Orientation is worth three lines on a desktop; on a phone it must not
-         push the first message past the fold. */
+    }
 
     @media (max-width: 800px) and (max-height: 600px) {
       .channel-rail {

@@ -13,5 +13,7 @@
   ],
   "artifactSha256": "89c5a5091acb9ae3ac8ca46954b0c7f446a7b0593e1c8996e7606e546ee79e59",
   "reviewedAt": "2026-08-01T19:05:00.181Z",
-  "notes": "Playback shows 200 percent zoom with reduced motion, a 288 pixel bounded rail, visible community content, focus progression, and no horizontal overflow."
+  "notes": "Playback shows 200 percent zoom with reduced motion, a 288 pixel bounded rail, visible community content, focus progression, and no horizontal overflow.",
+  "defects": [],
+  "authoredBy": "codex-root"
 }

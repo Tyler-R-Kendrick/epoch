@@ -109,6 +109,10 @@ this pass. Measured from a 390×844 capture, not from a desktop screenshot squin
   390-wide screen.
 - **Reading:** any content text clipped horizontally instead of wrapping.
 - **Targets:** any tappable control under **32px**; primary actions under **36px**.
+  These are the DESIGN.md contract floors and they are what the gate fails on.
+  My own preference is **44px** (stated in Constraints above) — I record anything
+  between the contract floor and 44px as a finding, not as a gate breach, so the
+  bar cannot demand something the design contract forbids.
 - **Compose:** no visible way to write on a surface that accepts writing.
 - **Orientation text:** more than **2** explanatory strings on a phone screen — I have
   minutes, not hours, and I did not come here to read the manual.

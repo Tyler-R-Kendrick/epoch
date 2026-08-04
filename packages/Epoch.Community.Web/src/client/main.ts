@@ -604,8 +604,11 @@ function updateUnreadBadges(): void {
 const originalText = new WeakMap<Element, string>();
 
 function highlightTargets(message: HTMLElement): HTMLElement[] {
+  // .row-heading contains the select button; rewriting its innerHTML would
+  // destroy data-select-message and the accessible name with it. Highlight the
+  // button's own text and the body copy instead.
   return Array.from(
-    message.querySelectorAll<HTMLElement>(".row-heading, .row-text"),
+    message.querySelectorAll<HTMLElement>(".row-title, .row-text"),
   );
 }
 
@@ -1058,13 +1061,13 @@ async function handleComposerSubmit(text: string): Promise<void> {
     const id = `comment-${Date.now()}`;
     if (!feed) return;
     const item = document.createElement("li");
-    item.className = "feed-message";
+    item.className = "row row-message";
     item.dataset.message = "";
     item.dataset.channel = activeChannel;
     item.dataset.communityId = activeCommunity;
     item.dataset.messageId = id;
     item.dataset.feedItemSource = "snapshot";
-    item.innerHTML = '<div class="avatar" aria-hidden="true">MY</div><article class="message-body"><header class="message-meta"><strong>maya</strong><span>maintainer</span><time>now</time><span>local only</span></header><h2>Local note</h2><p></p><footer class="message-footer"><span>anchor:composer</span><span>sig:pending-local</span><span>community</span></footer></article>';
+    item.innerHTML = '<span class="row-lead row-lead-person" aria-hidden="true">MY</span><div class="row-body"><div class="row-meta"><strong class="row-actor">maya</strong><span class="row-role">maintainer</span><time>now</time><span class="row-state">local only</span></div><h2 class="row-heading"><span class="row-title"></span></h2><p class="row-text"></p></div>';
     const paragraph = item.querySelector("p");
     if (paragraph) paragraph.textContent = body;
     feed.append(item);
@@ -1137,7 +1140,8 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
         // Stamp promote receipt on the originating message when it still exists.
         message.setAttribute("data-linked-proposal", proposal.id);
         if (!message.querySelector("[data-promote-receipt]")) {
-          const messageBody = message.querySelector(".message-body");
+          // Post-migration structure: rows use .row-body / .row-foot.
+          const messageBody = message.querySelector(".row-body");
           if (messageBody) {
             const receipt = document.createElement("div");
             receipt.className = "message-promote-receipt";
@@ -1146,7 +1150,7 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
             receipt.innerHTML = '<span class="promote-receipt-label">Signed promote</span><strong data-proposal-link>proposal:'
               + escapeHtml(proposal.id) + '</strong><span class="promote-receipt-state" data-promote-state>'
               + escapeHtml(proposal.status || "open") + " · human review required</span>";
-            const footer = messageBody.querySelector(".message-footer");
+            const footer = messageBody.querySelector(".row-foot");
             if (footer) messageBody.insertBefore(receipt, footer);
             else messageBody.appendChild(receipt);
           }

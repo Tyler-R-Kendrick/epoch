@@ -57,7 +57,7 @@ export function renderRow(input: RowInput): string {
     ${lead}
     <div class="row-body">
       ${input.meta ? `<div class="row-meta">${input.meta}</div>` : ""}
-      <h3 class="row-heading">${title}</h3>
+      <h2 class="row-heading">${title}</h2>
       ${input.body ? `<p class="row-text">${escapeHtml(input.body)}</p>` : ""}
       ${input.extra ?? ""}
       ${footParts ? `<div class="row-foot">${footParts}</div>` : ""}

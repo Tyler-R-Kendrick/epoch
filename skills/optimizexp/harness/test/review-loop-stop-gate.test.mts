@@ -808,8 +808,10 @@ describe("optimizexp criticism gates", () => {
 			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
 			const runDir = path.join(dir, ".optimizexp/runs", run);
 			mkdirSync(path.join(runDir, "iterations/001"), { recursive: true });
+			// 2/3/3 is the vector the historical runs actually shared at iteration 1.
+			// A 1/1/1 vector is the documented harm floor and is legitimately shared.
 			const cells = ["discord", "github", "bluesky", "designer"].map((persona) => ({
-				persona, surface: "web", harms: 1, friction: 1, uncertainty: 1,
+				persona, surface: "web", harms: 2, friction: 3, uncertainty: 3,
 			}));
 			writeFileSync(
 				path.join(runDir, "iterations/001/scores.json"),
@@ -822,7 +824,7 @@ describe("optimizexp criticism gates", () => {
 			);
 
 			// One dissenting voice is enough to show the panel deliberated.
-			cells[3] = { persona: "designer", surface: "web", harms: 3, friction: 2, uncertainty: 1 };
+			cells[3] = { persona: "designer", surface: "web", harms: 4, friction: 2, uncertainty: 3 };
 			writeFileSync(
 				path.join(runDir, "iterations/001/scores.json"),
 				JSON.stringify({ iteration: 1, cells, metric_total: 18, metric_max: 3 }) + "\n",
@@ -830,6 +832,19 @@ describe("optimizexp criticism gates", () => {
 			const diverged = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
 				!(diverged.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
+			);
+
+			// A converged harm floor shares one vector legitimately — that is the
+			// documented terminal state, not a fabricated panel.
+			const floor = cells.map((c) => ({ ...c, harms: 1, friction: 1, uncertainty: 1 }));
+			writeFileSync(
+				path.join(runDir, "iterations/001/scores.json"),
+				JSON.stringify({ iteration: 1, cells: floor, metric_total: 12, metric_max: 3 }) + "\n",
+			);
+			const atFloor = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				!(atFloor.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
+				"a converged harm floor must not be flagged as a fabricated panel",
 			);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });

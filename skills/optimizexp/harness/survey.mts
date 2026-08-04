@@ -456,14 +456,26 @@ function modeRankBacklog(root: string, runId: string, global: boolean) {
 			// item that says "undefined" fails assert-complete backlog integrity.
 			const outcome = (fr.desiredOutcome ?? "").trim();
 			const deliverable = outcome !== "" ? outcome : (fr.title ?? "").trim();
-			if (deliverable === "") {
-				console.error(`skip backlog item without outcome or title: ${fr.id}`);
+			// assert-complete requires id, title, problem and desiredOutcome to be
+			// non-empty and free of the literal "undefined"; emitting an item that
+			// fails that check just moves the failure to closeout.
+			const required = {
+				id: (fr.id ?? "").trim(),
+				title: (fr.title ?? "").trim(),
+				problem: (fr.problem ?? "").trim(),
+				desiredOutcome: outcome !== "" ? outcome : deliverable,
+			};
+			const missing = Object.entries(required)
+				.filter(([, value]) => value === "" || /\bundefined\b/u.test(value))
+				.map(([key]) => key);
+			if (deliverable === "" || missing.length > 0) {
+				console.error(`skip malformed backlog item ${fr.id || "(no id)"}: ${missing.join(", ") || "no outcome or title"}`);
 				continue;
 			}
 			const item: BacklogItem = {
 				id: fr.id,
 				title: fr.title,
-				problem: fr.problem,
+				problem: required.problem,
 				desiredOutcome: outcome !== "" ? outcome : deliverable,
 				hypothesis: `If we deliver "${deliverable}", positive metrics rise on ${s.surfaces?.join(", ") || "target surfaces"}.`,
 				source: fr.source || "survey",

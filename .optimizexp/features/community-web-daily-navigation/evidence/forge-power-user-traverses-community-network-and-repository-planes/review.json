@@ -13,5 +13,7 @@
   ],
   "artifactSha256": "2560d4730f6cd37a5cf89668cd43e098c89258d9b670ad02dca05b0a891e5d0a",
   "reviewedAt": "2026-08-01T19:04:58.574Z",
-  "notes": "Playback continuously traverses Network Feed, returns to the community, opens the linked repository, and reaches Issues with context retained."
+  "notes": "Playback continuously traverses Network Feed, returns to the community, opens the linked repository, and reaches Issues with context retained.",
+  "defects": [],
+  "authoredBy": "codex-root"
 }

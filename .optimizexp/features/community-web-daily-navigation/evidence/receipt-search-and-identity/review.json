@@ -12,5 +12,7 @@
   ],
   "artifactSha256": "fd5bae46ac550e214b9e97ffd6d993afe7ea49352360bb69550d3f92f1d06bdc",
   "reviewedAt": "2026-08-03T18:27:43.803Z",
-  "notes": "Playback covers cold community entry, identity sample-session honesty, receipt search for harness and intent strings, promote receipt cards on agent-runs. Full multi-persona journey for daily navigation uplift."
+  "notes": "Playback covers cold community entry, identity sample-session honesty, receipt search for harness and intent strings, promote receipt cards on agent-runs. Full multi-persona journey for daily navigation uplift.",
+  "defects": [],
+  "authoredBy": "optimizexp-persona-uplift"
 }

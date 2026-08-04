@@ -13,5 +13,7 @@
   ],
   "artifactSha256": "f33ca37601236d362e1d1c9edd357cb9726cf8a00021aa5fd2c8c0743c6618a5",
   "reviewedAt": "2026-08-01T19:04:59.388Z",
-  "notes": "Playback shows desktop hierarchy, the ideas channel, selected high-signal conversation, provenance fields, action tray, and composer."
+  "notes": "Playback shows desktop hierarchy, the ideas channel, selected high-signal conversation, provenance fields, action tray, and composer.",
+  "defects": [],
+  "authoredBy": "codex-root"
 }

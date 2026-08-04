@@ -13,5 +13,7 @@
   ],
   "artifactSha256": "1860e2866e7541e08520c52671f0e488f3f181b1d46ebfdf443d8b75150d7384",
   "reviewedAt": "2026-08-01T19:04:58.178Z",
-  "notes": "Playback shows the snapshot-labeled entry and persistent banner with the concrete reconnect, reload, and retry guidance."
+  "notes": "Playback shows the snapshot-labeled entry and persistent banner with the concrete reconnect, reload, and retry guidance.",
+  "defects": [],
+  "authoredBy": "codex-root"
 }

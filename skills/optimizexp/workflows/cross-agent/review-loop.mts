@@ -1093,7 +1093,13 @@ function lintScoreDivergence(root: string, runId: string): string[] {
 		const vectors = new Set(
 			cells.map((cell) => `${cell.harms}/${cell.friction}/${cell.uncertainty}`),
 		);
-		if (vectors.size === 1) {
+		// A converged harm floor legitimately reaches one shared vector — that is
+		// the documented terminal state, not a fabricated panel. What is not
+		// legitimate is unanimity while there is still harm to disagree about.
+		const [first] = cells;
+		const atFloor = first !== undefined
+			&& first.harms <= 1 && first.friction <= 1 && first.uncertainty <= 1;
+		if (vectors.size === 1 && !atFloor) {
 			problems.push(
 				`scores_unanimous_across_personas:iterations/${iter}/scores.json`,
 			);

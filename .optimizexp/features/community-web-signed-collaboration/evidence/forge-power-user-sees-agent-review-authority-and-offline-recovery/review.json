@@ -13,5 +13,7 @@
   ],
   "artifactSha256": "a580189f0994c9066b00a0be5be93d8bf30939964ca2ceceea085b54a5b87616",
   "reviewedAt": "2026-08-01T19:19:34.495Z",
-  "notes": "Fresh playback and final frame show the full rollback digest in a compact four-fact grid while snapshot recovery and signed-action authority remain visible."
+  "notes": "Fresh playback and final frame show the full rollback digest in a compact four-fact grid while snapshot recovery and signed-action authority remain visible.",
+  "defects": [],
+  "authoredBy": "app-builder-design-power-user"
 }

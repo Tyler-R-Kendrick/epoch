@@ -24,7 +24,9 @@ describe("evidence review gate", () => {
 			seed(root, {
 				status: "accepted", reviewer: "qa", relevance: "relevant",
 				completeness: "complete", coverageMode: "full-journey",
-				coveredClaims: ["claim-1"], artifactSha256: "abc",
+				coveredClaims: ["claim-1"],
+				defects: [],
+				authoredBy: "capture-run", artifactSha256: "abc",
 				notes: "Playback covers the complete command and visible outcome.",
 			});
 			assert.deepEqual(validateEvidenceReview(root), []);

@@ -50,7 +50,6 @@ function runServe(args: readonly string[], io: CliIO): number {
   });
 
   // Hold event loop open.
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   started.then((server) => {
     io.stdout.write(`epoch-git serve listening at ${server.url}\n`);
     io.stdout.write(`gitCloneUrl ${server.gitCloneUrl}\n`);

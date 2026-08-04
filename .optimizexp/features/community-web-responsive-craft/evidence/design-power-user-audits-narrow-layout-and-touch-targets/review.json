@@ -13,5 +13,7 @@
   ],
   "artifactSha256": "1334ecfc45899dbbcebe55f317b50fe012ac07e4a4afdbebb20849a37f9b6d0a",
   "reviewedAt": "2026-08-01T19:04:59.785Z",
-  "notes": "Playback shows horizontal narrow navigation, the selected ideas conversation and action tray, no overlap, 28 pixel minimum control, and reachable composer."
+  "notes": "Playback shows horizontal narrow navigation, the selected ideas conversation and action tray, no overlap, 28 pixel minimum control, and reachable composer.",
+  "defects": [],
+  "authoredBy": "codex-root"
 }

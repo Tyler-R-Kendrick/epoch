@@ -273,19 +273,29 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
   assert.equal(liveFeed.source, "api");
   assert.equal(liveFeed.issues.length, 2);
   assert.equal(liveFeed.changes.length, 1);
-  assert.ok(liveFeed.conversations.every((item) => item.source === "api"));
+  // Conversations derived from repository state are API activity. Seeded community
+  // fixtures are not — they stay visible but stay labelled snapshot, because calling
+  // demo content "api" is the deception this product exists to refuse.
+  assert.ok(
+    liveFeed.conversations
+      .filter((item) => item.id.startsWith("issue-") || item.id.startsWith("change-"))
+      .every((item) => item.source === "api"),
+  );
+  assert.ok(
+    liveFeed.conversations.every((item) => item.source === "api" || item.source === "snapshot"),
+  );
   assert.ok(liveFeed.conversations.some((item) => item.channel === "ideas" && item.id === "issue-IDEA-3"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "bugs" && item.id === "issue-BUG-17"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "previews" && item.linkedProposalId === "CHANGE-12"));
   // Member-agent samples are intentional on the live path (Buzz agents-as-members),
-  // labeled source=api — not mixed snapshot forge demos.
+  // but they are samples, so they carry source=snapshot rather than posing as API activity.
   assert.ok(
     liveFeed.conversations.some((item) => item.role === "agent" && item.id === "agent-handoff-scout" && item.harness === "goose"),
     "live API feed includes member-agent handoff samples with harness",
   );
   assert.ok(
-    liveFeed.conversations.filter((item) => item.role === "agent").every((item) => item.source === "api"),
-    "member-agent samples on live path use api source labels",
+    liveFeed.conversations.filter((item) => item.role === "agent").every((item) => item.source === "snapshot"),
+    "member-agent samples on live path are labelled snapshot, not api",
   );
   assert.equal(
     liveFeed.conversations.some((item) => item.id === "idea-region-revenue" || item.id === "support-install-cache"),

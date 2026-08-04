@@ -72,6 +72,7 @@ function parseArgs(argv: string[]) {
 		else if (a === "--complete") out.complete = argv[++i] ?? "";
 		else if (a === "--covered-claims") out.coveredClaims = argv[++i] ?? "";
 		else if (a === "--notes") out.notes = argv[++i] ?? "";
+		else if (a === "--defects") out.defects = argv[++i] ?? "";
 		else if (a === "--project" || a === "--projects") {
 			const v = argv[++i] ?? "";
 			out.projects = out.projects ? `${out.projects},${v}` : v;
@@ -91,6 +92,7 @@ Modes:
                  [--command '…'] [--url https://…] [--native-cmd '…'] [--run-id …]
   review         --feature <id> --scenario <slug> --reviewer <id>
                  [--relevant yes|no] [--complete yes|no] [--covered-claims all|id,…]
+                 [--defects '[{"element":…,"observation":…,"measurement":…,"severity":"P1"}]']
   stitch         --feature <id> --scenario <slug>
   validate       [--feature <id>] [--strict]
 
@@ -99,6 +101,14 @@ Evidence is written to:
   or <project>/.optimizexp/features/<feature>/evidence/…    (project-local)
 and overwrites the previous primary artifact for that scenario.
 `);
+}
+
+function readJson<T>(file: string): T | null {
+	try {
+		return JSON.parse(readFileSync(file, "utf8")) as T;
+	} catch {
+		return null;
+	}
 }
 
 function resolveFeatureLoc(
@@ -489,13 +499,22 @@ function review(args: Record<string, string>) {
 		? all
 		: args.coveredClaims.split(/[,.\s]+/).filter(Boolean);
 	const accepted = relevant && complete && covered.length === all.length && all.every((id) => covered.includes(id));
+	// Preserve the fields capture() seeded. Rewriting review.json from a fresh
+	// literal dropped authoredBy and defects, so every reviewed capture failed
+	// validation on the very checks that make a review more than a confirmation.
+	const seeded = readJson<Record<string, unknown>>(path.join(dir, "review.json")) ?? {};
+	const defects = Array.isArray(args.defects ? JSON.parse(args.defects) : seeded.defects)
+		? (args.defects ? JSON.parse(args.defects) : seeded.defects)
+		: [];
 	writeJson(path.join(dir, "review.json"), {
 		status: accepted ? "accepted" : "rejected",
 		reviewer: args.reviewer,
+		authoredBy: seeded.authoredBy ?? meta.runId ?? "",
 		relevance: relevant ? "relevant" : "irrelevant",
 		completeness: complete ? "complete" : "partial",
 		coverageMode: complete ? "full-journey" : "single-state",
 		coveredClaims: covered,
+		defects,
 		artifactSha256: meta.primary?.sha256 ?? "",
 		reviewedAt: new Date().toISOString(),
 		notes: args.notes || "",

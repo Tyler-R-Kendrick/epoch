@@ -7,5 +7,7 @@
   "coveredClaims": [],
   "artifactSha256": "a22a5cfd1d96e4db4be0ae485fd035467438a193f7073fa2486bdab82fceeb7c",
   "reviewedAt": "",
-  "notes": "Playback review required before this evidence can support a score."
+  "notes": "Playback review required before this evidence can support a score.",
+  "defects": [],
+  "authoredBy": ""
 }

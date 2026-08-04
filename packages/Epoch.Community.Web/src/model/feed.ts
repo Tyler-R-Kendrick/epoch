@@ -44,8 +44,12 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
     return {
       source: "api",
       conversations: [
-        ...communitySocialConversations(spaces, "api"),
-        ...agentMemberConversations(spaces, options.repositories[0]?.slug ?? "epoch/epoch", "api"),
+        // These are seeded community fixtures, not API activity. Labelling them
+        // "api" contradicted the contract three lines above and presented demo
+        // content as live product state — the exact dishonesty this product
+        // claims as its wedge. They stay visible and stay labelled snapshot.
+        ...communitySocialConversations(spaces, "snapshot"),
+        ...agentMemberConversations(spaces, options.repositories[0]?.slug ?? "epoch/epoch", "snapshot"),
         ...apiIssueConversations(options.repositories),
         ...apiProposalConversations(options.repositories),
       ],
