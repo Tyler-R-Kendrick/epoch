@@ -7,7 +7,7 @@
       "surface": {
         "role": "neutral",
         "displayName": "Mist Surface",
-        "canonical": "#ecefea",
+        "canonical": "#f4f2ea",
         "tonalRamp": ["#1d2724", "#34413d", "#4f5d59", "#6d7d78", "#8fa19b", "#b4c5bf", "#d6e3df", "#ecefea"]
       },
       "surface-raised": {
@@ -19,25 +19,25 @@
       "ink": {
         "role": "primary",
         "displayName": "Civic Ink",
-        "canonical": "#0f1614",
+        "canonical": "#1a1a17",
         "tonalRamp": ["#0f1614", "#253430", "#3b4b46", "#566661", "#74847f", "#9eaaa6", "#c9d1ce", "#edf2f0"]
       },
       "accent": {
         "role": "primary",
         "displayName": "Copper Action",
-        "canonical": "#b4532f",
+        "canonical": "#a300a3",
         "tonalRamp": ["#30170f", "#572818", "#7d3b27", "#a04f35", "#b4532f", "#d48a72", "#e8bba9", "#f7e6df"]
       },
       "teal": {
         "role": "secondary",
         "displayName": "Registry Teal",
-        "canonical": "#2a6f6c",
+        "canonical": "#1f6f5c",
         "tonalRamp": ["#102523", "#1d3d3b", "#2f5a57", "#2a6f6c", "#51918d", "#81b7b2", "#b5d9d5", "#e0f0ed"]
       },
       "gold": {
         "role": "tertiary",
         "displayName": "Verified Gold",
-        "canonical": "#c9a24a",
+        "canonical": "#b8860b",
         "tonalRamp": ["#31250f", "#554019", "#7a5f27", "#a4823d", "#c9a24a", "#e4ca88", "#f0dfb6", "#fbf2db"]
       }
     },

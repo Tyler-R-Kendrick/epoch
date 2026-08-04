@@ -82,10 +82,10 @@ async function moderationQueueSurfacesCommunityReports(
 }
 
 function opsDocumentInlinesEpochTokens(html: string): void {
-  assert.match(html, /--epoch-color-ink: #0f1614;/u);
-  assert.match(html, /--epoch-color-teal: #2a6f6c;/u);
-  assert.match(html, /--epoch-color-accent: #b4532f;/u);
-  assert.match(html, /--epoch-type-display-size: 2\.5rem;/u);
+  assert.match(html, /--epoch-color-ink: #1a1a17;/u);
+  assert.match(html, /--epoch-color-teal: #1f6f5c;/u);
+  assert.match(html, /--epoch-color-accent: #a300a3;/u);
+  assert.match(html, /--epoch-type-display-size: 2\.25rem;/u);
 }
 
 function opsTokensAliasEpochTokens(html: string): void {

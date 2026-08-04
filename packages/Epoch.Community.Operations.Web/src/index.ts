@@ -281,8 +281,8 @@ export async function createCommunityOperationsWebApp(
       shortName: "Epoch Ops",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#0f1614",
-      backgroundColor: "#ecefea",
+      themeColor: "#1a1a17",
+      backgroundColor: "#f4f2ea",
       offlineShell: true,
     },
     deploymentTarget: createCommunityOperationsDeploymentTarget({

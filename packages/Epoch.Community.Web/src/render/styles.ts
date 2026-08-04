@@ -113,16 +113,22 @@ export function communityStyles(): string {
       border-block-end: 1px solid var(--epoch-color-rail-line);
       padding-block-end: var(--epoch-space-sm);
     }
+    /* The control circle, not a side-tab: orienteering marks a control with a
+       ring you run to, and the shape is what carries the meaning. */
     .community-button[aria-pressed="true"]::before,
     .channel-button[aria-pressed="true"]::before {
       content: "";
       position: absolute;
-      inset-block: 0.2rem;
-      inset-inline-start: 0;
-      width: 3px;
-      border-radius: 0 2px 2px 0;
-      background: var(--epoch-color-accent);
+      inset-inline-start: 0.3rem;
+      inset-block-start: 50%;
+      translate: 0 -50%;
+      width: 0.5rem;
+      height: 0.5rem;
+      border: 2px solid var(--epoch-color-control);
+      border-radius: 50%;
     }
+    .community-button[aria-pressed="true"],
+    .channel-button[aria-pressed="true"] { padding-inline: 1.5rem var(--epoch-space-sm); }
     .repo-surface-list {
       border-block-start: 1px solid var(--epoch-color-rail-line);
       padding-block-start: var(--epoch-space-xs);
@@ -205,8 +211,9 @@ export function communityStyles(): string {
     .surface-button[aria-pressed="true"],
     .channel-button[aria-pressed="true"] {
       background: var(--epoch-color-rail-active);
-      color: var(--epoch-color-surface-raised);
-      font-weight: 650;
+      color: var(--epoch-color-ink);
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px var(--epoch-color-line);
     }
     .channel-button-label {
       min-width: 0;
@@ -1421,6 +1428,43 @@ export function communityStyles(): string {
       letter-spacing: 0.02em;
       text-transform: uppercase;
     }
+
+    /* ── Terrain (DESIGN 2: the legend) ──────────────────────────────────── */
+    /* Social channels are runnable, work channels are rough. The ground is read
+       before the label, which is how a legend saves a sentence. */
+    .channel-button[data-channel-kind="social"] { box-shadow: inset 3px 0 0 var(--epoch-color-runnable); }
+    .channel-button[data-channel-kind="work"] { box-shadow: inset 3px 0 0 var(--epoch-color-rough-strong); }
+    .channel-button[aria-pressed="true"][data-channel-kind] { box-shadow: inset 0 0 0 1px var(--epoch-color-line); }
+
+    /* Marsh marks a message anchored to something concrete. Terrain is ground,
+       never text weight, so it rides as a tint behind the notation. The element
+       itself arrives with the inline-anchor change (PR #97); this is the world
+       it lands in. */
+    .row-anchor {
+      align-self: start;
+      padding: .12rem .4rem;
+      background: var(--epoch-color-marsh);
+      border: 1px solid var(--epoch-color-marsh-strong);
+      color: var(--epoch-color-ink);
+    }
+    .row-anchor-mark { display: none; }
+
+    /* The reserved course. Focus and the promote path wear control; nothing
+       else may. */
+    a:focus-visible,
+    button:focus-visible,
+    textarea:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
+    }
+    .button-primary {
+      background: var(--epoch-color-control);
+      border-color: var(--epoch-color-control);
+      color: var(--epoch-color-surface-raised);
+    }
+    .button-primary:hover { background: var(--epoch-color-accent-strong); border-color: var(--epoch-color-accent-strong); }
+    .row[data-selected-message="true"] { background: var(--epoch-color-surface); box-shadow: inset 3px 0 0 var(--epoch-color-control); }
 
     /* ── Tonal layering (DESIGN 5: tonal first, shadows rare) ─────────────── */
     /* Chrome recedes to surface; the feed advances to raised white. Before this
