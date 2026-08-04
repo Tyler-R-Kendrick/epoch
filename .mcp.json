@@ -1,16 +1,8 @@
 {
   "mcpServers": {
     "higgsfield": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "higgsfield-mcp"
-      ],
-      "env": {
-        "HF_API_KEY": "${HF_API_KEY}",
-        "HF_SECRET": "${HF_SECRET}"
-      }
+      "type": "http",
+      "url": "https://higgsfield.ai/mcp"
     }
   }
 }
