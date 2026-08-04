@@ -359,16 +359,24 @@ Then("I can browse each navigation group without horizontal page overflow", asyn
   const page = requirePage();
   const layout = await page.evaluate(() => ({
     pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    // Navigation is a vertical list in the sheet. It used to be four
+    // horizontally-scrolling strips that clipped mid-word ("# su\u2310") and hid
+    // six of nine channels behind a sideways swipe inside a vertical drawer.
     groups: ["[data-community-list]", "[data-channel-list]", "[data-repo-list]"].map((selector) => {
       const element = document.querySelector(selector);
-      if (element === null) {
-        throw new Error(`Missing element ${selector}`);
-      }
-      return getComputedStyle(element).overflowX;
+      if (element === null) throw new Error(`Missing element ${selector}`);
+      return {
+        selector,
+        overflowX: getComputedStyle(element).overflowX,
+        clipped: element.scrollWidth > element.clientWidth + 1,
+      };
     }),
   }));
   assert.equal(layout.pageOverflows, false);
-  assert.ok(layout.groups.every((overflow) => overflow === "auto"), layout.groups.join(", "));
+  for (const group of layout.groups) {
+    assert.notEqual(group.overflowX, "auto", `${group.selector} must not scroll sideways`);
+    assert.equal(group.clipped, false, `${group.selector} clips its own content horizontally`);
+  }
 
   // The page-level check alone gave a false pass: an ancestor with
   // overflow-x: hidden suppressed the document scrollbar while the message

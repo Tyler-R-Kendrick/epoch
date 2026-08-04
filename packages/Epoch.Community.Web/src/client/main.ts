@@ -30,7 +30,7 @@ import { escapeHtml } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderChannelButton } from "../view/rail";
-import { asListState, renderEmptyState, renderSearchZeroState } from "../view/states";
+import { asListState, renderChannelOrigin, renderEmptyState, renderSearchZeroState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 
 /** Serialized shape of the #epoch-community-state JSON island. */
@@ -309,7 +309,7 @@ function applyHonestyBanner(): void {
 }
 
 function feedTabLabel(tab: DevFeedTab): string {
-  if (tab === "network") return "Network";
+  if (tab === "network") return "All";
   if (tab === "contributions") return "Contributions";
   return "Following";
 }
@@ -410,7 +410,10 @@ function updateAgentWorkingStatus(): void {
     return;
   }
   if (sampleWorking.length > 0) {
-    status.textContent = "Sample member agents · not a live ACP session";
+    // The rail already labels each agent "sample"; a second, louder claim in
+    // the composer read as a contradiction of the header "live" chip, which is
+    // about the API rather than agent sessions.
+    status.textContent = `${sampleWorking.length} sample agent${sampleWorking.length === 1 ? "" : "s"}`;
     status.setAttribute("data-agent-sample", "true");
     status.removeAttribute("data-agent-live");
     return;
@@ -507,14 +510,6 @@ function applyComposerChrome(): void {
   if (input) {
     input.placeholder = composerPlaceholder(activeChannel);
     input.setAttribute("data-active-channel", activeChannel);
-  }
-  if (shareShipButton) {
-    const showcase = activeChannel === "showcase";
-    shareShipButton.hidden = false;
-    shareShipButton.textContent = showcase ? "Ship template" : "Share a ship";
-    shareShipButton.setAttribute("aria-label", showcase
-      ? "Insert a share-what-you-built template in #showcase"
-      : "Open #showcase to share what you are building");
   }
   const composerMeta = document.querySelector<HTMLElement>("[data-composer-meta]");
   if (composerMeta) composerMeta.textContent = `signed as @${actor}`;
@@ -974,7 +969,8 @@ function renderRepository(repo: CommunityRepository): void {
     // signed action tray and stay byte-identical with server-rendered markup.
     // The empty-state item lives in the same <ol>, so it must survive a refresh
     // that replaces the message list wholesale.
-    feed.innerHTML = [...social, ...agents, ...issueConvos, ...changeConvos]
+    feed.innerHTML = renderChannelOrigin(activeChannel, currentCommunity()?.name ?? "this community")
+      + [...social, ...agents, ...issueConvos, ...changeConvos]
       .map((conversation) => renderConversation(conversation, activeChannel, activeCommunity))
       .join("")
       + asListState(renderEmptyState(emptyCopyForChannel(activeChannel)), "feed-state", { hidden: true });

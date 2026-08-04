@@ -507,10 +507,10 @@ function styles(): string {
     .epoch-platform-ai,
     .epoch-platform-command,
     .epoch-platform-primary {
-      min-height: 32px;
+      min-height: 2.25rem;
       border: 1px solid var(--epoch-color-success);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-success);
+      background: var(--epoch-color-ink);
       color: var(--epoch-color-surface-raised);
       font-weight: 600;
       padding: 0 14px;
@@ -660,7 +660,7 @@ function styles(): string {
       margin-top: 10px;
     }
     .epoch-platform-mobile-actions button {
-      min-height: 32px;
+      min-height: 2.25rem;
       border: 1px solid var(--epoch-color-line);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface-raised);

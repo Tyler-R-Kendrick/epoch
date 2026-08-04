@@ -79,3 +79,19 @@ export function renderSearchZeroState(query: string): string {
     action: "Search covers messages, intents, harness labels, and promote receipts in this community.",
   });
 }
+
+/**
+ * Channel origin.
+ *
+ * The feed used to end in several hundred pixels of nothing with no marker for
+ * where the channel starts — a plane the critique called a static document.
+ * This states the beginning and who can read it, once, at the top.
+ */
+export function renderChannelOrigin(channel: string, communityName: string): string {
+  return `<li class="row row-origin" data-channel-origin>
+    <div class="row-body">
+      <p class="row-origin-title">This is the start of # ${escapeHtml(channel)}</p>
+      <p class="row-origin-note">Everyone in ${escapeHtml(communityName)} can read and post here.</p>
+    </div>
+  </li>`;
+}

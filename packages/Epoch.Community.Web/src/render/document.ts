@@ -13,7 +13,7 @@ import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderChannelButton } from "../view/rail";
 import { renderSiteHistory } from "../view/site-history";
-import { asListState, renderEmptyState } from "../view/states";
+import { asListState, renderChannelOrigin, renderEmptyState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 import { renderServiceWorkerRegistration } from "./pwa";
 import { communityStyles } from "./styles";
@@ -163,7 +163,7 @@ ${communityStyles()}
       <div class="surface-stage" data-surface-panel="network" hidden>
         <div class="feed-tabs" role="tablist" aria-label="Network Dev Feed tabs">
           <button class="feed-tab" type="button" role="tab" data-feed-tab="following" aria-selected="true">Following</button>
-          <button class="feed-tab" type="button" role="tab" data-feed-tab="network" aria-selected="false">Network</button>
+          <button class="feed-tab" type="button" role="tab" data-feed-tab="network" aria-selected="false">All</button>
           <button class="feed-tab" type="button" role="tab" data-feed-tab="contributions" aria-selected="false">Contributions</button>
         </div>
         <ol class="dev-feed" data-dev-feed aria-label="Network Dev Feed">
@@ -187,6 +187,7 @@ ${communityStyles()}
       </div>
       <div class="surface-stage" data-surface-panel="channels">
         <ol class="message-feed" data-message-feed aria-label="Community channel messages">
+          ${renderChannelOrigin(defaultChannel, activeCommunity?.name ?? "this community")}
           ${conversations.map((conversation) => renderConversation(conversation, defaultChannel, activeCommunityId)).join("")}
           ${asListState(
             renderEmptyState(defaultChannelEmptyCopy),

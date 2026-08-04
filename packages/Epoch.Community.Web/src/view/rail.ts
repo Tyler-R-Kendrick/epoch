@@ -12,6 +12,6 @@ export function renderChannelButton(
   return `<button class="channel-button" type="button" data-channel="${channel.id}" data-channel-kind="${channel.kind}" data-topic="${escapeHtml(channel.topic)}" aria-pressed="${selected ? "true" : "false"}">
     <span class="channel-button-label"># ${escapeHtml(channel.label)}</span>
     <span class="channel-unread" data-channel-unread hidden></span>
-    <span class="channel-count">${count}</span>
+    ${count > 0 ? `<span class="channel-count">${count}</span>` : ""}
   </button>`;
 }

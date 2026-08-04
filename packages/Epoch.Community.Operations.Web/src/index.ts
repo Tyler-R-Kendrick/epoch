@@ -895,7 +895,7 @@ function communityOperationsStyles(): string {
     .ops-tabs a,
     .actions a {
       display: inline-flex;
-      min-height: 40px;
+      min-height: 2.25rem;
       align-items: center;
       justify-content: center;
       padding: 0.58rem 0.75rem;
@@ -908,8 +908,8 @@ function communityOperationsStyles(): string {
     }
 
     .actions a:first-child {
-      border-color: var(--epoch-color-accent);
-      background: var(--epoch-color-accent);
+      border-color: var(--epoch-color-ink);
+      background: var(--epoch-color-ink);
       color: var(--epoch-color-surface-raised);
     }
 

@@ -5,8 +5,6 @@ export function communityStyles(): string {
 
     :root {
       --epoch-shadow-low: 0 1px 0 rgba(15, 22, 20, 0.04);
-      --epoch-space-2: var(--epoch-space-md);
-      --epoch-space-3: var(--epoch-space-lg);
       --rail-width: 15.5rem;
       font-family: var(--epoch-font-ui);
       font-size: 16px;
@@ -41,10 +39,10 @@ export function communityStyles(): string {
 
     .skip-link {
       position: fixed;
-      inset-block-start: var(--epoch-space-3);
-      inset-inline-start: var(--epoch-space-3);
+      inset-block-start: var(--epoch-space-lg);
+      inset-inline-start: var(--epoch-space-lg);
       z-index: 20;
-      padding: var(--epoch-space-2) var(--epoch-space-3);
+      padding: var(--epoch-space-md) var(--epoch-space-lg);
       border: 1px solid var(--epoch-color-ink);
       border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-surface-raised);
@@ -533,7 +531,7 @@ export function communityStyles(): string {
       font-size: var(--epoch-type-label-size);
       font-weight: 650;
     }
-    .api-banner-live {
+    .api-banner[data-feed-honesty="live-empty"] {
       border-block-end-color: var(--epoch-color-mint-strong);
       background: var(--epoch-color-mint);
       color: var(--epoch-color-success);
@@ -745,21 +743,6 @@ export function communityStyles(): string {
       gap: var(--epoch-space-xs);
       margin-block-start: 0.1rem;
     }
-    .dev-feed-action {
-      appearance: none;
-      display: inline-flex;
-      align-items: center;
-      min-height: 1.7rem;
-      border: 1px solid var(--epoch-color-line);
-      border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface-raised);
-      color: var(--epoch-color-ink);
-      cursor: pointer;
-      font: inherit;
-      font-size: var(--epoch-type-label-size);
-      font-weight: 600;
-      padding: var(--epoch-space-xs) var(--epoch-space-sm);
-    }
     .dev-feed-action:hover {
       border-color: var(--epoch-color-ink);
       background: var(--epoch-color-surface);
@@ -950,49 +933,9 @@ export function communityStyles(): string {
       font-size: var(--epoch-type-meta-size);
       word-break: break-word;
     }
-    .message-action-tray button,
-    .composer button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 2rem;
-      border: 1px solid var(--epoch-color-ink);
-      border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-ink);
-      color: var(--epoch-color-surface-raised);
-      cursor: pointer;
-      font: inherit;
-      font-size: var(--epoch-type-label-size);
-      font-weight: 600;
-      padding: var(--epoch-space-xs) var(--epoch-space-md);
-    }
-    .message-action-tray button:hover,
-    .composer button:hover {
-      background: var(--epoch-color-accent-strong);
-      border-color: var(--epoch-color-accent-strong);
-    }
     .message-action-tray button:active,
     .composer button:active {
       filter: brightness(0.96);
-    }
-    .message-action-tray button:not([data-action="intent"]) {
-      border-color: var(--epoch-color-line-strong);
-      background: var(--epoch-color-surface-raised);
-      color: var(--epoch-color-ink);
-    }
-    .message-action-tray button:not([data-action="intent"]):hover {
-      border-color: var(--epoch-color-ink);
-      background: var(--epoch-color-surface);
-      filter: none;
-    }
-    .message-action-tray button[data-action="intent"] {
-      background: var(--epoch-color-teal);
-      border-color: var(--epoch-color-teal-deep);
-    }
-    .message-action-tray button[data-action="intent"]:hover {
-      background: var(--epoch-color-teal-hover);
-      border-color: var(--epoch-color-teal-deep);
-      filter: none;
     }
     .action-status {
       margin: 0;
@@ -1403,6 +1346,23 @@ export function communityStyles(): string {
     .row-state { color: var(--epoch-color-muted); }
     .row-state:empty { display: none; }
 
+    .row-state,
+    .row-origin {
+      grid-template-columns: minmax(0, 1fr);
+      padding-block: var(--epoch-space-xl) var(--epoch-space-md);
+      border-block-end: 1px solid var(--epoch-color-line);
+    }
+    .row-origin-title {
+      margin: 0;
+      font-size: var(--epoch-type-title-size);
+      font-weight: var(--epoch-type-title-weight);
+    }
+    .row-origin-note {
+      margin: 0;
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-body-size);
+    }
+
     /* ── Four button treatments, not thirteen ─────────────────────────────── */
     .button-primary,
     .button-intent,
@@ -1410,7 +1370,8 @@ export function communityStyles(): string {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: var(--epoch-space-xxl);
+      /* DESIGN button-primary specifies 36px; critical actions prefer >=36. */
+      min-height: 2.25rem;
       padding: 0 var(--epoch-space-md);
       border-radius: var(--epoch-radius-sm);
       border: 1px solid transparent;
@@ -1436,16 +1397,17 @@ export function communityStyles(): string {
     }
     .button-quiet {
       min-height: var(--epoch-space-xxl);
-      padding: 0 var(--epoch-space-xs);
-      border: 0;
-      background: none;
+      padding: 0 var(--epoch-space-sm);
+      border: 1px solid var(--epoch-color-line);
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-raised);
       color: var(--epoch-color-muted);
       font: inherit;
       font-size: var(--epoch-type-meta-size);
       font-weight: var(--epoch-type-meta-weight);
       cursor: pointer;
     }
-    .button-quiet:hover { color: var(--epoch-color-ink); text-decoration: underline; }
+    .button-quiet:hover { color: var(--epoch-color-ink); border-color: var(--epoch-color-line-strong); }
 
     /* Empty / loading / error state system — one voice across every list. */
     .state-block {
@@ -1512,35 +1474,6 @@ export function communityStyles(): string {
       color: var(--epoch-color-rail-text);
     }
     /* First-run orientation strip — a strip, never a modal or a tour. */
-    .first-run-strip {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: var(--epoch-space-md);
-      padding: var(--epoch-space-md) var(--epoch-space-lg);
-      border-block-end: 1px solid var(--epoch-color-line);
-      background: var(--epoch-color-surface-sunken);
-    }
-    .first-run-lines {
-      display: grid;
-      gap: var(--epoch-space-xs);
-      margin: 0;
-      padding-inline-start: var(--epoch-space-lg);
-      color: var(--epoch-color-ink-soft);
-      font-size: var(--epoch-type-label-size);
-      line-height: var(--epoch-type-body-leading);
-    }
-    .first-run-dismiss {
-      flex: none;
-      min-height: var(--epoch-space-xxl);
-      padding: var(--epoch-space-xs) var(--epoch-space-md);
-      border: 1px solid var(--epoch-color-line-strong);
-      border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface-raised);
-      color: var(--epoch-color-ink);
-      font-size: var(--epoch-type-label-size);
-      font-weight: var(--epoch-type-label-weight);
-    }
     .thread-comments {
       display: grid;
       gap: var(--epoch-space-xs);
@@ -1669,11 +1602,13 @@ export function communityStyles(): string {
       .community-workspace-chrome .channel-list,
       .agent-list,
       .repo-list {
-        grid-auto-columns: max-content;
-        grid-auto-flow: column;
+        /* Vertical, as the sheet comment above always claimed. The horizontal
+           scrollers clipped mid-word (# su⌐, goose · sa⌐) and hid 6 of 9
+           channels behind a sideways swipe inside a vertical drawer. */
+        grid-auto-flow: row;
         max-height: none;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow-x: hidden;
+        overflow-y: visible;
         padding-block-end: var(--epoch-space-xs);
       }
       .feed-toolbar {
@@ -1721,16 +1656,6 @@ export function communityStyles(): string {
       .message-action-tray dl { grid-template-columns: 1fr; }
       /* Orientation is worth three lines on a desktop; on a phone it must not
          push the first message past the fold. */
-      .first-run-strip {
-        gap: var(--epoch-space-sm);
-        padding: var(--epoch-space-sm) var(--epoch-space-md);
-      }
-      .first-run-lines {
-        gap: 0.1rem;
-        padding-inline-start: var(--epoch-space-md);
-        font-size: var(--epoch-type-meta-size);
-      }
-    }
 
     @media (max-width: 800px) and (max-height: 600px) {
       .channel-rail {
