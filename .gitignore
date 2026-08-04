@@ -17,7 +17,11 @@ packages/Epoch.Community.Web/.vercel-output/
 # Impeccable installs a full copy of its skill tree into every detected harness
 # (~3.4M each). They are vendor artifacts reproducible from the devDependency
 # with `npx impeccable install`, so the dependency is tracked and the copies are not.
-.claude/skills/impeccable/
+# Agent-skill installs. The higgsfield skills are symlinks into .agents/, which
+# is itself ignored, so tracking them shipped dangling links to anyone cloning.
+# Both trees are reproducible: `npx impeccable install` and
+# `npx skills add higgsfield-ai/skills`.
+.claude/skills/
 .claude/hooks/
 .claude/commands/impeccable*
 .codex/

@@ -145,7 +145,17 @@
     .d-course .fin td{padding:.28rem 0;border-block-end:1px solid #0001}
     .d-course .fin td:last-child{text-align:end;font-weight:700}
     .d-course .go{margin-block-start:.8rem;width:100%;padding:.7rem;border:0;background:var(--course);color:#fff;font:700 13px/1 sans-serif;cursor:pointer}
-    @media(max-width:1000px){.d-course{grid-template-columns:1fr}.d-course .legend{display:none}}`,
+    @media(max-width:1000px){
+      .d-course{grid-template-columns:1fr}
+      /* The legend is the argument; it must not vanish. Narrow screens get it
+         as a scrollable strip above the terrain rather than not at all. */
+      .d-course .legend{border-inline-end:0;border-block-end:2px solid var(--ink);padding:.6rem .8rem;
+        display:flex;gap:1rem;overflow-x:auto;align-items:center}
+      .d-course .legend h2{margin:0;white-space:nowrap}
+      .d-course .lg{grid-template-columns:1.1rem auto;white-space:nowrap;padding:0}
+      .d-course .ctl{margin:0;display:flex;gap:.7rem;align-items:center}
+      .d-course .cn{white-space:nowrap;padding:0}
+    }`,
     render() {
       const inks = [["Runnable — social channel", "#fff"], ["Rough — work channel", "#c9e3b8"], ["Open — showcase", "#f7e9a8"], ["Marsh — anchored to code", "#9fd4e8"], ["Course — becoming work", "#a300a3"]];
       const legend = inks.map(([l, c], i) => `<div class="lg${i === 4 ? " on" : ""}"><span class="sw" style="background:${c}"></span>${esc(l)}</div>`).join("");

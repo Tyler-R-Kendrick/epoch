@@ -38,7 +38,7 @@
          box-shadow:0 1px 0 #ffffff0a}
   .stage[data-vp="tablet"] .frame{max-width:53rem}
   .stage[data-vp="phone"] .frame{max-width:24.5rem}
-  .frame > *{height:100%}
+  .frame{border:1px solid #24282b}
 
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -55,7 +55,9 @@
   </header>
 
   <div class="brief" id="brief"></div>
-  <main class="stage" id="stage" data-vp="desk"><div class="frame" id="frame"></div></main>
+  <main class="stage" id="stage" data-vp="desk">
+    <iframe class="frame" id="frame" title="Design direction preview"></iframe>
+  </main>
 
 <script src="data.js"></script>
 <script src="designs-a.js"></script>
@@ -79,8 +81,17 @@
     cur = i;
     var d = D[i];
     Array.prototype.forEach.call(tabs.children, function(b, n){ b.setAttribute("aria-pressed", n === i); });
-    styleEl.textContent = d.css;
-    frame.innerHTML = d.render();
+    // Written into the iframe document so the direction's own media queries
+    // resolve against the frame width the picker sets, not the browser's.
+    var doc = frame.contentDocument;
+    doc.open();
+    doc.write('<!doctype html><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;height:100%}'
+      + 'body{font:400 14px/1.5 ui-sans-serif,system-ui,sans-serif}'
+      + '@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}'
+      + d.css + '</style>' + d.render());
+    doc.close();
     brief.innerHTML = '<b>' + d.name + '</b><span class="fam">' + d.family + '</span><p>' + d.thesis + '</p>';
     try { history.replaceState(null, "", "#" + d.id); } catch (e) {}
     document.title = "Epoch Community — " + d.name;

@@ -9,180 +9,180 @@
         "displayName": "Map Paper",
         "canonical": "#f4f2ea",
         "tonalRamp": [
-        "#2c2c2a",
-        "#5d5c59",
-        "#92918c",
-        "#c8c6c0",
-        "#f4f2ea",
-        "#f8f6f1",
-        "#fafaf6",
-        "#fdfdfc"
-      ]
+          "#2c2c2a",
+          "#5d5c59",
+          "#92918c",
+          "#c8c6c0",
+          "#f4f2ea",
+          "#f8f6f1",
+          "#fafaf6",
+          "#fdfdfc"
+        ]
       },
       "surface-raised": {
         "role": "neutral",
         "displayName": "Printed Sheet",
         "canonical": "#ffffff",
         "tonalRamp": [
-        "#2e2e2e",
-        "#616161",
-        "#999999",
-        "#d1d1d1",
-        "#ffffff",
-        "#ffffff",
-        "#ffffff",
-        "#ffffff"
-      ]
+          "#2e2e2e",
+          "#616161",
+          "#999999",
+          "#d1d1d1",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ]
       },
       "ink": {
         "role": "primary",
         "displayName": "Map Ink",
         "canonical": "#1a1a17",
         "tonalRamp": [
-        "#050504",
-        "#0a0a09",
-        "#10100e",
-        "#151513",
-        "#1a1a17",
-        "#636361",
-        "#9f9f9e",
-        "#dadada"
-      ]
+          "#050504",
+          "#0a0a09",
+          "#10100e",
+          "#151513",
+          "#1a1a17",
+          "#636361",
+          "#9f9f9e",
+          "#dadada"
+        ]
       },
       "accent": {
         "role": "primary",
         "displayName": "Control Purple",
         "canonical": "#a300a3",
         "tonalRamp": [
-        "#1d001d",
-        "#3e003e",
-        "#620062",
-        "#860086",
-        "#a300a3",
-        "#c052c0",
-        "#d894d8",
-        "#f0d6f0"
-      ]
+          "#1d001d",
+          "#3e003e",
+          "#620062",
+          "#860086",
+          "#a300a3",
+          "#c052c0",
+          "#d894d8",
+          "#f0d6f0"
+        ]
       },
       "teal": {
         "role": "secondary",
         "displayName": "Workflow Teal",
         "canonical": "#1f6f5c",
         "tonalRamp": [
-        "#061411",
-        "#0c2a23",
-        "#134337",
-        "#195b4b",
-        "#1f6f5c",
-        "#679d90",
-        "#a1c3bb",
-        "#dbe8e5"
-      ]
+          "#061411",
+          "#0c2a23",
+          "#134337",
+          "#195b4b",
+          "#1f6f5c",
+          "#679d90",
+          "#a1c3bb",
+          "#dbe8e5"
+        ]
       },
       "gold": {
         "role": "secondary",
         "displayName": "Verified Gold",
         "canonical": "#b8860b",
         "tonalRamp": [
-        "#211802",
-        "#463304",
-        "#6e5007",
-        "#976e09",
-        "#b8860b",
-        "#cfad59",
-        "#e1cc99",
-        "#f4ecd8"
-      ]
+          "#211802",
+          "#463304",
+          "#6e5007",
+          "#976e09",
+          "#b8860b",
+          "#cfad59",
+          "#e1cc99",
+          "#f4ecd8"
+        ]
       },
       "runnable": {
         "role": "neutral",
         "displayName": "Runnable — social channel",
         "canonical": "#ffffff",
         "tonalRamp": [
-        "#2e2e2e",
-        "#616161",
-        "#999999",
-        "#d1d1d1",
-        "#ffffff",
-        "#ffffff",
-        "#ffffff",
-        "#ffffff"
-      ]
+          "#2e2e2e",
+          "#616161",
+          "#999999",
+          "#d1d1d1",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ]
       },
       "rough": {
         "role": "neutral",
         "displayName": "Rough — work channel",
         "canonical": "#cde3bb",
         "tonalRamp": [
-        "#252922",
-        "#4e5647",
-        "#7b8870",
-        "#a8ba99",
-        "#cde3bb",
-        "#ddecd1",
-        "#eaf3e2",
-        "#f7fbf4"
-      ]
+          "#252922",
+          "#4e5647",
+          "#7b8870",
+          "#a8ba99",
+          "#cde3bb",
+          "#ddecd1",
+          "#eaf3e2",
+          "#f7fbf4"
+        ]
       },
       "marsh": {
         "role": "secondary",
         "displayName": "Marsh — anchored to code",
         "canonical": "#a5d8ec",
         "tonalRamp": [
-        "#1e272a",
-        "#3f525a",
-        "#63828e",
-        "#87b1c2",
-        "#a5d8ec",
-        "#c2e4f2",
-        "#d9eff7",
-        "#f1f9fc"
-      ]
+          "#1e272a",
+          "#3f525a",
+          "#63828e",
+          "#87b1c2",
+          "#a5d8ec",
+          "#c2e4f2",
+          "#d9eff7",
+          "#f1f9fc"
+        ]
       },
       "contour": {
         "role": "neutral",
         "displayName": "Contour — structural rule",
         "canonical": "#a8703c",
         "tonalRamp": [
-        "#1e140b",
-        "#402b17",
-        "#654324",
-        "#8a5c31",
-        "#a8703c",
-        "#c49e7a",
-        "#dac3ad",
-        "#f1e8e0"
-      ]
+          "#1e140b",
+          "#402b17",
+          "#654324",
+          "#8a5c31",
+          "#a8703c",
+          "#c49e7a",
+          "#dac3ad",
+          "#f1e8e0"
+        ]
       },
       "control": {
         "role": "primary",
         "displayName": "Control — the active leg",
         "canonical": "#a300a3",
         "tonalRamp": [
-        "#1d001d",
-        "#3e003e",
-        "#620062",
-        "#860086",
-        "#a300a3",
-        "#c052c0",
-        "#d894d8",
-        "#f0d6f0"
-      ]
+          "#1d001d",
+          "#3e003e",
+          "#620062",
+          "#860086",
+          "#a300a3",
+          "#c052c0",
+          "#d894d8",
+          "#f0d6f0"
+        ]
       },
       "out-of-bounds": {
         "role": "primary",
         "displayName": "Out of bounds — destructive",
         "canonical": "#e03a2f",
         "tonalRamp": [
-        "#280a08",
-        "#551612",
-        "#86231c",
-        "#b83027",
-        "#e03a2f",
-        "#ea7972",
-        "#f2aca8",
-        "#fadfde"
-      ]
+          "#280a08",
+          "#551612",
+          "#86231c",
+          "#b83027",
+          "#e03a2f",
+          "#ea7972",
+          "#f2aca8",
+          "#fadfde"
+        ]
       }
     },
     "typographyMeta": {
@@ -231,7 +231,7 @@
       "refersTo": "button-primary",
       "description": "Main Community action for browsing repositories.",
       "html": "<a class=\"ds-button-primary\" href=\"#repositories\">Browse Repositories</a>",
-      "css": ".ds-button-primary { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 4px; background: #0f1614; color: #ffffff; font: 800 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; text-decoration: none; transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-button-primary:hover { background: #8f3f28; transform: translateY(-1px); } .ds-button-primary:focus-visible { outline: 3px solid rgba(180, 83, 47, 0.42); outline-offset: 3px; }"
+      "css": ".ds-button-primary { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 4px; background: #1a1a17; color: #ffffff; font: 800 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; text-decoration: none; transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-button-primary:hover { background: #7a007a; transform: translateY(-1px); } .ds-button-primary:focus-visible { outline: 3px solid rgba(180, 83, 47, 0.42); outline-offset: 3px; }"
     },
     {
       "name": "Workflow Link",
@@ -239,7 +239,7 @@
       "refersTo": "workflow-link",
       "description": "Grid or rail item for one Community workflow.",
       "html": "<a class=\"ds-workflow-link\" href=\"/community/change-review\"><span>Change Reviews</span><small>Review Epoch intents with maintainer decisions.</small></a>",
-      "css": ".ds-workflow-link { display: grid; gap: 4px; min-height: 112px; padding: 16px; border: 1px solid #d7e0db; border-radius: 8px; background: #ffffff; color: #0f1614; text-decoration: none; transition: border-color 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-workflow-link span { font-weight: 800; } .ds-workflow-link small { color: #5c6762; font-size: 0.82rem; line-height: 1.45; } .ds-workflow-link:hover { border-color: rgba(180, 83, 47, 0.46); box-shadow: 0 16px 40px rgba(15, 22, 20, 0.08); transform: translateY(-2px); } .ds-workflow-link:focus-visible { outline: 3px solid rgba(180, 83, 47, 0.42); outline-offset: 3px; }"
+      "css": ".ds-workflow-link { display: grid; gap: 4px; min-height: 112px; padding: 16px; border: 1px solid #d5d2c4; border-radius: 8px; background: #ffffff; color: #1a1a17; text-decoration: none; transition: border-color 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-workflow-link span { font-weight: 800; } .ds-workflow-link small { color: #5f6058; font-size: 0.82rem; line-height: 1.45; } .ds-workflow-link:hover { border-color: rgba(180, 83, 47, 0.46); box-shadow: 0 16px 40px rgba(15, 22, 20, 0.08); transform: translateY(-2px); } .ds-workflow-link:focus-visible { outline: 3px solid rgba(180, 83, 47, 0.42); outline-offset: 3px; }"
     },
     {
       "name": "Repository Card",
@@ -247,7 +247,7 @@
       "refersTo": "repository-card",
       "description": "Primary record for repository discovery and workflow entry.",
       "html": "<article class=\"ds-repo-card\"><p class=\"ds-repo-visibility\">public</p><h3>epoch/epoch</h3><p>Event-driven version control for signed, collaborative repository history.</p><dl><div><dt>Issues</dt><dd>0</dd></div><div><dt>Change Proposals</dt><dd>0</dd></div></dl></article>",
-      "css": ".ds-repo-card { display: grid; gap: 16px; padding: 24px; border: 1px solid #d7e0db; border-radius: 8px; background: #ffffff; color: #0f1614; box-shadow: 0 1px 0 rgba(15, 22, 20, 0.04); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; } .ds-repo-card h3, .ds-repo-card p, .ds-repo-card dl { margin: 0; } .ds-repo-card h3 { font-size: 1.1rem; line-height: 1.2; } .ds-repo-card p { color: #5c6762; line-height: 1.58; } .ds-repo-visibility { color: #8f3f28; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; } .ds-repo-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 16px; border-top: 1px solid #d7e0db; } .ds-repo-card dt { color: #5c6762; font-size: 0.78rem; font-weight: 700; } .ds-repo-card dd { margin: 2px 0 0; font-weight: 750; }"
+      "css": ".ds-repo-card { display: grid; gap: 16px; padding: 24px; border: 1px solid #d5d2c4; border-radius: 8px; background: #ffffff; color: #1a1a17; box-shadow: 0 1px 0 rgba(15, 22, 20, 0.04); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; } .ds-repo-card h3, .ds-repo-card p, .ds-repo-card dl { margin: 0; } .ds-repo-card h3 { font-size: 1.1rem; line-height: 1.2; } .ds-repo-card p { color: #5f6058; line-height: 1.58; } .ds-repo-visibility { color: #7a007a; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; } .ds-repo-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 16px; border-top: 1px solid #d5d2c4; } .ds-repo-card dt { color: #5f6058; font-size: 0.78rem; font-weight: 700; } .ds-repo-card dd { margin: 2px 0 0; font-weight: 750; }"
     },
     {
       "name": "Topic Chip",
@@ -255,7 +255,7 @@
       "refersTo": "topic-chip",
       "description": "Non-interactive repository topic marker.",
       "html": "<span class=\"ds-topic-chip\">crdt</span>",
-      "css": ".ds-topic-chip { display: inline-flex; align-items: center; border: 1px solid rgba(42, 111, 108, 0.24); border-radius: 999px; background: rgba(216, 236, 229, 0.6); color: #2a6f6c; font: 750 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; padding: 7px 10px; }"
+      "css": ".ds-topic-chip { display: inline-flex; align-items: center; border: 1px solid rgba(42, 111, 108, 0.24); border-radius: 999px; background: rgba(216, 236, 229, 0.6); color: #1f6f5c; font: 750 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; padding: 7px 10px; }"
     }
   ],
   "narrative": {

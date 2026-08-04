@@ -370,15 +370,15 @@ interface.
 
 ## 3. Typography
 
-**Display / Body:** System UI stack (platform-native).  
+**Display / Body:** Helvetica Neue / Inter, falling back to the platform UI stack.
 **Meta / Mono:** `ui-monospace` stack for anchors, signatures, repo paths only.
 
 Typography is operational and sleek: slightly tighter than marketing sites, stronger author weight (X), readable body (Bluesky), no decorative display fonts.
 
 ### Hierarchy
 
-- **Display** (750, 2.5rem): Rare — marketing or empty-state only, not the app shell header.
-- **Headline** (700, 1.375rem): Shell titles (repo name area), channel origin marker.
+- **Display** (750, 2.25rem): Rare — marketing or empty-state only, not the app shell header.
+- **Headline** (700, 1.3125rem): Shell titles (repo name area), channel origin marker.
 - **Title** (700, 1.0625rem): Message author, object subject lines, active channel name.
 - **Body** (400, 0.9375rem, 1.5): Message content; max ~70ch.
 - **Label** (650, 0.8125rem): Buttons, eyebrows, counts.
