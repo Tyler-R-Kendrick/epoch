@@ -220,14 +220,9 @@ export function communityStyles(): string {
       padding: 0 var(--epoch-space-xs) var(--epoch-space-sm);
     }
     .agent-member {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.1rem;
       /* Agent rows are navigation, not labels: they carry the same touch floor
          as every other control (they were 26px). */
-      min-height: 2.75rem;
-      justify-content: center;
-      padding-block: var(--epoch-space-xs);
+      min-height: 2rem;
     }
     .agent-meta {
       color: var(--epoch-color-rail-muted);
@@ -414,6 +409,8 @@ export function communityStyles(): string {
       color: var(--epoch-color-rail-text);
       font-weight: 700;
       font-size: var(--epoch-type-label-size);
+      /* ellipsis needs nowrap: without it a long handle wraps instead. */
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
@@ -1305,6 +1302,16 @@ export function communityStyles(): string {
       font-weight: var(--epoch-type-title-weight);
       line-height: var(--epoch-type-title-leading);
       overflow-wrap: anywhere;
+    }
+    .row-message-text {
+      display: block;
+      max-width: 70ch;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-body-size);
+      font-weight: var(--epoch-type-body-weight);
+      line-height: var(--epoch-type-body-leading);
+      overflow-wrap: anywhere;
+      text-align: start;
     }
     .row-select {
       display: flex;

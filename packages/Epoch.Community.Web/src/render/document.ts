@@ -11,7 +11,7 @@ import { renderCommunityHonestyBanner, renderStateChip } from "../view/honesty";
 import { escapeHtml, escapeScriptJson } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
-import { renderChannelButton } from "../view/rail";
+import { renderAgentMemberButton, renderChannelButton } from "../view/rail";
 import { renderSiteHistory } from "../view/site-history";
 import { asListState, renderChannelOrigin, renderEmptyState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
@@ -113,15 +113,7 @@ ${communityStyles()}
         <nav class="agent-list" data-agent-list aria-label="Member agents">
           ${communityAgents
             .filter((agent) => agent.communityIds.includes(activeCommunityId))
-            .map((agent) => {
-              const kind = agent.sessionKind === "live" ? "live" : "sample";
-              const statusLabel = `${kind} · ${agent.status}`;
-              return `
-        <button class="channel-button agent-member" type="button" data-agent-member="${escapeHtml(agent.id)}" data-agent-status="${escapeHtml(agent.status)}" data-agent-session-kind="${escapeHtml(kind)}" aria-label="Member agent ${escapeHtml(agent.displayName)}, harness ${escapeHtml(agent.harness)}, ${escapeHtml(statusLabel)}">
-          <span class="channel-button-label">@${escapeHtml(agent.displayName)}</span>
-          <span class="agent-meta">${escapeHtml(agent.harness)} · ${escapeHtml(statusLabel)}</span>
-        </button>`;
-            }).join("") || `
+            .map(renderAgentMemberButton).join("") || `
         <p class="agent-list-empty">No member agents in this community yet.</p>`}
         </nav>
         <div class="rail-section-label">Linked projects</div>

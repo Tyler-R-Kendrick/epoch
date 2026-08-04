@@ -13,11 +13,13 @@ export function renderSignerStrip(conversations: readonly CommunityConversationV
     .map((author) => `<span class="member-pill" title="${escapeHtml(author)}">${escapeHtml(initials(author))}</span>`)
     .join("");
   const count = signers.length === 0
-    ? "No signed receipts yet"
-    : `${signers.length} signer${signers.length === 1 ? "" : "s"}`;
-  return `<span class="members-label">Signers</span>
-          ${pills}
-          <span class="members-count" data-members-count>${count}</span>`;
+    ? "None yet"
+    : `${signers.length}`;
+  return `${pills}
+          <span class="members-count" data-members-count>${count}</span>
+          <span class="visually-hidden">${signers.length === 0
+            ? "No signed receipts yet"
+            : `${signers.length} signer${signers.length === 1 ? "" : "s"} in loaded receipts`}</span>`;
 }
 
 /**
@@ -126,13 +128,17 @@ export function renderConversation(
     conversation.source === "snapshot" ? `<span class="visually-hidden" data-snapshot-badge>snapshot sample</span>` : "",
   ].filter(Boolean).join("");
 
+  const selectLabel = conversation.title ?? conversation.body;
+  const selectButton = (text: string, extraClass: string): string =>
+    `<button type="button" class="${extraClass} row-select" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(selectLabel)}">${escapeHtml(text)}</button>`;
+
   const foot = `<button
           type="button"
           class="signature-mark"
           data-signature-reveal="${escapeHtml(conversation.id)}"
           aria-expanded="false"
           aria-controls="provenance-${escapeHtml(conversation.id)}"
-          aria-label="Show provenance for ${escapeHtml(conversation.title)}"
+          aria-label="Show provenance for ${escapeHtml(selectLabel)}"
         ><span class="row-receipt-mark" aria-hidden="true"></span>signed</button>${
     conversation.intentId ? `<span class="visually-hidden" data-intent-meta>intent:${escapeHtml(conversation.intentId)}</span>` : ""
   }${
@@ -165,8 +171,10 @@ export function renderConversation(
     attrs: ` data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedProposal}${hidden}`,
     lead: { text: initials(conversation.author), variant: isAgent ? "agent" : "person" },
     meta,
-    titleHtml: `<button type="button" class="row-title row-select" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}">${escapeHtml(conversation.title)}</button>`,
-    body: conversation.body,
+    titleHtml: conversation.title === undefined
+      ? selectButton(conversation.body, "row-message-text")
+      : selectButton(conversation.title, "row-title"),
+    body: conversation.title === undefined ? undefined : conversation.body,
     extra: `${threadComments}${artifactCard}${promoteReceipt}${renderProvenancePanel(conversation)}${tray}`,
     foot,
     actions,

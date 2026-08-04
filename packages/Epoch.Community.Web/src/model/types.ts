@@ -226,7 +226,13 @@ export interface CommunityConversationView {
   readonly repositorySlug?: string;
   readonly author: string;
   readonly role: string;
-  readonly title: string;
+  /**
+   * Subject line, for messages that are about an object — a promoted intent, an
+   * agent run, an issue. Conversational messages have no title: a chat message
+   * with a headline above it is a forum post, and rendering one for every line
+   * doubled row height and read as ceremony.
+   */
+  readonly title?: string;
   readonly body: string;
   readonly time: string;
   readonly anchor: string;

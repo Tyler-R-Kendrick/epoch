@@ -23,14 +23,14 @@ import {
   defaultWorkChannels,
   emptyCopyForChannel,
 } from "../model/channels";
-import { byTime } from "../model/feed";
+import { byTime } from "../model/ordering";
 import { messageMatchesReceiptSearch } from "../model/search";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
 import { LIVE_EMPTY_MESSAGE, SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE, renderStateChip } from "../view/honesty";
 import { escapeHtml } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
-import { renderChannelButton } from "../view/rail";
+import { renderAgentMemberButton, renderChannelButton } from "../view/rail";
 import { asListState, renderChannelOrigin, renderEmptyState, renderSearchZeroState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 
@@ -346,11 +346,6 @@ const communityAgents: readonly CommunityAgentMember[] =
     ? state.communityAgents
     : defaultCommunityAgents;
 
-function agentStatusLabel(agent: CommunityAgentMember): string {
-  const kind = agent.sessionKind === "live" ? "live" : "sample";
-  return `${kind} · ${agent.status}`;
-}
-
 function renderAgentMembers(communityId: string): void {
   const agentList = document.querySelector<HTMLElement>("[data-agent-list]");
   if (!agentList) return;
@@ -359,16 +354,7 @@ function renderAgentMembers(communityId: string): void {
     agentList.innerHTML = '<p class="agent-list-empty">No member agents in this community yet.</p>';
     return;
   }
-  agentList.innerHTML = members.map((agent) => {
-    const kind = agent.sessionKind === "live" ? "live" : "sample";
-    const label = agentStatusLabel(agent);
-    return `<button class="channel-button agent-member" type="button" data-agent-member="${escapeHtml(agent.id)}"`
-      + ` data-agent-status="${escapeHtml(agent.status)}"`
-      + ` data-agent-session-kind="${escapeHtml(kind)}"`
-      + ` aria-label="Member agent ${escapeHtml(agent.displayName)}, harness ${escapeHtml(agent.harness)}, ${escapeHtml(label)}">`
-      + `<span class="channel-button-label">@${escapeHtml(agent.displayName)}</span>`
-      + `<span class="agent-meta">${escapeHtml(agent.harness)} · ${escapeHtml(label)}</span></button>`;
-  }).join("");
+  agentList.innerHTML = members.map(renderAgentMemberButton).join("");
   agentList.querySelectorAll<HTMLElement>("[data-agent-member]").forEach((button) => {
     button.addEventListener("click", () => {
       selectChannel("agent-runs");
@@ -771,7 +757,7 @@ function selectChannel(channel: string): void {
   applyChannelFilter();
   restoreComposerDraft();
   updateAgentWorkingStatus();
-  if (feed) feed.scrollTop = 0;
+  if (feed) feed.scrollTop = feed.scrollHeight;
   const input = composerInput();
   if (input && activeChannel === "showcase") input.focus();
 }
@@ -1061,16 +1047,32 @@ async function handleComposerSubmit(text: string): Promise<void> {
     // Snapshot mode: local-only append (fail closed for durable write).
     const id = `comment-${Date.now()}`;
     if (!feed) return;
-    const item = document.createElement("li");
-    item.className = "row row-message";
-    item.dataset.message = "";
-    item.dataset.channel = activeChannel;
-    item.dataset.communityId = activeCommunity;
-    item.dataset.messageId = id;
-    item.dataset.feedItemSource = "snapshot";
-    item.innerHTML = '<span class="row-lead row-lead-person" aria-hidden="true">MY</span><div class="row-body"><div class="row-meta"><strong class="row-actor">maya</strong><span class="row-role">maintainer</span><time>now</time><span class="row-state">local only</span></div><h2 class="row-heading"><span class="row-title"></span></h2><p class="row-text"></p></div>';
-    const paragraph = item.querySelector("p");
-    if (paragraph) paragraph.textContent = body;
+    // Hand-written markup here duplicated renderRow's structure and drifted from
+    // it twice: once when the row primitive replaced .feed-message, and again
+    // when conversational messages stopped carrying a headline. A locally
+    // composed message goes through the same renderer as every other message.
+    const wrapper = document.createElement("template");
+    wrapper.innerHTML = renderConversation(
+      {
+        id,
+        channel: activeChannel,
+        communityId: activeCommunity,
+        author: "maya",
+        role: "maintainer",
+        body,
+        time: "now",
+        anchor: `community://${activeCommunity}/${activeChannel}`,
+        signature: "sig:local-only",
+        visibility: "community",
+        state: "local only",
+        reactions: [],
+        source: "snapshot",
+      },
+      activeChannel,
+      activeCommunity,
+    ).trim();
+    const item = wrapper.content.firstElementChild;
+    if (!item) return;
     feed.append(item);
     applyChannelFilter();
     return;

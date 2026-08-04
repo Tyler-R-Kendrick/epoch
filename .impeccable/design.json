@@ -8,7 +8,7 @@
         "role": "neutral",
         "displayName": "Mist Surface",
         "canonical": "#ecefea",
-        "tonalRamp": ["#1d2724", "#34413d", "#4f5d59", "#6d7d78", "#8fa19b", "#b4c5bf", "#d6e3df", "#f3f6f4"]
+        "tonalRamp": ["#1d2724", "#34413d", "#4f5d59", "#6d7d78", "#8fa19b", "#b4c5bf", "#d6e3df", "#ecefea"]
       },
       "surface-raised": {
         "role": "neutral",
