@@ -33,7 +33,7 @@ export type {
 } from "./model/types";
 export { createCommunityWebApp, createCommunityDeploymentTarget } from "./app";
 export { messageMatchesReceiptSearch } from "./model/search";
-export { byTime } from "./model/feed";
+export { byTime } from "./model/ordering";
 export { defaultSessionForApi, resolveSessionAuthNote, withLiveAgentSessions } from "./model/session";
 export { channelForIssue } from "./model/channels";
 export { buildCommunitySpaces, defaultCommunityIdForRepo } from "./model/spaces";

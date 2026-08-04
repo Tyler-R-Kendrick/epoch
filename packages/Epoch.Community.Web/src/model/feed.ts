@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import { channelForIssue } from "./channels";
 import { buildCommunitySpaces, defaultCommunityIdForRepo } from "./spaces";
+import { byTime } from "./ordering";
 
 /**
  * Build the repository channel feed from API-backed repository state when connected and
@@ -15,16 +16,6 @@ import { buildCommunitySpaces, defaultCommunityIdForRepo } from "./spaces";
  * Live connected mode never mixes hard-coded demos into product activity.
  */
 
-/**
- * Channel messages read in the order they were sent. Builder order grouped by
- * source (social fixtures, then agent members, then forge items), which put a
- * 09:40 agent reply after a 09:47 human one in the same thread.
- */
-export function byTime(
-  conversations: readonly CommunityConversationView[],
-): readonly CommunityConversationView[] {
-  return [...conversations].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
-}
 
 export function buildCommunityFeed(options: BuildCommunityFeedOptions): CommunityFeedBuildResult {
   const issues = options.repositories.flatMap((repo) =>
@@ -233,8 +224,7 @@ function communitySocialConversations(
         communityId: space.id,
         author: "maya",
         role: "maintainer",
-        title: `Welcome to ${space.name}`,
-        body: "Hangout first. Link a project when conversation becomes work.",
+        body: `Welcome to ${space.name} — hangout first. Link a project when conversation becomes work.`,
         time: "09:05",
         anchor: `community://${space.slug}/general`,
         signature: `sig:${space.slug}-welcome`,
@@ -249,8 +239,7 @@ function communitySocialConversations(
         communityId: space.id,
         author: "lea",
         role: "contributor",
-        title: "Cold installs are taking ~4 minutes",
-        body: "Same on two machines. Warm runs are fine, so I think it is the dependency cache and not the build itself.",
+        body: "Cold installs are taking about four minutes. Same on two machines, and warm runs are fine, so I think it is the dependency cache rather than the build itself.",
         time: "09:18",
         anchor: `community://${space.slug}/general`,
         signature: `sig:${space.slug}-lea-install`,
@@ -265,8 +254,7 @@ function communitySocialConversations(
         communityId: space.id,
         author: "nora",
         role: "contributor",
-        title: "Reproduced on a clean container",
-        body: "3m52s cold, 14s warm. The cache key includes the lockfile hash and the OS image tag, so it misses on every image bump.",
+        body: "Reproduced on a clean container: 3m52s cold, 14s warm. The cache key includes the lockfile hash and the OS image tag, so it misses on every image bump.",
         time: "09:31",
         anchor: `community://${space.slug}/general`,
         signature: `sig:${space.slug}-nora-repro`,

@@ -51,11 +51,24 @@ function inlinedRuntimeBundleStaysWithinByteBudget(): void {
   // ~5KB of real behaviour, and the bundle gzips to roughly 16KB on the wire.
   // The budget exists to catch runaway growth, so it should only move with a
   // named feature that justifies it.
+  //
+  // 75,000 -> 76,000: the visual-design pass added the shared agent-row view,
+  // the shared byTime ordering, optional-title message rendering, and the
+  // session auth detail. That pass also *removed* three hand-maintained copies
+  // of markup the client had drifted on (agent rail row, optimistic local
+  // message, feed ordering), so the net is new capability rather than bloat.
+  //
+  // Worth knowing before this moves again: 7,470 bytes of the bundle — roughly
+  // 10% — is comments, because vite ships the IIFE unminified. Measuring the
+  // payload with comments in it makes deleting documentation the cheapest way
+  // to pass this gate, which is the wrong incentive. Stripping comments while
+  // keeping the code unminified would return that 10% and is the change to make
+  // before raising this number a third time.
   const bundlePath = join("packages", "Epoch.Community.Web", "dist", "client", "runtime.js");
   const bundleBytes = statSync(bundlePath).size;
   assert.ok(
-    bundleBytes < 75_000,
-    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 75,000 bytes (keep the unminified IIFE lean)`,
+    bundleBytes < 76_000,
+    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 76,000 bytes (keep the unminified IIFE lean)`,
   );
 }
 
@@ -227,7 +240,7 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
     apiConnected: true,
   });
   assert.equal(emptyFeed.source, "snapshot");
-  assert.ok(emptyFeed.conversations.some((item) => item.title.includes("Dashboard widget")));
+  assert.ok(emptyFeed.conversations.some((item) => `${item.title ?? ""} ${item.body}`.includes("Dashboard widget")));
   assert.ok(emptyFeed.conversations.every((item) => item.source === "snapshot"));
 
   const liveFeed = buildCommunityFeed({
