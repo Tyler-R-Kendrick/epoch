@@ -329,7 +329,7 @@ export function communityStyles(): string {
     .status-dot {
       width: 0.45rem;
       height: 0.45rem;
-      border-radius: 50%;
+      border-radius: var(--epoch-radius-xs);
       background: var(--epoch-color-success);
     }
     .status-dot-muted { background: var(--epoch-color-gold); }
@@ -582,7 +582,7 @@ export function communityStyles(): string {
       justify-content: center;
       width: 1.4rem;
       height: 1.4rem;
-      border-radius: 999px;
+      border-radius: var(--epoch-radius-sm);
       background: var(--epoch-color-mint);
       color: var(--epoch-color-success);
       font-size: var(--epoch-type-meta-size);

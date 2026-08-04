@@ -978,7 +978,7 @@ function communityOperationsStyles(): string {
     }
 
     .status {
-      border-radius: 999px;
+      border-radius: var(--epoch-radius-sm);
       background: color-mix(in srgb, var(--ops-accent) 12%, transparent);
       color: var(--ops-accent);
       font-size: 0.78rem;

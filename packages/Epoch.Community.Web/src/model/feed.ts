@@ -267,7 +267,7 @@ function snapshotConversations(
       signature: "sig:8f2a-region",
       visibility: "community",
       state: "discussion",
-      reactions: ["7 useful", "3 follow"],
+      reactions: ["useful", "follow"],
       source: "snapshot",
     },
     {
@@ -284,7 +284,7 @@ function snapshotConversations(
       signature: "sig:42ab-cache",
       visibility: "community",
       state: "answerable",
-      reactions: ["4 same issue"],
+      reactions: ["same issue"],
       source: "snapshot",
     },
     {

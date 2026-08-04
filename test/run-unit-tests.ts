@@ -4,6 +4,7 @@ import { runCommunityContractTests } from "./unit/community-contract.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runCommunityOperationsWebTests } from "./unit/community-operations-web.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
+import { runCommunityWebTextBudgetTests } from "./unit/community-web-text-budget.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
 import { runEpochLiveReduxTests } from "./unit/epoch-live-redux.test";
@@ -41,6 +42,7 @@ async function main(): Promise<void> {
   await runCommunityOperationsWebTests();
   await runCommunityWebVercelTests();
   await runCommunityWebRenderParityTests();
+  await runCommunityWebTextBudgetTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();
   runPersonaFeatureModelTests();

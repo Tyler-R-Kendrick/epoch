@@ -565,7 +565,7 @@ function styles(): string {
     }
     .epoch-platform-state,
     .epoch-platform-health {
-      border-radius: 999px;
+      border-radius: var(--epoch-radius-sm);
       padding: 4px 10px;
       font-size: 13px;
       font-weight: 600;

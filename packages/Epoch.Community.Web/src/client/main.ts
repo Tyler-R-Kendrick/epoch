@@ -25,7 +25,7 @@ import {
 } from "../model/channels";
 import { messageMatchesReceiptSearch } from "../model/search";
 import { emptyDevFeedItem, renderDevFeedItem } from "../view/dev-feed";
-import { SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE, renderStateChip } from "../view/honesty";
+import { LIVE_EMPTY_MESSAGE, SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE, renderStateChip } from "../view/honesty";
 import { escapeHtml } from "../view/html";
 import { renderIdentityChip } from "../view/identity-chip";
 import { renderConversation, renderSignerStrip } from "../view/message";
@@ -231,13 +231,9 @@ function selectProductMode(mode: string): void {
     selectSurface("network");
     if (titleEl) titleEl.textContent = "Network Feed";
     if (contextSub) contextSub.textContent = `${feedTabLabel(activeFeedTab)} · cross-community ATProto activity`;
-    if (brandSub) brandSub.textContent = "Network · ATProto";
+    if (brandSub) brandSub.textContent = currentCommunity()?.name ?? "Communities";
     if (channelToolbar) channelToolbar.hidden = true;
-    if (honestyBanner) {
-      honestyBanner.textContent = live()
-        ? "Live Network Feed — cross-community ATProto follows, stars, releases, and contributions."
-        : "Snapshot Network Feed — labeled ATProto samples. Live mutations disabled.";
-    }
+    applyHonestyBanner();
     renderDevFeedTab(activeFeedTab);
   } else if (productMode === "community") {
     const space = currentCommunity();
@@ -253,22 +249,36 @@ function selectProductMode(mode: string): void {
     });
     renderCommunityChannels();
     selectChannel(activeChannel || space?.channels[0]?.id || "general");
-    if (honestyBanner) {
-      honestyBanner.textContent = live()
-        ? "Live community — social channels are community-owned; linked projects add issues, changes, and signed intents."
-        : SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE;
-    }
+    applyHonestyBanner();
   } else {
     syncRoute(`/community/repo/${activeRepo}`);
     selectSurface("issues");
     if (titleEl) titleEl.textContent = activeRepo;
-    if (contextSub) contextSub.textContent = "Linked project · forge lists";
-    if (brandSub) brandSub.textContent = activeRepo;
+    if (contextSub) contextSub.textContent = `${currentCommunity()?.name ?? "Community"} › ${activeRepo}`;
+    if (brandSub) brandSub.textContent = currentCommunity()?.name ?? "Communities";
     if (channelToolbar) channelToolbar.hidden = true;
     document.querySelectorAll<HTMLElement>("[data-open-repo]").forEach((button) => {
       button.setAttribute("aria-pressed", button.dataset.openRepo === activeRepo ? "true" : "false");
     });
+    applyHonestyBanner();
   }
+}
+
+/**
+ * The banner reports data state, which is the same on every plane. It used to
+ * be rewritten with plane-specific marketing on two branches and left untouched
+ * on the third, so opening a linked project showed community copy over a forge
+ * list — and its colour stayed frozen at server-render while its text changed.
+ */
+function applyHonestyBanner(): void {
+  if (honestyBanner === null) return;
+  const degraded = !live();
+  const empty = live() && state.feedSource === "snapshot";
+  honestyBanner.textContent = degraded
+    ? SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE
+    : empty ? LIVE_EMPTY_MESSAGE : "";
+  honestyBanner.hidden = !degraded && !empty;
+  honestyBanner.setAttribute("data-feed-honesty", degraded ? "snapshot" : empty ? "live-empty" : "live");
 }
 
 function feedTabLabel(tab: DevFeedTab): string {
