@@ -172,7 +172,7 @@ When("I open the ideas channel in the active community", async function () {
   await page.locator('button[data-channel="ideas"]').click();
   await page.locator("[data-surface-panel=\"channels\"]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
   await page.locator(
-    "[data-surface-panel=\"channels\"]:not([hidden]) [data-message]:not([hidden]) h2",
+    "[data-surface-panel=\"channels\"]:not([hidden]) [data-message]:not([hidden]) .row-heading",
     { hasText: "Dashboard widget should group revenue by region" },
   ).first().waitFor({ state: "visible", timeout: 5_000 });
 });

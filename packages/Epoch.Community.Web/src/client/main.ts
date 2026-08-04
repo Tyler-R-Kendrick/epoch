@@ -573,7 +573,7 @@ const originalText = new WeakMap<Element, string>();
 
 function highlightTargets(message: HTMLElement): HTMLElement[] {
   return Array.from(
-    message.querySelectorAll<HTMLElement>(".message-body > h2, .message-body > p"),
+    message.querySelectorAll<HTMLElement>(".row-heading, .row-text"),
   );
 }
 
@@ -1067,7 +1067,7 @@ async function handleComposerSubmit(text: string): Promise<void> {
 }
 
 async function handleAction(action: string, message: HTMLElement): Promise<void> {
-  const title = message.querySelector("h2")?.textContent || "Community intent";
+  const title = message.querySelector(".row-heading")?.textContent || "Community intent";
   const body = message.querySelector("p")?.textContent || "";
   const issueId = message.dataset.issueId;
   const changeId = message.dataset.changeId;

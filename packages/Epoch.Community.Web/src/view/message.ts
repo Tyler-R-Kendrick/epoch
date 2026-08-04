@@ -1,5 +1,6 @@
 import type { CommunityChannelId, CommunityConversationView } from "../model/types";
 import { escapeHtml, initials } from "./html";
+import { renderRow } from "./row";
 
 /**
  * Honest presence: the strip lists distinct receipt authors from the loaded
@@ -113,58 +114,61 @@ export function renderConversation(
         <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")}</span>
       </div>`
     : "";
-  return `<li class="feed-message${agentClass}" data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedProposal}${hidden}>
-    <button class="message-hitbox" type="button" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}"></button>
-    <div class="avatar${isAgent ? " avatar-agent" : ""}" aria-hidden="true">${escapeHtml(initials(conversation.author))}</div>
-    <article class="message-body">
-      <header class="message-meta">
-        <strong>${escapeHtml(conversation.author)}</strong>
-        <span>${escapeHtml(isAgent ? "member agent" : conversation.role)}</span>
-        ${harnessBadge}
-        ${managedBy}
-        <time>${escapeHtml(conversation.time)}</time>
-        <span data-message-state>${escapeHtml(conversation.state + commentNote)}</span>
-        ${conversation.source === "snapshot" ? `<span data-snapshot-badge>snapshot sample</span>` : ""}
-      </header>
-      <h2>${escapeHtml(conversation.title)}</h2>
-      <p>${escapeHtml(conversation.body)}</p>
-      ${threadComments}
-      ${artifactCard}
-      ${promoteReceipt}
-      <footer class="message-footer">
-        <span>${escapeHtml(conversation.anchor)}</span>
-        <button
+  const meta = [
+    `<strong class="row-actor">${escapeHtml(conversation.author)}</strong>`,
+    `<span class="row-role">${escapeHtml(isAgent ? "member agent" : conversation.role)}</span>`,
+    harnessBadge,
+    managedBy,
+    `<time>${escapeHtml(conversation.time)}</time>`,
+    `<span class="row-state" data-message-state>${escapeHtml(conversation.state + commentNote)}</span>`,
+    // The global state chip already says snapshot; repeating it per message was
+    // one of seven "sample/snapshot" statements on a single screen.
+    conversation.source === "snapshot" ? `<span class="visually-hidden" data-snapshot-badge>snapshot sample</span>` : "",
+  ].filter(Boolean).join("");
+
+  const foot = `<button
           type="button"
           class="signature-mark"
           data-signature-reveal="${escapeHtml(conversation.id)}"
           aria-expanded="false"
           aria-controls="provenance-${escapeHtml(conversation.id)}"
           aria-label="Show provenance for ${escapeHtml(conversation.title)}"
-        >${escapeHtml(conversation.signature)}</button>
-        <span>${escapeHtml(conversation.visibility)}</span>
-        ${conversation.intentId ? `<span data-intent-meta>intent:${escapeHtml(conversation.intentId)}</span>` : ""}
-        ${conversation.linkedProposalId === undefined ? "" : `<span data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`}
-      </footer>
-      ${renderProvenancePanel(conversation)}
-      <div class="reaction-row" aria-label="Reactions">
-        ${conversation.reactions.map((reaction) => `<button type="button" class="reaction" data-reaction="${escapeHtml(reaction)}">${escapeHtml(reaction)}</button>`).join("")}
-      </div>
-      <div class="message-action-tray" data-message-actions hidden>
+        ><span class="row-receipt-mark" aria-hidden="true"></span>signed</button>${
+    conversation.intentId ? `<span class="visually-hidden" data-intent-meta>intent:${escapeHtml(conversation.intentId)}</span>` : ""
+  }${
+    conversation.linkedProposalId === undefined ? "" : `<span class="visually-hidden" data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`
+  }`;
+
+  const actions = conversation.reactions
+    .map((reaction) => `<button type="button" class="button-quiet reaction" data-reaction="${escapeHtml(reaction)}">${escapeHtml(reaction)}</button>`)
+    .join("");
+
+  const tray = `<div class="message-action-tray" data-message-actions hidden>
         <dl>
           <div><dt>Anchor</dt><dd>${escapeHtml(conversation.anchor)}</dd></div>
           <div><dt>Signature</dt><dd>${escapeHtml(conversation.signature)}</dd></div>
           <div><dt>Artifact</dt><dd data-tray-artifact>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug ?? conversation.communityId)}</dd></div>
         </dl>
         <div class="action-row">
-          <button type="button" data-action="intent">Mark intent</button>
-          <button type="button" data-action="agent">Request agent</button>
-          <button type="button" data-action="answer">Accept answer</button>
-          <button type="button" data-action="docs">Docs patch</button>
-          <button type="button" data-action="report">Report</button>
-          ${changeId === undefined ? "" : `<button type="button" data-action="approve">Approve change</button>`}
+          <button type="button" class="button-intent" data-action="intent">Mark intent</button>
+          <button type="button" class="button-chip" data-action="agent">Request agent</button>
+          <button type="button" class="button-chip" data-action="answer">Accept answer</button>
+          <button type="button" class="button-chip" data-action="docs">Docs patch</button>
+          <button type="button" class="button-chip" data-action="report">Report</button>
+          ${changeId === undefined ? "" : `<button type="button" class="button-primary" data-action="approve">Approve change</button>`}
         </div>
         <p class="action-status" data-action-status>Human review required for signed project changes.</p>
-      </div>
-    </article>
-  </li>`;
+      </div>`;
+
+  return renderRow({
+    classNames: `row-message${agentClass}`,
+    attrs: ` data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedProposal}${hidden}`,
+    lead: { text: initials(conversation.author), variant: isAgent ? "agent" : "person" },
+    meta,
+    titleHtml: `<button type="button" class="row-title row-select" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(conversation.title)}">${escapeHtml(conversation.title)}</button>`,
+    body: conversation.body,
+    extra: `${threadComments}${artifactCard}${promoteReceipt}${renderProvenancePanel(conversation)}${tray}`,
+    foot,
+    actions,
+  });
 }

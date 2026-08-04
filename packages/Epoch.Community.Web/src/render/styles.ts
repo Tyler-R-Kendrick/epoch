@@ -771,7 +771,7 @@ export function communityStyles(): string {
     /* Signed anchors and at:// URIs are long unbroken tokens; they must wrap
        rather than widen the feed past the viewport. */
     .message-footer span,
-    .message-body h2,
+    .row-heading,
     .message-body p {
       overflow-wrap: anywhere;
     }
@@ -842,7 +842,7 @@ export function communityStyles(): string {
       font-weight: 700;
       letter-spacing: -0.01em;
     }
-    .message-body h2 {
+    .row-heading-legacy {
       margin: 0;
       color: var(--epoch-color-ink);
       font-size: var(--epoch-type-title-size);
@@ -1055,13 +1055,15 @@ export function communityStyles(): string {
       font-size: var(--epoch-type-meta-size);
     }
     .artifact-list {
-      margin: 0;
-      padding: var(--epoch-space-md) 1.15rem var(--epoch-space-lg);
-      overflow-y: auto;
-      list-style: none;
       display: grid;
       align-content: start;
       gap: 0;
+      margin: 0;
+      /* The row owns the gutter now; this list added a second one. */
+      padding: 0 0 var(--epoch-space-lg);
+      list-style: none;
+      min-width: 0;
+      overflow-y: auto;
     }
     .artifact-item {
       display: grid;
@@ -1214,6 +1216,9 @@ export function communityStyles(): string {
        earned here because a signature is the one thing this product proves. */
     .signature-mark {
       position: relative;
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
       padding: 0;
       border: 0;
       background: none;
@@ -1271,6 +1276,163 @@ export function communityStyles(): string {
       from { opacity: 0; transform: translateY(-2px); }
       to { opacity: 1; transform: none; }
     }
+
+    /* ── One row primitive ──────────────────────────────────────────────────
+       Replaces .feed-message / .dev-feed-item / .artifact-item, which were
+       164 / 59-133 / 83px tall with text origins at 42.4 / 40.4 / 18.4px,
+       gaps of 8px vs 1.6px, and dividers transparent / solid / solid. */
+    .row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 2rem minmax(0, 1fr);
+      gap: var(--epoch-space-sm);
+      padding: var(--epoch-space-sm) 1.15rem;
+      border-block-end: 1px solid var(--epoch-color-line);
+    }
+    .row:hover { background: var(--epoch-color-surface); }
+    .row[data-selected-message="true"] { background: var(--epoch-color-surface-sunken); }
+    .row-lead {
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: var(--epoch-radius-sm);
+      background: var(--epoch-color-surface-sunken);
+      color: var(--epoch-color-teal-deep);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-label-weight);
+    }
+    .row-lead-agent { background: var(--epoch-color-mint); }
+    .row-lead-empty { background: none; }
+    /* Above the full-bleed selection hitbox so tray and action buttons receive
+       their own clicks. */
+    .row-body { position: relative; z-index: 1; display: grid; gap: 0.15rem; min-width: 0; }
+    .row-lead { position: relative; z-index: 1; }
+    .row-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: var(--epoch-space-xs) var(--epoch-space-sm);
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-meta-size);
+    }
+    .row-actor { color: var(--epoch-color-ink); font-weight: var(--epoch-type-label-weight); }
+    .row-heading { margin: 0; }
+    .row-heading,
+    .row-title,
+    .row-object {
+      color: var(--epoch-color-ink);
+      font-size: var(--epoch-type-title-size);
+      font-weight: var(--epoch-type-title-weight);
+      line-height: var(--epoch-type-title-leading);
+      overflow-wrap: anywhere;
+    }
+    .row-select {
+      display: flex;
+      align-items: center;
+      min-height: 2rem;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
+      text-align: start;
+    }
+    .row-object {
+      display: inline-flex;
+      align-items: center;
+      min-height: var(--epoch-space-xxl);
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--epoch-color-teal);
+      cursor: pointer;
+      text-align: start;
+    }
+    .row-text {
+      margin: 0;
+      max-width: 70ch;
+      color: var(--epoch-color-ink-soft);
+      font-size: var(--epoch-type-body-size);
+      line-height: var(--epoch-type-body-leading);
+      overflow-wrap: anywhere;
+    }
+    .row-foot {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--epoch-space-sm);
+      padding-block-start: var(--epoch-space-xs);
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-meta-size);
+    }
+    .row-foot-facts { display: flex; flex-wrap: wrap; gap: var(--epoch-space-sm); }
+    .row-foot-actions { display: flex; flex-wrap: wrap; gap: var(--epoch-space-xs); margin-inline-start: auto; }
+    .row-receipt-mark {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-inline-end: var(--epoch-space-xs);
+      border-radius: var(--epoch-radius-xs);
+      background: var(--epoch-color-gold);
+    }
+    .row-id {
+      min-height: var(--epoch-space-xxl);
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--epoch-color-teal);
+      font-family: var(--epoch-font-mono);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-label-weight);
+      cursor: pointer;
+    }
+    .row-state { color: var(--epoch-color-muted); }
+    .row-state:empty { display: none; }
+
+    /* ── Four button treatments, not thirteen ─────────────────────────────── */
+    .button-primary,
+    .button-intent,
+    .button-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: var(--epoch-space-xxl);
+      padding: 0 var(--epoch-space-md);
+      border-radius: var(--epoch-radius-sm);
+      border: 1px solid transparent;
+      font: inherit;
+      font-size: var(--epoch-type-label-size);
+      font-weight: var(--epoch-type-label-weight);
+      cursor: pointer;
+    }
+    .button-primary {
+      background: var(--epoch-color-ink);
+      border-color: var(--epoch-color-ink);
+      color: var(--epoch-color-surface-raised);
+    }
+    .button-intent {
+      background: var(--epoch-color-teal);
+      border-color: var(--epoch-color-teal-deep);
+      color: var(--epoch-color-surface-raised);
+    }
+    .button-chip {
+      background: var(--epoch-color-surface-raised);
+      border-color: var(--epoch-color-line-strong);
+      color: var(--epoch-color-ink);
+    }
+    .button-quiet {
+      min-height: var(--epoch-space-xxl);
+      padding: 0 var(--epoch-space-xs);
+      border: 0;
+      background: none;
+      color: var(--epoch-color-muted);
+      font: inherit;
+      font-size: var(--epoch-type-meta-size);
+      font-weight: var(--epoch-type-meta-weight);
+      cursor: pointer;
+    }
+    .button-quiet:hover { color: var(--epoch-color-ink); text-decoration: underline; }
 
     /* Empty / loading / error state system — one voice across every list. */
     .state-block {
