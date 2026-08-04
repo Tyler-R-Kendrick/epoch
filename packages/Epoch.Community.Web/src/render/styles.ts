@@ -1496,7 +1496,9 @@ export function communityStyles(): string {
     /* ── Terrain (DESIGN 2: the legend) ──────────────────────────────────── */
     /* Social channels are runnable, work channels are rough. The ground is read
        before the label, which is how a legend saves a sentence. */
-    .channel-button[data-channel-kind="social"] { box-shadow: inset 3px 0 0 var(--epoch-color-runnable); }
+    .channel-button[data-channel-kind="social"] {
+      box-shadow: inset 3px 0 0 var(--epoch-color-runnable), inset 4px 0 0 var(--epoch-color-line-strong);
+    }
     .channel-button[data-channel-kind="work"] { box-shadow: inset 3px 0 0 var(--epoch-color-rough-strong); }
     .channel-button[aria-pressed="true"][data-channel-kind] { box-shadow: inset 0 0 0 1px var(--epoch-color-line); }
 
@@ -1525,12 +1527,6 @@ export function communityStyles(): string {
       outline: 2px solid var(--epoch-color-control);
       outline-offset: 2px;
     }
-    .button-primary {
-      background: var(--epoch-color-control);
-      border-color: var(--epoch-color-control);
-      color: var(--epoch-color-surface-raised);
-    }
-    .button-primary:hover { background: var(--epoch-color-accent-strong); border-color: var(--epoch-color-accent-strong); }
     .row[data-selected-message="true"] { background: var(--epoch-color-surface); box-shadow: inset 3px 0 0 var(--epoch-color-control); }
 
     /* ── Tonal layering (DESIGN 5: tonal first, shadows rare) ─────────────── */
@@ -1563,10 +1559,17 @@ export function communityStyles(): string {
       font-weight: var(--epoch-type-label-weight);
       cursor: pointer;
     }
+    /* The primary action is the end of the course, so it wears the control ink.
+       This is the canonical declaration; an earlier duplicate shadowed it and
+       primaries silently rendered ink. */
     .button-primary {
-      background: var(--epoch-color-ink);
-      border-color: var(--epoch-color-ink);
+      background: var(--epoch-color-control);
+      border-color: var(--epoch-color-control);
       color: var(--epoch-color-surface-raised);
+    }
+    .button-primary:hover {
+      background: var(--epoch-color-accent-strong);
+      border-color: var(--epoch-color-accent-strong);
     }
     .button-intent {
       background: var(--epoch-color-teal);
@@ -1641,12 +1644,13 @@ export function communityStyles(): string {
       background: var(--epoch-color-mint);
       color: var(--epoch-color-teal-deep);
     }
-    /* Unread: count text plus a mark, never colour alone. */
+    /* Unread: count text plus a mark, never colour alone — and never the
+       reserved course ink, which belongs to the promote path, not to state. */
     .channel-unread {
       min-width: var(--epoch-space-lg);
       padding: 0 var(--epoch-space-xs);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-accent);
+      background: var(--epoch-color-ink);
       color: var(--epoch-color-surface-raised);
       font-size: var(--epoch-type-meta-size);
       font-weight: var(--epoch-type-label-weight);

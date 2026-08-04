@@ -1645,18 +1645,29 @@ function validateDetectorPass(
 
 	const waiverPath = path.join(runDir, "detector-waivers.json");
 	const waivers = readJsonFile<{
-		waived?: readonly { rule?: string; file?: string; reason?: string }[];
+		waived?: readonly {
+			rule?: string;
+			file?: string;
+			line?: number;
+			reason?: string;
+		}[];
 	}>(waiverPath);
-	const waived = new Set(
-		(waivers?.waived ?? [])
-			.filter((w) => typeof w.reason === "string" && w.reason.trim().length > 12)
-			.map((w) => `${w.rule ?? ""}:${w.file ?? ""}`),
-	);
+	// Keyed on line as well as rule and file. Without it, two findings of the
+	// same rule in one file were cleared by a single reasoned waiver, so a run
+	// could complete with an unadjudicated finding — the exact hole this gate
+	// exists to close. A waiver that omits a line still covers the file, which
+	// keeps a deliberate file-wide exemption expressible.
+	const waived = new Set<string>();
+	for (const w of waivers?.waived ?? []) {
+		if (typeof w.reason !== "string" || w.reason.trim().length <= 12) continue;
+		waived.add(`${w.rule ?? ""}:${w.file ?? ""}:${w.line ?? "*"}`);
+	}
 
 	const problems: string[] = [];
 	for (const finding of report.findings) {
-		const key = `${finding.rule ?? ""}:${finding.file ?? ""}`;
-		if (!waived.has(key)) {
+		const base = `${finding.rule ?? ""}:${finding.file ?? ""}`;
+		const key = `${base}:${finding.line ?? "*"}`;
+		if (!waived.has(key) && !waived.has(`${base}:*`)) {
 			problems.push(`detector_finding_unadjudicated:${finding.rule ?? "unknown"}`);
 		}
 	}

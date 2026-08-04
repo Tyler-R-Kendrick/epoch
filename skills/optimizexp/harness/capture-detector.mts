@@ -82,6 +82,15 @@ function main(): void {
 	}
 	const root = process.cwd();
 
+	// A path the detector cannot see exits 0 with no output, which would write a
+	// clean report for something that was never scanned. Refuse to guess.
+	for (const target of targets) {
+		if (!existsSync(path.resolve(root, target))) {
+			console.error(`capture-detector: target does not exist: ${target}`);
+			process.exit(2);
+		}
+	}
+
 	let stdout: string;
 	try {
 		stdout = execFileSync("npx", ["impeccable", "detect", ...targets], {
@@ -90,11 +99,14 @@ function main(): void {
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 	} catch (error) {
-		// The detector exits non-zero when it finds something, which is the normal
-		// case and not a failure to capture. On that path it reports on stderr, so
-		// reading only stdout silently produced a clean report for a dirty file —
-		// a gate that always passes is worse than no gate.
-		const e = error as { stdout?: string; stderr?: string };
+		// The detector uses exit 2 for "found something" and 1 for its own failure.
+		// Treating any non-zero exit with output as findings meant a real command
+		// failure wrote `findings: []`, which the gate reads as clean — the same
+		// always-passes hole as reading only stdout. Only 2 is a report.
+		const e = error as { status?: number; stdout?: string; stderr?: string };
+		if (e.status !== 2) throw error;
+		// On that path it reports on stderr, so reading only stdout silently
+		// produced a clean report for a dirty file.
 		stdout = `${e.stdout ?? ""}\n${e.stderr ?? ""}`;
 		if (stdout.trim() === "") throw error;
 	}

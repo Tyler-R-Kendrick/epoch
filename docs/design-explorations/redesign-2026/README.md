@@ -29,8 +29,12 @@ the three-column chat app and its predictable opposite, the repo dashboard — w
 named and excluded, as was the literal reading of the product's own name
 (clocks, timelines, eras). Seven grounded directions were derived from open
 source community life across at least three material families, then
-`concept-seed.mjs --scope direction --mode operate` assigned which one leads
-(**index 4 — Plate Archive**) so the roll, not the model's ranking rut, decides.
+`concept-seed.mjs --scope direction --mode operate` assigned index 4 of that
+grounded list — **Plate Archive** — so the roll, not the model's ranking rut,
+decides what leads. The table below is presentation order for review and is not
+that list; Plate Archive is shown first because it is the assigned direction.
+The world ultimately adopted is Course Line, for the reasons recorded in
+[ADR-0026](../../design-decisions/0026-community-visual-world-course-line.md).
 Directions 9 and 10 are fused from dealt catalog challengers: they keep the
 challenger's system grammar and take every fact from the product.
 
