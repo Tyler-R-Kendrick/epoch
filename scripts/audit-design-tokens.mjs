@@ -35,6 +35,8 @@ const STRUCTURAL_RULES = new Set([
   "var-fallback",
   "var-fallback-mismatch",
   "design-json-drift",
+  // A contract that disagrees with its own tokens is not advisory.
+  "designmd-prose-drift",
 ]);
 
 const PALETTE_RULES = ["near-miss-palette", "off-palette-hex", "ops-token-not-aliased"];
@@ -242,11 +244,59 @@ function checkDesignJson(palette) {
   return findings;
 }
 
+
+/**
+ * DESIGN.md states each type step twice: once in the frontmatter the token
+ * generator reads, and once in the §3 Hierarchy prose a human reads. Two places
+ * for one fact drift, and in this repo they have drifted three times — each time
+ * leaving the contract disagreeing with the product it governs, which is the
+ * exact failure the design system exists to prevent.
+ *
+ * The generator cannot catch it because it never reads the prose. This does.
+ */
+function checkTypographyProse(designMd) {
+  const findings = [];
+  const fm = /^---\n([\s\S]*?)\n---/u.exec(designMd);
+  if (fm === null) return findings;
+
+  const sizes = new Map();
+  const typoBlock = /typography:\n([\s\S]*?)(?=\n[a-z-]+:\n|$)/u.exec(fm[1]);
+  if (typoBlock !== null) {
+    let level = null;
+    for (const line of typoBlock[1].split("\n")) {
+      const lvl = /^ {2}([a-z]+):\s*$/u.exec(line);
+      if (lvl !== null) level = lvl[1];
+      const size = /^ {4}fontSize:\s*"([^"]+)"/u.exec(line);
+      if (size !== null && level !== null) sizes.set(level, size[1]);
+    }
+  }
+
+  const hierarchy = /### Hierarchy\n([\s\S]*?)(?=\n###|\n## )/u.exec(designMd);
+  if (hierarchy === null) return findings;
+
+  for (const line of hierarchy[1].split("\n")) {
+    const m = /^- \*\*([A-Z][a-z]+)\*\* \([0-9]+, ([0-9.]+rem)/u.exec(line.trim());
+    if (m === null) continue;
+    const level = m[1].toLowerCase();
+    const declared = sizes.get(level);
+    if (declared !== undefined && declared !== m[2]) {
+      findings.push({
+        rule: "designmd-prose-drift",
+        file: "DESIGN.md",
+        detail: `Hierarchy prose says ${level} is ${m[2]}; frontmatter says ${declared}.`,
+      });
+    }
+  }
+  return findings;
+}
+
 function main() {
-  const palette = parseDesignMdColors(readFileSync(join(root, "DESIGN.md"), "utf8"));
+  const designMd = readFileSync(join(root, "DESIGN.md"), "utf8");
+  const palette = parseDesignMdColors(designMd);
   const findings = [
     ...SCANNED_PACKAGES.flatMap((pkg) => scanPackage(pkg, palette)),
     ...checkDesignJson(palette),
+    ...checkTypographyProse(designMd),
   ];
 
   const summary = {};
