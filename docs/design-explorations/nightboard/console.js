@@ -45,15 +45,17 @@
     var forkAt = posts.findIndex(function (p) { return p.state === "promoted"; });
     return '<div class="cn-graph">' + posts.map(function (p, i) {
       var open = forkAt !== -1 && i >= forkAt;
-      return '<div class="cn-node" data-kind="' + esc(who(p.who).kind) + '" data-state-of="' + esc(p.state) + '"' +
-        ' data-fork="' + open + '"' + (markId && p.id === markId ? ' data-here="true"' : "") + ">" +
+      return '<div class="cn-node" data-key="' + esc(p.id) + '" data-kind="' + esc(who(p.who).kind) + '"' +
+        ' data-state-of="' + esc(p.state) + '"' +
+        ' data-fork="' + open + '"' + (markId && p.id === markId ? ' data-here="true"' : "") +
+        (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
         '<span class="cn-dot" aria-hidden="true"></span>' +
         (open ? '<span class="cn-branch" aria-hidden="true"></span>' : "") +
         '<div class="cn-node-body"><span data-c="actor"><b data-c="handle">' + esc(p.who) + "</b>" +
         '<span data-c="role">' + esc(who(p.who).role) + "</span></span>" +
         '<span data-c="meta"><time data-c="time">' + esc(p.at) + "</time>" +
         '<span data-c="state">' + esc(p.state) + "</span></span>" +
-        (p.subject ? "<b>" + esc(p.subject) + "</b>" : "") +
+        (p.subject ? '<b class="cn-subject">' + esc(p.subject) + "</b>" : "") +
         "<p>" + esc(p.body) + "</p>" +
         (p.anchor ? '<span data-c="anchor">↳ ' + esc(p.anchor) + "</span>" : "") +
         '<span data-c="receipt"><span data-c="mark" aria-hidden="true">◆</span>' +
@@ -76,7 +78,8 @@
         n += 1;
         return '<div class="cn-l cn-add"><span>' + n + "</span><code>+ " + esc(t.trim()) + "</code></div>";
       }).join("");
-      return '<div class="cn-hunk">' +
+      return '<div class="cn-hunk" data-key="' + esc(p.id) + '"' +
+        (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
         '<div class="cn-hh">' + esc(window.NB_ASCII.rule(
           "@@ " + p.at + " @@ " + p.who + " · " + p.state, 84)) + "</div>" +
         (p.subject ? '<div class="cn-l cn-ctx"><span></span><code>  ' + esc(p.subject) + "</code></div>" : "") +
@@ -146,7 +149,7 @@
     var items = shown.map(function (e, i) {
       var isDir = e.kind === "dir";
       var spark = activityOf(e, path);
-      return '<button type="button" class="cn-item" data-col="' + index + '" data-i="' + i + '"' +
+      return '<button type="button" class="cn-item" data-key="' + esc(e.name) + '" data-col="' + index + '" data-i="' + i + '"' +
         ' data-kind="' + esc(e.kind) + '"' + (e.meta ? ' data-meta="' + esc(e.meta) + '"' : "") +
         (i === cursor ? ' aria-current="true"' : "") + ">" +
         '<span class="cn-sig" aria-hidden="true">' + (isDir ? "▸" : e.kind === "agent" ? "*" : "·") + "</span>" +
@@ -187,9 +190,26 @@
     [data-exp="console"] .cn-view[aria-pressed=true]{background:var(--nb-accent);color:var(--nb-accent-ink);
       border-color:var(--nb-accent)}
 
-    /* Miller columns. Ranger's model: your whole path is on screen. */
+    /* Miller columns. Ranger's model: your whole path is on screen — where
+       the screen can hold it. Narrower, the columns concede in the same order
+       a terminal multiplexer would: the parent goes first, then the preview
+       stacks under the listing instead of beside it. */
     [data-exp="console"] .cn-cols{display:grid;grid-template-columns:15rem 20rem minmax(0,1fr);
       min-height:0;overflow:hidden}
+    @media (max-width: 64rem){
+      [data-exp="console"] .cn-cols{grid-template-columns:14rem minmax(0,1fr)}
+      [data-exp="console"] .cn-col[data-column="0"]{display:none}
+    }
+    @media (max-width: 40rem){
+      /* Phone: the listing and the preview become swipe pages — the touch
+         gesture a feed already taught everyone — instead of two slivers. */
+      [data-exp="console"] .cn-cols{grid-template-columns:repeat(2,100%);
+        overflow-x:auto;scroll-snap-type:x mandatory}
+      [data-exp="console"] .cn-col{scroll-snap-align:start;opacity:1;border-inline-end:0}
+    }
+    @media (max-height: 40rem){
+      [data-exp="console"] .cn-out{max-height:5.5rem}
+    }
     [data-exp="console"] .cn-col{display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;
       border-inline-end:1px solid var(--nb-rule);opacity:.62}
     [data-exp="console"] .cn-col[data-focus=true]{opacity:1}
@@ -223,10 +243,24 @@
     [data-exp="console"] .cn-pane{border-inline-end:0;overflow:auto;padding:.5rem 0}
     [data-exp="console"] .cn-empty{color:var(--nb-ink-faint);padding:.6rem .8rem}
     [data-exp="console"] .cn-graph{padding:.3rem 0}
+    @media (prefers-reduced-motion: no-preference){
+      /* Arrival: a live post rises into the stream. Possible at all only
+         because the morph inserts the one new node instead of rebuilding the
+         list — a restarted animation is an invisible one. */
+      [data-exp="console"] [data-live=true]{animation:cn-arrive .45s cubic-bezier(.2,.8,.2,1) both}
+      [data-exp="console"] [data-live=true] .cn-dot{animation:cn-ping 1.2s ease-out 1}
+      /* The marked node breathes once so the eye lands on it after a jump. */
+      [data-exp="console"] .cn-node[data-here=true] .cn-dot{animation:cn-ping 1.2s ease-out 1}
+      [data-exp="console"] .cn-badge{animation:cn-arrive .3s ease-out both}
+    }
+    @keyframes cn-arrive{from{opacity:0;translate:0 .5rem}to{opacity:1;translate:0 0}}
+    @keyframes cn-ping{0%{box-shadow:0 0 0 2px var(--nb-live),0 0 0 0 var(--nb-live)}
+      100%{box-shadow:0 0 0 2px var(--nb-live),0 0 0 .8rem transparent}}
     [data-exp="console"] .cn-node{position:relative;display:grid;grid-template-columns:2.6rem minmax(0,1fr);
       padding:.35rem .8rem}
-    [data-exp="console"] .cn-node::before{content:"";position:absolute;inset-block:0;inset-inline-start:1.4rem;
-      width:2px;background:var(--nb-rule)}
+    [data-exp="console"] .cn-node::before{content:"";position:absolute;inset-block:0;
+      inset-inline-start:calc(2.2rem - 1px);width:2px;
+      background:color-mix(in srgb,var(--nb-ink-dim) 45%,transparent)}
     [data-exp="console"] .cn-node:first-child::before{inset-block-start:50%}
     [data-exp="console"] .cn-node:last-child::before{inset-block-end:50%}
     [data-exp="console"] .cn-dot{position:relative;z-index:1;margin-inline-start:1.05rem;margin-block-start:.3rem;
@@ -234,16 +268,28 @@
     [data-exp="console"] .cn-node[data-kind=agent] .cn-dot{box-shadow:0 0 0 2px var(--nb-agent)}
     [data-exp="console"] .cn-node[data-state-of=promoted] .cn-dot{background:var(--nb-accent);
       box-shadow:0 0 0 2px var(--nb-accent)}
+    /* The fork lane. It opens with an elbow at the promotion — a curve, the
+       way a graph tool draws a branch leaving the trunk — runs beside the
+       rail while the thread is a signed intent, and closes with a mirrored
+       elbow into the merge line. Straight bars read as a table border; the
+       curve is what makes it read as lineage. */
     [data-exp="console"] .cn-node[data-fork=true] .cn-branch{position:absolute;inset-block:0;
-      inset-inline-start:3.5rem;width:2px;background:var(--nb-accent);opacity:.6}
-    [data-exp="console"] .cn-node[data-state-of=promoted]::after{content:"";position:absolute;
-      inset-block-start:.65rem;inset-inline-start:1.4rem;width:2.1rem;height:2px;background:var(--nb-accent)}
+      inset-inline-start:1.3rem;width:2px;background:var(--nb-accent);opacity:.75}
+    [data-exp="console"] .cn-node[data-state-of=promoted] .cn-branch{inset-block-start:.62rem;
+      inset-inline-start:1.3rem;width:.9rem;background:none;
+      border-inline-start:2px solid var(--nb-accent);border-block-start:2px solid var(--nb-accent);
+      border-start-start-radius:.55rem;opacity:.75}
     [data-exp="console"] .cn-node[data-here=true]{background:var(--nb-surface)}
     [data-exp="console"] .cn-node[data-here=true] .cn-dot{box-shadow:0 0 0 2px var(--nb-accent),0 0 8px var(--nb-accent)}
     [data-exp="console"] .cn-node-body{min-width:0}
     [data-exp="console"] .cn-node-body p{margin:.1rem 0 0;max-width:76ch}
-    [data-exp="console"] .cn-merge{padding:.5rem .8rem .5rem 3.9rem;color:var(--nb-accent);
+    [data-exp="console"] .cn-subject{display:block;margin-block-start:.15rem}
+    [data-exp="console"] .cn-merge{position:relative;padding:.5rem .8rem .5rem 3.2rem;color:var(--nb-accent);
       border-block-start:1px solid var(--nb-rule);margin-block-start:.4rem}
+    [data-exp="console"] .cn-merge::before{content:"";position:absolute;inset-inline-start:1.3rem;
+      inset-block-start:-.45rem;inset-block-end:calc(50% - 1px);width:.9rem;
+      border-inline-start:2px solid var(--nb-accent);border-block-end:2px solid var(--nb-accent);
+      border-end-start-radius:.55rem;opacity:.75}
     [data-exp="console"] .cn-hunk{border-block-end:1px solid var(--nb-rule)}
     [data-exp="console"] .cn-hh{padding:.25rem .8rem;background:var(--nb-surface);color:var(--nb-ink-dim);font-size:.85em}
     [data-exp="console"] .cn-l{display:grid;grid-template-columns:3.2rem minmax(0,1fr);font-size:.9em}
@@ -289,11 +335,6 @@
     [data-exp="console"] .cn-out:empty{display:none}
     [data-exp="console"] .cn-out b{color:var(--nb-ink)}
 
-    @media (max-width:900px){
-      [data-exp="console"] .cn-cols{grid-template-columns:repeat(3,86vw);overflow-x:auto;
-        scroll-snap-type:x mandatory}
-      [data-exp="console"] .cn-col{scroll-snap-align:start;opacity:1}
-    }
     /* Touch is a peer, not an afterthought: every control clears the 32px floor
        wherever the pointer is coarse, which is also where the keyboard is not
        available to compensate. */

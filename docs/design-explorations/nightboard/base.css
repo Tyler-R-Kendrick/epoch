@@ -36,6 +36,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
+/* The frame never scrolls as a page; every scrolling surface is a named pane.
+   Without this, a transient overflow during load hands the body a scrollbar it
+   keeps until the next layout, which reads as the whole app being broken. */
+body { overflow: hidden; }
 
 /*
  * The base layer owns tokens, the semantic wiring, and the frame. It does NOT
@@ -51,12 +55,19 @@ body {
   line-height: var(--nb-line);
   text-shadow: var(--nb-glow);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-areas: "bar" "notice" "mount" "status";
 }
 .nb-bar { grid-area: bar; }
 [data-region="notice"] { grid-area: notice; }
-.nb-mount { grid-area: mount; }
+/* The FX host owns the mount's grid cell; the mount fills it. Both must be
+   allowed to shrink — a grid child's default min-width is its content, and one
+   long unbroken line anywhere inside would otherwise widen the whole page. */
+[data-nb-fx-host] {
+  grid-area: mount; min-width: 0; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+}
 [data-region="status"] { grid-area: status; }
 
 .nb-bar {
@@ -69,7 +80,7 @@ body {
   border: 1px solid var(--nb-rule); border-radius: var(--nb-radius); min-height: 2rem;
 }
 .nb-thesis { flex: 1 1 22rem; min-width: 0; color: var(--nb-ink-faint); font-size: .85em; }
-.nb-mount { min-height: 0; overflow: hidden; }
+.nb-mount { min-width: 0; min-height: 0; overflow: hidden; }
 
 [data-region="notice"] { border-block-end: 1px solid var(--nb-rule); }
 [data-region="notice"][hidden] { display: none; }

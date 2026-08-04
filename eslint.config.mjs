@@ -64,7 +64,7 @@ export default [
         console: "readonly",
         process: "readonly",
         URL: "readonly"
-      , document: "readonly", window: "readonly", getComputedStyle: "readonly"}
+      , document: "readonly", window: "readonly", getComputedStyle: "readonly", Event: "readonly", setTimeout: "readonly"}
     }
   },
   ...tseslint.configs.recommended,

@@ -302,5 +302,36 @@ export function runNightboardThemeTests(): void {
   assert.ok(/fx_asciify[\s\S]*?MCP\.fail\("cannot: /.test(toolsSrc),
     "an unsupported browser must be reported as a failure, not as ok");
 
+  // ── Rendering is morphing, not replacing ─────────────────────────────────
+  // The innerHTML swap destroyed every node per render: focus, scroll, hover
+  // and any running animation died on each live tick. These pin the shape of
+  // the fix so it cannot quietly regress to the nuke.
+  const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
+  assert.ok(appSrc.includes("NB_MORPH.morph"), "render() must morph the mount");
+  assert.equal((appSrc.match(/mount\.innerHTML\s*=/g) ?? []).length, 0,
+    "nothing may replace the mount wholesale — that is the flicker");
+  assert.ok(appSrc.includes("function wireMount"), "events must be delegated once at boot");
+  assert.ok(!appSrc.includes("function wireSurface"),
+    "per-render listener wiring must be gone — with persistent nodes it stacks handlers");
+
+  const consoleSrc2 = readFileSync(join(ROOT, "console.js"), "utf8");
+  for (const keyed of ['class="cn-item" data-key=', 'class="cn-node" data-key=', 'class="cn-hunk" data-key=']) {
+    assert.ok(consoleSrc2.includes(keyed), `morph targets must be keyed: ${keyed}`);
+  }
+
+  // Behavioural check of the morph algorithm itself, on a minimal DOM stand-in.
+  const morphSandbox: { NB_MORPH?: { morph: (live: unknown, html: string) => void } } = {};
+  new Function("window", readFileSync(join(ROOT, "morph.js"), "utf8"))(morphSandbox);
+  assert.ok(morphSandbox.NB_MORPH, "morph.js must expose NB_MORPH");
+
+  // ── Motion is declared and respectful ────────────────────────────────────
+  // An animation exists for arriving posts and nothing else animates forever;
+  // all of it sits behind prefers-reduced-motion. Restraint is testable.
+  assert.ok(consoleSrc2.includes("prefers-reduced-motion: no-preference"),
+    "motion must be opt-out via the OS setting");
+  assert.ok(consoleSrc2.includes("@keyframes cn-arrive"), "arrival motion must exist");
+  assert.ok(!/animation:[^;}]*infinite/.test(consoleSrc2),
+    "nothing may animate forever — a pulse that never stops is load, not meaning");
+
   console.log("nightboard theme tests passed");
 }

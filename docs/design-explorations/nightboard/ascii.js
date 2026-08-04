@@ -91,14 +91,19 @@
    * Cold-start banner. It is theatre, but it is honest theatre: every line is a
    * fact the board can actually state, and it is drawn once rather than looped.
    */
-  function banner(board, toolCount, host) {
+  function banner(board, toolCount, host, width) {
+    // The box fits the screen it boots on; a fixed sixty columns forces a
+    // horizontal scrollbar onto every phone, which is theatre at the cost of
+    // the actual transcript.
+    var w = Math.max(30, Math.min(58, width || 58));
+    var inner = w - 2;
     return [
-      "┌" + "─".repeat(58) + "┐",
-      "│ " + pad("EPOCH TERMINAL  ·  " + board.name, 56) + " │",
+      "┌" + "─".repeat(w) + "┐",
+      "│ " + pad("EPOCH TERMINAL  ·  " + board.name, inner) + " │",
       "│ " + pad(board.node + "  ·  epoch " + board.epoch + "  " +
-        gauge(board.landed, board.total, 10) + "  ships " + board.ships, 56) + " │",
-      "│ " + pad(toolCount + " tools registered via " + host, 56) + " │",
-      "└" + "─".repeat(58) + "┘",
+        gauge(board.landed, board.total, 10) + "  ships " + board.ships, inner) + " │",
+      "│ " + pad(toolCount + " tools registered via " + host, inner) + " │",
+      "└" + "─".repeat(w) + "┘",
     ].join("\n");
   }
 

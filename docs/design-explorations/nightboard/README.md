@@ -355,6 +355,34 @@ Rebuild after changing the library:
 node docs/design-explorations/nightboard/build-openui.mjs
 ```
 
+## Rendering is morphing, not replacing
+
+Every state change used to redraw the board with `innerHTML`. That is the
+cheapest thing to write and the most expensive thing to ship: every node died
+on every live tick, so scroll positions reset, hover states vanished, the input
+needed a caret-restoration dance, and no animation could ever be seen running —
+a restarted animation is an invisible one. The nine-second stream tick made the
+whole surface glitch on schedule.
+
+`morph.js` replaces that with keyed DOM morphing: the renderer still produces
+one HTML string, but it is diffed against the live tree and only what differs
+is touched. Posts are keyed by id and listings by name, so a post arriving is
+*one inserted node* — which is what makes its arrival animation possible — and
+everything else is left alone. Events are delegated once at boot (with
+persistent nodes, per-render listeners would stack), focus never scrolls the
+frame (`preventScroll`, everywhere), and selection scrolling moves only the
+column's own pane, never the page.
+
+Motion follows one rule: it exists only where it carries meaning — a post
+arriving, the marked node breathing once after a jump — sits behind
+`prefers-reduced-motion`, and nothing animates forever. The fault suite holds
+the load-bearing properties: a live tick keeps the surface, the caret and the
+animation; a new post animates in while the rest of the board does not.
+
+One coherent responsive strategy: three miller columns at desk width, listing
+plus preview at mid width, and swipe pages with scroll-snap on a phone. The
+frame itself never scrolls as a page — every scrolling surface is a named pane.
+
 ## Enforced, not asserted
 
 `test/unit/nightboard-themes.test.ts` runs in `npm test` and holds every theme

@@ -157,6 +157,58 @@ const CASES = [
     },
   },
   {
+    // The live tick used to rebuild the whole DOM, which ate half-typed
+    // commands, reset scroll, and restarted any animation — the board
+    // "glitched" every nine seconds. The property that fixed it: a render is a
+    // morph, so a node that did not change is the same node afterwards.
+    name: "a live tick keeps the surface, the caret and the animation",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const r = await page.evaluate(async () => {
+        const item = document.querySelector(".cn-item");
+        item.__tag = 1;
+        const input = document.querySelector("[data-cli]");
+        input.focus();
+        input.value = "cd /chan";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        // A live post lands somewhere else; the board re-renders.
+        window.NB_APP.state.merged.push(Object.assign({}, window.NB_DATA.incoming[0], {
+          id: "live-901", at: "23:58", sig: "sig-tick",
+        }));
+        window.NB_APP.render(true);
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        return {
+          sameNode: document.querySelector(".cn-item").__tag === 1,
+          value: input.value,
+          focused: document.activeElement === input,
+        };
+      });
+      log(JSON.stringify(r));
+      return r.sameNode && r.value === "cd /chan" && r.focused;
+    },
+  },
+  {
+    // Arrival motion must actually run — and only for the node that arrived.
+    name: "a new post animates in; the rest of the board does not",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const r = await page.evaluate(async () => {
+        window.NB_APP.navigate("/channels/general", { keepCli: true });
+        window.NB_APP.state.merged.push(Object.assign({}, window.NB_DATA.incoming[0], {
+          id: "live-902", at: "23:59", channel: "general", sig: "sig-anim",
+        }));
+        window.NB_APP.render(true);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const live = document.querySelector('[data-live="true"]');
+        const names = live ? live.getAnimations({ subtree: true }).map((a) => a.animationName) : [];
+        const total = document.getAnimations().length;
+        return { names, total };
+      });
+      log(JSON.stringify(r));
+      return r.names.includes("cn-arrive") && r.total <= 4;
+    },
+  },
+  {
     // The canvas lens needs HTML-in-canvas, which this Chromium does not have.
     // The failure that matters is not "it did not draw" — it is a tool that
     // returns ok for an effect that silently did nothing, which is how an agent

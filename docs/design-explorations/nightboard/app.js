@@ -108,31 +108,47 @@
 
   /* ── Render ────────────────────────────────────────────────────────────── */
 
+  var lastScrolled = null;
+
   function render(keepCli) {
     var mount = $("[data-mount]");
-    // Re-rendering replaces the input the user may be typing into. Anything
-    // that redraws — the live stream tick, a warm-up finishing — would
-    // otherwise silently eat the rest of a half-typed command. Capture where
-    // the caret was and put it back.
-    var prior = document.activeElement;
-    var hadFocus = prior && prior.hasAttribute && prior.hasAttribute("data-cli");
-    var caret = hadFocus ? prior.selectionStart : null;
-
     mount.dataset.exp = exp().id;
-    mount.innerHTML = exp().render(state);
-    wireSurface();
+    // Morph, don't replace. A node that did not change survives the render —
+    // and with it everything the browser hangs off a node: focus and caret,
+    // scroll position, hover state, and any animation mid-flight. The old
+    // innerHTML swap destroyed all of that on every live tick, which is what
+    // made the surface flicker and motion impossible.
+    window.NB_MORPH.morph(mount, exp().render(state));
     var input = $("[data-cli]");
     if (input) {
-      input.value = cliValue;
+      // The input's value is state the user owns; render only touches it when
+      // the program changed cliValue underneath (Enter clearing it, Tab
+      // completing it). While typing the two are already equal.
+      if (input.value !== cliValue) {
+        input.value = cliValue;
+        if (document.activeElement === input) {
+          try { input.setSelectionRange(cliValue.length, cliValue.length); } catch { /* fine */ }
+        }
+      }
       paintGhost();
-      if (hadFocus || (!state.columnFocus && !keepCli)) {
-        input.focus();
-        var at = caret == null ? cliValue.length : Math.min(caret, cliValue.length);
-        try { input.setSelectionRange(at, at); } catch { /* not a text input */ }
+      if (!state.columnFocus && !keepCli && document.activeElement !== input) input.focus({ preventScroll: true });
+    }
+    // Scroll only when the selection actually moved, and only the column's own
+    // pane. scrollIntoView walks every scrollable ancestor — during load, when
+    // layout is still settling, that includes the page itself, which it then
+    // leaves permanently mis-scrolled with the header off-screen.
+    var cur = mount.querySelector('.cn-col[data-focus="true"] .cn-item[aria-current="true"]');
+    if (cur && cur !== lastScrolled) {
+      var pane = cur.closest(".cn-col-body");
+      if (pane) {
+        var top = cur.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
+        if (top < pane.scrollTop) pane.scrollTop = top;
+        else if (top + cur.offsetHeight > pane.scrollTop + pane.clientHeight) {
+          pane.scrollTop = top + cur.offsetHeight - pane.clientHeight;
+        }
       }
     }
-    var cur = mount.querySelector('.cn-col[data-focus="true"] .cn-item[aria-current="true"]');
-    if (cur) cur.scrollIntoView({ block: "nearest" });
+    lastScrolled = cur;
   }
 
   /** Move the menu highlight without re-rendering the input under the caret. */
@@ -165,7 +181,12 @@
     var region = $('[data-region="notice"]');
     var n = state.pending.length;
     region.hidden = n === 0;
-    if (n === 0) return;
+    if (n === 0) { region.innerHTML = ""; return; }
+    // Update in place once shown: rebuilding the button on every arriving post
+    // would restart its entrance animation, and a notice that flashes on each
+    // tick reads as an alarm rather than a count.
+    var count = region.querySelector('[data-c="count"]');
+    if (count) { count.textContent = n; return; }
     region.innerHTML = '<button type="button" data-c="notice" data-state="pending" data-merge>' +
       '<span data-c="count">' + n + "</span> new " + (n === 1 ? "post" : "posts") +
       " — press R to load</button>";
@@ -311,7 +332,7 @@
     recompute();
     render(true);
     var el = $("[data-cli]");
-    if (el) { el.focus(); el.setSelectionRange(cliValue.length, cliValue.length); }
+    if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(cliValue.length, cliValue.length); }
   }
 
   function acceptGhost() {
@@ -321,7 +342,7 @@
     recompute();
     render(true);
     var el = $("[data-cli]");
-    if (el) { el.focus(); el.setSelectionRange(cliValue.length, cliValue.length); }
+    if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(cliValue.length, cliValue.length); }
     return true;
   }
 
@@ -448,130 +469,138 @@
 
   function focusCli() {
     var el = $("[data-cli]");
-    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(el.value.length, el.value.length); }
   }
 
   /* ── Input ─────────────────────────────────────────────────────────────── */
 
-  function wireSurface() {
+  /**
+   * One delegated listener per event type, attached once at boot.
+   *
+   * With morphing, nodes persist across renders — re-attaching listeners per
+   * render (the old model) would stack a new handler on the same button every
+   * frame. Delegation also means a node inserted by the morph is live the
+   * moment it exists, with nothing to wire.
+   */
+  function wireMount() {
     var mount = $("[data-mount]");
 
-    mount.querySelectorAll("[data-goto]").forEach(function (b) {
-      b.addEventListener("click", function () { navigate(b.dataset.goto); });
-    });
-    mount.querySelectorAll("[data-view]").forEach(function (b) {
-      b.addEventListener("click", function () { state.view = b.dataset.view; render(); });
-    });
-    mount.querySelectorAll(".cn-item").forEach(function (b) {
-      b.addEventListener("click", function () {
-        var col = Number(b.dataset.col);
-        if (col === 0) { ascend(); return; }
+    mount.addEventListener("click", function (ev) {
+      var go = ev.target.closest("[data-goto]");
+      if (go) return navigate(go.dataset.goto);
+      var view = ev.target.closest("[data-view]");
+      if (view) { state.view = view.dataset.view; return render(); }
+      var candEl = ev.target.closest("[data-cand]");
+      if (candEl) {
+        state.candIndex = Number(candEl.dataset.cand);
+        var c = state.completion;
+        cliValue = cliValue.slice(0, c.replaceFrom) + c.candidates[state.candIndex].value;
+        recompute();
+        return render();
+      }
+      var item = ev.target.closest(".cn-item");
+      if (item) {
+        var col = Number(item.dataset.col);
+        if (col === 0) return ascend();
         var list = visible();
-        var picked = list[Number(b.dataset.i)];
+        var picked = list[Number(item.dataset.i)];
         if (!picked) return;
         var all = entries();
         state.cursor = all.findIndex(function (e) { return e.name === picked.name; });
         state.focus = 1;
         if (picked.kind === "dir") navigate(picked.name);
         else { render(); descend(); }
-      });
-    });
-    mount.querySelectorAll("[data-cand]").forEach(function (el) {
-      el.addEventListener("click", function () {
-        state.candIndex = Number(el.dataset.cand);
-        var c = state.completion;
-        cliValue = cliValue.slice(0, c.replaceFrom) + c.candidates[state.candIndex].value;
-        recompute();
-        render();
-      });
+      }
     });
 
-    var cli = mount.querySelector("[data-cli]");
-    if (cli) {
-      cli.addEventListener("input", function () {
-        cliValue = cli.value;
-        recompute();
-        // Repaint the menu without stealing focus or resetting the caret.
-        var menu = mount.querySelector(".cn-menu");
-        var wrap = mount.querySelector(".cn-cli");
-        if (wrap) wrap.dataset.open = String(!!(state.completion && state.completion.candidates.length > 1));
-        state.candIndex = 0;
-        if (menu) {
-          menu.innerHTML = (state.completion ? state.completion.candidates : []).slice(0, 40)
-            .map(function (c, i) {
-              return '<div class="cn-cand" data-cand="' + i + '"' + (i === 0 ? ' aria-current="true"' : "") +
-                '><span>' + c.value + "</span><i>" + (c.hint || "") + "</i></div>";
-            }).join("");
-        }
-        paintGhost();
-      });
-      cli.addEventListener("keydown", function (ev) {
-        if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
-        if (ev.key === "Enter") {
-          ev.preventDefault();
-          var cc = state.completion;
-          // A highlighted candidate is a choice already made; Enter accepts it
-          // rather than running a half-typed line.
-          if (cc && cc.candidates.length > 1 && state.candIndex > 0) {
-            cliValue = cliValue.slice(0, cc.replaceFrom) + cc.candidates[state.candIndex].value;
-            cli.value = cliValue;
-            recompute();
-            render(true);
-            focusCli();
-            return;
-          }
-          var text = cli.value;
-          cliValue = "";
-          cli.value = "";
-          recompute();
-          // AI mode is a superset of CLI, not a replacement. Anything that is
-          // already a valid command runs directly: sending `cd ..` to a model
-          // is slower, less reliable, and fails outright while the model is
-          // still downloading. Interpretation is for input that needs it.
-          if (state.ai && !isCommand(text)) { render(true); return ask(text); }
-          return run(text);
-        }
-        if (ev.key === "Escape") {
-          ev.preventDefault();
-          // Esc hands steering to the columns; it does not close anything,
-          // because the prompt is the default place to be.
-          state.columnFocus = true;
-          cli.blur();
-          return status("columns — ←→↑↓ to move, i or : to return to the prompt");
-        }
-        if (ev.altKey && ev.key.toLowerCase() === "a") {
-          ev.preventDefault();
-          state.ai = !state.ai;
-          render(true);
-          return status(state.ai
-            ? "ai — your words are interpreted, bad commands repaired"
-            : "cli — your words are commands");
-        }
-        if (ev.key === "ArrowRight" || ev.key === "End") {
-          if (cli.selectionStart === cli.value.length && acceptGhost()) ev.preventDefault();
-          return;
-        }
-        if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
-          ev.preventDefault();
-          var c = state.completion;
-          // With a menu open, the arrows belong to the menu; history is what
-          // they mean only when there is nothing to choose between.
-          if (c && c.candidates.length > 1) {
-            var n = c.candidates.length;
-            state.candIndex = ((state.candIndex + (ev.key === "ArrowDown" ? 1 : -1)) % n + n) % n;
-            highlightCandidate();
-            return;
-          }
-          if (!state.history.length) return;
-          var dir = ev.key === "ArrowUp" ? 1 : -1;
-          state.histIndex = Math.max(-1, Math.min(state.history.length - 1, state.histIndex + dir));
-          cliValue = state.histIndex === -1 ? "" : state.history[state.history.length - 1 - state.histIndex];
+    mount.addEventListener("input", function (ev) {
+      var cli = ev.target;
+      if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
+      cliValue = cli.value;
+      recompute();
+      // Repaint the menu without stealing focus or resetting the caret.
+      var menu = mount.querySelector(".cn-menu");
+      var wrap = mount.querySelector(".cn-cli");
+      if (wrap) wrap.dataset.open = String(!!(state.completion && state.completion.candidates.length > 1));
+      state.candIndex = 0;
+      if (menu) {
+        menu.innerHTML = (state.completion ? state.completion.candidates : []).slice(0, 40)
+          .map(function (c, i) {
+            return '<div class="cn-cand" data-cand="' + i + '"' + (i === 0 ? ' aria-current="true"' : "") +
+              '><span>' + c.value + "</span><i>" + (c.hint || "") + "</i></div>";
+          }).join("");
+      }
+      paintGhost();
+    });
+
+    mount.addEventListener("keydown", function (ev) {
+      var cli = ev.target;
+      if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
+      if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        var cc = state.completion;
+        // A highlighted candidate is a choice already made; Enter accepts it
+        // rather than running a half-typed line.
+        if (cc && cc.candidates.length > 1 && state.candIndex > 0) {
+          cliValue = cliValue.slice(0, cc.replaceFrom) + cc.candidates[state.candIndex].value;
           cli.value = cliValue;
           recompute();
-          paintGhost();
+          render(true);
+          focusCli();
+          return;
         }
-      });
-    }
+        var text = cli.value;
+        cliValue = "";
+        cli.value = "";
+        recompute();
+        // AI mode is a superset of CLI, not a replacement. Anything that is
+        // already a valid command runs directly: sending `cd ..` to a model
+        // is slower, less reliable, and fails outright while the model is
+        // still downloading. Interpretation is for input that needs it.
+        if (state.ai && !isCommand(text)) { render(true); return ask(text); }
+        return run(text);
+      }
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        // Esc hands steering to the columns; it does not close anything,
+        // because the prompt is the default place to be.
+        state.columnFocus = true;
+        cli.blur();
+        return status("columns — ←→↑↓ to move, i or : to return to the prompt");
+      }
+      if (ev.altKey && ev.key.toLowerCase() === "a") {
+        ev.preventDefault();
+        state.ai = !state.ai;
+        render(true);
+        return status(state.ai
+          ? "ai — your words are interpreted, bad commands repaired"
+          : "cli — your words are commands");
+      }
+      if (ev.key === "ArrowRight" || ev.key === "End") {
+        if (cli.selectionStart === cli.value.length && acceptGhost()) ev.preventDefault();
+        return;
+      }
+      if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
+        ev.preventDefault();
+        var c = state.completion;
+        // With a menu open, the arrows belong to the menu; history is what
+        // they mean only when there is nothing to choose between.
+        if (c && c.candidates.length > 1) {
+          var n = c.candidates.length;
+          state.candIndex = ((state.candIndex + (ev.key === "ArrowDown" ? 1 : -1)) % n + n) % n;
+          highlightCandidate();
+          return;
+        }
+        if (!state.history.length) return;
+        var dir = ev.key === "ArrowUp" ? 1 : -1;
+        state.histIndex = Math.max(-1, Math.min(state.history.length - 1, state.histIndex + dir));
+        cliValue = state.histIndex === -1 ? "" : state.history[state.history.length - 1 - state.histIndex];
+        cli.value = cliValue;
+        recompute();
+        paintGhost();
+      }
+    });
   }
 
   function wireGlobal() {
@@ -724,6 +753,7 @@
       sel.value = exp().id;
     }
     wireGlobal();
+    wireMount();
     render();
     renderNotice();
     status();
@@ -763,6 +793,7 @@
         landed: window.NB_DATA.board.landed, total: window.NB_DATA.board.total,
         ships: window.NB_DATA.board.ships },
       registered, window.NB_APP.toolHost,
+      Math.floor(Math.min(document.documentElement.clientWidth, 640) / 10) - 4,
     ));
     render();
   }
