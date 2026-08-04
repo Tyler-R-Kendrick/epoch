@@ -66,7 +66,7 @@ function contrast(a: string, b: string): number {
 
 export function runNightboardThemeTests(): void {
   const themes = loadThemes();
-  assert.equal(themes.length, 10, "the garden ships ten themes");
+  assert.equal(themes.length, 2, "two themes: the lit terminal and the printed one");
 
   const ids = new Set<string>();
   for (const theme of themes) {
@@ -152,35 +152,41 @@ export function runNightboardThemeTests(): void {
   assert.ok(parser.length < 120_000,
     `the parser bundle is ${parser.length} bytes — Zod has probably been bundled in again`);
 
-  // The failure this whole rewrite exists to fix: ten entries that were one
-  // layout in ten palettes. An experience must bring its own structure and its
-  // own navigation, so identical markup between two of them is a defect.
-  const expSource = readFileSync(join(ROOT, "experiences.js"), "utf8");
-  const expSandbox: {
-    NB_DATA?: unknown;
-    NB_EXPERIENCES?: { id: string; name: string; thesis: string; css: string; keys?: string }[];
-  } = { NB_DATA: JSON.parse(dataJson()) };
-  new Function("window", expSource)(expSandbox);
-  const exps = expSandbox.NB_EXPERIENCES ?? [];
-  assert.equal(exps.length, 10, "ten experiences");
+  // Consolidated to one experience. The ten before it navigated badly and most
+  // were the same layout twice; graph, shell and diff had the ideas and are now
+  // one thing. What has to be tested is that the navigation model is coherent,
+  // not that a count is met.
+  const consoleSource = readFileSync(join(ROOT, "console.js"), "utf8");
+  const sandbox2: { NB_DATA?: unknown; NB_MAP?: unknown; NB_EXPERIENCES?: { id: string; keys?: string }[] } = {
+    NB_DATA: JSON.parse(dataJson()),
+  };
+  new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(sandbox2);
+  new Function("window", consoleSource)(sandbox2);
+  const exps = sandbox2.NB_EXPERIENCES ?? [];
+  assert.equal(exps.length, 1, "one consolidated experience");
 
-  const cssShapes = new Set<string>();
-  for (const e of exps) {
-    assert.ok(e.id && e.name && e.thesis, `${e.id}: every experience states what it argues`);
-    assert.ok(e.css.includes(`[data-exp="${e.id}"]`),
-      `${e.id}: css must be scoped to its own experience or it leaks into the others`);
-    // Two experiences that declare the same class vocabulary are the same
-    // layout wearing different names.
-    const classes = (e.css.match(/\.[a-z]{2}-[a-z-]+/gu) ?? []).sort().join(",");
-    assert.ok(!cssShapes.has(classes), `${e.id} has the same structure as another experience`);
-    cssShapes.add(classes);
+  // Every input method must be a peer. A keyboard-only surface is unusable on a
+  // phone; a pointer-only one is unusable for the audience this is built for.
+  for (const hook of ["cn-crumb", "cn-item", "cn-view", "cn-cand"]) {
+    assert.ok(consoleSource.includes(hook), `console must expose ${hook} as a real control`);
+  }
+  assert.ok(consoleSource.includes("scroll-snap-type"),
+    "columns must swipe on narrow viewports, not just scroll");
+
+  // Completion is the difference between a shell and a prompt that echoes.
+  const complete = readFileSync(join(ROOT, "complete.js"), "utf8");
+  for (const capability of ["function score", "function commonPrefix", "function globalDirs", "ghost"]) {
+    assert.ok(complete.includes(capability), `complete.js must provide ${capability}`);
   }
 
-  // Navigation has to differ too, or they are the same experience with
-  // different paint — which is exactly what was shipped and rejected.
-  const keySets = new Set(exps.map((e) => e.keys ?? ""));
-  assert.ok(keySets.size >= 6,
-    `only ${keySets.size} distinct key maps across ten experiences — most of them navigate identically`);
+  // Every path the sitemap can produce must be resolvable, or `cd` lies.
+  const map = sandbox2.NB_MAP as {
+    list: (p: string, e?: unknown) => unknown[] | null;
+    join: (p: string[]) => string;
+  };
+  for (const root of ["/", "/channels", "/members", "/projects", "/epochs"]) {
+    assert.ok(map.list(root) !== null, `sitemap must list ${root}`);
+  }
 
   // The contract is the thing themes are written against; it has to exist.
   const contract = readFileSync(join(ROOT, "CONTRACT.md"), "utf8");

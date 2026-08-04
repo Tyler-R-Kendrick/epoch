@@ -54,37 +54,76 @@ actions on each post.
 
 The semantic surface every theme styles is [CONTRACT.md](CONTRACT.md).
 
-## Ten experiences, not ten skins
+## Console
 
-The previous version was one shell in ten palettes — same rail, same stream,
-same keys — and calling that ten designs was wrong. An experience now owns its
-own markup **and its own navigation**; what it inherits is the vocabulary
-(`CONTRACT.md`) and the tokens, so themes still apply across all of them.
+Graph, shell and diff turned out to be three thirds of one thing. The graph
+showed lineage, the shell moved fast, the diff read work as work — and all three
+navigated badly. They are now one experience on one model:
 
-| # | Experience | What leads | How you move |
-|---|---|---|---|
-| 1 | **Graph** | A commit graph; forks open when talk becomes work | walk nodes and lanes |
-| 2 | **Scrub** | A time axis with a playhead | drag time |
-| 3 | **Esper** | One artefact, full bleed | descend through depth |
-| 4 | **Rain** | Every channel as a falling column | pick a column |
-| 5 | **Panes** | A multiplexer workspace | split and focus |
-| 6 | **Sweep** | A radar: bearing is channel, radius is recency | rotate a bearing |
-| 7 | **Tape** | One horizontal strip of the whole day | scrub laterally |
-| 8 | **Shell** | The board mounted as a filesystem | `cd`, `ls`, `cat`, `tail -f` |
-| 9 | **Diff** | Every post as a patch | step hunks |
-| 10 | **Orbit** | Members as bodies around the epoch | traverse the system |
+**The board is a filesystem.** Columns, command line and breadcrumb all address
+the same paths, so clicking a folder and typing `cd` are the same operation
+rather than two features that happen to agree.
 
-Switch with the picker or `[` / `]`. Themes and experiences are independent:
-any of the ten themes applies to any of the ten experiences.
+```
+/channels/general/003-scout-drafted-a-plan
+/members/scout
+/projects/civic-tuner
+/epochs/13
+```
 
-`Graph` draws its spine rather than typing it — box-drawing characters cannot
-connect across rows of different heights, and a column of unjoined dots reads as
-a bulleted list, which is the one thing that design must not look like.
+### Navigation
 
-`Esper` uses a real atmosphere plate generated with the **higgsfield CLI**
-(`flux_2`), downsampled from 1.3MB to 4KB. It is the only raster in the set:
-depth-of-field haze is the one thing CSS cannot fake convincingly, and
-everything else is cheaper and sharper drawn.
+Miller columns, the way `ranger` and `nnn` work: a column per level, so your
+whole path is on screen and "where am I" is never a question.
+
+| | |
+|---|---|
+| `←→` / `hl` | move between columns |
+| `↑↓` / `jk` | move within a column |
+| `Enter` | descend, or open |
+| `:` | command line |
+| `/` or any letter | filter this column as you type |
+| `v` | cycle view — graph, diff, raw |
+| `Tab` | complete |
+
+Pointer and touch are peers, not fallbacks: every entry, breadcrumb segment and
+view chip is a real button, columns swipe with scroll-snap on a phone, and every
+control clears the 32px floor wherever the pointer is coarse.
+
+### The command line
+
+What "power user" has to mean, concretely:
+
+- **Ghost text.** The likeliest completion appears ahead of the cursor in dim
+  type; `→` or `End` accepts it.
+- **Fuzzy, ranked.** `cd cgen` reaches `/channels/general`. Scoring rewards
+  prefixes, word starts and tight runs, so it reads intent rather than letters.
+- **Local and global merged.** Completion searches the current directory *and*
+  the whole tree, ranked together. Falling back only when the local set was
+  empty meant one weak nearby match could hide the obvious destination — `cd ch`
+  matching a post name instead of `/channels`. Proximity is a tiebreaker worth
+  12 points, not a veto.
+- **Basenames score.** `/channels` never *starts* with `ch`, so global paths are
+  scored on their last segment and displayed absolute.
+- **Tab discipline.** Tab completes the longest unambiguous prefix first, and
+  only cycles once there is nothing left to add. Shift-Tab cycles backwards.
+- **History** on `↑↓`, `cd -` for the previous directory, `..` completes.
+
+`find` searches names across the tree; `grep` searches post bodies.
+
+### Views
+
+The preview renders the selected directory or entry three ways, and the choice
+is navigation state rather than a mode you get stuck in:
+
+- **graph** — lineage as a commit graph; forks open where talk becomes signed
+  work and merge at the epoch. Selecting one post shows the whole lineage with
+  that node marked, because a one-node graph is not a graph.
+- **diff** — every entry as a patch. One representation for talk and code is the
+  product's claim stated outright.
+- **raw** — plain transcript, for when structure is in the way.
+
+## The garden
 
 ## The garden
 

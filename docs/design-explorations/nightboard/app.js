@@ -1,69 +1,85 @@
 /**
  * The driver.
  *
- * It owns state and the live stream; it owns no layout. Each experience renders
- * the whole surface from that state and brings its own navigation, so switching
- * experience changes how you move through the board rather than what colour it
- * is. That distinction is the entire point of this rewrite.
+ * One navigation model, three input methods that are peers rather than a
+ * primary and two fallbacks:
+ *
+ *   keyboard   ←→ column, ↑↓ entry, Enter descend, : command, / filter, v view
+ *   pointer    every entry, breadcrumb and view chip is a real button
+ *   touch      columns scroll-snap horizontally; entries are ≥32px targets
+ *
+ * The command line is not a separate mode that replaces the columns — it moves
+ * the same cursor. Typing `cd ideas` and clicking `ideas` end in exactly the
+ * same place, because both call navigate().
  */
 (function () {
   "use strict";
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var D = window.NB_DATA;
+  var MAP = window.NB_MAP;
 
   var state = {
-    channel: "general",
-    selected: null,
+    path: "/channels/general",
+    cursor: 0,
+    focus: 1,
+    view: "graph",
+    filter: "",
     merged: [],
     pending: [],
     nextId: 1,
     live: true,
-    // Per-experience navigation state. Each experience reads only its own.
-    playhead: null,
-    esperIndex: 0,
-    esperDepth: 0,
-    bearing: 0,
-    panes: ["general", "ideas", "agent-runs"],
-    paneFocus: 0,
-    shellLog: [],
+    cliOpen: false,
+    completion: null,
+    candIndex: 0,
+    history: [],
+    histIndex: -1,
+    out: [],
+    prev: "/",
   };
 
   var experiences = window.NB_EXPERIENCES;
   var current = 0;
   var expStyle = document.createElement("style");
   document.head.appendChild(expStyle);
+  var cliValue = "";
 
   function exp() { return experiences[current]; }
+  function entries() { return MAP.list(state.path, state.merged) || []; }
 
-  function posts() {
-    return D.posts.concat(state.merged).filter(function (p) { return p.channel === state.channel; });
+  function visible() {
+    var all = entries();
+    if (!state.filter) return all;
+    return all.filter(function (e) {
+      return window.NB_COMPLETE.score(e.name, state.filter) !== null;
+    });
   }
 
   /* ── Render ────────────────────────────────────────────────────────────── */
 
-  function render() {
-    var e = exp();
+  function render(keepCli) {
     var mount = $("[data-mount]");
-    mount.dataset.exp = e.id;
-    mount.innerHTML = e.render(state);
-    if (typeof e.wire === "function") e.wire(api);
-    if (state.selected) {
-      var el = mount.querySelector('[data-post-id="' + state.selected + '"]');
-      if (el) el.dataset.state = "selected";
+    mount.dataset.exp = exp().id;
+    mount.innerHTML = exp().render(state);
+    wireSurface();
+    if (state.cliOpen) {
+      var input = $("[data-cli]");
+      if (input) {
+        input.value = cliValue;
+        if (!keepCli) input.focus();
+        paintGhost();
+      }
     }
+    var cur = mount.querySelector('.cn-col[data-focus="true"] .cn-item[aria-current="true"]');
+    if (cur) cur.scrollIntoView({ block: "nearest" });
   }
 
-  function setExperience(i) {
-    current = (i + experiences.length) % experiences.length;
-    var e = exp();
-    expStyle.textContent = e.css;
-    $("[data-exp-thesis]").textContent = e.thesis;
-    var sel = $("[data-exp-select]");
-    if (sel) sel.value = e.id;
-    try { history.replaceState(null, "", "#" + e.id); } catch { /* file:// */ }
-    render();
-    status(e.keys);
+  function paintGhost() {
+    var input = $("[data-cli]");
+    var ghost = $("[data-ghost]");
+    if (!input || !ghost) return;
+    var c = state.completion;
+    ghost.textContent = c && c.ghost ? input.value + c.ghost : "";
   }
 
   function status(msg) {
@@ -75,10 +91,73 @@
     var n = state.pending.length;
     region.hidden = n === 0;
     if (n === 0) return;
-    region.innerHTML =
-      '<button type="button" data-c="notice" data-state="pending" data-merge>' +
+    region.innerHTML = '<button type="button" data-c="notice" data-state="pending" data-merge>' +
       '<span data-c="count">' + n + "</span> new " + (n === 1 ? "post" : "posts") +
       " — press R to load</button>";
+  }
+
+  /* ── Navigation ────────────────────────────────────────────────────────── */
+
+  function navigate(path, opts) {
+    var target = MAP.resolve(state.path, path);
+    if (!MAP.isDir(target, state.merged)) {
+      // A file path selects its entry in the parent directory rather than
+      // failing, because "cd" to a thing you can see should go there.
+      var parts = MAP.split(target);
+      var dir = MAP.join(parts.slice(0, -1));
+      if (MAP.isDir(dir, state.merged)) {
+        state.prev = state.path;
+        state.path = dir;
+        state.filter = "";
+        var list = entries();
+        var i = list.findIndex(function (e) { return e.name === parts[parts.length - 1]; });
+        state.cursor = i === -1 ? 0 : i;
+        state.focus = 1;
+        render(opts && opts.keepCli);
+        return true;
+      }
+      return false;
+    }
+    state.prev = state.path;
+    state.path = target;
+    state.cursor = 0;
+    state.filter = "";
+    state.focus = 1;
+    render(opts && opts.keepCli);
+    return true;
+  }
+
+  function moveCursor(delta) {
+    var list = visible();
+    if (!list.length) return;
+    var all = entries();
+    var currentName = all[state.cursor] ? all[state.cursor].name : null;
+    var vi = list.findIndex(function (e) { return e.name === currentName; });
+    if (vi === -1) vi = 0;
+    var next = Math.max(0, Math.min(list.length - 1, vi + delta));
+    state.cursor = all.findIndex(function (e) { return e.name === list[next].name; });
+    render();
+  }
+
+  function descend() {
+    var list = entries();
+    var e = list[state.cursor];
+    if (!e) return;
+    if (e.kind === "dir") navigate(e.name);
+    else {
+      state.focus = 2;
+      render();
+      status(e.hint ? e.name + " · " + e.hint : e.name);
+    }
+  }
+
+  function ascend() {
+    if (MAP.split(state.path).length === 0) return;
+    var leaving = MAP.split(state.path).slice(-1)[0];
+    navigate("..");
+    var list = entries();
+    var i = list.findIndex(function (x) { return x.name === leaving; });
+    if (i !== -1) { state.cursor = i; render(); }
   }
 
   /* ── Live stream ───────────────────────────────────────────────────────── */
@@ -92,23 +171,19 @@
     if (!state.live) return;
     var seed = D.incoming[(state.nextId - 1) % D.incoming.length];
     var post = Object.assign({}, seed, {
-      id: "live-" + state.nextId,
-      at: clock(),
-      sig: seed.sig + "-" + state.nextId,
+      id: "live-" + state.nextId, at: clock(), sig: seed.sig + "-" + state.nextId,
     });
     state.nextId += 1;
-    if (post.channel === state.channel) {
-      // Queue rather than inject: nothing moves under the reader until asked.
+    var hereChannel = MAP.split(state.path);
+    var watching = hereChannel[0] === "channels" && hereChannel[1];
+    var chan = D.channels.filter(function (c) { return c.id === post.channel; })[0];
+    if (chan && watching === chan.label) {
       state.pending.push(post);
       renderNotice();
     } else {
-      for (var i = 0; i < D.channels.length; i++) {
-        if (D.channels[i].id === post.channel) {
-          D.channels[i].unread = (D.channels[i].unread || 0) + 1;
-        }
-      }
+      if (chan) chan.unread = (chan.unread || 0) + 1;
       state.merged.push(post);
-      render();
+      render(true);
     }
   }
 
@@ -118,204 +193,273 @@
     state.merged = state.merged.concat(state.pending);
     state.pending = [];
     renderNotice();
-    render();
+    render(true);
     status("loaded " + n + " new " + (n === 1 ? "post" : "posts"));
   }
 
-  /* ── The API experiences are given ─────────────────────────────────────── */
+  /* ── Command line ──────────────────────────────────────────────────────── */
 
-  var api = {
-    setPlayhead: function (fraction) {
-      var ps = posts();
-      if (!ps.length) return;
-      var mins = ps.map(function (p) {
-        var t = p.at.split(":"); return Number(t[0]) * 60 + Number(t[1]);
-      });
-      var lo = Math.min.apply(null, mins) - 5;
-      var hi = Math.max.apply(null, mins) + 5;
-      state.playhead = Math.round(lo + (hi - lo) * fraction);
-      if (fraction >= 0.999) state.playhead = null;
-      render();
-    },
-    openChannel: function (id) {
-      state.channel = id;
-      state.selected = null;
-      state.esperIndex = 0;
-      for (var i = 0; i < D.channels.length; i++) {
-        if (D.channels[i].id === id) D.channels[i].unread = 0;
-      }
-      render();
-      status("opened #" + id);
-    },
-    select: function (id) {
-      state.selected = id;
-      render();
-      var p = posts().filter(function (q) { return q.id === id; })[0];
-      status(p ? p.who + " · " + p.at + " · " + p.sig : exp().keys);
-    },
-    shell: shellCommand,
-    status: status,
-    state: state,
-  };
-
-  /* ── The shell experience's command language ───────────────────────────── */
-
-  function shellCommand(raw) {
-    var line = String(raw || "").trim();
-    var out = state.shellLog;
-    out.push('<span class="sh-echo">/' + state.channel + " $ " + line + "</span>");
-    var parts = line.split(/\s+/);
-    var cmd = parts[0];
-    var arg = parts.slice(1).join(" ");
-
-    if (cmd === "help" || cmd === "") {
-      out.push("<b>ls</b>            list this channel\n<b>cd</b> &lt;channel&gt;  change channel\n" +
-        "<b>cat</b> &lt;n&gt;       read one post in full\n<b>tail -f</b>       load queued posts\n" +
-        "<b>who</b>           who is on\n<b>stat</b>          epoch status\n<b>clear</b>         clear the screen");
-    } else if (cmd === "ls") {
-      out.push(posts().map(function (p, i) {
-        var k = window.NB_DATA.members.filter(function (m) { return m.handle === p.who; })[0];
-        var cls = k && k.kind === "agent" ? "ag" : p.state === "promoted" ? "pr" : "";
-        return String(i + 1).padStart(3, " ") + "  <i>" + p.at + "</i>  <span class=\"" + cls + "\">" +
-          p.who.padEnd(9) + "</span> " + (p.subject || p.body).slice(0, 58);
-      }).join("\n") || "<i>empty</i>");
-    } else if (cmd === "cd") {
-      var found = D.channels.filter(function (c) { return c.id === arg || c.label === arg; })[0];
-      if (found) { api.openChannel(found.id); out.push('<span class="ok">→ /' + found.id + "</span>"); }
-      else out.push("<i>no such channel: " + arg + "</i>");
-    } else if (cmd === "cat") {
-      var p = posts()[Number(arg) - 1];
-      out.push(p
-        ? "<b>" + p.who + "</b> <i>" + p.at + " · " + p.state + "</i>\n" +
-          (p.subject ? "<b>" + p.subject + "</b>\n" : "") + p.body +
-          (p.anchor ? "\n<i>anchor:</i> " + p.anchor : "") + "\n<i>sig:</i> " + p.sig
-        : "<i>no such post</i>");
-    } else if (cmd === "tail") {
-      var n = state.pending.length;
-      mergePending();
-      out.push(n ? '<span class="ok">loaded ' + n + "</span>" : "<i>nothing queued</i>");
-    } else if (cmd === "who") {
-      out.push(D.members.map(function (m) {
-        return (m.kind === "agent" ? '<span class="ag">*</span> ' : "@ ") + m.handle.padEnd(10) +
-          "<i>" + m.role + (m.detail ? " · " + m.detail : "") + "</i>";
-      }).join("\n"));
-    } else if (cmd === "stat") {
-      out.push("epoch <b>" + D.board.epoch + "</b>  " + D.board.landed + "/" + D.board.total +
-        " landed  ships <b>" + D.board.ships + "</b>");
-    } else if (cmd === "clear") {
-      state.shellLog = [];
-      render();
-      return;
-    } else {
-      out.push("<i>" + cmd + ": not found — try <b>help</b></i>");
-    }
-    if (out.length > 200) state.shellLog = out.slice(-200);
+  function openCli(seed) {
+    state.cliOpen = true;
+    cliValue = seed || "";
+    recompute();
     render();
-    var pane = $("[data-shell-out]");
-    if (pane) pane.scrollTop = pane.scrollHeight;
   }
 
-  /* ── Wiring ────────────────────────────────────────────────────────────── */
+  function closeCli() {
+    state.cliOpen = false;
+    state.completion = null;
+    cliValue = "";
+    render();
+    status();
+  }
 
-  function wire() {
-    var sel = $("[data-exp-select]");
-    experiences.forEach(function (e) {
-      var o = document.createElement("option");
-      o.value = e.id; o.textContent = e.name;
-      sel.appendChild(o);
+  function recompute() {
+    state.completion = window.NB_COMPLETE.analyse(cliValue, {
+      cwd: state.path, extra: state.merged,
     });
-    sel.addEventListener("change", function () {
-      experiences.forEach(function (e, i) { if (e.id === sel.value) setExperience(i); });
+    state.candIndex = 0;
+  }
+
+  /** Tab: complete the unambiguous part first, then cycle. */
+  function complete(shift) {
+    var c = state.completion;
+    if (!c || !c.candidates.length) return;
+    var input = $("[data-cli]");
+    var head = cliValue.slice(0, c.replaceFrom);
+    if (c.insert && c.insert.length > c.query.length && !shift) {
+      cliValue = head + c.insert;
+    } else {
+      var n = c.candidates.length;
+      state.candIndex = ((state.candIndex + (shift ? -1 : 1)) % n + n) % n;
+      cliValue = head + c.candidates[state.candIndex].value;
+    }
+    input.value = cliValue;
+    recompute();
+    render(true);
+    var el = $("[data-cli]");
+    if (el) { el.focus(); el.setSelectionRange(cliValue.length, cliValue.length); }
+  }
+
+  function acceptGhost() {
+    var c = state.completion;
+    if (!c || !c.ghost) return false;
+    cliValue = cliValue + c.ghost;
+    recompute();
+    render(true);
+    var el = $("[data-cli]");
+    if (el) { el.focus(); el.setSelectionRange(cliValue.length, cliValue.length); }
+    return true;
+  }
+
+  function run(line) {
+    var text = String(line || "").trim();
+    if (text === "") { closeCli(); return; }
+    state.history.push(text);
+    state.histIndex = -1;
+    var parts = text.split(/\s+/);
+    var cmd = parts[0];
+    var arg = parts.slice(1).join(" ");
+    var out = state.out;
+
+    if (cmd === "cd") {
+      var dest = arg === "-" ? state.prev : arg;
+      if (!navigate(dest || "/", { keepCli: true })) out.push("cd: no such path: " + arg);
+    } else if (cmd === "ls") {
+      var l = MAP.list(MAP.resolve(state.path, arg || "."), state.merged);
+      out.push(l ? l.map(function (e) { return (e.kind === "dir" ? "▸ " : "  ") + e.name; }).join("  ") : "ls: not a directory");
+    } else if (cmd === "cat") {
+      var p = MAP.postAt(MAP.resolve(state.path, arg), state.merged);
+      out.push(p ? "<b>" + p.who + "</b> " + p.at + " · " + p.state + "\n" + p.body + "\nsig: " + p.sig
+        : "cat: not a readable entry");
+    } else if (cmd === "view") {
+      if (["graph", "diff", "raw"].indexOf(arg) !== -1) { state.view = arg; out.push("view: " + arg); }
+      else out.push("view: graph | diff | raw");
+    } else if (cmd === "find") {
+      var hits = [];
+      ["/channels", "/members", "/projects"].forEach(function (root) {
+        (MAP.list(root, state.merged) || []).forEach(function (e) {
+          if (window.NB_COMPLETE.score(e.name, arg) !== null) hits.push(root + "/" + e.name);
+          if (e.kind === "dir") {
+            (MAP.list(root + "/" + e.name, state.merged) || []).forEach(function (f) {
+              if (window.NB_COMPLETE.score(f.name, arg) !== null) hits.push(root + "/" + e.name + "/" + f.name);
+            });
+          }
+        });
+      });
+      out.push(hits.length ? hits.slice(0, 12).join("\n") : "find: nothing matched");
+    } else if (cmd === "grep") {
+      var g = D.posts.concat(state.merged).filter(function (q) {
+        return (q.body + " " + (q.subject || "")).toLowerCase().indexOf(arg.toLowerCase()) !== -1;
+      });
+      out.push(g.length ? g.slice(0, 8).map(function (q) {
+        return q.channel + "/" + q.who + ": " + (q.subject || q.body).slice(0, 60);
+      }).join("\n") : "grep: no matches");
+    } else if (cmd === "tail") {
+      var n = state.pending.length; mergePending();
+      out.push(n ? "loaded " + n : "nothing queued");
+    } else if (cmd === "watch") {
+      state.live = true; out.push("stream resumed");
+    } else if (cmd === "stat") {
+      out.push("epoch <b>" + D.board.epoch + "</b> · " + D.board.landed + "/" + D.board.total +
+        " landed · ships " + D.board.ships);
+    } else if (cmd === "help") {
+      out.push(window.NB_COMPLETE.COMMANDS.map(function (c) {
+        return "<b>" + c.name + "</b>" + (c.arg ? " <" + c.arg + ">" : "") + "  " + c.help;
+      }).join("\n"));
+    } else if (cmd === "clear") {
+      state.out = [];
+    } else {
+      out.push(cmd + ": not found — try help");
+    }
+    if (state.out.length > 40) state.out = state.out.slice(-40);
+    cliValue = "";
+    recompute();
+    render();
+  }
+
+  /* ── Input ─────────────────────────────────────────────────────────────── */
+
+  function wireSurface() {
+    var mount = $("[data-mount]");
+
+    mount.querySelectorAll("[data-goto]").forEach(function (b) {
+      b.addEventListener("click", function () { navigate(b.dataset.goto); });
+    });
+    mount.querySelectorAll("[data-view]").forEach(function (b) {
+      b.addEventListener("click", function () { state.view = b.dataset.view; render(); });
+    });
+    mount.querySelectorAll(".cn-item").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var col = Number(b.dataset.col);
+        if (col === 0) { ascend(); return; }
+        var list = visible();
+        var picked = list[Number(b.dataset.i)];
+        if (!picked) return;
+        var all = entries();
+        state.cursor = all.findIndex(function (e) { return e.name === picked.name; });
+        state.focus = 1;
+        if (picked.kind === "dir") navigate(picked.name);
+        else { render(); descend(); }
+      });
+    });
+    mount.querySelectorAll("[data-cand]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        state.candIndex = Number(el.dataset.cand);
+        var c = state.completion;
+        cliValue = cliValue.slice(0, c.replaceFrom) + c.candidates[state.candIndex].value;
+        recompute();
+        render();
+      });
     });
 
+    var cli = mount.querySelector("[data-cli]");
+    if (cli) {
+      cli.addEventListener("input", function () {
+        cliValue = cli.value;
+        recompute();
+        // Repaint the menu without stealing focus or resetting the caret.
+        var menu = mount.querySelector(".cn-menu");
+        var wrap = mount.querySelector(".cn-cli");
+        if (wrap) wrap.dataset.open = String(!!(state.completion && state.completion.candidates.length > 1));
+        if (menu) {
+          menu.innerHTML = (state.completion ? state.completion.candidates : []).slice(0, 40)
+            .map(function (c, i) {
+              return '<div class="cn-cand" data-cand="' + i + '"' + (i === 0 ? ' aria-current="true"' : "") +
+                '><span>' + c.value + "</span><i>" + (c.hint || "") + "</i></div>";
+            }).join("");
+        }
+        paintGhost();
+      });
+      cli.addEventListener("keydown", function (ev) {
+        if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
+        if (ev.key === "Enter") { ev.preventDefault(); return run(cli.value); }
+        if (ev.key === "Escape") { ev.preventDefault(); return closeCli(); }
+        if (ev.key === "ArrowRight" || ev.key === "End") {
+          if (cli.selectionStart === cli.value.length && acceptGhost()) ev.preventDefault();
+          return;
+        }
+        if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
+          ev.preventDefault();
+          if (!state.history.length) return;
+          var dir = ev.key === "ArrowUp" ? 1 : -1;
+          state.histIndex = Math.max(-1, Math.min(state.history.length - 1, state.histIndex + dir));
+          cliValue = state.histIndex === -1 ? "" : state.history[state.history.length - 1 - state.histIndex];
+          cli.value = cliValue;
+          recompute();
+          paintGhost();
+        }
+      });
+    }
+  }
+
+  function wireGlobal() {
     document.addEventListener("click", function (ev) {
-      var t = ev.target;
-      if (t.closest("[data-merge]")) return mergePending();
-      var ch = t.closest("[data-channel]");
-      if (ch) return api.openChannel(ch.dataset.channel);
-      var pane = t.closest("[data-pane]");
-      if (pane) { state.paneFocus = Number(pane.dataset.pane); render(); return; }
-      var depth = t.closest("[data-depth]");
-      if (depth) { state.esperDepth = Number(depth.dataset.depth); render(); return; }
-      var post = t.closest("[data-post-id]");
-      if (post) return api.select(post.dataset.postId);
-      if (t.closest("[data-live-toggle]")) {
+      if (ev.target.closest("[data-merge]")) return mergePending();
+      if (ev.target.closest("[data-live-toggle]")) {
         state.live = !state.live;
         status(state.live ? "stream resumed" : "stream paused");
       }
     });
 
     document.addEventListener("keydown", function (ev) {
+      if (state.cliOpen) return;
       if (ev.target.matches("input, textarea, select")) return;
-      var k = ev.key.toLowerCase();
-      var id = exp().id;
-      var ps = posts();
-      var idx = ps.findIndex(function (p) { return p.id === state.selected; });
+      var k = ev.key;
 
-      if (k === "r") { ev.preventDefault(); return mergePending(); }
-      if (k === "t") { ev.preventDefault(); return window.NB_THEME && window.NB_THEME.cycle(); }
-      if (k === "g") { ev.preventDefault(); return window.NB_THEME && window.NB_THEME.openPanel(); }
-      if (ev.key === "]") { ev.preventDefault(); return setExperience(current + 1); }
-      if (ev.key === "[") { ev.preventDefault(); return setExperience(current - 1); }
+      if (k === ":" || k === ">") { ev.preventDefault(); return openCli(""); }
+      if (k === "/") { ev.preventDefault(); state.filter = ""; state.focus = 1; render(); return status("filter: type to narrow, Esc to clear"); }
+      if (k === "Escape") { if (state.filter) { state.filter = ""; render(); } return; }
+      if (k === "v") { ev.preventDefault(); var order = ["graph", "diff", "raw"]; state.view = order[(order.indexOf(state.view) + 1) % 3]; render(); return status("view: " + state.view); }
+      if (k.toLowerCase() === "r") { ev.preventDefault(); return mergePending(); }
+      if (k.toLowerCase() === "t") { ev.preventDefault(); return window.NB_THEME && window.NB_THEME.cycle(); }
+      if (k.toLowerCase() === "g" && !ev.metaKey) { ev.preventDefault(); return window.NB_THEME && window.NB_THEME.openPanel(); }
 
-      // Navigation is the experience's own, which is what makes these designs
-      // rather than skins.
-      if (id === "scrub") {
-        if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
-          ev.preventDefault();
-          var cur = state.playhead == null ? 1 : 0.5;
-          void cur;
-          var ps2 = posts();
-          var mins = ps2.map(function (p) { var t = p.at.split(":"); return Number(t[0]) * 60 + Number(t[1]); });
-          var lo = Math.min.apply(null, mins) - 5, hi = Math.max.apply(null, mins) + 5;
-          var now = state.playhead == null ? hi : state.playhead;
-          state.playhead = Math.max(lo, Math.min(hi, now + (ev.key === "ArrowRight" ? 4 : -4)));
-          if (state.playhead >= hi) state.playhead = null;
-          return render();
-        }
-        if (ev.key === " ") { ev.preventDefault(); state.playhead = null; return render(); }
-      } else if (id === "esper") {
-        if (ev.key === "ArrowDown") { ev.preventDefault(); state.esperDepth = Math.min(3, state.esperDepth + 1); return render(); }
-        if (ev.key === "ArrowUp") { ev.preventDefault(); state.esperDepth = Math.max(0, state.esperDepth - 1); return render(); }
-        if (ev.key === "ArrowRight") { ev.preventDefault(); state.esperIndex = Math.min(ps.length - 1, state.esperIndex + 1); state.esperDepth = 0; return render(); }
-        if (ev.key === "ArrowLeft") { ev.preventDefault(); state.esperIndex = Math.max(0, state.esperIndex - 1); state.esperDepth = 0; return render(); }
-        if (k === "escape") { state.esperDepth = 0; return render(); }
-      } else if (id === "sweep") {
-        if (ev.key === "ArrowRight") { ev.preventDefault(); state.bearing += 1; return render(); }
-        if (ev.key === "ArrowLeft") { ev.preventDefault(); state.bearing -= 1; return render(); }
-        if (ev.key === "Enter") { ev.preventDefault(); return api.openChannel(D.channels[((state.bearing % D.channels.length) + D.channels.length) % D.channels.length].id); }
-      } else if (id === "rain") {
-        if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
-          ev.preventDefault();
-          var ci = D.channels.findIndex(function (c) { return c.id === state.channel; });
-          var next = D.channels[(ci + (ev.key === "ArrowRight" ? 1 : -1) + D.channels.length) % D.channels.length];
-          return api.openChannel(next.id);
-        }
-      } else if (id === "panes") {
-        if (k === "s") { ev.preventDefault(); if (state.panes.length < 4) { state.panes.push(D.channels[state.panes.length % D.channels.length].id); render(); } return; }
-        if (k === "w") { ev.preventDefault(); if (state.panes.length > 1) { state.panes.pop(); state.paneFocus = Math.min(state.paneFocus, state.panes.length - 1); render(); } return; }
-        if (ev.key === "Tab") { ev.preventDefault(); state.paneFocus = (state.paneFocus + 1) % state.panes.length; return render(); }
-        if (/^[1-9]$/.test(ev.key)) { var n = Number(ev.key) - 1; if (state.panes[n]) { state.paneFocus = n; render(); } return; }
-      } else {
-        // graph, tape, diff, orbit: list-shaped, so j/k and arrows walk items.
-        if (k === "j" || ev.key === "ArrowDown") { ev.preventDefault(); if (ps[idx + 1]) return api.select(ps[idx + 1].id); if (idx === -1 && ps[0]) return api.select(ps[0].id); }
-        if (k === "k" || ev.key === "ArrowUp") { ev.preventDefault(); if (ps[idx - 1]) return api.select(ps[idx - 1].id); }
-        if (ev.key === "ArrowRight" && id === "tape") { ev.preventDefault(); if (ps[idx + 1]) return api.select(ps[idx + 1].id); }
-        if (ev.key === "ArrowLeft" && id === "tape") { ev.preventDefault(); if (ps[idx - 1]) return api.select(ps[idx - 1].id); }
+      if (k === "ArrowDown" || k === "j") { ev.preventDefault(); return moveCursor(1); }
+      if (k === "ArrowUp" || k === "k") { ev.preventDefault(); return moveCursor(-1); }
+      if (k === "ArrowRight" || k === "l" || k === "Enter") { ev.preventDefault(); return descend(); }
+      if (k === "ArrowLeft" || k === "h") { ev.preventDefault(); return ascend(); }
+      if (k === "Home") { ev.preventDefault(); state.cursor = 0; return render(); }
+      if (k === "End") { ev.preventDefault(); state.cursor = entries().length - 1; return render(); }
+
+      // Any printable key starts an incremental filter, the way a file manager
+      // does — no mode to enter, no key to remember.
+      if (k.length === 1 && /[a-z0-9-]/i.test(k)) {
+        state.filter += k;
+        state.cursor = 0;
+        render();
+        status("filter: " + state.filter);
+      }
+      if (k === "Backspace" && state.filter) {
+        ev.preventDefault();
+        state.filter = state.filter.slice(0, -1);
+        render();
+        status(state.filter ? "filter: " + state.filter : "");
       }
     });
   }
 
   function boot() {
-    wire();
-    var want = experiences.findIndex(function (e) { return "#" + e.id === location.hash; });
-    setExperience(want > -1 ? want : 0);
+    expStyle.textContent = exp().css;
+    $("[data-exp-thesis]").textContent = exp().thesis;
+    var sel = $("[data-exp-select]");
+    if (sel) {
+      experiences.forEach(function (e) {
+        var o = document.createElement("option");
+        o.value = e.id; o.textContent = e.name;
+        sel.appendChild(o);
+      });
+      sel.value = exp().id;
+    }
+    wireGlobal();
+    render();
     renderNotice();
+    status();
     setInterval(tick, 9000);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.NB_APP = { render: render, status: status, setExperience: setExperience };
+  window.NB_APP = { render: render, status: status, navigate: navigate, state: state };
 })();
