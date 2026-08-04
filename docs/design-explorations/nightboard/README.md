@@ -80,18 +80,41 @@ The API reports four states, and the panel says which one you are in:
 and unavailable. Where it is unavailable the panel says so plainly, and manual
 token editing reaches exactly the same surface.
 
-### On OpenUI
+## Composing views — OpenUI Lang
 
-[OpenUI](https://github.com/wandb/openui) is a self-hosted Python and React
-application that needs an LLM backend. It has no npm package and no embeddable
-widget, so it cannot run inside a self-contained page — the constraint this
-product holds everywhere.
+[OpenUI Lang](https://github.com/thesysdev/openui) (`thesysdev/openui`) is a
+streaming-first DSL for model-generated UI. The garden's second panel uses it:
+describe a view, and it streams in as the model writes it.
 
-What OpenUI is good at, *describe → render live → iterate*, is the loop the
-garden panel implements natively. For anyone who does run it, **Export prompt**
-copies the contract and current tokens as a ready prompt, and the tokens it
-returns paste straight into the editor. That is a real interoperability path
-rather than a claimed integration.
+The parser yields a usable tree at **every chunk**, with `partial` marking the
+element still being written, which is what makes it appear progressively rather
+than arriving as a finished blob.
+
+`build-openui.mjs` defines the component library — which *is* the Nightboard
+contract — generates the system prompt from it, and emits the library JSON
+schema. Only the parser ships: the runtime takes a JSON schema rather than Zod,
+so the page carries **48KB instead of 649KB**. lang-core imports Zod at module
+top level, so the build aliases it to a stub that throws rather than no-ops; if
+a future version does reach Zod at runtime, it fails loudly instead of
+misbehaving quietly.
+
+Two properties matter more than the size:
+
+- **A model can only compose what a theme can style.** Generated views use the
+  same semantic hooks as authored ones, so every theme styles them for free and
+  no model can introduce an element the garden cannot render.
+- **Accountability is not optional.** `Post` requires a supervisor when its kind
+  is `agent`; if a model omits it the renderer prints "supervisor not stated"
+  rather than hiding the gap.
+
+Without an on-device model, **Copy system prompt** gives the generated prompt for
+any external model, and pasted openui-lang renders in the same panel.
+
+Rebuild after changing the library:
+
+```
+node docs/design-explorations/nightboard/build-openui.mjs
+```
 
 ## Enforced, not asserted
 

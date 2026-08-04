@@ -98,6 +98,35 @@ export function runNightboardThemeTests(): void {
     }
   }
 
+  // The OpenUI Lang artifacts are generated. If the library changes and nobody
+  // reruns the build, the page ships a prompt and a schema that disagree with
+  // the renderer — the drift class this repo keeps rediscovering.
+  const library = readFileSync(join(ROOT, "openui-library.js"), "utf8");
+  const librarySandbox: { NB_OPENUI?: { schema: { properties?: Record<string, unknown> }; systemPrompt: string } } = {};
+  new Function("window", library)(librarySandbox);
+  const openui = librarySandbox.NB_OPENUI;
+  assert.ok(openui, "openui-library.js must define window.NB_OPENUI");
+  const components = Object.keys(openui.schema.properties ?? {});
+  assert.deepEqual(components.sort(), ["Channel", "Fact", "Notice", "Panel", "Post"],
+    "the generated library must match the components the renderer knows");
+  assert.ok(openui.systemPrompt.includes("openui-lang"),
+    "the generated system prompt must instruct the model in openui-lang");
+
+  // Every component the library offers must be renderable, or a model can emit
+  // something that silently disappears.
+  const renderer = readFileSync(join(ROOT, "generate.js"), "utf8");
+  for (const component of components) {
+    assert.ok(renderer.includes(`case "${component}"`),
+      `generate.js has no renderer for ${component}, so a model could emit one that vanishes`);
+  }
+
+  // The parser is a vendored build artifact; it has to be present and it must
+  // not have dragged Zod in with it.
+  const parser = readFileSync(join(ROOT, "openui-parser.js"), "utf8");
+  assert.ok(parser.length > 10_000, "the OpenUI parser bundle looks truncated");
+  assert.ok(parser.length < 120_000,
+    `the parser bundle is ${parser.length} bytes — Zod has probably been bundled in again`);
+
   // The contract is the thing themes are written against; it has to exist.
   const contract = readFileSync(join(ROOT, "CONTRACT.md"), "utf8");
   for (const hook of ["data-region", "data-c", "data-state", "data-kind", "--nb-accent"]) {

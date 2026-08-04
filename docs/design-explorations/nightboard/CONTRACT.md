@@ -127,14 +127,28 @@ so it cannot produce markup, scripts, or network requests even if asked.
 When the API is unavailable the panel says so plainly and falls back to manual
 token editing, which reaches exactly the same surface.
 
-### On OpenUI
+## Composing views with OpenUI Lang
 
-OpenUI (`wandb/openui`) is a self-hosted Python and React application that needs
-an LLM backend; it has no npm package and no embeddable widget, so it cannot run
-inside a self-contained page. What it is good at — describe, render live,
-iterate — is the pattern this panel implements natively.
+The same contract is also an [OpenUI Lang](https://github.com/thesysdev/openui)
+component library, so a model can compose views for this board and have them
+stream in as they are written.
 
-For anyone who does run OpenUI, `Export prompt` copies this contract plus the
-current tokens as a ready prompt, and a returned block of CSS custom properties
-pastes straight back into the manual editor. That is a real interoperability
-path rather than a claimed integration.
+`build-openui.mjs` defines the library (`Panel`, `Post`, `Notice`, `Channel`,
+`Fact`), generates the system prompt from it, and emits the library's JSON
+schema. Only the parser ships to the browser — the runtime takes a JSON schema
+rather than Zod, so definition and prompt generation stay at build time and the
+page carries ~48KB instead of ~649KB.
+
+Two properties matter more than the size:
+
+- **A model can only compose what a theme can style.** The component library is
+  this contract, so generated views cannot introduce an element no theme knows
+  how to render. Generated and authored views use the same hooks and are themed
+  identically.
+- **Accountability is not optional.** `Post` requires a supervisor when its kind
+  is `agent`, and the renderer prints "supervisor not stated" rather than hiding
+  the omission if a model leaves it out.
+
+Where no on-device model exists, `Copy system prompt` gives the generated prompt
+for use with any external model, and the returned openui-lang renders in the
+same panel.

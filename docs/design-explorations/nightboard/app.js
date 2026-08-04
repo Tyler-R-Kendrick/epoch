@@ -253,7 +253,10 @@
       var action = t.closest("[data-c='action']");
       if (action) {
         e.stopPropagation();
-        renderStatus(action.dataset.action + " — signed as @maya, recorded on the thread");
+        // Not every action carries a name — the composer's Send is one — so fall
+        // back to its label rather than reporting "undefined".
+        var name = action.dataset.action || (action.textContent || "action").trim().toLowerCase();
+        renderStatus(name + " — signed as @maya, recorded on the thread");
         return;
       }
       var channel = t.closest("[data-channel]");

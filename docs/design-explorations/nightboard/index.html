@@ -29,6 +29,11 @@
   .nb-garden [data-gen-availability][data-state="live"]{color:#9ee8b8}
   .nb-garden [data-gen-availability][data-state="snapshot"]{color:#e8c98a}
   .nb-garden a{color:#9fd0ff}
+  .nb-gen-out{border:1px solid #333;margin-block-start:.5rem;max-height:22rem;overflow:auto;background:#000}
+  .nb-gen-out:empty{display:none}
+  .nb-gen-out [data-c="fact"]{display:flex;gap:.6rem;padding:.15rem .8rem}
+  .nb-gen-out [data-c="fact"] dt{color:#7a7a7a;min-width:7rem}
+  .nb-gen-out [data-c="fact"] dd{margin:0}
 </style>
 </head>
 <body data-theme="Nightboard" data-rail="closed">
@@ -109,16 +114,35 @@
     <button type="button" data-garden-close>Close</button>
   </div>
 
+  <h3>Compose a view — OpenUI Lang</h3>
+  <p data-gen-ui-availability>Checking the OpenUI parser…</p>
+  <input data-gen-ui-input placeholder="a triage panel for the install-cache thread" aria-label="Describe a view">
+  <div class="nb-row">
+    <button type="button" data-gen-ui-run>Compose</button>
+    <button type="button" data-gen-ui-prompt>Copy system prompt</button>
+  </div>
+  <div data-gen-ui-status role="status">Streams openui-lang and renders it as it arrives.</div>
+  <div data-gen-ui-out class="nb-gen-out"></div>
+  <textarea data-gen-ui-source aria-label="openui-lang source" placeholder="root = Panel(&quot;Triage&quot;, [Post(...)])"></textarea>
+  <div class="nb-row"><button type="button" data-gen-ui-render>Render source</button></div>
+  <p>The component library <em>is</em> the contract, so a model can only compose
+     elements every theme already styles. Generated views use the same hooks as
+     authored ones and are themed for free.</p>
+
   <h3>On OpenUI</h3>
-  <p>OpenUI is a self-hosted Python and React app that needs an LLM backend, so
-     it cannot run inside this page — there is no npm package or embeddable
-     widget. <b>Export prompt</b> copies the contract and current tokens for use
-     there or in any other tool; paste the returned tokens into the editor above.</p>
+  <p><a href="https://github.com/thesysdev/openui">OpenUI Lang</a> is a
+     streaming-first DSL for model-generated UI. Its library is defined at build
+     time and only the 49KB parser ships, because the runtime takes a JSON
+     schema rather than Zod. The model streams openui-lang; the parser yields a
+     tree at every chunk, which is why the view appears as it is written.</p>
 </aside>
 
 <script src="data.js"></script>
 <script src="themes.js"></script>
 <script src="app.js"></script>
+<script src="openui-parser.js"></script>
+<script src="openui-library.js"></script>
 <script src="theme.js"></script>
+<script src="generate.js"></script>
 </body>
 </html>

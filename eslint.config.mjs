@@ -10,6 +10,8 @@ export default [
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**",
+      "docs/design-explorations/nightboard/openui-parser.js",
+      "docs/design-explorations/nightboard/openui-library.js",
       ".agents/**",
       // Vendored agent-skill trees installed by `npx impeccable install`.
       // Third-party source, reproducible from the devDependency, not ours to lint.
@@ -39,7 +41,7 @@ export default [
     },
   },
   {
-    files: ["scripts/**/*.mjs", "packages/**/scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "packages/**/scripts/**/*.mjs", "docs/design-explorations/**/build-*.mjs"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
