@@ -169,6 +169,51 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
   nothing to choose between.
 - **Tab discipline**, `cd -`, and `..` completes.
 
+## The GraphQL API
+
+Everything queryable sits behind one schema — channels, posts, members,
+projects, epochs — so the agent asks the data what exists instead of being told
+in a prompt that drifts from it.
+
+```graphql
+{ posts(state: "needs-review") { path author { handle } } }
+{ member(handle: "scout") { role detail posts { subject } } }
+{ project(slug: "civic-tuner") { channels { name posts { subject } } } }
+{ listPath(path: "/channels") { name kind hint } }
+```
+
+It is graphql-js rather than a hand-rolled resolver: 178KB buys real validation
+(`Cannot query field "nope" on type "Query"`, with positions) and introspection.
+Introspection is the point — a schema that describes itself cannot go stale the
+way a hand-written tool list does, and the agent can ask for it with
+`graph_schema` before writing a query.
+
+## WebMCP tools
+
+Every capability the surface has is registered as a
+[WebMCP](https://github.com/webmachinelearning/webmcp) tool through
+`document.modelContext.registerTool`:
+
+`board_navigate` · `board_list` · `board_where` · `view_set` · `stream_load` ·
+`stream_pause` · `theme_set` · `theme_use` · `graph_query` · `graph_schema`
+
+WebMCP is a W3C proposal and is not shipping in any browser, so the page
+registers against the native object when it exists and against an identical
+local registry when it does not — same descriptors, same call shape, same
+results. A browser agent picks up the native ones; the chat here uses the
+registry. Neither knows which it got.
+
+**Every tool calls the console's own verb.** A tool that reimplements what a
+button does is a second implementation to keep in sync; these share one, so if
+the button breaks the tool breaks with it, which is correct.
+
+**The chat's vocabulary is the registry.** Nothing is hand-listed in the agent:
+a component that registers a tool becomes usable by chat immediately, and one
+that stops registering disappears from the agent's vocabulary in the same
+motion. Asking *"what needs review?"* runs a GraphQL query; *"show it as
+patches"* calls `view_set`; *"make everything blue"* calls `theme_set` — all
+through the same registry a browser agent would use.
+
 ### Views
 
 The preview renders the selected directory or entry three ways, and the choice

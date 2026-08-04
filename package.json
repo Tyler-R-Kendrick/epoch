@@ -169,7 +169,7 @@
     "a11y:community-web": "node scripts/run-community-web-axe.mjs",
     "verify": "npm run docs:check && npm run lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run a11y:community-web && npm run coverage && npm run test:pact",
     "nightboard:faults": "node docs/design-explorations/nightboard/faults.mjs",
-    "nightboard:build": "node docs/design-explorations/nightboard/build-openui.mjs"
+    "nightboard:build": "node docs/design-explorations/nightboard/build-openui.mjs && node docs/design-explorations/nightboard/build-graphql.mjs"
   },
   "keywords": [
     "dvcs",
@@ -196,6 +196,7 @@
     "axe-core": "^4.12.1",
     "c8": "^11.0.0",
     "eslint": "^10.3.0",
+    "graphql": "^17.0.2",
     "impeccable": "^3.5.0",
     "jsdom": "^29.1.1",
     "konsistent": "^1.0.0-beta.1",

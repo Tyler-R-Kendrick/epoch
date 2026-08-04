@@ -11,6 +11,7 @@ export default [
       "node_modules/**",
       ".inspiration/**",
       "docs/design-explorations/nightboard/openui-parser.js",
+      "docs/design-explorations/nightboard/graphql-engine.js",
       "docs/design-explorations/nightboard/openui-library.js",
       ".agents/**",
       // Vendored agent-skill trees installed by `npx impeccable install`.

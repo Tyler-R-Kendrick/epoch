@@ -36,62 +36,63 @@
   };
 
   /**
-   * The tools the agent may call. These are the console's own verbs, so the
-   * agent cannot do anything a person could not do by typing.
+   * The agent's tools are whatever the page registered with WebMCP, plus one
+   * for answering in words.
+   *
+   * Nothing is hand-listed here. A component that registers a tool becomes
+   * usable by the chat immediately, and a component that stops registering one
+   * disappears from the agent's vocabulary in the same motion — which is the
+   * whole reason to route through a registry instead of a constant.
    */
-  var TOOLS = [
-    { name: "navigate", args: "path", describe: "go to a path, e.g. /channels/bugs" },
-    { name: "view", args: "mode", describe: "graph, diff or raw" },
-    { name: "search", args: "text", describe: "find posts by content" },
-    { name: "theme", args: "tokens", describe: "restyle the board; tokens are hex colours" },
-    { name: "load", args: null, describe: "load queued posts" },
-    { name: "say", args: "text", describe: "answer in words when no action is needed" },
-  ];
+  function registered() {
+    var tools = (window.NB_MCP ? window.NB_MCP.list() : []).slice();
+    tools.push({
+      name: "say",
+      description: "Answer in words when no action is needed.",
+      inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+    });
+    return tools;
+  }
 
+  /**
+   * One constrained shape covering every tool: a name plus a free-form args
+   * object. Per-tool schemas would be stricter, but a small on-device model
+   * handles one simple shape far better than a large union, and the tool
+   * validates its own arguments anyway.
+   */
   function toolSchema() {
     return {
       type: "object",
       additionalProperties: false,
       required: ["tool"],
       properties: {
-        tool: { type: "string", enum: TOOLS.map(function (t) { return t.name; }) },
-        path: { type: "string" },
-        mode: { type: "string", enum: ["graph", "diff", "raw"] },
-        text: { type: "string" },
-        tokens: {
-          type: "object",
-          additionalProperties: false,
-          properties: ["bg", "surface", "ink", "inkDim", "inkFaint", "rule", "accent",
-            "accentInk", "signed", "live", "warn", "danger", "agent"].reduce(function (acc, k) {
-            acc[k] = { type: "string", pattern: "^#[0-9a-fA-F]{6}$" };
-            return acc;
-          }, {}),
-        },
+        tool: { type: "string", enum: registered().map(function (t) { return t.name; }) },
+        args: { type: "object" },
       },
     };
   }
 
-  function baseSystemPrompt() {
-    return systemPrompt({ cwd: "/channels/general", here: [] });
-  }
+  function baseSystemPrompt() { return systemPrompt(); }
 
-  function systemPrompt(ctx) {
+  function systemPrompt() {
     return [
-      "You operate a terminal board for a software community. The board is a filesystem.",
+      "You operate a terminal board for a software community. The board is a filesystem",
+      "and its data is queryable with GraphQL.",
       "",
-      "Reply with ONE JSON object choosing a tool. Never prose outside the JSON.",
+      'Reply with ONE JSON object: {"tool": "<name>", "args": { ... }}. Never prose outside it.',
       "",
       "Tools:",
-      TOOLS.map(function (t) { return "  " + t.name + (t.args ? " <" + t.args + ">" : "") + " — " + t.describe; }).join("\n"),
-      "",
-      "The user is at: " + ctx.cwd,
-      "Paths that exist here: " + ctx.here.join(", "),
-      "Top level: /channels /members /projects /epochs",
+      registered().map(function (t) {
+        var props = Object.keys((t.inputSchema && t.inputSchema.properties) || {});
+        return "  " + t.name + (props.length ? " {" + props.join(", ") + "}" : " {}") +
+          " — " + (t.description || "");
+      }).join("\n"),
       "",
       "Rules:",
-      "- A request to go somewhere, however loosely worded, is `navigate` with a real path.",
-      "- A request to change how it looks is `theme` with hex colours for every role you can infer.",
-      "- If you cannot act, use `say` and be brief.",
+      "- Going somewhere is board_navigate with a real path.",
+      "- A question about what exists is graph_query. Call graph_schema first if unsure.",
+      "- Changing how it looks is theme_set with hex colours for every role you can infer.",
+      "- If you cannot act, use say and be brief.",
       "- Never invent a path. Choose the closest one that exists.",
     ].join("\n");
   }
@@ -178,26 +179,35 @@
         }
 
         var callId = runId + "-" + attempt;
+        var callArgs = call.args || {};
         emit({ type: EVENT.TOOL_CALL_START, runId: runId, toolCallId: callId, toolCallName: call.tool });
-        emit({ type: EVENT.TOOL_CALL_ARGS, runId: runId, toolCallId: callId, args: call });
+        emit({ type: EVENT.TOOL_CALL_ARGS, runId: runId, toolCallId: callId, args: { tool: call.tool, args: callArgs } });
         emit({ type: EVENT.TOOL_CALL_END, runId: runId, toolCallId: callId });
 
-        var outcome = ctx.execute(call);
+        var outcome;
+        if (call.tool === "say") {
+          outcome = { isError: false, content: [{ type: "text", text: callArgs.text || "" }] };
+        } else {
+          // Straight through the WebMCP registry, so the agent invokes exactly
+          // what a browser agent would invoke.
+          outcome = await window.NB_MCP.call(call.tool, callArgs);
+        }
+        var said = (outcome.content && outcome.content[0] && outcome.content[0].text) || "";
         emit({
           type: EVENT.TOOL_CALL_RESULT, runId: runId, toolCallId: callId,
-          ok: outcome.ok, content: outcome.message,
+          ok: !outcome.isError, content: said,
         });
 
-        if (outcome.ok) {
-          if (call.tool === "say" && call.text) {
+        if (!outcome.isError) {
+          if (call.tool === "say" || call.tool === "graph_query" || call.tool === "graph_schema") {
             emit({ type: EVENT.TEXT_MESSAGE_START, runId: runId, role: "assistant" });
-            emit({ type: EVENT.TEXT_MESSAGE_CONTENT, runId: runId, delta: call.text });
+            emit({ type: EVENT.TEXT_MESSAGE_CONTENT, runId: runId, delta: said });
             emit({ type: EVENT.TEXT_MESSAGE_END, runId: runId });
           }
           result = call;
           break;
         }
-        lastError = outcome.message;
+        lastError = said;
         if (attempt === 2) {
           emit({ type: EVENT.RUN_ERROR, runId: runId, message: lastError });
           return null;
@@ -226,5 +236,5 @@
       .catch(function () { /* reported through modelState; CLI mode is unaffected */ });
   }
 
-  window.NB_AGENT = { run: run, warm: warm, EVENT: EVENT, TOOLS: TOOLS };
+  window.NB_AGENT = { run: run, warm: warm, EVENT: EVENT, tools: registered };
 })();

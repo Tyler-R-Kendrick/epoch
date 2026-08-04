@@ -402,41 +402,6 @@
     render();
   }
 
-  /**
-   * The agent's tools are the console's own verbs, so it can do nothing a
-   * person could not do by typing — and every call reports success or a reason,
-   * which is what makes self-healing possible rather than decorative.
-   */
-  function execute(call) {
-    if (!call || !call.tool) return { ok: false, message: "no tool chosen" };
-    if (call.tool === "navigate") {
-      if (!call.path) return { ok: false, message: "navigate needs a path" };
-      var ok = navigate(call.path, { keepCli: true });
-      return ok ? { ok: true, message: "at " + state.path }
-        : { ok: false, message: "no such path: " + call.path };
-    }
-    if (call.tool === "view") {
-      if (["graph", "diff", "raw"].indexOf(call.mode) === -1) {
-        return { ok: false, message: "view must be graph, diff or raw" };
-      }
-      state.view = call.mode; render(true);
-      return { ok: true, message: "view " + call.mode };
-    }
-    if (call.tool === "search") {
-      if (!call.text) return { ok: false, message: "search needs text" };
-      run("grep " + call.text);
-      return { ok: true, message: "searched" };
-    }
-    if (call.tool === "theme") {
-      var n = applyTokens(call.tokens || {}, "asked for");
-      return n ? { ok: true, message: "restyled " + n + " tokens" }
-        : { ok: false, message: "no valid hex colours in that theme" };
-    }
-    if (call.tool === "load") { mergePending(); return { ok: true, message: "loaded" }; }
-    if (call.tool === "say") { return { ok: true, message: call.text || "" }; }
-    return { ok: false, message: "unknown tool: " + call.tool };
-  }
-
   /** Render AG-UI events into the transcript above the prompt. */
   function onEvent(ev) {
     var E = window.NB_AGENT.EVENT;
@@ -466,7 +431,7 @@
     var here = (MAP.list(state.path, state.merged) || []).map(function (e) { return e.name; });
     try {
       await window.NB_AGENT.run(text, {
-        cwd: state.path, here: here, execute: execute, signal: undefined,
+        cwd: state.path, here: here, signal: undefined,
       }, onEvent);
     } finally {
       state.busy = false;
@@ -768,5 +733,26 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.NB_APP = { render: render, status: status, navigate: navigate, state: state };
+  // The API the WebMCP tools close over. Every entry is the verb the UI itself
+  // calls, so a tool cannot drift from the button it mirrors.
+  window.NB_APP = {
+    render: render, status: status, navigate: navigate, state: state,
+    setView: function (v) { state.view = v; render(true); },
+    setTheme: setTheme,
+    applyTokens: applyTokens,
+    mergePending: mergePending,
+    setLive: function (on) { state.live = on; },
+    run: run,
+  };
+
+  // Tools are registered once the app exists, because they call into it.
+  if (window.NB_TOOLS) {
+    var registered = window.NB_TOOLS.install(window.NB_APP);
+    var native = window.NB_MCP.isNative();
+    // Recorded rather than announced: the count matters when a tool goes
+    // missing, and the native/shim distinction matters when debugging why a
+    // browser agent cannot see them.
+    window.NB_APP.toolCount = registered;
+    window.NB_APP.toolHost = native ? "document.modelContext" : "in-page registry";
+  }
 })();

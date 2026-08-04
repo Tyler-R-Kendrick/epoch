@@ -184,6 +184,39 @@ export function runNightboardThemeTests(): void {
   assert.ok(agent.includes("isTransient"),
     "a mid-stream fault must be retried, not just one while opening the session");
 
+  // Every UI capability must be reachable as a WebMCP tool, and every tool must
+  // call the console's own verb rather than reimplementing it — a second copy
+  // of what a button does is a second thing to keep in sync.
+  const tools = readFileSync(join(ROOT, "tools.js"), "utf8");
+  for (const tool of ["board_navigate", "board_list", "board_where", "view_set",
+    "stream_load", "stream_pause", "theme_set", "theme_use", "graph_query", "graph_schema"]) {
+    assert.ok(tools.includes(`name: "${tool}"`), `tools.js must register ${tool}`);
+  }
+  const appSource = readFileSync(join(ROOT, "app.js"), "utf8");
+  for (const verb of ["setView", "setTheme", "applyTokens", "mergePending", "setLive"]) {
+    assert.ok(appSource.includes(`${verb}:`) || appSource.includes(`function ${verb}`),
+      `app must expose ${verb} for the tools to call`);
+  }
+
+  // The agent's vocabulary comes from the registry, not a hand-kept list, or a
+  // component that stops registering a tool leaves a phantom behind.
+  const agentSource = readFileSync(join(ROOT, "agent.js"), "utf8");
+  assert.ok(agentSource.includes("NB_MCP.list()") || agentSource.includes("window.NB_MCP"),
+    "the agent must take its tools from the WebMCP registry");
+  assert.ok(agentSource.includes("NB_MCP.call"),
+    "the agent must invoke tools through the registry, so it does what a browser agent would");
+
+  // WebMCP is a proposal, so the page must work with and without the native API.
+  const mcp = readFileSync(join(ROOT, "webmcp.js"), "utf8");
+  assert.ok(mcp.includes("document.modelContext"), "must register natively when available");
+  assert.ok(mcp.includes("local"), "must keep a local registry when it is not");
+
+  // The schema is the contract the agent introspects; these types must exist.
+  const graph = readFileSync(join(ROOT, "graph.js"), "utf8");
+  for (const type of ["type Member", "type Post", "type Channel", "type Project", "type Epoch", "type Query"]) {
+    assert.ok(graph.includes(type), `the GraphQL schema must define ${type}`);
+  }
+
   // Completion is the difference between a shell and a prompt that echoes.
   const complete = readFileSync(join(ROOT, "complete.js"), "utf8");
   for (const capability of ["function score", "function commonPrefix", "function globalDirs", "ghost"]) {

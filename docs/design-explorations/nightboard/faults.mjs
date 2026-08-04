@@ -58,8 +58,10 @@ function mockScript(spec) {
   })();`;
 }
 
-const TOOL_OK = JSON.stringify({ tool: "navigate", path: "/channels/bugs" });
-const TOOL_BAD = JSON.stringify({ tool: "navigate", path: "/nowhere/at/all" });
+// Tool names and shape come from the WebMCP registry now, so the fixtures use
+// what the agent actually receives.
+const TOOL_OK = JSON.stringify({ tool: "board_navigate", args: { path: "/channels/bugs" } });
+const TOOL_BAD = JSON.stringify({ tool: "board_navigate", args: { path: "/nowhere/at/all" } });
 
 const CASES = [
   {
