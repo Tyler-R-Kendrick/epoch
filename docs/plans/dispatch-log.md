@@ -56,3 +56,13 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | None. One process failure caught by the reviewer: evidence generated mid-change did not depict the shipped build; regenerated last. |
 | Notes | The prior session was rejected for not changing the design. Forensics found the design personas had never run, all ten personas returned identical scores, the metrics cannot encode "ugly", `review.json` had no defect field, and the critique protocol had been executed zero times. Process teeth landed first, then the redesign was judged by the critique rather than by the author. Measured: controls under 32px 28→0, mobile chrome 83%→12%, three row components→one, thirteen button treatments→four. |
+
+## 2026-08-03 — community-design-redesign review closeout
+
+- PR #94 `community-experience-redesign` — ten CodeRabbit findings confirmed and fixed
+  in `4a894f9`; four surviving threads replied to and resolved. Failure classes: product
+  honesty (fixtures labelled as live API activity, with the unit test asserting it), a
+  gate that inspected source text rather than behaviour, and two harness bugs where the
+  validation added by this initiative rejected its own documented terminal state.
+- Checks: CodeRabbit SUCCESS, Vercel SUCCESS. `npm run verify` green — 143 scenarios,
+  1336 steps, axe clean at 1440x960 and 390x844, pact green, lint clean.

@@ -97,3 +97,23 @@ pact.
 - Test assertions that encoded the old design were updated deliberately and named in the
   commits that changed them (snapshot banner copy, stacked-header contract, narrow-screen
   rail contract, navigation overflow contract).
+
+## Review closeout (PR #94)
+
+CodeRabbit raised ten inline findings after the redesign landed on the branch. All ten
+were confirmed and fixed in `4a894f9`; all four threads that survived to the final push
+are replied to and resolved. Two are worth recording because they are the same failure
+class this initiative was opened to fix:
+
+- **`model/feed.ts` labelled seeded fixtures `source: "api"` on the live path**, three
+  lines below a comment promising live mode never mixes demos into product activity —
+  and the unit test asserted that dishonest contract. Both corrected: repository-derived
+  rows are `api`, fixtures stay visible and stay `snapshot`.
+- **The render-parity search gate only grepped the bundle for a helper name**, which a
+  dead or renamed-but-diverged reference would pass. It now boots the shipped document
+  in jsdom and compares what the runtime hides against what the helper matches.
+
+Also corrected in the harness the initiative added: `lintScoreDivergence` rejected the
+converged harm floor, which is the documented terminal state of a successful run, and
+`capture-evidence --mode review` dropped the `defects`/`authoredBy` fields whose
+validation it was meant to satisfy. Both now have tests covering both directions.
