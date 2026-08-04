@@ -1343,6 +1343,25 @@ export function communityStyles(): string {
       line-height: var(--epoch-type-body-leading);
       overflow-wrap: anywhere;
     }
+    /* Anchors are mono meta per DESIGN 3, and quiet per the Author First Rule:
+       the trust line is the quietest text in the row, not a badge. */
+    .row-anchor {
+      display: flex;
+      align-items: center;
+      gap: var(--epoch-space-xs);
+      margin: 0;
+      color: var(--epoch-color-muted);
+      font-family: var(--epoch-font-mono);
+      font-size: var(--epoch-type-meta-size);
+      overflow-wrap: anywhere;
+    }
+    .row-anchor-mark {
+      flex: none;
+      width: 3px;
+      height: 0.85rem;
+      border-radius: 1px;
+      background: var(--epoch-color-line-strong);
+    }
     .row-foot {
       display: flex;
       flex-wrap: wrap;

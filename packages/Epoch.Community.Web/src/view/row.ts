@@ -1,16 +1,8 @@
 /**
- * The one row primitive.
- *
- * The critique measured three row components for three lists: `.feed-message`
- * at 164px, `.dev-feed-item` at 59–133px, `.artifact-item` at 83px, with text
- * origins at 42.4px / 40.4px / 18.4px, internal gaps of 8px vs 1.6px, dividers
- * transparent / solid / solid, and hover wash / wash / none. They all represent
- * the same object: a thing that happened, by someone, that you can act on.
- *
- * Every list surface renders through this. Callers supply their own data
- * attributes and inner content; the primitive owns padding, the leading slot
- * width, the divider, the hover wash, and the typographic hierarchy — so those
- * cannot drift apart again.
+ * The one row primitive. Replaced three components rendering the same object —
+ * a thing that happened, by someone, that you can act on — at three densities
+ * and three text origins. It owns padding, lead width, divider, hover wash and
+ * hierarchy so those cannot drift apart again; callers supply content only.
  */
 import { escapeHtml } from "./html";
 

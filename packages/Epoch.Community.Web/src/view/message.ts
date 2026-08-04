@@ -61,6 +61,18 @@ function issueIdFromConversation(conversation: CommunityConversationView): strin
   return undefined;
 }
 
+/**
+ * Inline anchor, from docs/design-explorations/01-relay: the primitive that makes
+ * this product different was invisible two disclosures deep. Channel anchors say
+ * nothing the channel does not, so only concrete targets earn a line — surfacing
+ * every anchor would restore the ambient footer the text budget removed.
+ */
+function concreteAnchor(conversation: CommunityConversationView): string | undefined {
+  const anchor = conversation.linkedArtifact ?? conversation.anchor;
+  if (anchor === undefined || anchor === "") return undefined;
+  return anchor.startsWith("community://") ? undefined : anchor;
+}
+
 export function renderConversation(
   conversation: CommunityConversationView,
   activeChannel: CommunityChannelId = "general",
@@ -128,6 +140,11 @@ export function renderConversation(
     conversation.source === "snapshot" ? `<span class="visually-hidden" data-snapshot-badge>snapshot sample</span>` : "",
   ].filter(Boolean).join("");
 
+  const anchored = concreteAnchor(conversation);
+  const anchorLine = anchored === undefined
+    ? ""
+    : `<p class="row-anchor"><span class="row-anchor-mark" aria-hidden="true"></span><span class="visually-hidden">Anchored to </span><code>${escapeHtml(anchored)}</code></p>`;
+
   const selectLabel = conversation.title ?? conversation.body;
   const selectButton = (text: string, extraClass: string): string =>
     `<button type="button" class="${extraClass} row-select" data-select-message="${escapeHtml(conversation.id)}" aria-label="Open signed actions for ${escapeHtml(selectLabel)}">${escapeHtml(text)}</button>`;
@@ -175,7 +192,7 @@ export function renderConversation(
       ? selectButton(conversation.body, "row-message-text")
       : selectButton(conversation.title, "row-title"),
     body: conversation.title === undefined ? undefined : conversation.body,
-    extra: `${threadComments}${artifactCard}${promoteReceipt}${renderProvenancePanel(conversation)}${tray}`,
+    extra: `${anchorLine}${threadComments}${artifactCard}${promoteReceipt}${renderProvenancePanel(conversation)}${tray}`,
     foot,
     actions,
   });
