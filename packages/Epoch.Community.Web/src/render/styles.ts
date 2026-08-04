@@ -502,10 +502,9 @@ export function communityStyles(): string {
       gap: var(--epoch-space-xs);
       margin: var(--epoch-space-sm) 0 var(--epoch-space-xs);
       padding: var(--epoch-space-sm) var(--epoch-space-sm);
-      border: 1px solid var(--epoch-color-line);
-      border-inline-start: 3px solid var(--epoch-color-accent);
+      border: 1px solid var(--epoch-color-control);
       border-radius: var(--epoch-radius-sm);
-      background: var(--epoch-color-surface-sunken);
+      background: var(--epoch-color-surface-raised);
     }
     .promote-receipt-label {
       color: var(--epoch-color-muted);

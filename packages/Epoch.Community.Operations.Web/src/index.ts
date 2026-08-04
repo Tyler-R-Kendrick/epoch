@@ -937,10 +937,22 @@ function communityOperationsStyles(): string {
       background: var(--epoch-color-surface-raised);
       box-shadow: 0 1px 0 color-mix(in srgb, var(--epoch-color-ink) 5%, transparent);
     }
-    /* Moderation queue: open reports carry a copper leading edge, the one
-       place the action colour is earned in this dashboard. */
+    /* Moderation queue: an open report is a control you have to run to, marked
+       by the same circle idiom the community rail uses. Out-of-bounds ink, not
+       the reserved course ink — moderation is not the promote path. */
     .ops-card[data-moderation-open="true"] {
-      border-inline-start: 3px solid var(--epoch-color-accent);
+      position: relative;
+      padding-inline-start: 1.6rem;
+    }
+    .ops-card[data-moderation-open="true"]::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0.55rem;
+      inset-block-start: 1.15rem;
+      width: 0.55rem;
+      height: 0.55rem;
+      border: 2px solid var(--epoch-color-out-of-bounds);
+      border-radius: 50%;
     }
     .ops-queue-count {
       display: inline-block;
@@ -984,7 +996,7 @@ function communityOperationsStyles(): string {
     .card-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     .provenance-note {
-      border-inline-start: 3px solid var(--epoch-color-success);
+      border-inline-start: 1px solid var(--epoch-color-line-strong);
       padding-inline-start: 0.7rem;
     }
 

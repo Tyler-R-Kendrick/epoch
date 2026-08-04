@@ -801,6 +801,68 @@ describe("optimizexp criticism gates", () => {
 		writeFileSync(scopePath, JSON.stringify(scope) + "\n");
 	}
 
+	it("an unadjudicated detector finding blocks completion, a reasoned waiver clears it", () => {
+		const dir = seedRepo();
+		const run = "t-detector";
+		try {
+			runRl(dir, ["--mode", "init", "--run", run, "--experiences", "ux"]);
+			seedUxWebRun(dir, run);
+			const runDir = path.join(dir, ".optimizexp/runs", run);
+
+			// No detector.json at all: the loop cannot claim a UX pass without one.
+			const bare = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(bare.json.missing as string[]).includes("detector_report_missing"),
+				"a UX run with no detector pass must not complete",
+			);
+
+			// A finding nobody has adjudicated blocks completion.
+			writeFileSync(
+				path.join(runDir, "detector.json"),
+				JSON.stringify({
+					tool: "impeccable detect",
+					findings: [{ rule: "side-tab", file: "src/styles.ts", line: 499, message: "thick colored border" }],
+				}) + "\n",
+			);
+			const open = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(open.json.missing as string[]).some((m) => m.startsWith("detector_finding_unadjudicated")),
+				"an unadjudicated finding must block",
+			);
+
+			// A waiver with a rubber-stamp reason is itself a finding — this is the
+			// exact failure mode the apparatus exists to prevent.
+			writeFileSync(
+				path.join(runDir, "detector-waivers.json"),
+				JSON.stringify({ waived: [{ rule: "side-tab", file: "src/styles.ts", reason: "ok" }] }) + "\n",
+			);
+			const stamped = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				(stamped.json.missing as string[]).some((m) => m.startsWith("detector_waiver_unreasoned")),
+				"a waiver without a real reason must not clear a finding",
+			);
+
+			// A reason that actually says something clears it.
+			writeFileSync(
+				path.join(runDir, "detector-waivers.json"),
+				JSON.stringify({
+					waived: [{
+						rule: "side-tab",
+						file: "src/styles.ts",
+						reason: "ISOM control circle, not a decorative side-tab; shape carries the meaning",
+					}],
+				}) + "\n",
+			);
+			const cleared = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			assert.ok(
+				!(cleared.json.missing as string[]).some((m) => m.startsWith("detector_")),
+				"a reasoned waiver must clear the finding",
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("a unanimous persona panel fails validation", () => {
 		const dir = seedRepo();
 		const run = "t-unanimous";
