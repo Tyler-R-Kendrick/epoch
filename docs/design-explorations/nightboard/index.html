@@ -36,54 +36,19 @@
   .nb-gen-out [data-c="fact"] dd{margin:0}
 </style>
 </head>
-<body data-theme="Nightboard" data-rail="closed">
+<body data-theme="Nightboard">
 
-<header data-region="masthead">
-  <button type="button" data-rail-toggle class="nb-only-narrow" aria-label="Show channels">☰</button>
-  <b data-c="board">EPOCH CIVIC WORKSHOP</b>
-  <span data-c="meta">node 1 of 1</span>
-  <span data-c="meta">EPOCH 13 · 9/12 LANDED · SHIPS FRI 17:00</span>
-  <span data-c="state" data-conn data-state="live">live</span>
-  <span style="margin-inline-start:auto;display:flex;gap:.4rem;flex-wrap:wrap">
-    <button type="button" data-c="action" data-live-toggle>pause stream</button>
-    <select data-theme-select aria-label="Theme"></select>
-    <button type="button" data-c="action" data-garden-open>Garden</button>
-  </span>
-</header>
-
-<nav data-region="rail" aria-label="Board navigation">
-  <div class="nb-group-label" id="lbl-channels">CHANNELS</div>
-  <div data-channel-list role="group" aria-labelledby="lbl-channels"></div>
-
-  <div class="nb-group-label" id="lbl-members">WHO'S ON</div>
-  <div data-member-list role="group" aria-labelledby="lbl-members"></div>
-
-  <div class="nb-group-label" id="lbl-projects">LINKED PROJECTS</div>
-  <div data-project-list role="group" aria-labelledby="lbl-projects"></div>
-
-  <section data-c="legend" aria-labelledby="lbl-legend">
-    <div class="nb-group-label" id="lbl-legend">LEGEND</div>
-    <ul>
-      <li data-c="entry"><span data-c="swatch" data-state="live"></span><span data-c="label">live / healthy</span></li>
-      <li data-c="entry"><span data-c="swatch" data-state="signed"></span><span data-c="label">signed</span></li>
-      <li data-c="entry"><span data-c="swatch" data-state="needs-review"></span><span data-c="label">needs review</span></li>
-      <li data-c="entry"><span data-c="swatch" data-state="promoted"></span><span data-c="label">became work</span></li>
-      <li data-c="entry"><span data-c="swatch" data-kind="agent"></span><span data-c="label">agent</span></li>
-    </ul>
-  </section>
-</nav>
-
-<div class="nb-main">
-  <div data-region="notice" hidden aria-live="polite"></div>
-  <main data-region="stream" tabindex="-1" aria-label="Live stream"></main>
-  <section data-region="detail" hidden aria-label="Selected post"></section>
-  <form data-region="composer" onsubmit="return false">
-    <label class="nb-sr" for="nb-msg">Message this channel</label>
-    <textarea id="nb-msg" rows="1" placeholder="Type a message…"></textarea>
-    <button type="submit" data-c="action">Send</button>
-  </form>
+<div class="nb-bar">
+  <b>NIGHTBOARD</b>
+  <select data-exp-select aria-label="Experience"></select>
+  <select data-theme-select aria-label="Theme"></select>
+  <button type="button" data-c="action" data-live-toggle>pause</button>
+  <button type="button" data-c="action" data-garden-open>Garden</button>
+  <span class="nb-thesis" data-exp-thesis></span>
 </div>
 
+<div data-region="notice" hidden aria-live="polite"></div>
+<main class="nb-mount" data-mount data-exp="graph" aria-label="Board"></main>
 <footer data-region="status">
   <span data-status-line></span>
   <span style="margin-inline-start:auto"><b data-theme-name>Nightboard</b> · <span data-theme-note></span></span>
@@ -142,6 +107,7 @@
 </aside>
 
 <script src="data.js"></script>
+<script src="experiences.js"></script>
 <script src="themes.js"></script>
 <script src="app.js"></script>
 <script src="resilient.js"></script>

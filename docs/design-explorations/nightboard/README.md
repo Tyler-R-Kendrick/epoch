@@ -52,18 +52,41 @@ count instead of interrupting.
 Everything is clickable too: channels, members, projects, posts, and the signed
 actions on each post.
 
+The semantic surface every theme styles is [CONTRACT.md](CONTRACT.md).
+
+## Ten experiences, not ten skins
+
+The previous version was one shell in ten palettes — same rail, same stream,
+same keys — and calling that ten designs was wrong. An experience now owns its
+own markup **and its own navigation**; what it inherits is the vocabulary
+(`CONTRACT.md`) and the tokens, so themes still apply across all of them.
+
+| # | Experience | What leads | How you move |
+|---|---|---|---|
+| 1 | **Graph** | A commit graph; forks open when talk becomes work | walk nodes and lanes |
+| 2 | **Scrub** | A time axis with a playhead | drag time |
+| 3 | **Esper** | One artefact, full bleed | descend through depth |
+| 4 | **Rain** | Every channel as a falling column | pick a column |
+| 5 | **Panes** | A multiplexer workspace | split and focus |
+| 6 | **Sweep** | A radar: bearing is channel, radius is recency | rotate a bearing |
+| 7 | **Tape** | One horizontal strip of the whole day | scrub laterally |
+| 8 | **Shell** | The board mounted as a filesystem | `cd`, `ls`, `cat`, `tail -f` |
+| 9 | **Diff** | Every post as a patch | step hunks |
+| 10 | **Orbit** | Members as bodies around the epoch | traverse the system |
+
+Switch with the picker or `[` / `]`. Themes and experiences are independent:
+any of the ten themes applies to any of the ten experiences.
+
+`Graph` draws its spine rather than typing it — box-drawing characters cannot
+connect across rows of different heights, and a column of unjoined dots reads as
+a bulleted list, which is the one thing that design must not look like.
+
+`Esper` uses a real atmosphere plate generated with the **higgsfield CLI**
+(`flux_2`), downsampled from 1.3MB to 4KB. It is the only raster in the set:
+depth-of-field haze is the one thing CSS cannot fake convincingly, and
+everything else is cheaper and sharper drawn.
+
 ## The garden
-
-Markup is fixed and authored once; **themes are CSS alone**. The full semantic
-surface is in [CONTRACT.md](CONTRACT.md) — regions, components, states, kinds,
-and the token contract. A theme that needs new markup is not a theme, and that
-constraint is what makes the garden work.
-
-Ten themes ship, all of them Nightboard: same grid, same exits, same command
-line, different phosphor.
-
-`Nightboard` · `Green Phosphor` · `Amber CRT` · `IBM CGA` · `Breadbin` ·
-`Teletext` · `Paper Terminal` · `Solar Night` · `High Contrast` · `Line Printer`
 
 ### Generating one
 

@@ -21,6 +21,13 @@ interface Theme {
   readonly css: string;
 }
 
+function dataJson(): string {
+  const source = readFileSync(join(ROOT, "data.js"), "utf8");
+  const sandbox: { NB_DATA?: unknown } = {};
+  new Function("window", source)(sandbox);
+  return JSON.stringify(sandbox.NB_DATA);
+}
+
 function loadThemes(): readonly Theme[] {
   const source = readFileSync(join(ROOT, "themes.js"), "utf8");
   const sandbox: { NB_THEMES?: Theme[] } = {};
@@ -144,6 +151,36 @@ export function runNightboardThemeTests(): void {
   assert.ok(parser.length > 10_000, "the OpenUI parser bundle looks truncated");
   assert.ok(parser.length < 120_000,
     `the parser bundle is ${parser.length} bytes — Zod has probably been bundled in again`);
+
+  // The failure this whole rewrite exists to fix: ten entries that were one
+  // layout in ten palettes. An experience must bring its own structure and its
+  // own navigation, so identical markup between two of them is a defect.
+  const expSource = readFileSync(join(ROOT, "experiences.js"), "utf8");
+  const expSandbox: {
+    NB_DATA?: unknown;
+    NB_EXPERIENCES?: { id: string; name: string; thesis: string; css: string; keys?: string }[];
+  } = { NB_DATA: JSON.parse(dataJson()) };
+  new Function("window", expSource)(expSandbox);
+  const exps = expSandbox.NB_EXPERIENCES ?? [];
+  assert.equal(exps.length, 10, "ten experiences");
+
+  const cssShapes = new Set<string>();
+  for (const e of exps) {
+    assert.ok(e.id && e.name && e.thesis, `${e.id}: every experience states what it argues`);
+    assert.ok(e.css.includes(`[data-exp="${e.id}"]`),
+      `${e.id}: css must be scoped to its own experience or it leaks into the others`);
+    // Two experiences that declare the same class vocabulary are the same
+    // layout wearing different names.
+    const classes = (e.css.match(/\.[a-z]{2}-[a-z-]+/gu) ?? []).sort().join(",");
+    assert.ok(!cssShapes.has(classes), `${e.id} has the same structure as another experience`);
+    cssShapes.add(classes);
+  }
+
+  // Navigation has to differ too, or they are the same experience with
+  // different paint — which is exactly what was shipped and rejected.
+  const keySets = new Set(exps.map((e) => e.keys ?? ""));
+  assert.ok(keySets.size >= 6,
+    `only ${keySets.size} distinct key maps across ten experiences — most of them navigate identically`);
 
   // The contract is the thing themes are written against; it has to exist.
   const contract = readFileSync(join(ROOT, "CONTRACT.md"), "utf8");
