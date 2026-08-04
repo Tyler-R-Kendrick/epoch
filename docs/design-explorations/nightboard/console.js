@@ -38,14 +38,37 @@
 
   /* ── Views ─────────────────────────────────────────────────────────────── */
 
-  /** Lineage as a commit graph. Forks open where talk becomes signed work. */
-  function viewGraph(entries, markId) {
+  /** Lineage as a commit graph. Forks open where talk becomes signed work,
+   * and replies nest under what they answer, foldable per thread. */
+  function viewGraph(entries, markId, folded) {
     var posts = entries.filter(function (e) { return e.post; }).map(function (e) { return e.post; });
     if (!posts.length) return '<p class="cn-empty">Nothing to plot here.</p>';
-    var forkAt = posts.findIndex(function (p) { return p.state === "promoted"; });
-    return '<div class="cn-graph">' + posts.map(function (p, i) {
-      var open = forkAt !== -1 && i >= forkAt;
-      return '<div class="cn-node" data-key="' + esc(p.id) + '" data-kind="' + esc(who(p.who).kind) + '"' +
+    folded = folded || {};
+
+    // Threads: `re` names the parent. A reply whose parent is not in this
+    // listing is shown at the root rather than lost.
+    var byId = {}, kids = {}, roots = [];
+    posts.forEach(function (p) { byId[p.id] = p; });
+    posts.forEach(function (p) {
+      if (p.re && byId[p.re]) (kids[p.re] = kids[p.re] || []).push(p);
+      else roots.push(p);
+    });
+    var flat = [];
+    (function walk(list) {
+      list.forEach(function (p) { flat.push(p); walk(kids[p.id] || []); });
+    })(roots);
+    var forkAt = flat.findIndex(function (p) { return p.state === "promoted"; });
+
+    function subtreeCount(p) {
+      return (kids[p.id] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
+    }
+
+    function nodeHtml(p, depth) {
+      var open = forkAt !== -1 && flat.indexOf(p) >= forkAt;
+      var replies = kids[p.id] || [];
+      var below = subtreeCount(p);
+      var isFolded = !!folded[p.id];
+      var html = '<div class="cn-node" data-key="' + esc(p.id) + '" data-kind="' + esc(who(p.who).kind) + '"' +
         ' data-state-of="' + esc(p.state) + '"' +
         ' data-fork="' + open + '"' + (markId && p.id === markId ? ' data-here="true"' : "") +
         (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
@@ -61,9 +84,24 @@
         '<span data-c="receipt"><span data-c="mark" aria-hidden="true">◆</span>' +
         '<span class="cn-sigil" aria-hidden="true">' + window.NB_ASCII.sigil(p.sig, 4) + "</span>" +
         esc(p.sig) + "</span>" +
+        (replies.length
+          ? '<button type="button" class="cn-twist" data-fold="' + esc(p.id) + '"' +
+            ' aria-expanded="' + !isFolded + '">' +
+            (isFolded ? "▸ " : "▾ ") + below + (below === 1 ? " reply" : " replies") +
+            "</button>"
+          : "") +
         "</div></div>";
-    }).join("") +
-      '<div class="cn-merge">└─ epoch ' + D.board.epoch + "  " +
+      if (replies.length && !isFolded) {
+        html += '<div class="cn-replies" data-key="re-' + esc(p.id) + '">' +
+          replies.map(function (c) { return nodeHtml(c, depth + 1); }).join("") + "</div>";
+      }
+      return html;
+    }
+
+    var body = roots.map(function (p) { return nodeHtml(p, 0); }).join("");
+    var laneVisible = body.indexOf('data-fork="true"') !== -1;
+    return '<div class="cn-graph">' + body +
+      '<div class="cn-merge"' + (laneVisible ? "" : ' data-no-lane="true"') + '>└─ epoch ' + D.board.epoch + "  " +
       window.NB_ASCII.gauge(D.board.landed, D.board.total, 12) + "  " +
       D.board.landed + "/" + D.board.total + " landed · ships " + esc(D.board.ships) + "</div></div>";
   }
@@ -139,6 +177,24 @@
     return Object.keys(distinct).length > 1 ? line : null;
   }
 
+  /** What a channel is, above what it contains. */
+  function contextStrip(label, extra) {
+    var chan = null;
+    for (var i = 0; i < D.channels.length; i++) if (D.channels[i].label === label) chan = D.channels[i];
+    if (!chan) return "";
+    var posts = D.posts.concat(extra || []).filter(function (p) { return p.channel === chan.id; });
+    var last = posts.length ? posts[posts.length - 1] : null;
+    var spark = activityOf({ kind: "dir", name: label }, "/channels");
+    return '<div class="cn-ctx" data-key="ctx-' + esc(label) + '">' +
+      '<b class="cn-ctx-name">#' + esc(label) + "</b>" +
+      '<span class="cn-ctx-kind" data-kind="' + esc(chan.kind) + '">' + esc(chan.kind) + "</span>" +
+      '<span class="cn-ctx-fact">' + posts.length + (posts.length === 1 ? " post" : " posts") + "</span>" +
+      (chan.unread ? '<span class="cn-badge">' + chan.unread + " new</span>" : "") +
+      (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span>" : "") +
+      (last ? '<span class="cn-ctx-fact">last ' + esc(last.at) + " by " + esc(last.who) + "</span>" : "") +
+      "</div>";
+  }
+
   function columnHtml(path, entries, cursor, focused, index, filter) {
     var shown = entries;
     if (filter) {
@@ -194,17 +250,32 @@
        the screen can hold it. Narrower, the columns concede in the same order
        a terminal multiplexer would: the parent goes first, then the preview
        stacks under the listing instead of beside it. */
-    [data-exp="console"] .cn-cols{display:grid;grid-template-columns:15rem 20rem minmax(0,1fr);
+    [data-exp="console"] .cn-cols{display:grid;
+      grid-template-columns:var(--nb-c0,15rem) 6px var(--nb-c1,20rem) 6px minmax(0,1fr);
       min-height:0;overflow:hidden}
+
+    /* Splitters. The divider is the pane's own control: drag resizes,
+       double-click or Enter collapses and reopens, arrows nudge. A separate
+       chrome of dock buttons would say the same things with more furniture. */
+    [data-exp="console"] .cn-split{cursor:col-resize;position:relative;touch-action:none}
+    [data-exp="console"] .cn-split::before{content:"";position:absolute;inset-block:0;
+      inset-inline-start:2px;width:2px;background:var(--nb-rule)}
+    [data-exp="console"] .cn-split:hover::before,
+    [data-exp="console"] .cn-split:focus-visible::before{background:var(--nb-accent)}
+    [data-exp="console"] .cn-split:focus-visible{outline:none}
+    [data-exp="console"] .cn-split[data-closed=true]::before{background:var(--nb-accent);opacity:.55}
+    [data-exp="console"] .cn-col{border-inline-end:0}
     @media (max-width: 64rem){
-      [data-exp="console"] .cn-cols{grid-template-columns:14rem minmax(0,1fr)}
-      [data-exp="console"] .cn-col[data-column="0"]{display:none}
+      [data-exp="console"] .cn-cols{grid-template-columns:var(--nb-c1,14rem) 6px minmax(0,1fr)}
+      [data-exp="console"] .cn-col[data-column="0"],
+      [data-exp="console"] .cn-split[data-split="0"]{display:none}
     }
     @media (max-width: 40rem){
       /* Phone: the listing and the preview become swipe pages — the touch
          gesture a feed already taught everyone — instead of two slivers. */
       [data-exp="console"] .cn-cols{grid-template-columns:repeat(2,100%);
         overflow-x:auto;scroll-snap-type:x mandatory}
+      [data-exp="console"] .cn-split{display:none}
       [data-exp="console"] .cn-col{scroll-snap-align:start;opacity:1;border-inline-end:0}
     }
     @media (max-height: 40rem){
@@ -284,8 +355,27 @@
     [data-exp="console"] .cn-node-body{min-width:0}
     [data-exp="console"] .cn-node-body p{margin:.1rem 0 0;max-width:76ch}
     [data-exp="console"] .cn-subject{display:block;margin-block-start:.15rem}
+    [data-exp="console"] .cn-twist{background:none;border:0;font:inherit;font-size:.82em;
+      color:var(--nb-accent);cursor:pointer;padding:.1rem 0;display:block;margin-block-start:.15rem}
+    [data-exp="console"] .cn-twist:hover{text-decoration:underline}
+    /* Replies indent under what they answer; the spine is the thread. */
+    [data-exp="console"] .cn-replies{margin-inline-start:2.15rem;
+      border-inline-start:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-replies .cn-node::before{display:none}
+    [data-exp="console"] .cn-replies .cn-node{grid-template-columns:2rem minmax(0,1fr);padding-inline-start:.5rem}
+    [data-exp="console"] .cn-replies .cn-dot{margin-inline-start:.55rem;width:.55rem;height:.55rem}
+
+    /* What the channel is, before what it contains. One line of facts. */
+    [data-exp="console"] .cn-ctx{display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap;
+      padding:.45rem .8rem;border-block-end:1px solid var(--nb-rule);font-size:.9em}
+    [data-exp="console"] .cn-ctx-name{color:var(--nb-ink)}
+    [data-exp="console"] .cn-ctx-kind{color:var(--nb-ink-faint);border:1px solid var(--nb-rule);
+      padding:0 .35rem;border-radius:var(--nb-radius);font-size:.85em}
+    [data-exp="console"] .cn-ctx-fact{color:var(--nb-ink-faint)}
+
     [data-exp="console"] .cn-merge{position:relative;padding:.5rem .8rem .5rem 3.2rem;color:var(--nb-accent);
       border-block-start:1px solid var(--nb-rule);margin-block-start:.4rem}
+    [data-exp="console"] .cn-merge[data-no-lane=true]::before{display:none}
     [data-exp="console"] .cn-merge::before{content:"";position:absolute;inset-inline-start:1.3rem;
       inset-block-start:-.45rem;inset-block-end:calc(50% - 1px);width:.9rem;
       border-inline-start:2px solid var(--nb-accent);border-block-end:2px solid var(--nb-accent);
@@ -333,6 +423,11 @@
     [data-exp="console"] .cn-out{max-height:11rem;overflow:auto;padding:0 .8rem .4rem;white-space:pre-wrap;
       color:var(--nb-ink-dim);font-size:.9em}
     [data-exp="console"] .cn-out:empty{display:none}
+    [data-exp="console"] .cn-cli[data-out-min=true] .cn-out{display:none}
+    [data-exp="console"] .cn-out-min{background:none;border:1px solid var(--nb-rule);font:inherit;
+      color:var(--nb-ink-faint);cursor:pointer;min-width:1.7rem;min-height:1.7rem;
+      border-radius:var(--nb-radius);align-self:center}
+    [data-exp="console"] .cn-out-min:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-out b{color:var(--nb-ink)}
 
     /* Touch is a peer, not an afterthought: every control clears the 32px floor
@@ -360,23 +455,29 @@
         : 0;
 
       var preview;
+      var ctxLabel = null;
       if (selected && selected.kind === "dir") {
         var childPath = MAP.resolve(path, selected.name);
         var child = MAP.list(childPath, extra) || [];
         preview = state.view === "diff" ? viewDiff(child)
-          : state.view === "raw" ? viewRaw(child) : viewGraph(child);
+          : state.view === "raw" ? viewRaw(child) : viewGraph(child, null, state.folded);
         if (!child.some(function (e) { return e.post; })) {
           preview = columnHtml(childPath, child, -1, false, 2, "");
         }
+        // Selecting a channel shows what the channel *is* before what it holds.
+        if (path === "/channels") ctxLabel = selected.name;
       } else if (selected && selected.post) {
         // Show the whole lineage with this node marked. A one-node graph is not
         // a graph, and the reason to be in this view is the shape around it.
         preview = state.view === "diff" ? viewDiff([selected])
           : state.view === "raw" ? viewRaw([selected])
-          : viewGraph(here, selected.post.id);
+          : viewGraph(here, selected.post.id, state.folded);
       } else {
         preview = viewEntry(selected, MAP.resolve(path, selected ? selected.name : ""));
       }
+      // Standing inside a channel keeps its context above the conversation.
+      if (!ctxLabel && parts[0] === "channels" && parts[1]) ctxLabel = parts[1];
+      if (ctxLabel) preview = contextStrip(ctxLabel, extra) + preview;
 
       var crumbs = ['<button type="button" class="cn-crumb" data-goto="/">board</button>'];
       parts.forEach(function (seg, i) {
@@ -397,15 +498,26 @@
           "<span>" + esc(c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
       }).join("");
 
+      var panes = state.panes || { c0: 15, c1: 20, mc0: false, mc1: false, out: false, zoom: false };
+      var w0 = panes.zoom || panes.mc0 ? "0rem" : panes.c0 + "rem";
+      var w1 = panes.zoom || panes.mc1 ? "0rem" : panes.c1 + "rem";
+      function splitter(i, closed) {
+        return '<div class="cn-split" data-split="' + i + '" data-closed="' + closed + '" role="separator"' +
+          ' aria-orientation="vertical" tabindex="0"' +
+          ' aria-label="Resize columns — drag or arrow keys; Enter collapses"></div>';
+      }
       return (
         '<div class="cn-path">' + crumbs.join("") + '<div class="cn-views">' + views + "</div></div>" +
-        '<div class="cn-cols">' +
+        '<div class="cn-cols" data-zoom="' + !!panes.zoom + '" style="--nb-c0:' + w0 + ";--nb-c1:" + w1 + '">' +
         columnHtml(parentPath, parentEntries, parentCursor, state.focus === 0, 0, "") +
+        splitter(0, panes.zoom || panes.mc0) +
         columnHtml(path, here, cursor, state.focus === 1, 1, state.filter) +
+        splitter(1, panes.zoom || panes.mc1) +
         '<div class="cn-col cn-pane" data-column="2"' + (state.focus === 2 ? ' data-focus="true"' : "") + ">" +
         preview + "</div>" +
         "</div>" +
-        '<div class="cn-cli" data-open="' + (state.cliOpen && cand.candidates.length > 1) + '">' +
+        '<div class="cn-cli" data-open="' + (state.cliOpen && cand.candidates.length > 1) + '"' +
+        (panes && panes.out ? ' data-out-min="true"' : "") + ">" +
         '<div class="cn-menu">' + menu + "</div>" +
         '<div class="cn-out">' + (state.out || []).slice(-8).join("\n") + "</div>" +
         '<div class="cn-prompt">' +
@@ -415,6 +527,10 @@
         '<span class="cn-ps1">' + esc(path) + (state.ai ? " ›" : " $") + "</span>" +
         '<span class="cn-input-wrap"><span class="cn-ghost" data-ghost></span>' +
         '<input class="cn-input" data-cli autocomplete="off" spellcheck="false" aria-label="Command"></span>' +
+        ((state.out || []).length
+          ? '<button type="button" class="cn-out-min" data-out-toggle aria-expanded="' + !(panes && panes.out) + '"' +
+            ' title="Show or hide the transcript">' + (panes && panes.out ? "⌃" : "⌄") + "</button>"
+          : "") +
         "</div></div>"
       );
     },

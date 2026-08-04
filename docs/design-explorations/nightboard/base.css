@@ -36,6 +36,15 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
+
+/* Scrollbars are chrome, and chrome takes the theme's ink like everything
+   else. Thin, square, trackless: a terminal scrollbar is a position marker,
+   not a component. */
+* { scrollbar-width: thin; scrollbar-color: var(--nb-rule) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--nb-rule); border: 2px solid var(--nb-bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--nb-ink-faint); }
 /* The frame never scrolls as a page; every scrolling surface is a named pane.
    Without this, a transient overflow during load hands the body a scrollbar it
    keeps until the next layout, which reads as the whole app being broken. */

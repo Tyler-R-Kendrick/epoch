@@ -333,5 +333,30 @@ export function runNightboardThemeTests(): void {
   assert.ok(!/animation:[^;}]*infinite/.test(consoleSrc2),
     "nothing may animate forever — a pulse that never stops is load, not meaning");
 
+  // ── The furniture: scrollbars, panes, threads, context ───────────────────
+  const baseCss = readFileSync(join(ROOT, "base.css"), "utf8");
+  assert.ok(baseCss.includes("scrollbar-color") && baseCss.includes("::-webkit-scrollbar"),
+    "scrollbars must take the theme's ink on both engines");
+
+  assert.ok(consoleSrc2.includes('role="separator"'), "splitters must be real separators");
+  assert.ok(consoleSrc2.includes("--nb-c0") && consoleSrc2.includes("--nb-c1"),
+    "pane widths must flow through custom properties so drag and render agree");
+  assert.ok(appSrc.includes('"nb-panes"'), "pane layout must persist across sessions");
+  assert.ok(appSrc.includes("setPointerCapture"),
+    "splitter drag must use pointer capture — one path for mouse, touch and pen");
+  assert.ok(!appSrc.includes(".focus()"),
+    "every focus() must preventScroll — a scrolling focus broke the frame once already");
+
+  // Threads: replies nest under what they answer and fold as a subtree.
+  const dataSrc = readFileSync(join(ROOT, "data.js"), "utf8");
+  assert.ok(/re: "p\d+"/.test(dataSrc), "fixture posts must carry reply links");
+  assert.ok(consoleSrc2.includes("subtreeCount"),
+    "a twist folds the whole subtree, so it must count the whole subtree");
+  assert.ok(consoleSrc2.includes("data-fold="), "threads must be foldable from the node");
+  assert.ok(consoleSrc2.includes('data-no-lane'),
+    "the merge elbow must not draw when every forked node is folded away");
+  assert.ok(consoleSrc2.includes("function contextStrip"),
+    "a channel must show what it is before what it contains");
+
   console.log("nightboard theme tests passed");
 }

@@ -39,7 +39,31 @@
     ai: true,
     events: [],
     busy: false,
+    folded: {},
+    panes: loadPanes(),
   };
+
+  /**
+   * Pane layout is the user's furniture arrangement; it survives the session.
+   * Everything else about the board is navigation state and does not.
+   */
+  function loadPanes() {
+    var fallback = { c0: 15, c1: 20, mc0: false, mc1: false, out: false, zoom: false };
+    try {
+      var raw = window.localStorage.getItem("nb-panes");
+      if (!raw) return fallback;
+      var got = JSON.parse(raw);
+      return {
+        c0: Math.max(6, Math.min(34, Number(got.c0) || 15)),
+        c1: Math.max(6, Math.min(34, Number(got.c1) || 20)),
+        mc0: !!got.mc0, mc1: !!got.mc1, out: !!got.out, zoom: !!got.zoom,
+      };
+    } catch { return fallback; }
+  }
+
+  function savePanes() {
+    try { window.localStorage.setItem("nb-panes", JSON.stringify(state.panes)); } catch { /* private mode */ }
+  }
 
   var themeStyle = document.createElement("style");
   document.head.appendChild(themeStyle);
@@ -486,6 +510,18 @@
     var mount = $("[data-mount]");
 
     mount.addEventListener("click", function (ev) {
+      var fold = ev.target.closest("[data-fold]");
+      if (fold) {
+        var id = fold.dataset.fold;
+        if (state.folded[id]) delete state.folded[id];
+        else state.folded[id] = true;
+        return render(true);
+      }
+      if (ev.target.closest("[data-out-toggle]")) {
+        state.panes.out = !state.panes.out;
+        savePanes();
+        return render(true);
+      }
       var go = ev.target.closest("[data-goto]");
       if (go) return navigate(go.dataset.goto);
       var view = ev.target.closest("[data-view]");
@@ -513,6 +549,53 @@
       }
     });
 
+    // The splitter is the pane's own control: drag resizes, double-click or
+    // Enter collapses and reopens, arrows nudge. Pointer events cover mouse,
+    // touch and pen with one code path.
+    mount.addEventListener("pointerdown", function (ev) {
+      var split = ev.target.closest(".cn-split");
+      if (!split) return;
+      ev.preventDefault();
+      var key = split.dataset.split === "0" ? "c0" : "c1";
+      var minKey = split.dataset.split === "0" ? "mc0" : "mc1";
+      var cols = split.parentElement;
+      var startX = ev.clientX;
+      var startW = state.panes[minKey] || state.panes.zoom ? 0 : state.panes[key];
+      var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      var moved = false;
+      split.setPointerCapture(ev.pointerId);
+      var onMove = function (e) {
+        var d = (e.clientX - startX) / remPx;
+        if (!moved && Math.abs(d) < 0.25) return;
+        moved = true;
+        var w = Math.max(6, Math.min(34, startW + d));
+        state.panes[key] = w;
+        state.panes[minKey] = false;
+        state.panes.zoom = false;
+        cols.style.setProperty("--nb-" + key, w + "rem");
+        var other = key === "c0" ? "c1" : "c0";
+        cols.style.setProperty("--nb-" + other,
+          (state.panes[other === "c0" ? "mc0" : "mc1"] ? 0 : state.panes[other]) + "rem");
+      };
+      var onUp = function (e) {
+        try { split.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+        split.removeEventListener("pointermove", onMove);
+        if (moved) { savePanes(); render(true); }
+      };
+      split.addEventListener("pointermove", onMove);
+      split.addEventListener("pointerup", onUp, { once: true });
+    });
+
+    mount.addEventListener("dblclick", function (ev) {
+      var split = ev.target.closest(".cn-split");
+      if (!split) return;
+      var minKey = split.dataset.split === "0" ? "mc0" : "mc1";
+      state.panes[minKey] = !state.panes[minKey];
+      state.panes.zoom = false;
+      savePanes();
+      render(true);
+    });
+
     mount.addEventListener("input", function (ev) {
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
@@ -534,6 +617,27 @@
     });
 
     mount.addEventListener("keydown", function (ev) {
+      var split = ev.target.closest && ev.target.closest(".cn-split");
+      if (split) {
+        var key = split.dataset.split === "0" ? "c0" : "c1";
+        var minKey = split.dataset.split === "0" ? "mc0" : "mc1";
+        if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
+          ev.preventDefault();
+          state.panes[minKey] = false;
+          state.panes[key] = Math.max(6, Math.min(34,
+            state.panes[key] + (ev.key === "ArrowRight" ? 1 : -1)));
+          savePanes();
+          return render(true);
+        }
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          state.panes[minKey] = !state.panes[minKey];
+          state.panes.zoom = false;
+          savePanes();
+          return render(true);
+        }
+        return;
+      }
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
       if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
@@ -576,6 +680,15 @@
         return status(state.ai
           ? "ai — your words are interpreted, bad commands repaired"
           : "cli — your words are commands");
+      }
+      // The prompt owns almost every keystroke, so pane chords are Alt'd the
+      // same way the mode toggle is; bare z still works in column mode.
+      if (ev.altKey && ev.key.toLowerCase() === "z") {
+        ev.preventDefault();
+        state.panes.zoom = !state.panes.zoom;
+        savePanes();
+        render(true);
+        return status(state.panes.zoom ? "zoomed — Alt+Z to restore" : "restored");
       }
       if (ev.key === "ArrowRight" || ev.key === "End") {
         if (cli.selectionStart === cli.value.length && acceptGhost()) ev.preventDefault();
@@ -646,6 +759,8 @@
         state.columnFocus = false; render(); return focusCli();
       }
       if (k === "v") { ev.preventDefault(); var order = ["graph", "diff", "raw"]; state.view = order[(order.indexOf(state.view) + 1) % 3]; render(); return status("view: " + state.view); }
+      // tmux's z: the preview takes the whole width, and again restores.
+      if (k === "z") { ev.preventDefault(); state.panes.zoom = !state.panes.zoom; savePanes(); render(true); return status(state.panes.zoom ? "zoomed — z to restore" : "restored"); }
       if (k.toLowerCase() === "r") { ev.preventDefault(); return mergePending(); }
       if (k.toLowerCase() === "t" && state.columnFocus) { ev.preventDefault(); return setTheme(themeIndex + 1); }
 

@@ -71,13 +71,13 @@ window.NB_DATA = {
       actions: [{ id: "same", label: "same here" }, { id: "reply", label: "reply" }],
     },
     {
-      id: "p2", channel: "general", who: "nora", at: "09:31", state: "open", sig: "sig:nora-repro",
+      re: "p1", id: "p2", channel: "general", who: "nora", at: "09:31", state: "open", sig: "sig:nora-repro",
       anchor: "tuner/install.ts · line 84",
       body: "Reproduced on a clean container: 3m52s cold, 14s warm. The cache key includes the lockfile hash and the OS image tag, so it misses on every image bump.",
       actions: [{ id: "confirm", label: "confirmed" }, { id: "reply", label: "reply" }],
     },
     {
-      id: "p3", channel: "general", who: "scout", at: "09:40", state: "needs-review", sig: "sig:scout-188",
+      re: "p2", id: "p3", channel: "general", who: "scout", at: "09:40", state: "needs-review", sig: "sig:scout-188",
       subject: "Drafted a plan to split the cache key",
       anchor: "agent-run://scout/188",
       body: "Key on the lockfile hash only and restore the OS layer separately. Scoped to CI config, no runtime changes. Human review required before anything merges.",
@@ -91,7 +91,7 @@ window.NB_DATA = {
       actions: [{ id: "open", label: "open intent" }, { id: "lineage", label: "lineage" }],
     },
     {
-      id: "p5", channel: "general", who: "sam", at: "10:14", state: "open", sig: "sig:sam-retest",
+      re: "p4", id: "p5", channel: "general", who: "sam", at: "10:14", state: "open", sig: "sig:sam-retest",
       body: "As the person who complained about this in the first place — nice. Happy to retest on the boat wifi once it lands.",
       actions: [{ id: "wave", label: "wave" }],
     },
@@ -120,12 +120,12 @@ window.NB_DATA = {
       actions: [{ id: "answer", label: "answer" }],
     },
     {
-      id: "su2", channel: "support", who: "nora", at: "08:19", state: "open", sig: "sig:nora-answer",
+      re: "su1", id: "su2", channel: "support", who: "nora", at: "08:19", state: "open", sig: "sig:nora-answer",
       body: "Yes — the shelf is local. Signing in only matters when you promote something.",
       actions: [{ id: "accept", label: "accept answer" }],
     },
     {
-      id: "su3", channel: "support", who: "maya", at: "08:31", state: "promoted", sig: "sig:maya-doc",
+      re: "su1", id: "su3", channel: "support", who: "maya", at: "08:31", state: "promoted", sig: "sig:maya-doc",
       subject: "Captured that answer into the guide",
       anchor: "intent://docs-offline-shelf",
       body: "Third time this has been asked, so it is a docs patch now rather than an answer.",
@@ -189,7 +189,7 @@ window.NB_DATA = {
 
   /** Delivered by the live stream, one per tick. */
   incoming: [
-    { channel: "general", who: "nora", state: "open", sig: "sig:nora-live",
+    { channel: "general", who: "nora", state: "open", sig: "sig:nora-live", re: "p1",
       body: "Rebuilt against the split cache key: 41s cold. Not four minutes.",
       actions: [{ id: "nice", label: "nice" }] },
     { channel: "bugs", who: "patcher", state: "needs-review", sig: "sig:patcher-live",

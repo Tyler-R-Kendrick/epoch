@@ -383,6 +383,33 @@ One coherent responsive strategy: three miller columns at desk width, listing
 plus preview at mid width, and swipe pages with scroll-snap on a phone. The
 frame itself never scrolls as a page — every scrolling surface is a named pane.
 
+## The furniture
+
+Polish that had been missing, each piece done the terminal way:
+
+- **Scrollbars take the theme's ink** — thin, square, trackless, on both
+  engines. A scrollbar is a position marker, not a component.
+- **Panes resize, collapse and zoom.** The divider is the pane's own control:
+  drag resizes (pointer events — mouse, touch and pen are one code path),
+  double-click or Enter collapses and reopens, arrow keys nudge, `Alt+Z` (or
+  `z` in column mode) zooms the preview tmux-style. The layout persists across
+  sessions; it is the user's furniture arrangement. The transcript minimises
+  from the prompt row.
+- **Conversations are trees.** `re:` names the parent post; replies nest under
+  what they answer with a spine, and a twist folds the whole subtree with its
+  full count. A promotion is a root event that references the thread it grew
+  from — folding the talk never hides the signed work — and the merge elbow
+  refuses to draw when every forked node is folded away, because a curve from
+  nothing is a lie.
+- **A channel shows what it is before what it contains**: name, kind, post
+  count, unread, its activity sparkline and last word, as one line of facts
+  above the conversation — both when selecting it from `/channels` and while
+  standing inside it.
+
+Panes and folds are deliberately *not* WebMCP tools: they are furniture around
+the board, not capabilities of it. The registry stays the set of things an
+agent can truthfully do to the board's content.
+
 ## Enforced, not asserted
 
 `test/unit/nightboard-themes.test.ts` runs in `npm test` and holds every theme
