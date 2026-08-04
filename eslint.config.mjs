@@ -54,6 +54,8 @@ export default [
       // whose page.evaluate callbacks are browser code, so it needs both.
       "docs/design-explorations/**/build-*.mjs",
       "docs/design-explorations/**/faults.mjs",
+      "docs/design-explorations/**/e2e.mjs",
+      "docs/design-explorations/**/serve.mjs",
     ],
     languageOptions: {
       ecmaVersion: 2022,

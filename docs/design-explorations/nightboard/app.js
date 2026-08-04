@@ -56,7 +56,7 @@
       return {
         c0: Math.max(6, Math.min(34, Number(got.c0) || 15)),
         c1: Math.max(6, Math.min(34, Number(got.c1) || 20)),
-        mc0: !!got.mc0, mc1: !!got.mc1, out: !!got.out, zoom: !!got.zoom,
+        mc0: !!got.mc0, mc1: !!got.mc1, out: !!got.out, zoom: false,
       };
     } catch { return fallback; }
   }
@@ -510,6 +510,14 @@
     var mount = $("[data-mount]");
 
     mount.addEventListener("click", function (ev) {
+      var closedSplit = ev.target.closest('.cn-split[data-closed="true"]');
+      if (closedSplit) {
+        var reopen = closedSplit.dataset.split === "0" ? "mc0" : "mc1";
+        state.panes[reopen] = false;
+        state.panes.zoom = false;
+        savePanes();
+        return render(true);
+      }
       var fold = ev.target.closest("[data-fold]");
       if (fold) {
         var id = fold.dataset.fold;
@@ -536,16 +544,22 @@
       }
       var item = ev.target.closest(".cn-item");
       if (item) {
-        var col = Number(item.dataset.col);
-        if (col === 0) return ascend();
-        var list = visible();
-        var picked = list[Number(item.dataset.i)];
-        if (!picked) return;
+        // The item names its own absolute path. The old handler inferred the
+        // entry from column position and the *current* column's list, so a
+        // click in the parent column ascended no matter what was clicked and a
+        // click in the preview resolved against the wrong listing entirely.
+        var target = item.dataset.path;
+        if (!target) return;
+        if (item.dataset.kind === "dir") return navigate(target, { keepCli: true });
+        var segs = window.NB_MAP.split(target);
+        var dir = window.NB_MAP.join(segs.slice(0, -1));
+        var name = segs[segs.length - 1];
+        if (state.path !== dir && !navigate(dir, { keepCli: true })) return;
         var all = entries();
-        state.cursor = all.findIndex(function (e) { return e.name === picked.name; });
+        state.cursor = all.findIndex(function (e) { return e.name === name; });
         state.focus = 1;
-        if (picked.kind === "dir") navigate(picked.name);
-        else { render(); descend(); }
+        render(true);
+        descend();
       }
     });
 

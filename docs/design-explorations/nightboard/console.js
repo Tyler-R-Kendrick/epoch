@@ -73,7 +73,7 @@
         ' data-fork="' + open + '"' + (markId && p.id === markId ? ' data-here="true"' : "") +
         (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
         '<span class="cn-dot" aria-hidden="true"></span>' +
-        (open ? '<span class="cn-branch" aria-hidden="true"></span>' : "") +
+        (open && depth === 0 ? '<span class="cn-branch" aria-hidden="true"></span>' : "") +
         '<div class="cn-node-body"><span data-c="actor"><b data-c="handle">' + esc(p.who) + "</b>" +
         '<span data-c="role">' + esc(who(p.who).role) + "</span></span>" +
         '<span data-c="meta"><time data-c="time">' + esc(p.at) + "</time>" +
@@ -92,7 +92,8 @@
           : "") +
         "</div></div>";
       if (replies.length && !isFolded) {
-        html += '<div class="cn-replies" data-key="re-' + esc(p.id) + '">' +
+        html += '<div class="cn-replies" data-key="re-' + esc(p.id) + '"' +
+          (open ? ' data-fork="true"' : "") + ">" +
           replies.map(function (c) { return nodeHtml(c, depth + 1); }).join("") + "</div>";
       }
       return html;
@@ -205,7 +206,8 @@
     var items = shown.map(function (e, i) {
       var isDir = e.kind === "dir";
       var spark = activityOf(e, path);
-      return '<button type="button" class="cn-item" data-key="' + esc(e.name) + '" data-col="' + index + '" data-i="' + i + '"' +
+      return '<button type="button" class="cn-item" data-key="' + esc(e.name) + '"' +
+        ' data-path="' + esc(MAP.resolve(path, e.name)) + '" data-col="' + index + '" data-i="' + i + '"' +
         ' data-kind="' + esc(e.kind) + '"' + (e.meta ? ' data-meta="' + esc(e.meta) + '"' : "") +
         (i === cursor ? ' aria-current="true"' : "") + ">" +
         '<span class="cn-sig" aria-hidden="true">' + (isDir ? "▸" : e.kind === "agent" ? "*" : "·") + "</span>" +
@@ -361,6 +363,9 @@
     /* Replies indent under what they answer; the spine is the thread. */
     [data-exp="console"] .cn-replies{margin-inline-start:2.15rem;
       border-inline-start:1px solid var(--nb-rule)}
+    /* A thread inside the fork carries the lane's ink on its spine; it does
+       not draw lane segments of its own at reply indentation. */
+    [data-exp="console"] .cn-replies[data-fork=true]{border-inline-start-color:var(--nb-accent)}
     [data-exp="console"] .cn-replies .cn-node::before{display:none}
     [data-exp="console"] .cn-replies .cn-node{grid-template-columns:2rem minmax(0,1fr);padding-inline-start:.5rem}
     [data-exp="console"] .cn-replies .cn-dot{margin-inline-start:.55rem;width:.55rem;height:.55rem}

@@ -8,8 +8,10 @@
  *   node docs/design-explorations/nightboard/faults.mjs [baseUrl]
  */
 import { chromium } from "playwright";
+import { serveNightboard } from "./serve.mjs";
 
-const BASE = process.argv[2] || "http://127.0.0.1:8902/";
+const own = process.argv[2] ? null : await serveNightboard();
+const BASE = process.argv[2] || own.url;
 
 /** Build a mock LanguageModel with a scripted personality. */
 function mockScript(spec) {
@@ -271,5 +273,6 @@ for (const testCase of CASES) {
 }
 
 await browser.close();
+if (own) await own.close();
 console.log(failed === 0 ? "\nall fault cases handled" : `\n${failed} fault case(s) unhandled`);
 process.exit(failed === 0 ? 0 : 1);
