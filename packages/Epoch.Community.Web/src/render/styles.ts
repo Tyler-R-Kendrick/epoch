@@ -409,6 +409,8 @@ export function communityStyles(): string {
       color: var(--epoch-color-rail-text);
       font-weight: 700;
       font-size: var(--epoch-type-label-size);
+      /* ellipsis needs nowrap: without it a long handle wraps instead. */
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;

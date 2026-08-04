@@ -331,17 +331,17 @@ Typography is operational and sleek: slightly tighter than marketing sites, stro
 ### Hierarchy
 
 - **Display** (750, 2.5rem): Rare — marketing or empty-state only, not the app shell header.
-- **Headline** (700, 1.25rem): Shell titles (repo name area).
-- **Title** (700, 0.98rem): Message titles, active channel name, strong labels.
-- **Body** (400, 0.94rem, 1.5): Message content; max ~70ch.
-- **Label** (650, 0.78rem): Buttons, eyebrows, counts.
+- **Headline** (700, 1.375rem): Shell titles (repo name area), channel origin marker.
+- **Title** (700, 1.0625rem): Message author, object subject lines, active channel name.
+- **Body** (400, 0.9375rem, 1.5): Message content; max ~70ch.
+- **Label** (650, 0.8125rem): Buttons, eyebrows, counts.
 - **Meta** (500, 0.72rem mono): `anchor:…`, `sig:…`, paths.
 
 ### Named rules
 
 **The Product Type Rule.** No Fraunces/Inter-display/marketing fonts in Community UI.
 
-**The Author First Rule.** Display name is the strongest text in a message row; role and time are muted; mono trust line is quietest.
+**The Author First Rule.** Display name is the strongest text in a message row; role and time are muted; mono trust line is quietest. A conversational message has no subject line above it — only messages about an object (promoted intent, agent run, issue) carry a Title.
 
 ## 4. Layout
 
