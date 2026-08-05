@@ -25,7 +25,7 @@ and gated unit/e2e/fault coverage wired into `verify`.
 
 | PR | Title | Status |
 |---|---|---|
-| [#100](https://github.com/Tyler-R-Kendrick/epoch/pull/100) | Nightboard civic workshop console | open → squash-merge in finish |
+| [#100](https://github.com/Tyler-R-Kendrick/epoch/pull/100) | Nightboard civic workshop console | squash-merged `5ed8447d` |
 
 Single-layer delivery (no `gh stack`).
 
