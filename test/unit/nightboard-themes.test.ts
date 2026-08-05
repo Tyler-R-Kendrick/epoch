@@ -405,6 +405,16 @@ export function runNightboardThemeTests(): void {
     "index must load notify.js");
 
   // Unsupported: no constructor → permission unsupported, deliver no-ops.
+  type NotifyItem = {
+    id: string;
+    kind?: string;
+    body?: string;
+    who?: string;
+    unread?: boolean;
+    where?: string;
+    whereLabel?: string;
+  };
+  const memN = new Map<string, string>();
   const notifyOff: {
     Notification?: unknown;
     NB_NOTIFY?: {
@@ -412,8 +422,8 @@ export function runNightboardThemeTests(): void {
       permission: () => string;
       permissionLabel: (p?: string) => string;
       requestPermission: () => Promise<string>;
-      deliver: (item: { id: string; kind?: string; body?: string; who?: string }, h?: object) => unknown;
-      deliverUnread: (items: Array<{ id: string; unread?: boolean }>, h?: object) => number;
+      deliver: (item: NotifyItem, h?: object) => unknown;
+      deliverUnread: (items: NotifyItem[], h?: object) => number;
       wasPushed: (id: string) => boolean;
       markPushed: (id: string) => void;
       optionsFor: (item: object) => { title: string; body: string; tag: string; data: { id: string | null } };
@@ -421,18 +431,10 @@ export function runNightboardThemeTests(): void {
     localStorage: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void };
   } = {
     localStorage: {
-      _m: new Map<string, string>(),
-      getItem(k) { return this._m.has(k) ? this._m.get(k)! : null; },
-      setItem(k, v) { this._m.set(k, String(v)); },
-      removeItem(k) { this._m.delete(k); },
-    } as unknown as { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void },
-  };
-  // Proper mem store
-  const memN = new Map<string, string>();
-  notifyOff.localStorage = {
-    getItem: (k) => (memN.has(k) ? memN.get(k)! : null),
-    setItem: (k, v) => { memN.set(k, String(v)); },
-    removeItem: (k) => { memN.delete(k); },
+      getItem: (k: string) => (memN.has(k) ? memN.get(k)! : null),
+      setItem: (k: string, v: string) => { memN.set(k, String(v)); },
+      removeItem: (k: string) => { memN.delete(k); },
+    },
   };
   new Function("window", notifySrc)(notifyOff);
   assert.ok(notifyOff.NB_NOTIFY);
