@@ -134,6 +134,8 @@ const CASES = [
       await page.keyboard.press("Enter");
       const p = await path(page);
       if (!p.startsWith("/projects/community/channels/")) return log("Enter went to " + p);
+      // Detail is open by default: Esc closes it, then Esc returns the prompt.
+      await page.keyboard.press("Escape");           // columns → close detail
       await page.keyboard.press("Escape");           // columns → prompt
       const back = await page.evaluate(() =>
         document.activeElement === document.querySelector("[data-cli]"));

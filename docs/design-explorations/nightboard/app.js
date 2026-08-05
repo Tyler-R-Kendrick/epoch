@@ -3392,8 +3392,17 @@
           focusCli();
           return status("closed intellisense");
         }
-        // Esc hands steering to the columns; it does not close anything,
-        // because the prompt is the default place to be.
+        // Idempotent with the document handler: if columns already own
+        // steering (state ahead of DOM focus), Esc closes detail then
+        // returns to the prompt — same ladder as when the body is focused.
+        if (state.columnFocus) {
+          cli.blur();
+          if (isDetailOpen()) return closeDetail();
+          state.columnFocus = false;
+          render();
+          return focusCli();
+        }
+        // First Esc from the prompt hands steering to the columns.
         state.columnFocus = true;
         cli.blur();
         return status("columns — ←→↑↓ to move, i or : to return to the prompt");

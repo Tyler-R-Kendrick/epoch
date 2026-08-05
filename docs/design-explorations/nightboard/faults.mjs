@@ -203,7 +203,12 @@ const CASES = [
         await new Promise((resolve) => setTimeout(resolve, 50));
         const live = document.querySelector('[data-live="true"]');
         const names = live ? live.getAnimations({ subtree: true }).map((a) => a.animationName) : [];
-        const total = document.getAnimations().length;
+        // Epoch brand chrome keeps idle sheen/scan animations; those are not
+        // board-arrival motion. Count only non-brand animations.
+        const total = document.getAnimations().filter((a) => {
+          const t = a.effect && a.effect.target;
+          return t && !t.closest(".nb-brand, .nb-brand-fig, .nb-brand-tag, .nb-brand-scan");
+        }).length;
         return { names, total };
       });
       log(JSON.stringify(r));
