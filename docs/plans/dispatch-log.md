@@ -89,3 +89,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | CodeRabbit + Vercel PENDING at merge; Actions CI disabled. Local `gate:push` + `nightboard:e2e` green. Merged with `--admin`. |
 | Notes | Nav stays open on open; → activates editor on text leaves; Eve agents as scoped members/DMs; brand plaque removed; pixel mic icon. Agent-browser Chromium install was machine-local only (ARM64 Playwright symlink). |
+
+## 2026-08-05 — impeccable Community + Nightboard `/sdlc finish`
+
+| Field | Value |
+|---|---|
+| Initiative | [`impeccable-community-nightboard`](impeccable-community-nightboard/sdlc-state.md) |
+| Backend | Sequential; coordinator inline |
+| Branch | `feat/impeccable-community-nightboard-session` |
+| PR | (opening) |
+| Result | **in progress** |
+| Failure class | — |
+| Notes | Community Web impeccable remediation (terrain grounds, AA tokens, Inter removed, scoped reduced-motion, sidecar refresh) + Nightboard STT/voice/syntax/a11y session advances. |

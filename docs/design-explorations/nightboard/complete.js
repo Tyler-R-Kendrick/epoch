@@ -12,6 +12,7 @@
  *   path awareness     completion knows whether the argument is a path, a
  *                      channel, a member or a view name, per command
  *   slash commands     `/go bugs` in agent chat — intellisense for chat verbs
+ *                      (not a mirror of CLI: no `/ls`, `/cat`, `/grep`, …)
  *   smart markers      mid-input triggers: `@` mentions, `#` topics/channels
  *   history            ↑/↓ walk it; the ghost draws on it when the sitemap has
  *                      nothing better
@@ -25,70 +26,160 @@
   var MAP = window.NB_MAP;
 
   var COMMANDS = [
-    { name: "cd", arg: "path", help: "change directory" },
-    { name: "ls", arg: "path", help: "list a directory" },
-    { name: "cat", arg: "path", help: "read one entry in full" },
-    { name: "sort", arg: "sort", help: "hot | new | top | best" },
-    { name: "view", arg: "sort", help: "alias for sort" },
-    { name: "find", arg: "text", help: "search names anywhere" },
-    { name: "grep", arg: "text", help: "search post bodies" },
-    { name: "tail", arg: null, help: "load queued posts" },
-    { name: "watch", arg: null, help: "resume the live stream" },
-    { name: "stat", arg: null, help: "epoch status" },
-    { name: "help", arg: null, help: "this list" },
-    { name: "clear", arg: null, help: "clear the transcript" },
+    { name: "cd", arg: "path", help: "change directory", run: "cd" },
+    { name: "ls", arg: "path", help: "list a directory", run: "ls" },
+    { name: "cat", arg: "path", help: "read one entry in full", run: "cat" },
+    { name: "sort", arg: "sort", help: "hot | new | top — pin more via [+]", run: "sort" },
+    { name: "view", arg: "sort", help: "alias for sort", run: "sort" },
+    { name: "find", arg: "text", help: "search names anywhere", run: "find" },
+    { name: "search", arg: "query", help: "Lucene search across the board", run: "search" },
+    { name: "grep", arg: "text", help: "search post bodies", run: "grep" },
+    { name: "tail", arg: null, help: "load queued posts", run: "tail" },
+    { name: "watch", arg: null, help: "resume the live stream", run: "watch" },
+    { name: "stat", arg: null, help: "epoch status", run: "stat" },
+    { name: "help", arg: null, help: "this list", run: "help" },
+    { name: "clear", arg: null, help: "clear the transcript", run: "clear" },
   ];
 
   /**
-   * Slash commands for agent/chat mode. Same path/sort completion machinery as
-   * the CLI, surfaced as `/name` so the chat box has Discord/Slack-style verbs
-   * without sending free text to the model.
+   * Slash commands for agent/chat mode — Discord/Slack-style verbs that run
+   * locally and never go to the model.
+   *
+   * Deliberately NOT a mirror of the CLI: terminal verbs (`cd`, `ls`, `cat`,
+   * `grep`, …) stay in COMMANDS and only appear in cli mode. Agent slash is
+   * navigation, search, compose, identity, and board furniture.
+   */
+  /**
+   * Static slash catalogue — unchanging verbs, independent of board focus.
+   * Context-bound actions (reply, create channel/project, voice, …) live under
+   * `/act` only. Hotkey-only verbs (keys cheatsheet) are not listed here.
    */
   var SLASH_COMMANDS = [
     { name: "/go", arg: "path", help: "navigate to a path", run: "cd" },
-    { name: "/cd", arg: "path", help: "navigate (alias of /go)", run: "cd" },
-    { name: "/ls", arg: "path", help: "list a directory", run: "ls" },
-    { name: "/list", arg: "path", help: "list (alias of /ls)", run: "ls" },
-    { name: "/cat", arg: "path", help: "read one entry", run: "cat" },
-    { name: "/sort", arg: "sort", help: "hot | new | top | best", run: "sort" },
+    { name: "/sort", arg: "sort", help: "hot | new | top — pin more via [+]", run: "sort" },
     { name: "/view", arg: "query", help: "Lucene feed view / projection", run: "view" },
     { name: "/q", arg: "query", help: "alias of /view", run: "view" },
     { name: "/query", arg: "query", help: "alias of /view", run: "view" },
-    { name: "/find", arg: "text", help: "search names", run: "find" },
-    { name: "/grep", arg: "text", help: "search post bodies", run: "grep" },
-    { name: "/load", arg: null, help: "load queued posts", run: "tail" },
-    { name: "/tail", arg: null, help: "load queued posts", run: "tail" },
-    { name: "/watch", arg: null, help: "resume the live stream", run: "watch" },
-    { name: "/pause", arg: null, help: "pause the live stream", run: "pause" },
-    { name: "/stat", arg: null, help: "epoch status", run: "stat" },
-    { name: "/where", arg: null, help: "current path and selection", run: "where" },
-    { name: "/theme", arg: "theme", help: "switch built-in theme", run: "theme" },
-    { name: "/ai", arg: null, help: "switch to ai mode", run: "ai" },
-    { name: "/cli", arg: null, help: "switch to cli mode", run: "cli" },
-    { name: "/clear", arg: null, help: "clear the transcript", run: "clear" },
+    { name: "/search", arg: "query", help: "Lucene search across feeds/projects/dms", run: "search" },
+    { name: "/mode", arg: "mode", help: "ai | cli — prompt interpretation mode", run: "mode" },
+    { name: "/act", arg: "act", help: "context action — reply, channel, project, voice, share", run: "act" },
     { name: "/help", arg: null, help: "list slash commands", run: "slash-help" },
-    { name: "/keys", arg: null, help: "open hotkey cheatsheet", run: "keys" },
-    { name: "/share", arg: null, help: "copy a nightboard: link", run: "share" },
-    { name: "/tab", arg: null, help: "new terminal workspace", run: "tab" },
-    { name: "/workspace", arg: null, help: "new terminal workspace", run: "tab" },
-    { name: "/reply", arg: "text", help: "start a reply (text after)", run: "reply" },
+    { name: "/share", arg: null, help: "copy a nightboard: link for the current path", run: "share" },
+    { name: "/tab", arg: null, help: "new workspace tab", run: "tab" },
+    { name: "/workspace", arg: null, help: "new workspace tab", run: "tab" },
     { name: "/dm", arg: "handle", help: "open a direct message", run: "dm" },
     { name: "/msg", arg: "handle", help: "alias of /dm", run: "dm" },
     { name: "/notifications", arg: "filter", help: "all|mentions|subscribed|hooks|enable|test", run: "notifications" },
     { name: "/activity", arg: "filter", help: "alias of /notifications", run: "notifications" },
     { name: "/hooks", arg: "cmd", help: "list|events|add|rm|on|off|test|reset", run: "hooks" },
-    { name: "/hook", arg: "cmd", help: "alias of /hooks", run: "hooks" },
     { name: "/attach", arg: "cmd", help: "open|list|clear — files for chat context", run: "attach" },
     { name: "/file", arg: "cmd", help: "alias of /attach", run: "attach" },
     { name: "/whoami", arg: null, help: "show profile and space", run: "whoami" },
-    { name: "/space", arg: "id", help: "join space (relay+workspace+subreddit)", run: "space" },
-    { name: "/spaces", arg: null, help: "list spaces / relays / subreddits", run: "spaces" },
-    { name: "/login", arg: "handle", help: "sign in to a space (Bluesky)", run: "login" },
+    { name: "/space", arg: "space", help: "list spaces, or join one by id", run: "space" },
+    { name: "/login", arg: "handle", help: "sign in to a space", run: "login" },
     { name: "/signin", arg: "handle", help: "alias of /login", run: "login" },
     { name: "/claim", arg: "handle", help: "claim anonymous identity in a space", run: "claim" },
     { name: "/logout", arg: null, help: "sign out → Anonymous", run: "logout" },
     { name: "/signout", arg: null, help: "alias of /logout", run: "logout" },
   ];
+
+  /**
+   * Agent / legacy slash verbs — resolve via slashSpec and runSlash, but are
+   * excluded from intellisense and /help. Prefer `/mode`, `/act`, and WebMCP.
+   */
+  var AGENT_SLASH_COMMANDS = [
+    { name: "/ai", arg: null, help: "switch to ai mode (agent)", run: "ai" },
+    { name: "/cli", arg: null, help: "switch to cli mode (agent)", run: "cli" },
+    { name: "/theme", arg: "theme", help: "switch built-in theme (agent)", run: "theme" },
+    { name: "/reply", arg: "text", help: "arm reply (prefer /act reply)", run: "reply" },
+    { name: "/channel", arg: "new name", help: "create channel (prefer /act channel)", run: "channel" },
+    { name: "/project", arg: "new name", help: "create project (prefer /act project)", run: "project" },
+    { name: "/voice", arg: "cmd", help: "channel voice (prefer /act voice)", run: "voice" },
+    { name: "/keys", arg: null, help: "hotkey cheatsheet (prefer Ctrl+Space)", run: "keys" },
+  ];
+
+  /**
+   * Group commands that share a `run` key (aliases) so help and catalogues
+   * render them as one row: `/dm, /msg  <handle>  open a direct message`.
+   */
+  function groupCommands(list) {
+    var order = [];
+    var map = {};
+    (list || []).forEach(function (c) {
+      var key = c.run || c.name;
+      if (!map[key]) {
+        map[key] = { run: key, items: [], primary: null };
+        order.push(key);
+      }
+      map[key].items.push(c);
+      if (!map[key].primary && !/^alias\b/i.test(String(c.help || ""))) {
+        map[key].primary = c;
+      }
+    });
+    return order.map(function (k) {
+      var g = map[k];
+      if (!g.primary) g.primary = g.items[0];
+      return g;
+    });
+  }
+
+  function formatGroupedHelp(list) {
+    return groupCommands(list).map(function (g) {
+      var names = g.items.map(function (c) { return c.name; }).join(", ");
+      var p = g.primary;
+      return names + (p.arg ? " <" + p.arg + ">" : "") + "  " + p.help;
+    }).join("\n");
+  }
+
+  /** Catalogue rows for intellisense — one entry per run, aliases in the label. */
+  function groupedCatalogue(list) {
+    return groupCommands(list).map(function (g) {
+      var names = g.items.map(function (c) { return c.name; });
+      return {
+        value: g.primary.name,
+        label: names.join(", "),
+        names: names,
+        hint: g.primary.help,
+        kind: "slash",
+        run: g.run,
+        arg: g.primary.arg,
+      };
+    });
+  }
+
+  /**
+   * Rank grouped catalogue rows against a query. Matches any alias name;
+   * prefers inserting the best-matching alias when the query is non-empty.
+   */
+  function rankGrouped(groups, query) {
+    var q = String(query || "");
+    var scored = [];
+    groups.forEach(function (g) {
+      var best = null;
+      var bestName = g.value;
+      (g.names || [g.value]).forEach(function (n) {
+        var s = score(n, q);
+        if (s == null) return;
+        if (best == null || s > best) {
+          best = s;
+          bestName = n;
+        }
+      });
+      if (best == null && !q) best = 1;
+      if (best == null) return;
+      scored.push({
+        value: q ? bestName : g.value,
+        label: g.label || g.value,
+        hint: g.hint,
+        kind: g.kind || "slash",
+        run: g.run,
+        arg: g.arg,
+        s: best,
+      });
+    });
+    scored.sort(function (a, b) { return b.s - a.s || a.value.length - b.value.length; });
+    return scored;
+  }
 
   /**
    * Fuzzy subsequence score. Higher is better; null means no match.
@@ -193,18 +284,121 @@
     });
     if (!themes.length) {
       themes = [
-        { value: "nightboard", hint: "default", kind: "theme" },
-        { value: "tape", hint: "built-in", kind: "theme" },
+        { value: "nightboard", hint: "Grid", kind: "theme" },
       ];
     }
     return rank(themes, fragment);
   }
 
+  function spaceCandidates(fragment) {
+    var spaces = [];
+    if (window.NB_SESSION && typeof window.NB_SESSION.listSpaces === "function") {
+      spaces = window.NB_SESSION.listSpaces();
+    } else if (window.NB_DATA && window.NB_DATA.spaces) {
+      spaces = window.NB_DATA.spaces;
+    }
+    var items = (spaces || []).map(function (s) {
+      return {
+        value: s.id,
+        hint: (s.name || s.slug || "") +
+          (s.guestsAllowed === false ? " · members" : " · open"),
+        kind: "space",
+      };
+    });
+    return rank(items, fragment);
+  }
+
+  function modeCandidates(fragment) {
+    var items = [
+      { value: "ai", hint: "interpret intent · slash still runs", kind: "mode" },
+      { value: "cli", hint: "commands only · wrong input errors", kind: "mode" },
+    ];
+    return rank(items, fragment);
+  }
+
+  /**
+   * Context-dependent `/act` capabilities for the current board focus.
+   * This is the only slash verb whose argument catalogue changes with path /
+   * selection. Returns { value, hint, kind } rows for autocomplete + /act help.
+   */
+  function actCapabilities(ctx) {
+    ctx = ctx || {};
+    var path = ctx.cwd || (window.NB_APP && window.NB_APP.state && window.NB_APP.state.path) || "/";
+    var state = (window.NB_APP && window.NB_APP.state) || {};
+    var MAP = window.NB_MAP;
+    var parts = MAP && MAP.split ? MAP.split(path) : String(path).split("/").filter(Boolean);
+    var list = (MAP && MAP.list ? MAP.list(path, ctx.extra || state.merged) : null) || [];
+    var cursor = state.cursor != null ? state.cursor : 0;
+    var sel = list[cursor];
+    var caps = [];
+
+    caps.push({
+      value: "share",
+      hint: "copy nightboard: link · " + path,
+      kind: "act",
+    });
+
+    var post = sel && sel.post ? sel.post : null;
+    if (post) {
+      caps.push({
+        value: "reply",
+        hint: "arm reply to @" + (post.who || "post") + (post.id ? " · " + post.id : ""),
+        kind: "act",
+      });
+    } else if (state.threadFocus) {
+      caps.push({
+        value: "reply",
+        hint: "arm reply in this thread · " + state.threadFocus,
+        kind: "act",
+      });
+    }
+
+    if (parts[0] === "projects" && parts[2] === "channels") {
+      caps.push({
+        value: "channel",
+        hint: "create a channel in " + (parts[1] || "project"),
+        kind: "act",
+      });
+    }
+
+    if (parts[0] === "projects" && parts.length <= 1) {
+      caps.push({
+        value: "project",
+        hint: "create a project under /projects",
+        kind: "act",
+      });
+    }
+
+    var onVoicePath = parts[0] === "projects" && parts[2] === "channels" && parts[3];
+    var voiceJoined = !!(state.voice && state.voice.joined);
+    if (onVoicePath || voiceJoined) {
+      caps.push({
+        value: "voice",
+        hint: "join|leave|mute|deafen|ptt|vad|status",
+        kind: "act",
+      });
+    }
+
+    return caps;
+  }
+
+  function actCandidates(fragment, ctx) {
+    return rank(actCapabilities(ctx), fragment);
+  }
+
   function slashSpec(name) {
     var n = String(name || "").toLowerCase();
     if (n.charAt(0) !== "/") n = "/" + n;
-    for (var i = 0; i < SLASH_COMMANDS.length; i++) {
+    // Legacy aliases — catalogue keeps one primary name each.
+    if (n === "/spaces") n = "/space";
+    if (n === "/hook") n = "/hooks";
+    var i;
+    for (i = 0; i < SLASH_COMMANDS.length; i++) {
       if (SLASH_COMMANDS[i].name === n) return SLASH_COMMANDS[i];
+    }
+    // Agent-only verbs (/ai, /cli) — not listed in autocomplete.
+    for (i = 0; i < AGENT_SLASH_COMMANDS.length; i++) {
+      if (AGENT_SLASH_COMMANDS[i].name === n) return AGENT_SLASH_COMMANDS[i];
     }
     return null;
   }
@@ -380,15 +574,8 @@
         var sq = firstTok === "" && preferSlash ? "/" : firstTok;
         // Bare "/" should show the full catalogue, not filter to empty.
         var slashQ = sq === "/" ? "/" : sq;
-        var slashRanked = rank(SLASH_COMMANDS.map(function (c) {
-          return { value: c.name, hint: c.help, kind: "slash", run: c.run };
-        }), slashQ === "/" ? "" : slashQ);
-        // When query is empty or just "/", rank() with "" returns all with score 1.
-        if (slashQ === "/" || slashQ === "") {
-          slashRanked = SLASH_COMMANDS.map(function (c) {
-            return { value: c.name, hint: c.help, kind: "slash", run: c.run, s: 1 };
-          });
-        }
+        var slashGroups = groupedCatalogue(SLASH_COMMANDS);
+        var slashRanked = rankGrouped(slashGroups, slashQ === "/" ? "" : slashQ);
         var sprefix = commonPrefix(slashRanked.map(function (r) { return r.value; }));
         return {
           kind: "slash",
@@ -400,9 +587,7 @@
           ghost: slashRanked.length && slashRanked[0].value.toLowerCase().indexOf(
             (slashQ === "/" ? "/" : slashQ).toLowerCase()) === 0
             ? slashRanked[0].value.slice(slashQ === "/" ? 1 : slashQ.length) +
-              (SLASH_COMMANDS.filter(function (c) { return c.name === slashRanked[0].value; })[0]
-                && SLASH_COMMANDS.filter(function (c) { return c.name === slashRanked[0].value; })[0].arg
-                ? " " : " ")
+              (slashRanked[0].arg ? " " : " ")
             : "",
         };
       }
@@ -434,6 +619,56 @@
           insert: sthemes[0] ? sthemes[0].value : sfragment,
           ghost: sthemes.length && sthemes[0].value.toLowerCase().indexOf(sfragment.toLowerCase()) === 0
             ? sthemes[0].value.slice(sfragment.length) : "",
+        };
+      }
+      if (sspec.arg === "mode" || sspec.run === "mode") {
+        var smodes = modeCandidates(sfragment);
+        return {
+          kind: "slash-arg", query: sfragment, candidates: smodes, replaceFrom: sfragStart,
+          insert: smodes[0] ? smodes[0].value : sfragment,
+          ghost: smodes.length && smodes[0].value.toLowerCase().indexOf(sfragment.toLowerCase()) === 0
+            ? smodes[0].value.slice(sfragment.length) : "",
+        };
+      }
+      // /act — context capabilities (reply, channel, project, voice, share).
+      if (sspec.run === "act" || slashName === "/act") {
+        var actToks = tokens.slice(1);
+        var actVerb = (actToks[0] || "").toLowerCase();
+        // Completing the capability name.
+        if (actToks.length <= 1 && !trailingSpace) {
+          var actRanked = actCandidates(actVerb, { cwd: cwd, extra: extra });
+          return {
+            kind: "slash-arg", query: sfragment, candidates: actRanked, replaceFrom: sfragStart,
+            insert: actRanked[0] ? actRanked[0].value : sfragment,
+            ghost: actRanked.length && actRanked[0].value.toLowerCase().indexOf(sfragment.toLowerCase()) === 0
+              ? actRanked[0].value.slice(sfragment.length) : "",
+          };
+        }
+        // /act voice <cmd> — reuse voice subcommand completion via synthetic line.
+        if (actVerb === "voice") {
+          var actVoiceLine = "/voice" +
+            (actToks.length > 1 || trailingSpace ? " " : "") +
+            actToks.slice(1).join(" ") +
+            (trailingSpace && actToks.length >= 1 ? " " : "");
+          var nested = analyse(actVoiceLine.replace(/\s+$/, trailingSpace ? " " : ""), ctx);
+          if (nested && nested.kind) {
+            nested.kind = "slash-arg";
+            return nested;
+          }
+        }
+        // reply / channel / project take free text — no further catalogue.
+        return {
+          kind: "slash-arg", query: sfragment, candidates: [], ghost: "",
+          replaceFrom: sfragStart, insert: sfragment,
+        };
+      }
+      if (sspec.arg === "space" || sspec.run === "space") {
+        var sspaces = spaceCandidates(sfragment);
+        return {
+          kind: "slash-arg", query: sfragment, candidates: sspaces, replaceFrom: sfragStart,
+          insert: sspaces[0] ? sspaces[0].value : sfragment,
+          ghost: sspaces.length && sspaces[0].value.toLowerCase().indexOf(sfragment.toLowerCase()) === 0
+            ? sspaces[0].value.slice(sfragment.length) : "",
         };
       }
       if (sspec.arg === "handle") {
@@ -482,29 +717,60 @@
             ? franked[0].value.slice(sfragment.length) : "",
         };
       }
+      if (sspec.run === "voice" || slashName === "/voice") {
+        var vcmds = [
+          { value: "join", hint: "join lounge|standup (or current voice channel)", kind: "cmd" },
+          { value: "leave", hint: "disconnect from channel voice", kind: "cmd" },
+          { value: "mute", hint: "toggle mute", kind: "cmd" },
+          { value: "deafen", hint: "toggle deafen (also mutes)", kind: "cmd" },
+          { value: "ptt", hint: "push-to-talk input (hold `)", kind: "cmd" },
+          { value: "vad", hint: "voice-activity detection", kind: "cmd" },
+          { value: "status", hint: "rtt, peers, mute state", kind: "cmd" },
+        ];
+        // Second token after "join" → voice channel ids.
+        if (/^join\b/i.test(tokens.slice(1).join(" ")) && tokens.length >= 3 ||
+            (tokens[1] && tokens[1].toLowerCase() === "join" && (trailingSpace || tokens.length > 2))) {
+          var vchans = ((window.NB_DATA && window.NB_DATA.channels) || [])
+            .filter(function (c) { return c.voice || c.kind === "voice"; })
+            .map(function (c) {
+              return { value: c.label || c.id, hint: "voice · Opus", kind: "channel" };
+            });
+          var joinFrag = (tokens[1] && tokens[1].toLowerCase() === "join")
+            ? (trailingSpace && tokens.length === 2 ? "" : (tokens[2] || ""))
+            : sfragment;
+          var vranked = rank(vchans, joinFrag);
+          var vstart = text.length - joinFrag.length;
+          return {
+            kind: "slash-arg", query: joinFrag, candidates: vranked, replaceFrom: vstart,
+            insert: vranked[0] ? vranked[0].value : joinFrag,
+            ghost: vranked.length && vranked[0].value.toLowerCase().indexOf(joinFrag.toLowerCase()) === 0
+              ? vranked[0].value.slice(joinFrag.length) : "",
+          };
+        }
+        var vcRanked = rank(vcmds, sfragment);
+        return {
+          kind: "slash-arg", query: sfragment, candidates: vcRanked, replaceFrom: sfragStart,
+          insert: vcRanked[0] ? vcRanked[0].value : sfragment,
+          ghost: vcRanked.length && vcRanked[0].value.toLowerCase().indexOf(sfragment.toLowerCase()) === 0
+            ? vcRanked[0].value.slice(sfragment.length) : "",
+        };
+      }
       if (sspec.arg === "text" || sspec.arg === "query") {
-        // Free-form Lucene query / text — no fixed candidates; ghost empty.
-        var qpresets = (window.NB_QUERY && window.NB_QUERY.presets)
-          ? window.NB_QUERY.presets().map(function (v) {
-            return { value: v.query || v.id, hint: v.label || v.id, kind: "view" };
-          })
-          : [];
-        var qranked = sspec.arg === "query" && window.NB_COMPLETE
-          ? (window.NB_COMPLETE.score
-            ? qpresets.map(function (c) {
-              var s = window.NB_COMPLETE.score(c.value, sfragment);
-              return s == null ? null : Object.assign({}, c, { s: s });
-            }).filter(Boolean).sort(function (a, b) { return b.s - a.s; })
-            : qpresets)
-          : [];
-        // Prefer simple rank via existing rank if available through complete module.
-        if (sspec.arg === "query" && sfragment) {
-          // Manual filter
-          qranked = qpresets.filter(function (c) {
-            return c.value.indexOf(sfragment) !== -1 || (c.hint && c.hint.indexOf(sfragment) !== -1);
-          });
+        var qranked = [];
+        if (sspec.arg === "query" && window.NB_QUERY && window.NB_QUERY.querySuggestions) {
+          qranked = window.NB_QUERY.querySuggestions(sfragment);
         } else if (sspec.arg === "query") {
-          qranked = qpresets;
+          var qpresets = (window.NB_QUERY && window.NB_QUERY.presets)
+            ? window.NB_QUERY.presets().map(function (v) {
+              return { value: v.query || v.id, hint: v.label || v.id, kind: "view" };
+            })
+            : [];
+          qranked = sfragment
+            ? qpresets.filter(function (c) {
+              return c.value.indexOf(sfragment) !== -1 ||
+                (c.hint && c.hint.indexOf(sfragment) !== -1);
+            })
+            : qpresets;
         }
         return {
           kind: "slash-arg", query: sfragment, candidates: qranked, replaceFrom: sfragStart,
@@ -528,8 +794,8 @@
       if (preferSlash && q === "") {
         return analyse("/", ctx);
       }
-      var ranked = rank(COMMANDS.map(function (c) {
-        return { value: c.name, hint: c.help, kind: "cmd" };
+      var ranked = rankGrouped(groupedCatalogue(COMMANDS).map(function (g) {
+        return Object.assign({}, g, { kind: "cmd" });
       }), q);
       var prefix = commonPrefix(ranked.map(function (r) { return r.value; }));
       return {
@@ -564,6 +830,18 @@
 
     if (spec.arg === "text") {
       return { kind: "text", query: fragment, candidates: [], ghost: "", replaceFrom: fragStart, insert: fragment };
+    }
+
+    if (spec.arg === "query") {
+      var qc = (window.NB_QUERY && window.NB_QUERY.querySuggestions)
+        ? window.NB_QUERY.querySuggestions(fragment)
+        : [];
+      return {
+        kind: "query", query: fragment, candidates: qc, replaceFrom: fragStart,
+        insert: qc[0] ? qc[0].value : fragment,
+        ghost: qc[0] && qc[0].value.indexOf(fragment) === 0
+          ? qc[0].value.slice(fragment.length) : "",
+      };
     }
 
     return completePath(cwd, fragment, extra, fragStart);
@@ -611,11 +889,24 @@
     var rp = local;
 
     if (scope === "global") {
+      var gFull = rp[0] ? rp[0].value : "";
+      var gGhost = "";
+      var gPreview = "";
+      if (gFull && gFull.toLowerCase().indexOf(String(fragment).toLowerCase()) === 0) {
+        gGhost = gFull.slice(fragment.length);
+      } else if (gFull) {
+        // Absolute path whose basename matches — fish cannot suffix-extend
+        // `pro` into `/projects`, so surface a replace preview instead.
+        var gBase = gFull.slice(gFull.lastIndexOf("/") + 1);
+        if (gBase.toLowerCase().indexOf(String(fragment).toLowerCase()) === 0) {
+          gPreview = gFull;
+        }
+      }
       return {
         kind: "path", scope: scope, query: fragment, candidates: rp,
         replaceFrom: fragStart, insert: rp[0] ? rp[0].value : fragment,
-        ghost: rp[0] && rp[0].value.toLowerCase().indexOf(String(fragment).toLowerCase()) === 0
-          ? rp[0].value.slice(fragment.length) : "",
+        ghost: gGhost,
+        preview: gPreview,
       };
     }
     var prefix2 = commonPrefix(rp.map(function (r) { return r.value; }));
@@ -630,18 +921,116 @@
       ghost: best && best.toLowerCase().indexOf(pc.leaf.toLowerCase()) === 0
         ? best.slice(pc.leaf.length)
         : "",
+      preview: "",
     };
+  }
+
+  /**
+   * Syntax-coloured CLI/slash line + fish-style ghost / replace preview.
+   * Returns HTML for the mirror under a transparent caret input.
+   */
+  function formatCliPreview(text, completion) {
+    text = String(text == null ? "" : text);
+    completion = completion || {};
+    var ghost = String(completion.ghost || "");
+    var preview = String(completion.preview || "");
+    var esc = (window.NB_SYNTAX && window.NB_SYNTAX.escapeHtml)
+      ? window.NB_SYNTAX.escapeHtml
+      : function (s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      };
+
+    var cmdNames = {};
+    COMMANDS.forEach(function (c) { cmdNames[c.name] = true; });
+    SLASH_COMMANDS.forEach(function (c) { cmdNames[c.name] = true; });
+
+    var html = "";
+    var i = 0;
+    var leading = text.match(/^\s*/);
+    if (leading && leading[0]) {
+      html += esc(leading[0]);
+      i = leading[0].length;
+    }
+    // First token = verb (command or /slash).
+    var rest = text.slice(i);
+    var m = /^(\S+)([\s\S]*)$/.exec(rest);
+    if (!m) {
+      if (ghost) html += '<span class="cn-ghost-rest" data-ghost-rest>' + esc(ghost) + "</span>";
+      else if (preview) {
+        html += '<span class="cn-ghost-rest" data-ghost-rest>' + esc(" → " + preview) + "</span>";
+      }
+      return html || "&nbsp;";
+    }
+    var verb = m[1];
+    var after = m[2] || "";
+    var verbKnown = !!cmdNames[verb] || !!cmdNames[verb.toLowerCase()] ||
+      (verb.charAt(0) === "/" && !!slashSpec(verb)) ||
+      (!!COMMANDS.filter(function (c) {
+        return c.name.indexOf(verb.toLowerCase()) === 0;
+      }).length && verb.charAt(0) !== "/");
+    var verbClass = verb.charAt(0) === "/"
+      ? (slashSpec(verb) ? "kw" : (verb.length > 1 ? "text" : "kw"))
+      : (cmdNames[verb] || verbKnown ? "kw" : "kw");
+    // Partial verbs still colour as keywords while completing.
+    if (verb.charAt(0) !== "/" && !cmdNames[verb]) {
+      verbClass = COMMANDS.some(function (c) {
+        return c.name.indexOf(verb.toLowerCase()) === 0;
+      }) ? "kw" : "text";
+    }
+    if (verb.charAt(0) === "/" && !slashSpec(verb)) {
+      verbClass = SLASH_COMMANDS.some(function (c) {
+        return c.name.indexOf(verb.toLowerCase()) === 0;
+      }) ? "kw" : "text";
+    }
+    html += '<span class="nb-tok nb-tok-' + verbClass + '">' + esc(verb) + "</span>";
+
+    // Colour arguments: paths, sorts, bare words.
+    var sorts = { hot: 1, new: 1, top: 1, best: 1 };
+    var argRe = /(\s+)(\S+)/g;
+    var am;
+    var last = 0;
+    while ((am = argRe.exec(after))) {
+      html += esc(am[1]);
+      var arg = am[2];
+      var cls;
+      if (arg.charAt(0) === "-" ) cls = "flag";
+      else if (arg.charAt(0) === "/" || arg.indexOf("/") !== -1 || arg === ".." || arg === "../") {
+        cls = "path";
+      } else if (sorts[arg]) cls = "enum";
+      else if (/^(who|state|body|kind|tag|in|path|sig):/i.test(arg)) cls = "field";
+      else if (completion.kind === "path" || completion.kind === "slash-arg") cls = "path";
+      else cls = "str";
+      html += '<span class="nb-tok nb-tok-' + cls + '">' + esc(arg) + "</span>";
+      last = am.index + am[0].length;
+    }
+    if (last < after.length) html += esc(after.slice(last));
+
+    if (ghost) {
+      html += '<span class="cn-ghost-rest" data-ghost-rest>' + esc(ghost) + "</span>";
+    } else if (preview) {
+      html += '<span class="cn-ghost-rest" data-ghost-rest>' + esc(" → " + preview) + "</span>";
+    }
+    return html || "&nbsp;";
   }
 
   window.NB_COMPLETE = {
     analyse: analyse,
     COMMANDS: COMMANDS,
     SLASH_COMMANDS: SLASH_COMMANDS,
+    AGENT_SLASH_COMMANDS: AGENT_SLASH_COMMANDS,
     MARKER_SPECS: MARKER_SPECS,
     score: score,
     isSlash: isSlash,
     isMarkerKind: isMarkerKind,
     slashSpec: slashSpec,
     activeMarker: activeMarker,
+    formatCliPreview: formatCliPreview,
+    groupCommands: groupCommands,
+    formatGroupedHelp: formatGroupedHelp,
+    groupedCatalogue: groupedCatalogue,
+    modeCandidates: modeCandidates,
+    actCapabilities: actCapabilities,
+    actCandidates: actCandidates,
   };
 })();

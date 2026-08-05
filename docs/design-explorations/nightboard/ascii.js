@@ -241,13 +241,30 @@
       ">" + escapeHtml(lab) + "</a>";
   }
 
-  /** Inline markdown: **bold** *em* `code` ~~strike~~ [label](url) + bare URLs */
+  /** Inline markdown: Discord-flavoured — **bold** *em* __underline__ ~~strike~~ ||spoiler|| `code` [label](url) + bare URLs */
   function inlineMarkdown(text) {
     var s = escapeHtml(text);
     // Code first so markup inside code is inert (already escaped).
     s = s.replace(/`([^`]+)`/g, '<code class="nb-md-code">$1</code>');
+    // Spoilers before bold/underline so | does not fight other marks.
+    s = s.replace(/\|\|([^|]+)\|\|/g, function (_, inner) {
+      var open;
+      try {
+        open = !!(window.NB_APP && window.NB_APP.state && window.NB_APP.state.spoilers &&
+          window.NB_APP.state.spoilers[inner]);
+      } catch {
+        open = false;
+      }
+      return '<button type="button" class="nb-md-spoiler" data-spoiler="' + inner + '"' +
+        ' aria-expanded="' + (open ? "true" : "false") + '"' +
+        (open ? ' data-open="true"' : "") +
+        ' title="' + (open ? "Hide spoiler" : "Reveal spoiler") + '">' + inner + "</button>";
+    });
+    s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong class="nb-md-strong"><em class="nb-md-em">$1</em></strong>');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="nb-md-strong">$1</strong>');
+    s = s.replace(/__([^_]+)__/g, '<u class="nb-md-u">$1</u>');
     s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em class="nb-md-em">$2</em>');
+    s = s.replace(/(^|[^_])_([^_]+)_(?!_)/g, '$1<em class="nb-md-em">$2</em>');
     s = s.replace(/~~([^~]+)~~/g, '<del class="nb-md-del">$1</del>');
     // Markdown links — labels/hrefs are already HTML-escaped in `s`.
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, label, href) {
@@ -623,10 +640,20 @@
           i += 1;
         }
         i += 1; // closing fence
+        var codeText = code.join("\n");
+        var langNorm = window.NB_SYNTAX
+          ? window.NB_SYNTAX.guessLang(codeText, lang)
+          : (lang || "text");
+        var highlighted = window.NB_SYNTAX
+          ? window.NB_SYNTAX.highlight(codeText, langNorm)
+          : escapeHtml(codeText);
         html.push(
-          '<pre class="nb-md-pre" data-lang="' + escapeHtml(lang) + '"><code class="nb-md-codeblock">' +
-          escapeHtml(code.join("\n")) +
-          "</code></pre>"
+          '<pre class="nb-md-pre" tabindex="0" data-lang="' + escapeHtml(langNorm) + '"' +
+          ' aria-label="' + (langNorm && langNorm !== "text"
+            ? escapeHtml(langNorm) + " code block"
+            : "Code block") + '"' +
+          (langNorm && langNorm !== "text" ? ' data-highlighted="true"' : "") + ">" +
+          '<code class="nb-md-codeblock">' + highlighted + "</code></pre>"
         );
         continue;
       }
@@ -659,14 +686,26 @@
         continue;
       }
 
-      // Blockquote
-      if (/^\s*>\s?/.test(line)) {
+      // Blockquote (Discord: > line; >>> quotes rest of message)
+      if (/^\s*>>>/.test(line) || /^\s*>\s?/.test(line)) {
         var q = [];
-        while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
-          q.push(lines[i].replace(/^\s*>\s?/, ""));
+        var multi = /^\s*>>>/.test(line);
+        if (multi) {
+          q.push(line.replace(/^\s*>>>\s?/, ""));
           i += 1;
+          while (i < lines.length) {
+            q.push(lines[i]);
+            i += 1;
+          }
+        } else {
+          while (i < lines.length && /^\s*>\s?/.test(lines[i]) && !/^\s*>>>/.test(lines[i])) {
+            q.push(lines[i].replace(/^\s*>\s?/, ""));
+            i += 1;
+          }
         }
-        html.push('<blockquote class="nb-md-quote">' + inlineMarkdown(q.join(" ")) + "</blockquote>");
+        html.push('<blockquote class="nb-md-quote">' +
+          q.map(function (ql) { return inlineMarkdown(ql); }).join("<br>") +
+          "</blockquote>");
         continue;
       }
 
@@ -756,7 +795,12 @@
     var raw = String(text == null ? "" : text);
     var body;
     if (looksLikeMarkdown(raw)) body = markdown(raw);
-    else if (raw.indexOf("\n") !== -1) {
+    else if (window.NB_SYNTAX && window.NB_SYNTAX.looksLikeJson(raw)) {
+      body = '<pre class="nb-md-pre" tabindex="0" data-lang="json" data-highlighted="true"' +
+        ' aria-label="json code block">' +
+        '<code class="nb-md-codeblock">' + window.NB_SYNTAX.highlight(raw, "json") +
+        "</code></pre>";
+    } else if (raw.indexOf("\n") !== -1) {
       body = '<pre class="nb-md-plain">' + colorizeAscii(raw) + "</pre>";
     } else {
       body = colorizeAscii(raw);

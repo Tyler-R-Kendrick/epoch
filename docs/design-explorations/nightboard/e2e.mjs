@@ -14,6 +14,7 @@ import { serveNightboard } from "./serve.mjs";
 
 const own = process.argv[2] ? null : await serveNightboard();
 const BASE = process.argv[2] || own.url;
+const FILTER = process.env.NB_E2E || "";
 
 const CASES = [
   {
@@ -87,15 +88,59 @@ const CASES = [
     },
   },
   {
-    name: "mouse: clicking a post selects it and opens the detail blade on it",
+    name: "mouse: clicking a post opens a thread detail (not the channel feed)",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
-      await page.click('[data-blade-kind="list"] .cn-item[data-i="2"]');
-      const st = await page.evaluate(() => ({
-        cursor: window.NB_APP.state.cursor, focus: window.NB_APP.state.focus,
+      await page.waitForTimeout(80);
+      // Channel feed first: multiple root threads visible.
+      const feed = await page.evaluate(() => ({
+        roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
+          .map((el) => el.getAttribute("data-key")),
+        total: document.querySelectorAll(".cn-comment").length,
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+        feedBar: !!document.querySelector(".cn-feed-bar"),
       }));
-      const marked = await page.evaluate(() => !!document.querySelector('.cn-comment[data-here="true"]'));
-      return (st.cursor === 2 && marked) || log(JSON.stringify(st) + " marked:" + marked);
+      if (feed.roots.length < 2) return log("expected channel feed roots: " + JSON.stringify(feed));
+      if (feed.threadCtx) return log("thread chrome on channel feed");
+      if (!feed.feedBar) return log("feed bar missing on channel");
+
+      await page.click('[data-blade-kind="list"] .cn-item[data-i="2"]');
+      await page.waitForTimeout(80);
+      const thread = await page.evaluate(() => ({
+        focus: window.NB_APP.state.threadFocus,
+        cursor: window.NB_APP.state.cursor,
+        roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
+          .map((el) => el.getAttribute("data-key")),
+        ids: Array.from(document.querySelectorAll(".cn-comment"))
+          .map((el) => el.getAttribute("data-key")),
+        here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key"),
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+        feedBar: !!document.querySelector(".cn-feed-bar"),
+      }));
+      // p3 is in the p1 thread — detail should show only that root, not p4.
+      if (thread.focus !== "p3") return log("threadFocus not set: " + JSON.stringify(thread));
+      if (!(thread.roots.length === 1 && thread.roots[0] === "p1")) {
+        return log("expected single p1 thread root: " + JSON.stringify(thread));
+      }
+      if (thread.ids.includes("p4")) return log("channel sibling leaked into thread: " + JSON.stringify(thread));
+      if (thread.here !== "p3") return log("selected message not marked: " + JSON.stringify(thread));
+      if (!thread.threadCtx) return log("thread context missing");
+      if (thread.feedBar) return log("channel feed bar should hide in thread view");
+
+      // Back returns to the channel feed.
+      await page.click("[data-thread-back]");
+      await page.waitForTimeout(80);
+      const back = await page.evaluate(() => ({
+        focus: window.NB_APP.state.threadFocus,
+        roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]')).length,
+        feedBar: !!document.querySelector(".cn-feed-bar"),
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+      }));
+      if (back.focus) return log("back did not clear thread: " + JSON.stringify(back));
+      if (!(back.roots >= 2 && back.feedBar && !back.threadCtx)) {
+        return log("back did not restore channel feed: " + JSON.stringify(back));
+      }
+      return true;
     },
   },
   {
@@ -186,16 +231,29 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       const deep = await page.evaluate(() => {
         const c = document.querySelector('.cn-comment[data-key="p3"]');
+        const vup = c?.querySelector(".cn-vup")?.textContent?.trim();
+        const vdn = c?.querySelector(".cn-vdn")?.textContent?.trim();
+        const rail = c?.querySelector(".cn-rail-mark")?.textContent?.trim();
+        const act = c?.querySelector(".cn-act")?.textContent?.trim();
         return {
           depth: Number(c?.dataset.depth),
           rails: c?.querySelectorAll(".cn-rail").length ?? -1,
           vote: !!c?.querySelector("[data-vote-id]"),
           reply: !!c?.querySelector("[data-reply]"),
+          vup,
+          vdn,
+          rail,
+          act,
         };
       });
-      // p3 is re→p2→p1, so depth 2 and two ancestor rails.
-      return (deep.depth === 2 && deep.rails === 2 && deep.vote && deep.reply) ||
-        log(JSON.stringify(deep));
+      // p3 is re→p2→p1, so depth 2 and two ancestor rails; chrome is ASCII.
+      if (!(deep.depth === 2 && deep.rails === 2 && deep.vote && deep.reply)) {
+        return log(JSON.stringify(deep));
+      }
+      if (deep.vup !== "+" || deep.vdn !== "-" || deep.rail !== "|" || deep.act !== "reply") {
+        return log("non-ascii chrome: " + JSON.stringify(deep));
+      }
+      return true;
     },
   },
   {
@@ -233,11 +291,56 @@ const CASES = [
     },
   },
   {
-    name: "detail: × closes detail pane; selecting a file reopens it",
+    name: "blades: nav back does not bleed selection into detail",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(100);
-      // Ensure detail is open with a file selected.
+      await page.click('.cn-blade[data-blade-kind="list"] [data-nav-back]');
+      await page.waitForTimeout(150);
+      const bleed = await page.evaluate(() => {
+        const list = document.querySelector('.cn-blade[data-blade-kind="list"]');
+        const detail = document.querySelector('.cn-blade[data-blade-kind="detail"]');
+        if (!list || !detail) return { err: "missing blades" };
+        const lr = list.getBoundingClientRect();
+        const overflow = getComputedStyle(list).overflow;
+        let worst = 0;
+        let sample = null;
+        list.querySelectorAll(".cn-item, .cn-tree-line, .cn-hint, .cn-blade-head, .cn-name").forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width < 1 || r.height < 1) return;
+          // Allow 1px subpixel; anything past the list border into detail is bleed.
+          const over = r.right - lr.right;
+          if (over > worst) {
+            worst = over;
+            sample = {
+              cls: (el.className || "").toString().slice(0, 40),
+              over: Math.round(over * 10) / 10,
+              text: (el.textContent || "").replace(/\s+/g, " ").slice(0, 36),
+            };
+          }
+        });
+        return {
+          overflow,
+          worst: Math.round(worst * 10) / 10,
+          sample,
+          listW: Math.round(lr.width),
+          detailLeft: Math.round(detail.getBoundingClientRect().left),
+          path: window.NB_APP.state.path,
+        };
+      });
+      if (bleed.err) return log(bleed.err);
+      if (bleed.overflow !== "hidden") return log("list must clip: " + JSON.stringify(bleed));
+      // Subpixel slack only — selection wash must not invade the detail pane.
+      if (bleed.worst > 1.5) return log("nav bleed into detail: " + JSON.stringify(bleed));
+      return bleed.detailLeft >= bleed.listW - 1 || log("layout gap: " + JSON.stringify(bleed));
+    },
+  },
+  {
+    name: "detail: [esc] shows Following feed; nav stays sidebar; file reopens selection",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      // Ensure selection detail is open with a file selected.
       await page.evaluate(() => {
         window.NB_APP.state.detailOpen = true;
         const list = window.NB_MAP.list("/projects/community/channels/general") || [];
@@ -250,24 +353,49 @@ const CASES = [
       const before = await page.evaluate(() => ({
         detail: !!document.querySelector('.cn-blade[data-blade-kind="detail"]'),
         open: window.NB_APP.isDetailOpen && window.NB_APP.isDetailOpen(),
+        follow: !!document.querySelector(".cn-follow-feed"),
       }));
-      if (!before.detail) return log("detail not open to start: " + JSON.stringify(before));
-      // Close via ×
+      if (!before.detail || before.follow) {
+        return log("selection detail not open to start: " + JSON.stringify(before));
+      }
+      // Close via [esc] → Following feed; nav must not go full-width alone.
       const closed = await page.evaluate(() => {
         const btn = document.querySelector(
           '.cn-blade[data-blade-kind="detail"] [data-blade-close]',
         );
         if (!btn) return { err: "no close on detail" };
         btn.click();
+        const list = document.querySelector('.cn-blade[data-blade-kind="list"]');
+        const detail = document.querySelector('.cn-blade[data-blade-kind="detail"]');
+        const lr = list && list.getBoundingClientRect();
+        const dr = detail && detail.getBoundingClientRect();
         return {
-          detail: !!document.querySelector('.cn-blade[data-blade-kind="detail"]'),
+          detail: !!detail,
           open: window.NB_APP.isDetailOpen(),
+          follow: !!document.querySelector(".cn-follow-feed"),
+          cards: document.querySelectorAll(".cn-follow-row").length,
           listOnly: document.querySelectorAll(".cn-blade").length === 1,
+          listW: lr ? Math.round(lr.width) : 0,
+          detailW: dr ? Math.round(dr.width) : 0,
+          workbenchW: document.querySelector(".cn-blades")
+            ? Math.round(document.querySelector(".cn-blades").getBoundingClientRect().width)
+            : 0,
         };
       });
       if (closed.err) return log(closed.err);
-      if (closed.detail || closed.open) return log("detail still open: " + JSON.stringify(closed));
-      if (!closed.listOnly) return log("expected nav-only: " + JSON.stringify(closed));
+      if (closed.open) return log("selection still open: " + JSON.stringify(closed));
+      if (!closed.detail || !closed.follow) {
+        return log("expected Following in detail: " + JSON.stringify(closed));
+      }
+      if (closed.listOnly) return log("nav-only is wrong: " + JSON.stringify(closed));
+      if (closed.cards < 1) return log("following rows empty: " + JSON.stringify(closed));
+      // Nav must stay a sidebar — not the full workbench width.
+      if (closed.listW > closed.workbenchW * 0.55) {
+        return log("nav too wide (should be sidebar): " + JSON.stringify(closed));
+      }
+      if (closed.detailW < closed.listW) {
+        return log("detail should claim remaining width: " + JSON.stringify(closed));
+      }
       // Reopen by opening a file.
       await page.evaluate(() => {
         const item = document.querySelector(
@@ -280,22 +408,395 @@ const CASES = [
       const reopened = await page.evaluate(() => ({
         detail: !!document.querySelector('.cn-blade[data-blade-kind="detail"]'),
         open: window.NB_APP.isDetailOpen(),
+        follow: !!document.querySelector(".cn-follow-feed"),
       }));
-      if (!(reopened.detail && reopened.open)) {
-        return log("did not reopen: " + JSON.stringify(reopened));
+      if (!(reopened.detail && reopened.open && !reopened.follow)) {
+        return log("did not reopen selection: " + JSON.stringify(reopened));
       }
-      // Esc also closes detail.
+      // Esc leaves a focused thread for the channel feed, then Following.
       await page.evaluate(() => {
         window.NB_APP.state.columnFocus = true;
         window.NB_APP.state.focus = 1;
       });
       await page.keyboard.press("Escape");
+      await page.waitForTimeout(60);
+      const mid = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        open: window.NB_APP.isDetailOpen(),
+        follow: !!document.querySelector(".cn-follow-feed"),
+      }));
+      // Post click opened a thread — first Esc clears it to the channel feed.
+      if (mid.thread) return log("Esc did not leave thread: " + JSON.stringify(mid));
+      if (mid.follow) {
+        // Already on Following if reopen used openDetail without a post.
+        return true;
+      }
+      await page.keyboard.press("Escape");
       await page.waitForTimeout(80);
       const viaEsc = await page.evaluate(() => ({
         detail: !!document.querySelector('.cn-blade[data-blade-kind="detail"]'),
         open: window.NB_APP.isDetailOpen(),
+        follow: !!document.querySelector(".cn-follow-feed"),
       }));
-      return (!viaEsc.detail && !viaEsc.open) || log("Esc did not close: " + JSON.stringify(viaEsc));
+      return (viaEsc.detail && !viaEsc.open && viaEsc.follow) ||
+        log("Esc did not show Following: " + JSON.stringify(viaEsc));
+    },
+  },
+  {
+    name: "home: feed tabs activate by real mouse hit (narrow viewport)",
+    viewport: { width: 390, height: 844 },
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        window.NB_APP.state.homeFeed = "following";
+        window.NB_APP.closeDetail({ silent: true });
+      });
+      await page.waitForTimeout(160);
+      const ids = ["following", "announcements", "featured", "creators"];
+      for (const id of ids) {
+        const hit = await page.evaluate((tabId) => {
+          const tab = document.querySelector('.cn-home-tab[data-home-feed="' + tabId + '"]');
+          if (!tab) return { err: "missing tab" };
+          const r = tab.getBoundingClientRect();
+          const x = r.left + r.width / 2;
+          const y = r.top + r.height / 2;
+          const el = document.elementFromPoint(x, y);
+          return {
+            x: Math.round(x),
+            y: Math.round(y),
+            vw: window.innerWidth,
+            activates: !!(el && el.closest && el.closest('[data-home-feed="' + tabId + '"]')),
+            tag: el && el.tagName,
+          };
+        }, id);
+        if (hit.err) return log(id + ": " + hit.err);
+        if (!hit.activates) {
+          return log(id + " not under cursor at center: " + JSON.stringify(hit));
+        }
+        // Mouse click at the center — no locator auto-scroll.
+        await page.mouse.click(hit.x, hit.y);
+        await page.waitForTimeout(60);
+        const state = await page.evaluate(() => window.NB_APP.state.homeFeed);
+        if (state !== id) return log(id + " click did not activate (state=" + state + ")");
+      }
+
+      // Channel feed sort chips (hot/new/top) on a fresh channel view.
+      await page.evaluate(() => {
+        window.NB_APP.openDetail({ silent: true, noRender: true });
+        window.NB_APP.navigate("/projects/community/channels/general", { keepCli: true });
+      });
+      await page.waitForTimeout(120);
+      await page.evaluate(() => {
+        const blades = document.querySelector(".cn-blades");
+        if (blades) blades.scrollTo({ left: blades.scrollWidth });
+      });
+      await page.waitForTimeout(80);
+      for (const id of ["new", "top", "hot"]) {
+        const hit = await page.evaluate((sortId) => {
+          const tab = document.querySelector('.cn-sort[data-sort="' + sortId + '"]');
+          if (!tab) return { err: "missing sort" };
+          const r = tab.getBoundingClientRect();
+          const x = r.left + r.width / 2;
+          const y = r.top + r.height / 2;
+          const el = document.elementFromPoint(x, y);
+          return {
+            x: Math.round(x),
+            y: Math.round(y),
+            activates: !!(el && el.closest && el.closest('.cn-sort[data-sort="' + sortId + '"]')),
+          };
+        }, id);
+        if (hit.err) return log(id + ": " + hit.err);
+        if (!hit.activates) return log(id + " sort not under cursor: " + JSON.stringify(hit));
+        await page.mouse.click(hit.x, hit.y);
+        await page.waitForTimeout(60);
+        const pressed = await page.evaluate((sortId) => ({
+          sort: window.NB_APP.state.sort,
+          view: window.NB_APP.state.feedView,
+          pressed: document.querySelector('.cn-sort[data-sort="' + sortId + '"]')
+            ?.getAttribute("aria-pressed"),
+        }), id);
+        if (!(pressed.sort === id && pressed.view === id && pressed.pressed === "true")) {
+          return log(id + " sort click failed: " + JSON.stringify(pressed));
+        }
+      }
+      return true;
+    },
+  },
+  {
+    name: "keys: j/k in a thread browse sibling posts (do not dump to channel)",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(120);
+      const opened = await page.evaluate(() => {
+        const item = document.querySelector(
+          '.cn-blade[data-blade-kind="list"] .cn-item[data-kind="file"]',
+        );
+        if (!item) return { err: "no post" };
+        item.click();
+        return { ok: true };
+      });
+      if (opened.err) return log(opened.err);
+      await page.waitForTimeout(120);
+      const before = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        focus: window.NB_APP.state.focus,
+        detail: window.NB_APP.isDetailOpen(),
+      }));
+      if (!before.thread) return log("thread not opened: " + JSON.stringify(before));
+      await page.evaluate(() => {
+        window.NB_APP.focusColumns();
+        window.NB_APP.state.focus = 1; // detail owns keyboard
+      });
+      await page.keyboard.press("j");
+      await page.waitForTimeout(80);
+      const after = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        focus: window.NB_APP.state.focus,
+        stillThread: !!window.NB_APP.state.threadFocus,
+      }));
+      if (!after.stillThread) {
+        return log("j cleared thread focus: " + JSON.stringify({ before, after }));
+      }
+      // Still in thread mode (same or sibling post id).
+      if (after.focus < 1) return log("focus stole to nav: " + JSON.stringify(after));
+      return true;
+    },
+  },
+  {
+    name: "keys: → on a post opens thread (not the terminal editor)",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      const armed = await page.evaluate(() => {
+        const path = window.NB_APP.state.path;
+        const list = window.NB_MAP.list(path, window.NB_APP.state.merged) || [];
+        const ix = list.findIndex((e) => e && e.post);
+        if (ix < 0) return { err: "no post entry" };
+        window.NB_APP.state.cursor = ix;
+        window.NB_APP.state.focus = 0;
+        window.NB_APP.state.threadFocus = null;
+        window.NB_APP.state.detailOpen = true;
+        if (window.NB_APP.state.editor) window.NB_APP.state.editor.focused = false;
+        window.NB_APP.focusColumns();
+        window.NB_APP.render(true);
+        return { ix, id: list[ix].post.id };
+      });
+      if (armed.err) return log(armed.err);
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(120);
+      const after = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        editor: !!(window.NB_APP.state.editor && window.NB_APP.state.editor.focused),
+      }));
+      if (!after.thread) return log("→ did not open thread: " + JSON.stringify(after));
+      if (after.editor) return log("→ opened editor instead of thread: " + JSON.stringify(after));
+      if (after.thread !== armed.id) {
+        return log("thread id mismatch: " + JSON.stringify({ armed, after }));
+      }
+      return true;
+    },
+  },
+  {
+    name: "keys: home feed j/k and Enter open; [ ] cycle tabs",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        window.NB_APP.state.homeFeed = "following";
+        window.NB_APP.state.homeCursor = 0;
+        window.NB_APP.closeDetail({ silent: true });
+        window.NB_APP.focusColumns();
+      });
+      await page.waitForTimeout(100);
+      const start = await page.evaluate(() => ({
+        view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+        cursor: window.NB_APP.state.homeCursor,
+        current: document.querySelector("[data-home-cursor]")?.getAttribute("data-home-item"),
+      }));
+      if (start.view !== "following") return log("not on home: " + JSON.stringify(start));
+      await page.keyboard.press("j");
+      await page.waitForTimeout(60);
+      const moved = await page.evaluate(() => ({
+        cursor: window.NB_APP.state.homeCursor,
+        current: document.querySelector("[data-home-cursor]")?.getAttribute("data-home-item"),
+      }));
+      if (!(moved.cursor >= 1)) return log("j did not move home cursor: " + JSON.stringify(moved));
+      await page.keyboard.press("]");
+      await page.waitForTimeout(80);
+      const tabbed = await page.evaluate(() => ({
+        feed: window.NB_APP.state.homeFeed,
+        cursor: window.NB_APP.state.homeCursor,
+        view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+      }));
+      if (tabbed.feed !== "announcements" || tabbed.cursor !== 0) {
+        return log("] did not cycle to announcements: " + JSON.stringify(tabbed));
+      }
+      await page.keyboard.press("[");
+      await page.waitForTimeout(60);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const opened = await page.evaluate(() => ({
+        detail: window.NB_APP.isDetailOpen(),
+        follow: !!document.querySelector(".cn-follow-feed"),
+        path: window.NB_APP.state.path,
+      }));
+      if (!(opened.detail && !opened.follow)) {
+        return log("Enter did not open home row: " + JSON.stringify(opened));
+      }
+      return true;
+    },
+  },
+  {
+    name: "home: feed toggles following / announcements / featured / creators with unread",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        try { localStorage.removeItem("nb-home-feed-read"); } catch { /* fine */ }
+        window.NB_APP.state.homeFeedRead = {};
+        window.NB_APP.state.homeFeed = "following";
+        window.NB_APP.state.homeAnnCollapsed = {};
+        window.NB_APP.closeDetail({ silent: true });
+      });
+      await page.waitForTimeout(80);
+      const start = await page.evaluate(() => {
+        const tabs = Array.from(document.querySelectorAll(".cn-home-tab")).map((el) => ({
+          id: el.getAttribute("data-home-feed"),
+          pressed: el.getAttribute("aria-pressed"),
+          unread: el.querySelector(".cn-home-unread")?.textContent || "0",
+          hidden: el.querySelector(".cn-home-unread")?.hasAttribute("hidden") || false,
+        }));
+        const counts = window.NB_APP.homeFeedUnreadCounts?.() || {};
+        return {
+          view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+          tabs,
+          counts,
+          rows: document.querySelectorAll(".cn-follow-row").length,
+        };
+      });
+      if (start.view !== "following") return log("expected following view: " + JSON.stringify(start));
+      const ids = start.tabs.map((t) => t.id).join(",");
+      if (ids !== "following,announcements,featured,creators") {
+        return log("missing tabs: " + ids);
+      }
+      if (!(Number(start.tabs[0].unread) >= 1 && !start.tabs[0].hidden)) {
+        return log("following unread missing: " + JSON.stringify(start.tabs[0]));
+      }
+      if (!(Number(start.tabs[1].unread) >= 1)) {
+        return log("announcements unread missing: " + JSON.stringify(start.tabs[1]));
+      }
+      if (!(Number(start.tabs[2].unread) >= 1 && Number(start.tabs[3].unread) >= 1)) {
+        return log("featured/creators unread missing: " + JSON.stringify(start.tabs));
+      }
+
+      await page.click('.cn-home-tab[data-home-feed="announcements"]');
+      await page.waitForTimeout(80);
+      const ann = await page.evaluate(() => {
+        const posts = Array.from(document.querySelectorAll(".cn-ann-post"));
+        return {
+          view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+          pressed: document.querySelector('.cn-home-tab[data-home-feed="announcements"]')
+            ?.getAttribute("aria-pressed"),
+          state: window.NB_APP.state.homeFeed,
+          posts: posts.map((el) => ({
+            id: el.getAttribute("data-home-item"),
+            unread: el.getAttribute("data-unread"),
+            collapsed: el.getAttribute("data-collapsed"),
+            title: el.querySelector(".cn-ann-title")?.textContent || "",
+            bodyVisible: !!(el.querySelector(".cn-ann-body") &&
+              !el.querySelector(".cn-ann-body").hasAttribute("hidden") &&
+              el.getAttribute("data-collapsed") !== "true"),
+            bodyText: (el.querySelector(".cn-ann-body")?.textContent || "").slice(0, 120),
+          })),
+        };
+      });
+      if (!(ann.view === "announcements" && ann.pressed === "true" && ann.state === "announcements")) {
+        return log("announcements tab failed: " + JSON.stringify(ann));
+      }
+      if (ann.posts.length < 1 || !ann.posts.some((r) => /office hours|Promote|etiquette/i.test(r.title))) {
+        return log("announcement posts missing: " + JSON.stringify(ann.posts));
+      }
+      if (!ann.posts.every((r) => r.bodyVisible)) {
+        return log("announcements should start expanded: " + JSON.stringify(ann.posts));
+      }
+      if (!ann.posts.some((r) => /Thursday|human sign-off|supervising/i.test(r.bodyText))) {
+        return log("announcement body missing long-form: " + JSON.stringify(ann.posts));
+      }
+
+      // Collapse first announcement; body hides; expand restores.
+      await page.click('.cn-ann-post[data-home-item="ann-1"] [data-ann-toggle]');
+      await page.waitForTimeout(60);
+      const collapsed = await page.evaluate(() => {
+        const el = document.querySelector('.cn-ann-post[data-home-item="ann-1"]');
+        return {
+          collapsed: el?.getAttribute("data-collapsed"),
+          expanded: el?.querySelector("[data-ann-toggle]")?.getAttribute("aria-expanded"),
+          bodyHidden: el?.querySelector(".cn-ann-body")?.hasAttribute("hidden"),
+          session: !!window.NB_APP.state.homeAnnCollapsed?.["ann-1"],
+        };
+      });
+      if (!(collapsed.collapsed === "true" && collapsed.expanded === "false" &&
+            collapsed.bodyHidden && collapsed.session)) {
+        return log("collapse failed: " + JSON.stringify(collapsed));
+      }
+      await page.click('.cn-ann-post[data-home-item="ann-1"] [data-ann-toggle]');
+      await page.waitForTimeout(60);
+
+      await page.click('.cn-home-tab[data-home-feed="featured"]');
+      await page.waitForTimeout(80);
+      const feat = await page.evaluate(() => ({
+        view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+        slugs: Array.from(document.querySelectorAll(".cn-feat-slug"))
+          .map((el) => el.textContent || ""),
+        summaries: Array.from(document.querySelectorAll(".cn-feat-summary")).map((el) => ({
+          label: el.querySelector(".cn-feat-label")?.textContent || "",
+          body: (el.querySelector(".cn-feat-summary-body")?.textContent || "").slice(0, 100),
+        })),
+        readmes: document.querySelectorAll(".cn-feat-readme").length,
+      }));
+      if (feat.view !== "featured") return log("featured view failed: " + JSON.stringify(feat));
+      if (!feat.slugs.some((r) => /civic\/tuner|community-kit|epoch/i.test(r))) {
+        return log("featured projects missing: " + JSON.stringify(feat.slugs));
+      }
+      if (!feat.summaries.length || !feat.summaries.every((s) => /readme summary/i.test(s.label))) {
+        return log("readme summary label missing: " + JSON.stringify(feat.summaries));
+      }
+      if (!feat.summaries.some((s) => /cache|furniture|content-addressed/i.test(s.body))) {
+        return log("readme summary body missing: " + JSON.stringify(feat.summaries));
+      }
+
+      await page.click('.cn-home-tab[data-home-feed="creators"]');
+      await page.waitForTimeout(80);
+      const cre = await page.evaluate(() => {
+        const cards = Array.from(document.querySelectorAll(".cn-cre-card"));
+        const maya = cards.find((el) => (el.querySelector(".cn-follow-who")?.textContent || "") === "maya");
+        return {
+          view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+          handles: cards.map((el) => el.querySelector(".cn-follow-who")?.textContent || ""),
+          mayaBio: maya?.querySelector(".cn-cre-bio")?.textContent || "",
+          mayaChart: maya?.querySelector(".cn-cre-chart")?.textContent || "",
+        };
+      });
+      if (cre.view !== "creators") return log("creators view failed: " + JSON.stringify(cre));
+      if (!cre.handles.includes("maya")) return log("creators missing maya: " + JSON.stringify(cre.handles));
+      if (!/Signs promotions|review/i.test(cre.mayaBio)) {
+        return log("maya bio snippet missing: " + cre.mayaBio);
+      }
+      if (!/[▁▂▃▄▅▆▇█]/.test(cre.mayaChart) || !/commits/i.test(cre.mayaChart)) {
+        return log("maya contribution chart missing: " + cre.mayaChart);
+      }
+
+      // Opening a showcase open control marks it read and drops that tab's unread.
+      const beforeCounts = await page.evaluate(() => window.NB_APP.homeFeedUnreadCounts());
+      await page.click('.cn-cre-card[data-unread="true"] .cn-home-open');
+      await page.waitForTimeout(100);
+      await page.evaluate(() => window.NB_APP.closeDetail({ silent: true }));
+      await page.waitForTimeout(80);
+      await page.click('.cn-home-tab[data-home-feed="creators"]');
+      await page.waitForTimeout(80);
+      const after = await page.evaluate(() => ({
+        counts: window.NB_APP.homeFeedUnreadCounts(),
+        unreadRows: document.querySelectorAll('.cn-cre-card[data-unread="true"]').length,
+      }));
+      if (!(after.counts.creators < beforeCounts.creators)) {
+        return log("opening did not clear unread: " + JSON.stringify({ beforeCounts, after }));
+      }
+      return true;
     },
   },
   {
@@ -391,42 +892,278 @@ const CASES = [
     },
   },
   {
-    name: "terminal: panel minimises, maximises, docks, and resizes",
+    name: "tui: whole page is the terminal — no dockable panel chrome",
     run: async (page, log) => {
-      const panel = page.locator(".cn-panel");
-      if ((await panel.getAttribute("data-dock")) !== "bottom") return log("default dock not bottom");
-      // Minimise via chrome, restore via the active workspace tab.
-      await page.click("[data-panel-min]");
+      await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(100);
-      if ((await panel.getAttribute("data-out-min")) !== "true") return log("min failed");
-      await page.click('.cn-panel-tab[aria-selected="true"]');
+      const ui = await page.evaluate(() => {
+        const root = document.querySelector('[data-exp="console"]');
+        return {
+          hasPanel: !!document.querySelector(".cn-panel"),
+          hasPanelDock: !!document.querySelector("[data-panel-dock]"),
+          hasPanelMin: !!document.querySelector("[data-panel-min]"),
+          hasPanelMax: !!document.querySelector("[data-panel-max]"),
+          hasOutSplit: !!document.querySelector('.cn-split[data-split="out"]'),
+          hasFootOut: !!document.querySelector(".cn-tui-foot .cn-out"),
+          hasBanner: !!document.querySelector(".cn-banner, .cn-line[data-kind='banner']"),
+          hasTabs: !!document.querySelector('[role="tablist"][aria-label*="orkspace" i], .cn-workspace-tabs, .cn-panel-tabs'),
+          hasPrompt: !!document.querySelector("[data-cli]"),
+          hasBlades: !!document.querySelector(".cn-blades"),
+          tui: root?.getAttribute("data-tui") || root?.dataset?.tui || null,
+          foot: !!document.querySelector(".cn-tui-foot, [data-region='composer']"),
+          structure: Array.from(root?.children || []).map((c) => c.className.split(/\s+/)[0] || c.tagName),
+        };
+      });
+      if (ui.hasPanel || ui.hasPanelDock || ui.hasPanelMin || ui.hasPanelMax || ui.hasOutSplit) {
+        return log("separate terminal panel still present: " + JSON.stringify(ui));
+      }
+      if (ui.hasFootOut) {
+        return log("foot still hosts a transcript terminal: " + JSON.stringify(ui));
+      }
+      if (ui.hasBanner) {
+        return log("Epoch banner terminal still painted: " + JSON.stringify(ui));
+      }
+      if (!ui.hasTabs || !ui.hasPrompt || !ui.hasBlades || !ui.foot) {
+        return log("missing TUI chrome: " + JSON.stringify(ui));
+      }
+      if (ui.structure.includes("cn-panel")) {
+        return log("cn-panel in page structure: " + JSON.stringify(ui.structure));
+      }
+      return true;
+    },
+  },
+  {
+    name: "tui: workspace tabs still isolate path and prompt draft",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(80);
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "draft-a");
+      await page.keyboard.press("Alt+t");
+      await page.waitForTimeout(120);
+      const b = await page.evaluate(() => ({
+        sessions: window.NB_APP.state.sessions?.length,
+        path: window.NB_APP.state.path,
+        draft: document.querySelector("[data-cli]")?.value || "",
+        active: window.NB_APP.state.activeSession,
+      }));
+      if (b.sessions < 2) return log("no new workspace: " + JSON.stringify(b));
+      if (b.draft === "draft-a") return log("draft leaked into new tab: " + JSON.stringify(b));
+      // Switch back to first tab — draft should return.
+      await page.click('.cn-panel-tab[data-session="0"], .cn-workspace-tab[data-session="0"]');
       await page.waitForTimeout(100);
-      if ((await panel.getAttribute("data-out-min")) !== "false") return log("tab did not restore");
-      // Maximise.
-      await page.click("[data-panel-max]");
-      await page.waitForTimeout(100);
-      if ((await panel.getAttribute("data-out-max")) !== "true") return log("max failed");
-      await page.click("[data-panel-max]");
-      // Dock cycle: bottom → right → left → bottom.
-      await page.click("[data-panel-dock]");
-      await page.waitForTimeout(100);
-      if ((await panel.getAttribute("data-dock")) !== "right") return log("dock right failed");
-      await page.click("[data-panel-dock]");
-      await page.waitForTimeout(100);
-      if ((await panel.getAttribute("data-dock")) !== "left") return log("dock left failed");
-      await page.click("[data-panel-dock]");
-      await page.waitForTimeout(100);
-      if ((await panel.getAttribute("data-dock")) !== "bottom") return log("dock bottom failed");
-      // Drag the horizontal sash to grow height.
-      const before = await page.evaluate(() => window.NB_APP.state.panes.outH);
-      const sp = await page.locator('.cn-split[data-split="out"]').boundingBox();
-      await page.mouse.move(sp.x + sp.width / 2, sp.y + 3);
-      await page.mouse.down();
-      await page.mouse.move(sp.x + sp.width / 2, sp.y - 80, { steps: 4 });
-      await page.mouse.up();
+      const a = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        draft: document.querySelector("[data-cli]")?.value || "",
+        active: window.NB_APP.state.activeSession,
+      }));
+      return (a.active === 0 && a.path.indexOf("/channels/general") >= 0 && /draft-a/.test(a.draft)) ||
+        log("tab restore failed: " + JSON.stringify({ b, a }));
+    },
+  },
+  {
+    name: "compose: reply arms context; Enter posts a reply under the parent",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(120);
+      await page.click('.cn-comment[data-key="p1"] [data-reply]');
+      await page.waitForTimeout(80);
+      const armed = await page.evaluate(() => {
+        const ctx = window.NB_APP.composeContext?.() || window.NB_APP.state.compose;
+        const label = document.querySelector("[data-compose-label], .cn-compose-label")?.textContent || "";
+        return {
+          kind: ctx?.kind,
+          postId: ctx?.postId || ctx?.re,
+          who: ctx?.who,
+          cli: document.querySelector("[data-cli]")?.value || "",
+          label,
+        };
+      });
+      if (armed.kind !== "reply" || armed.postId !== "p1") {
+        return log("reply not armed: " + JSON.stringify(armed));
+      }
+      if (!/reply|@lea|p1/i.test(armed.label + armed.cli)) {
+        return log("no reply cue: " + JSON.stringify(armed));
+      }
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      // Clear armed prefix and type body if needed; send a clear reply line.
+      await page.fill("[data-cli]", "e2e reply body under lea");
+      await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
-      const after = await page.evaluate(() => window.NB_APP.state.panes.outH);
-      return after > before || log(`height ${before}→${after}`);
+      const posted = await page.evaluate(() => {
+        const merged = window.NB_APP.state.merged || [];
+        const hit = merged.filter((p) => p.re === "p1" && /e2e reply body/.test(p.body || "")).pop();
+        const tree = document.querySelector('.cn-comment[data-key="' + (hit?.id || "") + '"]');
+        const ctx = window.NB_APP.composeContext?.() || window.NB_APP.state.compose;
+        return {
+          hit: hit ? { id: hit.id, re: hit.re, channel: hit.channel, body: hit.body } : null,
+          inDom: !!tree,
+          composeAfter: ctx?.kind,
+        };
+      });
+      if (!posted.hit || posted.hit.channel !== "general") {
+        return log("reply not published: " + JSON.stringify(posted));
+      }
+      return true;
+    },
+  },
+  {
+    name: "compose: in a channel, Enter creates a new top-level post",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/bugs");
+      await page.waitForTimeout(100);
+      const ctx = await page.evaluate(() => {
+        window.NB_APP.state.replyTo = null;
+        window.NB_APP.state.compose = null;
+        return window.NB_APP.composeContext?.() || window.NB_APP.state.compose;
+      });
+      if (ctx?.kind !== "post" || ctx?.channel !== "bugs") {
+        return log("expected post#bugs context: " + JSON.stringify(ctx));
+      }
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "e2e new bugs post");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const posted = await page.evaluate(() => {
+        const hit = (window.NB_APP.state.merged || [])
+          .filter((p) => p.channel === "bugs" && !p.re && /e2e new bugs post/.test(p.body || ""))
+          .pop();
+        return hit ? { id: hit.id, channel: hit.channel, re: hit.re } : null;
+      });
+      return !!posted || log("channel post missing: " + JSON.stringify(posted));
+    },
+  },
+  {
+    name: "compose: navigating away clears reply; slash still ignores compose",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(80);
+      await page.click('.cn-comment[data-key="p2"] [data-reply]');
+      await page.waitForTimeout(60);
+      await go(page, "/projects/community/channels/bugs");
+      await page.waitForTimeout(80);
+      const afterNav = await page.evaluate(() => window.NB_APP.composeContext?.() || window.NB_APP.state.compose);
+      if (afterNav?.kind === "reply") return log("reply survived nav: " + JSON.stringify(afterNav));
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "");
+      await page.type("[data-cli]", "/help", { delay: 10 });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const out = await page.evaluate(() => {
+        const last = Array.from(document.querySelectorAll('.cn-line[data-kind="out"] .cn-body')).pop();
+        return last?.textContent || "";
+      });
+      return (/help|\/go|\/search/i.test(out)) || log("slash ignored: " + out.slice(0, 100));
+    },
+  },
+  {
+    name: "compose: nav scope — create channel in current project via tool",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels");
+      await page.waitForTimeout(100);
+      const before = await page.evaluate(() => {
+        const ctx = window.NB_APP.composeContext?.() || window.NB_APP.state.compose;
+        const names = (window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [])
+          .map((e) => e.name);
+        return { ctx, names, listed: window.NB_MCP.list().map((t) => t.name) };
+      });
+      if (before.ctx?.kind !== "nav" || before.ctx?.scope !== "channels") {
+        return log("expected nav/channels: " + JSON.stringify(before.ctx));
+      }
+      if (!before.listed.includes("board_create_channel")) {
+        return log("board_create_channel missing: " + before.listed.join(","));
+      }
+      const created = await page.evaluate(async () => {
+        const res = await window.NB_MCP.call("board_create_channel", { name: "e2e-garden" });
+        const text = (res?.content || []).map((c) => c.text || "").join("\n") || res?.text || JSON.stringify(res);
+        const names = (window.NB_MAP.list("/projects/community/channels", window.NB_APP.state.merged) || [])
+          .map((e) => e.name);
+        return { text, names, err: res?.isError };
+      });
+      if (created.err) return log("create failed: " + created.text);
+      if (!created.names.includes("e2e-garden")) {
+        return log("channel not listed: " + JSON.stringify(created));
+      }
+      // Edge: creating under civic-tuner must not land on community.
+      await go(page, "/projects/civic-tuner/channels");
+      await page.waitForTimeout(80);
+      const other = await page.evaluate(async () => {
+        const res = await window.NB_MCP.call("board_create_channel", { name: "tuner-only-room" });
+        const text = (res?.content || []).map((c) => c.text || "").join("\n");
+        const tuner = (window.NB_MAP.list("/projects/civic-tuner/channels", window.NB_APP.state.merged) || [])
+          .map((e) => e.name);
+        const community = (window.NB_MAP.list("/projects/community/channels", window.NB_APP.state.merged) || [])
+          .map((e) => e.name);
+        return { text, tuner, community, err: res?.isError };
+      });
+      if (other.err) return log("tuner create failed: " + other.text);
+      if (!other.tuner.includes("tuner-only-room")) {
+        return log("not on tuner: " + JSON.stringify(other));
+      }
+      if (other.community.includes("tuner-only-room")) {
+        return log("leaked into community: " + JSON.stringify(other));
+      }
+      return true;
+    },
+  },
+  {
+    name: "compose: nav at /projects — create project via tool",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.waitForTimeout(80);
+      const ctx = await page.evaluate(() => window.NB_APP.composeContext?.() || window.NB_APP.state.compose);
+      if (ctx?.kind !== "nav" || ctx?.scope !== "projects") {
+        return log("expected nav/projects: " + JSON.stringify(ctx));
+      }
+      const out = await page.evaluate(async () => {
+        if (!window.NB_MCP.list().some((t) => t.name === "board_create_project")) {
+          return { err: true, text: "tool missing" };
+        }
+        const res = await window.NB_MCP.call("board_create_project", { name: "e2e-forge" });
+        const text = (res?.content || []).map((c) => c.text || "").join("\n");
+        const names = (window.NB_MAP.list("/projects", window.NB_APP.state.merged) || []).map((e) => e.name);
+        return { text, names, err: res?.isError };
+      });
+      if (out.err) return log("project create failed: " + out.text);
+      return out.names.includes("e2e-forge") || log("project not listed: " + JSON.stringify(out));
+    },
+  },
+  {
+    name: "compose: DM path posts to the dm thread, not a channel",
+    run: async (page, log) => {
+      await go(page, "/dms/scout");
+      await page.waitForTimeout(100);
+      const ctx = await page.evaluate(() => window.NB_APP.composeContext?.() || window.NB_APP.state.compose);
+      if (ctx?.kind !== "dm" || ctx?.dm !== "scout") {
+        return log("expected dm/scout: " + JSON.stringify(ctx));
+      }
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "e2e dm ping");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const hit = await page.evaluate(() => {
+        return (window.NB_APP.state.merged || [])
+          .filter((p) => p.dm === "scout" && /e2e dm ping/.test(p.body || ""))
+          .pop() || null;
+      });
+      if (!hit) return log("dm message missing");
+      if (hit.channel) return log("dm leaked channel field: " + JSON.stringify(hit));
+      return true;
     },
   },
   {
@@ -675,8 +1412,18 @@ const CASES = [
     },
   },
   {
-    name: "sort: hot/new/top/best chips reorder; share is present",
+    name: "sort: hot/new/top on feed only; + pins more views",
     run: async (page, log) => {
+      // Off a feed — no sort bar.
+      await go(page, "/members");
+      const offFeed = await page.evaluate(() => ({
+        bar: !!document.querySelector(".cn-feed-bar"),
+        sorts: Array.from(document.querySelectorAll(".cn-sort")).map((b) => b.dataset.sort),
+      }));
+      if (offFeed.bar || offFeed.sorts.length) {
+        return log("sort bar leaked outside feed: " + JSON.stringify(offFeed));
+      }
+      // On a channel feed — Reddit defaults only + add button.
       const sorted = await page.evaluate(async () => {
         window.NB_APP.setNavCollapsed(false, { silent: true, noRender: true });
         window.NB_APP.navigate("/projects/community/channels/general", { keepCli: true });
@@ -684,30 +1431,117 @@ const CASES = [
         const ix = list.findIndex((e) => e.post);
         window.NB_APP.state.cursor = ix >= 0 ? ix : 0;
         window.NB_APP.state.focus = 1;
+        window.NB_APP.state.feedPinnedViews = [];
+        window.NB_APP.state.feedAddOpen = false;
         window.NB_APP.render(true);
         await new Promise((r) => setTimeout(r, 40));
         if (!document.querySelector(".cn-comment")) return { err: "no tree" };
+        const sorts = Array.from(document.querySelectorAll(".cn-sort")).map((b) => b.dataset.sort);
+        const add = !!document.querySelector("[data-feed-add]");
+        const inDetail = !!document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-feed-bar');
+        const inPath = !!document.querySelector(".cn-path .cn-feed-bar");
         const neu = document.querySelector('[data-sort="new"]');
         const top = document.querySelector('[data-sort="top"]');
-        if (!neu || !top) {
-          return {
-            err: "no sort chips",
-            bar: !!document.querySelector(".cn-feed-bar"),
-          };
-        }
+        if (!neu || !top) return { err: "no sort chips", sorts };
         neu.click();
         const afterNew = window.NB_APP.state.sort;
         top.click();
         const afterTop = window.NB_APP.state.sort;
+        document.querySelector("[data-feed-add]")?.click();
+        await new Promise((r) => setTimeout(r, 20));
+        const menuOpen = !!document.querySelector(".cn-feed-add-menu");
+        const bestOpt = document.querySelector('[data-feed-pin="best"]');
+        if (bestOpt) bestOpt.click();
+        await new Promise((r) => setTimeout(r, 20));
+        const afterPin = Array.from(document.querySelectorAll(".cn-sort")).map((b) => b.dataset.sort);
         const share = document.querySelectorAll("[data-share]").length;
-        const hasVote = !!document.querySelector('[data-vote="up"]');
-        return { afterNew, afterTop, share, hasVote };
+        return {
+          sorts, add, inDetail, inPath, afterNew, afterTop, menuOpen, afterPin, share,
+          pinned: (window.NB_APP.state.feedPinnedViews || []).slice(),
+        };
       });
       if (sorted.err) return log(JSON.stringify(sorted));
+      if (sorted.sorts.join(",") !== "hot,new,top") {
+        return log("defaults should be hot,new,top got " + sorted.sorts.join(","));
+      }
+      if (!sorted.add) return log("missing + add control");
+      if (!sorted.inDetail) return log("feed bar not in detail pane");
+      if (sorted.inPath) return log("feed bar still in path chrome");
       if (sorted.afterNew !== "new") return log("sort stayed " + sorted.afterNew);
       if (sorted.afterTop !== "top") return log("top failed: " + sorted.afterTop);
-      return (sorted.share >= 1 && sorted.hasVote) ||
-        log(`share ${sorted.share} hasVote ${sorted.hasVote}`);
+      if (!sorted.menuOpen && sorted.afterPin.indexOf("best") < 0) {
+        return log("pin menu/best failed: " + JSON.stringify(sorted));
+      }
+      if (sorted.afterPin.indexOf("best") < 0) {
+        return log("best not pinned: " + sorted.afterPin.join(","));
+      }
+      return (sorted.share >= 1) || log("missing share on feed bar");
+    },
+  },
+  {
+    name: "chrome: filters and sorts are terminal brackets, not web pills",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const sortChrome = await page.evaluate(async () => {
+        const list = window.NB_MAP.list("/projects/community/channels/general") || [];
+        const ix = list.findIndex((e) => e.post);
+        window.NB_APP.state.cursor = ix >= 0 ? ix : 0;
+        window.NB_APP.state.focus = 1;
+        window.NB_APP.render(true);
+        await new Promise((r) => setTimeout(r, 40));
+        const hot = document.querySelector('.cn-sort[aria-pressed="true"]')
+          || document.querySelector(".cn-sort");
+        if (!hot) return { err: "no sort" };
+        const cs = getComputedStyle(hot);
+        return {
+          before: getComputedStyle(hot, "::before").content,
+          after: getComputedStyle(hot, "::after").content,
+          radius: cs.borderRadius,
+          border: cs.borderTopWidth,
+          pressed: hot.getAttribute("aria-pressed") === "true",
+          bg: cs.backgroundColor,
+          color: cs.color,
+        };
+      });
+      if (sortChrome.err) return log(sortChrome.err);
+      if (!String(sortChrome.before).includes("[")) return log("sort missing [: " + sortChrome.before);
+      if (!String(sortChrome.after).includes("]")) return log("sort missing ]: " + sortChrome.after);
+      if (sortChrome.radius && sortChrome.radius !== "0px") {
+        return log("sort rounded: " + sortChrome.radius);
+      }
+      if (sortChrome.border && sortChrome.border !== "0px") {
+        return log("sort bordered like a web button: " + sortChrome.border);
+      }
+      if (sortChrome.pressed) {
+        // Reverse video: solid background, not transparent / none.
+        const bg = sortChrome.bg || "";
+        if (bg === "rgba(0, 0, 0, 0)" || bg === "transparent") {
+          return log("pressed sort not reverse video: " + bg);
+        }
+      }
+      await go(page, "/notifications/mentions");
+      const filterChrome = await page.evaluate(() => {
+        const filter = document.querySelector('.cn-activity-filter[aria-pressed="true"]')
+          || document.querySelector(".cn-activity-filter");
+        if (!filter) return { err: "no filter" };
+        const cs = getComputedStyle(filter);
+        return {
+          before: getComputedStyle(filter, "::before").content,
+          radius: cs.borderRadius,
+          border: cs.borderTopWidth,
+        };
+      });
+      if (filterChrome.err) return log(filterChrome.err);
+      if (!String(filterChrome.before).includes("[")) {
+        return log("filter missing [: " + filterChrome.before);
+      }
+      if (filterChrome.radius && filterChrome.radius !== "0px") {
+        return log("filter rounded: " + filterChrome.radius);
+      }
+      if (filterChrome.border && filterChrome.border !== "0px") {
+        return log("filter bordered: " + filterChrome.border);
+      }
+      return true;
     },
   },
   {
@@ -723,13 +1557,824 @@ const CASES = [
     },
   },
   {
+    name: "cli: Enter submits typed text even when autocomplete menu is open",
+    run: async (page, log) => {
+      // Nav scope so Enter runs the CLI line (not compose-post).
+      await go(page, "/projects");
+      await page.waitForTimeout(80);
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.clearReplyTo?.();
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      // Partial verb: menu offers `help`. Enter must run `hel` (not found),
+      // not accept the suggestion into `help`.
+      await page.keyboard.type("hel", { delay: 20 });
+      await page.waitForTimeout(120);
+      const before = await page.evaluate(() => ({
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent),
+        value: document.querySelector("[data-cli]")?.value || "",
+        compose: window.NB_APP.composeContext?.()?.kind,
+      }));
+      if (!(before.value === "hel" && before.cands.some((c) => c === "help"))) {
+        return log("help suggestion missing: " + JSON.stringify(before));
+      }
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(40);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(180);
+      const after = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        out: document.querySelector(".cn-out")?.textContent || "",
+        lines: (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n"),
+      }));
+      if (after.value === "help" || after.value === "help " || after.value === "hel") {
+        return log("Enter did not submit typed text: " + JSON.stringify(after));
+      }
+      const blob = after.out + "\n" + after.lines;
+      if (/change directory/i.test(blob) && /list a directory/i.test(blob)) {
+        return log("Enter accepted `help` autocomplete: " + blob.slice(0, 160));
+      }
+      return /hel:.*not found/i.test(blob) || log("expected hel error after submit: " + blob.slice(0, 160));
+    },
+  },
+  {
+    name: "compose: Enter posts even with @-mention autocomplete open",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = true;
+        window.NB_APP.clearReplyTo?.();
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("ping @ma", { delay: 15 });
+      await page.waitForTimeout(120);
+      const before = await page.evaluate(() => ({
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        value: document.querySelector("[data-cli]")?.value || "",
+        cands: Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent),
+      }));
+      if (!before.cands.some((c) => /^@ma/i.test(c))) {
+        return log("mention menu missing: " + JSON.stringify(before));
+      }
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const after = await page.evaluate(() => {
+        const bodies = Array.from(document.querySelectorAll(".cn-comment-body, .cn-comment"))
+          .map((el) => el.textContent || "");
+        return {
+          value: document.querySelector("[data-cli]")?.value || "",
+          posted: bodies.some((t) => /ping @ma/.test(t) && !/@maya\b/.test(t.split("ping")[1] || "")),
+          anyPing: bodies.some((t) => /ping @ma/.test(t)),
+          bodies: bodies.filter((t) => /ping/.test(t)).slice(0, 3),
+        };
+      });
+      if (after.value === "ping @ma" || after.value === "ping @maya ") {
+        return log("Enter accepted mention instead of posting: " + JSON.stringify(after));
+      }
+      return after.anyPing || log("post missing: " + JSON.stringify(after));
+    },
+  },
+  {
+    name: "compose: @handle outside DM tips and reveals session chat (does not send)",
+    run: async (page, log) => {
+      // Home feed / non-DM path — @maya must not publish a DM.
+      await page.evaluate(() => {
+        try { localStorage.removeItem("nb-home-feed-read"); } catch { /* fine */ }
+        window.NB_APP.state.homeFeedRead = {};
+        window.NB_APP.state.homeFeed = "following";
+        window.NB_APP.state.sessionOutFocus = false;
+        window.NB_APP.state.lines = [];
+        window.NB_APP.state.ai = true;
+        window.NB_APP.clearReplyTo?.();
+        window.NB_APP.closeDetail({ silent: true });
+      });
+      await page.waitForTimeout(100);
+      const beforeMerged = await page.evaluate(() =>
+        (window.NB_APP.state.merged || []).filter((p) => p.dm === "maya").length);
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("@maya hello from outside dm", { delay: 8 });
+      await page.waitForTimeout(80);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const after = await page.evaluate(() => {
+        const out = document.querySelector(".cn-blade-out");
+        const text = (out?.textContent || "") + "\n" +
+          (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n");
+        const dmBodies = (window.NB_APP.state.merged || [])
+          .filter((p) => p.dm === "maya")
+          .map((p) => p.body || "");
+        return {
+          path: window.NB_APP.state.path,
+          detailOpen: window.NB_APP.state.detailOpen,
+          homeView: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+          focus: !!window.NB_APP.state.sessionOutFocus,
+          active: out?.getAttribute("data-active"),
+          label: out?.getAttribute("aria-label") || "",
+          tip: /not sent/i.test(text) && /\/dm\s*@maya/i.test(text),
+          userLine: (window.NB_APP.state.lines || []).some((l) =>
+            l.kind === "user" && /@maya hello from outside dm/i.test(l.text || "")),
+          leakedDm: dmBodies.some((b) => /hello from outside dm/i.test(b)),
+          leakedAny: (window.NB_APP.state.merged || [])
+            .some((p) => /hello from outside dm/i.test(p.body || "")),
+          dmCount: dmBodies.length,
+        };
+      });
+      if (after.leakedDm || after.leakedAny) {
+        return log("message was sent without /dm: " + JSON.stringify(after));
+      }
+      if (after.detailOpen || after.homeView !== "following") {
+        return log("home feed lost after tip: " + JSON.stringify(after));
+      }
+      if (!(after.focus && after.active === "true")) {
+        return log("session chat not active: " + JSON.stringify(after));
+      }
+      if (!after.tip || !after.userLine) {
+        return log("tip/user line missing: " + JSON.stringify(after));
+      }
+      if (after.dmCount !== beforeMerged) {
+        return log("maya DM count changed: " + JSON.stringify({ beforeMerged, after }));
+      }
+      // Esc clears active chrome.
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(80);
+      const cleared = await page.evaluate(() => ({
+        focus: !!window.NB_APP.state.sessionOutFocus,
+        active: document.querySelector(".cn-blade-out")?.getAttribute("data-active"),
+      }));
+      if (cleared.focus || cleared.active === "true") {
+        return log("Esc did not clear session focus: " + JSON.stringify(cleared));
+      }
+      return true;
+    },
+  },
+  {
+    name: "power: → accepts ghost; Enter then runs the completed command",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("hel", { delay: 15 });
+      await page.waitForTimeout(100);
+      const ghost = await page.evaluate(() =>
+        document.querySelector("[data-ghost-rest]")?.textContent || "");
+      if (!/^p\s*$/i.test(ghost.trim() + (ghost.endsWith(" ") ? "" : "")) && !/p/.test(ghost)) {
+        return log("no help ghost: " + JSON.stringify(ghost));
+      }
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(80);
+      const filled = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (!/^help\s*$/.test(filled)) return log("→ did not accept ghost: " + JSON.stringify(filled));
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const out = await page.evaluate(() =>
+        (document.querySelector(".cn-out")?.textContent || "") + "\n" +
+        (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n"));
+      return (/change directory/i.test(out) && /list a directory/i.test(out)) ||
+        log("help did not run after ghost accept: " + out.slice(0, 160));
+    },
+  },
+  {
+    name: "power: End accepts ghost the same as →",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("sta", { delay: 15 });
+      await page.waitForTimeout(80);
+      await page.keyboard.press("End");
+      await page.waitForTimeout(80);
+      const filled = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      return /^stat\s*$/.test(filled) || log("End ghost failed: " + JSON.stringify(filled));
+    },
+  },
+  {
+    name: "power: Tab cycles path candidates; click accepts without submitting",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("cd pro", { delay: 12 });
+      await page.waitForTimeout(120);
+      const first = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(80);
+      const afterTab = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (afterTab === first || !/project/i.test(afterTab)) {
+        return log("Tab did not complete path: " + JSON.stringify({ first, afterTab }));
+      }
+      // Second Tab should cycle to another candidate when several exist.
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(80);
+      const afterTab2 = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      // Click a visible candidate — should fill, not navigate/submit.
+      const pathBefore = await path(page);
+      const clicked = await page.evaluate(() => {
+        const cand = Array.from(document.querySelectorAll(".cn-cand")).find((el) =>
+          /\/projects$/.test(el.querySelector("span")?.textContent || ""));
+        if (!cand) return { ok: false, reason: "no /projects cand" };
+        cand.click();
+        return { ok: true, value: document.querySelector("[data-cli]")?.value || "" };
+      });
+      await page.waitForTimeout(100);
+      const pathAfter = await path(page);
+      if (pathAfter !== pathBefore) {
+        return log("click submitted/navigated: " + pathBefore + " → " + pathAfter);
+      }
+      if (!clicked.ok) return log(clicked.reason + " tabs=" + JSON.stringify({ afterTab, afterTab2 }));
+      return /\/projects/.test(clicked.value) || log("click did not accept: " + JSON.stringify(clicked));
+    },
+  },
+  {
+    name: "power: cd - returns to previous path; cd .. climbs",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "cd /projects");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      let p = await path(page);
+      if (p !== "/projects") return log("setup cd /projects → " + p);
+      await page.fill("[data-cli]", "cd -");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      p = await path(page);
+      if (p !== "/projects/community/channels/general") {
+        return log("cd - failed: " + p);
+      }
+      await page.fill("[data-cli]", "cd ..");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      p = await path(page);
+      return p === "/projects/community/channels" || log("cd .. failed: " + p);
+    },
+  },
+  {
+    name: "power: history ↑ only when suggestion menu has ≤1 choice",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      // Seed history.
+      await page.fill("[data-cli]", "stat");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
+      await page.fill("[data-cli]", "help");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
+      await page.fill("[data-cli]", "");
+      // No multi-candidate menu → ↑ walks history.
+      await page.keyboard.press("ArrowUp");
+      await page.waitForTimeout(60);
+      const hist1 = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (hist1 !== "help") return log("history ↑ missed help: " + JSON.stringify(hist1));
+      await page.keyboard.press("ArrowUp");
+      await page.waitForTimeout(60);
+      const hist2 = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (hist2 !== "stat") return log("history ↑ missed stat: " + JSON.stringify(hist2));
+      // Multi-candidate menu → ↑ moves highlight, does not replace with history.
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("c", { delay: 20 }); // cd, cat, clear…
+      await page.waitForTimeout(120);
+      const before = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        cands: document.querySelectorAll(".cn-cand").length,
+        idx: window.NB_APP.state.candIndex,
+      }));
+      if (before.cands < 2) return log("need multi cand for menu arrows: " + JSON.stringify(before));
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(40);
+      const mid = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        idx: window.NB_APP.state.candIndex,
+      }));
+      if (mid.value !== "c") return log("menu arrow mutated input: " + JSON.stringify(mid));
+      if (!(mid.idx > before.idx)) return log("candIndex did not move: " + JSON.stringify({ before, mid }));
+      return true;
+    },
+  },
+  {
+    name: "power: ↑↓ update ghost preview; → accepts the highlighted candidate",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      // Parameter completion: cd + path fragment with multiple matches.
+      await page.keyboard.type("cd p", { delay: 15 });
+      await page.waitForTimeout(120);
+      const start = await page.evaluate(() => {
+        const c = window.NB_APP.state.completion;
+        const ghost = document.querySelector("[data-ghost-rest]")?.textContent || "";
+        const cands = (c?.candidates || []).map((x) => x.value);
+        return {
+          value: document.querySelector("[data-cli]")?.value || "",
+          idx: window.NB_APP.state.candIndex,
+          ghost,
+          preview: c?.preview || "",
+          insert: c?.insert || "",
+          cands: cands.slice(0, 8),
+          open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        };
+      });
+      if (start.value !== "cd p") return log("setup value: " + JSON.stringify(start));
+      if (start.cands.length < 2) {
+        // Fall back to verb catalogue (cd/cat/clear) if path has one hit.
+        await page.fill("[data-cli]", "");
+        await page.keyboard.type("c", { delay: 20 });
+        await page.waitForTimeout(120);
+      }
+      const before = await page.evaluate(() => {
+        const c = window.NB_APP.state.completion;
+        return {
+          value: document.querySelector("[data-cli]")?.value || "",
+          idx: window.NB_APP.state.candIndex || 0,
+          ghost: document.querySelector("[data-ghost-rest]")?.textContent || "",
+          preview: c?.preview || "",
+          insert: c?.insert || "",
+          first: c?.candidates?.[0]?.value || "",
+          second: c?.candidates?.[1]?.value || "",
+          n: c?.candidates?.length || 0,
+        };
+      });
+      if (before.n < 2) return log("need ≥2 candidates: " + JSON.stringify(before));
+      const firstPreview = before.ghost || before.preview || before.insert;
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(60);
+      const after = await page.evaluate(() => {
+        const c = window.NB_APP.state.completion;
+        const cur = document.querySelector('.cn-cand[aria-current="true"] span')?.textContent || "";
+        return {
+          value: document.querySelector("[data-cli]")?.value || "",
+          idx: window.NB_APP.state.candIndex || 0,
+          ghost: document.querySelector("[data-ghost-rest]")?.textContent || "",
+          preview: c?.preview || "",
+          insert: c?.insert || "",
+          selected: c?.candidates?.[window.NB_APP.state.candIndex || 0]?.value || "",
+          cur,
+        };
+      });
+      if (after.value !== before.value) {
+        return log("arrow mutated draft: " + JSON.stringify({ before, after }));
+      }
+      if (!(after.idx > before.idx)) {
+        return log("candIndex did not advance: " + JSON.stringify({ before, after }));
+      }
+      const afterPreview = after.ghost || after.preview || "";
+      if (!afterPreview && after.insert === before.insert) {
+        return log("preview stuck on first option: " + JSON.stringify({ before, after }));
+      }
+      if (after.insert === before.first || after.selected === before.first) {
+        // insert/selected must reflect the highlighted (second) candidate
+        if (after.selected !== before.second && after.insert !== before.second) {
+          return log("selection not synced: " + JSON.stringify({ before, after }));
+        }
+      }
+      if (after.insert === before.first && after.idx > 0) {
+        return log("insert still first after ↓: " + JSON.stringify({ before, after }));
+      }
+      if (firstPreview && afterPreview && afterPreview === firstPreview &&
+          after.insert === before.insert) {
+        return log("ghost/preview unchanged after ↓: " + JSON.stringify({ before, after }));
+      }
+      // → / End must accept the *highlighted* candidate, not always the first.
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(80);
+      const accepted = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+      }));
+      const want = after.insert || after.selected;
+      if (!want) return log("no selected insert: " + JSON.stringify(after));
+      // Accepted line should contain the selected completion (verb or path).
+      const ok = accepted.value === want ||
+        accepted.value.endsWith(want) ||
+        accepted.value.indexOf(want) !== -1 ||
+        (before.value.length && accepted.value.indexOf(want.replace(/^\//, "")) !== -1);
+      // More precise: for "c" → "cat ", value starts with selected verb.
+      if (before.value === "c" || /^c$/.test(before.value)) {
+        return accepted.value.trimStart().startsWith(String(want).trim()) ||
+          log("→ accepted first/wrong verb: " + JSON.stringify({ want, accepted, after }));
+      }
+      return ok || log("→ did not accept highlighted: " + JSON.stringify({ want, accepted, after }));
+    },
+  },
+  {
+    name: "power: mode toggle — /ls is not a slash verb; ls works in cli",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      // Catalogue is data, not mode — assert it directly (keypress may force
+      // cli when the on-device model is unavailable in test Chromium).
+      const leaked = await page.evaluate(() => {
+        const banned = ["/ls", "/cd", "/cat", "/grep", "/find", "/tail", "/stat", "/clear", "/watch", "/load"];
+        const names = (window.NB_COMPLETE.SLASH_COMMANDS || []).map((c) => c.name);
+        return banned.filter((b) => names.includes(b));
+      });
+      if (leaked.length) return log("SLASH_COMMANDS still has terminal verbs: " + leaked.join(","));
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      // Force ai preference for the slash catalogue even if model-warm flipped mode.
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = true;
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/");
+      await page.waitForTimeout(100);
+      const slash = await page.evaluate(() =>
+        Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim()));
+      if (slash.includes("/ls") || slash.includes("/cd") || slash.includes("/cat")) {
+        return log("terminal verbs leaked into slash menu: " + slash.slice(0, 12).join(","));
+      }
+      if (!slash.some((c) => c === "/go")) {
+        return log("expected /go in slash menu: " + slash.slice(0, 12).join(","));
+      }
+      if (!slash.some((c) => c === "/mode" || /^\/mode\b/.test(c))) {
+        return log("expected /mode in slash menu: " + slash.slice(0, 16).join(","));
+      }
+      if (slash.includes("/ai") || slash.includes("/cli") || slash.includes("/theme") ||
+          slash.includes("/reply") || slash.includes("/voice") || slash.includes("/keys") ||
+          slash.includes("/channel") || slash.includes("/project")) {
+        return log("context/agent slash leaked into autocomplete: " + slash.slice(0, 20).join(","));
+      }
+      if (!slash.some((c) => c === "/act" || /^\/act\b/.test(c))) {
+        return log("expected /act in slash menu: " + slash.slice(0, 16).join(","));
+      }
+      await page.fill("[data-cli]", "/ls");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const aiOut = await page.evaluate(() =>
+        (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n"));
+      if (!/unknown slash|not found/i.test(aiOut)) {
+        return log("/ls should be unknown slash: " + aiOut.slice(0, 160));
+      }
+      if (/▸\s*community|▸\s*agent-lab/i.test(aiOut)) {
+        return log("/ls still listed directory: " + aiOut.slice(0, 120));
+      }
+      // CLI mode — bare ls works.
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "ls");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const cliOut = await page.evaluate(() =>
+        (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n"));
+      return (/community|agent-lab|tuner/i.test(cliOut)) ||
+        log("cli ls failed: " + cliOut.slice(0, 160));
+    },
+  },
+  {
+    name: "power: ai mode still runs bare CLI verbs (superset)",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/bugs");
+      await page.evaluate(() => { window.NB_APP.state.ai = true; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "cd ..");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const p = await path(page);
+      return p === "/projects/community/channels" || log("ai bare cd .. → " + p);
+    },
+  },
+  {
+    name: "power: Esc closes suggestions without submitting",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => { window.NB_APP.state.ai = true; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("draft @ma", { delay: 12 });
+      await page.waitForTimeout(120);
+      const before = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: document.querySelectorAll(".cn-cand").length,
+        comments: document.querySelectorAll(".cn-comment").length,
+      }));
+      if (!(before.cands >= 1 && before.value === "draft @ma" && before.open === "true")) {
+        return log("setup failed: " + JSON.stringify(before));
+      }
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(100);
+      const after = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: document.querySelectorAll(".cn-cand").length,
+        comments: document.querySelectorAll(".cn-comment").length,
+        columnFocus: window.NB_APP.state.columnFocus,
+        ariaExpanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded"),
+      }));
+      if (after.value !== "draft @ma") {
+        return log("Esc changed draft: " + JSON.stringify(after));
+      }
+      if (after.open === "true" || after.cands > 0) {
+        return log("Esc did not dismiss combobox: " + JSON.stringify(after));
+      }
+      if (after.columnFocus) {
+        return log("Esc left prompt instead of only dismissing menu: " + JSON.stringify(after));
+      }
+      if (after.comments > before.comments) {
+        return log("Esc submitted a post: " + JSON.stringify({ before, after }));
+      }
+      return true;
+    },
+  },
+  {
+    name: "power: Esc dismisses slash catalogue after /",
+    run: async (page, log) => {
+      await page.evaluate(() => { window.NB_APP.state.ai = true; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/");
+      await page.waitForTimeout(100);
+      const before = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: document.querySelectorAll(".cn-cand").length,
+        hasGo: Array.from(document.querySelectorAll(".cn-cand span"))
+          .some((s) => /\/go/.test(s.textContent || "")),
+      }));
+      if (!(before.value === "/" && before.open === "true" && before.cands >= 2 && before.hasGo)) {
+        return log("slash catalogue did not open: " + JSON.stringify(before));
+      }
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(100);
+      const after = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: document.querySelectorAll(".cn-cand").length,
+        columnFocus: window.NB_APP.state.columnFocus,
+        focused: document.activeElement?.hasAttribute("data-cli"),
+      }));
+      if (after.value !== "/") return log("Esc cleared /: " + JSON.stringify(after));
+      if (after.open === "true" || after.cands > 0) {
+        return log("Esc did not dismiss slash list: " + JSON.stringify(after));
+      }
+      if (after.columnFocus || !after.focused) {
+        return log("Esc left the prompt: " + JSON.stringify(after));
+      }
+      // Typing again should reopen the filtered catalogue.
+      await page.keyboard.type("g");
+      await page.waitForTimeout(100);
+      const reopened = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value || "",
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: document.querySelectorAll(".cn-cand").length,
+      }));
+      return (reopened.value === "/g" && reopened.open === "true" && reopened.cands >= 1) ||
+        log("typing did not reopen suggestions: " + JSON.stringify(reopened));
+    },
+  },
+  {
+    name: "power: empty Enter is a no-op (does not clear compose scope)",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(80);
+      await page.click('.cn-comment[data-key="p1"] [data-reply]');
+      await page.waitForTimeout(80);
+      const armed = await page.evaluate(() => window.NB_APP.composeContext?.()?.kind);
+      if (armed !== "reply") return log("reply not armed: " + armed);
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(80);
+      const after = await page.evaluate(() => ({
+        kind: window.NB_APP.composeContext?.()?.kind,
+        value: document.querySelector("[data-cli]")?.value || "",
+      }));
+      return (after.kind === "reply" && after.value === "") ||
+        log("empty Enter broke reply scope: " + JSON.stringify(after));
+    },
+  },
+  {
+    name: "power: Tab completes @mention then Enter posts the completed line",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = true;
+        window.NB_APP.clearReplyTo?.();
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("hey @may", { delay: 12 });
+      await page.waitForTimeout(120);
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(100);
+      const filled = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (!/^hey @maya\s*$/.test(filled)) {
+        return log("Tab did not complete mention: " + JSON.stringify(filled));
+      }
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const posted = await page.evaluate(() => {
+        const bodies = Array.from(document.querySelectorAll(".cn-comment")).map((el) => el.textContent || "");
+        return {
+          value: document.querySelector("[data-cli]")?.value || "",
+          hit: bodies.some((t) => /hey @maya/.test(t)),
+        };
+      });
+      return (posted.hit && posted.value === "") || log("post missing: " + JSON.stringify(posted));
+    },
+  },
+  {
+    name: "power: slash /go partial + Enter does not steal path autocomplete",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = true; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/go bug", { delay: 12 });
+      await page.waitForTimeout(120);
+      const before = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        cands: document.querySelectorAll(".cn-cand").length,
+        value: document.querySelector("[data-cli]")?.value || "",
+      }));
+      if (before.cands < 1) return log("no /go path cands: " + JSON.stringify(before));
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(180);
+      const after = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        value: document.querySelector("[data-cli]")?.value || "",
+        lines: (window.NB_APP.state.lines || []).map((l) => l.text || "").join("|"),
+      }));
+      // Enter submits `/go bug` — may fuzzy-navigate to bugs OR error; must not
+      // leave the input filled with an accepted candidate.
+      if (after.value && /\/go/.test(after.value)) {
+        return log("Enter accepted instead of submitting: " + JSON.stringify(after));
+      }
+      // If it navigated, that's the slash runner resolving `bug` — fine.
+      // If not, the user line must have been recorded.
+      if (after.path.includes("bugs")) return true;
+      return /\/go bug/.test(after.lines) || log("slash line missing: " + JSON.stringify(after));
+    },
+  },
+  {
+    name: "power: replace-preview Tab inserts absolute path from basename fragment",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("cd pro", { delay: 12 });
+      await page.waitForTimeout(120);
+      const preview = await page.evaluate(() =>
+        document.querySelector("[data-ghost-rest]")?.textContent || "");
+      if (!/\/projects/i.test(preview) &&
+          !Array.from(document.querySelectorAll(".cn-cand span")).some((s) => s.textContent === "/projects")) {
+        return log("no replace preview: " + preview);
+      }
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(80);
+      const val = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      return (val === "/projects" || val === "cd /projects" || /cd\s+\/projects/.test(val)) ||
+        log("Tab did not insert absolute path: " + JSON.stringify(val));
+    },
+  },
+  {
+    name: "power: session output stays in detail blade — never a foot transcript",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "help");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const ui = await page.evaluate(() => ({
+        footOut: !!document.querySelector(".cn-tui-foot .cn-out"),
+        panel: !!document.querySelector(".cn-panel"),
+        bladeOut: !!document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-out, .cn-blade-out'),
+        banner: !!document.querySelector(".cn-banner"),
+        hasHelp: /change directory/i.test(document.querySelector(".cn-out")?.textContent || ""),
+      }));
+      if (ui.footOut || ui.panel || ui.banner) {
+        return log("terminal chrome leaked: " + JSON.stringify(ui));
+      }
+      return (ui.bladeOut && ui.hasHelp) || log("help missing from blade: " + JSON.stringify(ui));
+    },
+  },
+  {
+    name: "power: clear empties session output in the detail blade",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "stat");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
+      await page.fill("[data-cli]", "clear");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const after = await page.evaluate(() => ({
+        lines: (window.NB_APP.state.lines || []).length,
+        bladeOut: !!document.querySelector(".cn-blade-out"),
+        outText: (document.querySelector(".cn-out")?.textContent || "").trim(),
+      }));
+      return (after.lines === 0 && !after.bladeOut) ||
+        log("clear left transcript: " + JSON.stringify(after));
+    },
+  },
+  {
+    name: "power: workspace tab isolates CLI history",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "stat");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(80);
+      await page.keyboard.press("Alt+t");
+      await page.waitForTimeout(120);
+      const fresh = await page.evaluate(() => ({
+        sessions: window.NB_APP.state.sessions?.length,
+        history: (window.NB_APP.state.history || []).slice(),
+        path: window.NB_APP.state.path,
+      }));
+      if (fresh.sessions < 2) return log("no new workspace: " + JSON.stringify(fresh));
+      if (fresh.history.includes("stat")) {
+        return log("history leaked into new tab: " + JSON.stringify(fresh));
+      }
+      await page.click('.cn-workspace-tab[data-session="0"], .cn-panel-tab[data-session="0"]');
+      await page.waitForTimeout(100);
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.press("ArrowUp");
+      await page.waitForTimeout(60);
+      const restored = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      return restored === "stat" || log("tab 0 lost history: " + JSON.stringify(restored));
+    },
+  },
+  {
+    name: "power: Shift+Tab cycles candidates backward",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("c", { delay: 20 });
+      await page.waitForTimeout(120);
+      const n = await page.evaluate(() => document.querySelectorAll(".cn-cand").length);
+      if (n < 2) return log("need ≥2 candidates, got " + n);
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(60);
+      const a = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(60);
+      const b = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      await page.keyboard.press("Shift+Tab");
+      await page.waitForTimeout(60);
+      const c = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (a === b && n > 2) {
+        // Ambiguous common-prefix Tab may not change value on first presses —
+        // still require Shift+Tab to differ from forward progress somehow.
+      }
+      // After two Tabs then Shift+Tab, value should match the prior Tab result
+      // (or at least differ from the second forward step when a≠b).
+      if (a !== b) {
+        return c === a || log("Shift+Tab did not reverse: " + JSON.stringify({ a, b, c }));
+      }
+      // Fallback: candIndex should decrease on Shift+Tab via complete(true).
+      await page.fill("[data-cli]", "c");
+      await page.waitForTimeout(80);
+      await page.evaluate(() => {
+        window.NB_APP.state.candIndex = 1;
+        window.NB_APP.render(true);
+      });
+      await page.keyboard.press("Shift+Tab");
+      await page.waitForTimeout(80);
+      const idx = await page.evaluate(() => window.NB_APP.state.candIndex);
+      return idx === 0 || log("Shift+Tab candIndex: " + idx);
+    },
+  },
+  {
     name: "slash: /go completes and navigates in agent chat",
     run: async (page, log) => {
       // Ensure ai mode (default), type a slash command with intellisense.
       await page.keyboard.type("/go bug");
       await page.waitForTimeout(120);
       const menu = await page.evaluate(() => ({
-        open: document.querySelector(".cn-panel")?.dataset.open,
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
         kinds: Array.from(document.querySelectorAll(".cn-cand")).slice(0, 5)
           .map((c) => c.textContent),
         hasSlash: Array.from(document.querySelectorAll(".cn-cand span"))
@@ -764,8 +2409,245 @@ const CASES = [
       await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
       const out = await page.evaluate(() => document.querySelector(".cn-out")?.textContent || "");
-      return (/\/go/.test(out) && /\/sort/.test(out) && /\/whoami/.test(out)) ||
-        log("help missing verbs: " + out.slice(0, 160));
+      if (!(/\/go/.test(out) && /\/sort/.test(out) && /\/whoami/.test(out) && /\/mode/.test(out) && /\/act/.test(out))) {
+        return log("help missing verbs: " + out.slice(0, 160));
+      }
+      if (/\/ai\b/.test(out) || /\/cli\b/.test(out) || /\/theme\b/.test(out) ||
+          /\/reply\b/.test(out) || /\/voice\b/.test(out) || /\/keys\b/.test(out) ||
+          /\/channel\b/.test(out) || /\/project\b/.test(out)) {
+        return log("context/hotkey slash must not appear in /help: " + out.slice(0, 280));
+      }
+      // Aliases share a row with their primary (not separate "alias of" lines).
+      if (!/\/dm,\s*\/msg/.test(out) && !/\/msg,\s*\/dm/.test(out)) {
+        return log("dm aliases not grouped: " + out.slice(0, 220));
+      }
+      if (/alias of \/dm/i.test(out)) return log("alias listed separately: " + out.slice(0, 220));
+      return true;
+    },
+  },
+  {
+    name: "slash: /mode ai|cli; /ai /cli agent-only; prompt_mode tool",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = true;
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/mode ");
+      await page.waitForTimeout(100);
+      const modeArgs = await page.evaluate(() =>
+        Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim()));
+      if (!(modeArgs.includes("ai") && modeArgs.includes("cli"))) {
+        return log("/mode args missing: " + modeArgs.join(","));
+      }
+      await page.fill("[data-cli]", "/mode cli");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      let mode = await page.evaluate(() => ({
+        ai: window.NB_APP.state.ai,
+        chip: document.querySelector(".cn-mode")?.textContent?.trim(),
+      }));
+      if (mode.ai !== false || mode.chip !== "cli") {
+        return log("/mode cli failed: " + JSON.stringify(mode));
+      }
+      // Agent-facing /ai /theme /reply still resolve, but are not in SLASH_COMMANDS.
+      const agentOnly = await page.evaluate(() => {
+        const names = (window.NB_COMPLETE.SLASH_COMMANDS || []).map((c) => c.name);
+        const agent = (window.NB_COMPLETE.AGENT_SLASH_COMMANDS || []).map((c) => c.name);
+        return {
+          catalogueHas: ["/ai", "/cli", "/theme", "/reply", "/voice", "/keys", "/channel", "/project"]
+            .filter((n) => names.includes(n)),
+          agentHasReply: agent.includes("/reply") && agent.includes("/voice"),
+          specAct: !!(window.NB_COMPLETE.slashSpec && window.NB_COMPLETE.slashSpec("/act")),
+          specReply: !!(window.NB_COMPLETE.slashSpec && window.NB_COMPLETE.slashSpec("/reply")),
+        };
+      });
+      if (agentOnly.catalogueHas.length) {
+        return log("context verbs still in SLASH_COMMANDS: " + agentOnly.catalogueHas.join(","));
+      }
+      if (!(agentOnly.agentHasReply && agentOnly.specAct && agentOnly.specReply)) {
+        return log("act/agent slash missing: " + JSON.stringify(agentOnly));
+      }
+      await page.fill("[data-cli]", "/ai");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      mode = await page.evaluate(() => window.NB_APP.state.ai);
+      if (mode !== true) return log("/ai agent path did not switch: " + mode);
+      // WebMCP prompt_mode tool.
+      const tool = await page.evaluate(async () => {
+        const tools = (window.NB_MCP && window.NB_MCP.list()) || [];
+        const has = tools.some((t) => t.name === "prompt_mode");
+        if (!has) return { err: "no prompt_mode tool", names: tools.map((t) => t.name).slice(0, 20) };
+        const res = await window.NB_MCP.call("prompt_mode", { mode: "cli" });
+        return {
+          ok: !res.isError,
+          text: (res.content && res.content[0] && res.content[0].text) || "",
+          ai: window.NB_APP.state.ai,
+        };
+      });
+      if (tool.err) return log(tool.err + " " + JSON.stringify(tool.names));
+      if (!(tool.ok && tool.ai === false)) return log("prompt_mode failed: " + JSON.stringify(tool));
+      return true;
+    },
+  },
+  {
+    name: "slash: /act is context-dependent; reply/voice not in static catalogue",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = true;
+        const list = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
+        const ix = list.findIndex((e) => e && e.post);
+        if (ix >= 0) window.NB_APP.state.cursor = ix;
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/act ");
+      await page.waitForTimeout(100);
+      const caps = await page.evaluate(() =>
+        Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim()));
+      if (!caps.includes("reply")) {
+        return log("/act on a post should offer reply: " + caps.join(","));
+      }
+      if (!caps.includes("share")) return log("/act should offer share: " + caps.join(","));
+      await page.fill("[data-cli]", "/act reply");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const armed = await page.evaluate(() => {
+        const ctx = window.NB_APP.composeContext?.() || {};
+        return {
+          kind: ctx.kind,
+          who: ctx.who,
+          label: document.querySelector(".cn-compose, .cn-ctx")?.textContent || "",
+        };
+      });
+      if (armed.kind !== "reply") {
+        return log("/act reply did not arm: " + JSON.stringify(armed));
+      }
+      // Static catalogue must not list /reply.
+      await page.evaluate(() => { window.NB_APP.clearReplyTo?.(); });
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/");
+      await page.waitForTimeout(80);
+      const menu = await page.evaluate(() =>
+        Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim()));
+      if (menu.includes("/reply") || menu.includes("/voice")) {
+        return log("context verbs in static menu: " + menu.slice(0, 20).join(","));
+      }
+      // At /projects, /act offers project.
+      await go(page, "/projects");
+      await page.waitForTimeout(80);
+      const projCaps = await page.evaluate(() => {
+        return (window.NB_COMPLETE.actCapabilities({
+          cwd: window.NB_APP.state.path,
+          extra: window.NB_APP.state.merged,
+        }) || []).map((c) => c.value);
+      });
+      if (!projCaps.includes("project")) {
+        return log("/act at /projects should offer project: " + projCaps.join(","));
+      }
+      return true;
+    },
+  },
+  {
+    name: "slash: terminal CLI verbs are not agent slash commands",
+    run: async (page, log) => {
+      await page.evaluate(() => { window.NB_APP.state.ai = true; });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/help");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const out = await page.evaluate(() => document.querySelector(".cn-out")?.textContent || "");
+      const banned = ["/ls", "/cd", "/cat", "/grep", "/find", "/tail", "/stat", "/clear", "/watch", "/load"];
+      const leaked = banned.filter((v) => out.includes(v + " ") || out.includes(v + "\n") ||
+        new RegExp("(^|\\n)" + v.replace("/", "\\/") + "(\\s|$)").test(out));
+      if (leaked.length) return log("terminal verbs in slash help: " + leaked.join(",") + " :: " + out.slice(0, 220));
+      // Catalogue itself must not offer them while typing /
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/");
+      await page.waitForTimeout(100);
+      const cands = await page.evaluate(() =>
+        Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim()));
+      const leakedCands = banned.filter((v) => cands.includes(v));
+      if (leakedCands.length) return log("slash menu lists terminal verbs: " + leakedCands.join(","));
+      if (!cands.some((c) => c === "/go" || c.startsWith("/go,")) ||
+          !cands.some((c) => c === "/search" || c.startsWith("/search,"))) {
+        return log("expected agent verbs missing: " + cands.slice(0, 12).join(","));
+      }
+      // Aliases collapse into one catalogue row.
+      if (!cands.some((c) => /\/dm/.test(c) && /\/msg/.test(c))) {
+        return log("dm/msg should be one row: " + cands.join(","));
+      }
+      if (cands.includes("/msg")) return log("bare /msg still listed: " + cands.join(","));
+      return true;
+    },
+  },
+  {
+    name: "cli: autocomplete ghost preview + syntax highlight while typing",
+    run: async (page, log) => {
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("cd pro", { delay: 20 });
+      await page.waitForTimeout(120);
+      const ui = await page.evaluate(() => {
+        const mirror = document.querySelector("[data-cli-mirror], .cn-cli-mirror, [data-ghost]");
+        const ghost = document.querySelector(".cn-ghost-rest, [data-ghost-rest]");
+        const kw = document.querySelector(".cn-input-wrap .nb-tok-kw, .cn-cli-mirror .nb-tok-kw, [data-cli-mirror] .nb-tok-kw");
+        const pathTok = document.querySelector(
+          ".cn-input-wrap .nb-tok-path, .cn-input-wrap .nb-tok-str, .cn-cli-mirror .nb-tok-path, .cn-cli-mirror .nb-tok-str",
+        );
+        const ghostText = (ghost?.textContent || mirror?.textContent || "");
+        const candOpen = document.querySelector(".cn-tui-foot")?.dataset.open === "true";
+        const cands = Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent);
+        return {
+          ghostText,
+          hasKw: !!kw,
+          hasPathTok: !!pathTok,
+          candOpen,
+          cands: cands.slice(0, 6),
+          value: document.querySelector("[data-cli]")?.value || "",
+          mirrorHtml: mirror?.innerHTML?.slice(0, 240) || "",
+        };
+      });
+      if (ui.value !== "cd pro") return log("value drifted: " + JSON.stringify(ui));
+      // Preview should extend toward projects (ghost suffix or candidate list).
+      const previewOk = /jects/i.test(ui.ghostText) || ui.cands.some((c) => /projects/i.test(c));
+      if (!previewOk) return log("no projects preview: " + JSON.stringify(ui));
+      if (!ui.hasKw) return log("command verb not syntax-highlighted: " + JSON.stringify(ui));
+      if (!ui.hasPathTok) return log("path arg not syntax-highlighted: " + JSON.stringify(ui));
+      return true;
+    },
+  },
+  {
+    name: "cli: command-name ghost preview while typing a verb",
+    run: async (page, log) => {
+      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("hel", { delay: 25 });
+      await page.waitForTimeout(100);
+      const ui = await page.evaluate(() => {
+        const mirror = document.querySelector("[data-cli-mirror], .cn-cli-mirror, [data-ghost]");
+        const rest = document.querySelector(".cn-ghost-rest, [data-ghost-rest]");
+        return {
+          value: document.querySelector("[data-cli]")?.value || "",
+          ghost: rest?.textContent || "",
+          mirror: mirror?.textContent || "",
+          hasKw: !!document.querySelector(".cn-input-wrap .nb-tok-kw, [data-cli-mirror] .nb-tok-kw"),
+        };
+      });
+      if (ui.value !== "hel") return log("value " + ui.value);
+      const preview = ui.ghost || ui.mirror;
+      if (!/p\s*$/i.test(preview) && !/help/i.test(preview)) {
+        return log("no help ghost: " + JSON.stringify(ui));
+      }
+      return true;
     },
   },
   {
@@ -774,16 +2656,23 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(120);
       const before = await page.evaluate(() => document.querySelectorAll(".cn-comment").length);
-      // Named projection: needs review.
-      await page.click('[data-feed-view="needs-review"]');
-      await page.waitForTimeout(150);
-      const mid = await page.evaluate(() => ({
-        n: document.querySelectorAll(".cn-comment").length,
-        q: window.NB_APP.state.feedQuery,
-        view: window.NB_APP.state.feedView,
-        match: document.querySelector(".cn-feed-match")?.textContent || "",
-        err: window.NB_APP.state.feedQueryError,
-      }));
+      // Named projection: pin via API (same as [+] picker) then apply.
+      const mid = await page.evaluate(async () => {
+        window.NB_APP.state.feedPinnedViews = ["needs-review"];
+        window.NB_APP.applyFeedView("needs-review");
+        await new Promise((r) => setTimeout(r, 40));
+        return {
+          n: document.querySelectorAll(".cn-comment").length,
+          q: window.NB_APP.state.feedQuery,
+          view: window.NB_APP.state.feedView,
+          match: document.querySelector(".cn-feed-match")?.textContent || "",
+          err: window.NB_APP.state.feedQueryError,
+          chip: !!document.querySelector('[data-feed-view="needs-review"]'),
+          bar: !!document.querySelector(".cn-feed-bar"),
+        };
+      });
+      if (!mid.bar) return log("no feed bar on channel: " + JSON.stringify(mid));
+      if (!mid.chip) return log("needs-review chip missing after pin: " + JSON.stringify(mid));
       if (mid.view !== "needs-review" || !/needs-review/.test(mid.q || "")) {
         return log("chip failed: " + JSON.stringify(mid));
       }
@@ -791,17 +2680,20 @@ const CASES = [
       if (!(mid.n > 0 && mid.n <= before)) return log("filter count odd: " + mid.n + " of " + before);
 
       // Free-form: who:scout
-      await page.fill("[data-feed-query]", "who:scout sort:new");
-      await page.click("[data-feed-query-run]");
-      await page.waitForTimeout(150);
-      const scout = await page.evaluate(() => {
+      const scout = await page.evaluate(async () => {
+        const q = document.querySelector("[data-feed-query]");
+        if (q) {
+          q.value = "who:scout sort:new";
+          q.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        window.NB_APP.setFeedQuery("who:scout sort:new", "custom");
+        await new Promise((r) => setTimeout(r, 40));
         const whos = Array.from(document.querySelectorAll('.cn-comment [data-c="handle"]'))
           .map((el) => el.textContent);
         return {
           q: window.NB_APP.state.feedQuery,
           n: document.querySelectorAll(".cn-comment").length,
           whos,
-          // Ancestors of scout hits may appear (lea/nora) for tree coherence.
           hasScout: whos.some((w) => w === "scout"),
         };
       });
@@ -818,6 +2710,85 @@ const CASES = [
       }));
       if (anch.q !== "has:anchor") return log("/view failed: " + JSON.stringify(anch));
       return anch.hasAnchor >= 1 || log("no anchors after has:anchor: " + anch.n);
+    },
+  },
+  {
+    name: "search: CLI Lucene across board with color marks + autocomplete",
+    run: async (page, log) => {
+      await go(page, "/");
+      await page.evaluate(() => { window.NB_APP.state.ai = false; });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      // Autocomplete field suggestions for `search who:`
+      await page.type("[data-cli]", "search who:", { delay: 15 });
+      await page.waitForTimeout(120);
+      const ac = await page.evaluate(() => {
+        const cands = Array.from(document.querySelectorAll(".cn-cand")).map((c) => c.textContent);
+        return {
+          open: document.querySelector(".cn-tui-foot")?.dataset.open,
+          hasScout: cands.some((t) => /scout/i.test(t)),
+          sample: cands.slice(0, 6),
+        };
+      });
+      if (!ac.hasScout && ac.open !== "true") {
+        return log("no who: autocomplete: " + JSON.stringify(ac));
+      }
+      await page.fill("[data-cli]", "");
+      await page.type("[data-cli]", "search body:cache", { delay: 10 });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const out = await page.evaluate(() => {
+        const marks = document.querySelectorAll(".cn-search-mark").length;
+        const hits = document.querySelectorAll(".cn-search-hit").length;
+        const head = document.querySelector(".cn-search-head")?.textContent || "";
+        const text = document.querySelector(".cn-out")?.textContent || "";
+        return { marks, hits, head, hasCache: /cache/i.test(text) };
+      });
+      if (!(out.hits >= 1)) return log("no search hits: " + JSON.stringify(out));
+      if (!(out.marks >= 1)) return log("no color marks: " + JSON.stringify(out));
+      if (!out.hasCache) return log("cache missing from results: " + out.head);
+      return true;
+    },
+  },
+  {
+    name: "search: /search slash + board_search MCP tool (AI skill)",
+    run: async (page, log) => {
+      await go(page, "/");
+      await page.evaluate(() => { window.NB_APP.state.ai = true; });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "");
+      await page.type("[data-cli]", "/search state:needs-review", { delay: 10 });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const slash = await page.evaluate(() => ({
+        hits: document.querySelectorAll(".cn-search-hit").length,
+        head: document.querySelector(".cn-search-head")?.textContent || "",
+        listed: window.NB_MCP.list().some((t) => t.name === "board_search"),
+        skill: (window.NB_DATA.agents.board || [])
+          .some((a) => (a.skills || []).some((s) => s.id === "board-search")),
+      }));
+      if (!slash.listed) return log("board_search not registered");
+      if (!slash.skill) return log("board-search skill missing on Space Steward");
+      if (!(slash.hits >= 1)) return log("/search no hits: " + JSON.stringify(slash));
+
+      // AI tool path — natural language would call this; invoke directly.
+      const tool = await page.evaluate(async () => {
+        const before = document.querySelectorAll(".cn-search-hit").length;
+        const res = await window.NB_MCP.call("board_search", { query: "who:scout" });
+        await new Promise((r) => setTimeout(r, 40));
+        const text = (res.content && res.content[0] && res.content[0].text) || "";
+        return {
+          err: !!res.isError,
+          text: text.slice(0, 120),
+          hits: document.querySelectorAll(".cn-search-hit").length,
+          grew: document.querySelectorAll(".cn-search-hit").length > before,
+          hasScout: /scout/i.test(text),
+        };
+      });
+      if (tool.err) return log("board_search failed: " + tool.text);
+      if (!tool.hasScout) return log("tool text missed scout: " + tool.text);
+      if (!tool.grew && !(tool.hits >= 1)) return log("tool did not paint hits: " + JSON.stringify(tool));
+      return true;
     },
   },
   {
@@ -971,6 +2942,18 @@ const CASES = [
       if (before.n < 2 || !before.hasPlus1 || !before.hasEyes || before.adders < 1) {
         return log("seed pills missing: " + JSON.stringify(before));
       }
+      // Chrome is ASCII marks — no emoji glyphs in reaction pills.
+      const asciiReact = await page.evaluate(() => {
+        const marks = Array.from(document.querySelectorAll(".cn-react-mark"))
+          .map((el) => el.textContent || "");
+        return {
+          marks: marks.slice(0, 8),
+          allAscii: marks.every((m) => /^[\x20-\x7e]+$/.test(m)),
+        };
+      });
+      if (!asciiReact.allAscii) {
+        return log("emoji in reactions: " + JSON.stringify(asciiReact));
+      }
       // Open picker on first comment with a + control.
       await page.click("[data-react-pick]");
       await page.waitForTimeout(100);
@@ -1029,23 +3012,98 @@ const CASES = [
       if (!(inThread.tables >= 1 && inThread.hasHeader && inThread.hasBox && inThread.hasCold)) {
         return log("thread table missing: " + JSON.stringify(inThread));
       }
-      // /spaces prints a markdown table in the transcript.
-      await page.keyboard.type("/spaces");
-      await page.keyboard.press("Enter");
-      await page.waitForTimeout(200);
-      const out = await page.evaluate(() => {
-        const last = Array.from(document.querySelectorAll('.cn-line[data-kind="out"] .cn-body')).pop();
+      // Discord-flavoured marks on Scout's plan (underline, spoiler, quote).
+      const discord = await page.evaluate(() => {
+        const c = document.querySelector('.cn-comment[data-key="p3"]');
+        const u = c?.querySelector(".nb-md-u");
+        const spoiler = c?.querySelector("[data-spoiler]");
+        const quote = c?.querySelector(".nb-md-quote");
         return {
-          html: last?.innerHTML || "",
-          text: last?.textContent || "",
+          underline: u?.textContent || "",
+          spoiler: spoiler?.textContent || "",
+          spoilerOpen: spoiler?.getAttribute("aria-expanded"),
+          quote: quote?.textContent?.slice(0, 80) || "",
         };
       });
-      return (/nb-md-atable/.test(out.html) && /civic-workshop|agent-lab/.test(out.text)) ||
-        log("spaces table: " + out.text.slice(0, 120));
+      if (!/not/i.test(discord.underline) || !/cache wipe/i.test(discord.spoiler) ||
+          !/ship until/i.test(discord.quote) || discord.spoilerOpen !== "false") {
+        return log("discord marks missing: " + JSON.stringify(discord));
+      }
+      await page.click('.cn-comment[data-key="p3"] [data-spoiler]');
+      await page.waitForTimeout(80);
+      const revealed = await page.evaluate(() => {
+        const s = document.querySelector('.cn-comment[data-key="p3"] [data-spoiler]');
+        return s?.getAttribute("aria-expanded");
+      });
+      if (revealed !== "true") return log("spoiler did not open: " + revealed);
+
+      // Syntax-highlighted fence on Scout's plan post.
+      const syn = await page.evaluate(() => {
+        const pre = document.querySelector('.cn-comment-body .nb-md-pre[data-lang="typescript"]');
+        const toks = pre ? pre.querySelectorAll(".nb-tok").length : 0;
+        const kw = pre ? pre.querySelectorAll(".nb-tok-kw").length : 0;
+        const com = pre ? pre.querySelectorAll(".nb-tok-com").length : 0;
+        return {
+          pre: !!pre,
+          toks,
+          kw,
+          com,
+          text: pre?.textContent?.slice(0, 80) || "",
+          editorReady: typeof window.NB_SYNTAX?.highlight === "function",
+        };
+      });
+      if (!syn.editorReady) return log("NB_SYNTAX missing");
+      if (!syn.pre || syn.toks < 3 || syn.kw < 1) {
+        return log("fenced highlight missing: " + JSON.stringify(syn));
+      }
+
+      // Editor line highlighter (same NB_SYNTAX tokens as fences).
+      const ed = await page.evaluate(() => {
+        const buf = window.NB_EDITOR.open(
+          "agent.ts",
+          'import { defineAgent } from "eve";\n\n' +
+            "export default defineAgent({\n" +
+            '  model: "anthropic/claude-sonnet-4.6",\n' +
+            "});\n",
+          { name: "agent.ts", language: "typescript" },
+        );
+        const html = window.NB_EDITOR.render(buf, { focused: false, viewRows: 20 });
+        const div = document.createElement("div");
+        div.innerHTML = html;
+        return {
+          toks: div.querySelectorAll(".nb-ed-line .nb-tok-kw").length,
+          fn: div.querySelectorAll(".nb-ed-line .nb-tok-fn").length,
+          str: div.querySelectorAll(".nb-ed-line .nb-tok-str").length,
+          lang: div.querySelector(".nb-ed-chrome-lang")?.textContent || "",
+        };
+      });
+      if (!(ed.lang === "typescript" && ed.toks >= 2 && (ed.fn >= 1 || ed.str >= 1))) {
+        return log("editor highlight missing: " + JSON.stringify(ed));
+      }
+
+      // Spoiler click can steal focus — return to the prompt before slash.
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "");
+      // /space with no arg opens the spaces catalogue as a select list.
+      await page.type("[data-cli]", "/space", { delay: 10 });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const listed = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        keys: Array.from(document.querySelectorAll('[data-blade-path="/spaces"] .cn-item'))
+          .map((el) => el.getAttribute("data-key")),
+      }));
+      return (listed.path === "/spaces" &&
+          listed.keys.includes("civic-workshop") &&
+          listed.keys.includes("agent-lab")) ||
+        log("space select list: " + JSON.stringify(listed));
     },
   },
   {
-    name: "spaces: catalogue is relay+workspace+subreddit; hub has feed and relay",
+    name: "spaces: catalogue lists hubs; hub has feed channels projects about",
     run: async (page, log) => {
       await go(page, "/");
       const root = await page.evaluate(() =>
@@ -1061,13 +3119,18 @@ const CASES = [
         const keys = Array.from(document.querySelectorAll('[data-blade-path="/spaces/civic-workshop"] .cn-item'))
           .map((el) => el.getAttribute("data-key"));
         const ctx = document.querySelector(".cn-space-ctx")?.textContent || "";
-        return { keys, ctx, path: window.NB_APP.state.path };
+        const pageText = document.querySelector("[data-mount]")?.textContent || "";
+        return { keys, ctx, path: window.NB_APP.state.path, pageText };
       });
       if (hub.path !== "/spaces/civic-workshop") return log("hub path " + hub.path);
-      for (const need of ["feed", "channels", "relay", "about"]) {
+      for (const need of ["feed", "channels", "projects", "about"]) {
         if (!hub.keys.includes(need)) return log("hub missing " + need + ": " + hub.keys.join(","));
       }
-      if (!/r\/civic|subscribers|relay|nostr/i.test(hub.ctx)) {
+      if (hub.keys.includes("relay")) return log("relay must not be user-facing: " + hub.keys.join(","));
+      if (/relay\+workspace|subreddit|nostr/i.test(hub.ctx + hub.pageText)) {
+        return log("implementation framing leaked: " + (hub.ctx + hub.pageText).slice(0, 160));
+      }
+      if (!/r\/civic|members|guests/i.test(hub.ctx)) {
         return log("space context thin: " + hub.ctx.slice(0, 120));
       }
       await page.click('[data-blade-path="/spaces/civic-workshop"] .cn-item[data-key="feed"]');
@@ -1578,8 +3641,7 @@ const CASES = [
       await page.waitForTimeout(120);
       // Land on the file in the nav list; → should open detail + focus editor.
       const prepared = await page.evaluate(() => {
-        document.querySelector("[data-cli]")?.blur();
-        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.focusColumns();
         window.NB_APP.state.detailOpen = false;
         if (window.NB_APP.state.editor) window.NB_APP.state.editor.focused = false;
         const list = window.NB_MAP.list("/.agents/space-steward") || [];
@@ -1610,13 +3672,13 @@ const CASES = [
       if (!(after.hasEditor && after.focused)) {
         return log("→ did not activate editor: " + JSON.stringify(after));
       }
-      // Same for a channel post — → opens the message body in the editor.
+      // Channel post: → opens the thread; e opens the terminal editor.
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(100);
       const postPrep = await page.evaluate(() => {
-        document.querySelector("[data-cli]")?.blur();
-        window.NB_APP.state.columnFocus = true;
-        window.NB_APP.state.detailOpen = false;
+        window.NB_APP.focusColumns();
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.state.threadFocus = null;
         if (window.NB_APP.state.editor) window.NB_APP.state.editor.focused = false;
         const list = window.NB_MAP.list("/projects/community/channels/general") || [];
         const ix = list.findIndex((e) => e.post);
@@ -1624,11 +3686,20 @@ const CASES = [
         window.NB_APP.state.cursor = ix;
         window.NB_APP.state.focus = 0;
         window.NB_APP.render(true);
-        return { name: list[ix].name };
+        return { name: list[ix].name, id: list[ix].post.id };
       });
       if (postPrep.err) return log(postPrep.err);
       await page.waitForTimeout(80);
       await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(120);
+      const threadAfter = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        editor: !!(window.NB_APP.state.editor && window.NB_APP.state.editor.focused),
+      }));
+      if (!threadAfter.thread || threadAfter.editor) {
+        return log("→ into post should open thread: " + JSON.stringify(threadAfter));
+      }
+      await page.keyboard.press("e");
       await page.waitForTimeout(150);
       const postAfter = await page.evaluate(() => {
         const ed = document.querySelector("[data-editor]");
@@ -1640,7 +3711,7 @@ const CASES = [
         };
       });
       return (postAfter.hasEditor && postAfter.focused) ||
-        log("→ into post did not activate editor: " + JSON.stringify(postAfter));
+        log("e on post did not activate editor: " + JSON.stringify(postAfter));
     },
   },
   {
@@ -1956,7 +4027,84 @@ const CASES = [
         };
       });
       if (thread.isProfileCard) return log("still showing member profile card");
-      return thread.hasDm || thread.msgs >= 1 || log("dm thread missing: " + JSON.stringify(thread));
+      // Messages is the default pane; profile is a toggle.
+      const panes = await page.evaluate(() => {
+        const tabs = Array.from(document.querySelectorAll(".cn-person-tab")).map((el) => ({
+          id: el.getAttribute("data-person-pane"),
+          pressed: el.getAttribute("aria-pressed"),
+        }));
+        return {
+          pane: window.NB_APP.state.personPane || "messages",
+          tabs,
+          hasMessages: document.querySelectorAll(".cn-comment").length >= 1 ||
+            !!document.querySelector(".cn-empty"),
+          hasProfile: !!document.querySelector(".cn-person-profile"),
+        };
+      });
+      if (panes.pane !== "messages") return log("expected messages default: " + JSON.stringify(panes));
+      if (panes.tabs.map((t) => t.id).join(",") !== "messages,profile") {
+        return log("person tabs missing: " + JSON.stringify(panes.tabs));
+      }
+      if (panes.hasProfile) return log("profile should not show by default: " + JSON.stringify(panes));
+      return (thread.hasDm || thread.msgs >= 1 || panes.hasMessages) ||
+        log("dm thread missing: " + JSON.stringify({ thread, panes }));
+    },
+  },
+  {
+    name: "person: profile toggle shows GitHub-style bio in TUI",
+    run: async (page, log) => {
+      await go(page, "/dms/scout");
+      await page.waitForTimeout(100);
+      const before = await page.evaluate(() => ({
+        pane: window.NB_APP.state.personPane,
+        tabs: document.querySelectorAll(".cn-person-tab").length,
+        profile: !!document.querySelector(".cn-person-profile"),
+      }));
+      if (before.pane && before.pane !== "messages") {
+        return log("expected messages default: " + JSON.stringify(before));
+      }
+      if (before.tabs < 2) return log("no person tabs: " + JSON.stringify(before));
+      await page.click('.cn-person-tab[data-person-pane="profile"]');
+      await page.waitForTimeout(100);
+      const profile = await page.evaluate(() => {
+        const root = document.querySelector(".cn-person-profile");
+        return {
+          pane: window.NB_APP.state.personPane,
+          pressed: document.querySelector('.cn-person-tab[data-person-pane="profile"]')
+            ?.getAttribute("aria-pressed"),
+          hasProfile: !!root,
+          handle: root?.querySelector(".cn-person-handle")?.textContent || "",
+          bio: root?.querySelector(".cn-person-bio")?.textContent || "",
+          facts: Array.from(root?.querySelectorAll(".cn-person-fact-k") || [])
+            .map((el) => el.textContent || ""),
+          pins: Array.from(root?.querySelectorAll(".cn-person-pin-slug") || [])
+            .map((el) => el.textContent || ""),
+          cardClass: !!document.querySelector(".cn-profile-card, .cn-person-card"),
+        };
+      });
+      if (!(profile.pane === "profile" && profile.pressed === "true" && profile.hasProfile)) {
+        return log("profile did not open: " + JSON.stringify(profile));
+      }
+      if (!/@scout/.test(profile.handle)) return log("handle missing: " + profile.handle);
+      if (!/CHANGE|Supervised|maya/i.test(profile.bio)) {
+        return log("bio missing: " + profile.bio.slice(0, 120));
+      }
+      if (!profile.facts.includes("company") || !profile.facts.includes("joined")) {
+        return log("facts missing: " + profile.facts.join(","));
+      }
+      if (!profile.pins.some((p) => /civic\/tuner/i.test(p))) {
+        return log("pinned missing: " + profile.pins.join(","));
+      }
+      if (profile.cardClass) return log("profile used card chrome");
+      await page.click('.cn-person-tab[data-person-pane="messages"]');
+      await page.waitForTimeout(80);
+      const back = await page.evaluate(() => ({
+        pane: window.NB_APP.state.personPane,
+        profile: !!document.querySelector(".cn-person-profile"),
+        msgs: document.querySelectorAll(".cn-comment").length,
+      }));
+      return (back.pane === "messages" && !back.profile && back.msgs >= 1) ||
+        log("did not return to messages: " + JSON.stringify(back));
     },
   },
   {
@@ -2016,7 +4164,7 @@ const CASES = [
     },
   },
   {
-    name: "markers: # opens topics/channels; Enter accepts incomplete tag",
+    name: "markers: # opens topics/channels; Tab accepts incomplete tag",
     run: async (page, log) => {
       await page.keyboard.type("track #draft");
       await page.waitForTimeout(120);
@@ -2032,12 +4180,12 @@ const CASES = [
       if (!menu.cands.some((v) => v === "#draft-persistence")) {
         return log("topic missing: " + JSON.stringify(menu));
       }
-      // Enter accepts the incomplete marker (does not send yet).
-      await page.keyboard.press("Enter");
+      // Tab accepts the incomplete marker (Enter would submit/send).
+      await page.keyboard.press("Tab");
       await page.waitForTimeout(100);
       const val = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
       if (val !== "track #draft-persistence ") {
-        return log("after enter accept: " + JSON.stringify(val));
+        return log("after tab accept: " + JSON.stringify(val));
       }
       // Channel short-name also appears under #.
       await page.keyboard.type("#bu");
@@ -2048,20 +4196,40 @@ const CASES = [
     },
   },
   {
-    name: "speech: no mic when unsupported; mock enables PTT and Alt+V toggle",
+    name: "speech: mic always visible; gated until on-device model ready; PTT/Alt+V",
     run: async (page, log) => {
-      const before = await page.evaluate(() => ({
-        supported: window.NB_SPEECH?.isSupported?.(),
-        mic: !!document.querySelector("[data-speech-mic]"),
-      }));
-      if (!before.supported && before.mic) return log("mic shown without SpeechRecognition");
+      const before = await page.evaluate(() => {
+        const mic = document.querySelector("[data-speech-mic]");
+        return {
+          mic: !!mic,
+          ready: !!window.NB_APP.state.speech?.ready,
+          avail: window.NB_APP.state.speech?.availability,
+          dataReady: mic?.getAttribute("data-ready"),
+          tag: document.querySelector("[data-speech-tag]")?.textContent,
+        };
+      });
+      if (!before.mic) return log("mic missing before mock: " + JSON.stringify(before));
+      if (before.ready || before.dataReady === "true") {
+        return log("speech should not be ready without on-device model: " + JSON.stringify(before));
+      }
+      if (!before.tag || !/off|fetch|dl/i.test(before.tag)) {
+        return log("expected status tag when not ready: " + JSON.stringify(before));
+      }
 
-      // Install a mock engine the Web Speech feature-detect will pick up live.
+      // PTT must no-op while gated.
+      await page.keyboard.down("`");
+      await page.waitForTimeout(80);
+      const gated = await page.evaluate(() => window.NB_APP.state.speech.listening);
+      await page.keyboard.up("`");
+      if (gated) return log("PTT started before model ready");
+
+      // Install Edge-local mock: constructor + available/install.
       await page.evaluate(() => {
         class MockRec {
           continuous = false;
           interimResults = false;
           lang = "";
+          processLocally = false;
           onstart = null;
           onresult = null;
           onerror = null;
@@ -2069,17 +4237,28 @@ const CASES = [
           start() { if (this.onstart) this.onstart(); }
           stop() { if (this.onend) this.onend(); }
           abort() { if (this.onend) this.onend(); }
+          static async available() { return "available"; }
+          static async install() { return true; }
         }
         window.SpeechRecognition = MockRec;
         window.webkitSpeechRecognition = MockRec;
-        window.NB_APP.render(true);
+      });
+      await page.evaluate(async () => {
+        await window.NB_APP.warmSpeechModel();
       });
       await page.waitForTimeout(80);
-      const mic = await page.evaluate(() => ({
+      const ready = await page.evaluate(() => ({
         supported: window.NB_SPEECH.isSupported(),
+        ready: window.NB_APP.speechReady(),
+        avail: window.NB_APP.state.speech.availability,
         mic: !!document.querySelector("[data-speech-mic]"),
+        dataReady: document.querySelector("[data-speech-mic]")?.getAttribute("data-ready"),
+        tag: document.querySelector("[data-speech-tag]")?.textContent || "",
       }));
-      if (!mic.supported || !mic.mic) return log("mock did not enable mic: " + JSON.stringify(mic));
+      if (!ready.supported || !ready.ready || ready.avail !== "available" ||
+          ready.dataReady !== "true") {
+        return log("mock did not mark speech ready: " + JSON.stringify(ready));
+      }
 
       // Discord-style push-to-talk: hold `
       await page.keyboard.down("`");
@@ -2117,6 +4296,251 @@ const CASES = [
     },
   },
   {
+    name: "speech: downloadable model — mic shows fetch, install enables voice",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        window.__speechAvail = "downloadable";
+        class MockRec {
+          continuous = false;
+          interimResults = false;
+          lang = "";
+          processLocally = false;
+          onstart = null;
+          onresult = null;
+          onerror = null;
+          onend = null;
+          start() { if (this.onstart) this.onstart(); }
+          stop() { if (this.onend) this.onend(); }
+          abort() { if (this.onend) this.onend(); }
+          static async available() { return window.__speechAvail; }
+          static async install() {
+            window.__speechAvail = "available";
+            return true;
+          }
+        }
+        window.SpeechRecognition = MockRec;
+        window.webkitSpeechRecognition = MockRec;
+      });
+      await page.evaluate(async () => {
+        await window.NB_APP.warmSpeechModel();
+      });
+      await page.waitForTimeout(80);
+      const pending = await page.evaluate(() => ({
+        ready: window.NB_APP.speechReady(),
+        avail: window.NB_APP.state.speech.availability,
+        tag: document.querySelector("[data-speech-tag]")?.textContent,
+        title: document.querySelector("[data-speech-mic]")?.getAttribute("title") || "",
+      }));
+      if (pending.ready || pending.avail !== "downloadable" || pending.tag !== "fetch") {
+        return log("expected downloadable/fetch UI: " + JSON.stringify(pending));
+      }
+      if (!/download/i.test(pending.title)) {
+        return log("mic title should explain download: " + pending.title);
+      }
+
+      // Mic click (or any gesture) should fetch; drive via the same path the
+      // button uses so we don't race morph against Playwright's actionability.
+      await page.evaluate(async () => {
+        await window.NB_APP.fetchSpeechModel({ fromGesture: true });
+      });
+      const after = await page.evaluate(() => ({
+        ready: window.NB_APP.speechReady(),
+        avail: window.NB_APP.state.speech.availability,
+        dataReady: document.querySelector("[data-speech-mic]")?.getAttribute("data-ready"),
+        tag: document.querySelector("[data-speech-tag]")?.textContent || "",
+      }));
+      if (!(after.ready && after.avail === "available" && after.dataReady === "true")) {
+        return log("install did not enable voice: " + JSON.stringify(after));
+      }
+      return true;
+    },
+  },
+  {
+    name: "speech: voice commands — wake prefix, modes, what can I say",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        class MockRec {
+          continuous = false;
+          interimResults = false;
+          lang = "";
+          processLocally = false;
+          onstart = null;
+          onresult = null;
+          onerror = null;
+          onend = null;
+          start() { if (this.onstart) this.onstart(); }
+          stop() { if (this.onend) this.onend(); }
+          abort() { if (this.onend) this.onend(); }
+          static async available() { return "available"; }
+          static async install() { return true; }
+          emitFinal(text) {
+            if (this.onresult) {
+              this.onresult({
+                resultIndex: 0,
+                results: [{ isFinal: true, 0: { transcript: text }, length: 1 }],
+              });
+            }
+          }
+        }
+        window.__MockRec = MockRec;
+        window.SpeechRecognition = MockRec;
+        window.webkitSpeechRecognition = MockRec;
+      });
+      await page.evaluate(async () => {
+        await window.NB_APP.warmSpeechModel();
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(80);
+
+      // Cycle intent via Alt+Shift+V: default → dictation → commands → default.
+      const modes = [];
+      for (let i = 0; i < 3; i += 1) {
+        await page.keyboard.down("Alt");
+        await page.keyboard.down("Shift");
+        await page.keyboard.press("KeyV");
+        await page.keyboard.up("Shift");
+        await page.keyboard.up("Alt");
+        await page.waitForTimeout(60);
+        modes.push(await page.evaluate(() => window.NB_APP.state.speech.intent));
+      }
+      if (modes.join(",") !== "dictation,commands,default") {
+        return log("intent cycle: " + modes.join(","));
+      }
+
+      // Chip click cycles too.
+      const chip = await page.evaluate(() => !!document.querySelector("[data-voice-intent]"));
+      if (!chip) return log("voice intent chip missing");
+      await page.click("[data-voice-intent]");
+      await page.waitForTimeout(60);
+      const afterChip = await page.evaluate(() => window.NB_APP.state.speech.intent);
+      if (afterChip !== "dictation") return log("chip cycle expected dictation, got " + afterChip);
+
+      // Reset to default and speak a wake-prefixed command.
+      await page.evaluate(() => window.NB_APP.setSpeechIntent("default"));
+      await page.evaluate(() => {
+        // Force a fresh engine so MockRec is used.
+        window.NB_APP.state.speech.listening = false;
+      });
+      // Start listen, then inject a final via a direct handleSpeechFinal (stable without racing rec).
+      const nav = await page.evaluate(() => {
+        const before = window.NB_APP.state.path;
+        window.NB_APP.handleSpeechFinal("computer go to projects");
+        return { before, after: window.NB_APP.state.path };
+      });
+      if (!String(nav.after).includes("projects")) {
+        return log("wake command did not navigate: " + JSON.stringify(nav));
+      }
+
+      // Dictation mode types text instead of navigating.
+      await page.evaluate(() => {
+        window.NB_APP.setSpeechIntent("dictation");
+        window.NB_APP.handleSpeechFinal("clear prompt");
+        window.NB_APP.handleSpeechFinal("hello from voice");
+      });
+      const typed = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
+      if (!/hello from voice/i.test(typed)) {
+        return log("dictation did not type: " + typed);
+      }
+
+      // Commands mode rejects unknown; help lists grammar.
+      await page.evaluate(() => {
+        window.NB_APP.setSpeechIntent("commands");
+        window.NB_APP.handleSpeechFinal("what can I say");
+      });
+      await page.waitForTimeout(80);
+      const help = await page.evaluate(() => {
+        const lines = (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n");
+        return { hasGo: /go to/i.test(lines), hasWake: /computer/i.test(lines) };
+      });
+      if (!help.hasGo || !help.hasWake) return log("what can I say missing: " + JSON.stringify(help));
+      return true;
+    },
+  },
+  {
+    name: "voice: lounge join dock, mute, PTT mode, leave (mocked mic)",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/lounge");
+      await page.waitForTimeout(120);
+      const room = await page.evaluate(() => ({
+        join: !!document.querySelector("[data-voice-join]"),
+        path: window.NB_APP.state.path,
+        supported: window.NB_VOICE?.isSupported?.(),
+      }));
+      if (!room.join) return log("Join Voice missing on lounge: " + JSON.stringify(room));
+      if (!room.supported) {
+        // Chromium in CI always has RTCPeerConnection; fail loud if not.
+        return log("WebRTC unsupported in test browser");
+      }
+
+      await page.evaluate(() => {
+        const track = {
+          kind: "audio",
+          enabled: true,
+          stop() { this.enabled = false; },
+          addEventListener() {},
+          removeEventListener() {},
+        };
+        const stream = {
+          getTracks() { return [track]; },
+          getAudioTracks() { return [track]; },
+          getVideoTracks() { return []; },
+        };
+        navigator.mediaDevices.getUserMedia = async () => stream;
+      });
+
+      await page.click("[data-voice-join]");
+      await page.waitForTimeout(200);
+      const joined = await page.evaluate(() => ({
+        dock: !!document.querySelector(".cn-voice-dock"),
+        voice: { ...window.NB_APP.state.voice },
+        mute: document.querySelector("[data-voice-mute]")?.textContent,
+      }));
+      if (!joined.dock || !joined.voice.joined || joined.voice.channelId !== "lounge") {
+        return log("join failed: " + JSON.stringify(joined));
+      }
+
+      await page.click("[data-voice-mute]");
+      await page.waitForTimeout(80);
+      const muted = await page.evaluate(() => window.NB_APP.state.voice.muted);
+      if (!muted) return log("mute did not stick");
+
+      await page.click('[data-voice-input="ptt"]');
+      await page.waitForTimeout(80);
+      const mode = await page.evaluate(() => window.NB_APP.state.voice.inputMode);
+      if (mode !== "ptt") return log("expected ptt mode, got " + mode);
+
+      // Channel-voice PTT owns ` — should not start speech listening.
+      await page.keyboard.down("`");
+      await page.waitForTimeout(80);
+      const ptt = await page.evaluate(() => ({
+        speech: window.NB_APP.state.speech?.listening,
+        speaking: window.NB_APP.state.voice.speaking,
+      }));
+      await page.keyboard.up("`");
+      if (ptt.speech) return log("voice PTT leaked into speech: " + JSON.stringify(ptt));
+
+      await page.click("[data-voice-leave]");
+      await page.waitForTimeout(120);
+      const left = await page.evaluate(() => ({
+        joined: window.NB_APP.state.voice.joined,
+        dock: !!document.querySelector(".cn-voice-dock"),
+      }));
+      if (left.joined || left.dock) return log("leave failed: " + JSON.stringify(left));
+
+      // Slash path
+      await page.evaluate(async () => {
+        await window.NB_APP.runVoiceCommand("join standup");
+      });
+      await page.waitForTimeout(150);
+      const viaSlash = await page.evaluate(() => window.NB_APP.state.voice);
+      if (!viaSlash.joined || viaSlash.channelId !== "standup") {
+        return log("slash join failed: " + JSON.stringify(viaSlash));
+      }
+      await page.evaluate(async () => { await window.NB_APP.leaveVoice(); });
+      return true;
+    },
+  },
+  {
     name: "markers: bare @ in ai mode lists members (not slash commands)",
     run: async (page, log) => {
       // Ensure ai mode so slash preference is on — markers must still win.
@@ -2139,13 +4563,107 @@ const CASES = [
     },
   },
   {
+    name: "grid-road: idle shimmer until click toggles motion",
+    run: async (page, log) => {
+      await page.waitForSelector("[data-gridroad]");
+      const idle = await page.evaluate(() => {
+        const el = document.querySelector("[data-gridroad]");
+        return {
+          present: !!el,
+          moving: el?.dataset.moving,
+          pressed: el?.getAttribute("aria-pressed"),
+          api: typeof window.NB_GRIDROAD?.isMoving === "function"
+            ? window.NB_GRIDROAD.isMoving()
+            : null,
+        };
+      });
+      if (!idle.present) return log("canvas missing");
+      if (idle.moving !== "false" || idle.pressed !== "false" || idle.api !== false) {
+        return log("should start idle: " + JSON.stringify(idle));
+      }
+      await page.click("[data-gridroad]", { force: true });
+      await page.waitForTimeout(60);
+      const on = await page.evaluate(() => ({
+        moving: document.querySelector("[data-gridroad]")?.dataset.moving,
+        pressed: document.querySelector("[data-gridroad]")?.getAttribute("aria-pressed"),
+        api: window.NB_GRIDROAD?.isMoving?.() ?? null,
+      }));
+      if (on.moving !== "true" || on.pressed !== "true" || on.api !== true) {
+        return log("click did not start motion: " + JSON.stringify(on));
+      }
+      await page.click("[data-gridroad]", { force: true });
+      await page.waitForTimeout(60);
+      const off = await page.evaluate(() => ({
+        moving: document.querySelector("[data-gridroad]")?.dataset.moving,
+        api: window.NB_GRIDROAD?.isMoving?.() ?? null,
+      }));
+      if (off.moving !== "false" || off.api !== false) {
+        return log("click did not pause: " + JSON.stringify(off));
+      }
+      return true;
+    },
+  },
+  {
+    name: "keys cue: always visible on status; click opens cheatsheet",
+    run: async (page, log) => {
+      // After a transient status message, the cue must still be present.
+      await page.evaluate(() => window.NB_APP.status("loaded 3 new posts"));
+      await page.waitForTimeout(40);
+      const cue = await page.evaluate(() => {
+        const el = document.querySelector("[data-keys-open]");
+        const status = document.querySelector("[data-region='status']");
+        const rect = el && el.getBoundingClientRect();
+        return {
+          present: !!el,
+          text: el?.textContent?.replace(/\s+/g, " ").trim() || "",
+          open: el?.dataset.open,
+          pressed: el?.getAttribute("aria-pressed"),
+          inStatus: !!(el && status && status.contains(el)),
+          visible: !!(rect && rect.width > 0 && rect.height > 0),
+          statusText: document.querySelector("[data-status-line]")?.textContent || "",
+        };
+      });
+      if (!cue.present || !cue.inStatus || !cue.visible) {
+        return log("cue missing: " + JSON.stringify(cue));
+      }
+      if (!/Ctrl\+Space/i.test(cue.text) || !/keys/i.test(cue.text)) {
+        return log("cue label wrong: " + cue.text);
+      }
+      if (cue.open === "true") return log("cue should start closed: " + JSON.stringify(cue));
+      // Transient status must not wipe the cue (only the status-line span).
+      if (!/loaded 3/.test(cue.statusText)) return log("status line not set: " + cue.statusText);
+
+      await page.click("[data-keys-open]");
+      await page.waitForTimeout(150);
+      const opened = await page.evaluate(() => ({
+        help: document.querySelector(".cn-help")?.dataset.open,
+        intel: window.NB_APP.state.intelOpen,
+        cueOpen: document.querySelector("[data-keys-open]")?.dataset.open,
+        pressed: document.querySelector("[data-keys-open]")?.getAttribute("aria-pressed"),
+      }));
+      if (!(opened.help === "true" && opened.intel && opened.cueOpen === "true" && opened.pressed === "true")) {
+        return log("click did not open: " + JSON.stringify(opened));
+      }
+      await page.click("[data-keys-open]");
+      await page.waitForTimeout(100);
+      const closed = await page.evaluate(() => ({
+        help: document.querySelector(".cn-help")?.dataset.open,
+        intel: window.NB_APP.state.intelOpen,
+        cueOpen: document.querySelector("[data-keys-open]")?.dataset.open,
+      }));
+      return (closed.help === "false" && !closed.intel && closed.cueOpen === "false") ||
+        log("click did not toggle closed: " + JSON.stringify(closed));
+    },
+  },
+  {
     name: "Ctrl+Space opens intellisense and the hotkey cheatsheet",
     run: async (page, log) => {
       await page.keyboard.press("Control+Space");
       await page.waitForTimeout(150);
       const open = await page.evaluate(() => ({
         help: document.querySelector(".cn-help")?.dataset.open,
-        menu: document.querySelector(".cn-panel")?.dataset.open,
+        menu: document.querySelector(".cn-tui-foot")?.dataset.open ||
+          document.querySelector(".cn-prompt-stack")?.closest("[data-open]")?.dataset.open,
         cands: document.querySelectorAll(".cn-cand").length,
         intel: window.NB_APP.state.intelOpen,
         focused: document.activeElement === document.querySelector("[data-cli]"),
@@ -2163,43 +4681,249 @@ const CASES = [
     },
   },
   {
-    name: "cheatsheet scopes to active workspace surfaces",
+    name: "cheatsheet scopes to the focused component",
     run: async (page, log) => {
-      // From a channel with a thread: sheet must name the path and Thread group.
+      // Prompt focus → Prompt group only (plus this sheet).
+      await go(page, "/");
+      await page.click("[data-cli]");
+      await page.waitForTimeout(40);
+      await page.keyboard.press("Control+Space");
+      await page.waitForTimeout(150);
+      const onPrompt = await page.evaluate(() => {
+        const titles = Array.from(document.querySelectorAll(".cn-help-group h3")).map((h) => h.textContent);
+        const ctx = window.NB_APP.state.helpCtx;
+        return { titles, context: ctx?.context, focus: ctx?.focus };
+      });
+      if (onPrompt.context !== "prompt") return log("prompt ctx: " + JSON.stringify(onPrompt));
+      if (!onPrompt.titles.includes("Prompt") || onPrompt.titles.includes("Navigation") ||
+          onPrompt.titles.includes("Thread") || onPrompt.titles.includes("Blades")) {
+        return log("prompt sheet wrong: " + onPrompt.titles.join(","));
+      }
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(80);
+
+      // Nav focus on a channel path → Navigation, not Thread/Prompt.
       await go(page, "/projects/community/channels/general");
-      await page.keyboard.press("Escape"); // columns focus
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(80);
+      await page.keyboard.press("Control+Space");
+      await page.waitForTimeout(150);
+      const onNav = await page.evaluate(() => {
+        const titles = Array.from(document.querySelectorAll(".cn-help-group h3")).map((h) => h.textContent);
+        const chips = Array.from(document.querySelectorAll(".cn-help-chip")).map((c) => c.textContent);
+        const ctx = window.NB_APP.state.helpCtx;
+        return { titles, chips, context: ctx?.context, focus: ctx?.focus, path: ctx?.path };
+      });
+      if (onNav.context !== "nav" || onNav.focus !== "columns") {
+        return log("nav ctx: " + JSON.stringify(onNav));
+      }
+      if (!onNav.titles.includes("Navigation") || onNav.titles.includes("Prompt") ||
+          onNav.titles.includes("Thread")) {
+        return log("nav sheet wrong: " + onNav.titles.join(","));
+      }
+      if (!onNav.chips.some((c) => c.includes("/projects/community/channels/general"))) {
+        return log("chips missing path: " + onNav.chips.join("|"));
+      }
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(80);
+
+      // Detail focus on the same channel → Thread keys.
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 1;
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.render(true);
+      });
       await page.waitForTimeout(80);
       await page.keyboard.press("Control+Space");
       await page.waitForTimeout(150);
       const onThread = await page.evaluate(() => {
-        const chips = Array.from(document.querySelectorAll(".cn-help-chip")).map((c) => c.textContent);
         const titles = Array.from(document.querySelectorAll(".cn-help-group h3")).map((h) => h.textContent);
         const ctx = window.NB_APP.state.helpCtx;
-        return { chips, titles, focus: ctx?.focus, hasThread: ctx?.hasThread, path: ctx?.path };
+        return { titles, context: ctx?.context, hasThread: ctx?.hasThread };
       });
-      if (!onThread.hasThread || onThread.path !== "/projects/community/channels/general") {
-        return log("ctx wrong: " + JSON.stringify(onThread));
+      if (onThread.context !== "thread" || !onThread.titles.includes("Thread")) {
+        return log("thread sheet wrong: " + JSON.stringify(onThread));
       }
-      if (!onThread.titles.includes("Thread")) return log("missing Thread: " + onThread.titles.join(","));
-      if (!onThread.chips.some((c) => c.includes("/projects/community/channels/general"))) {
-        return log("chips missing path: " + onThread.chips.join("|"));
+      if (onThread.titles.includes("Prompt") || onThread.titles.includes("Navigation")) {
+        return log("thread should be alone: " + onThread.titles.join(","));
       }
-      // Columns focus should be frozen in helpCtx even though intel focused the prompt.
-      if (onThread.focus !== "columns") return log("expected columns focus freeze, got " + onThread.focus);
       await page.keyboard.press("Escape");
       await page.waitForTimeout(80);
-      // Root board has no comment tree — Thread group must drop.
-      await go(page, "/");
+
+      // DM detail → Messages.
+      await go(page, "/dms/scout");
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 1;
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(80);
       await page.keyboard.press("Control+Space");
       await page.waitForTimeout(150);
-      const onRoot = await page.evaluate(() => {
+      const onDm = await page.evaluate(() => {
         const titles = Array.from(document.querySelectorAll(".cn-help-group h3")).map((h) => h.textContent);
-        return { titles, hasThread: window.NB_APP.state.helpCtx?.hasThread };
+        return { titles, context: window.NB_APP.state.helpCtx?.context };
       });
-      if (onRoot.hasThread || onRoot.titles.includes("Thread")) {
-        return log("Thread should be absent at /: " + JSON.stringify(onRoot));
+      return (onDm.context === "dm" && onDm.titles.includes("Messages") &&
+          !onDm.titles.includes("Prompt")) ||
+        log("dm sheet wrong: " + JSON.stringify(onDm));
+    },
+  },
+  {
+    name: "a11y: skip link, landmarks, workspace tabs, and combobox wiring",
+    run: async (page, log) => {
+      const chrome = await page.evaluate(() => {
+        const skip = document.querySelector("a.nb-skip");
+        const banner = document.querySelector('[role="banner"]');
+        const main = document.querySelector("#nb-main, main[data-mount]");
+        const tablist = document.querySelector('.cn-workspace-tablist[role="tablist"]');
+        const tabs = Array.from(document.querySelectorAll('.cn-workspace-tablist [role="tab"]'));
+        const plus = document.querySelector("[data-session-new]");
+        const input = document.querySelector("[data-cli]");
+        return {
+          skipHref: skip?.getAttribute("href"),
+          skipText: skip?.textContent?.trim(),
+          banner: !!banner,
+          main: !!main,
+          tablist: tablist?.getAttribute("aria-label"),
+          tabRoles: tabs.map((t) => t.getAttribute("role")),
+          tabSelected: tabs.map((t) => t.getAttribute("aria-selected")),
+          plusInTablist: !!(plus && tablist && tablist.contains(plus)),
+          plusLabel: plus?.getAttribute("aria-label"),
+          role: input?.getAttribute("role"),
+          autocomplete: input?.getAttribute("aria-autocomplete"),
+          controls: input?.getAttribute("aria-controls"),
+          expanded: input?.getAttribute("aria-expanded"),
+          label: input?.getAttribute("aria-label"),
+          // Theme chrome is agent-only — not in the user-facing status footer.
+          themeFooter: !!document.querySelector(
+            "[data-region='status'] .nb-status-theme, [data-region='status'] [data-theme-name], [data-region='status'] [data-theme-note]",
+          ),
+          keysCue: !!document.querySelector("[data-region='status'] [data-keys-open]"),
+        };
+      });
+      if (chrome.skipHref !== "#nb-main" || !chrome.skipText) {
+        return log("skip link: " + JSON.stringify(chrome));
       }
-      return onRoot.titles.includes("Blades") && onRoot.titles.includes("Prompt");
+      if (!chrome.banner || !chrome.main) return log("landmarks: " + JSON.stringify(chrome));
+      if (chrome.themeFooter) return log("theme footer must not be user-facing: " + JSON.stringify(chrome));
+      if (!chrome.keysCue) return log("keys cue missing from status footer");
+      if (!chrome.tablist || chrome.tabRoles.some((r) => r !== "tab")) {
+        return log("tabs: " + JSON.stringify(chrome));
+      }
+      if (chrome.plusInTablist) return log("+ must sit outside tablist: " + JSON.stringify(chrome));
+      if (chrome.role !== "combobox" || chrome.controls !== "cn-cli-listbox") {
+        return log("combobox: " + JSON.stringify(chrome));
+      }
+      return true;
+    },
+  },
+  {
+    name: "a11y: Tab reaches activity; : focuses prompt; arrows move tabs",
+    run: async (page, log) => {
+      await page.keyboard.press("Alt+T");
+      await page.waitForTimeout(120);
+      const two = await page.evaluate(() =>
+        document.querySelectorAll('.cn-workspace-tablist [role="tab"]').length);
+      if (two < 2) return log("expected 2 workspaces after Alt+T, got " + two);
+
+      // Select the first tab, then ArrowRight must activate the second.
+      await page.click('.cn-workspace-tablist [role="tab"][data-session="0"]');
+      await page.waitForTimeout(80);
+      await page.focus('.cn-workspace-tablist [role="tab"][data-session="0"]');
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(120);
+      const afterRight = await page.evaluate(() => ({
+        active: window.NB_APP.state.activeSession,
+        focusRole: document.activeElement?.getAttribute("role"),
+        focusSession: document.activeElement?.getAttribute("data-session"),
+        selected: document.activeElement?.getAttribute("aria-selected"),
+      }));
+      if (afterRight.active !== 1 || afterRight.focusRole !== "tab" || afterRight.selected !== "true") {
+        return log("ArrowRight tab: " + JSON.stringify(afterRight));
+      }
+
+      // Keyboard path to masthead chrome (skip → activity). Grid has no theme dropdown.
+      await page.evaluate(() => document.querySelector("a.nb-skip")?.focus());
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(40);
+      const hit = { activity: false, seen: [] };
+      for (let i = 0; i < 12; i += 1) {
+        const id = await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el) return "";
+          if (el.matches("[data-activity-bell]")) return "activity";
+          return el.tagName;
+        });
+        hit.seen.push(id);
+        if (id === "activity") hit.activity = true;
+        if (hit.activity) break;
+        await page.keyboard.press("Tab");
+      }
+      if (!hit.activity) {
+        return log("tab order missed activity: " + JSON.stringify(hit));
+      }
+
+      // Prompt is reached via the board's keyboard model (: / i), not by
+      // tabbing through every blade control.
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(40);
+      await page.keyboard.press(":");
+      await page.waitForTimeout(80);
+      const onCli = await page.evaluate(() =>
+        document.activeElement === document.querySelector("[data-cli]"));
+      if (!onCli) return log("colon did not focus prompt");
+
+      // Open suggestions → listbox expands + options present.
+      await page.fill("[data-cli]", "");
+      await page.type("[data-cli]", "cd ", { delay: 15 });
+      await page.waitForTimeout(100);
+      const menu = await page.evaluate(() => {
+        const input = document.querySelector("[data-cli]");
+        const list = document.getElementById("cn-cli-listbox");
+        return {
+          expanded: input?.getAttribute("aria-expanded"),
+          listRole: list?.getAttribute("role"),
+          hidden: list?.hasAttribute("hidden"),
+          footOpen: document.querySelector(".cn-tui-foot")?.dataset.open,
+          options: document.querySelectorAll('#cn-cli-listbox [role="option"]').length,
+        };
+      });
+      if (menu.expanded !== "true" || menu.listRole !== "listbox" ||
+          menu.hidden || menu.footOpen !== "true" || menu.options < 1) {
+        return log("listbox: " + JSON.stringify(menu));
+      }
+      return true;
+    },
+  },
+  {
+    name: "a11y: code blocks are keyboard-focusable; no foot transcript panel",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/bugs");
+      await page.waitForTimeout(150);
+      const check = await page.evaluate(() => {
+        const pre = document.querySelector(".nb-md-pre");
+        const footOut = document.querySelector(".cn-tui-foot .cn-out, .cn-panel-out");
+        return {
+          preTab: pre ? pre.getAttribute("tabindex") : null,
+          preLabel: pre?.getAttribute("aria-label") || null,
+          hasPre: !!pre,
+          footOut: !!footOut,
+          bladeOut: !!document.querySelector(".cn-blade-out, .cn-out.cn-blade-out"),
+        };
+      });
+      if (check.footOut) return log("foot transcript returned: " + JSON.stringify(check));
+      if (check.hasPre && check.preTab !== "0") {
+        return log("code block not focusable: " + JSON.stringify(check));
+      }
+      return true;
     },
   },
 ];
@@ -2220,7 +4944,14 @@ void _count;
 
 const browser = await chromium.launch();
 let failed = 0;
-for (const testCase of CASES) {
+const selected = FILTER
+  ? CASES.filter((c) => c.name.includes(FILTER))
+  : CASES;
+if (FILTER && !selected.length) {
+  console.error("no e2e cases match filter: " + FILTER);
+  process.exit(1);
+}
+for (const testCase of selected) {
   const context = await browser.newContext({
     viewport: testCase.viewport || { width: 1440, height: 900 },
     hasTouch: !!testCase.touch,

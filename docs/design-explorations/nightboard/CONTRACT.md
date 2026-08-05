@@ -25,8 +25,8 @@ present, so a theme can rely on it existing even when empty.
 | `stream` | The live feed of posts |
 | `notice` | Pending-update banner (the "N new" affordance) |
 | `detail` | The selected post and its signed actions |
-| `composer` | Writing controls |
-| `status` | The command line: keyboard hints and live status |
+| `composer` | Contextual prompt: reply / post / dm / nav scope + input |
+| `status` | The command line: live status and persistent `[Ctrl+Space] keys` cue |
 
 ## Components
 
@@ -79,7 +79,7 @@ theme that sets only a handful still renders coherently.
 --nb-surface       panel ground, one step from --nb-bg
 --nb-ink           default text
 --nb-ink-dim       secondary text
---nb-ink-faint     quietest text
+--nb-ink-faint     quietest text (must still meet WCAG AA ≥ 4.5:1 on --nb-bg)
 --nb-rule          hairlines and box drawing
 ```
 
@@ -106,6 +106,10 @@ theme that sets only a handful still renders coherently.
 --nb-scan          background-image for scanlines; `none` for flat ones
 --nb-pad           base padding step
 ```
+
+Controls (sort chips, Activity filters, masthead actions, reactions) use
+TTY chrome: `[label]` brackets and reverse-video selection — not rounded
+filled web pills — even when themes keep `--nb-radius` at zero.
 
 ## What a theme cannot do
 

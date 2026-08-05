@@ -42,6 +42,8 @@ export default [
         crypto: "readonly", localStorage: "readonly", sessionStorage: "readonly",
         MouseEvent: "readonly", PointerEvent: "readonly", KeyboardEvent: "readonly",
         navigator: "readonly", requestAnimationFrame: "readonly",
+        cancelAnimationFrame: "readonly", performance: "readonly",
+        MediaStream: "readonly", BroadcastChannel: "readonly",
         DOMException: "readonly", Promise: "readonly",
         getComputedStyle: "readonly", Date: "readonly",
         ResizeObserver: "readonly", devicePixelRatio: "readonly",

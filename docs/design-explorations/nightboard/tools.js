@@ -81,6 +81,27 @@
       },
     });
 
+    MCP.registerTool({
+      name: "prompt_mode",
+      description:
+        "Set the prompt interpretation mode: ai (natural language intent) or cli (shell commands). " +
+        "People use /mode ai|cli; agents call this tool (or /ai /cli).",
+      inputSchema: {
+        type: "object",
+        properties: { mode: { type: "string", enum: ["ai", "cli"] } },
+        required: ["mode"],
+      },
+      execute: async function (args) {
+        var mode = String((args && args.mode) || "").toLowerCase();
+        if (mode !== "ai" && mode !== "cli") {
+          return MCP.fail("mode must be ai or cli");
+        }
+        if (!api.setPromptMode) return MCP.fail("prompt mode not wired");
+        api.setPromptMode(mode, { silent: true });
+        return MCP.text("prompt mode is " + mode);
+      },
+    });
+
     /* ── The preview ───────────────────────────────────────────────────── */
 
     MCP.registerTool({
@@ -171,7 +192,7 @@
       description: "Switch to a named built-in theme.",
       inputSchema: {
         type: "object",
-        properties: { name: { type: "string", description: "nightboard or tape" } },
+        properties: { name: { type: "string", description: "nightboard (Grid)" } },
         required: ["name"],
       },
       execute: async function (args) {
@@ -203,6 +224,177 @@
         // Reporting "ok" for an effect that silently did nothing is the whole
         // failure mode here — an unsupported browser has to say so.
         return res.ok ? MCP.text("asciify on") : MCP.fail("cannot: " + res.reason);
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_search",
+      description:
+        "Lucene search across all feeds, projects, channels, DMs, and paths. " +
+        "Use when the user asks to find posts, mentions, cache talk, needs-review items, " +
+        "or anything board-wide — do not require them to type /search. " +
+        "Query fields: who, state, channel, project, dm, subject, body, kind, has, react, score, sort. " +
+        "Examples: body:cache, state:needs-review, who:scout OR kind:agent, \"cold install\".",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Lucene-style query (same grammar as /view and /search)",
+          },
+          limit: {
+            type: "number",
+            description: "max hits to return (default 16)",
+          },
+        },
+        required: ["query"],
+      },
+      execute: async function (args) {
+        var q = String(args.query || "").trim();
+        if (!q) return MCP.fail("query required — e.g. body:cache or state:needs-review");
+        var out = api.runSearch(q, { limit: args.limit });
+        // Paint the same color-coded results the CLI would show.
+        if (out.format === "search" && out.html && api.pushLine) {
+          api.pushLine({
+            kind: "out",
+            text: out.text,
+            html: out.html,
+            format: "search",
+          });
+          api.render();
+        }
+        return MCP.text(out.text);
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_post",
+      description:
+        "Publish a message in the active compose scope: reply to an armed post, " +
+        "new post in the current channel, or DM in the current thread. " +
+        "Prefer this when the user is composing chat text — not for creating channels.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          body: { type: "string", description: "message body" },
+          channel: { type: "string", description: "optional channel id override" },
+          re: { type: "string", description: "optional parent post id for a reply" },
+        },
+        required: ["body"],
+      },
+      execute: async function (args) {
+        var body = String(args.body || "").trim();
+        if (!body) return MCP.fail("body required");
+        var ctx = api.composeContext ? api.composeContext() : { kind: "nav" };
+        if (args.re) {
+          api.armReplyTo(args.re, "there", args.channel || (ctx && ctx.channel), ctx && ctx.project);
+          ctx = api.composeContext();
+        } else if (args.channel && ctx.kind !== "reply") {
+          ctx = {
+            kind: "post",
+            channel: args.channel,
+            channelLabel: args.channel,
+            project: (ctx && ctx.project) || "community",
+            path: api.state.path,
+          };
+        }
+        if (ctx.kind !== "reply" && ctx.kind !== "post" && ctx.kind !== "dm") {
+          return MCP.fail("not in a channel/dm/reply scope — navigate first or pass channel");
+        }
+        var post = api.publishCompose(body, ctx);
+        if (!post) return MCP.fail("could not publish");
+        return MCP.text("posted " + post.id + (post.re ? " re:" + post.re : "") +
+          (post.channel ? " #" + post.channel : "") + (post.dm ? " dm:" + post.dm : ""));
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_create_channel",
+      description:
+        "Create a channel in the current project scope (from the nav path). " +
+        "When the user is browsing /projects/<id>/channels and asks to add a room, use this. " +
+        "Optional project override; default is the project in the current path.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "channel name / label" },
+          project: { type: "string", description: "project id (default: current path)" },
+        },
+        required: ["name"],
+      },
+      execute: async function (args) {
+        var res = api.createChannel(args.name, { project: args.project });
+        if (!res || !res.ok) return MCP.fail((res && res.error) || "create failed");
+        return MCP.text("created channel " + res.name + " in " + res.project +
+          " → /projects/" + res.project + "/channels/" + res.name);
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_create_project",
+      description:
+        "Create a new project under /projects. Use when the user is at /projects (or board root) " +
+        "and asks to start a project.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "project id / slug" },
+        },
+        required: ["name"],
+      },
+      execute: async function (args) {
+        var res = api.createProject(args.name);
+        if (!res || !res.ok) return MCP.fail((res && res.error) || "create failed");
+        return MCP.text("created project " + res.id + " → /projects/" + res.id);
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_voice_join",
+      description:
+        "Join a low-latency Discord-style voice channel (WebRTC mesh). " +
+        "Channels: lounge, standup. Use when the user wants to talk in a voice room.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          channel: {
+            type: "string",
+            description: "voice channel id or label (lounge, standup). Default: lounge or current path.",
+          },
+        },
+      },
+      execute: async function (args) {
+        if (!api.joinVoice) return MCP.fail("voice not wired");
+        var res = await api.joinVoice(args.channel || null, null);
+        if (!res || !res.ok) return MCP.fail((res && res.error) || "join failed");
+        var vs = api.state && api.state.voice;
+        return MCP.text("joined voice/" + ((vs && vs.channelId) || args.channel || "room") +
+          (vs && vs.latencyMs != null ? " · " + vs.latencyMs + " ms rtt" : ""));
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_voice_leave",
+      description: "Leave the current channel voice session.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async function () {
+        if (!api.leaveVoice) return MCP.fail("voice not wired");
+        await api.leaveVoice();
+        return MCP.text("left voice");
+      },
+    });
+
+    MCP.registerTool({
+      name: "board_voice_mute",
+      description: "Toggle mute in the current voice channel.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async function () {
+        if (!api.toggleVoiceMute) return MCP.fail("voice not wired");
+        if (!api.state || !api.state.voice || !api.state.voice.joined) {
+          return MCP.fail("not in voice");
+        }
+        api.toggleVoiceMute();
+        return MCP.text(api.state.voice.muted ? "muted" : "unmuted");
       },
     });
 

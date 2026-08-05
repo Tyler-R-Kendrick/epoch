@@ -1,20 +1,18 @@
 /**
- * Durable page state, guest participation, Spaces, and Bluesky ATProto auth.
+ * Durable page state, guest participation, Spaces, and portable-handle auth.
  *
- * Design goals (nightboard exploration — client-side, no real PDS):
+ * Design goals (nightboard exploration — client-side):
  *
  *   1. Page state is durable across reloads (workspaces, path, furniture,
  *      transcript, folds, votes, tree open, theme). Anonymous sessions are fine.
  *   2. You may participate as a guest when the community allows it.
  *   3. A guest can later claim that anonymous identity (bind a handle to the
  *      same local principal id).
- *   4. Bluesky-style ATProto auth: enter a handle, mock OAuth, land a DID
- *      session with portable identity honesty.
- *   5. Profile defaults to **Anonymous** and can join a **Space** that is all
- *      three at once:
- *        - Block/Buzz **relay** (Nostr-style event endpoint, read/write)
- *        - Slack **workspace** (membership, channels, guests)
- *        - Reddit **subreddit** (topical feed, subscribers, rules)
+ *   4. Portable-handle auth: enter a handle, mock sign-in, land a durable
+ *      session (implementation may mint a DID — not shown in the UI).
+ *   5. Profile defaults to **Anonymous** and can join a **Space** — a shared
+ *      board with membership, feed, channels, and linked projects. Transport
+ *      connection state stays on the identity record as an internal detail.
  *
  * Storage keys are namespaced. Private mode / quota failures fail soft.
  */
@@ -60,10 +58,10 @@
   ];
 
   /**
-   * Auth states (honest labels, same spirit as Community Web identity chip):
+   * Auth states:
    *   guest          — authorized anonymous principal, community allows guests
-   *   claimed        — guest principal claimed to a local handle (not AT-linked)
-   *   atproto        — Bluesky-style ATProto OAuth session linked
+   *   claimed        — guest principal claimed to a local handle
+   *   atproto        — signed in with a portable handle
    *   denied         — community disallows guests and no session
    */
   function storage() {
@@ -330,10 +328,10 @@
     switch (id.kind) {
       case "atproto":
         return "Signed in to space" + space + " as @" +
-          String(id.handle || "").replace(/^@/, "") + " (" + (id.did || "did:…") + ")";
+          String(id.handle || "").replace(/^@/, "");
       case "claimed":
         return "Signed in to space" + space + " as @" + String(id.handle || "").replace(/^@/, "") +
-          " — anonymous principal claimed, not yet AT-linked";
+          " — anonymous principal claimed";
       case "guest":
         return "Anonymous in space" + space + " (" + (id.principalId || "anon") +
           "). Sign in to a space or claim a handle.";
@@ -358,9 +356,8 @@
   }
 
   /**
-   * Bluesky-style ATProto auth (mock).
-   * Real product would use OAuth PAR+PKCE+DPoP against a PDS; here we resolve
-   * a handle to a did:plc and mint a durable local token set.
+   * Portable-handle sign-in (mock). Resolves a handle into a durable local
+   * session; DID minting stays an implementation detail.
    */
   function resolveHandle(handle) {
     var h = String(handle || "").trim().replace(/^@/, "").toLowerCase();
@@ -453,7 +450,7 @@
     if (space.guestsAllowed === false &&
         (next.kind === "guest" || next.kind === "denied" || !next.handle)) {
       if (!opts.handle && !opts.atprotoHandle) {
-        throw new Error(space.name + " requires sign-in — claim a handle or use Bluesky");
+        throw new Error(space.name + " requires sign-in — claim a handle or sign in");
       }
     }
     if (opts.atprotoHandle) {

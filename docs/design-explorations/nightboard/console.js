@@ -50,25 +50,25 @@
   };
 
   /**
-   * GitHub/Slack-style reaction pills. Keys are stable ids; emoji is display.
+   * Terminal reaction marks — ASCII labels only (Discord-style keys, no emoji).
    * Typical set: +1, -1, eyes, rocket, heart, laugh, tada, thinking.
    */
   var REACTIONS = [
-    { key: "+1", emoji: "👍", label: "+1" },
-    { key: "-1", emoji: "👎", label: "-1" },
-    { key: "eyes", emoji: "👀", label: "eyes" },
-    { key: "rocket", emoji: "🚀", label: "rocket" },
-    { key: "heart", emoji: "❤️", label: "heart" },
-    { key: "laugh", emoji: "😄", label: "laugh" },
-    { key: "tada", emoji: "🎉", label: "hooray" },
-    { key: "thinking", emoji: "🤔", label: "thinking" },
+    { key: "+1", mark: "+1", label: "+1" },
+    { key: "-1", mark: "-1", label: "-1" },
+    { key: "eyes", mark: "eyes", label: "eyes" },
+    { key: "rocket", mark: "rocket", label: "rocket" },
+    { key: "heart", mark: "heart", label: "heart" },
+    { key: "laugh", mark: "laugh", label: "laugh" },
+    { key: "tada", mark: "tada", label: "hooray" },
+    { key: "thinking", mark: "think", label: "thinking" },
   ];
 
   function reactionDef(key) {
     for (var i = 0; i < REACTIONS.length; i++) {
       if (REACTIONS[i].key === key) return REACTIONS[i];
     }
-    return { key: key, emoji: key, label: key };
+    return { key: key, mark: key, label: key };
   }
 
   /**
@@ -91,7 +91,7 @@
   function renderReactions(postId, post, reactions, pickOpen) {
     var st = reactionStateFor(postId, post, reactions);
     var pills = [];
-    // Show pills that have a count, or that I reacted with.
+    // Show reactions that have a count, or that I reacted with.
     REACTIONS.forEach(function (r) {
       var n = st.counts[r.key] || 0;
       var me = !!st.mine[r.key];
@@ -102,7 +102,7 @@
         ' data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
         ' title="' + esc(r.label) + (me ? " · you reacted" : "") + '"' +
         ' aria-label="' + esc(r.label) + ", " + n + (me ? ", including you" : "") + '">' +
-        '<span class="cn-react-emoji" aria-hidden="true">' + r.emoji + "</span>" +
+        '<span class="cn-react-mark">' + esc(r.mark) + "</span>" +
         '<span class="cn-react-count">' + n + "</span></button>"
       );
     });
@@ -117,7 +117,7 @@
         '<button type="button" class="cn-react-pill" data-react="' + esc(k) + '"' +
         ' data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
         ' title="' + esc(def.label) + '">' +
-        '<span class="cn-react-emoji" aria-hidden="true">' + esc(def.emoji) + "</span>" +
+        '<span class="cn-react-mark">' + esc(def.mark) + "</span>" +
         '<span class="cn-react-count">' + n + "</span></button>"
       );
     });
@@ -126,8 +126,7 @@
       return '<button type="button" class="cn-react-opt" data-react="' + esc(r.key) + '"' +
         ' data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
         ' title="' + esc(r.label) + '">' +
-        '<span aria-hidden="true">' + r.emoji + "</span>" +
-        '<span class="cn-react-opt-label">' + esc(r.label) + "</span></button>";
+        '<span class="cn-react-mark">' + esc(r.mark) + "</span></button>";
     }).join("");
     return '<div class="cn-reacts" data-key="react-' + esc(postId) + '">' +
       pills.join("") +
@@ -143,6 +142,7 @@
   /* ── Tree (Reddit-style comment hierarchy) ─────────────────────────────── */
 
   var SORTS = ["hot", "new", "top", "best"];
+  var DEFAULT_SORTS = ["hot", "new", "top"];
 
   /** Stable fixture score when a post has no explicit score. */
   function baseScore(p) {
@@ -175,6 +175,100 @@
     return scoreOf(p, votes) * 1.1 + (p._below || 0) * 0.35;
   }
 
+  function visibleFeedViews(state) {
+    if (window.NB_QUERY && window.NB_QUERY.visibleViews) {
+      return window.NB_QUERY.visibleViews(state && state.feedPinnedViews);
+    }
+    return DEFAULT_SORTS.map(function (s) {
+      return { id: s, label: s, query: "sort:" + s };
+    });
+  }
+
+  function availableFeedViews(state) {
+    if (window.NB_QUERY && window.NB_QUERY.availableViews) {
+      return window.NB_QUERY.availableViews(state && state.feedPinnedViews);
+    }
+    return [{ id: "best", label: "best", query: "sort:best" }];
+  }
+
+  /** Feed sort chips belong on channel / space feeds — not over every blade. */
+  function isFeedSortContext(parts, selected, extra) {
+    parts = parts || [];
+    if (parts[0] === "projects" && parts[2] === "channels" && parts[3]) return true;
+    if (parts[0] === "spaces" && parts[2] === "feed") return true;
+    if (parts[0] === "projects" && parts[2] === "channels" && !parts[3] && selected &&
+        selected.kind === "dir" && !selected.notification) {
+      var childPath = MAP.resolve(MAP.join(parts), selected.name);
+      var child = MAP.list(childPath, extra) || [];
+      return child.some(function (e) { return e.post; });
+    }
+    if (parts[0] === "spaces" && parts[1] && !parts[2] && selected && selected.name === "feed") {
+      return true;
+    }
+    return false;
+  }
+
+  function feedBarHtml(state, sort) {
+    var pinned = state.feedPinnedViews || [];
+    var views = visibleFeedViews(state);
+    var available = availableFeedViews(state);
+    var activeView = state.feedView || sort || "hot";
+    var qVal = state.feedQuery != null ? state.feedQuery : "";
+    var addOpen = !!state.feedAddOpen;
+    var chips = views.map(function (v) {
+      var isDefault = DEFAULT_SORTS.indexOf(v.id) >= 0;
+      return '<button type="button" class="cn-sort" data-feed-view="' + esc(v.id) + '"' +
+        ' data-sort="' + esc(v.id) + '"' +
+        (isDefault ? "" : ' data-pinned="true"') +
+        ' title="' + esc(v.query || v.label) + '"' +
+        (activeView === v.id ? ' aria-pressed="true"' : "") + ">" +
+        esc(v.label) + "</button>";
+    }).join("");
+    var addMenu = "";
+    if (addOpen) {
+      addMenu = '<div class="cn-feed-add-menu" role="menu" aria-label="Add feed view">' +
+        (available.length
+          ? available.map(function (v) {
+            return '<button type="button" class="cn-feed-add-opt" role="menuitem"' +
+              ' data-feed-pin="' + esc(v.id) + '" title="' + esc(v.query || v.label) + '">' +
+              esc(v.label) + "</button>";
+          }).join("")
+          : '<span class="cn-feed-add-empty">all views pinned</span>') +
+        (pinned.length
+          ? '<div class="cn-feed-add-unpin">' +
+            pinned.map(function (id) {
+              return '<button type="button" class="cn-feed-add-opt" data-feed-unpin="' + esc(id) + '"' +
+                ' title="Remove ' + esc(id) + ' from toolbar">− ' + esc(id) + "</button>";
+            }).join("") + "</div>"
+          : "") +
+        "</div>";
+    }
+    return '<div class="cn-feed-bar" data-key="feed-bar">' +
+      '<div class="cn-feed-views" role="toolbar" aria-label="Feed sort">' +
+      chips +
+      '<button type="button" class="cn-feed-add" data-feed-add' +
+      ' aria-expanded="' + (addOpen ? "true" : "false") + '"' +
+      ' title="Add feed view" aria-label="Add feed view">+</button>' +
+      addMenu +
+      "</div>" +
+      '<div class="cn-feed-query-row">' +
+      '<label class="cn-feed-q-label" for="nb-feed-q">view</label>' +
+      '<input id="nb-feed-q" class="cn-feed-query" data-feed-query data-morph-keep' +
+      ' type="search" spellcheck="false" autocomplete="off"' +
+      ' placeholder=\'state:needs-review who:maya sort:new\'' +
+      ' value="' + esc(qVal) + '"' +
+      ' aria-label="Lucene-style feed query" />' +
+      '<button type="button" class="cn-feed-q-btn" data-feed-query-run title="Run query">run</button>' +
+      '<button type="button" class="cn-feed-q-btn" data-feed-query-clear title="Clear view">clear</button>' +
+      '<button type="button" class="cn-feed-q-btn" data-feed-query-help title="Query help">?</button>' +
+      '<button type="button" class="cn-share" data-share title="Copy a share link for this place">share</button>' +
+      "</div>" +
+      (state.feedQueryError
+        ? '<div class="cn-feed-err-line" data-key="feed-err">' + esc(state.feedQueryError) + "</div>"
+        : "") +
+      "</div>";
+  }
+
   function sortPosts(list, mode, votes) {
     var arr = list.slice();
     if (mode === "new") {
@@ -194,7 +288,8 @@
    * [−]/[+] fold a chain, vote column, reply on the action row. Always a tree
    * — no graph/diff/raw costume changes.
    */
-  function viewTree(entries, markId, folded, sort, votes, reactions, reactPick, feedQuery) {
+  function viewTree(entries, markId, folded, sort, votes, reactions, reactPick, feedQuery, opts) {
+    opts = opts || {};
     var rawEntries = entries || [];
     var queryInfo = null;
     // Lucene-style projection — more robust than thumbs-up rank alone.
@@ -231,6 +326,14 @@
       else roots.push(p);
     });
 
+    // Thread detail: keep only the root conversation that contains threadOf.
+    if (opts.threadOf && byId[opts.threadOf]) {
+      var walk = byId[opts.threadOf];
+      while (walk.re && byId[walk.re]) walk = byId[walk.re];
+      roots = [walk];
+      if (!markId) markId = opts.threadOf;
+    }
+
     function subtreeCount(p) {
       return (kids[p.id] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
     }
@@ -244,19 +347,20 @@
       var myVote = votes[p.id] || 0;
       var member = who(p.who);
 
-      // Nest rails: one clickable bar per ancestor depth so you can collapse
-      // any level of the chain by hitting its line, Reddit-style.
+      // Nest rails: one clickable │ per ancestor depth so you can collapse
+      // any level of the chain by hitting its line (terminal tree, not pills).
       var rails = ancestors.map(function (anc) {
         return '<button type="button" class="cn-rail" data-fold="' + esc(anc.id) + '"' +
-          ' title="Collapse thread" aria-label="Collapse thread by ' + esc(anc.who) + '"></button>';
+          ' title="Collapse thread" aria-label="Collapse thread by ' + esc(anc.who) + '">' +
+          '<span class="cn-rail-mark" aria-hidden="true">|</span></button>';
       }).join("");
 
       var foldCtl = replies.length
         ? '<button type="button" class="cn-pm" data-fold="' + esc(p.id) + '"' +
           ' aria-expanded="' + !isFolded + '" title="' +
           (isFolded ? "Expand" : "Collapse") + ' replies">' +
-          (isFolded ? "+" : "−") + "</button>"
-        : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"></span>';
+          (isFolded ? "+" : "-") + "</button>"
+        : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
       var html = '<article class="cn-comment" data-key="' + esc(p.id) + '"' +
         ' data-kind="' + esc(member.kind) + '" data-state-of="' + esc(p.state) + '"' +
@@ -266,32 +370,34 @@
         '<div class="cn-rails" data-key="rails-' + esc(p.id) + '">' + rails + "</div>" +
         '<div class="cn-vote" data-key="vote-' + esc(p.id) + '">' +
         '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(p.id) + '"' +
-        ' aria-pressed="' + (myVote === 1) + '" aria-label="Upvote">▲</button>' +
+        ' aria-pressed="' + (myVote === 1) + '" aria-label="Upvote">+</button>' +
         '<span class="cn-score" data-score="' + (sc > 0 ? "pos" : sc < 0 ? "neg" : "zero") + '">' +
         sc + "</span>" +
         '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(p.id) + '"' +
-        ' aria-pressed="' + (myVote === -1) + '" aria-label="Downvote">▼</button>' +
+        ' aria-pressed="' + (myVote === -1) + '" aria-label="Downvote">-</button>' +
         "</div>" +
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
         foldCtl +
         '<span data-c="actor"><b data-c="handle">' + esc(p.who) + "</b>" +
         '<span data-c="role">' + esc(member.role) + "</span></span>" +
+        '<span class="cn-head-sep" aria-hidden="true">|</span>' +
         '<span data-c="meta"><time data-c="time">' + esc(p.at) + "</time>" +
+        '<span class="cn-head-sep" aria-hidden="true">|</span>' +
         '<span data-c="state">' + esc(p.state) + "</span></span>" +
         "</header>" +
-        (p.subject ? '<b class="cn-subject">' + esc(p.subject) + "</b>" : "") +
+        (p.subject ? '<div class="cn-subject">' + esc(p.subject) + "</div>" : "") +
         '<div class="cn-comment-body">' + formatBody(p.body) + "</div>" +
-        (p.anchor ? '<span data-c="anchor">↳ ' + esc(p.anchor) + "</span>" : "") +
-        '<span data-c="receipt"><span data-c="mark" aria-hidden="true">◆</span>' +
+        (p.anchor ? '<div data-c="anchor" class="cn-anchor">-&gt; ' + esc(p.anchor) + "</div>" : "") +
+        '<div data-c="receipt" class="cn-receipt">' +
         '<span class="cn-sigil" aria-hidden="true">' + window.NB_ASCII.sigil(p.sig, 4) + "</span>" +
-        esc(p.sig) + "</span>" +
+        '<span class="cn-sig-text">' + esc(p.sig) + "</span></div>" +
         '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '"' +
         ' data-reply-who="' + esc(p.who) + '">reply</button>' +
         (isFolded && below
           ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(p.id) + '">' +
-            below + (below === 1 ? " more reply" : " more replies") + "</button>"
+            below + (below === 1 ? " more" : " more") + "</button>"
           : "") +
         "</div>" +
         renderReactions(p.id, p, reactions, reactPick === p.id) +
@@ -319,7 +425,7 @@
         "query error: " + esc(queryInfo.error) + "</div>";
     }
     return matchNote +
-      '<div class="cn-tree" data-sort="' + esc(sort) + '"' +
+      '<div class="cn-tree" data-feed-sort="' + esc(sort) + '"' +
       (feedQuery ? ' data-query="true"' : "") + ">" +
       sortedRoots.map(function (p) { return nodeHtml(p, 0, []); }).join("") +
       "</div>";
@@ -494,30 +600,25 @@
       "</div>";
   }
 
-  /** Block/Buzz-style relay card for a space. */
+  /** Space connection detail — kept for deep links; not listed in the hub. */
   function viewRelay(space, relay) {
     space = space || {};
     relay = relay || space.relay || {};
-    return '<div class="cn-space-card" data-key="relay-' + esc(space.id || "relay") + '">' +
+    return '<div class="cn-space-card" data-key="conn-' + esc(space.id || "space") + '">' +
       '<header class="cn-space-card-head">' +
-      '<b>Relay</b>' +
+      '<b>' + esc(space.name || "Space") + "</b>" +
       '<span class="cn-space-pill" data-status="' + esc(relay.status || "idle") + '">' +
       esc(relay.status || "idle") + "</span>" +
       "</header>" +
-      '<p class="cn-space-card-lead">Block/Buzz-style event endpoint — signed notes over ' +
-      esc(relay.protocol || "nostr") + ".</p>" +
-      '<div class="cn-fact"><dt>url</dt><dd>' + esc(relay.url || "—") + "</dd></div>" +
-      '<div class="cn-fact"><dt>protocol</dt><dd>' + esc(relay.protocol || "nostr") + "</dd></div>" +
-      '<div class="cn-fact"><dt>read</dt><dd>' + (relay.read !== false ? "yes" : "no") + "</dd></div>" +
-      '<div class="cn-fact"><dt>write</dt><dd>' + (relay.write ? "yes" : "no") + "</dd></div>" +
-      (relay.note ? '<p class="cn-space-card-note">' + esc(relay.note) + "</p>" : "") +
+      '<p class="cn-space-card-lead">' + esc(space.description || "Joined space.") + "</p>" +
+      '<div class="cn-fact"><dt>access</dt><dd>' +
+      (relay.write ? "read · write" : "read") + "</dd></div>" +
       "</div>";
   }
 
-  /** Reddit + Slack hybrid about card for a space. */
+  /** About card for a space. */
   function viewSpaceAbout(space, path) {
     space = space || {};
-    var relay = space.relay || {};
     var rules = (space.rules || []).map(function (r) {
       return "<li>" + esc(r) + "</li>";
     }).join("");
@@ -527,11 +628,9 @@
       '<span class="cn-space-pill">' + esc(space.kind || "community") + "</span>" +
       "</header>" +
       '<p class="cn-space-card-lead">' + esc(space.description || "") + "</p>" +
-      '<div class="cn-fact"><dt>workspace</dt><dd>' + esc(space.name || "") +
+      '<div class="cn-fact"><dt>name</dt><dd>' + esc(space.name || "") +
       (space.guestsAllowed === false ? " · members only" : " · guests ok") + "</dd></div>" +
-      '<div class="cn-fact"><dt>subscribers</dt><dd>' + (space.subscribers || 0) + "</dd></div>" +
-      '<div class="cn-fact"><dt>relay</dt><dd>' + esc(relay.protocol || "nostr") + " · " +
-      esc(relay.status || "idle") + "</dd></div>" +
+      '<div class="cn-fact"><dt>members</dt><dd>' + (space.subscribers || 0) + "</dd></div>" +
       '<div class="cn-fact"><dt>path</dt><dd>' + esc(path || "") + "</dd></div>" +
       (rules ? '<div class="cn-space-rules"><b>Rules</b><ul>' + rules + "</ul></div>" : "") +
       '<footer class="cn-space-card-foot">' +
@@ -549,7 +648,6 @@
       space = window.NB_SESSION.findSpace(spaceId);
     }
     if (!space) return "";
-    var relay = space.relay || {};
     var feedN = window.NB_MAP && window.NB_MAP.postsForSpace
       ? window.NB_MAP.postsForSpace(space.id).length
       : 0;
@@ -557,9 +655,7 @@
       '<b class="cn-ctx-name">' + esc(space.slug || space.name) + "</b>" +
       '<span class="cn-ctx-kind" data-kind="' + esc(space.kind || "community") + '">' +
       esc(space.kind || "space") + "</span>" +
-      '<span class="cn-space-pill" data-status="' + esc(relay.status || "idle") + '">' +
-      esc(relay.protocol || "relay") + " · " + esc(relay.status || "idle") + "</span>" +
-      '<span class="cn-ctx-fact">' + (space.subscribers || 0) + " subscribers</span>" +
+      '<span class="cn-ctx-fact">' + (space.subscribers || 0) + " members</span>" +
       '<span class="cn-ctx-fact">' + feedN + " feed posts</span>" +
       (space.guestsAllowed === false
         ? '<span class="cn-badge">members</span>'
@@ -570,8 +666,8 @@
   }
 
   /**
-   * MS Teams-style Activity feed for a notifications filter blade.
-   * Mentions of you and subscription matches share one card grammar.
+   * Activity / notifications feed for a filter blade.
+   * Rows read as a log, not a card list.
    */
   function viewNotifications(entries, markId) {
     var items = (entries || []).filter(function (e) { return e.notification; });
@@ -587,11 +683,11 @@
 
   function notificationGlyph(kind) {
     if (kind === "mention") return "@";
-    if (kind === "subscription") return "★";
-    if (kind === "reply") return "↳";
-    if (kind === "dm") return "✉";
-    if (kind === "hook") return "⚡";
-    return "•";
+    if (kind === "subscription") return "*";
+    if (kind === "reply") return ">";
+    if (kind === "dm") return "dm";
+    if (kind === "hook") return "!";
+    return ".";
   }
 
   function notificationCard(n, name, here) {
@@ -630,6 +726,232 @@
       "</div>";
   }
 
+  /**
+   * Home feed in the detail pane when selection is closed — Following plus
+   * announcements, featured projects, and featured creators. Each tab shows
+   * an unread count. Following stays dense TUI rows; the other three use
+   * showcase layouts (long-form ann, README summary, creator + chart).
+   */
+  function viewFollowingFeed(state) {
+    var view = (state && state.homeFeed) || "following";
+    var readSet = (state && state.homeFeedRead) || {};
+    var annCollapsed = (state && state.homeAnnCollapsed) || {};
+    var homeCursor = state && state.homeCursor != null ? state.homeCursor : 0;
+    var counts = MAP.homeFeedUnreadCounts
+      ? MAP.homeFeedUnreadCounts(state && state.merged, readSet)
+      : {};
+    var items = MAP.homeFeedItems
+      ? MAP.homeFeedItems(view, state && state.merged, readSet)
+      : (MAP.followingFeed ? MAP.followingFeed(state && state.merged) : []);
+    if (homeCursor < 0) homeCursor = 0;
+    if (items.length && homeCursor >= items.length) homeCursor = items.length - 1;
+    var follows = MAP.followsList ? MAP.followsList() : ((D.follows) || []);
+    var views = MAP.homeFeedViews ? MAP.homeFeedViews() : [
+      { id: "following", label: "following" },
+      { id: "announcements", label: "announcements" },
+      { id: "featured", label: "featured" },
+      { id: "creators", label: "creators" },
+    ];
+    var tabs = views.map(function (v) {
+      var n = counts[v.id] || 0;
+      var on = view === v.id;
+      return '<button type="button" class="cn-home-tab" role="tab" data-home-feed="' + esc(v.id) + '"' +
+        ' aria-selected="' + (on ? "true" : "false") + '"' +
+        ' aria-pressed="' + (on ? "true" : "false") + '"' +
+        ' tabindex="' + (on ? "0" : "-1") + '"' +
+        ' title="' + esc(v.label) + (n ? " · " + n + " unread" : "") + '">' +
+        esc(v.label) +
+        '<span class="cn-home-unread" data-count="' + n + '"' +
+        (n ? "" : " hidden") + ">" + n + "</span></button>";
+    }).join("");
+
+    var meta = "";
+    if (view === "following") {
+      meta = follows.length + " people · " + items.length + " posts";
+    } else if (view === "announcements") {
+      meta = items.length + " announcements";
+    } else if (view === "featured") {
+      meta = items.length + " projects";
+    } else if (view === "creators") {
+      meta = items.length + " creators";
+    }
+
+    var rows;
+    if (view === "announcements") {
+      rows = items.map(function (it, i) {
+        return renderAnnPost(it, annCollapsed, i === homeCursor);
+      }).join("");
+    } else if (view === "featured") {
+      rows = items.map(function (it, i) {
+        return renderFeatCard(it, i === homeCursor);
+      }).join("");
+    } else if (view === "creators") {
+      rows = items.map(function (it, i) {
+        return renderCreCard(it, i === homeCursor);
+      }).join("");
+    } else {
+      rows = items.map(function (it, i) {
+        var member = who(it.who);
+        var kind = member.kind || it.kind || "post";
+        var tags = "";
+        if (it.re) tags += '<span class="cn-follow-tag">reply</span>';
+        if (it.state) tags += '<span class="cn-follow-tag">' + esc(it.state) + "</span>";
+        var summary = it.summary || it.body || it.title || "";
+        var cur = i === homeCursor;
+        return '<button type="button" class="cn-follow-row" role="option"' +
+          ' data-key="follow-' + esc(it.id) + '"' +
+          ' data-follow-id="' + esc(it.id) + '" data-kind="' + esc(kind) + '"' +
+          ' data-home-item="' + esc(it.id) + '"' +
+          (cur ? ' data-home-cursor="true" aria-current="true"' : "") +
+          ' data-unread="' + (it.unread ? "true" : "false") + '"' +
+          ' data-goto="' + esc(it.where || "/") + '"' +
+          ' data-follow-open="' + esc(it.id) + '"' +
+          ' aria-posinset="' + (i + 1) + '" aria-setsize="' + items.length + '"' +
+          ' aria-selected="' + (cur ? "true" : "false") + '"' +
+          ' aria-label="' + esc(it.who + " · " + summary) + '">' +
+          '<time class="cn-follow-when">' + esc(it.at || "") + "</time>" +
+          '<span class="cn-follow-who" data-c="handle">' + esc(it.who) + "</span>" +
+          '<span class="cn-follow-summary">' + esc(summary) + tags + "</span>" +
+          '<span class="cn-follow-where">' + esc(it.whereLabel || "") + "</span>" +
+          '<span class="cn-follow-open" aria-hidden="true">open</span>' +
+          "</button>";
+      }).join("");
+    }
+
+    var empty = view === "following" ? "Nobody you follow has posted yet."
+      : view === "announcements" ? "No announcements."
+      : view === "featured" ? "No featured projects."
+      : "No featured creators.";
+
+    var listRole = view === "following" ? "listbox" : "feed";
+    // Tabs sit outside the listbox — only options belong under role=listbox.
+    return '<div class="cn-follow-feed" data-key="following-feed" data-region="following"' +
+      ' data-home-view="' + esc(view) + '">' +
+      '<div class="cn-follow-banner" data-key="following-banner">' +
+      '<div class="cn-home-tabs" role="tablist" aria-label="Home feed views">' + tabs + "</div>" +
+      '<span class="cn-follow-banner-meta">' + esc(meta) + "</span>" +
+      "</div>" +
+      '<div class="cn-follow-list" role="' + listRole + '" aria-label="Home feed">' +
+      (rows || '<p class="cn-empty">' + esc(empty) + "</p>") +
+      "</div></div>";
+  }
+
+  function renderAnnPost(it, collapsedMap, current) {
+    var collapsed = !!(collapsedMap && collapsedMap[it.id]);
+    var expanded = !collapsed;
+    var member = who(it.who);
+    var kind = member.kind || it.kind || "announcement";
+    return '<article class="cn-ann-post" data-key="ann-' + esc(it.id) + '"' +
+      ' data-home-item="' + esc(it.id) + '" data-ann-id="' + esc(it.id) + '"' +
+      ' data-kind="' + esc(kind) + '"' +
+      (current ? ' data-home-cursor="true" aria-current="true"' : "") +
+      ' data-unread="' + (it.unread ? "true" : "false") + '"' +
+      ' data-collapsed="' + (collapsed ? "true" : "false") + '">' +
+      '<header class="cn-ann-head">' +
+      '<button type="button" class="cn-ann-toggle" data-ann-toggle="' + esc(it.id) + '"' +
+      ' aria-expanded="' + (expanded ? "true" : "false") + '"' +
+      ' aria-controls="ann-body-' + esc(it.id) + '"' +
+      ' title="' + (expanded ? "Collapse announcement" : "Expand announcement") + '">' +
+      '<span class="cn-ann-chev" aria-hidden="true">' + (expanded ? "−" : "+") + "</span>" +
+      '<time class="cn-follow-when">' + esc(it.at || "") + "</time>" +
+      '<span class="cn-follow-who" data-c="handle">' + esc(it.who) + "</span>" +
+      (it.pin ? '<span class="cn-ann-pin" title="Pinned">pin</span>' : "") +
+      '<span class="cn-ann-title">' + esc(it.title || "") + "</span>" +
+      "</button>" +
+      '<button type="button" class="cn-home-open" data-goto="' + esc(it.where || "/") + '"' +
+      ' data-follow-open="' + esc(it.id) + '"' +
+      ' data-home-item="' + esc(it.id) + '"' +
+      ' title="Open ' + esc(it.whereLabel || it.where || "") + '">' +
+      '<span class="cn-follow-where">' + esc(it.whereLabel || "") + "</span>" +
+      '<span class="cn-follow-open">open</span></button>' +
+      "</header>" +
+      '<div class="cn-ann-body" id="ann-body-' + esc(it.id) + '"' +
+      (collapsed ? " hidden" : "") + ' data-c="body">' +
+      formatBody(it.body || "") +
+      "</div></article>";
+  }
+
+  function renderFeatCard(it, current) {
+    var tags = "";
+    if (it.stars != null) tags += '<span class="cn-follow-tag">' + esc(String(it.stars)) + "★</span>";
+    if (it.language) tags += '<span class="cn-follow-tag">' + esc(it.language) + "</span>";
+    var hasExcerpt = !!(it.readmeExcerpt);
+    return '<article class="cn-feat-card" data-key="feat-' + esc(it.id) + '"' +
+      ' data-home-item="' + esc(it.id) + '" data-kind="project"' +
+      (current ? ' data-home-cursor="true" aria-current="true"' : "") +
+      ' data-unread="' + (it.unread ? "true" : "false") + '">' +
+      '<header class="cn-feat-head">' +
+      '<span class="cn-feat-slug">' + esc(it.title || it.who || "") + "</span>" +
+      tags +
+      '<button type="button" class="cn-home-open" data-goto="' + esc(it.where || "/projects") + '"' +
+      ' data-follow-open="' + esc(it.id) + '"' +
+      ' data-home-item="' + esc(it.id) + '"' +
+      ' title="Open project">' +
+      '<span class="cn-follow-where">' + esc(it.whereLabel || "") + "</span>" +
+      '<span class="cn-follow-open">open</span></button>' +
+      "</header>" +
+      (it.blurb ? '<p class="cn-feat-blurb">' + esc(it.blurb) + "</p>" : "") +
+      (it.readmeSummary
+        ? '<div class="cn-feat-summary">' +
+          '<div class="cn-feat-label">readme summary</div>' +
+          '<div class="cn-feat-summary-body" data-c="body">' + esc(it.readmeSummary) + "</div></div>"
+        : "") +
+      (hasExcerpt
+        ? '<details class="cn-feat-readme">' +
+          '<summary class="cn-feat-readme-sum">readme</summary>' +
+          '<div class="cn-feat-readme-body" data-c="body">' + formatBody(it.readmeExcerpt) + "</div>" +
+          "</details>"
+        : "") +
+      "</article>";
+  }
+
+  function contribChart(contrib) {
+    var A = window.NB_ASCII;
+    if (!A || !A.sparkline || !contrib) return "";
+    var lines = [];
+    var weeks = contrib.weeks;
+    if (weeks && weeks.length) {
+      lines.push("activity  " + A.sparkline(weeks, Math.min(12, weeks.length)) + "  " + weeks.length + "w");
+    }
+    if (contrib.commits && contrib.commits.length) {
+      lines.push("commits   " + A.sparkline(contrib.commits, Math.min(12, contrib.commits.length)) +
+        "  " + contrib.commits.length + "w");
+    }
+    if (contrib.reviews && contrib.reviews.length) {
+      lines.push("reviews   " + A.sparkline(contrib.reviews, Math.min(12, contrib.reviews.length)) +
+        "  " + contrib.reviews.length + "w");
+    }
+    if (!lines.length) return "";
+    return '<pre class="cn-cre-chart" aria-label="Contribution history">' +
+      esc(lines.join("\n")) + "</pre>";
+  }
+
+  function renderCreCard(it, current) {
+    var member = who(it.who);
+    var kind = member.kind || it.kind || "person";
+    var chart = contribChart(it.contrib);
+    return '<article class="cn-cre-card" data-key="cre-' + esc(it.id) + '"' +
+      ' data-home-item="' + esc(it.id) + '" data-kind="' + esc(kind) + '"' +
+      (current ? ' data-home-cursor="true" aria-current="true"' : "") +
+      ' data-unread="' + (it.unread ? "true" : "false") + '">' +
+      '<header class="cn-cre-head">' +
+      '<span class="cn-follow-who" data-c="handle">' + esc(it.who) + "</span>" +
+      (it.role ? '<span class="cn-follow-tag">' + esc(it.role) + "</span>" : "") +
+      '<button type="button" class="cn-home-open" data-goto="' + esc(it.where || "/") + '"' +
+      ' data-follow-open="' + esc(it.id) + '"' +
+      ' data-home-item="' + esc(it.id) + '"' +
+      ' title="Open ' + esc(it.whereLabel || it.who) + '">' +
+      '<span class="cn-follow-where">' + esc(it.whereLabel || "") + "</span>" +
+      '<span class="cn-follow-open">open</span></button>' +
+      "</header>" +
+      (it.blurb ? '<p class="cn-cre-why">' + esc(it.blurb) + "</p>" : "") +
+      (it.bioSnippet
+        ? '<p class="cn-cre-bio">' + esc(it.bioSnippet) + "</p>"
+        : "") +
+      chart +
+      "</article>";
+  }
+
   function notificationsContextStrip(filter, state) {
     var readSet = (state && state.notifRead) || {};
     var all = MAP.filterNotifications ? MAP.filterNotifications("all", readSet) : (D.notifications || []);
@@ -647,7 +969,7 @@
     ];
     var chips = filters.map(function (f) {
       return '<button type="button" class="cn-activity-filter" data-goto="' + esc(f.path) + '"' +
-        (filter === f.id ? ' aria-pressed="true"' : "") + ">" +
+        (filter === f.id ? ' aria-pressed="true"' : ' aria-pressed="false"') + ">" +
         esc(f.label) +
         '<span class="cn-activity-count">' + f.count + "</span></button>";
     }).join("");
@@ -679,7 +1001,7 @@
       (unread ? '<span class="cn-badge">' + unread + " new</span>" : "") +
       (browserLabel ? '<span class="cn-ctx-fact">' + esc(browserLabel) + "</span>" : "") +
       browserChip +
-      '<div class="cn-activity-filters" role="tablist" aria-label="Activity filters">' + chips + "</div>" +
+      '<div class="cn-activity-filters" role="toolbar" aria-label="Activity filters">' + chips + "</div>" +
       (watch
         ? '<div class="cn-activity-watching" title="Subscriptions">' +
           '<span class="cn-ctx-fact">watching</span> ' + watch + "</div>"
@@ -719,7 +1041,7 @@
           '<div class="cn-body">' +
           '<button type="button" class="cn-tool-sum" data-tool-toggle="' + esc(id) + '"' +
           ' aria-expanded="' + open + '">' +
-          '<span class="cn-twist-mark" aria-hidden="true">' + (open ? "▾" : "▸") + "</span>" +
+          '<span class="cn-twist-mark" aria-hidden="true">' + (open ? "v" : ">") + "</span>" +
           '<span class="cn-tool-name">' + esc(line.tool || "tool") + "</span>" +
           '<span class="cn-tool-mark" data-ok="' + (line.ok === false ? "false" : line.ok === true ? "true" : "") + '">' +
           esc(mark) + "</span>" +
@@ -742,9 +1064,15 @@
         : "";
       var whoKind = kind === "user" ? "person" : kind === "agent" || kind === "tool" ? "agent" : "";
       // Agent / system out get markdown (tables, code); user lines stay plain + marks.
-      var body = (kind === "agent" || kind === "out" || kind === "error")
-        ? formatBody(line.text || "")
-        : formatAscii(line.text || "");
+      // Search hits carry pre-colored HTML (Lucene mark spans).
+      var body;
+      if (kind === "out" && line.format === "search" && line.html) {
+        body = line.html;
+      } else if (kind === "agent" || kind === "out" || kind === "error") {
+        body = formatBody(line.text || "");
+      } else {
+        body = formatAscii(line.text || "");
+      }
       if (kind === "user" && line.mode) {
         body = '<span class="cn-mode-tag">' + esc(line.mode) + "</span> " + body;
       }
@@ -811,6 +1139,62 @@
    * the prompt for intellisense — so the sheet still reflects columns/thread
    * when you opened it from there.
    */
+  /**
+   * Resolve which interactive component currently owns the keyboard.
+   * Frozen into helpCtx before Ctrl+Space steals focus into the prompt.
+   */
+  function resolveHelpComponent(state) {
+    var editorOn = !!(state && state.editor && state.editor.focused &&
+      state.editor.active);
+    if (editorOn) return "editor";
+
+    if (!(state && state.columnFocus)) return "prompt";
+
+    var focusIdx = state.focus != null ? state.focus : 0;
+    var onDetail = focusIdx >= 1;
+    if (!onDetail) return "nav";
+
+    if (state.detailOpen === false) return "following";
+
+    var path = (state && state.path) || "/";
+    var parts = MAP.split(path);
+    if (parts[0] === "dms" && parts[1]) return "dm";
+    if (parts[0] === "notifications") return "activity";
+
+    var extra = (state && state.merged) || [];
+    var here = MAP.list(path, extra) || [];
+    var selected = here[Math.min(state.cursor || 0, Math.max(0, here.length - 1))];
+
+    // File open in detail → editor keys (even before insert focus lands).
+    if (selected && isEditableFile(selected)) return "editor";
+    if (state.editor && state.editor.active && state.editor.active.path) {
+      var ap = state.editor.active.path;
+      if (ap === path || ap.indexOf(path + "/") === 0 ||
+          (selected && MAP.resolve(path, selected.name) === ap)) {
+        return "editor";
+      }
+    }
+
+    if (selected && selected.post) return "thread";
+    if (here.some(function (e) { return e.post; })) return "thread";
+    if (selected && selected.kind === "dir") {
+      var child = MAP.list(MAP.resolve(path, selected.name), extra) || [];
+      if (child.some(function (e) { return e.post; })) return "thread";
+    }
+    return "detail";
+  }
+
+  var HELP_CONTEXT_LABELS = {
+    prompt: "prompt",
+    nav: "navigation",
+    editor: "file editor",
+    thread: "thread",
+    following: "following",
+    dm: "messages",
+    activity: "activity",
+    detail: "detail",
+  };
+
   function buildHelpContext(state) {
     var path = (state && state.path) || "/";
     var parts = MAP.split(path);
@@ -826,154 +1210,251 @@
     var panes = (state && state.panes) || {};
     var sessions = (state && state.sessions) || [];
     var focus = state && state.columnFocus ? "columns" : "prompt";
-    // Surfaces present in this workspace right now.
-    var surfaces = ["workspace", "columns", "terminal"];
-    if (postsHere || postsChild || (selected && selected.post)) surfaces.push("thread");
-    if (sessions.length > 1) surfaces.push("tabs");
-    if (panes.zoom) surfaces.push("zoom");
-    if (panes.out) surfaces.push("terminal-min");
-    if (panes.outMax) surfaces.push("terminal-max");
-    if (state && state.filter) surfaces.push("filter");
+    var context = resolveHelpComponent(state);
     var pendingCount = state && state.pending ? state.pending.length : 0;
-    if (pendingCount) surfaces.push("pending");
-    if (focus === "prompt") surfaces.push("prompt");
-    else surfaces.push("columns-focus");
-    var speechOn = !!(state && state.speech && state.speech.supported);
-    if (speechOn) surfaces.push("speech");
+    var speechOn = !!(state && state.speech && state.speech.ready);
+    var voiceOn = !!(state && state.voice && state.voice.joined);
+    var editorMode = state && state.editor && state.editor.active
+      ? (state.editor.active.mode || "normal")
+      : null;
+    var compose = null;
+    try {
+      if (window.NB_APP && typeof window.NB_APP.composeContext === "function") {
+        compose = window.NB_APP.composeContext();
+      }
+    } catch { /* fine */ }
     return {
+      context: context,
+      contextLabel: HELP_CONTEXT_LABELS[context] || context,
       path: path,
       leaf: parts.length ? parts[parts.length - 1] : "board",
       focus: focus,
+      focusBlade: state && state.focus != null ? state.focus : 0,
       ai: !!(state && state.ai),
       sort: (state && state.sort) || "hot",
-      dock: panes.dock || "bottom",
+      dock: "page",
       session: ((state && state.activeSession) || 0) + 1,
       sessions: Math.max(1, sessions.length),
       hasThread: postsHere || postsChild || !!(selected && selected.post),
       hasFilter: !!(state && state.filter),
       hasPending: pendingCount > 0,
       pendingCount: pendingCount,
-      terminalMin: !!panes.out,
-      terminalMax: !!panes.outMax,
+      terminalMin: false,
+      terminalMax: false,
       zoomed: !!panes.zoom,
       speech: speechOn,
       speechListening: !!(state && state.speech && state.speech.listening),
-      surfaces: surfaces,
+      voiceIntent: (state && state.speech && state.speech.intent) || "default",
+      voiceJoined: voiceOn,
+      voiceMode: (state && state.voice && state.voice.inputMode) || "vad",
+      detailOpen: !(state && state.detailOpen === false),
+      editorMode: editorMode,
+      fileName: state && state.editor && state.editor.active
+        ? (state.editor.active.name || null)
+        : (selected && isEditableFile(selected) ? selected.name : null),
+      composeKind: compose && compose.kind ? compose.kind : null,
+      dmPeer: parts[0] === "dms" ? parts[1] : null,
+      surfaces: [context],
     };
   }
 
   /**
-   * Cheatsheet catalogue. Each group/row can name the surfaces it needs; only
-   * rows whose surfaces are all active (or that name none) are shown.
-   * `when` can further refine with the frozen context.
+   * Cheatsheet catalogue — keys for the focused component only.
+   * `contexts` lists which resolveHelpComponent() values show the group.
    */
   var HELP_GROUPS = [
     {
+      id: "sheet",
+      title: "this sheet",
+      always: true,
+      rows: [
+        { keys: "esc", desc: "Close this sheet + intellisense" },
+        { keys: "Ctrl+Space", desc: "Toggle cheatsheet for the focused component" },
+      ],
+    },
+    {
       id: "prompt",
       title: "Prompt",
-      surfaces: ["prompt", "terminal"],
-      // Still show when intel just opened from columns — prompt becomes active.
-      when: function (ctx) { return ctx.focus === "prompt" || ctx.intel; },
+      contexts: ["prompt"],
       rows: [
-        { keys: "Ctrl+Space", desc: "Intellisense + this cheatsheet" },
+        { keys: "esc", desc: "Hand steering to navigation / detail" },
+        { keys: "Enter", desc: "Submit / run (never steals autocomplete)" },
+        { keys: "Tab / Shift+Tab", desc: "Complete / cycle candidates" },
+        { keys: "↑ ↓", desc: "Candidates (menu open) or history" },
+        { keys: "→ / End", desc: "Accept ghost text at caret end" },
         { keys: "/", desc: "Slash commands (agent chat)",
           when: function (ctx) { return ctx.ai; } },
         { keys: "@", desc: "Mention a person or agent" },
         { keys: "#", desc: "Trending topic or channel" },
-        { keys: "Tab", desc: "Complete / cycle candidates" },
-        { keys: "↑ ↓", desc: "Candidates or history" },
-        { keys: "Enter", desc: "Accept suggestion or run" },
-        { keys: "Esc", desc: "Close intel, then columns" },
         { keys: "Alt+A", desc: "Toggle ai / cli mode",
           note: function (ctx) { return ctx.ai ? "now: ai" : "now: cli"; } },
-        { keys: "→ / End", desc: "Accept ghost text" },
+        { keys: "Alt+T", desc: "New isolated workspace" },
+        { keys: "Alt+Z", desc: function (ctx) {
+          return ctx.zoomed ? "Expand navigation rail" : "Collapse navigation rail";
+        } },
+        { keys: "compose", desc: function (ctx) {
+          if (ctx.composeKind === "reply") return "Armed reply — Enter posts under the parent";
+          if (ctx.composeKind === "post") return "Channel post — Enter publishes";
+          if (ctx.composeKind === "dm") return "DM — Enter sends to @" + (ctx.dmPeer || "peer");
+          return "Nav scope — Enter runs AI/CLI in the current path";
+        } },
         { keys: "Hold `", desc: "Push-to-talk speech-to-text",
           when: function (ctx) { return !!ctx.speech; } },
-        { keys: "Alt+V", desc: "Toggle continuous dictation",
+        { keys: "Alt+V", desc: "Toggle continuous listening",
           when: function (ctx) { return !!ctx.speech; },
           note: function (ctx) { return ctx.speechListening ? "listening" : "idle"; } },
-        { keys: "/activity", desc: "Open Teams-style notifications" },
-        { keys: "/hooks", desc: "Subscribe to app events → notifications" },
+        { keys: "Alt+Shift+V", desc: "Cycle voice mode (default / dictation / commands)",
+          when: function (ctx) { return !!ctx.speech; },
+          note: function (ctx) { return ctx.voiceIntent || "default"; } },
+        { keys: "esc", desc: "Stop speech listening",
+          when: function (ctx) { return !!ctx.speechListening; } },
+        { keys: "Hold `", desc: "Voice push-to-talk (joined · PTT)",
+          when: function (ctx) { return !!ctx.voiceJoined && ctx.voiceMode === "ptt"; } },
+        { keys: "Ctrl+Shift+M", desc: "Mute / unmute channel voice",
+          when: function (ctx) { return !!ctx.voiceJoined; } },
         { keys: "paperclip / drop", desc: "Attach files for chat context" },
         { keys: "/attach", desc: "open | list | clear attachments" },
+        { keys: "/act", desc: "Context action — reply, channel, project, voice, share" },
+        { keys: "/activity", desc: "Open Activity notifications" },
       ],
     },
     {
-      id: "columns",
-      title: "Blades",
-      surfaces: ["columns"],
+      id: "nav",
+      title: "Navigation",
+      contexts: ["nav"],
       rows: [
-        { keys: "← / h", desc: "Reload nav at parent path" },
-        { keys: "→ / l", desc: "Reload nav into selected dir (or detail)" },
         { keys: "↑ ↓ / j k", desc: "Move within the nav list" },
-        { keys: "Enter", desc: "Open dir (reload nav) or file detail" },
+        { keys: "← / h", desc: "Reload nav at parent path" },
+        { keys: "→ / l", desc: "Open dir · post thread · or text editor" },
+        { keys: "Enter", desc: "Open dir (reload nav) or file / thread detail" },
+        { keys: "e", desc: "Open the terminal editor for the selected leaf" },
         { keys: "Space", desc: "Expand / collapse one level (dirs)" },
-        { keys: "i / Esc", desc: "Editor: insert / normal (files)" },
         { keys: "+ / −", desc: "Expand or collapse one level" },
-        { keys: "Backspace / << on nav", desc: "Back to parent — reload nav",
+        { keys: "Backspace / <<", desc: "Back to parent — reload nav",
           when: function (ctx) { return !ctx.hasFilter; } },
-        { keys: "Esc / × on detail / Backspace on detail",
-          desc: "Close detail pane (nav fills row)" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
-        { keys: "i or :", desc: "Focus the prompt" },
         { keys: "/", desc: "Filter the nav list" },
         { keys: "Backspace", desc: "Clear filter character",
           when: function (ctx) { return ctx.hasFilter; } },
+        { keys: "esc", desc: "Clear filter",
+          when: function (ctx) { return ctx.hasFilter; } },
+        { keys: "esc", desc: "Leave columns → prompt",
+          when: function (ctx) { return !ctx.hasFilter; } },
+        { keys: "i or :", desc: "Focus the prompt" },
+        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
         { keys: "R", desc: "Load queued posts",
           when: function (ctx) { return ctx.hasPending; } },
-        { keys: "T", desc: "Next theme",
-          when: function (ctx) { return ctx.focus === "columns"; } },
+        { keys: "T", desc: "Re-apply Grid theme" },
+        { keys: "Alt+T", desc: "New isolated workspace" },
+        { keys: "Ctrl+Shift+M", desc: "Mute / unmute channel voice",
+          when: function (ctx) { return !!ctx.voiceJoined; } },
+      ],
+    },
+    {
+      id: "editor",
+      title: "File editor",
+      contexts: ["editor"],
+      rows: [
+        { keys: "i / a / o", desc: "Insert (before / after / new line)",
+          when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
+        { keys: "v", desc: "Visual select",
+          when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
+        { keys: "h j k l / arrows", desc: "Move caret" },
+        { keys: "w / b", desc: "Word forward / back",
+          when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
+        { keys: "0 / $ / g / G", desc: "Line start / end · top / bottom",
+          when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
+        { keys: "x / d", desc: "Delete char / line (or selection in visual)" },
+        { keys: "u", desc: "Undo",
+          when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
+        { keys: "Ctrl+d / Ctrl+u", desc: "Page down / up",
+          when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
+        { keys: "esc", desc: "Insert/visual → normal" },
+        { keys: "Enter", desc: "Newline (insert) or move down (normal)" },
+        { keys: "click / tap", desc: "Place caret · double-click inserts" },
+        { keys: "Shift+click / drag", desc: "Visual selection" },
+        { keys: "←", desc: "Leave editor focus → navigation" },
+        { keys: "i or :", desc: "Focus the prompt (from normal)" },
+        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
       ],
     },
     {
       id: "thread",
       title: "Thread",
-      surfaces: ["thread"],
-      when: function (ctx) { return ctx.hasThread; },
+      contexts: ["thread"],
       rows: [
         { keys: "− / +", desc: "Fold or expand a chain" },
         { keys: "nest rail", desc: "Collapse that depth" },
-        { keys: "▲ ▼", desc: "Upvote / downvote" },
-        { keys: "reply", desc: "Arm the prompt" },
-        { keys: "v", desc: "Cycle sort",
+        { keys: "[+] [-]", desc: "Upvote / downvote" },
+        { keys: "reply", desc: "Arm the prompt to reply" },
+        { keys: "j / k", desc: "Previous / next post thread (keeps thread focus)" },
+        { keys: "v", desc: "Cycle feed sort",
           note: function (ctx) { return "now: " + (ctx.sort || "hot"); } },
-        { keys: "hot new top best", desc: "Sort the tree" },
+        { keys: "hot new top", desc: "Default sorts — pin more with [+]" },
         { keys: "share", desc: "Copy nightboard: link" },
+        { keys: "esc", desc: "Leave thread → channel feed" },
+        { keys: "Backspace", desc: "Same as esc — channel feed" },
+        { keys: "← / h", desc: "Focus navigation (detail stays open)" },
+        { keys: "i or :", desc: "Focus the prompt" },
+        { keys: "e", desc: "Open the post in the terminal editor" },
+        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
       ],
     },
     {
-      id: "panel",
-      title: "Terminal panel",
-      surfaces: ["terminal"],
+      id: "dm",
+      title: "Messages",
+      contexts: ["dm"],
       rows: [
-        { keys: "Alt+T", desc: "New isolated workspace (default home)" },
-        { keys: "Alt+J", desc: function (ctx) {
-          return ctx.terminalMin ? "Restore terminal" : "Minimise terminal";
-        } },
-        { keys: "Alt+M", desc: function (ctx) {
-          return ctx.terminalMax ? "Restore size" : "Maximise terminal";
-        } },
-        { keys: "Alt+D", desc: function (ctx) {
-          return "Dock (now: " + (ctx.dock || "bottom") + ")";
-        } },
-        { keys: "z / Alt+Z", desc: function (ctx) {
-          return ctx.zoomed
-            ? "Expand navigation panes"
-            : "Collapse navigation panes (detail fills width)";
-        } },
-        { keys: "drag sash", desc: "Resize panes" },
-        { keys: "dblclick sash", desc: "Collapse / reopen pane" },
+        { keys: "tabs", desc: "messages (default) · profile" },
+        { keys: "− / +", desc: "Fold or expand a chain" },
+        { keys: "[+] [-]", desc: "Upvote / downvote" },
+        { keys: "reply", desc: "Arm the prompt to reply in this DM" },
+        { keys: "i or :", desc: "Focus the prompt · Enter sends" },
+        { keys: "share", desc: "Copy nightboard: link" },
+        { keys: "esc", desc: "Leave selection → Following log" },
+        { keys: "← / h", desc: "Focus navigation (detail stays open)" },
+        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
       ],
     },
     {
-      id: "tabs",
-      title: "Workspaces",
-      surfaces: ["tabs"],
-      when: function (ctx) { return ctx.sessions > 1; },
+      id: "following",
+      title: "Home feed",
+      contexts: ["following"],
       rows: [
-        { keys: "tab strip", desc: "Switch isolated worktree" },
-        { keys: "× on tab", desc: "Close workspace" },
-        { keys: "Alt+T", desc: "Add isolated workspace (default home)" },
+        { keys: "↑ ↓ / j k", desc: "Move between home-feed rows" },
+        { keys: "Enter / → / l", desc: "Open the current row (mark read)" },
+        { keys: "[ ]", desc: "Cycle tabs · following · announcements · featured · creators" },
+        { keys: "← / h", desc: "Focus the nav sidebar (from home)" },
+        { keys: "i or :", desc: "Focus the prompt" },
+        { keys: "esc", desc: "Leave columns → prompt" },
+        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "/", desc: "Filter the nav list (focus nav first)" },
+      ],
+    },
+    {
+      id: "activity",
+      title: "Activity",
+      contexts: ["activity"],
+      rows: [
+        { keys: "↑ ↓ / j k", desc: "Move between notifications (nav)" },
+        { keys: "Enter / →", desc: "Open the selected notification" },
+        { keys: "Open", desc: "Jump to source and mark read" },
+        { keys: "filters", desc: "all · mentions · subscribed · hooks" },
+        { keys: "esc", desc: "Leave selection → Following, or columns → prompt" },
+        { keys: "i or :", desc: "Focus the prompt" },
+        { keys: "← / h", desc: "Focus navigation / parent" },
+      ],
+    },
+    {
+      id: "detail",
+      title: "Detail",
+      contexts: ["detail"],
+      rows: [
+        { keys: "esc", desc: "Leave selection → Following log" },
+        { keys: "Backspace", desc: "Same as esc — Following log" },
+        { keys: "← / h", desc: "Focus navigation (detail stays open)" },
+        { keys: "i or :", desc: "Focus the prompt" },
+        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "Enter / click", desc: "Follow links and actions in the pane" },
       ],
     },
   ];
@@ -986,6 +1467,33 @@
     return true;
   }
 
+  function helpGroupMatches(g, ctx) {
+    if (g.always) return true;
+    if (g.when && !g.when(ctx)) return false;
+    var want = g.contexts || (g.context ? [g.context] : null);
+    if (!want || !want.length) {
+      if (!g.surfaces || !g.surfaces.length) return true;
+      return (g.surfaces || []).some(function (s) {
+        return (ctx.surfaces || []).indexOf(s) >= 0;
+      });
+    }
+    if (want.indexOf("*") >= 0) return true;
+    return want.indexOf(ctx.context) >= 0;
+  }
+
+  function visibleHelpGroups(ctx) {
+    ctx = ctx || {};
+    return HELP_GROUPS.filter(function (g) {
+      if (!helpGroupMatches(g, ctx)) return false;
+      var rows = (g.rows || []).filter(function (r) {
+        if (r.when && !r.when(ctx)) return false;
+        if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces || [])) return false;
+        return true;
+      });
+      return rows.length > 0;
+    });
+  }
+
   function helpRowDesc(row, ctx) {
     var d = typeof row.desc === "function" ? row.desc(ctx) : row.desc;
     var note = row.note ? (typeof row.note === "function" ? row.note(ctx) : row.note) : "";
@@ -993,19 +1501,21 @@
   }
 
   function renderHelpOverlay(open, ctx) {
-    ctx = ctx || { surfaces: ["workspace", "columns", "terminal", "prompt"], focus: "prompt", path: "/", leaf: "board", sessions: 1, session: 1, sort: "hot", dock: "bottom", ai: true, hasThread: false, hasFilter: false, hasPending: false, terminalMin: false, terminalMax: false, zoomed: false, intel: true };
-    // Intel is always on while this overlay is up (Ctrl+Space opens both).
-    ctx = Object.assign({}, ctx, { intel: true, surfaces: (ctx.surfaces || []).concat(ctx.surfaces && ctx.surfaces.indexOf("prompt") >= 0 ? [] : ["prompt"]) });
+    ctx = ctx || {
+      context: "prompt", contextLabel: "prompt",
+      surfaces: ["prompt"], focus: "prompt", path: "/", leaf: "board",
+      sessions: 1, session: 1, sort: "hot", dock: "page", ai: true,
+      hasThread: false, hasFilter: false, hasPending: false,
+      terminalMin: false, terminalMax: false, zoomed: false, intel: true,
+    };
+    // Stay on the frozen component context — do not invent extra surfaces.
+    ctx = Object.assign({}, ctx, { intel: true });
 
-    var groups = HELP_GROUPS.filter(function (g) {
-      if (g.when && !g.when(ctx)) return false;
-      // Group surfaces: show if any required surface is active, or none listed.
-      if (!g.surfaces || !g.surfaces.length) return true;
-      return g.surfaces.some(function (s) { return ctx.surfaces.indexOf(s) >= 0; });
-    }).map(function (g, gi) {
+    var matched = visibleHelpGroups(ctx);
+    var groups = matched.map(function (g, gi) {
       var rows = (g.rows || []).filter(function (r) {
         if (r.when && !r.when(ctx)) return false;
-        if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces)) return false;
+        if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces || [])) return false;
         return true;
       }).map(function (r, ri) {
         return '<div class="cn-help-row" data-key="hr-' + gi + "-" + ri + '">' +
@@ -1013,23 +1523,26 @@
           '<span class="cn-help-desc">' + esc(helpRowDesc(r, ctx)) + "</span></div>";
       }).join("");
       if (!rows) return "";
-      return '<section class="cn-help-group" data-key="hg-' + esc(g.id || String(gi)) + '">' +
+      return '<section class="cn-help-group" data-key="hg-' + esc(g.id || String(gi)) + '"' +
+        ' data-help-context="' + esc(g.id === "sheet" ? "sheet" : (ctx.context || "")) + '">' +
         "<h3>" + esc(g.title) + "</h3>" + rows + "</section>";
     }).filter(Boolean).join("");
 
+    var label = ctx.contextLabel || HELP_CONTEXT_LABELS[ctx.context] || ctx.context || "prompt";
     var chips = [];
+    chips.push(label);
     chips.push("ws " + (ctx.session || 1) + "/" + (ctx.sessions || 1));
     chips.push(ctx.path || "/");
-    chips.push(ctx.focus === "columns" ? "columns" : "prompt");
-    if (ctx.hasThread) chips.push("thread · " + (ctx.sort || "hot"));
-    chips.push("dock " + (ctx.dock || "bottom"));
-    if (ctx.terminalMin) chips.push("minimised");
-    if (ctx.terminalMax) chips.push("maximised");
-    if (ctx.zoomed) chips.push("zoomed");
+    if (ctx.fileName) chips.push(ctx.fileName);
+    if (ctx.editorMode) chips.push(ctx.editorMode);
+    if (ctx.dmPeer) chips.push("@" + ctx.dmPeer);
+    if (ctx.composeKind) chips.push(ctx.composeKind);
     if (ctx.hasFilter) chips.push("filter");
     if (ctx.pendingCount) chips.push(ctx.pendingCount + " pending");
-    chips.push(ctx.ai ? "ai" : "cli");
-    if (ctx.speech) chips.push(ctx.speechListening ? "mic on" : "mic");
+    if (ctx.context === "prompt") chips.push(ctx.ai ? "ai" : "cli");
+    if (ctx.speech && ctx.context === "prompt") {
+      chips.push(ctx.speechListening ? "mic on" : "mic");
+    }
 
     var chipHtml = chips.map(function (c, i) {
       return '<span class="cn-help-chip" data-key="hc-' + i + '">' + esc(c) + "</span>";
@@ -1037,16 +1550,20 @@
 
     return '<div class="cn-help" data-key="help" data-open="' + !!open + '"' +
       ' data-focus="' + esc(ctx.focus || "prompt") + '"' +
-      ' role="dialog" aria-modal="true" aria-label="Keyboard shortcuts for this workspace"' +
+      ' data-context="' + esc(ctx.context || "prompt") + '"' +
+      ' role="dialog" aria-modal="true"' +
+      ' aria-label="Keyboard shortcuts for ' + esc(label) + '"' +
       (open ? "" : " hidden") + ">" +
       '<div class="cn-help-card" data-key="help-card">' +
       '<div class="cn-help-head">' +
-      "<b>Hotkeys</b>" +
-      '<span class="cn-help-scope">this workspace</span>' +
-      '<button type="button" class="cn-help-close" data-help-close>close</button>' +
+      "<b>keys</b>" +
+      '<span class="cn-help-scope">' + esc(label) + "</span>" +
+      '<button type="button" class="cn-esc" data-help-close data-esc-dismiss' +
+      ' title="Esc — close this sheet" aria-label="Close shortcuts (Esc)">esc</button>' +
       "</div>" +
       '<div class="cn-help-chips" data-key="help-chips">' + chipHtml + "</div>" +
-      '<p class="cn-help-lead">Keys for surfaces active here. Ctrl+Space toggles · Esc closes.</p>' +
+      '<p class="cn-help-lead">Shortcuts for the focused component only. ' +
+      '<kbd class="cn-esc-inline">esc</kbd> closes this sheet, then whatever that component listens for.</p>' +
       '<div class="cn-help-grid">' + (groups || '<p class="cn-help-empty">No shortcuts for this context.</p>') +
       "</div></div></div>";
   }
@@ -1080,11 +1597,101 @@
     return Object.keys(distinct).length > 1 ? line : null;
   }
 
+  /** Discord-style voice dock — persists while joined, above the compose foot. */
+  function renderVoiceDock(state) {
+    var vs = state && state.voice;
+    if (!vs || !vs.joined) return "";
+    var peers = vs.peers || {};
+    var ids = Object.keys(peers);
+    var people = [{
+      id: "self",
+      handle: vs.handle || "you",
+      speaking: !!vs.speaking,
+      muted: !!vs.muted,
+      self: true,
+    }].concat(ids.map(function (id) {
+      return {
+        id: id,
+        handle: peers[id].handle || id,
+        speaking: !!peers[id].speaking,
+        muted: !!peers[id].muted,
+        self: false,
+      };
+    }));
+    var roster = people.map(function (p) {
+      return '<span class="cn-voice-user" data-speaking="' + !!p.speaking + '"' +
+        ' data-muted="' + !!p.muted + '"' + (p.self ? ' data-self="true"' : "") + ">" +
+        esc(p.handle) + (p.muted ? " · mute" : "") +
+        (p.speaking ? " · talk" : "") + "</span>";
+    }).join("");
+    var rtt = vs.latencyMs != null ? (vs.latencyMs + " ms") : "…";
+    return '<div class="cn-voice-dock" data-key="voice-dock" data-region="voice"' +
+      ' data-channel="' + esc(vs.channelId || "") + '"' +
+      ' data-input="' + esc(vs.inputMode || "vad") + '"' +
+      ' role="region" aria-label="Channel voice">' +
+      '<div class="cn-voice-dock-meta">' +
+      '<b class="cn-voice-dock-name">voice/' + esc(vs.channelId || "room") + "</b>" +
+      '<span class="cn-voice-rtt" title="WebRTC round-trip (candidate-pair)">' + esc(rtt) + "</span>" +
+      '<span class="cn-voice-mode-tag">' + esc(vs.inputMode || "vad") + "</span>" +
+      "</div>" +
+      '<div class="cn-voice-roster" aria-label="In call">' + roster + "</div>" +
+      '<div class="cn-voice-controls" role="toolbar" aria-label="Voice controls">' +
+      '<button type="button" class="cn-voice-act" data-voice-mute aria-pressed="' + !!vs.muted + '"' +
+      ' title="Mute" aria-label="' + (vs.muted ? "Unmute" : "Mute") + '">' +
+      (vs.muted ? "unmute" : "mute") + "</button>" +
+      '<button type="button" class="cn-voice-act" data-voice-deafen aria-pressed="' + !!vs.deafened + '"' +
+      ' title="Deafen" aria-label="' + (vs.deafened ? "Undeafen" : "Deafen") + '">' +
+      (vs.deafened ? "undeafen" : "deafen") + "</button>" +
+      '<button type="button" class="cn-voice-act" data-voice-input="' +
+      (vs.inputMode === "ptt" ? "vad" : "ptt") + '"' +
+      ' title="Toggle VAD / push-to-talk" aria-label="Input mode ' + esc(vs.inputMode || "vad") + '">' +
+      (vs.inputMode === "ptt" ? "vad" : "ptt") + "</button>" +
+      '<button type="button" class="cn-voice-act cn-voice-leave" data-voice-leave' +
+      ' title="Disconnect" aria-label="Leave voice">leave</button>' +
+      "</div></div>";
+  }
+
+  /** Detail body for a voice channel when not yet using the dock-only view. */
+  function renderVoiceRoom(chan, state) {
+    var vs = state && state.voice;
+    var inHere = vs && vs.joined && vs.channelId === chan.id;
+    return '<div class="cn-voice-room" data-key="voice-room-' + esc(chan.id) + '">' +
+      '<p class="cn-voice-lead">Low-latency channel voice — WebRTC mesh, Opus @ 48&nbsp;kHz / 20&nbsp;ms frames, ' +
+      "VAD or push-to-talk. Open a second tab to prove peer audio.</p>" +
+      (inHere
+        ? '<p class="cn-voice-status">Connected' +
+          (vs.latencyMs != null ? " · " + vs.latencyMs + " ms rtt" : "") +
+          " · " + esc(vs.inputMode || "vad") + "</p>"
+        : '<button type="button" class="cn-voice-act cn-voice-join" data-voice-join="' +
+          esc(chan.id) + '" data-voice-path="/projects/community/channels/' + esc(chan.label) + '"' +
+          ' aria-label="Join voice channel ' + esc(chan.label) + '">Join Voice</button>') +
+      "</div>";
+  }
+
   /** What a channel is, above what it contains. */
   function contextStrip(label, extra) {
     var chan = null;
     for (var i = 0; i < D.channels.length; i++) if (D.channels[i].label === label) chan = D.channels[i];
     if (!chan) return "";
+    if (chan.voice || chan.kind === "voice") {
+      var vs = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.voice) || {};
+      var inHere = vs.joined && vs.channelId === chan.id;
+      var n = inHere ? (1 + (vs.peerCount || 0)) : 0;
+      return '<div class="cn-ctx cn-voice-ctx" data-key="ctx-' + esc(label) + '" data-voice="true">' +
+        '<b class="cn-ctx-name">voice/' + esc(label) + "</b>" +
+        '<span class="cn-ctx-kind" data-kind="voice">voice</span>' +
+        '<span class="cn-ctx-fact">Opus · 48 kHz · 20 ms</span>' +
+        '<span class="cn-ctx-fact">' + (inHere ? n + " in call" : "empty") + "</span>" +
+        (inHere && vs.latencyMs != null
+          ? '<span class="cn-ctx-fact" data-voice-rtt>' + vs.latencyMs + " ms rtt</span>"
+          : "") +
+        (inHere
+          ? '<button type="button" class="cn-voice-act" data-voice-leave title="Disconnect">Leave</button>'
+          : '<button type="button" class="cn-voice-act cn-voice-join" data-voice-join="' +
+            esc(chan.id) + '" data-voice-path="/projects/community/channels/' + esc(label) + '"' +
+            ' title="Join low-latency voice">Join Voice</button>') +
+        "</div>";
+    }
     var posts = D.posts.concat(extra || []).filter(function (p) { return p.channel === chan.id; });
     var last = posts.length ? posts[posts.length - 1] : null;
     var spark = activityOf({ kind: "dir", name: label }, "/projects/community/channels");
@@ -1098,8 +1705,22 @@
       "</div>";
   }
 
+  /** Thread detail chrome — one conversation, with a way back to the channel feed. */
+  function threadContextStrip(channelLabel, focusId, rootWho) {
+    return '<div class="cn-ctx cn-thread-ctx" data-key="ctx-thread" data-thread="true">' +
+      '<b class="cn-ctx-name">thread</b>' +
+      (channelLabel
+        ? '<span class="cn-ctx-kind">#' + esc(channelLabel) + "</span>"
+        : "") +
+      (rootWho ? '<span class="cn-ctx-fact">from ' + esc(rootWho) + "</span>" : "") +
+      (focusId ? '<span class="cn-ctx-fact" data-c="meta">' + esc(focusId) + "</span>" : "") +
+      '<button type="button" class="cn-act" data-thread-back' +
+      ' title="Back to channel feed (Esc)">back</button>' +
+      "</div>";
+  }
+
   /** What a DM thread is, above the conversation — sibling of channel context. */
-  function dmContextStrip(peer, extra) {
+  function dmContextStrip(peer, extra, state) {
     var dm = null;
     var list = D.dms || [];
     for (var i = 0; i < list.length; i++) {
@@ -1132,23 +1753,125 @@
     var last = msgs.length ? msgs[msgs.length - 1] : null;
     var spark = activityOf({ kind: "dir", name: dm.id }, "/dms");
     var kind = dm.kind || (member && member.kind) || "person";
-    return '<div class="cn-ctx" data-key="ctx-dm-' + esc(dm.id) + '" data-dm="true">' +
+    var pane = (state && state.personPane) === "profile" ? "profile" : "messages";
+    var tabs = [
+      { id: "messages", label: "messages" },
+      { id: "profile", label: "profile" },
+    ].map(function (t) {
+      return '<button type="button" class="cn-person-tab" data-person-pane="' + esc(t.id) + '"' +
+        ' aria-pressed="' + (pane === t.id ? "true" : "false") + '">' +
+        esc(t.label) + "</button>";
+    }).join("");
+    return '<div class="cn-ctx cn-person-ctx" data-key="ctx-dm-' + esc(dm.id) + '" data-dm="true"' +
+      ' data-person-pane="' + esc(pane) + '">' +
       '<b class="cn-ctx-name">@' + esc(dm.peer) + "</b>" +
       '<span class="cn-ctx-kind" data-kind="' + esc(kind) + '">' +
-      (kind === "agent" ? "agent dm" : "direct") + "</span>" +
+      (kind === "agent" ? "agent" : "person") + "</span>" +
       (member && member.role
         ? '<span class="cn-ctx-fact">' + esc(member.role) + "</span>"
         : "") +
-      '<span class="cn-ctx-fact">' + msgs.length +
-      (msgs.length === 1 ? " message" : " messages") + "</span>" +
-      (dm.unread ? '<span class="cn-badge">' + dm.unread + " new</span>" : "") +
+      (pane === "messages"
+        ? '<span class="cn-ctx-fact">' + msgs.length +
+          (msgs.length === 1 ? " message" : " messages") + "</span>"
+        : '<span class="cn-ctx-fact">profile</span>') +
+      (dm.unread && pane === "messages"
+        ? '<span class="cn-badge">' + dm.unread + " new</span>" : "") +
       (member && member.state
         ? '<span class="cn-ctx-fact">' + esc(member.state) + "</span>"
         : "") +
-      (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span>" : "") +
-      (last ? '<span class="cn-ctx-fact">last ' + esc(last.at) + " by " + esc(last.who) + "</span>" : "") +
-      (dm.preview ? '<span class="cn-ctx-fact">' + esc(dm.preview.slice(0, 72)) + "</span>" : "") +
+      (spark && pane === "messages"
+        ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span>" : "") +
+      (last && pane === "messages"
+        ? '<span class="cn-ctx-fact">last ' + esc(last.at) + " by " + esc(last.who) + "</span>"
+        : "") +
+      '<div class="cn-person-tabs" role="toolbar" aria-label="Person views">' + tabs + "</div>" +
       "</div>";
+  }
+
+  /**
+   * GitHub-style person profile in terminal TUI form — dense facts + bio,
+   * not a web card. Shown when the person pane toggle is set to profile.
+   */
+  function viewPersonProfile(peer) {
+    var member = window.NB_MAP && window.NB_MAP.findMember
+      ? window.NB_MAP.findMember(peer)
+      : null;
+    if (!member) {
+      for (var j = 0; j < (D.members || []).length; j++) {
+        if (D.members[j].handle === peer) { member = D.members[j]; break; }
+      }
+    }
+    if (!member) {
+      return '<div class="cn-person-profile" data-key="person-profile">' +
+        '<p class="cn-empty">No profile for @' + esc(peer) + ".</p></div>";
+    }
+    var display = member.name || member.handle;
+    var initials = String(display).replace(/[^A-Za-z0-9]/g, " ").trim()
+      .split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join("") ||
+      String(member.handle || "?").slice(0, 2).toUpperCase();
+    var facts = [];
+    if (member.company) facts.push(["company", member.company]);
+    if (member.location) facts.push(["location", member.location]);
+    if (member.url) facts.push(["url", member.url]);
+    if (member.joined) facts.push(["joined", member.joined]);
+    if (member.detail) facts.push(["runtime", member.detail]);
+    if (member.role) facts.push(["role", member.role]);
+    if (member.state) facts.push(["state", member.state]);
+    var factRows = facts.map(function (pair) {
+      return '<div class="cn-person-fact">' +
+        '<span class="cn-person-fact-k">' + esc(pair[0]) + "</span>" +
+        '<span class="cn-person-fact-v">' + esc(pair[1]) + "</span></div>";
+    }).join("");
+    var bio = member.bio
+      ? '<div class="cn-person-bio" data-c="body">' + formatBody(member.bio) + "</div>"
+      : '<p class="cn-empty">No profile description yet.</p>';
+    var pinned = (member.pinned || []).map(function (p) {
+      var slug = p.slug || p.id || "";
+      var where = "/projects";
+      if (window.NB_MAP && window.NB_MAP.slug && slug) {
+        where = "/projects/" + window.NB_MAP.slug(slug);
+      } else if (slug) {
+        where = "/projects/" + String(slug).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      }
+      return '<button type="button" class="cn-person-pin" data-goto="' + esc(where) + '"' +
+        ' data-key="pin-' + esc(slug) + '">' +
+        '<span class="cn-person-pin-slug">' + esc(slug) + "</span>" +
+        '<span class="cn-person-pin-blurb">' + esc(p.blurb || "") + "</span>" +
+        '<span class="cn-follow-open" aria-hidden="true">open</span></button>';
+    }).join("");
+    return '<div class="cn-person-profile" data-key="person-profile" data-region="profile"' +
+      ' data-peer="' + esc(member.handle) + '">' +
+      '<div class="cn-person-head">' +
+      '<span class="cn-person-avatar" aria-hidden="true">' + esc(initials) + "</span>" +
+      '<div class="cn-person-id">' +
+      '<div class="cn-person-display">' + esc(display) + "</div>" +
+      '<div class="cn-person-handle">@' + esc(member.handle) +
+      (member.kind === "agent" ? ' <span class="cn-person-kind">agent</span>' : "") +
+      "</div></div></div>" +
+      bio +
+      (factRows
+        ? '<div class="cn-person-facts" data-key="person-facts">' +
+          '<div class="cn-person-section">facts</div>' + factRows + "</div>"
+        : "") +
+      (pinned
+        ? '<div class="cn-person-pins" data-key="person-pins">' +
+          '<div class="cn-person-section">pinned</div>' + pinned + "</div>"
+        : "") +
+      "</div>";
+  }
+
+  /** Person detail body: messages thread (default) or GitHub-style profile. */
+  function viewPersonPane(peer, extra, state, sort, votes) {
+    var pane = (state && state.personPane) === "profile" ? "profile" : "messages";
+    if (pane === "profile") return viewPersonProfile(peer);
+    var dmPath = MAP.dmPath ? MAP.dmPath(peer) : ("/dms/" + peer);
+    var dmMsgs = MAP.list(dmPath, extra) || [];
+    if (!dmMsgs.length) {
+      return '<p class="cn-empty">No messages yet with @' + esc(peer) +
+        " — send from the prompt.</p>";
+    }
+    return viewTree(dmMsgs, null, state.folded, sort, votes,
+      state.reactions, state.reactPick, state.feedQuery);
   }
 
   /**
@@ -1189,23 +1912,30 @@
         stable: "nav",
       },
     ];
-    // Detail is optional — user closes it with ×; selecting a file reopens it.
-    if (state.detailOpen !== false) {
-      blades.push({
-        index: 1,
-        path: path,
-        title: selected && selected.post
-          ? selected.name
-          : (selected && selected.kind === "dir" ? selected.name : "detail"),
-        kind: "detail",
-        closable: true,
-        parentPath: path,
-        parentKey: selectedName,
-        selected: selected,
-        markId: selected && selected.post ? selected.post.id : null,
-        stable: "detail",
-      });
-    }
+    // Detail always present: selection preview, or Following feed when closed
+    // so the nav never expands to fill the workbench alone.
+    var showingFollow = state.detailOpen === false;
+    blades.push({
+      index: 1,
+      path: path,
+      title: showingFollow
+        ? ((state.homeFeed || "following"))
+        : (state.threadFocus
+          ? "thread"
+          : (selected && selected.post
+            ? selected.name
+            : (selected && selected.kind === "dir" ? selected.name : "detail"))),
+      kind: "detail",
+      // [esc] leaves selection for the Following feed; the feed itself has no dismiss.
+      closable: !showingFollow,
+      parentPath: path,
+      parentKey: selectedName,
+      selected: showingFollow ? null : selected,
+      markId: !showingFollow && selected && selected.post ? selected.post.id : null,
+      following: showingFollow,
+      thread: !!(state.threadFocus),
+      stable: "detail",
+    });
     return blades;
   }
 
@@ -1373,9 +2103,9 @@
       : subtitle;
     var closeTitle = isList
       ? "Back — up to parent (reload nav)"
-      : "Close detail pane";
+      : "Esc — leave selection for Following log";
     // When nav has drilled below board root, lead the chrome with << so the
-    // reused blade always shows how to step back (not only a trailing ×).
+    // reused blade always shows how to step back (not only a trailing dismiss).
     var navBack = isList && blade.closable && blade.path && blade.path !== "/";
     var parentLabel = blade.parentPath && blade.parentPath !== "/"
       ? blade.parentPath
@@ -1397,14 +2127,14 @@
           ' data-nav-back title="' + esc(closeTitle + " · " + parentLabel) + '"' +
           ' aria-label="' + esc(closeTitle) + '">' +
           '<span class="cn-blade-back-mark" aria-hidden="true">&lt;&lt;</span>' +
-          '<span class="cn-blade-back-label">back</span></button>'
+          '<span class="cn-blade-back-label" aria-hidden="true">back</span></button>'
         : "") +
-      '<span class="cn-blade-kicker">' + esc(kicker) + "</span>" +
+      '<span class="cn-blade-kicker" aria-hidden="true">' + esc(kicker) + "</span>" +
       '<span class="cn-col-title cn-blade-title">' + esc(title) +
       (blade.filter ? '<span class="cn-filter">/' + esc(blade.filter) + "</span>" : "") +
       "</span>" +
       (isList && blade.path && blade.path !== "/"
-        ? '<span class="cn-blade-path" title="' + esc(blade.path) + '">' +
+        ? '<span class="cn-blade-path" aria-hidden="true" title="' + esc(blade.path) + '">' +
           esc(blade.path) + "</span>"
         : "") +
       (isList
@@ -1418,10 +2148,11 @@
           ' aria-label="' + (navCollapsed ? "Expand navigation" : "Collapse navigation") + '"' +
           ' aria-pressed="' + !!navCollapsed + '">' +
           (navCollapsed ? "▣" : "▭") + "</button>") +
-      // Detail keeps trailing ×; nav uses leading << only (no double chrome).
+      // Detail dismiss is [esc] — same verb as the Escape key (no ×).
       (!isList && blade.closable
-        ? '<button type="button" class="cn-blade-close cn-pane-act" data-blade-close="' + blade.index + '"' +
-          ' title="' + esc(closeTitle) + '" aria-label="' + esc(closeTitle) + '">×</button>'
+        ? '<button type="button" class="cn-esc cn-blade-close" data-blade-close="' + blade.index + '"' +
+          ' data-esc-dismiss title="' + esc(closeTitle) + '"' +
+          ' aria-label="' + esc(closeTitle) + '">esc</button>'
         : "") +
       "</header>" +
       '<div class="cn-blade-body cn-col-body" data-key="blade-body-' + morphKey + '">' +
@@ -1434,63 +2165,138 @@
     id: "console",
     name: "Console",
     thesis: "The board as a filesystem. One nav blade is the navbar — it reloads for the current path with one branch of subnodes. Detail is the other pane. Breadcrumb owns depth; never stack cloned list blades.",
-    keys: "[Ctrl+Space] intellisense  [←→] parent/child  [↑↓] entry  [Space] expand  [Enter] open  [z] collapse nav  [:] command",
+    keys: "[←→] parent/child  [↑↓] entry  [Space] expand  [Enter] open  [z] collapse nav  [:] command  ·  [Ctrl+Space] keys",
 
     css: `
-    /* Workbench shell: cascading blades + VS Code-style terminal panel. */
-    [data-exp="console"]{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100%;min-height:0;position:relative}
-    [data-exp="console"]:has(.cn-panel[data-dock="right"]){
-      grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr)}
-    [data-exp="console"]:has(.cn-panel[data-dock="left"]){
-      grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-    [data-exp="console"]:has(.cn-panel[data-dock="right"]) .cn-path,
-    [data-exp="console"]:has(.cn-panel[data-dock="left"]) .cn-path{grid-column:1/-1;grid-row:1}
-    [data-exp="console"]:has(.cn-panel[data-dock="right"]) .cn-blades{grid-column:1;grid-row:2;min-width:0}
-    [data-exp="console"]:has(.cn-panel[data-dock="right"]) .cn-panel{grid-column:2;grid-row:2}
-    [data-exp="console"]:has(.cn-panel[data-dock="left"]) .cn-blades{grid-column:2;grid-row:2;min-width:0}
-    [data-exp="console"]:has(.cn-panel[data-dock="left"]) .cn-panel{grid-column:1;grid-row:2}
-    /* Maximize: the terminal claims the workbench; columns keep a thin strip
-       so you still know where you are. */
-    [data-exp="console"]:has(.cn-panel[data-out-max="true"][data-dock="bottom"]){
-      grid-template-rows:auto minmax(0,4.5rem) minmax(0,1fr)}
-    [data-exp="console"]:has(.cn-panel[data-out-max="true"][data-dock="right"]){
-      grid-template-columns:minmax(0,6rem) minmax(0,1fr)}
-    [data-exp="console"]:has(.cn-panel[data-out-max="true"][data-dock="left"]){
-      grid-template-columns:minmax(0,1fr) minmax(0,6rem)}
+    /* Whole page is the TUI: workspace tabs + blades + prompt foot. No side terminal. */
+    [data-exp="console"]{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;height:100%;min-height:0;position:relative}
+    [data-exp="console"][data-tui=true]{/* contract hook */}
+
+    /* Workspace tabs — isolated worktrees, not a dockable panel. */
+    [data-exp="console"] .cn-workspace-tabs{display:flex;align-items:stretch;gap:0;min-width:0;
+      padding:0 .4rem;border-block-end:1px solid var(--nb-rule);background:var(--nb-bg);min-height:1.9rem}
+    [data-exp="console"] .cn-workspace-tablist{display:flex;align-items:stretch;gap:0;min-width:0;
+      flex:1 1 auto;overflow:auto}
+    [data-exp="console"] .cn-panel-tab,[data-exp="console"] .cn-workspace-tab{
+      background:none;border:0;border-block-end:2px solid transparent;
+      font:inherit;font-size:.85em;color:var(--nb-ink-dim);cursor:pointer;padding:.35rem .55rem;
+      border-radius:0;display:inline-flex;align-items:center;gap:.35rem}
+    [data-exp="console"] .cn-panel-tab[aria-selected=true],
+    [data-exp="console"] .cn-workspace-tab[aria-selected=true]{color:var(--nb-ink);
+      border-block-end-color:var(--nb-accent);font-weight:700}
+    [data-exp="console"] .cn-panel-tab:hover,[data-exp="console"] .cn-workspace-tab:hover{color:var(--nb-ink)}
+    [data-exp="console"] .cn-tab-close{font-size:.9em;opacity:.7;padding:0 .15rem}
+    [data-exp="console"] .cn-tab-close:hover{opacity:1;color:var(--nb-danger)}
+    [data-exp="console"] .cn-tab-new{font-weight:700;color:var(--nb-ink-dim)}
 
     /* Breadcrumb. Clickable, because the path is also the navigation. */
     [data-exp="console"] .cn-path{display:flex;gap:.15rem;align-items:center;flex-wrap:wrap;
       padding:.4rem .8rem;border-block-end:1px solid var(--nb-rule);font-size:.9em}
     [data-exp="console"] .cn-crumb{background:none;border:0;font:inherit;color:var(--nb-ink-dim);
-      cursor:pointer;padding:.1rem .2rem;border-radius:var(--nb-radius)}
+      cursor:pointer;padding:.1rem .15rem;border-radius:0}
     [data-exp="console"] .cn-crumb:hover{color:var(--nb-ink);text-decoration:underline}
     [data-exp="console"] .cn-crumb:last-of-type{color:var(--nb-ink);font-weight:700}
     [data-exp="console"] .cn-sep{color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-views{margin-inline-start:auto;display:flex;gap:.25rem;align-items:center;flex-wrap:wrap}
-    [data-exp="console"] .cn-feed-bar{display:flex;flex-direction:column;gap:.3rem;width:100%;min-width:0}
-    [data-exp="console"] .cn-feed-views{display:flex;flex-wrap:wrap;gap:.25rem;align-items:center}
-    [data-exp="console"] .cn-feed-query-row{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;width:100%}
+    [data-exp="console"] .cn-views{margin-inline-start:auto;display:flex;gap:.15rem;align-items:center;flex-wrap:wrap}
+    [data-exp="console"] .cn-feed-bar{display:flex;flex-direction:column;gap:.3rem;width:100%;min-width:0;
+      padding:.35rem .55rem .25rem;border-block-end:1px solid var(--nb-rule);background:var(--nb-bg)}
+    [data-exp="console"] .cn-feed-views{display:flex;flex-wrap:wrap;gap:.1rem;align-items:center;position:relative}
+    [data-exp="console"] .cn-feed-add{font:inherit;font-size:.85em;font-weight:700;color:var(--nb-ink-dim);
+      background:none;border:0;border-radius:0;min-height:1.6rem;padding:0 .05rem;cursor:pointer}
+    [data-exp="console"] .cn-feed-add::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-add::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-add:hover,[data-exp="console"] .cn-feed-add[aria-expanded=true]{
+      color:var(--nb-accent)}
+    [data-exp="console"] .cn-feed-add:hover::before,[data-exp="console"] .cn-feed-add:hover::after,
+    [data-exp="console"] .cn-feed-add[aria-expanded=true]::before,
+    [data-exp="console"] .cn-feed-add[aria-expanded=true]::after{color:var(--nb-accent)}
+    [data-exp="console"] .cn-feed-add-menu{display:flex;flex-wrap:wrap;gap:.15rem .35rem;width:100%;
+      margin-block-start:.25rem;padding:.2rem 0;border-block-start:1px dotted var(--nb-rule)}
+    [data-exp="console"] .cn-feed-add-opt{font:inherit;font-size:.8em;color:var(--nb-ink-dim);background:none;
+      border:0;border-radius:0;min-height:1.5rem;padding:0 .05rem;cursor:pointer;text-transform:lowercase}
+    [data-exp="console"] .cn-feed-add-opt::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-add-opt::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-add-opt:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-feed-add-empty{font-size:.8em;color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-add-unpin{display:flex;flex-wrap:wrap;gap:.15rem .35rem;width:100%;
+      margin-block-start:.2rem;padding-block-start:.2rem;border-block-start:1px dotted var(--nb-rule)}
+    [data-exp="console"] .cn-sort[data-pinned=true]{color:var(--nb-ink)}
+    [data-exp="console"] .cn-feed-query-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;width:100%}
     [data-exp="console"] .cn-feed-q-label{font-size:.75em;color:var(--nb-ink-faint);text-transform:lowercase}
     [data-exp="console"] .cn-feed-query{
       flex:1 1 12rem;min-width:8rem;font:inherit;font-size:.85em;color:var(--nb-ink);
-      background:var(--nb-bg);border:1px solid var(--nb-rule);border-radius:var(--nb-radius);
-      min-height:1.8rem;padding:0 .45rem}
-    [data-exp="console"] .cn-feed-query:focus{outline:2px solid var(--nb-accent);outline-offset:1px}
-    [data-exp="console"] .cn-feed-q-btn{
-      font:inherit;font-size:.8em;color:var(--nb-ink-dim);background:none;border:1px solid var(--nb-rule);
-      border-radius:var(--nb-radius);min-height:1.8rem;padding:0 .45rem;cursor:pointer}
-    [data-exp="console"] .cn-feed-q-btn:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
+      background:var(--nb-bg);border:0;border-block-end:1px solid var(--nb-rule);border-radius:0;
+      min-height:1.8rem;padding:0 .2rem}
+    [data-exp="console"] .cn-feed-query:focus{outline:none;border-block-end-color:var(--nb-accent);
+      box-shadow:inset 0 -1px 0 var(--nb-accent)}
+    /* Terminal chrome: [label] brackets + reverse video — never rounded web pills. */
+    [data-exp="console"] .cn-feed-q-btn,
+    [data-exp="console"] .cn-sort,
+    [data-exp="console"] .cn-share,
+    [data-exp="console"] .cn-activity-filter,
+    [data-exp="console"] .cn-activity-open,
+    [data-exp="console"] .cn-activity-read,
+    [data-exp="console"] .cn-activity-enable,
+    [data-exp="console"] .cn-follow-open{
+      font:inherit;font-size:.85em;color:var(--nb-ink-dim);background:none;border:0;
+      border-radius:0;min-height:1.6rem;padding:0 .05rem;cursor:pointer;
+      text-transform:lowercase;box-shadow:none}
+    [data-exp="console"] .cn-feed-q-btn::before,
+    [data-exp="console"] .cn-sort::before,
+    [data-exp="console"] .cn-share::before,
+    [data-exp="console"] .cn-activity-filter::before,
+    [data-exp="console"] .cn-activity-open::before,
+    [data-exp="console"] .cn-activity-read::before,
+    [data-exp="console"] .cn-activity-enable::before,
+    [data-exp="console"] .cn-follow-open::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-q-btn::after,
+    [data-exp="console"] .cn-sort::after,
+    [data-exp="console"] .cn-share::after,
+    [data-exp="console"] .cn-activity-filter::after,
+    [data-exp="console"] .cn-activity-open::after,
+    [data-exp="console"] .cn-activity-read::after,
+    [data-exp="console"] .cn-activity-enable::after,
+    [data-exp="console"] .cn-follow-open::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-q-btn:hover,
+    [data-exp="console"] .cn-sort:hover,
+    [data-exp="console"] .cn-share:hover,
+    [data-exp="console"] .cn-activity-filter:hover,
+    [data-exp="console"] .cn-activity-open:hover,
+    [data-exp="console"] .cn-activity-read:hover,
+    [data-exp="console"] .cn-activity-enable:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-follow-row:hover .cn-follow-open{color:inherit;text-decoration:underline}
+    [data-exp="console"] .cn-feed-q-btn:hover::before,
+    [data-exp="console"] .cn-feed-q-btn:hover::after,
+    [data-exp="console"] .cn-sort:hover::before,
+    [data-exp="console"] .cn-sort:hover::after,
+    [data-exp="console"] .cn-share:hover::before,
+    [data-exp="console"] .cn-share:hover::after,
+    [data-exp="console"] .cn-activity-filter:hover::before,
+    [data-exp="console"] .cn-activity-filter:hover::after,
+    [data-exp="console"] .cn-activity-open:hover::before,
+    [data-exp="console"] .cn-activity-open:hover::after,
+    [data-exp="console"] .cn-activity-read:hover::before,
+    [data-exp="console"] .cn-activity-read:hover::after,
+    [data-exp="console"] .cn-activity-enable:hover::before,
+    [data-exp="console"] .cn-activity-enable:hover::after,
+    [data-exp="console"] .cn-follow-row:hover .cn-follow-open::before,
+    [data-exp="console"] .cn-follow-row:hover .cn-follow-open::after{color:inherit}
+    [data-exp="console"] .cn-sort[aria-pressed=true],
+    [data-exp="console"] .cn-activity-filter[aria-pressed=true]{
+      color:var(--nb-bg);background:var(--nb-ink);text-decoration:none}
+    [data-exp="console"] .cn-sort[aria-pressed=true]::before,
+    [data-exp="console"] .cn-sort[aria-pressed=true]::after,
+    [data-exp="console"] .cn-activity-filter[aria-pressed=true]::before,
+    [data-exp="console"] .cn-activity-filter[aria-pressed=true]::after{color:var(--nb-bg)}
+    [data-exp="console"] .cn-activity-open,
+    [data-exp="console"] .cn-activity-enable{color:var(--nb-accent);font-weight:700}
+    [data-exp="console"] .cn-activity-open::before,
+    [data-exp="console"] .cn-activity-open::after,
+    [data-exp="console"] .cn-activity-enable::before,
+    [data-exp="console"] .cn-activity-enable::after{color:var(--nb-accent)}
     [data-exp="console"] .cn-feed-match{font-size:.8em;color:var(--nb-ink-faint);padding:.15rem .55rem 0}
     [data-exp="console"] .cn-feed-err,[data-exp="console"] .cn-feed-err-line{
       font-size:.8em;color:var(--nb-danger);padding:.1rem .55rem 0}
-    [data-exp="console"] .cn-sort{background:none;border:1px solid var(--nb-rule);font:inherit;
-      color:var(--nb-ink-dim);cursor:pointer;padding:0 .55rem;min-height:1.7rem;border-radius:var(--nb-radius);
-      text-transform:lowercase}
-    [data-exp="console"] .cn-sort[aria-pressed=true]{background:var(--nb-accent);color:var(--nb-accent-ink);
-      border-color:var(--nb-accent)}
-    [data-exp="console"] .cn-share{background:none;border:1px solid var(--nb-rule);font:inherit;
-      color:var(--nb-ink-dim);cursor:pointer;padding:0 .55rem;min-height:1.7rem;border-radius:var(--nb-radius)}
-    [data-exp="console"] .cn-share:hover,[data-exp="console"] .cn-sort:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
 
     /* Cascading blades (Azure model). Each blade depends on its parent's
        selection; close or re-scope a parent and every child re-evaluates.
@@ -1503,14 +2309,15 @@
       flex:0 0 clamp(12rem,22vw,18rem);max-width:22rem;
       border-inline-end:1px solid var(--nb-rule);background:var(--nb-bg);
       opacity:.7;scroll-snap-align:start;position:relative;
+      /* Clip always — nav rows / selection wash must not paint into the detail blade. */
+      overflow:hidden;
       box-shadow:inset 0 0 0 1px transparent;
       transition:flex-basis .16s ease,max-width .16s ease,opacity .12s ease}
     [data-exp="console"] .cn-blade[data-blade-kind=detail],[data-exp="console"] .cn-pane{
       flex:1 1 24rem;max-width:none;opacity:.92}
-    /* Nav-only: when detail is closed, the nav blade fills the workbench. */
-    [data-exp="console"] .cn-blades:not(:has(.cn-blade[data-blade-kind=detail])) .cn-blade[data-blade-kind=list],
-    [data-exp="console"] .cn-blades:not(:has(.cn-blade[data-blade-kind=detail])) .cn-blade[data-nav=true]{
-      flex:1 1 auto;max-width:none;opacity:1}
+    /* Nav stays a sidebar; detail always hosts selection or the Following feed. */
+    [data-exp="console"] .cn-blade[data-blade-kind=list],[data-exp="console"] .cn-blade[data-nav=true]{
+      flex:0 0 clamp(12rem,28vw,18rem);max-width:clamp(12rem,28vw,18rem)}
     /* Collapsed nav: thin rails keep path context without eating detail width. */
     [data-exp="console"] .cn-blades[data-nav-collapsed=true],
     [data-exp="console"] .cn-blades[data-zoom=true]{/* alias: zoom = nav collapsed */}
@@ -1544,6 +2351,9 @@
       opacity:1;z-index:1;
       box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nb-accent) 35%,transparent),
         4px 0 18px color-mix(in srgb,var(--nb-bg) 70%,#000)}
+    /* Nav + detail stay opaque so a neighbour cannot show through during morph/back. */
+    [data-exp="console"] .cn-blade[data-nav=true],
+    [data-exp="console"] .cn-blade[data-blade-kind=detail]{opacity:1}
     [data-exp="console"] .cn-blade + .cn-blade{border-inline-start:0}
     /* Depth tint — later blades sit slightly lifted, like Azure's stack. */
     [data-exp="console"] .cn-blade[data-blade="1"]{background:color-mix(in srgb,var(--nb-surface) 35%,var(--nb-bg))}
@@ -1565,18 +2375,6 @@
 
     @media (max-width: 64rem){
       [data-exp="console"] .cn-blade[data-blade-kind=list]{flex-basis:clamp(11rem,40vw,16rem)}
-      [data-exp="console"]:has(.cn-panel[data-dock="right"]),
-      [data-exp="console"]:has(.cn-panel[data-dock="left"]){
-        grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
-      [data-exp="console"]:has(.cn-panel[data-dock="right"]) .cn-blades,
-      [data-exp="console"]:has(.cn-panel[data-dock="left"]) .cn-blades,
-      [data-exp="console"]:has(.cn-panel[data-dock="right"]) .cn-panel,
-      [data-exp="console"]:has(.cn-panel[data-dock="left"]) .cn-panel{grid-column:1;grid-row:auto}
-      [data-exp="console"] .cn-panel[data-dock="right"],
-      [data-exp="console"] .cn-panel[data-dock="left"]{width:auto!important;height:var(--nb-out-h,12rem);
-        border-inline:0;border-block-start:1px solid var(--nb-rule)}
-      [data-exp="console"] .cn-panel[data-dock="right"] .cn-split-row,
-      [data-exp="console"] .cn-panel[data-dock="left"] .cn-split-row{display:block;cursor:row-resize}
     }
     @media (max-width: 40rem){
       [data-exp="console"] .cn-blades{scroll-snap-type:x mandatory}
@@ -1584,22 +2382,18 @@
       [data-exp="console"] .cn-blade[data-blade-kind=detail]{flex:0 0 92%;max-width:92%}
       [data-exp="console"] .cn-pane-act{min-width:2rem;min-height:2rem}
     }
-    @media (max-height: 40rem){
-      [data-exp="console"] .cn-panel[data-dock="bottom"]:not([data-out-min=true]):not([data-out-max=true]){
-        height:min(var(--nb-out-h,12rem),38vh)}
-    }
     [data-exp="console"] .cn-blade-head,[data-exp="console"] .cn-col-head{
-      display:flex;align-items:center;gap:.35rem;
+      display:flex;align-items:center;gap:.35rem;min-width:0;overflow:hidden;
       padding:.3rem .5rem .3rem .65rem;border-block-end:1px solid var(--nb-rule);
-      color:var(--nb-ink-faint);font-size:.8em;background:var(--nb-surface)}
+      color:var(--nb-ink-dim);font-size:.8em;background:var(--nb-surface)}
     [data-exp="console"] .cn-blade-kicker{font-size:.7em;letter-spacing:.1em;text-transform:uppercase;
-      color:var(--nb-ink-faint);flex:none}
+      color:var(--nb-ink-dim);flex:none}
     [data-exp="console"] .cn-blade-title,[data-exp="console"] .cn-col-title{
       flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--nb-ink-dim)}
     [data-exp="console"] .cn-blade[data-focus=true] .cn-blade-title{color:var(--nb-ink);font-weight:700}
     [data-exp="console"] .cn-blade-path{
-      font-size:.72em;color:var(--nb-ink-faint);max-width:12rem;overflow:hidden;
-      text-overflow:ellipsis;white-space:nowrap;flex:none}
+      font-size:.72em;color:var(--nb-ink-dim);max-width:12rem;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;min-width:0}
     /* Drill-down back control: leading << when the single nav blade is reused. */
     [data-exp="console"] .cn-blade-back{
       display:inline-flex;align-items:center;gap:.28rem;flex:none;
@@ -1612,20 +2406,33 @@
     [data-exp="console"] .cn-blade-back-label{
       font-size:.72em;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
     [data-exp="console"] .cn-blade[data-nav-drilled=true] .cn-blade-head{gap:.4rem}
-    [data-exp="console"] .cn-blade-close{font-size:1.05em;line-height:1}
-    [data-exp="console"] .cn-pane-act{background:none;border:1px solid transparent;font:inherit;
-      color:var(--nb-ink-faint);cursor:pointer;min-width:1.5rem;min-height:1.5rem;padding:0;
-      border-radius:var(--nb-radius);line-height:1}
-    [data-exp="console"] .cn-pane-act:hover{color:var(--nb-ink);border-color:var(--nb-rule);background:var(--nb-bg)}
-    [data-exp="console"] .cn-blade-close:hover{color:var(--nb-danger);border-color:var(--nb-danger)}
+    /* [esc] dismiss chrome — same verb as the Escape key (help, detail, auth). */
+    [data-exp="console"] .cn-esc,[data-exp="console"] .cn-esc-inline{
+      font:inherit;line-height:1;color:var(--nb-ink-faint);border-radius:0}
+    [data-exp="console"] .cn-esc{
+      margin-inline-start:auto;background:none;border:0;cursor:pointer;
+      min-width:auto;min-height:1.5rem;padding:0 .05rem}
+    [data-exp="console"] .cn-esc::before,[data-exp="console"] .cn-esc-inline::before{
+      content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-esc::after,[data-exp="console"] .cn-esc-inline::after{
+      content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-esc:hover{color:var(--nb-ink);text-decoration:underline;
+      background:transparent}
+    [data-exp="console"] .cn-blade-close{flex:none}
+    [data-exp="console"] .cn-pane-act{background:none;border:0;font:inherit;
+      color:var(--nb-ink-dim);cursor:pointer;min-width:1.5rem;min-height:1.5rem;padding:0;
+      border-radius:0;line-height:1}
+    [data-exp="console"] .cn-pane-act:hover{background:var(--nb-ink);color:var(--nb-bg)}
     [data-exp="console"] .cn-filter{color:var(--nb-accent);margin-inline-start:.4rem}
-    [data-exp="console"] .cn-blade-body,[data-exp="console"] .cn-col-body{overflow:auto}
+    [data-exp="console"] .cn-blade-body,[data-exp="console"] .cn-col-body{
+      overflow:auto;min-width:0;min-height:0;max-width:100%}
     /* +/− tree nav inside list blades (channels and every other dir listing). */
-    [data-exp="console"] .cn-blade-tree{padding:.15rem 0 .35rem}
-    [data-exp="console"] .cn-tree-row{min-width:0}
+    [data-exp="console"] .cn-blade-tree{padding:.15rem 0 .35rem;min-width:0;max-width:100%;overflow:hidden}
+    [data-exp="console"] .cn-tree-row{min-width:0;max-width:100%}
     /* First-level tree: twist + row. Kids indent once; no recursive nest rails. */
     [data-exp="console"] .cn-tree-line{display:grid;grid-template-columns:auto minmax(0,1fr);
-      align-items:center;gap:0 .15rem;min-height:1.9rem;padding-inline-end:.35rem}
+      align-items:center;gap:0 .15rem;min-height:1.9rem;min-width:0;max-width:100%;
+      padding-inline-end:.35rem;box-sizing:border-box}
     [data-exp="console"] .cn-tree-line .cn-pm{margin-inline:.15rem 0;min-width:1.15rem;text-align:center;
       font-variant-numeric:tabular-nums}
     /* +/− only — blank leaf keeps the same column width (no ·  ›  ▸). */
@@ -1637,8 +2444,10 @@
     [data-exp="console"] .cn-tree-row[data-depth="1"] .cn-tree-line{padding-inline-start:.85rem}
     [data-exp="console"] .cn-tree-row[data-path-focus=true] > .cn-tree-line .cn-name{font-weight:700}
     [data-exp="console"] .cn-tree-line .cn-item{display:flex;align-items:baseline;gap:.45rem;
-      min-width:0;width:100%;padding:.18rem .45rem .18rem .25rem;background:none;border:0;font:inherit;
-      color:var(--nb-ink);cursor:pointer;text-align:start;min-height:1.9rem}
+      min-width:0;width:100%;max-width:100%;box-sizing:border-box;
+      padding:.18rem .45rem .18rem .25rem;background:none;border:0;font:inherit;
+      color:var(--nb-ink);cursor:pointer;text-align:start;min-height:1.9rem;
+      overflow:hidden}
     [data-exp="console"] .cn-tree-line .cn-item:hover{background:var(--nb-surface)}
     [data-exp="console"] .cn-blade[data-focus=true] .cn-tree-line .cn-item[aria-current=true],
     [data-exp="console"] .cn-col[data-focus=true] .cn-tree-line .cn-item[aria-current=true]{
@@ -1651,8 +2460,10 @@
       margin-inline-start:.7rem}
     [data-exp="console"] .cn-tree-empty{padding-inline-start:1.6rem}
     [data-exp="console"] .cn-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.45rem;
-      align-items:baseline;width:100%;padding:.18rem .6rem;background:none;border:0;font:inherit;
-      color:var(--nb-ink);cursor:pointer;text-align:start;min-height:1.9rem}
+      align-items:baseline;width:100%;max-width:100%;box-sizing:border-box;
+      padding:.18rem .6rem;background:none;border:0;font:inherit;
+      color:var(--nb-ink);cursor:pointer;text-align:start;min-height:1.9rem;
+      min-width:0;overflow:hidden}
     [data-exp="console"] .cn-item:hover{background:var(--nb-surface)}
     [data-exp="console"] .cn-blade[data-focus=true] .cn-item[aria-current=true],
     [data-exp="console"] .cn-col[data-focus=true] .cn-item[aria-current=true]{
@@ -1665,7 +2476,8 @@
     [data-exp="console"] .cn-item[data-meta=promoted] .cn-name{color:var(--nb-accent)}
     [data-exp="console"] .cn-item[data-meta="needs-review"] .cn-name{color:var(--nb-warn)}
     [data-exp="console"] .cn-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-    [data-exp="console"] .cn-hint{color:var(--nb-ink-faint);font-size:.82em;white-space:nowrap;flex:none}
+    [data-exp="console"] .cn-hint{color:var(--nb-ink-dim);font-size:.82em;white-space:nowrap;
+      flex:0 1 auto;min-width:0;max-width:48%;overflow:hidden;text-overflow:ellipsis}
     /* ASCII carries readings here, so it takes ink weight rather than decoration. */
     [data-exp="console"] .cn-spark{color:var(--nb-live);letter-spacing:-.06em;opacity:.7;font-size:.9em}
     /* On a selected row the live ink fights the selection wash, so it defers. */
@@ -1674,60 +2486,264 @@
     [data-exp="console"] .cn-merge{font-variant-numeric:tabular-nums}
     [data-exp="console"] .cn-badge{background:var(--nb-accent);color:var(--nb-accent-ink);padding:0 .35rem;font-size:.8em}
 
-    /* Detail blade: Reddit-style comment tree. Always a tree — sort changes
-       order, not costume. Nest rails trace depth; ± folds a chain. */
+    /* Detail blade: terminal message log (Discord-rich body, ASCII chrome). */
     [data-exp="console"] .cn-blade[data-blade-kind=detail] .cn-blade-body,
-    [data-exp="console"] .cn-pane > .cn-col-body{overflow:auto;padding:.35rem 0 .6rem}
+    [data-exp="console"] .cn-pane > .cn-col-body{overflow:auto;padding:.2rem 0 .5rem}
     [data-exp="console"] .cn-empty{color:var(--nb-ink-faint);padding:.6rem .8rem}
 
-    /* MS Teams-style Activity / notifications feed */
-    [data-exp="console"] .cn-activity{display:flex;flex-direction:column;gap:.35rem;padding:.35rem .55rem .7rem}
-    [data-exp="console"] .cn-activity-card{display:grid;grid-template-columns:1.8rem minmax(0,1fr);gap:.55rem;
-      padding:.45rem .55rem;border:1px solid var(--nb-rule);background:var(--nb-surface);border-radius:var(--nb-radius)}
-    [data-exp="console"] .cn-activity-card[data-unread=true]{border-color:var(--nb-accent)}
-    [data-exp="console"] .cn-activity-card[data-here=true]{outline:1px solid var(--nb-accent);outline-offset:1px}
+    [data-exp="console"] .cn-comment{display:grid;grid-template-columns:auto auto minmax(0,1fr);
+      gap:0 .4rem;padding:.28rem .55rem .28rem 0;align-items:start;
+      border-block-end:1px dotted var(--nb-rule);cursor:pointer}
+    [data-exp="console"] .cn-comment:hover{background:color-mix(in srgb,var(--nb-surface) 65%,transparent)}
+    [data-exp="console"] .cn-comment[data-here=true]{background:var(--nb-surface);
+      box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-comment button,
+    [data-exp="console"] .cn-comment a{cursor:pointer}
+    [data-exp="console"] .cn-comment[data-state-of=promoted] .cn-comment-head [data-c=state]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-comment[data-kind=agent] [data-c=handle]{color:var(--nb-agent)}
+
+    /* Nest rails: literal | columns — no rounded bars. */
+    [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0}
+    [data-exp="console"] .cn-rail{display:flex;align-items:stretch;justify-content:center;
+      width:1ch;min-width:1ch;padding:0;margin:0;background:none;border:0;
+      color:var(--nb-ink-faint);cursor:pointer;flex:none;font:inherit;line-height:1.2}
+    [data-exp="console"] .cn-rail-mark{display:block;width:100%;text-align:center;
+      color:inherit;user-select:none}
+    [data-exp="console"] .cn-rail:hover,[data-exp="console"] .cn-rail:focus-visible{
+      color:var(--nb-accent);outline:none}
+
+    /* Votes as [+] n [-] — terminal brackets, never triangles or circles. */
+    [data-exp="console"] .cn-vote{display:flex;flex-direction:column;align-items:center;gap:0;
+      min-width:2.2ch;padding-block-start:.05rem;user-select:none;font-variant-numeric:tabular-nums}
+    [data-exp="console"] .cn-vup,[data-exp="console"] .cn-vdn{
+      background:none;border:0;font:inherit;font-size:.85em;font-weight:700;line-height:1.2;
+      color:var(--nb-ink-faint);cursor:pointer;padding:0;min-width:0;min-height:0;border-radius:0}
+    [data-exp="console"] .cn-vup::before,[data-exp="console"] .cn-vdn::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-vup::after,[data-exp="console"] .cn-vdn::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-vup:hover,[data-exp="console"] .cn-vdn:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-vup[aria-pressed=true]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-vup[aria-pressed=true]::before,
+    [data-exp="console"] .cn-vup[aria-pressed=true]::after{color:var(--nb-accent)}
+    [data-exp="console"] .cn-vdn[aria-pressed=true]{color:var(--nb-agent)}
+    [data-exp="console"] .cn-vdn[aria-pressed=true]::before,
+    [data-exp="console"] .cn-vdn[aria-pressed=true]::after{color:var(--nb-agent)}
+    [data-exp="console"] .cn-score{font-size:.78em;font-weight:700;font-variant-numeric:tabular-nums;
+      color:var(--nb-ink-dim);line-height:1.2;padding:.05rem 0}
+    [data-exp="console"] .cn-score[data-score=pos]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-score[data-score=neg]{color:var(--nb-agent)}
+
+    [data-exp="console"] .cn-comment-main{min-width:0;padding-block-end:.05rem;display:grid;gap:.12rem}
+    [data-exp="console"] .cn-comment-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .4rem;
+      font-size:.92em;color:var(--nb-ink-dim)}
+    [data-exp="console"] .cn-head-sep{color:var(--nb-ink-faint);user-select:none}
+    [data-exp="console"] .cn-comment-head [data-c=handle]{color:var(--nb-ink);font-weight:700}
+    [data-exp="console"] .cn-comment-head [data-c=role]{color:var(--nb-ink-faint);font-size:.9em;
+      margin-inline-start:.25rem}
+    [data-exp="console"] .cn-comment-head [data-c=time]{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-comment-head [data-c=state]{color:var(--nb-ink-dim);text-transform:lowercase}
+    [data-exp="console"] .cn-pm{background:none;border:0;font:inherit;font-size:.85em;font-weight:700;
+      color:var(--nb-ink-dim);cursor:pointer;min-width:0;min-height:0;line-height:1;padding:0;
+      border-radius:0;flex:none}
+    [data-exp="console"] .cn-pm::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-pm::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-pm:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-pm-leaf{display:inline-block;visibility:hidden;cursor:default}
+    [data-exp="console"] .cn-pm-leaf::before,[data-exp="console"] .cn-pm-leaf::after{content:none}
+    [data-exp="console"] .cn-subject{margin:0;font-weight:700;color:var(--nb-ink);letter-spacing:.01em}
+    [data-exp="console"] .cn-comment-body{margin:0;max-width:76ch;color:var(--nb-ink);line-height:1.45}
+    [data-exp="console"] .cn-anchor{color:var(--nb-ink-faint);font-size:.9em}
+    [data-exp="console"] .cn-receipt{display:flex;align-items:baseline;gap:.35rem;font-size:.85em;
+      color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-sig-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-activity{display:flex;flex-direction:column;gap:0;padding:.15rem .55rem .7rem}
+    /* Activity + Following: dense TUI scrollback rows, not web cards. */
+    [data-exp="console"] .cn-activity-card{display:grid;grid-template-columns:1.2rem minmax(0,1fr);gap:.35rem .55rem;
+      padding:.18rem .2rem;border:0;border-block-end:1px dotted var(--nb-rule);
+      background:transparent;border-radius:0;cursor:pointer}
+    [data-exp="console"] .cn-activity-card:hover{background:var(--nb-surface)}
+    [data-exp="console"] .cn-follow-feed{display:flex;flex-direction:column;min-height:0;padding:0;min-width:0}
+    [data-exp="console"] .cn-follow-list{display:flex;flex-direction:column;min-height:0;min-width:0}
+    [data-exp="console"] .cn-follow-banner{padding:.2rem .55rem;border-block-end:1px solid var(--nb-rule);
+      display:flex;flex-direction:column;align-items:stretch;gap:.2rem;background:transparent;
+      font-size:.9em;color:var(--nb-ink-dim);min-width:0}
+    [data-exp="console"] .cn-home-tabs{display:flex;flex-wrap:wrap;gap:.15rem .35rem;align-items:center;
+      width:100%;min-width:0}
+    [data-exp="console"] .cn-home-tab{appearance:none;border:0;background:transparent;font:inherit;
+      font-size:.9em;color:var(--nb-ink-faint);cursor:pointer;padding:.1rem .25rem;min-height:1.7rem;
+      display:inline-flex;align-items:baseline;gap:.2rem}
+    [data-exp="console"] .cn-home-tab[aria-pressed=true],
+    [data-exp="console"] .cn-home-tab[aria-selected=true]{color:var(--nb-ink);font-weight:700;
+      box-shadow:inset 0 -2px 0 var(--nb-accent)}
+    [data-exp="console"] .cn-home-tab:hover,[data-exp="console"] .cn-home-tab:focus-visible{
+      color:var(--nb-ink);outline:none}
+    [data-exp="console"] .cn-home-unread{font-size:.8em;font-variant-numeric:tabular-nums;
+      color:var(--nb-accent-ink);background:var(--nb-accent);padding:0 .3rem;min-width:1rem;
+      text-align:center;line-height:1.35}
+    [data-exp="console"] .cn-home-tab[aria-pressed=true] .cn-home-unread,
+    [data-exp="console"] .cn-home-tab[aria-selected=true] .cn-home-unread{opacity:.95}
+    [data-exp="console"] .cn-person-tabs{display:flex;flex-wrap:wrap;gap:.15rem .35rem;width:100%;
+      margin-block-start:.2rem}
+    [data-exp="console"] .cn-person-tab{appearance:none;border:0;background:transparent;font:inherit;
+      font-size:.9em;color:var(--nb-ink-faint);cursor:pointer;padding:.1rem .25rem;min-height:1.7rem}
+    [data-exp="console"] .cn-person-tab[aria-pressed=true]{color:var(--nb-ink);font-weight:700;
+      box-shadow:inset 0 -2px 0 var(--nb-accent)}
+    [data-exp="console"] .cn-person-tab:hover,[data-exp="console"] .cn-person-tab:focus-visible{
+      color:var(--nb-ink);outline:none}
+    [data-exp="console"] .cn-person-profile{display:flex;flex-direction:column;gap:0;
+      padding:.15rem .55rem .7rem;min-width:0}
+    [data-exp="console"] .cn-person-head{display:grid;grid-template-columns:2.4rem minmax(0,1fr);
+      gap:.45rem .55rem;align-items:center;padding:.25rem 0;border-block-end:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-person-avatar{display:inline-flex;align-items:center;justify-content:center;
+      width:2.2rem;height:2.2rem;font-size:.85em;font-weight:700;letter-spacing:.04em;
+      color:var(--nb-accent-ink);background:var(--nb-accent);border-radius:0}
+    [data-exp="console"] .cn-person-display{font-weight:700;color:var(--nb-ink);line-height:1.25}
+    [data-exp="console"] .cn-person-handle{font-size:.9em;color:var(--nb-ink-dim)}
+    [data-exp="console"] .cn-person-kind{color:var(--nb-agent);font-weight:700;font-size:.85em;
+      text-transform:lowercase}
+    [data-exp="console"] .cn-person-bio{padding:.45rem 0;border-block-end:1px dotted var(--nb-rule);
+      max-width:76ch}
+    [data-exp="console"] .cn-person-section{font-size:.78em;color:var(--nb-ink-faint);letter-spacing:.04em;
+      text-transform:lowercase;padding:.35rem 0 .1rem}
+    [data-exp="console"] .cn-person-facts{display:flex;flex-direction:column;gap:0;padding:0 0 .25rem}
+    [data-exp="console"] .cn-person-fact{display:grid;grid-template-columns:6.5rem minmax(0,1fr);
+      gap:.35rem .55rem;align-items:baseline;padding:.12rem 0;border-block-end:1px dotted var(--nb-rule);
+      font-size:.92em}
+    [data-exp="console"] .cn-person-fact-k{color:var(--nb-ink-faint);text-transform:lowercase}
+    [data-exp="console"] .cn-person-fact-v{color:var(--nb-ink);min-width:0;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-person-pins{display:flex;flex-direction:column;gap:0}
+    [data-exp="console"] .cn-person-pin{display:grid;grid-template-columns:minmax(0,12rem) minmax(0,1fr) auto;
+      gap:.35rem .55rem;align-items:baseline;width:100%;box-sizing:border-box;
+      padding:.18rem 0;margin:0;border:0;border-block-end:1px dotted var(--nb-rule);
+      background:none;font:inherit;color:var(--nb-ink);text-align:start;cursor:pointer;
+      min-height:1.9rem;border-radius:0}
+    [data-exp="console"] .cn-person-pin:hover,[data-exp="console"] .cn-person-pin:focus-visible{
+      background:var(--nb-accent);color:var(--nb-accent-ink);outline:none}
+    [data-exp="console"] .cn-person-pin-slug{font-weight:700;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap}
+    [data-exp="console"] .cn-person-pin-blurb{font-size:.9em;color:var(--nb-ink-dim);overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-person-pin:hover .cn-person-pin-blurb,
+    [data-exp="console"] .cn-person-pin:focus-visible .cn-person-pin-blurb{color:inherit;opacity:.9}
+    [data-exp="console"] .cn-follow-banner-meta{font-size:.9em;color:var(--nb-ink-dim)}
+    [data-exp="console"] .cn-follow-row{display:grid;
+      grid-template-columns:3.2rem 7rem minmax(0,1fr) auto auto;
+      gap:.35rem .55rem;align-items:baseline;width:100%;box-sizing:border-box;
+      padding:.18rem .55rem;margin:0;border:0;border-block-end:1px dotted var(--nb-rule);
+      background:none;font:inherit;color:var(--nb-ink);text-align:start;cursor:pointer;
+      min-height:1.9rem;border-radius:0}
+    [data-exp="console"] .cn-follow-row[data-unread=true]{box-shadow:inset 2px 0 0 var(--nb-accent)}
+    /* Keyboard cursor: soft wash + rail (distinct from hover fill). */
+    [data-exp="console"] .cn-follow-row[aria-current=true],
+    [data-exp="console"] .cn-ann-post[aria-current=true],
+    [data-exp="console"] .cn-feat-card[aria-current=true],
+    [data-exp="console"] .cn-cre-card[aria-current=true]{
+      background:color-mix(in srgb,var(--nb-accent) 18%,transparent);
+      box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-follow-row:hover,
+    [data-exp="console"] .cn-follow-row:focus-visible{
+      background:var(--nb-accent);color:var(--nb-accent-ink);outline:none}
+    [data-exp="console"] .cn-follow-row:hover .cn-follow-when,
+    [data-exp="console"] .cn-follow-row:hover .cn-follow-where,
+    [data-exp="console"] .cn-follow-row:hover .cn-follow-tag,
+    [data-exp="console"] .cn-follow-row:focus-visible .cn-follow-when,
+    [data-exp="console"] .cn-follow-row:focus-visible .cn-follow-where,
+    [data-exp="console"] .cn-follow-row[aria-current=true] .cn-follow-when,
+    [data-exp="console"] .cn-follow-row[aria-current=true] .cn-follow-where{color:inherit;opacity:.85}
+    [data-exp="console"] .cn-follow-when{font-variant-numeric:tabular-nums;color:var(--nb-ink-faint);
+      font-size:.85em}
+    [data-exp="console"] .cn-follow-who{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-follow-row[data-kind=agent] .cn-follow-who{color:var(--nb-agent)}
+    [data-exp="console"] .cn-follow-row:hover[data-kind=agent] .cn-follow-who,
+    [data-exp="console"] .cn-follow-row:focus-visible[data-kind=agent] .cn-follow-who{color:inherit}
+    [data-exp="console"] .cn-follow-summary{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-size:.92em}
+    [data-exp="console"] .cn-follow-tag{margin-inline-start:.35rem;color:var(--nb-ink-faint);font-size:.85em}
+
+    /* Home showcase: announcements / featured / creators (TUI, not web cards). */
+    [data-exp="console"] .cn-ann-post,[data-exp="console"] .cn-feat-card,[data-exp="console"] .cn-cre-card{
+      display:flex;flex-direction:column;gap:.35rem;padding:.45rem .55rem .55rem;
+      border:0;border-block-end:1px solid var(--nb-rule);background:transparent;border-radius:0;
+      min-width:0}
+    [data-exp="console"] .cn-ann-post[data-unread=true],
+    [data-exp="console"] .cn-feat-card[data-unread=true],
+    [data-exp="console"] .cn-cre-card[data-unread=true]{box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-ann-head,[data-exp="console"] .cn-feat-head,[data-exp="console"] .cn-cre-head{
+      display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .45rem;min-width:0}
+    [data-exp="console"] .cn-ann-toggle{appearance:none;border:0;background:transparent;font:inherit;
+      color:inherit;cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .45rem;
+      padding:0;margin:0;text-align:start;flex:1 1 auto;min-width:0;min-height:1.7rem}
+    [data-exp="console"] .cn-ann-toggle:hover .cn-ann-title,
+    [data-exp="console"] .cn-ann-toggle:focus-visible .cn-ann-title{text-decoration:underline;outline:none}
+    [data-exp="console"] .cn-ann-chev{color:var(--nb-ink-faint);font-weight:700;min-width:0.9rem}
+    [data-exp="console"] .cn-ann-pin{color:var(--nb-accent);font-size:.8em;letter-spacing:.04em;text-transform:uppercase}
+    [data-exp="console"] .cn-ann-title{font-weight:700;color:var(--nb-ink);min-width:0}
+    [data-exp="console"] .cn-ann-body{max-width:72ch;line-height:1.45;color:var(--nb-ink);padding:.15rem 0 .1rem 1.15rem}
+    [data-exp="console"] .cn-ann-post[data-collapsed=true] .cn-ann-body{display:none}
+    [data-exp="console"] .cn-home-open{appearance:none;border:0;background:transparent;font:inherit;
+      color:var(--nb-ink-dim);cursor:pointer;display:inline-flex;align-items:baseline;gap:.35rem;
+      padding:.1rem .15rem;min-height:1.7rem;margin-inline-start:auto}
+    [data-exp="console"] .cn-home-open:hover,[data-exp="console"] .cn-home-open:focus-visible{
+      color:var(--nb-ink);outline:none}
+    [data-exp="console"] .cn-home-open:hover .cn-follow-open,
+    [data-exp="console"] .cn-home-open:focus-visible .cn-follow-open{text-decoration:underline}
+    [data-exp="console"] .cn-feat-slug{font-weight:700;color:var(--nb-ink)}
+    [data-exp="console"] .cn-feat-blurb,[data-exp="console"] .cn-cre-why{
+      margin:0;font-size:.92em;color:var(--nb-ink-dim);max-width:72ch}
+    [data-exp="console"] .cn-feat-summary{display:flex;flex-direction:column;gap:.2rem;max-width:72ch}
+    [data-exp="console"] .cn-feat-label{font-size:.8em;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feat-summary-body{color:var(--nb-ink);line-height:1.4;font-size:.95em}
+    [data-exp="console"] .cn-feat-readme{margin:0;max-width:72ch;border:0;padding:0}
+    [data-exp="console"] .cn-feat-readme-sum{cursor:pointer;color:var(--nb-ink-dim);font-size:.9em;
+      list-style:none}
+    [data-exp="console"] .cn-feat-readme-sum::before{content:"[+]";color:var(--nb-ink-faint);margin-inline-end:.35rem}
+    [data-exp="console"] .cn-feat-readme[open] .cn-feat-readme-sum::before{content:"[−]"}
+    [data-exp="console"] .cn-feat-readme-body{padding:.35rem 0 0;color:var(--nb-ink);line-height:1.4}
+    [data-exp="console"] .cn-cre-bio{margin:0;font-size:.92em;color:var(--nb-ink);max-width:72ch;line-height:1.4}
+    [data-exp="console"] .cn-cre-chart{margin:0;padding:.2rem 0;font:inherit;font-size:.9em;
+      color:var(--nb-live);letter-spacing:-.04em;line-height:1.35;white-space:pre;overflow:auto}
+    [data-exp="console"] .cn-cre-card[data-kind=agent] .cn-follow-who{color:var(--nb-agent)}
+    [data-exp="console"] .cn-follow-tag::before{content:"· ";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-follow-where{color:var(--nb-ink-faint);font-size:.82em;white-space:nowrap;
+      max-width:12rem;overflow:hidden;text-overflow:ellipsis}
+    [data-exp="console"] .cn-follow-open{color:var(--nb-accent);font-weight:700;white-space:nowrap;
+      justify-self:end;min-height:0;padding:0}
+    [data-exp="console"] .cn-activity-card[data-unread=true]{box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-activity-card[data-here=true]{background:var(--nb-surface)}
     [data-exp="console"] .cn-activity-glyph{font-weight:700;color:var(--nb-ink-faint);text-align:center;
-      line-height:1.6;font-size:1.05em}
+      line-height:1.4;font-size:1em;width:1.2rem}
     [data-exp="console"] .cn-activity-card[data-kind=mention] .cn-activity-glyph{color:var(--nb-accent)}
     [data-exp="console"] .cn-activity-card[data-kind=subscription] .cn-activity-glyph{color:var(--nb-signed)}
     [data-exp="console"] .cn-activity-card[data-kind=dm] .cn-activity-glyph{color:var(--nb-agent)}
     [data-exp="console"] .cn-activity-card[data-kind=reply] .cn-activity-glyph{color:var(--nb-live)}
     [data-exp="console"] .cn-activity-main{min-width:0}
     [data-exp="console"] .cn-activity-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .55rem}
-    [data-exp="console"] .cn-activity-dot{width:.45rem;height:.45rem;border-radius:50%;background:var(--nb-accent);
-      display:inline-block;flex:none}
+    [data-exp="console"] .cn-activity-dot{display:inline-block;flex:none;color:var(--nb-accent);
+      font-weight:700;line-height:1;width:auto;height:auto;border-radius:0;background:none}
+    [data-exp="console"] .cn-activity-dot::before{content:"*"}
     [data-exp="console"] .cn-activity-who{font-weight:700;color:var(--nb-ink)}
     [data-exp="console"] .cn-activity-reason{color:var(--nb-ink-dim);font-size:.9em}
     [data-exp="console"] .cn-activity-when{color:var(--nb-ink-faint);font-size:.85em;margin-inline-start:auto}
-    [data-exp="console"] .cn-activity-subject{font-weight:700;margin-block-start:.15rem;color:var(--nb-ink)}
-    [data-exp="console"] .cn-activity-body{margin:.15rem 0 0;color:var(--nb-ink-dim);max-width:76ch}
-    [data-exp="console"] .cn-activity-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;
-      margin-block-start:.35rem}
+    [data-exp="console"] .cn-activity-subject{font-weight:700;margin-block-start:0;color:var(--nb-ink);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-activity-body{margin:.05rem 0 0;color:var(--nb-ink-dim);max-width:76ch;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-activity-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .55rem;
+      margin-block-start:.1rem}
     [data-exp="console"] .cn-activity-where{color:var(--nb-ink-faint);font-size:.85em}
-    [data-exp="console"] .cn-activity-open,
-    [data-exp="console"] .cn-activity-read{font:inherit;font-size:.85em;color:var(--nb-ink-dim);background:none;
-      border:1px solid var(--nb-rule);border-radius:var(--nb-radius);min-height:1.7rem;padding:0 .5rem;cursor:pointer}
-    [data-exp="console"] .cn-activity-open:hover,
-    [data-exp="console"] .cn-activity-read:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-activity-open{color:var(--nb-accent-ink);background:var(--nb-accent);border-color:var(--nb-accent)}
     [data-exp="console"] .cn-activity-hint{color:var(--nb-ink-faint);font-size:.85em;padding:.4rem .2rem 0}
     [data-exp="console"] .cn-activity-ctx{flex-wrap:wrap}
-    [data-exp="console"] .cn-activity-filters{display:flex;flex-wrap:wrap;gap:.3rem;width:100%;margin-block-start:.25rem}
-    [data-exp="console"] .cn-activity-filter{font:inherit;font-size:.85em;color:var(--nb-ink-dim);background:none;
-      border:1px solid var(--nb-rule);border-radius:var(--nb-radius);min-height:1.7rem;padding:0 .55rem;
-      cursor:pointer;display:inline-flex;align-items:center;gap:.35rem}
-    [data-exp="console"] .cn-activity-filter[aria-pressed=true]{background:var(--nb-accent);color:var(--nb-accent-ink);
-      border-color:var(--nb-accent)}
-    [data-exp="console"] .cn-activity-count{font-size:.85em;opacity:.85}
+    [data-exp="console"] .cn-activity-filters{display:flex;flex-wrap:wrap;gap:.15rem .35rem;width:100%;margin-block-start:.25rem}
+    [data-exp="console"] .cn-activity-count{font-size:.85em;opacity:.85;margin-inline-start:.15rem}
     [data-exp="console"] .cn-activity-watching{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .45rem;
       width:100%;margin-block-start:.2rem}
-    [data-exp="console"] .cn-activity-sub{font-size:.8em;color:var(--nb-ink-faint);border:1px solid var(--nb-rule);
-      padding:0 .35rem;min-height:1.4rem;display:inline-flex;align-items:center}
-    [data-exp="console"] .cn-activity-enable{font:inherit;font-size:.85em;color:var(--nb-accent-ink);
-      background:var(--nb-accent);border:1px solid var(--nb-accent);border-radius:var(--nb-radius);
-      min-height:1.7rem;padding:0 .55rem;cursor:pointer}
+    [data-exp="console"] .cn-activity-sub{font-size:.8em;color:var(--nb-ink-faint);border:0;padding:0;
+      min-height:0;display:inline-flex;align-items:center}
+    [data-exp="console"] .cn-activity-sub::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-activity-sub::after{content:"]";color:var(--nb-ink-faint)}
 
-    /* Space hub: relay + workspace + subreddit */
+    /* Space hub cards */
     /* Terminal file editor (vim-like + pointer/touch) */
     [data-exp="console"] .nb-ed{
       display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;height:100%;min-height:12rem;
@@ -1799,11 +2815,17 @@
     [data-exp="console"] .cn-space-card-lead{margin:0;color:var(--nb-ink-dim);font-size:.9em;max-width:76ch}
     [data-exp="console"] .cn-space-card-note{margin:0;color:var(--nb-ink-faint);font-size:.85em}
     [data-exp="console"] .cn-space-card-foot{display:flex;flex-wrap:wrap;gap:.4rem;margin-block-start:.25rem}
-    [data-exp="console"] .cn-space-pill{font-size:.75em;border:1px solid var(--nb-rule);padding:0 .35rem;
-      color:var(--nb-ink-dim);min-height:1.3rem;display:inline-flex;align-items:center}
-    [data-exp="console"] .cn-space-pill[data-status=connected]{border-color:var(--nb-live);color:var(--nb-live)}
-    [data-exp="console"] .cn-space-pill[data-status=idle]{border-color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-space-pill[data-status=offline]{border-color:var(--nb-danger);color:var(--nb-danger)}
+    [data-exp="console"] .cn-space-pill{font-size:.75em;border:0;padding:0;color:var(--nb-ink-dim);
+      min-height:0;display:inline-flex;align-items:center}
+    [data-exp="console"] .cn-space-pill::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-space-pill::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-space-pill[data-status=connected],
+    [data-exp="console"] .cn-space-pill[data-status=connected]::before,
+    [data-exp="console"] .cn-space-pill[data-status=connected]::after{color:var(--nb-live)}
+    [data-exp="console"] .cn-space-pill[data-status=idle]{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-space-pill[data-status=offline],
+    [data-exp="console"] .cn-space-pill[data-status=offline]::before,
+    [data-exp="console"] .cn-space-pill[data-status=offline]::after{color:var(--nb-danger)}
     [data-exp="console"] .cn-space-rules ul{margin:.2rem 0 0;padding-inline-start:1.1rem;color:var(--nb-ink-dim);
       font-size:.9em}
     [data-exp="console"] .cn-space-ctx{flex-wrap:wrap}
@@ -1817,48 +2839,6 @@
     @keyframes cn-ping-bg{0%{box-shadow:inset 0 0 0 0 transparent}
       40%{box-shadow:inset 3px 0 0 var(--nb-accent)}100%{box-shadow:inset 3px 0 0 var(--nb-accent)}}
 
-    [data-exp="console"] .cn-comment{display:grid;grid-template-columns:auto auto minmax(0,1fr);
-      gap:0 .45rem;padding:.4rem .7rem .35rem 0;align-items:start}
-    [data-exp="console"] .cn-comment[data-here=true]{background:var(--nb-surface);
-      box-shadow:inset 3px 0 0 var(--nb-accent)}
-    [data-exp="console"] .cn-comment[data-state-of=promoted] .cn-comment-head [data-c=state]{color:var(--nb-accent)}
-    [data-exp="console"] .cn-comment[data-kind=agent] [data-c=handle]{color:var(--nb-agent)}
-
-    /* Nest lines: one column per ancestor depth. Hover brightens the bar so
-       the level you would collapse is obvious before the click. */
-    [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none}
-    [data-exp="console"] .cn-rail{position:relative;width:.85rem;align-self:stretch;min-height:100%;
-      background:none;border:0;padding:0;cursor:pointer;flex:none}
-    [data-exp="console"] .cn-rail::after{content:"";position:absolute;inset-block:0;inset-inline-start:50%;
-      width:2px;translate:-50% 0;background:var(--nb-rule);border-radius:1px}
-    [data-exp="console"] .cn-rail:hover::after,
-    [data-exp="console"] .cn-rail:focus-visible::after{background:var(--nb-accent);width:3px}
-    [data-exp="console"] .cn-rail:focus-visible{outline:none}
-
-    [data-exp="console"] .cn-vote{display:flex;flex-direction:column;align-items:center;gap:.05rem;
-      min-width:1.6rem;padding-block-start:.05rem;user-select:none}
-    [data-exp="console"] .cn-vup,[data-exp="console"] .cn-vdn{background:none;border:0;font:inherit;
-      font-size:.7rem;line-height:1;color:var(--nb-ink-faint);cursor:pointer;padding:.1rem;
-      min-width:1.4rem;min-height:1.2rem;border-radius:var(--nb-radius)}
-    [data-exp="console"] .cn-vup:hover,[data-exp="console"] .cn-vdn:hover{color:var(--nb-ink);background:var(--nb-surface)}
-    [data-exp="console"] .cn-vup[aria-pressed=true]{color:var(--nb-accent)}
-    [data-exp="console"] .cn-vdn[aria-pressed=true]{color:var(--nb-agent)}
-    [data-exp="console"] .cn-score{font-size:.78em;font-weight:700;font-variant-numeric:tabular-nums;
-      color:var(--nb-ink-dim);line-height:1.2}
-    [data-exp="console"] .cn-score[data-score=pos]{color:var(--nb-accent)}
-    [data-exp="console"] .cn-score[data-score=neg]{color:var(--nb-agent)}
-
-    [data-exp="console"] .cn-comment-main{min-width:0;padding-block-end:.15rem}
-    [data-exp="console"] .cn-comment-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .55rem}
-    [data-exp="console"] .cn-pm{background:var(--nb-surface);border:1px solid var(--nb-rule);font:inherit;
-      font-size:.75em;font-weight:700;color:var(--nb-ink-dim);cursor:pointer;width:1.15rem;height:1.15rem;
-      line-height:1;padding:0;border-radius:var(--nb-radius);flex:none}
-    [data-exp="console"] .cn-pm:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-pm-leaf{display:inline-flex;align-items:center;justify-content:center;
-      border-color:transparent;background:none;color:var(--nb-ink-faint);cursor:default}
-    [data-exp="console"] .cn-subject{display:block;margin-block-start:.2rem}
-    [data-exp="console"] .cn-comment-body{margin:.15rem 0 0;max-width:76ch;color:var(--nb-ink)}
-
     /* Markdown + colourised ASCII (tables, code, marks) — theme via tokens. */
     [data-exp="console"] .nb-md{display:grid;gap:.4rem;max-width:80ch}
     [data-exp="console"] .nb-md-p{margin:0;line-height:1.45}
@@ -1868,14 +2848,56 @@
     [data-exp="console"] .nb-md-h3,[data-exp="console"] .nb-md-h4{font-size:1em;color:var(--nb-ink)}
     [data-exp="console"] .nb-md-strong{color:var(--nb-ink);font-weight:700}
     [data-exp="console"] .nb-md-em{color:var(--nb-ink-dim);font-style:italic}
+    [data-exp="console"] .nb-md-u{text-decoration:underline;text-underline-offset:2px;color:var(--nb-ink)}
     [data-exp="console"] .nb-md-del{color:var(--nb-ink-faint);text-decoration:line-through}
+    /* Discord spoilers — blackout until clicked (terminal: reverse video block). */
+    [data-exp="console"] .nb-md-spoiler{
+      font:inherit;border:0;border-radius:0;padding:0 .15em;margin:0;cursor:pointer;
+      background:var(--nb-ink);color:transparent;vertical-align:baseline}
+    [data-exp="console"] .nb-md-spoiler:hover{outline:1px dotted var(--nb-ink-faint);outline-offset:1px}
+    [data-exp="console"] .nb-md-spoiler[aria-expanded=true],
+    [data-exp="console"] .nb-md-spoiler[data-open=true]{
+      background:var(--nb-surface);color:var(--nb-ink)}
     [data-exp="console"] .nb-md-code,[data-exp="console"] .nb-md-codeblock{
       font:inherit;color:var(--nb-agent);background:var(--nb-surface);
-      border:1px solid var(--nb-rule);padding:0 .3rem;border-radius:var(--nb-radius)}
+      border:1px solid var(--nb-rule);padding:0 .3rem;border-radius:0}
     [data-exp="console"] .nb-md-pre{margin:0;padding:.4rem .5rem;overflow:auto;
-      background:var(--nb-surface);border:1px solid var(--nb-rule);max-width:100%}
+      background:var(--nb-surface);border:1px solid var(--nb-rule);max-width:100%;
+      position:relative;max-height:min(24rem,50vh)}
+    [data-exp="console"] .nb-md-pre:focus-visible{outline:2px solid var(--nb-accent);outline-offset:1px}
+    [data-exp="console"] .nb-md-pre[data-lang]:not([data-lang=""]):not([data-lang="text"])::before{
+      content:attr(data-lang);position:absolute;inset-block-start:.2rem;inset-inline-end:.45rem;
+      font-size:.7em;letter-spacing:.06em;text-transform:lowercase;color:var(--nb-ink-faint);
+      pointer-events:none}
     [data-exp="console"] .nb-md-pre .nb-md-codeblock{border:0;background:transparent;padding:0;display:block;
-      white-space:pre;color:var(--nb-agent)}
+      white-space:pre;color:var(--nb-ink)}
+    /* Syntax tokens — theme via board inks (no hard-coded neon). */
+    [data-exp="console"] .nb-tok-kw{color:var(--nb-accent);font-weight:700}
+    [data-exp="console"] .nb-tok-str{color:var(--nb-signed)}
+    [data-exp="console"] .nb-tok-path{color:var(--nb-agent)}
+    [data-exp="console"] .nb-tok-flag{color:var(--nb-warn)}
+    [data-exp="console"] .nb-tok-enum{color:var(--nb-live)}
+    [data-exp="console"] .nb-tok-field{color:var(--nb-accent)}
+    [data-exp="console"] .nb-tok-num{color:var(--nb-live)}
+    [data-exp="console"] .nb-tok-com{color:var(--nb-ink-faint);font-style:italic}
+    [data-exp="console"] .nb-tok-fn{color:var(--nb-agent)}
+    [data-exp="console"] .nb-tok-type{color:var(--nb-warn)}
+    [data-exp="console"] .nb-tok-prop{color:var(--nb-agent)}
+    [data-exp="console"] .nb-tok-op{color:var(--nb-ink-dim)}
+    [data-exp="console"] .nb-tok-pun{color:var(--nb-ink-faint)}
+    [data-exp="console"] .nb-tok-ident{color:var(--nb-ink)}
+    [data-exp="console"] .nb-tok-text{color:var(--nb-ink)}
+    [data-exp="console"] .nb-tok-add{color:var(--nb-live)}
+    [data-exp="console"] .nb-tok-del{color:var(--nb-danger)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-kw{color:var(--nb-accent)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-str{color:var(--nb-signed)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-num{color:var(--nb-live)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-com{color:var(--nb-ink-faint)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-fn{color:var(--nb-agent)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-type{color:var(--nb-warn)}
+    [data-exp="console"] .nb-ed-ch.nb-tok-prop{color:var(--nb-agent)}
+    [data-exp="console"] .nb-ed-ch.nb-ed-caret{color:var(--nb-accent-ink)}
+    [data-exp="console"] .nb-ed-ch.nb-ed-sel{color:var(--nb-accent-ink)}
     [data-exp="console"] .nb-md-a{color:var(--nb-accent);text-decoration:underline;text-underline-offset:2px}
     [data-exp="console"] .nb-md-mention{color:var(--nb-accent);font-weight:700}
     [data-exp="console"] .nb-md-topic{color:var(--nb-signed);font-weight:700}
@@ -1896,7 +2918,7 @@
       box-shadow:inset 0 0 0 1px var(--nb-accent)}
     [data-exp="console"] .nb-link-preview-ascii{
       margin:0;padding:.35rem .5rem;font:inherit;line-height:1.3;white-space:pre;
-      overflow:auto;color:var(--nb-ink)}
+      overflow:hidden;color:var(--nb-ink)}
     [data-exp="console"] .nb-link-preview-rule{color:var(--nb-ink-faint)}
     [data-exp="console"] .nb-link-preview-title{color:var(--nb-ink);font-weight:700}
     [data-exp="console"] .nb-link-preview-desc{color:var(--nb-ink-dim)}
@@ -1929,44 +2951,52 @@
     [data-exp="console"] .cn-banner .nb-md-block{color:var(--nb-live)}
     [data-exp="console"] .cn-body .nb-md,[data-exp="console"] .cn-comment-body .nb-md{max-width:76ch}
     [data-exp="console"] .cn-tool-result .nb-md,[data-exp="console"] .cn-tool-args .nb-md{font-size:.95em}
-    [data-exp="console"] .cn-actions{display:flex;flex-wrap:wrap;gap:.15rem .55rem;margin-block-start:.3rem}
-    /* GitHub/Slack-style reaction pills */
-    [data-exp="console"] .cn-reacts{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem;
-      margin-block-start:.4rem;position:relative}
+    [data-exp="console"] .cn-actions{display:flex;flex-wrap:wrap;gap:.15rem .45rem;margin-block-start:.1rem}
+    [data-exp="console"] .cn-act{background:none;border:0;font:inherit;font-size:.85em;font-weight:700;
+      color:var(--nb-ink-faint);cursor:pointer;padding:0;border-radius:0;min-height:0}
+    [data-exp="console"] .cn-act::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-act::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-act:hover{color:var(--nb-ink);text-decoration:underline}
+    /* Terminal reactions — [mark n], reverse when yours; ASCII labels only */
+    [data-exp="console"] .cn-reacts{display:flex;flex-wrap:wrap;align-items:center;gap:.2rem .3rem;
+      margin-block-start:.15rem}
     [data-exp="console"] .cn-react-pill{
-      display:inline-flex;align-items:center;gap:.3rem;font:inherit;font-size:.8em;
-      color:var(--nb-ink-dim);background:var(--nb-surface);border:1px solid var(--nb-rule);
-      border-radius:999px;min-height:1.7rem;padding:0 .5rem;cursor:pointer}
-    [data-exp="console"] .cn-react-pill:hover{border-color:var(--nb-ink-faint);color:var(--nb-ink)}
+      display:inline-flex;align-items:baseline;gap:.25rem;font:inherit;font-size:.82em;
+      color:var(--nb-ink-dim);background:none;border:0;border-radius:0;
+      min-height:0;padding:0;cursor:pointer}
+    [data-exp="console"] .cn-react-pill::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-react-pill::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-react-pill:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-react-pill:hover::before,
+    [data-exp="console"] .cn-react-pill:hover::after{color:var(--nb-ink)}
     [data-exp="console"] .cn-react-pill[aria-pressed=true]{
-      border-color:var(--nb-accent);color:var(--nb-ink);background:color-mix(in srgb,var(--nb-accent) 14%,var(--nb-surface))}
-    [data-exp="console"] .cn-react-emoji{line-height:1;font-size:1.05em}
+      color:var(--nb-bg);background:var(--nb-ink);text-decoration:none}
+    [data-exp="console"] .cn-react-pill[aria-pressed=true]::before,
+    [data-exp="console"] .cn-react-pill[aria-pressed=true]::after{color:var(--nb-bg)}
+    [data-exp="console"] .cn-react-mark{font-weight:700;letter-spacing:.02em}
     [data-exp="console"] .cn-react-count{font-weight:700;font-variant-numeric:tabular-nums}
     [data-exp="console"] .cn-react-add{
-      font:inherit;font-size:.9em;font-weight:700;color:var(--nb-ink-faint);background:none;
-      border:1px dashed var(--nb-rule);border-radius:999px;min-width:1.7rem;min-height:1.7rem;
-      padding:0 .4rem;cursor:pointer}
+      font:inherit;font-size:.85em;font-weight:700;color:var(--nb-ink-faint);background:none;
+      border:0;border-radius:0;min-width:0;min-height:0;padding:0;cursor:pointer}
+    [data-exp="console"] .cn-react-add::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-react-add::after{content:"]";color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-react-add:hover,[data-exp="console"] .cn-react-add[aria-expanded=true]{
-      color:var(--nb-ink);border-color:var(--nb-ink-faint);border-style:solid}
+      color:var(--nb-accent)}
     [data-exp="console"] .cn-react-picker{
-      position:absolute;z-index:5;left:0;bottom:calc(100% + .25rem);
-      display:none;flex-wrap:wrap;gap:.2rem;padding:.35rem;
-      background:var(--nb-surface);border:1px solid var(--nb-rule);
-      box-shadow:0 8px 24px color-mix(in srgb,var(--nb-bg) 70%,#000);max-width:16rem}
+      display:none;flex-wrap:wrap;gap:.2rem .35rem;width:100%;margin-block-start:.2rem;
+      padding:.25rem 0;background:transparent;border:0;border-block-start:1px dotted var(--nb-rule);
+      border-radius:0}
     [data-exp="console"] .cn-react-picker[data-open=true]{display:flex}
     [data-exp="console"] .cn-react-opt{
-      display:inline-flex;flex-direction:column;align-items:center;gap:.1rem;
-      font:inherit;font-size:1.15em;background:none;border:1px solid transparent;
-      border-radius:var(--nb-radius);min-width:2.2rem;min-height:2.2rem;padding:.15rem;cursor:pointer;
-      color:var(--nb-ink)}
-    [data-exp="console"] .cn-react-opt:hover{border-color:var(--nb-rule);background:var(--nb-bg)}
-    [data-exp="console"] .cn-react-opt[aria-pressed=true]{border-color:var(--nb-accent)}
-    [data-exp="console"] .cn-react-opt-label{font-size:.55em;color:var(--nb-ink-faint);font-weight:700;
-      text-transform:lowercase;letter-spacing:.02em}
-    [data-exp="console"] .cn-act{background:none;border:0;font:inherit;font-size:.8em;font-weight:700;
-      color:var(--nb-ink-faint);cursor:pointer;padding:.1rem .2rem;border-radius:var(--nb-radius);
-      text-transform:lowercase}
-    [data-exp="console"] .cn-act:hover{color:var(--nb-ink);background:var(--nb-surface)}
+      font:inherit;font-size:.82em;font-weight:700;color:var(--nb-ink-dim);background:none;border:0;
+      border-radius:0;min-width:0;min-height:0;padding:0;cursor:pointer}
+    [data-exp="console"] .cn-react-opt::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-react-opt::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-react-opt:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-react-opt[aria-pressed=true]{color:var(--nb-bg);background:var(--nb-ink)}
+    [data-exp="console"] .cn-react-opt[aria-pressed=true]::before,
+    [data-exp="console"] .cn-react-opt[aria-pressed=true]::after{color:var(--nb-bg)}
+    [data-exp="console"] .cn-react-opt .cn-react-mark{letter-spacing:.02em}
     [data-exp="console"] .cn-act-fold{color:var(--nb-accent)}
 
     /* Children hang under the parent; rails continue the visual chain. */
@@ -1976,78 +3006,89 @@
     [data-exp="console"] .cn-ctx{display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap;
       padding:.45rem .8rem;border-block-end:1px solid var(--nb-rule);font-size:.9em}
     [data-exp="console"] .cn-ctx-name{color:var(--nb-ink)}
-    [data-exp="console"] .cn-ctx-kind{color:var(--nb-ink-faint);border:1px solid var(--nb-rule);
-      padding:0 .35rem;border-radius:var(--nb-radius);font-size:.85em}
+    [data-exp="console"] .cn-ctx-kind{color:var(--nb-ink-faint);border:0;padding:0;border-radius:0;font-size:.85em}
+    [data-exp="console"] .cn-ctx-kind::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-ctx-kind::after{content:"]";color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-ctx-fact{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-thread-ctx .cn-act[data-thread-back]{margin-inline-start:auto}
 
     [data-exp="console"] .cn-card{padding:.7rem .8rem}
     [data-exp="console"] .cn-fact{display:flex;gap:.7rem;padding:.15rem 0}
     [data-exp="console"] .cn-fact dt{color:var(--nb-ink-faint);min-width:4rem}
     [data-exp="console"] .cn-fact dd{margin:0}
 
-    /* Terminal panel — VS Code panel chrome, nightboard ink.
-       Title tab row, sash, dock/min/max actions, resizable body. */
-    [data-exp="console"] .cn-panel{display:grid;grid-template-rows:auto auto minmax(0,1fr);
-      min-height:0;min-width:0;background:var(--nb-bg);position:relative}
-    [data-exp="console"] .cn-panel[data-dock="bottom"]{height:var(--nb-out-h,12rem);
-      border-block-start:1px solid var(--nb-rule)}
-    [data-exp="console"] .cn-panel[data-dock="right"]{width:var(--nb-out-w,28rem);height:auto;
-      border-inline-start:1px solid var(--nb-rule);grid-template-columns:auto minmax(0,1fr);
-      grid-template-rows:auto minmax(0,1fr)}
-    [data-exp="console"] .cn-panel[data-dock="left"]{width:var(--nb-out-w,28rem);height:auto;
-      border-inline-end:1px solid var(--nb-rule);grid-template-columns:minmax(0,1fr) auto;
-      grid-template-rows:auto minmax(0,1fr)}
-    [data-exp="console"] .cn-panel[data-dock="right"] .cn-split-row,
-    [data-exp="console"] .cn-panel[data-dock="left"] .cn-split-row{cursor:col-resize;width:6px;height:auto;
-      grid-row:1/-1}
-    [data-exp="console"] .cn-panel[data-dock="right"] .cn-split-row{grid-column:1}
-    [data-exp="console"] .cn-panel[data-dock="left"] .cn-split-row{grid-column:2}
-    [data-exp="console"] .cn-panel[data-dock="right"] .cn-panel-head{grid-column:2;grid-row:1}
-    [data-exp="console"] .cn-panel[data-dock="right"] .cn-panel-body{grid-column:2;grid-row:2;min-height:0}
-    [data-exp="console"] .cn-panel[data-dock="left"] .cn-panel-head{grid-column:1;grid-row:1}
-    [data-exp="console"] .cn-panel[data-dock="left"] .cn-panel-body{grid-column:1;grid-row:2;min-height:0}
-    [data-exp="console"] .cn-panel[data-out-max="true"][data-dock="bottom"]{height:auto;min-height:0}
-    [data-exp="console"] .cn-panel[data-out-max="true"][data-dock="right"],
-    [data-exp="console"] .cn-panel[data-out-max="true"][data-dock="left"]{width:auto;min-width:0}
-    [data-exp="console"] .cn-panel[data-out-min="true"]{height:auto!important;width:auto!important}
-    [data-exp="console"] .cn-panel[data-out-min="true"] .cn-panel-body{display:none}
-    [data-exp="console"] .cn-panel[data-out-min="true"] .cn-split-row{display:none}
-    /* Side-docked + minimised collapses to the tab strip only — same affordance
-       as bottom, without vertical writing-mode tricks that break hit targets. */
-    [data-exp="console"] .cn-panel[data-out-min="true"][data-dock="right"],
-    [data-exp="console"] .cn-panel[data-out-min="true"][data-dock="left"]{max-width:12rem}
-
-    [data-exp="console"] .cn-panel-head{display:flex;align-items:center;gap:.35rem;min-height:1.9rem;
-      padding:0 .35rem 0 .55rem;background:var(--nb-surface);border-block-end:1px solid var(--nb-rule)}
-    [data-exp="console"] .cn-panel-tabs{display:flex;align-items:stretch;gap:0;min-width:0;flex:1;
-      overflow-x:auto;scrollbar-width:thin}
-    [data-exp="console"] .cn-panel-tab{background:none;border:0;border-block-end:2px solid transparent;
-      font:inherit;font-size:.8em;color:var(--nb-ink-dim);cursor:pointer;padding:.35rem .55rem;
-      min-height:1.9rem;white-space:nowrap;display:inline-flex;align-items:center;gap:.35rem}
-    [data-exp="console"] .cn-panel-tab[aria-selected=true]{color:var(--nb-ink);
-      border-block-end-color:var(--nb-accent);background:color-mix(in srgb,var(--nb-accent) 8%,transparent)}
-    [data-exp="console"] .cn-panel-tab:hover{color:var(--nb-ink)}
-    [data-exp="console"] .cn-tab-close{background:none;border:0;font:inherit;color:var(--nb-ink-faint);
-      cursor:pointer;padding:0 .15rem;line-height:1;border-radius:var(--nb-radius)}
-    [data-exp="console"] .cn-tab-close:hover{color:var(--nb-danger)}
-    [data-exp="console"] .cn-tab-new{font-size:1em;letter-spacing:0;min-width:1.9rem;justify-content:center;
-      color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-tab-new:hover{color:var(--nb-accent);border-block-end-color:transparent}
-    [data-exp="console"] .cn-panel-actions{display:flex;align-items:center;gap:.15rem;margin-inline-start:auto;
-      flex:none}
-    [data-exp="console"] .cn-panel-act{background:none;border:1px solid transparent;font:inherit;
-      color:var(--nb-ink-faint);cursor:pointer;min-width:1.55rem;min-height:1.55rem;padding:0;
-      border-radius:var(--nb-radius);line-height:1}
-    [data-exp="console"] .cn-panel-act:hover{color:var(--nb-ink);border-color:var(--nb-rule);background:var(--nb-bg)}
-    [data-exp="console"] .cn-panel-act[aria-pressed=true]{color:var(--nb-accent);border-color:var(--nb-accent)}
-
-    [data-exp="console"] .cn-panel-body{display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0;
-      overflow:hidden}
+    /* TUI foot: compose label + prompt only. No transcript panel — the page is the terminal. */
+    [data-exp="console"] .cn-tui-foot{display:flex;flex-direction:column;min-height:0;min-width:0;
+      background:var(--nb-bg);border-block-start:1px solid var(--nb-rule);position:relative;flex:none}
+    [data-exp="console"] .cn-tui-foot[data-open=true] .cn-menu{display:block}
+    /* Discord-parity voice dock — above compose while connected. */
+    [data-exp="console"] .cn-voice-dock{display:grid;grid-template-columns:minmax(0,1fr) auto;
+      gap:.35rem .8rem;align-items:center;padding:.35rem .65rem;border-block-start:1px solid var(--nb-rule);
+      background:var(--nb-surface);flex:none}
+    [data-exp="console"] .cn-voice-dock-meta{display:flex;align-items:baseline;gap:.55rem;min-width:0;
+      grid-column:1 / -1}
+    [data-exp="console"] .cn-voice-dock-name{color:var(--nb-live);font-size:.85em}
+    [data-exp="console"] .cn-voice-rtt{font-size:.75em;color:var(--nb-ink-dim);font-variant-numeric:tabular-nums}
+    [data-exp="console"] .cn-voice-mode-tag{font-size:.72em;color:var(--nb-ink-dim);text-transform:uppercase;
+      letter-spacing:.04em}
+    [data-exp="console"] .cn-voice-roster{display:flex;flex-wrap:wrap;gap:.35rem .55rem;min-width:0}
+    [data-exp="console"] .cn-voice-user{font-size:.8em;color:var(--nb-ink-dim);padding:0 .15rem}
+    [data-exp="console"] .cn-voice-user[data-speaking=true]{color:var(--nb-live);font-weight:700}
+    [data-exp="console"] .cn-voice-user[data-muted=true]{opacity:.55}
+    [data-exp="console"] .cn-voice-user[data-self=true]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-voice-controls{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end}
+    [data-exp="console"] .cn-voice-act{font:inherit;font-size:.8em;background:none;border:0;color:var(--nb-ink-dim);
+      cursor:pointer;padding:0 .1rem}
+    [data-exp="console"] .cn-voice-act::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-voice-act::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-voice-act:hover{color:var(--nb-ink)}
+    [data-exp="console"] .cn-voice-act[aria-pressed=true]{color:var(--nb-danger)}
+    [data-exp="console"] .cn-voice-join{color:var(--nb-live)}
+    [data-exp="console"] .cn-voice-leave:hover{color:var(--nb-danger)}
+    [data-exp="console"] .cn-voice-room{padding:.6rem .8rem;display:grid;gap:.55rem}
+    [data-exp="console"] .cn-voice-lead{margin:0;color:var(--nb-ink-dim);font-size:.9em;max-width:42ch}
+    [data-exp="console"] .cn-voice-status{margin:0;color:var(--nb-live);font-size:.85em}
+    [data-exp="console"] .cn-voice-ctx{display:flex;flex-wrap:wrap;align-items:baseline;gap:.45rem}
+    [data-exp="console"] .cn-voice-ctx .cn-voice-act{margin-inline-start:auto}
+    [data-exp="console"] .cn-item[data-meta=voice] .cn-name{color:var(--nb-live)}
+    [data-exp="console"] .cn-item[data-meta=voice] .cn-hint{color:var(--nb-live);opacity:.85}
+    /* Session output lives inside the detail blade — never a docked terminal window. */
+    [data-exp="console"] .cn-blade-out{max-height:min(12rem,32%);overflow:auto;margin:0;
+      padding:.35rem .55rem .5rem;border-block-start:1px dotted var(--nb-rule);
+      font-size:.9em;background:transparent}
+    [data-exp="console"] .cn-blade-out:empty{display:none}
+    [data-exp="console"] .cn-blade-out .cn-log{display:grid;gap:.2rem}
+    /* Inconclusive prompt: session chat is the active pane — larger, accent-ruled. */
+    [data-exp="console"] .cn-blade-out[data-active=true]{
+      max-height:min(40vh,22rem);border-block-start:2px solid var(--nb-accent);
+      background:color-mix(in srgb,var(--nb-surface) 70%,transparent);
+      box-shadow:inset 2px 0 0 var(--nb-accent);outline:none}
+    [data-exp="console"] .cn-blade-out[data-active=true]:focus-visible{
+      outline:1px solid color-mix(in srgb,var(--nb-agent) 50%,transparent);outline-offset:-2px}
     [data-exp="console"] .cn-prompt-stack{position:relative;min-width:0}
     [data-exp="console"] .cn-menu{position:absolute;inset-block-end:100%;inset-inline:0;
       max-height:14rem;overflow:auto;background:var(--nb-bg);border:1px solid var(--nb-rule);
       border-block-end:0;display:none;z-index:5}
-    [data-exp="console"] .cn-panel[data-open=true] .cn-menu{display:block}
+    [data-exp="console"] .cn-compose-label{font-size:.8em;color:var(--nb-ink-dim);padding:.2rem .8rem 0;
+      display:flex;align-items:baseline;gap:.45rem;flex-wrap:wrap}
+    [data-exp="console"] .cn-compose-label[data-compose-kind=reply]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-compose-label[data-compose-kind=post]{color:var(--nb-signed)}
+    [data-exp="console"] .cn-compose-label[data-compose-kind=dm]{color:var(--nb-agent)}
+    [data-exp="console"] .cn-compose-label::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-compose-label::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-compose-clear{background:none;border:0;font:inherit;font-size:.85em;
+      color:var(--nb-ink-faint);cursor:pointer;padding:0;margin-inline-start:.35rem}
+    [data-exp="console"] .cn-compose-clear:hover{color:var(--nb-ink);text-decoration:underline}
+
+    [data-exp="console"] .cn-panel-tab{/* also used as workspace tabs */}
+    [data-exp="console"] .cn-tab-close{background:none;border:0;font:inherit;color:var(--nb-ink-faint);
+      cursor:pointer;padding:0 .15rem;line-height:1;border-radius:0}
+    [data-exp="console"] .cn-tab-close:hover{color:var(--nb-danger)}
+    [data-exp="console"] .cn-tab-new{font-size:1em;letter-spacing:0;min-width:1.9rem;justify-content:center;
+      color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-tab-new:hover{color:var(--nb-accent);border-block-end-color:transparent}
+
+    [data-exp="console"] .cn-prompt-stack{position:relative;min-width:0}
     [data-exp="console"] .cn-menu-head{padding:.3rem .8rem;font-size:.78em;color:var(--nb-ink-faint);
       border-block-end:1px solid var(--nb-rule);letter-spacing:.06em;text-transform:uppercase}
 
@@ -2056,37 +3097,38 @@
       align-items:center;justify-content:center;padding:1rem;
       background:color-mix(in srgb,var(--nb-bg) 78%,transparent);backdrop-filter:blur(2px)}
     [data-exp="console"] .cn-help[data-open=true]{display:flex}
-    [data-exp="console"] .cn-help-card{width:min(46rem,100%);max-height:min(82vh,38rem);overflow:auto;
-      background:var(--nb-surface);border:1px solid var(--nb-rule);padding:.7rem .9rem 1rem;
-      box-shadow:0 12px 40px color-mix(in srgb,var(--nb-bg) 80%,#000)}
+    [data-exp="console"] .cn-help-card{width:min(36rem,100%);max-height:min(84vh,42rem);overflow:auto;
+      background:var(--nb-bg);border:1px solid var(--nb-rule);padding:.7rem .9rem 1rem;
+      box-shadow:none;border-radius:0}
     [data-exp="console"] .cn-help-head{display:flex;align-items:baseline;gap:.7rem;flex-wrap:wrap;
       margin-block-end:.4rem}
     [data-exp="console"] .cn-help-head b{color:var(--nb-ink);letter-spacing:.08em;font-size:.9em}
     [data-exp="console"] .cn-help-scope{color:var(--nb-accent);font-size:.78em;letter-spacing:.06em;
       text-transform:uppercase}
-    [data-exp="console"] .cn-help-close{margin-inline-start:auto;background:none;border:1px solid var(--nb-rule);
-      font:inherit;color:var(--nb-ink-faint);cursor:pointer;min-height:1.7rem;padding:0 .55rem;
-      border-radius:var(--nb-radius)}
-    [data-exp="console"] .cn-help-close:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-help-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-block-end:.45rem}
-    [data-exp="console"] .cn-help-chip{font-size:.75em;color:var(--nb-ink-dim);border:1px solid var(--nb-rule);
-      background:var(--nb-bg);padding:.1rem .4rem;border-radius:var(--nb-radius);max-width:100%;
+    [data-exp="console"] .cn-help-head .cn-esc{margin-inline-start:auto}
+    [data-exp="console"] .cn-help-chips{display:flex;flex-wrap:wrap;gap:.25rem;margin-block-end:.45rem}
+    [data-exp="console"] .cn-help-chip{font-size:.75em;color:var(--nb-ink-dim);border:0;
+      background:none;padding:0;border-radius:0;max-width:100%;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-help-chip::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-help-chip::after{content:"]";color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-help-lead{margin:0 0 .65rem;font-size:.82em;color:var(--nb-ink-faint);
       padding-block-end:.45rem;border-block-end:1px solid var(--nb-rule)}
     [data-exp="console"] .cn-help-empty{color:var(--nb-ink-faint);margin:0;padding:.4rem 0}
-    [data-exp="console"] .cn-help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr));
-      gap:.85rem 1.2rem}
+    [data-exp="console"] .cn-help-grid{display:flex;flex-direction:column;gap:1rem}
     [data-exp="console"] .cn-help-group h3{margin:0 0 .35rem;font-size:.75em;font-weight:700;
       letter-spacing:.1em;text-transform:uppercase;color:var(--nb-accent)}
-    [data-exp="console"] .cn-help-row{display:grid;grid-template-columns:minmax(0,7.5rem) minmax(0,1fr);
-      gap:.45rem;align-items:baseline;padding:.12rem 0;font-size:.88em}
+    [data-exp="console"] .cn-help-row{display:grid;grid-template-columns:minmax(10rem,13rem) minmax(0,1fr);
+      gap:.65rem 1rem;align-items:baseline;padding:.14rem 0;font-size:.9em}
     [data-exp="console"] .cn-help-key{color:var(--nb-ink);font-variant-numeric:tabular-nums;
-      white-space:nowrap}
-    [data-exp="console"] .cn-help-key kbd{display:inline-block;border:1px solid var(--nb-rule);
-      background:var(--nb-bg);padding:0 .28rem;margin-inline-end:.15rem;border-radius:var(--nb-radius);
-      font:inherit;font-size:.85em;color:var(--nb-ink-dim)}
-    [data-exp="console"] .cn-help-desc{color:var(--nb-ink-dim)}
+      white-space:normal;overflow-wrap:anywhere}
+    [data-exp="console"] .cn-help-key kbd{display:inline;border:0;
+      background:none;padding:0;margin-inline-end:.05rem;border-radius:0;
+      font:inherit;font-size:.85em;color:var(--nb-ink)}
+    [data-exp="console"] .cn-help-key kbd::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-help-key kbd::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-help-desc{color:var(--nb-ink-dim);line-height:1.35;
+      overflow-wrap:break-word}
     [data-exp="console"] .cn-cand{display:grid;grid-template-columns:minmax(0,14rem) minmax(0,1fr);gap:.8rem;
       padding:.18rem .8rem;cursor:pointer}
     [data-exp="console"] .cn-cand[aria-current=true]{background:var(--nb-accent);color:var(--nb-accent-ink)}
@@ -2097,31 +3139,44 @@
     [data-exp="console"] .cn-prompt-stack[data-drop=true] .cn-prompt{
       box-shadow:inset 0 0 0 1px var(--nb-live)}
     [data-exp="console"] .cn-ps1{color:var(--nb-accent);white-space:nowrap}
-    [data-exp="console"] .cn-mode{font:inherit;background:none;border:1px solid var(--nb-rule);
-      color:var(--nb-ink-dim);cursor:pointer;padding:0 .5rem;min-height:1.7rem;border-radius:var(--nb-radius)}
-    [data-exp="console"] .cn-mode[aria-pressed=true]{background:var(--nb-agent);color:var(--nb-bg);
-      border-color:var(--nb-agent)}
+    [data-exp="console"] .cn-mode{font:inherit;background:none;border:0;
+      color:var(--nb-ink-dim);cursor:pointer;padding:0 .05rem;min-height:1.5rem;border-radius:0}
+    [data-exp="console"] .cn-mode::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-mode::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-mode[aria-pressed=true]{background:var(--nb-ink);color:var(--nb-bg)}
+    [data-exp="console"] .cn-mode[aria-pressed=true]::before,
+    [data-exp="console"] .cn-mode[aria-pressed=true]::after{color:var(--nb-bg)}
     /* File attach for chat context — paperclip next to the prompt. */
-    [data-exp="console"] .cn-attach{font:inherit;background:none;border:1px solid var(--nb-rule);
-      color:var(--nb-ink-dim);cursor:pointer;padding:0 .45rem;min-height:1.7rem;min-width:1.7rem;
-      border-radius:var(--nb-radius);line-height:1;flex:none}
-    [data-exp="console"] .cn-attach:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-attach[data-count]:not([data-count="0"]){
-      color:var(--nb-accent);border-color:var(--nb-accent)}
+    [data-exp="console"] .cn-attach{font:inherit;background:none;border:0;
+      color:var(--nb-ink-dim);cursor:pointer;padding:0 .05rem;min-height:1.5rem;min-width:1.5rem;
+      border-radius:0;line-height:1;flex:none}
+    [data-exp="console"] .cn-attach::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-attach[data-count]:not([data-count="0"]){color:var(--nb-accent)}
+    [data-exp="console"] .cn-attach[data-count]:not([data-count="0"])::before,
+    [data-exp="console"] .cn-attach[data-count]:not([data-count="0"])::after{color:var(--nb-accent)}
     [data-exp="console"] .cn-attach-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;
       clip:rect(0,0,0,0);pointer-events:none}
     [data-exp="console"] .cn-attach-tray{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;
       padding:.3rem .8rem 0;border-block-start:1px solid var(--nb-rule);background:var(--nb-bg)}
     [data-exp="console"] .cn-attach-chip{
-      display:inline-flex;align-items:center;gap:.3rem;font:inherit;font-size:.78em;
-      color:var(--nb-ink-dim);background:var(--nb-surface);border:1px solid var(--nb-rule);
-      border-radius:var(--nb-radius);padding:.15rem .35rem .15rem .45rem;max-width:100%;
-      min-height:1.6rem}
-    [data-exp="console"] .cn-attach-chip[data-kind=image]{border-color:var(--nb-signed)}
-    [data-exp="console"] .cn-attach-chip[data-kind=text]{border-color:var(--nb-agent)}
-    [data-exp="console"] .cn-attach-chip[data-error=true]{border-color:var(--nb-danger);color:var(--nb-danger)}
-    [data-exp="console"] .cn-attach-chip-sent{padding-inline:.45rem;opacity:.9}
-    [data-exp="console"] .cn-attach-thumb{width:1.2rem;height:1.2rem;object-fit:cover;border-radius:2px;
+      display:inline-flex;align-items:center;gap:.25rem;font:inherit;font-size:.78em;
+      color:var(--nb-ink-dim);background:none;border:0;
+      border-radius:0;padding:0;max-width:100%;min-height:1.4rem}
+    [data-exp="console"] .cn-attach-chip::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach-chip::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach-chip[data-kind=image],
+    [data-exp="console"] .cn-attach-chip[data-kind=image]::before,
+    [data-exp="console"] .cn-attach-chip[data-kind=image]::after{color:var(--nb-signed)}
+    [data-exp="console"] .cn-attach-chip[data-kind=text],
+    [data-exp="console"] .cn-attach-chip[data-kind=text]::before,
+    [data-exp="console"] .cn-attach-chip[data-kind=text]::after{color:var(--nb-agent)}
+    [data-exp="console"] .cn-attach-chip[data-error=true],
+    [data-exp="console"] .cn-attach-chip[data-error=true]::before,
+    [data-exp="console"] .cn-attach-chip[data-error=true]::after{color:var(--nb-danger)}
+    [data-exp="console"] .cn-attach-chip-sent{padding-inline:0;opacity:.9}
+    [data-exp="console"] .cn-attach-thumb{width:1.2rem;height:1.2rem;object-fit:cover;border-radius:0;
       border:1px solid var(--nb-rule);flex:none}
     [data-exp="console"] .cn-attach-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:18ch}
     [data-exp="console"] .cn-attach-rm{font:inherit;background:none;border:0;color:var(--nb-ink-faint);
@@ -2131,28 +3186,48 @@
       color:var(--nb-ink-faint);cursor:pointer;text-decoration:underline;text-underline-offset:2px;
       padding:.1rem .2rem}
     [data-exp="console"] .cn-attach-sent{display:flex;flex-wrap:wrap;gap:.3rem;margin-block-start:.3rem}
-    /* Speech-to-text mic: 16-bit pixelarticons glyph; only when SpeechRecognition exists. */
-    [data-exp="console"] .cn-mic{font:inherit;background:none;border:1px solid var(--nb-rule);
-      color:var(--nb-ink-dim);cursor:pointer;padding:0;min-height:1.7rem;min-width:1.7rem;
-      border-radius:var(--nb-radius);line-height:0;flex:none;
+    /* Speech-to-text mic: always painted; muted until on-device model is ready. */
+    [data-exp="console"] .cn-mic{font:inherit;background:none;border:0;
+      color:var(--nb-ink-dim);cursor:pointer;padding:0 .05rem;min-height:1.5rem;min-width:1.5rem;
+      border-radius:0;line-height:0;flex:none;
       display:inline-flex;align-items:center;justify-content:center}
+    [data-exp="console"] .cn-mic::before{content:"[";color:var(--nb-ink-faint);font-size:.85em;line-height:1}
+    [data-exp="console"] .cn-mic::after{content:"]";color:var(--nb-ink-faint);font-size:.85em;line-height:1}
     [data-exp="console"] .cn-mic .nb-ico{width:16px;height:16px;display:block;
       image-rendering:pixelated;image-rendering:crisp-edges;flex:none}
-    [data-exp="console"] .cn-mic:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-mic:hover{color:var(--nb-ink)}
+    [data-exp="console"] .cn-mic[data-ready=false]{color:var(--nb-ink-faint);opacity:.55;cursor:help}
+    [data-exp="console"] .cn-mic[data-ready=false]:hover{color:var(--nb-warn);opacity:.9}
+    [data-exp="console"] .cn-mic[data-avail=downloading],
+    [data-exp="console"] .cn-mic[data-avail=downloadable]{color:var(--nb-warn);opacity:.85}
     [data-exp="console"] .cn-mic[aria-pressed=true],
-    [data-exp="console"] .cn-mic[data-listening=true]{background:var(--nb-danger);color:var(--nb-accent-ink);
-      border-color:var(--nb-danger)}
+    [data-exp="console"] .cn-mic[data-listening=true]{background:var(--nb-danger);color:var(--nb-accent-ink);opacity:1}
+    [data-exp="console"] .cn-mic[aria-pressed=true]::before,
+    [data-exp="console"] .cn-mic[aria-pressed=true]::after,
+    [data-exp="console"] .cn-mic[data-listening=true]::before,
+    [data-exp="console"] .cn-mic[data-listening=true]::after{color:var(--nb-accent-ink)}
     [data-exp="console"] .cn-prompt[data-speech=ptt],
     [data-exp="console"] .cn-prompt[data-speech=toggle]{box-shadow:inset 0 0 0 1px var(--nb-live)}
+    [data-exp="console"] .cn-prompt[data-voice-intent=commands]{box-shadow:inset 0 0 0 1px var(--nb-accent)}
     [data-exp="console"] .cn-speech-tag{font-size:.72em;color:var(--nb-live);letter-spacing:.04em;
       text-transform:uppercase;white-space:nowrap;flex:none}
+    [data-exp="console"] .cn-speech-tag[data-avail=off],
+    [data-exp="console"] .cn-speech-tag[data-avail=absent],
+    [data-exp="console"] .cn-speech-tag[data-avail=unavailable]{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-speech-tag[data-avail=downloadable],
+    [data-exp="console"] .cn-speech-tag[data-avail=downloading]{color:var(--nb-warn)}
+    [data-exp="console"] .cn-voice-intent{font:inherit;font-size:.72em;background:none;border:0;
+      color:var(--nb-ink-dim);cursor:pointer;padding:0 .15rem;letter-spacing:.04em;text-transform:lowercase}
+    [data-exp="console"] .cn-voice-intent::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-voice-intent::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-voice-intent[data-intent=commands]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-voice-intent[data-intent=dictation]{color:var(--nb-live)}
+    [data-exp="console"] .cn-voice-intent:hover{color:var(--nb-ink)}
     /* Listening state is a solid live mark — no infinite pulse (contract forbids forever animations). */
-    [data-exp="console"] .cn-mic[data-listening=true]{box-shadow:0 0 0 1px var(--nb-danger)}
-    /* Transcript: one who-rail, one body column. Identity is the left edge;
-       content never has to invent its own indent. */
-    [data-exp="console"] .cn-out{min-height:0;overflow:auto;padding:.35rem .6rem .5rem;font-size:.9em}
-    [data-exp="console"] .cn-out:empty::before{content:"ready.";color:var(--nb-ink-faint);padding:.2rem .2rem}
-    [data-exp="console"] .cn-log{display:flex;flex-direction:column;gap:.15rem}
+    [data-exp="console"] .cn-mic[data-listening=true]{box-shadow:none}
+    /* Session output (inside detail blade): one who-rail, one body column. */
+    [data-exp="console"] .cn-blade-out .cn-log,
+    [data-exp="console"] .cn-out .cn-log{display:flex;flex-direction:column;gap:.15rem}
     [data-exp="console"] .cn-line{display:grid;grid-template-columns:3.6rem minmax(0,1fr);gap:.55rem;
       align-items:start;padding:.12rem 0}
     [data-exp="console"] .cn-line[data-kind=banner]{display:block;padding:.15rem 0 .35rem}
@@ -2170,16 +3245,46 @@
     [data-exp="console"] .cn-line[data-kind=out] .cn-body,
     [data-exp="console"] .cn-line[data-kind=progress] .cn-body{color:var(--nb-ink-dim)}
     [data-exp="console"] .cn-line[data-kind=error] .cn-body{color:var(--nb-danger)}
+    /* Board-wide Lucene search hits — color-coded marks, clickable paths */
+    [data-exp="console"] .cn-search-results{display:grid;gap:.2rem;white-space:normal;max-width:88ch}
+    [data-exp="console"] .cn-search-head{color:var(--nb-ink-dim);font-size:.92em;margin-block-end:.15rem}
+    [data-exp="console"] .cn-search-count{color:var(--nb-accent);font-weight:700}
+    [data-exp="console"] .cn-search-q{color:var(--nb-signed);font-weight:700}
+    [data-exp="console"] .cn-search-more{color:var(--nb-ink-faint);font-size:.85em}
+    [data-exp="console"] .cn-search-empty{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-search-hit{
+      display:grid;grid-template-columns:1.6rem minmax(0,1fr);gap:.15rem .45rem;
+      align-items:baseline;width:100%;background:none;border:0;border-block-end:1px dotted var(--nb-rule);
+      font:inherit;font-size:.92em;color:var(--nb-ink);cursor:pointer;text-align:start;
+      padding:.2rem .15rem;border-radius:0}
+    [data-exp="console"] .cn-search-hit:hover{background:var(--nb-surface);border-color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-search-idx{color:var(--nb-ink-faint);font-variant-numeric:tabular-nums}
+    [data-exp="console"] .cn-search-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .55rem;
+      min-width:0}
+    [data-exp="console"] .cn-search-kind{color:var(--nb-agent);font-size:.78em;font-weight:700;
+      text-transform:lowercase}
+    [data-exp="console"] .cn-search-where{color:var(--nb-accent);font-weight:700}
+    [data-exp="console"] .cn-search-who{color:var(--nb-signed);font-weight:700}
+    [data-exp="console"] .cn-search-state{font-size:.78em;color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-search-state[data-state=needs-review]{color:var(--nb-warn)}
+    [data-exp="console"] .cn-search-state[data-state=promoted],
+    [data-exp="console"] .cn-search-state[data-state=signed]{color:var(--nb-live)}
+    [data-exp="console"] .cn-search-snip{grid-column:2;color:var(--nb-ink-dim);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    [data-exp="console"] .cn-search-hint{color:var(--nb-ink-faint);font-size:.85em}
+    [data-exp="console"] .cn-search-mark{
+      color:var(--nb-accent-ink, var(--nb-ink));background:var(--nb-accent);
+      padding:0 .12em;font-weight:700;border-radius:0}
     [data-exp="console"] .cn-mode-tag{display:inline-block;font-size:.75em;color:var(--nb-ink-faint);
       border:1px solid var(--nb-rule);padding:0 .3rem;margin-inline-end:.25rem;border-radius:var(--nb-radius);
       vertical-align:baseline;text-transform:lowercase}
     [data-exp="console"] .cn-line[data-kind=user] .cn-mode-tag[data-mode=ai],
     [data-exp="console"] .cn-mode-tag{/* mode chip is neutral; who-rail carries identity */}
     [data-exp="console"] .cn-tool-sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .55rem;
-      width:100%;background:var(--nb-surface);border:1px solid var(--nb-rule);font:inherit;font-size:.9em;
-      color:var(--nb-ink);cursor:pointer;text-align:start;padding:.2rem .45rem;border-radius:var(--nb-radius);
+      width:100%;background:none;border:0;border-block-end:1px dotted var(--nb-rule);font:inherit;font-size:.9em;
+      color:var(--nb-ink);cursor:pointer;text-align:start;padding:.2rem .2rem;border-radius:0;
       min-height:1.7rem}
-    [data-exp="console"] .cn-tool-sum:hover{border-color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-tool-sum:hover{background:var(--nb-surface);border-color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-twist-mark{color:var(--nb-ink-faint);width:.8rem}
     [data-exp="console"] .cn-tool-name{color:var(--nb-agent);font-weight:700}
     [data-exp="console"] .cn-tool-mark{font-size:.78em;text-transform:lowercase;color:var(--nb-ink-faint)}
@@ -2192,26 +3297,34 @@
       display:grid;gap:.3rem}
     [data-exp="console"] .cn-tool-args{color:var(--nb-ink-faint);white-space:pre-wrap}
     [data-exp="console"] .cn-tool-result{color:var(--nb-ink);white-space:pre-wrap}
-    [data-exp="console"] .cn-input-wrap{position:relative;flex:1;min-width:0}
-    [data-exp="console"] .cn-ghost{position:absolute;inset:0;pointer-events:none;color:var(--nb-ink-faint);
-      white-space:pre;overflow:hidden}
-    [data-exp="console"] .cn-input{width:100%;background:transparent;border:0;color:var(--nb-ink);
-      font:inherit;outline:0;position:relative}
+    [data-exp="console"] .cn-input-wrap{position:relative;flex:1;min-width:0;min-height:1.5rem}
+    [data-exp="console"] .cn-cli-mirror,[data-exp="console"] .cn-ghost{
+      position:absolute;inset:0;pointer-events:none;white-space:pre;overflow:hidden;
+      font:inherit;line-height:inherit;display:block}
+    [data-exp="console"] .cn-ghost-rest{color:var(--nb-ink-faint);opacity:.85}
+    [data-exp="console"] .cn-input{width:100%;background:transparent;border:0;
+      color:transparent;caret-color:var(--nb-ink);font:inherit;outline:0;position:relative;
+      z-index:1}
+    [data-exp="console"] .cn-input::selection{
+      background:color-mix(in srgb,var(--nb-accent) 40%,transparent);color:transparent}
 
     /* Touch is a peer, not an afterthought: every control clears the 32px floor
        wherever the pointer is coarse, which is also where the keyboard is not
        available to compensate. */
     @media (pointer:coarse),(max-width:900px){
       [data-exp="console"] .cn-item{min-height:2.5rem;padding-block:.4rem}
-      [data-exp="console"] .cn-sort,[data-exp="console"] .cn-share{min-height:2.25rem;padding-inline:.75rem}
+      [data-exp="console"] .cn-sort,[data-exp="console"] .cn-share,
+      [data-exp="console"] .cn-activity-filter,[data-exp="console"] .cn-feed-q-btn{min-height:2.25rem;padding-inline:.2rem}
       [data-exp="console"] .cn-crumb{min-height:2.25rem;padding-inline:.45rem}
       [data-exp="console"] .cn-cand{min-height:2.5rem;align-items:center}
       [data-exp="console"] .cn-path{gap:.25rem}
       [data-exp="console"] .cn-panel-act,[data-exp="console"] .cn-pane-act{min-width:2.25rem;min-height:2.25rem}
       [data-exp="console"] .cn-panel-tab{min-height:2.25rem}
-      [data-exp="console"] .cn-rail{width:1.1rem}
-      [data-exp="console"] .cn-vup,[data-exp="console"] .cn-vdn,[data-exp="console"] .cn-pm{min-width:2rem;min-height:2rem}
-      [data-exp="console"] .cn-act{min-height:2rem;padding-inline:.4rem}
+      [data-exp="console"] .cn-rail{width:1.25ch;min-height:2rem}
+      [data-exp="console"] .cn-vup,[data-exp="console"] .cn-vdn,[data-exp="console"] .cn-pm{
+        min-height:2rem;padding-block:.25rem}
+      [data-exp="console"] .cn-act,[data-exp="console"] .cn-react-pill,
+      [data-exp="console"] .cn-react-add,[data-exp="console"] .cn-react-opt{min-height:2rem}
     }`,
 
     render: function (state) {
@@ -2231,8 +3344,11 @@
       var preview;
       var ctxLabel = null;
       var activityFilter = null;
-      // Standing inside a notifications filter: Teams-style Activity feed.
-      if (parts[0] === "notifications" && parts[1] &&
+      var showingFollow = state.detailOpen === false;
+      // Closed selection detail → Following timeline (nav stays a sidebar).
+      if (showingFollow) {
+        preview = viewFollowingFeed(state);
+      } else if (parts[0] === "notifications" && parts[1] &&
           (parts[1] === "all" || parts[1] === "mentions" || parts[1] === "subscribed" ||
            parts[1] === "hooks" || parts[1] === "hook")) {
         activityFilter = parts[1] === "hook" ? "hooks" : parts[1];
@@ -2271,15 +3387,21 @@
         // Selecting a DM under /dms shows who you are talking to before messages.
         if (parts[0] === "dms" && !parts[1] && selected) {
           ctxLabel = { dm: selected.name };
+          preview = viewPersonPane(selected.name, extra, state, sort, votes);
         }
       } else if (selected && selected.post) {
-        // → into a post activates the terminal editor on the message body;
-        // when the editor is not focused, keep the comment-tree reading view.
+        // Posts open as threads (→ / Enter). `e` puts the body in the terminal
+        // editor; when the editor is focused, show that instead of the tree.
         var postPath = MAP.resolve(path, selected.name);
         var ed = state.editor;
         if (ed && ed.focused && ed.active && ed.active.path === postPath) {
           preview = viewFileEditor(selected, postPath, state);
+        } else if (state.threadFocus) {
+          // Click / Enter opened this message as a thread — not the channel feed.
+          preview = viewTree(here, state.threadFocus, state.folded, sort, votes,
+            state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
         } else {
+          // Channel browse: full top-level feed with the cursor row marked.
           preview = viewTree(here, selected.post.id, state.folded, sort, votes,
             state.reactions, state.reactPick, state.feedQuery);
         }
@@ -2292,16 +3414,12 @@
         (parts[0] === "members" ||
           (parts[0] === "projects" && parts[2] === "members"))
       ) {
-        // Board or project members roll: open pane is the DM (not a profile card).
+        // Board or project members roll: messages by default, profile via toggle.
         var dmPeer = selected.openDm || selected.name;
-        var dmPath = MAP.dmPath ? MAP.dmPath(dmPeer) : ("/dms/" + dmPeer);
-        var dmMsgs = MAP.list(dmPath, extra) || [];
-        preview = dmMsgs.length
-          ? viewTree(dmMsgs, null, state.folded, sort, votes,
-            state.reactions, state.reactPick, state.feedQuery)
-          : '<p class="cn-empty">No messages yet with @' + esc(dmPeer) +
-            " — Enter opens the thread · send from the prompt.</p>";
+        preview = viewPersonPane(dmPeer, extra, state, sort, votes);
         ctxLabel = { dm: dmPeer };
+      } else if (selected && selected.voice && selected.channel) {
+        preview = renderVoiceRoom(selected.channel, state);
       } else if (selected && isEditableFile(selected)) {
         preview = viewFileEditor(selected, MAP.resolve(path, selected.name), state);
       } else if (selected && (selected.agent || selected.agentFile ||
@@ -2311,26 +3429,50 @@
         preview = viewEntry(selected, MAP.resolve(path, selected ? selected.name : ""), state);
       }
       // Standing inside a channel keeps its context above the conversation.
-      if (!ctxLabel && parts[0] === "projects" && parts[2] === "channels" && parts[3]) {
+      if (!showingFollow && !ctxLabel && parts[0] === "projects" && parts[2] === "channels" && parts[3]) {
         ctxLabel = parts[3];
       }
       // Standing inside a DM thread keeps peer facts above the conversation.
-      if (!ctxLabel && parts[0] === "dms" && parts[1]) {
+      if (!showingFollow && !ctxLabel && parts[0] === "dms" && parts[1]) {
         ctxLabel = { dm: parts[1] };
       }
-      if (activityFilter) {
+      // Person profile toggle replaces the message tree while still on /dms/<peer>.
+      if (!showingFollow && parts[0] === "dms" && parts[1] &&
+          state.personPane === "profile") {
+        preview = viewPersonProfile(parts[1]);
+        ctxLabel = { dm: parts[1] };
+      }
+      if (showingFollow) {
+        // Following feed is self-contained — no channel/space strips.
+      } else if (state.threadFocus) {
+        var threadChan = (parts[0] === "projects" && parts[2] === "channels" && parts[3])
+          ? parts[3] : null;
+        var focusPost = null;
+        (here || []).some(function (e) {
+          if (e.post && e.post.id === state.threadFocus) { focusPost = e.post; return true; }
+          return false;
+        });
+        var rootWho = focusPost ? focusPost.who : null;
+        if (focusPost && focusPost.re) {
+          (here || []).some(function (e) {
+            if (e.post && e.post.id === focusPost.re) { rootWho = e.post.who; return true; }
+            return false;
+          });
+        }
+        preview = threadContextStrip(threadChan, state.threadFocus, rootWho) + (preview || "");
+      } else if (activityFilter) {
         preview = notificationsContextStrip(activityFilter, state) + preview;
       } else if (parts[0] === "notifications" && !parts[1]) {
         preview = notificationsContextStrip("all", state) + (preview || "");
       } else if (parts[0] === "spaces" && parts[1]) {
         preview = spaceContextStrip(parts[1], parts[2] || null) + (preview || "");
       } else if (ctxLabel) {
-        if (ctxLabel.dm) preview = dmContextStrip(ctxLabel.dm, extra) + preview;
+        if (ctxLabel.dm) preview = dmContextStrip(ctxLabel.dm, extra, state) + preview;
         else preview = contextStrip(ctxLabel, extra) + preview;
       }
 
       // Selecting a space from the catalogue: show about card in preview.
-      if (parts[0] === "spaces" && !parts[1] && selected && selected.space) {
+      if (!showingFollow && parts[0] === "spaces" && !parts[1] && selected && selected.space) {
         preview = spaceContextStrip(selected.space.id, null) + viewSpaceAbout(selected.space,
           MAP.resolve(path, selected.name));
       }
@@ -2342,42 +3484,28 @@
           esc(MAP.join(parts.slice(0, i + 1))) + '">' + esc(seg) + "</button>");
       });
 
-      // Feed views: Lucene-style projections, not just thumbs-up ranking.
-      var presets = (window.NB_QUERY && window.NB_QUERY.presets)
-        ? window.NB_QUERY.presets()
-        : SORTS.map(function (s) { return { id: s, label: s, query: "sort:" + s }; });
-      var activeView = state.feedView || sort || "hot";
-      var qVal = state.feedQuery != null ? state.feedQuery : "";
-      var views = '<div class="cn-feed-bar" data-key="feed-bar">' +
-        '<div class="cn-feed-views" role="toolbar" aria-label="Feed views">' +
-        presets.map(function (v) {
-          return '<button type="button" class="cn-sort" data-feed-view="' + esc(v.id) + '"' +
-            ' data-sort="' + esc(v.id) + '"' +
-            ' title="' + esc(v.query || v.label) + '"' +
-            (activeView === v.id ? ' aria-pressed="true"' : "") + ">" +
-            esc(v.label) + "</button>";
-        }).join("") +
-        "</div>" +
-        '<div class="cn-feed-query-row">' +
-        '<label class="cn-feed-q-label" for="nb-feed-q">view</label>' +
-        '<input id="nb-feed-q" class="cn-feed-query" data-feed-query data-morph-keep' +
-        ' type="search" spellcheck="false" autocomplete="off"' +
-        ' placeholder=\'state:needs-review who:maya sort:new\'' +
-        ' value="' + esc(qVal) + '"' +
-        ' aria-label="Lucene-style feed query" />' +
-        '<button type="button" class="cn-feed-q-btn" data-feed-query-run title="Run query">run</button>' +
-        '<button type="button" class="cn-feed-q-btn" data-feed-query-clear title="Clear view">clear</button>' +
-        '<button type="button" class="cn-feed-q-btn" data-feed-query-help title="Query help">?</button>' +
-        '<button type="button" class="cn-share" data-share title="Copy a share link for this place">share</button>' +
-        "</div>" +
-        (state.feedQueryError
-          ? '<div class="cn-feed-err-line" data-key="feed-err">' + esc(state.feedQueryError) + "</div>"
-          : "") +
-        "</div>";
+      // Sort / Lucene bar lives on the channel feed only — not inside a thread.
+      if (!showingFollow && !state.threadFocus && isFeedSortContext(parts, selected, extra)) {
+        preview = feedBarHtml(state, sort) + (preview || "");
+      }
+
+      // Session CLI/AI output — inside the detail blade only (never a page terminal).
+      var useful = (state.lines || []).filter(function (ln) { return ln.kind !== "banner"; });
+      if (useful.length) {
+        var transcript = renderTranscript(useful.slice(-60), state.openTools || {});
+        var outActive = !!state.sessionOutFocus;
+        preview = (preview || "") +
+          '<div class="cn-out cn-blade-out" data-key="out" data-active="' +
+          (outActive ? "true" : "false") + '"' +
+          ' aria-label="' + (outActive ? "Session chat history" : "Session output") + '"' +
+          (outActive ? ' tabindex="-1"' : "") + ">" +
+          transcript + "</div>";
+      }
 
       var cand = state.completion || { candidates: [], ghost: "" };
       var intel = !!state.intelOpen;
       // Mirror app.menuShouldOpen: intel forces open; typing needs text + choice.
+      // Esc can dismiss the combobox without clearing the draft (menuDismissed).
       var hasTyped = !!(cand.query || (cand.kind && cand.kind !== "command") || intel);
       var menuOpen = !!(cand.candidates.length && (intel || (cand.candidates.length > 1 && hasTyped)));
       // Empty command catalogue after Enter must not hang open without intel.
@@ -2386,40 +3514,37 @@
       if (!intel && (cand.kind === "slash" || cand.kind === "slash-arg") && cand.candidates.length) {
         menuOpen = true;
       }
+      // CLI verbs/paths/sorts/queries: open on first match so ghost + menu agree.
+      if (!intel && cand.candidates.length &&
+          (cand.kind === "command" || cand.kind === "path" || cand.kind === "sort" ||
+           cand.kind === "query") &&
+          (cand.query || (cand.kind && cand.kind !== "command"))) {
+        menuOpen = true;
+      }
       // Smart markers: `@` mentions and `#` topics/channels open on first match.
       if (!intel && window.NB_COMPLETE && window.NB_COMPLETE.isMarkerKind &&
           window.NB_COMPLETE.isMarkerKind(cand.kind) && cand.candidates.length) {
         menuOpen = true;
       }
+      if (state.menuDismissed && !intel) menuOpen = false;
       var menuLabel = cand.kind === "mention" ? "Mentions"
         : cand.kind === "topic" || cand.kind === "channel" ? "Topics"
         : cand.kind || "";
-      var menu = (menuOpen
-        ? '<div class="cn-menu-head" data-key="menu-head">' +
+      var menu = !menuOpen ? ""
+        : ('<div class="cn-menu-head" data-key="menu-head">' +
           (intel ? "Intellisense" : "Suggestions") +
-          (menuLabel ? " · " + esc(menuLabel) : "") + "</div>"
-        : "") +
+          (menuLabel ? " · " + esc(menuLabel) : "") + "</div>" +
         cand.candidates.slice(0, 40).map(function (c, i) {
-          return '<div class="cn-cand" data-cand="' + i + '"' +
+          return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
             (c.kind ? ' data-cand-kind="' + esc(c.kind) + '"' : "") +
+            ' aria-selected="' + (i === (state.candIndex || 0) ? "true" : "false") + '"' +
             (i === (state.candIndex || 0) ? ' aria-current="true"' : "") + ">" +
-            "<span>" + esc(c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
-        }).join("");
+            "<span>" + esc(c.label || c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
+        }).join(""));
 
       var panes = state.panes || {
-        c0: 15, c1: 20, mc0: false, mc1: false,
-        out: false, outH: 12, outW: 28, outMax: false, dock: "bottom", zoom: false,
+        c0: 15, c1: 20, mc0: false, mc1: false, zoom: false,
       };
-      var dock = panes.dock === "left" || panes.dock === "right" ? panes.dock : "bottom";
-      var outH = (panes.outH || 12) + "rem";
-      var outW = (panes.outW || 28) + "rem";
-      var side = dock !== "bottom";
-      var dockLabel = dock === "bottom" ? "Dock right" : dock === "right" ? "Dock left" : "Dock bottom";
-      var dockGlyph = dock === "bottom" ? "▢" : dock === "right" ? "◧" : "◨";
-      var outSplitOri = side ? "vertical" : "horizontal";
-      var outSplitLabel = side
-        ? "Resize terminal width — drag or arrow keys; Enter collapses"
-        : "Resize terminal height — drag or arrow keys; Enter collapses";
 
       // Cascade: list blades for each path segment, then the detail blade.
       // When nav is collapsed, list blades become thin rails; detail expands.
@@ -2432,68 +3557,77 @@
           bladeListHtml(b, focusBlade === b.index, b.filter, state), navCollapsed);
       }).join("");
 
-      // Structured lines only; HTML is produced here so app state stays data.
-      // Bounded so a long session does not bloat the morph tree.
-      var lines = (state.lines || []).slice(-80);
-      var transcript = renderTranscript(lines, state.openTools || {});
+      // Structured lines are rendered into the detail blade (above), not a foot panel.
       var sessions = state.sessions || [{ id: "1", path: path }];
       var activeSess = state.activeSession || 0;
       var tabs = sessions.map(function (sess, i) {
         var isSel = i === activeSess;
-        return '<button type="button" class="cn-panel-tab" data-session="' + i + '"' +
-          (isSel ? ' aria-selected="true"' : "") +
-          ' title="Workspace ' + (i + 1) + " — " + esc(sess.path || "/") + '">' +
+        return '<button type="button" role="tab" class="cn-panel-tab cn-workspace-tab" data-session="' + i + '"' +
+          ' aria-selected="' + (isSel ? "true" : "false") + '"' +
+          (isSel ? "" : ' tabindex="-1"') +
+          ' title="Workspace ' + (i + 1) + " — " + esc(sess.path || "/") + '"' +
+          ' aria-label="Workspace ' + (i + 1) + ": " + esc(sessionTabLabel(sess, i)) + '">' +
           esc(sessionTabLabel(sess, i)) +
           (sessions.length > 1
             ? '<span class="cn-tab-close" data-session-close="' + i +
-              '" title="Close workspace" aria-label="Close workspace">×</span>'
+              '" title="Close workspace" aria-hidden="true">×</span>'
             : "") +
           "</button>";
-      }).join("") +
-        '<button type="button" class="cn-panel-tab cn-tab-new" data-session-new' +
+      }).join("");
+      var tabStrip =
+        '<div class="cn-workspace-tablist" role="tablist" aria-label="Workspaces">' + tabs + "</div>" +
+        '<button type="button" class="cn-panel-tab cn-workspace-tab cn-tab-new" data-session-new' +
         ' title="New isolated workspace at default home (Alt+T)"' +
         ' aria-label="New isolated workspace">+</button>';
+
+      var compose = (window.NB_APP && window.NB_APP.composeContext)
+        ? window.NB_APP.composeContext()
+        : { kind: "nav", scope: "board", path: path };
+      var composeLbl = (window.NB_APP && window.NB_APP.composeLabel)
+        ? window.NB_APP.composeLabel(compose)
+        : "";
+      var composeClear = compose.kind === "reply"
+        ? '<button type="button" class="cn-compose-clear" data-compose-clear title="Clear reply">' +
+          "clear</button>"
+        : "";
+
       return (
-        '<div class="cn-path" data-key="path">' + crumbs.join("") +
-        '<div class="cn-views">' + views + "</div></div>" +
+        '<div class="cn-workspace-tabs" data-key="workspace-tabs">' +
+        tabStrip + "</div>" +
+        '<div class="cn-path" data-key="path">' + crumbs.join("") + "</div>" +
         '<div class="cn-blades cn-cols" data-key="blades" data-zoom="' + !!navCollapsed +
         '" data-nav-collapsed="' + (navCollapsed ? "true" : "false") +
         '" role="group" aria-label="Navigation blades">' +
         bladeHtmls +
         "</div>" +
-        '<div class="cn-panel" data-key="panel" data-dock="' + dock +
-        '" data-out-min="' + !!panes.out + '" data-out-max="' + !!panes.outMax +
-        '" data-open="' + menuOpen +
-        '" style="--nb-out-h:' + outH + ";--nb-out-w:" + outW + '">' +
-        '<div class="cn-split cn-split-row" data-split="out" data-closed="' + !!panes.out +
-        '" role="separator" aria-orientation="' + outSplitOri + '" tabindex="0" data-key="split-out"' +
-        ' aria-label="' + outSplitLabel + '"></div>' +
-        '<div class="cn-panel-head" data-key="panel-head">' +
-        '<div class="cn-panel-tabs" role="tablist" aria-label="Terminal workspaces">' + tabs + "</div>" +
-        '<div class="cn-panel-actions">' +
-        '<button type="button" class="cn-panel-act" data-panel-dock title="' + dockLabel +
-        ' (Alt+D)" aria-label="' + dockLabel + '">' + dockGlyph + "</button>" +
-        '<button type="button" class="cn-panel-act" data-panel-max title="Maximize panel (Alt+M)"' +
-        ' aria-label="Maximize panel" aria-pressed="' + !!panes.outMax + '">' +
-        (panes.outMax ? "▣" : "□") + "</button>" +
-        '<button type="button" class="cn-panel-act" data-panel-min title="Minimize panel (Alt+J)"' +
-        ' aria-label="Minimize panel" aria-pressed="' + !!panes.out + '">—</button>' +
-        "</div></div>" +
-        '<div class="cn-panel-body" data-key="panel-body">' +
-        '<div class="cn-out" data-key="out">' + transcript + "</div>" +
+        renderVoiceDock(state) +
+        '<div class="cn-tui-foot" data-key="tui-foot" data-region="composer" data-open="' + menuOpen + '">' +
         '<div class="cn-prompt-stack" data-key="prompt-stack" data-drop="' +
         (state.attachDrop ? "true" : "false") + '">' +
-        '<div class="cn-menu" data-key="menu">' + menu + "</div>" +
+        '<div class="cn-menu" data-key="menu" id="cn-cli-listbox" role="listbox"' +
+        ' aria-label="Suggestions"' + (menuOpen ? "" : " hidden") + ">" + menu + "</div>" +
         renderAttachTray(state.attachments || []) +
+        '<div class="cn-compose-label" data-compose-label data-compose-kind="' +
+        esc(compose.kind || "nav") + '">' + esc(composeLbl) + composeClear + "</div>" +
         '<div class="cn-prompt" data-key="prompt" data-speech="' +
         (state.speech && state.speech.listening ? esc(state.speech.mode || "on") : "off") + '"' +
-        ' data-attach-count="' + ((state.attachments || []).length) + '">' +
+        ' data-attach-count="' + ((state.attachments || []).length) + '"' +
+        ' data-compose="' + esc(compose.kind || "nav") + '">' +
         '<button type="button" class="cn-mode" data-mode-toggle aria-pressed="' + (state.ai ? "true" : "false") +
-        '" title="Alt+A — in AI mode your words are interpreted before they run">' +
+        '" title="Alt+A — in AI mode your words are interpreted before they run"' +
+        ' aria-label="' + (state.ai ? "AI mode — switch to CLI" : "CLI mode — switch to AI") + '">' +
         (state.ai ? "ai" : "cli") + "</button>" +
-        '<span class="cn-ps1">' + esc(path) + (state.ai ? " ›" : " $") + "</span>" +
-        '<span class="cn-input-wrap"><span class="cn-ghost" data-ghost></span>' +
-        '<input class="cn-input" data-cli data-morph-keep autocomplete="off" spellcheck="false" aria-label="Command"></span>' +
+        '<span class="cn-ps1" aria-hidden="true">' + esc(path) + (state.ai ? " ›" : " $") + "</span>" +
+        '<span class="cn-input-wrap">' +
+        '<span class="cn-cli-mirror" data-cli-mirror data-ghost aria-hidden="true"></span>' +
+        '<input class="cn-input" data-cli data-morph-keep autocomplete="off" spellcheck="false"' +
+        ' role="combobox" aria-autocomplete="list" aria-haspopup="listbox"' +
+        ' aria-expanded="' + (menuOpen ? "true" : "false") + '"' +
+        ' aria-controls="cn-cli-listbox"' +
+        (menuOpen && cand.candidates.length
+          ? ' aria-activedescendant="cn-cand-' + (state.candIndex || 0) + '"'
+          : "") +
+        ' aria-label="Command and compose input"></span>' +
         '<button type="button" class="cn-attach" data-attach-pick' +
         ' data-count="' + ((state.attachments || []).length) + '"' +
         ' title="Attach files for chat context — click, drop, or paste" aria-label="Attach files">' +
@@ -2501,31 +3635,77 @@
         "</button>" +
         '<input type="file" class="cn-attach-input" data-attach-input data-morph-keep multiple' +
         ' accept="*/*" tabindex="-1" aria-hidden="true" />' +
-        // Mic only when the browser exposes SpeechRecognition — no dead control.
-        (state.speech && state.speech.supported
-          ? '<button type="button" class="cn-mic" data-speech-mic' +
-            ' aria-pressed="' + (state.speech.listening ? "true" : "false") + '"' +
-            ' data-listening="' + (state.speech.listening ? "true" : "false") + '"' +
-            ' data-mode="' + esc(state.speech.mode || "") + '"' +
-            ' aria-label="' + (state.speech.listening ? "Stop speech-to-text" : "Speech-to-text") + '"' +
-            ' title="Speech-to-text — hold ` (push-to-talk) or Alt+V to toggle">' +
+        (function () {
+          var sp = state.speech || {};
+          var avail = sp.availability || "absent";
+          var ready = !!sp.ready;
+          var listening = !!sp.listening;
+          var reason = sp.reason || (
+            avail === "downloading" ? "Downloading on-device speech model…"
+            : avail === "downloadable" ? "Speech model needs one download — click to fetch"
+            : avail === "unavailable" ? "On-device speech unavailable in this browser"
+            : "No SpeechRecognition — need Edge Canary/Dev with local speech model"
+          );
+          var micLabel = listening ? "Stop listening"
+            : ready ? "Speech — dictation and voice commands"
+            : avail === "downloadable" || avail === "downloading"
+              ? "Fetch on-device speech model"
+              : "Speech disabled — " + reason;
+          var micTitle = ready
+            ? "Hold ` push-to-talk · Alt+V listen · Alt+Shift+V cycle voice mode · say \"what can I say?\""
+            : reason;
+          var tag = listening
+            ? ((sp.mode === "ptt" ? "ptt" : "listen") + " · " + (sp.intent || "default"))
+            : ready ? ""
+            : avail === "downloading" ? "dl…"
+            : avail === "downloadable" ? "fetch"
+            : "off";
+          return '<button type="button" class="cn-mic" data-speech-mic' +
+            ' aria-pressed="' + (listening ? "true" : "false") + '"' +
+            ' data-listening="' + (listening ? "true" : "false") + '"' +
+            ' data-ready="' + (ready ? "true" : "false") + '"' +
+            ' data-avail="' + esc(avail) + '"' +
+            ' data-mode="' + esc(sp.mode || "") + '"' +
+            ' data-intent="' + esc(sp.intent || "default") + '"' +
+            (ready ? "" : ' aria-disabled="true"') +
+            ' aria-label="' + esc(micLabel) + '"' +
+            ' title="' + esc(micTitle) + '">' +
             (window.NB_ICONS && window.NB_ICONS.mic
               ? window.NB_ICONS.mic()
-              : (state.speech.listening ? "●" : "mic")) +
+              : (listening ? "*" : "mic")) +
             "</button>" +
-            (state.speech.listening
-              ? '<span class="cn-speech-tag" data-speech-tag>' +
-                (state.speech.mode === "ptt" ? "ptt" : "dictation") + "</span>"
-              : "")
-          : "") +
-        "</div></div></div></div>" +
+            (ready
+              ? '<button type="button" class="cn-voice-intent" data-voice-intent' +
+                ' data-intent="' + esc(sp.intent || "default") + '"' +
+                ' title="Cycle voice mode: default (mixed), dictation, or commands — Alt+Shift+V"' +
+                ' aria-label="Voice mode ' + esc(sp.intent || "default") + ' — cycle">' +
+                esc(sp.intent || "default") + "</button>"
+              : "") +
+            (tag
+              ? '<span class="cn-speech-tag" data-speech-tag data-avail="' + esc(avail) + '"' +
+                ' aria-live="polite">' + esc(tag) + "</span>"
+              : "");
+        })() +
+        "</div></div></div>" +
         renderHelpOverlay(!!state.helpOpen, state.helpCtx || buildHelpContext(state))
       );
     },
   };
 
   window.NB_EXPERIENCES = [CONSOLE];
-  window.NB_CONSOLE_VIEWS = { tree: viewTree, SORTS: SORTS };
+  window.NB_CONSOLE_VIEWS = {
+    tree: viewTree,
+    SORTS: SORTS,
+    DEFAULT_SORTS: DEFAULT_SORTS,
+    visibleFeedViews: visibleFeedViews,
+    isFeedSortContext: isFeedSortContext,
+  };
   window.NB_TRANSCRIPT = { render: renderTranscript };
-  window.NB_HELP = { buildContext: buildHelpContext, groups: HELP_GROUPS };
+  window.NB_HELP = {
+    buildContext: buildHelpContext,
+    resolveComponent: resolveHelpComponent,
+    visibleGroups: visibleHelpGroups,
+    groups: HELP_GROUPS,
+    labels: HELP_CONTEXT_LABELS,
+  };
 })();
