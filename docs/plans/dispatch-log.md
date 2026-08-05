@@ -66,3 +66,14 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
   validation added by this initiative rejected its own documented terminal state.
 - Checks: CodeRabbit SUCCESS, Vercel SUCCESS. `npm run verify` green — 143 scenarios,
   1336 steps, axe clean at 1440x960 and 390x844, pact green, lint clean.
+
+## 2026-08-05 — nightboard-garden `/sdlc finish`
+
+| Field | Value |
+|---|---|
+| Initiative | [`nightboard-garden`](nightboard-garden/sdlc-state.md) |
+| Backend | Sequential; coordinator inline (finish of existing branch) |
+| PR | [#100](https://github.com/Tyler-R-Kendrick/epoch/pull/100) — squash-merged |
+| Result | **success** |
+| Failure class | None material. CodeRabbit stayed PENDING on the large exploration diff with zero inline threads; Vercel SUCCESS; GitHub Actions quality CI disabled (runner minutes). Local `gate:push` + `nightboard:faults` + `nightboard:e2e` green. |
+| Notes | Finish repairs: notify harness typecheck; Esc ladder idempotent with column mode; keyboard e2e two-Esc for default-open detail; arrive-fault budget excludes Epoch brand idle motion. |
