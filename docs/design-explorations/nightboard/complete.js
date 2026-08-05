@@ -232,12 +232,16 @@
   }
 
   function mentionItems() {
-    return ((window.NB_DATA && window.NB_DATA.members) || []).map(function (m) {
+    var roll = window.NB_MAP && window.NB_MAP.membersForBoard
+      ? window.NB_MAP.membersForBoard()
+      : ((window.NB_DATA && window.NB_DATA.members) || []);
+    return roll.map(function (m) {
       return {
         value: "@" + m.handle,
         hint: (m.role || m.kind || "member") + (m.state ? " · " + m.state : ""),
         kind: "mention",
-        rank: m.state === "here" ? 2 : m.kind === "agent" ? 1 : 0,
+        rank: m.state === "here" || m.state === "active" || m.state === "working" ? 2
+          : m.kind === "agent" ? 1 : 0,
       };
     });
   }
@@ -433,13 +437,16 @@
         };
       }
       if (sspec.arg === "handle") {
-        var handles = (((window.NB_DATA && window.NB_DATA.members) || []).map(function (m) {
+        var roll = window.NB_MAP && window.NB_MAP.membersForBoard
+          ? window.NB_MAP.membersForBoard()
+          : ((window.NB_DATA && window.NB_DATA.members) || []);
+        var handles = roll.map(function (m) {
           return {
             value: m.handle,
             hint: (m.kind === "agent" ? "agent · " : "") + (m.role || m.state || ""),
             kind: "handle",
           };
-        })).concat(
+        }).concat(
           // Also surface known DM threads even if member list drifts.
           ((window.NB_DATA && window.NB_DATA.dms) || []).map(function (d) {
             return { value: d.peer || d.id, hint: "dm · " + (d.kind || "direct"), kind: "handle" };

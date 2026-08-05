@@ -97,6 +97,7 @@ body {
 /*
  * Epoch brand — continuous FIGlet ANSI Shadow wordmark (real letterforms).
  * Motion is CSS only: power-on clip wipe, cyan→magenta sheen, CRT scan.
+ * No border plaque and no secondary tag — the title is Epoch alone.
  * Never thrash glyphs into ░▒▓ ramps; never split █ across spans.
  */
 .nb-brand {
@@ -106,35 +107,16 @@ body {
   display: inline-grid;
   align-items: center;
   min-width: 0;
-  padding: .4rem .75rem .45rem;
-  border: 1px solid color-mix(in srgb, var(--nb-brand-cyan) 48%, var(--nb-rule));
-  background:
-    radial-gradient(120% 90% at 12% -10%,
-      color-mix(in srgb, var(--nb-brand-cyan) 16%, transparent), transparent 52%),
-    radial-gradient(90% 80% at 100% 110%,
-      color-mix(in srgb, var(--nb-brand-mag) 12%, transparent), transparent 48%),
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--nb-brand-cyan) 5%, var(--nb-surface)),
-      var(--nb-surface));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--nb-brand-mag) 14%, transparent),
-    inset 0 -14px 28px color-mix(in srgb, var(--nb-brand-cyan) 5%, transparent),
-    0 0 22px color-mix(in srgb, var(--nb-brand-cyan) 14%, transparent);
+  padding: .15rem .2rem .2rem 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   overflow: hidden;
   flex: none;
   isolation: isolate;
 }
 .nb-brand::before {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: 0; height: 1px;
-  background: linear-gradient(90deg,
-    transparent,
-    color-mix(in srgb, var(--nb-brand-cyan) 75%, transparent) 28%,
-    color-mix(in srgb, var(--nb-brand-mag) 60%, transparent) 72%,
-    transparent);
-  pointer-events: none;
-  z-index: 2;
+  display: none;
 }
 .nb-brand-art {
   margin: 0;

@@ -358,13 +358,13 @@ const CASES = [
     },
   },
   {
-    name: "blades: opening a post auto-collapses nav for detail width",
+    name: "blades: opening a post keeps nav open for further navigation",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(120);
       await page.evaluate(() => window.NB_APP.setNavCollapsed(false, { silent: true }));
       await page.waitForTimeout(80);
-      // Click a post row (file) — should collapse nav rails.
+      // Click a post row — detail opens, but nav stays usable.
       const clicked = await page.evaluate(() => {
         const post = document.querySelector(
           '[data-blade-path="/projects/community/channels/general"] .cn-item[data-kind="file"]',
@@ -380,11 +380,14 @@ const CASES = [
       const after = await page.evaluate(() => ({
         collapsed: window.NB_APP.isNavCollapsed(),
         rails: document.querySelectorAll('.cn-blade[data-collapsed="true"]').length,
-        focus: window.NB_APP.state.focus,
-        detail: document.querySelector('.cn-blade[data-blade-kind="detail"]')?.dataset.focus,
+        detail: !!document.querySelector('.cn-blade[data-blade-kind="detail"]'),
+        open: window.NB_APP.isDetailOpen(),
       }));
-      return (after.collapsed && after.rails >= 1) ||
-        log("post open did not collapse nav: " + JSON.stringify(after));
+      if (after.collapsed || after.rails > 0) {
+        return log("nav auto-collapsed after post click: " + JSON.stringify(after));
+      }
+      return (after.detail && after.open) ||
+        log("post did not open detail: " + JSON.stringify(after));
     },
   },
   {
@@ -1569,6 +1572,78 @@ const CASES = [
     },
   },
   {
+    name: "editor: → from nav into text detail activates the editor",
+    run: async (page, log) => {
+      await go(page, "/.agents/space-steward");
+      await page.waitForTimeout(120);
+      // Land on the file in the nav list; → should open detail + focus editor.
+      const prepared = await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.detailOpen = false;
+        if (window.NB_APP.state.editor) window.NB_APP.state.editor.focused = false;
+        const list = window.NB_MAP.list("/.agents/space-steward") || [];
+        const ix = list.findIndex((e) => e.name === "instructions.md");
+        if (ix < 0) return { err: "no instructions.md in list" };
+        window.NB_APP.state.cursor = ix;
+        window.NB_APP.state.focus = 0;
+        window.NB_APP.render(true);
+        return { ok: true };
+      });
+      if (prepared.err) return log(prepared.err);
+      await page.waitForTimeout(80);
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(150);
+      const after = await page.evaluate(() => {
+        const ed = document.querySelector("[data-editor]");
+        const st = window.NB_APP.state;
+        return {
+          detail: !!document.querySelector('.cn-blade[data-blade-kind="detail"]'),
+          open: window.NB_APP.isDetailOpen(),
+          hasEditor: !!ed,
+          focused: !!(st.editor && st.editor.focused),
+          path: st.editor && st.editor.active && st.editor.active.path,
+          focusBlade: st.focus,
+        };
+      });
+      if (!(after.detail && after.open)) return log("→ did not open detail: " + JSON.stringify(after));
+      if (!(after.hasEditor && after.focused)) {
+        return log("→ did not activate editor: " + JSON.stringify(after));
+      }
+      // Same for a channel post — → opens the message body in the editor.
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      const postPrep = await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.detailOpen = false;
+        if (window.NB_APP.state.editor) window.NB_APP.state.editor.focused = false;
+        const list = window.NB_MAP.list("/projects/community/channels/general") || [];
+        const ix = list.findIndex((e) => e.post);
+        if (ix < 0) return { err: "no post" };
+        window.NB_APP.state.cursor = ix;
+        window.NB_APP.state.focus = 0;
+        window.NB_APP.render(true);
+        return { name: list[ix].name };
+      });
+      if (postPrep.err) return log(postPrep.err);
+      await page.waitForTimeout(80);
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(150);
+      const postAfter = await page.evaluate(() => {
+        const ed = document.querySelector("[data-editor]");
+        const st = window.NB_APP.state;
+        return {
+          hasEditor: !!ed,
+          focused: !!(st.editor && st.editor.focused),
+          mode: ed?.getAttribute("data-mode"),
+        };
+      });
+      return (postAfter.hasEditor && postAfter.focused) ||
+        log("→ into post did not activate editor: " + JSON.stringify(postAfter));
+    },
+  },
+  {
     name: "editor: file detail is a terminal editor; i/Esc and click work",
     run: async (page, log) => {
       await go(page, "/.agents/space-steward");
@@ -1641,6 +1716,67 @@ const CASES = [
       });
       if (clicked.err) return log(clicked.err);
       return clicked.line === 0 || log("click caret: " + JSON.stringify(clicked));
+    },
+  },
+  {
+    name: "agents: eve agents are members in their scope and open DMs",
+    run: async (page, log) => {
+      await go(page, "/members");
+      await page.waitForTimeout(120);
+      const board = await page.evaluate(() =>
+        Array.from(
+          document.querySelectorAll('[data-blade-path="/members"] .cn-item'),
+        ).map((el) => el.getAttribute("data-key")),
+      );
+      if (!board.includes("space-steward")) {
+        return log("board members missing space-steward: " + board.join(","));
+      }
+      if (!board.includes("activity-relay")) {
+        return log("board members missing activity-relay: " + board.join(","));
+      }
+      await page.click('[data-blade-path="/members"] .cn-item[data-key="space-steward"]');
+      await page.waitForTimeout(150);
+      const dm = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        ctx: document.querySelector(".cn-ctx[data-dm]")?.textContent || "",
+        canChat: !!document.querySelector("[data-cli]"),
+      }));
+      if (dm.path !== "/dms/space-steward") return log("board agent dm path " + dm.path);
+      if (!/space-steward|space agent|agent dm/i.test(dm.ctx + dm.path)) {
+        return log("agent dm context missing: " + JSON.stringify(dm));
+      }
+
+      await go(page, "/projects/community/members");
+      await page.waitForTimeout(120);
+      const proj = await page.evaluate(() =>
+        Array.from(
+          document.querySelectorAll(
+            '[data-blade-path="/projects/community/members"] .cn-item',
+          ),
+        ).map((el) => el.getAttribute("data-key")),
+      );
+      if (!proj.includes("community-host")) {
+        return log("community members missing community-host: " + proj.join(","));
+      }
+      await page.click(
+        '[data-blade-path="/projects/community/members"] .cn-item[data-key="community-host"]',
+      );
+      await page.waitForTimeout(150);
+      if ((await path(page)) !== "/dms/community-host") {
+        return log("project agent dm path " + await path(page));
+      }
+
+      // /dm slash opens Eve agents too.
+      await page.keyboard.press("Escape");
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.keyboard.type("/dm install-cache");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      return (await path(page)) === "/dms/install-cache" ||
+        log(" /dm install-cache → " + await path(page));
     },
   },
   {

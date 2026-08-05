@@ -1747,9 +1747,39 @@
     render();
   }
 
+  /**
+   * Entries whose detail is text the terminal editor can host — files,
+   * agent payloads, and posts/messages. Notifications and dirs are not.
+   */
+  function entryHasTextEditor(e) {
+    if (!e || e.kind === "dir" || e.notification) return false;
+    if (e.post) return true;
+    if (e.agentFile || e.agentSkill || e.agentTool) return true;
+    if (e.meta === "instructions" || e.meta === "config" ||
+        e.meta === "skill" || e.meta === "tool") return true;
+    if (/\.(md|ts|tsx|js|jsx|json|css|html|txt|py|rs|go|yml|yaml|sh)$/i.test(e.name || "")) {
+      return true;
+    }
+    return e.kind === "file" && !e.space && !e.relay && !e.member && !e.openDm;
+  }
+
+  /** Open detail and put keyboard focus in the terminal editor for entry. */
+  function activateDetailEditor(e) {
+    if (!e) return false;
+    state.detailOpen = true;
+    state.focus = detailBladeIndex();
+    openFileInEditor(e, MAP.resolve(state.path, e.name));
+    focusEditor();
+    status("edit · " + ((state.editor && state.editor.active && state.editor.active.name) || e.name) +
+      " · i insert · Esc normal");
+    return true;
+  }
+
   function moveBladeFocus(delta) {
-    // If detail is closed, → opens it; ← does nothing extra.
+    // If detail is closed, → opens it; text content also activates the editor.
     if (delta > 0 && !isDetailOpen()) {
+      var leaf = entries()[state.cursor];
+      if (entryHasTextEditor(leaf)) return activateDetailEditor(leaf);
       openDetail({ silent: true });
       return;
     }
@@ -1767,14 +1797,16 @@
     handle = String(handle || "").replace(/^@/, "").toLowerCase();
     if (!handle) return false;
     var dest = MAP.dmPath ? MAP.dmPath(handle) : ("/dms/" + handle);
-    if (navigate(dest, { keepCli: !!opts.keepCli })) {
+    // Ensure known members (people + Eve agents) can open even if sitemap lag.
+    var known = window.NB_MAP.isKnownPeer
+      ? window.NB_MAP.isKnownPeer(handle)
+      : (window.NB_DATA.members || []).some(function (m) {
+        return m.handle === handle;
+      });
+    if (known && navigate(dest, { keepCli: !!opts.keepCli })) {
       if (!opts.silent) status("dm · @" + handle);
       return true;
     }
-    // Ensure known members can open even if sitemap lag; land on /dms.
-    var known = (window.NB_DATA.members || []).some(function (m) {
-      return m.handle === handle;
-    });
     if (known && navigate("/dms", { keepCli: !!opts.keepCli })) {
       if (!opts.silent) status("dm · @" + handle + " — no thread yet");
       return true;
@@ -1811,14 +1843,13 @@
     }
     if (e.notification) {
       openNotification(e.notification.id);
-      // Detail content: free width for the activity source path.
-      setNavCollapsed(true, { silent: true, noRender: true });
+      // Keep nav open — collapse is explicit (z / Alt+Z / header).
       return;
     }
-    // File / post detail — open detail pane; collapse nav so content can breathe.
+    // File / post detail — open detail pane; leave nav expanded so the user
+    // can keep navigating. Collapse is explicit (z / Alt+Z / header).
     state.detailOpen = true;
     state.focus = detailBladeIndex();
-    setNavCollapsed(true, { silent: true, noRender: true });
     // Editable files open in the terminal editor.
     if (e.agentFile || e.agentSkill || e.agentTool ||
         (e.kind !== "dir" && !e.post && /\./.test(e.name || ""))) {
@@ -1853,14 +1884,16 @@
   }
 
   /**
-   * Right arrow: if the list has a directory selected, slide into it;
-   * otherwise move focus toward the detail blade.
+   * Right arrow: directory → slide into it; text leaf → open detail and
+   * activate the terminal editor (files, posts/messages); else focus detail.
    */
   function goRight() {
     var list = entries();
     var e = list[state.cursor];
     var onList = (state.focus == null || state.focus <= listBladeIndex());
     if (onList && e && e.kind === "dir") return descend();
+    if (onList && e && entryHasTextEditor(e)) return activateDetailEditor(e);
+    if (onList && e) return descend();
     return moveBladeFocus(1);
   }
 
@@ -2660,12 +2693,14 @@
       } else {
         var dmDest = "/dms/" + handle;
         // Prefer an existing DM thread; otherwise still open the path so the
-        // board can show an empty conversation for a known member.
+        // board can show an empty conversation for a known member or Eve agent.
         if (!navigate(dmDest, { keepCli: true })) {
-          var memberHit = (window.NB_DATA.members || []).filter(function (m) {
-            return m.handle === handle;
-          })[0];
-          if (memberHit && navigate("/dms", { keepCli: true })) {
+          var knownPeer = window.NB_MAP.isKnownPeer
+            ? window.NB_MAP.isKnownPeer(handle)
+            : (window.NB_DATA.members || []).some(function (m) {
+              return m.handle === handle;
+            });
+          if (knownPeer && navigate("/dms", { keepCli: true })) {
             reply = "/dm: no thread with @" + handle + " yet — at /dms";
           } else {
             reply = "/dm: no such person or agent: " + handle;
@@ -3059,8 +3094,8 @@
         var all = entries();
         state.cursor = all.findIndex(function (e) { return e.name === name; });
         state.focus = detailBladeIndex();
-        // Detail content: collapse nav rails so the thread uses the width.
-        setNavCollapsed(true, { silent: true, noRender: true });
+        // Keep nav open so selecting a post does not strand further navigation.
+        // Collapse is explicit (z / Alt+Z / header ▭ / —).
         var fileEntry = all[state.cursor];
         state.detailOpen = true;
         if (fileEntry && (fileEntry.agentFile || fileEntry.agentSkill || fileEntry.agentTool ||

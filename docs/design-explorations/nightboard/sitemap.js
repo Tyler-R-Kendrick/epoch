@@ -183,30 +183,103 @@
   }
 
   /**
-   * Members of a project: community → full board roll; linked projects use
+   * Members of a project: community → board roll; linked projects use
    * fixture `members: [handles]` or authors seen on project posts.
+   * Eve agents declared under that project are always on the roster too —
+   * they are members of the scope they are declared in, and open as DMs.
    */
   function membersForProject(proj) {
     if (!proj) return [];
-    if (proj.community) return (D.members || []).slice();
-    var handles = [];
-    var seen = {};
-    function pushHandle(h) {
-      h = String(h || "").replace(/^@/, "").toLowerCase();
-      if (!h || seen[h]) return;
-      seen[h] = true;
-      handles.push(h);
-    }
-    (proj.members || []).forEach(pushHandle);
-    if (!handles.length) {
-      (D.projectPosts || []).forEach(function (p) {
-        if (p.project === proj.id || slug(p.project) === proj.id) pushHandle(p.who);
+    var base;
+    if (proj.community) {
+      base = (D.members || []).slice();
+    } else {
+      var handles = [];
+      var seen = {};
+      function pushHandle(h) {
+        h = String(h || "").replace(/^@/, "").toLowerCase();
+        if (!h || seen[h]) return;
+        seen[h] = true;
+        handles.push(h);
+      }
+      (proj.members || []).forEach(pushHandle);
+      if (!handles.length) {
+        (D.projectPosts || []).forEach(function (p) {
+          if (p.project === proj.id || slug(p.project) === proj.id) pushHandle(p.who);
+        });
+      }
+      base = handles.map(function (h) {
+        var m = (D.members || []).filter(function (x) { return x.handle === h; })[0];
+        return m || { handle: h, role: "contributor", kind: "person", state: "here" };
       });
     }
-    return handles.map(function (h) {
-      var m = (D.members || []).filter(function (x) { return x.handle === h; })[0];
-      return m || { handle: h, role: "contributor", kind: "person", state: "here" };
+    return mergeMemberLists(base, projectAgents(proj.id).map(agentToMember));
+  }
+
+  /**
+   * Board / space members roll: people on the fixture roll plus Eve agents
+   * declared at board scope (/.agents). Opening one opens /dms/<handle>.
+   */
+  function membersForBoard() {
+    return mergeMemberLists(D.members || [], boardAgents().map(agentToMember));
+  }
+
+  function agentToMember(a) {
+    a = a || {};
+    var id = String(a.id || "").toLowerCase();
+    return {
+      handle: id,
+      role: a.scope === "project" ? "project agent" : "space agent",
+      kind: "agent",
+      state: a.status || "idle",
+      detail: (a.summary || a.name || id) + (a.model ? " · " + a.model : ""),
+      agent: a,
+      eve: true,
+    };
+  }
+
+  function mergeMemberLists(base, extra) {
+    var out = [];
+    var seen = {};
+    function push(m) {
+      if (!m || !m.handle) return;
+      var h = String(m.handle).toLowerCase();
+      if (seen[h]) return;
+      seen[h] = true;
+      out.push(m);
+    }
+    (base || []).forEach(push);
+    (extra || []).forEach(push);
+    return out;
+  }
+
+  /** True when handle is a person on the roll or an Eve agent in any scope. */
+  function isKnownPeer(handle) {
+    handle = String(handle || "").replace(/^@/, "").toLowerCase();
+    if (!handle) return false;
+    if ((D.members || []).some(function (m) { return m.handle === handle; })) return true;
+    if (boardAgents().some(function (a) { return a.id === handle; })) return true;
+    var bag = (D.agents && D.agents.projects) || {};
+    return Object.keys(bag).some(function (pid) {
+      return (bag[pid] || []).some(function (a) { return a.id === handle; });
     });
+  }
+
+  /** Resolve a member (person or Eve agent) by handle. */
+  function findMember(handle) {
+    handle = String(handle || "").replace(/^@/, "").toLowerCase();
+    if (!handle) return null;
+    var fromRoll = (D.members || []).filter(function (m) { return m.handle === handle; })[0];
+    if (fromRoll) return fromRoll;
+    var boardHit = boardAgents().filter(function (a) { return a.id === handle; })[0];
+    if (boardHit) return agentToMember(boardHit);
+    var bag = (D.agents && D.agents.projects) || {};
+    var pids = Object.keys(bag);
+    for (var i = 0; i < pids.length; i++) {
+      var hit = (bag[pids[i]] || []).filter(function (a) { return a.id === handle; })[0];
+      if (hit) return agentToMember(hit);
+    }
+    return null;
   }
 
   function memberEntry(m, extra) {
@@ -393,7 +466,7 @@
           hint: (D.notifications || []).length + " activity" +
             (unreadAct ? " · " + unreadAct + " new" : ""),
           unread: unreadAct },
-        { name: "members", kind: "dir", hint: D.members.length + " on the roll" },
+        { name: "members", kind: "dir", hint: membersForBoard().length + " on the roll" },
         {
           name: ".agents", kind: "dir", meta: "eve",
           hint: nBoardAgents + " space agent" + (nBoardAgents === 1 ? "" : "s") +
@@ -563,11 +636,11 @@
       if (parts.length === 1) {
         return allDms().map(function (d) {
           var n = messagesInDm(d.id, extra).length;
-          var peer = (D.members || []).filter(function (m) { return m.handle === d.peer; })[0];
+          var peer = findMember(d.peer);
           return {
             name: d.id,
             kind: "dir",
-            meta: d.kind === "agent" ? "agent" : "person",
+            meta: d.kind === "agent" || (peer && peer.kind === "agent") ? "agent" : "person",
             hint: (peer ? peer.role + " · " : "") + n + " messages" +
               (d.unread ? " · " + d.unread + " unread" : ""),
             unread: d.unread || 0,
@@ -577,13 +650,17 @@
       }
       if (parts.length === 2) {
         var thread = findDm(parts[1]);
-        // Known members get an openable thread even before the first message.
+        // Known members (people + Eve agents) get an openable thread even
+        // before the first message — chat with agents in their declared scope.
         if (!thread) {
-          var peerMem = (D.members || []).filter(function (m) {
-            return m.handle === parts[1];
-          })[0];
+          var peerMem = findMember(parts[1]);
           if (!peerMem) return null;
-          thread = { id: parts[1], peer: parts[1], kind: peerMem.kind || "person", unread: 0 };
+          thread = {
+            id: parts[1],
+            peer: parts[1],
+            kind: peerMem.kind || "person",
+            unread: 0,
+          };
         }
         return messagesInDm(thread.id, extra).map(function (p, i) {
           return {
@@ -600,7 +677,8 @@
     if (parts[0] === "members") {
       if (parts.length === 1) {
         // Opening a member opens DMs with them — not a profile card.
-        return (D.members || []).map(function (m) { return memberEntry(m, extra); });
+        // Includes Eve agents declared at board scope.
+        return membersForBoard().map(function (m) { return memberEntry(m, extra); });
       }
       // /members/<handle> is not a real place — DMs live under /dms/<handle>.
       return null;
@@ -773,6 +851,7 @@
     canonicalize: canonicalize, channelPath: channelPath, dmPath: dmPath,
     spacePath: spacePath,
     findProject: findProject, membersForProject: membersForProject,
+    membersForBoard: membersForBoard, findMember: findMember, isKnownPeer: isKnownPeer,
     boardAgents: boardAgents, projectAgents: projectAgents, findAgent: findAgent,
     findDm: findDm, findSpaceNode: findSpaceNode,
     allSpaces: allSpaces, postsForSpace: postsForSpace,

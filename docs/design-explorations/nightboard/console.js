@@ -41,6 +41,10 @@
     return esc(text);
   }
   var who = function (h) {
+    if (window.NB_MAP && window.NB_MAP.findMember) {
+      var found = window.NB_MAP.findMember(h);
+      if (found) return found;
+    }
     for (var i = 0; i < D.members.length; i++) if (D.members[i].handle === h) return D.members[i];
     return { handle: h, role: "", kind: "person" };
   };
@@ -1101,10 +1105,26 @@
     for (var i = 0; i < list.length; i++) {
       if (list[i].id === peer || list[i].peer === peer) { dm = list[i]; break; }
     }
-    if (!dm) return "";
-    var member = null;
-    for (var j = 0; j < D.members.length; j++) {
-      if (D.members[j].handle === dm.peer) { member = D.members[j]; break; }
+    var member = window.NB_MAP && window.NB_MAP.findMember
+      ? window.NB_MAP.findMember(peer)
+      : null;
+    if (!member) {
+      for (var j = 0; j < D.members.length; j++) {
+        if (D.members[j].handle === peer || (dm && D.members[j].handle === dm.peer)) {
+          member = D.members[j];
+          break;
+        }
+      }
+    }
+    if (!dm && !member) return "";
+    if (!dm) {
+      dm = {
+        id: peer,
+        peer: peer,
+        kind: (member && member.kind) || "person",
+        unread: 0,
+        preview: member && member.detail ? member.detail : "",
+      };
     }
     var msgs = (D.dmMessages || []).concat(extra || []).filter(function (m) {
       return m.dm === dm.id;
@@ -2111,10 +2131,13 @@
       color:var(--nb-ink-faint);cursor:pointer;text-decoration:underline;text-underline-offset:2px;
       padding:.1rem .2rem}
     [data-exp="console"] .cn-attach-sent{display:flex;flex-wrap:wrap;gap:.3rem;margin-block-start:.3rem}
-    /* Speech-to-text mic: only rendered when the browser exposes SpeechRecognition. */
+    /* Speech-to-text mic: 16-bit pixelarticons glyph; only when SpeechRecognition exists. */
     [data-exp="console"] .cn-mic{font:inherit;background:none;border:1px solid var(--nb-rule);
-      color:var(--nb-ink-dim);cursor:pointer;padding:0 .45rem;min-height:1.7rem;min-width:1.7rem;
-      border-radius:var(--nb-radius);line-height:1;flex:none}
+      color:var(--nb-ink-dim);cursor:pointer;padding:0;min-height:1.7rem;min-width:1.7rem;
+      border-radius:var(--nb-radius);line-height:0;flex:none;
+      display:inline-flex;align-items:center;justify-content:center}
+    [data-exp="console"] .cn-mic .nb-ico{width:16px;height:16px;display:block;
+      image-rendering:pixelated;image-rendering:crisp-edges;flex:none}
     [data-exp="console"] .cn-mic:hover{color:var(--nb-ink);border-color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-mic[aria-pressed=true],
     [data-exp="console"] .cn-mic[data-listening=true]{background:var(--nb-danger);color:var(--nb-accent-ink);
@@ -2250,8 +2273,16 @@
           ctxLabel = { dm: selected.name };
         }
       } else if (selected && selected.post) {
-        preview = viewTree(here, selected.post.id, state.folded, sort, votes,
-          state.reactions, state.reactPick, state.feedQuery);
+        // → into a post activates the terminal editor on the message body;
+        // when the editor is not focused, keep the comment-tree reading view.
+        var postPath = MAP.resolve(path, selected.name);
+        var ed = state.editor;
+        if (ed && ed.focused && ed.active && ed.active.path === postPath) {
+          preview = viewFileEditor(selected, postPath, state);
+        } else {
+          preview = viewTree(here, selected.post.id, state.folded, sort, votes,
+            state.reactions, state.reactPick, state.feedQuery);
+        }
       } else if (selected && selected.notification) {
         preview = viewNotification(selected.notification,
           MAP.resolve(path, selected.name));
@@ -2476,8 +2507,12 @@
             ' aria-pressed="' + (state.speech.listening ? "true" : "false") + '"' +
             ' data-listening="' + (state.speech.listening ? "true" : "false") + '"' +
             ' data-mode="' + esc(state.speech.mode || "") + '"' +
+            ' aria-label="' + (state.speech.listening ? "Stop speech-to-text" : "Speech-to-text") + '"' +
             ' title="Speech-to-text — hold ` (push-to-talk) or Alt+V to toggle">' +
-            (state.speech.listening ? "●" : "mic") + "</button>" +
+            (window.NB_ICONS && window.NB_ICONS.mic
+              ? window.NB_ICONS.mic()
+              : (state.speech.listening ? "●" : "mic")) +
+            "</button>" +
             (state.speech.listening
               ? '<span class="cn-speech-tag" data-speech-tag>' +
                 (state.speech.mode === "ptt" ? "ptt" : "dictation") + "</span>"
