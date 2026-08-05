@@ -107,7 +107,12 @@
   async function run(input, ctx, emit) {
     var R = window.NBResilient;
     var runId = "run-" + Date.now();
-    emit({ type: EVENT.RUN_STARTED, runId: runId, input: input });
+    emit({
+      type: EVENT.RUN_STARTED,
+      runId: runId,
+      input: input,
+      displayInput: (ctx && ctx.displayInput != null) ? ctx.displayInput : input,
+    });
 
     var state = await R.availability();
     if (state === "absent" || state === "unavailable") {
@@ -131,6 +136,12 @@
       var attempt = 0;
       var lastError = null;
       var result = null;
+      var attachNote = "";
+      if (ctx && ctx.attachments && ctx.attachments.length) {
+        attachNote = "\n[user attached " + ctx.attachments.length +
+          " file(s) for context: " +
+          ctx.attachments.map(function (a) { return a.name || "file"; }).join(", ") + "]";
+      }
 
       // Two passes at most: one to interpret, one to repair. Self-healing that
       // loops forever is just a slower way to fail.
@@ -138,7 +149,8 @@
         attempt += 1;
         // Context travels with the turn, because the session is shared and its
         // system prompt was fixed when it was warmed.
-        var where = "\n\n[you are at " + ctx.cwd + "; here: " + ctx.here.slice(0, 24).join(", ") + "]";
+        var where = "\n\n[you are at " + ctx.cwd + "; here: " + ctx.here.slice(0, 24).join(", ") + "]" +
+          attachNote;
         var ask = attempt === 1
           ? input + where
           : input + where + "\nThat failed: " + lastError + "\nChoose a different tool or a path that exists.";

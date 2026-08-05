@@ -9,15 +9,249 @@
 window.NB_DATA = {
   board: { name: "EPOCH CIVIC WORKSHOP", node: "node 1 of 1", epoch: 13, landed: 9, total: 12, ships: "FRI 17:00" },
 
+  /**
+   * Vercel Eve-style agents as directories (`.agents/<id>/`).
+   *
+   * Board-level agents (scope: space) apply to the whole civic space.
+   * Project-level agents (scope: project) apply only to that project.
+   * Shape mirrors eve: instructions.md, agent.ts, skills/, tools/.
+   */
+  agents: {
+    board: [
+      {
+        id: "space-steward",
+        name: "Space Steward",
+        scope: "space",
+        model: "anthropic/claude-sonnet-4.6",
+        status: "active",
+        summary: "Keeps the civic space kind, signed, and navigable.",
+        instructions:
+          "You steward the EPOCH CIVIC WORKSHOP space.\n" +
+          "Enforce: be kind, signed intents for promotions, agents stay supervised.\n" +
+          "Prefer board_navigate and graph_query over guessing paths.\n" +
+          "When someone is lost, land them in the right channel or DM.",
+        skills: [
+          { id: "onboarding", title: "Onboarding guests", body: "Welcome guests, point to #general and /claim." },
+          { id: "moderation", title: "Light moderation", body: "Flag unkind traffic; never invent bans." },
+        ],
+        tools: [
+          { id: "board_navigate", title: "board_navigate", body: "Move the board cursor to a real path." },
+          { id: "graph_query", title: "graph_query", body: "Ask what exists on the board." },
+        ],
+      },
+      {
+        id: "activity-relay",
+        name: "Activity Relay",
+        scope: "space",
+        model: "openai/gpt-5-mini",
+        status: "active",
+        summary: "Watches mentions, hooks, and relay traffic for the space.",
+        instructions:
+          "You surface Activity that matters to the local principal.\n" +
+          "Prefer hooks and subscriptions already configured.\n" +
+          "Never invent unread counts; report only fixture or session state.",
+        skills: [
+          { id: "mentions", title: "Mention triage", body: "Route @you mentions to /notifications/mentions." },
+        ],
+        tools: [
+          { id: "open_activity", title: "open_activity", body: "Open the Activity feed filter." },
+        ],
+      },
+    ],
+    projects: {
+      community: [
+        {
+          id: "community-host",
+          name: "Community Host",
+          scope: "project",
+          project: "community",
+          model: "anthropic/claude-sonnet-4.6",
+          status: "active",
+          summary: "Hosts social rooms — general, showcase, support.",
+          instructions:
+            "You host the community project social rooms.\n" +
+            "Prefer #general for hangout, #bugs for work, #ideas for proposals.\n" +
+            "When an agent posts a run, link it back to a signed intent.",
+          skills: [
+            { id: "channel-routing", title: "Channel routing", body: "Match intent to the right community channel." },
+          ],
+          tools: [
+            { id: "board_navigate", title: "board_navigate", body: "Open /projects/community/channels/…" },
+          ],
+        },
+        {
+          id: "triage-clerk",
+          name: "Triage Clerk",
+          scope: "project",
+          project: "community",
+          model: "openai/gpt-5-mini",
+          status: "idle",
+          summary: "Labels needs-review posts and points maintainers at them.",
+          instructions:
+            "You triage community posts that need human review.\n" +
+            "Use feed views (state:needs-review) rather than inventing labels.",
+          skills: [
+            { id: "needs-review", title: "Needs-review view", body: "Apply view state:needs-review sort:new." },
+          ],
+          tools: [
+            { id: "set_feed_query", title: "set_feed_query", body: "Set the Lucene feed projection." },
+          ],
+        },
+      ],
+      "civic-tuner": [
+        {
+          id: "install-cache",
+          name: "Install Cache Agent",
+          scope: "project",
+          project: "civic-tuner",
+          model: "anthropic/claude-sonnet-4.6",
+          status: "working",
+          summary: "Owns cold-install cache key work on civic/tuner.",
+          instructions:
+            "You work only on civic/tuner install-cache concerns.\n" +
+            "Key on lockfile hash; restore OS layer separately.\n" +
+            "Human review required before promote. Link receipts.",
+          skills: [
+            { id: "cache-key", title: "Cache key plan", body: "Split lockfile hash from OS image tag." },
+            { id: "receipts", title: "Receipts", body: "Carry measurements with the change." },
+          ],
+          tools: [
+            { id: "board_navigate", title: "board_navigate", body: "Open tuner issues/changes channels." },
+            { id: "graph_query", title: "graph_query", body: "Find CHANGE-12 and related posts." },
+          ],
+        },
+        {
+          id: "change-reviewer",
+          name: "Change Reviewer",
+          scope: "project",
+          project: "civic-tuner",
+          model: "openai/gpt-5-mini",
+          status: "active",
+          summary: "Reviews tuner changes for scope and signatures.",
+          instructions:
+            "You review civic/tuner changes.\n" +
+            "Reject runtime scope creep; prefer CI-config-only patches.\n" +
+            "Require human sign-off before promoted state.",
+          skills: [
+            { id: "scope-check", title: "Scope check", body: "Confirm no runtime changes without intent." },
+          ],
+          tools: [
+            { id: "board_navigate", title: "board_navigate", body: "Open /projects/civic-tuner/channels/changes." },
+          ],
+        },
+      ],
+      "civic-community-kit": [
+        {
+          id: "draft-persistence",
+          name: "Draft Persistence Agent",
+          scope: "project",
+          project: "civic-community-kit",
+          model: "anthropic/claude-sonnet-4.6",
+          status: "needs-review",
+          summary: "Session-scoped draft storage per channel.",
+          instructions:
+            "You own draft persistence for civic/community-kit.\n" +
+            "One draft per channel in session storage. Human review required.",
+          skills: [
+            { id: "session-draft", title: "Session draft", body: "Keep drafts keyed by channel id." },
+          ],
+          tools: [
+            { id: "board_navigate", title: "board_navigate", body: "Open community-kit changes." },
+          ],
+        },
+      ],
+    },
+  },
+
+  /**
+   * Spaces = Block/Buzz-style Nostr relays + Slack workspaces + Reddit
+   * subreddits in one joinable unit.
+   *
+   *   relay      where signed events flow (protocol, url, read/write)
+   *   workspace  membership, guests, channels (Slack-style)
+   *   subreddit  topical feed, subscribers, rules (Reddit-style)
+   *
+   * Profile defaults to Anonymous in the home space; sign-in joins the space
+   * and (mock) connects its relay.
+   */
+  spaces: [
+    {
+      id: "civic-workshop",
+      name: "EPOCH CIVIC WORKSHOP",
+      short: "CIVIC",
+      slug: "r/civic-workshop",
+      kind: "community",
+      guestsAllowed: true,
+      home: true,
+      description: "Main civic board — signed intents, channels, and public feed",
+      subscribers: 142,
+      rules: ["Be kind", "Signed intents for promotions", "Agents stay supervised"],
+      channels: ["general", "showcase", "support", "ideas", "bugs", "governance"],
+      projects: [],
+      relay: {
+        url: "wss://relay.epoch.civic.local",
+        protocol: "nostr",
+        status: "connected",
+        read: true,
+        write: true,
+        note: "Buzz/Nostr-style relay for civic traffic",
+      },
+    },
+    {
+      id: "agent-lab",
+      name: "Agent Lab",
+      short: "AGNT",
+      slug: "r/agent-lab",
+      kind: "team",
+      guestsAllowed: true,
+      home: false,
+      description: "Agent runs, supervisors, and receipts — humans + agents as peers",
+      subscribers: 38,
+      rules: ["Label agent output", "Human review before merge", "No unsupervised promote"],
+      channels: ["agent-runs", "previews", "ideas"],
+      projects: [],
+      relay: {
+        url: "wss://relay.epoch.agents.local",
+        protocol: "nostr",
+        status: "connected",
+        read: true,
+        write: true,
+        note: "Relay for agent-run events (Buzz-compatible)",
+      },
+    },
+    {
+      id: "tuner-crew",
+      name: "Tuner Crew",
+      short: "TUNR",
+      slug: "r/tuner-crew",
+      kind: "team",
+      guestsAllowed: false,
+      home: false,
+      description: "Members-only crew for civic/tuner work — claim or Bluesky to join",
+      subscribers: 12,
+      rules: ["Members only", "Link runs to intents", "Receipts travel with promotions"],
+      channels: ["bugs", "agent-runs"],
+      projects: ["civic/tuner", "civic/community-kit"],
+      relay: {
+        url: "wss://relay.epoch.tuner.local",
+        protocol: "nostr",
+        status: "idle",
+        read: true,
+        write: false,
+        note: "Private relay — write after sign-in",
+      },
+    },
+  ],
+
   channels: [
-    { id: "general", label: "general", kind: "social", count: 5 },
-    { id: "showcase", label: "showcase", kind: "social", count: 1 },
-    { id: "support", label: "support", kind: "social", count: 3 },
-    { id: "ideas", label: "ideas", kind: "work", count: 4 },
-    { id: "bugs", label: "bugs", kind: "work", count: 2 },
-    { id: "agent-runs", label: "agent-runs", kind: "work", count: 2 },
-    { id: "previews", label: "previews", kind: "work", count: 1 },
-    { id: "governance", label: "governance", kind: "work", count: 0 },
+    { id: "general", label: "general", kind: "social", count: 5, spaceId: "civic-workshop" },
+    { id: "showcase", label: "showcase", kind: "social", count: 1, spaceId: "civic-workshop" },
+    { id: "support", label: "support", kind: "social", count: 3, spaceId: "civic-workshop" },
+    { id: "ideas", label: "ideas", kind: "work", count: 4, spaceId: "civic-workshop" },
+    { id: "bugs", label: "bugs", kind: "work", count: 2, spaceId: "civic-workshop" },
+    { id: "agent-runs", label: "agent-runs", kind: "work", count: 2, spaceId: "agent-lab" },
+    { id: "previews", label: "previews", kind: "work", count: 1, spaceId: "agent-lab" },
+    { id: "governance", label: "governance", kind: "work", count: 0, spaceId: "civic-workshop" },
   ],
 
   members: [
@@ -30,13 +264,187 @@ window.NB_DATA = {
   ],
 
   /**
+   * Direct messages — a board-root sibling of projects. Each thread is a 1:1
+   * conversation with a person or agent. `peer` is the other party's handle;
+   * messages use who: "you" for the local principal and the peer's handle for
+   * their side (same post shape as channel threads so the tree view reuses).
+   */
+  dms: [
+    { id: "scout", peer: "scout", kind: "agent", unread: 1,
+      preview: "Drafting CHANGE-12 now. Will need your review before merge." },
+    { id: "maya", peer: "maya", kind: "person", unread: 0,
+      preview: "When you are ready, promote Scout's plan with the receipts." },
+    { id: "patcher", peer: "patcher", kind: "agent", unread: 2,
+      preview: "Session-scoped draft storage is ready for human review." },
+    { id: "lea", peer: "lea", kind: "person", unread: 0,
+      preview: "I can retest on the three old phones once it lands." },
+  ],
+
+  dmMessages: [
+    // ── you ↔ scout (agent) ──────────────────────────────────────────────
+    { id: "dm-s1", dm: "scout", who: "you", at: "09:50", state: "open", sig: "sig:you-scout-1",
+      body: "Can you split the cache key so cold installs stop missing on every image bump?" },
+    { id: "dm-s2", dm: "scout", who: "scout", at: "09:52", state: "open", sig: "sig:scout-dm-1", re: "dm-s1",
+      body: "Yes. Plan: key on the lockfile hash only, restore the OS layer separately." },
+    { id: "dm-s3", dm: "scout", who: "you", at: "09:54", state: "open", sig: "sig:you-scout-2", re: "dm-s2",
+      body: "Scoped to CI config only — no runtime changes." },
+    { id: "dm-s4", dm: "scout", who: "scout", at: "09:56", state: "needs-review", sig: "sig:scout-dm-2", re: "dm-s3",
+      subject: "CHANGE-12 drafted",
+      anchor: "agent-run://scout/188",
+      body: "Drafting CHANGE-12 now. Will need your review before merge." },
+    // ── you ↔ maya (person) ──────────────────────────────────────────────
+    { id: "dm-m1", dm: "maya", who: "maya", at: "09:48", state: "open", sig: "sig:maya-dm-1",
+      body: "Scout's plan looks solid. When you are ready, promote it with the receipts." },
+    { id: "dm-m2", dm: "maya", who: "you", at: "09:49", state: "open", sig: "sig:you-maya-1", re: "dm-m1",
+      body: "Will do after Nora confirms the warm path still holds." },
+    { id: "dm-m3", dm: "maya", who: "maya", at: "09:50", state: "open", sig: "sig:maya-dm-2", re: "dm-m2",
+      body: "When you are ready, promote Scout's plan with the receipts." },
+    // ── you ↔ patcher (agent) ────────────────────────────────────────────
+    { id: "dm-p1", dm: "patcher", who: "you", at: "09:40", state: "open", sig: "sig:you-patch-1",
+      body: "Draft text is still lost when switching channels. Can you scope a fix?" },
+    { id: "dm-p2", dm: "patcher", who: "patcher", at: "09:44", state: "open", sig: "sig:patch-dm-1", re: "dm-p1",
+      body: "Reproduced. Composer remounts on channel change and drops the controlled value." },
+    { id: "dm-p3", dm: "patcher", who: "patcher", at: "09:55", state: "needs-review", sig: "sig:patch-dm-2", re: "dm-p2",
+      subject: "CHANGE-04 ready",
+      anchor: "agent-run://patcher/207",
+      body: "Session-scoped draft storage is ready for human review." },
+    // ── you ↔ lea (person) ───────────────────────────────────────────────
+    { id: "dm-l1", dm: "lea", who: "lea", at: "09:10", state: "open", sig: "sig:lea-dm-1",
+      body: "I can retest on the three old phones once it lands." },
+    { id: "dm-l2", dm: "lea", who: "you", at: "09:12", state: "open", sig: "sig:you-lea-1", re: "dm-l1",
+      body: "Appreciate it — will ping when Scout's change is promoted." },
+    { id: "dm-l3", dm: "lea", who: "lea", at: "09:13", state: "open", sig: "sig:lea-dm-2", re: "dm-l2",
+      body: "I can retest on the three old phones once it lands." },
+  ],
+
+  /**
+   * Named feed views / projections — Lucene-style queries beyond hot/new/top/best.
+   * Chips in the feed toolbar load these; users can also write free-form queries.
+   */
+  feedViews: [
+    { id: "needs-review", label: "needs review", query: "state:needs-review sort:new" },
+    { id: "agents", label: "agents", query: "kind:agent OR channel:agent-runs sort:new" },
+    { id: "signed", label: "signed", query: "state:signed OR state:promoted sort:top" },
+    { id: "reacted", label: "reacted", query: "has:reactions sort:top" },
+    { id: "anchored", label: "anchored", query: "has:anchor sort:new" },
+    { id: "cache", label: "cache talk", query: "body:cache OR subject:cache sort:hot" },
+  ],
+
+  /**
+   * What the local principal is watching for Teams-style Activity notifications.
+   * Subscriptions fire when matching traffic lands (channel, topic, member, project).
+   */
+  subscriptions: [
+    { kind: "channel", target: "bugs", label: "#bugs" },
+    { kind: "topic", target: "install-cache", label: "#install-cache" },
+    { kind: "topic", target: "draft-persistence", label: "#draft-persistence" },
+    { kind: "member", target: "scout", label: "@scout" },
+    { kind: "project", target: "civic-tuner", label: "civic/tuner" },
+    { kind: "space", target: "agent-lab", label: "r/agent-lab" },
+  ],
+
+  /**
+   * Custom event hooks — user subscriptions to app events that broadcast
+   * through Activity + browser notifications. Users can add/toggle via /hooks.
+   * See hooks.js for the event catalog and match grammar.
+   */
+  hooks: [
+    { id: "hook-bugs", event: "post.created", match: "channel:bugs",
+      label: "New posts in #bugs", notify: true, enabled: true },
+    { id: "hook-mentions", event: "mention.you", match: "",
+      label: "Mentions of me", notify: true, enabled: true },
+    { id: "hook-plusone", event: "reaction.added", match: "key:+1",
+      label: "+1 reactions", notify: true, enabled: true },
+    { id: "hook-cache", event: "query.matched", match: "body:cache OR subject:cache",
+      label: "Cache talk", notify: true, enabled: true },
+    { id: "hook-scout", event: "post.created", match: "who:scout",
+      label: "Posts from @scout", notify: true, enabled: false },
+  ],
+
+  /**
+   * Activity feed — MS Teams-style notifications for mentions of you and
+   * anything you have subscribed to. `kind` is mention | subscription | reply | dm.
+   * `where` is a board path to open; `unread` is the fixture default (session
+   * may mark items read without rewriting fixtures).
+   */
+  notifications: [
+    { id: "n1", kind: "mention", unread: true, at: "10:22", who: "maya",
+      where: "/projects/community/channels/general", whereLabel: "#general",
+      subject: "Mentioned you",
+      body: "@you — ready to sign the intent when you confirm Nora's warm path.",
+      reason: "mentioned you", ref: "p4" },
+    { id: "n2", kind: "mention", unread: true, at: "09:56", who: "scout",
+      where: "/dms/scout", whereLabel: "@scout",
+      subject: "CHANGE-12 drafted",
+      body: "Drafting CHANGE-12 now. Will need your review before merge.",
+      reason: "mentioned you in DM", ref: "dm-s4" },
+    { id: "n3", kind: "subscription", unread: true, at: "09:55", who: "patcher",
+      where: "/projects/community/channels/bugs", whereLabel: "#bugs",
+      subject: "Draft persistence, scoped to the session",
+      body: "Keeps one draft per channel in session storage. Human review required.",
+      reason: "subscribed to #bugs", sub: { kind: "channel", target: "bugs" }, ref: "b1" },
+    { id: "n4", kind: "subscription", unread: true, at: "09:52", who: "scout",
+      where: "/dms/scout", whereLabel: "@scout",
+      subject: "Cache key plan",
+      body: "Key on the lockfile hash only, restore the OS layer separately.",
+      reason: "subscribed to @scout", sub: { kind: "member", target: "scout" }, ref: "dm-s2" },
+    { id: "n5", kind: "subscription", unread: false, at: "09:40", who: "scout",
+      where: "/projects/civic-tuner/channels/changes", whereLabel: "civic/tuner · changes",
+      subject: "CHANGE-12 · split the cache key",
+      body: "Key on the lockfile hash only, restore the OS layer separately. Human review required.",
+      reason: "subscribed to civic/tuner", sub: { kind: "project", target: "civic-tuner" }, ref: "t-c1" },
+    { id: "n6", kind: "subscription", unread: false, at: "09:31", who: "nora",
+      where: "/projects/community/channels/general", whereLabel: "#general",
+      subject: "Cache key includes the OS image tag",
+      body: "Reproduced on a clean container: 3m52s cold, 14s warm.",
+      reason: "subscribed to #install-cache", sub: { kind: "topic", target: "install-cache" }, ref: "p2" },
+    { id: "n7", kind: "reply", unread: false, at: "10:14", who: "sam",
+      where: "/projects/community/channels/general", whereLabel: "#general",
+      subject: "Replied in a thread you follow",
+      body: "As the person who complained about this in the first place — nice.",
+      reason: "reply in thread", ref: "p5" },
+    { id: "n8", kind: "dm", unread: true, at: "09:55", who: "patcher",
+      where: "/dms/patcher", whereLabel: "@patcher",
+      subject: "CHANGE-04 ready",
+      body: "Session-scoped draft storage is ready for human review.",
+      reason: "new direct message", ref: "dm-p3" },
+    { id: "n9", kind: "mention", unread: false, at: "08:40", who: "nora",
+      where: "/projects/community/channels/ideas", whereLabel: "#ideas",
+      subject: "Agent runs should link back to the intent",
+      body: "When an agent posts a run, @you should get a one-click path to the signed intent.",
+      reason: "mentioned you", ref: "i1" },
+  ],
+
+  /**
+   * Trending topics for `#` smart-input completion. Heat is a fixture rank so
+   * the palette has an order without claiming real engagement metrics.
+   */
+  topics: [
+    { tag: "draft-persistence", label: "Draft sticks per channel", heat: 42 },
+    { tag: "install-cache", label: "Four-minute cold install", heat: 38 },
+    { tag: "offline-shelf", label: "Ferry sketches", heat: 21 },
+    { tag: "agent-receipts", label: "Run → intent lineage", heat: 18 },
+    { tag: "guest-claim", label: "Claim anonymous identity", heat: 15 },
+    { tag: "atproto", label: "Bluesky-style portable auth", heat: 12 },
+    { tag: "signed-intent", label: "Promote with receipts", heat: 11 },
+    { tag: "virtual-worktree", label: "Terminal workspace tabs", heat: 9 },
+  ],
+
+  /**
    * A linked project owns channels of its own. The community's rooms are where
    * people are; a project's rooms are where its work is, and conflating them
    * was why "projects" felt like a dead end in the tree.
    */
   projects: [
-    { slug: "civic/tuner", open: 5, channels: ["issues", "changes", "releases"] },
-    { slug: "civic/community-kit", open: 1, channels: ["issues", "changes"] },
+    {
+      slug: "civic/tuner", open: 5, channels: ["issues", "changes", "releases"], spaceId: "tuner-crew",
+      // Project roster — open a handle → /dms/<handle>
+      members: ["maya", "nora", "scout", "lea"],
+    },
+    {
+      slug: "civic/community-kit", open: 1, channels: ["issues", "changes"], spaceId: "tuner-crew",
+      members: ["maya", "sam", "patcher"],
+    },
   ],
 
   projectPosts: [
@@ -68,19 +476,31 @@ window.NB_DATA = {
     {
       id: "p1", channel: "general", who: "lea", at: "09:05", state: "open", sig: "sig:lea-install",
       body: "Every cold install here takes about four minutes. I am not set up to fix it, but I can test any build you want on three old phones.",
+      reactions: { "+1": 3, "eyes": 2, "heart": 1 },
       actions: [{ id: "same", label: "same here" }, { id: "reply", label: "reply" }],
     },
     {
       re: "p1", id: "p2", channel: "general", who: "nora", at: "09:31", state: "open", sig: "sig:nora-repro",
       anchor: "tuner/install.ts · line 84",
       body: "Reproduced on a clean container: 3m52s cold, 14s warm. The cache key includes the lockfile hash and the OS image tag, so it misses on every image bump.",
+      reactions: { "rocket": 2, "+1": 1, "thinking": 1 },
       actions: [{ id: "confirm", label: "confirmed" }, { id: "reply", label: "reply" }],
     },
     {
       re: "p2", id: "p3", channel: "general", who: "scout", at: "09:40", state: "needs-review", sig: "sig:scout-188",
       subject: "Drafted a plan to split the cache key",
       anchor: "agent-run://scout/188",
-      body: "Key on the lockfile hash only and restore the OS layer separately. Scoped to CI config, no runtime changes. Human review required before anything merges.",
+      body: "Key on the lockfile hash only and restore the OS layer separately.\n\n" +
+        "| path | cold | warm |\n" +
+        "| --- | --- | --- |\n" +
+        "| before | 3m52s | 14s |\n" +
+        "| after (est.) | ~40s | ~12s |\n\n" +
+        "Scoped to CI config — **no runtime changes**. Human review required.\n\n" +
+        "See #install-cache and @maya for the intent path.\n\n" +
+        "Spec: [AG-UI Protocol](https://github.com/ag-ui-protocol) · " +
+        "notes https://docs.epoch.local/install-cache · " +
+        "board path /projects/community/channels/bugs",
+      reactions: { "rocket": 4, "eyes": 3, "tada": 1 },
       actions: [{ id: "review", label: "review" }, { id: "tests", label: "tests passed" }],
     },
     {
@@ -88,11 +508,13 @@ window.NB_DATA = {
       subject: "Promoted this thread to a signed intent",
       anchor: "intent://install-cache",
       body: "Carrying Lea's report, Nora's measurements and Scout's plan across as receipts, so the change arrives with its evidence attached.",
+      reactions: { "+1": 5, "tada": 2, "heart": 2 },
       actions: [{ id: "open", label: "open intent" }, { id: "lineage", label: "lineage" }],
     },
     {
       re: "p4", id: "p5", channel: "general", who: "sam", at: "10:14", state: "open", sig: "sig:sam-retest",
       body: "As the person who complained about this in the first place — nice. Happy to retest on the boat wifi once it lands.",
+      reactions: { "+1": 2, "heart": 1 },
       actions: [{ id: "wave", label: "wave" }],
     },
     {

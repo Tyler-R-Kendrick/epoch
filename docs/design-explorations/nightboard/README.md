@@ -1,6 +1,10 @@
-# Nightboard
+# Nightboard (Epoch Civic Workshop)
 
-A live board for a signed community, and a zen garden for theming it.
+A live board for a signed community — terminal chrome with **Epoch** branding:
+a FIGlet ANSI Shadow wordmark that power-on ignites, then runs a slow energy
+wave across solid fills (letterforms stay intact — no ░▒▓ thrash). The top bar
+is brand + theme + Activity + identity; no product-name billboard, experience
+select, pause button, or thesis prose.
 
 Open `index.html` from any static server. Nothing here needs a build step or a
 network connection.
@@ -48,6 +52,14 @@ count instead of interrupting.
 | `T` | Next theme |
 | `G` | Open the garden |
 | `?` | Key help |
+| `Alt+J` | Minimise / restore the terminal panel |
+| `Alt+M` | Maximise / restore the terminal panel |
+| `Alt+D` | Cycle terminal dock: bottom → right → left |
+| `Alt+T` | New isolated workspace at default home (not current path) |
+| `Alt+Z` / `z` | Collapse / expand nav panes (detail fills width) |
+| `Ctrl+Space` | Intellisense + hotkey cheatsheet scoped to this workspace |
+| Hold `` ` `` | Push-to-talk speech-to-text (when the browser supports it) |
+| `Alt+V` | Toggle continuous dictation (when supported) |
 
 Everything is clickable too: channels, members, projects, posts, and the signed
 actions on each post.
@@ -65,39 +77,189 @@ the same paths, so clicking a folder and typing `cd` are the same operation
 rather than two features that happen to agree.
 
 ```
-/channels/general/003-scout-drafted-a-plan
-/members/scout
-/projects/civic-tuner/changes/001-scout-change-12
-/epochs/13
+/projects/community/channels/general/003-scout-drafted-a-plan
+/projects/community/.agents/community-host
+/projects/civic-tuner/channels/changes/001-scout-change-12
+/projects/civic-tuner/.agents/install-cache
+/.agents/space-steward
+/dms/scout
+/notifications/mentions
+/members            ← roll of people/agents; open one → /dms/<handle>
 ```
 
-A linked project owns channels of its own — `issues`, `changes`, `releases` —
-because the community's rooms are where people are and a project's rooms are
-where its work is. Conflating them was why `projects` felt like a dead end.
+Board root lists **projects**, **dms**, **notifications**, and **`.agents`** as
+siblings (plus members) — not a second top-level channels tree. Every project
+owns `channels/`, **`members/`**, and **`.agents/`**.
+
+### Terminal file editor
+
+When a **file** is selected (agent `instructions.md`, `agent.ts`, skills,
+tools, and other text-like leaves), the detail pane is a **browser terminal
+editor** — vim/neovim-shaped, with first-class pointer and touch:
+
+| Mode | Keys |
+|---|---|
+| **NORMAL** | `hjkl` / arrows move · `i`/`a`/`o` insert · `v` visual · `x`/`d` delete · `g`/`G` top/bottom · `w`/`b` word |
+| **INSERT** | type freely · `Esc` back to normal · `Enter` newline |
+| **VISUAL** | extend selection · `d`/`x` delete · `Esc` clear |
+
+| Pointer / touch | Action |
+|---|---|
+| Click / tap | Place caret |
+| Double-click | Enter insert at point |
+| Shift+click or drag | Visual selection |
+| Wheel / swipe | Scroll buffer |
+| Status line | Mode · path · `Ln:Col` · % |
+
+Buffers stay dirty across re-selection of the same path (`state.editor.buffers`).
+Status shows `NORMAL` / `INSERT` / `VISUAL` and `[+]` when modified. The chrome
+hints `i insert · Esc normal · v visual · click/tap caret`.
+
+### `.agents` (Vercel Eve)
+
+Agents are **directories of files** ([vercel/eve](https://github.com/vercel/eve)):
+
+| Level | Path | Applies to |
+|---|---|---|
+| **Board** | `/.agents/<id>/` | The whole space |
+| **Project** | `/projects/<id>/.agents/<id>/` | That project only |
+
+Each agent directory looks like:
+
+```
+.agents/space-steward/
+  instructions.md   # always-on system prompt
+  agent.ts          # model / runtime config
+  skills/           # markdown playbooks
+  tools/            # typed tool stubs
+```
+
+Board-level agents (e.g. Space Steward, Activity Relay) apply space-wide.
+Project-level agents (e.g. Install Cache on civic/tuner) stay scoped to that
+repo’s work. Opening an agent shows its scope, model, skills, tools, and
+instructions in the detail pane.
+
+**Direct messages** are 1:1 threads under `/dms/<handle>`. Opening a **member**
+from the board roll or a project roster (or `/dm scout` / `/msg`) lands on that
+DM thread, not a profile card.
+
+### Activity (MS Teams-style notifications)
+
+`/notifications` is an Activity feed for:
+
+- **Mentions of you** (`@you` in channels or DMs)
+- **Subscriptions** you watch (channels, topics, members, projects)
+- **Custom hooks** you subscribe to (app events → Activity + browser alerts)
+
+Filters: `all` · `mentions` · `subscribed` · `hooks`. Unread items badge the
+**Activity** control in the bar; open a card (or press Open) to jump to the
+source and mark it read. `/notifications` / `/activity` open the feed from the
+prompt. Subscriptions live in fixture data (`NB_DATA.subscriptions`).
+
+#### Custom event hooks
+
+Hooks let you subscribe to named app events and broadcast matches through
+Activity (and the browser Notification API when granted). Implementation:
+`hooks.js` (`NB_HOOKS`).
+
+| Event | When it fires |
+|---|---|
+| `post.created` | Live stream (or publish) lands a post |
+| `mention.you` | Body mentions `@you` or your handle |
+| `reaction.added` | You apply an emoji reaction |
+| `dm.received` | A DM-shaped payload lands |
+| `subscription.matched` | Watched channel/topic/member traffic |
+| `identity.changed` | Claim, Bluesky login, or sign-out |
+| `space.joined` | You join or switch space |
+| `query.matched` | Payload matches the hook’s Lucene/field filter |
+
+Optional `match` filter: empty (all), `field:value` (`channel:bugs`, `who:scout`,
+`key:+1`), free text, or a Lucene-style query when `NB_QUERY` is available.
+
+| Prompt | Effect |
+|---|---|
+| `/hooks` | List hooks (enabled · match · label) |
+| `/hooks events` | Event catalog |
+| `/hooks add <event> [match]` | Subscribe (notify on) |
+| `/hooks rm <id>` | Remove |
+| `/hooks on\|off <id>` | Enable / disable |
+| `/hooks test [event]` | Fire a sample → `/notifications/hooks` |
+| `/hooks open` | Open the Hooks Activity filter |
+| `/hooks reset` | Restore fixture defaults |
+
+Defaults ship in `NB_DATA.hooks` (e.g. new posts in `#bugs`, mentions, `+1`
+reactions, cache talk). Config and fired items persist in `localStorage`
+(`nb-hooks`, `nb-hooks-fired`). Private mode fails soft.
+
+#### Browser Notification API
+
+When the browser exposes `window.Notification`, Activity also pushes OS/browser
+alerts:
+
+- **Enable alerts** (bar or Activity header) requests permission from a user
+  gesture; `/notifications enable` does the same from the prompt
+- Granted sessions deliver unread items that have not yet been pushed, and live
+  stream matches (mention / subscription / **hook**) fire as they land
+- Clicking a browser notification focuses the tab and opens the source
+- Denied / unsupported fail soft — the in-page feed still works
+- `/notifications test` sends a sample alert when permission is granted
+- `/hooks test` exercises the hook → Activity → browser path end to end
+
+Pushed ids are remembered in `localStorage` (`nb-notif-pushed`) so the tray is
+not spammed on every reload.
 
 ### Navigation
 
-Miller columns, the way `ranger` and `nnn` work: a column per level, so your
-whole path is on screen and "where am I" is never a question.
+**One nav blade + one detail blade** — the root nav is **reused and reloaded**,
+never cloned into a stack of path-segment columns.
+
+- **Nav** is a navbar for the current path: only that branch’s first-level
+  subnodes (plus optional one-level peek via `+` / Space)
+- **Enter / →** reloads the same nav into the selected directory
+- **← / × / Backspace** reloads nav at the parent (breadcrumb owns depth)
+- **Detail** shows the selection (thread, editor, agent, DM, …)
+- Tree icons are only **`+` / `−`** (expand/collapse). Leaves keep a blank
+  spacer — no dots or arrows. A trailing count is a plain number when a dir
+  has children
 
 | | |
 |---|---|
-| `←→` / `hl` | move between columns |
-| `↑↓` / `jk` | move within a column |
-| `Enter` | descend, or open |
+| `←` / `h` | reload nav at parent |
+| `→` / `l` | reload nav into selected dir (or focus detail) |
+| `↑↓` / `jk` | move within the nav list |
+| `Enter` | open dir (reload nav) or file detail |
+| `Space` | expand / collapse **one level** under the cursor |
+| `+` / `−` | same expand / collapse (pointer) |
+| `Backspace` / `<<` on nav | back to parent — reload nav |
+| `Esc` / `×` on detail / `Backspace` on detail | **close detail pane** (nav fills the row) |
 | `:` | command line |
-| `/` or any letter | filter this column as you type |
-| `v` | cycle view — graph, diff, raw |
+| `/` or any letter | filter the nav list |
+| `v` | cycle sort — hot, new, top, best |
+| `z` / `Alt+Z` | collapse / expand **nav** (detail fills the row) |
 | `Tab` | complete |
 
+#### Collapsible nav
+
+When **detail** has content, the single nav blade can **collapse to a thin rail**:
+
+- **—** on the nav header, or **▭** on detail, collapses nav
+- Collapsed rail keeps the current folder title; click expands
+- Opening a file/post auto-collapses nav; returning to the list expands it
+- `z` / `Alt+Z` toggles (session-only — never traps you after reload)
+
 Pointer and touch are peers, not fallbacks: every entry, breadcrumb segment and
-view chip is a real button, columns swipe with scroll-snap on a phone, and every
+sort chip is a real button, blades swipe with scroll-snap on a phone, and every
 control clears the 32px floor wherever the pointer is coarse.
 
 ### The input box: AI or CLI
 
 One box, two readings. **AI is the default**; `Alt+A` or the chip at the prompt
 switches.
+
+**Slash commands** — in ai (chat) mode, type `/` for intellisense: `/go`,
+`/sort`, `/theme`, `/load`, `/help`, and friends. They run locally like CLI
+verbs and never go to the model. Tab completes paths and sort modes the same
+way the shell does.
 
 **CLI** — the text is a command. Wrong input is an error, which is what a shell
 owes you.
@@ -164,6 +326,18 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
 - **`cd` resolves like completion does.** `cd bugs` and `cd tuner` work from
   anywhere; execution refusing what completion offered made the completion look
   like a liar.
+- **Smart markers** mid-input, Discord/Slack style:
+  - `@` mentions people and agents on the board (`@maya`, `@scout`)
+  - `#` tags trending topics and channel short-names (`#draft-persistence`,
+    `#bugs`)
+  - Tab / Enter accepts (with a trailing space); a fully typed token sends as
+    written. Markers are extensible in `complete.js` (`MARKER_SPECS`).
+- **Speech-to-text** when the browser exposes `SpeechRecognition` /
+  `webkitSpeechRecognition` (otherwise the mic and hotkeys are absent):
+  - **Hold `` ` ``** — Discord-style push-to-talk; listen while held, commit on
+    release
+  - **Alt+V** — toggle continuous dictation (voice-activity analogue)
+  - **Esc** or the mic button — stop; permission denials fail soft
 - **Arrows belong to the menu when it is open.** `↑↓` walk the candidates and
   `Enter` accepts the highlighted one; they only mean history when there is
   nothing to choose between.
@@ -172,14 +346,16 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
 ## The GraphQL API
 
 Everything queryable sits behind one schema — channels, posts, members,
-projects, epochs — so the agent asks the data what exists instead of being told
+projects, dms — so the agent asks the data what exists instead of being told
 in a prompt that drifts from it.
 
 ```graphql
 { posts(state: "needs-review") { path author { handle } } }
 { member(handle: "scout") { role detail posts { subject } } }
 { project(slug: "civic-tuner") { channels { name posts { subject } } } }
-{ listPath(path: "/channels") { name kind hint } }
+{ dms { peer kind unread messages { body path } } }
+{ dm(peer: "scout") { path messageCount member { role } } }
+{ listPath(path: "/dms") { name kind hint } }
 ```
 
 It is graphql-js rather than a hand-rolled resolver: 178KB buys real validation
@@ -194,7 +370,7 @@ Every capability the surface has is registered as a
 [WebMCP](https://github.com/webmachinelearning/webmcp) tool through
 `document.modelContext.registerTool`:
 
-`board_navigate` · `board_list` · `board_where` · `view_set` · `stream_load` ·
+`board_navigate` · `board_list` · `board_where` · `view_set` · `sort_set` · `stream_load` ·
 `stream_pause` · `theme_set` · `theme_use` · `graph_query` · `graph_schema` ·
 `fx_asciify`
 
@@ -211,21 +387,40 @@ the button breaks the tool breaks with it, which is correct.
 **The chat's vocabulary is the registry.** Nothing is hand-listed in the agent:
 a component that registers a tool becomes usable by chat immediately, and one
 that stops registering disappears from the agent's vocabulary in the same
-motion. Asking *"what needs review?"* runs a GraphQL query; *"show it as
-patches"* calls `view_set`; *"make everything blue"* calls `theme_set` — all
-through the same registry a browser agent would use.
+motion. Asking *"what needs review?"* runs a GraphQL query; *"sort by new"*
+calls `sort_set`; *"make everything blue"* calls `theme_set` — all through the
+same registry a browser agent would use.
 
-### Views
+### Thread tree
 
-The preview renders the selected directory or entry three ways, and the choice
-is navigation state rather than a mode you get stuck in:
+The preview is always a **comment tree** (Reddit grammar). Sort changes order,
+not costume:
 
-- **graph** — lineage as a commit graph; forks open where talk becomes signed
-  work and merge at the epoch. Selecting one post shows the whole lineage with
-  that node marked, because a one-node graph is not a graph.
-- **diff** — every entry as a patch. One representation for talk and code is the
-  product's claim stated outright.
-- **raw** — plain transcript, for when structure is in the way.
+- **Nest rails** — one vertical bar per ancestor depth. Click a bar (or `−`/`+`)
+  to collapse that chain and everything under it.
+- **Votes** — upvote / downvote on every comment; score is local to the session.
+- **Reactions** — GitHub/Slack-style emoji pills on every comment: `+1`, `-1`,
+  `eyes`, `rocket`, `heart`, `laugh`, `hooray`, `thinking`. Click a pill to
+  toggle yours; **+** opens the picker. Fixture posts ship seed counts; your
+  reactions persist with page state.
+- **Reply** — arms the prompt as `reply to @handle: …`.
+- **Feed views (Lucene-style)** — more robust than thumbs-up ranking alone.
+  Named projections (`hot`, `needs review`, `agents`, `signed`, `reacted`, …)
+  and a free-form query bar:
+
+  ```
+  state:needs-review
+  who:maya AND has:anchor
+  kind:agent -state:signed sort:new
+  body:cache OR react:+1 sort:top
+  "cold install"
+  ```
+
+  Fields: `who` `state` `channel` `subject` `body` `kind` `has` `react`
+  `score` `sort`. Boolean: `AND` (default), `OR`, `NOT`/`-`, groups `(…)`.
+  `/view <query>` or `/q` from the prompt; `?` on the feed bar prints help.
+  Matching keeps parent posts so threads stay coherent.
+- **Share** — copies a `nightboard:` link for the current place.
 
 ## Drawing with characters
 
@@ -238,7 +433,7 @@ so if the reading goes the glyphs go with it:
   channel with fewer than four posts, or one whose line comes out flat, draws
   nothing: a bar that cannot vary is a badge pretending to be a chart.
 - **The epoch gauge** (`[█████████···]`) — how much of the epoch has landed,
-  under the graph where the lineage merges.
+  on the cold-start banner and status readings.
 - **Receipt sigils** (`⡽⠸⢛⠀`) — the signature folded into four braille cells.
   A hash is unreadable and a checkmark says nothing; a mark gives a receipt a
   *shape*, so two that differ look different. Braille rather than shade blocks
@@ -252,6 +447,78 @@ so if the reading goes the glyphs go with it:
 
 It is all plain text in the DOM, so it themes with the tokens, copies as text,
 and costs nothing.
+
+### Markdown + colour-coded tables
+
+Transcript and post bodies go through `NB_ASCII.formatBody`:
+
+- **Markdown subset** — headings, lists, quotes, fenced code, `**bold**` /
+  `*em*` / `` `code` ``, `@mentions`, `#topics`, links, and pipe tables
+- **Tables** render as **box-drawn ASCII** (`┌─┬─┐`) with colour classes:
+  header ink uses accent, rules are faint, cells follow body/dim tokens
+- **Plain multi-line ASCII** still colourises box edges, block gauges, and
+  braille sigils so banners and gauges stay readable without full markdown
+
+Themes style via `.nb-md-*` classes (no hard-coded colours). `/spaces` prints a
+markdown table of relays so the transcript exercises the path.
+
+### Attachments (file upload for chat context)
+
+The prompt accepts **files as chat context** — same idea as attaching a file in
+a messaging app before you send:
+
+| How | What happens |
+|---|---|
+| **Paperclip** (`+` / count) | Opens the system file picker (multi-select) |
+| **Drag & drop** | Drop onto the terminal / prompt region |
+| **Paste** | Paste an image or file while the prompt is focused |
+| `/attach` | `open` · `list` · `clear` from the prompt |
+
+Staged files show as chips above the input (remove one with ×, or **clear**).
+On send (AI, CLI, or slash), attachments:
+
+1. Appear on the user transcript line as chips
+2. Are inlined into agent context as a terminal-honest block (`[attachments…]`)
+   — **text** files include content (capped), **images** note type/size (+ small
+   preview thumb in the tray), **binaries** contribute name/type only
+
+Limits (exploration): max **8** files, **2 MiB** read per file, **32k** chars of
+text inlined. Oversized files still stage as name-only chips with an error mark.
+Nothing is uploaded to a server — reads stay in the page.
+
+API: `NB_ATTACH` (`readFiles`, `composeInput`, `formatContext`) and
+`NB_APP.addAttachmentFiles` / `clearAttachments`.
+
+### Link preview cards (ASCII / terminal)
+
+Links in post bodies and transcript lines unfurl into a **reusable ASCII preview
+card** — generated summary, box-drawn frame, themeable classes. No network
+fetch: the exploration builds a deterministic summary from the URL (plus a small
+catalog for well-known docs/repos).
+
+```
+┌─ █ REPO · GitHub ─────────────────────┐
+│ AG-UI Protocol                        │
+│ Agent–User Interaction Protocol for   │
+│ in-browser agents and tools.          │
+│ github.com/ag-ui-protocol             │
+└───────────────────────────────────────┘
+```
+
+API (`NB_ASCII`):
+
+| Call | Result |
+|---|---|
+| `linkPreview(url)` | HTML `<article class="nb-link-preview">` card |
+| `linkPreview(url, { asHtml: false })` | Plain ASCII frame |
+| `summarizeLink(url)` | `{ title, description, site, kind, … }` |
+| `extractLinks(text)` | Unique safe links from markdown + bare URLs |
+| `formatBody(text)` | Body HTML **plus** preview cards for every link |
+
+Kinds: `repo` · `docs` · `board` · `identity` · `relay` · `link`. Board paths
+(`/projects/…`, `nightboard:…`) navigate in-app via `data-goto`; external
+`https://` opens in a new tab. Scout’s cache plan post in `#general` carries
+sample links so the cards show up without typing.
 
 ### The canvas lens (optional)
 
@@ -383,24 +650,73 @@ One coherent responsive strategy: three miller columns at desk width, listing
 plus preview at mid width, and swipe pages with scroll-snap on a phone. The
 frame itself never scrolls as a page — every scrolling surface is a named pane.
 
+## Durable page state, profile, and spaces
+
+Page state is durable across reloads. The **Profile** button defaults to
+**Anonymous** in the home Slack-style **space** (workspace). Anonymous sessions
+are fine when the space allows guests.
+
+| Auth state | Meaning |
+|---|---|
+| `guest` | Anonymous principal in a guest-friendly space |
+| `claimed` | Signed in to a space with a local handle (same principal kept) |
+| `atproto` | Signed in via Bluesky-style ATProto (handle → mock `did:plc`) |
+| `denied` | Space or policy requires sign-in — read-only until Profile → Sign in |
+
+### Spaces = Relays + Workspaces + Subreddits
+
+A **space** is three familiar things in one joinable unit:
+
+| Lens | Feels like | What you get |
+|---|---|---|
+| **Relay** | Block/Buzz · Nostr | Event endpoint (`wss://…`), protocol, connected/idle, read/write |
+| **Workspace** | Slack | Membership, guests vs members-only, channels, linked projects |
+| **Subreddit** | Reddit | `r/…` slug, subscribers, rules, topical **feed** |
+
+Fixture spaces:
+
+| Space | Guests | Relay | Role |
+|---|---|---|---|
+| EPOCH CIVIC WORKSHOP (`r/civic-workshop`) | yes | connected | Home community |
+| Agent Lab (`r/agent-lab`) | yes | connected | Humans + agents |
+| Tuner Crew (`r/tuner-crew`) | no | idle until sign-in | Private crew + projects |
+
+Browse at `/spaces`, open a hub (`/spaces/agent-lab`) for **feed / channels / projects / relay / about**. Profile menu joins a space and (mock) connects its relay. `/space agent-lab` joins; members-only spaces open sign-in. `/spaces` lists relays + sub counts.
+
+Board furniture is snapshotted under `nb-board-state` for the same principal.
+Slash surface also includes `/whoami`, `/logout`.
+
 ## The furniture
 
 Polish that had been missing, each piece done the terminal way:
 
 - **Scrollbars take the theme's ink** — thin, square, trackless, on both
   engines. A scrollbar is a position marker, not a component.
-- **Panes resize, collapse and zoom.** The divider is the pane's own control:
-  drag resizes (pointer events — mouse, touch and pen are one code path),
-  double-click or Enter collapses and reopens, arrow keys nudge, `Alt+Z` (or
-  `z` in column mode) zooms the preview tmux-style. The layout persists across
-  sessions; it is the user's furniture arrangement. The transcript minimises
-  from the prompt row.
-- **Conversations are trees.** `re:` names the parent post; replies nest under
-  what they answer with a spine, and a twist folds the whole subtree with its
-  full count. A promotion is a root event that references the thread it grew
-  from — folding the talk never hides the signed work — and the merge elbow
-  refuses to draw when every forked node is folded away, because a curve from
-  nothing is a lie.
+- **Panes resize; nav collapses to rails.** The terminal sash is the pane's own
+  control: drag resizes (pointer events — mouse, touch and pen are one path),
+  double-click or Enter collapses and reopens, arrow keys nudge. Nav list blades
+  collapse to thin path **rails** (`z` / `Alt+Z`, or — / ▭ on the header) so
+  detail can claim the width when you read a thread. Rails stay clickable; open
+  a post auto-collapses nav. Collapse is session-only so a reload never traps
+  you. Terminal dock layout still persists as furniture.
+- **The terminal is a VS Code panel.** Workspace tabs, sash, dock / maximise /
+  minimise actions. Drag the sash to resize height (bottom dock) or width
+  (side dock). `Alt+J` minimises, `Alt+M` maximises, `Alt+D` cycles dock
+  position through bottom → right → left. `Alt+T` (or `+`) opens a new
+  terminal tab — an **isolated virtual worktree** with its own path, preview,
+  folds, transcript, history, detail pane and attachments. New tabs land at
+  the default home channel; they never inherit the previous tab’s scope.
+  Click a tab to restore a minimised panel or switch workspaces. Side docks
+  fall back to bottom under mid width so a phone never carries two thin
+  vertical strips.
+- **Transcript identity is a who-rail.** `you` and `agent` share a fixed left
+  column so turns line up; system output sits under an empty rail. Tool calls
+  and supplemental detail collapse by default under the agent (`▸ navigate ·
+  path`) and expand on click — the one-line summary stays honest when closed.
+- **Conversations are Reddit-style trees.** `re:` names the parent; replies nest
+  under what they answer with clickable nest rails and `±` fold controls.
+  Votes and reply sit on every comment. Sort is hot/new/top/best, not a view
+  costume.
 - **A channel shows what it is before what it contains**: name, kind, post
   count, unread, its activity sparkline and last word, as one line of facts
   above the conversation — both when selecting it from `/channels` and while
@@ -413,9 +729,11 @@ agent can truthfully do to the board's content.
 ## Enforced, not asserted
 
 `test/unit/nightboard-themes.test.ts` runs in `npm test` and holds every theme
-to the contract: ten themes, unique ids, no external resources, body ink at 7:1
+to the contract: themes, unique ids, no external resources, body ink at 7:1
 and dim ink at 4.5:1 against their own ground, and the reserved accent
-distinguishable from every state ink.
+distinguishable from every state ink. It also exercises durable guest identity,
+claim continuity, ATProto mock login, and board-state round-trip from
+`session.js`.
 
 It earned its place immediately. Two themes shipped below the floor — Breadbin
 at 6.0:1 and Solar Night at 5.6:1 — and IBM CGA used one magenta for accent,

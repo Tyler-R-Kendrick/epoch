@@ -2,9 +2,10 @@
  * The board's GraphQL API.
  *
  * Everything queryable lives behind one schema — channels, posts, members,
- * projects, epochs — so the agent asks the data what exists instead of being
- * told in a prompt that can drift from it. Introspection is the point: a schema
- * that describes itself cannot go stale the way a hand-written tool list does.
+ * projects, dms, members — so the agent asks the data what exists instead of
+ * being told in a prompt that can drift from it. Introspection is the point: a
+ * schema that describes itself cannot go stale the way a hand-written tool list
+ * does.
  *
  * The engine is graphql-js, so queries are validated with real error positions
  * rather than pattern-matched. A resolver that answers whatever it is asked is
@@ -31,10 +32,13 @@
       posts: [Post!]!
     }
 
-    "One thing that happened: a message, an agent run, a promotion."
+    "One thing that happened: a message, an agent run, a promotion, or a DM."
     type Post {
       id: ID!
-      channel: String!
+      "Channel id when this is a room post; null for direct messages."
+      channel: String
+      "DM thread id when this is a direct message; null for channel posts."
+      dm: String
       author: Member
       at: String!
       "open, needs-review, promoted or signed"
@@ -75,6 +79,20 @@
       path: String!
     }
 
+    "A 1:1 direct message thread with a person or agent — sibling of projects."
+    type DirectMessage {
+      id: ID!
+      peer: String!
+      "person or agent"
+      kind: String!
+      unread: Int
+      preview: String
+      member: Member
+      messages: [Post!]!
+      messageCount: Int!
+      path: String!
+    }
+
     "A point-in-time materialisation of what the community built."
     type Epoch {
       number: Int!
@@ -96,7 +114,10 @@
       member(handle: String!): Member
       projects: [Project!]!
       project(slug: String!): Project
-      "Full-text over subjects and bodies."
+      "Direct message threads with people and agents."
+      dms(kind: String): [DirectMessage!]!
+      dm(peer: String!): DirectMessage
+      "Full-text over subjects and bodies (channels and DMs)."
       search(text: String!, limit: Int = 10): [Post!]!
       "Posts in a given state, e.g. needs-review."
       posts(state: String, channel: String, limit: Int = 50): [Post!]!
@@ -118,7 +139,13 @@
     return D.posts.concat(live);
   }
 
+  function allDmMessages() {
+    var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
+    return (D.dmMessages || []).concat(live.filter(function (m) { return m.dm; }));
+  }
+
   function memberOf(handle) {
+    if (handle === "you") return null;
     var m = D.members.filter(function (x) { return x.handle === handle; })[0];
     return m ? decorateMember(m) : null;
   }
@@ -133,14 +160,38 @@
 
   function channelPath(channelId) {
     var c = D.channels.filter(function (x) { return x.id === channelId; })[0];
-    return c ? "/channels/" + c.label : "/channels";
+    return c ? MAP.channelPath(c.label) : "/projects/community/channels";
   }
 
   function decoratePost(p) {
+    if (p.dm) {
+      var dmIdx = allDmMessages().filter(function (q) { return q.dm === p.dm; }).indexOf(p);
+      return Object.assign({}, p, {
+        channel: p.channel || null,
+        dm: p.dm,
+        author: function () { return memberOf(p.who); },
+        path: MAP.dmPath(p.dm) + "/" + MAP.postName(p, Math.max(0, dmIdx)),
+      });
+    }
     var idx = allPosts().filter(function (q) { return q.channel === p.channel; }).indexOf(p);
     return Object.assign({}, p, {
+      channel: p.channel || null,
+      dm: null,
       author: function () { return memberOf(p.who); },
       path: channelPath(p.channel) + "/" + MAP.postName(p, Math.max(0, idx)),
+    });
+  }
+
+  function decorateDm(d) {
+    return Object.assign({}, d, {
+      member: function () { return memberOf(d.peer); },
+      messages: function () {
+        return allDmMessages().filter(function (m) { return m.dm === d.id; }).map(decoratePost);
+      },
+      messageCount: function () {
+        return allDmMessages().filter(function (m) { return m.dm === d.id; }).length;
+      },
+      path: MAP.dmPath(d.id),
     });
   }
 
@@ -152,7 +203,7 @@
       postCount: function () {
         return allPosts().filter(function (p) { return p.channel === c.id; }).length;
       },
-      path: "/channels/" + c.label,
+      path: MAP.channelPath(c.label),
     });
   }
 
@@ -165,14 +216,14 @@
       channels: (p.channels || []).map(function (name) {
         return {
           name: name,
-          path: "/projects/" + slug + "/" + name,
+          path: "/projects/" + slug + "/channels/" + name,
           posts: function () {
             return (D.projectPosts || [])
               .filter(function (q) { return q.project === slug && q.channel === name; })
               .map(function (q) {
                 return Object.assign({}, q, {
                   author: function () { return memberOf(q.who); },
-                  path: "/projects/" + slug + "/" + name,
+                  path: "/projects/" + slug + "/channels/" + name,
                 });
               });
           },
@@ -213,9 +264,22 @@
       })[0];
       return p ? decorateProject(p) : null;
     },
+    dms: function (args) {
+      return (D.dms || [])
+        .filter(function (d) { return !args.kind || d.kind === args.kind; })
+        .map(decorateDm);
+    },
+    dm: function (args) {
+      var key = String(args.peer || "").replace(/^@/, "");
+      var d = (D.dms || []).filter(function (x) {
+        return x.id === key || x.peer === key;
+      })[0];
+      return d ? decorateDm(d) : null;
+    },
     search: function (args) {
       var q = String(args.text || "").toLowerCase();
-      return allPosts()
+      var pool = allPosts().concat(allDmMessages());
+      return pool
         .filter(function (p) {
           return ((p.subject || "") + " " + p.body).toLowerCase().indexOf(q) !== -1;
         })

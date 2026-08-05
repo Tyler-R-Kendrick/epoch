@@ -20,7 +20,7 @@
 
     MCP.registerTool({
       name: "board_navigate",
-      description: "Go to a path in the board, e.g. /channels/bugs or /projects/civic-tuner/changes. Accepts partial names and resolves them the way the command line does.",
+      description: "Go to a path in the board, e.g. /projects/community/channels/bugs or /projects/civic-tuner/channels/changes. Accepts partial names and resolves them the way the command line does.",
       inputSchema: {
         type: "object",
         properties: { path: { type: "string", description: "absolute or relative path" } },
@@ -75,7 +75,7 @@
         return MCP.text(JSON.stringify({
           path: api.state.path,
           selected: sel ? sel.name : null,
-          view: api.state.view,
+          sort: api.state.sort || "hot",
           mode: api.state.ai ? "ai" : "cli",
         }));
       },
@@ -85,18 +85,35 @@
 
     MCP.registerTool({
       name: "view_set",
-      description: "Set how the preview renders: graph (lineage), diff (patches) or raw (transcript).",
+      description: "Set the thread sort: hot, new, top or best (Reddit-style). Alias of sort_set.",
       inputSchema: {
         type: "object",
-        properties: { mode: { type: "string", enum: ["graph", "diff", "raw"] } },
+        properties: { mode: { type: "string", enum: ["hot", "new", "top", "best"] } },
         required: ["mode"],
       },
       execute: async function (args) {
-        if (["graph", "diff", "raw"].indexOf(args.mode) === -1) {
-          return MCP.fail("mode must be graph, diff or raw");
+        if (["hot", "new", "top", "best"].indexOf(args.mode) === -1) {
+          return MCP.fail("mode must be hot, new, top or best");
         }
-        api.setView(args.mode);
-        return MCP.text("view is " + args.mode);
+        api.setSort(args.mode);
+        return MCP.text("sort is " + args.mode);
+      },
+    });
+
+    MCP.registerTool({
+      name: "sort_set",
+      description: "Set the thread sort filter: hot, new, top or best.",
+      inputSchema: {
+        type: "object",
+        properties: { mode: { type: "string", enum: ["hot", "new", "top", "best"] } },
+        required: ["mode"],
+      },
+      execute: async function (args) {
+        if (["hot", "new", "top", "best"].indexOf(args.mode) === -1) {
+          return MCP.fail("mode must be hot, new, top or best");
+        }
+        api.setSort(args.mode);
+        return MCP.text("sort is " + args.mode);
       },
     });
 
@@ -194,7 +211,7 @@
     MCP.registerTool({
       name: "graph_query",
       description:
-        "Run a GraphQL query against the board: channels, posts, members, projects, epochs. " +
+        "Run a GraphQL query against the board: channels, posts, members, projects, dms. " +
         "Use graph_schema first if you need to know the shape.",
       inputSchema: {
         type: "object",

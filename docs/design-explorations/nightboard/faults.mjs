@@ -62,7 +62,7 @@ function mockScript(spec) {
 
 // Tool names and shape come from the WebMCP registry now, so the fixtures use
 // what the agent actually receives.
-const TOOL_OK = JSON.stringify({ tool: "board_navigate", args: { path: "/channels/bugs" } });
+const TOOL_OK = JSON.stringify({ tool: "board_navigate", args: { path: "/projects/community/channels/bugs" } });
 const TOOL_BAD = JSON.stringify({ tool: "board_navigate", args: { path: "/nowhere/at/all" } });
 
 const CASES = [
@@ -195,7 +195,7 @@ const CASES = [
     spec: { availability: "unavailable" },
     check: async (page, log) => {
       const r = await page.evaluate(async () => {
-        window.NB_APP.navigate("/channels/general", { keepCli: true });
+        window.NB_APP.navigate("/projects/community/channels/general", { keepCli: true });
         window.NB_APP.state.merged.push(Object.assign({}, window.NB_DATA.incoming[0], {
           id: "live-902", at: "23:59", channel: "general", sig: "sig-anim",
         }));
