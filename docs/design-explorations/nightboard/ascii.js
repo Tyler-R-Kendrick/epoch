@@ -89,9 +89,8 @@
 
   /**
    * Epoch brand — real FIGlet-style ANSI Shadow wordmark.
-   * Designed as a logo plaque (Tron / Blade Runner / classic terminal), not a
-   * thrashing shade-ramp. Cells are addressable so CSS can run a power-on
-   * reveal and a slow energy wave without mutating the letterforms.
+   * Continuous letterforms with CSS power-on + sheen — not a bordered plaque,
+   * and not a thrashing shade-ramp.
    */
   var EPOCH_MARK = [
     "███████╗██████╗  ██████╗  ██████╗██╗  ██╗",
@@ -102,7 +101,7 @@
     "╚══════╝╚═╝      ╚═════╝  ╚═════╝╚═╝  ╚═╝",
   ];
 
-  var EPOCH_TAG = "CIVIC WORKSHOP";
+  var EPOCH_TAG = "";
 
   function brandPlain() {
     return EPOCH_MARK.join("\n");
@@ -110,7 +109,8 @@
 
   /**
    * Brand HTML: continuous FIGlet lines (never per-glyph spans — those break
-   * solid █ letterforms). Animation is CSS on the plaque (clip + sheen).
+   * solid █ letterforms). Animation is CSS on the wordmark (clip + sheen).
+   * No border plaque, no secondary tag — the title is Epoch alone.
    */
   function brandHtml(opts) {
     opts = opts || {};
@@ -118,9 +118,9 @@
     var mark = EPOCH_MARK.map(function (line) {
       return escapeHtml(line);
     }).join("\n");
-    var tag = opts.tag === false
-      ? ""
-      : '\n<span class="nb-brand-tag" aria-hidden="true">' + escapeHtml(EPOCH_TAG) + "</span>";
+    var tag = opts.tag
+      ? '\n<span class="nb-brand-tag" aria-hidden="true">' + escapeHtml(String(opts.tag)) + "</span>"
+      : "";
     return '<span class="nb-brand-mark" data-phase="' + escapeHtml(phase) + '">' +
       '<span class="nb-brand-fig">' + mark + "</span>" +
       tag +

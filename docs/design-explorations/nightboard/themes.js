@@ -34,11 +34,11 @@ window.NB_THEMES = [
       --nb-danger:#9e2b20;--nb-agent:#4a3f8a;--nb-glow:none;--nb-scan:none;--nb-cell:.6rem;}
       [data-c="post"]:nth-child(odd){background:rgba(0,0,0,.045)}
       [data-c="post"]{border-block-end-style:dotted}
-      .nb-brand{box-shadow:none;border-color:var(--nb-rule);background:var(--nb-surface)}
+      .nb-brand{box-shadow:none;border:0;background:transparent}
       .nb-brand::before{display:none}
       .nb-brand-fig{
         color:var(--nb-ink);-webkit-text-fill-color:var(--nb-ink);background:none;filter:none;animation:none!important}
-      .nb-brand-tag{color:var(--nb-ink-dim);text-shadow:none;animation:none!important}
+      .nb-brand-tag{display:none}
       .nb-brand-scan{display:none}`,
   },
 ];

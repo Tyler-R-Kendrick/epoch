@@ -248,10 +248,14 @@ export function runNightboardThemeTests(): void {
   assert.ok(boardRoot.some((e) => e.name === "notifications"),
     "board root lists notifications (Teams-style Activity)");
   // Members roll opens DMs, not a profile card path.
-  const memberList = map.list("/members") as Array<{ name: string; openDm?: string }>;
+  const memberList = map.list("/members") as Array<{ name: string; openDm?: string; member?: { kind?: string; eve?: boolean } }>;
   assert.ok(memberList.some((e) => e.name === "scout" && e.openDm === "scout"),
     "members list marks openDm for each person/agent");
+  assert.ok(memberList.some((e) => e.name === "space-steward" && e.openDm === "space-steward"),
+    "board Eve agents appear on the members roll");
   assert.ok(map.list("/dms/scout") !== null, "member DMs are listable threads");
+  assert.ok(map.list("/dms/space-steward") !== null,
+    "Eve agents are chatable — empty DM thread opens");
   assert.equal(map.list("/members/scout"), null,
     "/members/<handle> is not a place — DMs live under /dms/<handle>");
   assert.ok(map.list("/dms/nora") !== null,
@@ -263,11 +267,15 @@ export function runNightboardThemeTests(): void {
   const projMembers = map.list("/projects/community/members") as Array<{ name: string; openDm?: string }>;
   assert.ok(projMembers.length >= 1 && projMembers.every((e) => e.openDm),
     "project members open DMs");
+  assert.ok(projMembers.some((e) => e.name === "community-host"),
+    "project Eve agents appear on that project's members roll");
   const tunerKids = map.list("/projects/civic-tuner") as Array<{ name: string }>;
   assert.ok(tunerKids.some((e) => e.name === "members"), "linked project has members");
   const tunerRoster = map.list("/projects/civic-tuner/members") as Array<{ name: string }>;
   assert.ok(tunerRoster.some((e) => e.name === "maya") || tunerRoster.length >= 1,
     "linked project roster is non-empty");
+  assert.ok(tunerRoster.some((e) => e.name === "install-cache"),
+    "tuner Eve agent is on the civic-tuner members roll");
   // Terminal file editor (vim-like detail pane for files).
   const editorSrc = readFileSync(join(ROOT, "editor.js"), "utf8");
   assert.ok(editorSrc.includes("NB_EDITOR") && editorSrc.includes("handleKey"),
@@ -777,6 +785,12 @@ export function runNightboardThemeTests(): void {
     "ascii.js must provide a FIGlet Epoch brand wordmark");
   assert.ok(asciiSrc.includes("███████") && asciiSrc.includes("nb-brand-fig"),
     "brand is continuous ANSI Shadow letterforms (not per-glyph spans)");
+  assert.ok(!/EPOCH_TAG\s*=\s*"CIVIC WORKSHOP"/.test(asciiSrc),
+    "brand title must not carry Civic Workshop wording");
+  assert.ok(!/brandHtml[\s\S]*?CIVIC WORKSHOP/.test(asciiSrc),
+    "brandHtml must not render Civic Workshop by default");
+  assert.ok(/\.nb-brand\s*\{[^}]*border:\s*0/.test(baseCss),
+    "brand title must not wear a border plaque");
   assert.ok(appSrc.includes("startBrandAnimation") && appSrc.includes("brandHtml"),
     "app must mount brand HTML and run power-on → idle");
   assert.ok(baseCss.includes("nb-brand") && baseCss.includes("nb-brand-sheen") &&
@@ -1083,6 +1097,13 @@ export function runNightboardThemeTests(): void {
     "app must wire speech only when supported");
   assert.ok(appSrc.includes("data-speech-mic") || consoleSrc2.includes("data-speech-mic"),
     "mic control is rendered from the console prompt");
+  assert.ok(readFileSync(join(ROOT, "icons.js"), "utf8").includes("NB_ICONS") &&
+    readFileSync(join(ROOT, "icons.js"), "utf8").includes("pixelarticons"),
+    "16-bit iconography pack (pixelarticons) must expose NB_ICONS");
+  assert.ok(consoleSrc2.includes("NB_ICONS") && consoleSrc2.includes("nb-ico"),
+    "mic button must use the 16-bit pack glyph, not the word mic");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("icons.js"),
+    "index must load icons.js");
   assert.ok(consoleSrc2.includes("Hold `") && consoleSrc2.includes("Alt+V"),
     "cheatsheet documents speech hotkeys when speech is available");
   assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("speech.js"),

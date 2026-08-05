@@ -1,10 +1,11 @@
-# Nightboard (Epoch Civic Workshop)
+# Nightboard (Epoch)
 
 A live board for a signed community — terminal chrome with **Epoch** branding:
-a FIGlet ANSI Shadow wordmark that power-on ignites, then runs a slow energy
-wave across solid fills (letterforms stay intact — no ░▒▓ thrash). The top bar
-is brand + theme + Activity + identity; no product-name billboard, experience
-select, pause button, or thesis prose.
+a FIGlet ANSI Shadow wordmark (no border plaque, no secondary tag) that
+power-on ignites, then runs a slow energy wave across solid fills (letterforms
+stay intact — no ░▒▓ thrash). The top bar is brand + theme + Activity +
+identity; no product-name billboard, experience select, pause button, or thesis
+prose.
 
 Open `index.html` from any static server. Nothing here needs a build step or a
 network connection.
@@ -117,6 +118,15 @@ hints `i insert · Esc normal · v visual · click/tap caret`.
 
 ### `.agents` (Vercel Eve)
 
+Eve agents are directories under `.agents/` **and** members of the scope they are
+declared in. Opening them from the members roll (or `/dm <id>`) starts a DM —
+the same path as chatting with a person.
+
+| Scope | Path | Members roll |
+|---|---|---|
+| **Board** | `/.agents/<id>/` | `/members` includes board Eve agents |
+| **Project** | `/projects/<id>/.agents/<id>/` | `/projects/<id>/members` includes that project's Eve agents |
+
 Agents are **directories of files** ([vercel/eve](https://github.com/vercel/eve)):
 
 | Level | Path | Applies to |
@@ -134,10 +144,12 @@ Each agent directory looks like:
   tools/            # typed tool stubs
 ```
 
-Board-level agents (e.g. Space Steward, Activity Relay) apply space-wide.
-Project-level agents (e.g. Install Cache on civic/tuner) stay scoped to that
-repo’s work. Opening an agent shows its scope, model, skills, tools, and
-instructions in the detail pane.
+Board-level agents (e.g. Space Steward, Activity Relay) apply space-wide and
+appear on `/members`. Project-level agents (e.g. Install Cache on civic/tuner)
+stay scoped to that repo’s work and appear on that project’s members roll.
+Opening an agent directory shows its scope, model, skills, tools, and
+instructions; opening the agent as a **member** opens `/dms/<id>` so you can
+chat with them.
 
 **Direct messages** are 1:1 threads under `/dms/<handle>`. Opening a **member**
 from the board roll or a project roster (or `/dm scout` / `/msg`) lands on that
@@ -225,9 +237,9 @@ never cloned into a stack of path-segment columns.
 | | |
 |---|---|
 | `←` / `h` | reload nav at parent |
-| `→` / `l` | reload nav into selected dir (or focus detail) |
+| `→` / `l` | reload nav into selected dir; on a text leaf, open detail and **activate the editor** (files, posts/messages) |
 | `↑↓` / `jk` | move within the nav list |
-| `Enter` | open dir (reload nav) or file detail |
+| `Enter` | open dir (reload nav) or file/thread detail |
 | `Space` | expand / collapse **one level** under the cursor |
 | `+` / `−` | same expand / collapse (pointer) |
 | `Backspace` / `<<` on nav | back to parent — reload nav |
@@ -244,7 +256,7 @@ When **detail** has content, the single nav blade can **collapse to a thin rail*
 
 - **—** on the nav header, or **▭** on detail, collapses nav
 - Collapsed rail keeps the current folder title; click expands
-- Opening a file/post auto-collapses nav; returning to the list expands it
+- Opening a file/post does **not** auto-collapse — nav stays open so you can keep navigating
 - `z` / `Alt+Z` toggles (session-only — never traps you after reload)
 
 Pointer and touch are peers, not fallbacks: every entry, breadcrumb segment and
@@ -334,6 +346,8 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
     written. Markers are extensible in `complete.js` (`MARKER_SPECS`).
 - **Speech-to-text** when the browser exposes `SpeechRecognition` /
   `webkitSpeechRecognition` (otherwise the mic and hotkeys are absent):
+  - Mic control uses the **16-bit iconography pack** (`icons.js` /
+    [pixelarticons](https://pixelarticons.com) `mic`, 16×16 pixelated)
   - **Hold `` ` ``** — Discord-style push-to-talk; listen while held, commit on
     release
   - **Alt+V** — toggle continuous dictation (voice-activity analogue)
@@ -696,9 +710,10 @@ Polish that had been missing, each piece done the terminal way:
   control: drag resizes (pointer events — mouse, touch and pen are one path),
   double-click or Enter collapses and reopens, arrow keys nudge. Nav list blades
   collapse to thin path **rails** (`z` / `Alt+Z`, or — / ▭ on the header) so
-  detail can claim the width when you read a thread. Rails stay clickable; open
-  a post auto-collapses nav. Collapse is session-only so a reload never traps
-  you. Terminal dock layout still persists as furniture.
+  detail can claim the width when you choose to read full-width. Rails stay
+  clickable; opening a post does not auto-collapse — nav stays open for further
+  navigation. Collapse is session-only so a reload never traps you. Terminal
+  dock layout still persists as furniture.
 - **The terminal is a VS Code panel.** Workspace tabs, sash, dock / maximise /
   minimise actions. Drag the sash to resize height (bottom dock) or width
   (side dock). `Alt+J` minimises, `Alt+M` maximises, `Alt+D` cycles dock
