@@ -10,6 +10,11 @@ export default [
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**",
+      "docs/design-explorations/nightboard/openui-parser.js",
+      "docs/design-explorations/nightboard/graphql-engine.js",
+      "docs/design-explorations/nightboard/openui-library.js",
+      // Vendored from CanvasUI and bundled; see its header for how to rebuild.
+      "docs/design-explorations/nightboard/asciify.js",
       ".agents/**",
       // Vendored agent-skill trees installed by `npx impeccable install`.
       // Third-party source, reproducible from the devDependency, not ours to lint.
@@ -29,11 +34,33 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
-      globals: { window: "readonly", document: "readonly", location: "readonly", history: "readonly", addEventListener: "readonly" },
+      globals: {
+        window: "readonly", document: "readonly", location: "readonly", history: "readonly",
+        addEventListener: "readonly", setInterval: "readonly", setTimeout: "readonly",
+        clearInterval: "readonly", clearTimeout: "readonly", AbortController: "readonly",
+        URL: "readonly", File: "readonly", FileReader: "readonly", Blob: "readonly",
+        crypto: "readonly", localStorage: "readonly", sessionStorage: "readonly",
+        MouseEvent: "readonly", PointerEvent: "readonly", KeyboardEvent: "readonly",
+        navigator: "readonly", requestAnimationFrame: "readonly",
+        DOMException: "readonly", Promise: "readonly",
+        getComputedStyle: "readonly", Date: "readonly",
+        ResizeObserver: "readonly", devicePixelRatio: "readonly",
+        // Chrome's built-in Prompt API. Feature-detected at every call site.
+        LanguageModel: "readonly",
+      },
     },
   },
   {
-    files: ["scripts/**/*.mjs", "packages/**/scripts/**/*.mjs"],
+    files: [
+      "scripts/**/*.mjs",
+      "packages/**/scripts/**/*.mjs",
+      // Node tooling for the design explorations. faults.mjs is a Node script
+      // whose page.evaluate callbacks are browser code, so it needs both.
+      "docs/design-explorations/**/build-*.mjs",
+      "docs/design-explorations/**/faults.mjs",
+      "docs/design-explorations/**/e2e.mjs",
+      "docs/design-explorations/**/serve.mjs",
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -42,9 +69,24 @@ export default [
         Request: "readonly",
         console: "readonly",
         process: "readonly",
-        URL: "readonly"
-      }
-    }
+        URL: "readonly",
+        File: "readonly",
+        FileReader: "readonly",
+        Blob: "readonly",
+        crypto: "readonly",
+        localStorage: "readonly",
+        sessionStorage: "readonly",
+        MouseEvent: "readonly",
+        PointerEvent: "readonly",
+        KeyboardEvent: "readonly",
+        document: "readonly",
+        window: "readonly",
+        getComputedStyle: "readonly",
+        Event: "readonly",
+        setTimeout: "readonly",
+        navigator: "readonly",
+      },
+    },
   },
   ...tseslint.configs.recommended,
   {

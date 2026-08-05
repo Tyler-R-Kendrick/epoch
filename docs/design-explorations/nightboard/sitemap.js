@@ -1,0 +1,785 @@
+/**
+ * The board as a filesystem.
+ *
+ * Every destination has a path, so one navigation model serves the command
+ * line, the blades, the breadcrumb and the URL. That is what makes `cd` and
+ * clicking a folder the same operation instead of two features that happen to
+ * agree.
+ *
+ *   /projects/community/channels/general/003-scout-plan
+ *   /projects/community/members/scout
+ *   /projects/civic-tuner/channels/issues
+ *   /projects/civic-tuner/members/maya
+ *   /dms/scout
+ *   /notifications/mentions
+ *   /members/scout
+ *
+ * Board root lists **projects**, **spaces**, **dms**, **notifications**,
+ * **.agents** (plus members). A **space** is relay + Slack workspace +
+ * subreddit. Projects own `channels/`, `members/`, and `.agents/`.
+ * `.agents` holds Vercel Eve-style agent directories:
+ *   board  → /.agents/*           (apply to the space)
+ *   project → /projects/<id>/.agents/*  (apply to that project only)
+ * Opening a project (or board) member lands on `/dms/<handle>`.
+ * Legacy `/channels/…` paths still resolve as aliases to the community project.
+ *
+ * Nodes are resolved lazily from NB_DATA so the tree never goes stale against
+ * the live stream.
+ */
+(function () {
+  "use strict";
+
+  var D = window.NB_DATA;
+
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+
+  /** Stable, sortable, greppable name for a post — like a numbered log file. */
+  function postName(p, i) {
+    return String(i + 1).padStart(3, "0") + "-" + slug(p.who) + "-" + slug((p.subject || p.body).slice(0, 22));
+  }
+
+  function projectPosts(projectSlug, channel) {
+    return (D.projectPosts || []).filter(function (p) {
+      return p.project === projectSlug && p.channel === channel;
+    });
+  }
+
+  function postsIn(channel, extra) {
+    return D.posts.concat(extra || []).filter(function (p) { return p.channel === channel; });
+  }
+
+  function allDms() {
+    return (D.dms || []).slice();
+  }
+
+  function findDm(id) {
+    var key = String(id || "").toLowerCase();
+    return allDms().filter(function (d) {
+      return d.id === key || d.peer === key;
+    })[0] || null;
+  }
+
+  function messagesInDm(dmId, extra) {
+    var base = (D.dmMessages || []).filter(function (m) { return m.dm === dmId; });
+    // Merged live items can target a dm the same way channel posts use channel.
+    var live = (extra || []).filter(function (m) { return m.dm === dmId; });
+    return base.concat(live);
+  }
+
+  /**
+   * Activity items for the Teams-style notifications feed.
+   * `readSet` is an optional map of id → true for items the session has opened.
+   * Merges fixture notifications with hook-fired Activity from NB_HOOKS.
+   */
+  function allNotifications(readSet) {
+    var base = (D.notifications || []).map(function (n) {
+      var copy = Object.assign({}, n);
+      if (readSet && readSet[n.id]) copy.unread = false;
+      return copy;
+    });
+    var hookFired = [];
+    if (window.NB_HOOKS && window.NB_HOOKS.fired) {
+      hookFired = window.NB_HOOKS.fired(readSet || null);
+    }
+    // Hook-fired first (newest), then fixtures; de-dupe by id.
+    var seen = {};
+    var out = [];
+    hookFired.concat(base).forEach(function (n) {
+      if (!n || !n.id || seen[n.id]) return;
+      seen[n.id] = true;
+      out.push(n);
+    });
+    return out;
+  }
+
+  function filterNotifications(filter, readSet) {
+    var all = allNotifications(readSet);
+    if (filter === "mentions") {
+      return all.filter(function (n) { return n.kind === "mention"; });
+    }
+    if (filter === "subscribed" || filter === "subscriptions") {
+      return all.filter(function (n) {
+        return n.kind === "subscription" || n.kind === "reply";
+      });
+    }
+    if (filter === "hooks" || filter === "hook") {
+      return all.filter(function (n) { return n.kind === "hook"; });
+    }
+    // "all" and unknown filters → full activity stream
+    return all;
+  }
+
+  function notifName(n, i) {
+    return String(i + 1).padStart(3, "0") + "-" + slug(n.who || "activity") + "-" +
+      slug((n.subject || n.body || n.kind || "item").slice(0, 28));
+  }
+
+  function findNotification(idOrName, readSet) {
+    var all = allNotifications(readSet);
+    var byId = all.filter(function (n) { return n.id === idOrName; })[0];
+    if (byId) return byId;
+    for (var i = 0; i < all.length; i++) {
+      if (notifName(all[i], i) === idOrName) return all[i];
+    }
+    return null;
+  }
+
+  function unreadNotificationCount(readSet) {
+    return allNotifications(readSet).filter(function (n) { return n.unread; }).length;
+  }
+
+  function allSpaces() {
+    if (window.NB_SESSION && window.NB_SESSION.listSpaces) {
+      return window.NB_SESSION.listSpaces();
+    }
+    return (D.spaces || []).slice();
+  }
+
+  function findSpaceNode(id) {
+    if (window.NB_SESSION && window.NB_SESSION.findSpace) {
+      return window.NB_SESSION.findSpace(id);
+    }
+    var key = String(id || "").toLowerCase().replace(/^r\//, "");
+    return allSpaces().filter(function (s) {
+      return s.id === key || String(s.slug || "").replace(/^r\//, "") === key;
+    })[0] || null;
+  }
+
+  function postsForSpace(spaceId, extra) {
+    var space = findSpaceNode(spaceId);
+    if (!space) return [];
+    var chanIds = {};
+    (space.channels || []).forEach(function (c) { chanIds[c] = true; });
+    // Also accept channels tagged with spaceId on the channel object.
+    (D.channels || []).forEach(function (c) {
+      if (c.spaceId === spaceId) chanIds[c.id] = true;
+    });
+    return D.posts.concat(extra || []).filter(function (p) {
+      return chanIds[p.channel];
+    });
+  }
+
+  /** All projects: linked repos plus the community home that owns social rooms. */
+  function allProjects() {
+    var list = (D.projects || []).map(function (p) {
+      return Object.assign({}, p, { id: slug(p.slug), community: false });
+    });
+    // Community is first: the board's hangout, not a linked repo.
+    list.unshift({
+      slug: "community",
+      id: "community",
+      open: D.channels.reduce(function (n, c) { return n + (c.unread || 0); }, 0),
+      channels: D.channels.map(function (c) { return c.label; }),
+      community: true,
+      hint: "social home",
+    });
+    return list;
+  }
+
+  function findProject(id) {
+    return allProjects().filter(function (p) { return p.id === id || slug(p.slug) === id; })[0] || null;
+  }
+
+  /**
+   * Members of a project: community → full board roll; linked projects use
+   * fixture `members: [handles]` or authors seen on project posts.
+   */
+  function membersForProject(proj) {
+    if (!proj) return [];
+    if (proj.community) return (D.members || []).slice();
+    var handles = [];
+    var seen = {};
+    function pushHandle(h) {
+      h = String(h || "").replace(/^@/, "").toLowerCase();
+      if (!h || seen[h]) return;
+      seen[h] = true;
+      handles.push(h);
+    }
+    (proj.members || []).forEach(pushHandle);
+    if (!handles.length) {
+      (D.projectPosts || []).forEach(function (p) {
+        if (p.project === proj.id || slug(p.project) === proj.id) pushHandle(p.who);
+      });
+    }
+    return handles.map(function (h) {
+      var m = (D.members || []).filter(function (x) { return x.handle === h; })[0];
+      return m || { handle: h, role: "contributor", kind: "person", state: "here" };
+    });
+  }
+
+  function memberEntry(m, extra) {
+    var dm = findDm(m.handle);
+    var n = dm ? messagesInDm(dm.id, extra).length : 0;
+    return {
+      name: m.handle,
+      kind: m.kind === "agent" ? "agent" : "file",
+      meta: m.role,
+      hint: (m.detail || m.state || "member") +
+        (n ? " · " + n + " dm" : " · open dm"),
+      member: m,
+      openDm: m.handle,
+    };
+  }
+
+  /* ── Vercel Eve-style .agents directories ───────────────────────────────── */
+
+  function boardAgents() {
+    return ((D.agents && D.agents.board) || []).slice();
+  }
+
+  function projectAgents(projectId) {
+    var bag = (D.agents && D.agents.projects) || {};
+    var id = String(projectId || "");
+    return (bag[id] || bag[slug(id)] || []).slice();
+  }
+
+  function findAgent(scope, scopeId, agentId) {
+    var list = scope === "project" ? projectAgents(scopeId) : boardAgents();
+    return list.filter(function (a) { return a.id === agentId; })[0] || null;
+  }
+
+  function agentDirEntry(a) {
+    a = a || {};
+    return {
+      name: a.id,
+      kind: "dir",
+      meta: "eve",
+      hint: (a.status || "agent") + " · " + (a.summary || a.name || a.id),
+      agent: a,
+      agentScope: a.scope || "space",
+    };
+  }
+
+  /**
+   * List inside one Eve agent directory:
+   *   instructions.md, agent.ts, skills/, tools/
+   */
+  function listAgentInterior(agent, basePath) {
+    agent = agent || {};
+    var skills = agent.skills || [];
+    var tools = agent.tools || [];
+    return [
+      {
+        name: "instructions.md", kind: "file", meta: "instructions",
+        hint: "system prompt",
+        agentFile: "instructions", agent: agent, agentPath: basePath,
+      },
+      {
+        name: "agent.ts", kind: "file", meta: "config",
+        hint: agent.model || "model config",
+        agentFile: "agent.ts", agent: agent, agentPath: basePath,
+      },
+      {
+        name: "skills", kind: "dir", meta: "skills",
+        hint: skills.length + " skill" + (skills.length === 1 ? "" : "s"),
+        agent: agent, agentPath: basePath + "/skills",
+      },
+      {
+        name: "tools", kind: "dir", meta: "tools",
+        hint: tools.length + " tool" + (tools.length === 1 ? "" : "s"),
+        agent: agent, agentPath: basePath + "/tools",
+      },
+    ];
+  }
+
+  function listAgentSkills(agent) {
+    return (agent.skills || []).map(function (s) {
+      return {
+        name: (s.id || "skill") + ".md",
+        kind: "file",
+        meta: "skill",
+        hint: s.title || s.id,
+        agentSkill: s,
+        agent: agent,
+      };
+    });
+  }
+
+  function listAgentTools(agent) {
+    return (agent.tools || []).map(function (t) {
+      return {
+        name: (t.id || "tool") + ".ts",
+        kind: "file",
+        meta: "tool",
+        hint: t.title || t.id,
+        agentTool: t,
+        agent: agent,
+      };
+    });
+  }
+
+  /**
+   * Resolve /.agents/… or /projects/<id>/.agents/… listings.
+   * Returns entry array, or null if not an agents path.
+   */
+  function listAgentsPath(parts) {
+    // Board: /.agents[/<agent>[/skills|tools|file]]
+    // (extra merged posts unused for agent trees — agents are fixture-backed.)
+    if (parts[0] === ".agents") {
+      if (parts.length === 1) {
+        return boardAgents().map(agentDirEntry);
+      }
+      var ba = findAgent("space", null, parts[1]);
+      if (!ba) return null;
+      var bBase = "/.agents/" + ba.id;
+      if (parts.length === 2) return listAgentInterior(ba, bBase);
+      if (parts.length === 3 && parts[2] === "skills") return listAgentSkills(ba);
+      if (parts.length === 3 && parts[2] === "tools") return listAgentTools(ba);
+      // File leaves under skills/tools are not listable.
+      if (parts.length >= 3) return null;
+      return null;
+    }
+    // Project: /projects/<id>/.agents[…]
+    if (parts[0] === "projects" && parts[2] === ".agents") {
+      var proj = findProject(parts[1]);
+      if (!proj) return null;
+      if (parts.length === 3) {
+        return projectAgents(proj.id).map(agentDirEntry);
+      }
+      var pa = findAgent("project", proj.id, parts[3]);
+      if (!pa) return null;
+      var pBase = "/projects/" + proj.id + "/.agents/" + pa.id;
+      if (parts.length === 4) return listAgentInterior(pa, pBase);
+      if (parts.length === 5 && parts[4] === "skills") return listAgentSkills(pa);
+      if (parts.length === 5 && parts[4] === "tools") return listAgentTools(pa);
+      if (parts.length >= 5) return null;
+      return null;
+    }
+    return undefined; // not an agents path — caller continues
+  }
+
+  /**
+   * Map legacy /channels/… onto /projects/community/channels/…
+   * so old tools and tests still resolve.
+   */
+  function canonicalize(path) {
+    var parts = split(path);
+    if (parts[0] === "channels") {
+      return join(["projects", "community", "channels"].concat(parts.slice(1)));
+    }
+    return join(parts);
+  }
+
+  /**
+   * List a directory. Returns entries with enough shape for a blade to render
+   * and for completion to rank.
+   */
+  function currentReadSet() {
+    try {
+      return (window.NB_APP && window.NB_APP.state && window.NB_APP.state.notifRead) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function list(path, extra) {
+    var readSet = currentReadSet();
+    var parts = split(canonicalize(path));
+    // Board root: projects, spaces, dms, notifications, .agents as siblings.
+    if (parts.length === 0) {
+      var unreadDms = allDms().reduce(function (n, d) { return n + (d.unread || 0); }, 0);
+      var unreadAct = unreadNotificationCount(readSet);
+      var nSpaces = allSpaces().length;
+      var nBoardAgents = boardAgents().length;
+      return [
+        { name: "projects", kind: "dir", hint: allProjects().length + " projects" },
+        { name: "spaces", kind: "dir", meta: "relay+workspace+subreddit",
+          hint: nSpaces + " spaces · join a relay / workspace / subreddit" },
+        { name: "dms", kind: "dir", meta: "direct",
+          hint: allDms().length + " threads" + (unreadDms ? " · " + unreadDms + " unread" : "") },
+        { name: "notifications", kind: "dir", meta: "activity",
+          hint: (D.notifications || []).length + " activity" +
+            (unreadAct ? " · " + unreadAct + " new" : ""),
+          unread: unreadAct },
+        { name: "members", kind: "dir", hint: D.members.length + " on the roll" },
+        {
+          name: ".agents", kind: "dir", meta: "eve",
+          hint: nBoardAgents + " space agent" + (nBoardAgents === 1 ? "" : "s") +
+            " · vercel/eve",
+        },
+      ];
+    }
+
+    // Board /.agents/… (space-scoped Eve agents)
+    var agentsList = listAgentsPath(parts, extra);
+    if (agentsList !== undefined) return agentsList;
+
+    // /spaces → space catalogue; /spaces/<id> → hub; /spaces/<id>/feed → posts
+    if (parts[0] === "spaces") {
+      if (parts.length === 1) {
+        return allSpaces().map(function (s) {
+          var relay = s.relay || {};
+          return {
+            name: s.id,
+            kind: "dir",
+            meta: s.kind || "community",
+            hint: (s.slug || s.id) + " · " +
+              (relay.protocol || "relay") + " " + (relay.status || "idle") +
+              " · " + (s.subscribers || 0) + " subs" +
+              (s.guestsAllowed === false ? " · members" : ""),
+            space: s,
+            unread: 0,
+          };
+        });
+      }
+      var spaceNode = findSpaceNode(parts[1]);
+      if (!spaceNode) return null;
+      if (parts.length === 2) {
+        var feedCount = postsForSpace(spaceNode.id, extra).length;
+        var chCount = (spaceNode.channels || []).length;
+        var prCount = (spaceNode.projects || []).length;
+        var r = spaceNode.relay || {};
+        return [
+          { name: "feed", kind: "dir", meta: "subreddit",
+            hint: feedCount + " posts · " + (spaceNode.slug || spaceNode.id) },
+          { name: "channels", kind: "dir", meta: "workspace",
+            hint: chCount + " rooms" },
+          { name: "projects", kind: "dir", meta: "workspace",
+            hint: prCount + " linked" },
+          { name: "relay", kind: "file", meta: r.protocol || "relay",
+            hint: (r.status || "idle") + " · " + (r.url || ""),
+            space: spaceNode, relay: r },
+          { name: "about", kind: "file", meta: spaceNode.kind || "space",
+            hint: (spaceNode.subscribers || 0) + " subscribers · " +
+              (spaceNode.guestsAllowed === false ? "members only" : "guests ok"),
+            space: spaceNode },
+        ];
+      }
+      if (parts.length === 3 && parts[2] === "feed") {
+        return postsForSpace(spaceNode.id, extra).map(function (p, i) {
+          return {
+            name: postName(p, i), kind: "file", post: p, meta: p.state,
+            hint: p.who + " · " + p.at + " · #" + p.channel,
+            spaceId: spaceNode.id,
+          };
+        });
+      }
+      if (parts.length === 3 && parts[2] === "channels") {
+        return (spaceNode.channels || []).map(function (label) {
+          var ch = (D.channels || []).filter(function (c) {
+            return c.label === label || c.id === label;
+          })[0];
+          var n = ch ? postsIn(ch.id, extra).length : 0;
+          return {
+            name: label, kind: "dir", meta: ch ? ch.kind : "channel",
+            hint: n + " posts",
+            channel: ch || { id: label, label: label },
+            spaceId: spaceNode.id,
+          };
+        });
+      }
+      if (parts.length === 4 && parts[2] === "channels") {
+        var chanLabel = parts[3];
+        var chObj = (D.channels || []).filter(function (c) {
+          return c.label === chanLabel || c.id === chanLabel;
+        })[0];
+        if (!chObj) {
+          // Soft dir: empty if channel name only listed on space
+          return [];
+        }
+        return postsIn(chObj.id, extra).map(function (p, i) {
+          return {
+            name: postName(p, i), kind: "file", post: p, meta: p.state,
+            hint: p.who + " · " + p.at,
+            spaceId: spaceNode.id,
+          };
+        });
+      }
+      if (parts.length === 3 && parts[2] === "projects") {
+        return (spaceNode.projects || []).map(function (pslug) {
+          var pid = slug(pslug);
+          var p = (D.projects || []).filter(function (x) {
+            return x.slug === pslug || slug(x.slug) === pid;
+          })[0];
+          return {
+            name: pid,
+            kind: "dir",
+            meta: "linked project",
+            hint: p ? ((p.channels || []).length + " channels · " + p.open + " open") : pslug,
+            projectSlug: pslug,
+            spaceId: spaceNode.id,
+          };
+        });
+      }
+      return null;
+    }
+
+    // /notifications → Teams-style Activity filters; /notifications/<filter> → feed
+    if (parts[0] === "notifications") {
+      if (parts.length === 1) {
+        var allN = allNotifications(readSet);
+        var mentionsN = filterNotifications("mentions", readSet);
+        var subN = filterNotifications("subscribed", readSet);
+        var hooksN = filterNotifications("hooks", readSet);
+        return [
+          { name: "all", kind: "dir", meta: "activity",
+            hint: allN.length + " items · " + allN.filter(function (n) { return n.unread; }).length + " new" },
+          { name: "mentions", kind: "dir", meta: "mentions",
+            hint: mentionsN.length + " · @you" +
+              (mentionsN.filter(function (n) { return n.unread; }).length
+                ? " · " + mentionsN.filter(function (n) { return n.unread; }).length + " new" : "") },
+          { name: "subscribed", kind: "dir", meta: "watching",
+            hint: subN.length + " · watching" +
+              (subN.filter(function (n) { return n.unread; }).length
+                ? " · " + subN.filter(function (n) { return n.unread; }).length + " new" : "") },
+          { name: "hooks", kind: "dir", meta: "hooks",
+            hint: hooksN.length + " · custom" +
+              (hooksN.filter(function (n) { return n.unread; }).length
+                ? " · " + hooksN.filter(function (n) { return n.unread; }).length + " new" : "") },
+        ];
+      }
+      if (parts.length === 2) {
+        var filter = parts[1];
+        if (filter !== "all" && filter !== "mentions" && filter !== "subscribed" &&
+            filter !== "hooks" && filter !== "hook") return null;
+        if (filter === "hook") filter = "hooks";
+        var items = filterNotifications(filter, readSet);
+        // Newest first — Activity feed order (Teams).
+        items = items.slice().sort(function (a, b) {
+          // HH:MM lexical works for same-day fixture times when newer is larger;
+          // unread also floats up when times tie.
+          if (a.unread !== b.unread) return a.unread ? -1 : 1;
+          return String(b.at || "").localeCompare(String(a.at || ""));
+        });
+        return items.map(function (n, i) {
+          return {
+            name: notifName(n, i),
+            kind: "file",
+            meta: n.kind,
+            hint: (n.unread ? "new · " : "") + n.who + " · " + (n.whereLabel || n.where || "") +
+              " · " + (n.at || ""),
+            notification: n,
+            unread: !!n.unread,
+          };
+        });
+      }
+      return null;
+    }
+
+    // /dms → conversation list; /dms/<peer> → message thread (post-shaped)
+    if (parts[0] === "dms") {
+      if (parts.length === 1) {
+        return allDms().map(function (d) {
+          var n = messagesInDm(d.id, extra).length;
+          var peer = (D.members || []).filter(function (m) { return m.handle === d.peer; })[0];
+          return {
+            name: d.id,
+            kind: "dir",
+            meta: d.kind === "agent" ? "agent" : "person",
+            hint: (peer ? peer.role + " · " : "") + n + " messages" +
+              (d.unread ? " · " + d.unread + " unread" : ""),
+            unread: d.unread || 0,
+            dm: d,
+          };
+        });
+      }
+      if (parts.length === 2) {
+        var thread = findDm(parts[1]);
+        // Known members get an openable thread even before the first message.
+        if (!thread) {
+          var peerMem = (D.members || []).filter(function (m) {
+            return m.handle === parts[1];
+          })[0];
+          if (!peerMem) return null;
+          thread = { id: parts[1], peer: parts[1], kind: peerMem.kind || "person", unread: 0 };
+        }
+        return messagesInDm(thread.id, extra).map(function (p, i) {
+          return {
+            name: postName(p, i), kind: "file", post: p, meta: p.state,
+            hint: p.who + " · " + p.at,
+            dm: thread.id,
+          };
+        });
+      }
+      // /dms/<peer>/<message> is a file leaf — not listable
+      return null;
+    }
+
+    if (parts[0] === "members") {
+      if (parts.length === 1) {
+        // Opening a member opens DMs with them — not a profile card.
+        return (D.members || []).map(function (m) { return memberEntry(m, extra); });
+      }
+      // /members/<handle> is not a real place — DMs live under /dms/<handle>.
+      return null;
+    }
+
+    if (parts[0] === "projects") {
+      if (parts.length === 1) {
+        return allProjects().map(function (p) {
+          var nChan = (p.channels || []).length;
+          return {
+            name: p.id,
+            kind: "dir",
+            meta: p.community ? "community" : "linked project",
+            hint: nChan + " channels" + (p.community ? " · social home" : " · " + p.open + " open"),
+          };
+        });
+      }
+
+      var proj = findProject(parts[1]);
+      if (!proj) return null;
+
+      // /projects/<id> → channels + members + .agents
+      if (parts.length === 2) {
+        var roster = membersForProject(proj);
+        var pAgents = projectAgents(proj.id);
+        return [
+          { name: "channels", kind: "dir", meta: "rooms",
+            hint: (proj.channels || []).length + " channels" },
+          { name: "members", kind: "dir", meta: "roster",
+            hint: roster.length + " member" + (roster.length === 1 ? "" : "s") },
+          {
+            name: ".agents", kind: "dir", meta: "eve",
+            hint: pAgents.length + " project agent" + (pAgents.length === 1 ? "" : "s") +
+              " · vercel/eve",
+          },
+        ];
+      }
+
+      // /projects/<id>/.agents/… handled above via listAgentsPath when path
+      // is entered as full path; also catch after project id is resolved.
+      if (parts[2] === ".agents") {
+        var projAgentsList = listAgentsPath(parts, extra);
+        if (projAgentsList !== undefined) return projAgentsList;
+      }
+
+      // /projects/<id>/members → project roster (open → DM)
+      if (parts.length === 3 && parts[2] === "members") {
+        return membersForProject(proj).map(function (m) {
+          return memberEntry(m, extra);
+        });
+      }
+      // /projects/<id>/members/<handle> is not a place — DMs live under /dms/<handle>.
+      if (parts.length >= 4 && parts[2] === "members") return null;
+
+      // /projects/<id>/channels → channel list
+      if (parts.length === 3 && parts[2] === "channels") {
+        if (proj.community) {
+          return D.channels.map(function (c) {
+            return {
+              name: c.label, kind: "dir", meta: c.kind,
+              hint: postsIn(c.id, extra).length + " posts" + (c.unread ? " · " + c.unread + " unread" : ""),
+              unread: c.unread || 0,
+            };
+          });
+        }
+        return (proj.channels || []).map(function (c) {
+          return {
+            name: c, kind: "dir", meta: "work",
+            hint: projectPosts(proj.id, c).length + " posts",
+          };
+        });
+      }
+
+      // /projects/<id>/channels/<channel> → posts
+      if (parts.length === 4 && parts[2] === "channels") {
+        var chanName = parts[3];
+        if (proj.community) {
+          var ch = D.channels.filter(function (c) { return c.label === chanName; })[0];
+          if (!ch) return null;
+          return postsIn(ch.id, extra).map(function (p, i) {
+            return {
+              name: postName(p, i), kind: "file", post: p, meta: p.state,
+              hint: p.who + " · " + p.at,
+            };
+          });
+        }
+        if ((proj.channels || []).indexOf(chanName) === -1) return null;
+        return projectPosts(proj.id, chanName).map(function (p, i) {
+          return {
+            name: postName(p, i), kind: "file", post: p, meta: p.state,
+            hint: p.who + " · " + p.at,
+          };
+        });
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  function split(path) {
+    return String(path || "/").split("/").filter(Boolean);
+  }
+
+  function join(parts) {
+    return "/" + (parts || []).join("/");
+  }
+
+  /** Resolve a possibly-relative path against a base, honouring . and .. */
+  function resolve(base, input) {
+    var target = String(input == null ? "" : input).trim();
+    if (target === "") return canonicalize(base);
+    var parts = target.charAt(0) === "/" ? [] : split(canonicalize(base));
+    target.split("/").forEach(function (seg) {
+      if (seg === "" || seg === ".") return;
+      if (seg === "..") parts.pop();
+      else parts.push(seg);
+    });
+    return canonicalize(join(parts));
+  }
+
+  /** Does this path address a directory we can list? */
+  function isDir(path, extra) {
+    return list(path, extra) !== null;
+  }
+
+  /** The post at a path, if the path names one. */
+  function postAt(path, extra) {
+    var parts = split(canonicalize(path));
+    // /projects/<id>/channels/<channel>/<post>
+    if (parts[0] === "projects" && parts[2] === "channels" && parts.length === 5) {
+      var entries = list(join(parts.slice(0, -1)), extra);
+      if (!entries) return null;
+      var hit = entries.filter(function (e) { return e.name === parts[parts.length - 1]; })[0];
+      return hit ? hit.post : null;
+    }
+    // /dms/<peer>/<message>
+    if (parts[0] === "dms" && parts.length === 3) {
+      var dmEntries = list(join(parts.slice(0, -1)), extra);
+      if (!dmEntries) return null;
+      var dmHit = dmEntries.filter(function (e) { return e.name === parts[parts.length - 1]; })[0];
+      return dmHit ? dmHit.post : null;
+    }
+    // /spaces/<id>/feed/<post> or /spaces/<id>/channels/<ch>/<post>
+    if (parts[0] === "spaces" && parts.length >= 4) {
+      var spEntries = list(join(parts.slice(0, -1)), extra);
+      if (!spEntries) return null;
+      var spHit = spEntries.filter(function (e) { return e.name === parts[parts.length - 1]; })[0];
+      return spHit ? spHit.post : null;
+    }
+    return null;
+  }
+
+  /** Community channel path helper used by the stream and graph. */
+  function channelPath(label) {
+    return "/projects/community/channels/" + label;
+  }
+
+  function dmPath(peer) {
+    return "/dms/" + peer;
+  }
+
+  function spacePath(id) {
+    return "/spaces/" + id;
+  }
+
+  window.NB_MAP = {
+    list: list, split: split, join: join, resolve: resolve,
+    isDir: isDir, postAt: postAt, postName: postName, slug: slug,
+    canonicalize: canonicalize, channelPath: channelPath, dmPath: dmPath,
+    spacePath: spacePath,
+    findProject: findProject, membersForProject: membersForProject,
+    boardAgents: boardAgents, projectAgents: projectAgents, findAgent: findAgent,
+    findDm: findDm, findSpaceNode: findSpaceNode,
+    allSpaces: allSpaces, postsForSpace: postsForSpace,
+    allNotifications: allNotifications,
+    filterNotifications: filterNotifications,
+    findNotification: findNotification,
+    unreadNotificationCount: unreadNotificationCount,
+    notifName: notifName,
+  };
+})();

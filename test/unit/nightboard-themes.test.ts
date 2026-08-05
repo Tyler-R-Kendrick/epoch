@@ -1,0 +1,1401 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/**
+ * The Nightboard contract has a contrast floor. Two of the ten themes shipped
+ * below it — Breadbin at 6.0:1 and Solar Night at 5.6:1 against a 7:1 body
+ * floor — and nothing caught it, because a theme is data and data was not
+ * tested. Anyone adding an eleventh theme should not have to remember.
+ *
+ * This also enforces the harder rule: a theme is CSS and nothing else. A theme
+ * that reaches the network breaks the page's self-contained guarantee, and one
+ * that writes markup breaks the garden for every other theme.
+ */
+
+const ROOT = join(process.cwd(), "docs/design-explorations/nightboard");
+
+interface Theme {
+  readonly id: string;
+  readonly name: string;
+  readonly css: string;
+}
+
+function dataJson(): string {
+  const source = readFileSync(join(ROOT, "data.js"), "utf8");
+  const sandbox: { NB_DATA?: unknown } = {};
+  new Function("window", source)(sandbox);
+  return JSON.stringify(sandbox.NB_DATA);
+}
+
+function loadThemes(): readonly Theme[] {
+  const source = readFileSync(join(ROOT, "themes.js"), "utf8");
+  const sandbox: { NB_THEMES?: Theme[] } = {};
+  // The file is a browser script assigning to window; give it a window.
+  new Function("window", source)(sandbox);
+  assert.ok(Array.isArray(sandbox.NB_THEMES), "themes.js must define window.NB_THEMES");
+  return sandbox.NB_THEMES as Theme[];
+}
+
+function tokensOf(css: string): Map<string, string> {
+  const tokens = new Map<string, string>();
+  const root = /:root\s*\{([\s\S]*?)\}/u.exec(css);
+  if (root === null) return tokens;
+  for (const decl of root[1].split(";")) {
+    const m = /^\s*(--[a-z-]+)\s*:\s*(.+?)\s*$/iu.exec(decl);
+    if (m !== null) tokens.set(m[1], m[2]);
+  }
+  return tokens;
+}
+
+function luminance(hex: string): number {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const channels = [0, 2, 4].map((i) => {
+    const c = Number.parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrast(a: string, b: string): number {
+  const l1 = luminance(a);
+  const l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+export function runNightboardThemeTests(): void {
+  // Hoisted source snapshots — many sections assert against these.
+  const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
+  const consoleSrc2 = readFileSync(join(ROOT, "console.js"), "utf8");
+  const asciiSrc = readFileSync(join(ROOT, "ascii.js"), "utf8");
+  const baseCss = readFileSync(join(ROOT, "base.css"), "utf8");
+
+  const themes = loadThemes();
+  assert.equal(themes.length, 2, "two themes: the lit terminal and the printed one");
+
+  const ids = new Set<string>();
+  for (const theme of themes) {
+    assert.ok(theme.id && theme.name, "every theme is identified");
+    assert.ok(!ids.has(theme.id), `duplicate theme id: ${theme.id}`);
+    ids.add(theme.id);
+
+    // A theme is CSS. Anything that reaches the network or writes markup breaks
+    // the self-contained page, so it is not a theme.
+    assert.ok(!/url\(|@import|<script|javascript:/iu.test(theme.css),
+      `${theme.id} must not load external resources`);
+
+    const tokens = tokensOf(theme.css);
+    const bg = tokens.get("--nb-bg");
+    const ink = tokens.get("--nb-ink");
+    const dim = tokens.get("--nb-ink-dim");
+    assert.ok(bg && ink && dim, `${theme.id} must set --nb-bg, --nb-ink and --nb-ink-dim`);
+
+    const inkRatio = contrast(ink as string, bg as string);
+    const dimRatio = contrast(dim as string, bg as string);
+    assert.ok(inkRatio >= 7,
+      `${theme.id}: body ink is ${inkRatio.toFixed(1)}:1 on its ground, below the 7:1 floor`);
+    assert.ok(dimRatio >= 4.5,
+      `${theme.id}: dim ink is ${dimRatio.toFixed(1)}:1 on its ground, below the 4.5:1 floor`);
+
+    // The reserved ink must be tellable from the state inks, or the legend lies.
+    const accent = tokens.get("--nb-accent");
+    if (accent !== undefined) {
+      for (const role of ["--nb-live", "--nb-warn", "--nb-danger"]) {
+        const other = tokens.get(role);
+        if (other !== undefined) {
+          assert.notEqual(accent.toLowerCase(), other.toLowerCase(),
+            `${theme.id}: accent and ${role} are the same colour, so the legend cannot be true`);
+        }
+      }
+    }
+  }
+
+  // The OpenUI Lang artifacts are generated. If the library changes and nobody
+  // reruns the build, the page ships a prompt and a schema that disagree with
+  // the renderer — the drift class this repo keeps rediscovering.
+  const library = readFileSync(join(ROOT, "openui-library.js"), "utf8");
+  const librarySandbox: { NB_OPENUI?: { schema: { properties?: Record<string, unknown> }; systemPrompt: string } } = {};
+  new Function("window", library)(librarySandbox);
+  const openui = librarySandbox.NB_OPENUI;
+  assert.ok(openui, "openui-library.js must define window.NB_OPENUI");
+  const components = Object.keys(openui.schema.properties ?? {});
+  assert.deepEqual(components.sort(), ["Channel", "Fact", "Notice", "Panel", "Post", "Theme"],
+    "the generated library must match the components something knows how to handle");
+  assert.ok(openui.systemPrompt.includes("openui-lang"),
+    "the generated system prompt must instruct the model in openui-lang");
+
+  // Every component the library offers must be handled somewhere, or a model
+  // can emit one that silently disappears. View components render in
+  // generate.js; Theme is applied by the garden panel as tokens, not markup.
+  const renderer = readFileSync(join(ROOT, "generate.js"), "utf8");
+  const themePanel = readFileSync(join(ROOT, "theme.js"), "utf8");
+  for (const component of components) {
+    if (component === "Theme") {
+      assert.ok(themePanel.includes('typeName !== "Theme"'),
+        "theme.js must consume the Theme component");
+      continue;
+    }
+    assert.ok(renderer.includes(`case "${component}"`),
+      `generate.js has no renderer for ${component}, so a model could emit one that vanishes`);
+  }
+
+  // The resilience layer is what keeps a failed generation from looking idle.
+  // Its absence is the defect that produced "I asked for blue and nothing
+  // happened", so its presence is asserted rather than assumed.
+  const resilient = readFileSync(join(ROOT, "resilient.js"), "utf8");
+  for (const capability of ["withRetry", "streamPrompt", "openSession", "isTransient"]) {
+    assert.ok(resilient.includes(`function ${capability}`),
+      `resilient.js must provide ${capability}`);
+  }
+  assert.ok(themePanel.includes("promptStreaming") || resilient.includes("promptStreaming"),
+    "generation must stream rather than block on a single call");
+
+  // The parser is a vendored build artifact; it has to be present and it must
+  // not have dragged Zod in with it.
+  const parser = readFileSync(join(ROOT, "openui-parser.js"), "utf8");
+  assert.ok(parser.length > 10_000, "the OpenUI parser bundle looks truncated");
+  assert.ok(parser.length < 120_000,
+    `the parser bundle is ${parser.length} bytes — Zod has probably been bundled in again`);
+
+  // Consolidated to one experience. The ten before it navigated badly and most
+  // were the same layout twice; graph, shell and diff had the ideas and are now
+  // one thing. What has to be tested is that the navigation model is coherent,
+  // not that a count is met.
+  const consoleSource = readFileSync(join(ROOT, "console.js"), "utf8");
+  const sandbox2: { NB_DATA?: unknown; NB_MAP?: unknown; NB_EXPERIENCES?: { id: string; keys?: string }[] } = {
+    NB_DATA: JSON.parse(dataJson()),
+  };
+  new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(sandbox2);
+  new Function("window", consoleSource)(sandbox2);
+  const exps = sandbox2.NB_EXPERIENCES ?? [];
+  assert.equal(exps.length, 1, "one consolidated experience");
+
+  // Every input method must be a peer. A keyboard-only surface is unusable on a
+  // phone; a pointer-only one is unusable for the audience this is built for.
+  for (const hook of ["cn-crumb", "cn-item", "cn-sort", "cn-cand"]) {
+    assert.ok(consoleSource.includes(hook), `console must expose ${hook} as a real control`);
+  }
+  assert.ok(consoleSource.includes("scroll-snap-type"),
+    "columns must swipe on narrow viewports, not just scroll");
+
+  // The agent must only be able to do what a person could do by typing, and
+  // every AG-UI event the console renders must be one the agent emits.
+  const agent = readFileSync(join(ROOT, "agent.js"), "utf8");
+  for (const event of ["RUN_STARTED", "RUN_ERROR", "TOOL_CALL_ARGS", "TOOL_CALL_RESULT"]) {
+    assert.ok(agent.includes(event), `agent must emit ${event}`);
+    assert.ok(readFileSync(join(ROOT, "app.js"), "utf8").includes(event),
+      `console must handle ${event}, or the agent can fail invisibly`);
+  }
+  assert.ok(agent.includes("isTransient"),
+    "a mid-stream fault must be retried, not just one while opening the session");
+
+  // Every UI capability must be reachable as a WebMCP tool, and every tool must
+  // call the console's own verb rather than reimplementing it — a second copy
+  // of what a button does is a second thing to keep in sync.
+  const tools = readFileSync(join(ROOT, "tools.js"), "utf8");
+  for (const tool of ["board_navigate", "board_list", "board_where", "view_set", "sort_set",
+    "stream_load", "stream_pause", "theme_set", "theme_use", "graph_query", "graph_schema"]) {
+    assert.ok(tools.includes(`name: "${tool}"`), `tools.js must register ${tool}`);
+  }
+  const appSource = readFileSync(join(ROOT, "app.js"), "utf8");
+  for (const verb of ["setView", "setTheme", "applyTokens", "mergePending", "setLive"]) {
+    assert.ok(appSource.includes(`${verb}:`) || appSource.includes(`function ${verb}`),
+      `app must expose ${verb} for the tools to call`);
+  }
+
+  // The agent's vocabulary comes from the registry, not a hand-kept list, or a
+  // component that stops registering a tool leaves a phantom behind.
+  const agentSource = readFileSync(join(ROOT, "agent.js"), "utf8");
+  assert.ok(agentSource.includes("NB_MCP.list()") || agentSource.includes("window.NB_MCP"),
+    "the agent must take its tools from the WebMCP registry");
+  assert.ok(agentSource.includes("NB_MCP.call"),
+    "the agent must invoke tools through the registry, so it does what a browser agent would");
+
+  // WebMCP is a proposal, so the page must work with and without the native API.
+  const mcp = readFileSync(join(ROOT, "webmcp.js"), "utf8");
+  assert.ok(mcp.includes("document.modelContext"), "must register natively when available");
+  assert.ok(mcp.includes("local"), "must keep a local registry when it is not");
+
+  // The schema is the contract the agent introspects; these types must exist.
+  const graph = readFileSync(join(ROOT, "graph.js"), "utf8");
+  for (const type of ["type Member", "type Post", "type Channel", "type Project",
+    "type DirectMessage", "type Epoch", "type Query"]) {
+    assert.ok(graph.includes(type), `the GraphQL schema must define ${type}`);
+  }
+  assert.ok(graph.includes("dms(") || graph.includes("dms:"), "schema must expose dms query");
+
+  // Completion is the difference between a shell and a prompt that echoes.
+  const complete = readFileSync(join(ROOT, "complete.js"), "utf8");
+  for (const capability of ["function score", "function commonPrefix", "function globalDirs", "ghost"]) {
+    assert.ok(complete.includes(capability), `complete.js must provide ${capability}`);
+  }
+
+  // Every path the sitemap can produce must be resolvable, or `cd` lies.
+  const map = sandbox2.NB_MAP as {
+    list: (p: string, e?: unknown) => unknown[] | null;
+    join: (p: string[]) => string;
+  };
+  for (const root of ["/", "/channels", "/members", "/projects", "/dms", "/notifications", "/spaces", "/.agents"]) {
+    assert.ok(map.list(root) !== null, `sitemap must list ${root}`);
+  }
+  assert.equal(map.list("/epochs"), null, "epochs leaf removed — it meant nothing");
+  // Board root exposes spaces, dms, notifications as siblings of projects.
+  const boardRoot = map.list("/") as Array<{ name: string }>;
+  assert.ok(boardRoot.some((e) => e.name === "projects"), "board root lists projects");
+  assert.ok(boardRoot.some((e) => e.name === "spaces"), "board root lists spaces (relay+workspace+subreddit)");
+  assert.ok(boardRoot.some((e) => e.name === "dms"), "board root lists dms as sibling of projects");
+  assert.ok(boardRoot.some((e) => e.name === "notifications"),
+    "board root lists notifications (Teams-style Activity)");
+  // Members roll opens DMs, not a profile card path.
+  const memberList = map.list("/members") as Array<{ name: string; openDm?: string }>;
+  assert.ok(memberList.some((e) => e.name === "scout" && e.openDm === "scout"),
+    "members list marks openDm for each person/agent");
+  assert.ok(map.list("/dms/scout") !== null, "member DMs are listable threads");
+  assert.equal(map.list("/members/scout"), null,
+    "/members/<handle> is not a place — DMs live under /dms/<handle>");
+  assert.ok(map.list("/dms/nora") !== null,
+    "known members without fixture history still get an openable empty DM");
+  // Every project tree has a members child beside channels.
+  const communityKids = map.list("/projects/community") as Array<{ name: string }>;
+  assert.ok(communityKids.some((e) => e.name === "channels"), "project has channels");
+  assert.ok(communityKids.some((e) => e.name === "members"), "project has members child");
+  const projMembers = map.list("/projects/community/members") as Array<{ name: string; openDm?: string }>;
+  assert.ok(projMembers.length >= 1 && projMembers.every((e) => e.openDm),
+    "project members open DMs");
+  const tunerKids = map.list("/projects/civic-tuner") as Array<{ name: string }>;
+  assert.ok(tunerKids.some((e) => e.name === "members"), "linked project has members");
+  const tunerRoster = map.list("/projects/civic-tuner/members") as Array<{ name: string }>;
+  assert.ok(tunerRoster.some((e) => e.name === "maya") || tunerRoster.length >= 1,
+    "linked project roster is non-empty");
+  // Terminal file editor (vim-like detail pane for files).
+  const editorSrc = readFileSync(join(ROOT, "editor.js"), "utf8");
+  assert.ok(editorSrc.includes("NB_EDITOR") && editorSrc.includes("handleKey"),
+    "editor.js must expose NB_EDITOR with key handling");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("editor.js"),
+    "index must load editor.js");
+  const edWin: {
+    NB_EDITOR?: {
+      open: (path: string, text: string, meta?: object) => {
+        lines: string[]; cursor: { line: number; col: number }; mode: string; dirty: boolean;
+      };
+      handleKey: (buf: object, ev: { key: string; preventDefault?: () => void }) => boolean;
+      render: (buf: object, opts?: object) => string;
+      text: (buf: object) => string;
+      clickAt: (buf: object, line: number, col: number, opts?: object) => object;
+      contentFromEntry: (entry: object, path?: string) => { text: string; name: string; path: string };
+    };
+  } = {};
+  new Function("window", editorSrc)(edWin);
+  assert.ok(edWin.NB_EDITOR);
+  const Ed = edWin.NB_EDITOR!;
+  const buf = Ed.open("/tmp/note.md", "hello\nworld", { name: "note.md" });
+  assert.equal(buf.mode, "normal");
+  assert.equal(buf.lines.length, 2);
+  assert.ok(Ed.handleKey(buf, { key: "i" }));
+  assert.equal(buf.mode, "insert");
+  assert.ok(Ed.handleKey(buf, { key: "!" }));
+  assert.ok(buf.dirty);
+  assert.ok(Ed.text(buf).startsWith("!hello") || Ed.text(buf).includes("!"));
+  assert.ok(Ed.handleKey(buf, { key: "Escape" }));
+  assert.equal(buf.mode, "normal");
+  const html = Ed.render(buf, { focused: true });
+  assert.ok(html.includes("nb-ed") && html.includes("nb-ed-status") && html.includes("nb-ed-gutter"),
+    "editor renders terminal chrome, status, gutter");
+  assert.ok(html.includes("nb-ed-caret"), "focused editor shows caret");
+  Ed.clickAt(buf, 1, 0);
+  assert.equal(buf.cursor.line, 1);
+  const fromEntry = Ed.contentFromEntry({
+    agentFile: "instructions",
+    agent: { instructions: "Be kind.\n", model: "x" },
+  }, "/.agents/x/instructions.md");
+  assert.ok(fromEntry.text.includes("Be kind"));
+  assert.ok(appSrc.includes("openFileInEditor") && appSrc.includes("editorHandleKey"),
+    "app wires editor open and keys");
+  assert.ok(consoleSrc2.includes("viewFileEditor") || consoleSrc2.includes("nb-ed"),
+    "console renders the terminal editor in the detail pane");
+
+  // .agents (Vercel Eve) at board + project levels.
+  assert.ok(boardRoot.some((e) => e.name === ".agents"),
+    "board root lists .agents (space-scoped Eve agents)");
+  const boardAgents = map.list("/.agents") as Array<{ name: string; agent?: { scope?: string } }>;
+  assert.ok(boardAgents.length >= 1, "board .agents has space agents");
+  assert.ok(boardAgents.every((e) => e.agent && e.agent.scope === "space"),
+    "board agents are space-scoped");
+  const steward = map.list("/.agents/space-steward") as Array<{ name: string }>;
+  assert.ok(steward.some((e) => e.name === "instructions.md"), "eve agent has instructions.md");
+  assert.ok(steward.some((e) => e.name === "agent.ts"), "eve agent has agent.ts");
+  assert.ok(steward.some((e) => e.name === "skills"), "eve agent has skills/");
+  assert.ok(steward.some((e) => e.name === "tools"), "eve agent has tools/");
+  assert.ok(communityKids.some((e) => e.name === ".agents"),
+    "project tree has .agents child");
+  assert.ok(tunerKids.some((e) => e.name === ".agents"),
+    "linked project has .agents child");
+  const tunerAgents = map.list("/projects/civic-tuner/.agents") as Array<{
+    name: string; agent?: { scope?: string; project?: string };
+  }>;
+  assert.ok(tunerAgents.length >= 1 && tunerAgents.every((e) => e.agent?.scope === "project"),
+    "project agents are project-scoped");
+  const dataAgents = readFileSync(join(ROOT, "data.js"), "utf8");
+  assert.ok(dataAgents.includes("agents:") && dataAgents.includes("space-steward"),
+    "fixtures include Eve agent definitions");
+  const spaceList = map.list("/spaces") as Array<{ name: string; space?: { relay?: { protocol?: string } } }>;
+  assert.ok(spaceList.length >= 2, "spaces catalogue lists joinable spaces");
+  assert.ok(spaceList.some((e) => e.name === "civic-workshop"), "home space present");
+  const hub = map.list("/spaces/civic-workshop") as Array<{ name: string }>;
+  assert.ok(hub.some((e) => e.name === "feed"), "space hub has subreddit feed");
+  assert.ok(hub.some((e) => e.name === "channels"), "space hub has workspace channels");
+  assert.ok(hub.some((e) => e.name === "relay"), "space hub has Buzz/Nostr relay");
+  assert.ok(hub.some((e) => e.name === "about"), "space hub has about");
+  const feed = map.list("/spaces/civic-workshop/feed") as Array<{ post?: unknown }>;
+  assert.ok(feed.length >= 1 && feed.every((e) => e.post), "space feed lists posts");
+  const dmList = map.list("/dms") as Array<{ name: string; kind: string }>;
+  assert.ok(dmList.length >= 2, "fixture DMs with people and agents");
+  assert.ok(dmList.some((e) => e.name === "scout"), "agent DM thread exists");
+  assert.ok(dmList.some((e) => e.name === "maya"), "person DM thread exists");
+  const scoutThread = map.list("/dms/scout") as Array<{ post?: { who: string; dm?: string } }>;
+  assert.ok(scoutThread.length >= 2 && scoutThread.every((e) => e.post),
+    "DM threads list post-shaped messages");
+  assert.ok(scoutThread.some((e) => e.post && e.post.who === "scout"),
+    "agent messages appear in their DM");
+  assert.ok(scoutThread.some((e) => e.post && e.post.who === "you"),
+    "local principal messages use who: you");
+
+  // Notifications: filters + mention/subscription kinds.
+  const notifFilters = map.list("/notifications") as Array<{ name: string }>;
+  assert.ok(notifFilters.some((e) => e.name === "all"));
+  assert.ok(notifFilters.some((e) => e.name === "mentions"));
+  assert.ok(notifFilters.some((e) => e.name === "subscribed"));
+  assert.ok(notifFilters.some((e) => e.name === "hooks"),
+    "notifications lists hooks filter for custom event subscriptions");
+  const mentions = map.list("/notifications/mentions") as Array<{
+    notification?: { kind: string; unread?: boolean; body?: string };
+  }>;
+  assert.ok(mentions.length >= 1 && mentions.every((e) => e.notification?.kind === "mention"),
+    "mentions filter is only @you mentions");
+  const subscribed = map.list("/notifications/subscribed") as Array<{
+    notification?: { kind: string };
+  }>;
+  assert.ok(subscribed.length >= 1, "subscribed filter has watched-room activity");
+  assert.ok(subscribed.every((e) =>
+    e.notification?.kind === "subscription" || e.notification?.kind === "reply"),
+    "subscribed filter excludes pure mentions");
+  const dataSrcNotif = readFileSync(join(ROOT, "data.js"), "utf8");
+  assert.ok(dataSrcNotif.includes("subscriptions:") && dataSrcNotif.includes("notifications:"),
+    "fixtures include subscriptions and notifications");
+  const consoleNotif = readFileSync(join(ROOT, "console.js"), "utf8");
+  assert.ok(consoleNotif.includes("viewNotifications") && consoleNotif.includes("cn-activity"),
+    "Activity feed renders Teams-style notification cards");
+  const appNotif = readFileSync(join(ROOT, "app.js"), "utf8");
+  assert.ok(appNotif.includes("openActivity") && appNotif.includes("data-activity-bell"),
+    "Activity bell and openActivity are wired");
+  assert.ok(complete.includes('"/notifications"') || complete.includes('"/activity"'),
+    "slash surface exposes /notifications or /activity");
+
+  // Browser Notification API bridge for Activity.
+  const notifySrc = readFileSync(join(ROOT, "notify.js"), "utf8");
+  assert.ok(notifySrc.includes("NB_NOTIFY") && notifySrc.includes("Notification"),
+    "notify.js must wrap the browser Notification API");
+  assert.ok(notifySrc.includes("requestPermission") && notifySrc.includes("deliver"),
+    "notify.js must request permission and deliver alerts");
+  assert.ok(appNotif.includes("deliverBrowserNotifications") &&
+    appNotif.includes("requestBrowserNotifications"),
+    "app must push Activity through the browser Notification API");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("notify.js"),
+    "index must load notify.js");
+
+  // Unsupported: no constructor → permission unsupported, deliver no-ops.
+  type NotifyItem = {
+    id: string;
+    kind?: string;
+    body?: string;
+    who?: string;
+    unread?: boolean;
+    where?: string;
+    whereLabel?: string;
+  };
+  const memN = new Map<string, string>();
+  const notifyOff: {
+    Notification?: unknown;
+    NB_NOTIFY?: {
+      isSupported: () => boolean;
+      permission: () => string;
+      permissionLabel: (p?: string) => string;
+      requestPermission: () => Promise<string>;
+      deliver: (item: NotifyItem, h?: object) => unknown;
+      deliverUnread: (items: NotifyItem[], h?: object) => number;
+      wasPushed: (id: string) => boolean;
+      markPushed: (id: string) => void;
+      optionsFor: (item: object) => { title: string; body: string; tag: string; data: { id: string | null } };
+    };
+    localStorage: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void };
+  } = {
+    localStorage: {
+      getItem: (k: string) => (memN.has(k) ? memN.get(k)! : null),
+      setItem: (k: string, v: string) => { memN.set(k, String(v)); },
+      removeItem: (k: string) => { memN.delete(k); },
+    },
+  };
+  new Function("window", notifySrc)(notifyOff);
+  assert.ok(notifyOff.NB_NOTIFY);
+  assert.equal(notifyOff.NB_NOTIFY!.isSupported(), false);
+  assert.equal(notifyOff.NB_NOTIFY!.permission(), "unsupported");
+  assert.equal(notifyOff.NB_NOTIFY!.deliver({ id: "x", body: "hi" }), null);
+
+  // Supported mock Notification.
+  type NotifInst = {
+    title: string;
+    options: Record<string, unknown>;
+    onclick: ((ev?: unknown) => void) | null;
+    onclose: (() => void) | null;
+    onerror: (() => void) | null;
+    close: () => void;
+  };
+  const created: NotifInst[] = [];
+  class MockNotification {
+    static permission = "default";
+    static requestPermission() {
+      MockNotification.permission = "granted";
+      return Promise.resolve("granted");
+    }
+    title: string;
+    options: Record<string, unknown>;
+    onclick: ((ev?: unknown) => void) | null = null;
+    onclose: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    constructor(title: string, options: Record<string, unknown> = {}) {
+      this.title = title;
+      this.options = options;
+      created.push(this);
+    }
+    close() { /* noop */ }
+  }
+  memN.clear();
+  created.length = 0;
+  const notifyOn: typeof notifyOff & { Notification: typeof MockNotification } = {
+    Notification: MockNotification,
+    localStorage: notifyOff.localStorage,
+  };
+  new Function("window", notifySrc)(notifyOn);
+  assert.equal(notifyOn.NB_NOTIFY!.isSupported(), true);
+  assert.equal(notifyOn.NB_NOTIFY!.permission(), "default");
+  // Grant without awaiting the promise chain — mock sets permission synchronously.
+  MockNotification.permission = "granted";
+  assert.equal(notifyOn.NB_NOTIFY!.permission(), "granted");
+  const opts = notifyOn.NB_NOTIFY!.optionsFor({
+    id: "n1", kind: "mention", who: "maya", body: "@you hello", whereLabel: "#general",
+  });
+  assert.match(opts.title, /maya/i);
+  assert.ok(opts.body.includes("#general") || opts.body.includes("@you"));
+  const delivered = notifyOn.NB_NOTIFY!.deliver({
+    id: "n1", kind: "mention", who: "maya", body: "@you hello", unread: true,
+    where: "/projects/community/channels/general", whereLabel: "#general",
+  });
+  assert.ok(delivered);
+  assert.equal(created.length, 1);
+  assert.ok(notifyOn.NB_NOTIFY!.wasPushed("n1"));
+  // Second deliver without force is a no-op.
+  assert.equal(notifyOn.NB_NOTIFY!.deliver({
+    id: "n1", kind: "mention", who: "maya", body: "again", unread: true,
+  }), null);
+  assert.equal(created.length, 1);
+  const unreadShown = notifyOn.NB_NOTIFY!.deliverUnread([
+    { id: "n2", unread: true, kind: "subscription", who: "scout", body: "watched" },
+    { id: "n3", unread: false, kind: "mention", who: "lea", body: "old" },
+  ]);
+  assert.equal(unreadShown, 1);
+  assert.equal(created.length, 2);
+
+  // The contract is the thing themes are written against; it has to exist.
+  const contract = readFileSync(join(ROOT, "CONTRACT.md"), "utf8");
+  for (const hook of ["data-region", "data-c", "data-state", "data-kind", "--nb-accent"]) {
+    assert.ok(contract.includes(hook), `CONTRACT.md must document ${hook}`);
+  }
+
+  // ── The ASCII layer ──────────────────────────────────────────────────────
+  // These glyphs are readings, not decoration, so they are testable: a
+  // sparkline that does not track its series and a sigil that collides are both
+  // lies told in a font nobody reads closely.
+  const ascii: {
+    NB_ASCII?: {
+      sparkline: (v: number[], w?: number) => string;
+      gauge: (d: number, t: number, w?: number) => string;
+      sigil: (t: string, w?: number) => string;
+      rule: (c: string, w?: number) => string;
+      branch: (last: boolean, depth: number) => string;
+      banner: (b: Record<string, unknown>, n: number, host: string) => string;
+      BLOCKS: string[];
+    };
+  } = {};
+  new Function("window", readFileSync(join(ROOT, "ascii.js"), "utf8"))(ascii);
+  const A = ascii.NB_ASCII as {
+    sparkline: (v: number[], w?: number) => string;
+    gauge: (d: number, t: number, w?: number) => string;
+    sigil: (t: string, w?: number) => string;
+    rule: (c: string, w?: number) => string;
+    branch: (last: boolean, depth: number) => string;
+    banner: (b: Record<string, unknown>, n: number, host: string) => string;
+    BLOCKS: string[];
+    markdown?: (s: string) => string;
+    asciiTable?: (rows: string[][], opts?: { asHtml?: boolean }) => string;
+    looksLikeMarkdown?: (s: string) => boolean;
+    formatBody?: (s: string) => string;
+    colorizeAscii?: (s: string) => string;
+  };
+  assert.ok(A, "ascii.js must expose NB_ASCII");
+  // Markdown + colour-coded ASCII tables.
+  assert.ok(typeof A.markdown === "function" && typeof A.asciiTable === "function",
+    "ascii.js must render markdown and ASCII tables");
+  assert.ok(A.looksLikeMarkdown!("| a | b |\n| --- | --- |\n| 1 | 2 |"),
+    "pipe tables are detected as markdown");
+  const mdTable = A.markdown!("| who | role |\n| --- | --- |\n| maya | maintainer |\n| scout | agent |");
+  assert.ok(mdTable.includes("nb-md-atable") && mdTable.includes("nb-md-th"),
+    "markdown tables become colourable ASCII table markup");
+  assert.ok(mdTable.includes("maya") && mdTable.includes("│"),
+    "table keeps cell text and box-drawing");
+  const plainTable = A.asciiTable!([["a", "b"], ["1", "2"]], { asHtml: false });
+  assert.ok(plainTable.includes("┌") && plainTable.includes("│"),
+    "asciiTable plain mode is pure box-drawing text");
+  const bold = A.markdown!("hello **world** and `code`");
+  assert.ok(bold.includes("nb-md-strong") && bold.includes("nb-md-code"),
+    "inline markdown marks are classed for themes");
+  const colored = A.colorizeAscii!("┌─█─┐\n│ ⣿ │");
+  assert.ok(colored.includes("nb-md-box") && colored.includes("nb-md-block"),
+    "plain ASCII colourises box edges and block gauges");
+  assert.ok(A.formatBody!("| x | y |\n| --- | --- |\n| 1 | 2 |").includes("nb-md-atable"),
+    "formatBody routes tables through markdown");
+  const consoleMd = readFileSync(join(ROOT, "console.js"), "utf8");
+  assert.ok(consoleMd.includes("formatBody") && consoleMd.includes("nb-md-atable"),
+    "console must apply formatBody and style markdown tables");
+
+  // Link preview cards — generated summary, ASCII/terminal reusable component.
+  const A2 = A as typeof A & {
+    linkPreview?: (url: string, opts?: object) => string;
+    linkPreviewAscii?: (summary: object, w?: number) => string;
+    summarizeLink?: (url: string, opts?: object) => {
+      href: string; title: string; description: string; kind: string; site: string; displayUrl: string;
+    };
+    extractLinks?: (text: string) => Array<{ href: string; label: string }>;
+    linkPreviewsFor?: (text: string) => string;
+  };
+  assert.ok(typeof A2.linkPreview === "function" && typeof A2.summarizeLink === "function",
+    "ascii.js must expose linkPreview + summarizeLink");
+  const sum = A2.summarizeLink!("https://github.com/ag-ui-protocol");
+  assert.equal(sum.kind, "repo");
+  assert.ok(/AG-UI/i.test(sum.title), "catalog title for known GitHub URL");
+  assert.ok(sum.description.length > 10, "generated description");
+  const plainCard = A2.linkPreview!("https://github.com/ag-ui-protocol", { asHtml: false });
+  assert.ok(plainCard.includes("┌") && plainCard.includes("│") && plainCard.includes("└"),
+    "plain link preview is box-drawn ASCII");
+  assert.ok(plainCard.includes("AG-UI") || plainCard.includes("GitHub"),
+    "ASCII card carries title/site");
+  const htmlCard = A2.linkPreview!("https://github.com/ag-ui-protocol");
+  assert.ok(htmlCard.includes("nb-link-preview") && htmlCard.includes('data-c="link-preview"'),
+    "HTML card uses reusable component classes");
+  assert.ok(htmlCard.includes("nb-link-preview-title") && htmlCard.includes("nb-link-preview-ascii"),
+    "card has title + ascii pre");
+  assert.ok(htmlCard.includes('data-kind="repo"'), "kind is data attribute for themes");
+  const extracted = A2.extractLinks!(
+    "See [AG-UI](https://github.com/ag-ui-protocol) and https://docs.epoch.local/install-cache plus /projects/community/channels/bugs",
+  );
+  assert.ok(extracted.length >= 3, "extracts markdown, bare URL, and board path");
+  const bodyWithLinks = A.formatBody!(
+    "Spec: [AG-UI Protocol](https://github.com/ag-ui-protocol)\n\nhttps://docs.epoch.local/install-cache",
+  );
+  assert.ok(bodyWithLinks.includes("nb-md-a") && bodyWithLinks.includes("nb-link-preview"),
+    "formatBody inline-links and appends preview cards");
+  assert.ok((bodyWithLinks.match(/nb-link-preview/g) || []).length >= 2,
+    "one card per unique link");
+  const boardCard = A2.linkPreview!("/projects/community/channels/bugs");
+  assert.ok(boardCard.includes('data-kind="board"') && boardCard.includes("data-goto") &&
+    boardCard.includes("button"),
+    "board paths get in-app button + data-goto previews");
+  assert.ok(consoleMd.includes("nb-link-preview") && consoleMd.includes("nb-link-preview-ascii"),
+    "console styles the link preview component");
+  const dataSrcLinks = readFileSync(join(ROOT, "data.js"), "utf8");
+  assert.ok(dataSrcLinks.includes("github.com/ag-ui-protocol") ||
+    dataSrcLinks.includes("docs.epoch.local"),
+    "fixture post includes sample links for preview cards");
+
+  const spark = A.sparkline([0, 1, 2, 3, 4, 5, 6, 7], 8);
+  assert.equal(spark.length, 8, "a sparkline must be exactly the width asked for");
+  assert.equal(spark[0], A.BLOCKS[0], "the minimum of a rising series is the empty block");
+  assert.equal(spark[7], A.BLOCKS[A.BLOCKS.length - 1], "its maximum is the full block");
+  assert.equal(A.sparkline([3, 3, 3, 3], 4), A.BLOCKS[A.BLOCKS.length - 1].repeat(4),
+    "a flat series must render flat, so the console can detect and drop it");
+
+  assert.equal(A.gauge(0, 10, 4), "[····]", "an empty gauge shows no fill");
+  assert.equal(A.gauge(10, 10, 4), "[████]", "a full gauge is full");
+  assert.equal(A.gauge(5, 10, 4), "[██··]", "a half gauge is half");
+  assert.equal(A.gauge(1, 0, 4), "[····]", "a gauge with no total must not divide by zero");
+
+  // A signature mark is only useful if equal inputs match and unequal ones do not.
+  assert.equal(A.sigil("sig:maya-promote", 4), A.sigil("sig:maya-promote", 4),
+    "the same signature must always draw the same mark");
+  const marks = new Set(["lea-install", "nora-repro", "scout-188", "maya-promote", "sam-ack"]
+    .map((s) => A.sigil("sig:" + s, 4)));
+  assert.equal(marks.size, 5, "distinct signatures must draw distinct marks");
+  for (const ch of [...marks].join("")) {
+    const code = ch.codePointAt(0) ?? 0;
+    assert.ok(code >= 0x2800 && code <= 0x28ff, "a sigil cell must be a braille pattern");
+  }
+
+  assert.equal(A.rule("hi", 12).length, 12, "a rule fills the width it is given");
+  assert.ok(A.rule("hi", 12).includes(" hi "), "a rule carries its caption inline");
+  assert.ok(A.branch(true, 1).startsWith("└─"), "the last child closes its branch");
+  assert.ok(A.branch(false, 1).startsWith("├─"), "any other child continues it");
+
+  // The banner may only state facts the board can assert. It is given them.
+  const banner = A.banner(
+    { name: "EPOCH", node: "/", epoch: 13, landed: 9, total: 12, ships: "FRI" }, 11, "in-page registry");
+  assert.ok(banner.includes("epoch 13") && banner.includes("11 tools"),
+    "the banner must state the epoch and the real tool count");
+  const widths = new Set(banner.split("\n").map((l) => [...l].length));
+  assert.equal(widths.size, 1, "every banner line must be the same width or the box breaks");
+
+  // The optional canvas lens must be capability-gated, and must be able to fail.
+  const fx = readFileSync(join(ROOT, "fx.js"), "utf8");
+  assert.ok(fx.includes("supportsHtmlInCanvas"), "fx.js must ask the browser before drawing");
+  assert.ok(fx.includes("function disable"), "an effect that cannot be undone is damage");
+  const toolsSrc = readFileSync(join(ROOT, "tools.js"), "utf8");
+  assert.ok(toolsSrc.includes("fx_asciify"), "the lens must be reachable as a tool");
+  assert.ok(/fx_asciify[\s\S]*?MCP\.fail\("cannot: /.test(toolsSrc),
+    "an unsupported browser must be reported as a failure, not as ok");
+
+  // ── Rendering is morphing, not replacing ─────────────────────────────────
+  // The innerHTML swap destroyed every node per render: focus, scroll, hover
+  // and any running animation died on each live tick. These pin the shape of
+  // the fix so it cannot quietly regress to the nuke.
+  assert.ok(appSrc.includes("NB_MORPH.morph"), "render() must morph the mount");
+  assert.equal((appSrc.match(/mount\.innerHTML\s*=/g) ?? []).length, 0,
+    "nothing may replace the mount wholesale — that is the flicker");
+  assert.ok(appSrc.includes("function wireMount"), "events must be delegated once at boot");
+  assert.ok(!appSrc.includes("function wireSurface"),
+    "per-render listener wiring must be gone — with persistent nodes it stacks handlers");
+
+  for (const keyed of ['class="cn-item" data-key=', 'class="cn-comment" data-key=', 'data-key="blades"']) {
+    assert.ok(consoleSrc2.includes(keyed), `morph targets must be keyed: ${keyed}`);
+  }
+
+  // Behavioural check of the morph algorithm itself, on a minimal DOM stand-in.
+  const morphSandbox: { NB_MORPH?: { morph: (live: unknown, html: string) => void } } = {};
+  new Function("window", readFileSync(join(ROOT, "morph.js"), "utf8"))(morphSandbox);
+  assert.ok(morphSandbox.NB_MORPH, "morph.js must expose NB_MORPH");
+
+  // ── Motion is declared and respectful ────────────────────────────────────
+  // An animation exists for arriving posts and nothing else animates forever;
+  // all of it sits behind prefers-reduced-motion. Restraint is testable.
+  assert.ok(consoleSrc2.includes("prefers-reduced-motion: no-preference"),
+    "motion must be opt-out via the OS setting");
+  assert.ok(consoleSrc2.includes("@keyframes cn-arrive"), "arrival motion must exist");
+  assert.ok(!/animation:[^;}]*infinite/.test(consoleSrc2),
+    "nothing may animate forever — a pulse that never stops is load, not meaning");
+
+  // ── The furniture: scrollbars, panes, threads, context ───────────────────
+  assert.ok(baseCss.includes("scrollbar-color") && baseCss.includes("::-webkit-scrollbar"),
+    "scrollbars must take the theme's ink on both engines");
+
+  assert.ok(consoleSrc2.includes("buildBladeStack") && consoleSrc2.includes("data-blade-path"),
+    "navigation must render blades with data-blade-path");
+  // Single reusable nav + detail — never a stack of cloned list blades.
+  assert.ok(consoleSrc2.includes('stable: "nav"') || consoleSrc2.includes('data-key="blade-nav"'),
+    "nav blade uses a stable morph key so it is reused, not cloned");
+  assert.ok(consoleSrc2.includes("single reusable") || consoleSrc2.includes("Never a cascade") ||
+    consoleSrc2.includes("Two panes only") || consoleSrc2.includes("reused and reloaded"),
+    "blade stack is documented as one nav + detail");
+  assert.ok(appSrc.includes("listBladeIndex") && /return 0/.test(
+    appSrc.slice(appSrc.indexOf("function listBladeIndex"), appSrc.indexOf("function listBladeIndex") + 120),
+  ), "listBladeIndex is always 0 (one nav blade)");
+  assert.ok(consoleSrc2.includes("data-blade-close") || appSrc.includes("closeBlade"),
+    "nav close goes up; detail close hides the pane");
+  assert.ok(consoleSrc2.includes("cn-blade-back") && consoleSrc2.includes("data-nav-back") &&
+    consoleSrc2.includes("&lt;&lt;"),
+    "drilled-down nav shows a leading << back control");
+  assert.ok(consoleSrc2.includes('data-nav-drilled="true"') || consoleSrc2.includes("data-nav-drilled"),
+    "nav marks drilled state when not at board root");
+  assert.ok(appSrc.includes("closeDetail") && appSrc.includes("detailOpen"),
+    "detail pane can be closed and reopened");
+  assert.ok(
+    /Escape[\s\S]{0,200}isDetailOpen|isDetailOpen\(\)[\s\S]{0,80}closeDetail/.test(appSrc),
+    "Esc closes the detail pane when open",
+  );
+  assert.ok(consoleSrc2.includes("data-tree-toggle") && consoleSrc2.includes("cn-blade-tree"),
+    "nav list uses +/- tree peek, not arrow glyphs");
+  assert.ok(consoleSrc2.includes('data-tree-mode="first-level"') ||
+    consoleSrc2.includes("first-level"),
+    "nav advertises first-level tree mode");
+  assert.ok(consoleSrc2.includes("cn-subkids") || consoleSrc2.includes("data-has-kids"),
+    "dirs with further children show a child count");
+  // Tree iconography: only + / − (and blank leaf spacer). No ·  ›  ▸  * twists.
+  const treeIconSlice = consoleSrc2.slice(
+    consoleSrc2.indexOf("function bladeListHtml"),
+    consoleSrc2.indexOf("function bladeHtml"),
+  );
+  assert.ok(treeIconSlice.length > 200, "bladeListHtml tree renderer present");
+  assert.ok(!/[·•›▸▾*]/.test(treeIconSlice.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")),
+    "nav tree rows must not use dots or arrows as icons");
+  assert.ok(treeIconSlice.includes('(open ? "−" : "+")') ||
+    (treeIconSlice.includes('"+"') && treeIconSlice.includes('"−"')),
+    "tree expand/collapse icons are + and −");
+  assert.ok(treeIconSlice.includes("cn-pm-leaf") && !/cn-pm-leaf[^>]*>[·•]/.test(treeIconSlice),
+    "leaf tree rows use a blank spacer, not a dot");
+  assert.ok(appSrc.includes("toggleCursorTree") && appSrc.includes("goRight"),
+    "Space expands one level; → reloads nav into selected dir");
+  assert.ok(appSrc.includes('k === " "') || appSrc.includes('k === "Spacebar"'),
+    "Space is bound for tree expand/collapse");
+  // Collapsible nav — rail frees width for detail.
+  assert.ok(appSrc.includes("toggleNavCollapsed") && appSrc.includes("setNavCollapsed"),
+    "app must collapse/expand nav");
+  assert.ok(consoleSrc2.includes("data-nav-collapsed") && consoleSrc2.includes("cn-blade-rail"),
+    "collapsed nav is a rail, not a second stack");
+  assert.ok(consoleSrc2.includes("data-nav-collapse") || consoleSrc2.includes("data-nav-expand"),
+    "collapse/expand controls are present on blades");
+  assert.ok(!/isDir \? "▸"/.test(consoleSrc2),
+    "directory rows must not use ▸ arrows");
+  assert.ok(consoleSrc2.includes("--nb-out-h") && consoleSrc2.includes("--nb-out-w"),
+    "terminal height and side-dock width must flow through custom properties");
+  assert.ok(consoleSrc2.includes("data-panel-dock") && consoleSrc2.includes("data-panel-max"),
+    "terminal panel must expose dock and maximise chrome like a VS Code panel");
+  assert.ok(consoleSrc2.includes("data-dock="), "terminal panel dock position must be rendered");
+  assert.ok(consoleSrc2.includes("cn-panel-tab"), "terminal must carry a panel tab");
+  assert.ok(consoleSrc2.includes("data-session-new") && consoleSrc2.includes("data-session="),
+    "terminal must support multiple workspace tabs");
+  assert.ok(consoleSrc2.includes("cn-who") && consoleSrc2.includes("renderTranscript"),
+    "transcript must align identity on a who-rail");
+  assert.ok(consoleSrc2.includes("data-tool-toggle") && consoleSrc2.includes("cn-tool-detail"),
+    "tool use must be collapsible");
+  // Top chrome: Epoch animated ASCII brand — no NIGHTBOARD / console select / pause / thesis prose.
+  const indexHtmlBrand = readFileSync(join(ROOT, "index.html"), "utf8");
+  assert.ok(indexHtmlBrand.includes('data-brand') && indexHtmlBrand.includes("data-brand-art"),
+    "top bar must host the Epoch ASCII brand mark");
+  assert.ok(!/NIGHTBOARD/i.test(indexHtmlBrand), "NIGHTBOARD wordmark must be gone from chrome");
+  assert.ok(!indexHtmlBrand.includes("data-exp-select") && !indexHtmlBrand.includes("data-exp-thesis"),
+    "experience select and thesis prose must leave the bar");
+  assert.ok(!indexHtmlBrand.includes("data-live-toggle"),
+    "pause live-toggle button must leave the bar");
+  assert.ok(asciiSrc.includes("brandHtml") && asciiSrc.includes("EPOCH_MARK"),
+    "ascii.js must provide a FIGlet Epoch brand wordmark");
+  assert.ok(asciiSrc.includes("███████") && asciiSrc.includes("nb-brand-fig"),
+    "brand is continuous ANSI Shadow letterforms (not per-glyph spans)");
+  assert.ok(appSrc.includes("startBrandAnimation") && appSrc.includes("brandHtml"),
+    "app must mount brand HTML and run power-on → idle");
+  assert.ok(baseCss.includes("nb-brand") && baseCss.includes("nb-brand-sheen") &&
+    baseCss.includes("nb-brand-wipe") && baseCss.includes("background-clip"),
+    "base CSS must sheen continuous letterforms and power-on wipe");
+
+  assert.ok(appSrc.includes("makeSession") && appSrc.includes("newSession"),
+    "terminal tabs are virtual worktree sessions");
+  assert.ok(appSrc.includes("DEFAULT_WORKSPACE_PATH") ||
+    appSrc.includes('makeSession(DEFAULT_WORKSPACE_PATH)'),
+    "new workspace tabs start at a default home path");
+  assert.ok(/newSession[\s\S]{0,400}makeSession\(\s*DEFAULT_WORKSPACE_PATH\s*\)/.test(appSrc) ||
+    /newSession[\s\S]{0,400}makeSession\(\s*\)/.test(appSrc) ||
+    (appSrc.includes("never inherit") && appSrc.includes("DEFAULT_WORKSPACE_PATH")),
+    "newSession must not copy the active tab path");
+  assert.ok(appSrc.includes("sess.attachments") && appSrc.includes("sess.editorPath"),
+    "freeze/thaw isolates attachments and editor focus per workspace");
+  assert.ok(appSrc.includes('"nb-panes"'), "pane layout must persist across sessions");
+  assert.ok(appSrc.includes("outH") && appSrc.includes("outW") && appSrc.includes("dock"),
+    "terminal furniture state (height, width, dock) must persist");
+  assert.ok(appSrc.includes("setPointerCapture"),
+    "splitter drag must use pointer capture — one path for mouse, touch and pen");
+  assert.ok(appSrc.includes('dataset.split === "out"') || appSrc.includes('split.dataset.split === "out"'),
+    "terminal sash must share the pointer-capture resize path");
+  assert.ok(!appSrc.includes(".focus()"),
+    "every focus() must preventScroll — a scrolling focus broke the frame once already");
+
+  // Threads: Reddit-style tree — nest rails, ± fold, votes, sort filters.
+  const dataSrc = readFileSync(join(ROOT, "data.js"), "utf8");
+  assert.ok(/re: "p\d+"/.test(dataSrc), "fixture posts must carry reply links");
+  assert.ok(consoleSrc2.includes("subtreeCount"),
+    "a fold covers the whole subtree, so it must count the whole subtree");
+  assert.ok(consoleSrc2.includes("data-fold="), "threads must be foldable from ± or nest rails");
+  assert.ok(consoleSrc2.includes("cn-rail") && consoleSrc2.includes("cn-pm"),
+    "nest rails and ± controls are the Reddit fold grammar");
+  assert.ok(consoleSrc2.includes("data-vote") && consoleSrc2.includes("data-reply"),
+    "comments carry upvote/downvote and reply");
+  assert.ok(consoleSrc2.includes("cn-react-pill") && consoleSrc2.includes("REACTIONS"),
+    "comments carry emoji reaction pills (+1, eyes, …)");
+  assert.ok(appSrc.includes("toggleReaction") && appSrc.includes("reactPick"),
+    "app must toggle reactions and open the picker");
+
+  // Lucene-style feed queries / views.
+  const querySrc = readFileSync(join(ROOT, "query.js"), "utf8");
+  assert.ok(querySrc.includes("NB_QUERY") && querySrc.includes("filterEntries"),
+    "query.js must expose Lucene-style feed projections");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("query.js"),
+    "index must load query.js");
+  const qWin: {
+    NB_QUERY?: {
+      parse: (q: string) => { ast: unknown; sort: string | null; error: string | null };
+      apply: (posts: object[], q: string, ctx?: object) => {
+        posts: object[]; sort: string | null; error: string | null;
+      };
+      filterEntries: (entries: object[], q: string, ctx?: object) => {
+        entries: object[]; matched: number; count: number; error: string | null; sort: string | null;
+      };
+      presets: () => Array<{ id: string; query: string }>;
+    };
+    NB_DATA?: { members?: object[] };
+  } = { NB_DATA: { members: [{ handle: "maya", kind: "person" }, { handle: "scout", kind: "agent" }] } };
+  new Function("window", querySrc)(qWin);
+  assert.ok(qWin.NB_QUERY);
+  const Q = qWin.NB_QUERY!;
+  const samplePosts = [
+    { id: "a", who: "maya", channel: "bugs", state: "needs-review", subject: "Cache", body: "cold install", anchor: "x", reactions: { "+1": 2 } },
+    { id: "b", who: "scout", channel: "agent-runs", state: "open", subject: "Plan", body: "draft", re: "a" },
+    { id: "c", who: "lea", channel: "general", state: "signed", subject: "Done", body: "shipped" },
+  ];
+  assert.equal(Q.parse("state:needs-review").error, null);
+  assert.equal(Q.apply(samplePosts, "state:needs-review").posts.length, 1);
+  assert.equal((Q.apply(samplePosts, "state:needs-review").posts[0] as { id: string }).id, "a");
+  assert.equal(Q.apply(samplePosts, "who:maya OR kind:agent").posts.length, 2);
+  assert.equal(Q.apply(samplePosts, "has:anchor").posts.length, 1);
+  assert.equal(Q.apply(samplePosts, "react:+1").posts.length, 1);
+  assert.equal(Q.apply(samplePosts, "body:cold").posts.length, 1);
+  assert.equal(Q.apply(samplePosts, "state:(open OR signed)").posts.length, 2);
+  assert.equal(Q.apply(samplePosts, "-state:signed").posts.length, 2);
+  const sorted = Q.apply(samplePosts, "kind:agent sort:new");
+  assert.equal(sorted.sort, "new");
+  assert.equal(sorted.posts.length, 1);
+  const entries = samplePosts.map((p) => ({ name: p.id, post: p, kind: "file" }));
+  const fe = Q.filterEntries(entries, "who:scout", {});
+  // Parent of scout's reply kept for tree coherence.
+  assert.ok(fe.matched >= 1);
+  assert.ok(fe.entries.some((e: { post?: { id: string } }) => e.post && e.post.id === "a"),
+    "filter keeps ancestors of matches");
+  assert.ok(Q.presets().some((p) => p.id === "needs-review"));
+  assert.ok(appSrc.includes("setFeedQuery") && appSrc.includes("feedQuery"),
+    "app must wire feed query state");
+  assert.ok(consoleSrc2.includes("data-feed-query") && consoleSrc2.includes("data-feed-view"),
+    "console must expose query bar and view chips");
+  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/view"') ||
+    readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/q"'),
+    "slash surface exposes /view or /q");
+
+  // File attachments for chat context.
+  const attachSrc = readFileSync(join(ROOT, "attach.js"), "utf8");
+  assert.ok(attachSrc.includes("NB_ATTACH") && attachSrc.includes("composeInput"),
+    "attach.js must expose NB_ATTACH for chat context files");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("attach.js"),
+    "index must load attach.js");
+  assert.ok(appSrc.includes("addAttachmentFiles") && appSrc.includes("attachments"),
+    "app must stage attachments on the prompt");
+  assert.ok(consoleSrc2.includes("data-attach-pick") && consoleSrc2.includes("cn-attach-tray"),
+    "console must render attach control and tray");
+  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/attach"'),
+    "slash surface exposes /attach");
+  const attachWin: {
+    NB_ATTACH?: {
+      kindFor: (f: { name?: string; type?: string }) => string;
+      formatSize: (n: number) => string;
+      composeInput: (text: string, atts: object[]) => string;
+      formatContext: (atts: object[]) => string;
+      chipLabel: (a: object) => string;
+      meta: (a: object) => { name?: string; kind?: string };
+      MAX_FILES: number;
+    };
+  } = {};
+  new Function("window", attachSrc)(attachWin);
+  assert.ok(attachWin.NB_ATTACH);
+  const Att = attachWin.NB_ATTACH!;
+  assert.equal(Att.kindFor({ name: "notes.md", type: "text/markdown" }), "text");
+  assert.equal(Att.kindFor({ name: "shot.png", type: "image/png" }), "image");
+  assert.equal(Att.kindFor({ name: "blob.bin", type: "application/octet-stream" }), "file");
+  const ctx = Att.formatContext([
+    { name: "notes.md", type: "text/markdown", kind: "text", size: 12, text: "hello cache" },
+    { name: "shot.png", type: "image/png", kind: "image", size: 100 },
+  ]);
+  assert.ok(ctx.includes("[attachments: 2") && ctx.includes("hello cache") && ctx.includes("shot.png"),
+    "formatContext inlines text and notes images");
+  const composed = Att.composeInput("summarise this", [
+    { name: "notes.md", kind: "text", type: "text/plain", size: 5, text: "body" },
+  ]);
+  assert.ok(composed.includes("summarise this") && composed.includes("[attachments"),
+    "composeInput appends attachment block to user text");
+  assert.ok(Att.chipLabel({ name: "a.md", kind: "text", size: 100 }).includes("a.md"));
+  assert.ok(Att.MAX_FILES >= 1);
+
+  // Custom event hooks → Activity + browser notifications.
+  const hooksSrc = readFileSync(join(ROOT, "hooks.js"), "utf8");
+  assert.ok(hooksSrc.includes("NB_HOOKS") && hooksSrc.includes("emit"),
+    "hooks.js must expose NB_HOOKS with emit");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("hooks.js"),
+    "index must load hooks.js");
+  assert.ok(dataSrc.includes("hooks:") || dataSrc.includes("hooks :"),
+    "fixtures include default hooks");
+  assert.ok(appSrc.includes("broadcastHookEvent") && appSrc.includes("runHooksCommand"),
+    "app must broadcast hook events and expose /hooks");
+  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/hooks"'),
+    "slash surface exposes /hooks");
+  assert.ok(consoleSrc2.includes("hooks") && consoleSrc2.includes("/notifications/hooks"),
+    "Activity UI surfaces hooks filter");
+  const hooksWin: {
+    localStorage: {
+      store: Record<string, string>;
+      getItem: (k: string) => string | null;
+      setItem: (k: string, v: string) => void;
+      removeItem: (k: string) => void;
+    };
+    NB_DATA?: { hooks?: object[]; members?: object[] };
+    NB_QUERY?: typeof Q;
+    NB_HOOKS?: {
+      events: () => Array<{ id: string; label: string }>;
+      list: () => Array<{ id: string; event: string; match: string; enabled: boolean; notify: boolean }>;
+      add: (spec: object) => { ok: boolean; hook?: { id: string; event: string } };
+      remove: (id: string) => { ok: boolean };
+      enable: (id: string, on: boolean) => { ok: boolean; hook?: { enabled: boolean } };
+      match: (event: string, payload: object) => object[];
+      emit: (event: string, payload: object, opts?: object) => Array<{ id: string; kind: string; subject?: string }>;
+      fired: () => Array<{ id: string; kind: string }>;
+      clearFired: () => unknown;
+      reset: () => unknown;
+      summarize: () => { total: number; enabled: number; fired: number };
+      matchesFilter: (match: string, payload: object, event?: string) => boolean;
+    };
+  } = {
+    localStorage: {
+      store: {},
+      getItem(k) { return Object.prototype.hasOwnProperty.call(this.store, k) ? this.store[k] : null; },
+      setItem(k, v) { this.store[k] = String(v); },
+      removeItem(k) { delete this.store[k]; },
+    },
+    NB_DATA: {
+      members: [{ handle: "maya" }, { handle: "scout" }],
+      hooks: [
+        { id: "hook-bugs", event: "post.created", match: "channel:bugs", label: "Bugs", notify: true, enabled: true },
+        { id: "hook-plusone", event: "reaction.added", match: "key:+1", label: "+1", notify: true, enabled: true },
+      ],
+    },
+    NB_QUERY: Q,
+  };
+  new Function("window", hooksSrc)(hooksWin);
+  assert.ok(hooksWin.NB_HOOKS);
+  const H = hooksWin.NB_HOOKS!;
+  assert.ok(H.events().some((e) => e.id === "post.created"));
+  assert.ok(H.list().length >= 2);
+  assert.equal(H.match("post.created", { channel: "bugs", body: "x" }).length, 1);
+  assert.equal(H.match("post.created", { channel: "general", body: "x" }).length, 0);
+  assert.ok(H.matchesFilter("channel:bugs", { channel: "bugs" }));
+  assert.ok(!H.matchesFilter("key:+1", { key: "eyes" }));
+  const emitted = H.emit("post.created", {
+    id: "p-live-1", channel: "bugs", who: "maya", body: "broken install", subject: "Bug",
+  });
+  assert.ok(emitted.length >= 1);
+  assert.equal(emitted[0].kind, "hook");
+  assert.ok(H.fired().some((n) => n.id === emitted[0].id));
+  const reactEmit = H.emit("reaction.added", { id: "p1", key: "+1", who: "you" });
+  assert.ok(reactEmit.length >= 1);
+  const added = H.add({ event: "mention.you", match: "", label: "My mentions" });
+  assert.ok(added.ok && added.hook?.event === "mention.you");
+  assert.ok(H.enable(added.hook!.id, false).ok);
+  assert.ok(H.remove(added.hook!.id).ok);
+  assert.ok(H.summarize().total >= 2);
+  // sitemap merges hook-fired into Activity.
+  assert.ok(readFileSync(join(ROOT, "sitemap.js"), "utf8").includes('filter === "hooks"') ||
+    readFileSync(join(ROOT, "sitemap.js"), "utf8").includes('filter === "hook"'),
+    "sitemap must filter hooks Activity");
+
+  assert.ok(consoleSrc2.includes("data-sort=") && consoleSrc2.includes("data-share"),
+    "hot/new/top/best filters and share replace graph/diff/raw");
+  assert.ok(consoleSrc2.includes("function contextStrip"),
+    "a channel must show what it is before what it contains");
+  assert.ok(consoleSrc2.includes("cn-help") && consoleSrc2.includes("HELP_GROUPS"),
+    "Ctrl+Space cheatsheet overlay must be rendered");
+  assert.ok(consoleSrc2.includes("buildHelpContext") && consoleSrc2.includes("surfaces"),
+    "cheatsheet must scope to active workspace surfaces");
+  assert.ok(appSrc.includes("openIntel") && appSrc.includes("ctrlKey"),
+    "Ctrl+Space must open intellisense");
+  assert.ok(appSrc.includes("intelOpen") && appSrc.includes("helpOpen") && appSrc.includes("helpCtx"),
+    "intellisense freezes help context before focusing the prompt");
+  const completeSrc = readFileSync(join(ROOT, "complete.js"), "utf8");
+  assert.ok(completeSrc.includes("SLASH_COMMANDS") && completeSrc.includes('"/go"'),
+    "slash command catalogue must exist for agent chat");
+  assert.ok(appSrc.includes("runSlash") && appSrc.includes("isSlash"),
+    "slash commands must execute from the terminal prompt");
+
+  // ── Smart input markers: @ mentions, # topics ───────────────────────────
+  assert.ok(completeSrc.includes("MARKER_SPECS") && completeSrc.includes("activeMarker"),
+    "completion must support smart-input markers");
+  assert.ok(completeSrc.includes('char: "@"') && completeSrc.includes('char: "#"'),
+    "@ and # markers must be registered");
+  assert.ok(dataSrc.includes("topics:") || dataSrc.includes("topics :"),
+    "fixture topics power # trending completion");
+  assert.ok(appSrc.includes("applyCandidate") && appSrc.includes("isMarkerKind"),
+    "prompt must apply marker candidates with trailing space");
+  assert.ok(consoleSrc2.includes("Mentions") && consoleSrc2.includes('keys: "@"'),
+    "UI must surface mentions in the palette and cheatsheet");
+
+  // Behavioural: analyse("@ma") → @maya; analyse("#draft") → #draft-persistence
+  const completeWin: {
+    NB_DATA?: unknown;
+    NB_MAP?: unknown;
+    NB_COMPLETE?: {
+      analyse: (input: string, ctx: { cwd: string; extra: unknown[]; slash?: boolean }) => {
+        kind: string; candidates: Array<{ value: string; kind?: string }>; insert: string;
+        insertSpace?: boolean; replaceFrom: number; query: string;
+      };
+      activeMarker: (text: string) => { char: string; query: string } | null;
+      isMarkerKind: (k: string) => boolean;
+    };
+  } = {};
+  new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(completeWin);
+  // sitemap optional for markers; provide a stub MAP if complete.js closes over it.
+  completeWin.NB_MAP = {
+    list: () => [],
+    resolve: (_cwd: string, p: string) => p,
+    split: () => [],
+    join: () => "/",
+  };
+  new Function("window", completeSrc)(completeWin);
+  assert.ok(completeWin.NB_COMPLETE, "complete.js must define NB_COMPLETE");
+  const C = completeWin.NB_COMPLETE!;
+  assert.equal(C.activeMarker("hello @ma")?.char, "@");
+  assert.equal(C.activeMarker("hello @ma ") , null, "trailing space ends the marker");
+  assert.equal(C.activeMarker("email@x") , null, "mid-token @ is not a mention marker");
+  assert.ok(C.isMarkerKind("mention") && C.isMarkerKind("topic"));
+  const mentionHit = C.analyse("ping @ma", { cwd: "/", extra: [] });
+  assert.equal(mentionHit.kind, "mention");
+  assert.ok(mentionHit.candidates.some((c) => c.value === "@maya"), "mentions include @maya");
+  assert.equal(mentionHit.candidates[0].value.charAt(0), "@");
+  assert.equal(mentionHit.insertSpace, true);
+  const topicHit = C.analyse("see #draft", { cwd: "/", extra: [] });
+  assert.ok(C.isMarkerKind(topicHit.kind), "# completion is a marker kind");
+  assert.ok(topicHit.candidates.some((c) => c.value === "#draft-persistence"),
+    "topics include #draft-persistence");
+  const bareMention = C.analyse("@", { cwd: "/", extra: [], slash: true });
+  assert.equal(bareMention.kind, "mention");
+  assert.ok(bareMention.candidates.length >= 4, "bare @ lists members even in ai/slash mode");
+  const bareTopic = C.analyse("#", { cwd: "/", extra: [] });
+  assert.ok(bareTopic.candidates.some((c) => c.kind === "topic" || c.value.startsWith("#")));
+  assert.ok(bareTopic.candidates.some((c) => c.value === "#bugs" || c.kind === "channel"),
+    "# also surfaces channel short-names");
+
+  // ── Speech-to-text: feature-detect + Discord-style hotkeys ───────────────
+  const speechSrc = readFileSync(join(ROOT, "speech.js"), "utf8");
+  assert.ok(speechSrc.includes("NB_SPEECH") && speechSrc.includes("SpeechRecognition"),
+    "speech module must feature-detect Web Speech API");
+  assert.ok(speechSrc.includes("isPttKey") && speechSrc.includes("Backquote"),
+    "push-to-talk must bind Discord-style hold `");
+  assert.ok(speechSrc.includes("isToggleKey") && speechSrc.includes("Alt"),
+    "toggle dictation must bind Alt+V");
+  assert.ok(appSrc.includes("wireSpeech") && appSrc.includes("toggleDictation"),
+    "app must wire speech only when supported");
+  assert.ok(appSrc.includes("data-speech-mic") || consoleSrc2.includes("data-speech-mic"),
+    "mic control is rendered from the console prompt");
+  assert.ok(consoleSrc2.includes("Hold `") && consoleSrc2.includes("Alt+V"),
+    "cheatsheet documents speech hotkeys when speech is available");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("speech.js"),
+    "index must load speech.js");
+
+  // Unsupported browser: no constructor → isSupported false, create still safe.
+  const speechOff: {
+    SpeechRecognition?: unknown;
+    webkitSpeechRecognition?: unknown;
+    NB_SPEECH?: {
+      isSupported: () => boolean;
+      create: (opts: {
+        onFinal?: (t: string) => void;
+        onPartial?: (t: string) => void;
+        onState?: (s: { listening: boolean; mode: string | null; error: string | null }) => void;
+      }) => {
+        isSupported: () => boolean;
+        pttDown: () => boolean;
+        pttUp: () => void;
+        toggle: () => boolean;
+        stop: () => void;
+        getState: () => { listening: boolean; mode: string | null };
+      };
+      isPttKey: (ev: { code?: string; key?: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => boolean;
+      isToggleKey: (ev: { key?: string; code?: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }) => boolean;
+      HOTKEYS: { ptt: string; toggle: string };
+    };
+  } = {};
+  new Function("window", speechSrc)(speechOff);
+  assert.ok(speechOff.NB_SPEECH, "speech.js defines NB_SPEECH");
+  assert.equal(speechOff.NB_SPEECH!.isSupported(), false, "no SpeechRecognition → unsupported");
+  assert.equal(speechOff.NB_SPEECH!.isPttKey({ code: "Backquote", key: "`" }), true);
+  assert.equal(speechOff.NB_SPEECH!.isPttKey({ code: "Backquote", key: "`", ctrlKey: true }), false,
+    "PTT ignores modified backticks");
+  assert.equal(speechOff.NB_SPEECH!.isToggleKey({ key: "v", altKey: true }), true);
+  assert.equal(speechOff.NB_SPEECH!.isToggleKey({ key: "v", altKey: false }), false);
+  assert.equal(speechOff.NB_SPEECH!.HOTKEYS.ptt, "`");
+  assert.equal(speechOff.NB_SPEECH!.HOTKEYS.toggle, "Alt+V");
+
+  // Supported: mock Recognition drives ptt/toggle + final transcript.
+  type RecHandler = ((ev?: unknown) => void) | null;
+  class MockRec {
+    continuous = false;
+    interimResults = false;
+    lang = "";
+    onstart: RecHandler = null;
+    onresult: RecHandler = null;
+    onerror: RecHandler = null;
+    onend: RecHandler = null;
+    started = false;
+    start() {
+      this.started = true;
+      if (this.onstart) this.onstart();
+    }
+    stop() {
+      this.started = false;
+      if (this.onend) this.onend();
+    }
+    abort() {
+      this.started = false;
+      if (this.onend) this.onend();
+    }
+    emitFinal(text: string) {
+      if (this.onresult) {
+        this.onresult({
+          resultIndex: 0,
+          results: [{ isFinal: true, 0: { transcript: text }, length: 1 }],
+        });
+      }
+    }
+    emitInterim(text: string) {
+      if (this.onresult) {
+        this.onresult({
+          resultIndex: 0,
+          results: [{ isFinal: false, 0: { transcript: text }, length: 1 }],
+        });
+      }
+    }
+  }
+  const speechOn: typeof speechOff & { SpeechRecognition: typeof MockRec } = {
+    SpeechRecognition: MockRec,
+  };
+  new Function("window", speechSrc)(speechOn);
+  assert.equal(speechOn.NB_SPEECH!.isSupported(), true);
+  const finals: string[] = [];
+  const partials: string[] = [];
+  const states: Array<{ listening: boolean; mode: string | null }> = [];
+  const eng = speechOn.NB_SPEECH!.create({
+    onFinal: (t) => finals.push(t),
+    onPartial: (t) => partials.push(t),
+    onState: (s) => states.push({ listening: s.listening, mode: s.mode }),
+  });
+  assert.equal(eng.isSupported(), true);
+  assert.equal(eng.pttDown(), true);
+  assert.equal(eng.getState().mode, "ptt");
+  assert.equal(eng.getState().listening, true);
+  // Reach into the live instance via a second start path is awkward; drive via
+  // the fact create keeps one rec — re-call start internals by toggling.
+  // Instead, use toggle after stop and emit from a fresh MockRec each start.
+  eng.stop();
+  assert.equal(eng.getState().listening, false);
+  assert.equal(eng.toggle(), true);
+  assert.equal(eng.getState().mode, "toggle");
+  // Find the active mock: last constructed is the engine's rec.
+  // Emit through a controlled instance by constructing one that create will use.
+  // Simpler path: call create again with a factory window that records instances.
+  const instances: MockRec[] = [];
+  class TrackingRec extends MockRec {
+    constructor() {
+      super();
+      instances.push(this);
+    }
+  }
+  const speechTrack: typeof speechOff & { SpeechRecognition: typeof TrackingRec } = {
+    SpeechRecognition: TrackingRec,
+  };
+  new Function("window", speechSrc)(speechTrack);
+  const finals2: string[] = [];
+  const eng2 = speechTrack.NB_SPEECH!.create({
+    onFinal: (t) => finals2.push(t),
+    onPartial: () => undefined,
+  });
+  eng2.pttDown();
+  assert.ok(instances.length >= 1);
+  instances[instances.length - 1].emitFinal("hello board");
+  assert.deepEqual(finals2, ["hello board"]);
+  eng2.pttUp();
+  assert.equal(eng2.getState().listening, false);
+
+  // ── Durable page state + Anonymous profile + spaces + ATProto ───────────
+  const sessionSrc = readFileSync(join(ROOT, "session.js"), "utf8");
+  assert.ok(sessionSrc.includes("NB_SESSION") && sessionSrc.includes("nb-identity"),
+    "session module must expose durable identity storage");
+  assert.ok(sessionSrc.includes("authorizeAtproto") && sessionSrc.includes("did:plc:"),
+    "Bluesky-style ATProto mock must mint did:plc sessions from handles");
+  assert.ok(sessionSrc.includes("claimIdentity") && sessionSrc.includes("principalId"),
+    "claim must preserve the anonymous principal id");
+  assert.ok(sessionSrc.includes("joinSpace") && sessionSrc.includes("listSpaces"),
+    "spaces must be joinable");
+  assert.ok(sessionSrc.includes("relay") && sessionSrc.includes("nostr"),
+    "spaces carry Block/Buzz-style Nostr relays");
+  assert.ok(sessionSrc.includes("profileInitials") && sessionSrc.includes("Anonymous"),
+    "profile defaults to Anonymous initials");
+  assert.ok(sessionSrc.includes("guestsAllowed") && sessionSrc.includes("canParticipate"),
+    "community policy must gate guest participation");
+  assert.ok(sessionSrc.includes("saveBoardState") && sessionSrc.includes("nb-board-state"),
+    "page state (path, workspaces, furniture) must be durable");
+
+  // In-memory localStorage stand-in so the browser script runs under node.
+  const mem = new Map<string, string>();
+  const ls = {
+    getItem: (k: string) => (mem.has(k) ? mem.get(k)! : null),
+    setItem: (k: string, v: string) => { mem.set(k, String(v)); },
+    removeItem: (k: string) => { mem.delete(k); },
+  };
+  type Space = {
+    id: string; name: string; short: string; guestsAllowed: boolean; home?: boolean;
+    slug?: string; subscribers?: number;
+    relay?: { url: string; protocol: string; status: string; read: boolean; write: boolean };
+  };
+  type SessionApi = {
+    loadPolicy: () => { guestsAllowed: boolean };
+    loadIdentity: (p: { guestsAllowed: boolean }) => {
+      kind: string; principalId: string | null; canParticipate: boolean; claimable: boolean;
+      displayName?: string; spaceId?: string; anonymous?: boolean;
+      relay?: { status?: string; write?: boolean; protocol?: string };
+    };
+    claimIdentity: (cur: { principalId: string; kind: string }, handle: string, spaceId?: string) => {
+      kind: string; principalId: string; handle: string; claimable: boolean; spaceId?: string;
+    };
+    authorizeAtproto: (handle: string, principalId?: string, spaceId?: string) => {
+      kind: string; did: string; handle: string; principalId: string; atproto: { did: string };
+      spaceId?: string;
+    };
+    joinSpace: (cur: object, spaceId: string, opts?: { handle?: string; atprotoHandle?: string }) => {
+      kind: string; spaceId?: string; handle?: string | null; anonymous?: boolean;
+      relay?: { status?: string; write?: boolean };
+    };
+    listSpaces: () => Space[];
+    profileLabel: (id: object) => string;
+    profileInitials: (id: object) => string;
+    signOut: (p: { guestsAllowed: boolean }) => { kind: string; principalId?: string | null; displayName?: string };
+    saveBoardState: (s: unknown) => void;
+    loadBoardState: () => unknown;
+    saveIdentity: (id: unknown) => void;
+    KEYS: { identity: string; board: string; policy: string };
+  };
+  const win: {
+    NB_SESSION?: SessionApi;
+    NB_DATA?: { spaces: Space[] };
+    localStorage: typeof ls;
+  } = {
+    localStorage: ls,
+    NB_DATA: {
+      spaces: [
+        {
+          id: "civic-workshop", name: "EPOCH CIVIC WORKSHOP", short: "CIVIC", slug: "r/civic-workshop",
+          guestsAllowed: true, home: true, subscribers: 10,
+          relay: { url: "wss://r/civic", protocol: "nostr", status: "connected", read: true, write: true },
+        },
+        {
+          id: "agent-lab", name: "Agent Lab", short: "AGNT", slug: "r/agent-lab",
+          guestsAllowed: true, subscribers: 5,
+          relay: { url: "wss://r/agents", protocol: "nostr", status: "connected", read: true, write: true },
+        },
+        {
+          id: "tuner-crew", name: "Tuner Crew", short: "TUNR", slug: "r/tuner-crew",
+          guestsAllowed: false, subscribers: 3,
+          relay: { url: "wss://r/tuner", protocol: "nostr", status: "idle", read: true, write: false },
+        },
+      ],
+    },
+  };
+  new Function("window", sessionSrc)(win);
+  assert.ok(win.NB_SESSION, "session.js must define window.NB_SESSION");
+  const S = win.NB_SESSION!;
+  const pol = S.loadPolicy();
+  assert.equal(pol.guestsAllowed, true, "default community allows guests");
+  const guest = S.loadIdentity(pol);
+  assert.equal(guest.kind, "guest");
+  assert.equal(guest.displayName, "Anonymous");
+  assert.equal(guest.spaceId, "civic-workshop");
+  assert.ok(guest.relay && guest.relay.protocol === "nostr", "joining home attaches a relay");
+  assert.ok(guest.principalId && guest.principalId.startsWith("guest_"), "guest mints principalId");
+  assert.equal(guest.canParticipate, true);
+  assert.equal(guest.claimable, true);
+  assert.equal(S.profileLabel(guest), "Anonymous");
+  assert.equal(S.profileInitials(guest), "AN");
+  const spacesListed = S.listSpaces();
+  assert.ok(spacesListed.every((s) => s.relay && s.slug), "each space has relay + subreddit slug");
+  // Durable: reloading identity returns the same principal.
+  const guest2 = S.loadIdentity(pol);
+  assert.equal(guest2.principalId, guest.principalId, "guest identity survives reload");
+  // Claim keeps principalId and can target a space.
+  const claimed = S.claimIdentity(
+    { principalId: guest.principalId!, kind: guest.kind },
+    "maya",
+    "agent-lab",
+  );
+  assert.equal(claimed.kind, "claimed");
+  assert.equal(claimed.principalId, guest.principalId, "claim preserves principal");
+  assert.equal(claimed.handle, "maya");
+  assert.equal(claimed.spaceId, "agent-lab");
+  assert.equal(claimed.claimable, false);
+  // ATProto mock: short handle expands to .bsky.social and gets a did:plc.
+  const at = S.authorizeAtproto("maya", guest.principalId!, "tuner-crew");
+  assert.equal(at.kind, "atproto");
+  assert.equal(at.handle, "maya.bsky.social");
+  assert.match(at.did, /^did:plc:/);
+  assert.equal(at.principalId, guest.principalId, "AT login may keep guest principal");
+  assert.equal(at.spaceId, "tuner-crew");
+  assert.ok(at.atproto && at.atproto.did === at.did);
+  // joinSpace: anonymous into open space works; members-only requires handle.
+  const anonLab = S.joinSpace(guest, "agent-lab");
+  assert.equal(anonLab.spaceId, "agent-lab");
+  assert.equal(anonLab.kind, "guest");
+  assert.throws(() => S.joinSpace(guest, "tuner-crew"), /sign-in|members|requires/i);
+  const joined = S.joinSpace(guest, "tuner-crew", { handle: "lea" });
+  assert.equal(joined.spaceId, "tuner-crew");
+  assert.equal(joined.kind, "claimed");
+  assert.equal(joined.handle, "lea");
+  assert.ok(joined.relay && joined.relay.write === true, "signed-in members get relay write");
+  assert.ok(S.listSpaces().length >= 3);
+  // Sign-out mints a fresh anonymous guest when policy allows.
+  S.saveIdentity(at);
+  const afterOut = S.signOut(pol);
+  assert.equal(afterOut.kind, "guest");
+  assert.equal(afterOut.displayName, "Anonymous");
+  assert.notEqual(
+    afterOut.principalId,
+    guest.principalId,
+    "sign-out drops the prior principal so the next person is not you",
+  );
+  // Board state round-trip.
+  S.saveBoardState({ v: 2, principalId: guest.principalId, path: "/projects/community/channels/bugs" });
+  const board = S.loadBoardState() as { path: string; principalId: string };
+  assert.equal(board.path, "/projects/community/channels/bugs");
+  assert.equal(board.principalId, guest.principalId);
+  // Denied when community disallows guests and no AT session.
+  mem.clear();
+  ls.setItem(S.KEYS.policy, JSON.stringify({ guestsAllowed: false, name: "closed" }));
+  const closed = S.loadPolicy();
+  assert.equal(closed.guestsAllowed, false);
+  const denied = S.loadIdentity(closed);
+  assert.equal(denied.kind, "denied");
+  assert.equal(denied.canParticipate, false);
+
+  assert.ok(appSrc.includes("paintIdentity") && appSrc.includes("data-profile-btn"),
+    "app must paint a profile button");
+  assert.ok(appSrc.includes("openProfileMenu") && appSrc.includes("doJoinSpace"),
+    "profile menu and space join must be wired");
+  assert.ok(appSrc.includes("restoreBoardState") && appSrc.includes("schedulePersist"),
+    "page state must restore at boot and persist after mutations");
+  assert.ok(appSrc.includes("doAtprotoLogin") && appSrc.includes("doClaim"),
+    "claim and ATProto login must be wired");
+  assert.ok(appSrc.includes("requireParticipation"),
+    "participation (vote/reply) must gate on authorized session");
+  assert.ok(completeSrc.includes('"/whoami"') && completeSrc.includes('"/login"') &&
+    completeSrc.includes('"/claim"') && completeSrc.includes('"/logout"') &&
+    completeSrc.includes('"/space"'),
+    "slash surface must expose whoami / login / claim / logout / space");
+  const indexHtml = readFileSync(join(ROOT, "index.html"), "utf8");
+  assert.ok(indexHtml.includes("session.js") && indexHtml.includes("data-identity-host"),
+    "index must load session.js and host the profile");
+  assert.ok(indexHtml.includes("data-profile-menu") && indexHtml.includes("data-auth-space"),
+    "index must host profile menu and space picker");
+  assert.ok(indexHtml.includes("data-auth-dialog") && indexHtml.includes("data-auth-atproto"),
+    "index must host the sign-in dialog");
+  assert.ok(baseCss.includes(".nb-profile-btn") && baseCss.includes(".nb-profile-menu") &&
+    baseCss.includes(".nb-auth"),
+    "profile button, menu, and auth dialog styles must exist");
+  assert.ok(dataSrc.includes("spaces:") || dataSrc.includes("spaces :"),
+    "fixture spaces power Slack-style workspace sign-in");
+
+  console.log("nightboard theme tests passed");
+}
