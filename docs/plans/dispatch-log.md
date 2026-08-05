@@ -73,7 +73,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 |---|---|
 | Initiative | [`nightboard-garden`](nightboard-garden/sdlc-state.md) |
 | Backend | Sequential; coordinator inline (finish of existing branch) |
-| PR | [#100](https://github.com/Tyler-R-Kendrick/epoch/pull/100) — squash-merged |
+| PR | [#100](https://github.com/Tyler-R-Kendrick/epoch/pull/100) — squash-merged `5ed8447d` |
 | Result | **success** |
 | Failure class | None material. CodeRabbit stayed PENDING on the large exploration diff with zero inline threads; Vercel SUCCESS; GitHub Actions quality CI disabled (runner minutes). Local `gate:push` + `nightboard:faults` + `nightboard:e2e` green. |
 | Notes | Finish repairs: notify harness typecheck; Esc ladder idempotent with column mode; keyboard e2e two-Esc for default-open detail; arrive-fault budget excludes Epoch brand idle motion. |
