@@ -23,20 +23,23 @@ const VIEWPORTS = [
 
 const axeSource = readFileSync("node_modules/axe-core/axe.min.js", "utf8");
 const server = await serveNightboard();
-const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const runs = [];
+let browser;
 
 try {
+  browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   for (const viewport of VIEWPORTS) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
     await page.goto(server.url, { waitUntil: "networkidle" });
     await page.waitForTimeout(400);
     // Exercise a channel with markdown + code so scrollable regions and feed
     // chrome are in the tree axe actually sees.
+    await page.waitForFunction(
+      () => !!(window.NB_APP && typeof window.NB_APP.navigate === "function"),
+      { timeout: 10000 },
+    );
     await page.evaluate(() => {
-      if (window.NB_APP && typeof window.NB_APP.navigate === "function") {
-        window.NB_APP.navigate("/projects/community/channels/bugs", { keepCli: true });
-      }
+      window.NB_APP.navigate("/projects/community/channels/bugs", { keepCli: true });
     });
     await page.waitForTimeout(300);
     await page.addScriptTag({ content: axeSource });
@@ -63,7 +66,7 @@ try {
     await page.close();
   }
 } finally {
-  await browser.close();
+  if (browser) await browser.close();
   await server.close();
 }
 

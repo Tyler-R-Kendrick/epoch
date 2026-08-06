@@ -629,6 +629,9 @@
         add(p, "/projects/" + p.project + "/channels/" + (p.channel || "issues"));
       } else if (p.channel) {
         add(p, MAP && MAP.channelPath ? MAP.channelPath(p.channel) : "/projects/community/channels/" + p.channel);
+      } else if (p.space || p.spaceId) {
+        var sid = p.space || p.spaceId;
+        add(p, MAP && MAP.spacePath ? MAP.spacePath(sid) + "/feed" : "/spaces/" + sid + "/feed");
       } else add(p, "/");
     });
     (D.dmMessages || []).forEach(function (p) {

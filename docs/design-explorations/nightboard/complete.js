@@ -653,6 +653,9 @@
           var nested = analyse(actVoiceLine.replace(/\s+$/, trailingSpace ? " " : ""), ctx);
           if (nested && nested.kind) {
             nested.kind = "slash-arg";
+            if (typeof nested.replaceFrom === "number") {
+              nested.replaceFrom += text.length - actVoiceLine.length;
+            }
             return nested;
           }
         }

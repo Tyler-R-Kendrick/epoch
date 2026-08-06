@@ -1159,9 +1159,19 @@
       state.speech.reason = "downloading on-device speech model…";
       render(true);
       status("Downloading on-device speech model — mic stays off until ready");
-      var snap = await window.NB_SPEECH.ensureModel(state.speech.lang, {
-        report: function (m) { if (!state.busy) status(m); },
-      });
+      var snap;
+      try {
+        snap = await window.NB_SPEECH.ensureModel(state.speech.lang, {
+          report: function (m) { if (!state.busy) status(m); },
+        });
+      } catch (err) {
+        snap = {
+          state: "unavailable",
+          backend: "none",
+          reason: "speech model download failed: " +
+            ((err && err.message) || String(err)),
+        };
+      }
       applySpeechAvailability(snap);
       render(true);
       if (snap.state === "available") {
@@ -1197,7 +1207,16 @@
       ? window.NB_SPEECH.defaultLang()
       : "en-US";
     state.speech.lang = lang;
-    var snap = await window.NB_SPEECH.availability(lang);
+    var snap;
+    try {
+      snap = await window.NB_SPEECH.availability(lang);
+    } catch (err) {
+      snap = {
+        state: "unavailable",
+        backend: "none",
+        reason: "speech probe failed: " + ((err && err.message) || String(err)),
+      };
+    }
     applySpeechAvailability(snap);
     render(true);
 
@@ -1673,6 +1692,7 @@
     state.feedQueryError = null;
     state.prev = sess.prev || "/";
     state.homeFeed = sess.homeFeed || "following";
+    state.homeCursor = sess.homeCursor != null ? sess.homeCursor : 0;
     state.threadFocus = sess.threadFocus || null;
     state.histIndex = sess.histIndex != null ? sess.histIndex : -1;
     state.busy = !!sess.busy;
@@ -2626,6 +2646,7 @@
    */
   function entryHasTextEditor(e) {
     if (!e || e.kind === "dir" || e.notification || e.post) return false;
+    if (e.voice || e.meta === "voice") return false;
     if (e.agentFile || e.agentSkill || e.agentTool) return true;
     if (e.meta === "instructions" || e.meta === "config" ||
         e.meta === "skill" || e.meta === "tool") return true;

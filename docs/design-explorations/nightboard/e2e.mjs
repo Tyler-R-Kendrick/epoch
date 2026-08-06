@@ -2951,6 +2951,9 @@ const CASES = [
           allAscii: marks.every((m) => /^[\x20-\x7e]+$/.test(m)),
         };
       });
+      if (!asciiReact.marks.length) {
+        return log("reaction marks missing: " + JSON.stringify(asciiReact));
+      }
       if (!asciiReact.allAscii) {
         return log("emoji in reactions: " + JSON.stringify(asciiReact));
       }
@@ -4920,7 +4923,8 @@ const CASES = [
         };
       });
       if (check.footOut) return log("foot transcript returned: " + JSON.stringify(check));
-      if (check.hasPre && check.preTab !== "0") {
+      if (!check.hasPre) return log("code block missing: " + JSON.stringify(check));
+      if (check.preTab !== "0") {
         return log("code block not focusable: " + JSON.stringify(check));
       }
       return true;

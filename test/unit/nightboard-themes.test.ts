@@ -806,8 +806,9 @@ export async function runNightboardThemeTests(): Promise<void> {
     const ann = followWin.NB_MAP!.homeFeedItems("announcements", [], {});
     assert.ok(ann.some((it) => it.unread), "announcement fixtures include unread");
     const marked = followWin.NB_MAP!.homeFeedItems("announcements", [], { [ann[0].id]: true });
-    assert.ok(!marked.find((it) => it.id === ann[0].id)?.unread,
-      "read set clears announcement unread");
+    const markedItem = marked.find((it) => it.id === ann[0].id);
+    assert.ok(markedItem, "announcement remains after read-set mark");
+    assert.ok(!markedItem!.unread, "read set clears announcement unread");
     const featured = followWin.NB_MAP!.homeFeedItems("featured", [], {});
     assert.ok(featured.length >= 2 && featured.every((it) => it.who),
       "featured projects list repos");
@@ -1477,8 +1478,10 @@ export async function runNightboardThemeTests(): Promise<void> {
   const voiceSrc = readFileSync(join(ROOT, "voice.js"), "utf8");
   assert.ok(voiceSrc.includes("NB_VOICE") && voiceSrc.includes("RTCPeerConnection"),
     "voice module must feature-detect WebRTC");
-  assert.ok(voiceSrc.includes("preferOpus") && voiceSrc.includes("opus/48000"),
-    "voice must prefer Opus @ 48 kHz like Discord");
+  assert.ok(voiceSrc.includes("preferOpusOnPc") && voiceSrc.includes("setCodecPreferences"),
+    "voice must prefer Opus via setCodecPreferences (no SDP munging)");
+  assert.ok(!/offer\.sdp\s*=\s*preferOpus|answer\.sdp\s*=\s*preferOpus/.test(voiceSrc),
+    "voice must not rewrite offer/answer SDP strings");
   assert.ok(voiceSrc.includes("isVoicePttKey") && voiceSrc.includes("BroadcastChannel"),
     "voice PTT + BroadcastChannel signaling");
   assert.ok(voiceSrc.includes("echoCancellation") && voiceSrc.includes("latencyHint"),
@@ -1795,6 +1798,9 @@ export async function runNightboardThemeTests(): Promise<void> {
   const authDialog = (indexHtml.match(/data-auth-dialog[\s\S]*?<\/div>\s*<\/div>/) || [""])[0];
   const openAuthFn = (appSrc.match(/function openAuth[\s\S]*?function closeAuth/) || [""])[0];
   const profileLogin = (appSrc.match(/data-profile-bluesky[^>]*>[^<]+/) || [""])[0];
+  assert.ok(loginHelp.length > 0, "/login completer must exist");
+  assert.ok(authDialog.length > 0, "auth dialog markup must exist");
+  assert.ok(openAuthFn.length > 0, "openAuth helper must exist");
   assert.ok(!/Bluesky|bsky\.social/.test(authDialog + openAuthFn + profileLogin + loginHelp),
     "login UI must not mention Bluesky");
   assert.ok(baseCss.includes(".nb-profile-btn") && baseCss.includes(".nb-profile-menu") &&

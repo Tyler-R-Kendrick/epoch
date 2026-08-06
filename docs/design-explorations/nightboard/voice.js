@@ -39,22 +39,29 @@
       Math.random().toString(36).slice(2, 6);
   }
 
-  function preferOpus(sdp) {
-    // Keep Opus payload types first in m=audio — Discord's codec of choice.
-    if (!sdp || sdp.indexOf("opus/48000") === -1) return sdp;
-    return String(sdp).replace(/m=audio (\d+) ([^\r\n]+) ([\d ]+)/,
-      function (_m, port, proto, pts) {
-        var list = pts.trim().split(/\s+/);
-        var opus = null;
-        var lines = String(sdp).split(/\r?\n/);
-        for (var i = 0; i < lines.length; i++) {
-          var mm = /^a=rtpmap:(\d+) opus\/48000/i.exec(lines[i]);
-          if (mm) { opus = mm[1]; break; }
-        }
-        if (!opus) return _m;
-        var rest = list.filter(function (p) { return p !== opus; });
-        return "m=audio " + port + " " + proto + " " + [opus].concat(rest).join(" ");
-      });
+  /** Prefer Opus via transceiver API — never munge SDP (Chrome rejects that). */
+  function preferOpusOnPc(pc) {
+    if (!pc || typeof pc.getTransceivers !== "function") return;
+    var caps = window.RTCRtpSender && window.RTCRtpSender.getCapabilities
+      ? window.RTCRtpSender.getCapabilities("audio")
+      : null;
+    if (!caps || !caps.codecs || !caps.codecs.length) return;
+    var opus = [];
+    var rest = [];
+    caps.codecs.forEach(function (c) {
+      if (/opus/i.test(c.mimeType || "")) opus.push(c);
+      else rest.push(c);
+    });
+    if (!opus.length) return;
+    var ordered = opus.concat(rest);
+    pc.getTransceivers().forEach(function (tr) {
+      if (!tr) return;
+      var track = tr.sender && tr.sender.track;
+      if (track && track.kind !== "audio") return;
+      if (typeof tr.setCodecPreferences === "function") {
+        try { tr.setCodecPreferences(ordered); } catch { /* unsupported */ }
+      }
+    });
   }
 
   /**
@@ -148,12 +155,20 @@
         return;
       }
       // VAD: enabled while speaking (analyser) or briefly hanging.
+      // No analyser → keep mic open in vad mode (AudioContext blocked/unavailable).
+      if (!analyser && state.inputMode === "vad") {
+        setMicEnabled(true);
+        return;
+      }
       var hot = state.speaking || (Date.now() - lastSpokeAt) < VAD_HANG_MS;
       setMicEnabled(hot);
     }
 
     function setSpeaking(on) {
-      if (state.speaking === on) return;
+      if (state.speaking === on) {
+        if (on) lastSpokeAt = Date.now();
+        return;
+      }
       state.speaking = on;
       if (on) lastSpokeAt = Date.now();
       post({ type: "speaking", speaking: on });
@@ -162,7 +177,12 @@
     }
 
     function tickVad() {
-      if (!analyser || !state.joined) return;
+      if (!state.joined) return;
+      if (!analyser) {
+        if (state.inputMode === "vad" && !state.muted) applyTransmitGate();
+        else if (state.inputMode === "ptt") setSpeaking(pttHeld && !state.muted);
+        return;
+      }
       var data = new Uint8Array(analyser.fftSize);
       analyser.getByteTimeDomainData(data);
       var sum = 0;
@@ -274,6 +294,7 @@
           pc.addTrack(t, localStream);
         });
       }
+      preferOpusOnPc(pc);
 
       pc.onicecandidate = function (ev) {
         if (ev.candidate) {
@@ -301,7 +322,6 @@
         peer.makingOffer = true;
         try {
           var offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
-          offer.sdp = preferOpus(offer.sdp);
           await pc.setLocalDescription(offer);
           post({ type: "offer", to: id, sdp: pc.localDescription });
         } catch {
@@ -358,8 +378,8 @@
         var pOffer = peers[msg.from] || await makePeer(msg.from, msg.handle, false);
         var pcO = pOffer.pc;
         await pcO.setRemoteDescription(msg.sdp);
+        preferOpusOnPc(pcO);
         var answer = await pcO.createAnswer();
-        answer.sdp = preferOpus(answer.sdp);
         await pcO.setLocalDescription(answer);
         post({ type: "answer", to: msg.from, sdp: pcO.localDescription });
         return;
@@ -447,7 +467,13 @@
 
       try {
         bus = new window.BroadcastChannel(CHANNEL);
-        bus.onmessage = function (ev) { onSignal(ev.data); };
+        bus.onmessage = function (ev) {
+          Promise.resolve(onSignal(ev.data)).catch(function (err) {
+            state.error = "voice negotiation failed: " +
+              ((err && err.message) || String(err));
+            emit();
+          });
+        };
       } catch {
         state.error = "voice signaling unavailable";
         stopLocalMedia();

@@ -199,16 +199,25 @@
       });
     }
 
-    D.posts.concat(extra || []).forEach(function (p) {
-      var ch = (D.channels || []).filter(function (c) { return c.id === p.channel; })[0];
+    var chById = {};
+    (D.channels || []).forEach(function (c) { chById[c.id] = c; });
+    var all = D.posts.concat(extra || []);
+    var byChannel = {};
+    all.forEach(function (p) {
+      (byChannel[p.channel] = byChannel[p.channel] || []).push(p);
+    });
+    all.forEach(function (p) {
+      if (!follows[p.who]) return;
+      var ch = chById[p.channel];
       var label = (ch && ch.label) || p.channel || "channel";
-      var siblings = postsIn(p.channel, extra);
-      var ix = siblings.findIndex(function (x) { return x.id === p.id; });
+      var siblings = byChannel[p.channel] || [];
+      var ix = siblings.indexOf(p);
       pushPost(p, channelPath(label) + "/" + postName(p, ix >= 0 ? ix : 0),
         "#" + label, "post");
     });
 
     (D.projectPosts || []).forEach(function (p) {
+      if (!follows[p.who]) return;
       var proj = findProject(p.project) || { id: p.project };
       var pid = proj.id || p.project;
       var siblings = projectPosts(pid, p.channel || "issues");

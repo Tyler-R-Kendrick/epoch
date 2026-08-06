@@ -757,7 +757,6 @@
       var on = view === v.id;
       return '<button type="button" class="cn-home-tab" role="tab" data-home-feed="' + esc(v.id) + '"' +
         ' aria-selected="' + (on ? "true" : "false") + '"' +
-        ' aria-pressed="' + (on ? "true" : "false") + '"' +
         ' tabindex="' + (on ? "0" : "-1") + '"' +
         ' title="' + esc(v.label) + (n ? " · " + n + " unread" : "") + '">' +
         esc(v.label) +
