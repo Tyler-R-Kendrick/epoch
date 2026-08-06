@@ -379,7 +379,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
   assert.match(html, /data-design-system="epoch-community"/u);
   assert.match(html, /href="#community-content">Skip to content/u);
-  assert.match(html, /--epoch-color-surface: #f4f2ea/u);
+  assert.match(html, /--epoch-color-surface: #070b12/u);
   assert.doesNotMatch(html, /data-community-web-cockpit/u);
   assert.doesNotMatch(html, /data-community-thread-context/u);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
