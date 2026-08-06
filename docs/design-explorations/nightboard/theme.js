@@ -76,7 +76,8 @@
   function apply(css, label) {
     styleEl.textContent = css;
     document.body.dataset.theme = label;
-    $("[data-theme-name]").textContent = label;
+    var nameEl = $("[data-theme-name]");
+    if (nameEl) nameEl.textContent = label;
   }
 
   function applyTokens(tokens, label) {
@@ -88,9 +89,8 @@
     current = (i + window.NB_THEMES.length) % window.NB_THEMES.length;
     var t = window.NB_THEMES[current];
     apply(t.css, t.name);
-    $("[data-theme-note]").textContent = t.note;
-    var sel = $("[data-theme-select]");
-    if (sel) sel.value = t.id;
+    var noteEl = $("[data-theme-note]");
+    if (noteEl) noteEl.textContent = t.note;
   }
 
   /* ── Generation ────────────────────────────────────────────────────────── */
@@ -213,7 +213,8 @@
           notes.push("ink on bg is " + ratio.toFixed(1) + ":1, below the 4.5:1 floor");
         }
       }
-      $("[data-theme-note]").textContent = "Generated on device from: " + description;
+      var noteEl = $("[data-theme-note]");
+      if (noteEl) noteEl.textContent = "Generated on device from: " + description;
       report(
         "Applied " + Object.keys(applied).length + " colours." +
         (notes.length ? "\nwarning: " + notes.join("; ") : "") +
@@ -266,16 +267,18 @@
 
   function wire() {
     var sel = $("[data-theme-select]");
-    window.NB_THEMES.forEach(function (t, i) {
-      var o = document.createElement("option");
-      o.value = t.id; o.textContent = t.name; sel.appendChild(o);
-      void i;
-    });
-    sel.addEventListener("change", function () {
-      for (var i = 0; i < window.NB_THEMES.length; i++) {
-        if (window.NB_THEMES[i].id === sel.value) setTheme(i);
-      }
-    });
+    if (sel) {
+      window.NB_THEMES.forEach(function (t, i) {
+        var o = document.createElement("option");
+        o.value = t.id; o.textContent = t.name; sel.appendChild(o);
+        void i;
+      });
+      sel.addEventListener("change", function () {
+        for (var i = 0; i < window.NB_THEMES.length; i++) {
+          if (window.NB_THEMES[i].id === sel.value) setTheme(i);
+        }
+      });
+    }
 
     $("[data-garden-open]").addEventListener("click", openPanel);
     $("[data-garden-close]").addEventListener("click", function () { $("[data-garden]").hidden = true; });
@@ -299,7 +302,8 @@
         return;
       }
       applyTokens(result.tokens, "custom");
-      $("[data-theme-note]").textContent = "Hand-edited tokens.";
+      var noteEl = $("[data-theme-note]");
+      if (noteEl) noteEl.textContent = "Hand-edited tokens.";
       // A generated theme is refused below the floor because nobody chose it.
       // A hand-edited one is warned about, because someone did — but silently
       // applying an unreadable theme would still be a trap.

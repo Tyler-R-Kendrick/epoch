@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   await runCommunityOperationsWebTests();
   await runCommunityWebVercelTests();
   await runCommunityWebRenderParityTests();
-  runNightboardThemeTests();
+  await runNightboardThemeTests();
   await runCommunityWebTextBudgetTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();

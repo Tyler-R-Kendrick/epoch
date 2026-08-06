@@ -25,14 +25,14 @@ export const epochTokens = {
     "open-land-strong": "#e0cc63",
     marsh: "#a5d8ec",
     "marsh-strong": "#6bb6d6",
-    contour: "#a8703c",
+    contour: "#8a5a2a",
     "contour-soft": "#d8b48c",
-    "out-of-bounds": "#e03a2f",
+    "out-of-bounds": "#b52a20",
     control: "#a300a3",
     gold: "#b8860b",
     teal: "#1f6f5c",
     "teal-deep": "#175346",
-    "teal-hover": "#268a72",
+    "teal-hover": "#1c6554",
     mint: "#d4ebe0",
     "mint-strong": "#a9d4c1",
     avatar: "#2b2b26",
@@ -50,35 +50,35 @@ export const epochTokens = {
   },
   typography: {
     display: {
-      fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
       fontSize: "2.25rem",
       fontWeight: 750,
       lineHeight: 1.05,
       letterSpacing: "-0.02em",
     },
     headline: {
-      fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
       fontSize: "1.3125rem",
       fontWeight: 700,
       lineHeight: 1.2,
       letterSpacing: "-0.015em",
     },
     title: {
-      fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
       fontSize: "1.0625rem",
       fontWeight: 700,
       lineHeight: 1.25,
       letterSpacing: "0em",
     },
     body: {
-      fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
       fontSize: "0.9375rem",
       fontWeight: 400,
       lineHeight: 1.5,
       letterSpacing: "0em",
     },
     label: {
-      fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
       fontSize: "0.8125rem",
       fontWeight: 650,
       lineHeight: 1.2,
@@ -131,14 +131,14 @@ export const epochTokensCss: string = `:root {
   --epoch-color-open-land-strong: #e0cc63;
   --epoch-color-marsh: #a5d8ec;
   --epoch-color-marsh-strong: #6bb6d6;
-  --epoch-color-contour: #a8703c;
+  --epoch-color-contour: #8a5a2a;
   --epoch-color-contour-soft: #d8b48c;
-  --epoch-color-out-of-bounds: #e03a2f;
+  --epoch-color-out-of-bounds: #b52a20;
   --epoch-color-control: #a300a3;
   --epoch-color-gold: #b8860b;
   --epoch-color-teal: #1f6f5c;
   --epoch-color-teal-deep: #175346;
-  --epoch-color-teal-hover: #268a72;
+  --epoch-color-teal-hover: #1c6554;
   --epoch-color-mint: #d4ebe0;
   --epoch-color-mint-strong: #a9d4c1;
   --epoch-color-avatar: #2b2b26;
@@ -162,7 +162,7 @@ export const epochTokensCss: string = `:root {
   --epoch-space-lg: 16px;
   --epoch-space-xl: 24px;
   --epoch-space-xxl: 32px;
-  --epoch-font-ui: 'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif;
+  --epoch-font-ui: 'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
   --epoch-font-mono: ui-monospace, Cascadia Mono, Consolas, monospace;
   --epoch-type-display-size: 2.25rem;
   --epoch-type-display-weight: 750;

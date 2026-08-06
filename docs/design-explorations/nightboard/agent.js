@@ -90,10 +90,16 @@
       "",
       "Rules:",
       "- Going somewhere is board_navigate with a real path.",
+      "- Searching posts, channels, projects, or DMs is board_search with a Lucene query — use it without waiting for /search.",
+      "- Publishing chat in a channel, reply, or DM is board_post — the prompt is scoped to the active blade.",
+      "- Creating a channel in the current project (nav at …/channels) is board_create_channel.",
+      "- Creating a project (nav at /projects) is board_create_project.",
       "- A question about what exists is graph_query. Call graph_schema first if unsure.",
       "- Changing how it looks is theme_set with hex colours for every role you can infer.",
       "- If you cannot act, use say and be brief.",
       "- Never invent a path. Choose the closest one that exists.",
+      "- Honour compose scope from the turn context: reply/post/dm publish; nav create stays in that project.",
+      "- Switching prompt interpretation (ai vs cli) is prompt_mode { mode }. Prefer that over typing /mode.",
     ].join("\n");
   }
 
@@ -149,8 +155,11 @@
         attempt += 1;
         // Context travels with the turn, because the session is shared and its
         // system prompt was fixed when it was warmed.
-        var where = "\n\n[you are at " + ctx.cwd + "; here: " + ctx.here.slice(0, 24).join(", ") + "]" +
-          attachNote;
+        var where = "\n\n[you are at " + ctx.cwd + "; here: " + ctx.here.slice(0, 24).join(", ") + "]";
+        if (ctx.compose) {
+          where += "\n[compose: " + JSON.stringify(ctx.compose) + "]";
+        }
+        where += attachNote;
         var ask = attempt === 1
           ? input + where
           : input + where + "\nThat failed: " + lastError + "\nChoose a different tool or a path that exists.";

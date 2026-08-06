@@ -1,0 +1,7 @@
+{
+  "files": ["packages/Epoch.Community.Web/dist/**/*.html"],
+  "exclude": [],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

@@ -1,0 +1,43 @@
+---
+type: Reference
+title: "Impeccable Community + Nightboard session state"
+description: "SDLC state for landing Community Web impeccable audit fixes and Nightboard exploration follow-ups."
+tags: [epoch, plans, sdlc, impeccable, community-web, nightboard]
+---
+
+# Initiative: Impeccable Community + Nightboard session
+
+- **Phase:** finishing (`/sdlc finish` 2026-08-05)
+- **Slug:** `impeccable-community-nightboard`
+- **Opened:** 2026-08-05
+- **Host:** Cursor / Auto coordinator
+- **Branch:** `feat/impeccable-community-nightboard-session`
+
+## Goal
+
+Land this session’s work:
+
+1. Community Web impeccable audit remediation (terrain grounds not side-tabs,
+   AA token contrast, Inter removed, reduced-motion scoped, design sidecar refresh).
+2. Nightboard exploration advances (on-device STT gating, voice, syntax, gridroad,
+   a11y evidence scripts, e2e coverage) with eslint clean for `gate:fast`.
+
+## Session PR set
+
+| PR | Title | Status |
+|---|---|---|
+| (pending) | feat: Community impeccable polish + Nightboard session | opening |
+
+## Validation
+
+- `npm run gate:fast` green
+- `npm run a11y:community-web` green (pre-finish)
+- Detector on Community CSS: 0 anti-patterns
+- `design:lint` / `design:audit`: 0 findings
+
+## Residuals
+
+- Nightboard agent-chat session activation / thread→reply plans remain product
+  follow-ups (not unfinished merge blockers).
+- Full `verify` (cucumber/coverage/pact) not required for exploration+design
+  token surface if `gate:push` is green.

@@ -36,7 +36,7 @@
     { id: "subscription.matched", label: "Subscription match",
       help: "Traffic matches a watched channel, topic, member, or project" },
     { id: "identity.changed", label: "Identity changed",
-      help: "Guest claim, Bluesky login, join space, or sign-out" },
+      help: "Guest claim, sign-in, join space, or sign-out" },
     { id: "space.joined", label: "Space joined",
       help: "You join or switch into a space" },
     { id: "query.matched", label: "Query match",

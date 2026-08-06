@@ -44,6 +44,7 @@
       filter: "",
       feedQuery: "",
       feedView: "hot",
+      feedPinnedViews: [],
       prev: "/",
       folded: {},
       votes: {},
@@ -57,6 +58,9 @@
       cliDraft: "",
       // Pane/editor context — frozen with the tab so workspaces stay isolated.
       detailOpen: true,
+      homeFeed: "following",
+      homeCursor: 0,
+      threadFocus: null,
       attachments: [],
       editorPath: null,
       editorFocused: false,
@@ -64,10 +68,10 @@
   }
 
   var SESSION_FIELDS = [
-    "path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "prev",
+    "path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "feedPinnedViews", "prev",
     "folded", "votes", "reactions", "treeOpen",
     "history", "histIndex", "lines", "openTools", "busy",
-    "detailOpen",
+    "detailOpen", "homeFeed", "homeCursor", "threadFocus",
   ];
 
   var state = {
@@ -79,6 +83,8 @@
     // Lucene-style feed query / named view projection.
     feedQuery: "",
     feedView: "hot",
+    feedPinnedViews: [],
+    feedAddOpen: false,
     feedQueryError: null,
     merged: [],
     pending: [],
@@ -90,14 +96,26 @@
     helpCtx: null,
     completion: null,
     candIndex: 0,
+    // Esc closes the suggestion combobox without clearing the draft; typing
+    // clears this so the catalogue can reopen for the next fragment.
+    menuDismissed: false,
     history: [],
     histIndex: -1,
     lines: [],
     openTools: {},
+    // When true, session transcript (.cn-blade-out) is the active pane —
+    // used after inconclusive prompts so the turn is visible to iterate on.
+    sessionOutFocus: false,
     votes: {},
     // reactions[postId] = { counts: { "+1": n }, mine: { "+1": true } }
     reactions: {},
     reactPick: null,
+    // Discord spoilers revealed this session: spoilers[innerText] = true
+    spoilers: {},
+    // Armed reply target — cleared on send or when navigating away from its channel.
+    replyTo: null,
+    // Session-created channels / projects (sitemap reads boardOverlay).
+    boardOverlay: { channels: [], projects: [], projectChannels: {} },
     treeOpen: {},
     prev: "/",
     ai: true,
@@ -106,16 +124,50 @@
     panes: null,
     sessions: [makeSession("/projects/community/channels/general")],
     activeSession: 0,
-    // Speech-to-text: only meaningful when NB_SPEECH reports support.
+    // Speech-to-text: mic always painted; hotkeys enable only when ready.
     speech: {
       supported: !!(window.NB_SPEECH && window.NB_SPEECH.isSupported()),
+      // absent | unavailable | downloadable | downloading | available
+      availability: "absent",
+      ready: false,
+      backend: "none",
+      lang: "en-US",
+      reason: null,
       listening: false,
       mode: null,
+      // Voice Access-style intent: default | dictation | commands
+      intent: "default",
       interim: "",
+      error: null,
+    },
+    // Discord-parity channel voice (WebRTC mesh). See voice.js.
+    voice: {
+      supported: !!(window.NB_VOICE && window.NB_VOICE.isSupported()),
+      joined: false,
+      channelId: null,
+      channelPath: null,
+      muted: false,
+      deafened: false,
+      inputMode: "vad",
+      speaking: false,
+      peers: {},
+      peerCount: 0,
+      latencyMs: null,
+      handle: null,
       error: null,
     },
     // Teams-style Activity: ids the session has marked read.
     notifRead: loadNotifRead(),
+    // Home feed (Following pane): which toggle is active + read receipt map.
+    homeFeed: "following",
+    homeFeedRead: loadHomeFeedRead(),
+    // Cursor into the home feed list (Following / announcements / …).
+    homeCursor: 0,
+    // Announcement ids the user collapsed this session (default: expanded).
+    homeAnnCollapsed: {},
+    // Person pane on /dms/<handle>: messages (default) | profile.
+    personPane: "messages",
+    personPeer: null,
     // Prompt attachments for chat context (cleared on send).
     attachments: [],
     attachDrop: false,
@@ -133,6 +185,9 @@
     // Detail pane is optional — user can close it with × and reopen by
     // selecting a file or pressing Enter / → on a leaf.
     detailOpen: true,
+    // When set to a post id, detail shows that message's thread only
+    // (not the channel's top-level feed). Cleared by back / Esc / nav browse.
+    threadFocus: null,
   };
   state.panes = loadPanes();
 
@@ -149,6 +204,126 @@
 
   function saveNotifRead() {
     try { window.localStorage.setItem("nb-notif-read", JSON.stringify(state.notifRead || {})); } catch { /* private */ }
+  }
+
+  function loadHomeFeedRead() {
+    try {
+      var raw = window.localStorage.getItem("nb-home-feed-read");
+      if (!raw) return {};
+      var got = JSON.parse(raw);
+      return got && typeof got === "object" ? got : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveHomeFeedRead() {
+    try {
+      window.localStorage.setItem("nb-home-feed-read", JSON.stringify(state.homeFeedRead || {}));
+    } catch { /* private */ }
+  }
+
+  function markHomeFeedRead(id) {
+    if (!id) return;
+    state.homeFeedRead = state.homeFeedRead || {};
+    if (state.homeFeedRead[id]) return;
+    state.homeFeedRead[id] = true;
+    saveHomeFeedRead();
+  }
+
+  function setHomeFeed(view, opts) {
+    opts = opts || {};
+    var allowed = { following: 1, announcements: 1, featured: 1, creators: 1 };
+    var next = allowed[view] ? view : "following";
+    var changed = state.homeFeed !== next;
+    state.homeFeed = next;
+    state.detailOpen = false;
+    if (changed) state.homeCursor = 0;
+    if (!opts.noRender) render(true);
+    // After morph layout: bring tabs into the visible blade strip.
+    requestAnimationFrame(revealHomeFeedTabs);
+    if (!opts.silent) status("home · " + next);
+    return true;
+  }
+
+  /** Collapse/expand a home announcement (session-only; default expanded). */
+  function toggleAnnCollapsed(id) {
+    if (!id) return false;
+    state.homeAnnCollapsed = state.homeAnnCollapsed || {};
+    if (state.homeAnnCollapsed[id]) delete state.homeAnnCollapsed[id];
+    else state.homeAnnCollapsed[id] = true;
+    render(true);
+    return true;
+  }
+
+  /**
+   * On narrow layouts the nav+detail blades scroll horizontally. Home feed
+   * tabs live in the detail blade — bring every tab into the visible strip
+   * so a real mouse/touch hit can activate it (Playwright auto-scroll hid this).
+   */
+  function revealHomeFeedTabs() {
+    var blades = document.querySelector(".cn-blades");
+    if (!blades) return;
+    var tabs = blades.querySelector(".cn-home-tabs");
+    var detail = blades.querySelector('.cn-blade[data-blade-kind="detail"]');
+    var target = tabs || detail;
+    if (!target) return;
+    var br = blades.getBoundingClientRect();
+    var tr = target.getBoundingClientRect();
+    var pad = 10;
+    if (tr.right > br.right - pad) {
+      blades.scrollLeft += tr.right - br.right + pad;
+    }
+    if (tr.left < br.left + pad) {
+      blades.scrollLeft -= br.left - tr.left + pad;
+    }
+    // Second pass: individual tabs (wrapped rows / unread badges).
+    var nodes = blades.querySelectorAll(".cn-home-tab");
+    for (var i = 0; i < nodes.length; i++) {
+      var r = nodes[i].getBoundingClientRect();
+      if (r.right > br.right - pad) blades.scrollLeft += r.right - br.right + pad;
+      if (r.left < br.left + pad) blades.scrollLeft -= br.left - r.left + pad;
+      br = blades.getBoundingClientRect();
+    }
+  }
+
+  function homeFeedUnreadCounts() {
+    if (window.NB_MAP && window.NB_MAP.homeFeedUnreadCounts) {
+      return window.NB_MAP.homeFeedUnreadCounts(state.merged, state.homeFeedRead);
+    }
+    return {};
+  }
+
+  /**
+   * Toggle the person detail pane between messages (default) and profile.
+   * Scoped to the current DM peer — switching peers resets to messages.
+   */
+  function setPersonPane(pane, opts) {
+    opts = opts || {};
+    var next = pane === "profile" ? "profile" : "messages";
+    state.personPane = next;
+    if (!opts.noRender) render(true);
+    if (!opts.silent) {
+      var peer = currentDmPeer();
+      status(peer
+        ? ("@" + peer + " · " + next)
+        : ("person · " + next));
+    }
+    return true;
+  }
+
+  function currentDmPeer() {
+    var parts = MAP.split(state.path);
+    if (parts[0] === "dms" && parts[1]) return parts[1];
+    return state.personPeer || null;
+  }
+
+  function syncPersonPanePeer(peer) {
+    peer = peer ? String(peer).replace(/^@/, "").toLowerCase() : null;
+    if (peer && state.personPeer && state.personPeer !== peer) {
+      state.personPane = "messages";
+    }
+    if (peer) state.personPeer = peer;
   }
 
   function markNotificationRead(id) {
@@ -463,9 +638,257 @@
   var speechBase = "";
   var speechEngine = null;
   var pttHeld = false;
+  var voiceEngine = null;
+  var voicePttHeld = false;
 
   function speechSupported() {
     return !!(window.NB_SPEECH && window.NB_SPEECH.isSupported());
+  }
+
+  function speechReady() {
+    return !!(state.speech && state.speech.ready);
+  }
+
+  function applySpeechAvailability(snap) {
+    snap = snap || {};
+    state.speech.availability = snap.state || "unavailable";
+    state.speech.ready = !!(window.NB_SPEECH && window.NB_SPEECH.isReady
+      ? window.NB_SPEECH.isReady(snap)
+      : snap.state === "available");
+    state.speech.backend = snap.backend || "none";
+    state.speech.lang = snap.lang || state.speech.lang || "en-US";
+    state.speech.reason = snap.reason || null;
+    state.speech.supported = speechSupported();
+  }
+
+  function speechNotReadyReason() {
+    if (state.speech && state.speech.reason) return state.speech.reason;
+    if (state.speech && state.speech.availability === "downloading") {
+      return "downloading on-device speech model — voice stays off until ready";
+    }
+    if (state.speech && state.speech.availability === "downloadable") {
+      return "speech model needs one download — click the mic to fetch it";
+    }
+    return "on-device speech not ready in this browser";
+  }
+
+  function voiceSupported() {
+    return !!(window.NB_VOICE && window.NB_VOICE.isSupported());
+  }
+
+  /** When channel voice is in PTT mode, bare ` belongs to transmit — not STT. */
+  function voiceClaimsPtt() {
+    return !!(state.voice && state.voice.joined && state.voice.inputMode === "ptt");
+  }
+
+  function findVoiceChannel(query) {
+    var chans = (window.NB_DATA && window.NB_DATA.channels) || [];
+    var needle = String(query || "").trim().toLowerCase();
+    if (!needle) {
+      var m = /\/channels\/([^/]+)/.exec(state.path || "");
+      if (m) needle = m[1].toLowerCase();
+    }
+    var voiceOnly = chans.filter(function (c) {
+      return !!(c.voice || c.kind === "voice");
+    });
+    if (!needle) return voiceOnly[0] || null;
+    for (var i = 0; i < voiceOnly.length; i++) {
+      var c = voiceOnly[i];
+      if (c.id === needle || c.label === needle) return c;
+    }
+    return null;
+  }
+
+  function voiceChannelPath(chan) {
+    if (!chan) return null;
+    if (state.voice && state.voice.channelPath && state.voice.channelId === chan.id) {
+      return state.voice.channelPath;
+    }
+    var label = chan.label || chan.id;
+    return "/projects/community/channels/" + label;
+  }
+
+  function paintVoiceLight(st) {
+    var dock = document.querySelector(".cn-voice-dock");
+    if (!dock) return false;
+    var rtt = dock.querySelector(".cn-voice-rtt");
+    if (rtt) rtt.textContent = st.latencyMs != null ? (st.latencyMs + " ms") : "…";
+    var self = dock.querySelector(".cn-voice-user[data-self=true]");
+    if (self) {
+      self.dataset.speaking = st.speaking ? "true" : "false";
+      self.dataset.muted = st.muted ? "true" : "false";
+      self.textContent = (st.handle || "you") + (st.muted ? " · mute" : "") +
+        (st.speaking ? " · talk" : "");
+    }
+    var mode = dock.querySelector(".cn-voice-mode-tag");
+    if (mode) mode.textContent = st.inputMode || "vad";
+    return true;
+  }
+
+  function onVoiceState(st) {
+    var prev = state.voice || {};
+    var structural =
+      !!prev.joined !== !!st.joined ||
+      prev.channelId !== st.channelId ||
+      !!prev.muted !== !!st.muted ||
+      !!prev.deafened !== !!st.deafened ||
+      prev.inputMode !== st.inputMode ||
+      (prev.peerCount || 0) !== (st.peerCount || 0);
+    state.voice = {
+      supported: !!st.supported,
+      joined: !!st.joined,
+      channelId: st.channelId || null,
+      channelPath: st.channelPath || null,
+      muted: !!st.muted,
+      deafened: !!st.deafened,
+      inputMode: st.inputMode === "ptt" ? "ptt" : "vad",
+      speaking: !!st.speaking,
+      peers: st.peers || {},
+      peerCount: st.peerCount || 0,
+      latencyMs: st.latencyMs != null ? st.latencyMs : null,
+      handle: st.handle || null,
+      error: st.error || null,
+    };
+    if (st.error) status(st.error);
+    if (structural || !paintVoiceLight(state.voice)) {
+      render(true);
+    }
+  }
+
+  function ensureVoiceEngine() {
+    if (!voiceSupported()) return null;
+    if (voiceEngine) return voiceEngine;
+    voiceEngine = window.NB_VOICE.create({
+      onState: onVoiceState,
+    });
+    return voiceEngine;
+  }
+
+  function joinVoice(channelId, channelPath) {
+    if (!voiceSupported()) {
+      status("channel voice not available in this browser");
+      return Promise.resolve({ ok: false, error: "unsupported" });
+    }
+    var chan = null;
+    if (channelId) {
+      chan = findVoiceChannel(channelId);
+      if (!chan) chan = { id: channelId, label: channelId, voice: true };
+    } else {
+      chan = findVoiceChannel(null);
+    }
+    if (!chan) {
+      status("no voice channel here — try /voice join lounge");
+      return Promise.resolve({ ok: false, error: "no channel" });
+    }
+    var path = channelPath || voiceChannelPath(chan);
+    var eng = ensureVoiceEngine();
+    if (!eng) return Promise.resolve({ ok: false, error: "no engine" });
+    return eng.join(chan.id, path).then(function (res) {
+      if (res && res.ok) {
+        status("joined voice/" + (chan.label || chan.id) +
+          " · " + (state.voice.inputMode || "vad") +
+          (state.voice.inputMode === "ptt" ? " (hold ` to talk)" : ""));
+        if (path && state.path !== path) navigate(path, { keepCli: true });
+        else render(true);
+      } else {
+        status((res && res.error) || "could not join voice");
+      }
+      return res;
+    });
+  }
+
+  function leaveVoice() {
+    if (!voiceEngine) {
+      state.voice.joined = false;
+      render(true);
+      return Promise.resolve({ ok: true });
+    }
+    return voiceEngine.leave().then(function (res) {
+      voicePttHeld = false;
+      status("left voice");
+      render(true);
+      return res;
+    });
+  }
+
+  function toggleVoiceMute() {
+    var eng = ensureVoiceEngine();
+    if (!eng || !state.voice.joined) {
+      status("not in voice — /voice join");
+      return false;
+    }
+    var on = eng.toggleMute();
+    status(on ? "muted" : "unmuted");
+    return on;
+  }
+
+  function toggleVoiceDeafen() {
+    var eng = ensureVoiceEngine();
+    if (!eng || !state.voice.joined) {
+      status("not in voice — /voice join");
+      return false;
+    }
+    var on = eng.toggleDeafen();
+    status(on ? "deafened" : "undeafened");
+    return on;
+  }
+
+  function setVoiceInputMode(mode) {
+    var eng = ensureVoiceEngine();
+    if (!eng || !state.voice.joined) {
+      status("not in voice — /voice join");
+      return null;
+    }
+    var next = eng.setInputMode(mode);
+    status("voice input: " + next +
+      (next === "ptt" ? " — hold ` to transmit" : " — speaks when you talk"));
+    return next;
+  }
+
+  function runVoiceCommand(arg) {
+    var parts = String(arg || "").trim().split(/\s+/);
+    var sub = (parts[0] || "status").toLowerCase();
+    var rest = parts.slice(1).join(" ");
+    if (sub === "join") {
+      return joinVoice(rest || null, null).then(function (res) {
+        return (res && res.ok)
+          ? "voice: joined " + (state.voice.channelId || rest || "room")
+          : "voice: " + ((res && res.error) || "join failed");
+      });
+    }
+    if (sub === "leave" || sub === "disconnect" || sub === "hangup") {
+      return leaveVoice().then(function () { return "voice: left"; });
+    }
+    if (sub === "mute") {
+      toggleVoiceMute();
+      return Promise.resolve("voice: " + (state.voice.muted ? "muted" : "unmuted"));
+    }
+    if (sub === "deafen" || sub === "deaf") {
+      toggleVoiceDeafen();
+      return Promise.resolve("voice: " + (state.voice.deafened ? "deafened" : "undeafened"));
+    }
+    if (sub === "ptt" || sub === "push-to-talk") {
+      setVoiceInputMode("ptt");
+      return Promise.resolve("voice: ptt");
+    }
+    if (sub === "vad" || sub === "activity") {
+      setVoiceInputMode("vad");
+      return Promise.resolve("voice: vad");
+    }
+    if (sub === "status" || sub === "who") {
+      if (!state.voice.joined) {
+        return Promise.resolve("voice: not connected — /voice join lounge|standup");
+      }
+      return Promise.resolve(
+        "voice/" + state.voice.channelId +
+        " · " + (state.voice.inputMode || "vad") +
+        (state.voice.muted ? " · muted" : "") +
+        (state.voice.deafened ? " · deafened" : "") +
+        (state.voice.latencyMs != null ? " · " + state.voice.latencyMs + " ms rtt" : "") +
+        " · peers " + (state.voice.peerCount || 0)
+      );
+    }
+    return Promise.resolve("/voice: join [channel] | leave | mute | deafen | ptt | vad | status");
   }
 
   function appendSpeechPhrase(phrase) {
@@ -483,10 +906,133 @@
     render(true);
   }
 
+  function clearSpeechPrompt() {
+    speechBase = "";
+    cliValue = "";
+    state.speech.interim = "";
+    var input = $("[data-cli]");
+    if (input) input.value = "";
+    recompute();
+    paintGhost();
+    render(true);
+  }
+
+  function submitSpeechPrompt() {
+    var text = cliValue || ($("[data-cli]") && $("[data-cli]").value) || "";
+    closeIntel();
+    if (!String(text || "").trim() && !(state.attachments && state.attachments.length)) {
+      status("nothing to send");
+      return;
+    }
+    speechBase = "";
+    cliValue = "";
+    var input = $("[data-cli]");
+    if (input) input.value = "";
+    recompute();
+    if (window.NB_COMPLETE.isSlash(text)) {
+      render(true);
+      return runSlash(text);
+    }
+    var cctx = composeContext();
+    var trimmed = String(text || "").trim();
+    if (trimmed && !isCommand(text) &&
+        (cctx.kind === "reply" || cctx.kind === "post" || cctx.kind === "dm")) {
+      if (!requireParticipation("post")) {
+        cliValue = text;
+        if (input) input.value = text;
+        speechBase = text;
+        return render(true);
+      }
+      publishCompose(trimmed, cctx);
+      return;
+    }
+    if (state.ai && (!trimmed || !isCommand(text))) {
+      render(true);
+      return ask(text);
+    }
+    return run(text);
+  }
+
+  function setSpeechIntent(mode) {
+    var next = window.NB_SPEECH && window.NB_SPEECH.normalizeIntent
+      ? window.NB_SPEECH.normalizeIntent(mode)
+      : "default";
+    state.speech.intent = next;
+    render(true);
+    status("voice " + next + " mode — say \"what can I say?\" for commands");
+    return next;
+  }
+
+  function cycleSpeechIntent() {
+    var next = window.NB_SPEECH && window.NB_SPEECH.nextIntentMode
+      ? window.NB_SPEECH.nextIntentMode(state.speech.intent)
+      : "default";
+    return setSpeechIntent(next);
+  }
+
+  /** Route a final transcript through Voice Access-style intent parsing. */
+  function handleSpeechFinal(phrase) {
+    var p = String(phrase || "").trim();
+    if (!p) return;
+    var parsed = window.NB_SPEECH && window.NB_SPEECH.parseUtterance
+      ? window.NB_SPEECH.parseUtterance(p, state.speech.intent || "default")
+      : { kind: "dictation", text: p };
+    if (parsed.kind === "mode-switch" && parsed.nextMode) {
+      setSpeechIntent(parsed.nextMode);
+      return;
+    }
+    if (parsed.kind === "help") {
+      var help = window.NB_SPEECH.whatCanISay ? window.NB_SPEECH.whatCanISay() : "voice help";
+      pushLine({ kind: "out", text: help });
+      render(true);
+      status("voice commands listed in transcript");
+      scrollOut();
+      return;
+    }
+    if (parsed.kind === "stop") {
+      endDictation({ skipLeftover: true });
+      status("listening stopped");
+      return;
+    }
+    if (parsed.kind === "clear") {
+      clearSpeechPrompt();
+      status("prompt cleared");
+      return;
+    }
+    if (parsed.kind === "submit") {
+      submitSpeechPrompt();
+      return;
+    }
+    if (parsed.kind === "command" && parsed.line) {
+      // Commands do not append into the prompt — they run like slash verbs.
+      speechBase = cliValue;
+      closeIntel();
+      if (window.NB_COMPLETE.isSlash(parsed.line)) {
+        runSlash(parsed.line);
+      } else {
+        run(parsed.line, { silentUser: false });
+      }
+      render(true);
+      status((parsed.hint || "voice command") + " · " + parsed.line);
+      return;
+    }
+    if (parsed.kind === "unknown") {
+      status(parsed.hint || "unrecognized voice command");
+      return;
+    }
+    // Dictation (default).
+    appendSpeechPhrase(parsed.text || p);
+  }
+
   function paintSpeechInterim(interim) {
     state.speech.interim = interim || "";
     var input = $("[data-cli]");
     if (!input) return;
+    // In commands mode, interim is status-only — don't type into the prompt.
+    if ((state.speech.intent || "default") === "commands") {
+      if (interim) status("command: " + interim);
+      return;
+    }
     var show = speechBase;
     if (interim) {
       if (show && !/\s$/.test(show)) show += " ";
@@ -510,19 +1056,31 @@
       mic.setAttribute("aria-pressed", state.speech.listening ? "true" : "false");
       mic.dataset.listening = state.speech.listening ? "true" : "false";
       mic.dataset.mode = state.speech.mode || "";
+      mic.dataset.intent = state.speech.intent || "default";
     }
     var prompt = $(".cn-prompt");
-    if (prompt) prompt.dataset.speech = state.speech.listening ? (state.speech.mode || "on") : "off";
+    if (prompt) {
+      prompt.dataset.speech = state.speech.listening ? (state.speech.mode || "on") : "off";
+      prompt.dataset.voiceIntent = state.speech.intent || "default";
+    }
+    var intent = state.speech.intent || "default";
     if (st.error) status(st.error);
-    else if (st.listening && st.mode === "ptt") status("listening — release ` to stop (push-to-talk)");
-    else if (st.listening && st.mode === "toggle") status("listening — Alt+V or Esc to stop");
+    else if (st.listening && st.mode === "ptt") {
+      status("listening (" + intent + ") — release ` to stop");
+    } else if (st.listening && st.mode === "toggle") {
+      status("listening (" + intent + ") — Alt+V or Esc to stop · Alt+Shift+V cycles mode");
+    }
   }
 
   function ensureSpeechEngine() {
     if (!speechSupported()) return null;
     if (speechEngine) return speechEngine;
     speechEngine = window.NB_SPEECH.create({
-      onFinal: appendSpeechPhrase,
+      lang: state.speech.lang || (window.NB_SPEECH.defaultLang && window.NB_SPEECH.defaultLang()),
+      requireReady: true,
+      isReady: speechReady,
+      notReadyReason: speechNotReadyReason,
+      onFinal: handleSpeechFinal,
       onPartial: paintSpeechInterim,
       onState: onSpeechState,
     });
@@ -531,7 +1089,19 @@
 
   function beginDictation(mode) {
     if (!speechSupported()) {
-      status("speech-to-text not available in this browser");
+      status(speechNotReadyReason());
+      render(true);
+      return false;
+    }
+    if (!speechReady()) {
+      // downloadable → fetch on this gesture; downloading/unavailable → explain.
+      if (state.speech.availability === "downloadable" ||
+          state.speech.availability === "downloading") {
+        fetchSpeechModel({ fromGesture: true });
+        return false;
+      }
+      status(speechNotReadyReason());
+      render(true);
       return false;
     }
     var eng = ensureSpeechEngine();
@@ -547,17 +1117,19 @@
     return ok;
   }
 
-  function endDictation() {
+  function endDictation(opts) {
     if (!speechEngine) return;
+    opts = opts || {};
     // Capture interim before stop() clears engine state.
     var leftover = state.speech.interim;
     speechEngine.stop();
     pttHeld = false;
-    if (leftover) {
-      appendSpeechPhrase(leftover);
+    if (leftover && !opts.skipLeftover) {
+      handleSpeechFinal(leftover);
       state.speech.interim = "";
       return;
     }
+    state.speech.interim = "";
     cliValue = speechBase || cliValue;
     var input = $("[data-cli]");
     if (input) input.value = cliValue;
@@ -566,18 +1138,110 @@
   }
 
   function toggleDictation() {
-    if (!speechSupported()) {
-      status("speech-to-text not available in this browser");
-      return;
-    }
-    var eng = ensureSpeechEngine();
-    if (!eng) return;
     if (state.speech.listening) {
       endDictation();
-      status("dictation stopped");
+      status("listening stopped");
       return;
     }
     beginDictation("toggle");
+  }
+
+  var speechWarmArmed = false;
+  var speechFetchInflight = null;
+
+  async function fetchSpeechModel(opts) {
+    opts = opts || {};
+    if (!window.NB_SPEECH || !window.NB_SPEECH.ensureModel) return null;
+    if (speechFetchInflight) return speechFetchInflight;
+    speechFetchInflight = (async function () {
+      state.speech.availability = "downloading";
+      state.speech.ready = false;
+      state.speech.reason = "downloading on-device speech model…";
+      render(true);
+      status("Downloading on-device speech model — mic stays off until ready");
+      var snap;
+      try {
+        snap = await window.NB_SPEECH.ensureModel(state.speech.lang, {
+          report: function (m) { if (!state.busy) status(m); },
+        });
+      } catch (err) {
+        snap = {
+          state: "unavailable",
+          backend: "none",
+          reason: "speech model download failed: " +
+            ((err && err.message) || String(err)),
+        };
+      }
+      applySpeechAvailability(snap);
+      render(true);
+      if (snap.state === "available") {
+        status("speech ready (on-device) — hold ` to dictate · Alt+V listen");
+        if (opts.autoListen) beginDictation(opts.autoListen);
+      } else {
+        status(snap.reason || speechNotReadyReason());
+      }
+      return snap;
+    })();
+    try {
+      return await speechFetchInflight;
+    } finally {
+      speechFetchInflight = null;
+    }
+  }
+
+  /**
+   * Probe / install the on-device STT pack early. Voice chords stay disabled
+   * until availability === "available". First-run downloads need a gesture
+   * (same constraint as LanguageModel).
+   */
+  async function warmSpeechModel() {
+    if (!window.NB_SPEECH || !window.NB_SPEECH.availability) {
+      applySpeechAvailability({
+        state: "absent",
+        backend: "none",
+        reason: "speech module missing",
+      });
+      return render(true);
+    }
+    var lang = window.NB_SPEECH.defaultLang
+      ? window.NB_SPEECH.defaultLang()
+      : "en-US";
+    state.speech.lang = lang;
+    var snap;
+    try {
+      snap = await window.NB_SPEECH.availability(lang);
+    } catch (err) {
+      snap = {
+        state: "unavailable",
+        backend: "none",
+        reason: "speech probe failed: " + ((err && err.message) || String(err)),
+      };
+    }
+    applySpeechAvailability(snap);
+    render(true);
+
+    if (snap.state === "available") {
+      return status("speech ready (on-device) — hold ` · Alt+V");
+    }
+    if (snap.state === "absent" || snap.state === "unavailable") {
+      return status(snap.reason || speechNotReadyReason());
+    }
+
+    // downloadable / downloading — wait for a gesture before install().
+    status("speech model needs one download — click the mic (or any key) to fetch it");
+    if (speechWarmArmed) return;
+    speechWarmArmed = true;
+    var start = function () {
+      window.removeEventListener("keydown", start, true);
+      window.removeEventListener("pointerdown", start, true);
+      // Defer past the current pointer/key event so a mic click can finish
+      // (morph mid-gesture detaches the button and looks like a dead control).
+      setTimeout(function () {
+        fetchSpeechModel({ fromGesture: true });
+      }, 0);
+    };
+    window.addEventListener("keydown", start, true);
+    window.addEventListener("pointerdown", start, true);
   }
 
   /* ── Durable identity + page state ─────────────────────────────────────── */
@@ -655,34 +1319,26 @@
     var spaces = listSpaces();
     var spaceRows = spaces.map(function (s) {
       var current = identity.spaceId === s.id;
-      var relay = s.relay || {};
       var lock = s.guestsAllowed === false ? "members" : "open";
-      var relayBit = (relay.protocol || "relay") + "·" + (relay.status || "idle");
       return '<button type="button" class="nb-profile-item" role="menuitem" data-space-join="' +
         escAttr(s.id) + '"' + (current ? ' aria-current="true"' : "") +
-        ' title="' + escAttr((s.slug || s.id) + " · " + (s.description || "") + " · " + (relay.url || "")) + '">' +
+        ' title="' + escAttr((s.slug || s.id) + " · " + (s.description || "")) + '">' +
         '<span class="nb-space-short">' + escHtml(s.short || s.id.slice(0, 4).toUpperCase()) + "</span>" +
         "<span>" + escHtml(s.name) +
-        '<span class="nb-profile-item-sub">' + escHtml(s.slug || "") + " · " + escHtml(relayBit) +
-        " · " + (s.subscribers || 0) + " subs</span></span>" +
+        '<span class="nb-profile-item-sub">' + escHtml(s.slug || s.id) +
+        " · " + (s.subscribers || 0) + " members</span></span>" +
         '<span class="nb-profile-item-desc">' + (current ? "current" : lock) + "</span>" +
         "</button>";
     }).join("");
     var signedIn = identity.kind === "claimed" || identity.kind === "atproto";
-    var relayNow = identity.relay || {};
     menu.innerHTML =
       '<div class="nb-profile-head">' +
       '<div class="nb-profile-head-name">' + escHtml(label) + "</div>" +
       '<div class="nb-profile-head-note">' + escHtml(note) + "</div>" +
       '<div class="nb-profile-head-space">' + escHtml(detail) + "</div>" +
-      (relayNow.url
-        ? '<div class="nb-profile-head-space">relay ' + escHtml(relayNow.protocol || "nostr") +
-          " · " + escHtml(relayNow.status || "idle") +
-          (relayNow.write ? " · write" : " · read-only") + "</div>"
-        : "") +
       "</div>" +
       '<div class="nb-profile-section">' +
-      '<div class="nb-profile-section-title">Spaces · relays · subreddits</div>' +
+      '<div class="nb-profile-section-title">Spaces</div>' +
       spaceRows +
       '<button type="button" class="nb-profile-item" role="menuitem" data-goto="/spaces">' +
       "Browse all spaces…</button>" +
@@ -695,7 +1351,7 @@
         ? '<button type="button" class="nb-profile-item" role="menuitem" data-profile-claim>Claim anonymous identity…</button>'
         : "") +
       (identity.kind !== "atproto"
-        ? '<button type="button" class="nb-profile-item" role="menuitem" data-profile-bluesky>Sign in with Bluesky…</button>'
+        ? '<button type="button" class="nb-profile-item" role="menuitem" data-profile-bluesky>Sign in with handle…</button>'
         : "") +
       (signedIn
         ? '<button type="button" class="nb-profile-item danger" role="menuitem" data-profile-signout>Sign out · go anonymous</button>'
@@ -779,15 +1435,15 @@
       ? window.NB_SESSION.homeSpace().id : "civic-workshop"));
     if (title) {
       title.textContent = mode === "claim" ? "Claim anonymous identity"
-        : mode === "login" ? "Sign in with Bluesky"
+        : mode === "login" ? "Sign in with handle"
         : "Sign in to a space";
     }
     if (lead) {
       lead.textContent = mode === "claim"
         ? "Bind a local handle to this anonymous principal in the selected space."
         : mode === "login"
-          ? "Bluesky-style ATProto auth into a space: enter a handle. Mock OAuth → did:plc."
-          : "Pick a Slack-style space and a handle. Members-only spaces require sign-in.";
+          ? "Enter a handle to sign in to the selected space."
+          : "Pick a space and a handle. Members-only spaces require sign-in.";
     }
     if (claimBtn) {
       claimBtn.hidden = mode === "login";
@@ -796,7 +1452,7 @@
     }
     if (atBtn) {
       atBtn.hidden = mode === "claim";
-      atBtn.textContent = "Bluesky + space";
+      atBtn.textContent = "Sign in with handle";
     }
     var input = $("[data-auth-handle]");
     if (input) {
@@ -874,12 +1530,10 @@
     try {
       var next = window.NB_SESSION.joinSpace(identity, spaceId, opts || {});
       applyIdentity(next, next.anonymous
-        ? "anonymous in " + next.spaceName +
-          (next.relay ? " · relay " + (next.relay.status || "idle") : "")
-        : "in " + next.spaceName + " as " + (next.displayName || next.handle) +
-          (next.relay ? " · relay " + (next.relay.status || "idle") : ""),
+        ? "anonymous in " + next.spaceName
+        : "in " + next.spaceName + " as " + (next.displayName || next.handle),
         "space.joined");
-      // Land on the space hub so relay / feed / channels are visible.
+      // Land on the space hub (feed, channels, projects, about).
       navigate("/spaces/" + next.spaceId, { keepCli: true });
     } catch (e) {
       // Members-only: open sign-in dialog pre-selected to that space.
@@ -924,6 +1578,7 @@
       filter: state.filter,
       feedQuery: state.feedQuery,
       feedView: state.feedView,
+      feedPinnedViews: (state.feedPinnedViews || []).slice(),
       prev: state.prev,
       folded: state.folded,
       votes: state.votes,
@@ -974,7 +1629,7 @@
         state.activeSession = Math.min(snap.activeSession || 0, state.sessions.length - 1);
         thawSession(state.activeSession);
       } else {
-        ["path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "prev", "ai", "live", "nextId"].forEach(function (k) {
+        ["path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "feedPinnedViews", "prev", "ai", "live", "nextId"].forEach(function (k) {
           if (snap[k] != null) state[k] = snap[k];
         });
         state.folded = Object.assign({}, snap.folded || {});
@@ -1006,7 +1661,7 @@
     var sess = state.sessions[state.activeSession];
     if (!sess) return;
     SESSION_FIELDS.forEach(function (k) {
-      if (k === "lines" || k === "history") sess[k] = (state[k] || []).slice();
+      if (k === "lines" || k === "history" || k === "feedPinnedViews") sess[k] = (state[k] || []).slice();
       else if (k === "folded" || k === "openTools" || k === "votes" || k === "reactions" || k === "treeOpen") {
         sess[k] = Object.assign({}, state[k] || {});
       } else if (k === "detailOpen") {
@@ -1032,8 +1687,13 @@
     state.filter = sess.filter || "";
     state.feedQuery = sess.feedQuery || "";
     state.feedView = sess.feedView || "hot";
+    state.feedPinnedViews = Array.isArray(sess.feedPinnedViews) ? sess.feedPinnedViews.slice() : [];
+    state.feedAddOpen = false;
     state.feedQueryError = null;
     state.prev = sess.prev || "/";
+    state.homeFeed = sess.homeFeed || "following";
+    state.homeCursor = sess.homeCursor != null ? sess.homeCursor : 0;
+    state.threadFocus = sess.threadFocus || null;
     state.histIndex = sess.histIndex != null ? sess.histIndex : -1;
     state.busy = !!sess.busy;
     // Deep-enough copies so mutating folds/tools/lines does not cross tabs.
@@ -1179,12 +1839,13 @@
     }
   }
 
-  function switchSession(i) {
+  function switchSession(i, opts) {
     if (i === state.activeSession || i < 0 || i >= state.sessions.length) return;
     freezeSession();
     thawSession(i);
     recompute();
     render();
+    if (opts && opts.keepFocus) return;
     focusCli();
   }
 
@@ -1193,7 +1854,6 @@
     // Isolated worktree: default home path + empty transcript/history —
     // never inherit the previous tab's path, filter, editor, or attachments.
     var sess = makeSession(DEFAULT_WORKSPACE_PATH);
-    seedBanner(sess);
     state.sessions.push(sess);
     thawSession(state.sessions.length - 1);
     recompute();
@@ -1220,6 +1880,13 @@
     if (!line.id) line.id = nextLineId();
     state.lines.push(line);
     if (state.lines.length > 80) state.lines = state.lines.slice(-80);
+    // Session output lives in the detail blade — keep it open so CLI/AI replies
+    // are not trapped behind a closed pane (there is no side terminal).
+    // Exception: session-chat focus on the home feed keeps Following visible.
+    if (line.kind && line.kind !== "banner" && state.detailOpen === false &&
+        !state.sessionOutFocus) {
+      state.detailOpen = true;
+    }
   }
 
   function updateLine(id, patch) {
@@ -1230,25 +1897,6 @@
       }
     }
     return null;
-  }
-
-  function seedBanner(sess) {
-    var target = sess || state;
-    var lines = target.lines || (target.lines = []);
-    var text = window.NB_ASCII.banner(
-      {
-        name: window.NB_DATA.board.name,
-        node: (sess && sess.path) || state.path,
-        epoch: window.NB_DATA.board.epoch,
-        landed: window.NB_DATA.board.landed,
-        total: window.NB_DATA.board.total,
-        ships: window.NB_DATA.board.ships,
-      },
-      window.NB_APP && window.NB_APP.toolCount != null ? window.NB_APP.toolCount : "?",
-      window.NB_APP && window.NB_APP.toolHost ? window.NB_APP.toolHost : "…",
-      Math.floor(Math.min(document.documentElement.clientWidth, 640) / 10) - 4,
-    );
-    lines.unshift({ id: nextLineId("B"), kind: "banner", text: text });
   }
 
   function toolSummary(tool, args) {
@@ -1435,7 +2083,6 @@
     document.body.dataset.theme = t.name;
     var n = $("[data-theme-name]"); if (n) n.textContent = t.name;
     var note = $("[data-theme-note]"); if (note) note.textContent = t.note;
-    var sel = $("[data-theme-select]"); if (sel) sel.value = t.id;
     schedulePersist();
   }
 
@@ -1495,6 +2142,7 @@
     if (state.speech) state.speech.supported = speechSupported();
     var mount = $("[data-mount]");
     mount.dataset.exp = exp().id;
+    mount.dataset.tui = "true";
     // Morph, don't replace. A node that did not change survives the render —
     // and with it everything the browser hangs off a node: focus and caret,
     // scroll position, hover state, and any animation mid-flight. The old
@@ -1537,29 +2185,99 @@
     }
     lastScrolled = cur;
     paintActivityBell();
+    paintKeysCue();
     schedulePersist();
+  }
+
+  /** Persistent status-bar cue for Ctrl+Space — always visible, never transient. */
+  function paintKeysCue() {
+    var el = $("[data-keys-open]");
+    if (!el) return;
+    var open = !!(state.helpOpen && state.intelOpen);
+    el.dataset.open = open ? "true" : "false";
+    el.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+
+  /** Toggle the same overlay Ctrl+Space opens (status cue + /keys). */
+  function toggleKeys() {
+    if (state.intelOpen && state.helpOpen) {
+      closeIntel();
+      render(true);
+      focusCli();
+      status();
+      return;
+    }
+    openIntel();
   }
 
   /** Move the menu highlight without re-rendering the input under the caret. */
   function highlightCandidate() {
     var menu = document.querySelector(".cn-menu");
     if (!menu) return;
-    Array.prototype.forEach.call(menu.children, function (el, i) {
+    var opts = menu.querySelectorAll('[role="option"], [data-cand]');
+    var input = $("[data-cli]");
+    Array.prototype.forEach.call(opts, function (el) {
+      var i = Number(el.getAttribute("data-cand"));
       if (i === state.candIndex) {
         el.setAttribute("aria-current", "true");
+        el.setAttribute("aria-selected", "true");
         el.scrollIntoView({ block: "nearest" });
+        if (input) input.setAttribute("aria-activedescendant", el.id || ("cn-cand-" + i));
       } else {
         el.removeAttribute("aria-current");
+        el.setAttribute("aria-selected", "false");
       }
     });
   }
 
+  /**
+   * Keep ghost / insert / preview aligned with the highlighted catalogue row.
+   * Arrow ↑↓ only moved aria-current before — → and Tab then always took the
+   * first-ranked option. Call after candIndex changes without recomputing.
+   */
+  function syncCompletionToIndex() {
+    var c = state.completion;
+    if (!c || !c.candidates || !c.candidates.length) return;
+    var n = c.candidates.length;
+    var i = ((state.candIndex % n) + n) % n;
+    state.candIndex = i;
+    var cand = c.candidates[i];
+    if (!cand) return;
+    var value = String(cand.value || "");
+    var q = String(c.query || "");
+    c.insert = value;
+    // Bare "/" slash catalogue: typed "/" + ghost "go " → "/go ".
+    if (q === "/" && value.charAt(0) === "/") {
+      c.ghost = value.slice(1) + " ";
+      c.preview = "";
+      return;
+    }
+    if (value.toLowerCase().indexOf(q.toLowerCase()) === 0) {
+      var rest = value.slice(q.length);
+      if ((c.kind === "command" || c.kind === "slash" || c.kind === "cmd") &&
+          rest !== "" && !/\s$/.test(rest)) {
+        rest += " ";
+      }
+      c.ghost = rest;
+      c.preview = "";
+      return;
+    }
+    // Absolute path / non-prefix match — replace preview for the selection.
+    c.ghost = "";
+    c.preview = value;
+  }
+
   function paintGhost() {
     var input = $("[data-cli]");
-    var ghost = $("[data-ghost]");
-    if (!input || !ghost) return;
-    var c = state.completion;
-    ghost.textContent = c && c.ghost ? input.value + c.ghost : "";
+    var mirror = $("[data-cli-mirror]") || $("[data-ghost]");
+    if (!input || !mirror) return;
+    var c = state.completion || { candidates: [], ghost: "" };
+    if (window.NB_COMPLETE && window.NB_COMPLETE.formatCliPreview) {
+      mirror.innerHTML = window.NB_COMPLETE.formatCliPreview(input.value, c);
+    } else {
+      var ghost = c.ghost ? input.value + c.ghost : input.value;
+      mirror.textContent = ghost;
+    }
   }
 
   function status(msg) {
@@ -1627,7 +2345,37 @@
     return state.detailOpen !== false;
   }
 
-  /** Show the detail pane (e.g. after selecting a file). */
+  /**
+   * Open one message's conversation in the detail pane — root thread only,
+   * with the clicked message marked. Channel feed stays for browse; click /
+   * Enter opens the thread.
+   */
+  function openThread(postId, opts) {
+    opts = opts || {};
+    postId = postId ? String(postId) : "";
+    if (!postId) return false;
+    state.threadFocus = postId;
+    state.detailOpen = true;
+    if (opts.focus !== false) state.focus = detailBladeIndex();
+    var list = entries();
+    var ix = list.findIndex(function (e) { return e.post && e.post.id === postId; });
+    if (ix >= 0) state.cursor = ix;
+    if (state.editor) state.editor.focused = false;
+    if (!opts.noRender) render(true);
+    if (!opts.silent) status("thread · " + postId);
+    return true;
+  }
+
+  function clearThreadFocus(opts) {
+    opts = opts || {};
+    if (!state.threadFocus) return false;
+    state.threadFocus = null;
+    if (!opts.noRender) render(true);
+    if (!opts.silent) status("channel feed");
+    return true;
+  }
+
+  /** Show selection in the detail pane (e.g. after selecting a file). */
   function openDetail(opts) {
     opts = opts || {};
     state.detailOpen = true;
@@ -1637,11 +2385,15 @@
     return true;
   }
 
-  /** Hide the detail pane entirely — nav takes the row. */
+  /**
+   * Leave selection detail for the Following TUI log (people you follow).
+   * Detail pane stays mounted — nav never expands to fill the workbench.
+   */
   function closeDetail(opts) {
     opts = opts || {};
     state.detailOpen = false;
-    state.focus = listBladeIndex();
+    state.threadFocus = null;
+    state.focus = detailBladeIndex();
     if (state.editor) state.editor.focused = false;
     // Expand nav if it was collapsed for detail-first reading.
     if (state.panes && state.panes.zoom) {
@@ -1649,14 +2401,15 @@
       savePanes();
     }
     if (!opts.noRender) render(true);
-    if (!opts.silent) status("detail closed · nav only");
+    requestAnimationFrame(revealHomeFeedTabs);
+    if (!opts.silent) status("following feed");
     return true;
   }
 
   /**
    * Close / × on a blade:
    *   nav (0)    → reload nav at parent path (up)
-   *   detail (1) → hide detail pane entirely
+   *   detail (1) → show Following feed (keep detail pane)
    */
   function closeBlade(index) {
     index = Number(index);
@@ -1706,7 +2459,12 @@
         state.cursor = found;
         // File selection opens/focuses detail; nav reloads for the parent dir.
         state.detailOpen = true;
+        // Posts open as a thread detail; other files leave thread focus clear.
+        var hit = probe[found];
+        state.threadFocus = hit && hit.post ? hit.post.id : null;
         state.focus = detailBladeIndex();
+        syncReplyWithPath();
+        syncPersonFromPath();
         render(opts && opts.keepCli);
         return true;
       }
@@ -1716,6 +2474,7 @@
     state.path = target;
     state.cursor = 0;
     state.filter = "";
+    state.threadFocus = null;
     // Drop one-level peeks when the nav reloads into a new branch.
     if (state.treeOpen) {
       Object.keys(state.treeOpen).forEach(function (k) {
@@ -1724,8 +2483,121 @@
     }
     // Land on the single nav blade — same pane, new branch of subnodes.
     state.focus = listBladeIndex();
+    syncReplyWithPath();
+    syncPersonFromPath();
     render(opts && opts.keepCli);
     return true;
+  }
+
+  function listOwnsKeyboard() {
+    return (state.focus == null || state.focus <= listBladeIndex());
+  }
+
+  function detailOwnsKeyboard() {
+    return isDetailOpen() && !listOwnsKeyboard();
+  }
+
+  function onHomeFeed() {
+    return state.detailOpen === false;
+  }
+
+  /** Home feed owns j/k / Enter / → when selection is closed and detail is focused. */
+  function homeOwnsKeyboard() {
+    return onHomeFeed() && !listOwnsKeyboard();
+  }
+
+  function currentHomeItems() {
+    if (window.NB_MAP && window.NB_MAP.homeFeedItems) {
+      return window.NB_MAP.homeFeedItems(state.homeFeed, state.merged, state.homeFeedRead) || [];
+    }
+    return [];
+  }
+
+  function moveHomeCursor(delta) {
+    var items = currentHomeItems();
+    if (!items.length) {
+      status("home · empty");
+      return;
+    }
+    var cur = state.homeCursor || 0;
+    if (cur < 0 || cur >= items.length) cur = 0;
+    state.homeCursor = Math.max(0, Math.min(items.length - 1, cur + delta));
+    focusColumns();
+    state.focus = detailBladeIndex();
+    if (state.editor) state.editor.focused = false;
+    render(true);
+    requestAnimationFrame(function () {
+      var el = document.querySelector('[data-home-item][aria-current="true"]') ||
+        document.querySelector("[data-home-cursor]");
+      if (el && el.scrollIntoView) {
+        try { el.scrollIntoView({ block: "nearest" }); } catch { /* fine */ }
+      }
+    });
+    var it = items[state.homeCursor];
+    if (it) status("home · " + (it.who || it.title || it.id));
+  }
+
+  function cycleHomeTab(delta) {
+    var views = window.NB_MAP && window.NB_MAP.homeFeedViews
+      ? window.NB_MAP.homeFeedViews()
+      : [
+        { id: "following" }, { id: "announcements" },
+        { id: "featured" }, { id: "creators" },
+      ];
+    if (!views.length) return;
+    var ix = 0;
+    for (var i = 0; i < views.length; i++) {
+      if (views[i].id === state.homeFeed) { ix = i; break; }
+    }
+    var next = views[(ix + delta + views.length * 8) % views.length];
+    setHomeFeed(next.id);
+  }
+
+  /** Open the home-feed row under homeCursor (mark read + navigate). */
+  function activateHomeItem() {
+    var items = currentHomeItems();
+    if (!items.length) {
+      status("home · empty");
+      return false;
+    }
+    var cur = state.homeCursor || 0;
+    if (cur < 0 || cur >= items.length) cur = 0;
+    var it = items[cur];
+    if (!it) return false;
+    if (it.id) markHomeFeedRead(it.id);
+    state.detailOpen = true;
+    focusColumns();
+    var dest = it.where || "/";
+    if (navigate(dest, { keepCli: true })) {
+      status("open · " + (it.whereLabel || dest));
+      return true;
+    }
+    status("cannot open " + dest);
+    return false;
+  }
+
+  /**
+   * When a thread is focused, j/k move to the previous/next post in the nav
+   * list without dumping you back to the channel feed.
+   */
+  function moveThreadBrowse(delta) {
+    var list = entries().filter(function (e) { return e && e.post; });
+    if (!list.length) return;
+    var ix = -1;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].post.id === state.threadFocus) { ix = i; break; }
+    }
+    if (ix < 0) ix = 0;
+    var next = Math.max(0, Math.min(list.length - 1, ix + delta));
+    var post = list[next].post;
+    // Keep nav cursor aligned with the thread we're reading.
+    var all = entries();
+    state.cursor = all.findIndex(function (e) {
+      return e && e.post && e.post.id === post.id;
+    });
+    if (state.cursor < 0) state.cursor = 0;
+    openThread(post.id, { silent: true });
+    status("thread · " + post.id);
   }
 
   function moveCursor(delta) {
@@ -1733,6 +2605,25 @@
     // re-scope only via click or close (they display the path dependency).
     // When the terminal editor is focused, list motion yields to the editor.
     if (state.editor && state.editor.focused) return;
+    // Home feed owns j/k when selection is closed and the detail pane is focused.
+    if (homeOwnsKeyboard()) return moveHomeCursor(delta);
+    // Detail owns the keyboard: keep thread focus; browse sibling posts in-thread.
+    if (detailOwnsKeyboard()) {
+      if (state.threadFocus) return moveThreadBrowse(delta);
+      // Channel/DM feed in detail without a focused thread — nudge nav cursor
+      // but keep detail focus (don't steal back to the sidebar).
+      var listD = visible();
+      if (!listD.length) return;
+      var allD = entries();
+      var currentNameD = allD[state.cursor] ? allD[state.cursor].name : null;
+      var viD = listD.findIndex(function (e) { return e.name === currentNameD; });
+      if (viD === -1) viD = 0;
+      var nextD = Math.max(0, Math.min(listD.length - 1, viD + delta));
+      state.cursor = allD.findIndex(function (e) { return e.name === listD[nextD].name; });
+      if (state.editor) state.editor.focused = false;
+      render();
+      return;
+    }
     var list = visible();
     if (!list.length) return;
     var all = entries();
@@ -1742,18 +2633,20 @@
     var next = Math.max(0, Math.min(list.length - 1, vi + delta));
     state.cursor = all.findIndex(function (e) { return e.name === list[next].name; });
     state.focus = listBladeIndex();
+    // Browse the channel from the nav — arrow moves leave thread focus.
+    state.threadFocus = null;
     // Selecting a new list row leaves the editor focus.
     if (state.editor) state.editor.focused = false;
     render();
   }
 
   /**
-   * Entries whose detail is text the terminal editor can host — files,
-   * agent payloads, and posts/messages. Notifications and dirs are not.
+   * Entries whose detail is text the terminal editor can host — files and
+   * agent payloads. Posts open as threads (use `e` to edit a post body).
    */
   function entryHasTextEditor(e) {
-    if (!e || e.kind === "dir" || e.notification) return false;
-    if (e.post) return true;
+    if (!e || e.kind === "dir" || e.notification || e.post) return false;
+    if (e.voice || e.meta === "voice") return false;
     if (e.agentFile || e.agentSkill || e.agentTool) return true;
     if (e.meta === "instructions" || e.meta === "config" ||
         e.meta === "skill" || e.meta === "tool") return true;
@@ -1776,14 +2669,15 @@
   }
 
   function moveBladeFocus(delta) {
-    // If detail is closed, → opens it; text content also activates the editor.
+    // → from nav into Following opens selection detail (and editor when text).
     if (delta > 0 && !isDetailOpen()) {
       var leaf = entries()[state.cursor];
       if (entryHasTextEditor(leaf)) return activateDetailEditor(leaf);
       openDetail({ silent: true });
       return;
     }
-    var max = isDetailOpen() ? detailBladeIndex() : listBladeIndex();
+    // Detail blade is always mounted (selection or Following).
+    var max = detailBladeIndex();
     state.focus = Math.max(0, Math.min(max, (state.focus != null ? state.focus : listBladeIndex()) + delta));
     render(true);
   }
@@ -1796,6 +2690,8 @@
     opts = opts || {};
     handle = String(handle || "").replace(/^@/, "").toLowerCase();
     if (!handle) return false;
+    syncPersonPanePeer(handle);
+    state.personPane = "messages";
     var dest = MAP.dmPath ? MAP.dmPath(handle) : ("/dms/" + handle);
     // Ensure known members (people + Eve agents) can open even if sitemap lag.
     var known = window.NB_MAP.isKnownPeer
@@ -1846,8 +2742,13 @@
       // Keep nav open — collapse is explicit (z / Alt+Z / header).
       return;
     }
-    // File / post detail — open detail pane; leave nav expanded so the user
-    // can keep navigating. Collapse is explicit (z / Alt+Z / header).
+    // File / post detail — posts open as a thread; other files open detail.
+    // Leave nav expanded so the user can keep navigating.
+    if (e.post) {
+      openThread(e.post.id);
+      return;
+    }
+    state.threadFocus = null;
     state.detailOpen = true;
     state.focus = detailBladeIndex();
     // Editable files open in the terminal editor.
@@ -1884,14 +2785,18 @@
   }
 
   /**
-   * Right arrow: directory → slide into it; text leaf → open detail and
-   * activate the terminal editor (files, posts/messages); else focus detail.
+   * Right arrow / l: directory → slide into it; post → open thread (same as
+   * Enter); other text leaves → editor; else focus detail.
    */
   function goRight() {
+    // Home feed rows only when the home pane owns focus — nav → still opens
+    // the selected dir / post / file even while the Following log is visible.
+    if (homeOwnsKeyboard()) return activateHomeItem();
     var list = entries();
     var e = list[state.cursor];
-    var onList = (state.focus == null || state.focus <= listBladeIndex());
+    var onList = listOwnsKeyboard();
     if (onList && e && e.kind === "dir") return descend();
+    if (onList && e && e.post) return openThread(e.post.id);
     if (onList && e && entryHasTextEditor(e)) return activateDetailEditor(e);
     if (onList && e) return descend();
     return moveBladeFocus(1);
@@ -1899,9 +2804,32 @@
 
   /**
    * Left arrow: if focused on detail, return to list; else slide to parent.
+   * On the home feed, ← / h focuses the nav sidebar.
    */
   function goLeft() {
+    if (homeOwnsKeyboard()) {
+      focusColumns();
+      state.focus = listBladeIndex();
+      render(true);
+      status("nav — ↑↓ to move, → or Enter to open · Esc returns to home rows");
+      return;
+    }
     return ascend();
+  }
+
+  /** Explicit editor open — posts included (→ opens threads instead). */
+  function editCursorEntry() {
+    if (homeOwnsKeyboard()) {
+      status("home · open a row first (Enter), then e to edit");
+      return false;
+    }
+    var e = entries()[state.cursor];
+    if (!e) return false;
+    if (e.post || entryHasTextEditor(e) || e.kind === "file") {
+      return activateDetailEditor(e);
+    }
+    status("nothing to edit");
+    return false;
   }
 
   /* ── Live stream ───────────────────────────────────────────────────────── */
@@ -1979,6 +2907,250 @@
     if (post.dm) broadcastHookEvent("dm.received", payload);
   }
 
+  /**
+   * Prompt context from the active blade path + armed reply.
+   * reply → reply to that post; channel/dm → new message; otherwise nav scope
+   * for create-channel / create-project (AI tools).
+   */
+  function composeContext() {
+    if (state.replyTo && state.replyTo.id) {
+      return {
+        kind: "reply",
+        postId: state.replyTo.id,
+        who: state.replyTo.who,
+        channel: state.replyTo.channel,
+        project: state.replyTo.project || null,
+        path: state.path,
+      };
+    }
+    // Home feed (selection closed) is not a channel/DM compose surface —
+    // leftover path must not silently publish into a prior room.
+    if (!state.detailOpen) {
+      return { kind: "nav", scope: "home", path: state.path || "/" };
+    }
+    var parts = MAP.split(state.path);
+    if (parts[0] === "dms" && parts[1]) {
+      return { kind: "dm", dm: parts[1], path: state.path };
+    }
+    if (parts[0] === "projects" && parts[2] === "channels" && parts[3]) {
+      var proj = parts[1];
+      var label = parts[3];
+      var ch = MAP.findChannelByLabel ? MAP.findChannelByLabel(label) : null;
+      var channelId = ch ? ch.id : (proj === "community" ? label : label);
+      return {
+        kind: "post",
+        project: proj,
+        channel: channelId,
+        channelLabel: label,
+        path: state.path,
+      };
+    }
+    if (parts[0] === "projects" && parts.length === 1) {
+      return { kind: "nav", scope: "projects", path: state.path };
+    }
+    if (parts[0] === "projects" && parts.length === 2) {
+      return { kind: "nav", scope: "project", project: parts[1], path: state.path };
+    }
+    if (parts[0] === "projects" && parts[2] === "channels" && parts.length === 3) {
+      return { kind: "nav", scope: "channels", project: parts[1], path: state.path };
+    }
+    if (parts[0] === "projects" && parts[2] === "members") {
+      return { kind: "nav", scope: "members", project: parts[1], path: state.path };
+    }
+    return { kind: "nav", scope: "board", path: state.path };
+  }
+
+  function composeLabel(ctx) {
+    ctx = ctx || composeContext();
+    if (ctx.kind === "reply") {
+      return "reply @" + (ctx.who || "?") + " · " + (ctx.postId || "");
+    }
+    if (ctx.kind === "post") {
+      return "post #" + (ctx.channelLabel || ctx.channel || "?");
+    }
+    if (ctx.kind === "dm") return "dm @" + (ctx.dm || "?");
+    if (ctx.kind === "nav") {
+      if (ctx.scope === "home") return "nav · home feed";
+      if (ctx.scope === "channels") return "nav · create channel in " + (ctx.project || "project");
+      if (ctx.scope === "projects") return "nav · create project";
+      if (ctx.scope === "project") return "nav · " + (ctx.project || "project");
+      return "nav · " + (ctx.path || "/");
+    }
+    return "prompt";
+  }
+
+  function armReplyTo(postId, who, channel, project) {
+    state.replyTo = {
+      id: postId,
+      who: who || "there",
+      channel: channel || null,
+      project: project || null,
+    };
+  }
+
+  function clearReplyTo() {
+    state.replyTo = null;
+  }
+
+  /** Clear armed reply when the path leaves that channel (or board entirely). */
+  function syncReplyWithPath() {
+    if (!state.replyTo) return;
+    var parts = MAP.split(state.path);
+    var ch = state.replyTo.channel;
+    if (!ch) { clearReplyTo(); return; }
+    var label = ch;
+    if (MAP.findChannelByLabel) {
+      var found = (MAP.allChannels && MAP.allChannels() || []).filter(function (c) {
+        return c.id === ch;
+      })[0];
+      if (found) label = found.label;
+    }
+    var onChannel = parts[0] === "projects" && parts[2] === "channels" &&
+      (parts[3] === label || parts[3] === ch);
+    var onDm = parts[0] === "dms";
+    if (!onChannel && !onDm) clearReplyTo();
+  }
+
+  /** Keep person pane peer in sync with /dms/<handle>; reset to messages on peer change. */
+  function syncPersonFromPath() {
+    var parts = MAP.split(state.path);
+    if (parts[0] === "dms" && parts[1]) {
+      syncPersonPanePeer(parts[1]);
+      return;
+    }
+    // Selecting a member in the roll previews their DM — track that peer too.
+    if (parts[0] === "members" || (parts[0] === "projects" && parts[2] === "members")) {
+      var list = entries();
+      var e = list[state.cursor];
+      if (e && (e.openDm || e.name)) syncPersonPanePeer(e.openDm || e.name);
+    }
+  }
+
+  function authorHandle() {
+    if (identity && identity.handle) return String(identity.handle).replace(/^@/, "");
+    if (identity && identity.displayName && identity.kind !== "guest") {
+      return String(identity.displayName).replace(/\s+/g, "-").toLowerCase();
+    }
+    return "you";
+  }
+
+  /**
+   * Publish from the prompt into the active compose scope (reply / post / dm).
+   */
+  function publishCompose(body, ctx) {
+    ctx = ctx || composeContext();
+    body = String(body || "").trim();
+    if (!body) return null;
+    if (ctx.kind !== "reply" && ctx.kind !== "post" && ctx.kind !== "dm") return null;
+    var who = authorHandle();
+    var post = {
+      id: "live-" + state.nextId,
+      at: clock(),
+      who: who,
+      body: body,
+      state: "open",
+      sig: "sig:" + who + "-" + state.nextId,
+    };
+    state.nextId += 1;
+    if (ctx.kind === "reply") {
+      post.re = ctx.postId;
+      post.channel = ctx.channel;
+      if (ctx.project && ctx.project !== "community") post.project = ctx.project;
+    } else if (ctx.kind === "post") {
+      post.channel = ctx.channel;
+      if (ctx.project && ctx.project !== "community") post.project = ctx.project;
+    } else if (ctx.kind === "dm") {
+      post.dm = ctx.dm;
+    }
+    state.merged.push(post);
+    if (ctx.kind === "reply") clearReplyTo();
+    clearSessionOutFocus({ noRender: true });
+    beginUserTurn(body, "compose");
+    var where = ctx.kind === "dm"
+      ? ("@" + ctx.dm)
+      : (ctx.kind === "reply"
+        ? ("reply to " + ctx.postId)
+        : ("#" + (ctx.channelLabel || ctx.channel)));
+    pushLine({ kind: "out", text: "posted · " + where });
+    notifyFromLivePost(post);
+    render(true);
+    status("posted · " + where);
+    return post;
+  }
+
+  function ensureOverlay() {
+    if (!state.boardOverlay) {
+      state.boardOverlay = { channels: [], projects: [], projectChannels: {} };
+    }
+    if (!state.boardOverlay.channels) state.boardOverlay.channels = [];
+    if (!state.boardOverlay.projects) state.boardOverlay.projects = [];
+    if (!state.boardOverlay.projectChannels) state.boardOverlay.projectChannels = {};
+    return state.boardOverlay;
+  }
+
+  function createChannel(name, opts) {
+    opts = opts || {};
+    name = String(name || "").trim();
+    if (!name) return { ok: false, error: "name required" };
+    var ov = ensureOverlay();
+    var ctx = composeContext();
+    var project = opts.project || ctx.project ||
+      (MAP.split(state.path)[0] === "projects" ? MAP.split(state.path)[1] : "community");
+    project = String(project || "community");
+    var id = MAP.slug(name);
+    var label = name;
+    // Prefer keeping typed slug-looking names as both id and label for listings.
+    if (/^[a-z0-9][a-z0-9-]*$/i.test(name)) {
+      id = name.toLowerCase();
+      label = name;
+    }
+    var proj = MAP.findProject(project);
+    if (!proj && project !== "community") {
+      return { ok: false, error: "no such project: " + project };
+    }
+    if (proj && proj.community) {
+      if ((ov.channels || []).some(function (c) { return c.id === id || c.label === label; }) ||
+          (MAP.allChannels && MAP.allChannels().some(function (c) {
+            return c.id === id || c.label === label;
+          }))) {
+        return { ok: false, error: "channel exists: " + label };
+      }
+      ov.channels.push({ id: id, label: label, kind: "social", unread: 0 });
+    } else {
+      var bag = ov.projectChannels;
+      if (!bag[project]) bag[project] = [];
+      var names = MAP.projectChannelNames ? MAP.projectChannelNames(proj) : (proj.channels || []);
+      if (names.indexOf(label) !== -1 || bag[project].indexOf(label) !== -1) {
+        return { ok: false, error: "channel exists: " + label };
+      }
+      bag[project].push(label);
+    }
+    render(true);
+    status("created channel " + label + " in " + project);
+    return { ok: true, name: label, id: id, project: project };
+  }
+
+  function createProject(name) {
+    name = String(name || "").trim();
+    if (!name) return { ok: false, error: "name required" };
+    var ov = ensureOverlay();
+    var id = MAP.slug(name);
+    if (/^[a-z0-9][a-z0-9-]*$/i.test(name)) id = name.toLowerCase();
+    if (MAP.findProject(id) || (ov.projects || []).some(function (p) { return p.id === id; })) {
+      return { ok: false, error: "project exists: " + id };
+    }
+    ov.projects.push({
+      id: id,
+      slug: id,
+      open: 0,
+      channels: ["issues", "changes"],
+      hint: "created",
+    });
+    render(true);
+    status("created project " + id);
+    return { ok: true, id: id, name: id };
+  }
+
   function tick() {
     if (!state.live) return;
     var seed = D.incoming[(state.nextId - 1) % D.incoming.length];
@@ -2021,6 +3193,7 @@
     state.helpOpen = false;
     state.helpCtx = null;
     state.completion = null;
+    state.menuDismissed = false;
     cliValue = "";
     render();
     status();
@@ -2039,6 +3212,9 @@
   function menuShouldOpen() {
     var c = state.completion;
     if (!c || !c.candidates || !c.candidates.length) return false;
+    // Esc dismissed the combobox — stay closed until the user types again or
+    // forces intellisense open with Ctrl+Space.
+    if (state.menuDismissed && !state.intelOpen) return false;
     // Ctrl+Space forces the palette open (including the full command catalogue
     // on an empty prompt). Ordinary typing only opens when there is text and a
     // real choice — otherwise Enter-then-clear would leave every command listed.
@@ -2051,7 +3227,39 @@
         c.candidates.length >= 1) {
       return true;
     }
+    // CLI: show suggestions as soon as a verb/path/sort/query has matches.
+    if (typed.length > 0 && c.candidates.length >= 1 &&
+        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query")) {
+      return true;
+    }
     return c.candidates.length > 1 && typed.length > 0;
+  }
+
+  /** True when the suggestion list is (or would be) showing for this draft. */
+  function menuIsActive() {
+    if (state.intelOpen || state.helpOpen) return true;
+    if (state.menuDismissed) return false;
+    var c = state.completion;
+    if (!c || !c.candidates || !c.candidates.length) return false;
+    var typed = String(cliValue || "");
+    if (typed.charAt(0) === "/" && c.candidates.length >= 1) return true;
+    if (window.NB_COMPLETE.isMarkerKind && window.NB_COMPLETE.isMarkerKind(c.kind) &&
+        c.candidates.length >= 1) {
+      return true;
+    }
+    if (typed.length > 0 && c.candidates.length >= 1 &&
+        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query")) {
+      return true;
+    }
+    return c.candidates.length > 1 && typed.length > 0;
+  }
+
+  /** Dismiss the suggestion combobox; keep the draft. Returns true if it was open. */
+  function dismissMenu() {
+    if (state.intelOpen || state.helpOpen) return closeIntel();
+    if (!menuIsActive()) return false;
+    state.menuDismissed = true;
+    return true;
   }
 
   /** Apply a completion candidate into the prompt, with marker trailing space. */
@@ -2064,28 +3272,27 @@
   }
 
   /**
-   * Ctrl+Space: intellisense + hotkey cheatsheet scoped to this workspace.
+   * Ctrl+Space: intellisense + hotkey cheatsheet for the focused component.
    * Context is frozen *before* focus moves into the prompt, so opening from
-   * columns still lists column/thread keys for the surfaces that were active.
+   * nav/detail/editor still lists that component's keys.
    */
   function openIntel() {
     // Freeze first — columnFocus, path, thread presence, panel furniture.
     if (window.NB_HELP && window.NB_HELP.buildContext) {
       state.helpCtx = window.NB_HELP.buildContext(state);
     } else {
-      state.helpCtx = {
+    state.helpCtx = {
         path: state.path, focus: state.columnFocus ? "columns" : "prompt",
-        surfaces: ["workspace", "columns", "terminal", "prompt"],
+        context: state.columnFocus ? "nav" : "prompt",
+        contextLabel: state.columnFocus ? "navigation" : "prompt",
+        surfaces: [state.columnFocus ? "nav" : "prompt"],
         hasThread: false, sessions: (state.sessions || []).length || 1,
         session: (state.activeSession || 0) + 1, sort: state.sort || "hot",
-        dock: (state.panes && state.panes.dock) || "bottom", ai: !!state.ai,
+        dock: "page", ai: !!state.ai,
       };
     }
     state.columnFocus = false;
-    if (state.panes && state.panes.out) {
-      state.panes.out = false;
-      savePanes();
-    }
+    state.menuDismissed = false;
     recompute();
     if (!state.completion || !state.completion.candidates.length) {
       // Free-form AI text has no path tokens — still show a catalogue so
@@ -2100,8 +3307,10 @@
     state.cliOpen = true;
     render(true);
     focusCli();
-    var where = state.helpCtx && state.helpCtx.path ? state.helpCtx.path : state.path;
-    status("keys for " + where + " — Esc closes");
+    var where = state.helpCtx && state.helpCtx.contextLabel
+      ? state.helpCtx.contextLabel
+      : (state.helpCtx && state.helpCtx.path ? state.helpCtx.path : state.path);
+    status("keys · " + where + " — Esc closes");
   }
 
   function closeIntel() {
@@ -2134,12 +3343,32 @@
 
   function acceptGhost() {
     var c = state.completion;
-    if (!c || !c.ghost) return false;
+    if (!c) return false;
+    if (c.candidates && c.candidates.length) syncCompletionToIndex();
+    c = state.completion;
+    // Replace-preview (absolute path from basename) — insert the selected value.
+    if (c.preview && c.insert) {
+      applyCandidate(c.insert, c);
+      var input = $("[data-cli]");
+      if (input) input.value = cliValue;
+      recompute();
+      render(true);
+      var el = $("[data-cli]");
+      if (el) {
+        el.focus({ preventScroll: true });
+        el.setSelectionRange(cliValue.length, cliValue.length);
+      }
+      return true;
+    }
+    if (!c.ghost) return false;
     cliValue = cliValue + c.ghost;
     recompute();
     render(true);
-    var el = $("[data-cli]");
-    if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(cliValue.length, cliValue.length); }
+    var el2 = $("[data-cli]");
+    if (el2) {
+      el2.focus({ preventScroll: true });
+      el2.setSelectionRange(cliValue.length, cliValue.length);
+    }
     return true;
   }
 
@@ -2239,6 +3468,8 @@
         });
       });
       reply = hits.length ? hits.slice(0, 12).join("\n") : "find: nothing matched";
+    } else if (cmd === "search") {
+      return finishSearch(arg);
     } else if (cmd === "grep") {
       var g = D.posts.concat(state.merged).filter(function (q) {
         return (q.body + " " + (q.subject || "")).toLowerCase().indexOf(arg.toLowerCase()) !== -1;
@@ -2255,11 +3486,13 @@
       reply = "epoch " + D.board.epoch + " · " + D.board.landed + "/" + D.board.total +
         " landed · ships " + D.board.ships;
     } else if (cmd === "help") {
-      reply = window.NB_COMPLETE.COMMANDS.map(function (c) {
-        return c.name + (c.arg ? " <" + c.arg + ">" : "") + "  " + c.help;
-      }).join("\n");
+      reply = window.NB_COMPLETE.formatGroupedHelp
+        ? window.NB_COMPLETE.formatGroupedHelp(window.NB_COMPLETE.COMMANDS)
+        : window.NB_COMPLETE.COMMANDS.map(function (c) {
+          return c.name + (c.arg ? " <" + c.arg + ">" : "") + "  " + c.help;
+        }).join("\n");
     } else if (cmd === "clear") {
-      state.lines = state.lines.filter(function (ln) { return ln.kind === "banner"; });
+      state.lines = [];
     } else {
       reply = cmd + ": not found — try help";
     }
@@ -2275,8 +3508,97 @@
   }
 
   function scrollOut() {
-    var pane = $(".cn-out");
+    var pane = $(".cn-blade-out") || $(".cn-out");
     if (pane) pane.scrollTop = pane.scrollHeight;
+  }
+
+  /**
+   * Surface the session transcript as the active pane in the detail blade
+   * so inconclusive turns (e.g. @handle outside a DM) are visible to iterate on.
+   */
+  function revealSessionChat(opts) {
+    opts = opts || {};
+    state.sessionOutFocus = true;
+    if (!opts.noRender) render(true);
+    requestAnimationFrame(function () {
+      var pane = $(".cn-blade-out") || $(".cn-out");
+      if (!pane) return;
+      try {
+        pane.scrollIntoView({ block: "nearest", inline: "nearest" });
+      } catch { /* old */ }
+      pane.scrollTop = pane.scrollHeight;
+      try {
+        if (!pane.hasAttribute("tabindex")) pane.setAttribute("tabindex", "-1");
+        pane.focus({ preventScroll: true });
+      } catch { /* fine */ }
+    });
+    if (!opts.silent) status("session · see chat history in detail");
+    return true;
+  }
+
+  function clearSessionOutFocus(opts) {
+    opts = opts || {};
+    if (!state.sessionOutFocus) return false;
+    state.sessionOutFocus = false;
+    if (!opts.noRender) render(true);
+    return true;
+  }
+
+  /**
+   * `@knownHandle …` outside reply/post/dm compose — not a send path.
+   * Returns { handle, rest } or null.
+   */
+  function parseAtOutsideCompose(text, ctx) {
+    ctx = ctx || composeContext();
+    if (ctx.kind === "dm" || ctx.kind === "reply" || ctx.kind === "post") return null;
+    var m = String(text || "").trim().match(/^@([a-z0-9_-]+)\b/i);
+    if (!m) return null;
+    var handle = m[1].toLowerCase();
+    var known = window.NB_MAP && window.NB_MAP.isKnownPeer
+      ? window.NB_MAP.isKnownPeer(handle)
+      : (window.NB_DATA.members || []).some(function (mem) {
+        return String(mem.handle || "").toLowerCase() === handle;
+      });
+    if (!known) return null;
+    return {
+      handle: handle,
+      rest: String(text || "").trim().slice(m[0].length).trim(),
+    };
+  }
+
+  /** Local tip + reveal session chat; does not publish or call the agent. */
+  function tipAtOutsideDm(text, parsed) {
+    parsed = parsed || parseAtOutsideCompose(text);
+    if (!parsed) return false;
+    var display = String(text || "").trim();
+    if (display) {
+      state.history.push(display);
+      state.histIndex = -1;
+    }
+    var wasDetail = state.detailOpen;
+    // Mark focus before pushLine so async progress cannot reopen selection detail.
+    if (!wasDetail) state.sessionOutFocus = true;
+    beginUserTurn(display, "compose");
+    pushLine({
+      kind: "out",
+      text: "not sent — prompt is not in a DM. /dm @" + parsed.handle +
+        "  or open their thread, then Enter",
+    });
+    if (!wasDetail) state.detailOpen = false;
+    revealSessionChat();
+    return true;
+  }
+
+  function markAskInconclusive() {
+    state._askInconclusive = true;
+  }
+
+  function flushAskInconclusive() {
+    if (!state._askInconclusive) return false;
+    state._askInconclusive = false;
+    revealSessionChat({ silent: true });
+    status("session · inconclusive — see chat history");
+    return true;
   }
 
   /**
@@ -2304,6 +3626,7 @@
       var lastProg = state.lines[state.lines.length - 1];
       if (lastProg && lastProg.kind === "progress") updateLine(lastProg.id, { text: ev.message });
       else pushLine({ kind: "progress", text: ev.message });
+      if (/no on-device model/i.test(String(ev.message || ""))) markAskInconclusive();
     } else if (ev.type === E.TOOL_CALL_ARGS) {
       var payload = ev.args || {};
       var tool = payload.tool || ev.toolCallName || "tool";
@@ -2344,14 +3667,21 @@
           ok: !!ev.ok,
         });
       }
+      if (!ev.ok) {
+        var failedTool = (updated && updated.tool) || "";
+        if (failedTool === "board_post" ||
+            /not in a channel\/dm|could not publish|not-in-scope|navigate first/i.test(content)) {
+          markAskInconclusive();
+        }
+      }
     } else if (ev.type === E.TEXT_MESSAGE_CONTENT) {
       if (ev.delta) pushLine({ kind: "agent", text: ev.delta });
     } else if (ev.type === E.RUN_ERROR) {
       pushLine({ kind: "error", text: ev.message || "run failed" });
+      markAskInconclusive();
     } else {
       return;
-    }
-    if (state.sessions[state.activeSession]) {
+    }    if (state.sessions[state.activeSession]) {
       state.sessions[state.activeSession].path = state.path;
     }
     render(true);
@@ -2467,18 +3797,21 @@
   async function ask(text) {
     if (state.busy) return;
     state.busy = true;
+    state._askInconclusive = false;
     var here = (MAP.list(state.path, state.merged) || []).map(function (e) { return e.name; });
     var turn = beginUserTurn(text, "ai");
     try {
       await window.NB_AGENT.run(turn.agentInput, {
         cwd: state.path,
         here: here,
+        compose: composeContext(),
         signal: undefined,
         attachments: turn.attachments,
         displayInput: turn.display,
       }, onEvent);
     } finally {
       state.busy = false;
+      flushAskInconclusive();
       focusCli();
     }
   }
@@ -2489,6 +3822,133 @@
     if (!first) return false;
     if (first.charAt(0) === "/") return !!window.NB_COMPLETE.slashSpec(first);
     return window.NB_COMPLETE.COMMANDS.some(function (c) { return c.name === first; });
+  }
+
+  /** Switch prompt interpretation: ai (intent) or cli (commands). */
+  function setPromptMode(mode, opts) {
+    opts = opts || {};
+    var next = String(mode || "").trim().toLowerCase();
+    if (next !== "ai" && next !== "cli") return false;
+    state.ai = next === "ai";
+    if (!opts.noRender) render(true);
+    if (!opts.silent) {
+      status(state.ai
+        ? "ai — your words are interpreted, bad commands repaired"
+        : "cli — your words are commands");
+    }
+    return true;
+  }
+
+  /**
+   * `/act` — the only context-dependent slash verb. Capabilities change with
+   * path / selection (reply, create channel/project, voice, share).
+   */
+  function runActCommand(arg) {
+    var parts = String(arg || "").trim().split(/\s+/).filter(Boolean);
+    var verb = (parts[0] || "").toLowerCase();
+    var rest = parts.slice(1).join(" ").trim();
+
+    function finishAct(msg) {
+      if (msg != null) pushLine({ kind: "out", text: msg });
+      if (state.sessions[state.activeSession]) {
+        state.sessions[state.activeSession].path = state.path;
+      }
+      cliValue = "";
+      recompute();
+      if (state._slashRevealOut) {
+        state._slashRevealOut = false;
+        revealSessionChat({ silent: true });
+      } else {
+        render();
+        scrollOut();
+      }
+      return true;
+    }
+
+    if (!verb) {
+      var caps = window.NB_COMPLETE.actCapabilities
+        ? window.NB_COMPLETE.actCapabilities({ cwd: state.path, extra: state.merged })
+        : [];
+      if (!caps.length) {
+        return finishAct("act · nothing context-bound here — open a post, …/channels, or a voice room");
+      }
+      return finishAct("act · available here:\n" + caps.map(function (c) {
+        return "  " + c.value + " — " + c.hint;
+      }).join("\n"));
+    }
+
+    if (verb === "share") {
+      var link = "nightboard:" + state.path + "?sort=" + (state.sort || "hot");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(function () {
+          finishAct("copied " + link);
+        }, function () {
+          finishAct("share: " + link);
+        });
+        return true;
+      }
+      return finishAct("share: " + link);
+    }
+
+    if (verb === "reply") {
+      if (!requireParticipation("reply")) {
+        cliValue = "";
+        render(true);
+        return true;
+      }
+      state.ai = true;
+      var hereR = MAP.list(state.path, state.merged) || [];
+      var selR = hereR[state.cursor];
+      var post = selR && selR.post ? selR.post : null;
+      if (!post && state.threadFocus) {
+        for (var ri = 0; ri < hereR.length; ri++) {
+          if (hereR[ri].post && hereR[ri].post.id === state.threadFocus) {
+            post = hereR[ri].post;
+            break;
+          }
+        }
+      }
+      if (post) {
+        armReplyTo(post.id, post.who, post.channel, post.project);
+        cliValue = rest || "";
+        recompute();
+        pushLine({
+          kind: "out",
+          text: "reply @" + post.who + " armed — type and Enter",
+        });
+        render(true);
+        focusCli();
+        return true;
+      }
+      cliValue = rest || "";
+      recompute();
+      pushLine({ kind: "out", text: "act reply · select a post in the thread first" });
+      render(true);
+      focusCli();
+      return true;
+    }
+
+    if (verb === "channel") {
+      var chName = rest.replace(/^(new|create|add)\s+/i, "").trim();
+      if (!chName) return finishAct("act channel <name> — create in the current project");
+      var made = createChannel(chName);
+      return finishAct(made.ok ? ("channel " + made.name + " in " + made.project) : made.error);
+    }
+
+    if (verb === "project") {
+      var prName = rest.replace(/^(new|create|add)\s+/i, "").trim();
+      if (!prName) return finishAct("act project <name> — create under /projects");
+      var madeP = createProject(prName);
+      return finishAct(madeP.ok ? ("project " + madeP.id) : madeP.error);
+    }
+
+    if (verb === "voice") {
+      return runVoiceCommand(rest).then(function (msg) {
+        return finishAct(msg);
+      });
+    }
+
+    return finishAct("act: unknown '" + verb + "' — /act lists what works here");
   }
 
   /**
@@ -2550,8 +4010,8 @@
         reply = "/go: " + state.path;
       }
     } else if (run === "ls" || run === "cat" || run === "sort" || run === "find" ||
-               run === "grep" || run === "tail" || run === "watch" || run === "stat" ||
-               run === "clear") {
+               run === "search" || run === "grep" || run === "tail" || run === "watch" ||
+               run === "stat" || run === "clear") {
       // Reuse CLI implementations by synthesizing a command line.
       var synthetic = (run === "tail" ? "tail" : run) + (arg ? " " + arg : "");
       // Inline a minimal fork of run() outcomes without double user lines.
@@ -2576,18 +4036,32 @@
         if (ti === -1) reply = "unknown theme: " + arg;
         else { setTheme(ti); reply = "theme is " + window.NB_THEMES[ti].name; }
       }
-    } else if (run === "ai") {
-      state.ai = true;
-      reply = "ai mode — slash commands still run directly";
-    } else if (run === "cli") {
-      state.ai = false;
-      reply = "cli mode — type commands without a slash";
+    } else if (run === "mode" || run === "ai" || run === "cli") {
+      // /mode ai|cli is the user-facing verb; /ai and /cli remain for agents.
+      var modeArg = run === "mode"
+        ? String(arg || "").trim().toLowerCase().split(/\s+/)[0]
+        : run;
+      if (!modeArg) {
+        reply = "mode is " + (state.ai ? "ai" : "cli") + " — /mode ai | /mode cli";
+      } else if (modeArg !== "ai" && modeArg !== "cli") {
+        reply = "/mode: ai | cli (got " + modeArg + ")";
+      } else {
+        setPromptMode(modeArg, { silent: true });
+        reply = modeArg === "ai"
+          ? "ai mode — slash commands still run directly"
+          : "cli mode — type commands without a slash";
+      }
     } else if (run === "slash-help") {
-      reply = window.NB_COMPLETE.SLASH_COMMANDS.map(function (c) {
-        return c.name + (c.arg ? " <" + c.arg + ">" : "") + "  " + c.help;
-      }).join("\n");
+      reply = window.NB_COMPLETE.formatGroupedHelp
+        ? window.NB_COMPLETE.formatGroupedHelp(window.NB_COMPLETE.SLASH_COMMANDS)
+        : window.NB_COMPLETE.SLASH_COMMANDS.map(function (c) {
+          return c.name + (c.arg ? " <" + c.arg + ">" : "") + "  " + c.help;
+        }).join("\n");
+      reply += "\n\n/act is context-dependent — type /act for actions here.";
+    } else if (run === "act") {
+      return runActCommand(arg);
     } else if (run === "keys") {
-      openIntel();
+      toggleKeys();
       return true;
     } else if (run === "share") {
       var link = "nightboard:" + state.path + "?sort=" + (state.sort || "hot");
@@ -2612,11 +4086,47 @@
         return true;
       }
       state.ai = true;
-      cliValue = arg ? "reply to someone: " + arg : "reply to @";
-      recompute();
-      render(true);
-      focusCli();
-      return true;
+      var hereR = MAP.list(state.path, state.merged) || [];
+      var selR = hereR[state.cursor];
+      if (selR && selR.post) {
+        armReplyTo(selR.post.id, selR.post.who, selR.post.channel, selR.post.project);
+        cliValue = arg || "";
+        recompute();
+        render(true);
+        focusCli();
+        reply = "reply @" + selR.post.who + " armed — type and Enter";
+      } else {
+        cliValue = arg || "";
+        recompute();
+        render(true);
+        focusCli();
+        reply = "select a post in the thread, then /reply";
+      }
+    } else if (run === "channel") {
+      var chArg = String(arg || "").trim();
+      var chParts = chArg.split(/\s+/);
+      var chVerb = (chParts[0] || "").toLowerCase();
+      var chName = chParts.slice(1).join(" ").trim();
+      if (chVerb === "new" || chVerb === "create" || chVerb === "add") {
+        var made = createChannel(chName);
+        reply = made.ok ? ("channel " + made.name + " in " + made.project) : made.error;
+      } else {
+        reply = "/channel new <name> — create in current project scope";
+      }
+    } else if (run === "project") {
+      var prArg = String(arg || "").trim();
+      var prParts = prArg.split(/\s+/);
+      var prVerb = (prParts[0] || "").toLowerCase();
+      var prName = prParts.slice(1).join(" ").trim() || (prVerb !== "new" && prVerb !== "create" ? prArg : "");
+      if (prVerb === "new" || prVerb === "create" || prVerb === "add") {
+        var madeP = createProject(prName);
+        reply = madeP.ok ? ("project " + madeP.id) : madeP.error;
+      } else if (prName) {
+        var madeP2 = createProject(prName);
+        reply = madeP2.ok ? ("project " + madeP2.id) : madeP2.error;
+      } else {
+        reply = "/project new <name> — create under /projects";
+      }
     } else if (run === "view") {
       if (!arg || arg === "help" || arg === "?") {
         reply = window.NB_QUERY && window.NB_QUERY.helpText
@@ -2657,29 +4167,17 @@
         (identity.did ? " · " + identity.did : "") +
         "\n" + det +
         (identity.canParticipate ? "\nparticipation: authorized" : "\nparticipation: denied");
-    } else if (run === "spaces" || run === "space") {
-      if (!arg) {
-        // Markdown table — colour-coded ASCII table in the transcript.
-        var rows = listSpaces().map(function (s) {
-          var r = s.relay || {};
-          return [
-            identity.spaceId === s.id ? "*" + s.id : s.id,
-            s.slug || s.id,
-            (r.protocol || "relay") + ":" + (r.status || "idle"),
-            s.guestsAllowed === false ? "members" : "open",
-            String(s.subscribers || 0),
-          ];
-        });
-        reply = "## Spaces\n\n" +
-          "Relay · workspace · subreddit — join with `/space <id>`.\n\n" +
-          "| id | slug | relay | access | subs |\n" +
-          "| --- | --- | --- | --- | --- |\n" +
-          rows.map(function (r) {
-            return "| " + r.join(" | ") + " |";
-          }).join("\n") +
-          "\n\n**current:** `" + (identity.spaceId || "?") + "`" +
-          (identity.relay ? " · relay **" + identity.relay.status + "**" : "") +
-          "\n\nBrowse `/spaces` or open a hub feed.";
+    } else if (run === "space") {
+      // Bare /space → selectable catalogue. /space <id> joins that space.
+      // Legacy /spaces (if typed) is treated the same as bare /space.
+      if (!arg || arg === "list" || arg === "ls") {
+        if (navigate("/spaces", { keepCli: true })) {
+          state.columnFocus = true;
+          state.focus = 0;
+          reply = "/space · pick a space";
+        } else {
+          reply = "/space: cannot open spaces";
+        }
       } else {
         doJoinSpace(arg.trim().replace(/^r\//, ""));
         return true;
@@ -2688,8 +4186,10 @@
       // Open a direct message thread with a person or agent (sibling of projects).
       var handle = String(arg || "").trim().replace(/^@/, "").toLowerCase();
       if (!handle) {
-        if (navigate("/dms", { keepCli: true })) reply = "/dm: " + state.path;
-        else reply = "/dm: cannot open /dms";
+        if (navigate("/dms", { keepCli: true })) {
+          clearSessionOutFocus({ noRender: true });
+          reply = "/dm: " + state.path;
+        } else reply = "/dm: cannot open /dms";
       } else {
         var dmDest = "/dms/" + handle;
         // Prefer an existing DM thread; otherwise still open the path so the
@@ -2701,11 +4201,14 @@
               return m.handle === handle;
             });
           if (knownPeer && navigate("/dms", { keepCli: true })) {
+            clearSessionOutFocus({ noRender: true });
             reply = "/dm: no thread with @" + handle + " yet — at /dms";
           } else {
             reply = "/dm: no such person or agent: " + handle;
+            state._slashRevealOut = true;
           }
         } else {
+          clearSessionOutFocus({ noRender: true });
           reply = "/dm: " + state.path + " · @" + handle;
         }
       }
@@ -2744,7 +4247,7 @@
             ? " · " + window.NB_NOTIFY.permissionLabel()
             : "");
       }
-    } else if (run === "hooks" || run === "hook") {
+    } else if (run === "hooks") {
       reply = runHooksCommand(arg);
     } else if (run === "login") {
       if (arg) {
@@ -2752,11 +4255,11 @@
         return true;
       }
       openAuth("login");
-      reply = "sign in to a space with Bluesky — dialog or /login maya.bsky.social";
+      reply = "sign in — dialog or /login <handle>";
     } else if (run === "claim") {
       if (!identity.claimable && identity.kind !== "guest") {
         reply = identity.kind === "atproto"
-          ? "already linked to ATProto — claim not needed"
+          ? "already signed in with a portable handle — claim not needed"
           : identity.kind === "claimed"
             ? "already signed in as @" + identity.handle + " · " + (identity.spaceName || "")
             : "cannot claim in this state (" + identity.kind + ")";
@@ -2770,6 +4273,17 @@
     } else if (run === "logout") {
       doSignOut();
       return true;
+    } else if (run === "voice") {
+      return runVoiceCommand(arg).then(function (msg) {
+        if (msg != null) pushLine({ kind: "out", text: msg });
+        if (state.sessions[state.activeSession]) {
+          state.sessions[state.activeSession].path = state.path;
+        }
+        cliValue = "";
+        recompute();
+        render();
+        scrollOut();
+      });
     } else {
       reply = verb + ": not implemented";
     }
@@ -2780,8 +4294,13 @@
     }
     cliValue = "";
     recompute();
-    render();
-    scrollOut();
+    if (state._slashRevealOut) {
+      state._slashRevealOut = false;
+      revealSessionChat({ silent: true });
+    } else {
+      render();
+      scrollOut();
+    }
     return true;
   }
 
@@ -2791,9 +4310,79 @@
     return true;
   }
 
+  /**
+   * Board-wide Lucene search — shared by CLI `search`, slash `/search`, and
+   * the `board_search` WebMCP tool. Paints color-coded hits in the transcript.
+   */
+  function runSearch(query, opts) {
+    opts = opts || {};
+    if (!window.NB_QUERY || !window.NB_QUERY.searchBoard) {
+      return { text: "search: query engine unavailable", format: null, html: null };
+    }
+    var result = window.NB_QUERY.searchBoard(query, {
+      extra: state.merged,
+      votes: state.votes,
+      reactions: state.reactions,
+      members: (window.NB_DATA && window.NB_DATA.members) || [],
+    });
+    var formatted = window.NB_QUERY.formatSearchResults(result, { limit: opts.limit });
+    return {
+      text: formatted.text,
+      html: formatted.html,
+      format: formatted.format,
+      result: result,
+    };
+  }
+
+  function finishSearch(arg) {
+    var out = runSearch(arg);
+    pushLine({
+      kind: "out",
+      text: out.text,
+      html: out.html,
+      format: out.format,
+    });
+    if (state.sessions[state.activeSession]) {
+      state.sessions[state.activeSession].path = state.path;
+    }
+    cliValue = "";
+    recompute();
+    render();
+    scrollOut();
+    return true;
+  }
+
   function focusCli() {
     var el = $("[data-cli]");
     if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(el.value.length, el.value.length); }
+  }
+
+  /**
+   * Hand keyboard steering to the workbench (nav / home / detail). Always
+   * blurs the prompt so document-level chords are not swallowed by the
+   * input's early-return — columnFocus alone is not enough when the CLI
+   * still owns DOM focus.
+   */
+  function focusColumns() {
+    state.columnFocus = true;
+    var input = $("[data-cli]");
+    if (input && document.activeElement === input) {
+      try { input.blur(); } catch { /* fine */ }
+    }
+  }
+
+  /** Keys that mean "steer the board" while columns own focus. */
+  function isColumnSteerKey(ev) {
+    if (ev.altKey || ev.ctrlKey || ev.metaKey) return false;
+    var k = ev.key;
+    if (k === "ArrowDown" || k === "ArrowUp" || k === "ArrowLeft" || k === "ArrowRight") {
+      return true;
+    }
+    if (k === "Enter" || k === "Backspace" || k === "Home" || k === "End") return true;
+    if (k === " " || k === "Spacebar" || k === "PageUp" || k === "PageDown") return true;
+    if (k === "[" || k === "]") return true;
+    if (k.length === 1 && /^[hjklzvre]$/i.test(k)) return true;
+    return false;
   }
 
   /* ── Input ─────────────────────────────────────────────────────────────── */
@@ -2871,7 +4460,17 @@
         if (state.votes[vid] === 0) delete state.votes[vid];
         return render(true);
       }
-      // Reaction pills (+1, eyes, …) and the + picker.
+      // Discord spoilers — persist open set so morph/live ticks keep reveal.
+      var spoiler = ev.target.closest("[data-spoiler]");
+      if (spoiler) {
+        ev.preventDefault();
+        var sKey = spoiler.getAttribute("data-spoiler") || spoiler.textContent || "";
+        state.spoilers = state.spoilers || {};
+        if (state.spoilers[sKey]) delete state.spoilers[sKey];
+        else state.spoilers[sKey] = true;
+        return render(true);
+      }
+      // Reaction marks (+1, eyes, …) and the + picker.
       var reactPickBtn = ev.target.closest("[data-react-pick]");
       if (reactPickBtn) {
         var pickId = reactPickBtn.dataset.reactPick;
@@ -2892,12 +4491,25 @@
       if (replyBtn) {
         if (!requireParticipation("reply")) return;
         var who = replyBtn.dataset.replyWho || "there";
+        var rid = replyBtn.dataset.reply;
+        var post = null;
+        (D.posts || []).concat(state.merged || []).some(function (p) {
+          if (p.id === rid) { post = p; return true; }
+          return false;
+        });
+        armReplyTo(rid, who, post && post.channel, post && post.project);
         state.columnFocus = false;
         state.ai = true;
-        cliValue = "reply to @" + who + ": ";
+        cliValue = "";
         render(true);
         focusCli();
-        return status("reply to @" + who + " — send from the prompt");
+        return status("reply @" + who + " — type and Enter to post");
+      }
+      if (ev.target.closest("[data-compose-clear]")) {
+        clearReplyTo();
+        render(true);
+        focusCli();
+        return status("reply cleared");
       }
       if (ev.target.closest("[data-help-close]")) {
         closeIntel();
@@ -2928,15 +4540,48 @@
         }
         return;
       }
-      var sortBtn = ev.target.closest("[data-sort]");
+      var sortBtn = ev.target.closest(".cn-sort[data-sort], .cn-sort[data-feed-view]");
       if (sortBtn) {
-        // Legacy sort chips also act as simple view projections.
-        applyFeedView(sortBtn.dataset.sort);
+        // Only the chip itself — never a parent like .cn-tree[data-sort].
+        state.feedAddOpen = false;
+        applyFeedView(sortBtn.dataset.feedView || sortBtn.dataset.sort);
         return;
       }
       var viewBtn = ev.target.closest("[data-feed-view]");
       if (viewBtn) {
+        state.feedAddOpen = false;
         applyFeedView(viewBtn.dataset.feedView);
+        return;
+      }
+      if (ev.target.closest("[data-feed-add]")) {
+        state.feedAddOpen = !state.feedAddOpen;
+        render(true);
+        return;
+      }
+      var pinBtn = ev.target.closest("[data-feed-pin]");
+      if (pinBtn) {
+        var pinId = pinBtn.getAttribute("data-feed-pin");
+        if (pinId) {
+          state.feedPinnedViews = (state.feedPinnedViews || []).slice();
+          if (state.feedPinnedViews.indexOf(pinId) === -1) state.feedPinnedViews.push(pinId);
+          state.feedAddOpen = false;
+          applyFeedView(pinId);
+        }
+        return;
+      }
+      var unpinBtn = ev.target.closest("[data-feed-unpin]");
+      if (unpinBtn) {
+        var unpinId = unpinBtn.getAttribute("data-feed-unpin");
+        state.feedPinnedViews = (state.feedPinnedViews || []).filter(function (id) {
+          return id !== unpinId;
+        });
+        if (state.feedView === unpinId) {
+          applyFeedView("hot");
+        } else {
+          freezeSession();
+          render(true);
+          status("unpinned " + unpinId);
+        }
         return;
       }
       if (ev.target.closest("[data-feed-query-run]")) {
@@ -2957,28 +4602,7 @@
         }
         return status("feed query help in transcript");
       }
-      // Terminal panel chrome (VS Code panel actions).
-      if (ev.target.closest("[data-panel-min]")) {
-        state.panes.out = !state.panes.out;
-        // Minimise always leaves maximise — a maximised-and-minimised panel
-        // still claimed the workbench column and looked like a black void.
-        if (state.panes.out) state.panes.outMax = false;
-        savePanes();
-        return render(true);
-      }
-      if (ev.target.closest("[data-panel-max]")) {
-        state.panes.outMax = !state.panes.outMax;
-        if (state.panes.outMax) state.panes.out = false;
-        savePanes();
-        return render(true);
-      }
-      if (ev.target.closest("[data-panel-dock]")) {
-        var order = ["bottom", "right", "left"];
-        state.panes.dock = order[(order.indexOf(state.panes.dock) + 1) % order.length];
-        savePanes();
-        render(true);
-        return status("terminal docked " + state.panes.dock + " — Alt+D to cycle");
-      }
+      // (Dockable terminal panel removed — the page is the TUI.)
       var toolToggle = ev.target.closest("[data-tool-toggle]");
       if (toolToggle) {
         var tid = toolToggle.dataset.toolToggle;
@@ -2994,18 +4618,10 @@
         return;
       }
       if (ev.target.closest("[data-session-new]")) {
-        if (state.panes.out) { state.panes.out = false; savePanes(); }
         return newSession();
       }
       var sessTab = ev.target.closest("[data-session]");
       if (sessTab) {
-        // Clicking a workspace tab restores a minimised panel, VS Code style.
-        // Same-tab clicks must still re-render — switchSession no-ops when the
-        // index is already active.
-        if (state.panes.out) {
-          state.panes.out = false;
-          savePanes();
-        }
         var idx = Number(sessTab.dataset.session);
         if (idx === state.activeSession) return render(true);
         switchSession(idx);
@@ -3048,9 +4664,46 @@
         }
         return status("nav expanded" + (railPath ? " · " + railPath : ""));
       }
+      if (ev.target.closest("[data-thread-back]")) {
+        try { ev.preventDefault(); } catch { /* fine */ }
+        return clearThreadFocus();
+      }
+      var commentHit = ev.target.closest(".cn-comment");
+      if (commentHit && !ev.target.closest(
+        "button, a, [data-vote-id], [data-reply], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
+      )) {
+        var cid = commentHit.getAttribute("data-key");
+        if (cid) {
+          try { ev.preventDefault(); } catch { /* fine */ }
+          return openThread(cid);
+        }
+      }
+      var homeTab = ev.target.closest("[data-home-feed]");
+      if (homeTab) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return setHomeFeed(homeTab.dataset.homeFeed);
+      }
+      var annToggle = ev.target.closest("[data-ann-toggle]");
+      if (annToggle) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return toggleAnnCollapsed(annToggle.dataset.annToggle);
+      }
+      var personTab = ev.target.closest("[data-person-pane]");
+      if (personTab) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return setPersonPane(personTab.dataset.personPane);
+      }
       var go = ev.target.closest("[data-goto]");
       if (go) {
         try { ev.preventDefault(); } catch { /* fine */ }
+        // Following-card Open / row click → land on source with selection detail.
+        if (go.closest(".cn-follow-row") || go.closest(".cn-home-open") ||
+            go.hasAttribute("data-follow-open")) {
+          var homeItem = go.closest("[data-home-item]") || go;
+          var homeId = homeItem.dataset.homeItem || go.dataset.followOpen;
+          if (homeId) markHomeFeedRead(homeId);
+          state.detailOpen = true;
+        }
         return navigate(go.dataset.goto);
       }
       var candEl = ev.target.closest("[data-cand]");
@@ -3098,6 +4751,10 @@
         // Collapse is explicit (z / Alt+Z / header ▭ / —).
         var fileEntry = all[state.cursor];
         state.detailOpen = true;
+        if (fileEntry && fileEntry.post) {
+          return openThread(fileEntry.post.id);
+        }
+        state.threadFocus = null;
         if (fileEntry && (fileEntry.agentFile || fileEntry.agentSkill || fileEntry.agentTool ||
             (fileEntry.kind !== "dir" && !fileEntry.post && /\./.test(fileEntry.name || "")))) {
           openFileInEditor(fileEntry, target);
@@ -3287,19 +4944,41 @@
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
       cliValue = cli.value;
+      state.menuDismissed = false;
       recompute();
       // Repaint the menu without stealing focus or resetting the caret.
       var menu = mount.querySelector(".cn-menu");
-      var wrap = mount.querySelector(".cn-panel");
+      var wrap = mount.querySelector(".cn-tui-foot") || mount.querySelector(".cn-prompt-stack");
       state.candIndex = 0;
+      var open = menuShouldOpen();
       // Typing keeps intellisense in sync when it was opened via Ctrl+Space.
-      if (wrap) wrap.dataset.open = String(menuShouldOpen());
+      if (wrap) wrap.dataset.open = String(open);
+      // data-morph-keep freezes the input node — sync live ARIA here.
+      cli.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open && state.completion && state.completion.candidates.length) {
+        cli.setAttribute("aria-activedescendant", "cn-cand-0");
+      } else {
+        cli.removeAttribute("aria-activedescendant");
+      }
       if (menu) {
-        menu.innerHTML = (state.completion ? state.completion.candidates : []).slice(0, 40)
-          .map(function (c, i) {
-            return '<div class="cn-cand" data-cand="' + i + '"' + (i === 0 ? ' aria-current="true"' : "") +
-              '><span>' + c.value + "</span><i>" + (c.hint || "") + "</i></div>";
-          }).join("");
+        if (open) menu.removeAttribute("hidden");
+        else menu.setAttribute("hidden", "");
+        var cands = state.completion ? state.completion.candidates : [];
+        var kind = state.completion && state.completion.kind;
+        if (!open) {
+          menu.innerHTML = "";
+        } else {
+          var head = '<div class="cn-menu-head" data-key="menu-head">' +
+            (state.intelOpen ? "Intellisense" : "Suggestions") +
+            (kind ? " · " + kind : "") + "</div>";
+          menu.innerHTML = head + cands.slice(0, 40)
+            .map(function (c, i) {
+              return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
+                ' aria-selected="' + (i === 0 ? "true" : "false") + '"' +
+                (i === 0 ? ' aria-current="true"' : "") +
+                '><span>' + (c.label || c.value) + "</span><i>" + (c.hint || "") + "</i></div>";
+            }).join("");
+        }
       }
       paintGhost();
     });
@@ -3375,28 +5054,10 @@
       if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
       if (ev.key === "Enter") {
         ev.preventDefault();
-        var cc = state.completion;
-        // Enter accepts a suggestion when intellisense is open, when the user
-        // has moved the highlight off the first multi-candidate row, or when a
-        // smart-marker palette (`@` / `#`) has an incomplete match. A fully
-        // typed `@maya` / `#topic` sends instead of re-accepting.
-        var pick = cc && cc.candidates.length
-          ? cc.candidates[Math.min(state.candIndex, cc.candidates.length - 1)]
-          : null;
-        var frag = cc && pick ? cliValue.slice(cc.replaceFrom) : "";
-        var markerIncomplete = cc && pick && window.NB_COMPLETE.isMarkerKind &&
-          window.NB_COMPLETE.isMarkerKind(cc.kind) && frag !== pick.value;
-        var acceptIntel = pick &&
-          (state.intelOpen || markerIncomplete || (cc.candidates.length > 1 && state.candIndex > 0));
-        if (acceptIntel) {
-          applyCandidate(pick.value, cc);
-          cli.value = cliValue;
-          closeIntel();
-          recompute();
-          render(true);
-          focusCli();
-          return;
-        }
+        // Enter always submits/runs the typed line. Autocomplete accept is Tab
+        // (or click a candidate) — never Enter — so a open suggestion menu
+        // cannot trap the key that means "send".
+        closeIntel();
         var text = cli.value;
         // Allow send with only attachments staged (chat context turn).
         if (!String(text || "").trim() && !(state.attachments && state.attachments.length)) {
@@ -3404,15 +5065,30 @@
         }
         cliValue = "";
         cli.value = "";
-        closeIntel();
         recompute();
         // Slash commands always run locally (agent chat verbs). Bare CLI
-        // commands also run directly. Free text in ai mode goes to the model.
+        // commands also run directly. Compose scopes (reply/post/dm) publish
+        // into the active blade — the whole page is the TUI, not a side terminal.
         if (window.NB_COMPLETE.isSlash(text)) {
           render(true);
           return runSlash(text);
         }
-        if (state.ai && (!String(text || "").trim() || !isCommand(text))) {
+        var cctx = composeContext();
+        var trimmed = String(text || "").trim();
+        if (trimmed && !isCommand(text) &&
+            (cctx.kind === "reply" || cctx.kind === "post" || cctx.kind === "dm")) {
+          if (!requireParticipation("post")) {
+            cliValue = text;
+            cli.value = text;
+            return render(true);
+          }
+          publishCompose(trimmed, cctx);
+          return;
+        }
+        // @knownHandle outside DM/channel/reply — tip + session chat, no agent.
+        var atOutside = parseAtOutsideCompose(trimmed, cctx);
+        if (atOutside && tipAtOutsideDm(trimmed, atOutside)) return;
+        if (state.ai && (!trimmed || !isCommand(text))) {
           render(true);
           return ask(text);
         }
@@ -3421,25 +5097,29 @@
       if (ev.key === "Escape") {
         ev.preventDefault();
         // Dictation Esc is handled in capture-phase wireSpeech; if we still
-        // see it here, fall through to intel / columns.
-        if (closeIntel()) {
+        // see it here, fall through to intel / suggestions / columns.
+        if (dismissMenu()) {
           render(true);
           focusCli();
-          return status("closed intellisense");
+          return status("closed suggestions");
+        }
+        if (state.sessionOutFocus) {
+          clearSessionOutFocus();
+          return focusCli();
         }
         // Idempotent with the document handler: if columns already own
         // steering (state ahead of DOM focus), Esc closes detail then
         // returns to the prompt — same ladder as when the body is focused.
         if (state.columnFocus) {
           cli.blur();
+          if (state.threadFocus) return clearThreadFocus();
           if (isDetailOpen()) return closeDetail();
           state.columnFocus = false;
           render();
           return focusCli();
         }
         // First Esc from the prompt hands steering to the columns.
-        state.columnFocus = true;
-        cli.blur();
+        focusColumns();
         return status("columns — ←→↑↓ to move, i or : to return to the prompt");
       }
       if (ev.altKey && ev.key.toLowerCase() === "a") {
@@ -3458,31 +5138,18 @@
       }
       if (ev.altKey && ev.key.toLowerCase() === "j") {
         ev.preventDefault();
-        state.panes.out = !state.panes.out;
-        if (state.panes.out) state.panes.outMax = false;
-        savePanes();
-        render(true);
-        return status(state.panes.out ? "terminal minimised — Alt+J or Terminal tab to restore" : "terminal restored");
+        return status("the page is the terminal — no separate panel to minimise");
       }
       if (ev.altKey && ev.key.toLowerCase() === "m") {
         ev.preventDefault();
-        state.panes.outMax = !state.panes.outMax;
-        if (state.panes.outMax) state.panes.out = false;
-        savePanes();
-        render(true);
-        return status(state.panes.outMax ? "terminal maximised — Alt+M to restore" : "terminal restored");
+        return status("the page is the terminal — blades fill the TUI");
       }
       if (ev.altKey && ev.key.toLowerCase() === "d") {
         ev.preventDefault();
-        var docks = ["bottom", "right", "left"];
-        state.panes.dock = docks[(docks.indexOf(state.panes.dock) + 1) % docks.length];
-        savePanes();
-        render(true);
-        return status("terminal docked " + state.panes.dock);
+        return status("the page is the terminal — no dock cycle");
       }
       if (ev.altKey && ev.key.toLowerCase() === "t") {
         ev.preventDefault();
-        if (state.panes.out) { state.panes.out = false; savePanes(); }
         return newSession();
       }
       if (ev.key === "ArrowRight" || ev.key === "End") {
@@ -3492,12 +5159,16 @@
       if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
         ev.preventDefault();
         var c = state.completion;
-        // With a menu open, the arrows belong to the menu; history is what
-        // they mean only when there is nothing to choose between.
-        if (c && c.candidates.length > 1) {
+        // With a *visible* multi-choice menu, arrows walk candidates. An empty
+        // prompt still has a full command catalogue in completion state, but
+        // that menu is closed — ↑↓ must mean history for power users.
+        var menuOpen = menuShouldOpen();
+        if (c && c.candidates.length > 1 && menuOpen) {
           var n = c.candidates.length;
           state.candIndex = ((state.candIndex + (ev.key === "ArrowDown" ? 1 : -1)) % n + n) % n;
+          syncCompletionToIndex();
           highlightCandidate();
+          paintGhost();
           return;
         }
         if (!state.history.length) return;
@@ -3513,6 +5184,10 @@
 
   function wireGlobal() {
     document.addEventListener("click", function (ev) {
+      if (ev.target.closest("[data-keys-open]")) {
+        ev.preventDefault();
+        return toggleKeys();
+      }
       if (ev.target.closest("[data-merge]")) return mergePending();
       if (ev.target.closest("[data-mode-toggle]")) {
         state.ai = !state.ai;
@@ -3538,6 +5213,32 @@
       }
       if (ev.target.closest("[data-speech-mic]")) {
         toggleDictation();
+        return;
+      }
+      if (ev.target.closest("[data-voice-intent]")) {
+        cycleSpeechIntent();
+        return;
+      }
+      if (ev.target.closest("[data-voice-join]")) {
+        var joinBtn = ev.target.closest("[data-voice-join]");
+        joinVoice(joinBtn.dataset.voiceJoin, joinBtn.dataset.voicePath || null);
+        return;
+      }
+      if (ev.target.closest("[data-voice-leave]")) {
+        leaveVoice();
+        return;
+      }
+      if (ev.target.closest("[data-voice-mute]")) {
+        toggleVoiceMute();
+        return;
+      }
+      if (ev.target.closest("[data-voice-deafen]")) {
+        toggleVoiceDeafen();
+        return;
+      }
+      if (ev.target.closest("[data-voice-input]")) {
+        var modeBtn = ev.target.closest("[data-voice-input]");
+        setVoiceInputMode(modeBtn.dataset.voiceInput || "vad");
         return;
       }
       if (ev.target.closest("[data-activity-perm]") ||
@@ -3642,13 +5343,57 @@
         if (!(state.editor && state.editor.focused && state.editor.active &&
               state.editor.active.mode === "insert")) {
           ev.preventDefault();
-          if (state.intelOpen && state.helpOpen) {
-            closeIntel();
-            render(true);
-            focusCli();
-            return status();
+          return toggleKeys();
+        }
+      }
+
+      // Esc dismiss cascade (outermost first): auth → profile → help/intel
+      // (later) → filter / selection / columns. Speech stop is capture-phase.
+      if (ev.key === "Escape") {
+        var authDlg = $("[data-auth-dialog]");
+        if (authDlg && authDlg.dataset.open === "true" && !authDlg.hidden) {
+          ev.preventDefault();
+          return closeAuth();
+        }
+        if (profileMenuOpen) {
+          ev.preventDefault();
+          closeProfileMenu();
+          return;
+        }
+      }
+
+      // Workspace tablist: arrows move selection; Delete closes (× is mouse-only).
+      var wsTab = ev.target.closest && ev.target.closest(".cn-workspace-tablist [role='tab']");
+      if (wsTab && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
+        var wsTabs = Array.prototype.slice.call(
+          document.querySelectorAll(".cn-workspace-tablist [role='tab']"),
+        );
+        var tabIdx = wsTabs.indexOf(wsTab);
+        if (tabIdx >= 0) {
+          var tabKey = ev.key;
+          var nextTab = -1;
+          if (tabKey === "ArrowRight") nextTab = (tabIdx + 1) % wsTabs.length;
+          else if (tabKey === "ArrowLeft") nextTab = (tabIdx - 1 + wsTabs.length) % wsTabs.length;
+          else if (tabKey === "Home") nextTab = 0;
+          else if (tabKey === "End") nextTab = wsTabs.length - 1;
+          else if ((tabKey === "Delete" || tabKey === "Backspace") && state.sessions.length > 1) {
+            ev.preventDefault();
+            closeSession(tabIdx);
+            setTimeout(function () {
+              var t = document.querySelector(".cn-workspace-tablist [role='tab'][aria-selected='true']");
+              if (t) try { t.focus({ preventScroll: true }); } catch { /* fine */ }
+            }, 0);
+            return;
           }
-          return openIntel();
+          if (nextTab >= 0) {
+            ev.preventDefault();
+            if (nextTab !== state.activeSession) switchSession(nextTab, { keepFocus: true });
+            setTimeout(function () {
+              var t = document.querySelector(".cn-workspace-tablist [role='tab'][aria-selected='true']");
+              if (t) try { t.focus({ preventScroll: true }); } catch { /* fine */ }
+            }, 0);
+            return;
+          }
         }
       }
 
@@ -3662,7 +5407,17 @@
         }
       }
 
-      if (ev.target.matches("input, textarea, select")) return;
+      // Inputs normally own every keystroke. Exception: columns already own
+      // steering (Esc from prompt, click into nav/home) but the CLI still has
+      // DOM focus — then board chords (j/k/arrows/…) must reach the board.
+      if (ev.target.matches("input, textarea, select")) {
+        var cliEl = ev.target.hasAttribute && ev.target.hasAttribute("data-cli");
+        if (state.columnFocus && cliEl && isColumnSteerKey(ev)) {
+          try { ev.target.blur(); } catch { /* fine */ }
+        } else {
+          return;
+        }
+      }
       var k = ev.key;
 
       if (ev.key === "Escape" && (state.intelOpen || state.helpOpen)) {
@@ -3690,73 +5445,127 @@
       if (k === "/") { ev.preventDefault(); state.filter = ""; state.focus = 1; render(); return status("filter: type to narrow, Esc to clear"); }
       if (k === "Escape") {
         if (state.filter) { state.filter = ""; render(true); return; }
-        // Esc closes the detail pane when it is open (matches × on detail).
+        if (state.sessionOutFocus) {
+          ev.preventDefault();
+          clearSessionOutFocus();
+          return focusCli();
+        }
+        // Esc leaves a focused thread for the channel feed before closing detail.
+        if (state.threadFocus) {
+          ev.preventDefault();
+          focusColumns();
+          return clearThreadFocus();
+        }
+        // Esc returns to Following feed when selection detail is open (matches [esc]).
         if (isDetailOpen()) {
           ev.preventDefault();
-          state.columnFocus = true;
+          focusColumns();
           return closeDetail();
         }
         state.columnFocus = false; render(); return focusCli();
       }
       if (k === "v") {
         ev.preventDefault();
-        var sorts = (window.NB_CONSOLE_VIEWS && window.NB_CONSOLE_VIEWS.SORTS) || ["hot", "new", "top", "best"];
-        state.sort = sorts[(sorts.indexOf(state.sort) + 1) % sorts.length];
-        render();
-        return status("sort: " + state.sort);
+        var visible = (window.NB_CONSOLE_VIEWS && window.NB_CONSOLE_VIEWS.visibleFeedViews)
+          ? window.NB_CONSOLE_VIEWS.visibleFeedViews(state)
+          : [{ id: "hot" }, { id: "new" }, { id: "top" }];
+        var ids = visible.map(function (v) { return v.id; });
+        if (!ids.length) ids = ["hot", "new", "top"];
+        var cur = ids.indexOf(state.feedView || state.sort || "hot");
+        var next = ids[(cur + 1) % ids.length];
+        applyFeedView(next);
+        return;
       }
       // tmux's z: the preview takes the whole width, and again restores.
       if (k === "z") {
         ev.preventDefault();
-        state.columnFocus = true;
+        focusColumns();
         return toggleNavCollapsed();
       }
       if (ev.altKey && k.toLowerCase() === "j") {
         ev.preventDefault();
-        state.panes.out = !state.panes.out;
-        if (state.panes.out) state.panes.outMax = false;
-        savePanes(); render(true);
-        return status(state.panes.out ? "terminal minimised — Alt+J or Terminal tab to restore" : "terminal restored");
+        return status("the page is the terminal — no separate panel to minimise");
       }
       if (ev.altKey && k.toLowerCase() === "m") {
         ev.preventDefault();
-        state.panes.outMax = !state.panes.outMax;
-        if (state.panes.outMax) state.panes.out = false;
-        savePanes(); render(true);
-        return status(state.panes.outMax ? "terminal maximised — Alt+M to restore" : "terminal restored");
+        return status("the page is the terminal — blades fill the TUI");
       }
       if (ev.altKey && k.toLowerCase() === "d") {
         ev.preventDefault();
-        var docksG = ["bottom", "right", "left"];
-        state.panes.dock = docksG[(docksG.indexOf(state.panes.dock) + 1) % docksG.length];
-        savePanes(); render(true);
-        return status("terminal docked " + state.panes.dock);
+        return status("the page is the terminal — no dock cycle");
       }
       if (ev.altKey && k.toLowerCase() === "t") {
         ev.preventDefault();
-        if (state.panes.out) { state.panes.out = false; savePanes(); }
         return newSession();
       }
       if (k.toLowerCase() === "r") { ev.preventDefault(); return mergePending(); }
       if (k.toLowerCase() === "t" && state.columnFocus) { ev.preventDefault(); return setTheme(themeIndex + 1); }
 
-      if (k === "ArrowDown" || k === "j") { ev.preventDefault(); state.columnFocus = true; return moveCursor(1); }
-      if (k === "ArrowUp" || k === "k") { ev.preventDefault(); state.columnFocus = true; return moveCursor(-1); }
-      // → / l : slide into selected dir (children become 1st-level) or focus detail
-      if (k === "ArrowRight" || k === "l") { ev.preventDefault(); state.columnFocus = true; return goRight(); }
-      if (k === "Enter") { ev.preventDefault(); state.columnFocus = true; return descend(); }
+      // Home feed: j/k rows, Enter/→ open, [ ] tabs — only when home owns focus.
+      if (homeOwnsKeyboard() && state.columnFocus) {
+        if (k === "ArrowDown" || k === "j") {
+          ev.preventDefault();
+          return moveHomeCursor(1);
+        }
+        if (k === "ArrowUp" || k === "k") {
+          ev.preventDefault();
+          return moveHomeCursor(-1);
+        }
+        if (k === "Enter" || k === "ArrowRight" || k === "l") {
+          ev.preventDefault();
+          return activateHomeItem();
+        }
+        if (k === "ArrowLeft" || k === "h") {
+          ev.preventDefault();
+          return goLeft();
+        }
+        if (k === "[" || k === "PageUp") {
+          ev.preventDefault();
+          return cycleHomeTab(-1);
+        }
+        if (k === "]" || k === "PageDown") {
+          ev.preventDefault();
+          return cycleHomeTab(1);
+        }
+        // Don't let printable keys filter the nav while reading home.
+        if (k.length === 1 && /[a-z0-9-]/i.test(k)) return;
+      }
+
+      // Home visible + nav focused: [ ] still cycle home tabs (power shortcut).
+      if (onHomeFeed() && state.columnFocus && listOwnsKeyboard()) {
+        if (k === "[" || k === "PageUp") {
+          ev.preventDefault();
+          return cycleHomeTab(-1);
+        }
+        if (k === "]" || k === "PageDown") {
+          ev.preventDefault();
+          return cycleHomeTab(1);
+        }
+      }
+
+      if (k === "ArrowDown" || k === "j") { ev.preventDefault(); focusColumns(); return moveCursor(1); }
+      if (k === "ArrowUp" || k === "k") { ev.preventDefault(); focusColumns(); return moveCursor(-1); }
+      // → / l : slide into selected dir, open post thread, or edit a file
+      if (k === "ArrowRight" || k === "l") { ev.preventDefault(); focusColumns(); return goRight(); }
+      if (k === "Enter") { ev.preventDefault(); focusColumns(); return descend(); }
+      // e : open terminal editor (posts included — → opens threads instead)
+      if (k === "e" && state.columnFocus) {
+        ev.preventDefault();
+        return editCursorEntry();
+      }
       // ← / h : slide back to parent (siblings of current path reappear as 1st-level)
-      if (k === "ArrowLeft" || k === "h") { ev.preventDefault(); state.columnFocus = true; return goLeft(); }
+      if (k === "ArrowLeft" || k === "h") { ev.preventDefault(); focusColumns(); return goLeft(); }
       // Space: one-level expand/collapse under the cursor (dirs only)
       if (k === " " || k === "Spacebar") {
         ev.preventDefault();
-        state.columnFocus = true;
+        focusColumns();
         return toggleCursorTree();
       }
       if (k === "Backspace" && !state.filter) {
         ev.preventDefault();
-        state.columnFocus = true;
-        // On detail: close the pane. On nav: go up one level.
+        focusColumns();
+        // On thread: back to channel feed. On detail: close. On nav: go up.
+        if (state.threadFocus) return clearThreadFocus();
         if (isDetailOpen() && (state.focus != null ? state.focus : 0) >= detailBladeIndex()) {
           return closeDetail();
         }
@@ -3765,9 +5574,10 @@
       if (k === "Home") { ev.preventDefault(); state.cursor = 0; return render(); }
       if (k === "End") { ev.preventDefault(); state.cursor = entries().length - 1; return render(); }
 
-      // Any printable key starts an incremental filter, the way a file manager
-      // does — no mode to enter, no key to remember. Space is reserved for tree.
-      if (k.length === 1 && /[a-z0-9-]/i.test(k) && state.columnFocus) {
+      // Incremental filter only while the nav list owns the keyboard — not
+      // when reading a thread/detail pane (those keys are reserved).
+      if (k.length === 1 && /[a-z0-9-]/i.test(k) && state.columnFocus &&
+          listOwnsKeyboard() && isDetailOpen()) {
         state.filter += k;
         state.cursor = 0;
         render();
@@ -3882,23 +5692,14 @@
   }
 
   function boot() {
+    // Probe STT availability before first paint of mic state settles.
+    warmSpeechModel();
     // Restore durable page state before first paint so path, workspaces,
     // furniture and theme match the last authorized session.
     restoreBoardState();
     setTheme(themeIndex);
     warmModel();
-    var tsel = $("[data-theme-select]");
-    if (tsel) {
-      window.NB_THEMES.forEach(function (t) {
-        var o = document.createElement("option");
-        o.value = t.id; o.textContent = t.name;
-        tsel.appendChild(o);
-      });
-      tsel.value = window.NB_THEMES[themeIndex] ? window.NB_THEMES[themeIndex].id : window.NB_THEMES[0].id;
-      tsel.addEventListener("change", function () {
-        window.NB_THEMES.forEach(function (t, i) { if (t.id === tsel.value) setTheme(i); });
-      });
-    }
+    // Theme is Grid only — no chrome dropdown. theme_use / legacy /theme resolve NB_THEMES.
     expStyle.textContent = exp().css;
     // Experience select / thesis prose removed from chrome — console is the
     // board. Optional hosts still work if a fork reintroduces them.
@@ -3914,10 +5715,14 @@
       sel.value = exp().id;
     }
     startBrandAnimation();
+    if (window.NB_GRIDROAD && typeof window.NB_GRIDROAD.start === "function") {
+      window.NB_GRIDROAD.start();
+    }
     paintIdentity();
     paintActivityBell();
     wireGlobal();
     wireSpeech();
+    wireVoice();
     wireAttach();
     wireMount();
     render();
@@ -3935,7 +5740,7 @@
         : (window.NB_SESSION ? window.NB_SESSION.authNote(identity) : profileLabel());
     if (speechSupported()) {
       bootNote = (bootNote ? bootNote + " · " : "") +
-        "speech on — hold ` push-to-talk, Alt+V toggle";
+        "speech on — hold ` PTT · Alt+V listen · Alt+Shift+V voice mode";
     }
     var actN = unreadActivityCount();
     if (actN > 0) {
@@ -3966,7 +5771,7 @@
       var t = ev.target;
       if (!t || !t.closest) return false;
       return !!(t.closest("[data-key='prompt-stack']") || t.closest(".cn-prompt") ||
-        t.closest("[data-cli]") || t.closest("[data-attach-tray]") || t.closest(".cn-panel"));
+        t.closest("[data-cli]") || t.closest("[data-attach-tray]") || t.closest(".cn-tui-foot"));
     }
 
     document.addEventListener("dragenter", function (ev) {
@@ -3996,7 +5801,7 @@
       if (!state.attachDrop) return;
       // Leaving the window / panel.
       var related = ev.relatedTarget;
-      if (related && related.closest && related.closest(".cn-panel")) return;
+      if (related && related.closest && related.closest(".cn-tui-foot")) return;
       state.attachDrop = false;
       render(true);
     });
@@ -4051,12 +5856,19 @@
     document.addEventListener("keydown", function (ev) {
       if (!speechSupported()) return;
       if (blockedTarget(ev)) return;
+      if (window.NB_SPEECH.isIntentModeKey && window.NB_SPEECH.isIntentModeKey(ev)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return cycleSpeechIntent();
+      }
       if (window.NB_SPEECH.isToggleKey(ev)) {
         ev.preventDefault();
         ev.stopPropagation();
         return toggleDictation();
       }
       if (window.NB_SPEECH.isPttKey(ev)) {
+        // Channel-voice PTT owns bare ` while joined in ptt mode.
+        if (voiceClaimsPtt()) return;
         ev.preventDefault();
         ev.stopPropagation();
         if (ev.repeat) return;
@@ -4069,8 +5881,8 @@
       if (ev.key === "Escape" && state.speech && state.speech.listening) {
         ev.preventDefault();
         ev.stopPropagation();
-        endDictation();
-        return status("dictation stopped");
+        endDictation({ skipLeftover: true });
+        return status("listening stopped");
       }
     }, true);
 
@@ -4095,6 +5907,61 @@
     });
   }
 
+  /**
+   * Discord-parity channel voice hotkeys. Capture phase so PTT does not type
+   * ` into the prompt. When joined in PTT mode, bare ` transmits audio instead
+   * of starting speech-to-text (wireSpeech yields via voiceClaimsPtt).
+   */
+  function wireVoice() {
+    if (!window.NB_VOICE) return;
+
+    function blockedTarget(ev) {
+      var t = ev.target;
+      if (!t) return false;
+      if (t.closest && t.closest("[data-auth-dialog][data-open='true']")) return true;
+      if (t.matches && t.matches("select, textarea")) return true;
+      return false;
+    }
+
+    document.addEventListener("keydown", function (ev) {
+      if (!state.voice || !state.voice.joined) return;
+      if (blockedTarget(ev)) return;
+      // Ctrl+Shift+M — Discord mute toggle
+      if ((ev.key === "m" || ev.key === "M") && ev.ctrlKey && ev.shiftKey && !ev.altKey && !ev.metaKey) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        toggleVoiceMute();
+        return;
+      }
+      if (!voiceClaimsPtt()) return;
+      if (!window.NB_VOICE.isVoicePttKey(ev)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.repeat) return;
+      if (!voicePttHeld) {
+        voicePttHeld = true;
+        var eng = ensureVoiceEngine();
+        if (eng) eng.pttDown();
+      }
+    }, true);
+
+    document.addEventListener("keyup", function (ev) {
+      if (!voicePttHeld) return;
+      if (!window.NB_VOICE.isVoicePttKey(ev)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      voicePttHeld = false;
+      if (voiceEngine) voiceEngine.pttUp();
+    }, true);
+
+    window.addEventListener("blur", function () {
+      if (voicePttHeld && voiceEngine) {
+        voicePttHeld = false;
+        voiceEngine.pttUp();
+      }
+    });
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
@@ -4102,6 +5969,13 @@
   // calls, so a tool cannot drift from the button it mirrors.
   window.NB_APP = {
     render: render, status: status, navigate: navigate, state: state,
+    composeContext: composeContext,
+    composeLabel: composeLabel,
+    publishCompose: publishCompose,
+    createChannel: createChannel,
+    createProject: createProject,
+    armReplyTo: armReplyTo,
+    clearReplyTo: clearReplyTo,
     setView: function (v) {
       // Back-compat: view_set tool / chips now map onto feed projections.
       applyFeedView(v);
@@ -4110,10 +5984,15 @@
     setFeedQuery: setFeedQuery,
     applyFeedView: applyFeedView,
     setTheme: setTheme,
+    setPromptMode: setPromptMode,
     applyTokens: applyTokens,
     mergePending: mergePending,
     setLive: function (on) { state.live = on; },
     run: run,
+    runSearch: runSearch,
+    pushLine: pushLine,
+    toggleKeys: toggleKeys,
+    openIntel: openIntel,
     // Profile + spaces (tests and WebMCP honesty).
     getIdentity: function () { return identity; },
     getPolicy: function () { return policy; },
@@ -4128,11 +6007,26 @@
     profileLabel: profileLabel,
     schedulePersist: schedulePersist,
     snapshotBoard: snapshotBoard,
-    // Speech-to-text (no-ops when unsupported).
+    // Speech-to-text (gated until on-device model is available).
     speechSupported: speechSupported,
+    speechReady: speechReady,
+    fetchSpeechModel: fetchSpeechModel,
+    warmSpeechModel: warmSpeechModel,
     toggleDictation: toggleDictation,
+    cycleSpeechIntent: cycleSpeechIntent,
+    setSpeechIntent: setSpeechIntent,
+    handleSpeechFinal: handleSpeechFinal,
     beginDictation: beginDictation,
     endDictation: endDictation,
+    // Discord-parity channel voice (WebRTC mesh).
+    voiceSupported: voiceSupported,
+    joinVoice: joinVoice,
+    leaveVoice: leaveVoice,
+    toggleVoiceMute: toggleVoiceMute,
+    toggleVoiceDeafen: toggleVoiceDeafen,
+    setVoiceInputMode: setVoiceInputMode,
+    runVoiceCommand: runVoiceCommand,
+    findVoiceChannel: findVoiceChannel,
     // Teams-style Activity + browser Notification API.
     openActivity: openActivity,
     openNotification: openNotification,
@@ -4162,6 +6056,20 @@
     openDetail: openDetail,
     closeDetail: closeDetail,
     isDetailOpen: isDetailOpen,
+    openThread: openThread,
+    clearThreadFocus: clearThreadFocus,
+    setHomeFeed: setHomeFeed,
+    markHomeFeedRead: markHomeFeedRead,
+    toggleAnnCollapsed: toggleAnnCollapsed,
+    homeFeedUnreadCounts: homeFeedUnreadCounts,
+    activateHomeItem: activateHomeItem,
+    cycleHomeTab: cycleHomeTab,
+    moveHomeCursor: moveHomeCursor,
+    focusColumns: focusColumns,
+    revealSessionChat: revealSessionChat,
+    clearSessionOutFocus: clearSessionOutFocus,
+    setPersonPane: setPersonPane,
+    currentDmPeer: currentDmPeer,
     // Terminal file editor.
     openFileInEditor: openFileInEditor,
     focusEditor: focusEditor,
@@ -4178,15 +6086,12 @@
     // browser agent cannot see them.
     window.NB_APP.toolCount = registered;
     window.NB_APP.toolHost = native ? "document.modelContext" : "in-page registry";
-    // The cold-start banner states only facts the board can actually assert —
-    // its name, its epoch and how many tools are really registered — which is
-    // why it can be drawn at all. It is written after tools install because
-    // the count is one of those facts. Skip when a durable session already
-    // restored a transcript so reloads do not double-banner.
-    if (!state.sessions[0].lines || !state.sessions[0].lines.length) {
-      seedBanner(state.sessions[0]);
-    }
-    state.lines = state.sessions[0].lines.slice();
+    // No Epoch terminal banner — the masthead carries brand. Tools register
+    // silently; counts are available on NB_APP for debugging.
+    state.lines = (state.sessions[0].lines || []).slice();
+    // Drop any restored cold-start banners from older sessions.
+    state.lines = state.lines.filter(function (ln) { return ln.kind !== "banner"; });
+    state.sessions[0].lines = state.lines.slice();
     render();
   }
 })();

@@ -529,7 +529,8 @@ export function communityStyles(): string {
       font-weight: 600;
     }
     .feed-message[data-search-hit="true"] {
-      box-shadow: inset 3px 0 0 var(--epoch-color-accent);
+      background: var(--epoch-color-open-land);
+      box-shadow: inset 0 0 0 1px var(--epoch-color-open-land-strong);
     }
 
     .api-banner {
@@ -1216,8 +1217,8 @@ export function communityStyles(): string {
     .signature-provenance {
       margin-block-start: var(--epoch-space-xs);
       padding: var(--epoch-space-sm) var(--epoch-space-md);
-      border-inline-start: 2px solid var(--epoch-color-accent);
-      background: var(--epoch-color-surface);
+      border: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-sunken);
       border-radius: var(--epoch-radius-sm);
     }
     .signature-provenance dl {
@@ -1504,13 +1505,20 @@ export function communityStyles(): string {
     @media (max-width: 800px) { .legend { display: none; } }
 
     /* ── Terrain (DESIGN 2: the legend) ──────────────────────────────────── */
-    /* Social channels are runnable, work channels are rough. The ground is read
-       before the label, which is how a legend saves a sentence. */
+    /* Social channels are runnable, work channels are rough. Terrain is ground
+       behind the label — never a left stripe (side-tab AI tell). */
     .channel-button[data-channel-kind="social"] {
-      box-shadow: inset 3px 0 0 var(--epoch-color-runnable), inset 4px 0 0 var(--epoch-color-line-strong);
+      background: var(--epoch-color-runnable);
+      box-shadow: inset 0 0 0 1px var(--epoch-color-line-strong);
     }
-    .channel-button[data-channel-kind="work"] { box-shadow: inset 3px 0 0 var(--epoch-color-rough-strong); }
-    .channel-button[aria-pressed="true"][data-channel-kind] { box-shadow: inset 0 0 0 1px var(--epoch-color-line); }
+    .channel-button[data-channel-kind="work"] {
+      background: color-mix(in srgb, var(--epoch-color-rough) 55%, var(--epoch-color-rail));
+      box-shadow: inset 0 0 0 1px var(--epoch-color-rough-strong);
+    }
+    .channel-button[aria-pressed="true"][data-channel-kind] {
+      background: var(--epoch-color-rail-active);
+      box-shadow: inset 0 0 0 1px var(--epoch-color-line);
+    }
 
     /* Marsh marks a message anchored to something concrete. Terrain is ground,
        never text weight, so it rides as a tint behind the notation. The element
@@ -1537,7 +1545,10 @@ export function communityStyles(): string {
       outline: 2px solid var(--epoch-color-control);
       outline-offset: 2px;
     }
-    .row[data-selected-message="true"] { background: var(--epoch-color-surface); box-shadow: inset 3px 0 0 var(--epoch-color-control); }
+    .row[data-selected-message="true"] {
+      background: color-mix(in srgb, var(--epoch-color-mint) 45%, var(--epoch-color-surface-raised));
+      box-shadow: inset 0 0 0 1px var(--epoch-color-control);
+    }
 
     /* ── Tonal layering (DESIGN 5: tonal first, shadows rare) ─────────────── */
     /* Chrome recedes to surface; the feed advances to raised white. Before this
@@ -1676,9 +1687,9 @@ export function communityStyles(): string {
       gap: var(--epoch-space-xs);
       margin: var(--epoch-space-xs) 0 0.05rem;
       padding: var(--epoch-space-sm) var(--epoch-space-sm);
-      border-left: 2px solid var(--epoch-color-line);
-      background: var(--epoch-color-surface);
-      border-radius: 0 var(--epoch-radius-sm) var(--epoch-radius-sm) 0;
+      border: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-sunken);
+      border-radius: var(--epoch-radius-sm);
     }
     .thread-comment {
       color: var(--epoch-color-ink-soft);
@@ -1860,19 +1871,40 @@ export function communityStyles(): string {
       }
     }
 
-    /* Row-level secondary controls run at the contract's 32px floor rather than
-       the 36px reserved for primary actions; at 36px each row grew to 188px. */
+    /* Row-level secondary controls: 36px primary touch floor on pointer-coarse;
+       keep the denser 32px floor on fine pointers so feed rows stay scannable. */
     .row-foot .button-chip,
     .row-foot .reaction {
       min-height: 2rem;
       padding: 0 var(--epoch-space-sm);
       font-size: var(--epoch-type-meta-size);
     }
+    @media (pointer: coarse) {
+      .row-foot .button-chip,
+      .row-foot .reaction {
+        min-height: 2.25rem;
+      }
+    }
 
+    /* Reduced motion: keep instant state (open/closed, selected) but drop
+       authored motion. Do not globally zero every transition — that erases
+       useful focus/selection feedback. */
     @media (prefers-reduced-motion: reduce) {
-      * {
-        animation: none !important;
-        transition: none !important;
+      .signature-mark::after {
+        transition: none;
+        transform: none;
+      }
+      .signature-mark:hover::after,
+      .signature-mark:focus-visible::after,
+      .signature-mark[aria-expanded="true"]::after {
+        height: 2px;
+        transform: none;
+      }
+      .signature-provenance[data-provenance-revealed="true"] {
+        animation: none;
+      }
+      .channel-rail {
+        transition: none;
       }
     }`;
 }

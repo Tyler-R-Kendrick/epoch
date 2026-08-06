@@ -25,14 +25,14 @@ colors:
   open-land-strong: "#e0cc63"
   marsh: "#a5d8ec"
   marsh-strong: "#6bb6d6"
-  contour: "#a8703c"
+  contour: "#8a5a2a"
   contour-soft: "#d8b48c"
-  out-of-bounds: "#e03a2f"
+  out-of-bounds: "#b52a20"
   control: "#a300a3"
   gold: "#b8860b"
   teal: "#1f6f5c"
   teal-deep: "#175346"
-  teal-hover: "#268a72"
+  teal-hover: "#1c6554"
   mint: "#d4ebe0"
   mint-strong: "#a9d4c1"
   avatar: "#2b2b26"
@@ -49,31 +49,31 @@ colors:
   warning-line: "#d8b44a"
 typography:
   display:
-    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif"
     fontSize: "2.25rem"
     fontWeight: 750
     lineHeight: 1.05
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.3125rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "-0.015em"
   title:
-    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.0625rem"
     fontWeight: 700
     lineHeight: 1.25
     letterSpacing: "0em"
   body:
-    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0em"
   label:
-    fontFamily: "'Helvetica Neue', Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif"
+    fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 650
     lineHeight: 1.2
@@ -134,7 +134,7 @@ components:
     height: "32px"
   channel-button-active:
     backgroundColor: "{colors.rail-active}"
-    textColor: "{colors.surface-raised}"
+    textColor: "{colors.rail-text}"
     typography: "{typography.title}"
     rounded: "{rounded.sm}"
   feed-message:
@@ -250,12 +250,66 @@ components:
     height: "1px"
   snapshot-hairline:
     backgroundColor: "{colors.warning-line}"
-    textColor: "{colors.warning-ink}"
+    textColor: "{colors.ink}"
     height: "1px"
   rail-divider:
     backgroundColor: "{colors.rail-line}"
     textColor: "{colors.rail-text}"
     height: "1px"
+  terrain-runnable:
+    backgroundColor: "{colors.runnable}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+  terrain-rough:
+    backgroundColor: "{colors.rough}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+  terrain-rough-edge:
+    backgroundColor: "{colors.rough-strong}"
+    textColor: "{colors.ink}"
+    height: "1px"
+  terrain-open-land:
+    backgroundColor: "{colors.open-land}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+  terrain-open-land-edge:
+    backgroundColor: "{colors.open-land-strong}"
+    textColor: "{colors.ink}"
+    height: "1px"
+  terrain-marsh:
+    backgroundColor: "{colors.marsh}"
+    textColor: "{colors.ink}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.sm}"
+  terrain-marsh-edge:
+    backgroundColor: "{colors.marsh-strong}"
+    textColor: "{colors.ink}"
+    height: "1px"
+  contour-mark:
+    backgroundColor: "{colors.contour}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.xs}"
+    padding: "2px 6px"
+  contour-soft-wash:
+    backgroundColor: "{colors.contour-soft}"
+    textColor: "{colors.ink}"
+    typography: "{typography.meta}"
+  out-of-bounds-alert:
+    backgroundColor: "{colors.out-of-bounds}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "4px 8px"
+  control-mark:
+    backgroundColor: "{colors.control}"
+    textColor: "{colors.surface-raised}"
+    typography: "{typography.label}"
+    rounded: "{rounded.xs}"
+    size: "8px"
 ---
 
 # Design System: Epoch Community
@@ -370,10 +424,10 @@ interface.
 
 ## 3. Typography
 
-**Display / Body:** Helvetica Neue / Inter, falling back to the platform UI stack.
+**Display / Body:** Helvetica Neue, then Segoe UI / `ui-sans-serif` / system-ui.
 **Meta / Mono:** `ui-monospace` stack for anchors, signatures, repo paths only.
 
-Typography is operational and sleek: slightly tighter than marketing sites, stronger author weight (X), readable body (Bluesky), no decorative display fonts.
+Typography is operational and sleek: slightly tighter than marketing sites, stronger author weight (X), readable body (Bluesky), no decorative display fonts. Inter is banned — it is the default AI/SaaS face and fights the civic-workshop voice.
 
 ### Hierarchy
 
@@ -386,7 +440,7 @@ Typography is operational and sleek: slightly tighter than marketing sites, stro
 
 ### Named rules
 
-**The Product Type Rule.** No Fraunces/Inter-display/marketing fonts in Community UI.
+**The Product Type Rule.** No Fraunces, Inter, Inter Display, or marketing fonts in Community UI. Helvetica Neue + platform UI sans only.
 
 **The Notation Rule.** Mono is notation, not decoration: anchors, signatures, repository paths, control numbers and measured values. Prose never sets in mono, and notation never sets in the body face.
 

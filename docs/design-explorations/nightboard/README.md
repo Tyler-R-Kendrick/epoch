@@ -3,9 +3,14 @@
 A live board for a signed community — terminal chrome with **Epoch** branding:
 a FIGlet ANSI Shadow wordmark (no border plaque, no secondary tag) that
 power-on ignites, then runs a slow energy wave across solid fills (letterforms
-stay intact — no ░▒▓ thrash). The top bar is brand + theme + Activity +
-identity; no product-name billboard, experience select, pause button, or thesis
-prose.
+stay intact — no ░▒▓ thrash). Behind the masthead, a canvas Tron grid-road
+shimmers in place; click empty bar chrome (or focus the canvas and press
+Enter/Space) to toggle restrained forward motion — off until asked.
+Controls read as a TTY — `[hot]` brackets and reverse-video selection, not
+rounded web pills — including sort/filter chips, Activity filters, and
+masthead actions. The top bar is brand + Activity + identity — Grid is the
+fixed look (no theme dropdown); no product-name billboard, experience select,
+pause button, or thesis prose.
 
 Open `index.html` from any static server. Nothing here needs a build step or a
 network connection.
@@ -49,18 +54,21 @@ count instead of interrupting.
 | `R` | Load queued posts |
 | `J` / `K` or arrows | Move through the stream |
 | `1`–`9` | Open a post by its number |
-| `Esc` | Close the detail panel |
-| `T` | Next theme |
+| `Esc` | Home feed (or leave columns for the prompt) |
+| `T` | Re-apply Grid theme |
 | `G` | Open the garden |
 | `?` | Key help |
-| `Alt+J` | Minimise / restore the terminal panel |
-| `Alt+M` | Maximise / restore the terminal panel |
-| `Alt+D` | Cycle terminal dock: bottom → right → left |
-| `Alt+T` | New isolated workspace at default home (not current path) |
+| `Alt+T` | New isolated workspace tab (default home) |
+| `Enter` (in channel) | Publish a new post |
+| `Enter` (after reply) | Publish a reply under that post |
+| `Enter` (in nav) | AI/tools act in the current path scope |
 | `Alt+Z` / `z` | Collapse / expand nav panes (detail fills width) |
-| `Ctrl+Space` | Intellisense + hotkey cheatsheet scoped to this workspace |
-| Hold `` ` `` | Push-to-talk speech-to-text (when the browser supports it) |
-| `Alt+V` | Toggle continuous dictation (when supported) |
+| `Ctrl+Space` | Intellisense + hotkey cheatsheet for the **focused component** (also always on the status bar as `[Ctrl+Space] keys`) |
+| Hold `` ` `` | Push-to-talk speech (when on-device STT model is ready); channel-voice transmit when joined in PTT mode |
+| `Alt+V` | Toggle continuous listening (when on-device STT is ready) |
+| `Alt+Shift+V` | Cycle voice mode: default / dictation / commands |
+| `Ctrl+Shift+M` | Mute / unmute while in a voice channel |
+| `/voice` | Join / leave / mute / deafen / PTT·VAD for channel voice |
 
 Everything is clickable too: channels, members, projects, posts, and the signed
 actions on each post.
@@ -153,7 +161,9 @@ chat with them.
 
 **Direct messages** are 1:1 threads under `/dms/<handle>`. Opening a **member**
 from the board roll or a project roster (or `/dm scout` / `/msg`) lands on that
-DM thread, not a profile card.
+DM with **messages as the default pane**. A **messages · profile** toggle
+switches to a GitHub-style profile description (bio, facts, pinned projects) in
+the same dense TUI styling — not a web card.
 
 ### Activity (MS Teams-style notifications)
 
@@ -178,10 +188,10 @@ Activity (and the browser Notification API when granted). Implementation:
 |---|---|
 | `post.created` | Live stream (or publish) lands a post |
 | `mention.you` | Body mentions `@you` or your handle |
-| `reaction.added` | You apply an emoji reaction |
+| `reaction.added` | You apply an ASCII reaction (`+1`, `eyes`, …) |
 | `dm.received` | A DM-shaped payload lands |
 | `subscription.matched` | Watched channel/topic/member traffic |
-| `identity.changed` | Claim, Bluesky login, or sign-out |
+| `identity.changed` | Claim, sign-in, or sign-out |
 | `space.joined` | You join or switch space |
 | `query.matched` | Payload matches the hook’s Lucene/field filter |
 
@@ -229,24 +239,33 @@ never cloned into a stack of path-segment columns.
   subnodes (plus optional one-level peek via `+` / Space)
 - **Enter / →** reloads the same nav into the selected directory
 - **← / × / Backspace** reloads nav at the parent (breadcrumb owns depth)
-- **Detail** shows the selection (thread, editor, agent, DM, …)
+- **Detail** shows the selection (thread, editor, agent, DM, …). Closing it
+  does **not** remove the pane or expand nav — it shows the **home feed**:
+  dense scrolling rows with toggles for **following** (people you follow),
+  **announcements** (Discord-style long-form posts, collapsible, expanded by
+  default), **featured** projects (README summary + optional excerpt), and
+  **creators** (bio snippet + ASCII contribution sparkline). Each tab carries
+  an unread count; opening a row marks it read
 - Tree icons are only **`+` / `−`** (expand/collapse). Leaves keep a blank
   spacer — no dots or arrows. A trailing count is a plain number when a dir
   has children
 
 | | |
 |---|---|
-| `←` / `h` | reload nav at parent |
-| `→` / `l` | reload nav into selected dir; on a text leaf, open detail and **activate the editor** (files, posts/messages) |
-| `↑↓` / `jk` | move within the nav list |
-| `Enter` | open dir (reload nav) or file/thread detail |
+| `←` / `h` | reload nav at parent; from **home feed** (detail focused), focus the nav sidebar |
+| `→` / `l` | reload nav into selected dir; on a **post**, open its **thread**; on other text files, open the editor; on **home feed** (detail focused), open the current row |
+| `↑↓` / `jk` | move within the focused surface — nav list, home-feed rows (when home owns focus), or previous/next post while a **thread** is focused |
+| `Enter` | open dir (reload nav); on a **post**, open its **thread**; other files open detail; on home, open the current row |
+| `e` | open the terminal editor for the selected file/post |
+| `[` / `]` | on home feed, cycle tabs (following · announcements · featured · creators) |
 | `Space` | expand / collapse **one level** under the cursor |
 | `+` / `−` | same expand / collapse (pointer) |
 | `Backspace` / `<<` on nav | back to parent — reload nav |
-| `Esc` / `×` on detail / `Backspace` on detail | **close detail pane** (nav fills the row) |
+| `Esc` / `[esc]` / `Backspace` on detail | leave a **thread** for the channel feed; from the feed, return to **Home feed**; then columns → prompt |
+| click a post / message | open that conversation as a **thread** detail (not the full channel list) |
 | `:` | command line |
-| `/` or any letter | filter the nav list |
-| `v` | cycle sort — hot, new, top, best |
+| `/` | start filtering the **nav** list (nav must own focus) |
+| `v` | cycle sort — hot, new, top (and any views you pin with `[+]`) |
 | `z` / `Alt+Z` | collapse / expand **nav** (detail fills the row) |
 | `Tab` | complete |
 
@@ -268,13 +287,21 @@ control clears the 32px floor wherever the pointer is coarse.
 One box, two readings. **AI is the default**; `Alt+A` or the chip at the prompt
 switches.
 
-**Slash commands** — in ai (chat) mode, type `/` for intellisense: `/go`,
-`/sort`, `/theme`, `/load`, `/help`, and friends. They run locally like CLI
-verbs and never go to the model. Tab completes paths and sort modes the same
-way the shell does.
+**Slash commands** — in ai (chat) mode, type `/` for intellisense. The catalogue
+is **static**: `/go`, `/search`, `/sort`, `/mode`, `/dm`, `/help`, `/attach`,
+and friends do not change with focus. **`/act`** is the exception — its
+arguments are context-bound (reply on a post, create a channel under
+`…/channels`, voice in a lounge, share the current path). Type bare `/act` to
+list what works here. Context verbs like `/reply` are not in autocomplete
+(agents may still resolve them). Hotkeys such as **Ctrl+Space** (keys) are not
+mirrored as slash verbs. **`/mode ai|cli`** switches prompt interpretation
+(`Alt+A` still toggles). Terminal shell verbs (`cd`, `ls`, …) are not slash
+commands — use cli mode. Theming is `theme_set` / `theme_use` (legacy `/theme`
+resolves for agents only).
 
 **CLI** — the text is a command. Wrong input is an error, which is what a shell
-owes you.
+owes you. While you type, the prompt shows **fish-style ghost preview** and
+**syntax highlighting** (verb, path, sort, query fields) plus a suggestions menu.
 
 **AI** — the text is intent. It goes to an agent that interprets it into tool
 calls, and a failed call is **repaired rather than rejected**: the error is fed
@@ -294,6 +321,13 @@ appear in the transcript, which is why a failed run is visible instead of silent
 
 Its tools are the console's own verbs — `navigate`, `view`, `search`, `theme`,
 `load`, `say` — so the agent can do nothing you could not do by typing.
+
+**`/search` / `search` / `board_search`** — Lucene search across every feed,
+project room, channel, DM, and path. Same query grammar as feed `/view`
+(`who:`, `state:`, `body:`, `kind:`, …). CLI mode runs it directly; AI mode
+accepts `/search …` or bare `search …` as a command, and also registers
+`board_search` as a WebMCP tool / Space Steward skill so natural language
+(“find cache talk”, “what needs review?”) does not require typing the slash.
 
 **The garden is gone as a panel.** Theming is just another tool: type
 *"make everything blue"* and the board restyles, because a separate window for
@@ -342,19 +376,58 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
   - `@` mentions people and agents on the board (`@maya`, `@scout`)
   - `#` tags trending topics and channel short-names (`#draft-persistence`,
     `#bugs`)
-  - Tab / Enter accepts (with a trailing space); a fully typed token sends as
-    written. Markers are extensible in `complete.js` (`MARKER_SPECS`).
-- **Speech-to-text** when the browser exposes `SpeechRecognition` /
-  `webkitSpeechRecognition` (otherwise the mic and hotkeys are absent):
+  - Tab accepts (with a trailing space); Enter always submits/sends as typed.
+    Markers are extensible in `complete.js` (`MARKER_SPECS`).
+- **Speech-to-text** uses an **on-device** quantized model (Microsoft Edge’s
+  local `SpeechRecognition` pack via `processLocally` +
+  `SpeechRecognition.available` / `.install`). Cloud-only Web Speech and
+  Grok/xAI STT APIs are **not** the backend — voice stays off until a local
+  model reports **available**.
+  - The **mic is always visible**. When unsupported or still downloading it
+    is muted with a status tag (`off` / `fetch` / `dl…`) and a title that
+    explains why; hold `` ` ``, Alt+V, and listen only work once ready
+  - First visit may need **one download** (gesture: click the mic or any
+    key) — same pattern as the Prompt API model warm
+  - Prefer **Microsoft Edge** (Canary/Dev) with *Speech Recognition with
+    on-device model*. Chrome/Chromium may expose `available`/`install` stubs
+    that are unsafe to probe — Nightboard treats those as unavailable rather
+    than crashing the tab
   - Mic control uses the **16-bit iconography pack** (`icons.js` /
     [pixelarticons](https://pixelarticons.com) `mic`, 16×16 pixelated)
   - **Hold `` ` ``** — Discord-style push-to-talk; listen while held, commit on
     release
-  - **Alt+V** — toggle continuous dictation (voice-activity analogue)
+  - **Alt+V** — toggle continuous listening (voice-activity analogue)
+  - **Alt+Shift+V** (or the `[default]` chip next to the mic) — cycle **voice
+    intent mode**, matching Windows Voice Access / macOS Voice Control:
+    - **default** — wake prefixes (`computer …`, `command …`, `hey epoch …`)
+      or the spoken grammar run as commands; everything else is dictation
+    - **dictation** — every phrase is text in the prompt
+    - **commands** — every phrase is a command (unrecognized fails soft)
+  - Spoken mode switches: `"commands mode"`, `"dictation mode"`, `"default mode"`
+  - Discoverability: say **`"what can I say?"`** (lists the grammar in the
+    transcript). Examples: `"computer go to bugs"`, `"search needs review"`,
+    `"sort by new"`, `"send"`, `"stop listening"`
   - **Esc** or the mic button — stop; permission denials fail soft
-- **Arrows belong to the menu when it is open.** `↑↓` walk the candidates and
-  `Enter` accepts the highlighted one; they only mean history when there is
-  nothing to choose between.
+- **Channel voice** (Discord-parity, same-origin mesh for the exploration):
+  - Dedicated rooms under community channels: **`lounge`**, **`standup`**
+    (`kind: voice` — no text backlog; join from the channel or `/voice join`)
+  - **WebRTC** mesh with **BroadcastChannel** signaling (stand-in for Discord’s
+    voice WebSocket). Media is Opus-preferred @ 48&nbsp;kHz with echo cancel /
+    noise suppress / AGC and an interactive `AudioContext` for VAD
+  - Persistent **voice dock** above the compose foot while connected: roster,
+    speaking indicators, **mute** / **deafen**, **VAD ↔ PTT**, leave, and
+    candidate-pair **RTT** from `getStats`
+  - **Hold `` ` ``** transmits while input mode is PTT (takes priority over
+    speech-to-text PTT). **Ctrl+Shift+M** toggles mute
+  - Slash: `/voice join [channel]`, `leave`, `mute`, `deafen`, `ptt`, `vad`,
+    `status`. WebMCP: `board_voice_join` / `board_voice_leave` / `board_voice_mute`
+  - Open a second tab on the same origin to prove peer audio; without mic
+    permission join fails soft
+- **Arrows belong to the menu when it is open.** `↑↓` walk the candidates;
+  **Tab** (or click) accepts the highlighted one. **Enter always submits** the
+  typed line — autocomplete never steals it. On an empty prompt (menu closed),
+  `↑↓` walk command history even though a full verb catalogue exists in
+  completion state.
 - **Tab discipline**, `cd -`, and `..` completes.
 
 ## The GraphQL API
@@ -384,7 +457,8 @@ Every capability the surface has is registered as a
 [WebMCP](https://github.com/webmachinelearning/webmcp) tool through
 `document.modelContext.registerTool`:
 
-`board_navigate` · `board_list` · `board_where` · `view_set` · `sort_set` · `stream_load` ·
+`board_navigate` · `board_list` · `board_where` · `board_search` · `board_post` ·
+`board_create_channel` · `board_create_project` · `view_set` · `sort_set` · `stream_load` ·
 `stream_pause` · `theme_set` · `theme_use` · `graph_query` · `graph_schema` ·
 `fx_asciify`
 
@@ -401,7 +475,7 @@ the button breaks the tool breaks with it, which is correct.
 **The chat's vocabulary is the registry.** Nothing is hand-listed in the agent:
 a component that registers a tool becomes usable by chat immediately, and one
 that stops registering disappears from the agent's vocabulary in the same
-motion. Asking *"what needs review?"* runs a GraphQL query; *"sort by new"*
+motion. Asking *"what needs review?"* runs `board_search` (or a GraphQL query); *"sort by new"*
 calls `sort_set`; *"make everything blue"* calls `theme_set` — all through the
 same registry a browser agent would use.
 
@@ -410,16 +484,19 @@ same registry a browser agent would use.
 The preview is always a **comment tree** (Reddit grammar). Sort changes order,
 not costume:
 
-- **Nest rails** — one vertical bar per ancestor depth. Click a bar (or `−`/`+`)
+- **Nest rails** — one `|` column per ancestor depth. Click a rail (or `[-]`/`[+]`)
   to collapse that chain and everything under it.
-- **Votes** — upvote / downvote on every comment; score is local to the session.
-- **Reactions** — GitHub/Slack-style emoji pills on every comment: `+1`, `-1`,
-  `eyes`, `rocket`, `heart`, `laugh`, `hooray`, `thinking`. Click a pill to
-  toggle yours; **+** opens the picker. Fixture posts ship seed counts; your
-  reactions persist with page state.
-- **Reply** — arms the prompt as `reply to @handle: …`.
+- **Votes** — `[+]` / `[-]` on every comment; score is local to the session.
+- **Reactions** — terminal marks as `[+1 3]`, `[eyes 2]`, … — never emoji or
+  round pills. Keys: `+1`, `-1`, `eyes`, `rocket`, `heart`, `laugh`, `tada`,
+  `thinking`. Click to toggle yours; `[+]` opens the picker. Fixture posts ship
+  seed counts; your reactions persist with page state.
+- **Reply** — `[reply]` arms compose as reply scope; Enter publishes under that
+  post. The label above the prompt shows `[reply @handle · id]`.
+- **Compose scopes** — channel → new post; DM → dm message; nav at
+  `…/channels` or `/projects` → create tools / AI stay in that project.
 - **Feed views (Lucene-style)** — more robust than thumbs-up ranking alone.
-  Named projections (`hot`, `needs review`, `agents`, `signed`, `reacted`, …)
+  Named projections (`hot`, `new`, `top` by default; pin more with `[+]`)
   and a free-form query bar:
 
   ```
@@ -462,19 +539,29 @@ so if the reading goes the glyphs go with it:
 It is all plain text in the DOM, so it themes with the tokens, copies as text,
 and costs nothing.
 
-### Markdown + colour-coded tables
+### Markdown + colour-coded tables + syntax highlighting
 
 Transcript and post bodies go through `NB_ASCII.formatBody`:
 
-- **Markdown subset** — headings, lists, quotes, fenced code, `**bold**` /
-  `*em*` / `` `code` ``, `@mentions`, `#topics`, links, and pipe tables
+- **Markdown subset (Discord-flavoured)** — headings, lists, `>` / `>>>` quotes,
+  fenced code, `**bold**` / `***bold italic***` / `*em*` / `__underline__` /
+  `~~strike~~` / `||spoiler||` (click to reveal) / `` `code` ``, `@mentions`,
+  `#topics`, links, and pipe tables
+- **Message chrome** — votes, reactions, fold, and actions are ASCII brackets
+  (`[+]`, `[eyes 2]`, `[reply]`), not circles or emoji. Braille receipt sigils
+  stay.
+- **Syntax highlighting** — fenced blocks are token-coloured via `NB_SYNTAX`
+  (js/ts, json, graphql, shell, css, html, markdown, diff, lucene, …). Bare
+  JSON blobs in the transcript get the same treatment. The terminal file editor
+  highlights `.ts` / `.js` / `.md` / … lines in place. Classes are `.nb-tok-*`
+  on theme tokens — no Prism/Shiki dependency.
 - **Tables** render as **box-drawn ASCII** (`┌─┬─┐`) with colour classes:
   header ink uses accent, rules are faint, cells follow body/dim tokens
 - **Plain multi-line ASCII** still colourises box edges, block gauges, and
   braille sigils so banners and gauges stay readable without full markdown
 
-Themes style via `.nb-md-*` classes (no hard-coded colours). `/spaces` prints a
-markdown table of relays so the transcript exercises the path.
+Themes style via `.nb-md-*` / `.nb-tok-*` classes (no hard-coded colours). `/space`
+opens the spaces catalogue so you can pick one from the list.
 
 ### Attachments (file upload for chat context)
 
@@ -587,7 +674,18 @@ happen, because resilience that has never been made to fail is a claim:
 
 ```
 npm run nightboard:faults
+npm run nightboard:e2e
+npm run a11y:nightboard
+npm run lint:nightboard-a11y
 ```
+
+Accessibility: the board is keyboard-first (skip link, banner/main/contentinfo
+landmarks, ARIA tablist for workspaces, combobox + listbox for the prompt).
+`npm run a11y:nightboard` runs axe-core at desktop and mobile and fails on
+serious/critical findings; evidence is written to
+[`docs/evidence/nightboard/axe.json`](../../evidence/nightboard/axe.json).
+`npm run lint:nightboard-a11y` is the static companion gate for string-built
+HTML that jsx-a11y cannot see.
 
 It covers: a silent download, a 0–100 progress scale, a transient failure that
 retries and succeeds, a permanent failure, a truncated stream, a whole-text
@@ -667,35 +765,34 @@ frame itself never scrolls as a page — every scrolling surface is a named pane
 ## Durable page state, profile, and spaces
 
 Page state is durable across reloads. The **Profile** button defaults to
-**Anonymous** in the home Slack-style **space** (workspace). Anonymous sessions
-are fine when the space allows guests.
+**Anonymous** in the home **space**. Anonymous sessions are fine when the space
+allows guests.
 
 | Auth state | Meaning |
 |---|---|
 | `guest` | Anonymous principal in a guest-friendly space |
 | `claimed` | Signed in to a space with a local handle (same principal kept) |
-| `atproto` | Signed in via Bluesky-style ATProto (handle → mock `did:plc`) |
+| `atproto` | Signed in with a portable handle |
 | `denied` | Space or policy requires sign-in — read-only until Profile → Sign in |
 
-### Spaces = Relays + Workspaces + Subreddits
+### Spaces
 
-A **space** is three familiar things in one joinable unit:
-
-| Lens | Feels like | What you get |
-|---|---|---|
-| **Relay** | Block/Buzz · Nostr | Event endpoint (`wss://…`), protocol, connected/idle, read/write |
-| **Workspace** | Slack | Membership, guests vs members-only, channels, linked projects |
-| **Subreddit** | Reddit | `r/…` slug, subscribers, rules, topical **feed** |
+A **space** is a joinable board: membership, a topical **feed**, **channels**,
+and linked **projects**. Anonymous guests can browse guest-friendly spaces;
+sign-in claims a handle in that space.
 
 Fixture spaces:
 
-| Space | Guests | Relay | Role |
-|---|---|---|---|
-| EPOCH CIVIC WORKSHOP (`r/civic-workshop`) | yes | connected | Home community |
-| Agent Lab (`r/agent-lab`) | yes | connected | Humans + agents |
-| Tuner Crew (`r/tuner-crew`) | no | idle until sign-in | Private crew + projects |
+| Space | Guests | Role |
+|---|---|---|
+| EPOCH CIVIC WORKSHOP (`r/civic-workshop`) | yes | Home community |
+| Agent Lab (`r/agent-lab`) | yes | Humans + agents |
+| Tuner Crew (`r/tuner-crew`) | no | Private crew + projects |
 
-Browse at `/spaces`, open a hub (`/spaces/agent-lab`) for **feed / channels / projects / relay / about**. Profile menu joins a space and (mock) connects its relay. `/space agent-lab` joins; members-only spaces open sign-in. `/spaces` lists relays + sub counts.
+Browse at `/spaces`, or run **`/space`** to open that catalogue as a select list.
+Open a hub (`/spaces/agent-lab`) for **feed / channels / projects / about**.
+Profile menu joins a space. `/space agent-lab` joins by id; members-only spaces
+open sign-in.
 
 Board furniture is snapshotted under `nb-board-state` for the same principal.
 Slash surface also includes `/whoami`, `/logout`.
@@ -712,25 +809,30 @@ Polish that had been missing, each piece done the terminal way:
   collapse to thin path **rails** (`z` / `Alt+Z`, or — / ▭ on the header) so
   detail can claim the width when you choose to read full-width. Rails stay
   clickable; opening a post does not auto-collapse — nav stays open for further
-  navigation. Collapse is session-only so a reload never traps you. Terminal
-  dock layout still persists as furniture.
-- **The terminal is a VS Code panel.** Workspace tabs, sash, dock / maximise /
-  minimise actions. Drag the sash to resize height (bottom dock) or width
-  (side dock). `Alt+J` minimises, `Alt+M` maximises, `Alt+D` cycles dock
-  position through bottom → right → left. `Alt+T` (or `+`) opens a new
-  terminal tab — an **isolated virtual worktree** with its own path, preview,
-  folds, transcript, history, detail pane and attachments. New tabs land at
-  the default home channel; they never inherit the previous tab’s scope.
-  Click a tab to restore a minimised panel or switch workspaces. Side docks
-  fall back to bottom under mid width so a phone never carries two thin
-  vertical strips.
+  navigation. Collapse is session-only so a reload never traps you.
+- **The whole page is the TUI.** There is no separate dockable terminal window
+  and no foot transcript strip. Workspace tabs (`Alt+T` / `+`) are isolated
+  virtual worktrees — each has its own path, folds, session log, history, detail
+  pane and attachments. New tabs land at the default home channel. The prompt at
+  the foot is compose-only (scoped to the active blade): **reply** posts under
+  the armed message, a **channel** creates a new top-level post, a **DM** sends
+  to that thread, and **nav** scopes `board_create_channel` /
+  `board_create_project` (and the AI) to the current path. Compose scope is
+  labelled above the input. CLI/AI session output lands in the detail blade when
+  needed — never in a second pane. When a submit is **inconclusive** (for
+  example `@maya …` on the home feed or other non-DM/channel/reply compose
+  scope, a failed `board_post`, or no on-device model), that transcript becomes
+  the **active** pane in detail (`data-active`) so you can see the tip and
+  iterate — `@handle` alone does **not** send a DM; use `/dm @maya` or open
+  their thread first. The home feed is not a leftover-channel compose surface.
 - **Transcript identity is a who-rail.** `you` and `agent` share a fixed left
   column so turns line up; system output sits under an empty rail. Tool calls
-  and supplemental detail collapse by default under the agent (`▸ navigate ·
+  and supplemental detail collapse by default under the agent (`> navigate ·
   path`) and expand on click — the one-line summary stays honest when closed.
 - **Conversations are Reddit-style trees.** `re:` names the parent; replies nest
   under what they answer with clickable nest rails and `±` fold controls.
-  Votes and reply sit on every comment. Sort is hot/new/top/best, not a view
+  Votes and reply sit on every comment. Feed sort defaults to Reddit's three —
+  hot / new / top — on the feed pane only; pin more with `[+]`. Not a view
   costume.
 - **A channel shows what it is before what it contains**: name, kind, post
   count, unread, its activity sparkline and last word, as one line of facts
@@ -747,7 +849,7 @@ agent can truthfully do to the board's content.
 to the contract: themes, unique ids, no external resources, body ink at 7:1
 and dim ink at 4.5:1 against their own ground, and the reserved accent
 distinguishable from every state ink. It also exercises durable guest identity,
-claim continuity, ATProto mock login, and board-state round-trip from
+claim continuity, portable-handle sign-in, and board-state round-trip from
 `session.js`.
 
 It earned its place immediately. Two themes shipped below the floor — Breadbin

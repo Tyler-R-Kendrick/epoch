@@ -64,7 +64,7 @@ function contrast(a: string, b: string): number {
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
 
-export function runNightboardThemeTests(): void {
+export async function runNightboardThemeTests(): Promise<void> {
   // Hoisted source snapshots — many sections assert against these.
   const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
   const consoleSrc2 = readFileSync(join(ROOT, "console.js"), "utf8");
@@ -72,7 +72,11 @@ export function runNightboardThemeTests(): void {
   const baseCss = readFileSync(join(ROOT, "base.css"), "utf8");
 
   const themes = loadThemes();
-  assert.equal(themes.length, 2, "two themes: the lit terminal and the printed one");
+  assert.equal(themes.length, 1, "Grid is the only built-in theme");
+  assert.equal(themes[0].id, "nightboard");
+  assert.equal(themes[0].name, "Grid");
+  assert.ok(!readFileSync(join(ROOT, "index.html"), "utf8").includes("data-theme-select"),
+    "chrome must not offer a Grid/Line Printer theme dropdown");
 
   const ids = new Set<string>();
   for (const theme of themes) {
@@ -97,6 +101,12 @@ export function runNightboardThemeTests(): void {
       `${theme.id}: body ink is ${inkRatio.toFixed(1)}:1 on its ground, below the 7:1 floor`);
     assert.ok(dimRatio >= 4.5,
       `${theme.id}: dim ink is ${dimRatio.toFixed(1)}:1 on its ground, below the 4.5:1 floor`);
+    const faint = tokens.get("--nb-ink-faint");
+    if (faint !== undefined) {
+      const faintRatio = contrast(faint as string, bg as string);
+      assert.ok(faintRatio >= 4.5,
+        `${theme.id}: faint ink is ${faintRatio.toFixed(1)}:1 on its ground, below the 4.5:1 AA floor`);
+    }
 
     // The reserved ink must be tellable from the state inks, or the legend lies.
     const accent = tokens.get("--nb-accent");
@@ -243,7 +253,7 @@ export function runNightboardThemeTests(): void {
   // Board root exposes spaces, dms, notifications as siblings of projects.
   const boardRoot = map.list("/") as Array<{ name: string }>;
   assert.ok(boardRoot.some((e) => e.name === "projects"), "board root lists projects");
-  assert.ok(boardRoot.some((e) => e.name === "spaces"), "board root lists spaces (relay+workspace+subreddit)");
+  assert.ok(boardRoot.some((e) => e.name === "spaces"), "board root lists spaces");
   assert.ok(boardRoot.some((e) => e.name === "dms"), "board root lists dms as sibling of projects");
   assert.ok(boardRoot.some((e) => e.name === "notifications"),
     "board root lists notifications (Teams-style Activity)");
@@ -347,14 +357,18 @@ export function runNightboardThemeTests(): void {
   const dataAgents = readFileSync(join(ROOT, "data.js"), "utf8");
   assert.ok(dataAgents.includes("agents:") && dataAgents.includes("space-steward"),
     "fixtures include Eve agent definitions");
-  const spaceList = map.list("/spaces") as Array<{ name: string; space?: { relay?: { protocol?: string } } }>;
+  const spaceList = map.list("/spaces") as Array<{ name: string; hint?: string; space?: { relay?: { protocol?: string } } }>;
   assert.ok(spaceList.length >= 2, "spaces catalogue lists joinable spaces");
   assert.ok(spaceList.some((e) => e.name === "civic-workshop"), "home space present");
   const hub = map.list("/spaces/civic-workshop") as Array<{ name: string }>;
-  assert.ok(hub.some((e) => e.name === "feed"), "space hub has subreddit feed");
-  assert.ok(hub.some((e) => e.name === "channels"), "space hub has workspace channels");
-  assert.ok(hub.some((e) => e.name === "relay"), "space hub has Buzz/Nostr relay");
+  assert.ok(hub.some((e) => e.name === "feed"), "space hub has feed");
+  assert.ok(hub.some((e) => e.name === "channels"), "space hub has channels");
+  assert.ok(hub.some((e) => e.name === "projects"), "space hub has projects");
   assert.ok(hub.some((e) => e.name === "about"), "space hub has about");
+  assert.ok(!hub.some((e) => e.name === "relay"),
+    "space hub must not surface relay as a user-facing child");
+  assert.ok(!spaceList.some((e) => /nostr|relay\+/i.test(e.hint || "")),
+    "space catalogue hints must not name transport internals");
   const feed = map.list("/spaces/civic-workshop/feed") as Array<{ post?: unknown }>;
   assert.ok(feed.length >= 1 && feed.every((e) => e.post), "space feed lists posts");
   const dmList = map.list("/dms") as Array<{ name: string; kind: string }>;
@@ -723,10 +737,84 @@ export function runNightboardThemeTests(): void {
     "nav marks drilled state when not at board root");
   assert.ok(appSrc.includes("closeDetail") && appSrc.includes("detailOpen"),
     "detail pane can be closed and reopened");
+  assert.ok(consoleSrc2.includes("cn-follow-feed") && consoleSrc2.includes("viewFollowingFeed"),
+    "closed detail must render Following feed, not expand nav alone");
+  assert.ok(consoleSrc2.includes("cn-follow-row") && !consoleSrc2.includes("cn-follow-card"),
+    "Following must be TUI rows, not web cards");
+  assert.ok(!consoleSrc2.includes("cn-follow-banner-lead") && !consoleSrc2.includes("like X / Bluesky"),
+    "Following banner must not sell social-web marketing copy");
+  assert.ok(consoleSrc2.includes("cn-home-tab") && consoleSrc2.includes("data-home-feed"),
+    "home feed must expose following/announcements/featured/creators toggles");
+  assert.ok(consoleSrc2.includes("cn-home-unread"),
+    "each home feed tab must show an unread count");
+  assert.ok(appSrc.includes("setHomeFeed") && appSrc.includes("homeFeedRead"),
+    "app must switch home feed views and persist read state");
+  assert.ok(appSrc.includes("following feed"),
+    "closeDetail status must advertise Following feed");
+  assert.ok(!appSrc.includes("detail closed · nav only"),
+    "nav-only full-width mode is retired");
+  assert.ok(readFileSync(join(ROOT, "data.js"), "utf8").includes("follows:"),
+    "fixture must declare who the local principal follows");
+  assert.ok(readFileSync(join(ROOT, "data.js"), "utf8").includes("announcements:") &&
+    readFileSync(join(ROOT, "data.js"), "utf8").includes("featuredProjects:") &&
+    readFileSync(join(ROOT, "data.js"), "utf8").includes("featuredCreators:"),
+    "fixture must declare home feed announcements, featured projects, and creators");
+  assert.ok(readFileSync(join(ROOT, "sitemap.js"), "utf8").includes("followingFeed"),
+    "sitemap must build the following timeline");
+  assert.ok(readFileSync(join(ROOT, "sitemap.js"), "utf8").includes("homeFeedUnreadCounts"),
+    "sitemap must compute per-tab home feed unread counts");
   assert.ok(
     /Escape[\s\S]{0,200}isDetailOpen|isDetailOpen\(\)[\s\S]{0,80}closeDetail/.test(appSrc),
     "Esc closes the detail pane when open",
   );
+
+  // Following feed: only followed authors; sam is not followed.
+  {
+    const followWin: {
+      NB_DATA?: { follows?: string[] };
+      NB_MAP?: {
+        followingFeed: (extra?: unknown[]) => Array<{ who: string; summary: string; unread?: boolean }>;
+        followsList: () => string[];
+        homeFeedViews: () => Array<{ id: string; label: string }>;
+        homeFeedItems: (view: string, extra?: unknown[], read?: Record<string, boolean>) =>
+          Array<{ id: string; unread?: boolean; who?: string }>;
+        homeFeedUnreadCounts: (extra?: unknown[], read?: Record<string, boolean>) =>
+          Record<string, number>;
+      };
+    } = {};
+    new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(followWin);
+    new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(followWin);
+    assert.ok(followWin.NB_MAP && followWin.NB_DATA);
+    const follows = followWin.NB_MAP!.followsList();
+    assert.ok(follows.includes("maya") && !follows.includes("sam"),
+      "follows fixture curates the graph");
+    const feed = followWin.NB_MAP!.followingFeed([]);
+    assert.ok(feed.length >= 3, "following feed has posts");
+    assert.ok(feed.every((it) => follows.includes(it.who)),
+      "feed only includes followed authors");
+    assert.ok(feed.every((it) => it.summary && it.summary.length <= 181),
+      "summaries are short (X/Bluesky style)");
+    assert.ok(!feed.some((it) => it.who === "sam"), "unfollowed authors excluded");
+    const views = followWin.NB_MAP!.homeFeedViews().map((v) => v.id);
+    assert.deepEqual(views, ["following", "announcements", "featured", "creators"],
+      "home feed exposes the four toggles");
+    const counts = followWin.NB_MAP!.homeFeedUnreadCounts([], {});
+    assert.ok(counts.following >= 1, "following has unread");
+    assert.ok(counts.announcements >= 1, "announcements has unread");
+    assert.ok(counts.featured >= 1, "featured has unread");
+    assert.ok(counts.creators >= 1, "creators has unread");
+    const ann = followWin.NB_MAP!.homeFeedItems("announcements", [], {});
+    assert.ok(ann.some((it) => it.unread), "announcement fixtures include unread");
+    const marked = followWin.NB_MAP!.homeFeedItems("announcements", [], { [ann[0].id]: true });
+    const markedItem = marked.find((it) => it.id === ann[0].id);
+    assert.ok(markedItem, "announcement remains after read-set mark");
+    assert.ok(!markedItem!.unread, "read set clears announcement unread");
+    const featured = followWin.NB_MAP!.homeFeedItems("featured", [], {});
+    assert.ok(featured.length >= 2 && featured.every((it) => it.who),
+      "featured projects list repos");
+    const creators = followWin.NB_MAP!.homeFeedItems("creators", [], {});
+    assert.ok(creators.some((it) => it.who === "maya"), "featured creators include maya");
+  }
   assert.ok(consoleSrc2.includes("data-tree-toggle") && consoleSrc2.includes("cn-blade-tree"),
     "nav list uses +/- tree peek, not arrow glyphs");
   assert.ok(consoleSrc2.includes('data-tree-mode="first-level"') ||
@@ -760,12 +848,16 @@ export function runNightboardThemeTests(): void {
     "collapse/expand controls are present on blades");
   assert.ok(!/isDir \? "▸"/.test(consoleSrc2),
     "directory rows must not use ▸ arrows");
-  assert.ok(consoleSrc2.includes("--nb-out-h") && consoleSrc2.includes("--nb-out-w"),
-    "terminal height and side-dock width must flow through custom properties");
-  assert.ok(consoleSrc2.includes("data-panel-dock") && consoleSrc2.includes("data-panel-max"),
-    "terminal panel must expose dock and maximise chrome like a VS Code panel");
-  assert.ok(consoleSrc2.includes("data-dock="), "terminal panel dock position must be rendered");
-  assert.ok(consoleSrc2.includes("cn-panel-tab"), "terminal must carry a panel tab");
+  assert.ok(consoleSrc2.includes("cn-tui-foot") && consoleSrc2.includes("data-region=\"composer\""),
+    "compose foot is the page TUI prompt, not a dockable terminal panel");
+  assert.ok(!consoleSrc2.includes("data-panel-dock") && !consoleSrc2.includes("data-panel-max"),
+    "dockable terminal panel chrome must stay removed");
+  assert.ok(consoleSrc2.includes("cn-panel-tab") || consoleSrc2.includes("cn-workspace-tab"),
+    "workspace tabs remain for isolated worktrees");
+  assert.ok(consoleSrc2.includes("role=\"tablist\"") && consoleSrc2.includes("role=\"tab\""),
+    "workspace tabs expose ARIA tablist/tab roles");
+  assert.ok(consoleSrc2.includes("role=\"combobox\"") && consoleSrc2.includes("aria-controls=\"cn-cli-listbox\""),
+    "prompt is a combobox wired to the suggestion listbox");
   assert.ok(consoleSrc2.includes("data-session-new") && consoleSrc2.includes("data-session="),
     "terminal must support multiple workspace tabs");
   assert.ok(consoleSrc2.includes("cn-who") && consoleSrc2.includes("renderTranscript"),
@@ -774,6 +866,8 @@ export function runNightboardThemeTests(): void {
     "tool use must be collapsible");
   // Top chrome: Epoch animated ASCII brand — no NIGHTBOARD / console select / pause / thesis prose.
   const indexHtmlBrand = readFileSync(join(ROOT, "index.html"), "utf8");
+  assert.ok(indexHtmlBrand.includes("nb-skip") && indexHtmlBrand.includes("role=\"banner\""),
+    "skip link and banner landmark must exist for keyboard a11y");
   assert.ok(indexHtmlBrand.includes('data-brand') && indexHtmlBrand.includes("data-brand-art"),
     "top bar must host the Epoch ASCII brand mark");
   assert.ok(!/NIGHTBOARD/i.test(indexHtmlBrand), "NIGHTBOARD wordmark must be gone from chrome");
@@ -1016,12 +1110,104 @@ export function runNightboardThemeTests(): void {
     "a channel must show what it is before what it contains");
   assert.ok(consoleSrc2.includes("cn-help") && consoleSrc2.includes("HELP_GROUPS"),
     "Ctrl+Space cheatsheet overlay must be rendered");
-  assert.ok(consoleSrc2.includes("buildHelpContext") && consoleSrc2.includes("surfaces"),
-    "cheatsheet must scope to active workspace surfaces");
+  assert.ok(consoleSrc2.includes("data-help-close") && consoleSrc2.includes('class="cn-esc"'),
+    "cheatsheet dismiss must be [esc], not a close label");
+  assert.ok(!/data-help-close[^>]*>\s*close\s*</i.test(consoleSrc2) &&
+    !consoleSrc2.includes("cn-help-close"),
+    "cheatsheet must not render a close button label");
+  assert.ok(consoleSrc2.includes("data-esc-dismiss") &&
+    /cn-blade-close[^>]*>esc</.test(consoleSrc2),
+    "detail dismiss chrome must be [esc]");
+  assert.ok(!/cn-blade-close[^>]*>\s*×\s*</.test(consoleSrc2),
+    "detail must not use × as the dismiss affordance");
+  assert.ok(consoleSrc2.includes("resolveHelpComponent") && consoleSrc2.includes("contexts:"),
+    "cheatsheet must key off the focused component context");
+  assert.ok(consoleSrc2.includes("visibleHelpGroups") || consoleSrc2.includes("visibleGroups"),
+    "cheatsheet must expose visible group filtering");
+  assert.ok(consoleSrc2.includes("buildHelpContext") && consoleSrc2.includes("contextLabel"),
+    "cheatsheet must scope to the focused component");
+  assert.ok(consoleSrc2.includes("detailOpen"),
+    "help context must know whether selection detail is open");
+  assert.ok(appSrc.includes("if (profileMenuOpen)") && appSrc.includes("closeProfileMenu") &&
+    appSrc.includes('ev.key === "Escape"'),
+    "Esc must dismiss the profile menu");
   assert.ok(appSrc.includes("openIntel") && appSrc.includes("ctrlKey"),
     "Ctrl+Space must open intellisense");
   assert.ok(appSrc.includes("intelOpen") && appSrc.includes("helpOpen") && appSrc.includes("helpCtx"),
     "intellisense freezes help context before focusing the prompt");
+  assert.ok(appSrc.includes("menuDismissed") && appSrc.includes("dismissMenu"),
+    "Esc must dismiss the suggestion combobox without clearing the draft");
+  assert.ok(consoleSrc2.includes("menuDismissed"),
+    "console render must honor menuDismissed when painting the combobox");
+  assert.ok(appSrc.includes("syncCompletionToIndex") &&
+    /ArrowDown[\s\S]{0,200}syncCompletionToIndex[\s\S]{0,80}paintGhost/.test(appSrc),
+    "↑↓ must sync ghost/insert to the highlighted candidate and repaint preview");
+  assert.ok(/acceptGhost[\s\S]{0,200}syncCompletionToIndex/.test(appSrc),
+    "→/End must accept the highlighted candidate, not always the first");
+  assert.ok(appSrc.includes("setPersonPane") && appSrc.includes("personPane"),
+    "person pane toggles messages (default) and profile");
+  assert.ok(consoleSrc2.includes("cn-person-tab") && consoleSrc2.includes("data-person-pane"),
+    "DM context exposes messages/profile toggles");
+  assert.ok(consoleSrc2.includes("viewPersonProfile") && consoleSrc2.includes("cn-person-profile"),
+    "person profile renders as TUI, not a web card");
+  assert.ok(consoleSrc2.includes("cn-person-bio") && consoleSrc2.includes("cn-person-fact"),
+    "profile supports GitHub-style bio + facts");
+  assert.ok(!consoleSrc2.includes("cn-profile-card"),
+    "person profile must not use card chrome");
+  assert.ok(readFileSync(join(ROOT, "data.js"), "utf8").includes("bio:") &&
+    readFileSync(join(ROOT, "data.js"), "utf8").includes("pinned:"),
+    "member fixtures include bio and pinned projects");
+  assert.ok(appSrc.includes('personPane = "messages"') || appSrc.includes("personPane: \"messages\""),
+    "opening a person defaults to the messages pane");
+
+  // Behavioural: focused component decides which groups appear.
+  const helpWin: {
+    NB_HELP?: {
+      buildContext: (s: Record<string, unknown>) => { context: string; contextLabel: string };
+      visibleGroups: (ctx: { context: string }) => { id: string; title: string }[];
+      resolveComponent: (s: Record<string, unknown>) => string;
+    };
+    NB_MAP?: unknown;
+    NB_DATA?: unknown;
+  } = { NB_DATA: JSON.parse(dataJson()) };
+  new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(helpWin);
+  new Function("window", consoleSrc2)(helpWin);
+  assert.ok(helpWin.NB_HELP, "NB_HELP must export");
+  const promptCtx = helpWin.NB_HELP!.buildContext({
+    path: "/", columnFocus: false, focus: 0, detailOpen: true, ai: true,
+  });
+  assert.equal(promptCtx.context, "prompt");
+  const promptIds = helpWin.NB_HELP!.visibleGroups(promptCtx).map((g) => g.id);
+  assert.ok(promptIds.includes("prompt") && promptIds.includes("sheet"),
+    "prompt focus shows Prompt: " + promptIds.join(","));
+  assert.ok(!promptIds.includes("nav") && !promptIds.includes("thread"),
+    "prompt focus must not list nav/thread: " + promptIds.join(","));
+  const navCtx = helpWin.NB_HELP!.buildContext({
+    path: "/", columnFocus: true, focus: 0, detailOpen: true, ai: true,
+  });
+  assert.equal(navCtx.context, "nav");
+  const navIds = helpWin.NB_HELP!.visibleGroups(navCtx).map((g) => g.id);
+  assert.ok(navIds.includes("nav") && !navIds.includes("prompt"),
+    "nav focus shows Navigation only: " + navIds.join(","));
+  const threadCtx = helpWin.NB_HELP!.buildContext({
+    path: "/projects/community/channels/general",
+    columnFocus: true, focus: 1, detailOpen: true, ai: true, cursor: 0,
+  });
+  assert.equal(threadCtx.context, "thread",
+    "detail focus on a channel must be thread, got " + threadCtx.context);
+  const threadIds = helpWin.NB_HELP!.visibleGroups(threadCtx).map((g) => g.id);
+  assert.ok(threadIds.includes("thread") && !threadIds.includes("prompt"),
+    "thread focus shows Thread: " + threadIds.join(","));
+  const followCtx = helpWin.NB_HELP!.buildContext({
+    path: "/", columnFocus: true, focus: 1, detailOpen: false, ai: true,
+  });
+  assert.equal(followCtx.context, "following");
+  const dmCtx = helpWin.NB_HELP!.buildContext({
+    path: "/dms/scout", columnFocus: true, focus: 1, detailOpen: true, ai: true,
+  });
+  assert.equal(dmCtx.context, "dm");
+  assert.ok(helpWin.NB_HELP!.visibleGroups(dmCtx).some((g) => g.id === "dm"),
+    "dm focus shows Messages");
   const completeSrc = readFileSync(join(ROOT, "complete.js"), "utf8");
   assert.ok(completeSrc.includes("SLASH_COMMANDS") && completeSrc.includes('"/go"'),
     "slash command catalogue must exist for agent chat");
@@ -1046,11 +1232,14 @@ export function runNightboardThemeTests(): void {
     NB_MAP?: unknown;
     NB_COMPLETE?: {
       analyse: (input: string, ctx: { cwd: string; extra: unknown[]; slash?: boolean }) => {
-        kind: string; candidates: Array<{ value: string; kind?: string }>; insert: string;
+        kind: string; candidates: Array<{ value: string; label?: string; kind?: string }>; insert: string;
         insertSpace?: boolean; replaceFrom: number; query: string;
       };
       activeMarker: (text: string) => { char: string; query: string } | null;
       isMarkerKind: (k: string) => boolean;
+      formatGroupedHelp: (list: unknown[]) => string;
+      slashSpec: (name: string) => { name: string; run?: string } | null;
+      SLASH_COMMANDS: Array<{ name: string; run?: string; help?: string }>;
     };
   } = {};
   new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(completeWin);
@@ -1064,6 +1253,25 @@ export function runNightboardThemeTests(): void {
   new Function("window", completeSrc)(completeWin);
   assert.ok(completeWin.NB_COMPLETE, "complete.js must define NB_COMPLETE");
   const C = completeWin.NB_COMPLETE!;
+  assert.ok(typeof C.formatGroupedHelp === "function", "formatGroupedHelp groups aliases");
+  const helpText = C.formatGroupedHelp(C.SLASH_COMMANDS);
+  assert.ok(/\/dm,\s*\/msg/.test(helpText), "help groups /dm with /msg");
+  assert.ok(!/alias of \/dm/i.test(helpText), "help must not list alias-of lines");
+  assert.ok(/\/hooks/.test(helpText) && !/\/hook,/.test(helpText) && !/, \/hook/.test(helpText),
+    "help lists /hooks once (not /hook,/hooks)");
+  assert.equal(C.slashSpec("/hook")?.name, "/hooks", "legacy /hook resolves to /hooks");
+  assert.equal(C.slashSpec("/hooks")?.run, "hooks");
+  const slashCat = C.analyse("/", { cwd: "/", extra: [], slash: true });
+  assert.ok(slashCat.candidates.some((c) => (c.label || c.value).includes("/dm") &&
+    (c.label || c.value).includes("/msg")),
+    "slash catalogue shows dm aliases together");
+  assert.ok(!slashCat.candidates.some((c) => c.value === "/msg" && !c.label),
+    "bare /msg must not be a separate catalogue row");
+  assert.ok(slashCat.candidates.some((c) => c.value === "/hooks"),
+    "slash catalogue includes /hooks");
+  assert.ok(!slashCat.candidates.some((c) => c.value === "/hook" ||
+    (c.label || "").split(/,\s*/).includes("/hook")),
+    "/hook must not appear as its own catalogue row");
   assert.equal(C.activeMarker("hello @ma")?.char, "@");
   assert.equal(C.activeMarker("hello @ma ") , null, "trailing space ends the marker");
   assert.equal(C.activeMarker("email@x") , null, "mid-token @ is not a mention marker");
@@ -1093,8 +1301,14 @@ export function runNightboardThemeTests(): void {
     "push-to-talk must bind Discord-style hold `");
   assert.ok(speechSrc.includes("isToggleKey") && speechSrc.includes("Alt"),
     "toggle dictation must bind Alt+V");
+  assert.ok(speechSrc.includes("isIntentModeKey") && speechSrc.includes("parseUtterance"),
+    "voice commands must expose intent-mode cycle and utterance parsing");
+  assert.ok(speechSrc.includes("whatCanISay") && speechSrc.includes("commands mode"),
+    "voice help must match Voice Access discoverability");
   assert.ok(appSrc.includes("wireSpeech") && appSrc.includes("toggleDictation"),
     "app must wire speech only when supported");
+  assert.ok(appSrc.includes("handleSpeechFinal") && appSrc.includes("cycleSpeechIntent"),
+    "app must route finals through voice intent and cycle modes");
   assert.ok(appSrc.includes("data-speech-mic") || consoleSrc2.includes("data-speech-mic"),
     "mic control is rendered from the console prompt");
   assert.ok(readFileSync(join(ROOT, "icons.js"), "utf8").includes("NB_ICONS") &&
@@ -1128,8 +1342,14 @@ export function runNightboardThemeTests(): void {
         getState: () => { listening: boolean; mode: string | null };
       };
       isPttKey: (ev: { code?: string; key?: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => boolean;
-      isToggleKey: (ev: { key?: string; code?: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }) => boolean;
-      HOTKEYS: { ptt: string; toggle: string };
+      isToggleKey: (ev: { key?: string; code?: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => boolean;
+      isIntentModeKey?: (ev: { key?: string; code?: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) => boolean;
+      parseUtterance?: (raw: string, intent?: string) => {
+        kind: string; text?: string; line?: string; nextMode?: string; hint?: string;
+      };
+      nextIntentMode?: (current?: string) => string;
+      whatCanISay?: () => string;
+      HOTKEYS: { ptt: string; toggle: string; intent?: string };
     };
   } = {};
   new Function("window", speechSrc)(speechOff);
@@ -1142,6 +1362,27 @@ export function runNightboardThemeTests(): void {
   assert.equal(speechOff.NB_SPEECH!.isToggleKey({ key: "v", altKey: false }), false);
   assert.equal(speechOff.NB_SPEECH!.HOTKEYS.ptt, "`");
   assert.equal(speechOff.NB_SPEECH!.HOTKEYS.toggle, "Alt+V");
+  assert.equal(speechOff.NB_SPEECH!.HOTKEYS.intent, "Alt+Shift+V");
+  assert.equal(speechOff.NB_SPEECH!.isIntentModeKey!({ key: "v", altKey: true, shiftKey: true }), true);
+  assert.equal(speechOff.NB_SPEECH!.isToggleKey({ key: "v", altKey: true, shiftKey: true }), false,
+    "Alt+Shift+V must not also fire listen toggle");
+  // Voice Access-style parse: wake prefix + grammar.
+  const P = speechOff.NB_SPEECH!;
+  assert.equal(P.parseUtterance!("hello board", "dictation").kind, "dictation");
+  assert.equal(P.parseUtterance!("hello board", "dictation").text, "hello board");
+  assert.equal(P.parseUtterance!("computer go to bugs", "default").kind, "command");
+  assert.match(P.parseUtterance!("computer go to bugs", "default").line || "", /\/go /);
+  assert.equal(P.parseUtterance!("go to bugs", "commands").kind, "command");
+  assert.equal(P.parseUtterance!("go to bugs", "dictation").kind, "dictation",
+    "without wake, dictation mode types the phrase");
+  assert.equal(P.parseUtterance!("commands mode", "dictation").kind, "mode-switch");
+  assert.equal(P.parseUtterance!("commands mode", "dictation").nextMode, "commands");
+  assert.equal(P.parseUtterance!("what can I say", "default").kind, "help");
+  assert.equal(P.parseUtterance!("blorp the zorp", "commands").kind, "unknown");
+  assert.equal(P.nextIntentMode!("default"), "dictation");
+  assert.equal(P.nextIntentMode!("dictation"), "commands");
+  assert.equal(P.nextIntentMode!("commands"), "default");
+  assert.ok((P.whatCanISay!() || "").includes("go to"));
 
   // Supported: mock Recognition drives ptt/toggle + final transcript.
   type RecHandler = ((ev?: unknown) => void) | null;
@@ -1233,18 +1474,157 @@ export function runNightboardThemeTests(): void {
   eng2.pttUp();
   assert.equal(eng2.getState().listening, false);
 
-  // ── Durable page state + Anonymous profile + spaces + ATProto ───────────
+  // ── Channel voice: Discord-parity WebRTC mesh ────────────────────────────
+  const voiceSrc = readFileSync(join(ROOT, "voice.js"), "utf8");
+  assert.ok(voiceSrc.includes("NB_VOICE") && voiceSrc.includes("RTCPeerConnection"),
+    "voice module must feature-detect WebRTC");
+  assert.ok(voiceSrc.includes("preferOpusOnPc") && voiceSrc.includes("setCodecPreferences"),
+    "voice must prefer Opus via setCodecPreferences (no SDP munging)");
+  assert.ok(!/offer\.sdp\s*=\s*preferOpus|answer\.sdp\s*=\s*preferOpus/.test(voiceSrc),
+    "voice must not rewrite offer/answer SDP strings");
+  assert.ok(voiceSrc.includes("isVoicePttKey") && voiceSrc.includes("BroadcastChannel"),
+    "voice PTT + BroadcastChannel signaling");
+  assert.ok(voiceSrc.includes("echoCancellation") && voiceSrc.includes("latencyHint"),
+    "getUserMedia must request low-latency capture");
+  assert.ok(appSrc.includes("wireVoice") && appSrc.includes("joinVoice"),
+    "app must wire channel voice join/leave");
+  assert.ok(appSrc.includes("voiceClaimsPtt") && appSrc.includes("Ctrl+Shift+M"),
+    "voice PTT must preempt STT; Ctrl+Shift+M mutes");
+  assert.ok(consoleSrc2.includes("cn-voice-dock") && consoleSrc2.includes("data-voice-join"),
+    "console must render voice dock and join controls");
+  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("voice.js"),
+    "index must load voice.js");
+  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/voice"'),
+    "slash catalogue includes /voice");
+  assert.ok(readFileSync(join(ROOT, "data.js"), "utf8").includes('kind: "voice"'),
+    "seed data includes voice channels");
+  assert.ok(readFileSync(join(ROOT, "tools.js"), "utf8").includes("board_voice_join"),
+    "WebMCP exposes board_voice_join");
+
+  const voiceOff: {
+    RTCPeerConnection?: unknown;
+    BroadcastChannel?: unknown;
+    NB_VOICE?: {
+      isSupported: () => boolean;
+      isVoicePttKey: (ev: {
+        code?: string; key?: string; altKey?: boolean; ctrlKey?: boolean;
+        metaKey?: boolean; shiftKey?: boolean;
+      }) => boolean;
+      create: (opts?: { onState?: (s: Record<string, unknown>) => void }) => {
+        join: (id: string, path?: string) => Promise<{ ok: boolean; error?: string }>;
+        leave: () => Promise<{ ok: boolean }>;
+        toggleMute: () => boolean;
+        setInputMode: (m: string) => string;
+        getState: () => { joined: boolean; muted: boolean; inputMode: string; supported: boolean };
+        isSupported: () => boolean;
+      };
+      CHANNEL: string;
+    };
+    navigator?: { mediaDevices?: { getUserMedia?: unknown } };
+  } = { navigator: {} };
+  new Function("window", voiceSrc)(voiceOff);
+  assert.ok(voiceOff.NB_VOICE, "voice.js defines NB_VOICE");
+  assert.equal(voiceOff.NB_VOICE!.isSupported(), false, "no RTCPeerConnection → unsupported");
+  assert.equal(voiceOff.NB_VOICE!.isVoicePttKey({ code: "Backquote", key: "`" }), true);
+  assert.equal(voiceOff.NB_VOICE!.isVoicePttKey({ code: "Backquote", key: "`", altKey: true }), false,
+    "voice PTT ignores modified backticks");
+  assert.equal(voiceOff.NB_VOICE!.CHANNEL, "epoch-nightboard-voice-v1");
+
+  // Supported path with mocked WebRTC + mic (no real devices in unit).
+  class MockPC {
+    connectionState = "new";
+    onicecandidate: ((ev: { candidate: null }) => void) | null = null;
+    ontrack: ((ev: unknown) => void) | null = null;
+    onconnectionstatechange: (() => void) | null = null;
+    addTrack() { /* noop */ }
+    close() { this.connectionState = "closed"; }
+    createOffer() { return Promise.resolve({ type: "offer", sdp: "m=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=rtpmap:111 opus/48000/2\r\n" }); }
+    createAnswer() { return Promise.resolve({ type: "answer", sdp: "m=audio 9 UDP/TLS/RTP/SAVPF 111\r\n" }); }
+    setLocalDescription() { return Promise.resolve(); }
+    setRemoteDescription() { return Promise.resolve(); }
+    addIceCandidate() { return Promise.resolve(); }
+    getStats() { return Promise.resolve(new Map()); }
+  }
+  const busInbox: unknown[] = [];
+  class MockBC {
+    name: string;
+    onmessage: ((ev: { data: unknown }) => void) | null = null;
+    constructor(name: string) { this.name = name; }
+    postMessage(data: unknown) { busInbox.push(data); }
+    close() { /* noop */ }
+  }
+  const micTrack = { kind: "audio", enabled: true, stop() { /* noop */ } };
+  const voiceOn = {
+    RTCPeerConnection: MockPC,
+    BroadcastChannel: MockBC,
+    AudioContext: class {
+      createMediaStreamSource() {
+        return { connect() { /* noop */ } };
+      }
+      createAnalyser() {
+        return {
+          fftSize: 512,
+          smoothingTimeConstant: 0.3,
+          getByteTimeDomainData(arr: Uint8Array) {
+            for (let i = 0; i < arr.length; i++) arr[i] = 128;
+          },
+        };
+      }
+      close() { return Promise.resolve(); }
+    },
+    navigator: {
+      mediaDevices: {
+        getUserMedia: async () => ({
+          getTracks: () => [micTrack],
+          getAudioTracks: () => [micTrack],
+        }),
+      },
+    },
+    NB_VOICE: undefined as undefined | typeof voiceOff.NB_VOICE,
+  };
+  new Function("window", voiceSrc)(voiceOn);
+  assert.equal(voiceOn.NB_VOICE!.isSupported(), true);
+  const voiceStates: Array<Record<string, unknown>> = [];
+  const veng = voiceOn.NB_VOICE!.create({ onState: (s) => voiceStates.push(s) });
+  const voiceJoined = await veng.join("lounge", "/projects/community/channels/lounge");
+  assert.equal(voiceJoined.ok, true, "mock join succeeds");
+  assert.equal(veng.getState().joined, true);
+  assert.equal(veng.getState().inputMode, "vad");
+  assert.ok(busInbox.some((m) => (m as { type?: string }).type === "hello"),
+    "hello signal posted on join");
+  assert.equal(veng.toggleMute(), true);
+  assert.equal(veng.getState().muted, true);
+  assert.equal(veng.setInputMode("ptt"), "ptt");
+  await veng.leave();
+  assert.equal(veng.getState().joined, false);
+  assert.ok(voiceStates.length >= 1, "onState fired during voice session");
+
+  // ── Durable page state + Anonymous profile + spaces + portable auth ────
   const sessionSrc = readFileSync(join(ROOT, "session.js"), "utf8");
   assert.ok(sessionSrc.includes("NB_SESSION") && sessionSrc.includes("nb-identity"),
     "session module must expose durable identity storage");
   assert.ok(sessionSrc.includes("authorizeAtproto") && sessionSrc.includes("did:plc:"),
-    "Bluesky-style ATProto mock must mint did:plc sessions from handles");
+    "portable-handle mock must mint durable sessions from handles");
   assert.ok(sessionSrc.includes("claimIdentity") && sessionSrc.includes("principalId"),
     "claim must preserve the anonymous principal id");
   assert.ok(sessionSrc.includes("joinSpace") && sessionSrc.includes("listSpaces"),
     "spaces must be joinable");
-  assert.ok(sessionSrc.includes("relay") && sessionSrc.includes("nostr"),
-    "spaces carry Block/Buzz-style Nostr relays");
+  assert.ok(sessionSrc.includes("relayForIdentity") || sessionSrc.includes("relay"),
+    "session keeps internal transport state on identity");
+  assert.ok(!/Spaces · relays · subreddits|relay\+workspace\+subreddit/.test(appSrc + consoleSrc2),
+    "UI must not declare relay/workspace/subreddit as space framing");
+  assert.ok(!/name:\s*"\/spaces"/.test(completeSrc) && completeSrc.includes('"/space"'),
+    "slash surface is /space only (no separate /spaces command)");
+  assert.ok(completeSrc.includes('"/spaces"') && completeSrc.includes('n = "/space"'),
+    "legacy /spaces aliases to /space");
+  assert.ok(!/name:\s*"\/hook"/.test(completeSrc) && completeSrc.includes('"/hooks"'),
+    "slash surface is /hooks only (no separate /hook command)");
+  assert.ok(completeSrc.includes('"/hook"') && completeSrc.includes('n = "/hooks"'),
+    "legacy /hook aliases to /hooks");
+  assert.ok(completeSrc.includes("spaceCandidates") || completeSrc.includes('arg: "space"'),
+    "/space args complete to space ids");
+  assert.ok(appSrc.includes('navigate("/spaces"') && /run === "space"/.test(appSrc),
+    "bare /space opens the spaces select list");
   assert.ok(sessionSrc.includes("profileInitials") && sessionSrc.includes("Anonymous"),
     "profile defaults to Anonymous initials");
   assert.ok(sessionSrc.includes("guestsAllowed") && sessionSrc.includes("canParticipate"),
@@ -1326,14 +1706,14 @@ export function runNightboardThemeTests(): void {
   assert.equal(guest.kind, "guest");
   assert.equal(guest.displayName, "Anonymous");
   assert.equal(guest.spaceId, "civic-workshop");
-  assert.ok(guest.relay && guest.relay.protocol === "nostr", "joining home attaches a relay");
+  assert.ok(guest.relay && guest.relay.protocol === "nostr", "joining home attaches internal transport");
   assert.ok(guest.principalId && guest.principalId.startsWith("guest_"), "guest mints principalId");
   assert.equal(guest.canParticipate, true);
   assert.equal(guest.claimable, true);
   assert.equal(S.profileLabel(guest), "Anonymous");
   assert.equal(S.profileInitials(guest), "AN");
   const spacesListed = S.listSpaces();
-  assert.ok(spacesListed.every((s) => s.relay && s.slug), "each space has relay + subreddit slug");
+  assert.ok(spacesListed.every((s) => s.relay && s.slug), "each space has transport + slug internally");
   // Durable: reloading identity returns the same principal.
   const guest2 = S.loadIdentity(pol);
   assert.equal(guest2.principalId, guest.principalId, "guest identity survives reload");
@@ -1398,7 +1778,7 @@ export function runNightboardThemeTests(): void {
   assert.ok(appSrc.includes("restoreBoardState") && appSrc.includes("schedulePersist"),
     "page state must restore at boot and persist after mutations");
   assert.ok(appSrc.includes("doAtprotoLogin") && appSrc.includes("doClaim"),
-    "claim and ATProto login must be wired");
+    "claim and portable-handle login must be wired");
   assert.ok(appSrc.includes("requireParticipation"),
     "participation (vote/reply) must gate on authorized session");
   assert.ok(completeSrc.includes('"/whoami"') && completeSrc.includes('"/login"') &&
@@ -1412,11 +1792,24 @@ export function runNightboardThemeTests(): void {
     "index must host profile menu and space picker");
   assert.ok(indexHtml.includes("data-auth-dialog") && indexHtml.includes("data-auth-atproto"),
     "index must host the sign-in dialog");
+  assert.ok(/data-auth-cancel[^>]*>esc</.test(indexHtml),
+    "auth cancel must be [esc]");
+  const loginHelp = (completeSrc.match(/name: "\/login"[^}]+/) || [""])[0];
+  const authDialog = (indexHtml.match(/data-auth-dialog[\s\S]*?<\/div>\s*<\/div>/) || [""])[0];
+  const openAuthFn = (appSrc.match(/function openAuth[\s\S]*?function closeAuth/) || [""])[0];
+  const profileLogin = (appSrc.match(/data-profile-bluesky[^>]*>[^<]+/) || [""])[0];
+  assert.ok(loginHelp.length > 0, "/login completer must exist");
+  assert.ok(authDialog.length > 0, "auth dialog markup must exist");
+  assert.ok(openAuthFn.length > 0, "openAuth helper must exist");
+  assert.ok(!/Bluesky|bsky\.social/.test(authDialog + openAuthFn + profileLogin + loginHelp),
+    "login UI must not mention Bluesky");
   assert.ok(baseCss.includes(".nb-profile-btn") && baseCss.includes(".nb-profile-menu") &&
     baseCss.includes(".nb-auth"),
     "profile button, menu, and auth dialog styles must exist");
   assert.ok(dataSrc.includes("spaces:") || dataSrc.includes("spaces :"),
-    "fixture spaces power Slack-style workspace sign-in");
+    "fixture spaces power space sign-in");
+  assert.ok(!/relay\+workspace\+subreddit|Spaces · relays · subreddits/.test(dataSrc + consoleSrc2 + appSrc),
+    "fixtures and UI must not advertise relay/workspace/subreddit mashup");
 
   console.log("nightboard theme tests passed");
 }

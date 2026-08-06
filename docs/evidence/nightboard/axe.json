@@ -1,0 +1,29 @@
+{
+  "tool": "axe-core",
+  "standard": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa"
+  ],
+  "failingImpacts": [
+    "serious",
+    "critical"
+  ],
+  "pass": true,
+  "runs": [
+    {
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 960,
+      "violations": []
+    },
+    {
+      "viewport": "mobile",
+      "width": 390,
+      "height": 844,
+      "violations": []
+    }
+  ],
+  "failing": []
+}

@@ -15,8 +15,8 @@
  *   /members/scout
  *
  * Board root lists **projects**, **spaces**, **dms**, **notifications**,
- * **.agents** (plus members). A **space** is relay + Slack workspace +
- * subreddit. Projects own `channels/`, `members/`, and `.agents/`.
+ * **.agents** (plus members). A **space** is a joinable board with a feed,
+ * channels, and linked projects. Projects own `channels/`, `members/`, and `.agents/`.
  * `.agents` holds Vercel Eve-style agent directories:
  *   board  → /.agents/*           (apply to the space)
  *   project → /projects/<id>/.agents/*  (apply to that project only)
@@ -48,6 +48,13 @@
 
   function postsIn(channel, extra) {
     return D.posts.concat(extra || []).filter(function (p) { return p.channel === channel; });
+  }
+
+  function findChannelByLabel(label) {
+    var key = String(label || "").toLowerCase();
+    return allChannels().filter(function (c) {
+      return c.label === label || c.id === key || String(c.label).toLowerCase() === key;
+    })[0] || null;
   }
 
   function allDms() {
@@ -161,6 +168,223 @@
     });
   }
 
+  /**
+   * X/Bluesky-style following timeline: short summations of what people you
+   * follow published (channel posts + project posts), newest first.
+   */
+  function followingFeed(extra) {
+    var follows = {};
+    (D.follows || []).forEach(function (h) { follows[h] = true; });
+    var items = [];
+
+    function pushPost(p, where, whereLabel, kind) {
+      if (!p || !follows[p.who]) return;
+      // Prefer root posts; still include replies so agent drafts surface.
+      var raw = (p.subject ? p.subject + " — " : "") + (p.body || "");
+      var summary = String(raw).replace(/\s+/g, " ").trim();
+      if (summary.length > 180) summary = summary.slice(0, 177) + "…";
+      items.push({
+        id: p.id,
+        who: p.who,
+        at: p.at || "",
+        state: p.state || "",
+        subject: p.subject || null,
+        body: p.body || "",
+        summary: summary || "(empty)",
+        where: where,
+        whereLabel: whereLabel,
+        kind: kind || "post",
+        re: p.re || null,
+        unread: !!p.homeNew,
+      });
+    }
+
+    var chById = {};
+    (D.channels || []).forEach(function (c) { chById[c.id] = c; });
+    var all = D.posts.concat(extra || []);
+    var byChannel = {};
+    all.forEach(function (p) {
+      (byChannel[p.channel] = byChannel[p.channel] || []).push(p);
+    });
+    all.forEach(function (p) {
+      if (!follows[p.who]) return;
+      var ch = chById[p.channel];
+      var label = (ch && ch.label) || p.channel || "channel";
+      var siblings = byChannel[p.channel] || [];
+      var ix = siblings.indexOf(p);
+      pushPost(p, channelPath(label) + "/" + postName(p, ix >= 0 ? ix : 0),
+        "#" + label, "post");
+    });
+
+    (D.projectPosts || []).forEach(function (p) {
+      if (!follows[p.who]) return;
+      var proj = findProject(p.project) || { id: p.project };
+      var pid = proj.id || p.project;
+      var siblings = projectPosts(pid, p.channel || "issues");
+      // projectPosts filters by project slug id — fixture uses civic-tuner style ids
+      if (!siblings.length) {
+        siblings = (D.projectPosts || []).filter(function (x) {
+          return x.project === p.project && x.channel === p.channel;
+        });
+      }
+      var ix = siblings.findIndex(function (x) { return x.id === p.id; });
+      pushPost(
+        p,
+        "/projects/" + pid + "/channels/" + (p.channel || "issues") + "/" +
+          postName(p, ix >= 0 ? ix : 0),
+        proj.slug || pid,
+        "project"
+      );
+    });
+
+    // Sort by clock string descending (fixture times are HH:MM — good enough).
+    items.sort(function (a, b) {
+      if (a.at === b.at) return String(b.id).localeCompare(String(a.id));
+      return String(b.at).localeCompare(String(a.at));
+    });
+    return items;
+  }
+
+  function followsList() {
+    return (D.follows || []).slice();
+  }
+
+  var HOME_FEED_VIEWS = [
+    { id: "following", label: "following" },
+    { id: "announcements", label: "announcements" },
+    { id: "featured", label: "featured" },
+    { id: "creators", label: "creators" },
+  ];
+
+  function homeFeedViews() {
+    return HOME_FEED_VIEWS.slice();
+  }
+
+  function applyHomeRead(items, readSet) {
+    return (items || []).map(function (it) {
+      var copy = Object.assign({}, it);
+      if (readSet && readSet[copy.id]) copy.unread = false;
+      return copy;
+    });
+  }
+
+  function bioSnippet(text, max) {
+    // Plain snippet of the profile description (strip light markdown marks).
+    var s = String(text || "")
+      .replace(/\*\*|__/g, "")
+      .replace(/`+/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!s) return "";
+    var lim = max || 160;
+    if (s.length <= lim) return s;
+    return s.slice(0, lim - 1).replace(/\s+\S*$/, "") + "…";
+  }
+
+  function announcementsFeed(readSet) {
+    var items = (D.announcements || []).map(function (a) {
+      return {
+        id: a.id,
+        who: a.who || "board",
+        at: a.at || "",
+        title: a.title || "",
+        summary: a.body || a.title || "",
+        body: a.body || "",
+        pin: !!a.pin,
+        where: a.where || "/",
+        whereLabel: a.whereLabel || "",
+        kind: "announcement",
+        unread: !!a.unread,
+      };
+    });
+    return applyHomeRead(items, readSet);
+  }
+
+  function featuredProjectsFeed(readSet) {
+    var items = (D.featuredProjects || []).map(function (p) {
+      return {
+        id: p.id,
+        who: p.slug || p.id,
+        at: p.language || "",
+        title: p.slug || p.id,
+        summary: p.blurb || "",
+        body: p.blurb || "",
+        blurb: p.blurb || "",
+        readmeSummary: p.readmeSummary || "",
+        readmeExcerpt: p.readmeExcerpt || "",
+        stars: p.stars || 0,
+        language: p.language || "",
+        where: p.where || "/projects",
+        whereLabel: p.whereLabel || p.slug || "",
+        kind: "project",
+        unread: !!p.unread,
+      };
+    });
+    return applyHomeRead(items, readSet);
+  }
+
+  function featuredCreatorsFeed(readSet) {
+    var items = (D.featuredCreators || []).map(function (c) {
+      var member = findMember(c.handle) || {};
+      var contrib = c.contrib || member.contrib || null;
+      return {
+        id: c.id,
+        who: c.handle,
+        at: c.role || member.role || "",
+        title: "@" + c.handle,
+        summary: c.blurb || member.detail || "",
+        body: c.blurb || "",
+        blurb: c.blurb || "",
+        bioSnippet: bioSnippet(member.bio || c.blurb || "", 160),
+        contrib: contrib,
+        role: c.role || member.role || "",
+        where: c.where || dmPath(c.handle),
+        whereLabel: c.whereLabel || ("@" + c.handle),
+        kind: member.kind === "agent" || /agent/i.test(c.role || "") ? "agent" : "person",
+        unread: !!c.unread,
+      };
+    });
+    return applyHomeRead(items, readSet);
+  }
+
+  function homeFeedItems(view, extra, readSet) {
+    var v = String(view || "following");
+    if (v === "announcements") return announcementsFeed(readSet);
+    if (v === "featured") return featuredProjectsFeed(readSet);
+    if (v === "creators") return featuredCreatorsFeed(readSet);
+    return applyHomeRead(followingFeed(extra), readSet);
+  }
+
+  function homeFeedUnreadCount(view, extra, readSet) {
+    return homeFeedItems(view, extra, readSet).filter(function (it) { return it.unread; }).length;
+  }
+
+  function homeFeedUnreadCounts(extra, readSet) {
+    var out = {};
+    HOME_FEED_VIEWS.forEach(function (v) {
+      out[v.id] = homeFeedUnreadCount(v.id, extra, readSet);
+    });
+    return out;
+  }
+
+  /** Session-created channels/projects — live overlay from NB_APP.state.boardOverlay. */
+  function boardOverlay() {
+    return (window.NB_APP && window.NB_APP.state && window.NB_APP.state.boardOverlay) || {};
+  }
+
+  function allChannels() {
+    var base = (D.channels || []).slice();
+    var extra = boardOverlay().channels || [];
+    var seen = {};
+    var out = [];
+    base.concat(extra).forEach(function (c) {
+      if (!c || !c.id || seen[c.id]) return;
+      seen[c.id] = true;
+      out.push(c);
+    });
+    return out;
+  }
+
   /** All projects: linked repos plus the community home that owns social rooms. */
   function allProjects() {
     var list = (D.projects || []).map(function (p) {
@@ -170,12 +394,40 @@
     list.unshift({
       slug: "community",
       id: "community",
-      open: D.channels.reduce(function (n, c) { return n + (c.unread || 0); }, 0),
-      channels: D.channels.map(function (c) { return c.label; }),
+      open: allChannels().reduce(function (n, c) { return n + (c.unread || 0); }, 0),
+      channels: allChannels().map(function (c) { return c.label; }),
       community: true,
       hint: "social home",
     });
+    (boardOverlay().projects || []).forEach(function (p) {
+      if (!p || !p.id) return;
+      if (list.some(function (x) { return x.id === p.id; })) return;
+      list.push(Object.assign({
+        community: false,
+        open: 0,
+        channels: [],
+        hint: "created",
+      }, p));
+    });
     return list;
+  }
+
+  /** Channel names for a project, including session-created rooms. */
+  function projectChannelNames(proj) {
+    if (!proj) return [];
+    if (proj.community) return allChannels().map(function (c) { return c.label; });
+    var base = (proj.channels || []).slice();
+    var bag = boardOverlay().projectChannels || {};
+    var extra = bag[proj.id] || bag[slug(proj.slug)] || [];
+    var seen = {};
+    var out = [];
+    base.concat(extra).forEach(function (name) {
+      name = String(name || "");
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      out.push(name);
+    });
+    return out;
   }
 
   function findProject(id) {
@@ -458,8 +710,8 @@
       var nBoardAgents = boardAgents().length;
       return [
         { name: "projects", kind: "dir", hint: allProjects().length + " projects" },
-        { name: "spaces", kind: "dir", meta: "relay+workspace+subreddit",
-          hint: nSpaces + " spaces · join a relay / workspace / subreddit" },
+        { name: "spaces", kind: "dir", meta: "spaces",
+          hint: nSpaces + " spaces · join or switch" },
         { name: "dms", kind: "dir", meta: "direct",
           hint: allDms().length + " threads" + (unreadDms ? " · " + unreadDms + " unread" : "") },
         { name: "notifications", kind: "dir", meta: "activity",
@@ -483,15 +735,12 @@
     if (parts[0] === "spaces") {
       if (parts.length === 1) {
         return allSpaces().map(function (s) {
-          var relay = s.relay || {};
           return {
             name: s.id,
             kind: "dir",
             meta: s.kind || "community",
-            hint: (s.slug || s.id) + " · " +
-              (relay.protocol || "relay") + " " + (relay.status || "idle") +
-              " · " + (s.subscribers || 0) + " subs" +
-              (s.guestsAllowed === false ? " · members" : ""),
+            hint: (s.slug || s.id) + " · " + (s.subscribers || 0) + " members" +
+              (s.guestsAllowed === false ? " · members only" : " · open"),
             space: s,
             unread: 0,
           };
@@ -503,19 +752,15 @@
         var feedCount = postsForSpace(spaceNode.id, extra).length;
         var chCount = (spaceNode.channels || []).length;
         var prCount = (spaceNode.projects || []).length;
-        var r = spaceNode.relay || {};
         return [
-          { name: "feed", kind: "dir", meta: "subreddit",
+          { name: "feed", kind: "dir", meta: "feed",
             hint: feedCount + " posts · " + (spaceNode.slug || spaceNode.id) },
-          { name: "channels", kind: "dir", meta: "workspace",
+          { name: "channels", kind: "dir", meta: "channels",
             hint: chCount + " rooms" },
-          { name: "projects", kind: "dir", meta: "workspace",
+          { name: "projects", kind: "dir", meta: "projects",
             hint: prCount + " linked" },
-          { name: "relay", kind: "file", meta: r.protocol || "relay",
-            hint: (r.status || "idle") + " · " + (r.url || ""),
-            space: spaceNode, relay: r },
           { name: "about", kind: "file", meta: spaceNode.kind || "space",
-            hint: (spaceNode.subscribers || 0) + " subscribers · " +
+            hint: (spaceNode.subscribers || 0) + " members · " +
               (spaceNode.guestsAllowed === false ? "members only" : "guests ok"),
             space: spaceNode },
         ];
@@ -736,15 +981,20 @@
       // /projects/<id>/channels → channel list
       if (parts.length === 3 && parts[2] === "channels") {
         if (proj.community) {
-          return D.channels.map(function (c) {
+          return allChannels().map(function (c) {
+            var voice = !!(c.voice || c.kind === "voice");
+            var nPosts = voice ? 0 : postsIn(c.id, extra).length;
             return {
               name: c.label, kind: "dir", meta: c.kind,
-              hint: postsIn(c.id, extra).length + " posts" + (c.unread ? " · " + c.unread + " unread" : ""),
+              voice: voice,
+              hint: voice
+                ? "voice · Opus · low-latency"
+                : (nPosts + " posts" + (c.unread ? " · " + c.unread + " unread" : "")),
               unread: c.unread || 0,
             };
           });
         }
-        return (proj.channels || []).map(function (c) {
+        return projectChannelNames(proj).map(function (c) {
           return {
             name: c, kind: "dir", meta: "work",
             hint: projectPosts(proj.id, c).length + " posts",
@@ -752,12 +1002,20 @@
         });
       }
 
-      // /projects/<id>/channels/<channel> → posts
+      // /projects/<id>/channels/<channel> → posts (text) or voice roster stub
       if (parts.length === 4 && parts[2] === "channels") {
         var chanName = parts[3];
         if (proj.community) {
-          var ch = D.channels.filter(function (c) { return c.label === chanName; })[0];
+          var ch = findChannelByLabel(chanName);
           if (!ch) return null;
+          if (ch.voice || ch.kind === "voice") {
+            // Voice rooms have no text backlog — roster is painted by the voice dock.
+            return [{
+              name: ".voice", kind: "file", meta: "voice",
+              voice: true, channel: ch,
+              hint: "join voice · mute · deafen · VAD/PTT",
+            }];
+          }
           return postsIn(ch.id, extra).map(function (p, i) {
             return {
               name: postName(p, i), kind: "file", post: p, meta: p.state,
@@ -765,7 +1023,7 @@
             };
           });
         }
-        if ((proj.channels || []).indexOf(chanName) === -1) return null;
+        if (projectChannelNames(proj).indexOf(chanName) === -1) return null;
         return projectPosts(proj.id, chanName).map(function (p, i) {
           return {
             name: postName(p, i), kind: "file", post: p, meta: p.state,
@@ -855,6 +1113,16 @@
     boardAgents: boardAgents, projectAgents: projectAgents, findAgent: findAgent,
     findDm: findDm, findSpaceNode: findSpaceNode,
     allSpaces: allSpaces, postsForSpace: postsForSpace,
+    followingFeed: followingFeed, followsList: followsList,
+    homeFeedViews: homeFeedViews,
+    homeFeedItems: homeFeedItems,
+    homeFeedUnreadCount: homeFeedUnreadCount,
+    homeFeedUnreadCounts: homeFeedUnreadCounts,
+    announcementsFeed: announcementsFeed,
+    featuredProjectsFeed: featuredProjectsFeed,
+    featuredCreatorsFeed: featuredCreatorsFeed,
+    allChannels: allChannels, findChannelByLabel: findChannelByLabel,
+    allProjects: allProjects, projectChannelNames: projectChannelNames,
     allNotifications: allNotifications,
     filterNotifications: filterNotifications,
     findNotification: findNotification,

@@ -62,6 +62,9 @@
   }
 
   function guessLang(name) {
+    if (window.NB_SYNTAX && window.NB_SYNTAX.langFromPath) {
+      return window.NB_SYNTAX.langFromPath(name);
+    }
     name = String(name || "").toLowerCase();
     if (/\.md$|\.markdown$/.test(name)) return "markdown";
     if (/\.ts$|\.tsx$|\.js$|\.jsx$/.test(name)) return "typescript";
@@ -494,6 +497,11 @@
       var raw = buf.lines[i] == null ? "" : buf.lines[i];
       var cells = [];
       var display = raw.length ? raw : " ";
+      var syn = window.NB_SYNTAX;
+      var lang = buf.language || "text";
+      var types = (syn && lang && lang !== "text")
+        ? syn.lineTypes(raw, lang)
+        : null;
       for (var c = 0; c < display.length; c++) {
         var ch = display.charAt(c);
         if (ch === " ") ch = " ";
@@ -509,6 +517,8 @@
         var cls = "nb-ed-ch";
         if (isCaret) cls += " nb-ed-caret";
         if (sel) cls += " nb-ed-sel";
+        var ty = types && types[c] && types[c] !== "text" ? types[c] : "";
+        if (ty) cls += " nb-tok nb-tok-" + ty;
         cells.push('<span class="' + cls + '" data-line="' + i + '" data-col="' + c + '">' +
           (ch === " " ? " " : esc(ch)) + "</span>");
       }
