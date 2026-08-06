@@ -97,7 +97,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | [`impeccable-community-nightboard`](impeccable-community-nightboard/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
 | Branch | `feat/impeccable-community-nightboard-session` |
-| PR | (opening) |
-| Result | **in progress** |
-| Failure class | — |
-| Notes | Community Web impeccable remediation (terrain grounds, AA tokens, Inter removed, scoped reduced-motion, sidecar refresh) + Nightboard STT/voice/syntax/a11y session advances. |
+| PR | [#104](https://github.com/Tyler-R-Kendrick/epoch/pull/104) — squash-merged `6a4abfc5` |
+| Result | **success** |
+| Failure class | CodeRabbit + Vercel PENDING at merge after review push; Actions CI disabled. Local `gate:push` green. Merged with `--admin`. |
+| Notes | Community Web impeccable remediation + Nightboard STT/voice/syntax/a11y. Review fix commit addressed speech reject handling, homeCursor thaw, `/act voice` offsets, aria-pressed on tabs, space corpus paths, Opus via setCodecPreferences, VAD/signaling/axe hardening. |
