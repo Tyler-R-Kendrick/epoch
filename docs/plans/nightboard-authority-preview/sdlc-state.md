@@ -7,11 +7,12 @@ tags: [epoch, plans, sdlc, nightboard, design]
 
 # Initiative: Nightboard authority + preview/dismiss
 
-- **Phase:** landing (`/sdlc finish` 2026-08-05)
+- **Phase:** closed
 - **Slug:** `nightboard-authority-preview`
 - **Opened:** 2026-08-05
+- **Closed:** 2026-08-06
 - **Host:** Cursor / Auto coordinator
-- **Branch:** `feat/nightboard-authority-preview-dismiss`
+- **Branch:** `feat/nightboard-authority-preview-dismiss` (deleted after merge)
 
 ## Goal
 
@@ -27,7 +28,7 @@ Land this session’s work:
 
 | PR | Title | Status |
 |---|---|---|
-| (pending) | Nightboard authority + preview/dismiss | opening |
+| [#106](https://github.com/Tyler-R-Kendrick/epoch/pull/106) | Nightboard authority + preview/dismiss | squash-merged `f3dfb89` |
 
 ## Validation
 
