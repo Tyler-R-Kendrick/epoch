@@ -713,8 +713,9 @@
       '<button type="button" class="cn-activity-open" data-notif-open="' + esc(n.id) + '"' +
       ' data-goto="' + esc(n.where || "/") + '">Open</button>' +
       (n.unread
-        ? '<button type="button" class="cn-activity-read" data-notif-read="' + esc(n.id) +
-          '">Mark read</button>'
+        ? '<button type="button" class="cn-activity-read" data-notif-dismiss="' + esc(n.id) +
+          '" data-notif-read="' + esc(n.id) +
+          '" title="Dismiss (d) — clear from unread">Dismiss</button>'
         : "") +
       "</footer></div></article>";
   }
@@ -735,14 +736,23 @@
   function viewFollowingFeed(state) {
     var view = (state && state.homeFeed) || "following";
     var readSet = (state && state.homeFeedRead) || {};
+    var dismissed = (state && state.homeFeedDismissed) || {};
     var annCollapsed = (state && state.homeAnnCollapsed) || {};
     var homeCursor = state && state.homeCursor != null ? state.homeCursor : 0;
+    var followOpts = view === "following"
+      ? {
+        dismissed: dismissed,
+        limit: state && state.homeFollowVisible != null ? state.homeFollowVisible : undefined,
+      }
+      : { dismissed: dismissed };
     var counts = MAP.homeFeedUnreadCounts
-      ? MAP.homeFeedUnreadCounts(state && state.merged, readSet)
+      ? MAP.homeFeedUnreadCounts(state && state.merged, readSet, { dismissed: dismissed })
       : {};
     var items = MAP.homeFeedItems
-      ? MAP.homeFeedItems(view, state && state.merged, readSet)
-      : (MAP.followingFeed ? MAP.followingFeed(state && state.merged) : []);
+      ? MAP.homeFeedItems(view, state && state.merged, readSet, followOpts)
+      : (MAP.followingStacks
+        ? MAP.followingStacks(state && state.merged, readSet, dismissed)
+        : (MAP.followingFeed ? MAP.followingFeed(state && state.merged) : []));
     if (homeCursor < 0) homeCursor = 0;
     if (items.length && homeCursor >= items.length) homeCursor = items.length - 1;
     var follows = MAP.followsList ? MAP.followsList() : ((D.follows) || []);
@@ -757,6 +767,7 @@
       var on = view === v.id;
       return '<button type="button" class="cn-home-tab" role="tab" data-home-feed="' + esc(v.id) + '"' +
         ' aria-selected="' + (on ? "true" : "false") + '"' +
+        ' aria-pressed="' + (on ? "true" : "false") + '"' +
         ' tabindex="' + (on ? "0" : "-1") + '"' +
         ' title="' + esc(v.label) + (n ? " · " + n + " unread" : "") + '">' +
         esc(v.label) +
@@ -766,7 +777,14 @@
 
     var meta = "";
     if (view === "following") {
-      meta = follows.length + " people · " + items.length + " posts";
+      var avail = MAP.homeFeedItems
+        ? MAP.homeFeedItems("following", state && state.merged, readSet, {
+          dismissed: dismissed,
+          limit: undefined,
+        }).length
+        : items.length;
+      meta = follows.length + " people · " + items.length + " showing" +
+        (avail > items.length ? " · " + (avail - items.length) + " more" : "");
     } else if (view === "announcements") {
       meta = items.length + " announcements";
     } else if (view === "featured") {
@@ -790,49 +808,70 @@
       }).join("");
     } else {
       rows = items.map(function (it, i) {
-        var member = who(it.who);
-        var kind = member.kind || it.kind || "post";
-        var tags = "";
-        if (it.re) tags += '<span class="cn-follow-tag">reply</span>';
-        if (it.state) tags += '<span class="cn-follow-tag">' + esc(it.state) + "</span>";
-        var summary = it.summary || it.body || it.title || "";
-        var cur = i === homeCursor;
-        return '<button type="button" class="cn-follow-row" role="option"' +
-          ' data-key="follow-' + esc(it.id) + '"' +
-          ' data-follow-id="' + esc(it.id) + '" data-kind="' + esc(kind) + '"' +
-          ' data-home-item="' + esc(it.id) + '"' +
-          (cur ? ' data-home-cursor="true" aria-current="true"' : "") +
-          ' data-unread="' + (it.unread ? "true" : "false") + '"' +
-          ' data-goto="' + esc(it.where || "/") + '"' +
-          ' data-follow-open="' + esc(it.id) + '"' +
-          ' aria-posinset="' + (i + 1) + '" aria-setsize="' + items.length + '"' +
-          ' aria-selected="' + (cur ? "true" : "false") + '"' +
-          ' aria-label="' + esc(it.who + " · " + summary) + '">' +
-          '<time class="cn-follow-when">' + esc(it.at || "") + "</time>" +
-          '<span class="cn-follow-who" data-c="handle">' + esc(it.who) + "</span>" +
-          '<span class="cn-follow-summary">' + esc(summary) + tags + "</span>" +
-          '<span class="cn-follow-where">' + esc(it.whereLabel || "") + "</span>" +
-          '<span class="cn-follow-open" aria-hidden="true">open</span>' +
-          "</button>";
+        return renderFollowStack(it, i === homeCursor, items.length, i);
       }).join("");
     }
 
-    var empty = view === "following" ? "Nobody you follow has posted yet."
+    var empty = view === "following"
+      ? (items.length ? "" : "Caught up — nobody you follow has more to show.")
       : view === "announcements" ? "No announcements."
-      : view === "featured" ? "No featured projects."
-      : "No featured creators.";
-
+        : view === "featured" ? "No featured projects."
+          : "No featured creators.";
     var listRole = view === "following" ? "listbox" : "feed";
-    // Tabs sit outside the listbox — only options belong under role=listbox.
+    var emptyHtml = (!items.length && empty)
+      ? '<p class="cn-empty" data-follow-empty>' + esc(empty) + "</p>"
+      : "";
+
     return '<div class="cn-follow-feed" data-key="following-feed" data-region="following"' +
       ' data-home-view="' + esc(view) + '">' +
       '<div class="cn-follow-banner" data-key="following-banner">' +
-      '<div class="cn-home-tabs" role="tablist" aria-label="Home feed views">' + tabs + "</div>" +
+      '<div class="cn-home-tabs" role="tablist" aria-label="Home feed">' + tabs + "</div>" +
       '<span class="cn-follow-banner-meta">' + esc(meta) + "</span>" +
       "</div>" +
       '<div class="cn-follow-list" role="' + listRole + '" aria-label="Home feed">' +
-      (rows || '<p class="cn-empty">' + esc(empty) + "</p>") +
+      (rows || emptyHtml) +
       "</div></div>";
+  }
+
+  /** One identity card on the following stack — latest post face + dismiss/read. */
+  function renderFollowStack(it, current, setSize, index) {
+    var member = who(it.who);
+    var kind = member.kind || it.kind || "post";
+    var tags = "";
+    if (it.re) tags += '<span class="cn-follow-tag">reply</span>';
+    if (it.state) tags += '<span class="cn-follow-tag">' + esc(it.state) + "</span>";
+    if (it.more) {
+      tags += '<span class="cn-follow-more" title="' + it.more +
+        ' older from @' + esc(it.who) + '">+' + it.more + "</span>";
+    }
+    var summary = it.summary || it.body || it.title || "";
+    return '<article class="cn-follow-row" role="option"' +
+      ' data-key="follow-' + esc(it.id) + '"' +
+      ' data-follow-id="' + esc(it.id) + '" data-kind="' + esc(kind) + '"' +
+      ' data-home-item="' + esc(it.id) + '"' +
+      ' data-stack-who="' + esc(it.who) + '"' +
+      (current ? ' data-home-cursor="true" aria-current="true"' : "") +
+      ' data-unread="' + (it.unread ? "true" : "false") + '"' +
+      ' aria-posinset="' + (index + 1) + '" aria-setsize="' + setSize + '"' +
+      ' aria-selected="' + (current ? "true" : "false") + '"' +
+      ' aria-label="' + esc("@" + it.who + " · " + summary) + '">' +
+      '<header class="cn-follow-head">' +
+      '<span class="cn-follow-who" data-c="handle">@' + esc(it.who) + "</span>" +
+      '<time class="cn-follow-when">' + esc(it.at || "") + "</time>" +
+      tags +
+      "</header>" +
+      '<p class="cn-follow-summary">' + esc(summary) + "</p>" +
+      '<footer class="cn-follow-foot">' +
+      '<span class="cn-follow-where">' + esc(it.whereLabel || "") + "</span>" +
+      '<button type="button" class="cn-follow-open" data-follow-open="' + esc(it.id) + '"' +
+      ' data-goto="' + esc(it.where || "/") + '">Open</button>' +
+      (it.unread
+        ? '<button type="button" class="cn-follow-read" data-follow-read="' + esc(it.id) +
+          '" title="Mark read (m) — keep in stack, clear unread">Mark read</button>'
+        : "") +
+      '<button type="button" class="cn-follow-dismiss" data-follow-dismiss="' + esc(it.id) +
+        '" title="Dismiss (d) — next post from this person fills in">Dismiss</button>' +
+      "</footer></article>";
   }
 
   function renderAnnPost(it, collapsedMap, current) {
@@ -987,7 +1026,7 @@
       if (browserPerm === "granted") {
         browserChip = '<span class="cn-ctx-fact" data-browser-perm="granted">browser alerts on</span>';
       } else if (browserPerm === "denied") {
-        browserChip = '<span class="cn-ctx-fact" data-browser-perm="denied">browser alerts blocked</span>';
+        browserChip = '<span class="cn-ctx-fact" data-browser-perm="denied" title="Open site settings to allow alerts">alerts off — fix in site settings</span>';
       } else {
         browserChip = '<button type="button" class="cn-activity-enable" data-activity-perm-inline' +
           ' title="Enable browser notifications">Enable browser alerts</button>';
@@ -1272,6 +1311,18 @@
       ],
     },
     {
+      id: "verbs",
+      title: "verbs (shared)",
+      always: true,
+      rows: [
+        { keys: "d", desc: "Dismiss — clear the current item from attention (home · Activity · notifications · DM alerts)" },
+        { keys: "m", desc: "Mark read — keep visible, clear unread (home)" },
+        { keys: "esc", desc: "Leave / close the current surface (not dismiss)" },
+        { keys: "Enter", desc: "Open / activate the current item" },
+        { keys: "j k / ↑ ↓", desc: "Move within the focused list" },
+      ],
+    },
+    {
       id: "prompt",
       title: "Prompt",
       contexts: ["prompt"],
@@ -1322,10 +1373,11 @@
       title: "Navigation",
       contexts: ["nav"],
       rows: [
-        { keys: "↑ ↓ / j k", desc: "Move within the nav list" },
+        { keys: "↑ ↓ / j k", desc: "Move within the nav list — detail previews the selection" },
         { keys: "← / h", desc: "Reload nav at parent path" },
-        { keys: "→ / l", desc: "Open dir · post thread · or text editor" },
-        { keys: "Enter", desc: "Open dir (reload nav) or file / thread detail" },
+        { keys: "→ / l", desc: "Slide into dir · open post thread · or text editor" },
+        { keys: "Enter", desc: "Focus preview and activate (edit · reply · write · slide into dir)" },
+        { keys: "double-click", desc: "Same as Enter — activate the preview" },
         { keys: "e", desc: "Open the terminal editor for the selected leaf" },
         { keys: "Space", desc: "Expand / collapse one level (dirs)" },
         { keys: "+ / −", desc: "Expand or collapse one level" },
@@ -1362,7 +1414,7 @@
           when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
         { keys: "0 / $ / g / G", desc: "Line start / end · top / bottom",
           when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
-        { keys: "x / d", desc: "Delete char / line (or selection in visual)" },
+        { keys: "x / d", desc: "Delete char / line (editor only — not the shared Dismiss verb)" },
         { keys: "u", desc: "Undo",
           when: function (ctx) { return !ctx.editorMode || ctx.editorMode === "normal"; } },
         { keys: "Ctrl+d / Ctrl+u", desc: "Page down / up",
@@ -1407,6 +1459,7 @@
         { keys: "− / +", desc: "Fold or expand a chain" },
         { keys: "[+] [-]", desc: "Upvote / downvote" },
         { keys: "reply", desc: "Arm the prompt to reply in this DM" },
+        { keys: "d", desc: "Dismiss — use in Activity for DM alerts (not leave thread)" },
         { keys: "i or :", desc: "Focus the prompt · Enter sends" },
         { keys: "share", desc: "Copy nightboard: link" },
         { keys: "esc", desc: "Leave selection → Following log" },
@@ -1421,6 +1474,8 @@
       rows: [
         { keys: "↑ ↓ / j k", desc: "Move between home-feed rows" },
         { keys: "Enter / → / l", desc: "Open the current row (mark read)" },
+        { keys: "d", desc: "Dismiss — following: next post from that person fills in · other tabs: clear unread" },
+        { keys: "m", desc: "Mark read — keep in stack, clear unread badge" },
         { keys: "[ ]", desc: "Cycle tabs · following · announcements · featured · creators" },
         { keys: "← / h", desc: "Focus the nav sidebar (from home)" },
         { keys: "i or :", desc: "Focus the prompt" },
@@ -1436,7 +1491,9 @@
       rows: [
         { keys: "↑ ↓ / j k", desc: "Move between notifications (nav)" },
         { keys: "Enter / →", desc: "Open the selected notification" },
+        { keys: "d", desc: "Dismiss — clear unread (same verb as home / DM alerts)" },
         { keys: "Open", desc: "Jump to source and mark read" },
+        { keys: "Dismiss", desc: "Same as d — clear from unread without opening" },
         { keys: "filters", desc: "all · mentions · subscribed · hooks" },
         { keys: "esc", desc: "Leave selection → Following, or columns → prompt" },
         { keys: "i or :", desc: "Focus the prompt" },
@@ -1874,16 +1931,22 @@
   }
 
   /**
-   * Two panes only — never a cascade of duplicated list blades.
+   * Up to three panes:
    *
    *   [ nav ]  — the single reusable root blade, reloaded as a navbar for
    *              the current path (one branch of first-level subnodes)
-   *   [ detail ] — preview / editor / thread for the selected entry
+   *   [ detail ] — preview / editor / thread / home feed for the selection
+   *   [ session ] — CLI/AI transcript when there are useful lines (dedicated;
+   *                 never appended under creators/following/thread content)
    *
    * Breadcrumb owns path depth. Enter / → reloads the nav blade with the
    * child scope; ← reloads it with the parent. No stack of board → projects →
    * community → channels list columns.
    */
+  function usefulSessionLines(lines) {
+    return (lines || []).filter(function (ln) { return ln.kind !== "banner"; });
+  }
+
   function buildBladeStack(state) {
     var extra = state.merged || [];
     var path = state.path || "/";
@@ -1935,6 +1998,18 @@
       thread: !!(state.threadFocus),
       stable: "detail",
     });
+    if (usefulSessionLines(state.lines).length && !state.sessionClosed) {
+      blades.push({
+        index: blades.length,
+        path: path,
+        title: "session",
+        kind: "session",
+        closable: true,
+        parentPath: path,
+        stable: "session",
+        active: !!state.sessionOutFocus,
+      });
+    }
     return blades;
   }
 
@@ -2070,15 +2145,19 @@
   }
 
   /**
-   * One blade (list or detail). When nav is collapsed, list blades render as
-   * thin rails so detail can claim the width without losing path context.
+   * One blade (list, detail, or session). When nav is collapsed, list blades
+   * render as thin rails so detail/session can claim the width without losing
+   * path context.
    */
   function bladeHtml(blade, focused, bodyHtml, navCollapsed) {
-    var title = blade.kind === "detail"
-      ? (blade.title || "detail")
-      : (blade.path === "/" ? "board" : blade.title);
-    var subtitle = blade.kind === "detail" ? "detail" : "blade";
-    var isList = blade.kind !== "detail";
+    var isSession = blade.kind === "session";
+    var title = isSession
+      ? "session"
+      : (blade.kind === "detail"
+        ? (blade.title || "detail")
+        : (blade.path === "/" ? "board" : blade.title));
+    var subtitle = isSession ? "chat" : (blade.kind === "detail" ? "detail" : "blade");
+    var isList = blade.kind !== "detail" && !isSession;
     var collapsed = !!(navCollapsed && isList);
 
     // Collapsed nav rail — same stable blade, slimmed; click expands.
@@ -2100,23 +2179,26 @@
     var kicker = isList
       ? (blade.path === "/" ? "nav" : "nav")
       : subtitle;
-    var closeTitle = isList
-      ? "Back — up to parent (reload nav)"
-      : "Esc — leave selection for Following log";
+    var closeTitle = isSession
+      ? "Close session chat"
+      : (isList
+        ? "Back — up to parent (reload nav)"
+        : "Esc — leave selection for Following log");
     // When nav has drilled below board root, lead the chrome with << so the
     // reused blade always shows how to step back (not only a trailing dismiss).
     var navBack = isList && blade.closable && blade.path && blade.path !== "/";
     var parentLabel = blade.parentPath && blade.parentPath !== "/"
       ? blade.parentPath
       : "board";
-    // Stable morph keys: always blade-nav / blade-detail so the root blade is
-    // reused and reloaded, never cloned for each path segment.
-    var morphKey = blade.stable || (isList ? "nav" : "detail");
+    // Stable morph keys: always blade-nav / blade-detail / blade-session so
+    // panes are reused and reloaded, never cloned for each path segment.
+    var morphKey = blade.stable || (isSession ? "session" : (isList ? "nav" : "detail"));
     return '<section class="cn-blade cn-col" data-blade="' + blade.index + '"' +
       ' data-column="' + blade.index + '" data-blade-path="' + esc(blade.path) + '"' +
       ' data-blade-kind="' + esc(blade.kind) + '"' +
       ' data-collapsed="false"' +
       (isList ? ' data-nav="true"' : "") +
+      (isSession && blade.active ? ' data-session-active="true"' : "") +
       (navBack ? ' data-nav-drilled="true"' : "") +
       (focused ? ' data-focus="true"' : "") +
       ' data-key="blade-' + morphKey + '">' +
@@ -2140,15 +2222,17 @@
         ? '<button type="button" class="cn-pane-act" data-nav-collapse' +
           ' title="Collapse navigation (z / Alt+Z) — give detail the width"' +
           ' aria-label="Collapse navigation">—</button>'
-        : '<button type="button" class="cn-pane-act" data-pane-zoom data-nav-collapse' +
-          ' title="' + (navCollapsed
-            ? "Expand navigation (z / Alt+Z)"
-            : "Collapse navigation (z / Alt+Z) — detail fills the row") + '"' +
-          ' aria-label="' + (navCollapsed ? "Expand navigation" : "Collapse navigation") + '"' +
-          ' aria-pressed="' + !!navCollapsed + '">' +
-          (navCollapsed ? "▣" : "▭") + "</button>") +
-      // Detail dismiss is [esc] — same verb as the Escape key (no ×).
-      (!isList && blade.closable
+        : (!isSession
+          ? '<button type="button" class="cn-pane-act" data-pane-zoom data-nav-collapse' +
+            ' title="' + (navCollapsed
+              ? "Expand navigation (z / Alt+Z)"
+              : "Collapse navigation (z / Alt+Z) — detail fills the row") + '"' +
+            ' aria-label="' + (navCollapsed ? "Expand navigation" : "Collapse navigation") + '"' +
+            ' aria-pressed="' + !!navCollapsed + '">' +
+            (navCollapsed ? "▣" : "▭") + "</button>"
+          : "")) +
+      // Detail/session dismiss is [esc] — same verb as the Escape key (no ×).
+      ((!isList && blade.closable)
         ? '<button type="button" class="cn-esc cn-blade-close" data-blade-close="' + blade.index + '"' +
           ' data-esc-dismiss title="' + esc(closeTitle) + '"' +
           ' aria-label="' + esc(closeTitle) + '">esc</button>'
@@ -2163,8 +2247,8 @@
   var CONSOLE = {
     id: "console",
     name: "Console",
-    thesis: "The board as a filesystem. One nav blade is the navbar — it reloads for the current path with one branch of subnodes. Detail is the other pane. Breadcrumb owns depth; never stack cloned list blades.",
-    keys: "[←→] parent/child  [↑↓] entry  [Space] expand  [Enter] open  [z] collapse nav  [:] command  ·  [Ctrl+Space] keys",
+    thesis: "The board as a filesystem. One nav blade is the navbar — it reloads for the current path with one branch of subnodes. Detail is the content pane. Session is a dedicated CLI/AI chat blade when there is transcript. Breadcrumb owns depth; never stack cloned list blades.",
+    keys: "[←→] parent/child  [↑↓] preview  [Enter] activate  [Space] expand  [z] collapse nav  [:] command  ·  [Ctrl+Space] keys",
 
     css: `
     /* Whole page is the TUI: workspace tabs + blades + prompt foot. No side terminal. */
@@ -2376,9 +2460,22 @@
       [data-exp="console"] .cn-blade[data-blade-kind=list]{flex-basis:clamp(11rem,40vw,16rem)}
     }
     @media (max-width: 40rem){
+      /* Single-blade ranger mode: list/detail each claim nearly full width.
+         More-specific list max-width rules above must be overridden here or
+         both blades shrink to ~half a phone screen (Impeccable P1). */
       [data-exp="console"] .cn-blades{scroll-snap-type:x mandatory}
-      [data-exp="console"] .cn-blade{flex:0 0 85%;max-width:85%;scroll-snap-align:start;opacity:1}
-      [data-exp="console"] .cn-blade[data-blade-kind=detail]{flex:0 0 92%;max-width:92%}
+      [data-exp="console"] .cn-blade,
+      [data-exp="console"] .cn-blade[data-blade-kind=list],
+      [data-exp="console"] .cn-blade[data-nav=true],
+      [data-exp="console"] .cn-col{
+        flex:0 0 100%;max-width:100%;scroll-snap-align:start;opacity:1}
+      [data-exp="console"] .cn-blade[data-blade-kind=detail],
+      [data-exp="console"] .cn-blade[data-blade-kind=session],
+      [data-exp="console"] .cn-pane{
+        flex:0 0 100%;max-width:100%}
+      [data-exp="console"] .cn-blade[data-collapsed=true],
+      [data-exp="console"] .cn-blade-rail{
+        flex:0 0 2.15rem;max-width:2.15rem;min-width:2.15rem}
       [data-exp="console"] .cn-pane-act{min-width:2rem;min-height:2rem}
     }
     [data-exp="console"] .cn-blade-head,[data-exp="console"] .cn-col-head{
@@ -2625,12 +2722,23 @@
     [data-exp="console"] .cn-person-pin:hover .cn-person-pin-blurb,
     [data-exp="console"] .cn-person-pin:focus-visible .cn-person-pin-blurb{color:inherit;opacity:.9}
     [data-exp="console"] .cn-follow-banner-meta{font-size:.9em;color:var(--nb-ink-dim)}
-    [data-exp="console"] .cn-follow-row{display:grid;
-      grid-template-columns:3.2rem 7rem minmax(0,1fr) auto auto;
-      gap:.35rem .55rem;align-items:baseline;width:100%;box-sizing:border-box;
-      padding:.18rem .55rem;margin:0;border:0;border-block-end:1px dotted var(--nb-rule);
-      background:none;font:inherit;color:var(--nb-ink);text-align:start;cursor:pointer;
-      min-height:1.9rem;border-radius:0}
+    [data-exp="console"] .cn-follow-row{display:grid;gap:.2rem .55rem;width:100%;box-sizing:border-box;
+      padding:.35rem .55rem .4rem;margin:0;border:0;border-block-end:1px dotted var(--nb-rule);
+      background:none;font:inherit;color:var(--nb-ink);text-align:start;
+      min-height:2.4rem;border-radius:0}
+    [data-exp="console"] .cn-follow-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .55rem;
+      min-width:0}
+    [data-exp="console"] .cn-follow-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .55rem;
+      min-width:0}
+    [data-exp="console"] .cn-follow-more{font-size:.8em;color:var(--nb-ink-faint);font-weight:700}
+    [data-exp="console"] .cn-follow-read,[data-exp="console"] .cn-follow-dismiss{
+      font:inherit;font-size:.8em;background:none;border:0;color:var(--nb-ink-dim);cursor:pointer;
+      padding:0 .05rem;min-height:1.6rem}
+    [data-exp="console"] .cn-follow-read::before,[data-exp="console"] .cn-follow-dismiss::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-follow-read::after,[data-exp="console"] .cn-follow-dismiss::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-follow-read:hover,[data-exp="console"] .cn-follow-dismiss:hover{
+      color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-follow-dismiss:hover{color:var(--nb-warn)}
     [data-exp="console"] .cn-follow-row[data-unread=true]{box-shadow:inset 2px 0 0 var(--nb-accent)}
     /* Keyboard cursor: soft wash + rail (distinct from hover fill). */
     [data-exp="console"] .cn-follow-row[aria-current=true],
@@ -2639,25 +2747,17 @@
     [data-exp="console"] .cn-cre-card[aria-current=true]{
       background:color-mix(in srgb,var(--nb-accent) 18%,transparent);
       box-shadow:inset 2px 0 0 var(--nb-accent)}
-    [data-exp="console"] .cn-follow-row:hover,
-    [data-exp="console"] .cn-follow-row:focus-visible{
-      background:var(--nb-accent);color:var(--nb-accent-ink);outline:none}
-    [data-exp="console"] .cn-follow-row:hover .cn-follow-when,
-    [data-exp="console"] .cn-follow-row:hover .cn-follow-where,
-    [data-exp="console"] .cn-follow-row:hover .cn-follow-tag,
-    [data-exp="console"] .cn-follow-row:focus-visible .cn-follow-when,
-    [data-exp="console"] .cn-follow-row:focus-visible .cn-follow-where,
+    [data-exp="console"] .cn-follow-row:hover{
+      background:color-mix(in srgb,var(--nb-accent) 10%,transparent)}
     [data-exp="console"] .cn-follow-row[aria-current=true] .cn-follow-when,
     [data-exp="console"] .cn-follow-row[aria-current=true] .cn-follow-where{color:inherit;opacity:.85}
     [data-exp="console"] .cn-follow-when{font-variant-numeric:tabular-nums;color:var(--nb-ink-faint);
       font-size:.85em}
     [data-exp="console"] .cn-follow-who{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     [data-exp="console"] .cn-follow-row[data-kind=agent] .cn-follow-who{color:var(--nb-agent)}
-    [data-exp="console"] .cn-follow-row:hover[data-kind=agent] .cn-follow-who,
-    [data-exp="console"] .cn-follow-row:focus-visible[data-kind=agent] .cn-follow-who{color:inherit}
-    [data-exp="console"] .cn-follow-summary{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-      font-size:.92em}
-    [data-exp="console"] .cn-follow-tag{margin-inline-start:.35rem;color:var(--nb-ink-faint);font-size:.85em}
+    [data-exp="console"] .cn-follow-summary{min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;font-size:.92em;max-width:100%}
+    [data-exp="console"] .cn-follow-tag{margin-inline-start:.15rem;color:var(--nb-ink-faint);font-size:.85em}
 
     /* Home showcase: announcements / featured / creators (TUI, not web cards). */
     [data-exp="console"] .cn-ann-post,[data-exp="console"] .cn-feat-card,[data-exp="console"] .cn-cre-card{
@@ -3051,17 +3151,26 @@
     [data-exp="console"] .cn-voice-ctx .cn-voice-act{margin-inline-start:auto}
     [data-exp="console"] .cn-item[data-meta=voice] .cn-name{color:var(--nb-live)}
     [data-exp="console"] .cn-item[data-meta=voice] .cn-hint{color:var(--nb-live);opacity:.85}
-    /* Session output lives inside the detail blade — never a docked terminal window. */
-    [data-exp="console"] .cn-blade-out{max-height:min(12rem,32%);overflow:auto;margin:0;
-      padding:.35rem .55rem .5rem;border-block-start:1px dotted var(--nb-rule);
+    /* Session output — dedicated blade (never docked under home/detail content). */
+    [data-exp="console"] .cn-blade[data-blade-kind=session]{
+      flex:1 1 22rem;max-width:min(28rem,46vw);opacity:1;
+      background:color-mix(in srgb,var(--nb-surface) 55%,var(--nb-bg))}
+    [data-exp="console"] .cn-blade[data-blade-kind=session][data-session-active=true],
+    [data-exp="console"] .cn-blade[data-blade-kind=session][data-focus=true]{
+      max-width:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nb-accent) 35%,transparent),
+        4px 0 18px color-mix(in srgb,var(--nb-bg) 70%,#000)}
+    [data-exp="console"] .cn-blade[data-blade-kind=session] .cn-blade-body{
+      display:flex;flex-direction:column;min-height:0}
+    [data-exp="console"] .cn-blade-out{flex:1 1 auto;min-height:0;overflow:auto;margin:0;
+      padding:.45rem .65rem .6rem;border:0;
       font-size:.9em;background:transparent}
     [data-exp="console"] .cn-blade-out:empty{display:none}
     [data-exp="console"] .cn-blade-out .cn-log{display:grid;gap:.2rem}
-    /* Inconclusive prompt: session chat is the active pane — larger, accent-ruled. */
+    /* Active session chat — accent rail, fill the blade. */
     [data-exp="console"] .cn-blade-out[data-active=true]{
-      max-height:min(40vh,22rem);border-block-start:2px solid var(--nb-accent);
+      border-inline-start:2px solid var(--nb-accent);
       background:color-mix(in srgb,var(--nb-surface) 70%,transparent);
-      box-shadow:inset 2px 0 0 var(--nb-accent);outline:none}
+      box-shadow:none;outline:none}
     [data-exp="console"] .cn-blade-out[data-active=true]:focus-visible{
       outline:1px solid color-mix(in srgb,var(--nb-agent) 50%,transparent);outline-offset:-2px}
     [data-exp="console"] .cn-prompt-stack{position:relative;min-width:0}
@@ -3337,6 +3446,14 @@
       // Focus maps onto a blade index; clamp if the stack shrank after a close.
       var focusBlade = Math.min(state.focus != null ? state.focus : blades.length - 2,
         blades.length - 1);
+      if (state.sessionOutFocus) {
+        for (var sfi = 0; sfi < blades.length; sfi++) {
+          if (blades[sfi].kind === "session") {
+            focusBlade = sfi;
+            break;
+          }
+        }
+      }
 
       var sort = state.sort || "hot";
       var votes = state.votes || {};
@@ -3488,12 +3605,13 @@
         preview = feedBarHtml(state, sort) + (preview || "");
       }
 
-      // Session CLI/AI output — inside the detail blade only (never a page terminal).
-      var useful = (state.lines || []).filter(function (ln) { return ln.kind !== "banner"; });
+      // Session CLI/AI output — dedicated session blade only (never under home/detail).
+      var sessionBody = "";
+      var useful = usefulSessionLines(state.lines);
       if (useful.length) {
         var transcript = renderTranscript(useful.slice(-60), state.openTools || {});
         var outActive = !!state.sessionOutFocus;
-        preview = (preview || "") +
+        sessionBody =
           '<div class="cn-out cn-blade-out" data-key="out" data-active="' +
           (outActive ? "true" : "false") + '"' +
           ' aria-label="' + (outActive ? "Session chat history" : "Session output") + '"' +
@@ -3545,10 +3663,12 @@
         c0: 15, c1: 20, mc0: false, mc1: false, zoom: false,
       };
 
-      // Cascade: list blades for each path segment, then the detail blade.
-      // When nav is collapsed, list blades become thin rails; detail expands.
+      // Cascade: list + detail (+ session when transcript exists).
       var navCollapsed = !!(panes.zoom || panes.navCollapsed);
       var bladeHtmls = blades.map(function (b) {
+        if (b.kind === "session") {
+          return bladeHtml(b, focusBlade === b.index, sessionBody, navCollapsed);
+        }
         if (b.kind === "detail") {
           return bladeHtml(b, focusBlade === b.index, preview, navCollapsed);
         }
@@ -3556,7 +3676,7 @@
           bladeListHtml(b, focusBlade === b.index, b.filter, state), navCollapsed);
       }).join("");
 
-      // Structured lines are rendered into the detail blade (above), not a foot panel.
+      // Structured lines are rendered into the session blade (above), not a foot panel.
       var sessions = state.sessions || [{ id: "1", path: path }];
       var activeSess = state.activeSession || 0;
       var tabs = sessions.map(function (sess, i) {

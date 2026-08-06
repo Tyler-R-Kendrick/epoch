@@ -88,7 +88,7 @@ export function renderConversation(
   const changeId = conversation.id.startsWith("change-") ? conversation.id.slice("change-".length) : undefined;
   const changeAttr = changeId === undefined ? "" : ` data-change-id="${escapeHtml(changeId)}"`;
   const isAgent = conversation.role === "agent";
-  const agentClass = isAgent ? " feed-message-agent" : "";
+  const agentClass = isAgent ? " row-message-agent" : "";
   const harnessBadge = conversation.harness
     ? `<span class="agent-harness" data-agent-harness title="ACP harness">${escapeHtml(conversation.harness)}</span>`
     : "";
@@ -172,14 +172,19 @@ export function renderConversation(
           <div><dt>Signature</dt><dd>${escapeHtml(conversation.signature)}</dd></div>
           <div><dt>Artifact</dt><dd data-tray-artifact>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug ?? conversation.communityId)}</dd></div>
         </dl>
-        <div class="action-row">
+        <div class="action-row action-row-primary">
           <button type="button" class="button-intent" data-action="intent">Mark intent</button>
-          <button type="button" class="button-chip" data-action="agent">Request agent</button>
-          <button type="button" class="button-chip" data-action="answer">Accept answer</button>
-          <button type="button" class="button-chip" data-action="docs">Docs patch</button>
-          <button type="button" class="button-chip" data-action="report">Report</button>
           ${changeId === undefined ? "" : `<button type="button" class="button-primary" data-action="approve">Approve change</button>`}
         </div>
+        <details class="action-more" data-action-more>
+          <summary>More actions</summary>
+          <div class="action-row action-row-secondary">
+            <button type="button" class="button-chip" data-action="agent">Request agent</button>
+            <button type="button" class="button-chip" data-action="answer">Accept answer</button>
+            <button type="button" class="button-chip" data-action="docs">Docs patch</button>
+            <button type="button" class="button-chip" data-action="report">Report</button>
+          </div>
+        </details>
         <p class="action-status" data-action-status>Human review required for signed project changes.</p>
       </div>`;
 

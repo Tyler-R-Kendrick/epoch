@@ -110,29 +110,34 @@ ${communityStyles()}
             renderChannelButton(channel, communityConversations, channel.id === defaultChannel),
           ).join("")}
         </nav>
-        <div class="rail-section-label">Agents</div>
-        <nav class="agent-list" data-agent-list aria-label="Member agents">
-          ${communityAgents
-            .filter((agent) => agent.communityIds.includes(activeCommunityId))
-            .map(renderAgentMemberButton).join("") || `
-        <p class="agent-list-empty">No member agents in this community yet.</p>`}
-        </nav>
-        <div class="rail-section-label">Linked projects</div>
-        <nav class="repo-list" data-repo-list aria-label="Linked repositories">
-          ${(activeCommunity?.linkedRepos ?? [primaryRepo]).map((slug) => {
-            const repo = app.repositories.find((item) => item.slug === slug);
-            const count = repo?.issues.length ?? 0;
-            return `
-        <button class="channel-button repo-button" type="button" data-open-repo="${escapeHtml(slug)}" aria-pressed="false">
-          <span class="channel-button-label">${escapeHtml(slug)}</span>
-          <span class="channel-count">${count}</span>
-        </button>`;
-          }).join("")}
-        </nav>
-        <nav class="surface-list repo-surface-list" data-repo-surfaces hidden aria-label="Repository surfaces">
-          <button class="surface-button" type="button" data-surface="issues" aria-pressed="false">Issues <span class="channel-count">${feed.issues.length}</span></button>
-          <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
-        </nav>
+        <details class="rail-more" data-rail-more>
+          <summary class="rail-more-summary">People &amp; projects</summary>
+          <div class="rail-more-body">
+            <div class="rail-section-label">Agents</div>
+            <nav class="agent-list" data-agent-list aria-label="Member agents">
+              ${communityAgents
+                .filter((agent) => agent.communityIds.includes(activeCommunityId))
+                .map(renderAgentMemberButton).join("") || `
+            <p class="agent-list-empty">No member agents in this community yet.</p>`}
+            </nav>
+            <div class="rail-section-label">Linked projects</div>
+            <nav class="repo-list" data-repo-list aria-label="Linked repositories">
+              ${(activeCommunity?.linkedRepos ?? [primaryRepo]).map((slug) => {
+                const repo = app.repositories.find((item) => item.slug === slug);
+                const count = repo?.issues.length ?? 0;
+                return `
+            <button class="channel-button repo-button" type="button" data-open-repo="${escapeHtml(slug)}" aria-pressed="false">
+              <span class="channel-button-label">${escapeHtml(slug)}</span>
+              <span class="channel-count">${count}</span>
+            </button>`;
+              }).join("")}
+            </nav>
+            <nav class="surface-list repo-surface-list" data-repo-surfaces hidden aria-label="Repository surfaces">
+              <button class="surface-button" type="button" data-surface="issues" aria-pressed="false">Issues <span class="channel-count">${feed.issues.length}</span></button>
+              <button class="surface-button" type="button" data-surface="changes" aria-pressed="false">Changes <span class="channel-count">${feed.changes.length}</span></button>
+            </nav>
+          </div>
+        </details>
       </div>
       ${renderLegend()}
       <div class="rail-identity" data-rail-identity>

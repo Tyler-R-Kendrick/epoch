@@ -455,7 +455,7 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
   assert.match(html, /state\.apiBaseUrl/u);
   assert.match(html, /refreshRepository/u);
   assert.match(html, /commentOnIssue|\/comments/u);
-  assert.match(html, /Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry/u);
+  assert.match(html, /Reconnect the Community API \(EPOCH_COMMUNITY_API_URL\), reload this page, then retry/u);
   assert.match(html, /data-surface="issues"/u);
   assert.match(html, /data-surface="changes"/u);
   assert.match(html, /data-issue-id="IDEA-3"/u);
@@ -491,7 +491,7 @@ async function communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy():
   assert.match(html, /data-feed-honesty="snapshot"/u);
   // The banner is degraded-state only now, and says what to do rather than
   // re-explaining the product.
-  assert.match(html, /Snapshot data\. To promote signed work, reconnect/u);
+  assert.match(html, /You're viewing a saved snapshot — not live community activity\. To promote signed work, reconnect/u);
   assert.match(html, /data-state="snapshot"/u);
   assert.match(html, /data-snapshot-badge/u);
   assert.match(html, /Dashboard widget should group revenue by region/u);

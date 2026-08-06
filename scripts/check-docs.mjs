@@ -8,7 +8,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 // full copy into each). They are third-party docs reproducible from a
 // devDependency, not repository documentation that README must index.
 const ignoredDirectories = new Set([
-  ".agents", ".claude", ".codex", ".git", ".grok", ".optimizexp",
+  ".agents", ".claude", ".codex", ".git", ".grok", ".impeccable", ".optimizexp",
   "coverage", "dist", "node_modules",
 ]);
 

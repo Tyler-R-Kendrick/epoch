@@ -3,99 +3,103 @@
 
 export const epochTokens = {
   colors: {
-    primary: "#1a1a17",
-    secondary: "#5f6058",
-    tertiary: "#a300a3",
-    neutral: "#f4f2ea",
-    surface: "#f4f2ea",
-    "surface-raised": "#ffffff",
-    "surface-sunken": "#e6e3d7",
-    ink: "#1a1a17",
-    "ink-soft": "#33342d",
-    "ink-faint": "#8d8e84",
-    muted: "#5f6058",
-    line: "#d5d2c4",
-    "line-strong": "#a8a596",
-    accent: "#a300a3",
-    "accent-strong": "#7a007a",
-    runnable: "#ffffff",
-    rough: "#cde3bb",
-    "rough-strong": "#9dc384",
-    "open-land": "#f8ea9f",
-    "open-land-strong": "#e0cc63",
-    marsh: "#a5d8ec",
-    "marsh-strong": "#6bb6d6",
-    contour: "#8a5a2a",
-    "contour-soft": "#d8b48c",
-    "out-of-bounds": "#b52a20",
-    control: "#a300a3",
-    gold: "#b8860b",
-    teal: "#1f6f5c",
-    "teal-deep": "#175346",
-    "teal-hover": "#1c6554",
-    mint: "#d4ebe0",
-    "mint-strong": "#a9d4c1",
-    avatar: "#2b2b26",
-    "avatar-ink": "#f4f2ea",
-    rail: "#f4f2ea",
-    "rail-text": "#1a1a17",
-    "rail-muted": "#5f6058",
-    "rail-hover": "#e9e6db",
-    "rail-active": "#ffffff",
-    "rail-line": "#d5d2c4",
-    success: "#1f6f5c",
-    "warning-bg": "#fdf3d4",
-    "warning-ink": "#6b4e0c",
-    "warning-line": "#d8b44a",
+    primary: "#03050a",
+    secondary: "#7a8896",
+    tertiary: "#ff2cf0",
+    neutral: "#03050a",
+    surface: "#070b12",
+    "surface-raised": "#0c121c",
+    "surface-sunken": "#020408",
+    ink: "#c8d0d8",
+    "ink-soft": "#a0aab4",
+    "ink-faint": "#7a8896",
+    muted: "#7a8896",
+    line: "#1a2836",
+    "line-strong": "#2a3c50",
+    accent: "#ff2cf0",
+    "accent-strong": "#ff66f5",
+    "accent-ink": "#000000",
+    agent: "#40f0ff",
+    signed: "#f0e050",
+    live: "#3dff6a",
+    warn: "#ffaa00",
+    danger: "#ff3355",
+    control: "#ff2cf0",
+    gold: "#f0e050",
+    teal: "#40f0ff",
+    "teal-deep": "#1a90a0",
+    rail: "#070b12",
+    "rail-text": "#c8d0d8",
+    "rail-muted": "#7a8896",
+    "rail-hover": "#0c121c",
+    "rail-active": "#0c121c",
+    "rail-line": "#1a2836",
+    success: "#3dff6a",
+    "warning-bg": "#1a1400",
+    "warning-ink": "#ffaa00",
+    "warning-line": "#ffaa00",
+    avatar: "#0c121c",
+    "avatar-ink": "#c8d0d8",
+    runnable: "#0c121c",
+    rough: "#1a2836",
+    "rough-strong": "#2a3c50",
+    "open-land": "#f0e050",
+    "open-land-strong": "#f0e050",
+    marsh: "#40f0ff",
+    "marsh-strong": "#1a90a0",
+    mint: "#3dff6a",
+    "mint-strong": "#3dff6a",
+    "out-of-bounds": "#ff3355",
   },
   typography: {
     display: {
-      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
-      fontSize: "2.25rem",
-      fontWeight: 750,
-      lineHeight: 1.05,
-      letterSpacing: "-0.02em",
-    },
-    headline: {
-      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
-      fontSize: "1.3125rem",
+      fontFamily: "ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace",
+      fontSize: "1.25rem",
       fontWeight: 700,
       lineHeight: 1.2,
-      letterSpacing: "-0.015em",
+      letterSpacing: "0.02em",
+    },
+    headline: {
+      fontFamily: "ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace",
+      fontSize: "1rem",
+      fontWeight: 700,
+      lineHeight: 1.3,
+      letterSpacing: "0em",
     },
     title: {
-      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
-      fontSize: "1.0625rem",
+      fontFamily: "ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace",
+      fontSize: "0.875rem",
       fontWeight: 700,
-      lineHeight: 1.25,
+      lineHeight: 1.35,
       letterSpacing: "0em",
     },
     body: {
-      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
-      fontSize: "0.9375rem",
+      fontFamily: "ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace",
+      fontSize: "0.875rem",
       fontWeight: 400,
       lineHeight: 1.5,
       letterSpacing: "0em",
     },
     label: {
-      fontFamily: "'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif",
+      fontFamily: "ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace",
       fontSize: "0.8125rem",
-      fontWeight: 650,
-      lineHeight: 1.2,
-      letterSpacing: "0.06em",
+      fontWeight: 700,
+      lineHeight: 1.3,
+      letterSpacing: "0.04em",
     },
     meta: {
-      fontFamily: "ui-monospace, Cascadia Mono, Consolas, monospace",
-      fontSize: "0.72rem",
+      fontFamily: "ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace",
+      fontSize: "0.75rem",
       fontWeight: 500,
-      lineHeight: 1.3,
+      lineHeight: 1.35,
       letterSpacing: "0em",
     },
   },
   rounded: {
-    xs: "2px",
-    sm: "4px",
-    md: "8px",
+    none: "0px",
+    xs: "0px",
+    sm: "0px",
+    md: "0px",
   },
   spacing: {
     xs: "4px",
@@ -109,83 +113,86 @@ export const epochTokens = {
 
 export const epochTokensCss: string = `:root {
   color-scheme: light;
-  --epoch-color-primary: #1a1a17;
-  --epoch-color-secondary: #5f6058;
-  --epoch-color-tertiary: #a300a3;
-  --epoch-color-neutral: #f4f2ea;
-  --epoch-color-surface: #f4f2ea;
-  --epoch-color-surface-raised: #ffffff;
-  --epoch-color-surface-sunken: #e6e3d7;
-  --epoch-color-ink: #1a1a17;
-  --epoch-color-ink-soft: #33342d;
-  --epoch-color-ink-faint: #8d8e84;
-  --epoch-color-muted: #5f6058;
-  --epoch-color-line: #d5d2c4;
-  --epoch-color-line-strong: #a8a596;
-  --epoch-color-accent: #a300a3;
-  --epoch-color-accent-strong: #7a007a;
-  --epoch-color-runnable: #ffffff;
-  --epoch-color-rough: #cde3bb;
-  --epoch-color-rough-strong: #9dc384;
-  --epoch-color-open-land: #f8ea9f;
-  --epoch-color-open-land-strong: #e0cc63;
-  --epoch-color-marsh: #a5d8ec;
-  --epoch-color-marsh-strong: #6bb6d6;
-  --epoch-color-contour: #8a5a2a;
-  --epoch-color-contour-soft: #d8b48c;
-  --epoch-color-out-of-bounds: #b52a20;
-  --epoch-color-control: #a300a3;
-  --epoch-color-gold: #b8860b;
-  --epoch-color-teal: #1f6f5c;
-  --epoch-color-teal-deep: #175346;
-  --epoch-color-teal-hover: #1c6554;
-  --epoch-color-mint: #d4ebe0;
-  --epoch-color-mint-strong: #a9d4c1;
-  --epoch-color-avatar: #2b2b26;
-  --epoch-color-avatar-ink: #f4f2ea;
-  --epoch-color-rail: #f4f2ea;
-  --epoch-color-rail-text: #1a1a17;
-  --epoch-color-rail-muted: #5f6058;
-  --epoch-color-rail-hover: #e9e6db;
-  --epoch-color-rail-active: #ffffff;
-  --epoch-color-rail-line: #d5d2c4;
-  --epoch-color-success: #1f6f5c;
-  --epoch-color-warning-bg: #fdf3d4;
-  --epoch-color-warning-ink: #6b4e0c;
-  --epoch-color-warning-line: #d8b44a;
-  --epoch-radius-xs: 2px;
-  --epoch-radius-sm: 4px;
-  --epoch-radius-md: 8px;
+  --epoch-color-primary: #03050a;
+  --epoch-color-secondary: #7a8896;
+  --epoch-color-tertiary: #ff2cf0;
+  --epoch-color-neutral: #03050a;
+  --epoch-color-surface: #070b12;
+  --epoch-color-surface-raised: #0c121c;
+  --epoch-color-surface-sunken: #020408;
+  --epoch-color-ink: #c8d0d8;
+  --epoch-color-ink-soft: #a0aab4;
+  --epoch-color-ink-faint: #7a8896;
+  --epoch-color-muted: #7a8896;
+  --epoch-color-line: #1a2836;
+  --epoch-color-line-strong: #2a3c50;
+  --epoch-color-accent: #ff2cf0;
+  --epoch-color-accent-strong: #ff66f5;
+  --epoch-color-accent-ink: #000000;
+  --epoch-color-agent: #40f0ff;
+  --epoch-color-signed: #f0e050;
+  --epoch-color-live: #3dff6a;
+  --epoch-color-warn: #ffaa00;
+  --epoch-color-danger: #ff3355;
+  --epoch-color-control: #ff2cf0;
+  --epoch-color-gold: #f0e050;
+  --epoch-color-teal: #40f0ff;
+  --epoch-color-teal-deep: #1a90a0;
+  --epoch-color-rail: #070b12;
+  --epoch-color-rail-text: #c8d0d8;
+  --epoch-color-rail-muted: #7a8896;
+  --epoch-color-rail-hover: #0c121c;
+  --epoch-color-rail-active: #0c121c;
+  --epoch-color-rail-line: #1a2836;
+  --epoch-color-success: #3dff6a;
+  --epoch-color-warning-bg: #1a1400;
+  --epoch-color-warning-ink: #ffaa00;
+  --epoch-color-warning-line: #ffaa00;
+  --epoch-color-avatar: #0c121c;
+  --epoch-color-avatar-ink: #c8d0d8;
+  --epoch-color-runnable: #0c121c;
+  --epoch-color-rough: #1a2836;
+  --epoch-color-rough-strong: #2a3c50;
+  --epoch-color-open-land: #f0e050;
+  --epoch-color-open-land-strong: #f0e050;
+  --epoch-color-marsh: #40f0ff;
+  --epoch-color-marsh-strong: #1a90a0;
+  --epoch-color-mint: #3dff6a;
+  --epoch-color-mint-strong: #3dff6a;
+  --epoch-color-out-of-bounds: #ff3355;
+  --epoch-radius-xs: 0px;
+  --epoch-radius-sm: 0px;
+  --epoch-radius-md: 0px;
   --epoch-space-xs: 4px;
   --epoch-space-sm: 8px;
   --epoch-space-md: 12px;
   --epoch-space-lg: 16px;
   --epoch-space-xl: 24px;
   --epoch-space-xxl: 32px;
-  --epoch-font-ui: 'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
-  --epoch-font-mono: ui-monospace, Cascadia Mono, Consolas, monospace;
-  --epoch-type-display-size: 2.25rem;
-  --epoch-type-display-weight: 750;
-  --epoch-type-display-leading: 1.05;
-  --epoch-type-display-tracking: -0.02em;
-  --epoch-type-headline-size: 1.3125rem;
+  --epoch-font-ui: ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace;
+  --epoch-font-mono: ui-monospace, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace;
+  --epoch-type-display-size: 1.25rem;
+  --epoch-type-display-weight: 700;
+  --epoch-type-display-leading: 1.2;
+  --epoch-type-display-tracking: 0.02em;
+  --epoch-type-headline-size: 1rem;
   --epoch-type-headline-weight: 700;
-  --epoch-type-headline-leading: 1.2;
-  --epoch-type-headline-tracking: -0.015em;
-  --epoch-type-title-size: 1.0625rem;
+  --epoch-type-headline-leading: 1.3;
+  --epoch-type-headline-tracking: 0em;
+  --epoch-type-title-size: 0.875rem;
   --epoch-type-title-weight: 700;
-  --epoch-type-title-leading: 1.25;
+  --epoch-type-title-leading: 1.35;
   --epoch-type-title-tracking: 0em;
-  --epoch-type-body-size: 0.9375rem;
+  --epoch-type-body-size: 0.875rem;
   --epoch-type-body-weight: 400;
   --epoch-type-body-leading: 1.5;
   --epoch-type-body-tracking: 0em;
   --epoch-type-label-size: 0.8125rem;
-  --epoch-type-label-weight: 650;
-  --epoch-type-label-leading: 1.2;
-  --epoch-type-label-tracking: 0.06em;
-  --epoch-type-meta-size: 0.72rem;
+  --epoch-type-label-weight: 700;
+  --epoch-type-label-leading: 1.3;
+  --epoch-type-label-tracking: 0.04em;
+  --epoch-type-meta-size: 0.75rem;
   --epoch-type-meta-weight: 500;
-  --epoch-type-meta-leading: 1.3;
+  --epoch-type-meta-leading: 1.35;
   --epoch-type-meta-tracking: 0em;
 }`;

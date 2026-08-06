@@ -1,5 +1,5 @@
 {
-  "files": ["docs/design-explorations/nightboard/index.html"],
+  "files": ["dist/**/*.html"],
   "exclude": [],
   "insertBefore": "</body>",
   "commentSyntax": "html",

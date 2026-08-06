@@ -6,10 +6,12 @@
  * the interface. This is the surface that rule points at, and it is why the
  * product can stop narrating itself.
  *
- * It is permanent and identical on every plane. An orienteering competitor does
- * not lose the legend when they turn the map over, and a citizen builder — the
- * primary persona, who has minutes and no version-control vocabulary — should
- * not have to remember what a colour meant on a screen they have left.
+ * It is permanent and identical on every plane, including narrow viewports
+ * (compressed to a wrap strip — never `display: none`). An orienteering
+ * competitor does not lose the legend when they turn the map over, and a
+ * citizen builder — the primary persona, who has minutes and no version-control
+ * vocabulary — should not have to remember what a colour meant on a screen
+ * they have left.
  *
  * Every entry here must correspond to an ink that is actually in use. A legend
  * that lists a meaning the product does not carry is the same failure as an

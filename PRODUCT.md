@@ -106,8 +106,8 @@ Technical constraints that bind design:
 - Accessibility is gated: axe-core must be clean at 1440×960 and 390×844.
 - Behavior is specified in executable Gherkin; scenarios are the contract.
 
-Undecided on purpose: dark mode (deferred by ADR-0024), theming beyond the
-design-language selection this redesign introduces, i18n execution.
+Undecided on purpose: theming beyond Nightboard Grid, i18n execution.
+Dark product UI is allowed for Nightboard under ADR-0027 (amends ADR-0024).
 
 ## Brand Commitments
 
@@ -119,16 +119,18 @@ design-language selection this redesign introduces, i18n execution.
   content as live activity, never imply an identity link it does not have, and
   never claim review that did not happen. This constrains visual design: state
   must be legible, not decorative.
-- No prior visual identity is binding. The incumbent look is evidence and
-  anti-reference, not a commitment; the product owner has rejected it and asked
-  for replacement.
+- **Visual world is Nightboard (Grid)** — Tron-inspired keyboard-first TUI.
+  Living reference: `docs/design-explorations/nightboard/`. Contract:
+  [ADR-0027](docs/design-decisions/0027-community-visual-world-nightboard.md).
+  Course Line (ADR-0026) is superseded and archived. Community Web ports to this
+  world; Impeccable iterates on Nightboard until parity.
 
 ## Evidence on Hand
 
-- Ten candidate product interfaces with rationale, static mockups, and
-  screenshots: `docs/design-explorations/` (`01-relay` and `06-review` are the
-  strongest and closest to this product's thesis).
-- Design contract and named rules: `DESIGN.md`.
+- **Committed visual reference:** `docs/design-explorations/nightboard/`
+  (keyboard-first Tron/TUI board). Older explorations under
+  `docs/design-explorations/` remain historical.
+- Design contract and named rules: `DESIGN.md` (Nightboard / ADR-0027).
 - Persona records: `docs/persona-feature-matrix.md`, `.optimizexp/personas/`.
 - Human-centered design method and critique protocol:
   `docs/community-human-centered-design.md`.

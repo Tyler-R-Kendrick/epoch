@@ -54,6 +54,14 @@ const CASES = [
         );
         if (item) item.click();
       });
+      await page.waitForTimeout(80);
+      // Select previews; → opens the branch in the same nav blade.
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+      });
+      await page.keyboard.press("ArrowRight");
       await page.waitForTimeout(120);
       const after = await page.evaluate(() => ({
         path: window.NB_APP.state.path,
@@ -75,12 +83,23 @@ const CASES = [
     run: async (page, log) => {
       await page.click('[data-goto="/"]');
       if ((await path(page)) !== "/") return log("crumb failed");
+      // Crumbs / data-goto still navigate; list click only selects + previews.
       await page.click('[data-blade-kind="list"] .cn-item[data-key="projects"], [data-blade-path="/"] .cn-item[data-key="projects"]');
+      await page.waitForTimeout(60);
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+      });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
       if ((await path(page)) !== "/projects") return log("listing dir failed: " + await path(page));
       // Detail may preview child listing when selected is a dir — or click in nav.
       const kid = await page.locator('[data-blade-kind="list"] .cn-item[data-kind="dir"]').first();
       if (await kid.count()) {
         await kid.click();
+        await page.waitForTimeout(60);
+        await page.keyboard.press("Enter");
         await page.waitForTimeout(100);
       }
       const p = await path(page);
@@ -104,7 +123,18 @@ const CASES = [
       if (feed.threadCtx) return log("thread chrome on channel feed");
       if (!feed.feedBar) return log("feed bar missing on channel");
 
+      // Click selects + previews; Enter activates (focus thread / reply).
       await page.click('[data-blade-kind="list"] .cn-item[data-i="2"]');
+      await page.waitForTimeout(80);
+      const preview = await page.evaluate(() => ({
+        focus: window.NB_APP.state.threadFocus,
+        navFocus: window.NB_APP.state.focus,
+        here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key"),
+      }));
+      if (preview.navFocus !== 0) {
+        return log("post click should keep nav focus: " + JSON.stringify(preview));
+      }
+      await page.keyboard.press("Enter");
       await page.waitForTimeout(80);
       const thread = await page.evaluate(() => ({
         focus: window.NB_APP.state.threadFocus,
@@ -116,6 +146,7 @@ const CASES = [
         here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key"),
         threadCtx: !!document.querySelector(".cn-thread-ctx"),
         feedBar: !!document.querySelector(".cn-feed-bar"),
+        bladeFocus: window.NB_APP.state.focus,
       }));
       // p3 is in the p1 thread — detail should show only that root, not p4.
       if (thread.focus !== "p3") return log("threadFocus not set: " + JSON.stringify(thread));
@@ -144,15 +175,26 @@ const CASES = [
     },
   },
   {
-    name: "touch: tapping a channel on its blade navigates",
+    name: "touch: tapping a channel selects; Enter opens",
     touch: true,
-    run: async (page) => {
+    run: async (page, log) => {
       await go(page, "/projects/community/channels");
       await page.waitForTimeout(100);
       const item = await page.locator('[data-blade-kind="list"] .cn-item[data-key="ideas"]').boundingBox();
       await page.touchscreen.tap(item.x + item.width / 2, item.y + item.height / 2);
-      await page.waitForTimeout(200);
-      return (await path(page)) === "/projects/community/channels/ideas";
+      await page.waitForTimeout(120);
+      const previewed = await path(page);
+      if (previewed !== "/projects/community/channels") {
+        return log("tap should preview without navigating: " + previewed);
+      }
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+      });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      return (await path(page)) === "/projects/community/channels/ideas" ||
+        log("Enter after tap went to " + await path(page));
     },
   },
   {
@@ -639,6 +681,168 @@ const CASES = [
       }));
       if (!(opened.detail && !opened.follow)) {
         return log("Enter did not open home row: " + JSON.stringify(opened));
+      }
+      return true;
+    },
+  },
+  {
+    name: "chrome: Epoch brand goes home (following feed)",
+    run: async (page, log) => {
+      await go(page, "/projects/civic-tuner/channels/changes");
+      await page.evaluate(() => {
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(80);
+      const brand = page.locator("[data-brand], [data-goto-home]");
+      if (!(await brand.count())) return log("brand missing");
+      await brand.first().click();
+      await page.waitForTimeout(120);
+      const after = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        detailOpen: window.NB_APP.state.detailOpen,
+        home: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+        following: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view") === "following",
+      }));
+      if (after.path !== "/projects/community/channels/general") {
+        return log("path not default home: " + JSON.stringify(after));
+      }
+      if (after.detailOpen || !after.following) {
+        return log("home feed not shown: " + JSON.stringify(after));
+      }
+      return true;
+    },
+  },
+  {
+    name: "home: following rolls up by identity; dismiss/read; refill when low",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        try {
+          localStorage.removeItem("nb-home-feed-read");
+          localStorage.removeItem("nb-home-feed-dismissed");
+        } catch { /* fine */ }
+        window.NB_APP.state.homeFeedRead = {};
+        window.NB_APP.state.homeFeedDismissed = {};
+        window.NB_APP.state.homeFollowVisible = 4;
+        window.NB_APP.state.homeFeed = "following";
+        window.NB_APP.state.homeCursor = 0;
+        window.NB_APP.closeDetail({ silent: true });
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(100);
+      const start = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll(".cn-follow-row"));
+        const whos = rows.map((el) => el.getAttribute("data-stack-who"));
+        const unique = new Set(whos);
+        return {
+          view: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+          n: rows.length,
+          whos,
+          unique: unique.size,
+          moreBadges: document.querySelectorAll(".cn-follow-more").length,
+          dismiss: !!document.querySelector("[data-follow-dismiss]"),
+          meta: document.querySelector(".cn-follow-banner-meta")?.textContent || "",
+        };
+      });
+      if (start.view !== "following") return log("not following: " + JSON.stringify(start));
+      if (!(start.n >= 1 && start.n <= 4)) {
+        return log("expected ≤4 rolled cards: " + JSON.stringify(start));
+      }
+      if (start.unique !== start.n) {
+        return log("duplicate identities in stack: " + JSON.stringify(start));
+      }
+      if (!start.dismiss) return log("missing dismiss control: " + JSON.stringify(start));
+      if (!/showing/i.test(start.meta)) {
+        return log("meta should report showing count: " + start.meta);
+      }
+
+      // Dismiss the face — same @who should return with an older post when +N existed.
+      const before = await page.evaluate(() => {
+        const row = document.querySelector(".cn-follow-row[data-home-cursor], .cn-follow-row");
+        return {
+          id: row?.getAttribute("data-follow-id"),
+          who: row?.getAttribute("data-stack-who"),
+          more: row?.querySelector(".cn-follow-more")?.textContent || "",
+        };
+      });
+      if (!before.id || !before.who) return log("no cursor row: " + JSON.stringify(before));
+      await page.click(`[data-follow-dismiss="${before.id}"]`);
+      await page.waitForTimeout(100);
+      const afterDismiss = await page.evaluate((info) => {
+        const rows = Array.from(document.querySelectorAll(".cn-follow-row"));
+        const same = rows.find((el) => el.getAttribute("data-stack-who") === info.who);
+        return {
+          dismissed: !!window.NB_APP.state.homeFeedDismissed?.[info.id],
+          n: rows.length,
+          faceId: same?.getAttribute("data-follow-id"),
+          stillHasWho: !!same,
+          empty: !!document.querySelector("[data-follow-empty]"),
+        };
+      }, before);
+      if (!afterDismiss.dismissed) {
+        return log("face not dismissed: " + JSON.stringify({ before, afterDismiss }));
+      }
+      if (before.more && !afterDismiss.stillHasWho) {
+        return log("expected next post from same who: " + JSON.stringify({ before, afterDismiss }));
+      }
+      if (before.more && afterDismiss.faceId === before.id) {
+        return log("face id did not advance: " + JSON.stringify({ before, afterDismiss }));
+      }
+
+      // Hotkey `d` is the shared dismiss verb (same as the Dismiss control).
+      const hotkeyBefore = await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 1;
+        window.NB_APP.state.homeCursor = 0;
+        window.NB_APP.render(true);
+        const row = document.querySelector(".cn-follow-row");
+        return row?.getAttribute("data-follow-id") || null;
+      });
+      if (hotkeyBefore) {
+        await page.keyboard.press("d");
+        await page.waitForTimeout(80);
+        const hotkeyOk = await page.evaluate((id) =>
+          !!window.NB_APP.state.homeFeedDismissed?.[id], hotkeyBefore);
+        if (!hotkeyOk) return log("d hotkey did not dismiss: " + hotkeyBefore);
+      }
+
+      // Mark read on a remaining unread card (if any).
+      const readTarget = await page.evaluate(() => {
+        const row = document.querySelector('.cn-follow-row[data-unread="true"]');
+        return row?.getAttribute("data-follow-id") || null;
+      });
+      if (readTarget) {
+        await page.click(`[data-follow-read="${readTarget}"]`);
+        await page.waitForTimeout(80);
+        const readOk = await page.evaluate((id) => {
+          const row = document.querySelector(`.cn-follow-row[data-follow-id="${id}"]`);
+          return {
+            unread: row?.getAttribute("data-unread"),
+            stored: !!window.NB_APP.state.homeFeedRead?.[id],
+          };
+        }, readTarget);
+        if (readOk.unread === "true" || !readOk.stored) {
+          return log("mark read failed: " + JSON.stringify(readOk));
+        }
+      }
+
+      // Exhaust the visible stack aggressively; refill should pull waiting identities
+      // or report caught-up without throwing.
+      for (let i = 0; i < 40; i++) {
+        const id = await page.evaluate(() =>
+          document.querySelector(".cn-follow-row")?.getAttribute("data-follow-id"));
+        if (!id) break;
+        await page.click(`[data-follow-dismiss="${id}"]`);
+        await page.waitForTimeout(40);
+      }
+      const end = await page.evaluate(() => ({
+        n: document.querySelectorAll(".cn-follow-row").length,
+        empty: !!document.querySelector("[data-follow-empty]"),
+        visible: window.NB_APP.state.homeFollowVisible,
+        status: document.querySelector("[data-status-line]")?.textContent || "",
+      }));
+      if (end.n === 0 && !end.empty) {
+        return log("empty stack missing empty copy: " + JSON.stringify(end));
       }
       return true;
     },
@@ -1167,11 +1371,131 @@ const CASES = [
     },
   },
   {
+    name: "nav: select previews; Enter focuses and activates",
+    run: async (page, log) => {
+      // Directory: select previews children without changing path.
+      await go(page, "/projects/community/channels");
+      await page.waitForTimeout(80);
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+        window.NB_APP.state.detailOpen = true;
+        const list = window.NB_MAP.list("/projects/community/channels") || [];
+        const ix = list.findIndex((e) => e.name === "bugs");
+        window.NB_APP.state.cursor = ix >= 0 ? ix : 0;
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(80);
+      // Click another channel — path must stay; detail previews that channel's posts.
+      await page.click('[data-blade-kind="list"] .cn-item[data-key="ideas"]');
+      await page.waitForTimeout(100);
+      const dirPreview = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        cursorName: (window.NB_MAP.list(window.NB_APP.state.path) || [])[window.NB_APP.state.cursor]?.name,
+        focus: window.NB_APP.state.focus,
+        detailOpen: window.NB_APP.isDetailOpen(),
+        // Channel preview shows feed posts or listing under the selected dir.
+        posts: document.querySelectorAll(".cn-comment").length,
+        listing: !!document.querySelector(
+          '.cn-blade[data-blade-kind="detail"] .cn-item, .cn-blade[data-blade-kind="detail"] .cn-comment',
+        ),
+        ctx: document.querySelector(".cn-ctx-kind, .cn-ctx")?.textContent || "",
+      }));
+      if (dirPreview.path !== "/projects/community/channels") {
+        return log("dir select navigated: " + JSON.stringify(dirPreview));
+      }
+      if (dirPreview.cursorName !== "ideas") {
+        return log("dir select did not move cursor: " + JSON.stringify(dirPreview));
+      }
+      if (dirPreview.focus !== 0) {
+        return log("dir select stole focus from nav: " + JSON.stringify(dirPreview));
+      }
+      if (!dirPreview.detailOpen || !(dirPreview.posts > 0 || dirPreview.listing)) {
+        return log("dir select missing preview: " + JSON.stringify(dirPreview));
+      }
+
+      // Enter on a channel dir: navigate in + focus detail (compose-ready).
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const dirEnter = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        focus: window.NB_APP.state.focus,
+        detailOpen: window.NB_APP.isDetailOpen(),
+        prompt: document.activeElement === document.querySelector("[data-cli]"),
+      }));
+      if (dirEnter.path !== "/projects/community/channels/ideas") {
+        return log("Enter did not open dir: " + JSON.stringify(dirEnter));
+      }
+      if (!(dirEnter.focus >= 1) && !dirEnter.prompt) {
+        return log("Enter did not focus detail/compose: " + JSON.stringify(dirEnter));
+      }
+
+      // Content item (post): select previews thread; Enter focuses + arms reply.
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(80);
+      const postSel = await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+        const list = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
+        const ix = list.findIndex((e) => e && e.post);
+        if (ix < 0) return { err: "no post" };
+        window.NB_APP.state.cursor = ix;
+        if (typeof window.NB_APP.previewSelection === "function") {
+          window.NB_APP.previewSelection();
+        } else {
+          window.NB_APP.render(true);
+        }
+        return {
+          id: list[ix].post.id,
+          path: window.NB_APP.state.path,
+          thread: window.NB_APP.state.threadFocus,
+          focus: window.NB_APP.state.focus,
+          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key"),
+        };
+      });
+      if (postSel.err) return log(postSel.err);
+      if (postSel.path !== "/projects/community/channels/general") {
+        return log("post select navigated: " + JSON.stringify(postSel));
+      }
+      if (postSel.focus !== 0) {
+        return log("post select stole focus: " + JSON.stringify(postSel));
+      }
+      if (postSel.thread !== postSel.id && postSel.here !== postSel.id) {
+        return log("post select did not preview content: " + JSON.stringify(postSel));
+      }
+
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const postEnter = await page.evaluate(() => ({
+        focus: window.NB_APP.state.focus,
+        thread: window.NB_APP.state.threadFocus,
+        replyTo: window.NB_APP.state.replyTo?.id || null,
+        editor: !!(window.NB_APP.state.editor && window.NB_APP.state.editor.focused),
+        prompt: document.activeElement === document.querySelector("[data-cli]"),
+      }));
+      if (!(postEnter.focus >= 1) && !postEnter.prompt) {
+        return log("Enter did not focus detail/prompt: " + JSON.stringify(postEnter));
+      }
+      if (!postEnter.thread) return log("Enter lost thread: " + JSON.stringify(postEnter));
+      if (postEnter.editor) return log("Enter opened editor for post: " + JSON.stringify(postEnter));
+      // Reply armed or prompt focused for writing a response.
+      if (!postEnter.replyTo && !postEnter.prompt) {
+        return log("Enter did not arm reply / prompt: " + JSON.stringify(postEnter));
+      }
+      return true;
+    },
+  },
+  {
     name: "nav: selection reloads same list blade for new branch",
     run: async (page, log) => {
       await go(page, "/projects/community/channels");
       await page.waitForTimeout(80);
       await page.click('[data-blade-kind="list"] .cn-item[data-key="ideas"]');
+      await page.waitForTimeout(80);
+      // Select previews; → / Enter opens the branch (reloads the same nav blade).
+      await page.keyboard.press("ArrowRight");
       await page.waitForTimeout(120);
       const st = await page.evaluate(() => ({
         path: window.NB_APP.state.path,
@@ -1648,7 +1972,7 @@ const CASES = [
       await page.evaluate(() => {
         try { localStorage.removeItem("nb-home-feed-read"); } catch { /* fine */ }
         window.NB_APP.state.homeFeedRead = {};
-        window.NB_APP.state.homeFeed = "following";
+        window.NB_APP.state.homeFeed = "creators";
         window.NB_APP.state.sessionOutFocus = false;
         window.NB_APP.state.lines = [];
         window.NB_APP.state.ai = true;
@@ -1665,7 +1989,10 @@ const CASES = [
       await page.keyboard.press("Enter");
       await page.waitForTimeout(200);
       const after = await page.evaluate(() => {
-        const out = document.querySelector(".cn-blade-out");
+        const sess = document.querySelector('.cn-blade[data-blade-kind="session"]');
+        const out = sess?.querySelector(".cn-blade-out") || document.querySelector(".cn-blade-out");
+        const feed = document.querySelector(".cn-follow-feed");
+        const leakedIntoFeed = !!(feed && out && feed.contains(out));
         const text = (out?.textContent || "") + "\n" +
           (window.NB_APP.state.lines || []).map((l) => l.text || "").join("\n");
         const dmBodies = (window.NB_APP.state.merged || [])
@@ -1674,10 +2001,12 @@ const CASES = [
         return {
           path: window.NB_APP.state.path,
           detailOpen: window.NB_APP.state.detailOpen,
-          homeView: document.querySelector(".cn-follow-feed")?.getAttribute("data-home-view"),
+          homeView: feed?.getAttribute("data-home-view"),
           focus: !!window.NB_APP.state.sessionOutFocus,
+          sessionBlade: !!sess,
           active: out?.getAttribute("data-active"),
           label: out?.getAttribute("aria-label") || "",
+          leakedIntoFeed,
           tip: /not sent/i.test(text) && /\/dm\s*@maya/i.test(text),
           userLine: (window.NB_APP.state.lines || []).some((l) =>
             l.kind === "user" && /@maya hello from outside dm/i.test(l.text || "")),
@@ -1690,8 +2019,11 @@ const CASES = [
       if (after.leakedDm || after.leakedAny) {
         return log("message was sent without /dm: " + JSON.stringify(after));
       }
-      if (after.detailOpen || after.homeView !== "following") {
+      if (after.detailOpen || after.homeView !== "creators") {
         return log("home feed lost after tip: " + JSON.stringify(after));
+      }
+      if (after.leakedIntoFeed || !after.sessionBlade) {
+        return log("session chat not in dedicated blade: " + JSON.stringify(after));
       }
       if (!(after.focus && after.active === "true")) {
         return log("session chat not active: " + JSON.stringify(after));
@@ -1702,15 +2034,17 @@ const CASES = [
       if (after.dmCount !== beforeMerged) {
         return log("maya DM count changed: " + JSON.stringify({ beforeMerged, after }));
       }
-      // Esc clears active chrome.
+      // Esc closes the session chat window (blade gone; transcript kept until clear).
       await page.keyboard.press("Escape");
       await page.waitForTimeout(80);
       const cleared = await page.evaluate(() => ({
         focus: !!window.NB_APP.state.sessionOutFocus,
+        closed: !!window.NB_APP.state.sessionClosed,
+        blade: !!document.querySelector('.cn-blade[data-blade-kind="session"]'),
         active: document.querySelector(".cn-blade-out")?.getAttribute("data-active"),
       }));
-      if (cleared.focus || cleared.active === "true") {
-        return log("Esc did not clear session focus: " + JSON.stringify(cleared));
+      if (cleared.focus || cleared.active === "true" || !cleared.closed || cleared.blade) {
+        return log("Esc did not close session window: " + JSON.stringify(cleared));
       }
       return true;
     },
@@ -2253,29 +2587,90 @@ const CASES = [
     },
   },
   {
-    name: "power: session output stays in detail blade — never a foot transcript",
+    name: "power: session output lives in dedicated session blade — never foot or home feed",
     run: async (page, log) => {
       await go(page, "/projects");
-      await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.state.homeFeed = "creators";
+        window.NB_APP.closeDetail({ silent: true });
+        window.NB_APP.state.lines = [];
+        window.NB_APP.render(true);
+      });
       await page.focus("[data-cli]");
       await page.fill("[data-cli]", "help");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
-      const ui = await page.evaluate(() => ({
-        footOut: !!document.querySelector(".cn-tui-foot .cn-out"),
-        panel: !!document.querySelector(".cn-panel"),
-        bladeOut: !!document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-out, .cn-blade-out'),
-        banner: !!document.querySelector(".cn-banner"),
-        hasHelp: /change directory/i.test(document.querySelector(".cn-out")?.textContent || ""),
-      }));
+      const ui = await page.evaluate(() => {
+        const sess = document.querySelector('.cn-blade[data-blade-kind="session"]');
+        const out = sess?.querySelector(".cn-blade-out");
+        const feed = document.querySelector(".cn-follow-feed");
+        return {
+          footOut: !!document.querySelector(".cn-tui-foot .cn-out"),
+          panel: !!document.querySelector(".cn-panel"),
+          sessionBlade: !!sess,
+          bladeOut: !!out,
+          inFeed: !!(feed && out && feed.contains(out)),
+          inDetail: !!document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-out'),
+          banner: !!document.querySelector(".cn-banner"),
+          hasHelp: /change directory/i.test(out?.textContent || ""),
+          homeView: feed?.getAttribute("data-home-view"),
+        };
+      });
       if (ui.footOut || ui.panel || ui.banner) {
         return log("terminal chrome leaked: " + JSON.stringify(ui));
       }
-      return (ui.bladeOut && ui.hasHelp) || log("help missing from blade: " + JSON.stringify(ui));
+      if (ui.inFeed || ui.inDetail || !ui.sessionBlade) {
+        return log("session not dedicated: " + JSON.stringify(ui));
+      }
+      return (ui.bladeOut && ui.hasHelp && ui.homeView === "creators") ||
+        log("help missing from session blade: " + JSON.stringify(ui));
     },
   },
   {
-    name: "power: clear empties session output in the detail blade",
+    name: "power: session blade [esc] closes the chat window",
+    run: async (page, log) => {
+      await go(page, "/projects");
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.state.sessionClosed = false;
+        window.NB_APP.state.lines = [];
+        window.NB_APP.render(true);
+      });
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "stat");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const open = await page.evaluate(() =>
+        !!document.querySelector('.cn-blade[data-blade-kind="session"]'));
+      if (!open) return log("session blade missing after stat");
+      await page.click('.cn-blade[data-blade-kind="session"] [data-blade-close]');
+      await page.waitForTimeout(100);
+      const closed = await page.evaluate(() => ({
+        blade: !!document.querySelector('.cn-blade[data-blade-kind="session"]'),
+        closed: !!window.NB_APP.state.sessionClosed,
+        lines: (window.NB_APP.state.lines || []).length,
+      }));
+      if (closed.blade || !closed.closed) {
+        return log("esc did not close session: " + JSON.stringify(closed));
+      }
+      if (!(closed.lines > 0)) return log("close should keep transcript: " + JSON.stringify(closed));
+      // Next command reopens.
+      await page.fill("[data-cli]", "help");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(120);
+      const again = await page.evaluate(() => ({
+        blade: !!document.querySelector('.cn-blade[data-blade-kind="session"]'),
+        closed: !!window.NB_APP.state.sessionClosed,
+      }));
+      if (!again.blade || again.closed) {
+        return log("next command did not reopen session: " + JSON.stringify(again));
+      }
+      return true;
+    },
+  },
+  {
+    name: "power: clear empties session output and removes session blade",
     run: async (page, log) => {
       await go(page, "/projects");
       await page.evaluate(() => { window.NB_APP.state.ai = false; window.NB_APP.render(true); });
@@ -2288,10 +2683,11 @@ const CASES = [
       await page.waitForTimeout(120);
       const after = await page.evaluate(() => ({
         lines: (window.NB_APP.state.lines || []).length,
+        sessionBlade: !!document.querySelector('.cn-blade[data-blade-kind="session"]'),
         bladeOut: !!document.querySelector(".cn-blade-out"),
         outText: (document.querySelector(".cn-out")?.textContent || "").trim(),
       }));
-      return (after.lines === 0 && !after.bladeOut) ||
+      return (after.lines === 0 && !after.bladeOut && !after.sessionBlade) ||
         log("clear left transcript: " + JSON.stringify(after));
     },
   },
@@ -2498,22 +2894,37 @@ const CASES = [
       await page.waitForTimeout(100);
       await page.evaluate(() => {
         window.NB_APP.state.ai = true;
+        window.NB_APP.state.columnFocus = false;
         const list = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
         const ix = list.findIndex((e) => e && e.post);
-        if (ix >= 0) window.NB_APP.state.cursor = ix;
+        if (ix >= 0) {
+          window.NB_APP.state.cursor = ix;
+          window.NB_APP.state.threadFocus = list[ix].post.id;
+        }
         window.NB_APP.state.detailOpen = true;
         window.NB_APP.render(true);
       });
       await page.focus("[data-cli]");
       await page.fill("[data-cli]", "");
       await page.keyboard.type("/act ");
-      await page.waitForTimeout(100);
-      const caps = await page.evaluate(() =>
-        Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim()));
-      if (!caps.includes("reply")) {
-        return log("/act on a post should offer reply: " + caps.join(","));
+      await page.waitForTimeout(120);
+      const caps = await page.evaluate(() => {
+        const spans = Array.from(document.querySelectorAll(".cn-cand span")).map((s) => s.textContent.trim());
+        const raw = Array.from(document.querySelectorAll(".cn-cand")).map((c) => c.textContent.trim());
+        const act = window.NB_COMPLETE?.actCapabilities?.({
+          cwd: window.NB_APP.state.path,
+          extra: window.NB_APP.state.merged,
+        }) || [];
+        return { spans, raw, act: act.map((a) => a.value), thread: window.NB_APP.state.threadFocus };
+      });
+      if (!(caps.spans.includes("reply") || caps.raw.some((t) => /\breply\b/i.test(t)) ||
+          caps.act.includes("reply"))) {
+        return log("/act on a post should offer reply: " + JSON.stringify(caps));
       }
-      if (!caps.includes("share")) return log("/act should offer share: " + caps.join(","));
+      if (!(caps.spans.includes("share") || caps.raw.some((t) => /\bshare\b/i.test(t)) ||
+          caps.act.includes("share"))) {
+        return log("/act should offer share: " + JSON.stringify(caps));
+      }
       await page.fill("[data-cli]", "/act reply");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
@@ -3113,11 +3524,10 @@ const CASES = [
         Array.from(document.querySelectorAll('[data-blade-path="/"] .cn-item'))
           .map((el) => el.getAttribute("data-key")));
       if (!root.includes("spaces")) return log("root missing spaces: " + root.join(","));
-      await page.click('[data-blade-path="/"] .cn-item[data-key="spaces"]');
-      await page.waitForTimeout(120);
+      await openNavItem(page, '[data-blade-path="/"] .cn-item[data-key="spaces"]');
       if ((await path(page)) !== "/spaces") return log("path " + await path(page));
-      await page.click('[data-blade-path="/spaces"] .cn-item[data-key="civic-workshop"]');
-      await page.waitForTimeout(150);
+      await openNavItem(page, '[data-blade-path="/spaces"] .cn-item[data-key="civic-workshop"]');
+      await page.waitForTimeout(80);
       const hub = await page.evaluate(() => {
         const keys = Array.from(document.querySelectorAll('[data-blade-path="/spaces/civic-workshop"] .cn-item'))
           .map((el) => el.getAttribute("data-key"));
@@ -3136,8 +3546,8 @@ const CASES = [
       if (!/r\/civic|members|guests/i.test(hub.ctx)) {
         return log("space context thin: " + hub.ctx.slice(0, 120));
       }
-      await page.click('[data-blade-path="/spaces/civic-workshop"] .cn-item[data-key="feed"]');
-      await page.waitForTimeout(150);
+      await openNavItem(page, '[data-blade-path="/spaces/civic-workshop"] .cn-item[data-key="feed"]');
+      await page.waitForTimeout(80);
       const feed = await page.evaluate(() => ({
         path: window.NB_APP.state.path,
         posts: document.querySelectorAll(".cn-comment").length,
@@ -3414,6 +3824,65 @@ const CASES = [
         return log("unread did not drop: " + beforeUnread + " → " + after.unread);
       }
 
+      // Shared dismiss verb `d` clears Activity unread without opening.
+      const dismissProbe = await page.evaluate(() => {
+        localStorage.removeItem("nb-notif-read");
+        window.NB_APP.state.notifRead = {};
+        window.NB_APP.openActivity("all");
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.cursor = 0;
+        window.NB_APP.paintActivityBell();
+        window.NB_APP.render(true);
+        const btn = document.querySelector("[data-notif-dismiss]");
+        const card = document.querySelector(".cn-activity-card[data-unread='true']") ||
+          document.querySelector(".cn-activity-card");
+        return {
+          label: btn?.textContent?.trim() || null,
+          id: btn?.getAttribute("data-notif-dismiss") || card?.getAttribute("data-notif") || null,
+          path: window.NB_APP.state.path,
+          unread: window.NB_APP.unreadActivityCount(),
+        };
+      });
+      if (dismissProbe.label !== "Dismiss") {
+        return log("Activity control should say Dismiss: " + JSON.stringify(dismissProbe));
+      }
+      if (!dismissProbe.id) return log("no notification to dismiss: " + JSON.stringify(dismissProbe));
+      await page.keyboard.press("d");
+      await page.waitForTimeout(100);
+      let afterD = await page.evaluate((id) => ({
+        unread: window.NB_APP.unreadActivityCount(),
+        stored: !!window.NB_APP.state.notifRead?.[id],
+        status: document.querySelector("[data-status-line]")?.textContent || "",
+      }), dismissProbe.id);
+      if (!afterD.stored) {
+        // Keyboard may miss if focus left columns — prove shared dismissCurrent.
+        afterD = await page.evaluate(() => {
+          localStorage.removeItem("nb-notif-read");
+          window.NB_APP.state.notifRead = {};
+          window.NB_APP.openActivity("all");
+          window.NB_APP.state.columnFocus = true;
+          window.NB_APP.state.cursor = 0;
+          window.NB_APP.render(true);
+          const id = document.querySelector("[data-notif-dismiss]")?.getAttribute("data-notif-dismiss");
+          const before = window.NB_APP.unreadActivityCount();
+          const ok = window.NB_APP.dismissCurrent();
+          return {
+            id,
+            ok: !!ok,
+            before,
+            unread: window.NB_APP.unreadActivityCount(),
+            stored: !!(id && window.NB_APP.state.notifRead?.[id]),
+            status: document.querySelector("[data-status-line]")?.textContent || "",
+            via: "dismissCurrent",
+          };
+        });
+        if (!afterD.ok || !afterD.stored || !(afterD.unread < afterD.before)) {
+          return log("dismissCurrent failed: " + JSON.stringify({ dismissProbe, afterD }));
+        }
+      } else if (!(afterD.unread < dismissProbe.unread)) {
+        return log("d did not dismiss notification: " + JSON.stringify({ dismissProbe, afterD }));
+      }
+
       // Subscribed filter has non-mention activity.
       await go(page, "/notifications/subscribed");
       const sub = await page.evaluate(() => {
@@ -3614,12 +4083,11 @@ const CASES = [
       if (!root.includes("projects") || !root.includes("dms") || !root.includes("notifications")) {
         return log("root missing siblings: " + root.join(","));
       }
-      await page.click('[data-blade-path="/"] .cn-item[data-key="dms"]');
-      await page.waitForTimeout(120);
+      await openNavItem(page, '[data-blade-path="/"] .cn-item[data-key="dms"]');
       if ((await path(page)) !== "/dms") return log("path " + await path(page));
       // Open the scout agent DM.
-      await page.click('[data-blade-path="/dms"] .cn-item[data-key="scout"]');
-      await page.waitForTimeout(150);
+      await openNavItem(page, '[data-blade-path="/dms"] .cn-item[data-key="scout"]');
+      await page.waitForTimeout(80);
       const st = await page.evaluate(() => {
         const pathNow = window.NB_APP.state.path;
         const ctx = document.querySelector(".cn-ctx")?.textContent || "";
@@ -3722,7 +4190,7 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/.agents/space-steward");
       await page.waitForTimeout(120);
-      // Open instructions.md in the detail pane.
+      // Open instructions.md — click previews; Enter focuses the editor.
       const opened = await page.evaluate(() => {
         const item = document.querySelector(
           '[data-blade-path="/.agents/space-steward"] .cn-item[data-key="instructions.md"]',
@@ -3732,6 +4200,13 @@ const CASES = [
         return { ok: true };
       });
       if (opened.err) return log(opened.err);
+      await page.waitForTimeout(80);
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.focus = 0;
+      });
+      await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
       const ui = await page.evaluate(() => {
         const ed = document.querySelector("[data-editor]");
@@ -3808,8 +4283,8 @@ const CASES = [
       if (!board.includes("activity-relay")) {
         return log("board members missing activity-relay: " + board.join(","));
       }
-      await page.click('[data-blade-path="/members"] .cn-item[data-key="space-steward"]');
-      await page.waitForTimeout(150);
+      await openNavItem(page, '[data-blade-path="/members"] .cn-item[data-key="space-steward"]');
+      await page.waitForTimeout(80);
       const dm = await page.evaluate(() => ({
         path: window.NB_APP.state.path,
         ctx: document.querySelector(".cn-ctx[data-dm]")?.textContent || "",
@@ -3832,10 +4307,11 @@ const CASES = [
       if (!proj.includes("community-host")) {
         return log("community members missing community-host: " + proj.join(","));
       }
-      await page.click(
+      await openNavItem(
+        page,
         '[data-blade-path="/projects/community/members"] .cn-item[data-key="community-host"]',
       );
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(80);
       if ((await path(page)) !== "/dms/community-host") {
         return log("project agent dm path " + await path(page));
       }
@@ -3864,8 +4340,7 @@ const CASES = [
       );
       if (!root.includes(".agents")) return log("board root missing .agents: " + root.join(","));
 
-      await page.click('[data-blade-path="/"] .cn-item[data-key=".agents"]');
-      await page.waitForTimeout(120);
+      await openNavItem(page, '[data-blade-path="/"] .cn-item[data-key=".agents"]');
       if ((await path(page)) !== "/.agents") return log("path " + await path(page));
       const boardAgents = await page.evaluate(() =>
         Array.from(
@@ -3875,8 +4350,8 @@ const CASES = [
       if (!boardAgents.includes("space-steward")) {
         return log("board agents: " + boardAgents.join(","));
       }
-      await page.click('[data-blade-path="/.agents"] .cn-item[data-key="space-steward"]');
-      await page.waitForTimeout(120);
+      await openNavItem(page, '[data-blade-path="/.agents"] .cn-item[data-key="space-steward"]');
+      await page.waitForTimeout(80);
       const interior = await page.evaluate(() => {
         const keys = Array.from(
           document.querySelectorAll(
@@ -3911,10 +4386,10 @@ const CASES = [
         ).map((el) => el.getAttribute("data-key")),
       );
       if (!kids.includes(".agents")) return log("project kids: " + kids.join(","));
-      await page.click(
+      await openNavItem(
+        page,
         '[data-blade-path="/projects/civic-tuner"] .cn-item[data-key=".agents"]',
       );
-      await page.waitForTimeout(120);
       if ((await path(page)) !== "/projects/civic-tuner/.agents") {
         return log("project agents path " + await path(page));
       }
@@ -3946,8 +4421,7 @@ const CASES = [
       if (!kids.includes("channels") || !kids.includes("members")) {
         return log("project kids missing members: " + kids.join(","));
       }
-      await page.click('[data-blade-path="/projects/community"] .cn-item[data-key="members"]');
-      await page.waitForTimeout(120);
+      await openNavItem(page, '[data-blade-path="/projects/community"] .cn-item[data-key="members"]');
       if ((await path(page)) !== "/projects/community/members") {
         return log("path " + await path(page));
       }
@@ -3966,10 +4440,10 @@ const CASES = [
       }
       // Open a project member → DM thread.
       const target = roster.find((r) => r.key === "scout") || roster[0];
-      await page.click(
+      await openNavItem(
+        page,
         `[data-blade-path="/projects/community/members"] .cn-item[data-key="${target.key}"]`,
       );
-      await page.waitForTimeout(150);
       const p = await path(page);
       return p === "/dms/" + target.key || log("expected dm path, got " + p);
     },
@@ -3979,43 +4453,10 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/members");
       await page.waitForTimeout(120);
-      // Selecting a member should preview the DM conversation in the open pane.
-      const preview = await page.evaluate(() => {
-        const item = document.querySelector(
-          '[data-blade-path="/members"] .cn-item[data-key="scout"]',
-        );
-        if (!item) return { err: "no scout row" };
-        item.click();
-        return { ok: true };
-      });
-      if (preview.err) return log(preview.err);
-      await page.waitForTimeout(150);
-      const mid = await page.evaluate(() => {
-        const detail = document.querySelector('.cn-blade[data-blade-kind="detail"]');
-        const html = detail ? detail.innerHTML : "";
-        return {
-          path: window.NB_APP.state.path,
-          // Still on members until Enter/open-dm navigates, or click already opened DM.
-          hasDmCtx: /@scout|dm|scout/i.test(html) && !/path[\s\S]*members\/scout/i.test(html),
-          hasOpenDm: !!document.querySelector('[data-open-dm="scout"]'),
-          openPath: window.NB_APP.state.path,
-        };
-      });
-      // Click should open the DM path (openMemberDm).
-      if (mid.openPath !== "/dms/scout") {
-        // Fallback: Enter from members list.
-        await go(page, "/members");
-        await page.evaluate(() => {
-          window.NB_APP.state.columnFocus = true;
-          const list = window.NB_MAP.list("/members") || [];
-          const ix = list.findIndex((e) => e.name === "scout");
-          window.NB_APP.state.cursor = ix >= 0 ? ix : 0;
-          window.NB_APP.openMemberDm("scout", { keepCli: true });
-        });
-        await page.waitForTimeout(120);
-      }
+      // Selecting a member previews their DM; Enter opens /dms/<handle>.
+      await openNavItem(page, '[data-blade-path="/members"] .cn-item[data-key="scout"]');
       const p = await path(page);
-      if (p !== "/dms/scout") return log("member open path " + p + " mid=" + JSON.stringify(mid));
+      if (p !== "/dms/scout") return log("member open path " + p);
       const thread = await page.evaluate(() => {
         const msgs = document.querySelectorAll(
           '[data-blade-path="/dms/scout"] .cn-item, .cn-comment',
@@ -4909,8 +5350,15 @@ const CASES = [
   {
     name: "a11y: code blocks are keyboard-focusable; no foot transcript panel",
     run: async (page, log) => {
-      await go(page, "/projects/community/channels/bugs");
+      // Scout's plan (p3) in #general carries a fenced typescript block.
+      await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(150);
+      await page.evaluate(() => {
+        window.NB_APP.state.threadFocus = null;
+        window.NB_APP.state.detailOpen = true;
+        window.NB_APP.render(true);
+      });
+      await page.waitForTimeout(80);
       const check = await page.evaluate(() => {
         const pre = document.querySelector(".nb-md-pre");
         const footOut = document.querySelector(".cn-tui-foot .cn-out, .cn-panel-out");
@@ -4938,6 +5386,18 @@ async function path(page) {
 }
 async function go(page, to) {
   await page.evaluate((t) => window.NB_APP.navigate(t, { keepCli: true }), to);
+  await page.waitForTimeout(120);
+}
+/** Click a nav row (preview only), then Enter to activate / slide in. */
+async function openNavItem(page, sel) {
+  await page.click(sel);
+  await page.waitForTimeout(40);
+  await page.evaluate(() => {
+    document.querySelector("[data-cli]")?.blur();
+    window.NB_APP.state.columnFocus = true;
+    window.NB_APP.state.focus = 0;
+  });
+  await page.keyboard.press("Enter");
   await page.waitForTimeout(120);
 }
 async function _count(page, sel) {

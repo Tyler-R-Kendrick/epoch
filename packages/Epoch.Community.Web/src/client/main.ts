@@ -1122,7 +1122,7 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
       approve: "Approve change",
     };
     const actionLabel = actionLabels[action] || "this action";
-    setStatus(message, `Live API unavailable. Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry ${actionLabel}.`);
+    setStatus(message, `Live API unavailable. Reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry ${actionLabel}.`);
     return;
   }
 

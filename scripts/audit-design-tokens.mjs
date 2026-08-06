@@ -7,10 +7,11 @@
 // Enforce mode (--enforce): exits 1 when any finding class is present.
 // Structural enforce mode (--enforce-structural): exits 1 for structural classes
 // (undefined-token, var-fallback, var-fallback-mismatch, design-json-drift) everywhere,
-// plus every rule listed for a package in PACKAGE_ENFORCED_RULES. All web surfaces have
-// burned their palette drift to zero, so every class is now enforced for every package
-// and --enforce-structural is equivalent to --enforce; the per-package map remains the
-// staging mechanism if a new surface ever needs a report-only burn-down window.
+// plus every rule listed for a package in PACKAGE_ENFORCED_RULES.
+//
+// ADR-0027: DESIGN.md is Nightboard while Community / Ops / Platform Web still
+// emit Course Line hex — palette rules are report-only until those surfaces port.
+// Structural rules stay enforced for every package.
 //
 // Finding classes:
 //   undefined-token       var(--epoch-*) used but the custom property is never defined
@@ -42,12 +43,11 @@ const STRUCTURAL_RULES = new Set([
 const PALETTE_RULES = ["near-miss-palette", "off-palette-hex", "ops-token-not-aliased"];
 
 // Rules that fail --enforce-structural per package, in addition to STRUCTURAL_RULES.
-// Every surface is fully enforced now; move a package back to [] only while an
-// explicitly scheduled burn-down is in flight.
+// Empty palette lists = burn-down window (ADR-0027 Nightboard authority; CSS port pending).
 const PACKAGE_ENFORCED_RULES = new Map([
-  ["community-web", PALETTE_RULES],
-  ["community-operations-web", PALETTE_RULES],
-  ["platform-web", PALETTE_RULES],
+  ["community-web", []],
+  ["community-operations-web", []],
+  ["platform-web", []],
 ]);
 
 // All three web surfaces inline the generated @epoch/design-tokens :root block at

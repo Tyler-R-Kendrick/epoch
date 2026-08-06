@@ -19,6 +19,10 @@
   var D = window.NB_DATA;
   var MAP = window.NB_MAP;
 
+  /** Following stack window: initial page size and refill trigger. */
+  var HOME_FOLLOW_PAGE = 4;
+  var HOME_FOLLOW_REFILL_AT = 2;
+
   /**
    * A terminal tab is an isolated virtual worktree: its own path, preview,
    * folds, transcript, history, detail pane, attachments and editor focus.
@@ -106,6 +110,9 @@
     // When true, session transcript (.cn-blade-out) is the active pane —
     // used after inconclusive prompts so the turn is visible to iterate on.
     sessionOutFocus: false,
+    // User closed the session chat blade; transcript may remain until `clear`.
+    // Next ask / revealSessionChat reopens it.
+    sessionClosed: false,
     votes: {},
     // reactions[postId] = { counts: { "+1": n }, mine: { "+1": true } }
     reactions: {},
@@ -161,6 +168,10 @@
     // Home feed (Following pane): which toggle is active + read receipt map.
     homeFeed: "following",
     homeFeedRead: loadHomeFeedRead(),
+    // Dismissed following face posts (identity reappears with next latest).
+    homeFeedDismissed: loadHomeFeedDismissed(),
+    // Visible window for rolled-up following stacks (grows on refill).
+    homeFollowVisible: HOME_FOLLOW_PAGE,
     // Cursor into the home feed list (Following / announcements / …).
     homeCursor: 0,
     // Announcement ids the user collapsed this session (default: expanded).
@@ -223,12 +234,149 @@
     } catch { /* private */ }
   }
 
+  function loadHomeFeedDismissed() {
+    try {
+      var raw = window.localStorage.getItem("nb-home-feed-dismissed");
+      if (!raw) return {};
+      var got = JSON.parse(raw);
+      return got && typeof got === "object" ? got : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveHomeFeedDismissed() {
+    try {
+      window.localStorage.setItem(
+        "nb-home-feed-dismissed",
+        JSON.stringify(state.homeFeedDismissed || {}),
+      );
+    } catch { /* private */ }
+  }
+
   function markHomeFeedRead(id) {
     if (!id) return;
     state.homeFeedRead = state.homeFeedRead || {};
     if (state.homeFeedRead[id]) return;
     state.homeFeedRead[id] = true;
     saveHomeFeedRead();
+  }
+
+  /** Mark every post id currently rolled into a following stack card. */
+  function markHomeFollowStackRead(item) {
+    if (!item) return;
+    var ids = item.stackIds && item.stackIds.length ? item.stackIds : (item.id ? [item.id] : []);
+    ids.forEach(function (id) { markHomeFeedRead(id); });
+  }
+
+  function homeFollowOpts(limit) {
+    return {
+      dismissed: state.homeFeedDismissed || {},
+      limit: limit != null ? limit : (state.homeFollowVisible || HOME_FOLLOW_PAGE),
+    };
+  }
+
+  function followingAvailableCount() {
+    if (!window.NB_MAP || !window.NB_MAP.homeFeedItems) return 0;
+    return window.NB_MAP.homeFeedItems(
+      "following",
+      state.merged,
+      state.homeFeedRead,
+      { dismissed: state.homeFeedDismissed || {}, limit: undefined },
+    ).length;
+  }
+
+  /**
+   * When the visible following stack is short, widen the window and/or merge
+   * pending live posts. Returns whether more content became available.
+   */
+  function refillHomeFollow(opts) {
+    opts = opts || {};
+    if (state.homeFeed !== "following") return false;
+    var before = currentHomeItems().length;
+    var pulledLive = false;
+    if (before <= HOME_FOLLOW_REFILL_AT && state.pending && state.pending.length) {
+      mergePending();
+      pulledLive = true;
+    }
+    var available = followingAvailableCount();
+    var visible = state.homeFollowVisible || HOME_FOLLOW_PAGE;
+    if (before <= HOME_FOLLOW_REFILL_AT && visible < available) {
+      state.homeFollowVisible = Math.min(available, visible + HOME_FOLLOW_PAGE);
+    }
+    var after = currentHomeItems().length;
+    if (!opts.silent) {
+      if (after > before || pulledLive) {
+        status("following · pulled more (" + after + ")");
+      } else if (available === 0) {
+        status("following · caught up — nothing more available");
+      }
+    }
+    return after > before || pulledLive;
+  }
+
+  /**
+   * Dismiss the face post of a following stack card. Marks it read, removes it
+   * from the stack, and refills when the visible list is running low.
+   */
+  function dismissHomeFollow(id, opts) {
+    opts = opts || {};
+    if (!id) return false;
+    markHomeFeedRead(id);
+    state.homeFeedDismissed = state.homeFeedDismissed || {};
+    state.homeFeedDismissed[id] = true;
+    saveHomeFeedDismissed();
+    var items = currentHomeItems();
+    if (state.homeCursor >= items.length) {
+      state.homeCursor = Math.max(0, items.length - 1);
+    }
+    refillHomeFollow({ silent: true });
+    if (!opts.noRender) render(true);
+    if (!opts.silent) {
+      var left = currentHomeItems().length;
+      var avail = followingAvailableCount();
+      status(left
+        ? ("dismissed · " + left + " showing" + (avail > left ? " · more waiting" : ""))
+        : (avail
+          ? "dismissed · refilling"
+          : "dismissed · caught up"));
+    }
+    return true;
+  }
+
+  function markHomeFollowRead(id, opts) {
+    opts = opts || {};
+    var items = currentHomeItems();
+    var it = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === id || (items[i].stackIds || []).indexOf(id) >= 0) {
+        it = items[i];
+        break;
+      }
+    }
+    if (it) markHomeFollowStackRead(it);
+    else markHomeFeedRead(id);
+    if (!opts.noRender) render(true);
+    if (!opts.silent) status("marked read");
+    return true;
+  }
+
+  /**
+   * Brand / logo home: default community channel + Following feed.
+   */
+  function goHome(opts) {
+    opts = opts || {};
+    navigate(DEFAULT_WORKSPACE_PATH, { keepCli: true });
+    state.detailOpen = false;
+    state.threadFocus = null;
+    state.homeFeed = "following";
+    state.homeCursor = 0;
+    state.focus = detailBladeIndex();
+    if (state.editor) state.editor.focused = false;
+    if (!opts.noRender) render(true);
+    requestAnimationFrame(revealHomeFeedTabs);
+    if (!opts.silent) status("home · following");
+    return true;
   }
 
   function setHomeFeed(view, opts) {
@@ -238,7 +386,13 @@
     var changed = state.homeFeed !== next;
     state.homeFeed = next;
     state.detailOpen = false;
-    if (changed) state.homeCursor = 0;
+    if (changed) {
+      state.homeCursor = 0;
+      if (next === "following") {
+        state.homeFollowVisible = HOME_FOLLOW_PAGE;
+        refillHomeFollow({ silent: true });
+      }
+    }
     if (!opts.noRender) render(true);
     // After morph layout: bring tabs into the visible blade strip.
     requestAnimationFrame(revealHomeFeedTabs);
@@ -289,7 +443,11 @@
 
   function homeFeedUnreadCounts() {
     if (window.NB_MAP && window.NB_MAP.homeFeedUnreadCounts) {
-      return window.NB_MAP.homeFeedUnreadCounts(state.merged, state.homeFeedRead);
+      return window.NB_MAP.homeFeedUnreadCounts(
+        state.merged,
+        state.homeFeedRead,
+        { dismissed: state.homeFeedDismissed || {} },
+      );
     }
     return {};
   }
@@ -595,8 +753,8 @@
       } else if (perm === "denied") {
         permBtn.hidden = false;
         permBtn.dataset.state = "denied";
-        permBtn.textContent = "Alerts blocked";
-        permBtn.title = "Browser blocked notifications — change site settings to allow alerts";
+        permBtn.textContent = "Allow alerts";
+        permBtn.title = "Browser blocked notifications — open site settings, then allow alerts for this origin";
       } else {
         permBtn.hidden = false;
         permBtn.dataset.state = "default";
@@ -1880,13 +2038,8 @@
     if (!line.id) line.id = nextLineId();
     state.lines.push(line);
     if (state.lines.length > 80) state.lines = state.lines.slice(-80);
-    // Session output lives in the detail blade — keep it open so CLI/AI replies
-    // are not trapped behind a closed pane (there is no side terminal).
-    // Exception: session-chat focus on the home feed keeps Following visible.
-    if (line.kind && line.kind !== "banner" && state.detailOpen === false &&
-        !state.sessionOutFocus) {
-      state.detailOpen = true;
-    }
+    // New transcript reopens a user-closed session blade so output is visible.
+    if (line.kind && line.kind !== "banner") state.sessionClosed = false;
   }
 
   function updateLine(id, patch) {
@@ -2000,8 +2153,11 @@
 
   /**
    * Open (or reuse) a buffer for a file entry in the detail pane.
+   * @param {{ focus?: boolean }} [opts] — default focuses the editor; preview
+   *   selection passes `{ focus: false }` so nav keeps the keyboard.
    */
-  function openFileInEditor(entry, path) {
+  function openFileInEditor(entry, path, opts) {
+    opts = opts || {};
     var Ed = editorApi();
     if (!Ed || !entry) return null;
     var es = ensureEditorState();
@@ -2014,8 +2170,12 @@
       });
     }
     es.active = es.buffers[key];
-    es.focused = true;
-    state.columnFocus = true;
+    if (opts.focus === false) {
+      es.focused = false;
+    } else {
+      es.focused = true;
+      state.columnFocus = true;
+    }
     return es.active;
   }
 
@@ -2341,8 +2501,64 @@
     return 1;
   }
 
+  /** Session transcript blade when open and useful lines exist; else -1. */
+  function sessionBladeIndex() {
+    if (state.sessionClosed) return -1;
+    var useful = (state.lines || []).some(function (ln) { return ln.kind !== "banner"; });
+    return useful ? 2 : -1;
+  }
+
   function isDetailOpen() {
     return state.detailOpen !== false;
+  }
+
+  /** Hide the session chat blade (keeps transcript until `clear`). */
+  function closeSessionBlade(opts) {
+    opts = opts || {};
+    state.sessionClosed = true;
+    state.sessionOutFocus = false;
+    if (state.focus === 2) state.focus = detailBladeIndex();
+    if (!opts.noRender) render(true);
+    if (!opts.silent) status("session · closed");
+    return true;
+  }
+
+  /**
+   * Close / × on a blade:
+   *   nav (0)     → reload nav at parent path (up)
+   *   detail (1)  → show Following feed (keep detail pane)
+   *   session (2) → close the session chat window
+   */
+  function closeBlade(index) {
+    index = Number(index);
+    if (index === sessionBladeIndex() ||
+        (index >= 2 && !state.sessionClosed &&
+          (state.lines || []).some(function (ln) { return ln.kind !== "banner"; }))) {
+      return closeSessionBlade();
+    }
+    if (index >= 1) {
+      return closeDetail();
+    }
+    // Nav close = up one level (same as ascend when not at root).
+    if (MAP.split(state.path).length === 0) return status("board nav stays open");
+    var parts = MAP.split(state.path);
+    var leaving = parts[parts.length - 1];
+    var parentPath = MAP.join(parts.slice(0, -1)) || "/";
+    state.prev = state.path;
+    state.path = parentPath;
+    state.filter = "";
+    state.focus = 0;
+    // Clear peeks under the path we left so the nav stays one-branch clean.
+    if (state.treeOpen) {
+      Object.keys(state.treeOpen).forEach(function (k) {
+        if (k === state.prev || k.indexOf(state.prev + "/") === 0) delete state.treeOpen[k];
+      });
+    }
+    var list = entries();
+    var i = list.findIndex(function (x) { return x.name === leaving; });
+    state.cursor = i >= 0 ? i : 0;
+    render(true);
+    return status("nav · " + state.path);
   }
 
   /**
@@ -2404,38 +2620,6 @@
     requestAnimationFrame(revealHomeFeedTabs);
     if (!opts.silent) status("following feed");
     return true;
-  }
-
-  /**
-   * Close / × on a blade:
-   *   nav (0)    → reload nav at parent path (up)
-   *   detail (1) → show Following feed (keep detail pane)
-   */
-  function closeBlade(index) {
-    index = Number(index);
-    if (index >= 1) {
-      return closeDetail();
-    }
-    // Nav close = up one level (same as ascend when not at root).
-    if (MAP.split(state.path).length === 0) return status("board nav stays open");
-    var parts = MAP.split(state.path);
-    var leaving = parts[parts.length - 1];
-    var parentPath = MAP.join(parts.slice(0, -1)) || "/";
-    state.prev = state.path;
-    state.path = parentPath;
-    state.filter = "";
-    state.focus = 0;
-    // Clear peeks under the path we left so the nav stays one-branch clean.
-    if (state.treeOpen) {
-      Object.keys(state.treeOpen).forEach(function (k) {
-        if (k === state.prev || k.indexOf(state.prev + "/") === 0) delete state.treeOpen[k];
-      });
-    }
-    var list = entries();
-    var i = list.findIndex(function (x) { return x.name === leaving; });
-    state.cursor = i >= 0 ? i : 0;
-    render(true);
-    return status("nav · " + state.path);
   }
 
   function navigate(path, opts) {
@@ -2508,7 +2692,13 @@
 
   function currentHomeItems() {
     if (window.NB_MAP && window.NB_MAP.homeFeedItems) {
-      return window.NB_MAP.homeFeedItems(state.homeFeed, state.merged, state.homeFeedRead) || [];
+      var opts = state.homeFeed === "following" ? homeFollowOpts() : {};
+      return window.NB_MAP.homeFeedItems(
+        state.homeFeed,
+        state.merged,
+        state.homeFeedRead,
+        opts,
+      ) || [];
     }
     return [];
   }
@@ -2558,6 +2748,8 @@
     var items = currentHomeItems();
     if (!items.length) {
       status("home · empty");
+      refillHomeFollow();
+      render(true);
       return false;
     }
     var cur = state.homeCursor || 0;
@@ -2574,6 +2766,115 @@
     }
     status("cannot open " + dest);
     return false;
+  }
+
+  /** Dismiss the home-feed row under the cursor (following stack). */
+  function dismissHomeCursor() {
+    if (state.homeFeed !== "following") {
+      return dismissHomeItem();
+    }
+    var items = currentHomeItems();
+    var cur = state.homeCursor || 0;
+    var it = items[cur];
+    if (!it) {
+      status("home · empty");
+      return false;
+    }
+    return dismissHomeFollow(it.id);
+  }
+
+  /**
+   * Dismiss (non-following home tabs): clear unread on the cursor row.
+   * Same verb as following / activity — hotkey `d`.
+   */
+  function dismissHomeItem() {
+    var items = currentHomeItems();
+    var cur = state.homeCursor || 0;
+    var it = items[cur];
+    if (!it) {
+      status("home · empty");
+      return false;
+    }
+    markHomeFeedRead(it.id);
+    if (!onHomeFeed()) { /* fine */ }
+    render(true);
+    status("dismissed");
+    return true;
+  }
+
+  /** Mark-read the home-feed row under the cursor (keep visible). */
+  function markReadHomeCursor() {
+    var items = currentHomeItems();
+    var cur = state.homeCursor || 0;
+    var it = items[cur];
+    if (!it) {
+      status("home · empty");
+      return false;
+    }
+    if (state.homeFeed === "following") return markHomeFollowRead(it.id);
+    markHomeFeedRead(it.id);
+    render(true);
+    status("marked read");
+    return true;
+  }
+
+  /**
+   * Dismiss the notification under the nav cursor.
+   * Same verb / hotkey `d` as home-feed dismiss.
+   */
+  function dismissNotificationCursor() {
+    var id = selectedNotificationId();
+    if (!id) {
+      status("nothing to dismiss");
+      return false;
+    }
+    markNotificationRead(id);
+    if (window.NB_NOTIFY) window.NB_NOTIFY.markPushed(id);
+    render(true);
+    paintActivityBell();
+    status("dismissed");
+    return true;
+  }
+
+  function selectedNotificationId() {
+    var list = entries();
+    var e = list[state.cursor];
+    if (e && e.notification) return e.notification.id;
+    var parts = MAP.split(state.path);
+    if (parts[0] === "notifications" && e && e.name) {
+      if (window.NB_MAP && window.NB_MAP.findNotification) {
+        var byId = window.NB_MAP.findNotification(e.name, state.notifRead);
+        if (byId) return byId.id;
+      }
+      return e.name;
+    }
+    return null;
+  }
+
+  /** True when `d` should mean dismiss (not nav filter / editor delete). */
+  function dismissOwnsKey() {
+    if (state.editor && state.editor.focused && state.editor.active) return false;
+    if (homeOwnsKeyboard()) return true;
+    if (onHomeFeed() && !listOwnsKeyboard() && state.columnFocus) return true;
+    if (String(state.path || "").indexOf("/notifications") === 0) return true;
+    var e = entries()[state.cursor];
+    return !!(e && e.notification);
+  }
+
+  /**
+   * Unified dismiss — one verb, one hotkey (`d`) across attention surfaces.
+   * Clears the current item from the attention queue (home stack · Activity ·
+   * notification leaf / DM alerts). Does not navigate away.
+   */
+  function dismissCurrent() {
+    if (!dismissOwnsKey()) {
+      status("nothing to dismiss");
+      return false;
+    }
+    if (homeOwnsKeyboard() || (onHomeFeed() && !listOwnsKeyboard() && state.columnFocus)) {
+      return dismissHomeCursor();
+    }
+    return dismissNotificationCursor();
   }
 
   /**
@@ -2621,7 +2922,7 @@
       var nextD = Math.max(0, Math.min(listD.length - 1, viD + delta));
       state.cursor = allD.findIndex(function (e) { return e.name === listD[nextD].name; });
       if (state.editor) state.editor.focused = false;
-      render();
+      previewSelection({ keepDetailFocus: true });
       return;
     }
     var list = visible();
@@ -2633,11 +2934,115 @@
     var next = Math.max(0, Math.min(list.length - 1, vi + delta));
     state.cursor = all.findIndex(function (e) { return e.name === list[next].name; });
     state.focus = listBladeIndex();
-    // Browse the channel from the nav — arrow moves leave thread focus.
-    state.threadFocus = null;
-    // Selecting a new list row leaves the editor focus.
+    // Selecting a new list row leaves the editor focus and refreshes the preview.
     if (state.editor) state.editor.focused = false;
-    render();
+    previewSelection();
+  }
+
+  /**
+   * Preview the nav cursor in the detail blade without changing path or stealing
+   * focus. Dirs show children; posts/files/DMs show their content. Enter/→
+   * activates (focus detail, editor, reply, or slide into a dir).
+   */
+  function previewSelection(opts) {
+    opts = opts || {};
+    var e = entries()[state.cursor];
+    state.detailOpen = true;
+    if (!opts.keepDetailFocus) state.focus = listBladeIndex();
+    if (state.editor) state.editor.focused = false;
+    clearReplyTo();
+    if (!e) {
+      state.threadFocus = null;
+      if (!opts.noRender) render(true);
+      return false;
+    }
+    if (e.post) {
+      // Preview the conversation for this message; nav keeps the keyboard.
+      state.threadFocus = e.post.id;
+    } else {
+      state.threadFocus = null;
+    }
+    // Load editable buffers for preview without focusing the editor.
+    if (entryHasTextEditor(e) || e.agentFile || e.agentSkill || e.agentTool ||
+        (e.kind === "file" && !e.post && !e.notification && /\./.test(e.name || ""))) {
+      openFileInEditor(e, MAP.resolve(state.path, e.name), { focus: false });
+    }
+    syncPersonFromPath();
+    if (!opts.noRender) render(true);
+    return true;
+  }
+
+  /**
+   * Enter on a nav selection: focus the preview and activate it — editor for
+   * files, reply compose for posts, DM compose for members, slide into dirs.
+   */
+  function activateSelection() {
+    if (homeOwnsKeyboard()) return activateHomeItem();
+    var list = entries();
+    var e = list[state.cursor];
+    if (!e) return false;
+    focusColumns();
+    var pathParts = MAP.split(state.path);
+    var onBoardMembers = pathParts[0] === "members";
+    var onProjectMembers = pathParts[0] === "projects" && pathParts[2] === "members";
+    if (e.openDm || ((onBoardMembers || onProjectMembers) && e.name && !e.post)) {
+      openMemberDm(e.openDm || e.name, { keepCli: true });
+      state.focus = detailBladeIndex();
+      focusCli();
+      status("dm · write a message");
+      return true;
+    }
+    if (e.kind === "dir") {
+      var full = MAP.resolve(state.path, e.name);
+      if (state.treeOpen && state.treeOpen[full]) delete state.treeOpen[full];
+      navigate(e.name);
+      // After sliding in, focus detail when the branch is interactive content.
+      var kids = entries();
+      var interactive = kids.some(function (k) {
+        return k && (k.post || k.notification || (k.kind === "file" && !k.meta));
+      });
+      var parts = MAP.split(state.path);
+      var channelOrDm = (parts[0] === "projects" && parts[2] === "channels" && parts[3]) ||
+        (parts[0] === "dms" && parts[1]);
+      state.detailOpen = true;
+      if (interactive || channelOrDm) {
+        state.focus = detailBladeIndex();
+        syncReplyWithPath();
+        // Channel / DM: prompt ready to write. Plain listings keep detail focus.
+        if (channelOrDm) {
+          focusCli();
+          status("slide → " + state.path + " · write");
+        } else {
+          status("slide → " + state.path);
+        }
+      } else {
+        state.focus = listBladeIndex();
+        status("slide → " + state.path);
+      }
+      return true;
+    }
+    if (e.notification) {
+      openNotification(e.notification.id);
+      return true;
+    }
+    if (e.post) {
+      openThread(e.post.id);
+      armReplyTo(e.post.id, e.post.who, e.post.channel, e.post.project);
+      focusCli();
+      status("reply · @" + (e.post.who || "there"));
+      return true;
+    }
+    if (entryHasTextEditor(e) || e.agentFile || e.agentSkill || e.agentTool ||
+        (e.kind === "file" && /\./.test(e.name || ""))) {
+      return activateDetailEditor(e);
+    }
+    // Generic content — focus the preview pane.
+    state.threadFocus = null;
+    state.detailOpen = true;
+    state.focus = detailBladeIndex();
+    render(true);
+    status(e.hint ? e.name + " · " + e.hint : e.name);
+    return true;
   }
 
   /**
@@ -2670,14 +3075,14 @@
 
   function moveBladeFocus(delta) {
     // → from nav into Following opens selection detail (and editor when text).
-    if (delta > 0 && !isDetailOpen()) {
+    if (delta > 0 && !isDetailOpen() && listOwnsKeyboard()) {
       var leaf = entries()[state.cursor];
       if (entryHasTextEditor(leaf)) return activateDetailEditor(leaf);
       openDetail({ silent: true });
       return;
     }
-    // Detail blade is always mounted (selection or Following).
-    var max = detailBladeIndex();
+    // Detail always mounted; session when transcript exists.
+    var max = sessionBladeIndex() >= 0 ? sessionBladeIndex() : detailBladeIndex();
     state.focus = Math.max(0, Math.min(max, (state.focus != null ? state.focus : listBladeIndex()) + delta));
     render(true);
   }
@@ -2712,9 +3117,8 @@
   }
 
   /**
-   * Right / Enter: slide into the selected child when it is a directory
-   * (its children become the next blade's first-level list). Files open detail.
-   * Members open their DM thread, not a profile card.
+   * → / l: slide into a directory, open a post thread, or focus a text editor.
+   * Enter is activateSelection (focus preview + compose/edit); → is structural open.
    */
   function descend() {
     var list = entries();
@@ -3493,6 +3897,7 @@
         }).join("\n");
     } else if (cmd === "clear") {
       state.lines = [];
+      state.sessionOutFocus = false;
     } else {
       reply = cmd + ": not found — try help";
     }
@@ -3513,12 +3918,14 @@
   }
 
   /**
-   * Surface the session transcript as the active pane in the detail blade
-   * so inconclusive turns (e.g. @handle outside a DM) are visible to iterate on.
+   * Surface the session transcript as its own dedicated blade so agent/CLI
+   * turns are never mixed into home feed / creators / thread content.
    */
   function revealSessionChat(opts) {
     opts = opts || {};
+    state.sessionClosed = false;
     state.sessionOutFocus = true;
+    if (sessionBladeIndex() >= 0) state.focus = sessionBladeIndex();
     if (!opts.noRender) render(true);
     requestAnimationFrame(function () {
       var pane = $(".cn-blade-out") || $(".cn-out");
@@ -3532,7 +3939,7 @@
         pane.focus({ preventScroll: true });
       } catch { /* fine */ }
     });
-    if (!opts.silent) status("session · see chat history in detail");
+    if (!opts.silent) status("session · chat pane");
     return true;
   }
 
@@ -3791,6 +4198,12 @@
       attachments: attachmentMetaList(atts),
       _pendingAsk: mode === "ai",
     });
+    // Agent/chat turns claim the dedicated session blade immediately.
+    if (mode === "ai" || mode === "compose") {
+      state.sessionClosed = false;
+      state.sessionOutFocus = true;
+      if (sessionBladeIndex() >= 0) state.focus = sessionBladeIndex();
+    }
     return { display: display, agentInput: composeWithAttachments(display, atts), attachments: atts };
   }
 
@@ -4172,7 +4585,9 @@
       // Legacy /spaces (if typed) is treated the same as bare /space.
       if (!arg || arg === "list" || arg === "ls") {
         if (navigate("/spaces", { keepCli: true })) {
-          state.columnFocus = true;
+          // Keep prompt focus — do not set columnFocus here. Enter just
+          // submitted /space; flipping columnFocus would make the same key
+          // activate the first catalogue row.
           state.focus = 0;
           reply = "/space · pick a space";
         } else {
@@ -4437,11 +4852,14 @@
         openNotification(notifOpen.dataset.notifOpen);
         return;
       }
-      var notifReadBtn = ev.target.closest("[data-notif-read]");
+      var notifReadBtn = ev.target.closest("[data-notif-read], [data-notif-dismiss]");
       if (notifReadBtn) {
-        markNotificationRead(notifReadBtn.dataset.notifRead);
+        var nid = notifReadBtn.dataset.notifRead || notifReadBtn.dataset.notifDismiss;
+        markNotificationRead(nid);
+        if (window.NB_NOTIFY) window.NB_NOTIFY.markPushed(nid);
         render(true);
-        return status("marked read");
+        paintActivityBell();
+        return status("dismissed");
       }
       // Clicking the activity card body (not a button) opens the source.
       var notifCard = ev.target.closest("[data-notif]");
@@ -4683,6 +5101,16 @@
         try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
         return setHomeFeed(homeTab.dataset.homeFeed);
       }
+      var followDismiss = ev.target.closest("[data-follow-dismiss]");
+      if (followDismiss) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return dismissHomeFollow(followDismiss.dataset.followDismiss);
+      }
+      var followRead = ev.target.closest("[data-follow-read]");
+      if (followRead) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return markHomeFollowRead(followRead.dataset.followRead);
+      }
       var annToggle = ev.target.closest("[data-ann-toggle]");
       if (annToggle) {
         try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
@@ -4718,54 +5146,25 @@
       }
       var item = ev.target.closest(".cn-item");
       if (item) {
-        // Item carries its absolute path. Selecting in a parent blade re-scopes
-        // the cascade: navigate() rebuilds the stack and drops dependents that
-        // no longer match the new parent selection (Azure blade rule).
+        // Single click: select + preview in detail (path stays on the parent
+        // branch). Enter / → / double-click activates or slides into a dir.
         var target = item.dataset.path;
         if (!target) return;
-        // Board or project members: open DMs (not a profile card).
         var tParts = window.NB_MAP.split(target);
-        var isMemberLeaf =
-          item.dataset.openDm ||
-          (tParts[0] === "members" && tParts.length === 2) ||
-          (tParts[0] === "projects" && tParts[2] === "members" && tParts.length === 4);
-        if (isMemberLeaf) {
-          var dmHandle = item.dataset.openDm || item.dataset.key ||
-            tParts[tParts.length - 1];
-          openMemberDm(dmHandle, { keepCli: true });
-          return;
+        var parentDir = window.NB_MAP.join(tParts.slice(0, -1)) || "/";
+        var name = tParts[tParts.length - 1];
+        if (state.path !== parentDir) {
+          if (!navigate(parentDir, { keepCli: true })) return;
         }
-        if (item.dataset.kind === "dir") {
-          // Directory navigation needs full nav panes.
-          setNavCollapsed(false, { silent: true, noRender: true });
-          return navigate(target, { keepCli: true });
-        }
-        var segs = window.NB_MAP.split(target);
-        var parentDir = window.NB_MAP.join(segs.slice(0, -1));
-        var name = segs[segs.length - 1];
-        if (state.path !== parentDir && !navigate(parentDir, { keepCli: true })) return;
         var all = entries();
-        state.cursor = all.findIndex(function (e) { return e.name === name; });
-        state.focus = detailBladeIndex();
-        // Keep nav open so selecting a post does not strand further navigation.
-        // Collapse is explicit (z / Alt+Z / header ▭ / —).
-        var fileEntry = all[state.cursor];
-        state.detailOpen = true;
-        if (fileEntry && fileEntry.post) {
-          return openThread(fileEntry.post.id);
-        }
-        state.threadFocus = null;
-        if (fileEntry && (fileEntry.agentFile || fileEntry.agentSkill || fileEntry.agentTool ||
-            (fileEntry.kind !== "dir" && !fileEntry.post && /\./.test(fileEntry.name || "")))) {
-          openFileInEditor(fileEntry, target);
-        }
-        render(true);
-        if (state.editor && state.editor.active && state.editor.active.path === target) {
-          focusEditor();
-          status("edit · " + state.editor.active.name);
-        } else {
-          status(name);
-        }
+        var ix = all.findIndex(function (e) { return e.name === name; });
+        if (ix < 0) return;
+        state.cursor = ix;
+        focusColumns();
+        setNavCollapsed(false, { silent: true, noRender: true });
+        previewSelection();
+        status("preview · " + name);
+        return;
       }
     });
 
@@ -4920,6 +5319,14 @@
     });
 
     mount.addEventListener("dblclick", function (ev) {
+      var item = ev.target.closest(".cn-item");
+      if (item && item.closest('.cn-blade[data-blade-kind="list"]')) {
+        ev.preventDefault();
+        // Double-click activates the preview (same as Enter).
+        focusColumns();
+        activateSelection();
+        return;
+      }
       var split = ev.target.closest(".cn-split");
       if (!split) return;
       if (split.dataset.split === "out") {
@@ -5104,7 +5511,7 @@
           return status("closed suggestions");
         }
         if (state.sessionOutFocus) {
-          clearSessionOutFocus();
+          closeSessionBlade();
           return focusCli();
         }
         // Idempotent with the document handler: if columns already own
@@ -5189,6 +5596,10 @@
         return toggleKeys();
       }
       if (ev.target.closest("[data-merge]")) return mergePending();
+      if (ev.target.closest("[data-goto-home], [data-brand]")) {
+        try { ev.preventDefault(); } catch { /* fine */ }
+        return goHome();
+      }
       if (ev.target.closest("[data-mode-toggle]")) {
         state.ai = !state.ai;
         state.columnFocus = false;
@@ -5447,7 +5858,7 @@
         if (state.filter) { state.filter = ""; render(true); return; }
         if (state.sessionOutFocus) {
           ev.preventDefault();
-          clearSessionOutFocus();
+          closeSessionBlade();
           return focusCli();
         }
         // Esc leaves a focused thread for the channel feed before closing detail.
@@ -5527,6 +5938,14 @@
           ev.preventDefault();
           return cycleHomeTab(1);
         }
+        if (k === "d") {
+          ev.preventDefault();
+          return dismissCurrent();
+        }
+        if (k === "m") {
+          ev.preventDefault();
+          return markReadHomeCursor();
+        }
         // Don't let printable keys filter the nav while reading home.
         if (k.length === 1 && /[a-z0-9-]/i.test(k)) return;
       }
@@ -5543,11 +5962,18 @@
         }
       }
 
+      // Unified dismiss — Activity / notification leaves (home handled above).
+      // Only steal `d` on attention surfaces so nav filter can still type `d`.
+      if (k === "d" && state.columnFocus && !state.filter && dismissOwnsKey()) {
+        ev.preventDefault();
+        return dismissCurrent();
+      }
+
       if (k === "ArrowDown" || k === "j") { ev.preventDefault(); focusColumns(); return moveCursor(1); }
       if (k === "ArrowUp" || k === "k") { ev.preventDefault(); focusColumns(); return moveCursor(-1); }
       // → / l : slide into selected dir, open post thread, or edit a file
       if (k === "ArrowRight" || k === "l") { ev.preventDefault(); focusColumns(); return goRight(); }
-      if (k === "Enter") { ev.preventDefault(); focusColumns(); return descend(); }
+      if (k === "Enter") { ev.preventDefault(); focusColumns(); return activateSelection(); }
       // e : open terminal editor (posts included — → opens threads instead)
       if (k === "e" && state.columnFocus) {
         ev.preventDefault();
@@ -5626,7 +6052,7 @@
 
     // Needs downloading, so it needs a gesture. Say so plainly and take the
     // first one that arrives rather than nagging.
-    status("ai needs to fetch the on-device model once — press any key or click to start");
+    status("on-device ai needs one download — press any key to start, or Alt+A for cli");
     var armed = false;
     var start = async function () {
       if (armed) return;
@@ -6059,15 +6485,24 @@
     openThread: openThread,
     clearThreadFocus: clearThreadFocus,
     setHomeFeed: setHomeFeed,
+    goHome: goHome,
     markHomeFeedRead: markHomeFeedRead,
+    markHomeFollowRead: markHomeFollowRead,
+    dismissHomeFollow: dismissHomeFollow,
+    dismissCurrent: dismissCurrent,
+    dismissNotificationCursor: dismissNotificationCursor,
+    refillHomeFollow: refillHomeFollow,
     toggleAnnCollapsed: toggleAnnCollapsed,
     homeFeedUnreadCounts: homeFeedUnreadCounts,
     activateHomeItem: activateHomeItem,
+    previewSelection: previewSelection,
+    activateSelection: activateSelection,
     cycleHomeTab: cycleHomeTab,
     moveHomeCursor: moveHomeCursor,
     focusColumns: focusColumns,
     revealSessionChat: revealSessionChat,
     clearSessionOutFocus: clearSessionOutFocus,
+    closeSessionBlade: closeSessionBlade,
     setPersonPane: setPersonPane,
     currentDmPeer: currentDmPeer,
     // Terminal file editor.

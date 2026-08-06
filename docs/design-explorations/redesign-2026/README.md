@@ -33,8 +33,9 @@ source community life across at least three material families, then
 grounded list — **Plate Archive** — so the roll, not the model's ranking rut,
 decides what leads. The table below is presentation order for review and is not
 that list; Plate Archive is shown first because it is the assigned direction.
-The world ultimately adopted is Course Line, for the reasons recorded in
-[ADR-0026](../../design-decisions/0026-community-visual-world-course-line.md).
+Course Line was briefly adopted ([ADR-0026](../../design-decisions/0026-community-visual-world-course-line.md))
+and then superseded: the committed Community visual world is **Nightboard**
+([ADR-0027](../../design-decisions/0027-community-visual-world-nightboard.md)).
 Directions 9 and 10 are fused from dealt catalog challengers: they keep the
 challenger's system grammar and take every fact from the product.
 

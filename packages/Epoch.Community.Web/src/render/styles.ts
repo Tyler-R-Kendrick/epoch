@@ -28,12 +28,15 @@ export function communityStyles(): string {
       text-rendering: optimizeLegibility;
     }
 
-    a { color: inherit; text-decoration: none; }
-    a:hover { color: var(--epoch-color-accent-strong); }
+    a { color: inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 0.12em; }
+    a:hover {
+      color: var(--epoch-color-teal-deep);
+      text-decoration-color: var(--epoch-color-teal);
+    }
     a:focus-visible,
     button:focus-visible,
     textarea:focus-visible {
-      outline: 2px solid var(--epoch-color-accent);
+      outline: 2px solid var(--epoch-color-control);
       outline-offset: 2px;
     }
 
@@ -112,6 +115,45 @@ export function communityStyles(): string {
       min-height: 6rem;
       overflow-y: auto;
       mask-image: linear-gradient(to bottom, black calc(100% - 1.1rem), transparent 100%);
+    }
+    /* Agents + linked projects collapse so Channels stay the hangout focus. */
+    .rail-more {
+      flex: none;
+      margin: 0;
+      border: 0;
+      border-block-start: 1px solid var(--epoch-color-rail-line);
+      background: transparent;
+    }
+    .rail-more-summary {
+      cursor: pointer;
+      list-style: none;
+      padding: var(--epoch-space-xs) var(--epoch-space-sm);
+      color: var(--epoch-color-rail-muted);
+      font-size: var(--epoch-type-meta-size);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      min-height: 2rem;
+      display: flex;
+      align-items: center;
+      gap: var(--epoch-space-xs);
+    }
+    .rail-more-summary::-webkit-details-marker { display: none; }
+    .rail-more-summary::before {
+      content: "+";
+      color: var(--epoch-color-rail-text);
+      font-weight: 700;
+      width: 0.9rem;
+    }
+    .rail-more[open] > .rail-more-summary::before { content: "−"; }
+    .rail-more-summary:hover,
+    .rail-more-summary:focus-visible {
+      color: var(--epoch-color-rail-text);
+    }
+    .rail-more-body {
+      display: grid;
+      gap: var(--epoch-space-xs);
+      padding-block-end: var(--epoch-space-xs);
     }
     .product-mode-list {
       border-block-end: 1px solid var(--epoch-color-rail-line);
@@ -440,10 +482,14 @@ export function communityStyles(): string {
       font-weight: 600;
       letter-spacing: 0.02em;
     }
-    /* Auth state was carried by border style on a card that no longer exists.
-       It now rides on the handle: copper marks a real AT session. */
+    /* Auth state rides on weight + teal (trust), never control/copper — that ink
+       is reserved for conversation → signed work (Reserved Course Rule). */
     .identity-chip[data-auth-state="authenticated"] .identity-handle {
-      color: var(--epoch-color-accent);
+      color: var(--epoch-color-teal-deep);
+      font-weight: 750;
+    }
+    .identity-chip[data-auth-state="authenticated"] .identity-auth-note {
+      color: var(--epoch-color-teal);
     }
     @media (max-width: 720px) {
       .identity-did {
@@ -528,7 +574,7 @@ export function communityStyles(): string {
       font-size: var(--epoch-type-label-size);
       font-weight: 600;
     }
-    .feed-message[data-search-hit="true"] {
+    .row[data-search-hit="true"] {
       background: var(--epoch-color-open-land);
       box-shadow: inset 0 0 0 1px var(--epoch-color-open-land-strong);
     }
@@ -655,7 +701,7 @@ export function communityStyles(): string {
     .feed-tab[aria-selected="true"] {
       color: var(--epoch-color-ink);
       font-weight: 700;
-      border-block-end-color: var(--epoch-color-ink);
+      border-block-end-color: var(--epoch-color-control);
     }
 
     .dev-feed {
@@ -664,100 +710,10 @@ export function communityStyles(): string {
       overflow-y: auto;
       list-style: none;
     }
-    .dev-feed-item {
-      display: grid;
-      grid-template-columns: 2rem minmax(0, 1fr);
-      gap: var(--epoch-space-sm);
-      padding: var(--epoch-space-sm) 1.15rem;
-      border-block-end: 1px solid var(--epoch-color-line);
-    }
-    .dev-feed-item:hover {
-      background: var(--epoch-color-surface);
-    }
-    .dev-feed-item:last-child {
-      border-block-end: 0;
-    }
     .dev-feed-empty {
       display: block;
       color: var(--epoch-color-muted);
       font-weight: 600;
-    }
-    .dev-feed-body {
-      display: grid;
-      gap: var(--epoch-space-xs);
-      min-width: 0;
-    }
-    .dev-feed-meta {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: var(--epoch-space-xs);
-      color: var(--epoch-color-muted);
-      font-size: var(--epoch-type-label-size);
-    }
-    .dev-feed-handle {
-      color: var(--epoch-color-ink);
-      font-size: var(--epoch-type-body-size);
-      font-weight: 700;
-      letter-spacing: -0.01em;
-    }
-    .dev-feed-verb {
-      color: var(--epoch-color-muted);
-      font-weight: 500;
-    }
-    .dev-feed-object,
-    .dev-feed-object-text {
-      color: var(--epoch-color-teal);
-      font-weight: 700;
-    }
-    .dev-feed-object {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      cursor: pointer;
-      font: inherit;
-      font-weight: 700;
-      color: var(--epoch-color-teal);
-      padding: 0;
-      text-align: start;
-    }
-    .dev-feed-object:hover {
-      color: var(--epoch-color-accent-strong);
-      text-decoration: underline;
-    }
-    .dev-feed-meta time {
-      margin-inline-start: auto;
-      font-variant-numeric: tabular-nums;
-    }
-    .dev-feed-body p {
-      max-width: 70ch;
-      margin: 0;
-      color: var(--epoch-color-ink-soft);
-      font-size: var(--epoch-type-body-size);
-      line-height: 1.45;
-    }
-    .dev-feed-trust {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--epoch-space-xs);
-      color: var(--epoch-color-muted);
-      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-      font-size: var(--epoch-type-meta-size);
-    }
-    .dev-feed-trust span + span::before {
-      content: "·";
-      margin-inline-end: var(--epoch-space-xs);
-      color: var(--epoch-color-ink-faint);
-    }
-    .dev-feed-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--epoch-space-xs);
-      margin-block-start: 0.1rem;
-    }
-    .dev-feed-action:hover {
-      border-color: var(--epoch-color-ink);
-      background: var(--epoch-color-surface);
     }
 
     .message-feed { background: var(--epoch-color-surface-raised); }
@@ -777,22 +733,6 @@ export function communityStyles(): string {
     .row-heading,
     .message-body p {
       overflow-wrap: anywhere;
-    }
-
-    .feed-message {
-      position: relative;
-      display: grid;
-      grid-template-columns: 2.15rem minmax(0, 1fr);
-      gap: var(--epoch-space-sm);
-      padding: var(--epoch-space-sm) 1.15rem;
-      border-block: 1px solid transparent;
-    }
-    .feed-message:hover {
-      background: var(--epoch-color-surface);
-      border-block-color: transparent;
-    }
-    .feed-message[data-selected-message="true"] {
-      background: var(--epoch-color-surface-sunken);
     }
 
     .message-hitbox {
@@ -952,6 +892,45 @@ export function communityStyles(): string {
     .message-action-tray button:active,
     .composer button:active {
       filter: brightness(0.96);
+    }
+    .action-row-primary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--epoch-space-xs);
+      align-items: center;
+    }
+    .action-more {
+      margin: 0;
+      border: 0;
+      background: transparent;
+    }
+    .action-more > summary {
+      cursor: pointer;
+      color: var(--epoch-color-muted);
+      font-size: var(--epoch-type-label-size);
+      font-weight: 650;
+      list-style: none;
+      padding: 0.2rem 0;
+      min-height: 2rem;
+      display: inline-flex;
+      align-items: center;
+    }
+    .action-more > summary::-webkit-details-marker { display: none; }
+    .action-more > summary::before {
+      content: "+ ";
+      color: var(--epoch-color-ink-faint);
+      font-weight: 700;
+    }
+    .action-more[open] > summary::before { content: "− "; }
+    .action-more > summary:hover,
+    .action-more > summary:focus-visible {
+      color: var(--epoch-color-ink);
+    }
+    .action-row-secondary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--epoch-space-xs);
+      padding-block-start: var(--epoch-space-xs);
     }
     .action-status {
       margin: 0;
@@ -1502,7 +1481,35 @@ export function communityStyles(): string {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    @media (max-width: 800px) { .legend { display: none; } }
+    /* Narrow: keep the map key — compress into a wrap strip, never remove it. */
+    @media (max-width: 800px) {
+      .legend {
+        margin-block-start: 0;
+        padding-block: var(--epoch-space-xs) var(--epoch-space-sm);
+      }
+      .legend .rail-section-label {
+        font-size: var(--epoch-type-meta-size);
+      }
+      .legend-list,
+      .legend-list + .legend-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem 0.65rem;
+        margin: 0;
+        padding: 0 var(--epoch-space-sm);
+        border: 0;
+      }
+      .legend-list + .legend-list {
+        padding-block-start: 0.15rem;
+      }
+      .legend-entry {
+        grid-template-columns: 0.7rem auto;
+        min-height: 1.35rem;
+      }
+      .legend-label {
+        white-space: nowrap;
+      }
+    }
 
     /* ── Terrain (DESIGN 2: the legend) ──────────────────────────────────── */
     /* Social channels are runnable, work channels are rough. Terrain is ground

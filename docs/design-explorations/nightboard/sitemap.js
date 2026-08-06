@@ -169,8 +169,8 @@
   }
 
   /**
-   * X/Bluesky-style following timeline: short summations of what people you
-   * follow published (channel posts + project posts), newest first.
+   * Flat following timeline (every post from people you follow), newest first.
+   * Prefer {@link followingStacks} for the home UI — one card per identity.
    */
   function followingFeed(extra) {
     var follows = {};
@@ -243,6 +243,45 @@
       return String(b.at).localeCompare(String(a.at));
     });
     return items;
+  }
+
+  /**
+   * Following home stack: one card per followed identity, face = their latest
+   * non-dismissed post. Older posts wait behind `more` until the face is
+   * dismissed. Sorted by latest face time.
+   */
+  function followingStacks(extra, readSet, dismissed) {
+    dismissed = dismissed || {};
+    readSet = readSet || {};
+    var byWho = {};
+    followingFeed(extra).forEach(function (it) {
+      if (!it || !it.who || dismissed[it.id]) return;
+      (byWho[it.who] = byWho[it.who] || []).push(it);
+    });
+    var stacks = Object.keys(byWho).map(function (who) {
+      var posts = byWho[who].slice().sort(function (a, b) {
+        if (a.at === b.at) return String(b.id).localeCompare(String(a.id));
+        return String(b.at).localeCompare(String(a.at));
+      });
+      var face = posts[0];
+      var copy = Object.assign({}, face);
+      copy.stackWho = who;
+      copy.stackIds = posts.map(function (p) { return p.id; });
+      copy.more = Math.max(0, posts.length - 1);
+      copy.unread = posts.some(function (p) {
+        return !!p.unread && !readSet[p.id];
+      });
+      if (readSet[face.id]) {
+        // Face itself is read; keep stack unread if older faces still unread.
+        copy.faceRead = true;
+      }
+      return copy;
+    });
+    stacks.sort(function (a, b) {
+      if (a.at === b.at) return String(b.id).localeCompare(String(a.id));
+      return String(b.at).localeCompare(String(a.at));
+    });
+    return stacks;
   }
 
   function followsList() {
@@ -347,22 +386,35 @@
     return applyHomeRead(items, readSet);
   }
 
-  function homeFeedItems(view, extra, readSet) {
+  /**
+   * @param {string} view
+   * @param {object[]} [extra]
+   * @param {object} [readSet]
+   * @param {{ dismissed?: object, limit?: number }} [opts]
+   */
+  function homeFeedItems(view, extra, readSet, opts) {
+    opts = opts || {};
     var v = String(view || "following");
     if (v === "announcements") return announcementsFeed(readSet);
     if (v === "featured") return featuredProjectsFeed(readSet);
     if (v === "creators") return featuredCreatorsFeed(readSet);
-    return applyHomeRead(followingFeed(extra), readSet);
+    var stacks = followingStacks(extra, readSet, opts.dismissed || {});
+    if (opts.limit == null || opts.limit >= stacks.length) return stacks;
+    return stacks.slice(0, Math.max(0, opts.limit));
   }
 
-  function homeFeedUnreadCount(view, extra, readSet) {
-    return homeFeedItems(view, extra, readSet).filter(function (it) { return it.unread; }).length;
+  function homeFeedUnreadCount(view, extra, readSet, opts) {
+    // Unread counts ignore the visible window — badge the whole backlog.
+    var full = Object.assign({}, opts || {}, { limit: undefined });
+    return homeFeedItems(view, extra, readSet, full).filter(function (it) {
+      return it.unread;
+    }).length;
   }
 
-  function homeFeedUnreadCounts(extra, readSet) {
+  function homeFeedUnreadCounts(extra, readSet, opts) {
     var out = {};
     HOME_FEED_VIEWS.forEach(function (v) {
-      out[v.id] = homeFeedUnreadCount(v.id, extra, readSet);
+      out[v.id] = homeFeedUnreadCount(v.id, extra, readSet, opts);
     });
     return out;
   }
@@ -1113,7 +1165,9 @@
     boardAgents: boardAgents, projectAgents: projectAgents, findAgent: findAgent,
     findDm: findDm, findSpaceNode: findSpaceNode,
     allSpaces: allSpaces, postsForSpace: postsForSpace,
-    followingFeed: followingFeed, followsList: followsList,
+    followingFeed: followingFeed,
+    followingStacks: followingStacks,
+    followsList: followsList,
     homeFeedViews: homeFeedViews,
     homeFeedItems: homeFeedItems,
     homeFeedUnreadCount: homeFeedUnreadCount,
