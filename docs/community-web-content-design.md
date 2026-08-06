@@ -34,7 +34,7 @@ next verb.
 | State | Template | Example |
 |---|---|---|
 | Empty (inviting) | `No <objects> yet. <verb invitation>.` | "No messages in #showcase yet. Share what you're building." |
-| Empty (honest-degraded) | `<Truth>. <recovery action>.` | "Snapshot mode — live messages unavailable. Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry." |
+| Empty (honest-degraded) | `<Truth>. <recovery action>.` | "You're viewing a saved snapshot — not live community activity. Reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry." |
 | Loading | `Loading <objects>…` (only when genuinely async; never fake latency) | "Loading change proposals…" |
 | Error | `<What failed> — <why if known>. <next action>.` | "Message not sent — the API rejected the signature. Check your session and retry." |
 | Zero results (search) | `No receipts match "<query>". <scope reminder>.` | "No receipts match "goose". Search covers messages, intents, harness labels, and promote receipts in this community." |

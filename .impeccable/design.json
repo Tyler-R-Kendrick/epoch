@@ -1,143 +1,143 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-05T22:10:05.517Z",
+  "generatedAt": "2026-08-06T00:00:00.0000000Z",
   "title": "Design System: Epoch Community",
   "extensions": {
     "colorMeta": {
       "surface": {
         "role": "neutral",
         "displayName": "Map Paper",
-        "canonical": "#f4f2ea",
+        "canonical": "#070b12",
         "tonalRamp": [
-          "#2c2c2a",
-          "#5d5c59",
-          "#92918c",
-          "#c8c6c0",
-          "#f4f2ea",
-          "#f8f6f1",
-          "#fafaf6",
-          "#fdfdfc"
-        ]
+        "#010203",
+        "#030407",
+        "#04070b",
+        "#06090f",
+        "#070b12",
+        "#56595e",
+        "#97999b",
+        "#d7d8d9"
+      ]
       },
       "surface-raised": {
         "role": "neutral",
         "displayName": "Printed Sheet",
-        "canonical": "#ffffff",
+        "canonical": "#0c121c",
         "tonalRamp": [
-          "#2e2e2e",
-          "#616161",
-          "#999999",
-          "#d1d1d1",
-          "#ffffff",
-          "#ffffff",
-          "#ffffff",
-          "#ffffff"
-        ]
+        "#020305",
+        "#05070b",
+        "#070b11",
+        "#0a0f17",
+        "#0c121c",
+        "#5a5e65",
+        "#999ba0",
+        "#d8d9db"
+      ]
       },
       "ink": {
         "role": "primary",
         "displayName": "Map Ink",
-        "canonical": "#1a1a17",
+        "canonical": "#c8d0d8",
         "tonalRamp": [
-          "#050504",
-          "#0a0a09",
-          "#10100e",
-          "#151513",
-          "#1a1a17",
-          "#636361",
-          "#9f9f9e",
-          "#dadada"
-        ]
+        "#242527",
+        "#4c4f52",
+        "#787d82",
+        "#a4abb1",
+        "#c8d0d8",
+        "#dadfe4",
+        "#e8ebef",
+        "#f6f7f9"
+      ]
       },
       "accent": {
         "role": "primary",
         "displayName": "Control Purple",
-        "canonical": "#a300a3",
+        "canonical": "#ff2cf0",
         "tonalRamp": [
-          "#1d001d",
-          "#3e003e",
-          "#620062",
-          "#860086",
-          "#a300a3",
-          "#c052c0",
-          "#d894d8",
-          "#f0d6f0"
-        ]
+        "#2e082b",
+        "#61115b",
+        "#991a90",
+        "#d124c5",
+        "#ff2cf0",
+        "#ff70f5",
+        "#ffa6f9",
+        "#ffddfd"
+      ]
       },
       "teal": {
         "role": "secondary",
         "displayName": "Workflow Teal",
-        "canonical": "#1f6f5c",
+        "canonical": "#40f0ff",
         "tonalRamp": [
-          "#061411",
-          "#0c2a23",
-          "#134337",
-          "#195b4b",
-          "#1f6f5c",
-          "#679d90",
-          "#a1c3bb",
-          "#dbe8e5"
-        ]
+        "#0c2b2e",
+        "#185b61",
+        "#269099",
+        "#34c5d1",
+        "#40f0ff",
+        "#7df5ff",
+        "#aff9ff",
+        "#e0fdff"
+      ]
       },
       "gold": {
         "role": "secondary",
         "displayName": "Verified Gold",
-        "canonical": "#b8860b",
+        "canonical": "#f0e050",
         "tonalRamp": [
-          "#211802",
-          "#463304",
-          "#6e5007",
-          "#976e09",
-          "#b8860b",
-          "#cfad59",
-          "#e1cc99",
-          "#f4ecd8"
-        ]
+        "#2b280e",
+        "#5b551e",
+        "#908630",
+        "#c5b842",
+        "#f0e050",
+        "#f5ea88",
+        "#f9f2b6",
+        "#fdfae3"
+      ]
       },
       "runnable": {
         "role": "neutral",
         "displayName": "Runnable — social channel",
-        "canonical": "#ffffff",
+        "canonical": "#0c121c",
         "tonalRamp": [
-          "#2e2e2e",
-          "#616161",
-          "#999999",
-          "#d1d1d1",
-          "#ffffff",
-          "#ffffff",
-          "#ffffff",
-          "#ffffff"
-        ]
+        "#020305",
+        "#05070b",
+        "#070b11",
+        "#0a0f17",
+        "#0c121c",
+        "#5a5e65",
+        "#999ba0",
+        "#d8d9db"
+      ]
       },
       "rough": {
         "role": "neutral",
         "displayName": "Rough — work channel",
-        "canonical": "#cde3bb",
+        "canonical": "#1a2836",
         "tonalRamp": [
-          "#252922",
-          "#4e5647",
-          "#7b8870",
-          "#a8ba99",
-          "#cde3bb",
-          "#ddecd1",
-          "#eaf3e2",
-          "#f7fbf4"
-        ]
+        "#05070a",
+        "#0a0f15",
+        "#101820",
+        "#15212c",
+        "#1a2836",
+        "#636d76",
+        "#9fa5ab",
+        "#dadddf"
+      ]
       },
       "marsh": {
         "role": "secondary",
         "displayName": "Marsh — anchored to code",
-        "canonical": "#a5d8ec",
+        "canonical": "#40f0ff",
         "tonalRamp": [
-          "#1e272a",
-          "#3f525a",
-          "#63828e",
-          "#87b1c2",
-          "#a5d8ec",
-          "#c2e4f2",
-          "#d9eff7",
-          "#f1f9fc"
-        ]
+        "#0c2b2e",
+        "#185b61",
+        "#269099",
+        "#34c5d1",
+        "#40f0ff",
+        "#7df5ff",
+        "#aff9ff",
+        "#e0fdff"
+      ]
       },
       "contour": {
         "role": "neutral",
@@ -157,32 +157,32 @@
       "control": {
         "role": "primary",
         "displayName": "Control — the active leg",
-        "canonical": "#a300a3",
+        "canonical": "#ff2cf0",
         "tonalRamp": [
-          "#1d001d",
-          "#3e003e",
-          "#620062",
-          "#860086",
-          "#a300a3",
-          "#c052c0",
-          "#d894d8",
-          "#f0d6f0"
-        ]
+        "#2e082b",
+        "#61115b",
+        "#991a90",
+        "#d124c5",
+        "#ff2cf0",
+        "#ff70f5",
+        "#ffa6f9",
+        "#ffddfd"
+      ]
       },
       "out-of-bounds": {
         "role": "primary",
         "displayName": "Out of bounds — destructive",
-        "canonical": "#b52a20",
+        "canonical": "#ff3355",
         "tonalRamp": [
-          "#210806",
-          "#45100c",
-          "#6d1913",
-          "#94221a",
-          "#b52a20",
-          "#cd6e67",
-          "#e0a6a1",
-          "#f3dddb"
-        ]
+        "#2e090f",
+        "#611320",
+        "#991f33",
+        "#d12a46",
+        "#ff3355",
+        "#ff748b",
+        "#ffa9b8",
+        "#ffdee4"
+      ]
       }
     },
     "typographyMeta": {

@@ -307,14 +307,14 @@ Then("the selected message shows that human review remains required", async func
 Then("the selected message explains how to reconnect and retry Mark intent", async function () {
   await assertVisible(
     requirePage(),
-    "Reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry Mark intent.",
+    "Reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry Mark intent.",
   );
 });
 
 Then("the snapshot banner explains how to reconnect for signed work", async function () {
   await assertVisible(
     requirePage(),
-    "To promote signed work, reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry the action.",
+    "You're viewing a saved snapshot — not live community activity. To promote signed work, reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry the action.",
   );
 });
 

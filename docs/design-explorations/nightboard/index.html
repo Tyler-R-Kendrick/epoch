@@ -17,11 +17,13 @@
   <!-- Tron grid-road: idle shimmer; click empty chrome to drive. -->
   <canvas class="nb-gridroad" data-gridroad width="800" height="48"></canvas>
   <!-- Epoch FIGlet wordmark: power-on ignite + energy wave (letterforms fixed). -->
-  <div class="nb-brand" data-brand data-phase="boot" data-boot="true"
-    role="img" aria-label="Epoch">
+  <button type="button" class="nb-brand" data-brand data-phase="boot" data-boot="true"
+    data-goto-home
+    title="Epoch — home"
+    aria-label="Epoch — go home">
     <div class="nb-brand-scan" aria-hidden="true"></div>
     <pre class="nb-brand-art" data-brand-art></pre>
-  </div>
+  </button>
   <span class="nb-bar-spacer" aria-hidden="true"></span>
   <button type="button" class="nb-activity-bell" data-activity-bell data-unread="false"
     data-browser-perm="unsupported"

@@ -1,5 +1,10 @@
 # Nightboard (Epoch)
 
+**Committed Community visual world** ([ADR-0027](../../design-decisions/0027-community-visual-world-nightboard.md)).
+Root [`DESIGN.md`](../../../DESIGN.md) is derived from this exploration. Impeccable
+iterates here until `Epoch.Community.Web` reaches parity.
+Surface brief: [`.impeccable-surface.md`](.impeccable-surface.md).
+
 A live board for a signed community — terminal chrome with **Epoch** branding:
 a FIGlet ANSI Shadow wordmark (no border plaque, no secondary tag) that
 power-on ignites, then runs a slow energy wave across solid fills (letterforms
@@ -175,8 +180,10 @@ the same dense TUI styling — not a web card.
 
 Filters: `all` · `mentions` · `subscribed` · `hooks`. Unread items badge the
 **Activity** control in the bar; open a card (or press Open) to jump to the
-source and mark it read. `/notifications` / `/activity` open the feed from the
-prompt. Subscriptions live in fixture data (`NB_DATA.subscriptions`).
+source and mark it read. **Dismiss** (or `d`) clears unread without opening —
+same dismiss verb as the home feed and DM alerts. `/notifications` /
+`/activity` open the feed from the prompt. Subscriptions live in fixture data
+(`NB_DATA.subscriptions`).
 
 #### Custom event hooks
 
@@ -237,15 +244,26 @@ never cloned into a stack of path-segment columns.
 
 - **Nav** is a navbar for the current path: only that branch’s first-level
   subnodes (plus optional one-level peek via `+` / Space)
-- **Enter / →** reloads the same nav into the selected directory
+- **Enter / →** — `→` slides the nav into a directory (or opens a thread /
+  editor). **Enter** focuses the preview and activates it: files get the
+  editor, posts arm a reply, channels/DMs ready the prompt, dirs slide in
+- **Click** selects and **previews** (dirs → children, files/posts → content)
+  without changing the nav path; double-click activates like Enter
 - **← / × / Backspace** reloads nav at the parent (breadcrumb owns depth)
 - **Detail** shows the selection (thread, editor, agent, DM, …). Closing it
   does **not** remove the pane or expand nav — it shows the **home feed**:
-  dense scrolling rows with toggles for **following** (people you follow),
-  **announcements** (Discord-style long-form posts, collapsible, expanded by
+  dense scrolling rows with toggles for **following** (people you follow,
+  **rolled up by identity** — one card per person showing their latest post,
+  with **Dismiss** / **Mark read**; dismissing pulls the next post from that
+  person or widens the window / merges the live stream when the stack runs
+  low), **announcements** (Discord-style long-form posts, collapsible, expanded by
   default), **featured** projects (README summary + optional excerpt), and
   **creators** (bio snippet + ASCII contribution sparkline). Each tab carries
   an unread count; opening a row marks it read
+- **Shared verbs:** `d` = **Dismiss** (clear from attention), `m` = **Mark read**
+  (keep visible, clear unread), `esc` = leave/close (not dismiss). Same `d` on
+  home following stacks, other home tabs, Activity / notifications, and DM alerts
+- On following: `d` dismisses the cursor card; `m` marks it read
 - Tree icons are only **`+` / `−`** (expand/collapse). Leaves keep a blank
   spacer — no dots or arrows. A trailing count is a plain number when a dir
   has children
@@ -254,8 +272,10 @@ never cloned into a stack of path-segment columns.
 |---|---|
 | `←` / `h` | reload nav at parent; from **home feed** (detail focused), focus the nav sidebar |
 | `→` / `l` | reload nav into selected dir; on a **post**, open its **thread**; on other text files, open the editor; on **home feed** (detail focused), open the current row |
-| `↑↓` / `jk` | move within the focused surface — nav list, home-feed rows (when home owns focus), or previous/next post while a **thread** is focused |
-| `Enter` | open dir (reload nav); on a **post**, open its **thread**; other files open detail; on home, open the current row |
+| `↑↓` / `jk` | move within the focused surface — nav list (**preview** updates), home-feed rows (when home owns focus), or previous/next post while a **thread** is focused |
+| `Enter` | **Activate** the preview — focus detail / editor / reply compose / slide into dir; on home, open the current row |
+| `d` | **Dismiss** — home stack / Activity / notification / DM alert under the cursor |
+| `m` | **Mark read** — home feed (keep in stack, clear unread) |
 | `e` | open the terminal editor for the selected file/post |
 | `[` / `]` | on home feed, cycle tabs (following · announcements · featured · creators) |
 | `Space` | expand / collapse **one level** under the cursor |
@@ -818,11 +838,15 @@ Polish that had been missing, each piece done the terminal way:
   the armed message, a **channel** creates a new top-level post, a **DM** sends
   to that thread, and **nav** scopes `board_create_channel` /
   `board_create_project` (and the AI) to the current path. Compose scope is
-  labelled above the input. CLI/AI session output lands in the detail blade when
-  needed — never in a second pane. When a submit is **inconclusive** (for
+  labelled above the input. CLI/AI session output lands in a **dedicated
+  session blade** (third pane) whenever there is transcript — never appended
+  under featured creators, following, or thread content. Close it with **[esc]**
+  on the session header (or Esc while that chat owns focus); the transcript
+  stays until `clear`, and the next command or agent turn reopens the pane.
+  When a submit is **inconclusive** (for
   example `@maya …` on the home feed or other non-DM/channel/reply compose
-  scope, a failed `board_post`, or no on-device model), that transcript becomes
-  the **active** pane in detail (`data-active`) so you can see the tip and
+  scope, a failed `board_post`, or no on-device model), that session blade
+  becomes the **active** pane (`data-active`) so you can see the tip and
   iterate — `@handle` alone does **not** send a DM; use `/dm @maya` or open
   their thread first. The home feed is not a leftover-channel compose surface.
 - **Transcript identity is a who-rail.** `you` and `agent` share a fixed left

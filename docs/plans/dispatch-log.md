@@ -101,3 +101,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | CodeRabbit + Vercel PENDING at merge after review push; Actions CI disabled. Local `gate:push` green. Merged with `--admin`. |
 | Notes | Community Web impeccable remediation + Nightboard STT/voice/syntax/a11y. Review fix commit addressed speech reject handling, homeCursor thaw, `/act voice` offsets, aria-pressed on tabs, space corpus paths, Opus via setCodecPreferences, VAD/signaling/axe hardening. |
+
+## 2026-08-05 — Nightboard authority + preview/dismiss `/sdlc finish`
+
+| Field | Value |
+|---|---|
+| Initiative | [`nightboard-authority-preview`](nightboard-authority-preview/sdlc-state.md) |
+| Backend | Sequential; coordinator inline |
+| Branch | `feat/nightboard-authority-preview-dismiss` |
+| PR | (opening) |
+| Result | **in progress** |
+| Failure class | None yet |
+| Notes | ADR-0027 Nightboard authority; Course Line archived; select→preview / Enter→activate; shared `d` dismiss; following stacks; palette burn-down for web CSS port. Local `gate:push` + `nightboard:e2e` green. |

@@ -47,6 +47,7 @@ export async function runCommunityWebRenderParityTests(): Promise<void> {
   const html = renderCommunityWebDocument(app);
 
   serverSocialMessagesCarryTheFullActionTray(html);
+  civicWorkshopChromeContracts(html);
   clientSocialTrayParity(html, ledger);
   await clientSearchUsesTheTestedHelper(html, ledger);
 }
@@ -56,6 +57,35 @@ function serverSocialMessagesCarryTheFullActionTray(html: string): void {
   assert.match(html, /data-action="intent"/u);
   assert.match(html, /data-action="agent"/u);
   assert.match(html, /data-action="report"/u);
+}
+
+/** Post-impeccable civic workshop contracts (legend, reserved course, progressive tray). */
+function civicWorkshopChromeContracts(html: string): void {
+  assert.match(html, /data-legend/u, "legend must ship on every plane");
+  assert.match(html, /data-rail-more/u, "Agents + Linked projects collapse under People & projects");
+  assert.match(html, /data-action-more/u, "secondary tray actions live behind More actions");
+  assert.match(
+    html,
+    /class="action-row action-row-primary"[\s\S]*?data-action="intent"/u,
+    "Mark intent must stay a primary tray control",
+  );
+  const stylesPath = join(process.cwd(), "packages/Epoch.Community.Web/src/render/styles.ts");
+  const styles = readFileSync(stylesPath, "utf8");
+  assert.doesNotMatch(
+    styles,
+    /\.legend\s*\{\s*display:\s*none/u,
+    "legend must never be display:none — compact on narrow viewports instead",
+  );
+  assert.doesNotMatch(
+    styles,
+    /\[data-auth-state="authenticated"\][^{]*\{[^}]*--epoch-color-accent/u,
+    "authenticated identity must not spend control ink",
+  );
+  assert.match(
+    styles,
+    /\.feed-tab\[aria-selected="true"\][\s\S]*?border-block-end-color:\s*var\(--epoch-color-(?:accent|control)\)/u,
+    "selected network tabs use copper/control underline",
+  );
 }
 
 function clientSocialTrayParity(html: string, ledger: DefectLedger): void {

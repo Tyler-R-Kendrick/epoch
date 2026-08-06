@@ -15,7 +15,8 @@ import { escapeHtml } from "./html";
  * says only what happened and what to do about it.
  */
 
-export const SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE = "Snapshot data. To promote signed work, reconnect EPOCH_COMMUNITY_API_URL, reload this page, then retry the action.";
+export const SNAPSHOT_COMMUNITY_RECOVERY_MESSAGE =
+  "You're viewing a saved snapshot — not live community activity. To promote signed work, reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry the action.";
 
 export const LIVE_EMPTY_MESSAGE = "Live. No linked-project activity yet.";
 

@@ -163,6 +163,20 @@ body {
   overflow: hidden;
   flex: none;
   isolation: isolate;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 0;
+  text-align: start;
+}
+.nb-brand:hover .nb-brand-fig {
+  filter:
+    drop-shadow(0 0 2px color-mix(in srgb, var(--nb-brand-cyan) 70%, transparent))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--nb-brand-mag) 35%, transparent));
+}
+.nb-brand:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--nb-accent) 55%, transparent);
+  outline-offset: 2px;
 }
 .nb-brand::before {
   display: none;
@@ -410,10 +424,10 @@ body {
 .nb-activity-perm:hover { color: var(--nb-ink); text-decoration: underline; filter: none; }
 .nb-activity-perm[hidden] { display: none; }
 .nb-activity-perm[data-state="denied"] {
-  background: none; color: var(--nb-danger); cursor: default;
+  background: none; color: var(--nb-warn); cursor: pointer;
 }
 .nb-activity-perm[data-state="denied"]::before,
-.nb-activity-perm[data-state="denied"]::after { color: var(--nb-danger); }
+.nb-activity-perm[data-state="denied"]::after { color: var(--nb-warn); }
 .nb-activity-perm[data-state="granted"] { display: none; }
 .nb-id-chip {
   display: inline-flex; flex-direction: column; gap: .05rem; align-items: flex-end;
