@@ -109,7 +109,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | [`nightboard-authority-preview`](nightboard-authority-preview/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
 | Branch | `feat/nightboard-authority-preview-dismiss` |
-| PR | (opening) |
-| Result | **in progress** |
-| Failure class | None yet |
-| Notes | ADR-0027 Nightboard authority; Course Line archived; select→preview / Enter→activate; shared `d` dismiss; following stacks; palette burn-down for web CSS port. Local `gate:push` + `nightboard:e2e` green. |
+| PR | [#106](https://github.com/Tyler-R-Kendrick/epoch/pull/106) — squash-merged `f3dfb89` |
+| Result | **success** |
+| Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + `nightboard:e2e` green. |
+| Notes | ADR-0027 Nightboard authority; Course Line archived; select→preview / Enter→activate; shared `d` dismiss; following stacks; palette burn-down for web CSS port. |
