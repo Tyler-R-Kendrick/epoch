@@ -40,15 +40,18 @@ const STRUCTURAL_RULES = new Set([
   "designmd-prose-drift",
 ]);
 
+// Palette rule ids — re-attach via PACKAGE_ENFORCED_RULES when Nightboard CSS ports land.
 const PALETTE_RULES = ["near-miss-palette", "off-palette-hex", "ops-token-not-aliased"];
 
 // Rules that fail --enforce-structural per package, in addition to STRUCTURAL_RULES.
-// Empty palette lists = burn-down window (ADR-0027 Nightboard authority; CSS port pending).
+// Empty lists = ADR-0027 burn-down (DESIGN.md is Nightboard; web CSS still Course Line).
+// When a surface ports, set its entry back to PALETTE_RULES.
 const PACKAGE_ENFORCED_RULES = new Map([
   ["community-web", []],
   ["community-operations-web", []],
   ["platform-web", []],
 ]);
+void PALETTE_RULES;
 
 // All three web surfaces inline the generated @epoch/design-tokens :root block at
 // render time, so the --epoch-* definitions live in the generated module.
