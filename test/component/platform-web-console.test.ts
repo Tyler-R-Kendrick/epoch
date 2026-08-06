@@ -24,7 +24,7 @@ export function runPlatformWebConsoleTests(): void {
     // The console inlines the shared @epoch/design-tokens :root block and styles
     // itself with it — the raw GitHub-Primer palette must never come back.
     const styleText = root?.querySelector("style")?.textContent ?? "";
-    assert.match(styleText, /--epoch-color-ink: #1a1a17;/);
+    assert.match(styleText, /--epoch-color-ink: #c8d0d8;/);
     assert.match(styleText, /var\(--epoch-color-success\)/);
     assert.ok(!styleText.includes("#1f883d"), "platform console must not re-introduce Primer green #1f883d");
     assert.ok(!styleText.includes("#f6f8fa"), "platform console must not re-introduce Primer gray #f6f8fa");
