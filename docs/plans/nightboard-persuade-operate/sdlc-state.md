@@ -7,7 +7,7 @@ tags: [epoch, plans, sdlc, nightboard, persuade, operate]
 
 # Initiative: Nightboard Persuade + Operate
 
-- **Phase:** finishing (`/sdlc finish` 2026-08-07)
+- **Phase:** closed (`/sdlc finish` 2026-08-07)
 - **Slug:** `nightboard-persuade-operate`
 - **Opened:** 2026-08-06 (session work on `main` dirty tree)
 - **Host:** Cursor / Auto coordinator
@@ -26,10 +26,17 @@ Land this session’s Nightboard exploration work:
 
 | PR | Title | Status |
 |---|---|---|
-| (pending) | feat(nightboard): Persuade landing + Operate board advances | opening |
+| [#108](https://github.com/Tyler-R-Kendrick/epoch/pull/108) | feat(nightboard): Persuade landing + Operate board advances | squash-merged `5ae0db1e` |
 
 ## Residuals (not in this PR)
 
 - Local WIP `skills/gauntlet-loop/` (docs:check ignored until a dedicated land)
 - `.impeccable/` critique/mocks, `.serena/`, `.claude/`, `.cursor/`
 - Unused `canvasui-object.js` / three.js object sources (FX-only bundle kept)
+
+## Validation
+
+- `npm run gate:push` green (local CI substitute)
+- `NB_E2E=landing npm run nightboard:e2e` green
+- Vercel SUCCESS on PR; CodeRabbit PENDING at merge (documented)
+- Squash-merged with `--admin` (Actions quality CI disabled)
