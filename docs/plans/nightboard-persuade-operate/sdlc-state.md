@@ -1,0 +1,35 @@
+---
+type: Reference
+title: "Nightboard Persuade + Operate session state"
+description: "SDLC state for landing Persuade marketing home, Operate board split, terminal channels, and Canvas UI landing FX."
+tags: [epoch, plans, sdlc, nightboard, persuade, operate]
+---
+
+# Initiative: Nightboard Persuade + Operate
+
+- **Phase:** finishing (`/sdlc finish` 2026-08-07)
+- **Slug:** `nightboard-persuade-operate`
+- **Opened:** 2026-08-06 (session work on `main` dirty tree)
+- **Host:** Cursor / Auto coordinator
+- **Branch:** `feat/nightboard-persuade-operate-session`
+
+## Goal
+
+Land this session’s Nightboard exploration work:
+
+1. Split Persuade (`/`) marketing landing from Operate (`board.html`) TUI.
+2. Terminal channel nav nodes (siblings stay in navbar; feed/detail in Following pane).
+3. Canvas UI landing FX: hero/theater glitch, brand + E01 decrypt/reveal, VHS preview.
+4. Headline typewriter, copy clarify, e2e/unit coverage, docs graph updates.
+
+## Session PR set
+
+| PR | Title | Status |
+|---|---|---|
+| (pending) | feat(nightboard): Persuade landing + Operate board advances | opening |
+
+## Residuals (not in this PR)
+
+- Local WIP `skills/gauntlet-loop/` (docs:check ignored until a dedicated land)
+- `.impeccable/` critique/mocks, `.serena/`, `.claude/`, `.cursor/`
+- Unused `canvasui-object.js` / three.js object sources (FX-only bundle kept)

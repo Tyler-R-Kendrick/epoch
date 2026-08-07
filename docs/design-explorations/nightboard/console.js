@@ -14,7 +14,7 @@
  * unanswerable-by-accident, because your whole path is on screen.
  *
  *   ←→ / hl   column        Enter  descend or open
- *   ↑↓ / jk   entry         Tab    complete (in the command line)
+ *   ↑↓ / jk   entry         Tab    swap prompt ↔ panels (complete when suggestions open)
  *   :         command line  /      filter this column
  *   v         cycle view    Esc    leave the command line
  *
@@ -192,20 +192,64 @@
   }
 
   /** Feed sort chips belong on channel / space feeds — not over every blade. */
-  function isFeedSortContext(parts, selected, extra) {
+  function isFeedSortContext(parts, selected) {
     parts = parts || [];
     if (parts[0] === "projects" && parts[2] === "channels" && parts[3]) return true;
+    if (parts[0] === "spaces" && parts[2] === "channels" && parts[3]) return true;
     if (parts[0] === "spaces" && parts[2] === "feed") return true;
     if (parts[0] === "projects" && parts[2] === "channels" && !parts[3] && selected &&
-        selected.kind === "dir" && !selected.notification) {
-      var childPath = MAP.resolve(MAP.join(parts), selected.name);
-      var child = MAP.list(childPath, extra) || [];
-      return child.some(function (e) { return e.post; });
+        selected.kind === "channel" && !selected.voice) {
+      return true;
+    }
+    if (parts[0] === "spaces" && parts[2] === "channels" && !parts[3] && selected &&
+        selected.kind === "channel" && !selected.voice) {
+      return true;
     }
     if (parts[0] === "spaces" && parts[1] && !parts[2] && selected && selected.name === "feed") {
       return true;
     }
     return false;
+  }
+
+  /** Post entries for detail — channels keep posts out of the navbar. */
+  function detailFeedEntries(path, extra) {
+    if (MAP.feedEntriesAt) return MAP.feedEntriesAt(path, extra) || [];
+    return MAP.list(path, extra) || [];
+  }
+
+  /**
+   * Navbar listing + selection for the current address. Terminal channel paths
+   * still address the channel for compose/feed, but the list is the parent.
+   */
+  function navListing(state) {
+    var path = (state && state.path) || "/";
+    var extra = (state && state.merged) || [];
+    var listPath = MAP.navParentPath ? MAP.navParentPath(path) : path;
+    var here = MAP.list(listPath, extra) || [];
+    var cursor = Math.min((state && state.cursor) || 0, Math.max(0, here.length - 1));
+    var selected = here[cursor] || null;
+    if (MAP.isTerminalNavPath && MAP.isTerminalNavPath(path)) {
+      var leaf = MAP.split(path).pop();
+      var ix = here.findIndex(function (e) { return e.name === leaf; });
+      if (ix >= 0) {
+        cursor = ix;
+        selected = here[cursor];
+      }
+    }
+    return { path: path, listPath: listPath, here: here, cursor: cursor, selected: selected };
+  }
+
+  /** Sticky new-posts queue — only when a channel/space feed is open in detail. */
+  function feedNoticeHtml(state) {
+    var open = window.NB_APP && typeof window.NB_APP.feedNoticeOpen === "function"
+      ? window.NB_APP.feedNoticeOpen()
+      : false;
+    var n = state && state.pending ? state.pending.length : 0;
+    if (!open || n < 1) return "";
+    return '<button type="button" class="cn-feed-notice" data-c="notice" data-state="pending"' +
+      ' data-merge data-key="feed-notice">' +
+      '<span data-c="count">' + n + "</span> new " + (n === 1 ? "post" : "posts") +
+      " — press R to load</button>";
   }
 
   function feedBarHtml(state, sort) {
@@ -215,6 +259,7 @@
     var activeView = state.feedView || sort || "hot";
     var qVal = state.feedQuery != null ? state.feedQuery : "";
     var addOpen = !!state.feedAddOpen;
+    var queryOpen = !!(state.feedQueryOpen || qVal || state.feedQueryError);
     var chips = views.map(function (v) {
       var isDefault = DEFAULT_SORTS.indexOf(v.id) >= 0;
       return '<button type="button" class="cn-sort" data-feed-view="' + esc(v.id) + '"' +
@@ -243,26 +288,36 @@
           : "") +
         "</div>";
     }
+    var queryRow = "";
+    if (queryOpen) {
+      queryRow = '<div class="cn-feed-query-row" data-key="feed-query-row">' +
+        '<label class="cn-feed-q-label" for="nb-feed-q">view</label>' +
+        '<input id="nb-feed-q" class="cn-feed-query" data-feed-query data-morph-keep' +
+        ' type="search" spellcheck="false" autocomplete="off"' +
+        ' placeholder="field:value — try ? for examples"' +
+        ' value="' + esc(qVal) + '"' +
+        ' aria-label="Lucene-style feed query" />' +
+        '<button type="button" class="cn-feed-q-btn" data-feed-query-run title="Run query">run</button>' +
+        '<button type="button" class="cn-feed-q-btn" data-feed-query-clear title="Clear view">clear</button>' +
+        '<button type="button" class="cn-feed-q-btn" data-feed-query-help title="Query help">?</button>' +
+        "</div>";
+    }
     return '<div class="cn-feed-bar" data-key="feed-bar">' +
       '<div class="cn-feed-views" role="toolbar" aria-label="Feed sort">' +
       chips +
       '<button type="button" class="cn-feed-add" data-feed-add' +
       ' aria-expanded="' + (addOpen ? "true" : "false") + '"' +
       ' title="Add feed view" aria-label="Add feed view">+</button>' +
+      '<button type="button" class="cn-feed-view-toggle" data-feed-query-toggle' +
+      ' aria-expanded="' + (queryOpen ? "true" : "false") + '"' +
+      ' title="Lucene feed view query" aria-label="Toggle feed view query">' +
+      (queryOpen ? "view−" : "view") + "</button>" +
+      (queryOpen
+        ? '<button type="button" class="cn-share" data-share title="Copy a share link for this place">share</button>'
+        : "") +
       addMenu +
       "</div>" +
-      '<div class="cn-feed-query-row">' +
-      '<label class="cn-feed-q-label" for="nb-feed-q">view</label>' +
-      '<input id="nb-feed-q" class="cn-feed-query" data-feed-query data-morph-keep' +
-      ' type="search" spellcheck="false" autocomplete="off"' +
-      ' placeholder=\'state:needs-review who:maya sort:new\'' +
-      ' value="' + esc(qVal) + '"' +
-      ' aria-label="Lucene-style feed query" />' +
-      '<button type="button" class="cn-feed-q-btn" data-feed-query-run title="Run query">run</button>' +
-      '<button type="button" class="cn-feed-q-btn" data-feed-query-clear title="Clear view">clear</button>' +
-      '<button type="button" class="cn-feed-q-btn" data-feed-query-help title="Query help">?</button>' +
-      '<button type="button" class="cn-share" data-share title="Copy a share link for this place">share</button>' +
-      "</div>" +
+      queryRow +
       (state.feedQueryError
         ? '<div class="cn-feed-err-line" data-key="feed-err">' + esc(state.feedQueryError) + "</div>"
         : "") +
@@ -395,6 +450,8 @@
         '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '"' +
         ' data-reply-who="' + esc(p.who) + '">reply</button>' +
+        '<button type="button" class="cn-act" data-copy-post="' + esc(p.id) + '"' +
+        ' title="Copy this thread in an optimized paste format">copy</button>' +
         (isFolded && below
           ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(p.id) + '">' +
             below + (below === 1 ? " more" : " more") + "</button>"
@@ -1020,62 +1077,83 @@
         esc(h.label || h.event) + "</span>";
     }).join("");
     var browserPerm = window.NB_NOTIFY ? window.NB_NOTIFY.permission() : "unsupported";
-    var browserLabel = window.NB_NOTIFY ? window.NB_NOTIFY.permissionLabel(browserPerm) : "";
     var browserChip = "";
     if (window.NB_NOTIFY && window.NB_NOTIFY.isSupported()) {
       if (browserPerm === "granted") {
-        browserChip = '<span class="cn-ctx-fact" data-browser-perm="granted">browser alerts on</span>';
+        browserChip = '<span class="cn-ctx-fact" data-browser-perm="granted">alerts on</span>';
       } else if (browserPerm === "denied") {
-        browserChip = '<span class="cn-ctx-fact" data-browser-perm="denied" title="Open site settings to allow alerts">alerts off — fix in site settings</span>';
+        browserChip = '<details class="cn-activity-alerts" data-browser-perm="denied">' +
+          "<summary>alerts blocked</summary>" +
+          '<p class="cn-activity-alerts-how">Open the lock icon in the address bar → Site settings → Notifications → Allow.</p>' +
+          "</details>";
       } else {
         browserChip = '<button type="button" class="cn-activity-enable" data-activity-perm-inline' +
-          ' title="Enable browser notifications">Enable browser alerts</button>';
+          ' title="Enable browser notifications for mentions and subscriptions">Enable alerts</button>';
       }
+    }
+    var extras = "";
+    if (watch || hookChips) {
+      extras = '<details class="cn-activity-more">' +
+        "<summary>watching · hooks</summary>" +
+        (watch
+          ? '<div class="cn-activity-watching" title="Subscriptions">' + watch + "</div>"
+          : "") +
+        (hookChips
+          ? '<div class="cn-activity-hooks" title="Custom event hooks">' + hookChips +
+            ' <button type="button" class="cn-activity-filter" data-goto="/notifications/hooks"' +
+            ' title="Hook-fired activity">view</button></div>'
+          : "") +
+        "</details>";
     }
     return '<div class="cn-ctx cn-activity-ctx" data-key="ctx-notifications" data-activity="true">' +
       '<b class="cn-ctx-name">Activity</b>' +
       '<span class="cn-ctx-kind" data-kind="activity">notifications</span>' +
       '<span class="cn-ctx-fact">' + all.length + " items</span>" +
       (unread ? '<span class="cn-badge">' + unread + " new</span>" : "") +
-      (browserLabel ? '<span class="cn-ctx-fact">' + esc(browserLabel) + "</span>" : "") +
       browserChip +
       '<div class="cn-activity-filters" role="toolbar" aria-label="Activity filters">' + chips + "</div>" +
-      (watch
-        ? '<div class="cn-activity-watching" title="Subscriptions">' +
-          '<span class="cn-ctx-fact">watching</span> ' + watch + "</div>"
-        : "") +
-      (hookChips
-        ? '<div class="cn-activity-hooks" title="Custom event hooks">' +
-          '<span class="cn-ctx-fact">hooks</span> ' + hookChips +
-          ' <button type="button" class="cn-activity-filter" data-goto="/notifications/hooks"' +
-          ' title="Hook-fired activity">view</button></div>'
-        : "") +
+      extras +
       "</div>";
   }
 
   /* ── Transcript ────────────────────────────────────────────────────────── */
 
   /**
-   * Structured log → aligned rows. Every line has a fixed-width who-rail so
-   * "you", "agent", and system output share one vertical axis. Tool calls and
-   * progress sit under the agent as collapsed summaries the user can expand.
+   * Structured session chat. Fixed who-rail (you / agent / sys / error), turn
+   * breaks before each new speaker, tools nested under the agent rail, mode
+   * chips above the message body — so a long transcript stays scannable.
    */
   function renderTranscript(lines, openTools) {
     lines = lines || [];
     openTools = openTools || {};
     if (!lines.length) return "";
+    var prevSpeak = null;
     return '<div class="cn-log" data-key="log">' + lines.map(function (line) {
       var id = line.id || "";
       var kind = line.kind || "out";
       if (kind === "banner") {
+        prevSpeak = "banner";
         return '<div class="cn-line" data-kind="banner" data-key="' + esc(id) + '">' +
           '<pre class="cn-banner">' + formatAscii(line.text || "") + "</pre></div>";
       }
+
+      var speak = kind === "user" ? "user"
+        : (kind === "agent" || kind === "tool" || kind === "progress") ? "agent"
+        : kind === "error" ? "error"
+        : "sys";
+      var turnStart = speak !== prevSpeak;
+      // Always label people + prose; sys/error keep their rail every line.
+      var showWho = turnStart || kind === "user" || kind === "agent" ||
+        kind === "out" || kind === "error";
+      prevSpeak = speak;
+
       if (kind === "tool") {
         var open = !!openTools[id];
         var mark = line.ok === false ? "failed" : line.ok === true ? "ok" : "…";
-        return '<div class="cn-line" data-kind="tool" data-key="' + esc(id) + '" data-open="' + open + '">' +
-          '<span class="cn-who" data-kind="agent">agent</span>' +
+        return '<div class="cn-line" data-kind="tool" data-key="' + esc(id) + '"' +
+          ' data-open="' + open + '"' +
+          (turnStart ? ' data-turn="start"' : "") + ">" +
+          '<span class="cn-who" data-kind="agent">' + (showWho ? "agent" : "") + "</span>" +
           '<div class="cn-body">' +
           '<button type="button" class="cn-tool-sum" data-tool-toggle="' + esc(id) + '"' +
           ' aria-expanded="' + open + '">' +
@@ -1095,14 +1173,19 @@
             : "") +
           "</div></div>";
       }
-      var whoRail = kind === "user" ? "you"
-        : kind === "agent" ? "agent"
-        : kind === "error" ? "error"
-        : kind === "progress" ? "…"
+
+      var whoRail = "";
+      if (showWho) {
+        whoRail = kind === "user" ? "you"
+          : kind === "agent" ? "agent"
+          : kind === "error" ? "error"
+          : kind === "progress" ? "…"
+          : "sys";
+      }
+      var whoKind = kind === "user" ? "person"
+        : (kind === "agent" || kind === "progress") ? "agent"
         : "";
-      var whoKind = kind === "user" ? "person" : kind === "agent" || kind === "tool" ? "agent" : "";
-      // Agent / system out get markdown (tables, code); user lines stay plain + marks.
-      // Search hits carry pre-colored HTML (Lucene mark spans).
+
       var body;
       if (kind === "out" && line.format === "search" && line.html) {
         body = line.html;
@@ -1111,11 +1194,14 @@
       } else {
         body = formatAscii(line.text || "");
       }
+      var meta = "";
       if (kind === "user" && line.mode) {
-        body = '<span class="cn-mode-tag">' + esc(line.mode) + "</span> " + body;
+        meta = '<span class="cn-mode-tag" data-mode="' + esc(line.mode) + '">' +
+          esc(line.mode) + "</span>";
       }
+      var msg = '<div class="cn-msg">' + body + "</div>";
       if (kind === "user" && line.attachments && line.attachments.length) {
-        body += '<div class="cn-attach-sent" aria-label="Attachments">' +
+        msg += '<div class="cn-attach-sent" aria-label="Attachments">' +
           line.attachments.map(function (a) {
             var label = window.NB_ATTACH && window.NB_ATTACH.chipLabel
               ? window.NB_ATTACH.chipLabel(a)
@@ -1127,10 +1213,11 @@
               esc(label) + "</span>";
           }).join("") + "</div>";
       }
-      return '<div class="cn-line" data-kind="' + esc(kind) + '" data-key="' + esc(id) + '">' +
+      return '<div class="cn-line" data-kind="' + esc(kind) + '" data-key="' + esc(id) + '"' +
+        (turnStart ? ' data-turn="start"' : "") + ">" +
         '<span class="cn-who"' + (whoKind ? ' data-kind="' + whoKind + '"' : "") + ">" +
         esc(whoRail) + "</span>" +
-        '<div class="cn-body">' + body + "</div></div>";
+        '<div class="cn-body">' + meta + msg + "</div></div>";
     }).join("") + "</div>";
   }
 
@@ -1159,6 +1246,62 @@
     return '<div class="cn-attach-tray" data-key="attach-tray" data-attach-tray role="list" aria-label="Attachments for next message">' +
       chips +
       '<button type="button" class="cn-attach-clear" data-attach-clear title="Clear attachments">clear</button>' +
+      "</div>";
+  }
+
+  /** Bound right-click context chips — listed above the prompt input by id/name. */
+  function renderBoundContextTray(chips) {
+    chips = chips || [];
+    if (!chips.length) return "";
+    var rows = chips.map(function (c, i) {
+      var id = c.id || c.name || ("ctx-" + i);
+      var name = c.name || id;
+      var kind = c.kind || "ctx";
+      var label = kind + ":" + name;
+      return '<span class="cn-ctx-bound-chip" data-ctx-bound-chip' +
+        ' data-ctx-id="' + esc(id) + '"' +
+        ' data-ctx-name="' + esc(name) + '"' +
+        ' data-ctx-kind="' + esc(kind) + '"' +
+        ' title="' + esc(kind + " · " + id) + '">' +
+        '<span class="cn-attach-label">' + esc(label) + "</span>" +
+        '<button type="button" class="cn-attach-rm" data-ctx-bound-rm="' + esc(id) + '"' +
+        ' aria-label="Remove context ' + esc(name) + '">×</button>' +
+        "</span>";
+    }).join("");
+    return '<div class="cn-ctx-bound-tray cn-attach-tray" data-key="ctx-bound-tray" data-ctx-bound-tray' +
+      ' role="list" aria-label="Context bound to next prompt">' +
+      rows +
+      '<button type="button" class="cn-attach-clear" data-ctx-bound-clear title="Clear bound context">clear</button>' +
+      "</div>";
+  }
+
+  /**
+   * Themed context menu (TTY chrome). Prompt… first, then ≤3 learned actions.
+   */
+  function renderContextMenu(menu) {
+    if (!menu || !menu.open || !menu.target) return "";
+    var t = menu.target;
+    var actions = (menu.actions || []).slice(0, 3);
+    var actionHtml = actions.map(function (a, i) {
+      return '<button type="button" role="menuitem" class="cn-ctxmenu-item" data-ctx-action="' +
+        esc(a.id || a.verb || String(i)) + '"' +
+        ' data-ctx-verb="' + esc(a.verb || "") + '">' +
+        esc(a.label || a.verb || "action") + "</button>";
+    }).join("");
+    var x = Number(menu.x) || 0;
+    var y = Number(menu.y) || 0;
+    return '<div class="cn-ctxmenu" data-key="ctx-menu" data-ctx-menu data-open="true" role="menu"' +
+      ' aria-label="Context actions for ' + esc(t.name || t.id || "control") + '"' +
+      ' style="left:' + x + "px;top:" + y + 'px">' +
+      '<div class="cn-ctxmenu-head" data-key="ctx-head">' +
+      '<span class="cn-ctxmenu-kind">' + esc(t.kind || "ctx") + "</span>" +
+      '<span class="cn-ctxmenu-name">' + esc(t.name || t.id || "") + "</span>" +
+      "</div>" +
+      '<button type="button" role="menuitem" class="cn-ctxmenu-item cn-ctxmenu-prompt" data-ctx-prompt' +
+      ' title="Bind this control into the agent prompt">Prompt…</button>' +
+      (actionHtml
+        ? '<div class="cn-ctxmenu-sep" role="separator" data-key="ctx-sep"></div>' + actionHtml
+        : "") +
       "</div>";
   }
 
@@ -1199,25 +1342,35 @@
     if (parts[0] === "dms" && parts[1]) return "dm";
     if (parts[0] === "notifications") return "activity";
 
+    var listing = navListing(state);
+    var here = listing.here;
+    var selected = listing.selected;
+    var listPath = listing.listPath;
     var extra = (state && state.merged) || [];
-    var here = MAP.list(path, extra) || [];
-    var selected = here[Math.min(state.cursor || 0, Math.max(0, here.length - 1))];
 
     // File open in detail → editor keys (even before insert focus lands).
     if (selected && isEditableFile(selected)) return "editor";
     if (state.editor && state.editor.active && state.editor.active.path) {
       var ap = state.editor.active.path;
       if (ap === path || ap.indexOf(path + "/") === 0 ||
-          (selected && MAP.resolve(path, selected.name) === ap)) {
+          (selected && MAP.resolve(listPath, selected.name) === ap)) {
         return "editor";
       }
     }
 
+    if (state.threadFocus || state.feedMark) return "thread";
     if (selected && selected.post) return "thread";
     if (here.some(function (e) { return e.post; })) return "thread";
+    if (selected && selected.kind === "channel" && !selected.voice) return "thread";
     if (selected && selected.kind === "dir") {
-      var child = MAP.list(MAP.resolve(path, selected.name), extra) || [];
+      var child = MAP.list(MAP.resolve(listPath, selected.name), extra) || [];
       if (child.some(function (e) { return e.post; })) return "thread";
+    }
+    // Channel address — posts live in detail, not nav.
+    if ((parts[0] === "projects" || parts[0] === "spaces") &&
+        parts[2] === "channels" && parts[3]) {
+      var feed = detailFeedEntries(path, extra);
+      if (feed.some(function (e) { return e.post; })) return "thread";
     }
     return "detail";
   }
@@ -1237,13 +1390,24 @@
     var path = (state && state.path) || "/";
     var parts = MAP.split(path);
     var extra = (state && state.merged) || [];
-    var here = MAP.list(path, extra) || [];
-    var selected = here[Math.min(state.cursor || 0, Math.max(0, here.length - 1))];
+    var listing = navListing(state);
+    var here = listing.here;
+    var selected = listing.selected;
+    var listPath = listing.listPath;
     var postsHere = here.some(function (e) { return e.post; });
     var postsChild = false;
     if (selected && selected.kind === "dir") {
-      var child = MAP.list(MAP.resolve(path, selected.name), extra) || [];
+      var child = MAP.list(MAP.resolve(listPath, selected.name), extra) || [];
       postsChild = child.some(function (e) { return e.post; });
+    }
+    if (!postsHere && !postsChild &&
+        (parts[0] === "projects" || parts[0] === "spaces") &&
+        parts[2] === "channels" && parts[3]) {
+      postsHere = detailFeedEntries(path, extra).some(function (e) { return e.post; });
+    }
+    if (!postsHere && selected && selected.kind === "channel" && !selected.voice) {
+      postsChild = detailFeedEntries(MAP.resolve(listPath, selected.name), extra)
+        .some(function (e) { return e.post; });
     }
     var panes = (state && state.panes) || {};
     var sessions = (state && state.sessions) || [];
@@ -1273,7 +1437,8 @@
       dock: "page",
       session: ((state && state.activeSession) || 0) + 1,
       sessions: Math.max(1, sessions.length),
-      hasThread: postsHere || postsChild || !!(selected && selected.post),
+      hasThread: postsHere || postsChild || !!(selected && selected.post) ||
+        !!(state && (state.threadFocus || state.feedMark)),
       hasFilter: !!(state && state.filter),
       hasPending: pendingCount > 0,
       pendingCount: pendingCount,
@@ -1293,6 +1458,7 @@
       composeKind: compose && compose.kind ? compose.kind : null,
       dmPeer: parts[0] === "dms" ? parts[1] : null,
       surfaces: [context],
+      onboard: !!(state && state.keysOnboard),
     };
   }
 
@@ -1311,12 +1477,24 @@
       ],
     },
     {
+      id: "states",
+      title: "post states",
+      always: true,
+      rows: [
+        { keys: "open", desc: "Default — still cooking" },
+        { keys: "needs-review", desc: "Waiting on a maintainer (amber)" },
+        { keys: "promoted", desc: "Raised in the channel (magenta)" },
+        { keys: "signed", desc: "Cryptographic receipt (mint)" },
+      ],
+    },
+    {
       id: "verbs",
       title: "verbs (shared)",
       always: true,
       rows: [
         { keys: "d", desc: "Dismiss — clear the current item from attention (home · Activity · notifications · DM alerts)" },
         { keys: "m", desc: "Mark read — keep visible, clear unread (home)" },
+        { keys: "y", desc: "Yank / copy focused post, channel feed, or chat (optimized paste format)" },
         { keys: "esc", desc: "Leave / close the current surface (not dismiss)" },
         { keys: "Enter", desc: "Open / activate the current item" },
         { keys: "j k / ↑ ↓", desc: "Move within the focused list" },
@@ -1327,9 +1505,8 @@
       title: "Prompt",
       contexts: ["prompt"],
       rows: [
-        { keys: "esc", desc: "Hand steering to navigation / detail" },
+        { keys: "Tab", desc: "Swap to panels — or complete / cycle candidates while suggestions are open (Shift+Tab cycles back)" },
         { keys: "Enter", desc: "Submit / run (never steals autocomplete)" },
-        { keys: "Tab / Shift+Tab", desc: "Complete / cycle candidates" },
         { keys: "↑ ↓", desc: "Candidates (menu open) or history" },
         { keys: "→ / End", desc: "Accept ghost text at caret end" },
         { keys: "/", desc: "Slash commands (agent chat)",
@@ -1342,6 +1519,7 @@
         { keys: "Alt+Z", desc: function (ctx) {
           return ctx.zoomed ? "Expand navigation rail" : "Collapse navigation rail";
         } },
+        { keys: "esc", desc: "Hand steering to navigation / detail" },
         { keys: "compose", desc: function (ctx) {
           if (ctx.composeKind === "reply") return "Armed reply — Enter posts under the parent";
           if (ctx.composeKind === "post") return "Channel post — Enter publishes";
@@ -1390,6 +1568,7 @@
           when: function (ctx) { return ctx.hasFilter; } },
         { keys: "esc", desc: "Leave columns → prompt",
           when: function (ctx) { return !ctx.hasFilter; } },
+        { keys: "Tab", desc: "Swap to prompt" },
         { keys: "i or :", desc: "Focus the prompt" },
         { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
         { keys: "R", desc: "Load queued posts",
@@ -1537,16 +1716,32 @@
     return want.indexOf(ctx.context) >= 0;
   }
 
+  function helpRowsForGroup(g, ctx, onboardOnly) {
+    return (g.rows || []).filter(function (r) {
+      if (r.when && !r.when(ctx)) return false;
+      if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces || [])) return false;
+      // Onboard: keep the shared verbs that unlock the first channel read.
+      if (onboardOnly && g.id === "verbs") {
+        return /^(j k|Enter|esc)/i.test(String(r.keys || ""));
+      }
+      return true;
+    });
+  }
+
   function visibleHelpGroups(ctx) {
     ctx = ctx || {};
+    // First-visit sheet: four keys to a first win — not the full encyclopaedia.
+    // Drop Navigation + state colour table; the lead already teaches ↑↓ Enter R Tab Esc.
+    var onboardOnly = ctx.onboard
+      ? { sheet: true, verbs: true }
+      : null;
     return HELP_GROUPS.filter(function (g) {
+      if (onboardOnly && !onboardOnly[g.id]) return false;
       if (!helpGroupMatches(g, ctx)) return false;
-      var rows = (g.rows || []).filter(function (r) {
-        if (r.when && !r.when(ctx)) return false;
-        if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces || [])) return false;
-        return true;
-      });
-      return rows.length > 0;
+      return helpRowsForGroup(g, ctx, onboardOnly).length > 0;
+    }).map(function (g) {
+      // Return trimmed row sets so render cannot re-inflate the encyclopaedia.
+      return Object.assign({}, g, { rows: helpRowsForGroup(g, ctx, onboardOnly) });
     });
   }
 
@@ -1569,11 +1764,8 @@
 
     var matched = visibleHelpGroups(ctx);
     var groups = matched.map(function (g, gi) {
-      var rows = (g.rows || []).filter(function (r) {
-        if (r.when && !r.when(ctx)) return false;
-        if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces || [])) return false;
-        return true;
-      }).map(function (r, ri) {
+      // Rows already trimmed by visibleHelpGroups (including onboard predicates).
+      var rows = (g.rows || []).map(function (r, ri) {
         return '<div class="cn-help-row" data-key="hr-' + gi + "-" + ri + '">' +
           '<span class="cn-help-key"><kbd>' + esc(r.keys) + "</kbd></span>" +
           '<span class="cn-help-desc">' + esc(helpRowDesc(r, ctx)) + "</span></div>";
@@ -1584,20 +1776,26 @@
         "<h3>" + esc(g.title) + "</h3>" + rows + "</section>";
     }).filter(Boolean).join("");
 
-    var label = ctx.contextLabel || HELP_CONTEXT_LABELS[ctx.context] || ctx.context || "prompt";
+    var label = ctx.onboard
+      ? "first keys"
+      : (ctx.contextLabel || HELP_CONTEXT_LABELS[ctx.context] || ctx.context || "prompt");
     var chips = [];
     chips.push(label);
-    chips.push("ws " + (ctx.session || 1) + "/" + (ctx.sessions || 1));
-    chips.push(ctx.path || "/");
-    if (ctx.fileName) chips.push(ctx.fileName);
-    if (ctx.editorMode) chips.push(ctx.editorMode);
-    if (ctx.dmPeer) chips.push("@" + ctx.dmPeer);
-    if (ctx.composeKind) chips.push(ctx.composeKind);
-    if (ctx.hasFilter) chips.push("filter");
-    if (ctx.pendingCount) chips.push(ctx.pendingCount + " pending");
-    if (ctx.context === "prompt") chips.push(ctx.ai ? "ai" : "cli");
-    if (ctx.speech && ctx.context === "prompt") {
-      chips.push(ctx.speechListening ? "mic on" : "mic");
+    if (!ctx.onboard) {
+      chips.push("ws " + (ctx.session || 1) + "/" + (ctx.sessions || 1));
+      chips.push(ctx.path || "/");
+      if (ctx.fileName) chips.push(ctx.fileName);
+      if (ctx.editorMode) chips.push(ctx.editorMode);
+      if (ctx.dmPeer) chips.push("@" + ctx.dmPeer);
+      if (ctx.composeKind) chips.push(ctx.composeKind);
+      if (ctx.hasFilter) chips.push("filter");
+      if (ctx.pendingCount) chips.push(ctx.pendingCount + " pending");
+      if (ctx.context === "prompt") chips.push(ctx.ai ? "ai" : "cli");
+      if (ctx.speech && ctx.context === "prompt") {
+        chips.push(ctx.speechListening ? "mic on" : "mic");
+      }
+    } else {
+      chips.push("board");
     }
 
     var chipHtml = chips.map(function (c, i) {
@@ -1618,8 +1816,14 @@
       ' title="Esc — close this sheet" aria-label="Close shortcuts (Esc)">esc</button>' +
       "</div>" +
       '<div class="cn-help-chips" data-key="help-chips">' + chipHtml + "</div>" +
-      '<p class="cn-help-lead">Shortcuts for the focused component only. ' +
-      '<kbd class="cn-esc-inline">esc</kbd> closes this sheet, then whatever that component listens for.</p>' +
+      '<p class="cn-help-lead">' +
+      (ctx.onboard
+        ? "Keyboard is the default — <kbd>↑</kbd><kbd>↓</kbd> move, <kbd>Enter</kbd> open, " +
+          "<kbd>R</kbd> load new posts, <kbd>Tab</kbd> prompt. " +
+          '<kbd class="cn-esc-inline">esc</kbd> closes this sheet; Ctrl+Space opens full keys later.'
+        : "Shortcuts for the focused component only. " +
+          '<kbd class="cn-esc-inline">esc</kbd> closes this sheet, then whatever that component listens for.') +
+      "</p>" +
       '<div class="cn-help-grid">' + (groups || '<p class="cn-help-empty">No shortcuts for this context.</p>') +
       "</div></div></div>";
   }
@@ -1628,11 +1832,13 @@
 
   /** Activity per channel, bucketed, for the column sparkline. */
   function activityOf(entry, path) {
-    if (entry.kind !== "dir") return null;
+    if (entry.kind !== "dir" && entry.kind !== "channel") return null;
     var A = window.NB_ASCII;
     var full = MAP.resolve(path, entry.name);
     var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
-    var kids = MAP.list(full, live) || [];
+    var kids = entry.kind === "channel"
+      ? detailFeedEntries(full, live)
+      : (MAP.list(full, live) || []);
     var posts = kids.filter(function (k) { return k.post; }).map(function (k) { return k.post; });
     // Under four posts a resampled line is all one height — a solid bar that
     // reads as a badge and says nothing. A reading that cannot vary is noise.
@@ -1951,21 +2157,33 @@
     var extra = state.merged || [];
     var path = state.path || "/";
     var parts = MAP.split(path);
-    var here = MAP.list(path, extra) || [];
+    // Terminal channel leaves keep a deep address for compose/feed, but the
+    // navbar lists the parent branch so it is never an empty sibling pane.
+    var listPath = MAP.navParentPath ? MAP.navParentPath(path) : path;
+    var listParts = MAP.split(listPath);
+    var here = MAP.list(listPath, extra) || [];
     var cursor = Math.min(state.cursor || 0, Math.max(0, here.length - 1));
     var selected = here[cursor];
     var selectedName = selected ? selected.name : null;
-    var navTitle = path === "/" ? "board" : (parts[parts.length - 1] || "board");
-    var parentPath = parts.length ? MAP.join(parts.slice(0, -1)) || "/" : null;
+    if (MAP.isTerminalNavPath && MAP.isTerminalNavPath(path)) {
+      selectedName = parts[parts.length - 1] || selectedName;
+      var termIx = here.findIndex(function (e) { return e.name === selectedName; });
+      if (termIx >= 0) {
+        cursor = termIx;
+        selected = here[cursor];
+      }
+    }
+    var navTitle = listPath === "/" ? "board" : (listParts[listParts.length - 1] || "board");
+    var parentPath = listParts.length ? MAP.join(listParts.slice(0, -1)) || "/" : null;
 
     var blades = [
       {
         index: 0,
-        path: path,
+        path: listPath,
         title: navTitle,
         kind: "list",
         // Closable only when not at board root — close means go up (reload nav).
-        closable: path !== "/",
+        closable: listPath !== "/",
         parentPath: parentPath,
         entries: here,
         selected: selectedName,
@@ -1986,14 +2204,21 @@
           ? "thread"
           : (selected && selected.post
             ? selected.name
-            : (selected && selected.kind === "dir" ? selected.name : "detail"))),
+            : (selected && (selected.kind === "dir" || selected.kind === "channel")
+              ? selected.name
+              : (parts[0] === "projects" && parts[2] === "channels" && parts[3]
+                ? parts[3]
+                : "detail")))),
       kind: "detail",
       // [esc] leaves selection for the Following feed; the feed itself has no dismiss.
       closable: !showingFollow,
       parentPath: path,
       parentKey: selectedName,
       selected: showingFollow ? null : selected,
-      markId: !showingFollow && selected && selected.post ? selected.post.id : null,
+      markId: !showingFollow
+        ? (state.threadFocus || state.feedMark ||
+          (selected && selected.post ? selected.post.id : null))
+        : null,
       following: showingFollow,
       thread: !!(state.threadFocus),
       stable: "detail",
@@ -2050,7 +2275,8 @@
     function rowHtml(e, parentPath, depth, index) {
       var full = MAP.resolve(parentPath, e.name);
       var isDir = e.kind === "dir";
-      // Only first-level rows of this blade may expand (depth 0).
+      var isChannel = e.kind === "channel";
+      // Only first-level directory rows may expand (depth 0). Channels are leaves.
       var canExpand = isDir && depth === 0;
       var kids = isDir ? (MAP.list(full, extra) || []) : [];
       if (filter && kids.length) {
@@ -2063,10 +2289,13 @@
       // Grandchild count for depth-1 rows (count badge only).
       var subN = 0;
       if (isDir && depth >= 1) subN = kids.length;
+      if (isChannel) {
+        subN = detailFeedEntries(full, extra).length;
+      }
 
       var spark = activityOf(e, parentPath);
       var current = blade.selected != null && e.name === blade.selected && parentPath === blade.path;
-      if (!current && isDir) {
+      if (!current && (isDir || isChannel)) {
         current = live === full || live.indexOf(full + "/") === 0;
       }
       // Path-focus: the immediate next segment under this blade.
@@ -2116,10 +2345,12 @@
         (isDir && hasSub ? ' data-has-kids="true"' : "") +
         (e.meta ? ' data-meta="' + esc(e.meta) + '"' : "") +
         (current ? ' aria-current="true"' : "") + ">" +
-        '<span class="cn-name">' + esc(e.name) + "</span>" +
+        '<span class="cn-name">' + esc(e.label || e.name) + "</span>" +
         subMark +
-        (e.unread ? '<span class="cn-badge">' + e.unread + "</span>" :
-          '<span class="cn-hint">' + (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span> " : "") +
+        (e.unread
+          ? '<span class="cn-badge" title="Unread">' +
+            (typeof e.unread === "number" ? e.unread : "new") + "</span>"
+          : '<span class="cn-hint">' + (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span> " : "") +
           esc(e.hint || "") + "</span>") +
         "</button></div>";
 
@@ -2231,6 +2462,11 @@
             ' aria-pressed="' + !!navCollapsed + '">' +
             (navCollapsed ? "▣" : "▭") + "</button>"
           : "")) +
+      (isSession
+        ? '<button type="button" class="cn-pane-act" data-copy-chat' +
+          ' title="Copy session chat in an optimized paste format"' +
+          ' aria-label="Copy session chat">copy</button>'
+        : "") +
       // Detail/session dismiss is [esc] — same verb as the Escape key (no ×).
       ((!isList && blade.closable)
         ? '<button type="button" class="cn-esc cn-blade-close" data-blade-close="' + blade.index + '"' +
@@ -2281,6 +2517,13 @@
     [data-exp="console"] .cn-crumb:last-of-type{color:var(--nb-ink);font-weight:700}
     [data-exp="console"] .cn-sep{color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-views{margin-inline-start:auto;display:flex;gap:.15rem;align-items:center;flex-wrap:wrap}
+    [data-exp="console"] .cn-feed-notice{position:sticky;top:0;z-index:2;width:100%;
+      margin:0;border:0;border-block-end:1px solid var(--nb-rule);
+      background:color-mix(in srgb,var(--nb-accent) 88%,var(--nb-bg));
+      color:var(--nb-accent-ink);font:inherit;font-weight:700;text-align:start;
+      padding:.45rem .7rem;cursor:pointer;letter-spacing:.01em}
+    [data-exp="console"] .cn-feed-notice:hover{filter:brightness(1.08)}
+    [data-exp="console"] .cn-feed-notice [data-c="count"]{color:inherit;font-weight:800}
     [data-exp="console"] .cn-feed-bar{display:flex;flex-direction:column;gap:.3rem;width:100%;min-width:0;
       padding:.35rem .55rem .25rem;border-block-end:1px solid var(--nb-rule);background:var(--nb-bg)}
     [data-exp="console"] .cn-feed-views{display:flex;flex-wrap:wrap;gap:.1rem;align-items:center;position:relative}
@@ -2305,6 +2548,17 @@
       margin-block-start:.2rem;padding-block-start:.2rem;border-block-start:1px dotted var(--nb-rule)}
     [data-exp="console"] .cn-sort[data-pinned=true]{color:var(--nb-ink)}
     [data-exp="console"] .cn-feed-query-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;width:100%}
+    [data-exp="console"] .cn-feed-view-toggle{
+      font:inherit;font-size:.85em;font-weight:700;color:var(--nb-ink-dim);background:none;
+      border:0;border-radius:0;min-height:1.75rem;padding:0 .15rem;cursor:pointer}
+    [data-exp="console"] .cn-feed-view-toggle::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-view-toggle::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-feed-view-toggle:hover,
+    [data-exp="console"] .cn-feed-view-toggle[aria-expanded=true]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-feed-view-toggle:hover::before,
+    [data-exp="console"] .cn-feed-view-toggle:hover::after,
+    [data-exp="console"] .cn-feed-view-toggle[aria-expanded=true]::before,
+    [data-exp="console"] .cn-feed-view-toggle[aria-expanded=true]::after{color:var(--nb-accent)}
     [data-exp="console"] .cn-feed-q-label{font-size:.75em;color:var(--nb-ink-faint);text-transform:lowercase}
     [data-exp="console"] .cn-feed-query{
       flex:1 1 12rem;min-width:8rem;font:inherit;font-size:.85em;color:var(--nb-ink);
@@ -2459,10 +2713,30 @@
     @media (max-width: 64rem){
       [data-exp="console"] .cn-blade[data-blade-kind=list]{flex-basis:clamp(11rem,40vw,16rem)}
     }
+    [data-exp="console"] .cn-blade-pager{display:none;flex-wrap:wrap;gap:.25rem .4rem;
+      padding:.2rem .55rem;border-block-end:1px solid var(--nb-rule);align-items:center}
+    [data-exp="console"] .cn-blade-dot{
+      font:inherit;font-size:.78em;font-weight:700;color:var(--nb-ink-faint);background:none;
+      border:0;border-radius:0;min-height:1.75rem;padding:0 .2rem;cursor:pointer}
+    [data-exp="console"] .cn-blade-dot::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-blade-dot::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-blade-dot[aria-selected=true]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-blade-dot[aria-selected=true]::before,
+    [data-exp="console"] .cn-blade-dot[aria-selected=true]::after{color:var(--nb-accent)}
+    [data-exp="console"] .cn-state-legend{display:inline-flex;flex-wrap:wrap;gap:.2rem .45rem;
+      width:100%;margin-block-start:.2rem;font-size:max(.85em,11px);color:var(--nb-ink-faint);
+      line-height:1.35}
+    [data-exp="console"] .cn-state-legend i{font-style:normal;font-weight:700}
+    [data-exp="console"] .cn-state-legend i[data-state=open]{color:var(--nb-ink-dim)}
+    [data-exp="console"] .cn-state-legend i[data-state=needs-review]{color:var(--nb-warn)}
+    [data-exp="console"] .cn-state-legend i[data-state=promoted]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-state-legend i[data-state=signed]{color:var(--nb-signed)}
     @media (max-width: 40rem){
       /* Single-blade ranger mode: list/detail each claim nearly full width.
          More-specific list max-width rules above must be overridden here or
          both blades shrink to ~half a phone screen (Impeccable P1). */
+      [data-exp="console"] .cn-path{display:none}
+      [data-exp="console"] .cn-blade-pager{display:flex}
       [data-exp="console"] .cn-blades{scroll-snap-type:x mandatory}
       [data-exp="console"] .cn-blade,
       [data-exp="console"] .cn-blade[data-blade-kind=list],
@@ -2477,6 +2751,14 @@
       [data-exp="console"] .cn-blade-rail{
         flex:0 0 2.15rem;max-width:2.15rem;min-width:2.15rem}
       [data-exp="console"] .cn-pane-act{min-width:2rem;min-height:2rem}
+      [data-exp="console"] .cn-blades::after{content:none}
+      [data-exp="console"] .cn-sort,[data-exp="console"] .cn-feed-q-btn,
+      [data-exp="console"] .cn-feed-view-toggle,[data-exp="console"] .cn-share,
+      [data-exp="console"] .cn-activity-open,[data-exp="console"] .cn-activity-read,
+      [data-exp="console"] .cn-blade-dot{
+        min-height:2.25rem;min-width:2.25rem;padding:0 .35rem}
+      [data-exp="console"] .cn-react-pill,[data-exp="console"] .cn-react-add{
+        min-height:2.25rem;min-width:2.25rem}
     }
     [data-exp="console"] .cn-blade-head,[data-exp="console"] .cn-col-head{
       display:flex;align-items:center;gap:.35rem;min-width:0;overflow:hidden;
@@ -2584,7 +2866,8 @@
 
     /* Detail blade: terminal message log (Discord-rich body, ASCII chrome). */
     [data-exp="console"] .cn-blade[data-blade-kind=detail] .cn-blade-body,
-    [data-exp="console"] .cn-pane > .cn-col-body{overflow:auto;padding:.2rem 0 .5rem}
+    [data-exp="console"] .cn-pane > .cn-col-body{
+      overflow:auto;padding:.2rem 0 3.25rem;scroll-padding-block-end:3.25rem}
     [data-exp="console"] .cn-empty{color:var(--nb-ink-faint);padding:.6rem .8rem}
 
     [data-exp="console"] .cn-comment{display:grid;grid-template-columns:auto auto minmax(0,1fr);
@@ -2595,7 +2878,10 @@
       box-shadow:inset 2px 0 0 var(--nb-accent)}
     [data-exp="console"] .cn-comment button,
     [data-exp="console"] .cn-comment a{cursor:pointer}
+    [data-exp="console"] .cn-comment[data-state-of=open] .cn-comment-head [data-c=state]{color:var(--nb-ink-dim)}
+    [data-exp="console"] .cn-comment[data-state-of=needs-review] .cn-comment-head [data-c=state]{color:var(--nb-warn)}
     [data-exp="console"] .cn-comment[data-state-of=promoted] .cn-comment-head [data-c=state]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-comment[data-state-of=signed] .cn-comment-head [data-c=state]{color:var(--nb-signed)}
     [data-exp="console"] .cn-comment[data-kind=agent] [data-c=handle]{color:var(--nb-agent)}
 
     /* Nest rails: literal | columns — no rounded bars. */
@@ -2833,9 +3119,23 @@
     [data-exp="console"] .cn-activity-where{color:var(--nb-ink-faint);font-size:.85em}
     [data-exp="console"] .cn-activity-hint{color:var(--nb-ink-faint);font-size:.85em;padding:.4rem .2rem 0}
     [data-exp="console"] .cn-activity-ctx{flex-wrap:wrap}
+    [data-exp="console"] .cn-activity-alerts,
+    [data-exp="console"] .cn-activity-more{
+      display:inline-block;font-size:.85em;color:var(--nb-ink-dim);max-width:100%}
+    [data-exp="console"] .cn-activity-alerts > summary,
+    [data-exp="console"] .cn-activity-more > summary{
+      cursor:pointer;list-style:none;color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-activity-alerts > summary::before,
+    [data-exp="console"] .cn-activity-more > summary::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-activity-alerts > summary::after,
+    [data-exp="console"] .cn-activity-more > summary::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-activity-alerts[data-browser-perm=denied] > summary{color:var(--nb-warn)}
+    [data-exp="console"] .cn-activity-alerts-how{margin:.35rem 0 0;max-width:42ch;color:var(--nb-ink-dim);
+      font-size:.92em;line-height:1.35}
     [data-exp="console"] .cn-activity-filters{display:flex;flex-wrap:wrap;gap:.15rem .35rem;width:100%;margin-block-start:.25rem}
     [data-exp="console"] .cn-activity-count{font-size:.85em;opacity:.85;margin-inline-start:.15rem}
-    [data-exp="console"] .cn-activity-watching{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .45rem;
+    [data-exp="console"] .cn-activity-watching,
+    [data-exp="console"] .cn-activity-hooks{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .45rem;
       width:100%;margin-block-start:.2rem}
     [data-exp="console"] .cn-activity-sub{font-size:.8em;color:var(--nb-ink-faint);border:0;padding:0;
       min-height:0;display:inline-flex;align-items:center}
@@ -3076,7 +3376,7 @@
     [data-exp="console"] .cn-react-count{font-weight:700;font-variant-numeric:tabular-nums}
     [data-exp="console"] .cn-react-add{
       font:inherit;font-size:.85em;font-weight:700;color:var(--nb-ink-faint);background:none;
-      border:0;border-radius:0;min-width:0;min-height:0;padding:0;cursor:pointer}
+      border:0;border-radius:0;min-width:2rem;min-height:2rem;padding:0 .25rem;cursor:pointer}
     [data-exp="console"] .cn-react-add::before{content:"[";color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-react-add::after{content:"]";color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-react-add:hover,[data-exp="console"] .cn-react-add[aria-expanded=true]{
@@ -3162,10 +3462,54 @@
     [data-exp="console"] .cn-blade[data-blade-kind=session] .cn-blade-body{
       display:flex;flex-direction:column;min-height:0}
     [data-exp="console"] .cn-blade-out{flex:1 1 auto;min-height:0;overflow:auto;margin:0;
-      padding:.45rem .65rem .6rem;border:0;
-      font-size:.9em;background:transparent}
+      padding:.55rem .7rem .75rem;border:0;
+      font-size:.9em;background:transparent;line-height:1.5}
     [data-exp="console"] .cn-blade-out:empty{display:none}
-    [data-exp="console"] .cn-blade-out .cn-log{display:grid;gap:.2rem}
+    /* Session chat rhythm — turns breathe; tools nest under agent. */
+    [data-exp="console"] .cn-blade-out .cn-log{display:flex;flex-direction:column;gap:.4rem}
+    [data-exp="console"] .cn-blade-out .cn-line{
+      display:grid;grid-template-columns:4.2rem minmax(0,1fr);gap:.65rem;
+      align-items:start;padding:.1rem 0}
+    [data-exp="console"] .cn-blade-out .cn-line[data-turn=start]{
+      margin-block-start:.65rem;padding-block-start:.55rem;
+      border-block-start:1px solid color-mix(in srgb,var(--nb-rule) 85%,transparent)}
+    [data-exp="console"] .cn-blade-out .cn-line[data-turn=start]:first-child{
+      margin-block-start:0;padding-block-start:0;border-block-start:0}
+    [data-exp="console"] .cn-blade-out .cn-who{
+      text-align:end;font-size:.72em;font-weight:700;letter-spacing:.04em;
+      text-transform:lowercase;line-height:1.5;padding-block-start:.2rem;
+      color:var(--nb-ink-faint);user-select:none;min-height:1.2rem}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=user] .cn-who{color:var(--nb-accent)}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=agent] .cn-who,
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=tool] .cn-who,
+    [data-exp="console"] .cn-blade-out .cn-who[data-kind=agent]{color:var(--nb-agent)}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=error] .cn-who{color:var(--nb-danger)}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=out] .cn-who{color:var(--nb-ink-faint);font-weight:600}
+    [data-exp="console"] .cn-blade-out .cn-body{
+      min-width:0;display:flex;flex-direction:column;gap:.3rem;
+      color:var(--nb-ink);line-height:1.5}
+    [data-exp="console"] .cn-blade-out .cn-msg{
+      min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;max-width:72ch}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=user] .cn-body{
+      background:color-mix(in srgb,var(--nb-accent) 10%,var(--nb-surface));
+      padding:.4rem .55rem .45rem;border:1px solid color-mix(in srgb,var(--nb-accent) 22%,var(--nb-rule))}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=agent] .cn-body{
+      padding:.15rem .1rem .25rem}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=out] .cn-msg,
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=progress] .cn-msg{
+      color:var(--nb-ink-dim);font-size:.92em}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=error] .cn-msg{color:var(--nb-danger)}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=tool]{
+      font-size:.88em;opacity:.95}
+    [data-exp="console"] .cn-blade-out .cn-line[data-kind=tool] .cn-body{gap:.2rem}
+    [data-exp="console"] .cn-blade-out .cn-mode-tag{
+      display:inline-block;align-self:flex-start;font-size:.7em;font-weight:700;
+      letter-spacing:.06em;text-transform:uppercase;color:var(--nb-ink-faint);
+      border:0;padding:0;margin:0;border-radius:0;line-height:1.2}
+    [data-exp="console"] .cn-blade-out .cn-mode-tag::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-blade-out .cn-mode-tag::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-blade-out .cn-mode-tag[data-mode=ai]{color:var(--nb-agent)}
+    [data-exp="console"] .cn-blade-out .cn-mode-tag[data-mode=cli]{color:var(--nb-signed)}
     /* Active session chat — accent rail, fill the blade. */
     [data-exp="console"] .cn-blade-out[data-active=true]{
       border-inline-start:2px solid var(--nb-accent);
@@ -3200,6 +3544,37 @@
     [data-exp="console"] .cn-menu-head{padding:.3rem .8rem;font-size:.78em;color:var(--nb-ink-faint);
       border-block-end:1px solid var(--nb-rule);letter-spacing:.06em;text-transform:uppercase}
 
+    /* Right-click popup menu — TTY chrome (do not reuse .cn-ctx detail headers). */
+    [data-exp="console"] .cn-ctxmenu{position:fixed;z-index:60;min-width:14rem;max-width:min(22rem,92vw);
+      background:var(--nb-bg);border:1px solid var(--nb-rule);border-radius:0;padding:.2rem 0;
+      box-shadow:none;color:var(--nb-ink);display:block}
+    [data-exp="console"] .cn-ctxmenu-head{display:flex;gap:.45rem;align-items:baseline;flex-wrap:wrap;
+      padding:.25rem .7rem .35rem;font-size:.72em;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--nb-ink-faint);border-block-end:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-ctxmenu-kind{color:var(--nb-accent)}
+    [data-exp="console"] .cn-ctxmenu-name{color:var(--nb-ink-dim);text-transform:none;letter-spacing:0;
+      font-size:1.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:16rem}
+    [data-exp="console"] .cn-ctxmenu-item{display:block;width:100%;text-align:start;font:inherit;
+      background:none;border:0;border-radius:0;color:var(--nb-ink);cursor:pointer;
+      padding:.28rem .7rem;line-height:1.35}
+    [data-exp="console"] .cn-ctxmenu-item::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-ctxmenu-item::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-ctxmenu-item:hover,[data-exp="console"] .cn-ctxmenu-item:focus-visible{
+      background:var(--nb-accent);color:var(--nb-accent-ink);outline:none}
+    [data-exp="console"] .cn-ctxmenu-item:hover::before,[data-exp="console"] .cn-ctxmenu-item:hover::after,
+    [data-exp="console"] .cn-ctxmenu-item:focus-visible::before,
+    [data-exp="console"] .cn-ctxmenu-item:focus-visible::after{color:inherit;opacity:.8}
+    [data-exp="console"] .cn-ctxmenu-prompt{color:var(--nb-accent);font-weight:700}
+    [data-exp="console"] .cn-ctxmenu-sep{height:0;border:0;border-block-start:1px solid var(--nb-rule);
+      margin:.2rem 0}
+    [data-exp="console"] .cn-ctx-bound-tray{border-block-start:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-ctx-bound-chip{
+      display:inline-flex;align-items:center;gap:.25rem;font:inherit;font-size:.78em;
+      color:var(--nb-accent);background:none;border:0;border-radius:0;padding:0;max-width:100%;
+      min-height:1.4rem}
+    [data-exp="console"] .cn-ctx-bound-chip::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-ctx-bound-chip::after{content:"]";color:var(--nb-ink-faint)}
+
     /* Hotkey cheatsheet — Ctrl+Space overlay. */
     [data-exp="console"] .cn-help{position:absolute;inset:0;z-index:30;display:none;
       align-items:center;justify-content:center;padding:1rem;
@@ -3207,7 +3582,12 @@
     [data-exp="console"] .cn-help[data-open=true]{display:flex}
     [data-exp="console"] .cn-help-card{width:min(36rem,100%);max-height:min(84vh,42rem);overflow:auto;
       background:var(--nb-bg);border:1px solid var(--nb-rule);padding:.7rem .9rem 1rem;
-      box-shadow:none;border-radius:0}
+      box-shadow:none;border-radius:0;max-width:100%;box-sizing:border-box}
+    @media (max-width:40rem){
+      [data-exp="console"] .cn-help{padding:.45rem;align-items:stretch}
+      [data-exp="console"] .cn-help-card{width:100%;max-height:min(88vh,100%);padding:.55rem .6rem .8rem}
+      [data-exp="console"] .cn-help-row{grid-template-columns:minmax(5.5rem,8rem) minmax(0,1fr);gap:.4rem .55rem;font-size:.84em}
+    }
     [data-exp="console"] .cn-help-head{display:flex;align-items:baseline;gap:.7rem;flex-wrap:wrap;
       margin-block-end:.4rem}
     [data-exp="console"] .cn-help-head b{color:var(--nb-ink);letter-spacing:.08em;font-size:.9em}
@@ -3333,23 +3713,27 @@
     [data-exp="console"] .cn-voice-intent:hover{color:var(--nb-ink)}
     /* Listening state is a solid live mark — no infinite pulse (contract forbids forever animations). */
     [data-exp="console"] .cn-mic[data-listening=true]{box-shadow:none}
-    /* Session output (inside detail blade): one who-rail, one body column. */
-    [data-exp="console"] .cn-blade-out .cn-log,
-    [data-exp="console"] .cn-out .cn-log{display:flex;flex-direction:column;gap:.15rem}
-    [data-exp="console"] .cn-line{display:grid;grid-template-columns:3.6rem minmax(0,1fr);gap:.55rem;
+    /* Session output (fallback if used outside the session blade). */
+    [data-exp="console"] .cn-out .cn-log{display:flex;flex-direction:column;gap:.4rem}
+    [data-exp="console"] .cn-line{display:grid;grid-template-columns:4.2rem minmax(0,1fr);gap:.65rem;
       align-items:start;padding:.12rem 0}
     [data-exp="console"] .cn-line[data-kind=banner]{display:block;padding:.15rem 0 .35rem}
     [data-exp="console"] .cn-banner{margin:0;font:inherit;font-size:.85em;color:var(--nb-ink-faint);
       white-space:pre;overflow-x:auto;line-height:1.35}
-    [data-exp="console"] .cn-who{text-align:end;font-size:.78em;font-weight:700;color:var(--nb-ink-faint);
-      line-height:1.45;padding-block-start:.05rem;user-select:none;letter-spacing:.02em}
+    [data-exp="console"] .cn-who{text-align:end;font-size:.72em;font-weight:700;color:var(--nb-ink-faint);
+      line-height:1.5;padding-block-start:.05rem;user-select:none;letter-spacing:.04em;
+      text-transform:lowercase}
     [data-exp="console"] .cn-line[data-kind=user] .cn-who{color:var(--nb-accent)}
     [data-exp="console"] .cn-who[data-kind=agent],
     [data-exp="console"] .cn-line[data-kind=agent] .cn-who,
     [data-exp="console"] .cn-line[data-kind=tool] .cn-who{color:var(--nb-agent)}
     [data-exp="console"] .cn-line[data-kind=error] .cn-who{color:var(--nb-danger)}
-    [data-exp="console"] .cn-body{min-width:0;color:var(--nb-ink);white-space:pre-wrap;overflow-wrap:anywhere;
-      line-height:1.45}
+    [data-exp="console"] .cn-body{min-width:0;color:var(--nb-ink);line-height:1.5}
+    [data-exp="console"] .cn-msg{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+    [data-exp="console"] .cn-line[data-kind=out] .cn-msg,
+    [data-exp="console"] .cn-line[data-kind=progress] .cn-msg{color:var(--nb-ink-dim)}
+    [data-exp="console"] .cn-line[data-kind=error] .cn-msg{color:var(--nb-danger)}
+    /* legacy body text nodes (pre-msg wrap) */
     [data-exp="console"] .cn-line[data-kind=out] .cn-body,
     [data-exp="console"] .cn-line[data-kind=progress] .cn-body{color:var(--nb-ink-dim)}
     [data-exp="console"] .cn-line[data-kind=error] .cn-body{color:var(--nb-danger)}
@@ -3375,8 +3759,8 @@
     [data-exp="console"] .cn-search-who{color:var(--nb-signed);font-weight:700}
     [data-exp="console"] .cn-search-state{font-size:.78em;color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-search-state[data-state=needs-review]{color:var(--nb-warn)}
-    [data-exp="console"] .cn-search-state[data-state=promoted],
-    [data-exp="console"] .cn-search-state[data-state=signed]{color:var(--nb-live)}
+    [data-exp="console"] .cn-search-state[data-state=promoted]{color:var(--nb-accent)}
+    [data-exp="console"] .cn-search-state[data-state=signed]{color:var(--nb-signed)}
     [data-exp="console"] .cn-search-snip{grid-column:2;color:var(--nb-ink-dim);
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     [data-exp="console"] .cn-search-hint{color:var(--nb-ink-faint);font-size:.85em}
@@ -3386,8 +3770,9 @@
     [data-exp="console"] .cn-mode-tag{display:inline-block;font-size:.75em;color:var(--nb-ink-faint);
       border:1px solid var(--nb-rule);padding:0 .3rem;margin-inline-end:.25rem;border-radius:var(--nb-radius);
       vertical-align:baseline;text-transform:lowercase}
-    [data-exp="console"] .cn-line[data-kind=user] .cn-mode-tag[data-mode=ai],
-    [data-exp="console"] .cn-mode-tag{/* mode chip is neutral; who-rail carries identity */}
+    /* Session blade overrides the generic bordered mode chip. */
+    [data-exp="console"] .cn-blade-out .cn-mode-tag{border:0;padding:0;margin:0;border-radius:0;
+      font-size:.7em;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
     [data-exp="console"] .cn-tool-sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .55rem;
       width:100%;background:none;border:0;border-block-end:1px dotted var(--nb-rule);font:inherit;font-size:.9em;
       color:var(--nb-ink);cursor:pointer;text-align:start;padding:.2rem .2rem;border-radius:0;
@@ -3439,9 +3824,10 @@
       var extra = state.merged;
       var path = state.path || "/";
       var parts = MAP.split(path);
-      var here = MAP.list(path, extra) || [];
-      var cursor = Math.min(state.cursor || 0, Math.max(0, here.length - 1));
-      var selected = here[cursor];
+      var listing = navListing(state);
+      var here = listing.here;
+      var selected = listing.selected;
+      var listPath = listing.listPath;
       var blades = buildBladeStack(state);
       // Focus maps onto a blade index; clamp if the stack shrank after a close.
       var focusBlade = Math.min(state.focus != null ? state.focus : blades.length - 2,
@@ -3472,8 +3858,32 @@
           ? selected.name
           : (selected && selected.name) || null;
         preview = viewNotifications(here, markNotif);
+      } else if (selected && selected.kind === "channel") {
+        // Channel selected from …/channels — preview its feed (nav stays put).
+        var chPreviewPath = MAP.resolve(listPath, selected.name);
+        ctxLabel = selected.name;
+        if (selected.voice && selected.channel) {
+          preview = renderVoiceRoom(selected.channel, state);
+        } else {
+          var chFeed = detailFeedEntries(chPreviewPath, extra);
+          var chMark = state.threadFocus || state.feedMark || null;
+          var chEdPost = state.editor && state.editor.focused && state.editor.active
+            ? chFeed.find(function (e) {
+              return e.post && state.editor.active.path === MAP.resolve(chPreviewPath, e.name);
+            })
+            : null;
+          if (chEdPost) {
+            preview = viewFileEditor(chEdPost, state.editor.active.path, state);
+          } else if (state.threadFocus) {
+            preview = viewTree(chFeed, state.threadFocus, state.folded, sort, votes,
+              state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
+          } else {
+            preview = viewTree(chFeed, chMark, state.folded, sort, votes,
+              state.reactions, state.reactPick, state.feedQuery);
+          }
+        }
       } else if (selected && selected.kind === "dir") {
-        var childPath = MAP.resolve(path, selected.name);
+        var childPath = MAP.resolve(listPath, selected.name);
         var child = MAP.list(childPath, extra) || [];
         // Notifications filter dir selected from /notifications → show that feed.
         if (parts[0] === "notifications" && !parts[1] && selected &&
@@ -3496,29 +3906,49 @@
             preview = viewNotifications(child, null);
           }
         }
-        // Selecting a channel under …/channels shows what it is before posts.
-        if (parts[0] === "projects" && parts[2] === "channels" && !parts[3] && selected) {
-          ctxLabel = selected.name;
-        }
         // Selecting a DM under /dms shows who you are talking to before messages.
         if (parts[0] === "dms" && !parts[1] && selected) {
           ctxLabel = { dm: selected.name };
           preview = viewPersonPane(selected.name, extra, state, sort, votes);
         }
       } else if (selected && selected.post) {
-        // Posts open as threads (→ / Enter). `e` puts the body in the terminal
-        // editor; when the editor is focused, show that instead of the tree.
-        var postPath = MAP.resolve(path, selected.name);
+        // Posts still listed in nav (e.g. space feed) — detail shows the feed/thread.
+        var postPath = MAP.resolve(listPath, selected.name);
         var ed = state.editor;
+        var feedPath = MAP.channelFeedPath ? MAP.channelFeedPath(path) : path;
+        var feedEntries = detailFeedEntries(feedPath, extra);
+        if (!feedEntries.length) feedEntries = here;
         if (ed && ed.focused && ed.active && ed.active.path === postPath) {
           preview = viewFileEditor(selected, postPath, state);
         } else if (state.threadFocus) {
-          // Click / Enter opened this message as a thread — not the channel feed.
-          preview = viewTree(here, state.threadFocus, state.folded, sort, votes,
+          preview = viewTree(feedEntries, state.threadFocus, state.folded, sort, votes,
             state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
         } else {
-          // Channel browse: full top-level feed with the cursor row marked.
-          preview = viewTree(here, selected.post.id, state.folded, sort, votes,
+          preview = viewTree(feedEntries, selected.post.id, state.folded, sort, votes,
+            state.reactions, state.reactPick, state.feedQuery);
+        }
+      } else if (
+        (parts[0] === "projects" && parts[2] === "channels" && parts[3]) ||
+        (parts[0] === "spaces" && parts[2] === "channels" && parts[3])
+      ) {
+        // Channel address with no channel row selected — feed lives in detail.
+        var insideFeed = detailFeedEntries(
+          MAP.channelFeedPath ? MAP.channelFeedPath(path) : path,
+          extra,
+        );
+        var insideMark = state.threadFocus || state.feedMark || null;
+        var edPost = state.editor && state.editor.focused && state.editor.active
+          ? insideFeed.find(function (e) {
+            return e.post && state.editor.active.path === MAP.resolve(path, e.name);
+          })
+          : null;
+        if (edPost) {
+          preview = viewFileEditor(edPost, state.editor.active.path, state);
+        } else if (state.threadFocus) {
+          preview = viewTree(insideFeed, state.threadFocus, state.folded, sort, votes,
+            state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
+        } else {
+          preview = viewTree(insideFeed, insideMark, state.folded, sort, votes,
             state.reactions, state.reactPick, state.feedQuery);
         }
       } else if (selected && selected.notification) {
@@ -3537,12 +3967,12 @@
       } else if (selected && selected.voice && selected.channel) {
         preview = renderVoiceRoom(selected.channel, state);
       } else if (selected && isEditableFile(selected)) {
-        preview = viewFileEditor(selected, MAP.resolve(path, selected.name), state);
+        preview = viewFileEditor(selected, MAP.resolve(listPath, selected.name), state);
       } else if (selected && (selected.agent || selected.agentFile ||
           selected.agentSkill || selected.agentTool)) {
-        preview = viewAgent(selected, MAP.resolve(path, selected.name));
+        preview = viewAgent(selected, MAP.resolve(listPath, selected.name));
       } else {
-        preview = viewEntry(selected, MAP.resolve(path, selected ? selected.name : ""), state);
+        preview = viewEntry(selected, MAP.resolve(listPath, selected ? selected.name : ""), state);
       }
       // Standing inside a channel keeps its context above the conversation.
       if (!showingFollow && !ctxLabel && parts[0] === "projects" && parts[2] === "channels" && parts[3]) {
@@ -3564,13 +3994,18 @@
         var threadChan = (parts[0] === "projects" && parts[2] === "channels" && parts[3])
           ? parts[3] : null;
         var focusPost = null;
-        (here || []).some(function (e) {
+        var threadPool = detailFeedEntries(
+          MAP.channelFeedPath ? MAP.channelFeedPath(path) : path,
+          extra,
+        );
+        if (!threadPool.length) threadPool = here || [];
+        threadPool.some(function (e) {
           if (e.post && e.post.id === state.threadFocus) { focusPost = e.post; return true; }
           return false;
         });
         var rootWho = focusPost ? focusPost.who : null;
         if (focusPost && focusPost.re) {
-          (here || []).some(function (e) {
+          threadPool.some(function (e) {
             if (e.post && e.post.id === focusPost.re) { rootWho = e.post.who; return true; }
             return false;
           });
@@ -3600,9 +4035,9 @@
           esc(MAP.join(parts.slice(0, i + 1))) + '">' + esc(seg) + "</button>");
       });
 
-      // Sort / Lucene bar lives on the channel feed only — not inside a thread.
+      // Sort / Lucene bar + feed-scoped new-posts notice — not inside a thread.
       if (!showingFollow && !state.threadFocus && isFeedSortContext(parts, selected, extra)) {
-        preview = feedBarHtml(state, sort) + (preview || "");
+        preview = feedBarHtml(state, sort) + feedNoticeHtml(state) + (preview || "");
       }
 
       // Session CLI/AI output — dedicated session blade only (never under home/detail).
@@ -3621,29 +4056,12 @@
 
       var cand = state.completion || { candidates: [], ghost: "" };
       var intel = !!state.intelOpen;
-      // Mirror app.menuShouldOpen: intel forces open; typing needs text + choice.
-      // Esc can dismiss the combobox without clearing the draft (menuDismissed).
-      var hasTyped = !!(cand.query || (cand.kind && cand.kind !== "command") || intel);
-      var menuOpen = !!(cand.candidates.length && (intel || (cand.candidates.length > 1 && hasTyped)));
-      // Empty command catalogue after Enter must not hang open without intel.
-      if (!intel && cand.kind === "command" && !cand.query) menuOpen = false;
-      // Slash catalogue: open while typing `/…` (agent chat intellisense).
-      if (!intel && (cand.kind === "slash" || cand.kind === "slash-arg") && cand.candidates.length) {
-        menuOpen = true;
-      }
-      // CLI verbs/paths/sorts/queries: open on first match so ghost + menu agree.
-      if (!intel && cand.candidates.length &&
-          (cand.kind === "command" || cand.kind === "path" || cand.kind === "sort" ||
-           cand.kind === "query") &&
-          (cand.query || (cand.kind && cand.kind !== "command"))) {
-        menuOpen = true;
-      }
-      // Smart markers: `@` mentions and `#` topics/channels open on first match.
-      if (!intel && window.NB_COMPLETE && window.NB_COMPLETE.isMarkerKind &&
-          window.NB_COMPLETE.isMarkerKind(cand.kind) && cand.candidates.length) {
-        menuOpen = true;
-      }
-      if (state.menuDismissed && !intel) menuOpen = false;
+      // Single source of truth: app.menuShouldOpen (requires typed `/` for slash,
+      // markers/CLI tokens for other kinds, intelOpen for Ctrl+Space). Never open
+      // the AI slash catalogue from an empty prompt after mouse nav / reload.
+      var menuOpen = !!(window.NB_APP && typeof window.NB_APP.menuShouldOpen === "function"
+        ? window.NB_APP.menuShouldOpen()
+        : (intel && cand.candidates && cand.candidates.length));
       var menuLabel = cand.kind === "mention" ? "Mentions"
         : cand.kind === "topic" || cand.kind === "channel" ? "Topics"
         : cand.kind || "";
@@ -3714,6 +4132,19 @@
         '<div class="cn-workspace-tabs" data-key="workspace-tabs">' +
         tabStrip + "</div>" +
         '<div class="cn-path" data-key="path">' + crumbs.join("") + "</div>" +
+        (blades.length > 1
+          ? '<div class="cn-blade-pager" role="tablist" aria-label="Board panes" data-key="blade-pager">' +
+            blades.map(function (b, i) {
+              var sel = focusBlade === b.index;
+              return '<button type="button" role="tab" class="cn-blade-dot" data-blade-goto="' +
+                b.index + '"' +
+                ' aria-selected="' + (sel ? "true" : "false") + '"' +
+                ' title="' + esc(b.title || b.kind) + ' · pane ' + (i + 1) + '">' +
+                esc(b.kind === "list" ? "nav" : (b.kind === "detail" ? "feed" : b.kind)) +
+                "</button>";
+            }).join("") +
+            "</div>"
+          : "") +
         '<div class="cn-blades cn-cols" data-key="blades" data-zoom="' + !!navCollapsed +
         '" data-nav-collapsed="' + (navCollapsed ? "true" : "false") +
         '" role="group" aria-label="Navigation blades">' +
@@ -3725,6 +4156,7 @@
         (state.attachDrop ? "true" : "false") + '">' +
         '<div class="cn-menu" data-key="menu" id="cn-cli-listbox" role="listbox"' +
         ' aria-label="Suggestions"' + (menuOpen ? "" : " hidden") + ">" + menu + "</div>" +
+        renderBoundContextTray(state.boundContext || []) +
         renderAttachTray(state.attachments || []) +
         '<div class="cn-compose-label" data-compose-label data-compose-kind="' +
         esc(compose.kind || "nav") + '">' + esc(composeLbl) + composeClear + "</div>" +
@@ -3806,7 +4238,8 @@
               : "");
         })() +
         "</div></div></div>" +
-        renderHelpOverlay(!!state.helpOpen, state.helpCtx || buildHelpContext(state))
+        renderHelpOverlay(!!state.helpOpen, state.helpCtx || buildHelpContext(state)) +
+        renderContextMenu(state.ctxMenu)
       );
     },
   };

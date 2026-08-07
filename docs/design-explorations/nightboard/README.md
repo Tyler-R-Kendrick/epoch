@@ -3,7 +3,9 @@
 **Committed Community visual world** ([ADR-0027](../../design-decisions/0027-community-visual-world-nightboard.md)).
 Root [`DESIGN.md`](../../../DESIGN.md) is derived from this exploration. Impeccable
 iterates here until `Epoch.Community.Web` reaches parity.
-Surface brief: [`.impeccable-surface.md`](.impeccable-surface.md).
+Surface brief: [`.impeccable-surface.md`](.impeccable-surface.md) (Operate board).
+Marketing landing brief: [`.impeccable-surface-landing.md`](.impeccable-surface-landing.md).
+Persuade craft runbook: [`ORCHESTRATION.md`](ORCHESTRATION.md) · live scoreboard [`progress.html`](progress.html).
 
 A live board for a signed community — terminal chrome with **Epoch** branding:
 a FIGlet ANSI Shadow wordmark (no border plaque, no secondary tag) that
@@ -17,12 +19,29 @@ masthead actions. The top bar is brand + Activity + identity — Grid is the
 fixed look (no theme dropdown); no product-name billboard, experience select,
 pause button, or thesis prose.
 
-Open `index.html` from any static server. Nothing here needs a build step or a
-network connection.
+**Default entry is the marketing landing** (`index.html`): Persuade copy that
+explains Epoch Community as the place developers collaborate, promote their
+work, and get paid as creators — then a CTA into the Operate TUI at
+`board.html`. Clicking the Epoch brand on the board returns to the landing;
+`[Enter the board]` enters the TUI. In-board Following home is still Esc /
+`goHome`, not the logo.
+
+Open `/` from any static server. The landing ships prebuilt Canvas UI bundles
+(`canvasui-fx.js`); rebuild after upgrading components:
 
 ```
+node docs/design-explorations/nightboard/build-canvasui-landing.mjs
 python3 -m http.server 8902 --directory docs/design-explorations/nightboard
+# Landing:  http://127.0.0.1:8902/
+# Board:    http://127.0.0.1:8902/board.html
 ```
+
+Persuade landing wires Canvas UI decrypt (hero brand + E01 What body) /
+hero+theater glitch / VHS
+([decrypt/reveal](https://canvasui.dev/docs/components/decrypt-reveal) on E01
+decodes the product thesis when that chapter enters).
+(`landing-fx.js`). Html-in-canvas effects need Chrome’s flag or origin trial and
+fail soft; terminal chapter flashes work without it.
 
 ## What it is
 
@@ -37,12 +56,17 @@ the one that community already reads fluently.
 
 ## Live, in the way that matters
 
-New posts arrive but never move the ground under you. They queue, a notice says
-how many are waiting, and they merge only when you ask:
+New posts arrive but never move the ground under you. They queue for the
+**open channel or space feed**, a sticky notice in that feed says how many are
+waiting, and they merge only when you ask (`R` or the notice):
 
 ```
 [ 3 ] new posts — press R to load
 ```
+
+Leave the feed (thread, another channel, home) and the notice hides with it —
+the queue stays keyed to that feed until you return and load. It is not page
+chrome.
 
 If you were already at the tail, merging follows the tail. If you were reading
 something further up, you stay exactly where you were. A feed that reflows while
@@ -56,10 +80,12 @@ count instead of interrupting.
 
 | Key | Does |
 |---|---|
-| `R` | Load queued posts |
+| `R` | Load queued posts for the open feed |
 | `J` / `K` or arrows | Move through the stream |
 | `1`–`9` | Open a post by its number |
 | `Esc` | Home feed (or leave columns for the prompt) |
+| `Tab` | Swap prompt ↔ panel focus (completes suggestions only while the menu is open) |
+| `[view]` | Fold open the Lucene feed query (power; not always on) |
 | `T` | Re-apply Grid theme |
 | `G` | Open the garden |
 | `?` | Key help |
@@ -68,7 +94,9 @@ count instead of interrupting.
 | `Enter` (after reply) | Publish a reply under that post |
 | `Enter` (in nav) | AI/tools act in the current path scope |
 | `Alt+Z` / `z` | Collapse / expand nav panes (detail fills width) |
-| `Ctrl+Space` | Intellisense + hotkey cheatsheet for the **focused component** (also always on the status bar as `[Ctrl+Space] keys`) |
+| `Ctrl+Space` | Intellisense + hotkey cheatsheet for the **focused component** (also always on the status bar as `[Ctrl+Space] keys`). **First visit** opens this sheet automatically so keyboard navigation is the obvious default — Esc dismisses and remembers. |
+| Right-click | Themed context menu: **Prompt…**, **Copy** (optimized paste format for chats/posts/messages), + learned actions |
+| `y` | Yank / copy the focused post, channel feed, or session chat (same optimized format) |
 | Hold `` ` `` | Push-to-talk speech (when on-device STT model is ready); channel-voice transmit when joined in PTT mode |
 | `Alt+V` | Toggle continuous listening (when on-device STT is ready) |
 | `Alt+Shift+V` | Cycle voice mode: default / dictation / commands |
@@ -76,7 +104,13 @@ count instead of interrupting.
 | `/voice` | Join / leave / mute / deafen / PTT·VAD for channel voice |
 
 Everything is clickable too: channels, members, projects, posts, and the signed
-actions on each post.
+actions on each post. **Right-click** any control for a Grid-themed menu:
+**Prompt…** binds that control’s id/name as chips above the agent input; **Copy**
+pastes an optimized plain-text snapshot (thread, channel feed, DM, or session
+chat) for agents and docs; below that, up to three actions the Epoch agent
+pre-generates from how you use the board. Posts also expose a **copy** action;
+session blades expose **copy** for the full chat. Press **`y`** to yank the
+focused content.
 
 The semantic surface every theme styles is [CONTRACT.md](CONTRACT.md).
 
@@ -243,14 +277,19 @@ not spammed on every reload.
 never cloned into a stack of path-segment columns.
 
 - **Nav** is a navbar for the current path: only that branch’s first-level
-  subnodes (plus optional one-level peek via `+` / Space)
-- **Enter / →** — `→` slides the nav into a directory (or opens a thread /
-  editor). **Enter** focuses the preview and activates it: files get the
-  editor, posts arm a reply, channels/DMs ready the prompt, dirs slide in
-- **Click** selects and **previews** (dirs → children, files/posts → content)
-  without changing the nav path; double-click activates like Enter
+  subnodes (plus optional one-level peek via `+` / Space on directories)
+- **Channels are terminal nav nodes** — opening a channel addresses it for the
+  detail feed and compose, but the **navbar stays on the parent channels list**
+  (siblings stay visible). Posts and replies are explored only in **detail**
+- **Enter / →** — `→` / Enter slides into a directory or **channel**, opens a
+  marked feed post’s **thread** in detail, or the editor for files. Reply compose
+  starts when **Tab** focuses the prompt while a post detail is open.
+  Channels/DMs ready the prompt; dirs slide in
+- **Click** selects and **previews** (dirs → children, channels → **feed** in
+  detail) without changing the nav path; double-click activates like Enter.
+  Click a post in **detail** to open its thread
 - **← / × / Backspace** reloads nav at the parent (breadcrumb owns depth)
-- **Detail** shows the selection (thread, editor, agent, DM, …). Closing it
+- **Detail** shows the selection (feed, thread, editor, agent, DM, …). Closing it
   does **not** remove the pane or expand nav — it shows the **home feed**:
   dense scrolling rows with toggles for **following** (people you follow,
   **rolled up by identity** — one card per person showing their latest post,
@@ -271,23 +310,23 @@ never cloned into a stack of path-segment columns.
 | | |
 |---|---|
 | `←` / `h` | reload nav at parent; from **home feed** (detail focused), focus the nav sidebar |
-| `→` / `l` | reload nav into selected dir; on a **post**, open its **thread**; on other text files, open the editor; on **home feed** (detail focused), open the current row |
-| `↑↓` / `jk` | move within the focused surface — nav list (**preview** updates), home-feed rows (when home owns focus), or previous/next post while a **thread** is focused |
-| `Enter` | **Activate** the preview — focus detail / editor / reply compose / slide into dir; on home, open the current row |
+| `→` / `l` | reload nav into selected **dir**; on a **channel** (terminal), open its detail feed while the navbar stays on the channels list; on a marked feed post in **detail**, open its **thread**; on other text files, open the editor; on **home feed** (detail focused), open the current row |
+| `↑↓` / `jk` | move within the focused surface — nav list (**preview** updates), home-feed rows (when home owns focus), or previous/next post in the **detail** channel feed / thread |
+| `Enter` | **Activate** the preview — open a **channel** (detail feed), post **thread**, editor, or slide into dir; on home, open the current row |
+| `Tab` | swap prompt ↔ panels (complete when suggestions are open); from **post detail**, focusing the prompt **arms a reply** |
 | `d` | **Dismiss** — home stack / Activity / notification / DM alert under the cursor |
 | `m` | **Mark read** — home feed (keep in stack, clear unread) |
 | `e` | open the terminal editor for the selected file/post |
 | `[` / `]` | on home feed, cycle tabs (following · announcements · featured · creators) |
-| `Space` | expand / collapse **one level** under the cursor |
+| `Space` | expand / collapse **one level** under the cursor (directories only — not channels) |
 | `+` / `−` | same expand / collapse (pointer) |
 | `Backspace` / `<<` on nav | back to parent — reload nav |
 | `Esc` / `[esc]` / `Backspace` on detail | leave a **thread** for the channel feed; from the feed, return to **Home feed**; then columns → prompt |
-| click a post / message | open that conversation as a **thread** detail (not the full channel list) |
+| click a post in **detail** | open that **thread** in the detail pane (posts are not listed in the nav under a channel) |
 | `:` | command line |
 | `/` | start filtering the **nav** list (nav must own focus) |
 | `v` | cycle sort — hot, new, top (and any views you pin with `[+]`) |
 | `z` / `Alt+Z` | collapse / expand **nav** (detail fills the row) |
-| `Tab` | complete |
 
 #### Collapsible nav
 
@@ -839,8 +878,12 @@ Polish that had been missing, each piece done the terminal way:
   to that thread, and **nav** scopes `board_create_channel` /
   `board_create_project` (and the AI) to the current path. Compose scope is
   labelled above the input. CLI/AI session output lands in a **dedicated
-  session blade** (third pane) whenever there is transcript — never appended
-  under featured creators, following, or thread content. Close it with **[esc]**
+  session blade** (third pane) when there is useful transcript — the blade is
+  **closed by default** at boot and opens on the next command or agent turn;
+  never appended under featured creators, following, or thread content. The chat
+  formats as a scannable log: **you / agent / sys** who-rail, turn breaks between
+  speakers, mode chips above your message, and collapsible tool rows nested under
+  the agent. Close it with **[esc]**
   on the session header (or Esc while that chat owns focus); the transcript
   stays until `clear`, and the next command or agent turn reopens the pane.
   When a submit is **inconclusive** (for

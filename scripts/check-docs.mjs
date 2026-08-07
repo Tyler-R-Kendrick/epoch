@@ -7,8 +7,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 // Harness directories hold vendored agent-skill trees (impeccable installs a
 // full copy into each). They are third-party docs reproducible from a
 // devDependency, not repository documentation that README must index.
+// .venv holds Python virtualenvs (e.g. skills/gauntlet-loop/.venv) with
+// vendored third-party package READMEs; the Python tool caches write their
+// own generated README/CACHEDIR docs. None are repository documentation.
 const ignoredDirectories = new Set([
   ".agents", ".claude", ".codex", ".git", ".grok", ".impeccable", ".optimizexp",
+  ".hypothesis", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv",
   "coverage", "dist", "node_modules",
 ]);
 

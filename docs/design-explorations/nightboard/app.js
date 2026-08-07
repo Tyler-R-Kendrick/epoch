@@ -65,6 +65,7 @@
       homeFeed: "following",
       homeCursor: 0,
       threadFocus: null,
+      feedMark: null,
       attachments: [],
       editorPath: null,
       editorFocused: false,
@@ -75,7 +76,7 @@
     "path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "feedPinnedViews", "prev",
     "folded", "votes", "reactions", "treeOpen",
     "history", "histIndex", "lines", "openTools", "busy",
-    "detailOpen", "homeFeed", "homeCursor", "threadFocus",
+    "detailOpen", "homeFeed", "homeCursor", "threadFocus", "feedMark",
   ];
 
   var state = {
@@ -89,8 +90,12 @@
     feedView: "hot",
     feedPinnedViews: [],
     feedAddOpen: false,
+    // Lucene query row is a power fold — closed until toggled or a query is active.
+    feedQueryOpen: false,
     feedQueryError: null,
     merged: [],
+    // Live queue keyed by channel/space feed; `pending` mirrors the open feed.
+    pendingByFeed: {},
     pending: [],
     nextId: 1,
     live: true,
@@ -98,6 +103,7 @@
     intelOpen: false,
     helpOpen: false,
     helpCtx: null,
+    keysOnboard: false,
     completion: null,
     candIndex: 0,
     // Esc closes the suggestion combobox without clearing the draft; typing
@@ -110,9 +116,9 @@
     // When true, session transcript (.cn-blade-out) is the active pane —
     // used after inconclusive prompts so the turn is visible to iterate on.
     sessionOutFocus: false,
-    // User closed the session chat blade; transcript may remain until `clear`.
-    // Next ask / revealSessionChat reopens it.
-    sessionClosed: false,
+    // Session chat blade starts closed — opens on agent/CLI transcript activity.
+    // User can dismiss it; transcript may remain until `clear`.
+    sessionClosed: true,
     votes: {},
     // reactions[postId] = { counts: { "+1": n }, mine: { "+1": true } }
     reactions: {},
@@ -182,6 +188,9 @@
     // Prompt attachments for chat context (cleared on send).
     attachments: [],
     attachDrop: false,
+    // Right-click context menu + agent-bound context chips (id/name above CLI).
+    ctxMenu: null,
+    boundContext: [],
     // Terminal file editor (detail pane for files).
     editor: {
       active: null,
@@ -199,6 +208,8 @@
     // When set to a post id, detail shows that message's thread only
     // (not the channel's top-level feed). Cleared by back / Esc / nav browse.
     threadFocus: null,
+    // Marked root post while browsing a channel feed in detail (no thread yet).
+    feedMark: null,
   };
   state.panes = loadPanes();
 
@@ -287,18 +298,13 @@
   }
 
   /**
-   * When the visible following stack is short, widen the window and/or merge
-   * pending live posts. Returns whether more content became available.
+   * When the visible following stack is short, widen the window.
+   * Channel/space pending stays feed-scoped — never dumped into Following.
    */
   function refillHomeFollow(opts) {
     opts = opts || {};
     if (state.homeFeed !== "following") return false;
     var before = currentHomeItems().length;
-    var pulledLive = false;
-    if (before <= HOME_FOLLOW_REFILL_AT && state.pending && state.pending.length) {
-      mergePending();
-      pulledLive = true;
-    }
     var available = followingAvailableCount();
     var visible = state.homeFollowVisible || HOME_FOLLOW_PAGE;
     if (before <= HOME_FOLLOW_REFILL_AT && visible < available) {
@@ -306,13 +312,13 @@
     }
     var after = currentHomeItems().length;
     if (!opts.silent) {
-      if (after > before || pulledLive) {
+      if (after > before) {
         status("following · pulled more (" + after + ")");
       } else if (available === 0) {
         status("following · caught up — nothing more available");
       }
     }
-    return after > before || pulledLive;
+    return after > before;
   }
 
   /**
@@ -362,7 +368,28 @@
   }
 
   /**
-   * Brand / logo home: default community channel + Following feed.
+   * Brand / logo: leave the Operate board for the Persuade marketing home.
+   * Esc / following "home" still uses goHome() inside the board.
+   */
+  function goLanding() {
+    try {
+      var here = String(window.location.href || "");
+      var dest = new URL("index.html", here).href;
+      // Already on a file URL / nested path — prefer same-directory landing.
+      if (/board\.html(?:[?#]|$)/i.test(here)) {
+        window.location.assign(dest);
+        return true;
+      }
+      window.location.assign(dest);
+      return true;
+    } catch {
+      window.location.href = "index.html";
+      return true;
+    }
+  }
+
+  /**
+   * In-board home: default community channel + Following feed.
    */
   function goHome(opts) {
     opts = opts || {};
@@ -742,25 +769,11 @@
         badge.textContent = "0";
       }
     }
-    // Enable / denied control beside the bell.
+    // Masthead never hosts Allow alerts — Activity pane owns enable/denied.
     var permBtn = $("[data-activity-perm]");
     if (permBtn) {
-      if (!browserNotifySupported()) {
-        permBtn.hidden = true;
-      } else if (perm === "granted") {
-        permBtn.hidden = true;
-        permBtn.dataset.state = "granted";
-      } else if (perm === "denied") {
-        permBtn.hidden = false;
-        permBtn.dataset.state = "denied";
-        permBtn.textContent = "Allow alerts";
-        permBtn.title = "Browser blocked notifications — open site settings, then allow alerts for this origin";
-      } else {
-        permBtn.hidden = false;
-        permBtn.dataset.state = "default";
-        permBtn.textContent = "Enable alerts";
-        permBtn.title = "Enable browser notifications for mentions and subscriptions";
-      }
+      permBtn.hidden = true;
+      permBtn.dataset.state = perm;
     }
   }
 
@@ -1750,6 +1763,7 @@
       live: state.live,
       nextId: state.nextId,
       merged: (state.merged || []).slice(-40),
+      pendingByFeed: state.pendingByFeed || {},
       pending: state.pending || [],
       sessions: state.sessions,
       activeSession: state.activeSession,
@@ -1809,7 +1823,15 @@
         }
       }
       state.merged = (snap.merged || []).slice();
-      state.pending = (snap.pending || []).slice();
+      state.pendingByFeed = Object.assign({}, snap.pendingByFeed || {});
+      // Older snapshots only had a flat pending array — park under the restored feed.
+      if (Array.isArray(snap.pending) && snap.pending.length &&
+          !Object.keys(state.pendingByFeed).length) {
+        var legacyKey = currentFeedKey() || "_legacy";
+        state.pendingByFeed[legacyKey] = snap.pending.slice();
+      }
+      retargetPendingMirror();
+      dismissMenuIfNoSlashDraft();
       if (snap.panes) state.panes = Object.assign({}, state.panes, snap.panes, { zoom: false });
       if (typeof snap.themeIndex === "number" && snap.themeIndex >= 0) themeIndex = snap.themeIndex;
     } catch { /* corrupt snapshot — keep defaults */ }
@@ -1881,6 +1903,8 @@
       state.editor.focused = false;
     }
     cliValue = sess.cliDraft || "";
+    retargetPendingMirror();
+    dismissMenuIfNoSlashDraft();
   }
 
   /**
@@ -1890,6 +1914,8 @@
   function setFeedQuery(query, viewId) {
     query = String(query == null ? "" : query).trim();
     state.feedQuery = query;
+    // Active queries keep the power fold open; clearing folds it away.
+    state.feedQueryOpen = !!query;
     if (viewId) state.feedView = viewId;
     else {
       // Match a preset if the query equals one.
@@ -2279,7 +2305,57 @@
   document.head.appendChild(expStyle);
 
   function exp() { return experiences[current]; }
-  function entries() { return MAP.list(state.path, state.merged) || []; }
+  /** Path whose first-level children the navbar lists (never a terminal leaf). */
+  function navListPath() {
+    return (MAP.navParentPath ? MAP.navParentPath(state.path) : state.path) || "/";
+  }
+
+  function entries() { return MAP.list(navListPath(), state.merged) || []; }
+
+  /** Keep a terminal channel address aligned with the navbar cursor. */
+  function syncTerminalPathFromCursor() {
+    if (!(MAP.isTerminalNavPath && MAP.isTerminalNavPath(state.path))) return;
+    var e = entries()[state.cursor];
+    if (!e || e.kind !== "channel") return;
+    var next = MAP.resolve(navListPath(), e.name);
+    if (next && next !== state.path) {
+      state.path = next;
+      state.threadFocus = null;
+      state.feedMark = null;
+      syncReplyWithPath();
+    }
+  }
+
+  /**
+   * Open a terminal channel leaf: address the channel for compose/feed, but
+   * keep the navbar on the parent channels list (siblings stay visible).
+   */
+  function openTerminalChannel(target, opts) {
+    opts = opts || {};
+    var parts = MAP.split(target);
+    var parent = MAP.join(parts.slice(0, -1)) || "/";
+    var leaf = parts[parts.length - 1];
+    var probe = MAP.list(parent, state.merged) || [];
+    var found = probe.findIndex(function (e) { return e.name === leaf; });
+    if (found === -1) return false;
+    state.prev = state.path;
+    state.path = target;
+    state.filter = "";
+    state.cursor = found;
+    if (!opts.keepThread) {
+      state.threadFocus = opts.threadFocus || null;
+      state.feedMark = opts.feedMark != null ? opts.feedMark : state.threadFocus;
+    }
+    state.detailOpen = true;
+    if (opts.focusDetail) state.focus = detailBladeIndex();
+    else if (opts.focusNav) state.focus = listBladeIndex();
+    syncReplyWithPath();
+    syncPersonFromPath();
+    retargetPendingMirror();
+    dismissMenuIfNoSlashDraft();
+    render(opts.keepCli);
+    return true;
+  }
 
   function visible() {
     var all = entries();
@@ -2297,6 +2373,8 @@
     // Keep the active virtual worktree's snapshot current so tab labels and
     // a later switch restore the path/transcript you actually left.
     freezeSession();
+    // Mirror the open feed's live queue before paint (cursor / path / thread).
+    retargetPendingMirror();
     // Live feature-detect: a polyfill or late-available SpeechRecognition
     // should surface the mic without a reload.
     if (state.speech) state.speech.supported = speechSupported();
@@ -2346,7 +2424,28 @@
     lastScrolled = cur;
     paintActivityBell();
     paintKeysCue();
+    // Narrow ranger: keep the focused blade in view (Enter/→ must reveal feed).
+    revealFocusedBlade();
     schedulePersist();
+  }
+
+  /** Horizontal snap: bring the focused blade into the viewport on narrow widths. */
+  function revealFocusedBlade() {
+    var narrow = false;
+    try {
+      narrow = !!(window.matchMedia && window.matchMedia("(max-width: 40rem)").matches);
+    } catch { /* fine */ }
+    if (!narrow) return;
+    requestAnimationFrame(function () {
+      var kind = "list";
+      if (state.focus === detailBladeIndex()) kind = "detail";
+      else if (sessionBladeIndex() >= 0 && state.focus === sessionBladeIndex()) kind = "session";
+      var el = document.querySelector('.cn-blade[data-blade-kind="' + kind + '"]');
+      if (el && el.scrollIntoView) {
+        try { el.scrollIntoView({ inline: "start", block: "nearest", behavior: "smooth" }); }
+        catch { try { el.scrollIntoView(true); } catch { /* fine */ } }
+      }
+    });
   }
 
   /** Persistent status-bar cue for Ctrl+Space — always visible, never transient. */
@@ -2444,19 +2543,90 @@
     $("[data-status-line]").textContent = msg || exp().keys;
   }
 
+  /**
+   * Feed identity for the live queue. Channel and space feeds only —
+   * not Following home, DMs, or thread detail.
+   */
+  function currentFeedKey() {
+    var segs = MAP.split(state.path);
+    if (segs[0] === "projects" && segs[2] === "channels" && segs[3]) {
+      return "chan:" + segs[1] + "/" + segs[3];
+    }
+    if (segs[0] === "projects" && segs[2] === "channels" && !segs[3]) {
+      var here = MAP.list(state.path, state.merged) || [];
+      var sel = here[state.cursor];
+      if (sel && (sel.kind === "channel" || sel.kind === "dir") && !sel.notification) {
+        return "chan:" + segs[1] + "/" + sel.name;
+      }
+    }
+    if (segs[0] === "spaces" && segs[1] && segs[2] === "feed") {
+      return "space:" + segs[1];
+    }
+    if (segs[0] === "spaces" && segs[1] && !segs[2]) {
+      var spaceHere = MAP.list(state.path, state.merged) || [];
+      var spaceSel = spaceHere[state.cursor];
+      if (spaceSel && spaceSel.name === "feed") return "space:" + segs[1];
+    }
+    return null;
+  }
+
+  function ensurePendingBucket(key) {
+    if (!key) return [];
+    if (!state.pendingByFeed) state.pendingByFeed = {};
+    if (!state.pendingByFeed[key]) state.pendingByFeed[key] = [];
+    return state.pendingByFeed[key];
+  }
+
+  /** Point `state.pending` at the open feed's queue (tools / R / stream_load). */
+  function retargetPendingMirror() {
+    var key = currentFeedKey();
+    state.pending = key ? ensurePendingBucket(key) : [];
+  }
+
+  /** Visible only on an open channel/space feed in the detail blade (not threads). */
+  function feedNoticeOpen() {
+    if (!isDetailOpen() || state.threadFocus) return false;
+    var key = currentFeedKey();
+    if (!key) return false;
+    var views = window.NB_CONSOLE_VIEWS;
+    if (views && typeof views.isFeedSortContext === "function") {
+      var parts = MAP.split(state.path);
+      var here = MAP.list(state.path, state.merged) || [];
+      var selected = here[state.cursor];
+      if (!views.isFeedSortContext(parts, selected, state.merged)) return false;
+    }
+    return ensurePendingBucket(key).length > 0;
+  }
+
+  /** Keep slash autocomplete closed unless the draft starts with `/`. */
+  function dismissMenuIfNoSlashDraft() {
+    if (String(cliValue || "").charAt(0) === "/") return;
+    state.menuDismissed = true;
+    if (!state.keysOnboard) state.intelOpen = false;
+  }
+
+  /**
+   * Paint feed-scoped notice (detail overlay). Page chrome notice is retired.
+   * Prefer in-place count updates so the feed does not reflow on every tick.
+   */
   function renderNotice() {
     var region = $('[data-region="notice"]');
+    if (region) {
+      region.hidden = true;
+      region.innerHTML = "";
+    }
+    retargetPendingMirror();
+    var host = document.querySelector(".cn-feed-notice");
+    if (!feedNoticeOpen()) {
+      if (host) render(true);
+      return;
+    }
     var n = state.pending.length;
-    region.hidden = n === 0;
-    if (n === 0) { region.innerHTML = ""; return; }
-    // Update in place once shown: rebuilding the button on every arriving post
-    // would restart its entrance animation, and a notice that flashes on each
-    // tick reads as an alarm rather than a count.
-    var count = region.querySelector('[data-c="count"]');
-    if (count) { count.textContent = n; return; }
-    region.innerHTML = '<button type="button" data-c="notice" data-state="pending" data-merge>' +
-      '<span data-c="count">' + n + "</span> new " + (n === 1 ? "post" : "posts") +
-      " — press R to load</button>";
+    if (host) {
+      var count = host.querySelector('[data-c="count"]');
+      if (count) { count.textContent = String(n); return; }
+    }
+    render(true);
   }
 
   /* ── Navigation (single reusable nav blade + detail) ───────────────────── */
@@ -2492,7 +2662,7 @@
     var list = entries();
     var e = list[state.cursor];
     if (!e || e.kind !== "dir") return status("space expands directories");
-    var full = MAP.resolve(state.path, e.name);
+    var full = MAP.resolve(navListPath(), e.name);
     toggleTreeDir(full);
   }
 
@@ -2571,11 +2741,9 @@
     postId = postId ? String(postId) : "";
     if (!postId) return false;
     state.threadFocus = postId;
+    state.feedMark = postId;
     state.detailOpen = true;
     if (opts.focus !== false) state.focus = detailBladeIndex();
-    var list = entries();
-    var ix = list.findIndex(function (e) { return e.post && e.post.id === postId; });
-    if (ix >= 0) state.cursor = ix;
     if (state.editor) state.editor.focused = false;
     if (!opts.noRender) render(true);
     if (!opts.silent) status("thread · " + postId);
@@ -2585,6 +2753,7 @@
   function clearThreadFocus(opts) {
     opts = opts || {};
     if (!state.threadFocus) return false;
+    state.feedMark = state.threadFocus;
     state.threadFocus = null;
     if (!opts.noRender) render(true);
     if (!opts.silent) status("channel feed");
@@ -2623,7 +2792,26 @@
   }
 
   function navigate(path, opts) {
+    opts = opts || {};
     var target = MAP.resolve(state.path, path);
+    // Deep post URLs land on the channel feed with that thread focused in detail.
+    var deepPost = MAP.postAt ? MAP.postAt(target, state.merged) : null;
+    if (deepPost && MAP.channelFeedPath && MAP.isPostReplyPath && MAP.isPostReplyPath(target)) {
+      var feedTarget = MAP.channelFeedPath(target);
+      return openTerminalChannel(feedTarget, {
+        keepCli: opts.keepCli,
+        focusDetail: true,
+        threadFocus: deepPost.id,
+        feedMark: deepPost.id,
+      });
+    }
+    // Channel leaves are addressable but never become the navbar parent.
+    if (MAP.isTerminalNavPath && MAP.isTerminalNavPath(target)) {
+      return openTerminalChannel(target, {
+        keepCli: opts.keepCli,
+        focusDetail: true,
+      });
+    }
     if (!MAP.isDir(target, state.merged)) {
       // A file path selects its entry in the parent directory rather than
       // failing, because "cd" to a thing you can see should go there.
@@ -2646,9 +2834,12 @@
         // Posts open as a thread detail; other files leave thread focus clear.
         var hit = probe[found];
         state.threadFocus = hit && hit.post ? hit.post.id : null;
+        state.feedMark = state.threadFocus;
         state.focus = detailBladeIndex();
         syncReplyWithPath();
         syncPersonFromPath();
+        retargetPendingMirror();
+        dismissMenuIfNoSlashDraft();
         render(opts && opts.keepCli);
         return true;
       }
@@ -2659,6 +2850,7 @@
     state.cursor = 0;
     state.filter = "";
     state.threadFocus = null;
+    state.feedMark = null;
     // Drop one-level peeks when the nav reloads into a new branch.
     if (state.treeOpen) {
       Object.keys(state.treeOpen).forEach(function (k) {
@@ -2669,6 +2861,8 @@
     state.focus = listBladeIndex();
     syncReplyWithPath();
     syncPersonFromPath();
+    retargetPendingMirror();
+    dismissMenuIfNoSlashDraft();
     render(opts && opts.keepCli);
     return true;
   }
@@ -2877,28 +3071,61 @@
     return dismissNotificationCursor();
   }
 
+  /** Detail-pane post pool for the current channel / DM / space feed. */
+  function feedEntries() {
+    var feedPath = MAP.channelFeedPath ? MAP.channelFeedPath(state.path) : state.path;
+    if (MAP.feedEntriesAt) return MAP.feedEntriesAt(feedPath, state.merged) || [];
+    return MAP.list(feedPath, state.merged) || [];
+  }
+
   /**
-   * When a thread is focused, j/k move to the previous/next post in the nav
-   * list without dumping you back to the channel feed.
+   * When a thread is focused, j/k move to the previous/next root post in the
+   * channel feed (detail pane) without dumping you back to the feed overview.
    */
   function moveThreadBrowse(delta) {
-    var list = entries().filter(function (e) { return e && e.post; });
+    var list = feedEntries().filter(function (e) { return e && e.post && !e.post.re; });
+    if (!list.length) {
+      list = feedEntries().filter(function (e) { return e && e.post; });
+    }
     if (!list.length) return;
     var ix = -1;
     for (var i = 0; i < list.length; i++) {
       if (list[i].post.id === state.threadFocus) { ix = i; break; }
     }
+    if (ix < 0) {
+      // Focus may be a reply — find its root among feed roots.
+      var focusPost = null;
+      feedEntries().some(function (e) {
+        if (e.post && e.post.id === state.threadFocus) { focusPost = e.post; return true; }
+        return false;
+      });
+      var rootId = focusPost ? (focusPost.re || focusPost.id) : null;
+      for (var j = 0; j < list.length; j++) {
+        if (list[j].post.id === rootId) { ix = j; break; }
+      }
+    }
     if (ix < 0) ix = 0;
     var next = Math.max(0, Math.min(list.length - 1, ix + delta));
-    var post = list[next].post;
-    // Keep nav cursor aligned with the thread we're reading.
-    var all = entries();
-    state.cursor = all.findIndex(function (e) {
-      return e && e.post && e.post.id === post.id;
-    });
-    if (state.cursor < 0) state.cursor = 0;
-    openThread(post.id, { silent: true });
-    status("thread · " + post.id);
+    openThread(list[next].post.id, { silent: true });
+    status("thread · " + list[next].post.id);
+  }
+
+  /** Detail feed browse (no thread): j/k mark the next/prev root post. */
+  function moveFeedBrowse(delta) {
+    var list = feedEntries().filter(function (e) { return e && e.post && !e.post.re; });
+    if (!list.length) list = feedEntries().filter(function (e) { return e && e.post; });
+    if (!list.length) return;
+    var mark = state.feedMark || null;
+    var ix = mark
+      ? list.findIndex(function (e) { return e.post.id === mark; })
+      : 0;
+    if (ix < 0) ix = 0;
+    var next = Math.max(0, Math.min(list.length - 1, ix + delta));
+    state.feedMark = list[next].post.id;
+    state.detailOpen = true;
+    if (state.editor) state.editor.focused = false;
+    render(true);
+    status("feed · " + list[next].post.id);
   }
 
   function moveCursor(delta) {
@@ -2908,11 +3135,15 @@
     if (state.editor && state.editor.focused) return;
     // Home feed owns j/k when selection is closed and the detail pane is focused.
     if (homeOwnsKeyboard()) return moveHomeCursor(delta);
-    // Detail owns the keyboard: keep thread focus; browse sibling posts in-thread.
+    // Detail owns the keyboard: thread / channel feed live in the detail pane.
     if (detailOwnsKeyboard()) {
       if (state.threadFocus) return moveThreadBrowse(delta);
-      // Channel/DM feed in detail without a focused thread — nudge nav cursor
-      // but keep detail focus (don't steal back to the sidebar).
+      var partsD = MAP.split(state.path);
+      var inChannelFeed = (partsD[0] === "projects" && partsD[2] === "channels" && partsD[3]) ||
+        (partsD[0] === "spaces" && partsD[2] === "channels" && partsD[3]) ||
+        (partsD[0] === "dms" && partsD[1]);
+      if (inChannelFeed) return moveFeedBrowse(delta);
+      // Other detail contexts — nudge nav cursor, keep detail focus.
       var listD = visible();
       if (!listD.length) return;
       var allD = entries();
@@ -2941,8 +3172,8 @@
 
   /**
    * Preview the nav cursor in the detail blade without changing path or stealing
-   * focus. Dirs show children; posts/files/DMs show their content. Enter/→
-   * activates (focus detail, editor, reply, or slide into a dir).
+   * focus. Dirs show children; channels preview their feed; posts (elsewhere)
+   * mark the feed. Enter/→ activates.
    */
   function previewSelection(opts) {
     opts = opts || {};
@@ -2956,16 +3187,31 @@
       if (!opts.noRender) render(true);
       return false;
     }
+    if (e.kind === "channel") {
+      // Selecting a channel previews its feed without leaving the channels list.
+      // If a channel was already opened (terminal address), keep the address in
+      // sync with the navbar cursor so compose/feed match the preview.
+      syncTerminalPathFromCursor();
+      if (!(MAP.isTerminalNavPath && MAP.isTerminalNavPath(state.path))) {
+        state.threadFocus = null;
+        state.feedMark = null;
+      } else if (!state.threadFocus) {
+        state.feedMark = null;
+      }
+      if (!opts.noRender) render(true);
+      return true;
+    }
     if (e.post) {
-      // Preview the conversation for this message; nav keeps the keyboard.
-      state.threadFocus = e.post.id;
+      // Nav posts (e.g. space feed) — full feed with the cursor row marked.
+      state.threadFocus = null;
+      state.feedMark = e.post.id;
     } else {
       state.threadFocus = null;
     }
     // Load editable buffers for preview without focusing the editor.
     if (entryHasTextEditor(e) || e.agentFile || e.agentSkill || e.agentTool ||
         (e.kind === "file" && !e.post && !e.notification && /\./.test(e.name || ""))) {
-      openFileInEditor(e, MAP.resolve(state.path, e.name), { focus: false });
+      openFileInEditor(e, MAP.resolve(navListPath(), e.name), { focus: false });
     }
     syncPersonFromPath();
     if (!opts.noRender) render(true);
@@ -2974,13 +3220,29 @@
 
   /**
    * Enter on a nav selection: focus the preview and activate it — editor for
-   * files, reply compose for posts, DM compose for members, slide into dirs.
+   * files, post detail for posts, DM compose for members, slide into dirs.
+   * Reply compose starts when Tab focuses the prompt on a post detail.
    */
   function activateSelection() {
     if (homeOwnsKeyboard()) return activateHomeItem();
+    // Detail feed mark → open that post's thread (posts are not nav children).
+    if (detailOwnsKeyboard() && !state.threadFocus && state.feedMark) {
+      return openThread(state.feedMark);
+    }
     var list = entries();
     var e = list[state.cursor];
     if (!e) return false;
+    try {
+      var ctrlPath = window.NB_MAP.resolve(navListPath(), e.name);
+      var kind = e.post ? "post"
+        : (e.kind === "file" ? "file" : "nav-item");
+      if (window.NB_CTX && window.NB_CTX.record) {
+        window.NB_CTX.record({
+          controlKey: kind + ":" + (e.post ? e.post.id : ctrlPath),
+          verb: e.post ? "open-thread" : "activate",
+        });
+      }
+    } catch { /* fine */ }
     focusColumns();
     var pathParts = MAP.split(state.path);
     var onBoardMembers = pathParts[0] === "members";
@@ -2992,8 +3254,21 @@
       status("dm · write a message");
       return true;
     }
+    // Channel is a terminal nav node — address it for detail/compose; navbar
+    // stays on the parent channels list so siblings remain visible.
+    if (e.kind === "channel") {
+      var chPath = MAP.resolve(navListPath(), e.name);
+      openTerminalChannel(chPath, { keepCli: true, focusDetail: true });
+      if (e.voice) {
+        status("voice · " + state.path);
+      } else {
+        focusCli();
+        status("channel · " + state.path + " · write");
+      }
+      return true;
+    }
     if (e.kind === "dir") {
-      var full = MAP.resolve(state.path, e.name);
+      var full = MAP.resolve(navListPath(), e.name);
       if (state.treeOpen && state.treeOpen[full]) delete state.treeOpen[full];
       navigate(e.name);
       // After sliding in, focus detail when the branch is interactive content.
@@ -3027,9 +3302,7 @@
     }
     if (e.post) {
       openThread(e.post.id);
-      armReplyTo(e.post.id, e.post.who, e.post.channel, e.post.project);
-      focusCli();
-      status("reply · @" + (e.post.who || "there"));
+      status("post · " + e.post.id);
       return true;
     }
     if (entryHasTextEditor(e) || e.agentFile || e.agentSkill || e.agentTool ||
@@ -3066,7 +3339,18 @@
     if (!e) return false;
     state.detailOpen = true;
     state.focus = detailBladeIndex();
-    openFileInEditor(e, MAP.resolve(state.path, e.name));
+    // Feed posts resolve under the channel address; nav leaves under the list path.
+    var base = navListPath();
+    if (e.post) {
+      if (MAP.isTerminalNavPath && MAP.isTerminalNavPath(state.path)) {
+        base = state.path;
+      } else {
+        var sel = entries()[state.cursor];
+        if (sel && sel.kind === "channel") base = MAP.resolve(navListPath(), sel.name);
+        else if (MAP.channelFeedPath) base = MAP.channelFeedPath(state.path);
+      }
+    }
+    openFileInEditor(e, MAP.resolve(base, e.name));
     focusEditor();
     status("edit · " + ((state.editor && state.editor.active && state.editor.active.name) || e.name) +
       " · i insert · Esc normal");
@@ -3117,8 +3401,8 @@
   }
 
   /**
-   * → / l: slide into a directory, open a post thread, or focus a text editor.
-   * Enter is activateSelection (focus preview + compose/edit); → is structural open.
+   * → / l: slide into a directory or channel, open a post's thread in detail,
+   * or focus a text editor. Posts are not explored as nav children.
    */
   function descend() {
     var list = entries();
@@ -3132,10 +3416,14 @@
       openMemberDm(e.openDm || e.name, { keepCli: true });
       return;
     }
+    if (e.kind === "channel") {
+      activateSelection();
+      return;
+    }
     if (e.kind === "dir") {
       // Collapse any expand-in-place on the row we're leaving so the parent
       // blade does not keep a duplicate of the new first-level list.
-      var full = MAP.resolve(state.path, e.name);
+      var full = MAP.resolve(navListPath(), e.name);
       if (state.treeOpen && state.treeOpen[full]) delete state.treeOpen[full];
       navigate(e.name);
       status("slide → " + state.path);
@@ -3146,8 +3434,7 @@
       // Keep nav open — collapse is explicit (z / Alt+Z / header).
       return;
     }
-    // File / post detail — posts open as a thread; other files open detail.
-    // Leave nav expanded so the user can keep navigating.
+    // Posts (space feed / other listings): open thread in detail — never nav.
     if (e.post) {
       openThread(e.post.id);
       return;
@@ -3158,7 +3445,7 @@
     // Editable files open in the terminal editor.
     if (e.agentFile || e.agentSkill || e.agentTool ||
         (e.kind !== "dir" && !e.post && /\./.test(e.name || ""))) {
-      openFileInEditor(e, MAP.resolve(state.path, e.name));
+      openFileInEditor(e, MAP.resolve(navListPath(), e.name));
     }
     render();
     if (state.editor && state.editor.active) {
@@ -3189,8 +3476,8 @@
   }
 
   /**
-   * Right arrow / l: directory → slide into it; post → open thread (same as
-   * Enter); other text leaves → editor; else focus detail.
+   * Right arrow / l: directory/channel → open; post → thread in detail;
+   * other text leaves → editor; else focus detail.
    */
   function goRight() {
     // Home feed rows only when the home pane owns focus — nav → still opens
@@ -3199,10 +3486,14 @@
     var list = entries();
     var e = list[state.cursor];
     var onList = listOwnsKeyboard();
-    if (onList && e && e.kind === "dir") return descend();
-    if (onList && e && e.post) return openThread(e.post.id);
+    if (onList && e && (e.kind === "dir" || e.kind === "channel")) return descend();
+    if (onList && e && e.post) return descend();
     if (onList && e && entryHasTextEditor(e)) return activateDetailEditor(e);
     if (onList && e) return descend();
+    // Detail feed mark → open that thread.
+    if (detailOwnsKeyboard() && !state.threadFocus && state.feedMark) {
+      return openThread(state.feedMark);
+    }
     return moveBladeFocus(1);
   }
 
@@ -3228,6 +3519,13 @@
       return false;
     }
     var e = entries()[state.cursor];
+    var postId = state.threadFocus || state.feedMark || (e && e.post && e.post.id);
+    if (postId) {
+      var feedHit = feedEntries().find(function (x) {
+        return x && x.post && x.post.id === postId;
+      });
+      if (feedHit) return activateDetailEditor(feedHit);
+    }
     if (!e) return false;
     if (e.post || entryHasTextEditor(e) || e.kind === "file") {
       return activateDetailEditor(e);
@@ -3367,10 +3665,14 @@
   function composeLabel(ctx) {
     ctx = ctx || composeContext();
     if (ctx.kind === "reply") {
-      return "reply @" + (ctx.who || "?") + " · " + (ctx.postId || "");
+      var replyAnon = !identity || identity.anonymous || identity.kind === "guest";
+      return (replyAnon ? "unsigned · " : "") +
+        "reply @" + (ctx.who || "?") + " · " + (ctx.postId || "");
     }
     if (ctx.kind === "post") {
-      return "post #" + (ctx.channelLabel || ctx.channel || "?");
+      var postAnon = !identity || identity.anonymous || identity.kind === "guest";
+      return (postAnon ? "unsigned · " : "") +
+        "post #" + (ctx.channelLabel || ctx.channel || "?");
     }
     if (ctx.kind === "dm") return "dm @" + (ctx.dm || "?");
     if (ctx.kind === "nav") {
@@ -3534,6 +3836,176 @@
     return { ok: true, name: label, id: id, project: project };
   }
 
+  /**
+   * Rename a channel in-place (id + label + post refs + current path).
+   * Prefer this over navigating to a path that does not exist yet.
+   */
+  function renameChannel(from, to, opts) {
+    opts = opts || {};
+    from = String(from || "").trim().replace(/^#/, "");
+    to = String(to || "").trim().replace(/^#/, "");
+    if (!from) return { ok: false, error: "from (current name) required" };
+    if (!to) return { ok: false, error: "to (new name) required" };
+    if (from === to) return { ok: false, error: "name unchanged" };
+
+    var newId = MAP.slug(to);
+    var newLabel = to;
+    if (/^[a-z0-9][a-z0-9-]*$/i.test(to)) {
+      newId = to.toLowerCase();
+      newLabel = to;
+    }
+
+    var project = opts.project ||
+      (MAP.split(state.path)[0] === "projects" ? MAP.split(state.path)[1] : null);
+    var ov = ensureOverlay();
+    var oldCh = MAP.findChannelByLabel(from);
+    var oldId = oldCh ? oldCh.id : MAP.slug(from);
+    var oldLabel = oldCh ? oldCh.label : from;
+
+    // Collision: another channel already uses the new id/label.
+    if (MAP.allChannels && MAP.allChannels().some(function (c) {
+      if (!c) return false;
+      if (c.id === oldId || c.label === oldLabel) return false;
+      return c.id === newId || c.label === newLabel ||
+        String(c.label).toLowerCase() === String(newLabel).toLowerCase();
+    })) {
+      return { ok: false, error: "channel exists: " + newLabel };
+    }
+
+    var touched = false;
+
+    // Community seed / overlay channel objects.
+    function rewriteChannelObj(c) {
+      if (!c) return false;
+      if (c.id === oldId || c.label === oldLabel ||
+          String(c.label).toLowerCase() === String(oldLabel).toLowerCase() ||
+          String(c.id).toLowerCase() === String(oldId).toLowerCase()) {
+        c.id = newId;
+        c.label = newLabel;
+        return true;
+      }
+      return false;
+    }
+    (D.channels || []).forEach(function (c) { if (rewriteChannelObj(c)) touched = true; });
+    (ov.channels || []).forEach(function (c) { if (rewriteChannelObj(c)) touched = true; });
+
+    // Project channel name lists (seed + overlay).
+    function rewriteNameList(list) {
+      if (!list || !list.length) return false;
+      var i;
+      var hit = false;
+      for (i = 0; i < list.length; i++) {
+        if (String(list[i]) === oldLabel || String(list[i]) === oldId ||
+            String(list[i]).toLowerCase() === String(oldLabel).toLowerCase()) {
+          list[i] = newLabel;
+          hit = true;
+        }
+      }
+      return hit;
+    }
+    (D.projects || []).forEach(function (p) {
+      if (project && p.slug !== project && MAP.slug(p.slug) !== project) return;
+      if (rewriteNameList(p.channels)) touched = true;
+    });
+    Object.keys(ov.projectChannels || {}).forEach(function (pid) {
+      if (project && pid !== project) return;
+      if (rewriteNameList(ov.projectChannels[pid])) touched = true;
+    });
+    (D.spaces || []).forEach(function (s) {
+      if (rewriteNameList(s.channels)) touched = true;
+    });
+
+    // If the channel only lived as a path segment under a project (no D.channels
+    // row), still allow rename when the listing contains it.
+    if (!touched) {
+      var projId = project || "community";
+      var proj = MAP.findProject(projId);
+      var listed = MAP.projectChannelNames
+        ? MAP.projectChannelNames(proj)
+        : [];
+      if (listed.some(function (n) {
+        return n === oldLabel || n === oldId ||
+          String(n).toLowerCase() === String(oldLabel).toLowerCase();
+      })) {
+        if (proj && proj.community) {
+          ov.channels.push({ id: newId, label: newLabel, kind: "social", unread: 0 });
+          // Hide the old id via overlay tombstone list.
+          ov.removedChannels = ov.removedChannels || [];
+          if (ov.removedChannels.indexOf(oldId) < 0) ov.removedChannels.push(oldId);
+          touched = true;
+        } else {
+          var bag = ov.projectChannels;
+          if (!bag[projId]) bag[projId] = (listed || []).slice();
+          if (!rewriteNameList(bag[projId])) {
+            bag[projId] = bag[projId].map(function (n) {
+              return (n === oldLabel || n === oldId) ? newLabel : n;
+            });
+            if (bag[projId].indexOf(newLabel) < 0) bag[projId].push(newLabel);
+          }
+          touched = true;
+        }
+      }
+    }
+
+    if (!touched && !oldCh) {
+      return { ok: false, error: "no such channel: " + from };
+    }
+
+    // Rewrite post.channel refs (seed + live merged).
+    function rewritePostChannel(p) {
+      if (!p) return;
+      if (p.channel === oldId || p.channel === oldLabel ||
+          String(p.channel).toLowerCase() === String(oldId).toLowerCase()) {
+        p.channel = newId;
+      }
+    }
+    (D.posts || []).forEach(rewritePostChannel);
+    (D.projectPosts || []).forEach(rewritePostChannel);
+    (D.incoming || []).forEach(rewritePostChannel);
+    (state.merged || []).forEach(rewritePostChannel);
+
+    // Notifications / hooks that point at the old path.
+    (D.notifications || []).forEach(function (n) {
+      if (!n) return;
+      if (n.where && String(n.where).indexOf("/channels/" + oldLabel) >= 0) {
+        n.where = String(n.where).split("/channels/" + oldLabel).join("/channels/" + newLabel);
+      }
+      if (n.where && String(n.where).indexOf("/channels/" + oldId) >= 0) {
+        n.where = String(n.where).split("/channels/" + oldId).join("/channels/" + newId);
+      }
+      if (n.whereLabel === "#" + oldLabel) n.whereLabel = "#" + newLabel;
+    });
+
+    var destProject = project ||
+      (oldCh && oldCh.spaceId ? null : "community") ||
+      "community";
+    // Prefer community for social channels.
+    if (oldCh && (!project || project === "community")) destProject = "community";
+    var newPath = "/projects/" + destProject + "/channels/" + newLabel;
+    var oldPathSeg = "/channels/" + oldLabel;
+    var oldPathSegId = "/channels/" + oldId;
+    if (state.path === "/projects/" + destProject + "/channels/" + oldLabel ||
+        state.path === "/projects/" + destProject + "/channels/" + oldId ||
+        String(state.path).indexOf(oldPathSeg + "/") >= 0 ||
+        String(state.path).indexOf(oldPathSegId + "/") >= 0) {
+      var nextPath = String(state.path)
+        .split(oldPathSeg).join("/channels/" + newLabel)
+        .split(oldPathSegId).join("/channels/" + newId);
+      navigate(nextPath, { keepCli: true });
+    } else {
+      render(true);
+    }
+    status("renamed #" + oldLabel + " → #" + newLabel);
+    return {
+      ok: true,
+      from: oldLabel,
+      to: newLabel,
+      id: newId,
+      project: destProject,
+      path: newPath,
+    };
+  }
+
   function createProject(name) {
     name = String(name || "").trim();
     if (!name) return { ok: false, error: "name required" };
@@ -3568,7 +4040,9 @@
       segs[2] === "channels" && segs[3];
     var chan = D.channels.filter(function (c) { return c.id === post.channel; })[0];
     if (chan && watching === chan.label) {
-      state.pending.push(post);
+      var feedKey = "chan:" + segs[1] + "/" + watching;
+      ensurePendingBucket(feedKey).push(post);
+      retargetPendingMirror();
       renderNotice();
     } else {
       if (chan) chan.unread = (chan.unread || 0) + 1;
@@ -3580,11 +4054,13 @@
   }
 
   function mergePending() {
+    retargetPendingMirror();
     if (!state.pending.length) return;
     var n = state.pending.length;
-    state.merged = state.merged.concat(state.pending);
-    state.pending = [];
-    renderNotice();
+    var key = currentFeedKey();
+    state.merged = state.merged.concat(state.pending.slice());
+    if (key && state.pendingByFeed) state.pendingByFeed[key] = [];
+    retargetPendingMirror();
     render(true);
     status("loaded " + n + " new " + (n === 1 ? "post" : "posts"));
   }
@@ -3693,8 +4169,10 @@
         hasThread: false, sessions: (state.sessions || []).length || 1,
         session: (state.activeSession || 0) + 1, sort: state.sort || "hot",
         dock: "page", ai: !!state.ai,
+        onboard: !!state.keysOnboard,
       };
     }
+    if (state.helpCtx) state.helpCtx.onboard = !!state.keysOnboard;
     state.columnFocus = false;
     state.menuDismissed = false;
     recompute();
@@ -3719,11 +4197,225 @@
 
   function closeIntel() {
     if (!state.intelOpen && !state.helpOpen) return false;
+    var wasOnboard = !!state.keysOnboard;
     state.intelOpen = false;
     state.helpOpen = false;
     state.cliOpen = false;
     state.helpCtx = null;
+    state.keysOnboard = false;
+    if (wasOnboard) markKeysOnboarded();
     return true;
+  }
+
+  var KEYS_ONBOARD_KEY = "nb-keys-onboarded";
+
+  function keysOnboarded() {
+    try { return window.localStorage.getItem(KEYS_ONBOARD_KEY) === "1"; }
+    catch { return true; }
+  }
+
+  function markKeysOnboarded() {
+    try { window.localStorage.setItem(KEYS_ONBOARD_KEY, "1"); } catch { /* private */ }
+  }
+
+  /**
+   * First visit: open the hotkey sheet so keyboard navigation is the obvious
+   * default modality. Dismiss (Esc / cue / backdrop) persists the flag.
+   */
+  function maybeOpenKeysOnboard() {
+    if (keysOnboarded()) return false;
+    // Freeze nav as the focused component — board is keyboard-first.
+    state.columnFocus = true;
+    state.focus = listBladeIndex();
+    state.keysOnboard = true;
+    openIntel();
+    status("keys · Esc to close");
+    return true;
+  }
+
+  function closeContextMenu() {
+    if (!(state.ctxMenu && state.ctxMenu.open)) return false;
+    state.ctxMenu = null;
+    return true;
+  }
+
+  function openContextMenu(ev, target) {
+    if (!target || !window.NB_CTX) return false;
+    var actions = window.NB_CTX.actionsFor(target.controlKey, target.kind) || [];
+    state.ctxMenu = {
+      open: true,
+      x: Math.max(4, Math.min((ev && ev.clientX) || 8, (window.innerWidth || 800) - 220)),
+      y: Math.max(4, Math.min((ev && ev.clientY) || 8, (window.innerHeight || 600) - 180)),
+      target: target,
+      actions: actions.slice(0, window.NB_CTX.MAX_ACTIONS || 3),
+    };
+    return true;
+  }
+
+  function bindPromptFromTarget(target) {
+    if (!target || !window.NB_CTX) return;
+    state.boundContext = window.NB_CTX.boundChipsFromTarget(target);
+    state.ai = true;
+    state.columnFocus = false;
+    closeContextMenu();
+    state.cliOpen = true;
+    render(true);
+    focusCli();
+    status("context · " + (target.kind || "ctrl") + " " + (target.name || target.id) +
+      " — type a prompt");
+    if (window.NB_CTX.record) {
+      window.NB_CTX.record({ controlKey: target.controlKey, verb: "prompt-about" });
+    }
+  }
+
+  function clearBoundContext() {
+    state.boundContext = [];
+  }
+
+  function copyTargetContent(target, opts) {
+    opts = opts || {};
+    if (!window.NB_COPY) {
+      status("copy unavailable");
+      return false;
+    }
+    var t = target || (state.ctxMenu && state.ctxMenu.target);
+    if (opts.fullChat) {
+      t = Object.assign({}, t || {}, { kind: "chat" });
+    }
+    var text = window.NB_COPY.formatForTarget(t, state);
+    window.NB_COPY.copyText(text).then(function (ok) {
+      status(ok
+        ? ("copied · " + ((t && t.kind) || "content") + " (" + text.length + " chars)")
+        : "copy failed");
+    });
+    if (t && t.controlKey) recordCtxInteraction("copy", t);
+    return true;
+  }
+
+  function removeBoundContext(id) {
+    state.boundContext = (state.boundContext || []).filter(function (c) {
+      return c.id !== id;
+    });
+  }
+
+  function recordCtxInteraction(verb, targetOrKey) {
+    if (!window.NB_CTX || !window.NB_CTX.record) return;
+    var key = null;
+    if (typeof targetOrKey === "string") key = targetOrKey;
+    else if (targetOrKey && targetOrKey.controlKey) key = targetOrKey.controlKey;
+    else if (state.ctxMenu && state.ctxMenu.target) key = state.ctxMenu.target.controlKey;
+    else {
+      var t = window.NB_CTX.resolveTarget
+        ? window.NB_CTX.resolveTarget({ target: document.activeElement }, state)
+        : null;
+      if (t) key = t.controlKey;
+    }
+    if (!key) return;
+    window.NB_CTX.record({ controlKey: key, verb: verb });
+  }
+
+  function runContextAction(verb, target) {
+    target = target || (state.ctxMenu && state.ctxMenu.target);
+    closeContextMenu();
+    if (!target || !verb) return;
+    recordCtxInteraction(verb, target);
+
+    if (verb === "copy-path") {
+      var text = target.path || target.id || "";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function () { /* fine */ });
+      }
+      return status("copied · " + text);
+    }
+    if (verb === "copy" || verb === "copy-chat") {
+      return copyTargetContent(target, { fullChat: verb === "copy-chat" });
+    }
+    if (verb === "prompt-about") {
+      return bindPromptFromTarget(target);
+    }
+    if (verb === "rename") {
+      bindPromptFromTarget(target);
+      cliValue = "rename this channel to ";
+      var renameInput = $("[data-cli]");
+      if (renameInput) renameInput.value = cliValue;
+      recompute();
+      render(true);
+      focusCli();
+      return status("rename · finish the new name and Enter");
+    }
+    if (verb === "dismiss") {
+      dismissCurrent();
+      return;
+    }
+    if (verb === "reply") {
+      if (target.kind === "post" && target.id) {
+        openThread(target.id);
+        var who = target.name || "";
+        var pathParts = window.NB_MAP.split(target.path || state.path || "/");
+        var ch = null;
+        var ci = pathParts.indexOf("channels");
+        if (ci >= 0 && pathParts[ci + 1]) ch = pathParts[ci + 1];
+        armReplyTo(target.id, who, ch, pathParts[0] === "projects" ? pathParts[1] : null);
+        state.columnFocus = false;
+        focusCli();
+        return status("reply · " + (target.name || target.id));
+      }
+      state.columnFocus = false;
+      focusCli();
+      return status("compose");
+    }
+    if (verb === "open-thread") {
+      if (target.id) openThread(target.id);
+      return;
+    }
+    if (verb === "expand") {
+      // Select + preview without full activate navigate when possible.
+      selectTargetInNav(target);
+      previewSelection();
+      return status("preview · " + (target.name || target.id));
+    }
+    // activate (default)
+    selectTargetInNav(target);
+    activateSelection();
+    status("activate · " + (target.name || target.id));
+  }
+
+  function selectTargetInNav(target) {
+    if (!target) return;
+    var MAP = window.NB_MAP;
+    var path = target.path || state.path;
+    var parts = MAP.split(path);
+    var parent = MAP.join(parts.slice(0, -1)) || "/";
+    var name = parts.length ? parts[parts.length - 1] : target.name;
+    if (target.kind === "masthead") {
+      goHome();
+      return;
+    }
+    if (target.kind === "tab" && target.id && String(target.id).indexOf("session-") === 0) {
+      var si = Number(String(target.id).replace("session-", ""));
+      if (!isNaN(si)) switchSession(si);
+      return;
+    }
+    // If path is a leaf under current listing, select it; else navigate parent then select.
+    if (state.path !== parent && state.path !== path) {
+      navigate(parent, { keepCli: true });
+    }
+    if (state.path === path && target.kind !== "channel" && target.kind !== "nav-item") {
+      // Already at leaf path (e.g. post path) — open thread if post.
+      if (target.kind === "post") openThread(target.id);
+      return;
+    }
+    var all = entries();
+    var ix = all.findIndex(function (e) { return e.name === name || e.name === target.elementKey; });
+    if (ix < 0 && target.elementKey) {
+      ix = all.findIndex(function (e) { return e.name === target.elementKey; });
+    }
+    if (ix >= 0) {
+      state.cursor = ix;
+      focusColumns();
+    } else if (path && path !== state.path) {
+      navigate(path, { keepCli: true });
+    }
   }
 
   /** Tab: complete the unambiguous part first, then cycle. */
@@ -4188,14 +4880,21 @@
    */
   function beginUserTurn(text, mode, atts) {
     atts = atts || takeAttachments();
+    var bound = (state.boundContext || []).slice();
     var display = String(text || "").trim();
     if (!display && atts.length) display = "(attached " + atts.length +
       " file" + (atts.length === 1 ? "" : "s") + ")";
+    if (bound.length && window.NB_CTX && window.NB_CTX.composeWithBoundContext) {
+      display = window.NB_CTX.composeWithBoundContext(display, bound);
+    }
     pushLine({
       kind: "user",
       text: display,
       mode: mode || (state.ai ? "ai" : "cli"),
       attachments: attachmentMetaList(atts),
+      boundContext: bound.map(function (c) {
+        return { id: c.id, name: c.name, kind: c.kind };
+      }),
       _pendingAsk: mode === "ai",
     });
     // Agent/chat turns claim the dedicated session blade immediately.
@@ -4204,7 +4903,13 @@
       state.sessionOutFocus = true;
       if (sessionBladeIndex() >= 0) state.focus = sessionBladeIndex();
     }
-    return { display: display, agentInput: composeWithAttachments(display, atts), attachments: atts };
+    clearBoundContext();
+    return {
+      display: display,
+      agentInput: composeWithAttachments(display, atts),
+      attachments: atts,
+      boundContext: bound,
+    };
   }
 
   async function ask(text) {
@@ -4221,6 +4926,7 @@
         signal: undefined,
         attachments: turn.attachments,
         displayInput: turn.display,
+        boundContext: turn.boundContext || [],
       }, onEvent);
     } finally {
       state.busy = false;
@@ -4310,13 +5016,21 @@
         return true;
       }
       state.ai = true;
-      var hereR = MAP.list(state.path, state.merged) || [];
-      var selR = hereR[state.cursor];
+      var hereR = feedEntries();
+      var selR = entries()[state.cursor];
       var post = selR && selR.post ? selR.post : null;
       if (!post && state.threadFocus) {
         for (var ri = 0; ri < hereR.length; ri++) {
           if (hereR[ri].post && hereR[ri].post.id === state.threadFocus) {
             post = hereR[ri].post;
+            break;
+          }
+        }
+      }
+      if (!post && state.feedMark) {
+        for (var rj = 0; rj < hereR.length; rj++) {
+          if (hereR[rj].post && hereR[rj].post.id === state.feedMark) {
+            post = hereR[rj].post;
             break;
           }
         }
@@ -4786,6 +5500,44 @@
     }
   }
 
+  /**
+   * Tab swaps prompt ↔ panel context. Autocomplete still owns Tab only while
+   * the suggestion menu is active. Focusing the prompt from a post detail
+   * begins writing a reply.
+   */
+  function swapFocusContext() {
+    if (state.columnFocus) {
+      state.columnFocus = false;
+      if (state.threadFocus) {
+        var replyPost = null;
+        var pool = feedEntries();
+        for (var ri = 0; ri < pool.length; ri++) {
+          if (pool[ri].post && pool[ri].post.id === state.threadFocus) {
+            replyPost = pool[ri].post;
+            break;
+          }
+        }
+        if (!replyPost) {
+          var sel = entries()[state.cursor];
+          if (sel && sel.post) replyPost = sel.post;
+        }
+        if (replyPost) {
+          armReplyTo(replyPost.id, replyPost.who, replyPost.channel, replyPost.project);
+        }
+      }
+      render(true);
+      focusCli();
+      status(state.replyTo
+        ? ("reply · @" + (state.replyTo.who || "there") + " — Tab returns to panels")
+        : "prompt — Tab returns to panels");
+      return "prompt";
+    }
+    focusColumns();
+    render(true);
+    status("panels — Tab returns to prompt");
+    return "panels";
+  }
+
   /** Keys that mean "steer the board" while columns own focus. */
   function isColumnSteerKey(ev) {
     if (ev.altKey || ev.ctrlKey || ev.metaKey) return false;
@@ -4796,7 +5548,7 @@
     if (k === "Enter" || k === "Backspace" || k === "Home" || k === "End") return true;
     if (k === " " || k === "Spacebar" || k === "PageUp" || k === "PageDown") return true;
     if (k === "[" || k === "]") return true;
-    if (k.length === 1 && /^[hjklzvre]$/i.test(k)) return true;
+    if (k.length === 1 && /^[hjklzyvre]$/i.test(k)) return true;
     return false;
   }
 
@@ -4813,7 +5565,57 @@
   function wireMount() {
     var mount = $("[data-mount]");
 
+    // Right-click: themed context menu (suppress native browser menu).
+    document.addEventListener("contextmenu", function (ev) {
+      if (!window.NB_CTX) return;
+      var inBoard = ev.target.closest && (
+        ev.target.closest("[data-mount]") ||
+        ev.target.closest(".nb-bar") ||
+        ev.target.closest("[data-region='status']")
+      );
+      if (!inBoard) return;
+      // Allow native menu in text inputs when selecting text (optional UX);
+      // still offer our menu for the prompt chrome itself.
+      var t = window.NB_CTX.resolveTarget(ev, state);
+      if (!t) return;
+      try { ev.preventDefault(); } catch { /* fine */ }
+      openContextMenu(ev, t);
+      render(true);
+      status("context · " + (t.kind || "ctrl") + " · " + (t.name || t.id));
+    });
+
     mount.addEventListener("click", function (ev) {
+      var ctxPrompt = ev.target.closest("[data-ctx-prompt]");
+      if (ctxPrompt) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        var tgt = state.ctxMenu && state.ctxMenu.target;
+        return bindPromptFromTarget(tgt);
+      }
+      var ctxAction = ev.target.closest("[data-ctx-action]");
+      if (ctxAction) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return runContextAction(
+          ctxAction.getAttribute("data-ctx-verb"),
+          state.ctxMenu && state.ctxMenu.target,
+        );
+      }
+      var ctxBoundRm = ev.target.closest("[data-ctx-bound-rm]");
+      if (ctxBoundRm) {
+        try { ev.preventDefault(); } catch { /* fine */ }
+        removeBoundContext(ctxBoundRm.getAttribute("data-ctx-bound-rm"));
+        return render(true);
+      }
+      var ctxBoundClear = ev.target.closest("[data-ctx-bound-clear]");
+      if (ctxBoundClear) {
+        try { ev.preventDefault(); } catch { /* fine */ }
+        clearBoundContext();
+        return render(true);
+      }
+      // Click away closes the context menu.
+      if (state.ctxMenu && state.ctxMenu.open && !ev.target.closest("[data-ctx-menu]")) {
+        closeContextMenu();
+        render(true);
+      }
       var attachPick = ev.target.closest("[data-attach-pick]");
       if (attachPick) {
         ev.preventDefault();
@@ -4923,6 +5725,28 @@
         focusCli();
         return status("reply @" + who + " — type and Enter to post");
       }
+      var copyPostBtn = ev.target.closest("[data-copy-post]");
+      if (copyPostBtn) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return copyTargetContent({
+          kind: "post",
+          id: copyPostBtn.getAttribute("data-copy-post"),
+          name: copyPostBtn.getAttribute("data-copy-post"),
+          path: state.path,
+          controlKey: "post:" + copyPostBtn.getAttribute("data-copy-post"),
+        });
+      }
+      var copyChatBtn = ev.target.closest("[data-copy-chat]");
+      if (copyChatBtn) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return copyTargetContent({
+          kind: "chat",
+          id: "session-chat",
+          name: "session chat",
+          path: state.path,
+          controlKey: "chat:session",
+        });
+      }
       if (ev.target.closest("[data-compose-clear]")) {
         clearReplyTo();
         render(true);
@@ -5010,13 +5834,27 @@
       if (ev.target.closest("[data-feed-query-clear]")) {
         setFeedQuery("", "hot");
         state.sort = "hot";
+        state.feedQueryOpen = false;
         return;
       }
+      if (ev.target.closest("[data-feed-query-toggle]")) {
+        state.feedQueryOpen = !state.feedQueryOpen;
+        render(true);
+        if (state.feedQueryOpen) {
+          var qFocus = $("[data-feed-query]");
+          if (qFocus) try { qFocus.focus({ preventScroll: true }); } catch { /* fine */ }
+          return status("feed view query — Lucene fields, Esc / clear to fold");
+        }
+        return status("feed view folded");
+      }
       if (ev.target.closest("[data-feed-query-help]")) {
+        state.feedQueryOpen = true;
         if (window.NB_QUERY && window.NB_QUERY.helpText) {
           pushLine({ kind: "out", text: window.NB_QUERY.helpText() });
           render(true);
           scrollOut();
+        } else {
+          render(true);
         }
         return status("feed query help in transcript");
       }
@@ -5086,9 +5924,22 @@
         try { ev.preventDefault(); } catch { /* fine */ }
         return clearThreadFocus();
       }
+      var bladeGoto = ev.target.closest("[data-blade-goto]");
+      if (bladeGoto) {
+        try { ev.preventDefault(); } catch { /* fine */ }
+        var bi = Number(bladeGoto.getAttribute("data-blade-goto"));
+        if (!isNaN(bi)) {
+          state.focus = bi;
+          state.columnFocus = true;
+          if (bi === detailBladeIndex()) state.detailOpen = true;
+          render(true);
+          revealFocusedBlade();
+          return status("pane · " + (bi === 0 ? "nav" : (bi === 1 ? "feed" : "session")));
+        }
+      }
       var commentHit = ev.target.closest(".cn-comment");
       if (commentHit && !ev.target.closest(
-        "button, a, [data-vote-id], [data-reply], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
+        "button, a, [data-vote-id], [data-reply], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
       )) {
         var cid = commentHit.getAttribute("data-key");
         if (cid) {
@@ -5458,7 +6309,14 @@
       }
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
-      if (ev.key === "Tab") { ev.preventDefault(); return complete(ev.shiftKey); }
+      if (ev.key === "Tab") {
+        ev.preventDefault();
+        // Suggestions open → Tab completes. Otherwise Tab swaps to panels.
+        if (menuShouldOpen() || menuIsActive()) {
+          return complete(ev.shiftKey);
+        }
+        return swapFocusContext();
+      }
       if (ev.key === "Enter") {
         ev.preventDefault();
         // Enter always submits/runs the typed line. Autocomplete accept is Tab
@@ -5466,8 +6324,10 @@
         // cannot trap the key that means "send".
         closeIntel();
         var text = cli.value;
-        // Allow send with only attachments staged (chat context turn).
-        if (!String(text || "").trim() && !(state.attachments && state.attachments.length)) {
+        // Allow send with only attachments or bound context staged.
+        if (!String(text || "").trim() &&
+            !(state.attachments && state.attachments.length) &&
+            !(state.boundContext && state.boundContext.length)) {
           return;
         }
         cliValue = "";
@@ -5545,15 +6405,15 @@
       }
       if (ev.altKey && ev.key.toLowerCase() === "j") {
         ev.preventDefault();
-        return status("the page is the terminal — no separate panel to minimise");
+        return status("already full width");
       }
       if (ev.altKey && ev.key.toLowerCase() === "m") {
         ev.preventDefault();
-        return status("the page is the terminal — blades fill the TUI");
+        return status("already full width");
       }
       if (ev.altKey && ev.key.toLowerCase() === "d") {
         ev.preventDefault();
-        return status("the page is the terminal — no dock cycle");
+        return status("no dock to cycle");
       }
       if (ev.altKey && ev.key.toLowerCase() === "t") {
         ev.preventDefault();
@@ -5595,8 +6455,21 @@
         ev.preventDefault();
         return toggleKeys();
       }
+      if (ev.target.closest("[data-model-fetch]")) {
+        ev.preventDefault();
+        if (typeof window.__nbModelFetchStart === "function") {
+          window.__nbModelFetchStart();
+        } else {
+          status("on-device AI — press any key to download, or Alt+A for CLI");
+        }
+        return;
+      }
       if (ev.target.closest("[data-merge]")) return mergePending();
-      if (ev.target.closest("[data-goto-home], [data-brand]")) {
+      if (ev.target.closest("[data-goto-landing], [data-brand]")) {
+        try { ev.preventDefault(); } catch { /* fine */ }
+        return goLanding();
+      }
+      if (ev.target.closest("[data-goto-home]")) {
         try { ev.preventDefault(); } catch { /* fine */ }
         return goHome();
       }
@@ -5758,8 +6631,8 @@
         }
       }
 
-      // Esc dismiss cascade (outermost first): auth → profile → help/intel
-      // (later) → filter / selection / columns. Speech stop is capture-phase.
+      // Esc dismiss cascade (outermost first): auth → profile → context menu →
+      // help/intel (later) → filter / selection / columns. Speech stop is capture-phase.
       if (ev.key === "Escape") {
         var authDlg = $("[data-auth-dialog]");
         if (authDlg && authDlg.dataset.open === "true" && !authDlg.hidden) {
@@ -5770,6 +6643,28 @@
           ev.preventDefault();
           closeProfileMenu();
           return;
+        }
+        if (state.ctxMenu && state.ctxMenu.open) {
+          ev.preventDefault();
+          closeContextMenu();
+          render(true);
+          return status("context closed");
+        }
+      }
+
+      // Tab swaps panel ↔ prompt when panels own context (not masthead a11y tabbing).
+      if (ev.key === "Tab" && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
+        var authOpen = (function () {
+          var d = $("[data-auth-dialog]");
+          return d && d.dataset.open === "true" && !d.hidden;
+        })();
+        var onCli = ev.target.hasAttribute && ev.target.hasAttribute("data-cli");
+        var onFeedQ = ev.target.hasAttribute && ev.target.hasAttribute("data-feed-query");
+        var editorInsert = state.editor && state.editor.focused && state.editor.active &&
+          state.editor.active.mode === "insert";
+        if (!authOpen && !onFeedQ && !editorInsert && state.columnFocus && !onCli) {
+          ev.preventDefault();
+          return swapFocusContext();
         }
       }
 
@@ -5893,17 +6788,65 @@
         focusColumns();
         return toggleNavCollapsed();
       }
+      // Yank: copy focused content (post thread, channel feed, chat, …).
+      if (k === "y" && state.columnFocus && window.NB_CTX && window.NB_COPY) {
+        ev.preventDefault();
+        var yankTarget = window.NB_CTX.resolveTarget(
+          { target: document.activeElement || $("[data-mount]") || document.body },
+          state,
+        );
+        // Prefer selected nav/post under cursor when resolve is vague.
+        if ((!yankTarget || yankTarget.kind === "blade" || yankTarget.kind === "prompt") &&
+            !homeOwnsKeyboard()) {
+          var listY = entries();
+          var eY = listY[state.cursor];
+          if (eY && eY.post) {
+            yankTarget = {
+              kind: "post",
+              id: eY.post.id,
+              name: eY.post.who || eY.post.id,
+              path: state.path,
+              controlKey: "post:" + eY.post.id,
+            };
+          } else if (eY) {
+            yankTarget = {
+              kind: (eY.kind === "dir" || eY.kind === "channel") ? "channel" : "nav-item",
+              id: MAP.resolve(state.path, eY.name),
+              name: eY.name,
+              path: MAP.resolve(state.path, eY.name),
+              controlKey: "nav-item:" + MAP.resolve(state.path, eY.name),
+              elementKey: eY.name,
+            };
+          } else if (state.threadFocus || state.feedMark) {
+            var yid = state.threadFocus || state.feedMark;
+            yankTarget = {
+              kind: "post",
+              id: yid,
+              name: yid,
+              path: state.path,
+              controlKey: "post:" + yid,
+            };
+          }
+        }
+        if (state.sessionOutFocus && (!yankTarget || yankTarget.kind === "blade")) {
+          yankTarget = {
+            kind: "chat", id: "session-chat", name: "session chat",
+            path: state.path, controlKey: "chat:session",
+          };
+        }
+        return copyTargetContent(yankTarget);
+      }
       if (ev.altKey && k.toLowerCase() === "j") {
         ev.preventDefault();
-        return status("the page is the terminal — no separate panel to minimise");
+        return status("already full width");
       }
       if (ev.altKey && k.toLowerCase() === "m") {
         ev.preventDefault();
-        return status("the page is the terminal — blades fill the TUI");
+        return status("already full width");
       }
       if (ev.altKey && k.toLowerCase() === "d") {
         ev.preventDefault();
-        return status("the page is the terminal — no dock cycle");
+        return status("no dock to cycle");
       }
       if (ev.altKey && k.toLowerCase() === "t") {
         ev.preventDefault();
@@ -6018,6 +6961,32 @@
     });
   }
 
+  /** Show a recoverable [fetch AI] control when the on-device model needs a gesture. */
+  function paintModelFetch(show) {
+    var el = $("[data-model-fetch]");
+    if (!el) return;
+    el.hidden = !show;
+  }
+
+  /** Plain-language on-device AI status — never dump Chromium availability jargon. */
+  function humanModelStatus(err) {
+    var s = String(err || "");
+    if (/user gesture|downloadable|downloading/i.test(s)) {
+      paintModelFetch(true);
+      return "on-device AI needs a download — press [fetch AI] or any key · Alt+A for CLI";
+    }
+    if (/too large|quota|context/i.test(s)) {
+      paintModelFetch(false);
+      return "prompt too large for on-device AI — shorten it · Alt+A for CLI";
+    }
+    if (/network|offline|fetch/i.test(s)) {
+      paintModelFetch(true);
+      return "could not reach the on-device model — retry [fetch AI] · Alt+A toggles";
+    }
+    paintModelFetch(false);
+    return "on-device AI unavailable — CLI mode · Alt+A to switch";
+  }
+
   /**
    * Acquire the model as early as the browser permits.
    *
@@ -6047,16 +7016,18 @@
       if (st.state !== "ready") { state.ai = false; render(true); }
       return status(st.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
-        : "model unavailable (" + (st.error || "unknown") + ") — cli mode, Alt+A to switch");
+        : humanModelStatus(st.error));
     }
 
-    // Needs downloading, so it needs a gesture. Say so plainly and take the
-    // first one that arrives rather than nagging.
-    status("on-device ai needs one download — press any key to start, or Alt+A for cli");
+    // Needs downloading — [fetch AI] is the status surface; do not occupy the
+    // status line with a permanent nag that competes with compose truth.
+    paintModelFetch(true);
+    status("");
     var armed = false;
     var start = async function () {
       if (armed) return;
       armed = true;
+      paintModelFetch(false);
       window.removeEventListener("keydown", start, true);
       window.removeEventListener("pointerdown", start, true);
       status("fetching the on-device model, once…");
@@ -6065,8 +7036,9 @@
       if (st2.state !== "ready") { state.ai = false; render(true); }
       status(st2.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
-        : "model unavailable (" + (st2.error || "unknown") + ") — cli mode, Alt+A to switch");
+        : humanModelStatus(st2.error));
     };
+    window.__nbModelFetchStart = start;
     window.addEventListener("keydown", start, true);
     window.addEventListener("pointerdown", start, true);
   }
@@ -6176,6 +7148,8 @@
       bootNote = (bootNote ? bootNote + " · " : "") + window.NB_NOTIFY.permissionLabel();
     }
     status(bootNote);
+    // First visit: open keys after the boot status so the onboard cue wins.
+    maybeOpenKeysOnboard();
     setInterval(tick, 9000);
   }
 
@@ -6399,6 +7373,7 @@
     composeLabel: composeLabel,
     publishCompose: publishCompose,
     createChannel: createChannel,
+    renameChannel: renameChannel,
     createProject: createProject,
     armReplyTo: armReplyTo,
     clearReplyTo: clearReplyTo,
@@ -6413,6 +7388,10 @@
     setPromptMode: setPromptMode,
     applyTokens: applyTokens,
     mergePending: mergePending,
+    tick: tick,
+    currentFeedKey: currentFeedKey,
+    feedNoticeOpen: feedNoticeOpen,
+    menuShouldOpen: menuShouldOpen,
     setLive: function (on) { state.live = on; },
     run: run,
     runSearch: runSearch,
@@ -6486,6 +7465,7 @@
     clearThreadFocus: clearThreadFocus,
     setHomeFeed: setHomeFeed,
     goHome: goHome,
+    goLanding: goLanding,
     markHomeFeedRead: markHomeFeedRead,
     markHomeFollowRead: markHomeFollowRead,
     dismissHomeFollow: dismissHomeFollow,
@@ -6497,9 +7477,16 @@
     activateHomeItem: activateHomeItem,
     previewSelection: previewSelection,
     activateSelection: activateSelection,
+    openContextMenu: openContextMenu,
+    closeContextMenu: closeContextMenu,
+    bindPromptFromTarget: bindPromptFromTarget,
+    runContextAction: runContextAction,
+    clearBoundContext: clearBoundContext,
+    copyTargetContent: copyTargetContent,
     cycleHomeTab: cycleHomeTab,
     moveHomeCursor: moveHomeCursor,
     focusColumns: focusColumns,
+    swapFocusContext: swapFocusContext,
     revealSessionChat: revealSessionChat,
     clearSessionOutFocus: clearSessionOutFocus,
     closeSessionBlade: closeSessionBlade,

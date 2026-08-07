@@ -113,3 +113,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + `nightboard:e2e` green. |
 | Notes | ADR-0027 Nightboard authority; Course Line archived; select→preview / Enter→activate; shared `d` dismiss; following stacks; palette burn-down for web CSS port. |
+
+## 2026-08-07 — Nightboard Persuade + Operate `/sdlc finish`
+
+| Field | Value |
+|---|---|
+| Initiative | [`nightboard-persuade-operate`](nightboard-persuade-operate/sdlc-state.md) |
+| Backend | Sequential; coordinator inline |
+| Branch | `feat/nightboard-persuade-operate-session` |
+| PR | (opening) |
+| Result | **in progress** |
+| Failure class | — |
+| Notes | Persuade `/` vs Operate `board.html`; terminal channels keep navbar siblings; Canvas UI glitch + E01 decrypt/reveal; landing typewriter. Excluded local WIP gauntlet-loop + impeccable mocks. |
