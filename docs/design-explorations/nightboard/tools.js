@@ -331,6 +331,40 @@
     });
 
     MCP.registerTool({
+      name: "board_rename_channel",
+      description:
+        "Rename an existing channel in place (updates its id/label, posts, and path). " +
+        "Use this when the user asks to rename, retitle, or change a channel's name — " +
+        "especially when bound context names a channel. " +
+        "Do NOT board_navigate to the new name; that path does not exist until rename succeeds.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          from: {
+            type: "string",
+            description: "current channel id or label (e.g. ideas). Prefer bound context name/id.",
+          },
+          to: {
+            type: "string",
+            description: "new channel name / label (e.g. ieades2)",
+          },
+          project: {
+            type: "string",
+            description: "project id (default: current path's project or community)",
+          },
+        },
+        required: ["from", "to"],
+      },
+      execute: async function (args) {
+        if (!api.renameChannel) return MCP.fail("rename not wired");
+        var res = api.renameChannel(args.from, args.to, { project: args.project });
+        if (!res || !res.ok) return MCP.fail((res && res.error) || "rename failed");
+        return MCP.text("renamed #" + res.from + " → #" + res.to +
+          " · " + res.path);
+      },
+    });
+
+    MCP.registerTool({
       name: "board_create_project",
       description:
         "Create a new project under /projects. Use when the user is at /projects (or board root) " +

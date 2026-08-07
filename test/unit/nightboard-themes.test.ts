@@ -75,7 +75,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   assert.equal(themes.length, 1, "Grid is the only built-in theme");
   assert.equal(themes[0].id, "nightboard");
   assert.equal(themes[0].name, "Grid");
-  assert.ok(!readFileSync(join(ROOT, "index.html"), "utf8").includes("data-theme-select"),
+  assert.ok(!readFileSync(join(ROOT, "board.html"), "utf8").includes("data-theme-select"),
     "chrome must not offer a Grid/Line Printer theme dropdown");
 
   const ids = new Set<string>();
@@ -290,7 +290,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   const editorSrc = readFileSync(join(ROOT, "editor.js"), "utf8");
   assert.ok(editorSrc.includes("NB_EDITOR") && editorSrc.includes("handleKey"),
     "editor.js must expose NB_EDITOR with key handling");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("editor.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("editor.js"),
     "index must load editor.js");
   const edWin: {
     NB_EDITOR?: {
@@ -423,7 +423,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   assert.ok(appNotif.includes("deliverBrowserNotifications") &&
     appNotif.includes("requestBrowserNotifications"),
     "app must push Activity through the browser Notification API");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("notify.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("notify.js"),
     "index must load notify.js");
 
   // Unsupported: no constructor → permission unsupported, deliver no-ops.
@@ -862,19 +862,92 @@ export async function runNightboardThemeTests(): Promise<void> {
     "terminal must support multiple workspace tabs");
   assert.ok(consoleSrc2.includes("cn-who") && consoleSrc2.includes("renderTranscript"),
     "transcript must align identity on a who-rail");
+  assert.ok(consoleSrc2.includes('data-turn="start"') && consoleSrc2.includes("cn-msg") &&
+    consoleSrc2.includes('"sys"'),
+    "session transcript must mark turns, wrap messages, and label sys output");
   assert.ok(consoleSrc2.includes("data-tool-toggle") && consoleSrc2.includes("cn-tool-detail"),
     "tool use must be collapsible");
   // Top chrome: Epoch animated ASCII brand — no NIGHTBOARD / console select / pause / thesis prose.
-  const indexHtmlBrand = readFileSync(join(ROOT, "index.html"), "utf8");
-  assert.ok(indexHtmlBrand.includes("nb-skip") && indexHtmlBrand.includes("role=\"banner\""),
+  const boardHtmlBrand = readFileSync(join(ROOT, "board.html"), "utf8");
+  assert.ok(boardHtmlBrand.includes("nb-skip") && boardHtmlBrand.includes("role=\"banner\""),
     "skip link and banner landmark must exist for keyboard a11y");
-  assert.ok(indexHtmlBrand.includes('data-brand') && indexHtmlBrand.includes("data-brand-art"),
+  assert.ok(boardHtmlBrand.includes('data-brand') && boardHtmlBrand.includes("data-brand-art"),
     "top bar must host the Epoch ASCII brand mark");
-  assert.ok(!/NIGHTBOARD/i.test(indexHtmlBrand), "NIGHTBOARD wordmark must be gone from chrome");
-  assert.ok(!indexHtmlBrand.includes("data-exp-select") && !indexHtmlBrand.includes("data-exp-thesis"),
+  assert.ok(boardHtmlBrand.includes("data-goto-landing"),
+    "board brand must navigate to the marketing landing");
+  assert.ok(!/NIGHTBOARD/i.test(boardHtmlBrand), "NIGHTBOARD wordmark must be gone from chrome");
+  assert.ok(!boardHtmlBrand.includes("data-exp-select") && !boardHtmlBrand.includes("data-exp-thesis"),
     "experience select and thesis prose must leave the bar");
-  assert.ok(!indexHtmlBrand.includes("data-live-toggle"),
+  assert.ok(!boardHtmlBrand.includes("data-live-toggle"),
     "pause live-toggle button must leave the bar");
+  // Marketing landing is the default site entry (Persuade).
+  const landingHtml = readFileSync(join(ROOT, "index.html"), "utf8");
+  const landingCss = readFileSync(join(ROOT, "landing.css"), "utf8");
+  assert.ok(landingHtml.includes('data-landing="true"') || landingHtml.includes("data-landing"),
+    "index.html must be the marketing landing surface");
+  assert.ok(/href=["']board\.html["']/.test(landingHtml),
+    "landing CTA must enter the Operate board");
+  assert.ok(landingHtml.includes("nb-landing") || landingHtml.includes("data-landing-hero"),
+    "landing must expose a Persuade hero composition");
+  assert.ok(
+    landingHtml.includes("data-landing-what") &&
+      landingHtml.includes("data-landing-how") &&
+      landingHtml.includes("data-landing-who"),
+    "landing must describe what / how / who for the product");
+  assert.ok(landingHtml.includes("data-landing-preview"),
+    "landing must preview board planes for recognition");
+  assert.ok(landingHtml.includes("data-landing-theater"),
+    "landing must include the promote-to-receipt theater canvas");
+  assert.ok(landingHtml.includes("data-landing-grid"),
+    "landing must include the Grid cyclorama canvas");
+  assert.ok(landingHtml.includes("data-landing-crt"),
+    "landing must include CRT monitor shell");
+  assert.ok(landingHtml.includes("nb-crt-grain") && landingHtml.includes("nb-crt-barrel"),
+    "landing CRT must include grain + barrel tube mass");
+  assert.ok(
+    landingHtml.includes("data-ride-track") && landingHtml.includes("data-ride-stage"),
+    "landing must use a scroll-scrub ride track + fixed stage (not stacked-doc scroll alone)");
+  assert.ok(
+    landingHtml.includes("data-crt-tube") &&
+      (landingHtml.includes("nb-crt-barrel-filter") || landingHtml.includes("feDisplacementMap")),
+    "landing CRT must include tube immersion warp filter like shader.se");
+  assert.ok(
+    /chapterFromProgress|CHAPTERS|rideProgress|scrollSmooth/.test(
+      readFileSync(join(ROOT, "landing.js"), "utf8"),
+    ),
+    "landing.js must map scroll progress to chapters (scrub ride)");
+  assert.ok(landingCss.includes("data-canvas-failed") || landingCss.includes("[data-canvas-failed"),
+    "landing must style canvas-unavailable recovery");
+  assert.ok(
+    /getContext[\s\S]{0,200}failTheater|canvas unavailable|Demo canvas unavailable/i.test(
+      readFileSync(join(ROOT, "landing.js"), "utf8"),
+    ),
+    "landing.js must recover when theater canvas context is missing");
+  assert.ok(landingHtml.includes("data-scroll-rail"),
+    "landing must include scroll-to-explore chapter rail");
+  assert.ok(landingHtml.includes("nb-scroll-rail-item") && landingHtml.includes("nb-case-code"),
+    "landing chapter rail must use coded case index items (Aino → Grid)");
+  assert.ok(landingHtml.includes("data-plane-catalog") && landingHtml.includes('data-plane="channels"'),
+    "landing board section must expose an interactive plane catalog");
+  assert.ok(/clip-path:\s*inset\(0\s+0\s+0\s+0\)/.test(landingCss) ||
+    landingCss.includes("clip-path: inset(0 0 0 0)"),
+    "landing day state must keep FIGlet brand unclipped");
+  assert.ok(landingCss.includes("nb-landing-cta-rise"),
+    "landing CTA rise must not use opacity gating");
+  assert.ok(landingHtml.includes("data-theater-scrub") && landingHtml.includes("data-seek-phase"),
+    "landing theater must be scrubbable and seekable from How steps");
+  assert.ok(landingHtml.includes("data-skip-intro"),
+    "landing dawn theatre must be skippable");
+  assert.ok(/collaborat|promote your work|get paid|creator/i.test(landingHtml),
+    "landing must state collaborate → promote work → get paid");
+  assert.ok(!/promote(?:d)? (?:a |the )?message|promote → intent|conversation becomes signed/i.test(landingHtml),
+    "landing must not reuse the old promote-message thesis");
+  assert.ok(!/font:\s*inherit/.test(landingCss),
+    "landing must not inherit UA serif onto the FIGlet brand");
+  assert.ok(/font-family:\s*var\(--nb-font\)/.test(landingCss),
+    "landing must use the Nightboard monospace stack");
+  assert.ok(appSrc.includes("goLanding") || appSrc.includes("data-goto-landing"),
+    "board brand click must route to marketing landing");
   assert.ok(asciiSrc.includes("brandHtml") && asciiSrc.includes("EPOCH_MARK"),
     "ascii.js must provide a FIGlet Epoch brand wordmark");
   assert.ok(asciiSrc.includes("███████") && asciiSrc.includes("nb-brand-fig"),
@@ -931,7 +1004,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   const querySrc = readFileSync(join(ROOT, "query.js"), "utf8");
   assert.ok(querySrc.includes("NB_QUERY") && querySrc.includes("filterEntries"),
     "query.js must expose Lucene-style feed projections");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("query.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("query.js"),
     "index must load query.js");
   const qWin: {
     NB_QUERY?: {
@@ -975,6 +1048,11 @@ export async function runNightboardThemeTests(): Promise<void> {
   assert.ok(Q.presets().some((p) => p.id === "needs-review"));
   assert.ok(appSrc.includes("setFeedQuery") && appSrc.includes("feedQuery"),
     "app must wire feed query state");
+  assert.ok(consoleSrc2.includes("data-feed-query") && consoleSrc2.includes("data-feed-view") &&
+    consoleSrc2.includes("data-feed-query-toggle") && consoleSrc2.includes("feedQueryOpen"),
+    "feed Lucene query is a foldable power control, not always-on chrome");
+  assert.ok(appSrc.includes("humanModelStatus") && appSrc.includes("unsigned ·"),
+    "model status is plain language; compose declares unsigned for guests");
   assert.ok(consoleSrc2.includes("data-feed-query") && consoleSrc2.includes("data-feed-view"),
     "console must expose query bar and view chips");
   assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/view"') ||
@@ -985,7 +1063,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   const attachSrc = readFileSync(join(ROOT, "attach.js"), "utf8");
   assert.ok(attachSrc.includes("NB_ATTACH") && attachSrc.includes("composeInput"),
     "attach.js must expose NB_ATTACH for chat context files");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("attach.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("attach.js"),
     "index must load attach.js");
   assert.ok(appSrc.includes("addAttachmentFiles") && appSrc.includes("attachments"),
     "app must stage attachments on the prompt");
@@ -1028,7 +1106,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   const hooksSrc = readFileSync(join(ROOT, "hooks.js"), "utf8");
   assert.ok(hooksSrc.includes("NB_HOOKS") && hooksSrc.includes("emit"),
     "hooks.js must expose NB_HOOKS with emit");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("hooks.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("hooks.js"),
     "index must load hooks.js");
   assert.ok(dataSrc.includes("hooks:") || dataSrc.includes("hooks :"),
     "fixtures include default hooks");
@@ -1133,12 +1211,18 @@ export async function runNightboardThemeTests(): Promise<void> {
     "Esc must dismiss the profile menu");
   assert.ok(appSrc.includes("openIntel") && appSrc.includes("ctrlKey"),
     "Ctrl+Space must open intellisense");
+  assert.ok(appSrc.includes("maybeOpenKeysOnboard") && appSrc.includes("nb-keys-onboarded") &&
+    appSrc.includes("keysOnboard"),
+    "first visit must open the hotkey sheet and remember dismiss");
   assert.ok(appSrc.includes("intelOpen") && appSrc.includes("helpOpen") && appSrc.includes("helpCtx"),
     "intellisense freezes help context before focusing the prompt");
   assert.ok(appSrc.includes("menuDismissed") && appSrc.includes("dismissMenu"),
     "Esc must dismiss the suggestion combobox without clearing the draft");
-  assert.ok(consoleSrc2.includes("menuDismissed"),
-    "console render must honor menuDismissed when painting the combobox");
+  assert.ok(consoleSrc2.includes("menuShouldOpen"),
+    "console render must use app.menuShouldOpen (includes menuDismissed) for the combobox");
+  assert.ok(appSrc.includes("feedNoticeOpen") && appSrc.includes("pendingByFeed") &&
+    consoleSrc2.includes("cn-feed-notice"),
+    "new-posts notice is feed-scoped overlay, not page chrome");
   assert.ok(appSrc.includes("syncCompletionToIndex") &&
     /ArrowDown[\s\S]{0,200}syncCompletionToIndex[\s\S]{0,80}paintGhost/.test(appSrc),
     "↑↓ must sync ghost/insert to the highlighted candidate and repaint preview");
@@ -1189,6 +1273,43 @@ export async function runNightboardThemeTests(): Promise<void> {
   const navIds = helpWin.NB_HELP!.visibleGroups(navCtx).map((g) => g.id);
   assert.ok(navIds.includes("nav") && !navIds.includes("prompt"),
     "nav focus shows Navigation only: " + navIds.join(","));
+  // First-visit onboard: lead teaches the win — sheet + trimmed verbs only.
+  const onboardGroups = helpWin.NB_HELP!.visibleGroups(
+    Object.assign({}, navCtx, { onboard: true }),
+  );
+  const onboardIds = onboardGroups.map((g) => g.id);
+  assert.deepEqual(onboardIds.filter((id) => id === "nav"), [],
+    "onboard must not dump Navigation: " + onboardIds.join(","));
+  assert.ok(onboardIds.includes("sheet") && onboardIds.includes("verbs"),
+    "onboard keeps sheet + verbs: " + onboardIds.join(","));
+  const onboardVerbKeys = ((onboardGroups.find((g) => g.id === "verbs") as
+    { rows?: { keys?: string }[] } | undefined)?.rows || [])
+    .map((r) => String(r.keys || ""));
+  assert.ok(onboardVerbKeys.every((k: string) => /^(j k|Enter|esc)/i.test(k)),
+    "onboard verbs trimmed to first-win keys, got: " + onboardVerbKeys.join("|"));
+  assert.ok(onboardVerbKeys.length >= 1 && onboardVerbKeys.length <= 4,
+    "onboard verb count stays small: " + onboardVerbKeys.length);
+  assert.ok(!/Allow alerts/.test(appSrc) || /permBtn\.hidden\s*=\s*true/.test(appSrc),
+    "masthead must not host Allow alerts — Activity owns enable");
+  assert.ok(/--nb-signed:\s*#7dff9a/.test(readFileSync(join(ROOT, "base.css"), "utf8")),
+    "signed mint must sit far from warn amber");
+  assert.ok(consoleSrc2.includes("cn-search-state[data-state=signed]{color:var(--nb-signed)}"),
+    "search signed state uses --nb-signed, not live green");
+  assert.ok(consoleSrc2.includes('title="Unread"') && /cn-badge[\s\S]{0,80}new/.test(consoleSrc2),
+    "nav unread badge must say new/count — never stringify boolean true");
+  assert.ok(consoleSrc2.includes('? "first keys"') || consoleSrc2.includes('"first keys"'),
+    "onboard help scope must say first keys, not NAVIGATION");
+  assert.ok(consoleSrc2.includes("scroll-padding-block-end") ||
+    /cn-blade-body[\s\S]{0,120}3\.25rem/.test(consoleSrc2),
+    "detail feed must pad above sticky prompt so scores are not occluded");
+  assert.ok(consoleSrc2.includes('id: "states"'),
+    "post-state colours live in the keys sheet");
+  assert.ok(!/cn-state-legend[\s\S]{0,120}needs-review/.test(consoleSrc2) ||
+    !/<span class="cn-state-legend"/.test(consoleSrc2),
+    "state legend must not be permanent channel ctx chrome");
+  assert.ok(readFileSync(join(ROOT, "sitemap.js"), "utf8").includes("label:") &&
+    consoleSrc2.includes("e.label || e.name"),
+    "Activity nav rows use human labels matching the card feed");
   const threadCtx = helpWin.NB_HELP!.buildContext({
     path: "/projects/community/channels/general",
     columnFocus: true, focus: 1, detailOpen: true, ai: true, cursor: 0,
@@ -1316,11 +1437,11 @@ export async function runNightboardThemeTests(): Promise<void> {
     "16-bit iconography pack (pixelarticons) must expose NB_ICONS");
   assert.ok(consoleSrc2.includes("NB_ICONS") && consoleSrc2.includes("nb-ico"),
     "mic button must use the 16-bit pack glyph, not the word mic");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("icons.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("icons.js"),
     "index must load icons.js");
   assert.ok(consoleSrc2.includes("Hold `") && consoleSrc2.includes("Alt+V"),
     "cheatsheet documents speech hotkeys when speech is available");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("speech.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("speech.js"),
     "index must load speech.js");
 
   // Unsupported browser: no constructor → isSupported false, create still safe.
@@ -1492,7 +1613,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     "voice PTT must preempt STT; Ctrl+Shift+M mutes");
   assert.ok(consoleSrc2.includes("cn-voice-dock") && consoleSrc2.includes("data-voice-join"),
     "console must render voice dock and join controls");
-  assert.ok(readFileSync(join(ROOT, "index.html"), "utf8").includes("voice.js"),
+  assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("voice.js"),
     "index must load voice.js");
   assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/voice"'),
     "slash catalogue includes /voice");
@@ -1785,7 +1906,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     completeSrc.includes('"/claim"') && completeSrc.includes('"/logout"') &&
     completeSrc.includes('"/space"'),
     "slash surface must expose whoami / login / claim / logout / space");
-  const indexHtml = readFileSync(join(ROOT, "index.html"), "utf8");
+  const indexHtml = readFileSync(join(ROOT, "board.html"), "utf8");
   assert.ok(indexHtml.includes("session.js") && indexHtml.includes("data-identity-host"),
     "index must load session.js and host the profile");
   assert.ok(indexHtml.includes("data-profile-menu") && indexHtml.includes("data-auth-space"),

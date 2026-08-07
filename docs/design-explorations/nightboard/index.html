@@ -3,108 +3,298 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Epoch</title>
+<title>Epoch Community — collaborate, promote your work, get paid</title>
+<meta name="description" content="Epoch Community is where developers collaborate, promote their work, and get paid as creators — built on Epoch, a signed event-driven successor to Git.">
 <link rel="stylesheet" href="base.css">
-<style>
-  /* Page chrome outside the board mount (masthead, status, dialogs). */
-</style>
+<link rel="stylesheet" href="landing.css">
 </head>
-<body data-theme="Grid">
+<body class="nb-landing" data-landing="true" data-theme="Grid" data-cyc="day" data-boot="1" data-chapter="hero" data-ride="1">
 
-<a class="nb-skip" href="#nb-main">Skip to board</a>
+<a class="nb-skip" href="#nb-enter-board">Skip to enter the board</a>
+<button type="button" class="nb-landing-skip-intro" data-skip-intro>Skip intro</button>
 
-<div class="nb-bar" role="banner">
-  <!-- Tron grid-road: idle shimmer; click empty chrome to drive. -->
-  <canvas class="nb-gridroad" data-gridroad width="800" height="48"></canvas>
-  <!-- Epoch FIGlet wordmark: power-on ignite + energy wave (letterforms fixed). -->
-  <button type="button" class="nb-brand" data-brand data-phase="boot" data-boot="true"
-    data-goto-home
-    title="Epoch — home"
-    aria-label="Epoch — go home">
-    <div class="nb-brand-scan" aria-hidden="true"></div>
-    <pre class="nb-brand-art" data-brand-art></pre>
-  </button>
-  <span class="nb-bar-spacer" aria-hidden="true"></span>
-  <button type="button" class="nb-activity-bell" data-activity-bell data-unread="false"
-    data-browser-perm="unsupported"
-    title="Activity — mentions and subscriptions" aria-label="Activity notifications">
-    Activity<span class="nb-activity-badge" data-activity-badge hidden>0</span>
-  </button>
-  <button type="button" class="nb-activity-perm" data-activity-perm hidden
-    title="Enable browser notifications for mentions and subscriptions"
-    aria-label="Enable browser notifications">
-    Enable alerts
-  </button>
-  <span class="nb-identity" data-identity-host aria-live="polite"></span>
-</div>
+<!-- Scroll-scrub ride: tall track inside a fixed viewport (shader.se pattern). -->
+<div class="nb-ride" data-scroll-scrub>
+  <div class="nb-ride-scroller" data-ride-track tabindex="-1" aria-hidden="true">
+    <div class="nb-ride-spacer" data-ride-spacer></div>
+  </div>
 
-<!-- Slack-style profile menu (painted by app; host lives outside morph mount). -->
-<div class="nb-profile-menu" data-profile-menu data-open="false" hidden role="menu" aria-label="Profile and spaces"></div>
-
-<div data-region="notice" hidden aria-live="polite"></div>
-<div data-nb-fx-host><main id="nb-main" class="nb-mount" data-mount data-exp="graph" aria-label="Board" tabindex="-1"></main></div>
-<footer data-region="status" role="contentinfo">
-  <span data-status-line></span>
-  <span class="nb-status-trail">
-    <button type="button" class="nb-keys-cue" data-keys-open data-open="false"
-      aria-pressed="false"
-      title="Context hotkeys for this workspace (Ctrl+Space)"
-      aria-label="Show context hotkeys (Control+Space)">
-      <kbd>Ctrl+Space</kbd> keys
-    </button>
-  </span>
-</footer>
-
-<!-- Sign in to a space + claim / portable handle (host only; app paints). -->
-<div class="nb-auth" data-auth-dialog data-open="false" role="dialog" aria-modal="true" aria-labelledby="nb-auth-title" hidden>
-  <div class="nb-auth-card">
-    <h2 id="nb-auth-title" data-auth-title>Sign in to a space</h2>
-    <p data-auth-lead>Pick a space and a handle. Anonymous guests can browse guest-friendly spaces; signing in claims your identity in that space.</p>
-    <p class="nb-auth-err" data-auth-err hidden></p>
-    <label for="nb-auth-space">Space</label>
-    <select id="nb-auth-space" data-auth-space aria-label="Space"></select>
-    <label for="nb-auth-handle">Handle</label>
-    <input id="nb-auth-handle" data-auth-handle type="text" autocomplete="username" spellcheck="false"
-      placeholder="maya" aria-describedby="nb-auth-meta">
-    <div class="nb-auth-row">
-      <button type="button" class="nb-auth-esc" data-auth-cancel data-esc-dismiss title="Esc — cancel">esc</button>
-      <button type="button" data-auth-claim>Sign in to space</button>
-      <button type="button" class="primary" data-auth-atproto>Sign in with handle</button>
+  <div class="nb-ride-stage" data-ride-stage>
+    <!-- Chassis ring above copy; phosphor stack stays under copy (readable). -->
+    <div class="nb-crt-bezel" data-crt-bezel aria-hidden="true"></div>
+    <!-- CRT tube immersion — WebGL lens pass on Grid + phosphor stack (shader.se). -->
+    <div class="nb-crt" data-landing-crt data-crt-tube aria-hidden="true">
+      <svg class="nb-crt-svg" width="0" height="0" aria-hidden="true" focusable="false">
+        <defs>
+          <!-- Static fallback only when WebGL CRT pass is unavailable. -->
+          <filter id="nb-crt-barrel-filter" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+            <feImage result="map" width="100%" height="100%" preserveAspectRatio="none"
+              href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%23808080'/%3E%3Cstop offset='55%25' stop-color='%236e6e6e'/%3E%3Cstop offset='100%25' stop-color='%23202020'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23g)'/%3E%3C/svg%3E"/>
+            <feDisplacementMap in="SourceGraphic" in2="map" scale="28" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <filter id="nb-crt-barrel-soft" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
+            <feImage result="map" width="100%" height="100%" preserveAspectRatio="none"
+              href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='75%25'%3E%3Cstop offset='0%25' stop-color='%23808080'/%3E%3Cstop offset='55%25' stop-color='%236e6e6e'/%3E%3Cstop offset='100%25' stop-color='%23202020'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23g)'/%3E%3C/svg%3E"/>
+            <feDisplacementMap in="SourceGraphic" in2="map" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        </defs>
+      </svg>
+      <div class="nb-crt-screen" data-crt-screen>
+        <div class="nb-crt-glass"></div>
+        <div class="nb-crt-vignette"></div>
+        <div class="nb-crt-scan"></div>
+        <div class="nb-crt-phosphor"></div>
+        <div class="nb-crt-chroma"></div>
+        <div class="nb-crt-grain"></div>
+        <div class="nb-crt-barrel"></div>
+        <div class="nb-crt-bloom"></div>
+      </div>
     </div>
-    <p class="nb-auth-meta" id="nb-auth-meta" data-auth-meta>
-      Spaces are shared boards you can join. Enter a handle to sign in.
-    </p>
+
+    <!-- Full-bleed Grid cyclorama + driving floor (scrubbed by ride progress). -->
+    <div class="nb-cyc" data-landing-cyc aria-hidden="true">
+      <div class="nb-cyc-wash nb-cyc-wash-night"></div>
+      <div class="nb-cyc-wash nb-cyc-wash-horizon"></div>
+      <div class="nb-cyc-wash nb-cyc-wash-dawn"></div>
+      <div class="nb-cyc-wash nb-cyc-wash-day"></div>
+      <canvas class="nb-cyc-grid" data-landing-grid width="1200" height="800"></canvas>
+    </div>
+
+    <!-- Scroll index — coded chapters. -->
+    <nav class="nb-scroll-rail" data-scroll-rail aria-label="Page chapters">
+      <div class="nb-scroll-rail-track" aria-hidden="true">
+        <div class="nb-scroll-rail-fill" data-scroll-fill></div>
+      </div>
+      <button type="button" class="nb-scroll-rail-item" data-jump="hero" aria-label="E00 Enter" title="Enter">
+        <span class="nb-case-code">E00</span><span class="nb-case-name">Enter</span>
+      </button>
+      <button type="button" class="nb-scroll-rail-item" data-jump="nb-what" aria-label="E01 What" title="What">
+        <span class="nb-case-code">E01</span><span class="nb-case-name">What</span>
+      </button>
+      <button type="button" class="nb-scroll-rail-item" data-jump="nb-how" aria-label="E02 How" title="How">
+        <span class="nb-case-code">E02</span><span class="nb-case-name">How</span>
+      </button>
+      <button type="button" class="nb-scroll-rail-item" data-jump="nb-who" aria-label="E03 Who" title="Who">
+        <span class="nb-case-code">E03</span><span class="nb-case-name">Who</span>
+      </button>
+      <button type="button" class="nb-scroll-rail-item" data-jump="nb-board" aria-label="E04 Board" title="Board">
+        <span class="nb-case-code">E04</span><span class="nb-case-name">Board</span>
+      </button>
+    </nav>
+
+    <main class="nb-landing-page">
+      <section class="nb-landing-stage nb-ride-chapter" data-landing-hero data-chapter-panel="hero" data-ride-chapter="hero" aria-labelledby="nb-landing-headline">
+        <div class="nb-landing-hero-copy">
+          <div data-fx="decrypt" class="nb-hero-decrypt" data-decrypt-role="hero">
+            <div data-fx-content class="nb-fx-content">
+              <header class="nb-landing-brand">
+                <pre class="nb-brand-art nb-landing-fig" data-landing-brand aria-label="Epoch">███████╗██████╗  ██████╗  ██████╗██╗  ██╗
+██╔════╝██╔══██╗██╔═══██╗██╔════╝██║  ██║
+█████╗  ██████╔╝██║   ██║██║     ███████║
+██╔══╝  ██╔═══╝ ██║   ██║██║     ██╔══██║
+███████╗██║     ╚██████╔╝╚██████╗██║  ██║
+╚══════╝╚═╝      ╚═════╝  ╚═════╝╚═╝  ╚═╝</pre>
+              </header>
+            </div>
+          </div>
+
+          <div data-fx="glitch" class="nb-hero-glitch" data-glitch-role="hero"
+            data-glitch-intensity="0.85"
+            data-glitch-interval="2.8"
+            data-glitch-duration="0.35"
+            data-glitch-slices="20"
+            data-glitch-shift="22"
+            data-glitch-rgb="4"
+            data-glitch-blocks="0.4"
+            data-glitch-noise="0.3">
+            <div data-fx-content class="nb-fx-content">
+              <h1 class="nb-landing-headline" id="nb-landing-headline"
+                data-headline-type
+                aria-label="Collaborate. Promote your work. Get paid.">
+                <span class="nb-headline-line" data-type-line="Collaborate."></span>
+                <span class="nb-headline-line" data-type-line="Promote your work."></span>
+                <span class="nb-headline-line" data-type-line="Get paid."></span>
+              </h1>
+              <p class="nb-landing-lede">
+                <strong>Epoch Community</strong> is where developers ship together,
+                put their work in front of people, and earn as creators.
+              </p>
+
+              <p class="nb-landing-cta" id="nb-enter">
+                <a class="nb-landing-enter" href="board.html" data-enter-board id="nb-enter-board">Enter the board</a>
+                <span class="nb-landing-cta-hint">
+                  Sample board — no account required.
+                </span>
+              </p>
+              <p class="nb-landing-status" data-landing-status role="status" aria-live="polite"></p>
+              <p class="nb-scroll-hint" data-scroll-hint>
+                <button type="button" class="nb-scroll-hint-btn" data-jump="nb-what">Continue · ↑↓</button>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="nb-landing-theater" aria-label="Creator loop demo">
+          <div data-fx="glitch" class="nb-theater-fx" data-glitch-role="theater"
+            data-glitch-intensity="0.75"
+            data-glitch-interval="3.6"
+            data-glitch-duration="0.3"
+            data-glitch-slices="18"
+            data-glitch-shift="16"
+            data-glitch-rgb="3"
+            data-glitch-blocks="0.32"
+            data-glitch-noise="0.26">
+            <div data-fx-content class="nb-fx-content">
+              <div class="nb-landing-theater-chrome">
+                <span class="nb-landing-theater-dot" aria-hidden="true"></span>
+                <span class="nb-landing-theater-title">#creators</span>
+                <span class="nb-landing-theater-tag" data-theater-phase>build</span>
+              </div>
+              <canvas class="nb-landing-theater-canvas" data-landing-theater width="520" height="280" tabindex="0" role="application" aria-label="Creator loop demo — drag to scrub, Space to pause, keys 1 to 3 seek"></canvas>
+              <p class="nb-landing-theater-cap">Sample data — not live traffic or payouts.</p>
+            </div>
+          </div>
+          <div class="nb-landing-theater-controls">
+            <button type="button" class="nb-theater-btn" data-theater-toggle aria-pressed="false">Pause</button>
+            <label class="nb-theater-scrub-label">
+              <span class="nb-visually-hidden">Scrub creator loop timeline</span>
+              <input type="range" class="nb-theater-scrub" data-theater-scrub min="0" max="100" value="0" step="1">
+            </label>
+            <span class="nb-theater-hint">Drag · scrub · 1–3</span>
+          </div>
+        </aside>
+      </section>
+
+      <section class="nb-landing-panel nb-ride-chapter" data-landing-what data-chapter-panel="what" data-ride-chapter="what" data-case="E01" id="nb-what" aria-labelledby="nb-what-title">
+        <h2 class="nb-landing-h2" id="nb-what-title" data-term-replay data-term-cps="40"><span class="nb-case-code">E01</span> What it is</h2>
+        <div data-fx="decrypt" class="nb-panel-fx nb-what-decrypt" data-decrypt-role="what"
+          data-decrypt-radius="220"
+          data-decrypt-passthrough="0.04"
+          data-decrypt-scramble="0.42"
+          data-decrypt-cell="8">
+          <div data-fx-content class="nb-fx-content">
+            <p>
+              One place to collaborate on real work, promote what you ship, and get paid —
+              instead of splitting that across chat, a forge, and a tip jar.
+            </p>
+            <p>
+              Built on <strong>Epoch</strong>, a signed, event-driven successor to Git,
+              so community conversation and the work share one substrate.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="nb-landing-panel nb-ride-chapter" data-landing-how data-chapter-panel="how" data-ride-chapter="how" data-case="E02" id="nb-how" aria-labelledby="nb-how-title">
+        <h2 class="nb-landing-h2" id="nb-how-title" data-term-replay data-term-cps="40"><span class="nb-case-code">E02</span> How it works</h2>
+        <p class="nb-landing-how-hint">Select a step · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
+        <ol class="nb-landing-steps" data-landing-steps>
+          <li data-step="build">
+            <button type="button" class="nb-landing-step-btn" data-seek-phase="build">
+              <span class="nb-landing-step-label">Collaborate</span>
+              Work in community spaces — channels, projects, and reviews in one place.
+            </button>
+          </li>
+          <li data-step="showcase">
+            <button type="button" class="nb-landing-step-btn" data-seek-phase="showcase">
+              <span class="nb-landing-step-label">Promote</span>
+              Publish releases, showcases, and your creator profile where people already follow work.
+            </button>
+          </li>
+          <li data-step="earn">
+            <button type="button" class="nb-landing-step-btn" data-seek-phase="earn">
+              <span class="nb-landing-step-label">Get paid</span>
+              Earn for work the community sees and supports.
+            </button>
+          </li>
+        </ol>
+        <pre class="nb-landing-receipt" data-landing-receipt aria-label="Sample creator loop receipt">┌─ creator loop (sample) ────────────────────────┐
+│ maya · shipped nightboard-garden@0.3           │
+│ showcase ↑ · collaborators: rio, scout         │
+│ earnings · sample only                         │
+└────────────────────────────────────────────────┘</pre>
+      </section>
+
+      <section class="nb-landing-panel nb-ride-chapter" data-landing-who data-chapter-panel="who" data-ride-chapter="who" data-case="E03" id="nb-who" aria-labelledby="nb-who-title">
+        <h2 class="nb-landing-h2" id="nb-who-title" data-term-replay data-term-cps="40"><span class="nb-case-code">E03</span> Who it is for</h2>
+        <ul class="nb-landing-who">
+          <li>
+            <strong>Creators</strong> — ship libraries, tools, games, docs, or design,
+            and want that work visible and paid for.
+          </li>
+          <li>
+            <strong>Collaborators</strong> — build with others without bouncing between
+            chat, forge, and social to finish a release.
+          </li>
+          <li>
+            <strong>Supporters</strong> — follow builders, cheer releases, and fund the
+            creators they rely on.
+          </li>
+        </ul>
+      </section>
+
+      <section class="nb-landing-panel nb-ride-chapter" data-landing-board data-chapter-panel="board" data-ride-chapter="board" data-case="E04" id="nb-board" aria-labelledby="nb-board-title">
+        <h2 class="nb-landing-h2" id="nb-board-title" data-term-replay data-term-cps="40"><span class="nb-case-code">E04</span> What’s on the board</h2>
+        <p>
+          Three surfaces you’ll use inside: rooms to collaborate, a feed to promote work,
+          and linked projects for the code.
+        </p>
+        <ul class="nb-plane-catalog" data-plane-catalog aria-label="Board planes">
+          <li>
+            <button type="button" class="nb-plane-row" data-plane="channels" aria-pressed="true">
+              <span class="nb-case-code">P01</span>
+              <span class="nb-plane-title">Collaborate</span>
+              <span class="nb-plane-blurb">Community rooms beside the work.</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="nb-plane-row" data-plane="network" aria-pressed="false">
+              <span class="nb-case-code">P02</span>
+              <span class="nb-plane-title">Promote</span>
+              <span class="nb-plane-blurb">Showcases, follows, and releases.</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="nb-plane-row" data-plane="projects" aria-pressed="false">
+              <span class="nb-case-code">P03</span>
+              <span class="nb-plane-title">Projects</span>
+              <span class="nb-plane-blurb">Linked repos for issues and proposals.</span>
+            </button>
+          </li>
+        </ul>
+        <div data-fx="vhs" class="nb-preview-fx">
+          <div data-fx-content class="nb-fx-content">
+            <pre class="nb-landing-preview" data-landing-preview data-plane-preview="channels" aria-label="Board preview">┌ Epoch Community ───────────────────────────────┐
+│ #creators  #showcase  · following · projects   │
+│────────────────────────────────────────────────│
+│ maya     shipping garden@0.3            live   │
+│ rio  ✓   collab on CRT lens             open   │
+│ scout    tipped the release             paid*  │
+│ *sample earnings                               │
+└────────────────────────────────────────────────┘</pre>
+          </div>
+        </div>
+        <p class="nb-landing-honesty">
+          People and earnings here are sample data — not live payouts or adoption stats.
+        </p>
+        <p class="nb-landing-cta nb-landing-cta-foot">
+          <a class="nb-landing-enter" href="board.html">Enter the board</a>
+          <span class="nb-landing-cta-hint">Same sample board as above.</span>
+        </p>
+      </section>
+    </main>
   </div>
 </div>
 
-<script src="graphql-engine.js"></script>
-<script src="morph.js"></script>
-<script src="syntax.js"></script>
-<script src="ascii.js"></script>
-<script src="editor.js"></script>
-<script src="data.js"></script>
-<script src="sitemap.js"></script>
-<script src="session.js"></script>
-<script src="speech.js"></script>
-<script src="voice.js"></script>
-<script src="icons.js"></script>
-<script src="attach.js"></script>
-<script src="notify.js"></script>
-<script src="hooks.js"></script>
-<script src="complete.js"></script>
-<script src="query.js"></script>
-<script src="resilient.js"></script>
-<script src="agent.js"></script>
-<script src="graph.js"></script>
-<script src="webmcp.js"></script>
-<script src="asciify.js"></script>
-<script src="fx.js"></script>
-<script src="gridroad.js"></script>
-<script src="tools.js"></script>
-<script src="console.js"></script>
+<noscript>
+  <p class="nb-landing-noscript">JavaScript is off —
+  <a href="board.html">Enter the board</a> still works.</p>
+</noscript>
+
 <script src="themes.js"></script>
-<script src="app.js"></script>
-<script src="openui-parser.js"></script>
-<script src="openui-library.js"></script>
+<script src="ascii.js"></script>
+<script src="landing.js"></script>
+<script src="canvasui-fx.js"></script>
+<script type="module" src="landing-fx.js"></script>
 </body>
 </html>

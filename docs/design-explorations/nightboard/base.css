@@ -18,7 +18,8 @@
   /* Signal */
   --nb-accent: #ff55ff;
   --nb-accent-ink: #000;
-  --nb-signed: #ffff55;
+  /* Signed = mint receipt (far from warn amber) — trust-critical separation. */
+  --nb-signed: #7dff9a;
   --nb-live: #55ff55;
   --nb-warn: #ffaa00;
   --nb-danger: #ff5555;
@@ -74,11 +75,10 @@ body {
   text-shadow: var(--nb-glow);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  grid-template-areas: "bar" "notice" "mount" "status";
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "bar" "mount" "status";
 }
 .nb-bar { grid-area: bar; }
-[data-region="notice"] { grid-area: notice; }
 /* The FX host owns the mount's grid cell; the mount fills it. Both must be
    allowed to shrink — a grid child's default min-width is its content, and one
    long unbroken line anywhere inside would otherwise widen the whole page. */
@@ -191,6 +191,12 @@ body {
   user-select: none;
   position: relative;
   z-index: 0;
+}
+@media (max-width: 40rem) {
+  /* Phone: reclaim feed height — compact wordmark. */
+  .nb-brand-art { font-size: clamp(.36rem, 2.4vw, .48rem); line-height: 1.05; }
+  .nb-bar { flex-wrap: wrap; gap: .25rem .5rem; padding: .25rem .55rem; }
+  .nb-activity-perm { display: none !important; }
 }
 .nb-brand-mark { display: block; }
 .nb-brand-fig {
@@ -355,6 +361,11 @@ body {
 .nb-profile-meta { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; line-height: 1.2; }
 .nb-profile-name { font-size: .82em; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 10rem; }
 .nb-profile-space { font-size: .72em; color: var(--nb-ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 10rem; }
+@media (max-width: 40rem) {
+  /* After .nb-profile-meta base — avatar-only identity on phone. */
+  .nb-profile-meta { display: none; }
+  .nb-profile-btn { max-width: none; }
+}
 .nb-profile-menu {
   position: fixed; z-index: 40; min-width: 16rem; max-width: min(22rem, calc(100vw - 1rem));
   background: var(--nb-bg); border: 1px solid var(--nb-rule);
@@ -394,8 +405,8 @@ body {
 /* Activity bell — bracketed terminal control. */
 .nb-activity-bell {
   font: inherit; font-size: .78em; color: var(--nb-ink-dim); background: none;
-  border: 0; border-radius: 0; min-height: 1.6rem;
-  padding: 0 .05rem; cursor: pointer; display: inline-flex; align-items: center; gap: .25rem;
+  border: 0; border-radius: 0; min-height: 2.25rem; min-width: 2.25rem;
+  padding: 0 .35rem; cursor: pointer; display: inline-flex; align-items: center; gap: .25rem;
   margin-inline-start: .25rem; flex: none;
 }
 .nb-activity-bell::before { content: "["; color: var(--nb-ink-faint); }
@@ -415,14 +426,17 @@ body {
 .nb-activity-bell[data-browser-perm="granted"]::after { color: var(--nb-live); }
 .nb-activity-bell[data-browser-perm="denied"] { opacity: .85; }
 .nb-activity-perm {
-  font: inherit; font-size: .78em; color: var(--nb-accent); background: none;
+  font: inherit; font-size: .78em; color: var(--nb-ink-faint); background: none;
   border: 0; border-radius: 0; min-height: 1.6rem;
   padding: 0 .05rem; cursor: pointer; margin-inline-start: .25rem; flex: none;
 }
-.nb-activity-perm::before { content: "["; color: var(--nb-accent); }
-.nb-activity-perm::after { content: "]"; color: var(--nb-accent); }
+.nb-activity-perm::before { content: "["; color: var(--nb-ink-faint); }
+.nb-activity-perm::after { content: "]"; color: var(--nb-ink-faint); }
 .nb-activity-perm:hover { color: var(--nb-ink); text-decoration: underline; filter: none; }
 .nb-activity-perm[hidden] { display: none; }
+.nb-activity-perm[data-state="default"] {
+  color: var(--nb-ink-faint);
+}
 .nb-activity-perm[data-state="denied"] {
   background: none; color: var(--nb-warn); cursor: pointer;
 }
@@ -493,9 +507,6 @@ body {
 .nb-auth-err { color: var(--nb-danger); font-size: .85em; margin: 0 0 .55rem; min-height: 1.1em; }
 .nb-auth-meta { font-size: .78em; color: var(--nb-ink-faint); margin: .55rem 0 0; }
 
-[data-region="notice"] { border-block-end: 1px solid var(--nb-rule); }
-[data-region="notice"][hidden] { display: none; }
-
 [data-region="status"] {
   border-block-start: 1px solid var(--nb-rule); padding: .35rem .8rem;
   display: flex; gap: .75rem 1.2rem; flex-wrap: wrap; align-items: baseline; font-size: .85em;
@@ -508,10 +519,20 @@ body {
   margin-inline-start: auto; color: var(--nb-ink-faint);
 }
 /* Persistent discovery for the context hotkey sheet — terminal brackets, not a FAB. */
+.nb-model-fetch {
+  font: inherit; font-size: inherit; color: var(--nb-agent);
+  background: none; border: 0; border-radius: 0;
+  min-height: 2.25rem; min-width: 2.25rem; padding: 0 .35rem; cursor: pointer;
+  flex: 0 0 auto; letter-spacing: .01em;
+}
+.nb-model-fetch::before { content: "["; color: var(--nb-ink-faint); }
+.nb-model-fetch::after { content: "]"; color: var(--nb-ink-faint); }
+.nb-model-fetch:hover { color: var(--nb-ink); }
+.nb-model-fetch[hidden] { display: none; }
 .nb-keys-cue {
   font: inherit; font-size: inherit; color: var(--nb-ink-faint);
   background: none; border: 0; border-radius: 0;
-  min-height: 1.5rem; padding: 0 .05rem; cursor: pointer;
+  min-height: 2.25rem; padding: 0 .35rem; cursor: pointer;
   flex: 0 0 auto; letter-spacing: .01em;
 }
 .nb-keys-cue::before { content: "["; color: var(--nb-ink-faint); }

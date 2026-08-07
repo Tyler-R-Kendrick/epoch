@@ -15,6 +15,10 @@ export default [
       "docs/design-explorations/nightboard/openui-library.js",
       // Vendored from CanvasUI and bundled; see its header for how to rebuild.
       "docs/design-explorations/nightboard/asciify.js",
+      "docs/design-explorations/nightboard/canvasui-fx.js",
+      "docs/design-explorations/nightboard/canvasui-object.js",
+      // Installed Canvas UI vanilla sources (shadcn registry); lint upstream, not here.
+      "components/canvasui/**",
       ".agents/**",
       // Vendored agent-skill trees installed by `npx impeccable install`.
       // Third-party source, reproducible from the devDependency, not ours to lint.
@@ -23,7 +27,10 @@ export default [
       ".github/skills/**",
       ".github/agents/**",
       ".github/hooks/**",
-      ".grok/**"
+      ".grok/**",
+      // Python virtualenvs (e.g. skills/gauntlet-loop/.venv) contain vendored
+      // JS assets from installed packages; never repository source.
+      "**/.venv/**"
     ]
   },
   js.configs.recommended,
@@ -31,6 +38,7 @@ export default [
     // Design-exploration galleries are browser documents loaded by <script>,
     // not modules: they legitimately read window and define no exports.
     files: ["docs/design-explorations/**/*.js"],
+    ignores: ["docs/design-explorations/nightboard/landing-fx.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
@@ -46,9 +54,25 @@ export default [
         MediaStream: "readonly", BroadcastChannel: "readonly",
         DOMException: "readonly", Promise: "readonly",
         getComputedStyle: "readonly", Date: "readonly",
-        ResizeObserver: "readonly", devicePixelRatio: "readonly",
+        ResizeObserver: "readonly", MutationObserver: "readonly",
+        devicePixelRatio: "readonly",
         // Chrome's built-in Prompt API. Feature-detected at every call site.
         LanguageModel: "readonly",
+      },
+    },
+  },
+  {
+    // Landing Canvas UI orchestrator is an ES module (imports object bundle).
+    files: ["docs/design-explorations/nightboard/landing-fx.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        window: "readonly", document: "readonly",
+        setInterval: "readonly", setTimeout: "readonly",
+        clearInterval: "readonly", clearTimeout: "readonly",
+        MutationObserver: "readonly", URL: "readonly",
+        matchMedia: "readonly",
       },
     },
   },
@@ -81,6 +105,7 @@ export default [
         MouseEvent: "readonly",
         PointerEvent: "readonly",
         KeyboardEvent: "readonly",
+        WheelEvent: "readonly",
         document: "readonly",
         window: "readonly",
         getComputedStyle: "readonly",

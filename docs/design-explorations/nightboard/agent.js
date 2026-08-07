@@ -89,16 +89,18 @@
       }).join("\n"),
       "",
       "Rules:",
-      "- Going somewhere is board_navigate with a real path.",
+      "- Going somewhere is board_navigate with a real path that already exists.",
       "- Searching posts, channels, projects, or DMs is board_search with a Lucene query — use it without waiting for /search.",
       "- Publishing chat in a channel, reply, or DM is board_post — the prompt is scoped to the active blade.",
       "- Creating a channel in the current project (nav at …/channels) is board_create_channel.",
+      "- Renaming a channel is board_rename_channel { from, to }. Never board_navigate to the new name first — that path does not exist until rename succeeds. Prefer `from` from bound context (channel id/name).",
       "- Creating a project (nav at /projects) is board_create_project.",
       "- A question about what exists is graph_query. Call graph_schema first if unsure.",
       "- Changing how it looks is theme_set with hex colours for every role you can infer.",
       "- If you cannot act, use say and be brief.",
-      "- Never invent a path. Choose the closest one that exists.",
+      "- Never invent a path. Choose the closest one that exists. Renames create the new path — use board_rename_channel.",
       "- Honour compose scope from the turn context: reply/post/dm publish; nav create stays in that project.",
+      "- Honour bound context chips (channel/post/path id+name) — they name the control the user right-clicked.",
       "- Switching prompt interpretation (ai vs cli) is prompt_mode { mode }. Prefer that over typing /mode.",
     ].join("\n");
   }
@@ -158,6 +160,10 @@
         var where = "\n\n[you are at " + ctx.cwd + "; here: " + ctx.here.slice(0, 24).join(", ") + "]";
         if (ctx.compose) {
           where += "\n[compose: " + JSON.stringify(ctx.compose) + "]";
+        }
+        if (ctx.boundContext && ctx.boundContext.length) {
+          where += "\n[bound context — right-clicked control(s): " +
+            JSON.stringify(ctx.boundContext) + "]";
         }
         where += attachNote;
         var ask = attempt === 1

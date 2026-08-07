@@ -237,12 +237,18 @@
     var out = [];
     function walk(path, depth) {
       (MAP.list(path, extra) || []).forEach(function (child) {
-        if (child.kind !== "dir") return;
+        // Directories and terminal channel nodes are navigable destinations.
+        if (child.kind !== "dir" && child.kind !== "channel") return;
         var full = path === "/" ? "/" + child.name : path + "/" + child.name;
-        out.push({ value: full, hint: child.hint || "", kind: "dir" });
+        out.push({
+          value: full,
+          hint: child.hint || "",
+          kind: child.kind === "channel" ? "channel" : "dir",
+        });
         // Deep enough to reach /projects/<id>/channels/<room> so `cd bugs`
-        // still resolves after channels moved under projects.
-        if (depth < 4) walk(full, depth + 1);
+        // still resolves after channels moved under projects. Channels are
+        // leaves — do not walk into their (empty) nav listing.
+        if (child.kind === "dir" && depth < 4) walk(full, depth + 1);
       });
     }
     walk("/", 0);
@@ -259,7 +265,7 @@
     if (!entries) return { base: dirPart, leaf: leaf, items: [] };
     var items = entries.map(function (e) {
       return {
-        value: e.name + (e.kind === "dir" ? "/" : ""),
+        value: e.name + (e.kind === "dir" || e.kind === "channel" ? "/" : ""),
         hint: e.hint || e.meta || "",
         kind: e.kind,
       };
