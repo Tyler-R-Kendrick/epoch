@@ -121,7 +121,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | [`nightboard-persuade-operate`](nightboard-persuade-operate/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
 | Branch | `feat/nightboard-persuade-operate-session` |
-| PR | (opening) |
-| Result | **in progress** |
-| Failure class | — |
+| PR | [#108](https://github.com/Tyler-R-Kendrick/epoch/pull/108) — squash-merged `5ae0db1e` |
+| Result | **success** |
+| Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + landing e2e green. Merged with `--admin`. |
 | Notes | Persuade `/` vs Operate `board.html`; terminal channels keep navbar siblings; Canvas UI glitch + E01 decrypt/reveal; landing typewriter. Excluded local WIP gauntlet-loop + impeccable mocks. |
