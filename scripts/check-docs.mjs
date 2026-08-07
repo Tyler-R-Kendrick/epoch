@@ -21,6 +21,9 @@ const ignoredDirectories = new Set([
 // validating our own template, so only the vendored subtrees are ignored.
 const ignoredPaths = new Set([
   ".github/skills", ".github/agents", ".github/hooks",
+  // Local WIP skill tree (untracked / not yet linked from README). Land via a
+  // dedicated PR that wires docs/README discovery — do not orphan-scan it here.
+  "skills/gauntlet-loop",
 ]);
 const markdownLinkPattern = /!?\[[^\]]*]\(([^)]+)\)/g;
 
