@@ -15,8 +15,13 @@ highest-value parts of that tooling are **gated behind a cost constraint that
 does not exist**, and the connected subscriptions are largely **not wired to
 anything**.
 
-This document is an audit, not a proposal to rebuild. Every finding below cites
-what is in the repository today.
+This document is an audit, not a proposal to rebuild. Findings combine
+repository evidence with external checks — GitHub API state, subscription and
+connector state, deployment status, and the remote-session environment. External
+checks are dated and name the command used, because unlike the repository
+contents they are not reproducible from a checkout.
+
+All external checks below were performed on **2026-08-09**.
 
 ## Inventory: connected versus used
 
@@ -37,10 +42,10 @@ what is in the repository today.
 
 **Evidence.** `AGENTS.md`, [`DX.md`](../DX.md), and
 `.github/workflows/quality.yml` all state that Quality Gates are disabled to
-conserve GitHub Actions runner minutes. The GitHub API reports this repository
-as `"private": false, "visibility": "public"`. GitHub Actions on **standard**
-GitHub-hosted runners is free and unmetered for public repositories, on every
-plan tier.
+conserve GitHub Actions runner minutes. `GET /repos/Tyler-R-Kendrick/epoch`
+(2026-08-09) reports `"private": false, "visibility": "public"`. GitHub Actions
+on **standard** GitHub-hosted runners is free and unmetered for public
+repositories, on every plan tier.
 
 **Cost of the false premise.** The entire quality bar was pushed into
 `.githooks/pre-push`, which runs `gate:push` — `gate:fast` plus `typecheck`,
@@ -49,19 +54,32 @@ plus unit tests — before every single push. `npm run verify` adds a second
 `build`, a third for coverage, and a fourth for Pact. That serial cost is paid
 by a human waiting at a terminal, to save money that was never being spent.
 
-It also blocks everything downstream: Copilot code review, Claude Code Action,
-CodeQL, Dependabot, scheduled agent runs, and per-PR accessibility and Pact
-evidence all live in CI, and there is no CI.
+It also blocks a specific class of downstream work — though not everything, and
+the distinction matters. What genuinely requires an Actions workflow run:
+Claude Code Action, scheduled agent runs, CodeQL scanning workflows, and per-PR
+accessibility (`a11y:community-web`, `a11y:nightboard`), Pact, and coverage
+evidence. What does **not**: Copilot code review is a GitHub-native pull-request
+feature enabled by policy rather than by a workflow in this repository, and
+Dependabot version and security updates run on GitHub's own infrastructure and
+continue even where Actions is disabled. Those two are unused here by choice,
+not by blockage — which makes them the cheapest items in the plan below.
 
-**Move.** Re-enable `pull_request` and `push` triggers on `ubuntu-latest`, and
-clear the `EPOCH_CI_DISABLED` safety net. Keep the hooks as a fast local
-pre-flight (`gate:fast` on commit), and demote `pre-push` to the same fast gate
-so pushing stops costing minutes of local wall clock. Move `typecheck`, `build`,
-unit, Cucumber, coverage, Pact, axe, and Nightboard e2e into parallel CI jobs.
-Then correct the three documents that assert the constraint.
+**Move.** Re-enable `pull_request` and `push` triggers on `ubuntu-latest`. Keep
+the hooks as a fast local pre-flight (`gate:fast` on commit), and demote
+`pre-push` to the same fast gate so pushing stops costing minutes of local wall
+clock. Move `typecheck`, `build`, unit, Cucumber, coverage, Pact, axe, and
+Nightboard e2e into parallel CI jobs. Then correct the three documents that
+assert the constraint.
 
-One real caveat: **larger runners are still billed even on public repos.** Stay
-on standard `ubuntu-latest` and this stays free.
+Do **not** simply delete the `EPOCH_CI_DISABLED` safety net. Replace it with a
+fail-closed billing guard, because the reasoning above holds only while two
+conditions are true — the repository is public, and jobs run on standard
+runners. Both can change silently through a visibility flip, a transfer to an
+organization, or a `runs-on` edit in a later PR. A first step that asserts
+`github.event.repository.private == false` and pins `runs-on: ubuntu-latest`,
+failing rather than proceeding when either check does not hold, keeps a future
+change from quietly turning free CI into billed CI. **Larger runners are billed
+even on public repositories**, so the runner pin is the load-bearing half.
 
 ## Finding 2 — no Claude Code configuration is version-controlled
 
@@ -69,7 +87,11 @@ on standard `ubuntu-latest` and this stays free.
 excludes `.claude/skills/`, `.claude/hooks/`, `.claude/commands/impeccable*`,
 `.github/agents/`, `.github/skills/`, `.codex/`, and `.grok/` — every one of
 those exclusions is for *vendored* skill trees, which is correct, but the net
-effect is that **no project-authored agent configuration exists at all**.
+effect is that **no tracked `.claude/` runtime configuration exists**. To be
+precise about what does exist: `AGENTS.md`, `skills/epoch/`, and
+`skills/optimizexp/` are substantial project-authored agent instructions. What
+is missing is the executable layer — settings, hooks, commands, and subagent
+definitions — not instruction content.
 
 **Cost.** `AGENTS.md` is 7 KB of prose that every agent must read and
 voluntarily obey. It says "Never skip hooks to greenwash a change" and "Do not
@@ -78,26 +100,46 @@ them fails silently, and the failure is only caught if a human reads the diff.
 
 **Move.** Add a tracked `.claude/` with three things:
 
-- **`settings.json` hooks that make the prose enforceable.** A `PreToolUse` hook
-  that rejects `Bash` commands containing `SKIP_GIT_HOOKS=1` or `SKIP_VERIFY=1`
-  unless an override file is present; a `PreToolUse` hook that rejects `Edit`
-  against `.c8rc.json` thresholds, `eslint.config.mjs` severity downgrades, or
-  `konsistent.json` rule deletions; a `PostToolUse` hook that runs
-  `docs:check` after any Markdown write. Deterministic scripts at lifecycle
-  points are how repository policy stops being advisory.
+- **`settings.json` hooks that give the prose fast local teeth.** A `PreToolUse`
+  hook that rejects `Bash` commands containing `SKIP_GIT_HOOKS=1` or
+  `SKIP_VERIFY=1`; a `PreToolUse` hook that rejects `Edit` against `.c8rc.json`
+  thresholds, `eslint.config.mjs` severity downgrades, or `konsistent.json` rule
+  deletions; a `PostToolUse` hook that runs `docs:check` after any Markdown
+  write.
+
+  Be honest about what this layer is worth. These hooks are **local feedback and
+  a pre-tool speed bump, not the enforcement boundary.** A `PreToolUse` matcher
+  inspects the command string, so shell indirection, an env-var alias, or a
+  wrapper script can slip past a substring check. Any override file the hook
+  consults is writable by the same agent the hook constrains. `PostToolUse` runs
+  *after* the write lands and can report a docs break but cannot undo it. The
+  authoritative gates are CI (Finding 1) and branch protection requiring those
+  checks — which is another reason Finding 1 comes first in the plan. Hooks
+  catch the honest mistake early and cheaply; they do not stop a determined
+  bypass, and this document should not be read as claiming otherwise.
 - **Slash commands for the rituals that already exist as prose.** The
   documentation-freshness matrix, the adversarial design-critique protocol, and
   the persona-matrix reconciliation are each a checklist an agent re-derives
   from scratch every run. They are slash commands.
 - **Subagent definitions.** `skills/epoch/agents/sdlc.yaml` already defines an
-  SDLC reviewer as a *Codex* prompt. The same definition belongs in
-  `.claude/agents/` so it runs with a clean context and returns only its verdict.
+  SDLC reviewer, and its `default_prompt` is the substance worth keeping. It
+  cannot be copied across as-is: Claude Code project subagents are **Markdown
+  files with YAML front matter** under `.claude/agents/`, where `name` and
+  `description` are the required fields and the Markdown body is the system
+  prompt. The work is a translation of that YAML into one `.claude/agents/*.md`
+  file, not a file move.
 
 The repository already publishes `skills/epoch/marketplace.json` declaring
-`compatible_agents: ["claude", "github-copilot", "open-agent"]`. Packaging the
-repo's own workflow as a Claude Code **plugin** — skills plus commands plus
-hooks plus subagents in one versioned bundle — is the natural next step and
-makes the whole thing installable rather than copy-pasted.
+`compatible_agents: ["claude", "github-copilot", "open-agent"]`, which shows the
+distribution intent is already there. That file is **not** a Claude Code plugin
+manifest and will not become one by extension. A plugin is its own directory
+with a `.claude-plugin/plugin.json` manifest and standard component directories
+(`skills/`, `agents/`, `commands/`, `hooks/`) at the plugin root, beside rather
+than inside `.claude-plugin/`. Packaging the repo's workflow that way — skills,
+commands, hooks, and subagents in one versioned bundle — makes it installable
+rather than copy-pasted, but it is a new artifact built alongside the existing
+marketplace descriptor. Validate both the translated subagent and the plugin
+layout before committing to the format.
 
 ## Finding 3 — the SDLC coordinator's fan-out was designed and never wired
 
@@ -111,9 +153,11 @@ owns judgment. That is precisely a fan-out architecture — written down, then r
 single-threaded every time.
 
 **Cost.** The panel is 12–17 personas. `.optimizexp/config.json` sets
-`maxPersonas: 12`, `maxFeatures: 12`, `passes: "infinite"`. Run sequentially in
-one context window, that is up to 144 judgments sharing — and polluting — a
-single context. Runs reach "Pareto equilibrium" partly from context exhaustion
+`maxPersonas: 12`, `maxFeatures: 12`, `passes: "infinite"`. That is up to 144
+judgments **per pass, per surface**; with `passes: "infinite"` the total is
+bounded only by plateau detection, not by configuration. Run sequentially, those
+judgments share — and pollute — a single context. Runs reach "Pareto
+equilibrium" partly from context exhaustion
 rather than from genuine convergence, and persona independence, which is the
 entire point of an adversarial panel, is compromised the moment persona 7 can
 see what persona 3 said.
@@ -126,6 +170,28 @@ deterministic runner that the reference already calls for. This is the
 LLM-as-judge pattern the panel already implements, minus the cross-contamination
 — and it converts a long serial run into one that finishes in the time of its
 slowest persona.
+
+**Bound it before enabling it.** Sequential execution has been acting as an
+accidental rate limiter: one judgment at a time, a human watching, easy to stop.
+Fan-out removes that safety property, and `passes: "infinite"` means a run that
+fails to converge has no configured stopping point. Parallelism must not be
+switched on before the limits exist:
+
+- **Max concurrency** — a fixed cap on simultaneous subagents, not
+  persona-count-driven, so panel growth cannot widen the fan.
+- **Per-run and per-persona budgets** — a token or call ceiling that aborts the
+  run when crossed, with what was dropped recorded rather than silently skipped.
+- **Timeout and bounded retry** — a per-subagent deadline and capped retries
+  with backoff, so one wedged persona cannot stall or multiply the run.
+- **A hard termination rule** — a maximum pass count that overrides
+  `passes: "infinite"`, so plateau detection is the *normal* exit and not the
+  *only* one.
+- **Cancellation** — one failing persona must be able to abort the run rather
+  than leaving siblings to finish against a dead aggregate.
+- **Deterministic aggregation order** — scores must be sorted by persona ID
+  before aggregation, not by completion order, or the same inputs will produce
+  different `runs/<id>/` output on every execution and the plateau signal
+  becomes unreproducible.
 
 ## Finding 4 — PostHog is connected and the experiment loop has no real users
 
@@ -141,18 +207,45 @@ personas propose, personas judge, personas confirm. Community Web is deployed
 and publicly reachable at the Vercel URL, so real signal is available and simply
 not collected.
 
-**Move.** Instrument Community Web with PostHog and make the existing backlog
-schema the bridge:
+**Privacy comes first, and this is not boilerplate.** Community Web is a
+social surface: messages, handles, DIDs, signed actions, moderation state. It is
+the *worst* place to switch on session replay without design.
+`AGENTS.md` already requires every Community change to account for privacy,
+trust, security, and portability, and an analytics rollout is exactly such a
+change. Do this before any SDK is installed:
+
+- **Data inventory.** Enumerate what each event would carry, and decide per
+  field whether it is needed. Handles, DIDs, message bodies, and repository
+  paths are identifying; "clicked the receipt panel" is not.
+- **Consent and opt-out** that hold on a federated, portable-identity product,
+  where "delete my account" must mean something across surfaces.
+- **Masking by default** for replay — text and inputs redacted unless a field
+  is explicitly allow-listed, rather than the reverse.
+- **Retention, deletion, and access control** stated as numbers and names, not
+  intentions.
+- **Production sampling**, so instrumentation cannot become a performance or
+  cost regression on the surface it is meant to measure.
+
+An ADR is the right home for these decisions, and it should land before the
+instrumentation does.
+
+**Move.** With those controls defined, instrument Community Web and make the
+existing backlog schema the bridge:
 
 - Map each `featureIds` entry to a PostHog feature flag, and each
   `smallestExperiment` to a PostHog experiment with the `impactOn` scores as the
   pre-registered hypothesis. Pre-registration is already in the schema; only the
   measurement is missing.
-- Use session replay and surveys against the same personas the panel models —
-  the `screen-reader-power-user` and `community-moderator` lenses in particular
-  make claims that replay can confirm or kill.
-- Add a `measured` field alongside `impactOn` and require it before an item
-  moves to `status: "done"`. Today `done` means "we shipped it," not "it worked."
+- Use surveys, and — only behind the masking and consent controls above —
+  session replay, against the same personas the panel models. The
+  `screen-reader-power-user` and `community-moderator` lenses in particular make
+  claims that observation can confirm or kill.
+- Add a `measured` field alongside `impactOn` and populate it wherever a
+  surface can be measured, so `done` stops meaning only "we shipped it."
+  Deliberately *not* a hard gate on `status: "done"`: much of the backlog is
+  craft and responsive-layout work with no meaningful conversion metric, and
+  blocking those items on telemetry would stall the backlog behind an
+  instrumentation program while teaching everyone to fake the field.
 
 Second, smaller use: PostHog LLM analytics can track the agent runs themselves —
 cost, latency, and failure class per persona — which turns the dispatch log's
@@ -161,10 +254,13 @@ cost, latency, and failure class per persona — which turns the dispatch log's
 ## Finding 5 — Copilot is a second labor pool sitting idle
 
 **Evidence.** `assign_copilot_to_issue` and `create_pull_request_with_copilot`
-are available on this repository, and the repo has zero open issues. Copilot
-coding agent reads root and nested `AGENTS.md` files, and Copilot code review
-reads `CLAUDE.md` and `REVIEW.md` — Epoch already has an excellent `AGENTS.md`
-for it to obey.
+are available on this repository, and the repo has zero open issues. Both
+surfaces are steered by repository instruction files — for code review, the
+documented sources are `.github/copilot-instructions.md` for repository-wide
+guidance, path-scoped `*.instructions.md` files under `.github/instructions/`
+with an `applyTo` glob, and `AGENTS.md` for agent-facing project context. Epoch
+already has an excellent `AGENTS.md` for both to obey, and the path-scoped form
+maps cleanly onto this monorepo's per-package boundaries.
 
 **Cost.** Mechanical, well-specified, high-volume chores currently consume
 Claude context that should be spent on design and architecture.
@@ -185,12 +281,30 @@ Claude context that should be spent on design and architecture.
 
 ## Finding 6 — remote Claude sessions cannot build this repository
 
-**Evidence.** In this remote session, `NODE_OPTIONS` is set to
-`["--import tsx" --max-old-space-size=8192]`. The quoted `--import tsx` is
-rejected by Node, so **every** `node` and `npm` invocation fails with
+**Evidence.** Observed 2026-08-09 in a Claude Code remote container, Node
+**v22.22.2**. `NODE_OPTIONS` carries this exact raw value, brackets and inner
+double quotes included:
+
+```text
+["--import tsx" --max-old-space-size=8192]
+```
+
+Every `node` and `npm` invocation then fails with
 `node: --import tsx is not allowed in NODE_OPTIONS`. `npm ci` fails at the
 `prepare` step, `npm run build` fails on the first workspace, and no gate can
 run.
+
+The value is **malformed, and that is the whole defect** — this is not a Node
+limitation and not a problem with `tsx`. `--import` has been permitted in
+`NODE_OPTIONS` since Node 18.19 / 20.6, and v22.22.2 supports it. Node's
+`NODE_OPTIONS` parser splits on whitespace and treats a double-quoted run as one
+token, so `"--import tsx"` arrives as the single argument `--import tsx`, which
+is not a flag name — hence the error naming `--import tsx` rather than
+`--import`. The surrounding `[` and `]` indicate a JSON array that was
+string-formatted into the environment instead of being joined. A correctly
+formed `NODE_OPTIONS=--import tsx --max-old-space-size=8192` would work fine
+here. Anything derived from this finding should target the malformed value, not
+the flag.
 
 **Cost.** This is very likely why the dispatch log says "no cloud dispatch" on
 every entry. Cloud-dispatched agents cannot verify their own work here, so all
@@ -198,10 +312,31 @@ work funnels back to one local machine — which then also carries the entire
 Finding 1 gate cost. The two findings compound.
 
 **Move.** Add a `SessionStart` hook that normalises the environment before any
-work begins: unset or repair `NODE_OPTIONS`, run `npm ci`, and confirm
-`node_modules/.bin/tsgo` exists. This is exactly what the session-start-hook
-pattern is for, and it is the prerequisite for every other cloud-dispatch
-recommendation in this document.
+work begins — but make it **idempotent**, because `SessionStart` fires on
+`resume`, `clear`, and `compact` as well as `startup`. An unconditional
+`npm ci` would wipe and reinstall roughly 30 workspaces every time context is
+compacted, which on this repository is minutes of wall clock per event.
+
+The hook should be a sequence of guarded checks, each a no-op when already
+satisfied:
+
+1. Repair `NODE_OPTIONS` only when it fails to parse — probe with
+   `node -e 0` and rewrite or unset the variable only on failure. A session
+   whose environment is already sane should not be touched.
+2. Install only when the tree is actually missing or stale: skip when
+   `node_modules/.bin/tsgo` resolves, and prefer `npm install` over `npm ci`
+   where a usable `node_modules` already exists, since `npm ci` deletes the tree
+   first by design.
+3. Verify after installing rather than assuming — `npm ci` runs `prepare`
+   (`scripts/install-hooks.mjs`), and that lifecycle script must complete before
+   anything relies on the toolchain or on `core.hooksPath` being wired. Check
+   the exit status and the presence of `node_modules/.bin/tsgo` before
+   reporting success.
+
+Note also that `SessionStart` is documented to be unreliable on `/clear` in some
+Claude Code versions, so the hook should be a convenience that fails loudly, not
+a correctness dependency. It remains the prerequisite for every other
+cloud-dispatch recommendation in this document.
 
 ## Finding 7 — design and docs subscriptions are unconnected to the gates
 
@@ -230,33 +365,41 @@ Effort sizing follows the `DX.md` convention.
 
 ### Now — unblocks everything else
 
-1. 🔥 **Re-enable Actions on `ubuntu-latest`**; correct the runner-minute claim
-   in `AGENTS.md`, `DX.md`, and `quality.yml`. **[S]**
-2. 🔥 **Add the `SessionStart` hook** that repairs `NODE_OPTIONS` and installs,
-   so remote and cloud-dispatched sessions can build. **[S]**
+1. 🔥 **Re-enable Actions on `ubuntu-latest`**, replacing `EPOCH_CI_DISABLED`
+   with a fail-closed public-repo and standard-runner guard; correct the
+   runner-minute claim in `AGENTS.md`, `DX.md`, and `quality.yml`. **[S]**
+2. 🔥 **Add the idempotent `SessionStart` hook** that repairs `NODE_OPTIONS`
+   only when malformed and installs only when missing, so remote and
+   cloud-dispatched sessions can build. **[S]**
 3. **Demote `pre-push` to `gate:fast`** once CI carries the heavy tail. **[S]**
-4. **Turn on Copilot code review** for every PR. **[S]**
+4. **Turn on Copilot code review** for every PR — no workflow required. **[S]**
 
 ### Next — converts prose into controls
 
-5. **Track `.claude/`**: settings hooks for the anti-greenwashing rules,
-   slash commands for the doc-freshness and design-critique rituals, and the
-   SDLC reviewer as a subagent. **[M]**
-6. **Parallelise the persona panel** one subagent per persona, keeping
-   aggregation and plateau detection in the deterministic runner. **[M]**
-7. **Instrument Community Web with PostHog**; add a `measured` field to the
-   experiment backlog and require it before `status: "done"`. **[M]**
-8. **Assign the Turborepo migration to Copilot coding agent** as a specified
+5. **Track `.claude/`**: settings hooks as fast local feedback (with CI and
+   branch protection as the real gate), slash commands for the doc-freshness and
+   design-critique rituals, and the SDLC reviewer translated into a Markdown
+   subagent. **[M]**
+6. **Parallelise the persona panel** one subagent per persona — only after the
+   concurrency cap, budgets, timeouts, termination rule, and deterministic
+   aggregation order are in place. **[M]**
+7. **Write the telemetry privacy ADR** — data inventory, consent, masking,
+   retention, deletion, access control, sampling. Prerequisite for item 8, and
+   worth doing even if PostHog is never adopted. **[M]**
+8. **Instrument Community Web with PostHog** behind that ADR; add a `measured`
+   field to the experiment backlog wherever a surface can be measured. **[M]**
+9. **Assign the Turborepo migration to Copilot coding agent** as a specified
    issue, reviewed against the gate. **[M]**
 
 ### Later — compounding
 
-9. **Package the repo workflow as a Claude Code plugin**, extending the existing
-   `skills/epoch/marketplace.json`. **[M]**
-10. **Scheduled agent runs** — a nightly dependency-drift and docs-freshness
+10. **Package the repo workflow as a Claude Code plugin** — a new
+    `.claude-plugin/plugin.json` bundle alongside, not an extension of,
+    `skills/epoch/marketplace.json`. **[M]**
+11. **Scheduled agent runs** — a nightly dependency-drift and docs-freshness
     sweep, and a weekly persona regression against the deployed site. Cheap once
     items 1, 2, and 6 are done; wasteful before. **[S]**
-11. **Confirm whether a Figma source of truth exists**, then decide between
+12. **Confirm whether a Figma source of truth exists**, then decide between
     token round-trip plus Code Connect, or code-to-Figma artifact generation
     only. **[M]**
 
@@ -278,6 +421,15 @@ them:
 - **Real telemetry does not retire the personas.** PostHog measures what users
   did; the panel predicts what they would feel about something not yet built.
   The backlog schema already has room for both.
+- **Agent-side hooks are not the security boundary.** Everything in Finding 2
+  is local convenience. CI checks plus branch protection are what actually
+  prevent a bad change from reaching `main`, and no amount of `.claude/`
+  configuration substitutes for them.
+- **Instrumentation is a product change, not a plumbing change.** Adding
+  analytics to a social surface carrying handles, DIDs, and messages goes
+  through the same persona, trust, and privacy review as any other Community
+  change. Shipping it as "just wiring up a script tag" is the failure mode to
+  avoid.
 
 ## Related documents
 
