@@ -1,0 +1,610 @@
+{
+  "$defs": {
+    "ActionClass": {
+      "description": "ActiveGraph closed authority classes; reused, never re-invented.",
+      "enum": [
+        "R0",
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "title": "ActionClass",
+      "type": "string"
+    },
+    "ActorRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "capability_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability Digest"
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "kind": {
+          "enum": [
+            "human",
+            "agent",
+            "service",
+            "tool"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.actor-ref/v1",
+          "default": "dev.gauntlet.actor-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor_id",
+        "kind"
+      ],
+      "title": "ActorRefV1",
+      "type": "object"
+    },
+    "BudgetV1": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost Usd"
+        },
+        "max_evaluator_runs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Evaluator Runs"
+        },
+        "max_experiments": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Experiments"
+        },
+        "max_wall_clock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wall Clock Seconds"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.budget/v1",
+          "default": "dev.gauntlet.budget/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "BudgetV1",
+      "type": "object"
+    },
+    "EffectClass": {
+      "description": "Orthogonal-to-authority effect vocabulary.",
+      "enum": [
+        "pure",
+        "read_only",
+        "idempotent_known_outcome",
+        "bufferable",
+        "reversible",
+        "reversible_with_cost",
+        "irreversible_gated",
+        "unknown"
+      ],
+      "title": "EffectClass",
+      "type": "string"
+    },
+    "EnvironmentRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Environment Digest"
+        },
+        "lock_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lock Digest"
+        },
+        "platform": {
+          "minLength": 1,
+          "title": "Platform",
+          "type": "string"
+        },
+        "python_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python Version"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.environment-ref/v1",
+          "default": "dev.gauntlet.environment-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "variables_allowlisted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables Allowlisted",
+          "type": "array"
+        }
+      },
+      "required": [
+        "platform"
+      ],
+      "title": "EnvironmentRefV1",
+      "type": "object"
+    },
+    "EvidenceRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "kind": {
+          "enum": [
+            "observation",
+            "belief",
+            "counterexample",
+            "evaluation",
+            "trace",
+            "artifact",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Ref Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.evidence-ref/v1",
+          "default": "dev.gauntlet.evidence-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref_id"
+      ],
+      "title": "EvidenceRefV1",
+      "type": "object"
+    },
+    "IntentState": {
+      "description": "Write-ahead authority state machine.",
+      "enum": [
+        "proposed",
+        "voting",
+        "committed",
+        "aborted",
+        "executing",
+        "completed",
+        "failed_before_effect",
+        "failed_after_effect",
+        "outcome_unknown",
+        "compensated",
+        "compensation_failed",
+        "reconciled"
+      ],
+      "title": "IntentState",
+      "type": "string"
+    },
+    "ToolRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Digest"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.tool-ref/v1",
+          "default": "dev.gauntlet.tool-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolRefV1",
+      "type": "object"
+    },
+    "VoterKind": {
+      "enum": [
+        "deterministic-policy",
+        "spec-scope",
+        "budget",
+        "evaluator-promotion",
+        "human-approval",
+        "llm-semantic"
+      ],
+      "title": "VoterKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/action-intent.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action_class": {
+      "$ref": "#/$defs/ActionClass"
+    },
+    "actor": {
+      "$ref": "#/$defs/ActorRefV1"
+    },
+    "branch": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Branch"
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BudgetV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "campaign_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Campaign Id"
+    },
+    "capability": {
+      "minLength": 1,
+      "title": "Capability",
+      "type": "string"
+    },
+    "causal_refs": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRefV1"
+      },
+      "title": "Causal Refs",
+      "type": "array"
+    },
+    "compensation_strategy": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Compensation Strategy"
+    },
+    "correlation_id": {
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "effect_class": {
+      "$ref": "#/$defs/EffectClass"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EnvironmentRefV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evaluator_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evaluator Digest"
+    },
+    "expected_observations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Observations",
+      "type": "array"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "input_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Input Digest",
+      "type": "string"
+    },
+    "intent_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Intent Id",
+      "type": "string"
+    },
+    "operation": {
+      "minLength": 1,
+      "title": "Operation",
+      "type": "string"
+    },
+    "policy_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Policy Digest",
+      "type": "string"
+    },
+    "postconditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Postconditions",
+      "type": "array"
+    },
+    "preconditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Preconditions",
+      "type": "array"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "read_scopes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Read Scopes",
+      "type": "array"
+    },
+    "reconciliation_strategy": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reconciliation Strategy"
+    },
+    "required_voters": {
+      "items": {
+        "$ref": "#/$defs/VoterKind"
+      },
+      "title": "Required Voters",
+      "type": "array"
+    },
+    "result_schema": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result Schema"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.action-intent/v1",
+      "default": "dev.gauntlet.action-intent/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Spec Digest"
+    },
+    "state": {
+      "$ref": "#/$defs/IntentState",
+      "default": "proposed"
+    },
+    "timeout_seconds": {
+      "default": 600,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolRefV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "write_scopes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Write Scopes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "intent_id",
+    "project_id",
+    "correlation_id",
+    "actor",
+    "operation",
+    "capability",
+    "input_digest",
+    "action_class",
+    "effect_class",
+    "policy_digest",
+    "created_at"
+  ],
+  "title": "ActionIntentV1",
+  "type": "object"
+}

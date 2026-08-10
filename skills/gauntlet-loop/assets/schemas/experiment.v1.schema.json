@@ -1,0 +1,384 @@
+{
+  "$defs": {
+    "ActionSeam": {
+      "description": "Closed initial action-seam vocabulary for interventions.",
+      "enum": [
+        "specification",
+        "reference-data",
+        "training-or-example-data",
+        "deterministic-operator",
+        "tool-or-effect-adapter",
+        "workflow-or-harness",
+        "prompt-skill-or-retrieval",
+        "evaluator",
+        "model",
+        "representation"
+      ],
+      "title": "ActionSeam",
+      "type": "string"
+    },
+    "EnvironmentRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Environment Digest"
+        },
+        "lock_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lock Digest"
+        },
+        "platform": {
+          "minLength": 1,
+          "title": "Platform",
+          "type": "string"
+        },
+        "python_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python Version"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.environment-ref/v1",
+          "default": "dev.gauntlet.environment-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "variables_allowlisted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables Allowlisted",
+          "type": "array"
+        }
+      },
+      "required": [
+        "platform"
+      ],
+      "title": "EnvironmentRefV1",
+      "type": "object"
+    },
+    "ExperimentStatus": {
+      "enum": [
+        "proposed",
+        "blocked",
+        "running",
+        "keep",
+        "discard",
+        "crash",
+        "inconclusive",
+        "superseded"
+      ],
+      "title": "ExperimentStatus",
+      "type": "string"
+    },
+    "GitRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Branch"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{7,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit"
+        },
+        "dirty": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dirty"
+        },
+        "repository": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repository"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.git-ref/v1",
+          "default": "dev.gauntlet.git-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "GitRefV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/experiment.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "baseline": {
+      "$ref": "#/$defs/GitRefV1"
+    },
+    "branch": {
+      "minLength": 1,
+      "title": "Branch",
+      "type": "string"
+    },
+    "campaign_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "commands": {
+      "items": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Commands",
+      "type": "array"
+    },
+    "commits": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Commits",
+      "type": "array"
+    },
+    "comparison_ref": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparison Ref"
+    },
+    "counterexamples_fixed": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Counterexamples Fixed",
+      "type": "array"
+    },
+    "counterexamples_introduced": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Counterexamples Introduced",
+      "type": "array"
+    },
+    "counterexamples_retained": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Counterexamples Retained",
+      "type": "array"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EnvironmentRefV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evaluation_refs": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Evaluation Refs",
+      "type": "array"
+    },
+    "experiment_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "fork_event": {
+      "minLength": 1,
+      "title": "Fork Event",
+      "type": "string"
+    },
+    "frozen_surfaces": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Frozen Surfaces",
+      "type": "array"
+    },
+    "hypothesis_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Hypothesis Id",
+      "type": "string"
+    },
+    "observation_refs": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Observation Refs",
+      "type": "array"
+    },
+    "permitted_globs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Permitted Globs",
+      "type": "array"
+    },
+    "resource_usage": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Resource Usage",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.experiment/v1",
+      "default": "dev.gauntlet.experiment/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seam": {
+      "$ref": "#/$defs/ActionSeam"
+    },
+    "seeds": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Seeds",
+      "type": "object"
+    },
+    "smoke_only": {
+      "default": false,
+      "title": "Smoke Only",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/ExperimentStatus",
+      "default": "proposed"
+    },
+    "status_rationale": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Status Rationale"
+    },
+    "timeout_seconds": {
+      "default": 3600,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    },
+    "worktree_manifest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worktree Manifest"
+    }
+  },
+  "required": [
+    "experiment_id",
+    "campaign_id",
+    "hypothesis_id",
+    "seam",
+    "baseline",
+    "fork_event",
+    "branch",
+    "created_at"
+  ],
+  "title": "ExperimentV1",
+  "type": "object"
+}

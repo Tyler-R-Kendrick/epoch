@@ -1,0 +1,8 @@
+# Retention policy (dev.gauntlet.retention-policy/v1)
+
+schema_version: dev.gauntlet.retention-policy/v1
+raw_trace_retention_days: 14
+blob_retention_days: 90
+# Rejected/crashed experiment branches are kept until their evidence has
+# been bundled; never delete without a recorded retention decision.
+experiment_branch_retention: until-bundled

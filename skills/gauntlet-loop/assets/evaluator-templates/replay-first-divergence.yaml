@@ -1,0 +1,29 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Agent profile: replays a recorded checkpoint/event history against the
+# candidate workflow and reports the earliest divergence event, localizing
+# a behavior change instead of judging only the final output. Deterministic
+# given the same history and candidate digests.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:replay-first-divergence
+kind: command
+roles:
+  - localizer
+  - diagnostician
+independence: L4
+command:
+  argv: ["python", ".gauntlet/evaluators/checks/replay_first_divergence.py"]
+  cwd: candidate-worktree
+  timeout_seconds: 900
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - candidate-workflow
+    - checkpoint-event-history
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: false
+version: 0.1.0

@@ -1,0 +1,107 @@
+{
+  "$id": "https://schemas.gauntlet.dev/issue-cluster.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "counterexamples": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Counterexamples",
+      "type": "array"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "fingerprint": {
+      "minLength": 1,
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "fingerprint_inputs": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Fingerprint Inputs",
+      "type": "object"
+    },
+    "issue_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Issue Id",
+      "type": "string"
+    },
+    "label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Label"
+    },
+    "label_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "deterministic",
+            "host-agent"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Label Source"
+    },
+    "observations": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Observations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.issue-cluster/v1",
+      "default": "dev.gauntlet.issue-cluster/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "severity": {
+      "default": "minor",
+      "enum": [
+        "critical",
+        "major",
+        "minor",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "status": {
+      "default": "open",
+      "enum": [
+        "open",
+        "closed",
+        "reopened"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "issue_id",
+    "fingerprint",
+    "created_at"
+  ],
+  "title": "IssueClusterV1",
+  "type": "object"
+}

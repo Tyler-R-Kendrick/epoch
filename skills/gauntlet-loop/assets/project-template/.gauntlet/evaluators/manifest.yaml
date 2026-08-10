@@ -1,0 +1,8 @@
+# Evaluator registry (dev.gauntlet.evaluator-registry/v1)
+#
+# Each entry references an evaluator manifest (dev.gauntlet.evaluator/v1).
+# Evaluators that decide promotion must be frozen_for_promotion and may
+# not be modified by the candidate they judge.
+
+schema_version: dev.gauntlet.evaluator-registry/v1
+evaluators: []

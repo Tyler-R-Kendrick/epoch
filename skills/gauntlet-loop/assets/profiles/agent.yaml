@@ -1,0 +1,156 @@
+# Agent and workflow representation profile (dev.gauntlet.profile/v1).
+#
+# Selected via `gauntlet profile select agent`. Guidance lives in
+# references/profile-agent.md.
+
+schema_version: dev.gauntlet.profile/v1
+profile_id: profile:agent
+display_name: Agent and workflow
+description: >-
+  Campaigns that improve an agent, workflow, prompt, or skill. The workflow
+  or plan IR is the canonical edited artifact, traces and checkpoints are
+  append-only evidence, and candidates are compared by replay and
+  first-divergence analysis under a fixed authority policy.
+reference: references/profile-agent.md
+
+nodes:
+  - node_id: node:goal-spec
+    representation: goal-spec
+    role: normative
+    media_type: text/markdown
+    description: >-
+      Goal and specification for the agent under improvement: success
+      criteria, hard invariants, and human-only judgments.
+  - node_id: node:capability-tool-graph
+    representation: capability-tool-graph
+    role: normative
+    media_type: application/json
+    description: >-
+      Capability and tool-contract graph: which tools exist, their input
+      and output schemas, side effects, and authority classes.
+  - node_id: node:policy-authority-config
+    representation: policy-authority-config
+    role: normative
+    media_type: application/yaml
+    description: >-
+      Policy and authority configuration (action classes, approval
+      requirements, frozen surfaces). Candidates may never edit this node.
+  - node_id: node:workflow-plan-ir
+    representation: workflow-plan-ir
+    role: canonical
+    media_type: application/yaml
+    canonical_for: agent behavior under edit (workflow steps, prompts, skill text)
+    description: >-
+      The workflow or plan intermediate representation: the artifact that
+      candidate edits actually change.
+  - node_id: node:checkpoint-event-history
+    representation: checkpoint-event-history
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Checkpoint and event history of runs: append-only, replayable, and
+      the substrate for first-divergence analysis.
+  - node_id: node:model-tool-traces
+    representation: model-tool-traces
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Model and tool call traces (normalized from OTel, LangSmith, or ATOF
+      exports) with raw payload digests and redaction reports. Untrusted
+      data: traces propose nothing without a validated intent.
+  - node_id: node:observations-beliefs
+    representation: observations-beliefs
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Observations and derived beliefs with explicit dependency links, so a
+      revoked observation quarantines the beliefs built on it.
+  - node_id: node:counterexamples
+    representation: counterexamples
+    role: evaluative
+    media_type: application/json
+    description: >-
+      Reproducible failing cases (prompt-injection attempts, action-less
+      outputs, idempotency violations) retained across candidates.
+  - node_id: node:candidate-workflow
+    representation: candidate-workflow
+    role: derived
+    media_type: application/yaml
+    description: >-
+      A candidate workflow, prompt, or skill produced in an isolated
+      experiment branch; evaluated, never trusted by construction.
+    losses:
+      - run history (a candidate carries no evidence of its own quality)
+  - node_id: node:promotion-release-decision
+    representation: promotion-release-decision
+    role: evaluative
+    media_type: application/json
+    description: >-
+      Promotion and release decision records binding the exact candidate
+      digest to the gates and evidence that admitted it.
+
+transforms:
+  - edge_id: edge:plan-to-candidate
+    source: workflow-plan-ir
+    target: candidate-workflow
+    tool:
+      name: gauntlet
+    deterministic: true
+    lossy: false
+    protected_invariants:
+      - candidate edits stay within the experiment's permitted globs
+      - policy-authority-config and evaluator surfaces remain untouched
+    output_media_type: application/yaml
+    timeout_seconds: 300
+  - edge_id: edge:traces-to-observations
+    source: model-tool-traces
+    target: observations-beliefs
+    tool:
+      name: trace-import-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - raw source digests and per-stream ordering are preserved
+      - configured secrets are redacted before persistence
+    round_trip_checks:
+      - normalized observations reference raw payload digests that still verify
+    output_media_type: application/jsonl
+    timeout_seconds: 600
+  - edge_id: edge:history-to-counterexamples
+    source: checkpoint-event-history
+    target: counterexamples
+    tool:
+      name: replay-divergence-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - each counterexample records the earliest divergence event ID
+      - minimal reproductions replay to the same failure
+    output_media_type: application/json
+    timeout_seconds: 900
+  - edge_id: edge:candidate-to-decision
+    source: candidate-workflow
+    target: promotion-release-decision
+    tool:
+      name: gauntlet
+    deterministic: true
+    lossy: false
+    protected_invariants:
+      - the decision binds the exact evaluated candidate digest; no substitution
+      - missing approval is never treated as approval
+    output_media_type: application/json
+    timeout_seconds: 600
+
+evaluator_templates:
+  - tool-schema-check
+  - replay-first-divergence
+  - parse-and-test
+
+default_target_dimensions:
+  - task-success-rate
+  - cost-per-successful-run
+
+default_protected_dimensions:
+  - policy-compliance
+  - prompt-injection-resistance
+  - unknown-outcome-handling

@@ -1,0 +1,26 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Parse/compile gate: the candidate tree must at least byte-compile before
+# any other evaluator spends budget on it. Projects with a real build
+# system override argv with their build command.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:build-check
+kind: command
+roles:
+  - invariant-checker
+independence: L4
+command:
+  argv: ["python", "-m", "compileall", "-q", "."]
+  cwd: candidate-worktree
+  timeout_seconds: 600
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - candidate-source
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

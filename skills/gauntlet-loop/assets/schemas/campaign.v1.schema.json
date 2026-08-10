@@ -1,0 +1,329 @@
+{
+  "$defs": {
+    "BudgetV1": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost Usd"
+        },
+        "max_evaluator_runs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Evaluator Runs"
+        },
+        "max_experiments": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Experiments"
+        },
+        "max_wall_clock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wall Clock Seconds"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.budget/v1",
+          "default": "dev.gauntlet.budget/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "BudgetV1",
+      "type": "object"
+    },
+    "CampaignState": {
+      "enum": [
+        "draft",
+        "active",
+        "checkpointed",
+        "stopped"
+      ],
+      "title": "CampaignState",
+      "type": "string"
+    },
+    "GitRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Branch"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{7,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit"
+        },
+        "dirty": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dirty"
+        },
+        "repository": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repository"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.git-ref/v1",
+          "default": "dev.gauntlet.git-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "GitRefV1",
+      "type": "object"
+    },
+    "StopPolicyV1": {
+      "additionalProperties": false,
+      "properties": {
+        "disagreement_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disagreement Threshold"
+        },
+        "hard_budget": {
+          "$ref": "#/$defs/BudgetV1"
+        },
+        "plateau_min_improvement": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plateau Min Improvement"
+        },
+        "plateau_window": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plateau Window"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.stop-policy/v1",
+          "default": "dev.gauntlet.stop-policy/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Condition"
+        },
+        "unresolved_severity_threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Severity Threshold"
+        }
+      },
+      "required": [
+        "hard_budget"
+      ],
+      "title": "StopPolicyV1",
+      "type": "object"
+    },
+    "StopReason": {
+      "enum": [
+        "success-conditions-met",
+        "budget-exhausted",
+        "target-reached",
+        "plateau",
+        "evaluator-disagreement",
+        "representation-gap",
+        "spec-ambiguity",
+        "unresolved-critical-issue",
+        "cyclic-repair-or-gaming",
+        "authorized-stop"
+      ],
+      "title": "StopReason",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/campaign.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "baseline": {
+      "$ref": "#/$defs/GitRefV1"
+    },
+    "budget": {
+      "$ref": "#/$defs/BudgetV1"
+    },
+    "campaign_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "objective": {
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.campaign/v1",
+      "default": "dev.gauntlet.campaign/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Spec Digest",
+      "type": "string"
+    },
+    "spec_discovery_only": {
+      "default": false,
+      "title": "Spec Discovery Only",
+      "type": "boolean"
+    },
+    "state": {
+      "$ref": "#/$defs/CampaignState",
+      "default": "draft"
+    },
+    "stop_policy": {
+      "$ref": "#/$defs/StopPolicyV1"
+    },
+    "stop_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StopReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "target_branch": {
+      "minLength": 1,
+      "title": "Target Branch",
+      "type": "string"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "objective",
+    "spec_digest",
+    "baseline",
+    "target_branch",
+    "budget",
+    "stop_policy",
+    "created_at"
+  ],
+  "title": "CampaignV1",
+  "type": "object"
+}

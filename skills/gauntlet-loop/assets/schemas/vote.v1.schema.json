@@ -1,0 +1,117 @@
+{
+  "$defs": {
+    "VoteDecision": {
+      "enum": [
+        "approve",
+        "reject",
+        "abstain"
+      ],
+      "title": "VoteDecision",
+      "type": "string"
+    },
+    "VoterKind": {
+      "enum": [
+        "deterministic-policy",
+        "spec-scope",
+        "budget",
+        "evaluator-promotion",
+        "human-approval",
+        "llm-semantic"
+      ],
+      "title": "VoterKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/vote.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "decision": {
+      "$ref": "#/$defs/VoteDecision"
+    },
+    "evidence_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Digest"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "intent_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Intent Id",
+      "type": "string"
+    },
+    "policy_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Policy Digest"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.vote/v1",
+      "default": "dev.gauntlet.vote/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "vote_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Vote Id",
+      "type": "string"
+    },
+    "voter_kind": {
+      "$ref": "#/$defs/VoterKind"
+    },
+    "voter_version": {
+      "minLength": 1,
+      "title": "Voter Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "vote_id",
+    "intent_id",
+    "voter_kind",
+    "voter_version",
+    "decision",
+    "reason",
+    "created_at"
+  ],
+  "title": "VoteV1",
+  "type": "object"
+}

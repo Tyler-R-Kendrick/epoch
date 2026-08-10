@@ -1,0 +1,64 @@
+# Local ActiveGraph stores, sidecars, and runtime snapshots
+/state/*
+!/state/README.md
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.db-*
+
+# High-volume or reproducible runtime products
+/traces/*
+!/traces/README.md
+/runs/*
+!/runs/README.md
+/exports/*
+!/exports/README.md
+/cache/*
+!/cache/README.md
+/tmp/*
+!/tmp/README.md
+/locks/*
+!/locks/README.md
+
+# Content-addressed blobs and uncommitted effect staging
+/artifacts/blobs/*
+!/artifacts/blobs/README.md
+/artifacts/staging/*
+!/artifacts/staging/README.md
+
+# Promotion cases must not be visible to candidate builders by default
+/datasets/promotion/sealed/*
+!/datasets/promotion/sealed/README.md
+
+# Raw/local workspace details; real Git worktrees live outside this repo
+/workspace-manifests/*.local.json
+
+# Secrets and credentials: never commit
+/secrets/*
+!/secrets/README.md
+.env
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+*private-key*
+*private_key*
+
+# Local overrides
+config.local.yaml
+*.local.yaml
+
+# Python, test, editor, and platform noise
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.DS_Store
+Thumbs.db

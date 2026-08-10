@@ -1,0 +1,5 @@
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-success", "event_id": "s1", "operation": "load-spec", "status": "ok", "tool": "spec-loader", "tool_version": "1.0"}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-success", "event_id": "s2", "operation": "plan", "status": "ok", "model": "planner-model", "model_version": "2.1", "tokens": {"prompt": 120, "completion": 40}, "latency_ms": 350.5}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-success", "event_id": "s3", "operation": "call-tool", "status": "ok", "tool": "search", "parent_id": "s2", "custom_annotation": "kept-in-raw"}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-success", "event_id": "s4", "operation": "validate", "status": "ok", "tool": "validator", "evaluator_ids": ["eval:schema"]}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-success", "event_id": "s5", "operation": "finish", "status": "ok"}

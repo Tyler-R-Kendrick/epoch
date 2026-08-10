@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "BudgetV1": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost Usd"
+        },
+        "max_evaluator_runs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Evaluator Runs"
+        },
+        "max_experiments": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Experiments"
+        },
+        "max_wall_clock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wall Clock Seconds"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.budget/v1",
+          "default": "dev.gauntlet.budget/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "BudgetV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/stop-policy.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "disagreement_threshold": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disagreement Threshold"
+    },
+    "hard_budget": {
+      "$ref": "#/$defs/BudgetV1"
+    },
+    "plateau_min_improvement": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plateau Min Improvement"
+    },
+    "plateau_window": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plateau Window"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.stop-policy/v1",
+      "default": "dev.gauntlet.stop-policy/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "target_condition": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Condition"
+    },
+    "unresolved_severity_threshold": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unresolved Severity Threshold"
+    }
+  },
+  "required": [
+    "hard_budget"
+  ],
+  "title": "StopPolicyV1",
+  "type": "object"
+}

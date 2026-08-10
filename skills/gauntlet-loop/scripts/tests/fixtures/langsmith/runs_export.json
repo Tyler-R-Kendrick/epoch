@@ -1,0 +1,29 @@
+{
+  "runs": [
+    {
+      "id": "ls-run-001",
+      "trace_id": "ls-trace-9",
+      "session_id": "ls-session-2",
+      "name": "agent-step",
+      "run_type": "chain",
+      "status": "success",
+      "start_time": "2026-03-01T09:00:00Z",
+      "end_time": "2026-03-01T09:00:02Z",
+      "usage": {"prompt_tokens": 200, "completion_tokens": 80},
+      "extra": {"langsmith_project": "gauntlet-demo"}
+    },
+    {
+      "id": "ls-run-002",
+      "trace_id": "ls-trace-9",
+      "parent_run_id": "ls-run-001",
+      "name": "llm-call",
+      "run_type": "llm",
+      "model": "gpt-test",
+      "status": "error",
+      "error": "RateLimitError",
+      "start_time": "2026-03-01T09:00:01Z",
+      "end_time": "2026-03-01T09:00:02Z",
+      "usage": {"prompt_tokens": 150}
+    }
+  ]
+}

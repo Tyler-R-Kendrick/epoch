@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "EvaluatorCommandV1": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Argv",
+          "type": "array"
+        },
+        "cwd": {
+          "default": "candidate-worktree",
+          "enum": [
+            "candidate-worktree",
+            "staging",
+            "project-root"
+          ],
+          "title": "Cwd",
+          "type": "string"
+        },
+        "environment_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Environment Allowlist",
+          "type": "array"
+        },
+        "network": {
+          "default": "deny",
+          "enum": [
+            "deny",
+            "allow"
+          ],
+          "title": "Network",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "argv"
+      ],
+      "title": "EvaluatorCommandV1",
+      "type": "object"
+    },
+    "EvaluatorRole": {
+      "enum": [
+        "invariant-checker",
+        "comparator",
+        "localizer",
+        "diagnostician",
+        "adversary",
+        "integration-critic",
+        "meta-evaluator",
+        "human-adjudicator"
+      ],
+      "title": "EvaluatorRole",
+      "type": "string"
+    },
+    "IndependenceLevel": {
+      "description": "Evaluator independence ladder (L0 weakest, L4 strongest).",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "title": "IndependenceLevel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/evaluator.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "calibration_manifest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Calibration Manifest"
+    },
+    "command": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvaluatorCommandV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cost_class": {
+      "default": "bounded-local",
+      "minLength": 1,
+      "title": "Cost Class",
+      "type": "string"
+    },
+    "frozen_for_promotion": {
+      "default": false,
+      "title": "Frozen For Promotion",
+      "type": "boolean"
+    },
+    "id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "independence": {
+      "$ref": "#/$defs/IndependenceLevel"
+    },
+    "input_contract": {
+      "additionalProperties": true,
+      "title": "Input Contract",
+      "type": "object"
+    },
+    "kind": {
+      "enum": [
+        "command",
+        "learned",
+        "llm-judge",
+        "human",
+        "builtin"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "output_contract": {
+      "additionalProperties": true,
+      "title": "Output Contract",
+      "type": "object"
+    },
+    "roles": {
+      "items": {
+        "$ref": "#/$defs/EvaluatorRole"
+      },
+      "minItems": 1,
+      "title": "Roles",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.evaluator/v1",
+      "default": "dev.gauntlet.evaluator/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "version": {
+      "default": "0.1.0",
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "roles",
+    "independence"
+  ],
+  "title": "EvaluatorManifestV1",
+  "type": "object"
+}

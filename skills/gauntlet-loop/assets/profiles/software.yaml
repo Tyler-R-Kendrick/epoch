@@ -1,0 +1,176 @@
+# Software domain representation profile (dev.gauntlet.profile/v1).
+#
+# Selected via `gauntlet profile select software`. Guidance for this profile
+# lives in references/profile-software.md. This file only declares data; the
+# core runtime interprets it and never executes anything from it directly.
+
+schema_version: dev.gauntlet.profile/v1
+profile_id: profile:software
+display_name: Software
+description: >-
+  Software change campaigns: the Git source tree is canonical, every other
+  representation (architecture graph, API IR, build artifact, traces, scan
+  reports) is derived or observational, and promotion tests the exact
+  integration commit rather than a look-alike.
+reference: references/profile-software.md
+
+nodes:
+  - node_id: node:requirements-spec
+    representation: requirements-spec
+    role: normative
+    media_type: text/markdown
+    description: >-
+      Requirements and specification statements. The source of hard
+      invariants, target dimensions, and non-goals for the campaign.
+  - node_id: node:architecture-graph
+    representation: architecture-graph
+    role: derived
+    media_type: application/json
+    description: >-
+      Module architecture and dependency graph extracted from the source
+      tree; makes coupling and layering violations observable.
+    losses:
+      - function-level control flow
+      - runtime-only (dynamic) dependencies
+  - node_id: node:api-schema-ir
+    representation: api-schema-ir
+    role: derived
+    media_type: application/json
+    description: >-
+      Public API and schema intermediate representation (exported symbols,
+      signatures, wire schemas) used for compatibility comparison between
+      baseline and candidate.
+    losses:
+      - implementation bodies
+      - private helpers and comments
+  - node_id: node:data-migration-model
+    representation: data-migration-model
+    role: derived
+    media_type: application/json
+    description: >-
+      Data model and migration plan (tables, columns, migration ordering)
+      derived from schema definitions; makes destructive migrations
+      observable before they run.
+    losses:
+      - row-level data content
+  - node_id: node:source-tree
+    representation: source-tree
+    role: canonical
+    canonical_for: product behavior, edited and promoted as an exact Git commit
+    description: >-
+      The working source tree pinned to a Git commit. All edits land here;
+      every derived representation must be regenerable from this node.
+  - node_id: node:compiled-package
+    representation: compiled-package
+    role: derived
+    media_type: application/octet-stream
+    description: >-
+      Compiled build or package artifact (wheel, binary, container layer)
+      with recorded build provenance digests.
+    losses:
+      - comments and formatting
+      - unbuilt development files
+  - node_id: node:test-fixtures
+    representation: test-fixtures
+    role: evaluative
+    description: >-
+      Unit, property, integration, and fuzz fixtures plus their seeds.
+      Deterministic fixtures are frozen for promotion; fuzz corpora record
+      the seed that produced each counterexample.
+  - node_id: node:runtime-traces
+    representation: runtime-traces
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Runtime traces and profiles (latency, throughput, resource
+      distributions, cold and warm measurements) captured from executions
+      of the compiled artifact. Append-only evidence, never edited.
+  - node_id: node:security-reports
+    representation: security-reports
+    role: evaluative
+    media_type: application/json
+    description: >-
+      Security and supply-chain scan reports produced by existing scanners
+      (dependency audit, secret scan). Recorded verbatim, never fabricated.
+
+transforms:
+  - edge_id: edge:source-to-architecture-graph
+    source: source-tree
+    target: architecture-graph
+    tool:
+      name: dependency-graph-extractor
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - declared layering rules (no forbidden edges)
+    round_trip_checks:
+      - every graph edge maps to an import or link statement in the source tree
+    output_media_type: application/json
+    timeout_seconds: 300
+  - edge_id: edge:source-to-api-ir
+    source: source-tree
+    target: api-schema-ir
+    tool:
+      name: api-surface-exporter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - exported symbol set and signatures of the baseline public API
+    round_trip_checks:
+      - regenerating the IR from the same commit yields a byte-identical document
+    output_media_type: application/json
+    timeout_seconds: 300
+  - edge_id: edge:source-to-build
+    source: source-tree
+    target: compiled-package
+    tool:
+      name: project-build-command
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - package contains every runtime data file declared by the source tree
+    round_trip_checks:
+      - installed-package test run agrees with in-tree test run (source/compiled equivalence)
+    output_media_type: application/octet-stream
+    cost_class: bounded-local
+    timeout_seconds: 900
+  - edge_id: edge:build-to-runtime-traces
+    source: compiled-package
+    target: runtime-traces
+    tool:
+      name: instrumented-run-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - traces record artifact digest, environment digest, and seed of the run
+    round_trip_checks:
+      - repeated runs with the same seed produce distribution-compatible measurements
+    output_media_type: application/jsonl
+    cost_class: bounded-local
+    timeout_seconds: 900
+  - edge_id: edge:source-to-security-reports
+    source: source-tree
+    target: security-reports
+    tool:
+      name: dependency-audit-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - report is the scanner's verbatim output; findings are never edited or fabricated
+    output_media_type: application/json
+    cost_class: bounded-local
+    timeout_seconds: 600
+
+evaluator_templates:
+  - parse-and-test
+  - build-check
+  - api-compatibility
+
+default_target_dimensions:
+  - test-pass-rate
+  - open-counterexample-count
+
+default_protected_dimensions:
+  - public-api-compatibility
+  - unrelated-test-pass-rate
+  - security-finding-count

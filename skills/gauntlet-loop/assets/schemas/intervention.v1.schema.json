@@ -1,0 +1,132 @@
+{
+  "$defs": {
+    "ActionSeam": {
+      "description": "Closed initial action-seam vocabulary for interventions.",
+      "enum": [
+        "specification",
+        "reference-data",
+        "training-or-example-data",
+        "deterministic-operator",
+        "tool-or-effect-adapter",
+        "workflow-or-harness",
+        "prompt-skill-or-retrieval",
+        "evaluator",
+        "model",
+        "representation"
+      ],
+      "title": "ActionSeam",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/intervention.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "diagnosis_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Diagnosis Id",
+      "type": "string"
+    },
+    "expected_mechanism": {
+      "minLength": 1,
+      "title": "Expected Mechanism",
+      "type": "string"
+    },
+    "experiment_plan": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Plan"
+    },
+    "fixes_counterexamples": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Fixes Counterexamples",
+      "type": "array"
+    },
+    "intervention_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Intervention Id",
+      "type": "string"
+    },
+    "permitted_globs": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Permitted Globs",
+      "type": "array"
+    },
+    "possible_new_failures": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Possible New Failures",
+      "type": "array"
+    },
+    "predicted_cost": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Predicted Cost"
+    },
+    "predicted_effect": {
+      "minLength": 1,
+      "title": "Predicted Effect",
+      "type": "string"
+    },
+    "primary_seam": {
+      "$ref": "#/$defs/ActionSeam"
+    },
+    "protected_surfaces": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Protected Surfaces",
+      "type": "array"
+    },
+    "rollback_plan": {
+      "minLength": 1,
+      "title": "Rollback Plan",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.intervention/v1",
+      "default": "dev.gauntlet.intervention/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "intervention_id",
+    "diagnosis_id",
+    "primary_seam",
+    "permitted_globs",
+    "expected_mechanism",
+    "predicted_effect",
+    "rollback_plan",
+    "created_at"
+  ],
+  "title": "InterventionV1",
+  "type": "object"
+}

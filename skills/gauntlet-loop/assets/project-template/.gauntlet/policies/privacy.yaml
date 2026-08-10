@@ -1,0 +1,10 @@
+# Privacy policy (dev.gauntlet.privacy-policy/v1)
+
+schema_version: dev.gauntlet.privacy-policy/v1
+redact_by_default: true
+# Extra regex patterns redacted before persistence, export, or telemetry.
+redaction_patterns: []
+# Environment variable names permitted to reach candidate/evaluator
+# subprocesses. Everything else is scrubbed.
+secret_environment_allowlist: []
+raw_model_content_in_telemetry: false

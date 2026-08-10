@@ -1,0 +1,23 @@
+# Evaluation policy (dev.gauntlet.evaluation-policy/v1)
+#
+# Ladder order: run the cheapest trustworthy checks before expensive or
+# subjective ones. A persuasive learned judge cannot override a failed
+# hard invariant.
+
+schema_version: dev.gauntlet.evaluation-policy/v1
+ladder:
+  - structural
+  - deterministic-invariants
+  - cross-representation
+  - reduced-fidelity
+  - full-fidelity-integration
+  - calibrated-judgment
+pairwise_judges:
+  blind_candidate_identity: true
+  randomize_order: true
+  allow_ties: true
+  allow_abstention: true
+  require_calibration_anchors: true
+splits:
+  enforce_disjoint: true
+  candidate_receives_promotion_cases: false

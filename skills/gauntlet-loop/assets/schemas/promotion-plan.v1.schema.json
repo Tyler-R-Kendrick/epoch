@@ -1,0 +1,97 @@
+{
+  "$id": "https://schemas.gauntlet.dev/promotion-plan.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "campaign_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{7,64}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "frozen_surface_violations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Frozen Surface Violations",
+      "type": "array"
+    },
+    "git_applicable": {
+      "title": "Git Applicable",
+      "type": "boolean"
+    },
+    "git_conflicts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Git Conflicts",
+      "type": "array"
+    },
+    "graph_conflicts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Graph Conflicts",
+      "type": "array"
+    },
+    "graph_plan": {
+      "additionalProperties": true,
+      "title": "Graph Plan",
+      "type": "object"
+    },
+    "integration_commit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Integration Commit"
+    },
+    "integrity_checks": {
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "title": "Integrity Checks",
+      "type": "object"
+    },
+    "plan_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.promotion-plan/v1",
+      "default": "dev.gauntlet.promotion-plan/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "campaign_id",
+    "candidate_id",
+    "candidate_commit",
+    "git_applicable",
+    "created_at"
+  ],
+  "title": "PromotionPlanV1",
+  "type": "object"
+}

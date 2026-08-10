@@ -1,0 +1,67 @@
+{
+  "$id": "https://schemas.gauntlet.dev/budget.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "max_cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Cost Usd"
+    },
+    "max_evaluator_runs": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Evaluator Runs"
+    },
+    "max_experiments": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Experiments"
+    },
+    "max_wall_clock_seconds": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Wall Clock Seconds"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.budget/v1",
+      "default": "dev.gauntlet.budget/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "BudgetV1",
+  "type": "object"
+}

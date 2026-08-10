@@ -1,0 +1,7 @@
+schema_version: dev.gauntlet.dataset/v1
+dataset_id: dataset:promotion-default
+split: promotion
+sealed: true
+storage: local-ignored
+cases: []
+notes: Held-out promotion cases; payloads live under sealed/ (ignored).

@@ -1,0 +1,179 @@
+# Model-training and autoresearch representation profile (dev.gauntlet.profile/v1).
+#
+# Selected via `gauntlet profile select model-training`. Guidance lives in
+# references/profile-model-training.md.
+
+schema_version: dev.gauntlet.profile/v1
+profile_id: profile:model-training
+display_name: Model training and autoresearch
+description: >-
+  Training and autoresearch campaigns: baseline first, one hypothesis and
+  one Git branch per experiment, exact recipe/environment/data digests,
+  authoritative metrics named by the spec, keep|discard|crash|inconclusive
+  outcomes, seam-routed diagnosis, and held-out confirmation before
+  promotion. Failed branches are retained as evidence.
+reference: references/profile-model-training.md
+
+nodes:
+  - node_id: node:training-recipe
+    representation: training-recipe
+    role: canonical
+    media_type: application/yaml
+    canonical_for: experiment definition (config, command, hyperparameters)
+    description: >-
+      The training recipe: configuration, launch command, and
+      hyperparameters. The artifact a candidate edit actually changes.
+  - node_id: node:environment-record
+    representation: environment-record
+    role: derived
+    media_type: application/json
+    description: >-
+      Environment record for a run: lockfile digest, container or driver
+      versions, and allowlisted variables. Regenerated per run, never
+      hand-edited.
+  - node_id: node:dataset-digests
+    representation: dataset-digests
+    role: normative
+    media_type: application/yaml
+    description: >-
+      Data manifest with content digests for training, calibration, and
+      sealed held-out splits. Promotion data stays invisible to search.
+  - node_id: node:checkpoint
+    representation: checkpoint
+    role: derived
+    media_type: application/octet-stream
+    description: >-
+      Model checkpoint identified by digest, bound to the recipe, data,
+      environment, and seed that produced it.
+    losses:
+      - optimizer and data-loader state unless explicitly exported
+  - node_id: node:baseline-record
+    representation: baseline-record
+    role: normative
+    media_type: application/json
+    description: >-
+      The baseline run record (recipe, checkpoint, metrics digests) that
+      every candidate is compared against. Established before any search.
+  - node_id: node:run-metrics
+    representation: run-metrics
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Authoritative metrics named by the spec, with sample counts and
+      uncertainty. One headline number is not a result.
+  - node_id: node:compute-job-records
+    representation: compute-job-records
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Compute, memory, wall-clock, and scheduler job IDs per run; the cost
+      side of every keep/discard decision.
+  - node_id: node:outcome-record
+    representation: outcome-record
+    role: evaluative
+    media_type: application/json
+    description: >-
+      Per-experiment outcome (keep | discard | crash | inconclusive) with
+      rationale. Underpowered smoke runs may only ever be inconclusive.
+  - node_id: node:seam-routing-record
+    representation: seam-routing-record
+    role: evaluative
+    media_type: application/json
+    description: >-
+      BLADE-style diagnosis routing a failure to the harness, verifier,
+      prompt, data, or training seam before any fix is attempted.
+  - node_id: node:holdout-confirmation
+    representation: holdout-confirmation
+    role: evaluative
+    media_type: application/json
+    description: >-
+      Held-out confirmation results on sealed promotion data; required
+      before any candidate is promoted.
+  - node_id: node:trajectory-export
+    representation: trajectory-export
+    role: derived
+    media_type: application/jsonl
+    description: >-
+      Optional state/action/observation/reward/next-state trajectory export
+      with causal IDs, suitable for adaptation to downstream training
+      systems. Exported only from verified campaigns.
+    losses:
+      - internal graph event detail beyond the exported step schema
+
+transforms:
+  - edge_id: edge:recipe-to-checkpoint
+    source: training-recipe
+    target: checkpoint
+    tool:
+      name: training-launcher-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - run records the recipe, data, environment digests, and seed before launch
+      - costly GPU, cluster, or cloud jobs require explicit prior approval
+    output_media_type: application/octet-stream
+    cost_class: costly-gpu
+    timeout_seconds: 86400
+  - edge_id: edge:checkpoint-to-metrics
+    source: checkpoint
+    target: run-metrics
+    tool:
+      name: eval-harness-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - metrics come from the spec-named harness, not an ad-hoc script
+      - sample count and uncertainty are recorded with every metric
+    round_trip_checks:
+      - re-evaluation of the same checkpoint and seed reproduces the metrics
+    output_media_type: application/jsonl
+    cost_class: costly-gpu
+    timeout_seconds: 14400
+  - edge_id: edge:metrics-to-outcome
+    source: run-metrics
+    target: outcome-record
+    tool:
+      name: gauntlet
+    deterministic: true
+    lossy: false
+    protected_invariants:
+      - smoke-only runs cannot produce a keep outcome
+      - crashed runs are recorded as crash, never silently retried
+    output_media_type: application/json
+    timeout_seconds: 300
+  - edge_id: edge:checkpoint-to-holdout
+    source: checkpoint
+    target: holdout-confirmation
+    tool:
+      name: eval-harness-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - sealed promotion data never appears in search or candidate worktrees
+    output_media_type: application/json
+    cost_class: costly-gpu
+    timeout_seconds: 14400
+  - edge_id: edge:runs-to-trajectories
+    source: compute-job-records
+    target: trajectory-export
+    tool:
+      name: gauntlet
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - only verified campaign runs are exported
+      - causal IDs and per-step digests are preserved
+    output_media_type: application/jsonl
+    timeout_seconds: 900
+
+evaluator_templates:
+  - metric-non-regression
+  - smoke-vs-hypothesis-guard
+
+default_target_dimensions:
+  - primary-spec-metric
+
+default_protected_dimensions:
+  - holdout-metric-non-regression
+  - compute-budget-compliance
+  - baseline-integrity

@@ -1,0 +1,114 @@
+{
+  "schema_version": "dev.gauntlet.workflow-plan/v1",
+  "plan_id": "workflow-plan:self-heal-repair",
+  "workflow_name": "self-heal-repair",
+  "description": "Self-healing repair loop: record the observed failure, cluster it into an issue, record a falsifiable diagnosis, propose/fork/run a repair experiment, evaluate it, then plan and (with approval) apply the promotion.",
+  "profile": "software",
+  "inputs": {},
+  "steps": [
+    {
+      "step_id": "observe_failure",
+      "display_name": "Record the failure observation",
+      "command": ["observe", "record"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 300
+    },
+    {
+      "step_id": "issue_cluster",
+      "display_name": "Cluster the failure into an issue",
+      "command": ["issue", "cluster"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 300
+    },
+    {
+      "step_id": "diagnosis_record",
+      "display_name": "Record a falsifiable diagnosis",
+      "command": ["diagnosis", "record"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 300
+    },
+    {
+      "step_id": "experiment_propose",
+      "display_name": "Propose the repair experiment",
+      "command": ["experiment", "propose"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "experiment_fork",
+      "display_name": "Fork the repair worktree",
+      "command": ["experiment", "fork"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 1,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "experiment_run",
+      "display_name": "Run the repair experiment",
+      "command": ["experiment", "run"],
+      "action_class": "R2",
+      "require_approval": false,
+      "max_retries": 1,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 3600
+    },
+    {
+      "step_id": "evaluate_search",
+      "display_name": "Evaluate the repair on the search split",
+      "command": ["evaluate", "search"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 1800
+    },
+    {
+      "step_id": "promote_plan",
+      "display_name": "Plan the repair promotion",
+      "command": ["promote", "plan"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "promote_apply",
+      "display_name": "Apply the repair promotion",
+      "command": ["promote", "apply"],
+      "action_class": "R2",
+      "require_approval": true,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 900
+    }
+  ],
+  "checkpoint": true,
+  "generated_by": "gauntlet workflow generate",
+  "parent_plan_digest": null,
+  "repairs_applied": [],
+  "created_at": "2026-08-06T00:00:00Z"
+}

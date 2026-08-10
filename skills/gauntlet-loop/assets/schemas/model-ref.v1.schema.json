@@ -1,0 +1,54 @@
+{
+  "$id": "https://schemas.gauntlet.dev/model-ref.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "parameters_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parameters Digest"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.model-ref/v1",
+      "default": "dev.gauntlet.model-ref/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Version"
+    }
+  },
+  "required": [
+    "provider",
+    "model"
+  ],
+  "title": "ModelRefV1",
+  "type": "object"
+}

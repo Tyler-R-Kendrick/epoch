@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "ArtifactRole": {
+      "enum": [
+        "normative",
+        "canonical",
+        "derived",
+        "observational",
+        "evaluative"
+      ],
+      "title": "ArtifactRole",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/artifact-node.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "canonical_for": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Canonical For"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "losses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Losses",
+      "type": "array"
+    },
+    "media_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Media Type"
+    },
+    "node_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Node Id",
+      "type": "string"
+    },
+    "representation": {
+      "minLength": 1,
+      "title": "Representation",
+      "type": "string"
+    },
+    "role": {
+      "$ref": "#/$defs/ArtifactRole"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.artifact-node/v1",
+      "default": "dev.gauntlet.artifact-node/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "node_id",
+    "representation",
+    "role"
+  ],
+  "title": "ArtifactNodeV1",
+  "type": "object"
+}

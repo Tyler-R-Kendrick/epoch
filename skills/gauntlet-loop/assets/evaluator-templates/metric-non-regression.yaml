@@ -1,0 +1,29 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Model-training profile: compares candidate run metrics against the
+# baseline record. Fails when a protected metric regresses beyond its
+# declared budget or when the primary metric lacks the sample count and
+# uncertainty needed for the spec's confidence policy.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:metric-non-regression
+kind: command
+roles:
+  - comparator
+  - invariant-checker
+independence: L4
+command:
+  argv: ["python", ".gauntlet/evaluators/checks/metric_non_regression.py"]
+  cwd: candidate-worktree
+  timeout_seconds: 300
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - baseline-record
+    - run-metrics
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

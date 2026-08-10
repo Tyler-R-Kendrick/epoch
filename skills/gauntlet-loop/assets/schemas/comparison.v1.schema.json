@@ -1,0 +1,199 @@
+{
+  "$defs": {
+    "MetricResultV1": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence_level": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence Level"
+        },
+        "lower_bound": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower Bound"
+        },
+        "metric": {
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "n": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.metric-result/v1",
+          "default": "dev.gauntlet.metric-result/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "upper_bound": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper Bound"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "value"
+      ],
+      "title": "MetricResultV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/comparison.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "baseline_candidate": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Baseline Candidate",
+      "type": "string"
+    },
+    "candidate": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Candidate",
+      "type": "string"
+    },
+    "comparison_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Comparison Id",
+      "type": "string"
+    },
+    "counterexample_deltas": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Counterexample Deltas",
+      "type": "object"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "deltas": {
+      "items": {
+        "$ref": "#/$defs/MetricResultV1"
+      },
+      "title": "Deltas",
+      "type": "array"
+    },
+    "inconclusive": {
+      "default": false,
+      "title": "Inconclusive",
+      "type": "boolean"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "paired": {
+      "default": true,
+      "title": "Paired",
+      "type": "boolean"
+    },
+    "pareto_dominates": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pareto Dominates"
+    },
+    "protected_regressions": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Protected Regressions",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.comparison/v1",
+      "default": "dev.gauntlet.comparison/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seed"
+    }
+  },
+  "required": [
+    "comparison_id",
+    "baseline_candidate",
+    "candidate",
+    "created_at"
+  ],
+  "title": "ComparisonV1",
+  "type": "object"
+}

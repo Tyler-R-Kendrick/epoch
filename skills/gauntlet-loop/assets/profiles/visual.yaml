@@ -1,0 +1,333 @@
+# Visual and multimodal representation profile (dev.gauntlet.profile/v1).
+#
+# Selected via `gauntlet profile select visual`. Guidance lives in
+# references/profile-visual.md. The core runtime orchestrates external tools
+# (renderers, trackers, rasterizers) through typed command adapters; it does
+# not implement media algorithms itself.
+
+schema_version: dev.gauntlet.profile/v1
+profile_id: profile:visual
+display_name: Visual and multimodal
+description: >-
+  Visual asset and animation campaigns anchored to a semantic identity
+  ledger and a canonical 3D scene. Renders, videos, voxels, and vectors are
+  derived views with declared losses; chirality, attachments, and
+  asymmetries are protected invariants checked across representations.
+reference: references/profile-visual.md
+
+nodes:
+  - node_id: node:semantic-identity-bible
+    representation: semantic-identity-bible
+    role: normative
+    media_type: application/yaml
+    canonical_for: entity identity, handedness, attachments, asymmetries, forbidden transforms
+    description: >-
+      Canonical semantic entity ledger: stable entity IDs, coordinate frame,
+      handedness, prop attachments, proportions, intentional asymmetries
+      (hair part, scars, logos), and forbidden transforms such as
+      unqualified_horizontal_pixel_flip.
+  - node_id: node:canonical-3d-scene
+    representation: canonical-3d-scene
+    role: canonical
+    media_type: model/vnd.usdz+zip
+    canonical_for: geometry, skeleton, blend shapes, and scene composition
+    description: >-
+      Layered editable OpenUSD scene holding mesh, skeleton, blend shapes,
+      and composition arcs. Edits to the character or set land here.
+  - node_id: node:material-graph
+    representation: material-graph
+    role: canonical
+    media_type: application/xml
+    canonical_for: material and shading definitions
+    description: >-
+      MaterialX material graph referenced by the canonical scene; the single
+      editable definition of surfaces and shaders.
+  - node_id: node:camera-lighting-rig
+    representation: camera-lighting-rig
+    role: derived
+    media_type: application/yaml
+    description: >-
+      Camera and lighting rig configuration (turntable orbits, key/fill
+      setups) used to make renders reproducible across candidates.
+  - node_id: node:turntable-sheets
+    representation: turntable-sheets
+    role: derived
+    media_type: image/png
+    description: >-
+      Orthographic and perspective turntable renders at declared yaw steps;
+      the primary cross-view comparison surface.
+    losses:
+      - occluded geometry
+      - material response outside the rig's lighting
+  - node_id: node:silhouette-sheets
+    representation: silhouette-sheets
+    role: derived
+    media_type: image/png
+    description: >-
+      Binary silhouette renders per view; isolate shape and topology from
+      color and lighting.
+    losses:
+      - interior detail, color, and material
+  - node_id: node:expression-pose-prop-sheets
+    representation: expression-pose-prop-sheets
+    role: derived
+    media_type: image/png
+    description: >-
+      Expression, hand, pose, outfit, and prop sheets rendered or generated
+      against the identity ledger; each cell records its generating
+      transform and seed.
+    losses:
+      - continuity between cells (each cell is an independent sample)
+  - node_id: node:render-passes
+    representation: render-passes
+    role: derived
+    media_type: image/x-exr
+    description: >-
+      Per-frame RGB, albedo, normal, depth, segmentation, object/material
+      ID, UV, shadow, lighting, optical-flow, and motion-vector passes from
+      the canonical scene.
+    losses:
+      - scene composition structure (flattened to pixels per pass)
+  - node_id: node:motion-program
+    representation: motion-program
+    role: canonical
+    media_type: application/json
+    canonical_for: character motion timing, contacts, and root motion
+    description: >-
+      Key poses, joint trajectories, contact annotations, root motion, and
+      camera path. The motion source of truth that video proposals must
+      agree with.
+  - node_id: node:video-proposal
+    representation: video-proposal
+    role: derived
+    media_type: video/mp4
+    description: >-
+      Generated video: a motion proposal mechanism, not the source of
+      truth. Accepted only when tracked landmarks agree with the motion
+      program and identity ledger.
+    losses:
+      - exact 3D pose (recoverable only approximately via tracking)
+      - generator-invented detail not present in any canonical node
+  - node_id: node:masks-entity-tracks
+    representation: masks-entity-tracks
+    role: observational
+    media_type: application/json
+    description: >-
+      Object-aware masks and persistent entity tracks extracted from frames
+      or video by segmentation and point-tracking tools; evidence for
+      identity, occlusion, and temporal-continuity checks.
+  - node_id: node:voxel-projection
+    representation: voxel-projection
+    role: derived
+    media_type: application/octet-stream
+    description: >-
+      3D-to-voxel occupancy projections at multiple resolutions. A
+      diagnostic and style projection, not the canonical character.
+    losses:
+      - surface detail below voxel resolution
+      - material and UV information
+  - node_id: node:layered-2d-scene-graph
+    representation: layered-2d-scene-graph
+    role: derived
+    media_type: application/json
+    description: >-
+      Layered 2D scene graph (parallax planes, tracked layers, z-order)
+      derived from renders or footage for compositing and vector fitting.
+    losses:
+      - true 3D depth beyond layer ordering
+  - node_id: node:vector-paths-svg
+    representation: vector-paths-svg
+    role: derived
+    media_type: image/svg+xml
+    description: >-
+      Fitted vector paths and animated SVG with stable path IDs, explicit
+      z-order, and declared path/control-point budgets.
+    losses:
+      - texture and gradient detail beyond the fitting budget
+  - node_id: node:raster-frames
+    representation: raster-frames
+    role: derived
+    media_type: image/png
+    description: >-
+      Rasterized SVG round-trip frames used to compare the vector fit
+      against its source frames at actual display scale.
+    losses:
+      - vector semantics (path identity, editability)
+  - node_id: node:gltf-delivery
+    representation: gltf-delivery
+    role: derived
+    media_type: model/gltf-binary
+    description: >-
+      glTF runtime delivery export of the canonical scene for engines and
+      viewers; never edited directly.
+    losses:
+      - USD composition arcs and layer structure
+      - non-glTF material features
+  - node_id: node:editorial-timeline
+    representation: editorial-timeline
+    role: derived
+    media_type: application/json
+    description: >-
+      OpenTimelineIO editorial timeline referencing shots, takes, and
+      derived media by digest.
+    losses:
+      - media content (references only)
+
+transforms:
+  - edge_id: edge:scene-to-gltf
+    source: canonical-3d-scene
+    target: gltf-delivery
+    tool:
+      name: usd-to-gltf-converter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - mesh topology, skeleton hierarchy, and entity names survive conversion
+    round_trip_checks:
+      - vertex and joint counts match between USD and glTF exports
+    output_media_type: model/gltf-binary
+    timeout_seconds: 600
+  - edge_id: edge:scene-to-render-passes
+    source: canonical-3d-scene
+    target: render-passes
+    tool:
+      name: render-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - segmentation and object-ID passes label entities with ledger IDs
+      - depth, mask, and RGB passes are mutually consistent per frame
+    expected_equivariances:
+      - rigid camera transforms move all passes identically
+    round_trip_checks:
+      - re-render at the same seed and configuration digest is pixel-identical
+    output_media_type: image/x-exr
+    cost_class: costly-render
+    timeout_seconds: 1800
+  - edge_id: edge:scene-to-turntables
+    source: canonical-3d-scene
+    target: turntable-sheets
+    tool:
+      name: render-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - prop attachment side matches the identity ledger in every view
+      - proportions agree across views within declared tolerance
+    expected_equivariances:
+      - camera yaw rotation maps monotonically to view index
+    round_trip_checks:
+      - cross-view landmark agreement against the skeleton
+    output_media_type: image/png
+    cost_class: costly-render
+    timeout_seconds: 1800
+  - edge_id: edge:turntables-to-silhouettes
+    source: turntable-sheets
+    target: silhouette-sheets
+    tool:
+      name: silhouette-extractor
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - silhouette topology (holes, limb count) matches the mesh topology
+    output_media_type: image/png
+    timeout_seconds: 300
+  - edge_id: edge:identity-to-sheets
+    source: semantic-identity-bible
+    target: expression-pose-prop-sheets
+    tool:
+      name: image-generator-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - hair part stays on the ledger's semantic side
+      - props remain attached to the ledger's hand and grip
+      - no unqualified horizontal pixel flip anywhere in the pipeline
+    round_trip_checks:
+      - landmark detection on each cell agrees with the identity ledger
+    output_media_type: image/png
+    cost_class: costly-generation
+    timeout_seconds: 1800
+    rights_implications: generated cells inherit the rights of the reference pack entries used
+  - edge_id: edge:motion-to-video
+    source: motion-program
+    target: video-proposal
+    tool:
+      name: video-generator-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - foot and hand contacts occur at the frames declared by the motion program
+      - root motion path matches the motion program within declared tolerance
+      - entity identity is stable across frames (no identity swaps)
+    round_trip_checks:
+      - tracked landmarks re-projected against joint trajectories
+    output_media_type: video/mp4
+    cost_class: costly-generation
+    timeout_seconds: 3600
+  - edge_id: edge:video-to-tracks
+    source: video-proposal
+    target: masks-entity-tracks
+    tool:
+      name: segmentation-tracking-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - track IDs persist for the full visible lifetime of each entity
+    output_media_type: application/json
+    cost_class: bounded-local
+    timeout_seconds: 1800
+  - edge_id: edge:scene-to-voxels
+    source: canonical-3d-scene
+    target: voxel-projection
+    tool:
+      name: voxelizer
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - voxel occupancy connectivity matches mesh connectivity at each resolution
+    round_trip_checks:
+      - voxel projection silhouette compared against the final sprite silhouette
+    output_media_type: application/octet-stream
+    timeout_seconds: 900
+  - edge_id: edge:layers-to-vectors
+    source: layered-2d-scene-graph
+    target: vector-paths-svg
+    tool:
+      name: vector-fitting-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - path IDs are stable across frames
+      - z-order matches the layer graph
+      - no self-intersecting paths; path/control-point budgets respected
+    output_media_type: image/svg+xml
+    cost_class: bounded-local
+    timeout_seconds: 900
+  - edge_id: edge:svg-to-raster
+    source: vector-paths-svg
+    target: raster-frames
+    tool:
+      name: svg-rasterizer
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - rasterization uses the declared display scale, not an arbitrary zoom
+    round_trip_checks:
+      - raster round-trip comparison against the source frames
+    output_media_type: image/png
+    timeout_seconds: 300
+
+evaluator_templates:
+  - cross-view-consistency
+  - chirality-attachment-invariant
+
+default_target_dimensions:
+  - identity-consistency-score
+  - cross-view-agreement
+  - temporal-stability
+
+default_protected_dimensions:
+  - chirality-attachment-invariants
+  - silhouette-topology
+  - forbidden-transform-compliance

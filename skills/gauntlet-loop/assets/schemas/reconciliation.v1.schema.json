@@ -1,0 +1,68 @@
+{
+  "$id": "https://schemas.gauntlet.dev/reconciliation.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "external_state": {
+      "additionalProperties": true,
+      "title": "External State",
+      "type": "object"
+    },
+    "intent_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Intent Id",
+      "type": "string"
+    },
+    "method": {
+      "minLength": 1,
+      "title": "Method",
+      "type": "string"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "reconciliation_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Reconciliation Id",
+      "type": "string"
+    },
+    "resolution": {
+      "enum": [
+        "confirmed_completed",
+        "confirmed_absent",
+        "still_unknown"
+      ],
+      "title": "Resolution",
+      "type": "string"
+    },
+    "resolved_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Resolved At",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.reconciliation/v1",
+      "default": "dev.gauntlet.reconciliation/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reconciliation_id",
+    "intent_id",
+    "method",
+    "resolution",
+    "resolved_at"
+  ],
+  "title": "ReconciliationRecordV1",
+  "type": "object"
+}

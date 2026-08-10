@@ -1,0 +1,185 @@
+{
+  "$defs": {
+    "ToolRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Digest"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.tool-ref/v1",
+          "default": "dev.gauntlet.tool-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolRefV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/transform-edge.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "configuration_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Configuration Digest"
+    },
+    "cost_class": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Class"
+    },
+    "deterministic": {
+      "title": "Deterministic",
+      "type": "boolean"
+    },
+    "edge_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Edge Id",
+      "type": "string"
+    },
+    "expected_equivariances": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Equivariances",
+      "type": "array"
+    },
+    "lossy": {
+      "title": "Lossy",
+      "type": "boolean"
+    },
+    "output_media_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Media Type"
+    },
+    "protected_invariants": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Protected Invariants",
+      "type": "array"
+    },
+    "rights_implications": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rights Implications"
+    },
+    "round_trip_checks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Round Trip Checks",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.transform-edge/v1",
+      "default": "dev.gauntlet.transform-edge/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seed"
+    },
+    "source": {
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "target": {
+      "minLength": 1,
+      "title": "Target",
+      "type": "string"
+    },
+    "timeout_seconds": {
+      "default": 300,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolRefV1"
+    }
+  },
+  "required": [
+    "edge_id",
+    "source",
+    "target",
+    "tool",
+    "deterministic",
+    "lossy"
+  ],
+  "title": "TransformEdgeV1",
+  "type": "object"
+}

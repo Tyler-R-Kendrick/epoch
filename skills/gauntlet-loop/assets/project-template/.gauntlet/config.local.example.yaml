@@ -1,0 +1,13 @@
+# Example local override (copy to config.local.yaml, which is ignored).
+#
+# Local overrides may narrow policy or select local paths. They may NOT
+# raise runtime.authority_ceiling; raising authority requires a tracked
+# R4 governance decision.
+
+# runtime:
+#   store: postgresql://localhost/gauntlet   # never commit credentials
+#   lock_timeout_seconds: 60
+
+# telemetry:
+#   enabled: true
+#   exporter: otlp-file

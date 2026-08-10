@@ -1,0 +1,30 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Visual profile: deterministic chirality gate. For every derived view or
+# frame, detected prop attachments, hair part side, and other declared
+# asymmetries must match the semantic identity ledger, and the deriving
+# transform must not be on the ledger's forbidden list (for example
+# unqualified_horizontal_pixel_flip). See
+# assets/examples/visual-semantic-mirror/ for a worked fixture.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:chirality-attachment-invariant
+kind: command
+roles:
+  - invariant-checker
+independence: L4
+command:
+  argv: ["python", ".gauntlet/evaluators/checks/chirality_attachment_invariant.py"]
+  cwd: candidate-worktree
+  timeout_seconds: 300
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - semantic-identity-bible
+    - landmark-annotations
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

@@ -1,0 +1,7 @@
+schema_version: dev.gauntlet.dataset/v1
+dataset_id: dataset:calibration-default
+split: calibration
+sealed: false
+storage: tracked
+cases: []
+notes: Known-outcome cases for evaluator calibration.
