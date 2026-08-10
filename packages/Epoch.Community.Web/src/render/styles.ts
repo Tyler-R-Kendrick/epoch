@@ -1539,7 +1539,7 @@ export function communityStyles(): string {
       padding: .12rem .4rem;
       background: var(--epoch-color-marsh);
       border: 1px solid var(--epoch-color-marsh-strong);
-      color: var(--epoch-color-ink);
+      color: var(--epoch-color-accent-ink);
     }
     .row-anchor-mark { display: none; }
 

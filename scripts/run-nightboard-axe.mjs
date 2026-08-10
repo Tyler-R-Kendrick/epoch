@@ -30,7 +30,7 @@ try {
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   for (const viewport of VIEWPORTS) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
-    await page.goto(server.url, { waitUntil: "networkidle" });
+    await page.goto(`${server.url}board.html`, { waitUntil: "networkidle" });
     await page.waitForTimeout(400);
     // Exercise a channel with markdown + code so scrollable regions and feed
     // chrome are in the tree axe actually sees.

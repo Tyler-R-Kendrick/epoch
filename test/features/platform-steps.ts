@@ -177,6 +177,7 @@ When("I open Epoch Community Web in a Playwright browser", { timeout: 60_000 }, 
 
 Then("the Community browser shows repository {string}", async function (slug: string) {
   assert.ok(platformState.page);
+  await platformState.page.locator("[data-rail-more] > summary").click();
   await assertVisibleText(platformState.page, slug);
 });
 
@@ -197,7 +198,7 @@ Then("the Community browser exposes the Epoch Community design system", async fu
       .getPropertyValue("--epoch-color-surface")
       .trim(),
   );
-  assert.equal(surfaceToken, "#f4f2ea");
+  assert.equal(surfaceToken, "#070b12");
 
   assert.equal(await platformState.page.locator("[data-community-channel-rail]").count(), 1);
   assert.equal(await platformState.page.locator("[data-message-feed]").count(), 1);
