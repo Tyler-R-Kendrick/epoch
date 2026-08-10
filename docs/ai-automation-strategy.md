@@ -33,7 +33,7 @@ All external checks below were performed on **2026-08-09**.
 
 | Capability | Connected | Used by this repo | Gap |
 |---|---|---|---|
-| GitHub Actions | Yes | **Now yes** — Quality Gates run on every PR/push (Now item 1) | ~~Quality gate runs on the developer's laptop~~ Closed |
+| GitHub Actions | Yes | **Now yes** — Quality Gates run on every pull request and every push to `main` (Now item 1) | ~~Quality gate runs on the developer's laptop~~ Closed |
 | Claude Code (project config) | Yes | **Now partially** — tracked `.claude/settings.json` + SessionStart hook (Now item 2); hooks/commands/subagents beyond that remain Next item 5 | Agent behavior is still mostly prose-only outside the session-repair hook |
 | Claude Code (remote/web sessions) | Yes | **Now yes** — SessionStart hook installs and repairs the environment (Now item 2) | Closed for the NODE_OPTIONS defect; general reliability still worth watching |
 | GitHub Copilot coding agent | Yes | **No** | Second labor pool sitting idle |
