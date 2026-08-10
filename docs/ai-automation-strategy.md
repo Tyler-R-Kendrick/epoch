@@ -23,13 +23,19 @@ contents they are not reproducible from a checkout.
 
 All external checks below were performed on **2026-08-09**.
 
+> **Status (2026-08-10):** Sequenced-plan items 1–3 are implemented — see
+> [Sequenced plan](#sequenced-plan) for what changed and what's still open.
+> The findings below are left as originally written, since they are the
+> evidence and reasoning that justified the change, not a live status page;
+> read them as "the state that motivated this" rather than "the state today."
+
 ## Inventory: connected versus used
 
 | Capability | Connected | Used by this repo | Gap |
 |---|---|---|---|
-| GitHub Actions | Yes | **No** — `workflow_dispatch` only | Quality gate runs on the developer's laptop |
-| Claude Code (project config) | Yes | **No** — no tracked `.claude/` | Agent behavior is prose-only, unenforced |
-| Claude Code (remote/web sessions) | Yes | Partially | Remote sessions cannot build the repo |
+| GitHub Actions | Yes | **Now yes** — Quality Gates run on every PR/push (Now item 1) | ~~Quality gate runs on the developer's laptop~~ Closed |
+| Claude Code (project config) | Yes | **Now partially** — tracked `.claude/settings.json` + SessionStart hook (Now item 2); hooks/commands/subagents beyond that remain Next item 5 | Agent behavior is still mostly prose-only outside the session-repair hook |
+| Claude Code (remote/web sessions) | Yes | **Now yes** — SessionStart hook installs and repairs the environment (Now item 2) | Closed for the NODE_OPTIONS defect; general reliability still worth watching |
 | GitHub Copilot coding agent | Yes | **No** | Second labor pool sitting idle |
 | Copilot code review | Yes | **No** | CodeRabbit is the only automated reviewer |
 | PostHog | Yes | **No** — zero references in the tree | Experiment backlog has no real-user signal |
@@ -365,14 +371,48 @@ Effort sizing follows the `DX.md` convention.
 
 ### Now — unblocks everything else
 
-1. 🔥 **Re-enable Actions on `ubuntu-latest`**, replacing `EPOCH_CI_DISABLED`
+1. ✅ 🔥 **Re-enable Actions on `ubuntu-latest`**, replacing `EPOCH_CI_DISABLED`
    with a fail-closed public-repo and standard-runner guard; correct the
    runner-minute claim in `AGENTS.md`, `DX.md`, and `quality.yml`. **[S]**
-2. 🔥 **Add the idempotent `SessionStart` hook** that repairs `NODE_OPTIONS`
+   *Done 2026-08-10: `.github/workflows/quality.yml` now runs docs, lint,
+   konsistent, design, typecheck, test, coverage, Pact, and the
+   Nightboard/a11y suites as separate jobs behind a `guard` job that fails
+   the run if `github.event.repository.private` is true.*
+2. ✅ 🔥 **Add the idempotent `SessionStart` hook** that repairs `NODE_OPTIONS`
    only when malformed and installs only when missing, so remote and
    cloud-dispatched sessions can build. **[S]**
-3. **Demote `pre-push` to `gate:fast`** once CI carries the heavy tail. **[S]**
-4. **Turn on Copilot code review** for every PR — no workflow required. **[S]**
+   *Done 2026-08-10: `.claude/settings.json` + `.claude/hooks/session-start.sh`
+   (carved out of the vendor-skill `.gitignore` exclusion). Validated live
+   against all three branches: with the exact malformed `NODE_OPTIONS` from
+   Finding 6 present, the hook detected it and cleared it via
+   `$CLAUDE_ENV_FILE`; with `node_modules/.bin/tsgo` missing it ran `npm ci`;
+   with it already present it skipped install and reported ready in under a
+   second, confirming the resume/clear/compact cost this item exists to avoid
+   is actually avoided. Two corrections made during validation, both from
+   things that only showed up under a real run: the install-status check
+   originally trusted the *presence* of `node_modules/.bin/tsgo` alone, which
+   is a false positive if the install was interrupted after linking that one
+   binary — it now also captures and reports the install command's own exit
+   status. Separately, the hook now defensively sets
+   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` before installing, since that variable
+   was observed unset in this session despite being documented as
+   pre-configured; unset, a Playwright postinstall can stall attempting a
+   browser download in an environment that already has one. (A third,
+   unrelated stall was also observed and left alone: `@higgsfield/cli`'s own
+   postinstall downloads a release binary over raw `https`, bypassing this
+   environment's configured proxy — a pre-existing issue in that dependency's
+   installer, not something this hook can or should route around.)*
+3. ✅ **Demote `pre-push` to `gate:fast`** once CI carries the heavy tail. **[S]**
+   *Done 2026-08-10: `.githooks/pre-push` now runs `gate:fast`, matching
+   `pre-commit`; `gate:push` remains an optional manual command
+   (`AGENTS.md`'s command table) but is no longer hook-wired.*
+4. ⛔ **Turn on Copilot code review** for every PR — no workflow required. **[S]**
+   *Blocked 2026-08-10: this is a repository-settings toggle (Settings → Code
+   review → Copilot, or the equivalent org policy), not a file change, and no
+   tool available to this session can flip it. Left for the maintainer;
+   everything else on this line — `.github/copilot-instructions.md` /
+   path-scoped `*.instructions.md` / `AGENTS.md` as the instruction sources —
+   was already true before this pass.*
 
 ### Next — converts prose into controls
 

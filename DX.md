@@ -6,19 +6,25 @@ Standard: the **Monorepo DX Playbook** (canonical in the `HoBo` repo → `docs/s
 ## Current state
 TS DVCS SDK/CLI/WASM monorepo — 20 workspaces. npm (engines-only, **not pinned**), ESLint 10, `tsgo` per-package
 (**no** project references/composite), Cucumber + node runner + official Pact (`npm run test:pact`) + c8 coverage. Build & typecheck are ~20-command
-`&&` chains. **Native git hooks** under `.githooks/` (`prepare` → `core.hooksPath`): `pre-commit` = `gate:fast`, `pre-push` = `gate:push`.
-**GitHub Actions Quality Gates are temporarily disabled** (`workflow_dispatch` only) to conserve runner minutes; re-enable `pull_request`/`push` triggers in `.github/workflows/quality.yml` when budget allows. Vercel **direct** git auto-deploy.
+`&&` chains. **Native git hooks** under `.githooks/` (`prepare` → `core.hooksPath`): both `pre-commit` and `pre-push` run `gate:fast` as a
+fast local pre-flight.
+**GitHub Actions Quality Gates run on every `pull_request` and push to `main`** (`.github/workflows/quality.yml`) — docs, lint, konsistent,
+design, typecheck, test, coverage, Pact, and the Nightboard/a11y suites, each its own job, behind a fail-closed guard that only runs on this
+public repository's standard `ubuntu-latest` runners (see `docs/ai-automation-strategy.md` Finding 1 — those are free and unmetered for public
+repos; the guard exists so a visibility flip or an org transfer fails loud instead of silently incurring billing). Vercel **direct** git
+auto-deploy.
 
 ## Adoption checklist (leverage order)
-1. 🔥 **Add Turborepo** — replace the ~20-command `&&` chains for `build` *and* `typecheck`; adds caching + `--affected`.
-   Biggest build-time win. **[M]**
+1. 🔥 **Add Turborepo** — replace the ~20-command `&&` chains for `build` *and* `typecheck`; adds caching + `--affected`. Biggest build-time
+   win, and now doubles as CI speedup once Quality Gates run those chains on every PR. **[M]**
 2. **Incremental typecheck** — project references / `composite` (or at least turbo-cache the per-package `tsgo` runs). **[M]**
 3. **Pin the toolchain** (`packageManager`/`.nvmrc`); consider stepping off bleeding-edge (ESLint 10, `tsgo` dev builds)
    for reproducibility. **[S]**
-4. **Native git hooks** — **done (local-first):** `gate:fast` → `pre-commit`; `gate:push` → `pre-push`. Optional later:
-   turbo `--affected` to speed push gates. **[S]**
-5. **CI policy** — Quality Actions **off** for now (runner minutes). When re-enabled: at most a thin backstop
-   (konsistent + secret scan), `paths`-filtered + `concurrency` + `--affected`. **[M]**
+4. **Native git hooks** — **done (local-first):** `gate:fast` → `pre-commit` and `pre-push`. Hooks are a fast pre-flight, not the enforcement
+   boundary — CI plus branch protection are authoritative. Optional later: turbo `--affected` to speed the hooks further. **[S]**
+5. **CI policy** — **done:** Quality Gates run on every `pull_request`/push to `main`, one job per concern, behind the fail-closed
+   public-repo/standard-runner guard above. Optional later: `paths`-filtered + `concurrency` to cut redundant runs, and `--affected` once
+   Turborepo (item 1) lands. **[M]**
 6. **Shared config package** — move ESLint rules + `tsconfig.base` into one package. **[S]**
 
-Workflow policy (playbook §8): direct-to-Vercel does **not** earn a deploy workflow; gates belong in hooks.
+Workflow policy (playbook §8): direct-to-Vercel does **not** earn a deploy workflow; gates belong in CI, with local hooks as a fast pre-flight.

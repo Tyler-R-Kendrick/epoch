@@ -22,7 +22,8 @@ packages/Epoch.Community.Web/.vercel-output/
 # Both trees are reproducible: `npx impeccable install` and
 # `npx skills add higgsfield-ai/skills`.
 .claude/skills/
-.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/session-start.sh
 .claude/commands/impeccable*
 .codex/
 .github/skills/
