@@ -12,6 +12,7 @@ const ROOT = join("docs", "design-explorations", "nightboard");
 const files = [
   "console.js",
   "index.html",
+  "board.html",
   "ascii.js",
   "app.js",
   "base.css",
@@ -55,11 +56,13 @@ const indexHtml = readFileSync(join(ROOT, "index.html"), "utf8");
 if (!/class="nb-skip"/.test(indexHtml)) {
   errors.push("index.html: missing skip link (.nb-skip)");
 }
-if (!/role="banner"/.test(indexHtml)) {
-  errors.push("index.html: top bar must be role=banner");
-}
 if (!/\blang="en"/.test(indexHtml)) {
   errors.push("index.html: missing lang attribute");
+}
+
+const boardHtml = readFileSync(join(ROOT, "board.html"), "utf8");
+if (!/role="banner"/.test(boardHtml)) {
+  errors.push("board.html: top bar must be role=banner");
 }
 
 if (errors.length) {
