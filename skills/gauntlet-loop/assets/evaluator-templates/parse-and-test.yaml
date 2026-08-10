@@ -1,0 +1,25 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Runs the candidate's own test suite inside the isolated worktree.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:parse-and-test
+kind: command
+roles:
+  - invariant-checker
+  - comparator
+independence: L4
+command:
+  argv: ["python", "-m", "pytest", "-q"]
+  cwd: candidate-worktree
+  timeout_seconds: 300
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - candidate-source
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

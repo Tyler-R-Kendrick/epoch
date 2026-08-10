@@ -1,0 +1,28 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Compares the candidate's API/schema IR against the baseline IR and fails
+# on undeclared breaking changes. The project supplies the checker script
+# copied by `gauntlet profile select`; argv is overridable per project.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:api-compatibility
+kind: command
+roles:
+  - invariant-checker
+  - comparator
+independence: L4
+command:
+  argv: ["python", ".gauntlet/evaluators/checks/api_compatibility.py"]
+  cwd: candidate-worktree
+  timeout_seconds: 300
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - baseline-api-schema-ir
+    - candidate-api-schema-ir
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

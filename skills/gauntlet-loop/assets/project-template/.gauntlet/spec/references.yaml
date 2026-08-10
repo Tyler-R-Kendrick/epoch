@@ -1,0 +1,11 @@
+# Reference pack manifest (dev.gauntlet.reference-pack/v1)
+#
+# Positive/negative examples and anchor pairs the spec grounds itself in.
+# Every entry needs provenance and rights. Generated or retrieved content
+# never silently becomes normative.
+
+schema_version: dev.gauntlet.reference-pack/v1
+pack_id: refpack:default
+entries: []
+provenance_and_rights_required: true
+validity_policy: entries expire when their source freshness window lapses

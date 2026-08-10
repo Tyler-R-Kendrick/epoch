@@ -1,0 +1,94 @@
+# Progressive-disclosure command routing (dev.gauntlet.command-index/v1)
+#
+# Consumed by `gauntlet guide` and `gauntlet next`, and mirrored in SKILL.md.
+# Each task intent maps to exactly one command family and one direct
+# reference file, one path level below the skill root. `gauntlet guide`
+# rejects anything not listed here; it never permits arbitrary file reads.
+
+schema_version: dev.gauntlet.command-index/v1
+families:
+  project:
+    intent: initialize or inspect a project
+    reference: references/command-project.md
+    commands: [init, doctor, status, migrate]
+  spec:
+    intent: create, validate, or freeze quality criteria
+    reference: references/command-spec.md
+    commands: [init, validate, freeze, diff, supersede]
+  profile:
+    intent: choose a domain representation profile
+    reference: references/command-project.md
+    commands: [list, show, select, validate]
+    profile_references:
+      software: references/profile-software.md
+      visual: references/profile-visual.md
+      research: references/profile-research.md
+      agent: references/profile-agent.md
+      model-training: references/profile-model-training.md
+  campaign:
+    intent: start/resume/checkpoint a durable campaign
+    reference: references/command-campaign.md
+    commands: [start, resume, checkpoint, status, stop]
+  observe:
+    intent: import traces or materialized observations
+    reference: references/command-observe.md
+    commands: [import, langsmith, atof, otel, record]
+  issue:
+    intent: localize failures and record diagnoses
+    reference: references/command-diagnose.md
+    commands: [cluster, list, show, close, reopen]
+  counterexample:
+    intent: localize failures and record diagnoses
+    reference: references/command-diagnose.md
+    commands: [add, minimize, list, show]
+  diagnosis:
+    intent: localize failures and record diagnoses
+    reference: references/command-diagnose.md
+    commands: [record, list, show, revoke]
+  intent:
+    intent: inspect or decide write-ahead action intents
+    reference: references/safety.md
+    commands: [propose, show, list, vote, approve, abort, reconcile]
+  experiment:
+    intent: fork and execute a controlled candidate
+    reference: references/command-experiment.md
+    commands: [propose, fork, run, compare, keep, discard, archive]
+  evaluate:
+    intent: run search, calibration, or held-out evaluation
+    reference: references/command-evaluate.md
+    commands: [search, calibrate, promotion, report]
+  promote:
+    intent: accept a candidate into canonical local state
+    reference: references/command-promote.md
+    commands: [plan, apply, rollback, status]
+  release:
+    intent: publish, push, deploy, or otherwise affect the outside world
+    reference: references/command-release.md
+    commands: [plan, approve, apply, reconcile, status]
+  replay:
+    intent: reconstruct or compare histories
+    reference: references/command-replay.md
+    commands: [rebuild, strict, fork, diff]
+  bundle:
+    intent: export/import OCI or portable evidence bundles
+    reference: references/command-bundle.md
+    commands: [export, verify, push, pull, hydrate]
+  audit:
+    intent: verify integrity, leakage, provenance, dependencies, or security
+    reference: references/command-audit.md
+    commands: [integrity, provenance, leakage, security, dependencies]
+  workflow:
+    intent: generate, run, or heal durable declarative workflows
+    reference: references/workflows.md
+    commands: [generate, sync, status, validate, run, resume, heal]
+  schema:
+    intent: regenerate or verify committed JSON Schemas
+    reference: references/contracts.md
+    commands: [generate, check]
+guides:
+  architecture: references/architecture.md
+  method: references/method.md
+  contracts: references/contracts.md
+  safety: references/safety.md
+  integrations: references/integrations.md
+  workflows: references/workflows.md

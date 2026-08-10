@@ -1,0 +1,79 @@
+{
+  "$id": "https://schemas.gauntlet.dev/source-ref.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "accessed_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accessed At"
+    },
+    "kind": {
+      "minLength": 1,
+      "title": "Kind",
+      "type": "string"
+    },
+    "raw_payload_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Raw Payload Digest"
+    },
+    "rights": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rights"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.source-ref/v1",
+      "default": "dev.gauntlet.source-ref/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_id": {
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "uri": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Uri"
+    }
+  },
+  "required": [
+    "source_id",
+    "kind"
+  ],
+  "title": "SourceRefV1",
+  "type": "object"
+}

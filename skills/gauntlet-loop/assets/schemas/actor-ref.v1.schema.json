@@ -1,0 +1,59 @@
+{
+  "$id": "https://schemas.gauntlet.dev/actor-ref.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actor_id": {
+      "minLength": 1,
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "capability_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Capability Digest"
+    },
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Display Name"
+    },
+    "kind": {
+      "enum": [
+        "human",
+        "agent",
+        "service",
+        "tool"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.actor-ref/v1",
+      "default": "dev.gauntlet.actor-ref/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "actor_id",
+    "kind"
+  ],
+  "title": "ActorRefV1",
+  "type": "object"
+}

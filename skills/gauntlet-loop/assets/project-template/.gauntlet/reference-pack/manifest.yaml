@@ -1,0 +1,10 @@
+# Reference-pack storage manifest (dev.gauntlet.reference-pack/v1)
+#
+# Mirrors spec/references.yaml entries; `entries/` holds tracked entry
+# documents (one per reference) with provenance, rights, and digests.
+
+schema_version: dev.gauntlet.reference-pack/v1
+pack_id: refpack:default
+entries: []
+provenance_and_rights_required: true
+validity_policy: entries expire when their source freshness window lapses

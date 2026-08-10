@@ -1,0 +1,80 @@
+{
+  "schema_version": "dev.gauntlet.trigger-evals/v1",
+  "description": "Balanced positive (should trigger) and negative (should not trigger) prompts for the gauntlet-loop skill description.",
+  "positive": [
+    {
+      "id": "trigger:durable-iteration",
+      "prompt": "Keep iterating on this renderer until all the golden-image tests pass, and keep an auditable record of every attempt so we can review why candidates were rejected.",
+      "expect_trigger": true,
+      "reason": "durable iteration with auditable candidate history"
+    },
+    {
+      "id": "trigger:counterexample-driven",
+      "prompt": "Our agent keeps making the same tool-call mistake. Import the LangSmith traces, cluster the failures, and run controlled experiments on fixes without breaking anything else.",
+      "expect_trigger": true,
+      "reason": "trace analysis, failure clustering, controlled experiments"
+    },
+    {
+      "id": "trigger:non-regression-promotion",
+      "prompt": "Improve p95 latency of this service but do not let error rate or memory regress; only accept changes that prove the improvement on held-out benchmarks.",
+      "expect_trigger": true,
+      "reason": "non-regression gates and held-out promotion"
+    },
+    {
+      "id": "trigger:multimodal-consistency",
+      "prompt": "We are building a character turnaround sheet. Set up checks so a left-facing view is not just a mirrored flip, and iterate until the sheets are consistent across views.",
+      "expect_trigger": true,
+      "reason": "multi-representation artifact consistency loop"
+    },
+    {
+      "id": "trigger:research-verification",
+      "prompt": "Draft this survey paper section by section, but track every claim against its sources, detect contradictions, and hold out some fact checks to verify the final draft.",
+      "expect_trigger": true,
+      "reason": "spec-grounded research campaign with held-out verification"
+    },
+    {
+      "id": "trigger:replayable-experiments",
+      "prompt": "Fork the state right before the failure we recorded yesterday, try three alternative fixes in isolated branches, and compare them against the baseline fairly.",
+      "expect_trigger": true,
+      "reason": "replayable fork/compare experimentation"
+    }
+  ],
+  "negative": [
+    {
+      "id": "non-trigger:one-shot-code",
+      "prompt": "Write a Python function that parses ISO 8601 timestamps.",
+      "expect_trigger": false,
+      "reason": "one-shot generation, no durable iteration"
+    },
+    {
+      "id": "non-trigger:explain",
+      "prompt": "Explain the difference between TCP and UDP.",
+      "expect_trigger": false,
+      "reason": "informational question"
+    },
+    {
+      "id": "non-trigger:quick-fix",
+      "prompt": "This unit test has a typo in the assertion message, fix it.",
+      "expect_trigger": false,
+      "reason": "trivial edit, no campaign semantics"
+    },
+    {
+      "id": "non-trigger:informal-review",
+      "prompt": "Give me quick feedback on this paragraph, does it read well?",
+      "expect_trigger": false,
+      "reason": "informal self-critique is explicitly out of scope"
+    },
+    {
+      "id": "non-trigger:ops-command",
+      "prompt": "How do I list all Docker containers including stopped ones?",
+      "expect_trigger": false,
+      "reason": "simple operational question"
+    },
+    {
+      "id": "non-trigger:refactor-once",
+      "prompt": "Rename the variable `data` to `payload` across this file.",
+      "expect_trigger": false,
+      "reason": "mechanical one-shot refactor"
+    }
+  ]
+}

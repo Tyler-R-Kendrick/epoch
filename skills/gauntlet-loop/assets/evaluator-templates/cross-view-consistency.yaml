@@ -1,0 +1,31 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Visual profile: checks landmark and proportion agreement across
+# turntable views (and depth/mask/silhouette agreement per view) against
+# the canonical skeleton. Relies on external landmark/tracking tools
+# invoked by the project-supplied checker, hence L3 independence.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:cross-view-consistency
+kind: command
+roles:
+  - invariant-checker
+  - comparator
+independence: L3
+command:
+  argv: ["python", ".gauntlet/evaluators/checks/cross_view_consistency.py"]
+  cwd: candidate-worktree
+  timeout_seconds: 900
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - turntable-sheets
+    - silhouette-sheets
+    - canonical-3d-scene
+    - semantic-identity-bible
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

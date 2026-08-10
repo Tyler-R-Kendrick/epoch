@@ -1,0 +1,194 @@
+{
+  "$defs": {
+    "DigestRefV1": {
+      "additionalProperties": false,
+      "description": "Content identity. Never trust a filename as artifact identity.",
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "byte_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Size"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.digest-ref/v1",
+          "default": "dev.gauntlet.digest-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage_uris": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Storage Uris",
+          "type": "array"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DigestRefV1",
+      "type": "object"
+    },
+    "EnvironmentRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Environment Digest"
+        },
+        "lock_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lock Digest"
+        },
+        "platform": {
+          "minLength": 1,
+          "title": "Platform",
+          "type": "string"
+        },
+        "python_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python Version"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.environment-ref/v1",
+          "default": "dev.gauntlet.environment-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "variables_allowlisted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables Allowlisted",
+          "type": "array"
+        }
+      },
+      "required": [
+        "platform"
+      ],
+      "title": "EnvironmentRefV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/candidate.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_digests": {
+      "items": {
+        "$ref": "#/$defs/DigestRefV1"
+      },
+      "title": "Artifact Digests",
+      "type": "array"
+    },
+    "branch": {
+      "minLength": 1,
+      "title": "Branch",
+      "type": "string"
+    },
+    "candidate_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "commit": {
+      "pattern": "^[0-9a-f]{7,64}$",
+      "title": "Commit",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EnvironmentRefV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "experiment_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.candidate/v1",
+      "default": "dev.gauntlet.candidate/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "experiment_id",
+    "branch",
+    "commit",
+    "created_at"
+  ],
+  "title": "CandidateV1",
+  "type": "object"
+}

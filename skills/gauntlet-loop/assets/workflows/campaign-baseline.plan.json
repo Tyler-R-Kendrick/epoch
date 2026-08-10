@@ -1,0 +1,125 @@
+{
+  "schema_version": "dev.gauntlet.workflow-plan/v1",
+  "plan_id": "workflow-plan:campaign-baseline",
+  "workflow_name": "campaign-baseline",
+  "description": "Full campaign loop: verify the project, validate the spec, start a campaign, run one experiment, evaluate on the search and promotion splits, then plan and (with approval) apply a promotion.",
+  "profile": "software",
+  "inputs": {},
+  "steps": [
+    {
+      "step_id": "project_doctor",
+      "display_name": "Project doctor",
+      "command": ["project", "doctor"],
+      "action_class": "R0",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 300
+    },
+    {
+      "step_id": "spec_validate",
+      "display_name": "Validate the frozen spec",
+      "command": ["spec", "validate"],
+      "action_class": "R0",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 300
+    },
+    {
+      "step_id": "campaign_start",
+      "display_name": "Start the campaign",
+      "command": ["campaign", "start"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "experiment_propose",
+      "display_name": "Propose an experiment",
+      "command": ["experiment", "propose"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "experiment_fork",
+      "display_name": "Fork the candidate worktree",
+      "command": ["experiment", "fork"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 1,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "experiment_run",
+      "display_name": "Run the experiment",
+      "command": ["experiment", "run"],
+      "action_class": "R2",
+      "require_approval": false,
+      "max_retries": 1,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 3600
+    },
+    {
+      "step_id": "evaluate_search",
+      "display_name": "Evaluate on the search split",
+      "command": ["evaluate", "search"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 1800
+    },
+    {
+      "step_id": "evaluate_promotion",
+      "display_name": "Evaluate on the sealed promotion split",
+      "command": ["evaluate", "promotion"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 1800
+    },
+    {
+      "step_id": "promote_plan",
+      "display_name": "Plan the promotion",
+      "command": ["promote", "plan"],
+      "action_class": "R1",
+      "require_approval": false,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 600
+    },
+    {
+      "step_id": "promote_apply",
+      "display_name": "Apply the promotion",
+      "command": ["promote", "apply"],
+      "action_class": "R2",
+      "require_approval": true,
+      "max_retries": 0,
+      "retry_on_exit_codes": [8],
+      "on_gate_failure": "end",
+      "timeout_seconds": 900
+    }
+  ],
+  "checkpoint": true,
+  "generated_by": "gauntlet workflow generate",
+  "parent_plan_digest": null,
+  "repairs_applied": [],
+  "created_at": "2026-08-06T00:00:00Z"
+}

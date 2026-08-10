@@ -1,0 +1,22 @@
+# Promotion policy (dev.gauntlet.promotion-policy/v1)
+#
+# Conservative defaults without inventing a universal metric.
+# `gauntlet spec validate` refuses a promotable campaign until the spec
+# supplies domain-meaningful target thresholds and protected budgets;
+# null is never silently treated as zero or success.
+
+schema_version: dev.gauntlet.promotion-policy/v1
+require_baseline: true
+require_exact_candidate_identity: true
+require_hard_invariants: true
+require_search_promotion_separation: true
+require_frozen_evaluators: true
+require_leakage_audit: true
+require_conflict_free_graph_plan: true
+require_conflict_free_git_plan: true
+inconclusive_action: reject
+minimum_practical_effect: null
+confidence:
+  method: configured-per-metric
+  level: 0.95
+protected_regression_budgets: {}

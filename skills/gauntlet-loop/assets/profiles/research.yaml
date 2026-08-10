@@ -1,0 +1,192 @@
+# Research and design-document representation profile (dev.gauntlet.profile/v1).
+#
+# Selected via `gauntlet profile select research`. Guidance lives in
+# references/profile-research.md.
+
+schema_version: dev.gauntlet.profile/v1
+profile_id: profile:research
+display_name: Research and design documents
+description: >-
+  Research, analysis, and design-document campaigns. The claims graph and
+  chronology are the structural sources of truth, prose is the editable
+  canonical text, and every claim must trace to verified sources with
+  citation fidelity checked before promotion.
+reference: references/profile-research.md
+
+nodes:
+  - node_id: node:question-scope
+    representation: question-scope
+    role: normative
+    media_type: text/markdown
+    description: >-
+      Research question, scope boundaries, audience, and explicit non-goals.
+      Defines what counts as an answer and what evidence standard applies.
+  - node_id: node:claims-graph
+    representation: claims-graph
+    role: canonical
+    media_type: application/json
+    canonical_for: claim structure, claim status, and support/contradiction links
+    description: >-
+      Typed claim nodes (sourced fact, inference, speculation,
+      recommendation) with support and contradiction edges. Every prose
+      assertion must map to a claim node.
+  - node_id: node:source-reference-pack
+    representation: source-reference-pack
+    role: normative
+    media_type: application/yaml
+    description: >-
+      Verified sources with provenance, access date, validity/freshness,
+      rights, and raw snippet digests. Generated references stay
+      non-normative until independently verified.
+  - node_id: node:evidence-map
+    representation: evidence-map
+    role: derived
+    media_type: application/json
+    description: >-
+      Claim-to-source coverage map: which sources support, weaken, or are
+      silent on each claim, including negative evidence.
+    losses:
+      - full source context around each cited snippet
+  - node_id: node:counterclaims
+    representation: counterclaims
+    role: evaluative
+    media_type: application/json
+    description: >-
+      Counterclaims and adversarial hypotheses recorded against the claims
+      graph; the research analogue of counterexamples.
+  - node_id: node:chronology-entity-ledger
+    representation: chronology-entity-ledger
+    role: canonical
+    media_type: application/json
+    canonical_for: temporal ordering and entity state over time
+    description: >-
+      Chronology and entity-state ledger: who/what changed state when,
+      according to which source. Detects anachronisms and entity confusion.
+  - node_id: node:outline
+    representation: outline
+    role: derived
+    media_type: text/markdown
+    description: >-
+      Document outline derived from the claims graph; every section maps to
+      the claims it will present.
+    losses:
+      - argumentative detail and transitions
+  - node_id: node:prose-draft
+    representation: prose-draft
+    role: canonical
+    media_type: text/markdown
+    canonical_for: document prose under active editing
+    description: >-
+      The editable prose draft. Assertions carry claim references;
+      unsourced assertions are counterexamples, not style choices.
+  - node_id: node:citation-ledger
+    representation: citation-ledger
+    role: derived
+    media_type: application/json
+    description: >-
+      Extracted citation ledger: each citation in the draft mapped to a
+      reference-pack entry and the exact snippet it relies on.
+    losses:
+      - prose context surrounding each citation
+  - node_id: node:fact-check-observations
+    representation: fact-check-observations
+    role: observational
+    media_type: application/jsonl
+    description: >-
+      Fact-check results from holdout checks or independent reviewers,
+      recorded as append-only observations.
+  - node_id: node:final-document
+    representation: final-document
+    role: derived
+    media_type: application/pdf
+    description: >-
+      Rendered final document produced from the frozen prose draft.
+    losses:
+      - claim annotations and editorial comments
+
+transforms:
+  - edge_id: edge:sources-to-evidence-map
+    source: source-reference-pack
+    target: evidence-map
+    tool:
+      name: evidence-mapping-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - every mapped snippet exists verbatim in the referenced source digest
+      - negative and contradicting evidence is recorded, not dropped
+    output_media_type: application/json
+    timeout_seconds: 600
+  - edge_id: edge:claims-to-outline
+    source: claims-graph
+    target: outline
+    tool:
+      name: outline-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - every outline section references at least one claim node
+    output_media_type: text/markdown
+    timeout_seconds: 300
+  - edge_id: edge:outline-to-draft
+    source: outline
+    target: prose-draft
+    tool:
+      name: drafting-adapter
+    deterministic: false
+    lossy: false
+    protected_invariants:
+      - claim type labels (fact/inference/speculation/recommendation) survive into prose
+      - no assertion appears without a claim reference
+    output_media_type: text/markdown
+    timeout_seconds: 900
+  - edge_id: edge:draft-to-citation-ledger
+    source: prose-draft
+    target: citation-ledger
+    tool:
+      name: citation-extraction-adapter
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - extracted citations point at reference-pack entries, never at other citations
+    round_trip_checks:
+      - re-extraction from the same draft digest yields an identical ledger
+    output_media_type: application/json
+    timeout_seconds: 300
+  - edge_id: edge:claims-to-fact-checks
+    source: claims-graph
+    target: fact-check-observations
+    tool:
+      name: fact-check-adapter
+    deterministic: false
+    lossy: true
+    protected_invariants:
+      - holdout fact-check cases stay sealed from the drafting process
+    output_media_type: application/jsonl
+    timeout_seconds: 900
+  - edge_id: edge:draft-to-final
+    source: prose-draft
+    target: final-document
+    tool:
+      name: document-renderer
+    deterministic: true
+    lossy: true
+    protected_invariants:
+      - rendered text content matches the frozen draft digest
+    round_trip_checks:
+      - text extraction from the rendered document matches the draft body
+    output_media_type: application/pdf
+    timeout_seconds: 300
+
+evaluator_templates:
+  - citation-fidelity
+  - claim-evidence-coverage
+
+default_target_dimensions:
+  - claim-coverage
+  - contradiction-resolution-rate
+
+default_protected_dimensions:
+  - citation-fidelity
+  - sourced-fact-vs-inference-separation
+  - chronology-consistency

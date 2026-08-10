@@ -1,0 +1,261 @@
+{
+  "$defs": {
+    "ActorRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "capability_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability Digest"
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "kind": {
+          "enum": [
+            "human",
+            "agent",
+            "service",
+            "tool"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.actor-ref/v1",
+          "default": "dev.gauntlet.actor-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor_id",
+        "kind"
+      ],
+      "title": "ActorRefV1",
+      "type": "object"
+    },
+    "ArtifactRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "digest": {
+          "$ref": "#/$defs/DigestRefV1"
+        },
+        "logical_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logical Name"
+        },
+        "representation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Representation"
+        },
+        "role": {
+          "$ref": "#/$defs/ArtifactRole"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.artifact-ref/v1",
+          "default": "dev.gauntlet.artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "role",
+        "digest"
+      ],
+      "title": "ArtifactRefV1",
+      "type": "object"
+    },
+    "ArtifactRole": {
+      "enum": [
+        "normative",
+        "canonical",
+        "derived",
+        "observational",
+        "evaluative"
+      ],
+      "title": "ArtifactRole",
+      "type": "string"
+    },
+    "DigestRefV1": {
+      "additionalProperties": false,
+      "description": "Content identity. Never trust a filename as artifact identity.",
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "byte_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Size"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.digest-ref/v1",
+          "default": "dev.gauntlet.digest-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage_uris": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Storage Uris",
+          "type": "array"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DigestRefV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/provenance.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Activities",
+      "type": "array"
+    },
+    "agents": {
+      "items": {
+        "$ref": "#/$defs/ActorRefV1"
+      },
+      "title": "Agents",
+      "type": "array"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRefV1"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "record_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Record Id",
+      "type": "string"
+    },
+    "relations": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Relations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.provenance/v1",
+      "default": "dev.gauntlet.provenance/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "signature_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Signature Ref"
+    },
+    "signed": {
+      "default": false,
+      "title": "Signed",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "record_id",
+    "created_at"
+  ],
+  "title": "ProvenanceRecordV1",
+  "type": "object"
+}

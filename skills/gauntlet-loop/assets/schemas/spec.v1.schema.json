@@ -1,0 +1,1112 @@
+{
+  "$defs": {
+    "ActionClass": {
+      "description": "ActiveGraph closed authority classes; reused, never re-invented.",
+      "enum": [
+        "R0",
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "title": "ActionClass",
+      "type": "string"
+    },
+    "ArtifactNodeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "canonical_for": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical For"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "losses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Losses",
+          "type": "array"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "node_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "representation": {
+          "minLength": 1,
+          "title": "Representation",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/ArtifactRole"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.artifact-node/v1",
+          "default": "dev.gauntlet.artifact-node/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "representation",
+        "role"
+      ],
+      "title": "ArtifactNodeV1",
+      "type": "object"
+    },
+    "ArtifactRole": {
+      "enum": [
+        "normative",
+        "canonical",
+        "derived",
+        "observational",
+        "evaluative"
+      ],
+      "title": "ArtifactRole",
+      "type": "string"
+    },
+    "BudgetV1": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost Usd"
+        },
+        "max_evaluator_runs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Evaluator Runs"
+        },
+        "max_experiments": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Experiments"
+        },
+        "max_wall_clock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wall Clock Seconds"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.budget/v1",
+          "default": "dev.gauntlet.budget/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "BudgetV1",
+      "type": "object"
+    },
+    "ConfidencePolicyV1": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "default": 0.95,
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Level",
+          "type": "number"
+        },
+        "method": {
+          "default": "configured-per-metric",
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "multiple_comparison_correction": {
+          "default": "none",
+          "enum": [
+            "none",
+            "bonferroni",
+            "holm"
+          ],
+          "title": "Multiple Comparison Correction",
+          "type": "string"
+        }
+      },
+      "title": "ConfidencePolicyV1",
+      "type": "object"
+    },
+    "DigestRefV1": {
+      "additionalProperties": false,
+      "description": "Content identity. Never trust a filename as artifact identity.",
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "byte_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Size"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.digest-ref/v1",
+          "default": "dev.gauntlet.digest-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage_uris": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Storage Uris",
+          "type": "array"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DigestRefV1",
+      "type": "object"
+    },
+    "ReferenceEntryV1": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/DigestRefV1"
+        },
+        "entry_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "positive-example",
+            "negative-example",
+            "anchor-pair",
+            "source",
+            "guidance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.reference-entry/v1",
+          "default": "dev.gauntlet.reference-entry/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRefV1"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entry_id",
+        "kind",
+        "source",
+        "digest"
+      ],
+      "title": "ReferenceEntryV1",
+      "type": "object"
+    },
+    "ReferencePackV1": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/ReferenceEntryV1"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "pack_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Pack Id",
+          "type": "string"
+        },
+        "provenance_and_rights_required": {
+          "default": true,
+          "title": "Provenance And Rights Required",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.reference-pack/v1",
+          "default": "dev.gauntlet.reference-pack/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "validity_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Validity Policy"
+        }
+      },
+      "required": [
+        "pack_id"
+      ],
+      "title": "ReferencePackV1",
+      "type": "object"
+    },
+    "SourceRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "accessed_at": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accessed At"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "raw_payload_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Payload Digest"
+        },
+        "rights": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rights"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.source-ref/v1",
+          "default": "dev.gauntlet.source-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "uri": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uri"
+        }
+      },
+      "required": [
+        "source_id",
+        "kind"
+      ],
+      "title": "SourceRefV1",
+      "type": "object"
+    },
+    "SpecEvaluatorsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "calibration_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calibration Manifest"
+        },
+        "deterministic": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deterministic",
+          "type": "array"
+        },
+        "hard": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hard",
+          "type": "array"
+        },
+        "human": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Human",
+          "type": "array"
+        },
+        "learned": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Learned",
+          "type": "array"
+        },
+        "llm_judges": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Llm Judges",
+          "type": "array"
+        },
+        "simulators": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Simulators",
+          "type": "array"
+        }
+      },
+      "title": "SpecEvaluatorsV1",
+      "type": "object"
+    },
+    "SpecGoalV1": {
+      "additionalProperties": false,
+      "properties": {
+        "deliverables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deliverables",
+          "type": "array"
+        },
+        "non_goals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Non Goals",
+          "type": "array"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "statement"
+      ],
+      "title": "SpecGoalV1",
+      "type": "object"
+    },
+    "SpecNormativeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "hard_invariants": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hard Invariants",
+          "type": "array"
+        },
+        "human_only_judgments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Human Only Judgments",
+          "type": "array"
+        },
+        "protected_dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Protected Dimensions",
+          "type": "array"
+        },
+        "target_dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Target Dimensions",
+          "type": "array"
+        }
+      },
+      "title": "SpecNormativeV1",
+      "type": "object"
+    },
+    "SpecPromotionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence_policy": {
+          "$ref": "#/$defs/ConfidencePolicyV1"
+        },
+        "evidence_floor": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Floor",
+          "type": "array"
+        },
+        "minimum_practical_effect": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Practical Effect"
+        },
+        "protected_regression_budgets": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Protected Regression Budgets",
+          "type": "object"
+        },
+        "required_approvals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Approvals",
+          "type": "array"
+        }
+      },
+      "title": "SpecPromotionV1",
+      "type": "object"
+    },
+    "SpecRepresentationsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ArtifactNodeV1"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "required_consistency_relations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Consistency Relations",
+          "type": "array"
+        },
+        "transforms": {
+          "items": {
+            "$ref": "#/$defs/TransformEdgeV1"
+          },
+          "title": "Transforms",
+          "type": "array"
+        }
+      },
+      "title": "SpecRepresentationsV1",
+      "type": "object"
+    },
+    "SpecRuntimeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Capabilities",
+          "type": "array"
+        },
+        "authority_ceiling": {
+          "$ref": "#/$defs/ActionClass",
+          "default": "R1"
+        },
+        "effect_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effect Policy"
+        }
+      },
+      "title": "SpecRuntimeV1",
+      "type": "object"
+    },
+    "SpecSearchSpaceV1": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_budget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BudgetV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "concurrency_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concurrency Policy"
+        },
+        "frozen_surfaces": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Frozen Surfaces",
+          "type": "array"
+        },
+        "legal_levers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Legal Levers",
+          "type": "array"
+        }
+      },
+      "title": "SpecSearchSpaceV1",
+      "type": "object"
+    },
+    "SpecSplitsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "calibration_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calibration Manifest"
+        },
+        "promotion_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Promotion Manifest"
+        },
+        "search_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Search Manifest"
+        }
+      },
+      "title": "SpecSplitsV1",
+      "type": "object"
+    },
+    "StopPolicyV1": {
+      "additionalProperties": false,
+      "properties": {
+        "disagreement_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disagreement Threshold"
+        },
+        "hard_budget": {
+          "$ref": "#/$defs/BudgetV1"
+        },
+        "plateau_min_improvement": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plateau Min Improvement"
+        },
+        "plateau_window": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plateau Window"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.stop-policy/v1",
+          "default": "dev.gauntlet.stop-policy/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Condition"
+        },
+        "unresolved_severity_threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Severity Threshold"
+        }
+      },
+      "required": [
+        "hard_budget"
+      ],
+      "title": "StopPolicyV1",
+      "type": "object"
+    },
+    "ToolRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Digest"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.tool-ref/v1",
+          "default": "dev.gauntlet.tool-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolRefV1",
+      "type": "object"
+    },
+    "TransformEdgeV1": {
+      "additionalProperties": false,
+      "properties": {
+        "configuration_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Configuration Digest"
+        },
+        "cost_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Class"
+        },
+        "deterministic": {
+          "title": "Deterministic",
+          "type": "boolean"
+        },
+        "edge_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Edge Id",
+          "type": "string"
+        },
+        "expected_equivariances": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expected Equivariances",
+          "type": "array"
+        },
+        "lossy": {
+          "title": "Lossy",
+          "type": "boolean"
+        },
+        "output_media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Media Type"
+        },
+        "protected_invariants": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Protected Invariants",
+          "type": "array"
+        },
+        "rights_implications": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rights Implications"
+        },
+        "round_trip_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Round Trip Checks",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.transform-edge/v1",
+          "default": "dev.gauntlet.transform-edge/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "tool": {
+          "$ref": "#/$defs/ToolRefV1"
+        }
+      },
+      "required": [
+        "edge_id",
+        "source",
+        "target",
+        "tool",
+        "deterministic",
+        "lossy"
+      ],
+      "title": "TransformEdgeV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/spec.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evaluators": {
+      "$ref": "#/$defs/SpecEvaluatorsV1"
+    },
+    "frozen": {
+      "default": false,
+      "title": "Frozen",
+      "type": "boolean"
+    },
+    "frozen_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Frozen Digest"
+    },
+    "goal": {
+      "$ref": "#/$defs/SpecGoalV1"
+    },
+    "normative": {
+      "$ref": "#/$defs/SpecNormativeV1"
+    },
+    "promotion": {
+      "$ref": "#/$defs/SpecPromotionV1"
+    },
+    "reference_pack": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReferencePackV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "representations": {
+      "$ref": "#/$defs/SpecRepresentationsV1"
+    },
+    "runtime": {
+      "$ref": "#/$defs/SpecRuntimeV1"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.spec/v1",
+      "default": "dev.gauntlet.spec/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "search_space": {
+      "$ref": "#/$defs/SpecSearchSpaceV1"
+    },
+    "spec_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "splits": {
+      "$ref": "#/$defs/SpecSplitsV1"
+    },
+    "stop": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StopPolicyV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes"
+    }
+  },
+  "required": [
+    "spec_id",
+    "goal"
+  ],
+  "title": "GauntletSpecV1",
+  "type": "object"
+}

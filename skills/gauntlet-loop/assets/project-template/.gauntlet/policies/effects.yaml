@@ -1,0 +1,24 @@
+# Effect policy (dev.gauntlet.effect-policy/v1)
+#
+# Effect class is orthogonal to action class. An unknown effect receives
+# the most restrictive handling: no automatic retry, reconcile on unknown
+# outcome, never assume failure.
+
+schema_version: dev.gauntlet.effect-policy/v1
+default_effect_class: unknown
+network_default: deny
+automatic_retry:
+  pure: 2
+  read_only: 2
+  idempotent_known_outcome: 1
+  bufferable: 0
+  reversible: 0
+  reversible_with_cost: 0
+  irreversible_gated: 0
+  unknown: 0
+require_idempotency_key_for:
+  - idempotent_known_outcome
+unknown_outcome:
+  action: reconcile
+  never_assume_failure: true
+  never_retry_non_idempotent: true

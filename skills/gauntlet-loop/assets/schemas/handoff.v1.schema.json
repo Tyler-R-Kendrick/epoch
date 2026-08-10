@@ -1,0 +1,113 @@
+{
+  "$id": "https://schemas.gauntlet.dev/handoff.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "campaign_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "current_branches": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Current Branches",
+      "type": "array"
+    },
+    "handoff_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Handoff Id",
+      "type": "string"
+    },
+    "latest_accepted": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Accepted"
+    },
+    "latest_rejected": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Rejected"
+    },
+    "legal_next_actions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Legal Next Actions",
+      "type": "array"
+    },
+    "objective": {
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "pending_approvals": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Pending Approvals",
+      "type": "array"
+    },
+    "redacted": {
+      "default": true,
+      "title": "Redacted",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.handoff/v1",
+      "default": "dev.gauntlet.handoff/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Spec Digest",
+      "type": "string"
+    },
+    "stop_rules": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stop Rules",
+      "type": "array"
+    },
+    "unresolved_counterexamples": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Unresolved Counterexamples",
+      "type": "array"
+    }
+  },
+  "required": [
+    "handoff_id",
+    "campaign_id",
+    "objective",
+    "spec_digest",
+    "created_at"
+  ],
+  "title": "HandoffV1",
+  "type": "object"
+}

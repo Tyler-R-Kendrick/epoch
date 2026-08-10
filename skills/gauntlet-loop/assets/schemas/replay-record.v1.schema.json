@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "ReplayMode": {
+      "enum": [
+        "rebuild",
+        "strict",
+        "fork",
+        "diff"
+      ],
+      "title": "ReplayMode",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/replay-record.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Digest-pinned outcome of one replay operation.\n\nOwned by this module (graph runtime evidence), persisted under the\n``decisions`` ledger kind; the ledger document contracts in\n:mod:`gauntlet.models` are unchanged.",
+  "properties": {
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "divergent_object_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Divergent Object Ids",
+      "type": "array"
+    },
+    "event_count": {
+      "title": "Event Count",
+      "type": "integer"
+    },
+    "events_digest": {
+      "minLength": 1,
+      "title": "Events Digest",
+      "type": "string"
+    },
+    "fork_only_event_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Fork Only Event Types",
+      "type": "array"
+    },
+    "fork_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fork Run Id"
+    },
+    "forked_at_event": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Forked At Event"
+    },
+    "is_identical": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Is Identical"
+    },
+    "mode": {
+      "$ref": "#/$defs/ReplayMode"
+    },
+    "object_count": {
+      "title": "Object Count",
+      "type": "integer"
+    },
+    "record_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Record Id",
+      "type": "string"
+    },
+    "relation_count": {
+      "title": "Relation Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.replay-record/v1",
+      "default": "dev.gauntlet.replay-record/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state_digest": {
+      "minLength": 1,
+      "title": "State Digest",
+      "type": "string"
+    },
+    "store_kind": {
+      "enum": [
+        "sqlite",
+        "url"
+      ],
+      "title": "Store Kind",
+      "type": "string"
+    },
+    "strict_verified": {
+      "default": false,
+      "title": "Strict Verified",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "record_id",
+    "mode",
+    "store_kind",
+    "run_id",
+    "event_count",
+    "object_count",
+    "relation_count",
+    "events_digest",
+    "state_digest",
+    "created_at"
+  ],
+  "title": "ReplayRecordV1",
+  "type": "object"
+}

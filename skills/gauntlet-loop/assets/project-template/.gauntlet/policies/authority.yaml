@@ -1,0 +1,30 @@
+# Authority policy (dev.gauntlet.authority-policy/v1)
+#
+# Maps gauntlet capabilities onto ActiveGraph's closed R0-R4 action classes.
+# A missing or invalid action class fails closed. Local capability policy
+# may lower the effective ceiling, never raise it.
+
+schema_version: dev.gauntlet.authority-policy/v1
+default_ceiling: R1
+fail_closed: true
+
+capabilities:
+  inspect: {action_class: R0}
+  validate: {action_class: R0}
+  rebuild-state: {action_class: R0}
+  write-gauntlet-state: {action_class: R1}
+  edit-candidate-worktree: {action_class: R1}
+  run-bounded-local-evaluator: {action_class: R1}
+  run-costly-experiment: {action_class: R2, approval: required}
+  install-dependency: {action_class: R2, approval: required}
+  update-local-promotion-branch: {action_class: R2, approval: required}
+  push: {action_class: R3, approval: human}
+  publish: {action_class: R3, approval: human}
+  deploy: {action_class: R3, approval: human}
+  send-or-notify: {action_class: R3, approval: human}
+  update-shared-memory: {action_class: R3, approval: human}
+  change-frozen-spec: {action_class: R4, approval: governance}
+  change-authority-policy: {action_class: R4, approval: governance}
+  change-promotion-kernel: {action_class: R4, approval: governance}
+  change-sealed-suite: {action_class: R4, approval: governance}
+  change-trust-root: {action_class: R4, approval: governance}

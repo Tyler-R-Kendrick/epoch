@@ -1,0 +1,10 @@
+# Schema manifest (dev.gauntlet.schema-manifest/v1)
+#
+# `gauntlet project init` copies the exact versioned JSON Schemas used by
+# the installed skill into this directory so historical state remains
+# self-describing. Released schema versions are never mutated in place.
+
+schema_version: dev.gauntlet.schema-manifest/v1
+copied_by: gauntlet project init
+skill_version: ${SKILL_VERSION}
+schemas: {}

@@ -200,6 +200,7 @@ When("I mark the selected message as an intent candidate", async function () {
 
 When("I request an agent from the selected message", async function () {
   const page = requirePage();
+  await page.locator("[data-selected-message=\"true\"] [data-action-more] > summary").click();
   await page.locator("[data-selected-message=\"true\"] [data-action=\"agent\"]").click();
 });
 
@@ -211,6 +212,7 @@ When("I add a community reply {string}", async function (message: string) {
 
 When("I report the selected message", async function () {
   const page = requirePage();
+  await page.locator("[data-selected-message=\"true\"] [data-action-more] > summary").click();
   await page.locator("[data-selected-message=\"true\"] [data-action=\"report\"]").click();
 });
 

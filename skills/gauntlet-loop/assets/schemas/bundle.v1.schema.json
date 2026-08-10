@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "BundleEntryV1": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/DigestRefV1"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "media_type",
+        "digest"
+      ],
+      "title": "BundleEntryV1",
+      "type": "object"
+    },
+    "DigestRefV1": {
+      "additionalProperties": false,
+      "description": "Content identity. Never trust a filename as artifact identity.",
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "byte_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Size"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.digest-ref/v1",
+          "default": "dev.gauntlet.digest-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage_uris": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Storage Uris",
+          "type": "array"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DigestRefV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/bundle.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bundle_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Bundle Id",
+      "type": "string"
+    },
+    "campaign_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Campaign Id"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/BundleEntryV1"
+      },
+      "minItems": 1,
+      "title": "Entries",
+      "type": "array"
+    },
+    "policy_digests": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Policy Digests",
+      "type": "object"
+    },
+    "provenance_ref": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provenance Ref"
+    },
+    "redaction_policy_applied": {
+      "default": true,
+      "title": "Redaction Policy Applied",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.bundle/v1",
+      "default": "dev.gauntlet.bundle/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Spec Digest"
+    }
+  },
+  "required": [
+    "bundle_id",
+    "entries",
+    "created_at"
+  ],
+  "title": "BundleManifestV1",
+  "type": "object"
+}

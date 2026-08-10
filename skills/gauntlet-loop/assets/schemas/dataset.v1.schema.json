@@ -1,0 +1,182 @@
+{
+  "$defs": {
+    "DatasetCaseV1": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "digest": {
+          "$ref": "#/$defs/DigestRefV1"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "enum": [
+                "good",
+                "bad",
+                "tie",
+                "abstain"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "required": [
+        "case_id",
+        "digest"
+      ],
+      "title": "DatasetCaseV1",
+      "type": "object"
+    },
+    "DigestRefV1": {
+      "additionalProperties": false,
+      "description": "Content identity. Never trust a filename as artifact identity.",
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "byte_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Size"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.digest-ref/v1",
+          "default": "dev.gauntlet.digest-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage_uris": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Storage Uris",
+          "type": "array"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DigestRefV1",
+      "type": "object"
+    },
+    "SplitKind": {
+      "enum": [
+        "search",
+        "calibration",
+        "promotion"
+      ],
+      "title": "SplitKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/dataset.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/DatasetCaseV1"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "dataset_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.dataset/v1",
+      "default": "dev.gauntlet.dataset/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sealed": {
+      "default": false,
+      "title": "Sealed",
+      "type": "boolean"
+    },
+    "split": {
+      "$ref": "#/$defs/SplitKind"
+    },
+    "storage": {
+      "default": "tracked",
+      "enum": [
+        "tracked",
+        "local-ignored",
+        "remote-digest"
+      ],
+      "title": "Storage",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "split"
+  ],
+  "title": "DatasetManifestV1",
+  "type": "object"
+}

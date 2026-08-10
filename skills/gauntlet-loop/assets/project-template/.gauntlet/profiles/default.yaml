@@ -1,0 +1,10 @@
+# Selected domain profile for this project.
+#
+# `gauntlet profile select <name>` replaces this file with the chosen
+# bundled profile (software, visual, research, agent, model-training).
+# Selecting a profile merges only declared defaults into the draft spec;
+# profile-generated references are never normative.
+
+schema_version: dev.gauntlet.profile-selection/v1
+profile: software
+source: bundled

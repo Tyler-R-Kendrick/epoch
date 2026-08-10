@@ -1,0 +1,17 @@
+# Semantic identity ledger for the visual-semantic-mirror example.
+# Tiny synthetic fixture; no model calls involved.
+
+schema: dev.gauntlet.example.entity-ledger/v1
+character_id: bo
+coordinate_frame: right_handed_y_up
+features:
+  hair_part:
+    semantic_side: left
+  bindle:
+    carried_by: hand.R
+    attachment: grip.bindle
+asymmetries:
+  - hair_part
+  - bindle_side
+forbidden_transforms:
+  - unqualified_horizontal_pixel_flip

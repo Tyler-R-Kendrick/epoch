@@ -1,0 +1,64 @@
+{
+  "$id": "https://schemas.gauntlet.dev/git-ref.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "branch": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Branch"
+    },
+    "commit": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{7,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Commit"
+    },
+    "dirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dirty"
+    },
+    "repository": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repository"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.git-ref/v1",
+      "default": "dev.gauntlet.git-ref/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "GitRefV1",
+  "type": "object"
+}

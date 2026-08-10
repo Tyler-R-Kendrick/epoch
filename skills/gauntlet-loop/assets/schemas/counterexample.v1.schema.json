@@ -1,0 +1,311 @@
+{
+  "$defs": {
+    "ArtifactRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "digest": {
+          "$ref": "#/$defs/DigestRefV1"
+        },
+        "logical_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logical Name"
+        },
+        "representation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Representation"
+        },
+        "role": {
+          "$ref": "#/$defs/ArtifactRole"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.artifact-ref/v1",
+          "default": "dev.gauntlet.artifact-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "role",
+        "digest"
+      ],
+      "title": "ArtifactRefV1",
+      "type": "object"
+    },
+    "ArtifactRole": {
+      "enum": [
+        "normative",
+        "canonical",
+        "derived",
+        "observational",
+        "evaluative"
+      ],
+      "title": "ArtifactRole",
+      "type": "string"
+    },
+    "DigestRefV1": {
+      "additionalProperties": false,
+      "description": "Content identity. Never trust a filename as artifact identity.",
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "byte_size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Byte Size"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.digest-ref/v1",
+          "default": "dev.gauntlet.digest-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "storage_uris": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Storage Uris",
+          "type": "array"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DigestRefV1",
+      "type": "object"
+    },
+    "EvidenceRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "kind": {
+          "enum": [
+            "observation",
+            "belief",
+            "counterexample",
+            "evaluation",
+            "trace",
+            "artifact",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref_id": {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "title": "Ref Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.evidence-ref/v1",
+          "default": "dev.gauntlet.evidence-ref/v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref_id"
+      ],
+      "title": "EvidenceRefV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/counterexample.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual": {
+      "minLength": 1,
+      "title": "Actual",
+      "type": "string"
+    },
+    "artifact": {
+      "$ref": "#/$defs/ArtifactRefV1"
+    },
+    "candidate_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "counterexample_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Counterexample Id",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRefV1"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "expected": {
+      "minLength": 1,
+      "title": "Expected",
+      "type": "string"
+    },
+    "minimal_reproduction": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Minimal Reproduction"
+    },
+    "minimized_from": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Minimized From"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.counterexample/v1",
+      "default": "dev.gauntlet.counterexample/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "minLength": 1,
+      "title": "Scope",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "major",
+        "minor",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "split_visibility": {
+      "default": "search-visible",
+      "enum": [
+        "search-visible",
+        "calibration-only",
+        "promotion-sealed"
+      ],
+      "title": "Split Visibility",
+      "type": "string"
+    },
+    "status": {
+      "default": "open",
+      "enum": [
+        "open",
+        "fixed",
+        "retained",
+        "suppression-attempted"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "violated_rule": {
+      "minLength": 1,
+      "title": "Violated Rule",
+      "type": "string"
+    }
+  },
+  "required": [
+    "counterexample_id",
+    "candidate_id",
+    "artifact",
+    "scope",
+    "expected",
+    "actual",
+    "violated_rule",
+    "evidence",
+    "severity",
+    "confidence",
+    "created_at"
+  ],
+  "title": "CounterexampleV1",
+  "type": "object"
+}

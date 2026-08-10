@@ -1,0 +1,6 @@
+{"kind": "header", "atof_version": "1.0", "run_id": "atof-run-7", "source_id": "relay-node-3"}
+{"kind": "scope_start", "id": "a1", "scope_id": "scope-root", "name": "session", "timestamp": "2026-02-01T10:00:00Z"}
+{"kind": "model_event", "id": "a2", "scope_id": "scope-root", "name": "generate", "model": "nemo-llm", "model_version": "24.05", "status": "success", "timestamp": "2026-02-01T10:00:01Z", "relay_extension": {"queue": "gpu-a"}}
+{"kind": "tool_event", "id": "a3", "scope_id": "scope-root", "name": "retrieve", "tool": "vector-search", "tool_version": "0.9", "status": "error", "error": "index-miss", "timestamp": "2026-02-01T10:00:02Z"}
+{"kind": "mark", "id": "a4", "scope_id": "scope-root", "name": "checkpoint", "marks": ["inv:latency-budget"], "timestamp": "2026-02-01T10:00:03Z"}
+{"kind": "scope_end", "id": "a5", "scope_id": "scope-root", "name": "session", "timestamp": "2026-02-01T10:00:04Z"}

@@ -1,0 +1,7 @@
+schema_version: dev.gauntlet.dataset/v1
+dataset_id: dataset:search-default
+split: search
+sealed: false
+storage: tracked
+cases: []
+notes: Discovery/search cases visible to candidate builders.

@@ -1,0 +1,68 @@
+{
+  "$id": "https://schemas.gauntlet.dev/environment-ref.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "environment_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Environment Digest"
+    },
+    "lock_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lock Digest"
+    },
+    "platform": {
+      "minLength": 1,
+      "title": "Platform",
+      "type": "string"
+    },
+    "python_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Python Version"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.environment-ref/v1",
+      "default": "dev.gauntlet.environment-ref/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "variables_allowlisted": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Variables Allowlisted",
+      "type": "array"
+    }
+  },
+  "required": [
+    "platform"
+  ],
+  "title": "EnvironmentRefV1",
+  "type": "object"
+}

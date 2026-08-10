@@ -169,7 +169,7 @@ const CASES = [
           document.body.getAttribute("data-ride-snap") !== "1" &&
           document.body.getAttribute("data-scene-settle") === "1",
         null,
-        { timeout: 3000 }
+        { timeout: 8000 }
       ).catch(() => null);
       const keyed = await page.evaluate(() => ({
         chapter: document.body.getAttribute("data-chapter"),

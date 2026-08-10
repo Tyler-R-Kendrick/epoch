@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "ActionClass": {
+      "description": "ActiveGraph closed authority classes; reused, never re-invented.",
+      "enum": [
+        "R0",
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "title": "ActionClass",
+      "type": "string"
+    },
+    "ArtifactStoreConfigV1": {
+      "additionalProperties": false,
+      "properties": {
+        "digest_algorithm": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Digest Algorithm",
+          "type": "string"
+        },
+        "local_store": {
+          "default": ".gauntlet/artifacts/blobs",
+          "minLength": 1,
+          "title": "Local Store",
+          "type": "string"
+        },
+        "max_blob_bytes": {
+          "default": 1073741824,
+          "minimum": 1,
+          "title": "Max Blob Bytes",
+          "type": "integer"
+        },
+        "remote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remote"
+        }
+      },
+      "title": "ArtifactStoreConfigV1",
+      "type": "object"
+    },
+    "IntegrationsConfigV1": {
+      "additionalProperties": false,
+      "properties": {
+        "cosign_cli": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Cosign Cli",
+          "type": "string"
+        },
+        "langsmith_cli": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Langsmith Cli",
+          "type": "string"
+        },
+        "nemo_atof": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Nemo Atof",
+          "type": "string"
+        },
+        "oras_cli": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Oras Cli",
+          "type": "string"
+        }
+      },
+      "title": "IntegrationsConfigV1",
+      "type": "object"
+    },
+    "PrivacyConfigV1": {
+      "additionalProperties": false,
+      "properties": {
+        "raw_trace_retention_days": {
+          "default": 14,
+          "minimum": 0,
+          "title": "Raw Trace Retention Days",
+          "type": "integer"
+        },
+        "redact_by_default": {
+          "default": true,
+          "title": "Redact By Default",
+          "type": "boolean"
+        },
+        "secret_environment_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Secret Environment Allowlist",
+          "type": "array"
+        }
+      },
+      "title": "PrivacyConfigV1",
+      "type": "object"
+    },
+    "ProjectDefaultsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "network_for_candidates": {
+          "default": false,
+          "title": "Network For Candidates",
+          "type": "boolean"
+        },
+        "non_interactive": {
+          "default": false,
+          "title": "Non Interactive",
+          "type": "boolean"
+        },
+        "profile": {
+          "default": "software",
+          "minLength": 1,
+          "title": "Profile",
+          "type": "string"
+        }
+      },
+      "title": "ProjectDefaultsV1",
+      "type": "object"
+    },
+    "RuntimeConfigV1": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_ceiling": {
+          "$ref": "#/$defs/ActionClass",
+          "default": "R1"
+        },
+        "engine": {
+          "const": "activegraph",
+          "default": "activegraph",
+          "title": "Engine",
+          "type": "string"
+        },
+        "lock_timeout_seconds": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Lock Timeout Seconds",
+          "type": "integer"
+        },
+        "store": {
+          "default": ".gauntlet/state/activegraph.sqlite3",
+          "minLength": 1,
+          "title": "Store",
+          "type": "string"
+        },
+        "worktree_root": {
+          "default": "auto-sibling",
+          "minLength": 1,
+          "title": "Worktree Root",
+          "type": "string"
+        }
+      },
+      "title": "RuntimeConfigV1",
+      "type": "object"
+    },
+    "TelemetryConfigV1": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "exporter": {
+          "default": "none",
+          "enum": [
+            "none",
+            "otlp-file",
+            "console"
+          ],
+          "title": "Exporter",
+          "type": "string"
+        },
+        "include_raw_content": {
+          "default": false,
+          "title": "Include Raw Content",
+          "type": "boolean"
+        },
+        "sample_ratio": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Sample Ratio",
+          "type": "number"
+        }
+      },
+      "title": "TelemetryConfigV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/project.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "$ref": "#/$defs/ArtifactStoreConfigV1"
+    },
+    "defaults": {
+      "$ref": "#/$defs/ProjectDefaultsV1"
+    },
+    "integrations": {
+      "$ref": "#/$defs/IntegrationsConfigV1"
+    },
+    "privacy": {
+      "$ref": "#/$defs/PrivacyConfigV1"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeConfigV1"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.project/v1",
+      "default": "dev.gauntlet.project/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skill_contract": {
+      "const": "dev.gauntlet/v1",
+      "default": "dev.gauntlet/v1",
+      "title": "Skill Contract",
+      "type": "string"
+    },
+    "telemetry": {
+      "$ref": "#/$defs/TelemetryConfigV1"
+    }
+  },
+  "required": [
+    "project_id"
+  ],
+  "title": "ProjectConfigV1",
+  "type": "object"
+}

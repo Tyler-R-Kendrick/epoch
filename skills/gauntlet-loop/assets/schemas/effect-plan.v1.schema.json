@@ -1,0 +1,102 @@
+{
+  "$id": "https://schemas.gauntlet.dev/effect-plan.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {
+      "minLength": 1,
+      "title": "Adapter",
+      "type": "string"
+    },
+    "argv": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Argv",
+      "type": "array"
+    },
+    "cwd": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cwd"
+    },
+    "environment_allowlist": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Environment Allowlist",
+      "type": "array"
+    },
+    "intent_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Intent Id",
+      "type": "string"
+    },
+    "max_output_bytes": {
+      "default": 10485760,
+      "minimum": 1,
+      "title": "Max Output Bytes",
+      "type": "integer"
+    },
+    "network": {
+      "default": "deny",
+      "enum": [
+        "deny",
+        "allow"
+      ],
+      "title": "Network",
+      "type": "string"
+    },
+    "plan_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "preconditions_checked_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preconditions Checked At"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.effect-plan/v1",
+      "default": "dev.gauntlet.effect-plan/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "staging_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Staging Paths",
+      "type": "array"
+    },
+    "timeout_seconds": {
+      "default": 600,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "plan_id",
+    "intent_id",
+    "adapter"
+  ],
+  "title": "EffectPlanV1",
+  "type": "object"
+}

@@ -11,7 +11,7 @@ import { chromium } from "playwright";
 import { serveNightboard } from "./serve.mjs";
 
 const own = process.argv[2] ? null : await serveNightboard();
-const BASE = process.argv[2] || own.url;
+const BASE = process.argv[2] || `${own.url}board.html`;
 
 /** Build a mock LanguageModel with a scripted personality. */
 function mockScript(spec) {
@@ -246,12 +246,16 @@ let failed = 0;
 
 for (const testCase of CASES) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await context.addInitScript(() => {
+    try { localStorage.setItem("nb-keys-onboarded", "1"); } catch { /* fine */ }
+  });
   await context.addInitScript(mockScript(testCase.spec));
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(250);
+  await page.evaluate(() => window.NB_APP.goHome({ silent: true }));
   // Every case runs through AI mode, because that is where the faults live.
   // AI is the default now, so ensure rather than toggle — a blind click turned
   // it off and made six cases "fail" for the wrong reason.

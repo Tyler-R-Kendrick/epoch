@@ -1,0 +1,5 @@
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-failure", "event_id": "f1", "operation": "load-spec", "status": "ok", "tool": "spec-loader", "tool_version": "1.0"}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-failure", "event_id": "f2", "operation": "plan", "status": "ok", "model": "planner-model", "model_version": "2.1", "tokens": {"prompt": 118, "completion": 44}, "latency_ms": 380.0}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-failure", "event_id": "f3", "operation": "call-tool", "status": "ok", "tool": "search"}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-failure", "event_id": "f4", "operation": "call-tool", "status": "error", "tool": "browser", "error_id": "E-TIMEOUT", "invariant_ids": ["inv:tool-budget"]}
+{"contract": "dev.gauntlet.trace-jsonl/v1", "run_id": "run-failure", "event_id": "f5", "operation": "abort", "status": "error"}

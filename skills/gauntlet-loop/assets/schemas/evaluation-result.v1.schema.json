@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "MetricResultV1": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence_level": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence Level"
+        },
+        "lower_bound": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower Bound"
+        },
+        "metric": {
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "n": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N"
+        },
+        "schema_version": {
+          "const": "dev.gauntlet.metric-result/v1",
+          "default": "dev.gauntlet.metric-result/v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "upper_bound": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper Bound"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "value"
+      ],
+      "title": "MetricResultV1",
+      "type": "object"
+    },
+    "SplitKind": {
+      "enum": [
+        "search",
+        "calibration",
+        "promotion"
+      ],
+      "title": "SplitKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/evaluation-result.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "abstained": {
+      "default": false,
+      "title": "Abstained",
+      "type": "boolean"
+    },
+    "candidate_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "evaluation_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Evaluation Id",
+      "type": "string"
+    },
+    "evaluator_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Evaluator Id",
+      "type": "string"
+    },
+    "evaluator_version": {
+      "minLength": 1,
+      "title": "Evaluator Version",
+      "type": "string"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/MetricResultV1"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Passed"
+    },
+    "raw_output_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Raw Output Digest"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.evaluation-result/v1",
+      "default": "dev.gauntlet.evaluation-result/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "$ref": "#/$defs/SplitKind"
+    },
+    "started_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Started At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evaluation_id",
+    "evaluator_id",
+    "evaluator_version",
+    "candidate_id",
+    "split",
+    "started_at"
+  ],
+  "title": "EvaluationResultV1",
+  "type": "object"
+}

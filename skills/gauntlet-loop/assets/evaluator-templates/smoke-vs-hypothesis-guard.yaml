@@ -1,0 +1,29 @@
+# Reusable command evaluator template (dev.gauntlet.evaluator/v1).
+# Model-training profile: guards against concluding from underpowered
+# runs. An experiment marked smoke_only, or whose metrics fall short of
+# the spec's minimum sample counts, may only yield an inconclusive
+# outcome; keep/discard requires full-power evidence.
+
+schema_version: dev.gauntlet.evaluator/v1
+id: evaluator:smoke-vs-hypothesis-guard
+kind: command
+roles:
+  - invariant-checker
+  - meta-evaluator
+independence: L4
+command:
+  argv: ["python", ".gauntlet/evaluators/checks/smoke_vs_hypothesis_guard.py"]
+  cwd: candidate-worktree
+  timeout_seconds: 300
+  network: deny
+  environment_allowlist: []
+input_contract:
+  artifacts:
+    - outcome-record
+    - run-metrics
+output_contract:
+  format: dev.gauntlet.evaluator-output/v1
+  result_file: .gauntlet-result.json
+cost_class: bounded-local
+frozen_for_promotion: true
+version: 0.1.0

@@ -1,0 +1,75 @@
+# Draft campaign specification (dev.gauntlet.spec/v1)
+#
+# This is a documented DRAFT; it is not frozen. `gauntlet spec freeze`
+# canonicalizes and digests the complete spec bundle and emits a
+# frozen-spec event. No campaign may run without a frozen spec and
+# baseline unless it is explicitly a spec-discovery campaign whose
+# outputs cannot be promoted into product state.
+
+schema_version: dev.gauntlet.spec/v1
+spec_id: spec:draft
+goal:
+  statement: Describe the concrete outcome this campaign must achieve.
+  deliverables: []
+  non_goals: []
+
+normative:
+  hard_invariants: []
+  target_dimensions: []
+  protected_dimensions: []
+  human_only_judgments: []
+
+search_space:
+  legal_levers: []
+  frozen_surfaces: []
+  candidate_budget: null
+  concurrency_policy: null
+
+representations:
+  nodes: []
+  transforms: []
+  required_consistency_relations: []
+
+evaluators:
+  hard: []
+  deterministic: []
+  simulators: []
+  learned: []
+  llm_judges: []
+  human: []
+  calibration_manifest: null
+
+splits:
+  search_manifest: datasets/search/manifest.yaml
+  calibration_manifest: datasets/calibration/manifest.yaml
+  promotion_manifest: datasets/promotion/manifest.yaml
+
+promotion:
+  # spec validate refuses a promotable campaign while these are null/empty.
+  minimum_practical_effect: null
+  protected_regression_budgets: {}
+  confidence_policy:
+    method: configured-per-metric
+    level: 0.95
+    multiple_comparison_correction: none
+  evidence_floor: []
+  required_approvals: []
+
+runtime:
+  authority_ceiling: R1
+  allowed_capabilities: []
+  effect_policy: policies/effects.yaml
+
+stop:
+  hard_budget:
+    max_experiments: 20
+    max_wall_clock_seconds: 14400
+  target_condition: null
+  plateau_window: 5
+  plateau_min_improvement: null
+  disagreement_threshold: null
+  unresolved_severity_threshold: critical
+
+frozen: false
+frozen_digest: null
+supersedes: null

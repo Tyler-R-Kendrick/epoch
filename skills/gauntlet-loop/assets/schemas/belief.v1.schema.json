@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "BeliefState": {
+      "enum": [
+        "raw",
+        "tentative",
+        "validated",
+        "committed",
+        "action_safe",
+        "quarantined",
+        "superseded",
+        "revoked"
+      ],
+      "title": "BeliefState",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.gauntlet.dev/belief.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "belief_id": {
+      "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+      "title": "Belief Id",
+      "type": "string"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "contradicts": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Contradicts",
+      "type": "array"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "depends_on_beliefs": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Depends On Beliefs",
+      "type": "array"
+    },
+    "depends_on_observations": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Depends On Observations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "dev.gauntlet.belief/v1",
+      "default": "dev.gauntlet.belief/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/BeliefState",
+      "default": "raw"
+    },
+    "statement": {
+      "minLength": 1,
+      "title": "Statement",
+      "type": "string"
+    },
+    "supports": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]*:[A-Za-z0-9._/-]+$",
+        "type": "string"
+      },
+      "title": "Supports",
+      "type": "array"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    }
+  },
+  "required": [
+    "belief_id",
+    "statement",
+    "created_at"
+  ],
+  "title": "BeliefV1",
+  "type": "object"
+}
