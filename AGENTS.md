@@ -5,16 +5,13 @@ These instructions apply to the entire repository.
 ## Required development workflow
 
 - Use test-driven development for behavior changes: write or update a failing feature/test first, implement the smallest change, then make the full suite pass.
-- **GitHub Actions quality CI is temporarily disabled** (runner minutes). Enforcement is **local hooks + agent discipline**:
-  - After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`.
-  - `pre-commit` runs `npm run gate:fast` (konsistent, docs, design.md lint, eslint).
-  - `pre-push` runs `npm run gate:push` (gate:fast + typecheck + build + unit tests).
-  - Full bar remains `npm run verify` (adds feature/browser suite, coverage, pact). Agents must run **at least `gate:push`**, and **`verify`** when changing browser-visible or contract behavior, before claiming done.
-- Do not consider work complete until required quality gates pass locally:
-  - `npm run gate:fast` — commit-time bar
-  - `npm run gate:push` — push-time bar (CI substitute)
-  - `npm run verify` — full bar (docs, lint, design:lint, typecheck, konsistent, test, coverage, pact)
-- Never skip hooks to greenwash a change. Emergency bypass only: `SKIP_GIT_HOOKS=1` or `SKIP_VERIFY=1` (document why in the PR/commit body).
+- **GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`): docs, lint, konsistent, design, typecheck, test, coverage, Pact, and the Nightboard/accessibility suites, each as its own job so failures are attributable. A fail-closed guard job keeps this on standard `ubuntu-latest` runners on this public repository, where they are free and unmetered; re-check that assumption (`docs/ai-automation-strategy.md` Finding 1) before touching runner selection or visibility.
+  - Local hooks are a **fast pre-flight, not the enforcement boundary** — CI plus branch protection are authoritative. After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`; both `pre-commit` and `pre-push` run `npm run gate:fast` (konsistent, docs, design.md lint, design token audit, eslint).
+  - Full bar remains `npm run verify` (adds feature/browser suite, coverage, Pact, a11y, Nightboard e2e). Agents must run **at least `gate:fast`** locally, and **`verify`** when changing browser-visible or contract behavior, before claiming done; CI re-verifies everything regardless.
+- Do not consider work complete until required quality gates pass:
+  - `npm run gate:fast` — local commit/push pre-flight
+  - `npm run verify` — full bar (docs, lint, design:lint, typecheck, konsistent, test, coverage, pact) — also what CI runs, job-by-job
+- Never skip hooks to greenwash a change. Emergency bypass only: `SKIP_GIT_HOOKS=1` (document why in the PR/commit body). CI still runs regardless of a local bypass.
 - Preserve or improve coverage for changed behavior. Add new Gherkin scenarios only for user-visible product behavior, and use focused tests or docs checks for repository process, documentation, evidence, or governance requirements.
 - Do not lower coverage thresholds or weaken lint/typecheck settings to make a change pass.
 - Keep generated outputs such as `dist/`, `coverage/`, and temporary files out of commits.
@@ -61,6 +58,6 @@ These instructions apply to the entire repository.
 | `npm run typecheck` | Run `tsgo --noEmit` for every workspace and test project. |
 | `npm test` | Build and execute the Cucumber feature suite. |
 | `npm run coverage` | Run Cucumber under c8 and enforce coverage thresholds. |
-| `npm run gate:fast` | Commit-time gate: konsistent, docs:check, design:lint, lint. |
-| `npm run gate:push` | Push-time gate (CI substitute): gate:fast + typecheck + build + unit tests. |
-| `npm run verify` | Full local gate: gate suite + coverage + pact. |
+| `npm run gate:fast` | Local commit/push pre-flight: konsistent, docs:check, design:lint, design:audit, lint. Runs in `.githooks/pre-commit` and `.githooks/pre-push`. |
+| `npm run gate:push` | Optional manual mid-tier gate: gate:fast + typecheck + build + unit tests. No longer wired to a hook — GitHub Actions Quality Gates run this and more on every PR/push. |
+| `npm run verify` | Full local gate: gate suite + coverage + pact. Matches what CI runs, job-by-job. |

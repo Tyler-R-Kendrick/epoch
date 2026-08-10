@@ -1,31 +1,305 @@
-# TEMPORARILY DISABLED — save GitHub Actions runner minutes.
-# Quality enforcement is local: `.githooks/*` + `npm run verify` (see AGENTS.md / DX.md).
-# To re-enable CI later, restore:
-#   on:
-#     pull_request:
-#     push:
-#       branches: [main]
-#
-# Manual one-off runs remain available via Actions → "Quality Gates" → Run workflow.
 name: Quality Gates
 
 on:
-  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
 
-# Safety net: even if someone re-adds push/PR triggers, jobs stay off until this is cleared.
-env:
-  EPOCH_CI_DISABLED: "1"
-
 jobs:
-  disabled:
-    name: CI disabled (local gates only)
+  # Fail-closed guard: the free-CI assumption below (standard GitHub-hosted
+  # runners are free and unmetered) holds only while this repository stays
+  # public. Every other job pins `runs-on: ubuntu-latest` literally, so a
+  # `runs-on` edit is a reviewable diff to this file; this guard covers the
+  # other half -- a visibility flip or an org transfer -- by failing instead
+  # of silently running billed CI. See docs/ai-automation-strategy.md
+  # Finding 1.
+  guard:
+    name: Guard — public repo
     runs-on: ubuntu-latest
     steps:
-      - name: Explain
+      - name: Verify repository is public
         run: |
-          echo "GitHub Actions quality jobs are temporarily disabled to conserve runner minutes."
-          echo "Run locally: npm run gate:fast (commit) / npm run gate:push (push) / npm run verify (full)."
-          echo "Hooks: git config core.hooksPath .githooks (wired by npm prepare)."
+          if [ "${{ github.event.repository.private }}" = "true" ]; then
+            echo "::error::Repository is private -- the standard-runner free-CI assumption this workflow relies on no longer holds. Failing closed. See docs/ai-automation-strategy.md Finding 1 before re-enabling." >&2
+            exit 1
+          fi
+
+  docs:
+    name: Docs
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Docs check
+        run: npm run docs:check
+
+  lint:
+    name: Lint
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Nightboard a11y lint
+        run: npm run lint:nightboard-a11y
+
+  konsistent:
+    name: Konsistent
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Konsistent
+        run: npm run konsistent
+        env:
+          KONSISTENT_NO_UPDATE_CHECK: "true"
+
+  design:
+    name: Design
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Design.md lint
+        run: npm run design:lint
+
+      - name: Design token audit
+        run: npm run design:audit
+
+  typecheck:
+    name: Typecheck
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  build:
+    name: Build
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build -- --pretty false
+
+  test:
+    name: Test
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test
+        run: npm test
+
+  coverage:
+    name: Coverage
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Coverage
+        run: npm run coverage
+
+  pact:
+    name: Pact
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pact contract tests
+        run: npm run test:pact
+
+  a11y-community-web:
+    name: A11y — Community Web
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # Duplicates the Build job's work rather than downloading its artifact.
+      # A dedicated Build job above already gives build failures their own
+      # attributable status check; this local build keeps this job
+      # self-contained without adding artifact upload/download wiring across
+      # ~20 workspaces' dist/ outputs. The rebuild is a few seconds.
+      - name: Build
+        run: npm run build -- --pretty false
+
+      - name: Community Web accessibility gate
+        run: npm run a11y:community-web
+
+  nightboard:
+    name: Nightboard — a11y, faults, e2e
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Nightboard accessibility gate
+        run: npm run a11y:nightboard
+
+      - name: Nightboard fault-injection suite
+        run: npm run nightboard:faults
+
+      - name: Nightboard end-to-end suite
+        run: npm run nightboard:e2e

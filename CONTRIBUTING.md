@@ -7,24 +7,23 @@ Thank you for improving Epoch. This repository values small, well-tested changes
 ```bash
 npm ci
 npm run prepare   # wires .githooks → core.hooksPath
-npm run gate:fast # commit bar
-npm run gate:push # push bar (CI substitute while Actions is off)
-npm run verify    # full bar (coverage + pact)
+npm run gate:fast # local commit/push pre-flight
+npm run verify    # full bar (typecheck, build, tests, coverage, pact) — also what CI runs
 ```
 
 ## Required quality gates
 
-**GitHub Actions quality jobs are temporarily disabled** (runner minutes). Enforcement is local:
+**GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`) and are the authoritative bar. Local hooks are a fast pre-flight, not a substitute:
 
-| When | Command | Hook |
+| When | Command | Enforced by |
 |---|---|---|
-| Before commit | `npm run gate:fast` | `.githooks/pre-commit` |
-| Before push | `npm run gate:push` | `.githooks/pre-push` (units; not full browser suite) |
-| Before merge / release | `npm run verify` | manual / agent (features + coverage + pact) |
+| Before commit | `npm run gate:fast` | `.githooks/pre-commit` (local pre-flight) |
+| Before push | `npm run gate:fast` | `.githooks/pre-push` (local pre-flight) |
+| Every PR / push to `main` | `npm run verify`, job-by-job | GitHub Actions (authoritative) |
 
-Every source change must pass at least `gate:push`; prefer `verify` for behavior changes.
+Every source change must pass `gate:fast` locally; prefer running `verify` for behavior changes so CI doesn't surface the failure first.
 
-Emergency bypass only: `SKIP_GIT_HOOKS=1` or `SKIP_VERIFY=1` (document why).
+Emergency bypass only: `SKIP_GIT_HOOKS=1` (document why). CI still runs regardless of a local bypass.
 
 ## TDD workflow
 

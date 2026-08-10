@@ -94,3 +94,4 @@ decisions, operations, or contribution workflow.
 | [Contributing](../CONTRIBUTING.md) | Coding workflow, testing expectations, and pull request checklist. |
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
+| [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |
