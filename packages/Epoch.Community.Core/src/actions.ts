@@ -41,9 +41,13 @@ export interface ActionEvent {
 export type ActionExecutor = (input: unknown, context: ActionExecutionContext) => unknown | Promise<unknown>;
 export type ActionExecutors = Partial<Record<NavigationActionId, ActionExecutor>>;
 
+export interface ActionDescriptor extends ActionDefinition {
+  execute(input: unknown, context: ActionExecutionContext): Promise<unknown>;
+}
+
 export interface ActionRegistry {
-  readonly actions: readonly ActionDefinition[];
-  resolve(actionId: string): ActionDefinition | undefined;
+  readonly actions: readonly ActionDescriptor[];
+  resolve(actionId: string): ActionDescriptor | undefined;
   execute(actionId: string, input: unknown, context: ActionExecutionContext): Promise<unknown>;
   lastActionEvent(): ActionEvent | undefined;
 }
@@ -73,8 +77,8 @@ export const BUILT_IN_ACTIONS: readonly ActionDefinition[] = NAVIGATION_ACTION_I
 }));
 
 export function createActionRegistry(definitions: readonly ActionDefinition[], executors: ActionExecutors): ActionRegistry {
-  const actions = new Map(definitions.map((definition) => [definition.actionId, definition]));
-  if (actions.size !== definitions.length) throw new Error("Action registry contains duplicate action IDs");
+  const definitionsById = new Map(definitions.map((definition) => [definition.actionId, definition]));
+  if (definitionsById.size !== definitions.length) throw new Error("Action registry contains duplicate action IDs");
   let lastEvent: ActionEvent | undefined;
   const event = (actionId: NavigationActionId, context: ActionExecutionContext, outcome: ActionEvent["outcome"]): void => {
     lastEvent = {
@@ -85,11 +89,8 @@ export function createActionRegistry(definitions: readonly ActionDefinition[], e
       outcome,
     };
   };
-  return {
-    actions: [...definitions],
-    resolve: (actionId) => actions.get(actionId as NavigationActionId),
-    async execute(actionId, input, context) {
-      const definition = actions.get(actionId as NavigationActionId);
+  const executeAction = async (actionId: string, input: unknown, context: ActionExecutionContext): Promise<unknown> => {
+      const definition = definitionsById.get(actionId as NavigationActionId);
       if (definition === undefined) throw new Error(`Unknown community action: ${actionId}`);
       if (definition.permission !== undefined && !context.permissions.includes(definition.permission)) {
         event(definition.actionId, context, "denied");
@@ -108,7 +109,16 @@ export function createActionRegistry(definitions: readonly ActionDefinition[], e
         event(definition.actionId, context, "failed");
         throw error;
       }
-    },
+  };
+  const actions = definitions.map((definition): ActionDescriptor => Object.freeze({
+    ...definition,
+    execute: (input: unknown, context: ActionExecutionContext) => executeAction(definition.actionId, input, context),
+  }));
+  const actionsById = new Map(actions.map((action) => [action.actionId, action]));
+  return {
+    actions,
+    resolve: (actionId) => actionsById.get(actionId as NavigationActionId),
+    execute: executeAction,
     lastActionEvent: () => lastEvent === undefined ? undefined : { ...lastEvent },
   };
 }

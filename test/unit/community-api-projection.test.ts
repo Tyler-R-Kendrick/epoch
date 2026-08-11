@@ -54,6 +54,8 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
     const commentObjectId = migrated.issues[0]?.comments[0]?.ref?.objectId;
     assert.ok(issueObjectId);
     assert.ok(commentObjectId);
+    assert.equal((await first.getObject(issueObjectId)).title, "Migrated");
+    assert.equal((await first.listThreadRelations(commentObjectId)).parent?.objectId, issueObjectId);
     assert.equal(JSON.parse(readFileSync(persistencePath, "utf8")).schemaVersion, 2);
 
     const second = createInMemoryCommunityApi({ persistencePath });
@@ -67,7 +69,7 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
 }
 
 async function savedProjectionAuthorizationFailsClosed(): Promise<void> {
-  const api = createInMemoryCommunityApi({ messages: [sampleMessage()] });
+  const api = createInMemoryCommunityApi({ messages: [sampleMessage(), privateMessage()] });
   const saved = await api.saveProjection({
     projection: sampleProjection("private"),
     ownerId: "alice",
@@ -75,6 +77,43 @@ async function savedProjectionAuthorizationFailsClosed(): Promise<void> {
   assert.equal(saved.ownerId, "alice");
   await assert.rejects(() => api.getProjection(saved.projectionId, { actorId: "mallory" }), /not found/u);
   assert.deepEqual(await api.listProjections({ actorId: "mallory" }), []);
+
+  await api.saveProjection({
+    projection: {
+      ...sampleProjection("shared"),
+      projectionId: "saved-shared",
+      query: {
+        ast: {
+          op: "or",
+          left: { op: "field", field: "id", value: "m-api-1", phrase: false },
+          right: { op: "field", field: "body", value: "DO_NOT_LEAK_7f3c", phrase: false },
+        },
+        canonical: "id:m-api-1 OR body:DO_NOT_LEAK_7f3c",
+        sort: null,
+        version: 1,
+      },
+    },
+    ownerId: "alice",
+  }, { actorId: "alice" });
+  const visibleMetadata = await api.listProjections({ actorId: "mallory" });
+  assert.equal(visibleMetadata[0]?.query, undefined, "non-owner metadata does not expose the raw query");
+  assert.deepEqual(
+    (await api.getProjection("saved-shared", { actorId: "mallory" })).entries.map((entry) => entry.ref.objectId),
+    ["m-api-1"],
+  );
+}
+
+function privateMessage(): CommunityMessage {
+  const ref = { objectId: "dm-private-1", kind: "message" as const };
+  return {
+    ...sampleMessage(),
+    ref,
+    context: { objectId: "dm-alice", kind: "dm" },
+    authorId: "alice",
+    body: "DO_NOT_LEAK_7f3c",
+    threadRoot: ref,
+    aliases: ["private-message"],
+  };
 }
 
 async function projectionMutationUpdatesCanonicalObject(): Promise<void> {
@@ -118,8 +157,8 @@ function sampleProjection(visibility: ProjectionSpec["visibility"]): ProjectionS
     order: { by: "publishedAt", direction: "descending" },
     visibility,
     query: {
-      ast: { op: "field", field: "state", value: "needs-review", phrase: false },
-      canonical: "state:needs-review",
+      ast: { op: "field", field: "id", value: "m-api-1", phrase: false },
+      canonical: "id:m-api-1",
       sort: null,
       version: 1,
     },

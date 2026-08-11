@@ -23,8 +23,10 @@ export async function runCommunityObjectProjectionTests(): Promise<void> {
   await test("NAV-ID-001 identity survives sibling insertion", stableIdentitySurvivesInsertion);
   await test("NAV-ID-002 identity survives content edit", stableIdentitySurvivesContentEdit);
   await test("NAV-ID-003 identity survives reorder and reprojection", stableIdentitySurvivesReprojection);
+  await test("NAV-ID-004 DM locators do not leak content", dmLocatorsDoNotLeakContent);
   await test("NAV-ID-005 canonical contextual and exact links are distinct", objectLinksAreDistinct);
   await test("NAV-PROJ-001 one object appears in many mounted projections", projectionLocationsShareIdentity);
+  await test("NAV-PROJ-003 projection parent differs from thread parent", navigationOperationsRemainDistinct);
   await test("NAV-GRAPH-002 explicit thread operations use object IDs", explicitGraphOperations);
   await test("NAV-GRAPH-003 tombstone preserves topology", missingParentBecomesTombstone);
   await test("NAV-GRAPH-004 graph API does not require alias parsing", graphIgnoresAliases);
@@ -80,12 +82,37 @@ function objectLinksAreDistinct(): void {
   assert.deepEqual(parseObjectUrl(contextual), { objectId: "m-001", projectionId: "projection-search" });
 }
 
+async function dmLocatorsDoNotLeakContent(): Promise<void> {
+  const sentinel = "DO_NOT_LEAK_7f3c";
+  const ref = { objectId: "dm-object-opaque", kind: "message" as const, revision: "cid-private" };
+  const links = [objectUrl(ref), objectUrl(ref, { projectionId: "projection-dm" }), objectUrl(ref, { revision: ref.revision })];
+  const registry = createActionRegistry(BUILT_IN_ACTIONS, { "detail.open": () => undefined });
+  await registry.execute("detail.open", { title: sentinel, body: sentinel }, {
+    origin: "pointer",
+    permissions: [],
+    projectionId: "projection-dm",
+    objectId: ref.objectId,
+  });
+  assert.doesNotMatch(JSON.stringify({ links, event: registry.lastActionEvent() }), new RegExp(sentinel, "u"));
+}
+
 function projectionLocationsShareIdentity(): void {
   const original = message(rootRef, undefined, rootRef, "Original", "body");
   const channel = createProjection(projection("projection-channel"), [entry(original, "channels/general/original")]);
   const mentions = createProjection(projection("projection-mentions"), [entry(original, "activity/mentions/original")]);
   assert.equal(channel.entries[0]?.ref.objectId, mentions.entries[0]?.ref.objectId);
   assert.notEqual(channel.entries[0]?.aliasPath, mentions.entries[0]?.aliasPath);
+}
+
+function navigationOperationsRemainDistinct(): void {
+  assert.equal(new Set([
+    "nav.ascend",
+    "thread.parent",
+    "history.back",
+    "history.previousLocation",
+  ]).size, 4);
+  assert.ok(BUILT_IN_ACTIONS.some((action) => action.actionId === "nav.ascend"));
+  assert.ok(BUILT_IN_ACTIONS.some((action) => action.actionId === "thread.parent"));
 }
 
 function explicitGraphOperations(): void {
@@ -128,6 +155,7 @@ function unknownQueryFieldFails(): void {
   assert.equal(result.ast, null);
   assert.match(result.error ?? "", /sttae/u);
   assert.match(result.error ?? "", /state/u);
+  assert.match(normalizeQuery("body:\"unterminated").error ?? "", /unterminated/u);
 }
 
 function normalizedQuerySurvivesReload(): void {

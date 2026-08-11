@@ -16,6 +16,41 @@ export async function runCommunityContractTests(): Promise<void> {
   await coreHttpClientHonorsTheCommunityApiIssueContract();
   await coreHttpClientHonorsTheCommunityApiWorkflowsContract();
   await coreHttpClientHonorsTheCommunityApiChangeProposalContract();
+  await coreHttpClientHonorsCanonicalObjectContract();
+}
+
+async function coreHttpClientHonorsCanonicalObjectContract(): Promise<void> {
+  const provider = communityPact();
+  provider
+    .given("community object m-pact exists")
+    .uponReceiving("a request for a canonical community object")
+    .withRequest({
+      method: "GET",
+      path: "/objects/m-pact",
+      headers: { Accept: "application/json" },
+    })
+    .willRespondWith({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: {
+        ref: { objectId: "m-pact", kind: "message" },
+        context: { objectId: "channel-general", kind: "channel" },
+        authorId: "alice",
+        body: "Pact object",
+        publishedAt: "2026-08-11T00:00:00.000Z",
+        threadRoot: { objectId: "m-pact", kind: "message" },
+        relations: [],
+        state: "read",
+        aliases: ["pact-object"],
+      },
+    });
+
+  await provider.executeTest(async (mockServer) => {
+    const client = createHttpCommunityClient({ baseUrl: mockServer.url });
+    const object = await client.getObject("m-pact");
+    assert.equal(object.ref.objectId, "m-pact");
+    assert.equal(object.threadRoot.objectId, "m-pact");
+  });
 }
 
 const repositoryExample: CommunityRepository = {

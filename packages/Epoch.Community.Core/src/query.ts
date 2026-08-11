@@ -41,7 +41,12 @@ export function normalizeQuery(input: string, options: { readonly version?: numb
   if (options.version !== undefined && options.version > QUERY_LANGUAGE_VERSION) {
     return invalid(`Query language version ${options.version} is newer than supported version ${QUERY_LANGUAGE_VERSION}`);
   }
-  const tokens = tokenize(input);
+  let tokens: readonly Token[];
+  try {
+    tokens = tokenize(input);
+  } catch (error) {
+    return invalid(error instanceof Error ? error.message : String(error));
+  }
   let position = 0;
   const peek = (): Token => tokens[position] ?? { type: "EOF", value: "" };
   const take = (type: TokenType): Token | undefined => {

@@ -4,6 +4,49 @@
   },
   "interactions": [
     {
+      "description": "a request for a canonical community object",
+      "providerStates": [
+        {
+          "name": "community object m-pact exists"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Accept": "application/json"
+        },
+        "method": "GET",
+        "path": "/objects/m-pact"
+      },
+      "response": {
+        "body": {
+          "aliases": [
+            "pact-object"
+          ],
+          "authorId": "alice",
+          "body": "Pact object",
+          "context": {
+            "kind": "channel",
+            "objectId": "channel-general"
+          },
+          "publishedAt": "2026-08-11T00:00:00.000Z",
+          "ref": {
+            "kind": "message",
+            "objectId": "m-pact"
+          },
+          "relations": [],
+          "state": "read",
+          "threadRoot": {
+            "kind": "message",
+            "objectId": "m-pact"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
       "description": "a request to list community repositories",
       "providerStates": [
         {
