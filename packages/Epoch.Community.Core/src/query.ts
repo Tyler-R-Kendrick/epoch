@@ -180,7 +180,7 @@ function tokenize(input: string): readonly Token[] {
       continue;
     }
     const start = index;
-    while (index < input.length && !/[\s():\"]/u.test(input[index] ?? "")) index += 1;
+    while (index < input.length && !/[\s():"]/u.test(input[index] ?? "")) index += 1;
     const raw = input.slice(start, index);
     const upper = raw.toUpperCase();
     push(upper === "AND" || upper === "OR" || upper === "NOT" ? upper : "WORD", raw);
