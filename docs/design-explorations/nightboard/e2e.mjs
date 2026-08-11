@@ -510,7 +510,7 @@ const CASES = [
       await page.waitForTimeout(80);
       await page.focus("[data-cli]");
       await page.keyboard.press("Tab");
-      await page.waitForTimeout(80);
+      await page.waitForFunction(() => document.activeElement?.closest?.(".cn-comment"));
       const entered = await page.evaluate(() => {
         const active = document.activeElement?.closest?.(".cn-comment");
         return {
@@ -527,7 +527,9 @@ const CASES = [
       }
 
       await page.keyboard.press("ArrowDown");
-      await page.waitForTimeout(80);
+      await page.waitForFunction((previous) =>
+        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
+      entered.active);
       const moved = await page.evaluate(() => {
         const active = document.activeElement?.closest?.(".cn-comment");
         return {
@@ -543,8 +545,13 @@ const CASES = [
       }
 
       await page.keyboard.press("End");
+      await page.waitForFunction(() => {
+        const comments = Array.from(document.querySelectorAll(".cn-comment"));
+        return document.activeElement?.closest?.(".cn-comment") === comments.at(-1);
+      });
       await page.keyboard.press("ArrowDown");
-      await page.waitForTimeout(80);
+      await page.evaluate(() => new Promise((resolve) =>
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
       const end = await page.evaluate(() => ({
         active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
         last: Array.from(document.querySelectorAll(".cn-comment")).at(-1)?.getAttribute("data-key") || null,
@@ -553,7 +560,9 @@ const CASES = [
         return log("End/boundary did not retain the last message: " + JSON.stringify(end));
       }
       await page.keyboard.press("ArrowUp");
-      await page.waitForTimeout(80);
+      await page.waitForFunction((previous) =>
+        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
+      end.active);
       const recovered = await page.evaluate(() => ({
         active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
         here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
@@ -563,7 +572,7 @@ const CASES = [
       }
 
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(100);
+      await page.waitForFunction((expected) => window.NB_APP.state.threadFocus === expected, recovered.active);
       const opened = await page.evaluate(() => ({
         thread: window.NB_APP.state.threadFocus,
         active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
