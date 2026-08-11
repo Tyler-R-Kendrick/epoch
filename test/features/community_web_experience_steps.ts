@@ -55,6 +55,30 @@ let nightboardRouteSticky = false;
 let nightboardBoReady = false;
 let nightboardTrainableReady = false;
 let nightboardFocusRestored = false;
+let nightboardLinkResult: {
+  readonly objectId: string;
+  readonly canonical: string;
+  readonly contextual: string;
+  readonly exact: string;
+} | undefined;
+let nightboardSavedViewResult: {
+  readonly id: string;
+  readonly query: string;
+  readonly resultIds: readonly string[];
+} | undefined;
+let nightboardThreadA11yResult: {
+  readonly selected: string;
+  readonly reading: string;
+  readonly oneTabStop: boolean;
+  readonly topology: boolean;
+} | undefined;
+let nightboardNavigationActions: readonly { readonly actionId: string; readonly objectId?: string }[] = [];
+let nightboardJumpResult: {
+  readonly cdStayed: boolean;
+  readonly grouped: boolean;
+  readonly explained: boolean;
+  readonly locationStayed: boolean;
+} | undefined;
 
 const NIGHTBOARD_ROOT = join(process.cwd(), "docs", "design-explorations", "nightboard");
 const NIGHTBOARD_CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -324,6 +348,192 @@ When("I expand and restore the focused panel by keyboard", async function () {
 
 Then("focus and selection remain in the same panel context", function () {
   assert.equal(nightboardFocusRestored, true);
+});
+
+When("I open one Nightboard message from its channel projection", async function () {
+  const page = requirePage();
+  await page.evaluate(() => (window as unknown as {
+    NB_APP: { navigate(path: string, options?: Record<string, unknown>): void };
+  }).NB_APP.navigate("/projects/community/channels/general", { keepCli: true }));
+  await page.locator('.cn-comment[data-key="p3"]').focus();
+  await page.keyboard.press("Enter");
+  await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible" });
+  nightboardLinkResult = await page.evaluate(() => {
+    const runtime = window as unknown as {
+      NB_APP: { state: { path: string; threadFocus: string } };
+      NB_DATA: { posts: Array<Record<string, unknown>> };
+      NB_MAP: { objectRef(post: Record<string, unknown>): { objectId: string; revision?: string }; projectionIdForPath(path: string): string };
+      NB_CORE: { objectUrl(ref: { objectId: string; revision?: string }, options?: Record<string, unknown>): string };
+    };
+    const post = runtime.NB_DATA.posts.find((item) => item.id === runtime.NB_APP.state.threadFocus);
+    if (!post) throw new Error("focused Nightboard message was not found");
+    const ref = runtime.NB_MAP.objectRef(post);
+    const projectionId = runtime.NB_MAP.projectionIdForPath(runtime.NB_APP.state.path);
+    return {
+      objectId: ref.objectId,
+      canonical: runtime.NB_CORE.objectUrl(ref, { origin: location.origin }),
+      contextual: runtime.NB_CORE.objectUrl(ref, { projectionId, origin: location.origin }),
+      exact: runtime.NB_CORE.objectUrl({ ...ref, revision: ref.revision ?? "fixture-revision" }, {
+        revision: ref.revision ?? "fixture-revision",
+        origin: location.origin,
+      }),
+    };
+  });
+});
+
+Then("canonical contextual and exact links identify the same message without private content", async function () {
+  assert.ok(nightboardLinkResult);
+  const parsed = await requirePage().evaluate((links) => {
+    const core = (window as unknown as {
+      NB_CORE: { parseObjectUrl(url: string): { objectId?: string; projectionId?: string; revision?: string } };
+    }).NB_CORE;
+    return [core.parseObjectUrl(links.canonical), core.parseObjectUrl(links.contextual), core.parseObjectUrl(links.exact)];
+  }, nightboardLinkResult);
+  assert.deepEqual(parsed.map((item) => item.objectId), Array(3).fill(nightboardLinkResult.objectId));
+  assert.equal(new URL(nightboardLinkResult.canonical).searchParams.has("projection"), false);
+  assert.ok(new URL(nightboardLinkResult.contextual).searchParams.get("projection"));
+  assert.ok(new URL(nightboardLinkResult.exact).searchParams.get("revision"));
+  assert.doesNotMatch(JSON.stringify(nightboardLinkResult), /DO_NOT_LEAK_7f3c/);
+});
+
+When("I save and reopen the Nightboard needs-review view", async function () {
+  const page = requirePage();
+  nightboardSavedViewResult = await page.evaluate(() => {
+    const runtime = window as unknown as {
+      NB_QUERY: { parse(query: string): unknown; normalize(ast: unknown): { ast: unknown; canonical: string }; apply(entries: unknown[], ast: unknown): unknown[] };
+      NB_SAVED_VIEWS: { save(input: Record<string, unknown>): { projectionId: string; query: string }; get(id: string): { projectionId: string; query: string } };
+      NB_MAP: { feedEntriesAt(path: string): Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }> };
+    };
+    const normalized = runtime.NB_QUERY.normalize(runtime.NB_QUERY.parse(" ( state:needs-review ) "));
+    const saved = runtime.NB_SAVED_VIEWS.save({ label: "needs review", query: normalized.canonical, ast: normalized.ast, sort: "new", visibility: "private" });
+    const reopened = runtime.NB_SAVED_VIEWS.get(saved.projectionId);
+    const entries = runtime.NB_QUERY.apply(runtime.NB_MAP.feedEntriesAt("/projects/community/channels/general"), normalized.ast) as Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }>;
+    return {
+      id: reopened.projectionId,
+      query: reopened.query,
+      resultIds: entries.filter((entry) => entry.post).map((entry) => entry.post?.ref?.objectId ?? entry.post?.objectId ?? entry.post?.id ?? ""),
+    };
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction((id) => !!(window as unknown as {
+    NB_SAVED_VIEWS?: { get(savedId: string): unknown };
+  }).NB_SAVED_VIEWS?.get(id), nightboardSavedViewResult.id);
+});
+
+Then("the saved view keeps its identity normalized query and canonical message state", async function () {
+  assert.ok(nightboardSavedViewResult);
+  const reopened = await requirePage().evaluate((id) => (window as unknown as {
+    NB_SAVED_VIEWS: { get(savedId: string): { projectionId: string; query: string } };
+  }).NB_SAVED_VIEWS.get(id), nightboardSavedViewResult.id);
+  assert.equal(reopened.projectionId, nightboardSavedViewResult.id);
+  assert.equal(reopened.query, nightboardSavedViewResult.query);
+  assert.ok(nightboardSavedViewResult.resultIds.length > 0);
+  assert.equal(new Set(nightboardSavedViewResult.resultIds).size, nightboardSavedViewResult.resultIds.length);
+});
+
+When("I traverse a Nightboard thread outline with tree keys", async function () {
+  const page = requirePage();
+  await page.evaluate(() => (window as unknown as { NB_APP: { navigate(path: string): void; openThread(id: string): void } }).NB_APP
+    .navigate("/projects/community/channels/general"));
+  await page.evaluate(() => (window as unknown as { NB_APP: { openThread(id: string): void } }).NB_APP.openThread("p3"));
+  const current = page.locator('.cn-thread-tree [role="treeitem"][tabindex="0"]');
+  await current.focus();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowDown");
+  nightboardThreadA11yResult = await page.evaluate(() => {
+    const selected = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
+    const reading = document.querySelector(".cn-thread-reading article");
+    const items = Array.from(document.querySelectorAll('.cn-thread-tree [role="treeitem"]'));
+    return {
+      selected: selected?.getAttribute("data-object-id") ?? "",
+      reading: reading?.getAttribute("data-object-id") ?? "",
+      oneTabStop: items.filter((item) => item.getAttribute("tabindex") === "0").length === 1,
+      topology: items.every((item) => Number(item.getAttribute("aria-level")) >= 1 &&
+        Number(item.getAttribute("aria-posinset")) >= 1 && Number(item.getAttribute("aria-setsize")) >= 1),
+    };
+  });
+});
+
+Then("the thread outline and reading pane report the same selected object and topology", function () {
+  assert.ok(nightboardThreadA11yResult);
+  assert.ok(nightboardThreadA11yResult.selected);
+  assert.equal(nightboardThreadA11yResult.reading, nightboardThreadA11yResult.selected);
+  assert.equal(nightboardThreadA11yResult.oneTabStop, true);
+  assert.equal(nightboardThreadA11yResult.topology, true);
+});
+
+When("I invoke namespace parent thread parent browser back and previous location", async function () {
+  nightboardNavigationActions = await requirePage().evaluate(async () => {
+    const runtime = window as unknown as {
+      NB_ACTIONS: {
+        invoke(actionId: string, input: Record<string, unknown>, context: Record<string, unknown>): Promise<unknown>;
+        lastEvent(): { actionId: string; objectId?: string };
+      };
+      NB_APP: { state: { path: string; threadFocus?: string } };
+      NB_MAP: { projectionIdForPath(path: string): string };
+    };
+    const actions = [
+      ["nav.ascend", {}],
+      ["thread.parent", {}],
+      ["history.back", {}],
+      ["history.previousLocation", {}],
+    ] as const;
+    const events: Array<{ actionId: string; objectId?: string }> = [];
+    for (const [actionId, input] of actions) {
+      await runtime.NB_ACTIONS.invoke(actionId, input, {
+        origin: "diagnostic",
+        context: "board",
+        objectId: runtime.NB_APP.state.threadFocus,
+        projectionId: runtime.NB_MAP.projectionIdForPath(runtime.NB_APP.state.path),
+      });
+      events.push(runtime.NB_ACTIONS.lastEvent());
+    }
+    return events;
+  });
+});
+
+Then("each Nightboard navigation operation reports its distinct action and outcome", function () {
+  assert.deepEqual(nightboardNavigationActions.map((event) => event.actionId), [
+    "nav.ascend",
+    "thread.parent",
+    "history.back",
+    "history.previousLocation",
+  ]);
+  assert.equal(new Set(nightboardNavigationActions.map((event) => event.actionId)).size, 4);
+});
+
+When("I compare ambiguous cd with the Nightboard global jump chooser", async function () {
+  const page = requirePage();
+  const prompt = page.locator("[data-cli]");
+  const origin = await page.evaluate(() => (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+  await prompt.fill("cd gen");
+  await prompt.press("Enter");
+  const afterCd = await page.evaluate(() => (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+  await prompt.fill("zi gen");
+  await prompt.press("Enter");
+  await page.locator("[data-jump-chooser]").waitFor({ state: "visible" });
+  nightboardJumpResult = await page.evaluate(({ originPath, cdPath }) => {
+    const candidates = Array.from(document.querySelectorAll("[data-jump-candidate]"));
+    return {
+      cdStayed: cdPath === originPath,
+      grouped: ["CURRENT", "RECENT", "SAVED VIEWS", "GLOBAL"].every((group) =>
+        !!document.querySelector(`[data-jump-group="${group}"]`)),
+      explained: candidates.length > 1 && candidates.every((candidate) =>
+        !!candidate.getAttribute("data-match-reason") &&
+        !!(candidate.getAttribute("data-object-id") || candidate.getAttribute("data-projection-id"))),
+      locationStayed: (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === originPath,
+    };
+  }, { originPath: origin, cdPath: afterCd });
+});
+
+Then("cd stays put while jump candidates await explicit acceptance with reasons", function () {
+  assert.deepEqual(nightboardJumpResult, {
+    cdStayed: true,
+    grouped: true,
+    explained: true,
+    locationStayed: true,
+  });
 });
 
 When("I operate every focused Nightboard post action by keyboard", async function () {

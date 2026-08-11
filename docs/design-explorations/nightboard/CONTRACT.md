@@ -6,6 +6,100 @@ This is what makes the surface a zen garden: markup is fixed and authored once,
 themes are CSS alone. A theme that needs a new element, a wrapper, or a changed
 attribute is not a theme — it is a fork, and the garden stops working.
 
+Object, projection, navigation, and action semantics are defined by Community
+Core and its generated browser artifact. Theme stability does not make this
+markup the source of object identity.
+
+## Object identity
+
+- `objectId` is opaque, immutable, and independent of display path, order,
+  author, title, body, excerpt, or mutable channel name.
+- Optional AT URI identifies a federated record. Optional revision/CID/event
+  identifies exact content. A revision can change while `objectId` does not.
+- Reply, root, child, sibling, mention, provenance, moderation, replacement,
+  and backlink relations use object references, never parsed aliases.
+- A missing or restricted ancestor remains a typed tombstone at its original
+  graph position. It carries no unauthorized reply, reaction, or promotion
+  capability.
+
+## Mounted projections and namespace
+
+Channels, threads, DMs, Activity, following, search, saved views, projects, and
+filesystem paths are mounted projections over the same objects. Each occurrence
+retains its object ID while projection ID, alias path, contextual parent, order,
+depth, and capabilities may differ.
+
+The filesystem is a namespace adapter. A message is an enterable capability
+object: `cat <message>` reads its body, `ls <message>` exposes virtual
+`body.md`, `metadata.json`, `replies/`, `backlinks/`, and `receipts/`, and
+`cd <message>` enters its context. A visual thread may omit those virtual files
+without making them unavailable to CLI/API clients.
+
+## Navigation state and operations
+
+The workbench is a **hierarchical navigator + detail blade**. The navigator is
+reused as path context changes; this is not a one-column-per-level Miller-column
+layout.
+
+Location, focused object, selected action target, detail object, thread root,
+reply target, reading anchor, and top interaction layer are separate. Movement
+may update focus and preview but does not mark read, execute, sign, or push
+history unless the named action requires it.
+
+- `nav.ascend` and `cd ..` follow the projection parent.
+- `thread.parent` follows `inReplyTo`.
+- `history.back` and `history.forward` restore browser entries.
+- `history.previousLocation` and `cd -` restore the prior shell location.
+- `cancel.topLayer` closes exactly one visible layer and returns focus to its
+  opener. Escape never implies parent or browser history.
+- `cd` and `board_navigate` are deterministic and can fail. `jump.best` (`z`)
+  ranks global destinations; `jump.interactive` (`zi`, `/jump`, `board_jump`)
+  exposes CURRENT, RECENT, SAVED VIEWS, and GLOBAL candidates with reasons and
+  requires acceptance when ranking is ambiguous.
+
+## Links and privacy
+
+- Canonical: `/board.html?object=<objectId>`.
+- Contextual: `/board.html?projection=<projectionId>&focus=<objectId>`.
+- Exact: `/board.html?object=<objectId>&revision=<revision>`.
+
+Copied links use the current origin. Contextual failure falls back to the
+canonical object and explains the fallback in the status region. Existing
+`nightboard:` locators and legacy slug paths resolve as aliases and modernize
+the URL. URLs, history, notification targets, share locators, and action events
+never contain private body/title text or content-derived DM aliases.
+
+## Actions and saved views
+
+One Community Core action descriptor owns action ID, label, contexts, effects,
+permission, aliases, keys, exact voice phrases, MCP schema, validation, and
+execution. Keyboard, pointer, CLI, slash, voice, macros, and WebMCP are adapters;
+their privacy-safe diagnostic events differ only by invocation origin. Macro
+migration resolves stored commands to action IDs and stays fail-closed for
+unknown, recursive, unsafe, ambiguous, or unauthorized commands.
+
+Saved views have immutable IDs and persist normalized query AST, canonical
+query, query-language version, order, label, visibility, and timestamps.
+Authorization runs before evaluation or exposure. Mutating an item in a saved
+view mutates the canonical object visible in every projection.
+
+## Accessibility interaction contract
+
+- A linear channel is a named `feed`; visible messages are positioned
+  `article`s, merge toggles `aria-busy`, and one article has the roving tab stop
+  aligned with canonical focus state. Live merge restores `{objectId,
+  pixelOffset}` or follows the tail, then politely announces the loaded count.
+- A thread is a `tree` of `treeitem`s with level, sibling position, set size,
+  expansion, selection, current-location distinction, and one roving tab stop.
+  An adjacent reading region contains the selected full article. Arrow keys,
+  Home/End, Enter, and explicit root navigation follow the APG tree contract.
+- The prompt is an editable manual-selection `combobox`. DOM focus stays in the
+  input, no option activates when the popup opens, arrows explicitly select,
+  Enter accepts only an active option, and Escape closes the popup without
+  clearing the draft. Right/End accepts ghost text only at the input end; Tab
+  keeps native focus traversal by default. Native editing, selection, clipboard,
+  and IME composition are never intercepted.
+
 ## The rule
 
 **Themes may only write CSS.** They may not add markup, scripts, or network

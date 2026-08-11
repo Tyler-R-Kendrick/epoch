@@ -36,6 +36,7 @@ and when the decision should be revisited.
 | [ADR-0026](0026-community-visual-world-course-line.md) | Superseded by 0027 | Course Line (ISOM / light civic workshop) — archived; not the product visual world. |
 | [ADR-0027](0027-community-visual-world-nightboard.md) | Accepted | Community Web ships Nightboard (Grid): CanvasUI landing, Tron/tmux-style TUI, keyboard-first board; the former renderer is not a runtime entrypoint. |
 | [ADR-0028](0028-nightboard-startup-routing-and-hobo-authoring.md) | Accepted | Combine resumable startup work behind Ctrl+U, keep model routes workspace-sticky for cache locality, and make Bo use deterministic HoBo templates/docs/trainable stubs. |
+| [ADR-0029](0029-community-canonical-objects-and-projections.md) | Accepted | Give Community objects stable identity, mount navigable projections over one explicit graph, separate exact navigation from fuzzy jump, and generate every action surface from one registry. |
 
 ## Supporting Decision Records
 

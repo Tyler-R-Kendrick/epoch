@@ -1,6 +1,9 @@
 # Nightboard (Epoch)
 
 **Canonical Epoch Community Web app** ([ADR-0027](../../design-decisions/0027-community-visual-world-nightboard.md)).
+Stable object/projection/navigation semantics are defined by
+[ADR-0029](../../design-decisions/0029-community-canonical-objects-and-projections.md)
+and the [semantic contract](CONTRACT.md).
 Root [`DESIGN.md`](../../../DESIGN.md) is derived from this source tree. Impeccable
 iterates on these shipped files; there is no separate legacy UI or parity target.
 Surface brief: [`.impeccable-surface.md`](.impeccable-surface.md) (Operate board).
@@ -86,11 +89,11 @@ count instead of interrupting.
 | `u` / `d` on a message | Upvote / downvote |
 | `a` / `f` on a message | Open reactions / fold its reply chain |
 | `r` / `Shift+R` on a message | Reply / repost |
-| `s` / `y` on a message | Share its `nightboard:` link / copy the optimized thread |
+| `s` / `y` on a message | Share an HTTPS contextual link / copy the optimized thread |
 | `Home` / `End` | First / last visible message |
 | `1`–`9` | Open a post by its number |
 | `Esc` | Home feed (or leave columns for the prompt) |
-| `Tab` | Swap prompt ↔ panel focus (completes suggestions only while the menu is open) |
+| `Tab` | Follow normal focus order; completion requires an explicitly active option |
 | `[view]` | Fold open the Lucene feed query (power; not always on) |
 | `T` | Re-apply Grid theme |
 | `G` | Open the garden |
@@ -147,9 +150,12 @@ Graph, shell and diff turned out to be three thirds of one thing. The graph
 showed lineage, the shell moved fast, the diff read work as work — and all three
 navigated badly. They are now one experience on one model:
 
-**The board is a filesystem.** Columns, command line and breadcrumb all address
-the same paths, so clicking a folder and typing `cd` are the same operation
-rather than two features that happen to agree.
+**The board mounts a filesystem-like namespace over canonical Community
+objects.** The hierarchical navigator, command line, and breadcrumb address the
+same projection paths, while stable object IDs and explicit reply relations
+remain independent of aliases. Clicking a namespace entry and deterministic
+`cd` therefore invoke the same navigation action without making the path the
+object's identity.
 
 ```
 /projects/community/channels/general/003-scout-drafted-a-plan
@@ -340,7 +346,7 @@ never cloned into a stack of path-segment columns.
 | `→` / `l` | reload nav into selected **dir**; on a **channel** (terminal), open its detail feed while the navbar stays on the channels list; on a marked feed post in **detail**, open its **thread**; on other text files, open the editor; on **home feed** (detail focused), open the current row |
 | `↑↓` / `jk` | move within the focused surface — nav list (**preview** updates), home-feed rows (when home owns focus), or previous/next post in the **detail** channel feed / thread |
 | `Enter` | **Activate** the preview — open a **channel** (detail feed), post **thread**, editor, or slide into dir; on home, open the current row |
-| `Tab` | swap prompt ↔ panels (complete when suggestions are open); from **post detail**, focusing the prompt **arms a reply** |
+| `Tab` | normal focus traversal; from **post detail**, focusing the prompt **arms a reply** |
 | `d` | **Dismiss** — home stack / Activity / notification / DM alert under the cursor |
 | `m` | **Mark read** — home feed (keep in stack, clear unread) |
 | `e` | open the terminal editor for the selected file/post |
@@ -652,7 +658,8 @@ not costume:
   `score` `sort`. Boolean: `AND` (default), `OR`, `NOT`/`-`, groups `(…)`.
   `/view <query>` or `/q` from the prompt; `?` on the feed bar prints help.
   Matching keeps parent posts so threads stay coherent.
-- **Share** — copies a `nightboard:` link for the current place.
+- **Share** — defaults to the current-origin HTTPS contextual link; its menu
+  distinguishes canonical, contextual, and exact-revision links.
 
 ## Drawing with characters
 
@@ -899,9 +906,10 @@ arriving, the marked node breathing once after a jump — sits behind
 the load-bearing properties: a live tick keeps the surface, the caret and the
 animation; a new post animates in while the rest of the board does not.
 
-One coherent responsive strategy: three miller columns at desk width, listing
-plus preview at mid width, and swipe pages with scroll-snap on a phone. The
-frame itself never scrolls as a page — every scrolling surface is a named pane.
+One coherent responsive strategy: hierarchical navigator + detail blade at desk
+width, stacked outline + reading pane at mid width, and swipeable named panes
+with scroll-snap on a phone. This is not one column per path level. The frame
+itself never scrolls as a page — every scrolling surface is a named pane.
 
 ## Durable page state, profile, and spaces
 
