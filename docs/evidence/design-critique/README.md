@@ -73,3 +73,37 @@ Trust theater (provenance behind one disclosure).
 - Dev-feed row height spread remains ~2x, driven by whether an item has a body
   and one or two actions.
 - Repo-plane h1 is still the repo slug; the breadcrumb carries the community.
+
+## Canonical Nightboard promotion — PASS (2026-08-10)
+
+The reviewed change does not redesign Nightboard; it removes the superseded
+Civic Workshop local/deployment entrypoints so the already-approved Nightboard
+landing and board are the product users actually receive.
+
+Persona: `@persona.github_open_source_contributor` / GitHub open-source contributor
+Surface: `/` → `/board.html`
+DESIGN.md north star check: **pass** — the shipped route is now the Grid world instead of Course Line.
+Craft (hierarchy, density, typography, color rarity): **pass** — desktop and mobile inspection preserved the FIGlet hierarchy, cyan/magenta rarity, and character-grid density.
+Playfulness / wonder (craft delight, not slop): **pass** — CanvasUI decrypt/glitch/VHS wiring and the grid road are loaded from the canonical build.
+Competitive bar: **pass** — the first action is the explicit Enter-the-board journey, followed by the keyboard collaboration surface rather than a generic forge shell.
+Accessibility / honesty / trust legibility: **pass** — the user journey asserts the landing, CanvasUI runtime, board mount, grid road, and keyboard cue; axe remains a required gate.
+Unacceptable issues: none.
+Delight opportunities: keep the source single; do not recreate a parallel package renderer.
+
+Persona: `@persona.maintainer` / maintainer
+Surface: `/board.html`
+DESIGN.md north star check: **pass** — the tmux-style board is the only app entrypoint.
+Craft (hierarchy, density, typography, color rarity): **pass** — the family palette audit is clean after removing six stale Course Line manifest colors and four off-ramp type literals.
+Playfulness / wonder (craft delight, not slop): **pass** — onboarding teaches the keyboard model in the board itself without replacing the working surface.
+Competitive bar: **pass** — dense channels, activity, status, and first-keys help communicate a real operating place rather than gray moderation chrome.
+Accessibility / honesty / trust legibility: **pass** — first-visit controls expose Esc and Ctrl+Space, and no legacy route can present contradictory live/snapshot UI.
+Unacceptable issues: none.
+Delight opportunities: preserve the direct brand-to-landing and Esc-to-home exits.
+
+Evidence: `.optimizexp/audits/token-conformance.json` (0 findings),
+`.optimizexp/defects.json` (no open defects),
+`features/community_web_experience.feature`,
+`test/features/community_web_experience_steps.ts`, and
+`docs/evidence/nightboard/`. The deterministic Impeccable detector returned no
+findings for `docs/design-explorations/nightboard/index.html`; rendered DOM and
+desktop/mobile screenshots were inspected from the local canonical server.

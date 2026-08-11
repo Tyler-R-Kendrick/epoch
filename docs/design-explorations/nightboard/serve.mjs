@@ -19,9 +19,20 @@ const MIME = {
   ".svg": "image/svg+xml",
 };
 
-export async function serveNightboard() {
+export async function serveNightboard({ host = "127.0.0.1", port = 0 } = {}) {
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new Error(`Invalid port: ${port}`);
+  }
   const server = createServer(async (req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
+    if (path === "/healthz") {
+      res.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end("ok\n");
+      return;
+    }
+    if (path === "/community" || path.startsWith("/community/")) {
+      res.writeHead(307, { location: path === "/community" ? "/" : "/board.html" }).end();
+      return;
+    }
     const file = join(ROOT, path === "/" || path === "\\" ? "index.html" : path.replace(/^[/\\]+/, ""));
     if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
     try {
@@ -32,9 +43,11 @@ export async function serveNightboard() {
       res.writeHead(404).end("not found");
     }
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => server.listen(port, host, resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("Nightboard did not bind a TCP port");
   return {
-    url: `http://127.0.0.1:${server.address().port}/`,
+    url: `http://${host}:${address.port}/`,
     close: () => new Promise((resolve) => server.close(resolve)),
   };
 }

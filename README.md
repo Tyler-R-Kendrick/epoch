@@ -26,9 +26,9 @@ Core SDK, Node CLI, WASM-safe exports, browser integration adapters, an
 plane domain and SDK surfaces. `Epoch.Platform.Web` is the PWA hosting control
 plane for deploying Epoch-related services. `Epoch.Community.Web` is the
 GitHub-like community app that Platform Web can deploy and manage as a
-separate service, and its static site build is itself materialized through an
-Epoch repository so site changes have signed branch, merge, version, and
-rollback evidence. Community behavior is split through
+separate service. Its canonical UI is Nightboard: the CanvasUI-powered creator
+landing at `/` and the tmux-style, keyboard-first board at `/board.html`.
+Community behavior is split through
 `Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.CLI`, and
 `Epoch.Community.Web`. `Epoch.Community.Operations.Web` is a separate
 Coolify-inspired deployable extension for sandbox workspaces, project hosting,
@@ -67,6 +67,14 @@ Install dependencies and build the workspace:
 ```bash
 npm ci
 npm run build
+```
+
+Run the canonical Community app locally:
+
+```bash
+npm run dev:community-web
+# Landing: http://127.0.0.1:8787/
+# Board:   http://127.0.0.1:8787/board.html
 ```
 
 Run the CLI from the source checkout with the package bin shorthand:

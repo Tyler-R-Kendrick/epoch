@@ -3,18 +3,16 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build && npm run vercel:community-web",
   "outputDirectory": "packages/Epoch.Community.Web/.vercel-output",
-  "rewrites": [
+  "redirects": [
     {
-      "source": "/",
-      "destination": "/community/index.html"
+      "source": "/community",
+      "destination": "/",
+      "permanent": true
     },
     {
-      "source": "/community/(.*)",
-      "destination": "/community/index.html"
-    },
-    {
-      "source": "/healthz",
-      "destination": "/healthz"
+      "source": "/community/:path*",
+      "destination": "/board.html",
+      "permanent": false
     }
   ]
 }

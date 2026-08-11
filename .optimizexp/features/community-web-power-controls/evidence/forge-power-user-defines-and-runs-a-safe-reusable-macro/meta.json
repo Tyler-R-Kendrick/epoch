@@ -1,0 +1,65 @@
+{
+  "featureId": "community-web-power-controls",
+  "scenarioSlug": "forge-power-user-defines-and-runs-a-safe-reusable-macro",
+  "personaIds": [
+    "screen-reader-power-user",
+    "forge-community-power-user",
+    "agentic-coding-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-11T02:05:46.789Z",
+  "runId": "20260810-ux-nightboard-power-controls",
+  "screen": {
+    "widthPx": 1280,
+    "heightPx": 720,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 159487,
+    "sha256": "a2482f17c8746398fcd9382d1d041f81413ecb40603d2ef48cf0f327bd71154f"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I open `http://127.0.0.1:8787/` and enter Nightboard"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I run `macro set review = cd /projects/epoch/changes; view state:needs-review`"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the transcript says macro review was saved"
+    },
+    {
+      "id": "claim-4",
+      "text": "And `macro list` shows review and its two existing Nightboard commands"
+    },
+    {
+      "id": "claim-5",
+      "text": "When I run `macro run review`"
+    },
+    {
+      "id": "claim-6",
+      "text": "Then Nightboard navigates to `/projects/epoch/changes` and applies `state:needs-review`"
+    },
+    {
+      "id": "claim-7",
+      "text": "And the macro remains after reloading the page"
+    }
+  ],
+  "frames": [],
+  "repro": {
+    "url": "http://127.0.0.1:8787/board.html",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "playwright screenshot captured"
+  ]
+}

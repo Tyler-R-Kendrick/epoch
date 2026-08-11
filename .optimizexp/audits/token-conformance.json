@@ -40,52 +40,7 @@
     "avatar": "#0c121c",
     "avatar-ink": "#c8d0d8"
   },
-  "summary": {
-    "near-miss-palette": 6
-  },
-  "pass": false,
-  "findings": [
-    {
-      "rule": "near-miss-palette",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/app.ts",
-      "line": 26,
-      "detail": "#1a1a17 is within 17 RGB of palette surface-raised (#0c121c) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-web",
-      "file": "packages/Epoch.Community.Web/src/app.ts",
-      "line": 27,
-      "detail": "#f4f2ea is within 58 RGB of palette ink (#c8d0d8) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-operations-web",
-      "file": "packages/Epoch.Community.Operations.Web/src/index.ts",
-      "line": 284,
-      "detail": "#1a1a17 is within 17 RGB of palette surface-raised (#0c121c) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "community-operations-web",
-      "file": "packages/Epoch.Community.Operations.Web/src/index.ts",
-      "line": 285,
-      "detail": "#f4f2ea is within 58 RGB of palette ink (#c8d0d8) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "platform-web",
-      "file": "packages/Epoch.Platform.Web/src/index.ts",
-      "line": 186,
-      "detail": "#1a1a17 is within 17 RGB of palette surface-raised (#0c121c) but not equal"
-    },
-    {
-      "rule": "near-miss-palette",
-      "package": "platform-web",
-      "file": "packages/Epoch.Platform.Web/src/index.ts",
-      "line": 187,
-      "detail": "#f4f2ea is within 58 RGB of palette ink (#c8d0d8) but not equal"
-    }
-  ]
+  "summary": {},
+  "pass": true,
+  "findings": []
 }

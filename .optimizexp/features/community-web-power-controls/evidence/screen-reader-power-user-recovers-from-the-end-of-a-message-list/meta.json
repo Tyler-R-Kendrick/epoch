@@ -1,0 +1,55 @@
+{
+  "featureId": "community-web-power-controls",
+  "scenarioSlug": "screen-reader-power-user-recovers-from-the-end-of-a-message-list",
+  "personaIds": [
+    "screen-reader-power-user",
+    "forge-community-power-user",
+    "agentic-coding-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-11T02:25:00.000Z",
+  "runId": "20260810-ux-nightboard-power-controls",
+  "screen": {
+    "widthPx": 390,
+    "heightPx": 844,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 43254,
+    "sha256": "bc0efc38a1c49276b456c79cc5f5040162c264a7c13bab0316b478092213fb38"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given focus is on the last message in a Nightboard channel"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I press ArrowDown"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then focus remains on the last message without scrolling the page unexpectedly"
+    },
+    {
+      "id": "claim-4",
+      "text": "And pressing ArrowUp moves to the previous message"
+    }
+  ],
+  "frames": [],
+  "repro": {
+    "url": "http://127.0.0.1:8787/board.html",
+    "viewport": "390x844",
+    "via": "capture-evidence",
+    "captureTool": "agent-browser"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "Harness capture was re-recorded with agent-browser at 390x844; accessibility-tree ref e45 focused the last message before ArrowDown and ArrowUp."
+  ]
+}

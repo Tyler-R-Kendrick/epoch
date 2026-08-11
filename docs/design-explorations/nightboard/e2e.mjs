@@ -490,6 +490,139 @@ const CASES = [
     },
   },
   {
+    name: "keyboard: message list has one roving focus target and opens the selected thread",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(80);
+      await page.focus("[data-cli]");
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(80);
+      const entered = await page.evaluate(() => {
+        const active = document.activeElement?.closest?.(".cn-comment");
+        return {
+          active: active?.getAttribute("data-key") || null,
+          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+          current: active?.getAttribute("aria-current") || null,
+          role: active?.getAttribute("role") || null,
+          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+        };
+      });
+      if (!(entered.active && entered.active === entered.here && entered.current === "true" &&
+          entered.role === "article" && entered.tabbable === 1)) {
+        return log("Tab did not enter one selected message: " + JSON.stringify(entered));
+      }
+
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(80);
+      const moved = await page.evaluate(() => {
+        const active = document.activeElement?.closest?.(".cn-comment");
+        return {
+          active: active?.getAttribute("data-key") || null,
+          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+          mark: window.NB_APP.state.feedMark,
+          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+        };
+      });
+      if (!(moved.active && moved.active !== entered.active && moved.active === moved.here &&
+          moved.active === moved.mark && moved.tabbable === 1)) {
+        return log("ArrowDown did not move message focus: " + JSON.stringify({ entered, moved }));
+      }
+
+      await page.keyboard.press("End");
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(80);
+      const end = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        last: Array.from(document.querySelectorAll(".cn-comment")).at(-1)?.getAttribute("data-key") || null,
+      }));
+      if (!(end.active && end.active === end.last)) {
+        return log("End/boundary did not retain the last message: " + JSON.stringify(end));
+      }
+      await page.keyboard.press("ArrowUp");
+      await page.waitForTimeout(80);
+      const recovered = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+      }));
+      if (!(recovered.active && recovered.active !== end.active && recovered.active === recovered.here)) {
+        return log("ArrowUp did not recover from list end: " + JSON.stringify({ end, recovered }));
+      }
+
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
+      const opened = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+      }));
+      if (!(opened.thread === recovered.active && opened.active === recovered.active && opened.threadCtx)) {
+        return log("Enter did not open/focus selected thread: " + JSON.stringify(opened));
+      }
+      return true;
+    },
+  },
+  {
+    name: "power: one saved macro powers prompt, agent tool, and exact voice phrase",
+    run: async (page, log) => {
+      await page.evaluate(() => localStorage.removeItem("nb-power-actions-v1"));
+      await page.reload();
+      await page.waitForSelector("[data-cli]");
+      const prompt = page.locator("[data-cli]");
+      await prompt.fill("macro set review = cd /projects/community/channels/general; view state:open");
+      await prompt.press("Enter");
+      await prompt.fill("macro voice review = start review");
+      await prompt.press("Enter");
+
+      const defined = await page.evaluate(() => ({
+        actions: window.NB_POWER?.list() || [],
+        tools: window.NB_MCP.list().map((tool) => tool.name),
+        exact: window.NB_SPEECH.parseUtterance("start review", "commands"),
+        near: window.NB_SPEECH.parseUtterance("start reviewing", "commands"),
+      }));
+      if (defined.actions.length !== 1 || defined.actions[0].name !== "review") {
+        return log("macro not saved: " + JSON.stringify(defined));
+      }
+      if (!defined.tools.includes("user_review")) return log("custom agent tool missing");
+      if (!(defined.exact.kind === "command" && defined.exact.line === "macro run review")) {
+        return log("exact voice phrase did not resolve: " + JSON.stringify(defined.exact));
+      }
+      if (defined.near.kind !== "unknown") {
+        return log("near voice phrase should fail closed: " + JSON.stringify(defined.near));
+      }
+
+      const called = await page.evaluate(async () => {
+        const result = await window.NB_MCP.call("user_review", {});
+        return {
+          error: !!result.isError,
+          path: window.NB_APP.state.path,
+          query: window.NB_APP.state.feedQuery,
+        };
+      });
+      if (called.error || called.path !== "/projects/community/channels/general" ||
+          called.query !== "state:open") {
+        return log("agent tool did not run saved macro: " + JSON.stringify(called));
+      }
+
+      await page.reload();
+      await page.waitForSelector("[data-cli]");
+      const persisted = await page.evaluate(() => window.NB_POWER?.list() || []);
+      if (persisted.length !== 1 || persisted[0].voice !== "start review") {
+        return log("macro did not persist: " + JSON.stringify(persisted));
+      }
+
+      await page.locator("[data-cli]").fill("macro set unsafe = javascript:alert(1)");
+      await page.locator("[data-cli]").press("Enter");
+      const refused = await page.evaluate(() => ({
+        names: window.NB_POWER.list().map((action) => action.name),
+        out: Array.from(document.querySelectorAll(".cn-line")).map((line) => line.textContent).join("\n"),
+      }));
+      if (refused.names.includes("unsafe") || !/unknown command/i.test(refused.out)) {
+        return log("unsafe macro was not refused: " + JSON.stringify(refused));
+      }
+      return true;
+    },
+  },
+  {
     name: "touch: tapping a channel selects; Enter opens",
     touch: true,
     run: async (page, log) => {
@@ -2713,6 +2846,29 @@ const CASES = [
       }
       if (!clicked.ok) return log(clicked.reason + " tabs=" + JSON.stringify({ afterTab, afterTab2 }));
       return /\/projects/.test(clicked.value) || log("click did not accept: " + JSON.stringify(clicked));
+    },
+  },
+  {
+    name: "power: cd ../ keeps relative path typeahead in ai mode",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const completion = await page.evaluate(() => {
+        // Dispatch atomically so model availability cannot change prompt mode
+        // between setup and the input event under test.
+        window.NB_APP.state.ai = true;
+        const input = document.querySelector("[data-cli]");
+        input.value = "cd ../";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return {
+          expanded: input.getAttribute("aria-expanded"),
+          ai: window.NB_APP.state.ai,
+          kind: window.NB_APP.state.completion?.kind,
+          candidates: Array.from(document.querySelectorAll(".cn-cand span"))
+            .map((el) => el.textContent || ""),
+        };
+      });
+      return completion.ai === true && completion.expanded === "true" && completion.kind === "path" &&
+        completion.candidates.length > 0 || log("relative typeahead missing: " + JSON.stringify(completion));
     },
   },
   {

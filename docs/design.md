@@ -309,20 +309,16 @@ infrastructure. It exposes deployable service descriptors for the Epoch node,
 object store, sync seed, and any explicitly registered Epoch app. Its
 `communityWorkflows` surface is intentionally empty.
 
-`Epoch.Community.Web` is a separate PWA SPA definition for the Epoch community
-product. It consumes `Epoch.Community.Core` to read repository browsing, issue
-tracking, change review, discussions, maintainer profiles, release discovery,
-and organization-space data from an API client. It exports a generic deployment
-target so a host can register Community with Platform Web without Platform Web
-importing Community packages. Its rendered shell includes the Epoch Community
-visual design system: root design tokens, a skip link, responsive workflow rail,
-repository cards, and a signed-history graph documented in
-[DESIGN.md](../DESIGN.md). Its deployable static site can be produced by
-`materializeCommunityWebSiteWithEpoch()`, which stages the rendered site inside
-an `EpochRepository`, creates a draft view for the site change, records and
-approves that change, promotes it back to `main`, records a rollback target,
-creates a signed version, materializes that version, and writes an exported
-repository snapshot next to the static output.
+`Epoch.Community.Web` is a separate deployable Epoch community product. Its
+canonical browser runtime is Nightboard: a CanvasUI creator landing at `/` and
+a tmux-style, keyboard-first board at `/board.html`, both sourced from
+`docs/design-explorations/nightboard`. The local server and Vercel static build
+use that same source tree, so no second visual shell can drift into production.
+`Epoch.Community.Core` and the package model still own the API-facing repository,
+issue, review, discussion, profile, and release contracts used by CLI and
+integration code. `materializeCommunityWebSiteWithEpoch()` remains available to
+produce signed-history snapshots, but its historical document renderer is not a
+local or deployment entrypoint.
 
 Community Web design is driven by design thinking, user-centric design, and
 human-centered design. The default persona is a GitHub open-source contributor
@@ -342,7 +338,9 @@ See [Epoch Platform Packages](platforms.md) and
 [ADR-0010](design-decisions/0010-epoch-community-design-system.md) for the
 Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
-Community Web dogfooding decision.
+Community Web dogfooding history and
+[ADR-0027](design-decisions/0027-community-visual-world-nightboard.md) for the
+canonical runtime decision.
 
 ### Federated Community and gossip (shipped MVP)
 

@@ -388,6 +388,7 @@
       roots = [walk];
       if (!markId) markId = opts.threadOf;
     }
+    var keyboardId = markId || null;
 
     function subtreeCount(p) {
       return (kids[p.id] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
@@ -418,9 +419,13 @@
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
       var html = '<article class="cn-comment" data-key="' + esc(p.id) + '"' +
+        ' role="article" tabindex="' + (p.id === keyboardId ? "0" : "-1") + '"' +
+        ' aria-current="' + (p.id === keyboardId ? "true" : "false") + '"' +
+        ' aria-label="Message by ' + esc(p.who) + ': ' +
+          esc(String(p.subject || p.body || "").slice(0, 120)) + '"' +
         ' data-kind="' + esc(member.kind) + '" data-state-of="' + esc(p.state) + '"' +
         ' data-depth="' + depth + '"' +
-        (markId && p.id === markId ? ' data-here="true"' : "") +
+        (p.id === keyboardId ? ' data-here="true"' : "") +
         (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
         '<div class="cn-rails" data-key="rails-' + esc(p.id) + '">' + rails + "</div>" +
         '<div class="cn-vote" data-key="vote-' + esc(p.id) + '">' +
@@ -470,6 +475,7 @@
     }
 
     var sortedRoots = sortPosts(roots, sort, votes);
+    if (!keyboardId && sortedRoots[0]) keyboardId = sortedRoots[0].id;
     var matchNote = "";
     if (queryInfo && feedQuery && !queryInfo.error) {
       matchNote = '<div class="cn-feed-match" data-key="feed-match">' +
@@ -482,7 +488,7 @@
         "query error: " + esc(queryInfo.error) + "</div>";
     }
     return matchNote +
-      '<div class="cn-tree" data-feed-sort="' + esc(sort) + '"' +
+      '<div class="cn-tree" role="feed" aria-label="Channel messages" data-feed-sort="' + esc(sort) + '"' +
       (feedQuery ? ' data-query="true"' : "") + ">" +
       sortedRoots.map(function (p) { return nodeHtml(p, 0, []); }).join("") +
       "</div>";
@@ -1544,6 +1550,7 @@
         { keys: "/attach", desc: "open | list | clear attachments" },
         { keys: "/act", desc: "Context action — reply, channel, project, voice, share" },
         { keys: "/activity", desc: "Open Activity notifications" },
+        { keys: "macro / skill", desc: "Define or run a saved prompt · agent · voice action" },
       ],
     },
     {
@@ -1616,7 +1623,8 @@
         { keys: "nest rail", desc: "Collapse that depth" },
         { keys: "[+] [-]", desc: "Upvote / downvote" },
         { keys: "reply", desc: "Arm the prompt to reply" },
-        { keys: "j / k", desc: "Previous / next post thread (keeps thread focus)" },
+        { keys: "j k / ↑ ↓", desc: "Previous / next visible message (roots and replies)" },
+        { keys: "Home / End", desc: "First / last visible message" },
         { keys: "v", desc: "Cycle feed sort",
           note: function (ctx) { return "now: " + (ctx.sort || "hot"); } },
         { keys: "hot new top", desc: "Default sorts — pin more with [+]" },
@@ -2876,6 +2884,8 @@
     [data-exp="console"] .cn-comment:hover{background:color-mix(in srgb,var(--nb-surface) 65%,transparent)}
     [data-exp="console"] .cn-comment[data-here=true]{background:var(--nb-surface);
       box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-comment:focus-visible{outline:2px solid var(--nb-accent);
+      outline-offset:-2px;background:var(--nb-surface)}
     [data-exp="console"] .cn-comment button,
     [data-exp="console"] .cn-comment a{cursor:pointer}
     [data-exp="console"] .cn-comment[data-state-of=open] .cn-comment-head [data-c=state]{color:var(--nb-ink-dim)}
@@ -3921,7 +3931,7 @@
         if (ed && ed.focused && ed.active && ed.active.path === postPath) {
           preview = viewFileEditor(selected, postPath, state);
         } else if (state.threadFocus) {
-          preview = viewTree(feedEntries, state.threadFocus, state.folded, sort, votes,
+          preview = viewTree(feedEntries, state.feedMark || state.threadFocus, state.folded, sort, votes,
             state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
         } else {
           preview = viewTree(feedEntries, selected.post.id, state.folded, sort, votes,
@@ -3945,7 +3955,7 @@
         if (edPost) {
           preview = viewFileEditor(edPost, state.editor.active.path, state);
         } else if (state.threadFocus) {
-          preview = viewTree(insideFeed, state.threadFocus, state.folded, sort, votes,
+          preview = viewTree(insideFeed, state.feedMark || state.threadFocus, state.folded, sort, votes,
             state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
         } else {
           preview = viewTree(insideFeed, insideMark, state.folded, sort, votes,

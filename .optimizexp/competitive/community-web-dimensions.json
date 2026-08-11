@@ -181,10 +181,12 @@
         "discord-power-user"
       ],
       "featureIds": [
-        "community-web-first-use"
+        "community-web-first-use",
+        "community-web-power-controls"
       ],
       "evidencePaths": [
-        ".optimizexp/features/community-web-first-use/evidence/buzz-agent-members/"
+        ".optimizexp/features/community-web-first-use/evidence/buzz-agent-members/",
+        ".optimizexp/features/community-web-power-controls/evidence/agentic-coding-power-user-invokes-the-same-macro-as-a-tool-and-exact-voice-phrase/"
       ],
       "metricFloor": {
         "harms": 1,
@@ -193,8 +195,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Attach real ACP to liveAgentIds",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:37:49.532Z"
+      "lastRunId": "20260810-ux-nightboard-power-controls",
+      "lastScoredAt": "2026-08-11T02:25:00.000Z"
     },
     {
       "id": "receipts",
@@ -274,13 +276,15 @@
       ],
       "featureIds": [
         "community-web-responsive-craft",
-        "community-web-first-use"
+        "community-web-first-use",
+        "community-web-power-controls"
       ],
       "evidencePaths": [
         ".optimizexp/audits/token-conformance.json",
         "docs/evidence/community-web/axe.json",
         ".optimizexp/features/community-web-responsive-craft/evidence/design-power-user-audits-narrow-layout-and-touch-targets/",
-        "docs/evidence/community-web/community_web.feature.json"
+        "docs/evidence/community-web/community_web.feature.json",
+        ".optimizexp/features/community-web-power-controls/evidence/screen-reader-power-user-traverses-messages-with-one-roving-tab-stop/"
       ],
       "metricFloor": {
         "harms": 1,
@@ -289,8 +293,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Craft moments are covered by scenarios; next pass is motion and iconography specification",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastRunId": "20260810-ux-nightboard-power-controls",
+      "lastScoredAt": "2026-08-11T02:25:00.000Z"
     },
     {
       "id": "persistence",
@@ -341,10 +345,12 @@
         "discord-power-user"
       ],
       "featureIds": [
-        "community-web-daily-navigation"
+        "community-web-daily-navigation",
+        "community-web-power-controls"
       ],
       "evidencePaths": [
-        "docs/evidence/community-web/community_web.feature.json"
+        "docs/evidence/community-web/community_web.feature.json",
+        ".optimizexp/features/community-web-power-controls/evidence/screen-reader-power-user-recovers-from-the-end-of-a-message-list/"
       ],
       "metricFloor": {
         "harms": 1,
@@ -352,7 +358,9 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Moderator decision actions (resolve, hold) recorded from the ops queue itself"
+      "smallestExperiment": "Moderator decision actions (resolve, hold) recorded from the ops queue itself",
+      "lastRunId": "20260810-ux-nightboard-power-controls",
+      "lastScoredAt": "2026-08-11T02:25:00.000Z"
     }
   ]
 }

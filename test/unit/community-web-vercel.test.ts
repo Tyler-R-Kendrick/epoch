@@ -27,6 +27,11 @@ interface VercelConfig {
     readonly source: string;
     readonly destination: string;
   }[];
+  readonly redirects?: readonly {
+    readonly source: string;
+    readonly destination: string;
+    readonly permanent: boolean;
+  }[];
 }
 
 export async function runCommunityWebVercelTests(): Promise<void> {
@@ -342,11 +347,11 @@ function vercelConfigBuildsTheCommunityWebOutput(): void {
   assert.equal(config.installCommand, "npm install");
   assert.equal(config.buildCommand, "npm run build && npm run vercel:community-web");
   assert.equal(config.outputDirectory, "packages/Epoch.Community.Web/.vercel-output");
-  assert.deepEqual(config.rewrites?.map((rewrite) => rewrite.source), [
-    "/",
-    "/community/(.*)",
-    "/healthz",
+  assert.deepEqual(config.redirects, [
+    { source: "/community", destination: "/", permanent: true },
+    { source: "/community/:path*", destination: "/board.html", permanent: false },
   ]);
+  assert.equal(config.rewrites, undefined);
 }
 
 function renderScriptProducesDeployableCommunityHtml(): void {
@@ -358,49 +363,19 @@ function renderScriptProducesDeployableCommunityHtml(): void {
     outputDirectory,
   ], { stdio: "pipe" });
 
-  const html = readFileSync(join(outputDirectory, "community", "index.html"), "utf8");
-  assert.match(html, /<h1 id="community-title">Epoch Civic Workshop<\/h1>/u);
-  assert.match(html, /epoch\/epoch/u);
-  assert.match(html, /data-site-seal/u);
-  assert.match(html, /data-community-channel-rail/u);
-  assert.match(html, /data-product-mode="community"/u);
-  assert.match(html, /data-community-list/u);
-  assert.match(html, /data-channel="general"/u);
-  assert.match(html, /data-open-community="agent-guild"/u);
-  assert.match(html, /data-product-mode="network"/u);
-  assert.match(html, /data-dev-feed/u);
-  assert.match(html, /data-message-feed/u);
-  assert.match(html, /Dashboard widget should group revenue by region/u);
-  assert.match(html, /Welcome to Epoch Civic Workshop/u);
-  assert.match(html, /data-feed-source="snapshot"/u);
-  assert.match(html, /data-api-unconfigured/u);
-  assert.match(html, /data-surface="issues"/u);
-  assert.match(html, /data-surface="changes"/u);
-  assert.ok(existsSync(join(outputDirectory, "community", "epoch-repository.json")));
-  assert.match(html, /data-design-system="epoch-community"/u);
-  assert.match(html, /href="#community-content">Skip to content/u);
-  assert.match(html, /--epoch-color-surface: #070b12/u);
-  assert.doesNotMatch(html, /data-community-web-cockpit/u);
-  assert.doesNotMatch(html, /data-community-thread-context/u);
+  const html = readFileSync(join(outputDirectory, "index.html"), "utf8");
+  const board = readFileSync(join(outputDirectory, "board.html"), "utf8");
+  assert.match(html, /<body class="nb-landing"/u);
+  assert.match(html, /Collaborate\. Promote your work\. Get paid\./u);
+  assert.match(html, /href="board\.html"/u);
+  assert.match(board, /class="nb-bar" role="banner"/u);
+  assert.match(board, /data-gridroad/u);
+  assert.match(board, /data-mount data-exp="graph"/u);
+  assert.ok(existsSync(join(outputDirectory, "canvasui-fx.js")));
+  assert.ok(existsSync(join(outputDirectory, "landing-fx.js")));
+  assert.ok(existsSync(join(outputDirectory, "app.js")));
+  assert.equal(existsSync(join(outputDirectory, "community", "index.html")), false);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
-
-  // The PWA descriptor claims offlineShell; these assets are what back it.
-  assert.match(html, /<link rel="manifest" href="\/community\/manifest\.webmanifest">/u);
-  assert.match(html, /serviceWorker/u);
-  const manifest = JSON.parse(
-    readFileSync(join(outputDirectory, "community", "manifest.webmanifest"), "utf8"),
-  ) as { name?: string; start_url?: string; display?: string; theme_color?: string };
-  assert.equal(manifest.name, "Epoch Community");
-  assert.equal(manifest.start_url, "/community");
-  assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.theme_color, "#1a1a17");
-  const serviceWorker = readFileSync(join(outputDirectory, "community", "sw.js"), "utf8");
-  assert.match(serviceWorker, /addEventListener\("install"/u);
-  assert.match(serviceWorker, /addEventListener\("fetch"/u);
-  // Navigations fall back to the cached shell; everything else stays
-  // network-first so cached API data never poses as live community state.
-  assert.match(serviceWorker, /request\.mode === "navigate"/u);
-  assert.match(serviceWorker, /caches\.match\(SHELL_URL\)/u);
 }
 
 async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {

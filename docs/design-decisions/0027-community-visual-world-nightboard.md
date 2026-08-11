@@ -32,13 +32,12 @@ darkness for this world only.
 2. **Keyboard-first is part of the design system**, not a Nightboard-only demo:
    numbered exits, j/k navigation, reverse-video selection, bracketed TTY
    controls, and a persistent status/keys cue are normative for the product UI.
-3. **Impeccable targets Nightboard** (`docs/design-explorations/nightboard`) for
-   critique, audit, polish, and live iteration until Community Web implements
-   the same world.
-4. **Community Web migration is staged.** Until the shipping package is ported,
-   palette conformance for `community-web` may run as a burn-down (report-only
-   palette rules) so gates do not force a half-port. Structural token rules stay
-   enforced.
+3. **Nightboard is the canonical Community Web runtime.** The static deployment,
+   local development command, accessibility gate, and browser journey all serve
+   `docs/design-explorations/nightboard`; the former rendered shell has no local
+   or production entrypoint.
+4. **Impeccable targets the shipped Nightboard files** for critique, audit,
+   polish, and live iteration. There is no separate parity target.
 5. **ADR-0024’s light-only lock is amended:** Nightboard product surfaces may
    declare a dark `color-scheme` matching Grid. Pure-black fatigue and
    decorative neon spam remain banned; Grid’s near-black + cyan/magenta signal
@@ -48,12 +47,13 @@ darkness for this world only.
 
 - Agents must not reintroduce Course Line paper/terrain as the default product
   look when changing Community visuals.
-- Nightboard exploration gains DESIGN.md authority via the root file; the
-  exploration directory remains the highest-fidelity reference implementation.
-- Porting Community Web is a follow-on initiative (shell, tokens, keyboard map),
-  not a silent half-rewrite inside unrelated PRs.
+- The historical `design-explorations/nightboard` path is now the source tree
+  for the shipped app; its name does not make it a second or preview UI.
+- `/` is the CanvasUI creator landing and `/board.html` is the tmux-style
+  keyboard collaboration surface locally and in Vercel output.
 
 ## Revisit
 
-- After Community Web ships Nightboard parity (axe + feature scenarios green).
+- If the static Nightboard source moves into a package without creating a
+  second UI implementation.
 - If the owner selects a different exploration as the product world.

@@ -15,6 +15,14 @@ of the project the community built, credited to everyone who took part.
 
 Community Web is a **community-first** social coding surface inspired by Discord’s server model, with Epoch trust and ATProto network discovery.
 
+## Canonical app shell
+
+Nightboard is the only Community Web runtime. The CanvasUI-powered creator
+landing is `/`; its Enter action opens the tmux-style, keyboard-first board at
+`/board.html`. `npm run dev:community-web` and the Vercel static build both serve
+these same files. The former Civic Workshop document renderer remains a library
+compatibility surface only and is not locally served or deployed.
+
 ## Three planes
 
 | Plane | Default? | What it is | Competitor analogy |
@@ -40,6 +48,21 @@ Dev teams use Discord independent of GitHub because **culture and continuous con
 | Work | `#ideas`, `#bugs`, `#support`, `#agent-runs`, `#previews`, `#governance` | Optional; forge-backed messages may attach |
 
 Selecting a message on a work channel still opens the signed action tray (intent, agent, report, …).
+
+### Power-user controls
+
+Nightboard treats the channel as a terminal-style work surface without making
+the feed mouse-only. The prompt hands focus to one roving message article;
+`j`/`k`, arrows, Home/End, and Enter move or open it while focus, selection,
+and the current thread stay aligned.
+
+Users can save a deterministic action with
+`macro set <name> = <command>; <command>` (or the `skill` alias), bind an exact
+spoken phrase with `macro voice <name> = <phrase>`, and run it with
+`macro run <name>`. Each saved action automatically registers as a
+`user_<name>` WebMCP tool, so prompt, agent, and voice use one definition.
+Actions may compose only Nightboard's registered commands; arbitrary script or
+shell execution is rejected.
 
 ## Network Feed tabs
 

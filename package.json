@@ -154,6 +154,7 @@
     "konsistent": "konsistent",
     "docs:check": "node scripts/check-docs.mjs",
     "prepare": "node scripts/install-hooks.mjs",
+    "dev:community-web": "node scripts/serve-community-web-local.mjs",
     "vercel:community-web": "node scripts/render-community-web.mjs",
     "e2e:community-web": "node scripts/run-community-web-e2e.mjs",
     "notebooks:build": "node scripts/generate-notebooks.mjs",
