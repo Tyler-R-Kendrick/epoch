@@ -266,6 +266,9 @@ Then("Nightboard keeps the same cache route until policy or failure invalidates 
 
 When("I open the default Bo agent", async function () {
   const page = requirePage();
+  await page.waitForFunction(() => typeof (window as unknown as {
+    NB_APP?: { navigate?: unknown };
+  }).NB_APP?.navigate === "function");
   await page.evaluate(() => (window as unknown as {
     NB_APP: { navigate(path: string): void };
   }).NB_APP.navigate("/.agents/bo"));
