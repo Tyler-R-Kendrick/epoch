@@ -150,7 +150,11 @@ When("I move to the next Nightboard message and open its thread by keyboard", as
   const first = page.locator(".cn-comment:focus");
   await first.waitFor({ state: "attached" });
   const before = await first.getAttribute("data-key");
+  assert.ok(before);
   await page.keyboard.press("ArrowDown");
+  await page.waitForFunction((previous) =>
+    document.activeElement?.classList.contains("cn-comment") === true &&
+    document.activeElement.getAttribute("data-key") !== previous, before);
   const selected = page.locator(".cn-comment:focus");
   await selected.waitFor({ state: "attached" });
   nightboardFocusedMessage = (await selected.getAttribute("data-key")) ?? "";
