@@ -6581,6 +6581,226 @@ const CASES = [
     },
   },
   {
+    name: "NAV-A11Y-001 feed semantics and roving focus",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForSelector('.cn-tree[role="feed"] .cn-comment[role="article"]');
+      const feed = await page.evaluate(() => {
+        const region = document.querySelector('.cn-tree[role="feed"]');
+        const articles = Array.from(region?.querySelectorAll('.cn-comment[role="article"]') || []);
+        const current = articles.find((article) => article.getAttribute("tabindex") === "0");
+        return {
+          label: region?.getAttribute("aria-label"),
+          busy: region?.getAttribute("aria-busy"),
+          count: articles.length,
+          tabbable: articles.filter((article) => article.getAttribute("tabindex") === "0").length,
+          positions: articles.map((article) => [
+            Number(article.getAttribute("aria-posinset")),
+            Number(article.getAttribute("aria-setsize")),
+          ]),
+          current: current?.getAttribute("data-object-id"),
+          state: window.NB_APP.state.feedMark,
+        };
+      });
+      if (!feed.label || feed.busy !== "false" || feed.count < 2 || feed.tabbable !== 1) {
+        return log("feed contract incomplete: " + JSON.stringify(feed));
+      }
+      if (feed.positions.some(([position, size], index) => position !== index + 1 || size !== feed.count)) {
+        return log("feed positions incoherent: " + JSON.stringify(feed.positions));
+      }
+      return feed.current === feed.state || log("DOM/state focus differ: " + JSON.stringify(feed));
+    },
+  },
+  {
+    name: "NAV-A11Y-002 feed busy state during merge",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/bugs");
+      const observed = await page.evaluate(async () => {
+        const original = window.NB_APP.render;
+        const busy = [];
+        const observer = new window.MutationObserver(() => {
+          busy.push(document.querySelector('.cn-tree[role="feed"]')?.getAttribute("aria-busy"));
+        });
+        const feed = document.querySelector('.cn-tree[role="feed"]');
+        if (feed) observer.observe(feed, { attributes: true, attributeFilter: ["aria-busy"] });
+        window.NB_APP.state.pending = Array.from({ length: 20 }, (_, index) => ({
+          id: "a11y-live-" + index,
+          objectId: "a11y-live-" + index,
+          channel: "bugs",
+          who: "scout",
+          at: "now",
+          state: "open",
+          body: "queued accessibility message " + index,
+          sig: "sig:a11y-" + index,
+        }));
+        window.NB_APP.mergePending();
+        await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+        observer.disconnect();
+        window.NB_APP.render = original;
+        return {
+          observed: busy,
+          final: document.querySelector('.cn-tree[role="feed"]')?.getAttribute("aria-busy"),
+          status: document.querySelector("[data-status-line]")?.textContent || "",
+        };
+      });
+      return (observed.observed.includes("true") && observed.final === "false" && /loaded 20 new/i.test(observed.status)) ||
+        log("busy transition missing: " + JSON.stringify(observed));
+    },
+  },
+  {
+    name: "NAV-A11Y-003 thread tree topology and keyboard operations",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => window.NB_APP.openThread("p3"));
+      await page.waitForSelector('.cn-thread-tree[role="tree"] [role="treeitem"]');
+      const before = await page.evaluate(() => {
+        const tree = document.querySelector('.cn-thread-tree[role="tree"]');
+        const items = Array.from(tree?.querySelectorAll('[role="treeitem"]') || []);
+        return {
+          count: items.length,
+          tabbable: items.filter((item) => item.getAttribute("tabindex") === "0").length,
+          selected: items.filter((item) => item.getAttribute("aria-selected") === "true").length,
+          levels: items.map((item) => Number(item.getAttribute("aria-level"))),
+          positions: items.map((item) => [
+            Number(item.getAttribute("aria-posinset")),
+            Number(item.getAttribute("aria-setsize")),
+          ]),
+          reading: document.querySelector('.cn-thread-reading article')?.getAttribute("data-object-id"),
+          active: document.activeElement?.closest?.('[role="treeitem"]')?.getAttribute("data-object-id"),
+        };
+      });
+      if (before.count < 3 || before.tabbable !== 1 || before.selected !== 1 ||
+          before.levels.some((level) => level < 1) || before.reading !== "p3") {
+        return log("thread topology incomplete: " + JSON.stringify(before));
+      }
+      await page.focus('.cn-thread-tree [role="treeitem"][tabindex="0"]');
+      await page.keyboard.press("Home");
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("ArrowDown");
+      const moved = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.('[role="treeitem"]')?.getAttribute("data-object-id"),
+        selected: document.querySelector('.cn-thread-tree [aria-selected="true"]')?.getAttribute("data-object-id"),
+      }));
+      return (moved.active && moved.active === moved.selected) ||
+        log("thread keyboard/state mismatch: " + JSON.stringify(moved));
+    },
+  },
+  {
+    name: "NAV-A11Y-004 tombstone announcement and actions",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        const parent = window.NB_DATA.posts.find((post) => post.id === "p2");
+        parent.tombstone = { formerKind: "message", reason: "moderated" };
+        window.NB_APP.openThread("p3");
+      });
+      await page.waitForSelector('.cn-thread-tree [data-tombstone="true"]');
+      const tombstone = await page.evaluate(() => {
+        const item = document.querySelector('.cn-thread-tree [data-tombstone="true"]');
+        return {
+          label: item?.getAttribute("aria-label"),
+          level: item?.getAttribute("aria-level"),
+          parent: item?.getAttribute("data-parent-id"),
+          actions: item?.querySelectorAll("[data-reply], [data-repost], [data-react-pick]").length,
+        };
+      });
+      return (/moderated/i.test(tombstone.label || "") && Number(tombstone.level) > 1 &&
+        tombstone.actions === 0) || log("tombstone contract incomplete: " + JSON.stringify(tombstone));
+    },
+  },
+  {
+    name: "NAV-A11Y-005 combobox manual selection",
+    run: async (page, log) => {
+      const prompt = page.locator("[data-cli]");
+      await prompt.fill("hel");
+      await page.waitForSelector('.cn-menu:not([hidden]) [role="option"]');
+      const opened = await page.evaluate(() => ({
+        inputFocused: document.activeElement === document.querySelector("[data-cli]"),
+        active: document.querySelector("[data-cli]")?.getAttribute("aria-activedescendant"),
+        selected: document.querySelectorAll('.cn-menu [role="option"][aria-selected="true"]').length,
+      }));
+      if (!opened.inputFocused || opened.active || opened.selected) {
+        return log("option activated on open: " + JSON.stringify(opened));
+      }
+      await prompt.press("ArrowDown");
+      const selected = await page.evaluate(() => ({
+        inputFocused: document.activeElement === document.querySelector("[data-cli]"),
+        active: document.querySelector("[data-cli]")?.getAttribute("aria-activedescendant"),
+        value: document.querySelector("[data-cli]")?.value,
+      }));
+      if (!selected.inputFocused || !selected.active || selected.value !== "hel") {
+        return log("manual selection did not retain input: " + JSON.stringify(selected));
+      }
+      await prompt.press("Escape");
+      const escaped = await page.evaluate(() => ({
+        value: document.querySelector("[data-cli]")?.value,
+        expanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded"),
+      }));
+      if (escaped.value !== "hel" || escaped.expanded !== "false") {
+        return log("Escape cleared draft or kept popup: " + JSON.stringify(escaped));
+      }
+      await prompt.fill("cd pro");
+      await prompt.press("Tab");
+      return (await page.evaluate(() => document.activeElement !== document.querySelector("[data-cli]"))) ||
+        log("Tab did not follow normal focus order");
+    },
+  },
+  {
+    name: "NAV-A11Y-006 native editing and IME are not intercepted",
+    run: async (page, log) => {
+      const prompt = page.locator("[data-cli]");
+      await prompt.fill("alpha beta");
+      await prompt.evaluate((input) => input.setSelectionRange(5, 5));
+      await prompt.press("Home");
+      await prompt.press("Shift+End");
+      await prompt.dispatchEvent("compositionstart", { data: "あ" });
+      await prompt.dispatchEvent("compositionupdate", { data: "あ" });
+      await prompt.dispatchEvent("compositionend", { data: "あ" });
+      const editing = await page.evaluate(() => {
+        const input = document.querySelector("[data-cli]");
+        return {
+          focused: document.activeElement === input,
+          start: input?.selectionStart,
+          end: input?.selectionEnd,
+          path: window.NB_APP.state.path,
+        };
+      });
+      return (editing.focused && editing.start === 0 && editing.end === 10) ||
+        log("native editing was intercepted: " + JSON.stringify(editing));
+    },
+  },
+  {
+    name: "NAV-A11Y-007 narrow screen remains operable",
+    viewport: { width: 390, height: 844 },
+    touch: true,
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => window.NB_APP.openThread("p3"));
+      await page.waitForSelector('.cn-thread-tree[role="tree"]');
+      const narrow = await page.evaluate(() => {
+        const targets = Array.from(document.querySelectorAll(
+          '.cn-thread-tree [role="treeitem"], .cn-thread-reading button, .cn-prompt button, .cn-menu [role="option"]',
+        )).filter((element) => {
+          const style = getComputedStyle(element);
+          return style.display !== "none" && style.visibility !== "hidden";
+        });
+        return {
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          tree: !!document.querySelector('.cn-thread-tree[role="tree"]'),
+          reading: !!document.querySelector('.cn-thread-reading article'),
+          navigator: !!document.querySelector('.cn-blade[data-nav="true"]'),
+          composer: !!document.querySelector("[data-cli]"),
+          small: targets.filter((element) => {
+            const box = element.getBoundingClientRect();
+            return box.width < 32 || box.height < 32;
+          }).length,
+        };
+      });
+      return (narrow.overflow <= 1 && narrow.tree && narrow.reading && narrow.navigator &&
+        narrow.composer && narrow.small === 0) || log("narrow contract failed: " + JSON.stringify(narrow));
+    },
+  },
+  {
     name: "a11y: skip link, landmarks, workspace tabs, and combobox wiring",
     run: async (page, log) => {
       const chrome = await page.evaluate(() => {
