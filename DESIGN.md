@@ -40,8 +40,8 @@ colors:
   warning-line: "#ffaa00"
   avatar: "#0c121c"
   avatar-ink: "#c8d0d8"
-  # Legacy Course Line bridge — keep defined until Community Web ports to Nightboard (ADR-0027).
-  # Do not use these in new Nightboard UI; prefer accent / agent / signed / live / warn / danger.
+  # Compatibility aliases for non-canonical package renderers and sibling apps.
+  # Do not use these in Nightboard UI; prefer accent / agent / signed / live / warn / danger.
   runnable: "#0c121c"
   rough: "#1a2836"
   rough-strong: "#2a3c50"

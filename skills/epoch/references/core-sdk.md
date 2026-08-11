@@ -77,10 +77,11 @@ Use `@epoch/platform-core` for the platform domain service,
 `@epoch/platform-sdk` for headless automation,
 `@epoch/platform-web` for the browser-rendered hosting console foundation, and
 the `@epoch/community-*` packages for the separate Community API, Core client,
-CLI, and web app. `@epoch/community-web` exposes
-`materializeCommunityWebSiteWithEpoch()` so the static Community site is
-rendered through an Epoch repository with branch, approval, merge, signed
-version, verification, rollback-target, and exported-snapshot evidence. Use
+CLI, and web contracts. The shipped browser app is Nightboard (`/` creator
+landing and `/board.html` tmux-style board), served locally with
+`npm run dev:community-web`; the historical document renderer is not an app
+entrypoint. `@epoch/community-web` still exposes
+`materializeCommunityWebSiteWithEpoch()` for signed-history snapshots. Use
 `createInMemoryPlatformCore()` for short-lived embedded flows and
 `createFileSystemPlatformCore()` for durable local state, hash-verified state
 envelopes, HMAC webhooks, manifest-hashed backup artifacts, and backup-artifact

@@ -280,6 +280,13 @@
       return { kind: "clear", hint: "clear prompt" };
     }
 
+    // Exact user phrases resolve to the same safe action used by the prompt
+    // and WebMCP. Near matches remain unknown in commands mode.
+    var userAction = window.NB_POWER && window.NB_POWER.resolveVoice(t);
+    if (userAction) {
+      return { kind: "command", line: "macro run " + userAction, hint: "macro " + userAction };
+    }
+
     // Navigation.
     var go = /^(?:go(?:\s+to)?|open|navigate(?:\s+to)?|cd)\s+(.+)$/i.exec(t);
     if (go) {
@@ -416,6 +423,7 @@
       "Wake prefixes (default mode): \"computer …\", \"command …\", \"hey epoch …\"",
       "go to <path> · search <query> · sort by hot|new|top|best",
       "theme <name> · new workspace · open activity · message <handle>",
+      "saved macro voice phrases run their matching user action",
       "show keys · help · ai mode · cli mode · slash <command>",
       "send · clear prompt · stop listening · what can I say?",
     ].join("\n");

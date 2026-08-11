@@ -10,12 +10,26 @@
  *   node docs/design-explorations/nightboard/e2e.mjs [baseUrl]
  */
 import { chromium } from "playwright";
+import { request } from "node:http";
 import { serveNightboard } from "./serve.mjs";
 
 const own = process.argv[2] ? null : await serveNightboard();
 const BASE = process.argv[2] || own.url;
 const BOARD = new URL("board.html", BASE.endsWith("/") ? BASE : BASE + "/").href;
 const FILTER = process.env.NB_E2E || "";
+
+if (own) {
+  const malformedStatus = await new Promise((resolve) => {
+    request(new URL("%", BASE), (response) => {
+      response.resume();
+      response.on("end", () => resolve(response.statusCode));
+    }).on("error", () => resolve(0)).end();
+  });
+  if (malformedStatus !== 400) {
+    await own.close();
+    throw new Error("malformed URL path must return 400, got " + malformedStatus);
+  }
+}
 
 const CASES = [
   {
@@ -485,6 +499,179 @@ const CASES = [
       if (back.focus) return log("back did not clear thread: " + JSON.stringify(back));
       if (!(back.roots >= 2 && back.feedBar && !back.threadCtx)) {
         return log("back did not restore channel feed: " + JSON.stringify(back));
+      }
+      return true;
+    },
+  },
+  {
+    name: "keyboard: message list has one roving focus target and opens the selected thread",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(80);
+      await page.focus("[data-cli]");
+      await page.keyboard.press("Tab");
+      await page.waitForFunction(() => document.activeElement?.closest?.(".cn-comment"));
+      const entered = await page.evaluate(() => {
+        const active = document.activeElement?.closest?.(".cn-comment");
+        return {
+          active: active?.getAttribute("data-key") || null,
+          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+          current: active?.getAttribute("aria-current") || null,
+          role: active?.getAttribute("role") || null,
+          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+        };
+      });
+      if (!(entered.active && entered.active === entered.here && entered.current === "true" &&
+          entered.role === "article" && entered.tabbable === 1)) {
+        return log("Tab did not enter one selected message: " + JSON.stringify(entered));
+      }
+
+      await page.keyboard.press("ArrowDown");
+      await page.waitForFunction((previous) =>
+        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
+      entered.active);
+      const moved = await page.evaluate(() => {
+        const active = document.activeElement?.closest?.(".cn-comment");
+        return {
+          active: active?.getAttribute("data-key") || null,
+          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+          mark: window.NB_APP.state.feedMark,
+          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+        };
+      });
+      if (!(moved.active && moved.active !== entered.active && moved.active === moved.here &&
+          moved.active === moved.mark && moved.tabbable === 1)) {
+        return log("ArrowDown did not move message focus: " + JSON.stringify({ entered, moved }));
+      }
+
+      await page.keyboard.press("End");
+      await page.waitForFunction(() => {
+        const comments = Array.from(document.querySelectorAll(".cn-comment"));
+        return document.activeElement?.closest?.(".cn-comment") === comments.at(-1);
+      });
+      await page.keyboard.press("ArrowDown");
+      await page.evaluate(() => new Promise((resolve) =>
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
+      const end = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        last: Array.from(document.querySelectorAll(".cn-comment")).at(-1)?.getAttribute("data-key") || null,
+      }));
+      if (!(end.active && end.active === end.last)) {
+        return log("End/boundary did not retain the last message: " + JSON.stringify(end));
+      }
+      await page.keyboard.press("ArrowUp");
+      await page.waitForFunction((previous) =>
+        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
+      end.active);
+      const recovered = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+      }));
+      if (!(recovered.active && recovered.active !== end.active && recovered.active === recovered.here)) {
+        return log("ArrowUp did not recover from list end: " + JSON.stringify({ end, recovered }));
+      }
+
+      await page.keyboard.press("Enter");
+      await page.waitForFunction((expected) => window.NB_APP.state.threadFocus === expected, recovered.active);
+      const opened = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+      }));
+      if (!(opened.thread === recovered.active && opened.active === recovered.active && opened.threadCtx)) {
+        return log("Enter did not open/focus selected thread: " + JSON.stringify(opened));
+      }
+      return true;
+    },
+  },
+  {
+    name: "power: one saved macro powers prompt, agent tool, and exact voice phrase",
+    run: async (page, log) => {
+      await page.evaluate(() => localStorage.removeItem("nb-power-actions-v1"));
+      await page.reload();
+      await page.waitForSelector("[data-cli]");
+      const prompt = page.locator("[data-cli]");
+      await prompt.fill("macro set review = cd /projects/community/channels/general; view state:open");
+      await prompt.press("Enter");
+      await prompt.fill("macro voice review = start review");
+      await prompt.press("Enter");
+
+      const defined = await page.evaluate(() => ({
+        actions: window.NB_POWER?.list() || [],
+        tools: window.NB_MCP.list().map((tool) => tool.name),
+        exact: window.NB_SPEECH.parseUtterance("start review", "commands"),
+        near: window.NB_SPEECH.parseUtterance("start reviewing", "commands"),
+      }));
+      if (defined.actions.length !== 1 || defined.actions[0].name !== "review") {
+        return log("macro not saved: " + JSON.stringify(defined));
+      }
+      if (!defined.tools.includes("user_review")) return log("custom agent tool missing");
+      if (!(defined.exact.kind === "command" && defined.exact.line === "macro run review")) {
+        return log("exact voice phrase did not resolve: " + JSON.stringify(defined.exact));
+      }
+      if (defined.near.kind !== "unknown") {
+        return log("near voice phrase should fail closed: " + JSON.stringify(defined.near));
+      }
+
+      await prompt.fill("macro run review");
+      await prompt.press("Enter");
+      const prompted = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        query: window.NB_APP.state.feedQuery,
+      }));
+      if (prompted.path !== "/projects/community/channels/general" || prompted.query !== "state:open") {
+        return log("prompt did not run saved macro: " + JSON.stringify(prompted));
+      }
+
+      await prompt.fill("macro set foo-bar = cd /projects/community/channels/general");
+      await prompt.press("Enter");
+      await prompt.fill("macro set foo_bar = cd /projects/community/channels/general");
+      await prompt.press("Enter");
+      const collisionTools = await page.evaluate(() => window.NB_MCP.list().map((tool) => tool.name));
+      if (!collisionTools.includes("user_foo-bar") || !collisionTools.includes("user_foo_bar")) {
+        return log("custom tool names collided: " + JSON.stringify(collisionTools));
+      }
+
+      const called = await page.evaluate(async () => {
+        const result = await window.NB_MCP.call("user_review", {});
+        return {
+          error: !!result.isError,
+          path: window.NB_APP.state.path,
+          query: window.NB_APP.state.feedQuery,
+        };
+      });
+      if (called.error || called.path !== "/projects/community/channels/general" ||
+          called.query !== "state:open") {
+        return log("agent tool did not run saved macro: " + JSON.stringify(called));
+      }
+
+      await page.evaluate(() => localStorage.setItem("nb-power-actions-v1", JSON.stringify({
+        review: { commands: ["cd /projects/community/channels/general", "view state:open"], voice: "start review" },
+        "foo-bar": { commands: ["cd /projects/community/channels/general"], voice: "" },
+        foo_bar: { commands: ["cd /projects/community/channels/general"], voice: "" },
+        loop: { commands: ["macro run loop"], voice: "loop" },
+        duplicate: { commands: ["cd /projects/community/channels/general"], voice: "start review" },
+      })));
+      await page.reload();
+      await page.waitForSelector("[data-cli]");
+      const persisted = await page.evaluate(() => ({
+        actions: window.NB_POWER?.list() || [],
+        tools: window.NB_MCP.list().map((tool) => tool.name),
+      }));
+      if (persisted.actions.map((item) => item.name).join(",") !== "foo-bar,foo_bar,review" ||
+          persisted.actions.find((item) => item.name === "review")?.voice !== "start review" ||
+          persisted.tools.includes("user_loop") || persisted.tools.includes("user_duplicate")) {
+        return log("macro did not persist: " + JSON.stringify(persisted));
+      }
+
+      await page.locator("[data-cli]").fill("macro set unsafe = javascript:alert(1)");
+      await page.locator("[data-cli]").press("Enter");
+      const refused = await page.evaluate(() => ({
+        names: window.NB_POWER.list().map((action) => action.name),
+        out: Array.from(document.querySelectorAll(".cn-line")).map((line) => line.textContent).join("\n"),
+      }));
+      if (refused.names.includes("unsafe") || !/unknown command/i.test(refused.out)) {
+        return log("unsafe macro was not refused: " + JSON.stringify(refused));
       }
       return true;
     },
@@ -2713,6 +2900,29 @@ const CASES = [
       }
       if (!clicked.ok) return log(clicked.reason + " tabs=" + JSON.stringify({ afterTab, afterTab2 }));
       return /\/projects/.test(clicked.value) || log("click did not accept: " + JSON.stringify(clicked));
+    },
+  },
+  {
+    name: "power: cd ../ keeps relative path typeahead in ai mode",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const completion = await page.evaluate(() => {
+        // Dispatch atomically so model availability cannot change prompt mode
+        // between setup and the input event under test.
+        window.NB_APP.state.ai = true;
+        const input = document.querySelector("[data-cli]");
+        input.value = "cd ../";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return {
+          expanded: input.getAttribute("aria-expanded"),
+          ai: window.NB_APP.state.ai,
+          kind: window.NB_APP.state.completion?.kind,
+          candidates: Array.from(document.querySelectorAll(".cn-cand span"))
+            .map((el) => el.textContent || ""),
+        };
+      });
+      return completion.ai === true && completion.expanded === "true" && completion.kind === "path" &&
+        completion.candidates.length > 0 || log("relative typeahead missing: " + JSON.stringify(completion));
     },
   },
   {

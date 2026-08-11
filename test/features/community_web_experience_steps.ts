@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import { chromium, type Browser, type Page, type Response as PlaywrightResponse, type Route } from "playwright";
 import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
@@ -25,6 +26,17 @@ let world: CommunityWebWorld = {};
 
 /** Title of the message whose provenance a scenario revealed. */
 let revealedMessageTitle = "";
+let nightboardFocusedMessage = "";
+
+const NIGHTBOARD_ROOT = join(process.cwd(), "docs", "design-explorations", "nightboard");
+const NIGHTBOARD_CONTENT_TYPES: Readonly<Record<string, string>> = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".jpg": "image/jpeg",
+  ".js": "text/javascript; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+};
 
 After(async function () {
   await Promise.allSettled([
@@ -71,6 +83,159 @@ Given("the Community Web live API has repository activity", async function () {
     api,
     apiHandler: createCommunityApiFetchHandler(api),
   };
+});
+
+Given("Epoch Community is available", function () {
+  assert.ok(existsSync(join(NIGHTBOARD_ROOT, "index.html")));
+  assert.ok(existsSync(join(NIGHTBOARD_ROOT, "board.html")));
+  assert.ok(existsSync(join(NIGHTBOARD_ROOT, "canvasui-fx.js")));
+});
+
+When("I open Epoch Community", async function () {
+  const browser = await chromium.launch(chromiumLaunchOptions({ headless: true }));
+  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  await page.route("https://community.test/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const name = pathname === "/" ? "index.html" : basename(pathname);
+    const file = join(NIGHTBOARD_ROOT, name);
+    if (!existsSync(file)) {
+      await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: NIGHTBOARD_CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
+      body: readFileSync(file),
+    });
+  });
+  await page.goto("https://community.test/", { waitUntil: "domcontentloaded" });
+  world = { ...world, browser, page };
+});
+
+Then("the landing presents the creator story with CanvasUI motion", async function () {
+  const page = requirePage();
+  await page.locator(".nb-landing").waitFor({ state: "visible" });
+  await page.locator("#nb-landing-headline").waitFor({ state: "attached" });
+  assert.equal(await page.locator("[data-landing-grid]").count(), 1);
+  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).NB_CanvasUI), "object");
+});
+
+When("I enter the community board", async function () {
+  await requirePage().locator("#nb-enter-board").click();
+});
+
+Then("the tmux-style Nightboard is ready for keyboard collaboration", async function () {
+  const page = requirePage();
+  await page.locator('[data-mount][data-tui="true"]').waitFor({ state: "visible" });
+  assert.equal(await page.locator(".nb-bar [data-gridroad]").count(), 1);
+  assert.equal(await page.locator("[data-region=\"status\"] .nb-keys-cue").count(), 1);
+  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).NB_APP), "object");
+});
+
+When("I open the Nightboard general channel from the prompt", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  const prompt = page.locator("[data-cli]");
+  await prompt.fill("cd /projects/community/channels/general");
+  await prompt.press("Enter");
+  await page.locator(".cn-comment").first().waitFor({ state: "visible" });
+});
+
+When("I move to the next Nightboard message and open its thread by keyboard", async function () {
+  const page = requirePage();
+  const prompt = page.locator("[data-cli]");
+  await prompt.focus();
+  await prompt.press("Escape");
+  const first = page.locator(".cn-comment:focus");
+  await first.waitFor({ state: "attached" });
+  const before = await first.getAttribute("data-key");
+  assert.ok(before);
+  await page.keyboard.press("ArrowDown");
+  await page.waitForFunction((previous) =>
+    document.activeElement?.classList.contains("cn-comment") === true &&
+    document.activeElement.getAttribute("data-key") !== previous, before);
+  const selected = page.locator(".cn-comment:focus");
+  await selected.waitFor({ state: "attached" });
+  nightboardFocusedMessage = (await selected.getAttribute("data-key")) ?? "";
+  assert.ok(nightboardFocusedMessage);
+  assert.notEqual(nightboardFocusedMessage, before);
+  await page.keyboard.press("Enter");
+  await page.locator(".cn-thread-ctx").waitFor({ state: "visible" });
+});
+
+Then("the selected Nightboard message remains the single focused feed item", async function () {
+  const page = requirePage();
+  assert.equal(await page.locator('.cn-comment[tabindex="0"]').count(), 1);
+  const selected = page.locator(".cn-comment:focus");
+  assert.equal(await selected.getAttribute("data-key"), nightboardFocusedMessage);
+  assert.equal(await selected.getAttribute("data-here"), "true");
+  assert.equal(await selected.getAttribute("aria-current"), "true");
+  assert.equal(
+    await page.evaluate(() => (window as unknown as { NB_APP: { state: { threadFocus: string } } }).NB_APP.state.threadFocus),
+    nightboardFocusedMessage,
+  );
+});
+
+When("I define the Nightboard review macro with voice phrase {string}", async function (phrase: string) {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  const prompt = page.locator("[data-cli]");
+  await prompt.fill("macro set review = cd /projects/community/channels/general; view state:needs-review");
+  await prompt.press("Enter");
+  await prompt.fill(`macro voice review = ${phrase}`);
+  await prompt.press("Enter");
+});
+
+Then("the review macro persists as the {string} agent skill", async function (toolName: string) {
+  const page = requirePage();
+  const before = await page.evaluate((name) => {
+    const root = window as unknown as {
+      NB_POWER: { list: () => Array<{ name: string; voice: string }> };
+      NB_MCP: { list: () => Array<{ name: string }> };
+    };
+    return {
+      action: root.NB_POWER.list().find((item) => item.name === "review"),
+      tool: root.NB_MCP.list().some((tool) => tool.name === name),
+    };
+  }, toolName);
+  assert.equal(before.action?.voice, "start review");
+  assert.equal(before.tool, true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const after = await page.evaluate((name) => {
+    const root = window as unknown as {
+      NB_POWER: { list: () => Array<{ name: string; voice: string }> };
+      NB_MCP: { list: () => Array<{ name: string }> };
+    };
+    return {
+      action: root.NB_POWER.list().find((item) => item.name === "review"),
+      tool: root.NB_MCP.list().some((tool) => tool.name === name),
+    };
+  }, toolName);
+  assert.equal(after.action?.voice, "start review");
+  assert.equal(after.tool, true);
+});
+
+Then("the exact voice phrase runs the same review macro", async function () {
+  const parsed = await requirePage().evaluate(() => {
+    const root = window as unknown as {
+      NB_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
+    };
+    return root.NB_SPEECH.parseUtterance("start review", "commands");
+  });
+  assert.deepEqual({ kind: parsed.kind, line: parsed.line }, { kind: "command", line: "macro run review" });
+});
+
+Then("a near voice phrase does not run it", async function () {
+  const parsed = await requirePage().evaluate(() => {
+    const root = window as unknown as {
+      NB_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
+    };
+    return root.NB_SPEECH.parseUtterance("start reviewing", "commands");
+  });
+  assert.equal(parsed.kind, "unknown");
+  assert.equal(parsed.line, undefined);
 });
 
 Given("I open the Community Web channel experience", async function () {

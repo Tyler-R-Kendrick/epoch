@@ -3128,6 +3128,47 @@
     status("feed · " + list[next].post.id);
   }
 
+  /** Move DOM focus through every visible message (roots and replies). */
+  function moveMessageFocus(delta, edge) {
+    var list = Array.prototype.slice.call(document.querySelectorAll(
+      '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key]',
+    ));
+    if (!list.length) return false;
+    var active = document.activeElement && document.activeElement.closest
+      ? document.activeElement.closest(".cn-comment[data-key]") : null;
+    var ix = list.indexOf(active);
+    if (ix < 0) ix = list.findIndex(function (el) {
+      return el.getAttribute("data-key") === (state.feedMark || state.threadFocus);
+    });
+    if (ix < 0) ix = 0;
+    var next = edge === "start" ? 0 : edge === "end" ? list.length - 1
+      : Math.max(0, Math.min(list.length - 1, ix + delta));
+    var id = list[next].getAttribute("data-key");
+    state.feedMark = id;
+    state.detailOpen = true;
+    state.focus = detailBladeIndex();
+    focusColumns();
+    render(true);
+    requestAnimationFrame(function () {
+      var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
+      if (!el) return;
+      try { el.focus({ preventScroll: true }); } catch { /* fine */ }
+      try { el.scrollIntoView({ block: "nearest" }); } catch { /* fine */ }
+    });
+    status("message · " + id);
+    return true;
+  }
+
+  function openFocusedMessage(id) {
+    if (!id) return false;
+    openThread(id);
+    requestAnimationFrame(function () {
+      var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
+      if (el) try { el.focus({ preventScroll: true }); } catch { /* fine */ }
+    });
+    return true;
+  }
+
   function moveCursor(delta) {
     // Keyboard navigation acts on the current path's list blade; parent blades
     // re-scope only via click or close (they display the path dependency).
@@ -4578,6 +4619,11 @@
       reply = n ? "loaded " + n : "nothing queued";
     } else if (cmd === "watch") {
       state.live = true; reply = "stream resumed";
+    } else if (cmd === "macro" || cmd === "skill") {
+      var macroResult = window.NB_POWER
+        ? window.NB_POWER.command(arg)
+        : { ok: false, text: "macro: unavailable" };
+      reply = macroResult.text;
     } else if (cmd === "stat") {
       reply = "epoch " + D.board.epoch + " · " + D.board.landed + "/" + D.board.total +
         " landed · ships " + D.board.ships;
@@ -5498,6 +5544,11 @@
     if (input && document.activeElement === input) {
       try { input.blur(); } catch { /* fine */ }
     }
+    requestAnimationFrame(function () {
+      if (!detailOwnsKeyboard()) return;
+      var post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[tabindex="0"]');
+      if (post) try { post.focus({ preventScroll: true }); } catch { /* fine */ }
+    });
   }
 
   /**
@@ -6726,6 +6777,28 @@
       }
       var k = ev.key;
 
+      // A focused feed article owns message navigation. Child controls keep
+      // native keyboard behavior; Tab continues to return to the prompt.
+      var message = ev.target.closest && ev.target.closest(".cn-comment[data-key]");
+      if (message && !ev.target.closest("button, a, input, textarea, select")) {
+        if (k === "ArrowDown" || k === "j") {
+          ev.preventDefault();
+          return moveMessageFocus(1);
+        }
+        if (k === "ArrowUp" || k === "k") {
+          ev.preventDefault();
+          return moveMessageFocus(-1);
+        }
+        if (k === "Home" || k === "End") {
+          ev.preventDefault();
+          return moveMessageFocus(0, k === "Home" ? "start" : "end");
+        }
+        if (k === "Enter" || k === "ArrowRight" || k === "l") {
+          ev.preventDefault();
+          return openFocusedMessage(message.getAttribute("data-key"));
+        }
+      }
+
       if (ev.key === "Escape" && (state.intelOpen || state.helpOpen)) {
         ev.preventDefault();
         closeIntel();
@@ -7501,7 +7574,9 @@
 
   // Tools are registered once the app exists, because they call into it.
   if (window.NB_TOOLS) {
-    var registered = window.NB_TOOLS.install(window.NB_APP);
+    window.NB_TOOLS.install(window.NB_APP);
+    if (window.NB_POWER) window.NB_POWER.install(window.NB_APP);
+    var registered = window.NB_MCP.list().length;
     var native = window.NB_MCP.isNative();
     // Recorded rather than announced: the count matters when a tool goes
     // missing, and the native/shim distinction matters when debugging why a

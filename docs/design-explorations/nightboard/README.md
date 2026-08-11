@@ -1,8 +1,8 @@
 # Nightboard (Epoch)
 
-**Committed Community visual world** ([ADR-0027](../../design-decisions/0027-community-visual-world-nightboard.md)).
-Root [`DESIGN.md`](../../../DESIGN.md) is derived from this exploration. Impeccable
-iterates here until `Epoch.Community.Web` reaches parity.
+**Canonical Epoch Community Web app** ([ADR-0027](../../design-decisions/0027-community-visual-world-nightboard.md)).
+Root [`DESIGN.md`](../../../DESIGN.md) is derived from this source tree. Impeccable
+iterates on these shipped files; there is no separate legacy UI or parity target.
 Surface brief: [`.impeccable-surface.md`](.impeccable-surface.md) (Operate board).
 Marketing landing brief: [`.impeccable-surface-landing.md`](.impeccable-surface-landing.md).
 Persuade craft runbook: [`ORCHESTRATION.md`](ORCHESTRATION.md) · live scoreboard [`progress.html`](progress.html).
@@ -31,9 +31,9 @@ Open `/` from any static server. The landing ships prebuilt Canvas UI bundles
 
 ```
 node docs/design-explorations/nightboard/build-canvasui-landing.mjs
-python3 -m http.server 8902 --directory docs/design-explorations/nightboard
-# Landing:  http://127.0.0.1:8902/
-# Board:    http://127.0.0.1:8902/board.html
+npm run dev:community-web
+# Landing:  http://127.0.0.1:8787/
+# Board:    http://127.0.0.1:8787/board.html
 ```
 
 Persuade landing wires Canvas UI decrypt (hero brand + E01 What body) /
@@ -81,7 +81,8 @@ count instead of interrupting.
 | Key | Does |
 |---|---|
 | `R` | Load queued posts for the open feed |
-| `J` / `K` or arrows | Move through the stream |
+| `J` / `K` or arrows | Move through the focused message list (roots and replies) |
+| `Home` / `End` | First / last visible message |
 | `1`–`9` | Open a post by its number |
 | `Esc` | Home feed (or leave columns for the prompt) |
 | `Tab` | Swap prompt ↔ panel focus (completes suggestions only while the menu is open) |
@@ -102,6 +103,7 @@ count instead of interrupting.
 | `Alt+Shift+V` | Cycle voice mode: default / dictation / commands |
 | `Ctrl+Shift+M` | Mute / unmute while in a voice channel |
 | `/voice` | Join / leave / mute / deafen / PTT·VAD for channel voice |
+| `macro` / `skill` | Define, list, run, voice-bind, or delete a safe reusable action |
 
 Everything is clickable too: channels, members, projects, posts, and the signed
 actions on each post. **Right-click** any control for a Grid-themed menu:
@@ -111,6 +113,23 @@ chat) for agents and docs; below that, up to three actions the Epoch agent
 pre-generates from how you use the board. Posts also expose a **copy** action;
 session blades expose **copy** for the full chat. Press **`y`** to yank the
 focused content.
+
+### User-defined actions
+
+Power users define one action and reuse it everywhere:
+
+```text
+macro set review = cd /projects/community/channels/general; view state:needs-review
+macro voice review = start review
+macro run review
+```
+
+`skill` is an alias for `macro`. Definitions persist in local storage,
+autocomplete from the prompt, and register automatically as WebMCP tools named
+`user_<name>`, which makes them custom agent skills without a second plugin
+format. Voice phrases are exact matches to the same action. Definitions can
+only compose commands already registered in Nightboard; arbitrary JavaScript,
+shell commands, and recursive macros are rejected.
 
 The semantic surface every theme styles is [CONTRACT.md](CONTRACT.md).
 
@@ -465,7 +484,8 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
   - Spoken mode switches: `"commands mode"`, `"dictation mode"`, `"default mode"`
   - Discoverability: say **`"what can I say?"`** (lists the grammar in the
     transcript). Examples: `"computer go to bugs"`, `"search needs review"`,
-    `"sort by new"`, `"send"`, `"stop listening"`
+    `"sort by new"`, a saved macro phrase such as `"start review"`, `"send"`,
+    `"stop listening"`
   - **Esc** or the mic button — stop; permission denials fail soft
 - **Channel voice** (Discord-parity, same-origin mesh for the exploration):
   - Dedicated rooms under community channels: **`lounge`**, **`standup`**

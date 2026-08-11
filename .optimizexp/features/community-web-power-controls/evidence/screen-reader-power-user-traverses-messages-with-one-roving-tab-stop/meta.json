@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-power-controls",
+  "scenarioSlug": "screen-reader-power-user-traverses-messages-with-one-roving-tab-stop",
+  "personaIds": [
+    "screen-reader-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-11T02:05:31.380Z",
+  "runId": "20260810-ux-nightboard-power-controls",
+  "screen": {
+    "widthPx": 1280,
+    "heightPx": 720,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 166107,
+    "sha256": "ee028408f33557284bfacc1ccfd2d5b4d6ff72c409c84a9e01b8329517688a5b"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I open `http://127.0.0.1:8787/` and enter a Nightboard text channel"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I Tab to the selected message and press ArrowDown"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then the next message is the only message with tabindex 0"
+    },
+    {
+      "id": "claim-4",
+      "text": "And its accessible selection and visible focus identify the same post"
+    },
+    {
+      "id": "claim-5",
+      "text": "When I press Enter"
+    },
+    {
+      "id": "claim-6",
+      "text": "Then that post opens as the current thread"
+    }
+  ],
+  "frames": [],
+  "repro": {
+    "url": "http://127.0.0.1:8787/board.html",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "playwright screenshot captured"
+  ]
+}

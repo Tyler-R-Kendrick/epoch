@@ -3,6 +3,33 @@ Feature: Community Web community-first experience
   with Network Feed discovery and linked repository projects as secondary planes.
 
   @persona.github_open_source_contributor
+  Scenario: Contributor enters the Nightboard community from the Epoch landing
+    Given Epoch Community is available
+    When I open Epoch Community
+    Then the landing presents the creator story with CanvasUI motion
+    When I enter the community board
+    Then the tmux-style Nightboard is ready for keyboard collaboration
+
+  @persona.slack_power_user
+  Scenario: Power user traverses Nightboard messages without a pointer
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open the Nightboard general channel from the prompt
+    And I move to the next Nightboard message and open its thread by keyboard
+    Then the selected Nightboard message remains the single focused feed item
+
+  @persona.maintainer
+  Scenario: Maintainer defines one action for prompt agent and voice control
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I define the Nightboard review macro with voice phrase "start review"
+    Then the review macro persists as the "user_review" agent skill
+    And the exact voice phrase runs the same review macro
+    But a near voice phrase does not run it
+
+  @persona.github_open_source_contributor
   Scenario: Contributor opens a community and sees community-owned channels first
     Given the Community Web live API has repository activity
     When I open the Community Web channel experience

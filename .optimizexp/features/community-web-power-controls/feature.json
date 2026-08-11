@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-power-controls",
+  "title": "A keyboard-first Nightboard power user navigates messages and defines one safe reusable action",
+  "experiences": [
+    "ux",
+    "ax"
+  ],
+  "personas": [
+    "screen-reader-power-user",
+    "forge-community-power-user",
+    "agentic-coding-power-user"
+  ],
+  "projects": [
+    "root"
+  ],
+  "scope": "global",
+  "interfaces": [
+    "web",
+    "docs",
+    "cli",
+    "ide",
+    "mcp"
+  ],
+  "driver": "web",
+  "surfaces": [
+    "npm run nightboard:e2e"
+  ],
+  "tags": [
+    "@optimizexp",
+    "@ux",
+    "@ax"
+  ],
+  "generatedFromSeed": true,
+  "seedDigest": "15f42d74fc2f1c68",
+  "personaResolution": "explicit --personas; config prefer/exclude (.optimizexp/config.json)",
+  "bindings": {
+    "steps": "steps/bindings.steps.ts",
+    "implementations": "steps/implementations.ts",
+    "tests": "test/community-web-power-controls.bindings.test.ts"
+  },
+  "implementationStatus": "wired",
+  "primaryCommand": "npm run nightboard:e2e"
+}

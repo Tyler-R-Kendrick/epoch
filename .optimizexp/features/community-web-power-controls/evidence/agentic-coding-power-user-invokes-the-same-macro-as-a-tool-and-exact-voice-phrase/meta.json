@@ -1,0 +1,63 @@
+{
+  "featureId": "community-web-power-controls",
+  "scenarioSlug": "agentic-coding-power-user-invokes-the-same-macro-as-a-tool-and-exact-voice-phrase",
+  "personaIds": [
+    "agentic-coding-power-user"
+  ],
+  "interface": "web",
+  "driver": "web",
+  "capturedAt": "2026-08-11T02:06:05.848Z",
+  "runId": "20260810-ux-nightboard-power-controls",
+  "screen": {
+    "widthPx": 1280,
+    "heightPx": 720,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 183691,
+    "sha256": "32b5eb4bbec17362c473f28fdf84d54e8df7c0d32b5af01fdab9f4d09d3b2f43"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I open `http://127.0.0.1:8787/` and enter Nightboard"
+    },
+    {
+      "id": "claim-2",
+      "text": "And `macro set review = cd /projects/epoch/changes; view state:needs-review` is saved"
+    },
+    {
+      "id": "claim-3",
+      "text": "And `macro voice review = start review` is saved"
+    },
+    {
+      "id": "claim-4",
+      "text": "When I inspect the page WebMCP registry"
+    },
+    {
+      "id": "claim-5",
+      "text": "Then it lists `user_review` with the saved action description"
+    },
+    {
+      "id": "claim-6",
+      "text": "When the agent calls `user_review` or voice command mode hears `start review`"
+    },
+    {
+      "id": "claim-7",
+      "text": "Then both invoke `macro run review`"
+    }
+  ],
+  "frames": [],
+  "repro": {
+    "url": "http://127.0.0.1:8787/board.html",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "playwright screenshot captured"
+  ]
+}

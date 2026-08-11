@@ -290,6 +290,64 @@
       "source": [
         "mandatory-p0"
       ]
+    },
+    {
+      "experienceId": "nightboard-message-keyboard",
+      "personaId": "screen-reader-power-user",
+      "intent": "Traverse a channel message list and open a thread without leaving the keyboard",
+      "entryCommand": "open http://127.0.0.1:8787/ and enter Nightboard",
+      "driver": "web",
+      "observableSuccess": "Tab enters one selected message; ArrowUp/ArrowDown or j/k moves it; Enter opens the selected thread with visible and announced focus",
+      "observableFailure": "Messages are skipped by Tab, focus is invisible, or navigation requires mutating internal app state",
+      "confusionRisks": [
+        "a visual feed that is not an operable message list",
+        "arrow keys scrolling the page instead of moving the selected message"
+      ],
+      "priority": "P0",
+      "featureId": "community-web-power-controls",
+      "source": [
+        "screen-reader-power-user",
+        "community-web-daily-navigation"
+      ]
+    },
+    {
+      "experienceId": "nightboard-custom-actions",
+      "personaId": "forge-community-power-user",
+      "intent": "Define one reusable action and invoke it from the terminal-style prompt",
+      "entryCommand": "open http://127.0.0.1:8787/ and run macro set review = cd /projects/epoch/changes; view state:needs-review",
+      "driver": "web",
+      "observableSuccess": "The action persists, appears in help, and runs the same existing commands without arbitrary script execution",
+      "observableFailure": "Separate macro UI duplicates commands, definitions disappear, or custom actions execute arbitrary JavaScript",
+      "confusionRisks": [
+        "shell aliases that can execute unrestricted code",
+        "a settings form disconnected from the terminal prompt"
+      ],
+      "priority": "P0",
+      "featureId": "community-web-power-controls",
+      "source": [
+        "forge-community-power-user",
+        "terminal command model"
+      ]
+    },
+    {
+      "experienceId": "nightboard-agent-voice-actions",
+      "personaId": "agentic-coding-power-user",
+      "intent": "Expose a user-defined action to agents and voice without redefining the workflow",
+      "entryCommand": "open http://127.0.0.1:8787/ and define a named macro with a voice phrase",
+      "driver": "web",
+      "observableSuccess": "The macro is registered as an agent tool and the same action runs from an exact voice phrase",
+      "observableFailure": "Agent, voice, and prompt controls drift into separate definitions or voice guesses at near matches",
+      "confusionRisks": [
+        "custom prompt text presented as a verified tool",
+        "fuzzy voice matching that runs the wrong action"
+      ],
+      "priority": "P0",
+      "featureId": "community-web-power-controls",
+      "source": [
+        "agentic-coding-power-user",
+        "WebMCP registry",
+        "Voice Access command mode"
+      ]
     }
   ]
 }

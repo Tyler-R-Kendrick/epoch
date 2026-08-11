@@ -36,6 +36,8 @@
     { name: "grep", arg: "text", help: "search post bodies", run: "grep" },
     { name: "tail", arg: null, help: "load queued posts", run: "tail" },
     { name: "watch", arg: null, help: "resume the live stream", run: "watch" },
+    { name: "macro", arg: "macro", help: "define and run safe reusable actions", run: "macro" },
+    { name: "skill", arg: "macro", help: "alias for macro; actions become agent tools", run: "macro" },
     { name: "stat", arg: null, help: "epoch status", run: "stat" },
     { name: "help", arg: null, help: "this list", run: "help" },
     { name: "clear", arg: null, help: "clear the transcript", run: "clear" },
@@ -574,7 +576,8 @@
     // Agent chat lives on `/` verbs; intellisense opens the catalogue as soon
     // as the line starts with a slash (or the prompt is empty in ai mode).
     var firstTok = tokens[0] || "";
-    if (preferSlash || firstTok.charAt(0) === "/" || text === "/") {
+    var bareCli = COMMANDS.some(function (c) { return c.name === firstTok; });
+    if ((preferSlash && !bareCli) || firstTok.charAt(0) === "/" || text === "/") {
       // Completing the slash verb itself.
       if (tokens.length <= 1 && !trailingSpace) {
         var sq = firstTok === "" && preferSlash ? "/" : firstTok;
@@ -826,6 +829,38 @@
 
     if (!spec || spec.arg === null) {
       return { kind: "none", candidates: [], ghost: "", replaceFrom: fragStart, insert: fragment, query: fragment };
+    }
+
+    if (spec.arg === "macro") {
+      var sub = (tokens[1] || "").toLowerCase();
+      if (tokens.length <= 2 && !trailingSpace) {
+        var verbs = [
+          { value: "set", hint: "define: set <name> = <commands>", kind: "cmd" },
+          { value: "run", hint: "run a saved action", kind: "cmd" },
+          { value: "voice", hint: "bind an exact spoken phrase", kind: "cmd" },
+          { value: "list", hint: "show saved actions", kind: "cmd" },
+          { value: "delete", hint: "remove a saved action", kind: "cmd" },
+        ];
+        var mr = rank(verbs, fragment);
+        return {
+          kind: "macro", query: fragment, candidates: mr, replaceFrom: fragStart,
+          insert: mr[0] ? mr[0].value : fragment,
+          ghost: mr[0] && mr[0].value.indexOf(fragment) === 0 ? mr[0].value.slice(fragment.length) : "",
+        };
+      }
+      if ((sub === "run" || sub === "delete" || sub === "remove" || sub === "rm" || sub === "voice") &&
+          tokens.length <= 3 && window.NB_POWER) {
+        var names = window.NB_POWER.list().map(function (item) {
+          return { value: item.name, hint: item.commands.join("; "), kind: "macro" };
+        });
+        var nr = rank(names, fragment);
+        return {
+          kind: "macro", query: fragment, candidates: nr, replaceFrom: fragStart,
+          insert: nr[0] ? nr[0].value : fragment,
+          ghost: nr[0] && nr[0].value.indexOf(fragment) === 0 ? nr[0].value.slice(fragment.length) : "",
+        };
+      }
+      return { kind: "text", query: fragment, candidates: [], ghost: "", replaceFrom: fragStart, insert: fragment };
     }
 
     if (spec.arg === "sort" || spec.arg === "view") {

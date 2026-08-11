@@ -183,8 +183,8 @@ export function createPlatformWebApp(options: CreatePlatformWebAppOptions = {}):
       shortName: "Epoch Web",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#1a1a17",
-      backgroundColor: "#f4f2ea",
+      themeColor: "#070b12",
+      backgroundColor: "#03050a",
       offlineShell: true,
     },
     routes,
@@ -504,7 +504,7 @@ function styles(): string {
     }
     .epoch-platform-header h1 {
       margin: 0;
-      font-size: 22px;
+      font-size: var(--epoch-type-display-size);
       line-height: 1.2;
     }
     .epoch-platform-kicker {
@@ -601,7 +601,7 @@ function styles(): string {
     .epoch-platform-panel h2,
     .epoch-platform-community h2 {
       margin: 0 0 8px;
-      font-size: 18px;
+      font-size: var(--epoch-type-headline-size);
     }
     .epoch-platform-work p {
       margin: 0 0 14px;

@@ -34,7 +34,7 @@ and when the decision should be revisited.
 | [ADR-0024](0024-community-theming-deferral.md) | Accepted (amended by 0027) | Originally light-only; Nightboard product UI may be dark under ADR-0027. Token layer stays role-named. |
 | [ADR-0025](0025-community-unread-model.md) | Accepted | Unread is a local watermark over real receipts; a channel with no watermark is never unread; count is text, not colour-only; server push out of scope. |
 | [ADR-0026](0026-community-visual-world-course-line.md) | Superseded by 0027 | Course Line (ISOM / light civic workshop) — archived; not the product visual world. |
-| [ADR-0027](0027-community-visual-world-nightboard.md) | Accepted | Community visual world is Nightboard (Grid): Tron TUI, keyboard-first; Impeccable iterates on the Nightboard exploration until Community Web parity. |
+| [ADR-0027](0027-community-visual-world-nightboard.md) | Accepted | Community Web ships Nightboard (Grid): CanvasUI landing, Tron/tmux-style TUI, keyboard-first board; the former renderer is not a runtime entrypoint. |
 
 ## Supporting Decision Records
 

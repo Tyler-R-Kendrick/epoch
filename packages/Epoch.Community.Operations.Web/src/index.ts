@@ -281,8 +281,8 @@ export async function createCommunityOperationsWebApp(
       shortName: "Epoch Ops",
       startUrl: basePath,
       display: "standalone",
-      themeColor: "#1a1a17",
-      backgroundColor: "#f4f2ea",
+      themeColor: "#070b12",
+      backgroundColor: "#03050a",
       offlineShell: true,
     },
     deploymentTarget: createCommunityOperationsDeploymentTarget({
@@ -842,7 +842,7 @@ function communityOperationsStyles(): string {
 
     h2 {
       margin: 0;
-      font-size: 1.15rem;
+      font-size: var(--epoch-type-headline-size);
     }
 
     h3 {
@@ -1050,8 +1050,6 @@ function communityOperationsStyles(): string {
       .ops-grid {
         width: min(100% - 1rem, 1180px);
       }
-
-      h1 { font-size: 2.15rem; }
 
       .card-header,
       .actions {

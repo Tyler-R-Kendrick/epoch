@@ -55,6 +55,8 @@ reach equilibrium while a claimed dimension is unfalsifiable.
 - **State-driven identity** (`sample-session` | `api-session` | `authenticated`)
 - **File-backed Community API persistence** (`EPOCH_COMMUNITY_API_STATE`, default `.data/community-api.json`)
 - Live/snapshot honesty banners
+- Keyboard-first feed traversal with one roving message focus target
+- User-defined safe actions shared by prompt, exact voice phrases, and WebMCP tools
 
 ### Remaining product gaps (not missing UI chrome)
 
@@ -112,3 +114,4 @@ Configured in [packages/Epoch.Community.Web/.optimizexp/config.json](../packages
 | 2026-08-03 | optimizexp community-persona-uplift: receipt search, promote cards, identity sample-session |
 | 2026-08-03 | Production skeptic fix: file-backed API, state-driven identity, liveAgentIds, cucumber+unit tests; scorecard docs aligned |
 | 2026-08-03 | Design-system and review overhaul. Product: fake member presence replaced with receipt-derived signers; single receipt-search implementation; `@epoch/design-tokens` generated from DESIGN.md consumed by Community, Ops, and Platform Web; the 4,200-line single-file app decomposed into shared `model/`+`view/` modules with a compiled client entry, so server and client render identical markup (live refresh no longer strips signed action trays); deep links wired. Process: token-conformance audit enforced in `gate:fast` at zero findings; standing defect ledger (`.optimizexp/defects.json`, 8 defects opened and closed with evidence); assert-complete artifact-truth gates (scorecard evidence, backlog integrity, open defects, token audit, mobile capture, council verdict on status upgrades); default panel changed to `community-product` so design lenses actually run; `screen-reader-power-user` and `community-moderator` added; `moderation-notifications` dimension opened as **missing**; `craft` and `persistence` finally carry evidence paths. |
+| 2026-08-10 | Nightboard power controls: roving keyboard message navigation plus one safe local action registry for prompt macros, exact voice phrases, and WebMCP tools; `agents_member`, `craft`, and `moderation-notifications` remain honestly **partial**. |

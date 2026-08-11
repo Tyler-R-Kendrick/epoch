@@ -94,15 +94,14 @@ Confirmed and shipping:
   with receipts, moderation queue, unread watermarks, deep links.
 - Issues and change proposals for a linked repository; approve-change flow.
 - Network feed tabs (following / all / contributions).
-- PWA with offline shell; static-site build materialized through Epoch itself.
+- Canonical Nightboard browser app with a CanvasUI creator landing and a
+  tmux-style, keyboard-first collaboration board.
 
 Technical constraints that bind design:
 
-- The page is a **single self-contained HTML document** — server-rendered markup
-  with the client bundle inlined as an unminified IIFE. Wide external asset
-  dependencies are not available; a strict budget applies to the inlined bundle.
-- **Server and client render the same views** through one shared view layer.
-  Any markup authored twice drifts, and has repeatedly.
+- The canonical app is a static multi-file Nightboard runtime. The local server
+  and Vercel build copy the same source files; a second rendered shell is not an
+  allowed entrypoint.
 - Accessibility is gated: axe-core must be clean at 1440×960 and 390×844.
 - Behavior is specified in executable Gherkin; scenarios are the contract.
 
@@ -122,8 +121,8 @@ Dark product UI is allowed for Nightboard under ADR-0027 (amends ADR-0024).
 - **Visual world is Nightboard (Grid)** — Tron-inspired keyboard-first TUI.
   Living reference: `docs/design-explorations/nightboard/`. Contract:
   [ADR-0027](docs/design-decisions/0027-community-visual-world-nightboard.md).
-  Course Line (ADR-0026) is superseded and archived. Community Web ports to this
-  world; Impeccable iterates on Nightboard until parity.
+  Course Line (ADR-0026) is superseded and archived. Nightboard is the shipped
+  Community Web runtime; Impeccable iterates directly on those files.
 
 ## Evidence on Hand
 
