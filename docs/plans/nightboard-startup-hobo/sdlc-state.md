@@ -7,7 +7,7 @@ tags: [epoch, plans, sdlc, nightboard, hobo, routing]
 
 # Initiative: Nightboard startup and HoBo workbench
 
-- **Phase:** closeout
+- **Phase:** closed
 - **Slug:** `nightboard-startup-hobo`
 - **Opened:** 2026-08-11
 - **Host:** Codex
@@ -40,5 +40,6 @@ Give power users one recoverable startup/restart action, a cache-friendly model 
 
 ## Closeout
 
-- Commit `55d5f3d` was based on current `origin/main` and pushed after `gate:fast` passed.
-- PR review, authoritative CI, feedback resolution, and squash merge are in progress.
+- PR [#113](https://github.com/Tyler-R-Kendrick/epoch/pull/113) passed Quality Gates, CodeRabbit, Vercel, and a zero-thread final review sweep.
+- Review uncovered ignored primary browser evidence and two shared page-readiness races; both were fixed before the final 152-scenario / 1388-step run passed.
+- Squash merge `043d9244e688070d8fe243664ce16d5d24159fe6` is verified on `origin/main`.

@@ -125,3 +125,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + landing e2e green. Merged with `--admin`. |
 | Notes | Persuade `/` vs Operate `board.html`; terminal channels keep navbar siblings; Canvas UI glitch + E01 decrypt/reveal; landing typewriter. Excluded local WIP gauntlet-loop + impeccable mocks. |
+
+## 2026-08-11 — Nightboard startup + HoBo workbench `/sdlc finish`
+
+| Field | Value |
+|---|---|
+| Initiative | [`nightboard-startup-hobo`](nightboard-startup-hobo/sdlc-state.md) |
+| Backend | Sequential; coordinator inline |
+| Branch | `agent/nightboard-startup-hobo` |
+| PR | [#113](https://github.com/Tyler-R-Kendrick/epoch/pull/113) — squash-merged `043d9244` |
+| Result | **success** |
+| Failure class | Two shared page-readiness races failed authoritative CI and were fixed at the common board-entry step; ignored primary browser evidence was force-included before review. |
+| Notes | Contextual tuicr/hunk-style bottom line; `Ctrl+U` startup recovery; sticky local routing; deterministic Bo/HoBo workflow; focus expansion; message-directory/typeahead synchronization; keyboard post actions. Quality Gates, CodeRabbit, and Vercel green; 152 scenarios / 1388 steps. |
