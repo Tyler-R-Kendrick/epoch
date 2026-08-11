@@ -92,7 +92,8 @@
   }
 
   function parse(input) {
-    return window.NB_CORE.normalizeQuery(String(input || ""));
+    var normalized = window.NB_CORE.normalizeQuery(String(input || ""));
+    return Object.assign({}, normalized, { error: normalized.error || null });
   }
 
   function normalize(input) { return parse(input); }
