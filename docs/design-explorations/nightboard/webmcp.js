@@ -27,6 +27,24 @@
    * local registry so the page's own agent can call it.
    */
   function registerTool(descriptor) {
+    var actionId = descriptor.actionId || (window.NB_ACTIONS && window.NB_ACTIONS.resolve("mcp", descriptor.name));
+    if (window.NB_ACTIONS) {
+      if (!actionId) {
+        actionId = "tool." + descriptor.name;
+        window.NB_ACTIONS.register({
+          actionId: actionId,
+          label: descriptor.name,
+          description: descriptor.description,
+          contexts: ["board"],
+          sideEffect: "local",
+          mcp: { toolName: descriptor.name, inputSchema: descriptor.inputSchema },
+          execute: descriptor.execute,
+        });
+      }
+      descriptor = Object.assign({}, descriptor, { actionId: actionId, execute: function (args) {
+        return window.NB_ACTIONS.invoke(actionId, args || {}, { origin: "mcp", context: "board" });
+      } });
+    }
     var native = nativeContext();
     if (native && typeof native.registerTool === "function") {
       try { native.registerTool(descriptor); } catch { /* fall back to local only */ }
@@ -72,4 +90,16 @@
     fail: fail,
     isNative: function () { return !!nativeContext(); },
   };
+
+  if (window.NB_ACTIONS) {
+    window.NB_ACTIONS.mcpCatalog().forEach(function (action) {
+      registerTool({
+        actionId: action.actionId,
+        name: action.mcp.toolName,
+        description: action.description,
+        inputSchema: action.mcp.inputSchema,
+        execute: function () {},
+      });
+    });
+  }
 })();

@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 4 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 29 |
+| `features/community_web_experience.feature` | 34 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |

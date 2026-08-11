@@ -100,6 +100,21 @@
 
   function lower(s) { return String(s == null ? "" : s).toLowerCase(); }
 
+  function canViewPost(post, ctx) {
+    ctx = ctx || {};
+    var viewer = ctx.viewer || {};
+    return window.NB_CORE.canReadCommunityResource({
+      kind: post && post.dm ? "dm" : "message",
+      resourceId: post && post.dm ? post.dm : String(post && post.id || "unknown"),
+      visibility: post && post.dm ? "private" : "public",
+      participantIds: post && Array.isArray(post.participantIds) ? post.participantIds : [],
+    }, viewer);
+  }
+
+  function authorizedPosts(posts, ctx) {
+    return (posts || []).filter(function (post) { return canViewPost(post, ctx); });
+  }
+
   function contains(hay, needle, phrase) {
     hay = lower(hay);
     needle = lower(needle);
@@ -256,14 +271,15 @@
    */
   function apply(posts, query, ctx) {
     ctx = ctx || {};
+    var visible = authorizedPosts(posts, ctx);
     var parsed = parse(query);
     if (parsed.error) {
-      return { posts: posts.slice(), sort: null, error: parsed.error, query: query };
+      return { posts: visible, sort: null, error: parsed.error, query: query };
     }
     var sort = parsed.sort || null;
-    var filtered = posts;
+    var filtered = visible;
     if (parsed.ast) {
-      filtered = posts.filter(function (p) { return evalNode(p, parsed.ast, ctx); });
+      filtered = visible.filter(function (p) { return evalNode(p, parsed.ast, ctx); });
     }
     return { posts: filtered, sort: sort, error: null, query: query, ast: parsed.ast };
   }
@@ -491,13 +507,13 @@
    * Every searchable post across community channels, project rooms, DMs, and
    * live merged traffic — de-duplicated by id.
    */
-  function collectCorpus(extra) {
+  function collectCorpus(extra, ctx) {
     var D = window.NB_DATA || {};
     var MAP = window.NB_MAP;
     var seen = {};
     var out = [];
     function add(p, where) {
-      if (!p || !p.id || seen[p.id]) return;
+      if (!p || !p.id || seen[p.id] || !canViewPost(p, ctx)) return;
       seen[p.id] = true;
       var copy = Object.assign({}, p);
       if (where) copy._where = where;
@@ -524,9 +540,11 @@
   }
 
   /** Directory / room hits for free-text terms (channels, projects, spaces, DMs). */
-  function pathHits(terms, extra) {
+  function pathHits(terms, extra, ctx) {
     if (!terms || !terms.length || !window.NB_MAP || !window.NB_COMPLETE) return [];
     var MAP = window.NB_MAP;
+    var viewer = ctx && ctx.viewer || {};
+    var readableDmIds = viewer.actorId ? viewer.readableDmIds || [] : [];
     var score = window.NB_COMPLETE.score;
     var hits = [];
     var seen = {};
@@ -544,7 +562,9 @@
       hits.push({ type: "path", path: path, name: name, kind: kind, hint: hint || "", score: best });
     }
     ["/projects", "/members", "/spaces", "/dms"].forEach(function (root) {
+      if (root === "/dms" && !viewer.actorId) return;
       (MAP.list(root, extra) || []).forEach(function (e) {
+        if (root === "/dms" && readableDmIds.indexOf(e.name) === -1) return;
         consider(root + "/" + e.name, e.name, e.kind || "dir", e.hint || "");
         if (e.kind === "dir") {
           (MAP.list(root + "/" + e.name, extra) || []).forEach(function (f) {
@@ -586,7 +606,7 @@
     if (!q || q === "help" || q === "?") {
       return { hits: [], error: null, query: q, help: true, matched: 0 };
     }
-    var corpus = collectCorpus(ctx.extra);
+    var corpus = collectCorpus(ctx.extra, ctx);
     var applied = apply(corpus, q, ctx);
     if (applied.error) {
       return { hits: [], error: applied.error, query: q, matched: 0 };
@@ -605,7 +625,7 @@
       };
     });
     var terms = freeTermsFromAst(applied.ast);
-    var paths = pathHits(terms.length ? terms : needles, ctx.extra);
+    var paths = pathHits(terms.length ? terms : needles, ctx.extra, ctx);
     // Prefer post hits; interleave a few path hits that are not already covered.
     var covered = {};
     postHits.forEach(function (h) { covered[h.where] = true; });

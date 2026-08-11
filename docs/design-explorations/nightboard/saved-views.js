@@ -4,20 +4,36 @@
 
   var STORAGE_KEY = "nb-saved-views-v2";
   var LEGACY_KEY = "nb-saved-views-v1";
-  var SCHEMA_VERSION = 2;
+  var SCHEMA_VERSION = 3;
+  var principalId = null;
 
   function read() {
     try {
       var current = window.localStorage.getItem(STORAGE_KEY);
       var parsed = JSON.parse(current || "null");
-      if (!parsed || parsed.schemaVersion !== SCHEMA_VERSION || !Array.isArray(parsed.views)) {
+      if (!parsed || !Array.isArray(parsed.views)) {
         return current ? { schemaVersion: SCHEMA_VERSION, views: [], error: "unsupported saved-view schema" }
           : migrateLegacy();
+      }
+      if (parsed.schemaVersion === 2) return migrateState(parsed);
+      if (parsed.schemaVersion !== SCHEMA_VERSION) {
+        return { schemaVersion: SCHEMA_VERSION, views: [], error: "unsupported saved-view schema" };
       }
       return parsed;
     } catch {
       return { schemaVersion: SCHEMA_VERSION, views: [] };
     }
+  }
+
+  function migrateState(state) {
+    var next = {
+      schemaVersion: SCHEMA_VERSION,
+      views: state.views.map(function (view) {
+        return Object.assign({}, view, { ownerId: view.ownerId || null });
+      }),
+    };
+    write(next);
+    return next;
   }
 
   function migrateLegacy() {
@@ -40,6 +56,7 @@
           kind: "saved-query",
           label: view.label || view.name || "Saved view",
           visibility: view.visibility || "private",
+          ownerId: view.ownerId || null,
           query: query.canonical,
           ast: query.ast,
           queryLanguageVersion: query.version,
@@ -88,8 +105,41 @@
     return result;
   }
 
+  function setPrincipal(value) {
+    principalId = typeof value === "string" && value.trim() ? value.trim() : null;
+    if (!principalId) return null;
+    var state = read();
+    var changed = false;
+    state.views = state.views.map(function (view) {
+      if (view.ownerId) return view;
+      changed = true;
+      return Object.assign({}, view, { ownerId: principalId });
+    });
+    if (changed) write(state);
+    return principalId;
+  }
+
+  function selectedPrincipal(options) {
+    return options && typeof options.principalId === "string" ? options.principalId : principalId;
+  }
+
+  function canAccess(view, options) {
+    return window.NB_CORE.canReadCommunityResource({
+      kind: "saved-view",
+      resourceId: view.projectionId,
+      visibility: view.visibility,
+      ownerId: view.ownerId || undefined,
+    }, { actorId: selectedPrincipal(options) || undefined });
+  }
+
+  function requirePrincipal() {
+    if (!principalId) throw new Error("saved view requires an authenticated principal");
+    return principalId;
+  }
+
   function save(input) {
     input = input || {};
+    var ownerId = requirePrincipal();
     var query = normalized(input.query || "");
     var state = read();
     var now = new Date().toISOString();
@@ -98,6 +148,7 @@
       kind: "saved-query",
       label: String(input.label || "Saved view").trim() || "Saved view",
       visibility: validateVisibility(input.visibility || "private"),
+      ownerId: ownerId,
       query: query.canonical,
       ast: query.ast,
       queryLanguageVersion: query.version,
@@ -110,6 +161,7 @@
       return item.projectionId === view.projectionId;
     });
     if (existing >= 0) {
+      if (state.views[existing].ownerId !== ownerId) throw new Error("saved view permission denied");
       view.createdAt = state.views[existing].createdAt;
       view.version = (state.views[existing].version || 1) + 1;
       state.views[existing] = view;
@@ -121,16 +173,16 @@
   }
 
   function get(projectionId, options) {
-    options = options || { includePrivate: true };
+    options = options || {};
     var view = read().views.find(function (item) { return item.projectionId === projectionId; }) || null;
     if (view && view.visibility === "private" && options.includePrivate === false) return null;
-    return view;
+    return view && canAccess(view, options) ? view : null;
   }
 
   function list(options) {
-    options = options || { includePrivate: true };
+    options = options || {};
     return read().views.filter(function (view) {
-      return options.includePrivate !== false || view.visibility !== "private";
+      return (options.includePrivate !== false || view.visibility !== "private") && canAccess(view, options);
     });
   }
 
@@ -142,6 +194,8 @@
 
   function remove(projectionId) {
     var state = read();
+    var existing = state.views.find(function (view) { return view.projectionId === projectionId; });
+    if (!existing || existing.ownerId !== principalId) return false;
     var count = state.views.length;
     state.views = state.views.filter(function (view) { return view.projectionId !== projectionId; });
     return count !== state.views.length && write(state);
@@ -149,7 +203,10 @@
 
   function open(projectionId, objects, context) {
     context = context || {};
-    var view = get(projectionId, { includePrivate: context.includePrivate !== false });
+    var view = get(projectionId, {
+      includePrivate: context.includePrivate !== false,
+      principalId: context.principalId,
+    });
     if (!view) return { view: null, posts: [], error: "saved view is unavailable or unauthorized" };
     var visible = (objects || []).filter(function (post) {
       if (typeof context.authorize === "function") return context.authorize(post, view);
@@ -161,6 +218,7 @@
 
   window.NB_SAVED_VIEWS = {
     save: save,
+    setPrincipal: setPrincipal,
     get: get,
     list: list,
     rename: rename,

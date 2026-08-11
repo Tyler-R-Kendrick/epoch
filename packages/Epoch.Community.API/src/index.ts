@@ -26,6 +26,8 @@ import type {
 import {
   createMessageGraph,
   createProjection,
+  canReadCommunityResource,
+  hasCommunityPermission,
   matchesNormalizedQuery,
   migrateNormalizedQuery,
   threadRelations,
@@ -278,6 +280,9 @@ export function createInMemoryCommunityApi(
     async updateObjectState(objectId: string, state: string, authorization: CommunityAuthorizationContext = {}) {
       if (state.trim().length === 0) throw new Error("Community object state cannot be empty");
       const current = authorizeMessage(objectById(objects, objectId), authorization, authorizeObject);
+      if (!hasCommunityPermission(authorization, "object:state:write")) {
+        throw new Error("Community object state permission denied");
+      }
       const updated = { ...current, state };
       objects.set(objectId, updated);
       persist();
@@ -518,7 +523,12 @@ function objectById(objects: ReadonlyMap<string, CommunityMessage>, objectId: st
 }
 
 function defaultObjectAuthorization(message: CommunityMessage, authorization: CommunityAuthorizationContext): boolean {
-  return message.context.kind !== "dm" || (authorization.actorId !== undefined && authorization.actorId === message.authorId);
+  return canReadCommunityResource({
+    kind: message.context.kind === "dm" ? "dm" : message.ref.kind,
+    resourceId: message.context.kind === "dm" ? message.context.objectId : message.ref.objectId,
+    visibility: message.context.kind === "dm" ? "private" : "public",
+    ...(message.context.kind === "dm" ? { participantIds: [message.authorId] } : {}),
+  }, authorization);
 }
 
 function authorizeMessage(

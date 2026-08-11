@@ -286,7 +286,7 @@
     if (post.dm) base = dmPath(post.dm);
     else if (post.project) base = "/projects/" + post.project + "/channels/" + post.channel;
     else base = channelPath(post.channel);
-    return base + "/" + objectId;
+    return messagePath(base, objectId, extra) || base + "/" + objectId;
   }
 
   function projectionLocations(objectId, extra) {
@@ -467,21 +467,23 @@
   }
 
   function listMessagePath(pool, segments) {
-    var walked = walkPostSegments(pool, [segments[0]]);
+    var virtual = ["body.md", "metadata.json", "replies", "backlinks", "receipts"];
+    var relationIndex = segments.findIndex(function (segment) { return virtual.indexOf(segment) >= 0; });
+    var messageSegments = relationIndex < 0 ? segments : segments.slice(0, relationIndex);
+    var walked = walkPostSegments(pool, messageSegments);
     if (!walked) return null;
     var post = walked.post;
-    if (segments.length === 1) return virtualMessageEntries(post, pool);
-    if (segments[1] === "replies") {
-      if (segments.length === 2) return messageEntries(pool, objectRef(post).objectId);
-      var child = walkPostSegments(pool, [segments[2]]);
+    if (relationIndex < 0) return virtualMessageEntries(post, pool);
+    var relation = segments[relationIndex];
+    var tail = segments.slice(relationIndex + 1);
+    if (relation === "replies") {
+      if (!tail.length) return messageEntries(pool, objectRef(post).objectId);
+      var child = walkPostSegments(pool, [tail[0]]);
       return child && ((child.post.inReplyTo && child.post.inReplyTo.objectId) || child.post.re) === objectRef(post).objectId
         ? virtualMessageEntries(child.post, pool) : null;
     }
-    if (segments[1] === "backlinks" || segments[1] === "receipts") return segments.length === 2 ? [] : null;
-    if (segments[1] === "body.md" || segments[1] === "metadata.json") return null;
-    // Compatibility for legacy /parent/reply paths.
-    var legacy = walkPostSegments(pool, segments);
-    return legacy ? virtualMessageEntries(legacy.post, pool) : null;
+    if (relation === "backlinks" || relation === "receipts") return tail.length ? null : [];
+    return null;
   }
 
   /** Canonical hidden directory path for a message id, including reply parents. */

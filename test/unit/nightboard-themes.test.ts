@@ -28,6 +28,15 @@ function dataJson(): string {
   return JSON.stringify(sandbox.NB_DATA);
 }
 
+function loadCommunityCore(window: object): void {
+  new Function("window", readFileSync(join(ROOT, "community-core-runtime.js"), "utf8"))(window);
+}
+
+function loadActions(window: object): void {
+  new Function("window", readFileSync(join(ROOT, "action-registry.js"), "utf8"))(window);
+  new Function("window", readFileSync(join(ROOT, "actions.js"), "utf8"))(window);
+}
+
 function loadThemes(): readonly Theme[] {
   const source = readFileSync(join(ROOT, "themes.js"), "utf8");
   const sandbox: { NB_THEMES?: Theme[] } = {};
@@ -67,6 +76,7 @@ function contrast(a: string, b: string): number {
 export async function runNightboardThemeTests(): Promise<void> {
   // Hoisted source snapshots — many sections assert against these.
   const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
+  const actionSrc = readFileSync(join(ROOT, "actions.js"), "utf8");
   const consoleSrc2 = readFileSync(join(ROOT, "console.js"), "utf8");
   const asciiSrc = readFileSync(join(ROOT, "ascii.js"), "utf8");
   const baseCss = readFileSync(join(ROOT, "base.css"), "utf8");
@@ -74,7 +84,12 @@ export async function runNightboardThemeTests(): Promise<void> {
   const themes = loadThemes();
   assert.equal(themes.length, 1, "Grid is the only built-in theme");
   assert.equal(themes[0].id, "nightboard");
-  assert.equal(themes[0].name, "Grid");
+  assert.equal(themes[0].name, "Grid", "NAV-REG-004 Grid remains the authoritative visual contract");
+  const navigationDocs = ["README.md", "CONTRACT.md"].map((name) =>
+    readFileSync(join(ROOT, name), "utf8")).join("\n");
+  assert.ok(navigationDocs.includes("hierarchical navigator + detail blade") &&
+    !/true\s+Miller[- ]column/iu.test(navigationDocs),
+  "NAV-REG-006 canonical documentation uses hierarchical navigator plus detail blade terminology");
   assert.ok(!readFileSync(join(ROOT, "board.html"), "utf8").includes("data-theme-select"),
     "chrome must not offer a Grid/Line Printer theme dropdown");
 
@@ -176,6 +191,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   const sandbox2: { NB_DATA?: unknown; NB_MAP?: unknown; NB_EXPERIENCES?: { id: string; keys?: string }[] } = {
     NB_DATA: JSON.parse(dataJson()),
   };
+  loadCommunityCore(sandbox2);
   new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(sandbox2);
   new Function("window", consoleSource)(sandbox2);
   const exps = sandbox2.NB_EXPERIENCES ?? [];
@@ -411,7 +427,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   const appNotif = readFileSync(join(ROOT, "app.js"), "utf8");
   assert.ok(appNotif.includes("openActivity") && appNotif.includes("data-activity-bell"),
     "Activity bell and openActivity are wired");
-  assert.ok(complete.includes('"/notifications"') || complete.includes('"/activity"'),
+  assert.ok(actionSrc.includes('"/notifications"') || actionSrc.includes('"/activity"'),
     "slash surface exposes /notifications or /activity");
 
   // Browser Notification API bridge for Activity.
@@ -782,6 +798,7 @@ export async function runNightboardThemeTests(): Promise<void> {
           Record<string, number>;
       };
     } = {};
+    loadCommunityCore(followWin);
     new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(followWin);
     new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(followWin);
     assert.ok(followWin.NB_MAP && followWin.NB_DATA);
@@ -1019,6 +1036,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     };
     NB_DATA?: { members?: object[] };
   } = { NB_DATA: { members: [{ handle: "maya", kind: "person" }, { handle: "scout", kind: "agent" }] } };
+  loadCommunityCore(qWin);
   new Function("window", querySrc)(qWin);
   assert.ok(qWin.NB_QUERY);
   const Q = qWin.NB_QUERY!;
@@ -1055,8 +1073,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     "model status is plain language; compose declares unsigned for guests");
   assert.ok(consoleSrc2.includes("data-feed-query") && consoleSrc2.includes("data-feed-view"),
     "console must expose query bar and view chips");
-  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/view"') ||
-    readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/q"'),
+  assert.ok(actionSrc.includes('"/view"') || actionSrc.includes('"/q"'),
     "slash surface exposes /view or /q");
 
   // File attachments for chat context.
@@ -1069,7 +1086,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     "app must stage attachments on the prompt");
   assert.ok(consoleSrc2.includes("data-attach-pick") && consoleSrc2.includes("cn-attach-tray"),
     "console must render attach control and tray");
-  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/attach"'),
+  assert.ok(actionSrc.includes('"/attach"'),
     "slash surface exposes /attach");
   const attachWin: {
     NB_ATTACH?: {
@@ -1112,7 +1129,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     "fixtures include default hooks");
   assert.ok(appSrc.includes("broadcastHookEvent") && appSrc.includes("runHooksCommand"),
     "app must broadcast hook events and expose /hooks");
-  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/hooks"'),
+  assert.ok(actionSrc.includes('"/hooks"'),
     "slash surface exposes /hooks");
   assert.ok(consoleSrc2.includes("hooks") && consoleSrc2.includes("/notifications/hooks"),
     "Activity UI surfaces hooks filter");
@@ -1254,6 +1271,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     NB_MAP?: unknown;
     NB_DATA?: unknown;
   } = { NB_DATA: JSON.parse(dataJson()) };
+  loadCommunityCore(helpWin);
   new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(helpWin);
   new Function("window", consoleSrc2)(helpWin);
   assert.ok(helpWin.NB_HELP, "NB_HELP must export");
@@ -1330,7 +1348,7 @@ export async function runNightboardThemeTests(): Promise<void> {
   assert.ok(helpWin.NB_HELP!.visibleGroups(dmCtx).some((g) => g.id === "dm"),
     "dm focus shows Messages");
   const completeSrc = readFileSync(join(ROOT, "complete.js"), "utf8");
-  assert.ok(completeSrc.includes("SLASH_COMMANDS") && completeSrc.includes('"/go"'),
+  assert.ok(completeSrc.includes("SLASH_COMMANDS") && actionSrc.includes('"/go"'),
     "slash command catalogue must exist for agent chat");
   assert.ok(appSrc.includes("runSlash") && appSrc.includes("isSlash"),
     "slash commands must execute from the terminal prompt");
@@ -1364,6 +1382,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     };
   } = {};
   new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(completeWin);
+  loadActions(completeWin);
   // sitemap optional for markers; provide a stub MAP if complete.js closes over it.
   completeWin.NB_MAP = {
     list: () => [],
@@ -1426,14 +1445,19 @@ export async function runNightboardThemeTests(): Promise<void> {
       };
     };
   } = { NB_DATA: JSON.parse(dataJson()) };
+  loadCommunityCore(pathWin);
   new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(pathWin);
+  loadActions(pathWin);
   new Function("window", completeSrc)(pathWin);
   const messagePath = pathWin.NB_MAP!.messagePath(
     "/projects/community/channels/general", "p3", [],
   );
   assert.equal(messagePath, "/projects/community/channels/general/p1/p2/p3");
-  assert.ok(pathWin.NB_MAP!.list("/projects/community/channels/general/p1/p2", [])
-    ?.some((entry) => entry.name === "p3"), "message directories list direct replies by id");
+  assert.deepEqual(pathWin.NB_MAP!.list("/projects/community/channels/general/p1/p2", [])
+    ?.map((entry) => entry.name), ["body.md", "metadata.json", "replies", "backlinks", "receipts"],
+  "message directories expose readable representations and relations");
+  assert.ok(pathWin.NB_MAP!.list("/projects/community/channels/general/p1/p2/replies", [])
+    ?.some((entry) => entry.name === "p3"), "message replies list direct children by stable id");
   const messageCd = pathWin.NB_COMPLETE!.analyse("cd p3", {
     cwd: "/projects/community/channels/general", extra: [],
   });
@@ -1642,7 +1666,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     "console must render voice dock and join controls");
   assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("voice.js"),
     "index must load voice.js");
-  assert.ok(readFileSync(join(ROOT, "complete.js"), "utf8").includes('"/voice"'),
+  assert.ok(actionSrc.includes('"/voice"'),
     "slash catalogue includes /voice");
   assert.ok(readFileSync(join(ROOT, "data.js"), "utf8").includes('kind: "voice"'),
     "seed data includes voice channels");
@@ -1929,9 +1953,9 @@ export async function runNightboardThemeTests(): Promise<void> {
     "claim and portable-handle login must be wired");
   assert.ok(appSrc.includes("requireParticipation"),
     "participation (vote/reply) must gate on authorized session");
-  assert.ok(completeSrc.includes('"/whoami"') && completeSrc.includes('"/login"') &&
-    completeSrc.includes('"/claim"') && completeSrc.includes('"/logout"') &&
-    completeSrc.includes('"/space"'),
+  assert.ok(actionSrc.includes('"/whoami"') && actionSrc.includes('"/login"') &&
+    actionSrc.includes('"/claim"') && actionSrc.includes('"/logout"') &&
+    actionSrc.includes('"/space"'),
     "slash surface must expose whoami / login / claim / logout / space");
   const indexHtml = readFileSync(join(ROOT, "board.html"), "utf8");
   assert.ok(indexHtml.includes("session.js") && indexHtml.includes("data-identity-host"),
@@ -1942,7 +1966,7 @@ export async function runNightboardThemeTests(): Promise<void> {
     "index must host the sign-in dialog");
   assert.ok(/data-auth-cancel[^>]*>esc</.test(indexHtml),
     "auth cancel must be [esc]");
-  const loginHelp = (completeSrc.match(/name: "\/login"[^}]+/) || [""])[0];
+  const loginHelp = (actionSrc.match(/"\/login"[^}]+/) || [""])[0];
   const authDialog = (indexHtml.match(/data-auth-dialog[\s\S]*?<\/div>\s*<\/div>/) || [""])[0];
   const openAuthFn = (appSrc.match(/function openAuth[\s\S]*?function closeAuth/) || [""])[0];
   const profileLogin = (appSrc.match(/data-profile-bluesky[^>]*>[^<]+/) || [""])[0];

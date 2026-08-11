@@ -73,6 +73,9 @@ export async function runNightboardNavigationRuntimeTests(): Promise<void> {
   assert.equal(layers.cancelTop()?.id, "completion", "NAV-LAYER-001 closes one layer");
   assert.equal(layers.top()?.id, "help", "NAV-LAYER-001 leaves lower layers intact");
   assert.ok(statuses.at(-1)?.includes("close help"), "focus/status returns to the next layer");
+  layers.cancelTop();
+  layers.cancelTop();
+  assert.equal(layers.cancelTop(), null, "NAV-LAYER-002 Escape with no layer does not perform ancestry or history");
 
   const historyCalls: Array<{ type: string; state: unknown; url: string }> = [];
   const history = nav.createHistory({
@@ -84,6 +87,23 @@ export async function runNightboardNavigationRuntimeTests(): Promise<void> {
     "NAV-ROUTE-003 identical/ephemeral state does not add history");
   assert.equal(historyCalls.length, 1);
   assert.ok(!JSON.stringify(historyCalls).includes("DO_NOT_LEAK_7f3c"), "NAV-ID-004 history stays privacy-safe");
+  for (const location of [
+    { projectionId: "proj:thread", objectId: "msg-001", threadRootId: "msg-001" },
+    { projectionId: "proj:saved", objectId: "msg-001", savedViewId: "saved-1" },
+    { projectionId: "proj:dm", objectId: "dm-001" },
+  ]) history.commit(location);
+  assert.equal(historyCalls.length, 4, "NAV-ROUTE-001 meaningful channel thread saved-view and DM states are distinct");
+
+  const chooser = nav.rankJumpCandidates("gen", [
+    { id: "current", path: "/current/general", label: "general", group: "CURRENT", kind: "channel" },
+    { id: "saved", path: "/views/general", label: "general review", group: "SAVED VIEWS", kind: "saved-view" },
+    { id: "global", path: "/global/generators", label: "generators", group: "GLOBAL", kind: "channel" },
+  ]);
+  assert.deepEqual(new Set(chooser.map((candidate) => candidate.group)), new Set(["CURRENT", "SAVED VIEWS", "GLOBAL"]),
+    "NAV-JUMP-003 interactive chooser exposes grouped candidates before acceptance");
+  assert.equal(nav.resolveDeterministic("/current", "gen", paths).ok, false,
+    "NAV-JUMP-004 deterministic navigate fails where ranked jump returns candidates");
+  assert.ok(chooser.length > 0, "NAV-JUMP-004 fuzzy jump returns ranked candidates");
 
   load("action-registry.js", window);
   const actions = window.NB_ACTIONS as {
@@ -122,6 +142,31 @@ export async function runNightboardNavigationRuntimeTests(): Promise<void> {
   assert.equal(executions.length, 4);
   assert.equal(actions.commandCatalog()[0]?.actionId, "view.open", "NAV-ACTION-004 command catalog derives from registry");
   assert.equal(actions.mcpCatalog()[0]?.actionId, "view.open", "NAV-ACTION-004 MCP catalog derives from registry");
+  let permissionChecks = 0;
+  let permissionedExecutions = 0;
+  actions.register({
+    actionId: "post.voteUp",
+    label: "Upvote post",
+    description: "Permissioned post action",
+    contexts: ["board"],
+    sideEffect: "shared",
+    permission: "community.participate",
+    execute() { permissionedExecutions += 1; return { ok: true }; },
+  });
+  await assert.rejects(actions.invoke("post.voteUp", { objectId: "p1" }, {
+    origin: "keyboard",
+    context: "board",
+    authorize() { permissionChecks += 1; return false; },
+  }), /permission denied/u, "NAV-ACTION-002 denied post actions fail before execution");
+  assert.equal(permissionChecks, 1, "NAV-ACTION-002 permission is decided once per invocation");
+  assert.equal(permissionedExecutions, 0, "NAV-ACTION-002 denied action never executes");
+  await actions.invoke("post.voteUp", { objectId: "p1" }, {
+    origin: "pointer",
+    context: "board",
+    authorize() { permissionChecks += 1; return true; },
+  });
+  assert.equal(permissionChecks, 2, "NAV-ACTION-002 pointer uses the same single permission decision");
+  assert.equal(permissionedExecutions, 1, "NAV-ACTION-002 authorized action executes exactly once");
   const migratedMacro = actions.migrateMacro({ name: "daily", commands: ["view-open saved-1"], voice: "open daily" });
   assert.deepEqual(migratedMacro.actionIds, ["view.open"], "NAV-ACTION-003 legacy macro resolves action IDs");
 
@@ -139,6 +184,9 @@ export async function runNightboardNavigationRuntimeTests(): Promise<void> {
   load("session.js", sessionWindow);
   const session = sessionWindow.NB_SESSION as {
     migrateBoardState(value: Record<string, unknown>): Record<string, unknown>;
+    loadBoardState(): Record<string, unknown> | null;
+    exportBoardState(): string | null;
+    clearBoardState(): void;
     BOARD_SCHEMA_VERSION: number;
   };
   const previous = {
@@ -151,6 +199,24 @@ export async function runNightboardNavigationRuntimeTests(): Promise<void> {
   assert.equal(migrated.schemaVersion, session.BOARD_SCHEMA_VERSION, "NAV-MIGRATE-002 versions board state");
   assert.deepEqual(migratedAgain, migrated, "NAV-MIGRATE-002 migration is idempotent");
   assert.equal((migrated.sessions as Array<Record<string, unknown>>)[0]?.draft, "keep me");
+  const isolated = session.migrateBoardState({ sessions: [
+    { id: "one", path: "/one", history: ["cd /one"], draft: "first" },
+    { id: "two", path: "/two", history: ["cd /two"], draft: "second" },
+  ] });
+  assert.notDeepEqual((isolated.sessions as Array<Record<string, unknown>>)[0],
+    (isolated.sessions as Array<Record<string, unknown>>)[1],
+    "NAV-ROUTE-004 workspace histories drafts and focus remain isolated");
+  const malformed = session.migrateBoardState(null as unknown as Record<string, unknown>);
+  assert.equal((malformed.recovery as Record<string, unknown>).reason, "malformed",
+    "NAV-MIGRATE-004 malformed persisted state fails safely with recovery guidance");
+  assert.deepEqual((malformed.recovery as Record<string, unknown>).actions, ["export", "reset"],
+    "NAV-MIGRATE-004 recovery exposes explicit export and reset actions");
+  storage.set("nb-board-state", "{broken-json");
+  assert.equal((session.loadBoardState()?.recovery as Record<string, unknown>).reason, "malformed");
+  assert.equal(session.exportBoardState(), "{broken-json",
+    "NAV-MIGRATE-004 malformed state remains exportable until explicit reset");
+  session.clearBoardState();
+  assert.equal(session.exportBoardState(), null, "NAV-MIGRATE-004 reset explicitly clears the saved state");
 
   console.log("nightboard navigation runtime tests passed");
 }

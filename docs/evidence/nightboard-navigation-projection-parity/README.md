@@ -3,8 +3,9 @@
 This evidence maps stable object identity, mounted projections, explicit reply
 topology, deterministic navigation, saved views, route restoration, shared
 actions, and APG interaction behavior to executable checks. The JSON manifest
-contains no hand-authored pass state: its verifier finds each acceptance ID in
-tracked executable tests and fails closed when a claim or proof disappears.
+contains no hand-authored pass state. Each claim has one explicit test file and
+proof kind; the verifier requires the acceptance ID in executable code at that
+exact path and fails closed for missing, mismatched, or orphan references.
 
 Run:
 

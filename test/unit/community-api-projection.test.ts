@@ -2,14 +2,44 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createInMemoryCommunityApi } from "@epoch/community-api";
+import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
 import type { CommunityMessage, ProjectionSpec } from "@epoch/community-core";
 
 export async function runCommunityApiProjectionTests(): Promise<void> {
   await test("NAV-MIGRATE-001 API schema migration preserves data", apiMigrationPreservesDataAndAssignsIdsOnce);
   await test("NAV-QUERY-003 saved view visibility is enforced", savedProjectionAuthorizationFailsClosed);
+  await test("NAV-ACTION-002 PATCH object state requires explicit write authorization", objectStateMutationRequiresWriteAuthorization);
   await test("NAV-PROJ-002 mutation through virtual view updates canonical object", projectionMutationUpdatesCanonicalObject);
   await test("NAV-PROJ-004 missing projection falls back to canonical object", deletedProjectionDoesNotDeleteCanonicalObject);
+}
+
+async function objectStateMutationRequiresWriteAuthorization(): Promise<void> {
+  const api = createInMemoryCommunityApi({ messages: [sampleMessage()] });
+  await assert.rejects(() => api.updateObjectState("m-api-1", "read"), /permission denied/u);
+  await assert.rejects(
+    () => api.updateObjectState("m-api-1", "read", { actorId: "alice" }),
+    /permission denied/u,
+  );
+
+  const unauthenticated = createCommunityApiFetchHandler(api);
+  const denied = await unauthenticated(new Request("https://epoch.invalid/objects/m-api-1/state", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state: "read" }),
+  }));
+  assert.equal(denied.status, 403);
+  assert.equal((await api.getObject("m-api-1", { actorId: "alice" })).state, "needs-review");
+
+  const authorized = createCommunityApiFetchHandler(api, {
+    resolveAuthorization: () => ({ actorId: "alice", permissions: ["object:state:write"] }),
+  });
+  const allowed = await authorized(new Request("https://epoch.invalid/objects/m-api-1/state", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state: "read" }),
+  }));
+  assert.equal(allowed.status, 200);
+  assert.equal((await api.getObject("m-api-1", { actorId: "alice" })).state, "read");
 }
 
 async function test(name: string, run: () => void | Promise<void>): Promise<void> {
@@ -119,7 +149,10 @@ function privateMessage(): CommunityMessage {
 async function projectionMutationUpdatesCanonicalObject(): Promise<void> {
   const api = createInMemoryCommunityApi({ messages: [sampleMessage()] });
   await api.saveProjection({ projection: sampleProjection("shared"), ownerId: "alice" }, { actorId: "alice" });
-  await api.updateObjectState("m-api-1", "read", { actorId: "alice" });
+  await api.updateObjectState("m-api-1", "read", {
+    actorId: "alice",
+    permissions: ["object:state:write"],
+  });
   assert.equal((await api.getObject("m-api-1", { actorId: "alice" })).state, "read");
   assert.equal((await api.getProjection("saved-needs-review", { actorId: "alice" })).entries[0]?.ref.objectId, "m-api-1");
 }

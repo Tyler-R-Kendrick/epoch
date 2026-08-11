@@ -20,7 +20,7 @@
 
     MCP.registerTool({
       name: "board_navigate",
-      description: "Go to a path in the board, e.g. /projects/community/channels/bugs or /projects/civic-tuner/channels/changes. Accepts partial names and resolves them the way the command line does.",
+      description: "Go to an exact absolute or relative board path. Returns an error for partial or ambiguous names.",
       inputSchema: {
         type: "object",
         properties: { path: { type: "string", description: "absolute or relative path" } },
@@ -30,19 +30,6 @@
         var asked = String(args.path || "");
         if (api.navigate(asked, { keepCli: true })) {
           return MCP.text("now at " + api.state.path);
-        }
-        // A bare name is a hint and may be resolved fuzzily. An absolute path is
-        // an assertion: if it does not exist, say so. Resolving it to something
-        // nearby made this tool incapable of failing, which both lied and
-        // removed the signal the agent needs to correct itself.
-        if (asked.charAt(0) !== "/") {
-          var guess = window.NB_COMPLETE.analyse("cd " + asked, {
-            cwd: api.state.path, extra: api.state.merged,
-          });
-          var best = guess && guess.candidates && guess.candidates[0];
-          if (best && api.navigate(best.value, { keepCli: true })) {
-            return MCP.text("now at " + api.state.path + " (resolved from " + asked + ")");
-          }
         }
         return MCP.fail("no such path: " + asked);
       },
@@ -60,7 +47,8 @@
         var entries = MAP.list(MAP.resolve(api.state.path, args.path), api.state.merged);
         if (!entries) return MCP.fail("not a directory: " + args.path);
         return MCP.text(entries.map(function (e) {
-          return (e.kind === "dir" ? "dir  " : "file ") + e.name + "  " + (e.hint || "");
+          var type = e.kind === "message" ? "message" : e.kind === "dir" ? "dir" : e.kind;
+          return type + "  " + e.name + "  " + (e.hint || "");
         }).join("\n"));
       },
     });
@@ -448,7 +436,11 @@
         required: ["query"],
       },
       execute: async function (args) {
-        var result = await GRAPH.query(args.query, args.variables);
+        var result = await GRAPH.query(
+          args.query,
+          args.variables,
+          api.viewerContext ? api.viewerContext() : undefined
+        );
         if (result.errors && result.errors.length) {
           // Real GraphQL errors, with positions — the agent can correct itself.
           return MCP.fail(result.errors.map(function (e) { return e.message; }).join("; "));

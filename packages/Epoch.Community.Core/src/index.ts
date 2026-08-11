@@ -1,7 +1,9 @@
 import type { CommunityMessage, CommunityThreadRelations } from "./graph";
 import type { CommunityObjectRef } from "./identity";
 import type { CommunityProjection, SavedProjection, SaveProjectionInput } from "./projection";
+import type { CommunityAuthorizationContext } from "./authorization";
 
+export * from "./authorization";
 export * from "./actions";
 export * from "./graph";
 export * from "./identity";
@@ -123,10 +125,6 @@ export interface CommentOnCommunityIssueInput {
   readonly id?: string;
   readonly author: string;
   readonly body: string;
-}
-
-export interface CommunityAuthorizationContext {
-  readonly actorId?: string;
 }
 
 export interface CommunityApiTransport {

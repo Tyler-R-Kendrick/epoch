@@ -1,6 +1,8 @@
 import { runPlatformWebConsoleTests } from "./component/platform-web-console.test";
 import { runAdvancedInfrastructureTests } from "./unit/advanced-infrastructure.test";
 import { runCommunityContractTests } from "./unit/community-contract.test";
+import { runCommunityApiProjectionTests } from "./unit/community-api-projection.test";
+import { runCommunityObjectProjectionTests } from "./unit/community-object-projection.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runCommunityOperationsWebTests } from "./unit/community-operations-web.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
@@ -37,6 +39,8 @@ async function main(): Promise<void> {
   await runPlatformCommunityModuleTests();
   runPlatformWebConsoleTests();
   await runCommunityContractTests();
+  await runCommunityObjectProjectionTests();
+  await runCommunityApiProjectionTests();
   // Gossip HTTP consumer contracts (writes durable pacts/ for provider verification).
   const { runGossipHttpConsumerContractTests } = await import("./pact/consumer/gossip-http.consumer.test");
   await runGossipHttpConsumerContractTests();

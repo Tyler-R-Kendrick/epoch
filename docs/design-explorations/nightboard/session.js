@@ -519,7 +519,11 @@
     if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
       return {
         schemaVersion: BOARD_SCHEMA_VERSION,
-        recovery: { reason: "malformed", message: "Saved board state is malformed; export or reset it from session recovery." },
+        recovery: {
+          reason: "malformed",
+          message: "Saved board state is malformed; export it for recovery or reset it to continue.",
+          actions: ["export", "reset"],
+        },
         sessions: [],
       };
     }
@@ -529,6 +533,7 @@
         recovery: {
           reason: "unsupported-version",
           message: "Saved board state is newer than this Nightboard; update or export it before reset.",
+          actions: ["export", "reset"],
         },
       });
     }
@@ -545,7 +550,9 @@
       if (!raw) return null;
       var parsed = JSON.parse(raw);
       var migrated = migrateBoardState(parsed);
-      if (JSON.stringify(migrated) !== raw && ls) ls.setItem(KEYS.board, JSON.stringify(migrated));
+      if (!migrated.recovery && JSON.stringify(migrated) !== raw && ls) {
+        ls.setItem(KEYS.board, JSON.stringify(migrated));
+      }
       return migrated;
     } catch {
       return migrateBoardState(null);
@@ -564,6 +571,13 @@
       var ls = storage();
       if (ls) ls.removeItem(KEYS.board);
     } catch { /* private */ }
+  }
+
+  function exportBoardState() {
+    try {
+      var ls = storage();
+      return ls ? ls.getItem(KEYS.board) : null;
+    } catch { return null; }
   }
 
   /* ── One restart lane for local startup conditions ───────────────────── */
@@ -662,6 +676,7 @@
     loadBoardState: loadBoardState,
     saveBoardState: saveBoardState,
     clearBoardState: clearBoardState,
+    exportBoardState: exportBoardState,
     migrateBoardState: migrateBoardState,
     BOARD_SCHEMA_VERSION: BOARD_SCHEMA_VERSION,
     DEFAULT_POLICY: DEFAULT_POLICY,

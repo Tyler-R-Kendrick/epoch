@@ -3,7 +3,7 @@
   "id": "community-web-experience-gap",
   "product": "Epoch.Community.Web",
   "scorecardDoc": "docs/community-web-experience-gap-scorecard.md",
-  "lastUpdated": "2026-08-03",
+  "lastUpdated": "2026-08-11",
   "refuse": [
     "discord-voice-nitro",
     "x-metric-theater",
@@ -41,8 +41,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Durable multi-user community/channel store beyond in-memory seed",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
       "id": "discover",
@@ -73,8 +73,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Real AT-observed feed or stricter sample labels + open-to-community drill-in",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
       "id": "identity",
@@ -103,8 +103,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "AT OAuth authenticated path; api-session honesty shipped",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:37:49.532Z"
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
       "id": "share",
@@ -134,8 +134,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Network-visible ship event from Share a ship",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:34:00.000Z"
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
       "id": "promote",
@@ -295,8 +295,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Craft moments are covered by scenarios; next pass is motion and iconography specification",
-      "lastRunId": "20260811-uxax-nightboard-startup-hobo",
-      "lastScoredAt": "2026-08-11T17:45:00.000Z"
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
       "id": "persistence",
@@ -328,8 +328,8 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Multi-node HA next; file-backed API shipped",
-      "lastRunId": "community-persona-uplift-20260803-1823",
-      "lastScoredAt": "2026-08-03T18:37:49.532Z"
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
       "id": "moderation-notifications",
@@ -358,7 +358,9 @@
         "uncertainty": 1
       },
       "implementableNow": true,
-      "smallestExperiment": "Moderator decision actions (resolve, hold) recorded from the ops queue itself"
+      "smallestExperiment": "Moderator decision actions (resolve, hold) recorded from the ops queue itself",
+      "lastRunId": "nightboard-object-projections-20260811",
+      "lastScoredAt": "2026-08-11T22:30:00.000Z"
     }
   ]
 }

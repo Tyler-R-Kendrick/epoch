@@ -450,8 +450,12 @@
           esc(p.who) + '" aria-keyshortcuts="r">reply</button>' +
           '<button type="button" class="cn-act" data-repost="' + esc(p.id) +
           '" aria-keyshortcuts="Shift+R">repost</button>' +
-          '<button type="button" class="cn-act" data-share data-share-post="' + esc(p.id) +
-          '" aria-keyshortcuts="s">share</button></div>' : "") +
+          '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(p.id) +
+          '" aria-keyshortcuts="s">share contextual</button>' +
+          '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(p.id) +
+          '">copy canonical</button>' +
+          ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
+            esc(p.id) + '">copy exact revision</button>' : "") + '</div>' : "") +
         '</article></div>';
     }
 
@@ -537,8 +541,12 @@
         '<button type="button" class="cn-act" data-repost="' + esc(p.id) + '"' +
         ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
         (reposted ? "reposted" : "repost") + '</button>' +
-        '<button type="button" class="cn-act" data-share data-share-post="' + esc(p.id) + '"' +
-        ' aria-keyshortcuts="s" title="Share (s)">share</button>' +
+        '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(p.id) + '"' +
+        ' aria-keyshortcuts="s" title="Share contextual link (s)">share contextual</button>' +
+        '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(p.id) +
+        '" title="Copy canonical link">copy canonical</button>' +
+        ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
+          esc(p.id) + '" title="Copy exact revision link">copy exact revision</button>' : "") +
         '<button type="button" class="cn-act" data-copy-post="' + esc(p.id) + '"' +
         ' aria-keyshortcuts="y" title="Copy this thread in an optimized paste format (y)">copy</button>' +
         (isFolded && below
@@ -2583,6 +2591,23 @@
 
   /* ── The experience ────────────────────────────────────────────────────── */
 
+  function renderCandidateRows(candidates, activeIndex) {
+    var previousGroup = null;
+    return (candidates || []).slice(0, 40).map(function (c, i) {
+      var activeCandidate = i === activeIndex && activeIndex >= 0;
+      var group = c.group || null;
+      var heading = group && group !== previousGroup
+        ? '<div class="cn-cand-group" role="presentation" aria-hidden="true">' + esc(group) + "</div>"
+        : "";
+      previousGroup = group;
+      return heading + '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
+        (c.kind ? ' data-cand-kind="' + esc(c.kind) + '"' : "") +
+        ' aria-selected="' + (activeCandidate ? "true" : "false") + '"' +
+        (activeCandidate ? ' data-active="true"' : "") + ">" +
+        "<span>" + esc(c.label || c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
+    }).join("");
+  }
+
   var CONSOLE = {
     id: "console",
     name: "Console",
@@ -3756,6 +3781,8 @@
       overflow-wrap:break-word}
     [data-exp="console"] .cn-cand{display:grid;grid-template-columns:minmax(0,14rem) minmax(0,1fr);gap:.8rem;
       padding:.18rem .8rem;cursor:pointer}
+    [data-exp="console"] .cn-cand-group{padding:.35rem .8rem .12rem;color:var(--nb-accent);
+      font-size:.72em;font-weight:700;letter-spacing:.1em;border-block-start:1px solid var(--nb-rule)}
     [data-exp="console"] .cn-cand[data-active=true]{background:var(--nb-accent);color:var(--nb-accent-ink)}
     [data-exp="console"] .cn-cand i{font-style:normal;color:var(--nb-ink-faint)}
     [data-exp="console"] .cn-cand[data-active=true] i{color:inherit;opacity:.8}
@@ -3772,12 +3799,12 @@
     [data-exp="console"] .cn-mode[aria-pressed=true]::before,
     [data-exp="console"] .cn-mode[aria-pressed=true]::after{color:var(--nb-bg)}
     /* File attach for chat context — paperclip next to the prompt. */
-    [data-exp="console"] .cn-attach{font:inherit;background:none;border:0;
+    [data-exp="console"] .cn-attach,[data-exp="console"] .cn-jump{font:inherit;background:none;border:0;
       color:var(--nb-ink-dim);cursor:pointer;padding:0 .05rem;min-height:1.5rem;min-width:1.5rem;
       border-radius:0;line-height:1;flex:none}
-    [data-exp="console"] .cn-attach::before{content:"[";color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-attach::after{content:"]";color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-attach:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-attach::before,[data-exp="console"] .cn-jump::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach::after,[data-exp="console"] .cn-jump::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach:hover,[data-exp="console"] .cn-jump:hover{color:var(--nb-ink);text-decoration:underline}
     [data-exp="console"] .cn-attach[data-count]:not([data-count="0"]){color:var(--nb-accent)}
     [data-exp="console"] .cn-attach[data-count]:not([data-count="0"])::before,
     [data-exp="console"] .cn-attach[data-count]:not([data-count="0"])::after{color:var(--nb-accent)}
@@ -4006,7 +4033,7 @@
           preview = renderVoiceRoom(selected.channel, state);
         } else {
           var chFeed = detailFeedEntries(chPreviewPath, extra);
-          var chMark = state.threadFocus || state.feedMark || null;
+          var chMark = state.feedMark || state.threadFocus || null;
           var chEdPost = state.editor && state.editor.focused && state.editor.active
             ? chFeed.find(function (e) {
               return e.post && state.editor.active.path === MAP.resolve(chPreviewPath, e.name);
@@ -4015,7 +4042,7 @@
           if (chEdPost) {
             preview = viewFileEditor(chEdPost, state.editor.active.path, state);
           } else if (state.threadFocus) {
-            preview = viewTree(chFeed, state.threadFocus, state.folded, sort, votes,
+            preview = viewTree(chFeed, state.feedMark || state.threadFocus, state.folded, sort, votes,
               state.reactions, state.reposts, state.reactPick, null, { threadOf: state.threadFocus });
           } else {
             preview = viewTree(chFeed, chMark, state.folded, sort, votes,
@@ -4076,7 +4103,7 @@
           MAP.channelFeedPath ? MAP.channelFeedPath(path) : path,
           extra,
         );
-        var insideMark = state.threadFocus || state.feedMark || null;
+        var insideMark = state.feedMark || state.threadFocus || null;
         var edPost = state.editor && state.editor.focused && state.editor.active
           ? insideFeed.find(function (e) {
             return e.post && state.editor.active.path === MAP.resolve(path, e.name);
@@ -4213,14 +4240,7 @@
         : ('<div class="cn-menu-head" data-key="menu-head">' +
           (intel ? "Intellisense" : "Suggestions") +
           (menuLabel ? " · " + esc(menuLabel) : "") + "</div>" +
-        cand.candidates.slice(0, 40).map(function (c, i) {
-          var activeCandidate = i === state.candIndex && state.candIndex >= 0;
-          return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
-            (c.kind ? ' data-cand-kind="' + esc(c.kind) + '"' : "") +
-            ' aria-selected="' + (activeCandidate ? "true" : "false") + '"' +
-            (activeCandidate ? ' data-active="true"' : "") + ">" +
-            "<span>" + esc(c.label || c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
-        }).join(""));
+        renderCandidateRows(cand.candidates, state.candIndex));
 
       var panes = state.panes || {
         c0: 15, c1: 20, mc0: false, mc1: false, zoom: false,
@@ -4326,6 +4346,9 @@
           ? ' aria-activedescendant="cn-cand-' + state.candIndex + '"'
           : "") +
         ' aria-label="Command and compose input"></span>' +
+        '<button type="button" class="cn-jump" data-action-id="jump.interactive"' +
+        ' data-action-terms="" title="Global jump chooser (Ctrl+J)"' +
+        ' aria-label="Open global jump chooser">jump</button>' +
         '<button type="button" class="cn-attach" data-attach-pick' +
         ' data-count="' + ((state.attachments || []).length) + '"' +
         ' title="Attach files for chat context — click, drop, or paste" aria-label="Attach files">' +
@@ -4398,6 +4421,7 @@
     DEFAULT_SORTS: DEFAULT_SORTS,
     visibleFeedViews: visibleFeedViews,
     isFeedSortContext: isFeedSortContext,
+    renderCandidateRows: renderCandidateRows,
   };
   window.NB_TRANSCRIPT = { render: renderTranscript };
   window.NB_HELP = {

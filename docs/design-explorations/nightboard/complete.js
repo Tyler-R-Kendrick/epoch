@@ -7,8 +7,8 @@
  *                      in dim text; → or End accepts it
  *   fuzzy subsequence  `cd cgen` reaches /channels/general, ranked by how
  *                      tightly the letters cluster and whether they start words
- *   tab discipline     Tab completes the longest common prefix first, and only
- *                      cycles once there is nothing unambiguous left to add
+ *   manual selection   arrows choose a candidate; Enter accepts it; Tab keeps
+ *                      native focus traversal for accessible combobox parity
  *   path awareness     completion knows whether the argument is a path, a
  *                      channel, a member or a view name, per command
  *   slash commands     `/go bugs` in agent chat — intellisense for chat verbs
@@ -237,6 +237,20 @@
         kind: e.kind,
       };
     });
+    if (lastSlash === -1 && MAP.feedEntriesAt) {
+      var seen = {};
+      items.forEach(function (item) { seen[item.label || item.value.replace(/\/$/, "")] = true; });
+      MAP.feedEntriesAt(dir, extra).forEach(function (entry) {
+        if (!entry.post || seen[entry.post.id]) return;
+        seen[entry.post.id] = true;
+        items.push({
+          value: entry.post.id,
+          label: entry.post.id,
+          hint: entry.post.subject || String(entry.post.body || "").slice(0, 96) || entry.hint,
+          kind: "message",
+        });
+      });
+    }
     // `..` is a real destination and completing it saves a lot of typing.
     if (MAP.split(dir).length > 0) items.unshift({ value: "../", hint: "up", kind: "dir" });
     return { base: dirPart, leaf: leaf, items: items };
@@ -800,6 +814,19 @@
         return {
           kind: "jump", query: sfragment, candidates: sj, replaceFrom: sfragStart,
           insert: sj[0] ? sj[0].value : sfragment, ghost: "", preview: "",
+        };
+      }
+      // `/go` remains a deterministic navigation action, but its explicit
+      // chooser may offer paths from the whole mounted namespace. Accepting a
+      // candidate inserts its exact absolute path; execution never performs a
+      // hidden fuzzy fallback (unlike z/zi, which are jump actions).
+      if (sspec.run === "cd" || slashName === "/go") {
+        var goCandidates = jumpCandidates(sfragment, ctx);
+        return {
+          kind: "slash-arg", scope: "global-explicit", query: sfragment,
+          candidates: goCandidates, replaceFrom: sfragStart,
+          insert: goCandidates[0] ? goCandidates[0].value : sfragment,
+          ghost: "", preview: "",
         };
       }
       // Path arg: complete against the board tree (same engine as `cd`).

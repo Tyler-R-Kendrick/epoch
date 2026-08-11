@@ -287,6 +287,20 @@
       return { kind: "command", line: "macro run " + userAction, hint: "macro " + userAction };
     }
 
+    // Built-in phrases use the same registry as keys, prompt commands, and
+    // WebMCP. User macros intentionally resolve first for storage compatibility.
+    var builtInAction = window.NB_ACTIONS && window.NB_ACTIONS.resolve("voice", t);
+    if (builtInAction) {
+      return { kind: "action", actionId: builtInAction, input: {}, hint: "voice action" };
+    }
+    var nearBuiltIn = window.NB_ACTIONS && window.NB_ACTIONS.voiceCatalog().some(function (action) {
+      return (action.voiceAliases || []).some(function (alias) {
+        var exact = String(alias).trim().toLowerCase();
+        return exact && lower !== exact && (lower.indexOf(exact) === 0 || exact.indexOf(lower) === 0);
+      });
+    });
+    if (nearBuiltIn) return { kind: "unknown", hint: "unrecognized voice command" };
+
     // Navigation.
     var go = /^(?:go(?:\s+to)?|open|navigate(?:\s+to)?|cd)\s+(.+)$/i.exec(t);
     if (go) {
@@ -370,8 +384,8 @@
    * Classify a final transcript under the active intent mode.
    *
    * @returns {{
-   *   kind: "dictation"|"command"|"mode-switch"|"help"|"stop"|"submit"|"clear"|"unknown",
-   *   text?: string, line?: string, nextMode?: string, hint?: string, woke?: boolean
+   *   kind: "dictation"|"command"|"action"|"mode-switch"|"help"|"stop"|"submit"|"clear"|"unknown",
+   *   text?: string, line?: string, actionId?: string, input?: object, nextMode?: string, hint?: string, woke?: boolean
    * }}
    */
   function parseUtterance(raw, intentMode) {
@@ -398,7 +412,7 @@
     // Force command parse when woke or in commands mode.
     var forceCmd = intent === "commands" || woke.woke;
     var hit = matchCommand(phrase);
-    if (hit && hit.kind === "command") {
+    if (hit && (hit.kind === "command" || hit.kind === "action")) {
       hit.woke = woke.woke;
       return hit;
     }

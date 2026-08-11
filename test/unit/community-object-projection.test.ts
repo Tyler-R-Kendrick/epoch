@@ -9,6 +9,8 @@ import {
   normalizeQuery,
   objectUrl,
   parseObjectUrl,
+  validateObjectRef,
+  validateProjectionId,
   type CommunityMessage,
   type CommunityObjectRef,
   type ProjectionSourceEntry,
@@ -35,6 +37,7 @@ export async function runCommunityObjectProjectionTests(): Promise<void> {
   await test("NAV-QUERY-004 query language migration is deterministic", queryMigrationIsIdempotent);
   await test("NAV-ACTION-002 signed action permission parity", actionPermissionIsCentralized);
   await test("NAV-ACTION-004 generated catalogs cannot drift", actionCatalogCannotDrift);
+  await test("canonical references and projections reject malformed identity and topology", validationFailsClosed);
 }
 
 async function test(name: string, run: () => void | Promise<void>): Promise<void> {
@@ -196,6 +199,33 @@ function actionCatalogCannotDrift(): void {
     assert.ok(action.keyBindings?.every((binding) => binding.key.length > 0) ?? true);
     assert.ok(action.mcp === undefined || action.mcp.toolName.length > 0);
   }
+}
+
+function validationFailsClosed(): void {
+  for (const invalid of [null, {}, { objectId: "bad/id", kind: "message" }, { objectId: "ok", kind: "unknown" },
+    { objectId: "ok", kind: "message", atUri: "@mutable-handle" },
+    { objectId: "ok", kind: "message", revision: "" }]) {
+    assert.throws(() => validateObjectRef(invalid));
+  }
+  assert.throws(() => validateProjectionId("unsafe/projection"));
+  assert.equal(parseObjectUrl("not a url"), undefined);
+  assert.equal(parseObjectUrl("/elsewhere?object=m-001"), undefined);
+  assert.equal(parseObjectUrl("/board.html?object=bad%2Fid"), undefined);
+  assert.equal(parseObjectUrl("/board.html?projection=bad%2Fid&focus=m-001"), undefined);
+  assert.throws(() => objectUrl(rootRef, { revision: "" }), /revision/u);
+
+  const original = message(rootRef, undefined, rootRef, "root", "root");
+  assert.throws(() => createProjection({ ...projection("invalid-version"), version: 0 }, []), /version/u);
+  assert.throws(() => createProjection(projection("duplicate"), [entry(original, "one"), entry(original, "two")]), /duplicate/u);
+  assert.throws(() => createProjection(projection("unsafe-alias"), [entry(original, "../escape")]), /safe paths/u);
+  const cycleA = { ...entry(message(childARef, childBRef, rootRef, "a", "a"), "a"), parentRef: childBRef };
+  const cycleB = { ...entry(message(childBRef, childARef, rootRef, "b", "b"), "b"), parentRef: childARef };
+  assert.throws(() => createProjection(projection("cycle"), [cycleA, cycleB]), /cycle/u);
+  const tombstone = entry(message({ objectId: "gone", kind: "tombstone" }, undefined, rootRef, "gone", ""), "gone");
+  const mounted = createProjection(projection("tombstone"), [tombstone]).entries[0];
+  assert.deepEqual(mounted?.capabilities, {
+    read: true, enter: true, expand: true, composeUnder: false, execute: false,
+  });
 }
 
 function projection(projectionId: string) {

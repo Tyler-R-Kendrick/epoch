@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { readFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, normalize } from "node:path";
 
 const manifestPath = join("docs", "evidence", "nightboard-navigation-projection-parity", "parity-manifest.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const required = ["testId", "sourcePatternId", "primarySourceUrl", "invariant", "proofKind", "implementationSurface"];
+const proofKinds = new Set(["unit", "contract", "feature", "browser", "fault", "accessibility", "design", "docs"]);
 const errors = [];
 const seen = new Set();
 function filesUnder(directory) {
@@ -17,6 +18,10 @@ function filesUnder(directory) {
 const candidates = ["test", "features", join("docs", "design-explorations", "nightboard")]
   .flatMap(filesUnder)
   .filter((file) => /\.(?:[cm]?[jt]s|feature)$/.test(file));
+const candidateSet = new Set(candidates.map(normalize));
+const references = manifest.testReferences || {};
+
+if (manifest.schemaVersion !== 2) errors.push("manifest schemaVersion must be 2");
 
 for (const claim of manifest.claims || []) {
   for (const field of required) {
@@ -30,12 +35,29 @@ for (const claim of manifest.claims || []) {
     try { new URL(sourceUrl); }
     catch { errors.push(`${claim.testId}: additionalSourceUrls contains a non-absolute URL`); }
   }
-  const matches = candidates.filter((file) => {
-    const lines = readFileSync(file, "utf8").split("\n");
-    return lines.some((line) => !/^\s*(?:\/\/|\/\*|\*|#)/.test(line) && line.includes(claim.testId));
-  });
-  if (!matches.length) errors.push(`${claim.testId}: no executable test reference`);
-  claim.resolvedTests = matches.map((file) => relative(process.cwd(), file));
+  const reference = references[claim.testId];
+  if (!reference || typeof reference.path !== "string" || typeof reference.kind !== "string") {
+    errors.push(`${claim.testId}: missing explicit test reference`);
+    continue;
+  }
+  const path = normalize(reference.path);
+  if (!candidateSet.has(path)) {
+    errors.push(`${claim.testId}: test reference is not an executable test file: ${reference.path}`);
+    continue;
+  }
+  if (!proofKinds.has(reference.kind)) errors.push(`${claim.testId}: unknown proof kind ${reference.kind}`);
+  const claimedKinds = claim.proofKind.split("-");
+  const compatibleKind = reference.kind === "accessibility" ? "a11y" : reference.kind;
+  if (!claimedKinds.includes(reference.kind) && !claimedKinds.includes(compatibleKind)) {
+    errors.push(`${claim.testId}: ${reference.kind} test does not match declared ${claim.proofKind} proof`);
+  }
+  const executable = readFileSync(path, "utf8").split("\n").some((line) =>
+    !/^\s*(?:\/\/|\/\*|\*|#)/.test(line) && line.includes(claim.testId));
+  if (!executable) errors.push(`${claim.testId}: referenced test does not contain the ID in executable code`);
+}
+
+for (const testId of Object.keys(references)) {
+  if (!seen.has(testId)) errors.push(`${testId}: orphan test reference`);
 }
 
 if (manifest.claims?.some((claim) => Object.hasOwn(claim, "pass"))) {
@@ -46,5 +68,5 @@ if (errors.length) {
   process.exit(1);
 }
 console.log(`nightboard parity manifest resolved ${manifest.claims.length} claims across ${
-  new Set(manifest.claims.flatMap((claim) => claim.resolvedTests)).size
-} executable files`);
+  new Set(Object.values(references).map((reference) => reference.path)).size
+} explicitly referenced executable files`);

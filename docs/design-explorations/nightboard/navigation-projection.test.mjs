@@ -32,6 +32,8 @@ load("graph.js", window);
 
 const { NB_DATA: data, NB_MAP: map, NB_QUERY: query, NB_SAVED_VIEWS: views } = window;
 
+views.setPrincipal("principal-alice");
+
 // NAV-ID-001/002/003: fixture identity is explicit and alias/order independent.
 const message = data.posts.find((post) => post.id === "p1");
 assert.equal(map.objectRef(message).objectId, "p1");
@@ -51,7 +53,7 @@ assert.deepEqual(window.NB_CORE.parseObjectUrl(contextualLink), {
 // NAV-GRAPH-001: a message is an enterable capability object with representations.
 const feed = map.feedEntriesAt("/projects/community/channels/general");
 const entry = feed.find((item) => item.post.id === "p1");
-assert.equal(entry.kind, "message");
+assert.equal(entry.kind, "message", "NAV-GRAPH-001 message is an enterable capability object");
 assert.deepEqual(entry.capabilities, {
   read: true,
   enter: true,
@@ -84,6 +86,15 @@ assert.equal(saved.query, "channel:general sort:new");
 assert.deepEqual(views.get(saved.projectionId).ast, saved.ast);
 assert.deepEqual(views.list({ includePrivate: false }), []);
 assert.equal(views.rename(saved.projectionId, "Needs review").projectionId, saved.projectionId);
+assert.equal(views.get(saved.projectionId).ownerId, "principal-alice");
+
+// NAV-QUERY-003: principal switches never list or open another owner's private view.
+views.setPrincipal("principal-bob");
+assert.equal(views.get(saved.projectionId), null);
+assert.equal(views.list().some((view) => view.projectionId === saved.projectionId), false);
+assert.match(views.open(saved.projectionId, data.posts).error, /unauthorized/);
+views.setPrincipal("principal-alice");
+assert.equal(views.get(saved.projectionId).projectionId, saved.projectionId);
 
 // NAV-PROJ-001/NAV-ID-003: mounted occurrences retain identity and context.
 const channelOccurrence = map.list("/projects/community/channels/general")
@@ -110,10 +121,21 @@ savedOccurrence.post.state = "open";
 const publicView = views.save({ label: "Public all", query: "", visibility: "public" });
 assert.equal(views.open(publicView.projectionId, data.dmMessages).posts.length, 0);
 
+// NAV-ID-004/NAV-QUERY-003: DM content is authorized before search/query evaluation.
+const privateNeedle = "Scoped to CI config only";
+assert.equal(query.searchBoard('"' + privateNeedle + '"').matched, 0,
+  "NAV-ID-004 board search filters private DM corpus before query evaluation");
+assert.equal(query.searchBoard("scout").hits.some((hit) => hit.path === "/dms/scout"), false,
+  "NAV-ID-004 board search filters private DM paths before fuzzy path matching");
+assert.equal(query.searchBoard('"' + privateNeedle + '"', {
+  viewer: { actorId: "principal-alice", readableDmIds: ["scout"] },
+}).matched, 1);
+
 // NAV-MIGRATE-003/NAV-GRAPH-004: frozen legacy aliases resolve without defining topology.
 assert.equal(
   map.postAt("/projects/community/channels/general/001-lea-every-cold-install-her").id,
   "p1",
+  "NAV-MIGRATE-003 legacy locators resolve to stable objects",
 );
 assert.equal(map.postAt("/projects/community/channels/general/p1").id, "p1");
 
@@ -151,6 +173,42 @@ assert.equal(graphResult.data.object.ref.objectId, "p2");
 assert.equal(graphResult.data.object.inReplyTo.ref.objectId, "p1");
 assert.equal(graphResult.data.object.threadRoot.ref.objectId, "p1");
 assert.ok(graphResult.data.object.locations.length >= 2);
+const privateGraphSearch = await window.NB_GRAPH.query(`{
+  search(text: "${privateNeedle}") { id body dm }
+}`);
+assert.deepEqual(privateGraphSearch.data.search, [],
+  "NAV-ID-004 GraphQL search filters private DM corpus before resolver matching");
+const authorizedGraphSearch = await window.NB_GRAPH.query(`{
+  search(text: "${privateNeedle}") { id body dm }
+}`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
+assert.deepEqual(authorizedGraphSearch.data.search.map((post) => post.id), ["dm-s3"]);
+
+// board_search uses the same pre-query authorization boundary as direct search.
+const tools = {};
+window.NB_MCP = {
+  registerTool(tool) { tools[tool.name] = tool; },
+  list() { return Object.values(tools); },
+  text(text) { return { text, ok: true }; },
+  fail(text) { return { text, ok: false }; },
+};
+window.NB_THEMES = [];
+load("tools.js", window);
+let boardSearchViewer = {};
+window.NB_TOOLS.install({
+  state: { path: "/", merged: [], votes: {}, reactions: {} },
+  runSearch(search) {
+    const result = query.searchBoard(search, { viewer: boardSearchViewer });
+    const formatted = query.formatSearchResults(result);
+    return { ...formatted, result };
+  },
+});
+const boardSearch = await tools.board_search.execute({ query: '"' + privateNeedle + '"' });
+assert.match(boardSearch.text, /no matches/);
+assert.doesNotMatch(boardSearch.text, /dm-s3/);
+boardSearchViewer = { actorId: "principal-alice", readableDmIds: ["scout"] };
+const authorizedBoardSearch = await tools.board_search.execute({ query: '"' + privateNeedle + '"' });
+assert.match(authorizedBoardSearch.text, /dm-s3|Scoped to CI config only/,
+  "NAV-QUERY-003 board_search uses the authorized viewer corpus");
 const orphanResult = await window.NB_GRAPH.query(`{
   object(objectId: "orphan-child") {
     inReplyTo { ref { objectId } tombstone { reason } }
@@ -182,6 +240,7 @@ load("community-core-runtime.js", legacyWindow);
 load("data.js", legacyWindow);
 load("query.js", legacyWindow);
 load("saved-views.js", legacyWindow);
+legacyWindow.NB_SAVED_VIEWS.setPrincipal("legacy-owner");
 assert.equal(legacyWindow.NB_SAVED_VIEWS.get("view-stable").query, "state:needs-review sort:new");
 const migratedOnce = legacyStorage.snapshot()["nb-saved-views-v2"];
 load("saved-views.js", legacyWindow);

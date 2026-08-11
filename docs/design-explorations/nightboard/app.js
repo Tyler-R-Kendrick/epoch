@@ -107,6 +107,8 @@
     keysOnboard: false,
     completion: null,
     candIndex: -1,
+    feedBusy: false,
+    sessionRecovery: null,
     layers: [],
     navigationVisits: [],
     // Esc closes the suggestion combobox without clearing the draft; typing
@@ -217,6 +219,25 @@
     feedMark: null,
   };
   state.panes = loadPanes();
+
+  function canonicalPostId(post) {
+    return post && ((post.ref && post.ref.objectId) || post.objectId || post.id);
+  }
+
+  function mergeUniquePosts(existing, incoming) {
+    var positions = {};
+    var merged = [];
+    (existing || []).concat(incoming || []).forEach(function (post) {
+      var id = canonicalPostId(post);
+      if (!id || positions[id] == null) {
+        if (id) positions[id] = merged.length;
+        merged.push(post);
+      } else {
+        merged[positions[id]] = post;
+      }
+    });
+    return merged;
+  }
 
   function loadNotifRead() {
     try {
@@ -1179,6 +1200,13 @@
       submitSpeechPrompt();
       return;
     }
+    if (parsed.kind === "action" && parsed.actionId && window.NB_ACTIONS) {
+      return window.NB_ACTIONS.invoke(parsed.actionId, parsed.input || {}, actionContext("voice"))
+        .catch(function (error) {
+          status("voice action failed · " + ((error && error.message) || parsed.actionId));
+          return false;
+        });
+    }
     if (parsed.kind === "command" && parsed.line) {
       // Commands do not append into the prompt — they run like slash verbs.
       speechBase = cliValue;
@@ -1428,8 +1456,26 @@
     ? window.NB_SESSION.loadIdentity(policy)
     : { kind: "guest", principalId: "guest_local", displayName: "guest", canParticipate: true, claimable: true };
 
+  function syncSavedViewPrincipal() {
+    if (window.NB_SAVED_VIEWS && window.NB_SAVED_VIEWS.setPrincipal) {
+      window.NB_SAVED_VIEWS.setPrincipal(identity && identity.principalId);
+    }
+  }
+
+  function viewerContext() {
+    return {
+      actorId: identity && identity.principalId || undefined,
+      readableDmIds: identity && identity.principalId
+        ? ((window.NB_DATA && window.NB_DATA.dms) || []).map(function (dm) { return dm.id; })
+        : [],
+    };
+  }
+
+  syncSavedViewPrincipal();
+
   function persistIdentity() {
     if (window.NB_SESSION) window.NB_SESSION.saveIdentity(identity);
+    syncSavedViewPrincipal();
     paintIdentity();
   }
 
@@ -1788,14 +1834,80 @@
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = setTimeout(function () {
       persistTimer = null;
+      if (state.sessionRecovery) return;
       if (window.NB_SESSION) window.NB_SESSION.saveBoardState(snapshotBoard());
     }, 200);
+  }
+
+  function exportSessionRecovery() {
+    var raw = window.NB_SESSION && window.NB_SESSION.exportBoardState
+      ? window.NB_SESSION.exportBoardState()
+      : null;
+    if (!raw) return status("session recovery · no saved state is available to export");
+    try {
+      var blob = new Blob([raw], { type: "application/json" });
+      var href = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = href;
+      link.download = "nightboard-session-recovery.json";
+      link.hidden = true;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(href); }, 0);
+      status("session recovery · saved state exported; reset only when you are ready");
+    } catch {
+      status("session recovery · export unavailable; saved state was not changed");
+    }
+  }
+
+  function resetSessionRecovery() {
+    if (window.NB_SESSION) window.NB_SESSION.clearBoardState();
+    state.sessionRecovery = null;
+    paintSessionRecovery();
+    status("session recovery · saved state reset; current workspace remains open");
+  }
+
+  function paintSessionRecovery() {
+    var existing = document.querySelector("[data-session-recovery]");
+    if (!state.sessionRecovery) {
+      if (existing) existing.remove();
+      return;
+    }
+    var host = existing || document.createElement("section");
+    host.setAttribute("data-session-recovery", "");
+    host.setAttribute("role", "status");
+    host.setAttribute("aria-live", "polite");
+    host.className = "nb-session-recovery";
+    host.replaceChildren();
+    var message = document.createElement("span");
+    message.textContent = state.sessionRecovery.message || "Saved board state needs recovery.";
+    var exportButton = document.createElement("button");
+    exportButton.type = "button";
+    exportButton.setAttribute("data-session-recovery-export", "");
+    exportButton.textContent = "Export saved state";
+    exportButton.addEventListener("click", exportSessionRecovery);
+    var resetButton = document.createElement("button");
+    resetButton.type = "button";
+    resetButton.setAttribute("data-session-recovery-reset", "");
+    resetButton.textContent = "Reset saved state";
+    resetButton.addEventListener("click", resetSessionRecovery);
+    host.append(message, exportButton, resetButton);
+    if (!existing) {
+      var mount = document.querySelector("[data-mount]");
+      if (mount && mount.parentNode) mount.parentNode.insertBefore(host, mount);
+      else document.body.appendChild(host);
+    }
   }
 
   function restoreBoardState() {
     if (!window.NB_SESSION) return;
     var snap = window.NB_SESSION.loadBoardState();
-    if (!snap || snap.v < 1) return;
+    if (!snap) return;
+    if (snap.recovery) {
+      state.sessionRecovery = snap.recovery;
+      return;
+    }
     // Only restore board work that belongs to this principal (guest continuity ok).
     if (snap.principalId && identity.principalId && snap.principalId !== identity.principalId) {
       // Different principal on a shared machine — keep furniture panes only.
@@ -1833,7 +1945,7 @@
           });
         }
       }
-      state.merged = (snap.merged || []).slice();
+      state.merged = mergeUniquePosts([], snap.merged || []);
       state.pendingByFeed = Object.assign({}, snap.pendingByFeed || {});
       // Older snapshots only had a flat pending array — park under the restored feed.
       if (Array.isArray(snap.pending) && snap.pending.length &&
@@ -1842,10 +1954,26 @@
         state.pendingByFeed[legacyKey] = snap.pending.slice();
       }
       retargetPendingMirror();
+      var highestLiveId = 0;
+      var restoredPosts = state.merged.slice();
+      Object.keys(state.pendingByFeed).forEach(function (key) {
+        restoredPosts = restoredPosts.concat(state.pendingByFeed[key] || []);
+      });
+      restoredPosts.forEach(function (post) {
+        var match = /^live-(\d+)$/.exec(String(canonicalPostId(post) || ""));
+        if (match) highestLiveId = Math.max(highestLiveId, Number(match[1]));
+      });
+      state.nextId = Math.max(Number(snap.nextId) || 1, highestLiveId + 1);
       dismissMenuIfNoSlashDraft();
       if (snap.panes) state.panes = Object.assign({}, state.panes, snap.panes, { zoom: false });
       if (typeof snap.themeIndex === "number" && snap.themeIndex >= 0) themeIndex = snap.themeIndex;
-    } catch { /* corrupt snapshot — keep defaults */ }
+    } catch {
+      state.sessionRecovery = {
+        reason: "restore-failed",
+        message: "Saved board state could not be restored; export it for recovery or reset it to continue.",
+        actions: ["export", "reset"],
+      };
+    }
   }
 
   function freezeSession() {
@@ -1885,6 +2013,7 @@
     state.homeFeed = sess.homeFeed || "following";
     state.homeCursor = sess.homeCursor != null ? sess.homeCursor : 0;
     state.threadFocus = sess.threadFocus || null;
+    state.feedMark = sess.feedMark || null;
     state.histIndex = sess.histIndex != null ? sess.histIndex : -1;
     state.busy = !!sess.busy;
     // Deep-enough copies so mutating folds/tools/lines does not cross tabs.
@@ -1988,7 +2117,6 @@
    */
   function toggleReaction(postId, key) {
     if (!postId || !key) return;
-    if (!requireParticipation("react")) return;
     var bag = state.reactions[postId] || { counts: {}, mine: {} };
     bag.counts = Object.assign({}, bag.counts || {});
     bag.mine = Object.assign({}, bag.mine || {});
@@ -2384,6 +2512,7 @@
     retargetPendingMirror();
     dismissMenuIfNoSlashDraft();
     render(opts.keepCli);
+    if (!opts.preview && !opts.noHistory) commitNavigation();
     return true;
   }
 
@@ -2400,6 +2529,11 @@
   var lastScrolled = null;
 
   function render(keepCli) {
+    if (!state.feedMark && !state.threadFocus) {
+      var initialFeed = feedEntries();
+      var initialMessage = initialFeed.find(function (entry) { return entry && entry.post; });
+      if (initialMessage) state.feedMark = initialMessage.post.id;
+    }
     // Keep the active virtual worktree's snapshot current so tab labels and
     // a later switch restore the path/transcript you actually left.
     freezeSession();
@@ -2455,6 +2589,7 @@
     paintActivityBell();
     paintKeysCue();
     paintRestartCue();
+    paintSessionRecovery();
     // Narrow ranger: keep the focused blade in view (Enter/→ must reveal feed).
     revealFocusedBlade();
     schedulePersist();
@@ -2604,11 +2739,143 @@
     var line = $("[data-status-line]");
     if (!line) return;
     var next = bottomLine();
-    line.textContent = startupPending().length ? next : (msg ? msg + " · " + next : next);
+    var persistent = state.sessionRecovery && state.sessionRecovery.message || navigationRestoreNotice;
+    line.textContent = persistent ? persistent + " · " + next
+      : startupPending().length ? next
+        : (msg ? msg + " · " + next : next);
     paintRestartCue();
   }
 
   var interactionStack = null;
+  var navigationHistory = window.NB_NAV.createHistory(window.history);
+  var restoringHistory = false;
+  var navigationRestoreNotice = "";
+
+  function readingAnchorTarget(objectId) {
+    return Array.prototype.find.call(document.querySelectorAll("[data-object-id]"), function (element) {
+      return element.getAttribute("data-object-id") === objectId;
+    });
+  }
+
+  function readingScrollContainer(target) {
+    return target && target.closest
+      ? target.closest('.cn-blade[data-blade-kind="detail"] .cn-blade-body, .cn-pane > .cn-col-body')
+      : null;
+  }
+
+  function currentReadingAnchor(objectId) {
+    var target = readingAnchorTarget(objectId);
+    if (!target) return undefined;
+    var container = readingScrollContainer(target);
+    var pixelOffset = target.getBoundingClientRect().top -
+      (container ? container.getBoundingClientRect().top : 0);
+    return { objectId: objectId, pixelOffset: pixelOffset };
+  }
+
+  function navigationLocation() {
+    var projection = MAP.projectionForPath(state.path);
+    var objectId = state.feedMark || state.threadFocus || null;
+    var atPath = MAP.objectAtPath(state.path, state.merged);
+    if (!objectId && atPath) objectId = atPath.objectId;
+    return {
+      projectionId: projection.projectionId,
+      objectId: objectId,
+      threadRootId: state.threadFocus || undefined,
+      detailObjectId: state.feedMark || undefined,
+      sort: state.sort,
+      workspaceId: state.sessions[state.activeSession] &&
+        (state.sessions[state.activeSession].id || "workspace-" + (state.activeSession + 1)),
+      focusRegion: state.threadFocus ? "thread-outline" : (state.detailOpen ? "feed" : "navigator"),
+      readingAnchor: objectId ? currentReadingAnchor(objectId) : undefined,
+    };
+  }
+
+  function commitNavigation(replace) {
+    if (restoringHistory) return false;
+    return navigationHistory.commit(navigationLocation(), { replace: !!replace });
+  }
+
+  function restoreNavigation(location) {
+    location = window.NB_NAV.canonicalLocation(location);
+    if (location.workspaceId) {
+      var workspaceIndex = state.sessions.findIndex(function (session, index) {
+        return (session.id || "workspace-" + (index + 1)) === location.workspaceId;
+      });
+      if (workspaceIndex >= 0 && workspaceIndex !== state.activeSession) thawSession(workspaceIndex);
+    }
+    if (location.sort) {
+      state.sort = location.sort;
+      state.feedView = location.sort;
+    }
+    var projectionPath = location.projectionId && MAP.pathForProjection(location.projectionId);
+    var objectPath = location.objectId && MAP.pathForObject(location.objectId, location.projectionId, state.merged);
+    var fallback = !projectionPath && !!location.projectionId;
+    if (!fallback) navigationRestoreNotice = "";
+    // A contextual route's location is its projection; the focused object is
+    // restored separately below. Preferring the object's deep namespace alias
+    // turned a channel refresh into `.../channel/message-id` and collapsed the
+    // distinction between location and focus.
+    var target = projectionPath || objectPath;
+    if (!target && location.objectId) target = MAP.pathForObject(location.objectId, null, state.merged);
+    if (!target) {
+      status("object or projection unavailable");
+      return false;
+    }
+    restoringHistory = true;
+    var restored = navigate(target, { keepCli: true, noHistory: true });
+    if (restored && location.threadRootId) {
+      openThread(location.threadRootId, { noHistory: true, silent: true });
+      state.feedMark = location.detailObjectId || location.objectId || location.threadRootId;
+      render(true);
+    } else if (restored && location.objectId) {
+      state.feedMark = location.objectId;
+      render(true);
+    }
+    if (restored && location.focusRegion) {
+      state.columnFocus = location.focusRegion !== "composer" && location.focusRegion !== "completion";
+      state.focus = location.focusRegion === "navigator" ? listBladeIndex() : detailBladeIndex();
+      if (location.focusRegion === "detail" || location.focusRegion === "feed" ||
+          location.focusRegion === "thread-outline") state.detailOpen = true;
+      render(true);
+      requestAnimationFrame(function () {
+        var focusedId = location.detailObjectId || location.objectId || location.threadRootId;
+        var selector = location.focusRegion === "navigator"
+          ? '.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]'
+          : location.focusRegion === "thread-outline"
+            ? '.cn-thread-tree [role="treeitem"][data-key="' + focusedId + '"]'
+            : location.focusRegion === "detail"
+              ? '.cn-thread-reading article[data-object-id="' + focusedId + '"]'
+              : location.focusRegion === "composer" || location.focusRegion === "completion"
+                ? "[data-cli]"
+                : '.cn-tree[role="feed"] [role="article"][data-key="' + focusedId + '"]';
+        var focusTarget = document.querySelector(selector);
+        if (focusTarget) try { focusTarget.focus({ preventScroll: true }); } catch { /* fine */ }
+      });
+    }
+    restoringHistory = false;
+    if (location.readingAnchor && restored) requestAnimationFrame(function () {
+      var current = currentReadingAnchor(location.readingAnchor.objectId);
+      var anchorTarget = readingAnchorTarget(location.readingAnchor.objectId);
+      var container = readingScrollContainer(anchorTarget);
+      if (current && container) {
+        container.scrollTop += current.pixelOffset - location.readingAnchor.pixelOffset;
+      }
+    });
+    if (fallback && restored) {
+      navigationRestoreNotice = "projection unavailable · opened canonical object";
+      status(navigationRestoreNotice);
+    }
+    return restored;
+  }
+
+  function wireBrowserHistory() {
+    window.addEventListener("popstate", function (event) {
+      restoreNavigation(event.state || window.NB_NAV.parseLocation(window.location.href));
+    });
+    var route = window.NB_NAV.parseLocation(window.location.href);
+    if (route.objectId || route.projectionId) restoreNavigation(route);
+    commitNavigation(true);
+  }
 
   function layers() {
     if (!interactionStack) {
@@ -2657,6 +2924,7 @@
   function wireInteractionLayers() {
     document.addEventListener("keydown", function (ev) {
       if (ev.key !== "Escape") return;
+      if (ev.isComposing || ev.keyCode === 229 || state.editor && state.editor.focused) return;
       ev.preventDefault();
       ev.stopImmediatePropagation();
       cancelTopLayer();
@@ -2867,6 +3135,7 @@
     if (opts.focus !== false) state.focus = detailBladeIndex();
     if (state.editor) state.editor.focused = false;
     if (!opts.noRender) render(true);
+    if (!opts.noHistory) commitNavigation();
     if (!opts.silent) status("thread · " + postId);
     pushLayer("thread-detail", "thread", "close thread", function () { clearThreadFocus(); }, document.activeElement);
     return true;
@@ -2901,6 +3170,7 @@
     opts = opts || {};
     state.detailOpen = false;
     state.threadFocus = null;
+    removeLayer("thread-detail");
     state.focus = detailBladeIndex();
     if (state.editor) state.editor.focused = false;
     // Expand nav if it was collapsed for detail-first reading.
@@ -2916,8 +3186,27 @@
 
   function navigate(path, opts) {
     opts = opts || {};
+    if (!restoringHistory && navigationRestoreNotice) navigationRestoreNotice = "";
+    // Pre-object-ID share links used `nightboard:<path>?sort=<order>`. Treat
+    // the scheme and query as locator metadata, never as namespace segments;
+    // the normal history commit below replaces a successful legacy locator
+    // with the canonical HTTPS object/projection URL.
+    var requestedPath = String(path == null ? "" : path).trim();
+    requestedPath = requestedPath.replace(/^nightboard:/i, "") || "/";
+    var queryAt = requestedPath.indexOf("?");
+    if (queryAt >= 0) {
+      var legacyParams = new window.URLSearchParams(requestedPath.slice(queryAt + 1));
+      requestedPath = requestedPath.slice(0, queryAt) || "/";
+      var legacySort = legacyParams.get("sort");
+      if (["hot", "new", "top", "best"].indexOf(legacySort) >= 0) {
+        state.sort = legacySort;
+        state.feedView = legacySort;
+        state.feedQuery = "sort:" + legacySort;
+        state.feedQueryError = null;
+      }
+    }
     if (cdPreview && !opts.preview) cancelCdPreview({ noRender: true });
-    var target = MAP.resolve(state.path, path);
+    var target = MAP.resolve(state.path, requestedPath);
     // Deep post URLs land on the channel feed with that thread focused in detail.
     var deepPost = MAP.postAt ? MAP.postAt(target, state.merged) : null;
     if (deepPost && MAP.channelFeedPath && MAP.isPostReplyPath && MAP.isPostReplyPath(target)) {
@@ -2966,6 +3255,7 @@
         retargetPendingMirror();
         dismissMenuIfNoSlashDraft();
         render(opts && opts.keepCli);
+        if (!opts.noHistory) commitNavigation();
         return true;
       }
       return false;
@@ -2989,6 +3279,7 @@
     retargetPendingMirror();
     dismissMenuIfNoSlashDraft();
     render(opts && opts.keepCli);
+    if (!opts.noHistory) commitNavigation();
     return true;
   }
 
@@ -3274,14 +3565,54 @@
     state.focus = detailBladeIndex();
     focusColumns();
     render(true);
-    requestAnimationFrame(function () {
-      var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
-      if (!el) return;
+    var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
+    if (el) {
       try { el.focus({ preventScroll: true }); } catch { /* fine */ }
       try { el.scrollIntoView({ block: "nearest" }); } catch { /* fine */ }
-    });
+    }
     status("message · " + id);
     return true;
+  }
+
+  function threadGraph() {
+    if (!MAP.messageGraph) return null;
+    return MAP.messageGraph(feedEntries().filter(function (entry) {
+      return entry && entry.post;
+    }).map(function (entry) { return entry.post; }));
+  }
+
+  function selectThreadMessage(id, focusReading) {
+    if (!id) return false;
+    state.feedMark = id;
+    render(true);
+    var selector = focusReading
+      ? '.cn-thread-reading article[data-object-id="' + id + '"]'
+      : '.cn-thread-tree [role="treeitem"][data-key="' + id + '"]';
+    var target = document.querySelector(selector);
+    if (target) try { target.focus({ preventScroll: true }); } catch { /* fine */ }
+    return true;
+  }
+
+  function handleThreadTreeKey(message, key) {
+    var id = message.getAttribute("data-key");
+    if (key === "Enter") return selectThreadMessage(id, true);
+    if (key === "ArrowRight" || key === "l") {
+      if (message.getAttribute("aria-expanded") === "false") {
+        invokeUiAction("post.fold", { objectId: id }, "keyboard", id);
+        return true;
+      }
+      var first = threadGraph() && threadGraph().firstChildOf(id);
+      return first ? selectThreadMessage(first.objectId) : false;
+    }
+    if (key === "ArrowLeft" || key === "h") {
+      if (message.getAttribute("aria-expanded") === "true") {
+        invokeUiAction("post.fold", { objectId: id }, "keyboard", id);
+        return true;
+      }
+      var parent = threadGraph() && threadGraph().parentOf(id);
+      return parent ? selectThreadMessage(parent.objectId) : false;
+    }
+    return false;
   }
 
   function openFocusedMessage(id) {
@@ -3948,7 +4279,7 @@
     } else if (ctx.kind === "dm") {
       post.dm = ctx.dm;
     }
-    state.merged.push(post);
+    state.merged = mergeUniquePosts(state.merged, [post]);
     if (ctx.kind === "reply") clearReplyTo();
     clearSessionOutFocus({ noRender: true });
     beginUserTurn(body, "compose");
@@ -4226,7 +4557,7 @@
       renderNotice();
     } else {
       if (chan) chan.unread = (chan.unread || 0) + 1;
-      state.merged.push(post);
+      state.merged = mergeUniquePosts(state.merged, [post]);
       render(true);
     }
     // Browser Notification API + custom hooks.
@@ -4234,15 +4565,41 @@
   }
 
   function mergePending() {
-    retargetPendingMirror();
     if (!state.pending.length) return;
     var n = state.pending.length;
     var key = currentFeedKey();
-    state.merged = state.merged.concat(state.pending.slice());
-    if (key && state.pendingByFeed) state.pendingByFeed[key] = [];
-    retargetPendingMirror();
+    var incoming = state.pending.slice();
+    var pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
+    var followingTail = !!pane && pane.scrollHeight - pane.scrollTop - pane.clientHeight <= 8;
+    var anchor = state.feedMark && Array.prototype.find.call(document.querySelectorAll(".cn-comment[data-key]"), function (item) {
+      return item.getAttribute("data-key") === state.feedMark;
+    });
+    var anchorTop = anchor ? anchor.getBoundingClientRect().top : null;
+    state.feedBusy = true;
+    var feed = document.querySelector('.cn-tree[role="feed"]');
+    if (feed) feed.setAttribute("aria-busy", "true");
     render(true);
-    status("loaded " + n + " new " + (n === 1 ? "post" : "posts"));
+    requestAnimationFrame(function () {
+      state.merged = mergeUniquePosts(state.merged, incoming);
+      if (key && state.pendingByFeed) state.pendingByFeed[key] = [];
+      retargetPendingMirror();
+      render(true);
+      requestAnimationFrame(function () {
+        state.feedBusy = false;
+        var currentFeed = document.querySelector('.cn-tree[role="feed"]');
+        if (currentFeed) currentFeed.setAttribute("aria-busy", "false");
+        render(true);
+        var nextPane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
+        if (followingTail && nextPane) nextPane.scrollTop = nextPane.scrollHeight;
+        else if (anchorTop != null && nextPane) {
+          var nextAnchor = Array.prototype.find.call(document.querySelectorAll(".cn-comment[data-key]"), function (item) {
+            return item.getAttribute("data-key") === state.feedMark;
+          });
+          if (nextAnchor) nextPane.scrollTop += nextAnchor.getBoundingClientRect().top - anchorTop;
+        }
+        status("loaded " + n + " new " + (n === 1 ? "post" : "posts"));
+      });
+    });
   }
 
   /* ── Command line ──────────────────────────────────────────────────────── */
@@ -4424,7 +4781,7 @@
     }
     // CLI: show suggestions as soon as a verb/path/sort/query has matches.
     if (typed.length > 0 && c.candidates.length >= 1 &&
-        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
+        (c.kind === "command" || c.kind === "slash" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
       return true;
     }
     return c.candidates.length > 1 && typed.length > 0;
@@ -4443,7 +4800,7 @@
       return true;
     }
     if (typed.length > 0 && c.candidates.length >= 1 &&
-        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
+        (c.kind === "command" || c.kind === "slash" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
       return true;
     }
     return c.candidates.length > 1 && typed.length > 0;
@@ -4801,14 +5158,62 @@
   }
 
   function actionContext(origin) {
-    var focused = state.threadFocus || state.feedMark || null;
+    var focused = state.feedMark || state.threadFocus || null;
     var current = entries()[state.cursor];
     return {
       origin: origin,
       context: "board",
       objectId: focused || (current && (current.objectId || (current.post && current.post.id))) || undefined,
       projectionId: state.projectionId || undefined,
+      authorize: function (permission, descriptor) {
+        if (permission !== "community.participate") return false;
+        return requireParticipation(descriptor && descriptor.label ? descriptor.label.toLowerCase() : "that action");
+      },
     };
+  }
+
+  function invokeUiAction(actionId, input, origin, objectId) {
+    if (!window.NB_ACTIONS) return Promise.reject(new Error("action registry unavailable"));
+    var context = actionContext(origin || "pointer");
+    if (objectId) context.objectId = objectId;
+    return window.NB_ACTIONS.invoke(actionId, input || {}, context).catch(function (error) {
+      status("action failed · " + ((error && error.message) || actionId));
+      return false;
+    });
+  }
+
+  function actionKeyAlias(ev) {
+    var parts = [];
+    if (ev.ctrlKey) parts.push("Ctrl");
+    if (ev.metaKey) parts.push("Meta");
+    if (ev.altKey) parts.push("Alt");
+    if (ev.shiftKey) parts.push("Shift");
+    var key = ev.key;
+    if (key && key.length === 1) {
+      key = ev.shiftKey || ev.ctrlKey || ev.metaKey || ev.altKey ? key.toUpperCase() : key.toLowerCase();
+    }
+    if (!key || /^(Control|Meta|Alt|Shift)$/.test(key)) return "";
+    parts.push(key);
+    return parts.join("+");
+  }
+
+  function actionKeyAllowed(actionId, alias, target) {
+    var descriptor = window.NB_ACTIONS && window.NB_ACTIONS.get(actionId);
+    if (!descriptor) return false;
+    if (target && target.closest && target.closest("[data-editor]")) return false;
+    var binding = (descriptor.keyBindings || []).find(function (item) {
+      return (item.key || item) === alias;
+    });
+    var contexts = binding && binding.contexts || [];
+    if (!contexts.length || contexts.indexOf("board") >= 0) return true;
+    var region = target && target.closest && target.closest(".cn-thread-tree")
+      ? "thread-outline"
+      : target && target.closest && target.closest('.cn-tree[role="feed"]')
+        ? "feed"
+      : target && target.closest && target.closest("[data-cli]")
+        ? (state.completion ? "completion" : "composer")
+        : "navigator";
+    return contexts.indexOf(region) >= 0;
   }
 
   function recordNavigationVisit(candidate) {
@@ -4822,12 +5227,28 @@
   }
 
   function openJumpChooser(terms) {
-    cliValue = "zi " + String(terms || "").trim();
+    terms = String(terms || "").trim();
+    cliValue = "zi " + terms;
     state.cliOpen = true;
     state.intelOpen = false;
     state.helpOpen = false;
     state.menuDismissed = false;
-    recompute();
+    var ranked = window.NB_COMPLETE.jumpCandidates(terms, { cwd: state.path, extra: state.merged });
+    var groupOrder = [];
+    var grouped = {};
+    ranked.forEach(function (candidate) {
+      var group = candidate.group || "GLOBAL";
+      if (!grouped[group]) { grouped[group] = []; groupOrder.push(group); }
+      grouped[group].push(candidate);
+    });
+    state.completion = {
+      kind: "jump",
+      query: terms,
+      candidates: groupOrder.reduce(function (all, group) { return all.concat(grouped[group]); }, []),
+      replaceFrom: 3,
+      insert: "",
+      ghost: "",
+    };
     state.candIndex = -1;
     render(true);
     focusCli();
@@ -4855,9 +5276,9 @@
   }
 
   function threadAction(actionId) {
-    if (!window.NB_CORE || !window.NB_CORE.createMessageGraph) return false;
+    if (!MAP.messageGraph) return false;
     var messages = (D.posts || []).concat(state.merged || []);
-    var graph = window.NB_CORE.createMessageGraph(messages);
+    var graph = MAP.messageGraph(messages);
     var current = state.threadFocus || state.feedMark;
     if (!current) return false;
     var method = {
@@ -4875,29 +5296,158 @@
     return openThread(id);
   }
 
+  function postForAction(objectId) {
+    var all = (D.posts || []).concat(D.projectPosts || [], D.dmMessages || [], state.merged || []);
+    return all.find(function (post) {
+      return post.id === objectId || canonicalPostId(post) === objectId;
+    }) || null;
+  }
+
+  function actionPostId(input, context) {
+    var requested = input.objectId || context.objectId || state.feedMark || state.threadFocus;
+    var post = postForAction(requested);
+    return post ? post.id : requested;
+  }
+
+  function togglePostVote(postId, direction) {
+    var currentVote = state.votes[postId] || 0;
+    state.votes[postId] = currentVote === direction ? 0 : direction;
+    if (state.votes[postId] === 0) delete state.votes[postId];
+    render(true);
+    return { objectId: postId, vote: state.votes[postId] || 0 };
+  }
+
+  function armPostReply(postId) {
+    var post = postForAction(postId);
+    if (!post) throw new Error("reply target unavailable");
+    armReplyTo(post.id, post.who || "there", post.channel, post.project);
+    state.columnFocus = false;
+    state.ai = true;
+    cliValue = "";
+    render(true);
+    focusCli();
+    status("reply @" + (post.who || "there") + " — type and Enter to post");
+    return { objectId: post.id };
+  }
+
+  function copyPostShare(kind, postId) {
+    var link = shareLink(kind, postId);
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      status((kind === "contextual" ? "share" : kind) + ": " + link);
+      return { objectId: postId, link: link, copied: false };
+    }
+    return navigator.clipboard.writeText(link).then(function () {
+      status("copied " + kind + " link");
+      return { objectId: postId, link: link, copied: true };
+    });
+  }
+
   function executeAction(actionId, input, context) {
     input = input || {};
     context = context || {};
-    if (input.line) {
-      var nested = Object.assign({}, input.options || {}, { actionDispatch: true });
-      return context.origin === "slash" ? runSlash(input.line, nested) : run(input.line, nested);
+    var actionArg = input.arg || String(input.line || "").trim().split(/\s+/).slice(1).join(" ");
+    if (actionId === "nav.enter" && input.path) {
+      if (!navigate(input.path, { keepCli: true })) throw new Error("no such path: " + input.path);
+      return { path: state.path };
+    }
+    if (actionId === "nav.ascend") {
+      var parentPath = MAP.navParentPath ? MAP.navParentPath(state.path) : state.path;
+      if (!parentPath || parentPath === state.path) {
+        var parentParts = MAP.split(state.path);
+        parentPath = MAP.join(parentParts.slice(0, -1)) || "/";
+      }
+      if (!navigate(parentPath, { keepCli: true })) {
+        throw new Error("no namespace parent for " + state.path);
+      }
+      return { path: state.path };
+    }
+    if (actionId === "view.save") {
+      if (!window.NB_SAVED_VIEWS) throw new Error("saved views unavailable");
+      return window.NB_SAVED_VIEWS.save({
+        label: actionArg || "Saved view",
+        query: state.feedQuery || "",
+        sort: state.sort,
+        visibility: "private",
+      });
+    }
+    if (actionId === "view.open") {
+      var saved = window.NB_SAVED_VIEWS && (window.NB_SAVED_VIEWS.get(actionArg || input.view || input.projectionId) ||
+        window.NB_SAVED_VIEWS.list().find(function (view) { return view.label === actionArg; }));
+      if (!saved) throw new Error("saved view unavailable");
+      navigate("/views/" + saved.projectionId, { keepCli: true });
+      return saved;
+    }
+    if (actionId === "view.delete") {
+      if (!window.NB_SAVED_VIEWS || !window.NB_SAVED_VIEWS.delete(actionArg || input.view || input.projectionId)) {
+        throw new Error("saved view unavailable");
+      }
+      return { deleted: actionArg || input.view || input.projectionId };
     }
     if (actionId === "jump.best") return jumpBest(input.terms || input.arg || "");
     if (actionId === "jump.interactive") {
-      return input.interactive === false ? jumpBest(input.terms || "") : openJumpChooser(input.terms || "");
+      return input.interactive === false ? jumpBest(input.terms || "") : openJumpChooser(input.terms || input.arg || "");
+    }
+    if (input.line) {
+      var nested = Object.assign({}, input.options || {}, { actionDispatch: true });
+      return context.origin === "slash" || input.surface === "slash"
+        ? runSlash(input.line, nested)
+        : run(input.line, nested);
+    }
+    var postId = actionPostId(input, context);
+    if (actionId === "post.voteUp") return togglePostVote(postId, 1);
+    if (actionId === "post.voteDown") return togglePostVote(postId, -1);
+    if (actionId === "post.reactionPicker") {
+      state.reactPick = state.reactPick === postId ? null : postId;
+      render(true);
+      return { objectId: postId, open: state.reactPick === postId };
+    }
+    if (actionId === "post.react") {
+      toggleReaction(postId, input.reaction);
+      return { objectId: postId, reaction: input.reaction };
+    }
+    if (actionId === "post.fold") {
+      if (state.folded[postId]) delete state.folded[postId];
+      else state.folded[postId] = true;
+      render(true);
+      return { objectId: postId, folded: !!state.folded[postId] };
+    }
+    if (actionId === "post.repost") {
+      if (state.reposts[postId]) delete state.reposts[postId];
+      else state.reposts[postId] = true;
+      render(true);
+      status((state.reposts[postId] ? "reposted " : "repost removed · ") + postId);
+      return { objectId: postId, reposted: !!state.reposts[postId] };
+    }
+    if (actionId === "compose.reply") return armPostReply(postId);
+    if (actionId === "share.contextual") return copyPostShare("contextual", postId);
+    if (actionId === "share.canonical") return copyPostShare("canonical", postId);
+    if (actionId === "share.exact") return copyPostShare("exact", postId);
+    if (actionId === "post.copy") {
+      return copyTargetContent({
+        kind: "post", id: postId, name: postId, path: state.path, controlKey: "post:" + postId,
+      });
     }
     if (actionId === "history.back") return window.history.back();
     if (actionId === "history.forward") return window.history.forward();
     if (actionId === "history.previousLocation") return navigate(state.prev || "/", { keepCli: true });
     if (actionId === "cancel.topLayer") return cancelTopLayer();
     if (actionId.indexOf("thread.") === 0) return threadAction(actionId);
-    if (actionId === "view.open" && window.NB_QUERY && window.NB_QUERY.openSavedView) {
-      var opened = window.NB_QUERY.openSavedView(input.view || input.projectionId);
-      if (!opened) throw new Error("saved view unavailable");
-      if (opened.path) navigate(opened.path, { keepCli: true });
-      return opened;
-    }
     throw new Error("action has no runtime: " + actionId);
+  }
+
+  function shareLink(kind, postId) {
+    var entry = feedEntries().find(function (candidate) {
+      return candidate && candidate.post && candidate.post.id === postId;
+    });
+    var ref = entry ? MAP.objectRef(entry.post) : MAP.objectAtPath(state.path, state.merged);
+    if (!ref) throw new Error("share target unavailable");
+    var options = { origin: window.location.origin };
+    if (kind !== "canonical") options.projectionId = MAP.projectionForPath(state.path).projectionId;
+    if (kind === "exact") {
+      if (!ref.revision) throw new Error("exact revision unavailable");
+      options = { origin: window.location.origin, revision: ref.revision };
+    }
+    return window.NB_CORE.objectUrl(ref, options);
   }
 
   function run(line, opts) {
@@ -4908,7 +5458,7 @@
       closeCli();
       return;
     }
-    if (text) {
+    if (text && !opts.actionDispatch) {
       state.history.push(text);
       state.histIndex = -1;
     }
@@ -4954,18 +5504,22 @@
 
     if (cmd === "cd") {
       var dest = arg === "-" ? state.prev : arg;
-      if (!navigate(dest || "/", { keepCli: true })) {
+      var moved = navigate(dest || "/", { keepCli: true });
+      if (!moved && /^[a-z0-9][a-z0-9._:-]*$/i.test(dest || "")) {
+        var projection = MAP.projectionForPath(state.path);
+        var objectPath = MAP.pathForObject(dest, projection.projectionId, state.merged);
+        if (objectPath) moved = navigate(objectPath, { keepCli: true });
+      }
+      if (!moved) {
         var guess = window.NB_COMPLETE.analyse("cd " + dest, { cwd: state.path, extra: state.merged });
         var suggestions = guess && guess.candidates || [];
         reply = "cd: no exact path: " + dest +
           (suggestions.length ? " · suggestions: " + suggestions.slice(0, 6).map(function (item) { return item.value; }).join(", ") : "");
       }
     } else if (cmd === "z") {
-      jumpBest(arg);
-      reply = null;
+      return jumpBest(arg);
     } else if (cmd === "zi") {
-      openJumpChooser(arg);
-      reply = null;
+      return openJumpChooser(arg);
     } else if (cmd === "ls") {
       var l = MAP.list(MAP.resolve(state.path, arg || "."), state.merged);
       reply = l
@@ -5073,6 +5627,9 @@
     state.sessionOutFocus = true;
     if (sessionBladeIndex() >= 0) state.focus = sessionBladeIndex();
     if (!opts.noRender) render(true);
+    pushLayer("session-transcript", "session transcript", "close session", function () {
+      closeSessionBlade(); focusCli();
+    }, document.activeElement);
     requestAnimationFrame(function () {
       var pane = $(".cn-blade-out") || $(".cn-out");
       if (!pane) return;
@@ -5452,7 +6009,7 @@
     }
 
     if (verb === "share") {
-      var link = "nightboard:" + state.path + "?sort=" + (state.sort || "hot");
+      var link = shareLink("contextual", state.threadFocus || state.feedMark);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(function () {
           finishAct("copied " + link);
@@ -5658,7 +6215,7 @@
       toggleKeys();
       return true;
     } else if (run === "share") {
-      var link = "nightboard:" + state.path + "?sort=" + (state.sort || "hot");
+      var link = shareLink("contextual", state.threadFocus || state.feedMark);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(function () {
           pushLine({ kind: "out", text: "copied " + link });
@@ -5920,6 +6477,7 @@
       votes: state.votes,
       reactions: state.reactions,
       members: (window.NB_DATA && window.NB_DATA.members) || [],
+      viewer: viewerContext(),
     });
     var formatted = window.NB_QUERY.formatSearchResults(result, { limit: opts.limit });
     return {
@@ -5972,11 +6530,7 @@
     });
   }
 
-  /**
-   * Tab swaps prompt ↔ panel context. Autocomplete still owns Tab only while
-   * the suggestion menu is active. Focusing the prompt from a post detail
-   * begins writing a reply.
-   */
+  /** Focusing the prompt from a post detail begins writing a reply. */
   function swapFocusContext() {
     if (state.columnFocus) {
       state.columnFocus = false;
@@ -6119,10 +6673,7 @@
       }
       var fold = ev.target.closest("[data-fold]");
       if (fold) {
-        var id = fold.dataset.fold;
-        if (state.folded[id]) delete state.folded[id];
-        else state.folded[id] = true;
-        return render(true);
+        return invokeUiAction("post.fold", { objectId: fold.dataset.fold }, "pointer", fold.dataset.fold);
       }
       var notifOpen = ev.target.closest("[data-notif-open]");
       if (notifOpen) {
@@ -6146,22 +6697,14 @@
       }
       var voteBtn = ev.target.closest("[data-vote-id]");
       if (voteBtn) {
-        if (!requireParticipation("vote")) return;
         var vid = voteBtn.dataset.voteId;
-        var dir = voteBtn.dataset.vote === "down" ? -1 : 1;
-        var cur = state.votes[vid] || 0;
-        // Toggle off if pressing the same direction again.
-        state.votes[vid] = cur === dir ? 0 : dir;
-        if (state.votes[vid] === 0) delete state.votes[vid];
-        return render(true);
+        return invokeUiAction(voteBtn.dataset.vote === "down" ? "post.voteDown" : "post.voteUp",
+          { objectId: vid }, "pointer", vid);
       }
       var repostBtn = ev.target.closest("[data-repost]");
       if (repostBtn) {
         var repostId = repostBtn.dataset.repost;
-        if (state.reposts[repostId]) delete state.reposts[repostId];
-        else state.reposts[repostId] = true;
-        render(true);
-        return status((state.reposts[repostId] ? "reposted " : "repost removed · ") + repostId);
+        return invokeUiAction("post.repost", { objectId: repostId }, "pointer", repostId);
       }
       // Discord spoilers — persist open set so morph/live ticks keep reveal.
       var spoiler = ev.target.closest("[data-spoiler]");
@@ -6177,13 +6720,13 @@
       var reactPickBtn = ev.target.closest("[data-react-pick]");
       if (reactPickBtn) {
         var pickId = reactPickBtn.dataset.reactPick;
-        state.reactPick = state.reactPick === pickId ? null : pickId;
-        return render(true);
+        return invokeUiAction("post.reactionPicker", { objectId: pickId }, "pointer", pickId);
       }
       var reactBtn = ev.target.closest("[data-react][data-react-id]");
       if (reactBtn) {
-        toggleReaction(reactBtn.dataset.reactId, reactBtn.dataset.react);
-        return;
+        return invokeUiAction("post.react", {
+          objectId: reactBtn.dataset.reactId, reaction: reactBtn.dataset.react,
+        }, "pointer", reactBtn.dataset.reactId);
       }
       // Click outside an open picker closes it.
       if (state.reactPick && !ev.target.closest("[data-react-picker]")) {
@@ -6192,32 +6735,14 @@
       }
       var replyBtn = ev.target.closest("[data-reply]");
       if (replyBtn) {
-        if (!requireParticipation("reply")) return;
-        var who = replyBtn.dataset.replyWho || "there";
         var rid = replyBtn.dataset.reply;
-        var post = null;
-        (D.posts || []).concat(state.merged || []).some(function (p) {
-          if (p.id === rid) { post = p; return true; }
-          return false;
-        });
-        armReplyTo(rid, who, post && post.channel, post && post.project);
-        state.columnFocus = false;
-        state.ai = true;
-        cliValue = "";
-        render(true);
-        focusCli();
-        return status("reply @" + who + " — type and Enter to post");
+        return invokeUiAction("compose.reply", { objectId: rid }, "pointer", rid);
       }
       var copyPostBtn = ev.target.closest("[data-copy-post]");
       if (copyPostBtn) {
         try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
-        return copyTargetContent({
-          kind: "post",
-          id: copyPostBtn.getAttribute("data-copy-post"),
-          name: copyPostBtn.getAttribute("data-copy-post"),
-          path: state.path,
-          controlKey: "post:" + copyPostBtn.getAttribute("data-copy-post"),
-        });
+        var copyPostId = copyPostBtn.getAttribute("data-copy-post");
+        return invokeUiAction("post.copy", { objectId: copyPostId }, "pointer", copyPostId);
       }
       var copyChatBtn = ev.target.closest("[data-copy-chat]");
       if (copyChatBtn) {
@@ -6251,25 +6776,10 @@
       }
       var shareBtn = ev.target.closest("[data-share]");
       if (shareBtn) {
-        var sharePath = state.path || "/";
         var sharePostId = shareBtn.dataset.sharePost;
-        if (sharePostId && MAP.messagePath) {
-          sharePath = MAP.messagePath(state.path, sharePostId, state.merged) || sharePath;
-        } else {
-          var hereList = entries();
-          var sel = hereList[state.cursor];
-          if (sel && sel.post) sharePath = MAP.resolve(state.path, sel.name);
-        }
-        var link = "nightboard:" + sharePath + "?sort=" + (state.sort || "hot");
-        var done = function (ok) {
-          status(ok ? "copied " + link : "share: " + link);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(link).then(function () { done(true); }, function () { done(false); });
-        } else {
-          done(false);
-        }
-        return;
+        var shareKind = shareBtn.dataset.shareKind || "contextual";
+        return invokeUiAction("share." + shareKind, { objectId: sharePostId }, "pointer",
+          sharePostId || state.threadFocus || state.feedMark);
       }
       var sortBtn = ev.target.closest(".cn-sort[data-sort], .cn-sort[data-feed-view]");
       if (sortBtn) {
@@ -6487,6 +6997,16 @@
         recompute();
         return render();
       }
+      var actionControl = ev.target.closest("[data-action-id]");
+      if (actionControl && window.NB_ACTIONS) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        return window.NB_ACTIONS.invoke(actionControl.dataset.actionId, {
+          terms: actionControl.dataset.actionTerms || "",
+        }, actionContext("pointer")).catch(function (error) {
+          status("action failed · " + ((error && error.message) || actionControl.dataset.actionId));
+          return false;
+        });
+      }
       var item = ev.target.closest(".cn-item");
       if (item) {
         // Single click: select + preview in detail (path stays on the parent
@@ -6698,10 +7218,6 @@
       if (editedCdPreview) cancelCdPreview({ noRender: true });
       state.menuDismissed = false;
       recompute();
-      if (editedCdPreview) render(true);
-      // Repaint the menu without stealing focus or resetting the caret.
-      var menu = mount.querySelector(".cn-menu");
-      var wrap = mount.querySelector(".cn-tui-foot") || mount.querySelector(".cn-prompt-stack");
       state.candIndex = -1;
       var open = menuShouldOpen();
       if (open && !state.helpOpen) {
@@ -6711,6 +7227,10 @@
       } else if (!open) {
         removeLayer("completion");
       }
+      render(true);
+      // Repaint the menu without stealing focus or resetting the caret.
+      var menu = mount.querySelector(".cn-menu");
+      var wrap = mount.querySelector(".cn-tui-foot") || mount.querySelector(".cn-prompt-stack");
       // Typing keeps intellisense in sync when it was opened via Ctrl+Space.
       if (wrap) wrap.dataset.open = String(open);
       // data-morph-keep freezes the input node — sync live ARIA here.
@@ -6731,13 +7251,7 @@
           var head = '<div class="cn-menu-head" data-key="menu-head">' +
             (state.intelOpen ? "Intellisense" : "Suggestions") +
             (kind ? " · " + kind : "") + "</div>";
-          menu.innerHTML = head + cands.slice(0, 40)
-            .map(function (c, i) {
-              return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
-                ' aria-selected="' + (i === state.candIndex ? "true" : "false") + '"' +
-                (i === state.candIndex ? ' aria-current="true"' : "") +
-                '><span>' + (c.label || c.value) + "</span><i>" + (c.hint || "") + "</i></div>";
-            }).join("");
+          menu.innerHTML = head + window.NB_CONSOLE_VIEWS.renderCandidateRows(cands, state.candIndex);
         }
       }
       paintGhost();
@@ -6818,7 +7332,11 @@
       }
       if (ev.key === "Enter") {
         ev.preventDefault();
-        if (menuShouldOpen() && state.candIndex >= 0 && state.completion &&
+        // Arrow selection previews `cd` in place. Enter accepts that preview
+        // and executes the resolved line; it must not fall back through the
+        // generic combobox branch and merely reinsert the same option.
+        var previewLine = acceptCdPreviewLine();
+        if (!previewLine && menuShouldOpen() && state.candIndex >= 0 && state.completion &&
             state.completion.candidates[state.candIndex]) {
           var selected = state.completion.candidates[state.candIndex];
           if (state.completion.kind === "jump") {
@@ -6843,7 +7361,6 @@
           focusCli();
           return status("accepted suggestion · Enter again to run");
         }
-        var previewLine = acceptCdPreviewLine();
         if (previewLine) {
           cliValue = previewLine;
           cli.value = previewLine;
@@ -6985,6 +7502,9 @@
         cliValue = state.histIndex === -1 ? "" : state.history[state.history.length - 1 - state.histIndex];
         cli.value = cliValue;
         recompute();
+        // History recall stays history recall until the user edits the draft;
+        // an exact one-row completion must not capture the next Up/Down key.
+        state.menuDismissed = true;
         paintGhost();
       }
     });
@@ -7182,6 +7702,18 @@
           return toggleKeys();
         }
       }
+      var keyAlias = actionKeyAlias(ev);
+      var keyAction = window.NB_ACTIONS && window.NB_ACTIONS.resolve("key", keyAlias);
+      var treeKeyTarget = ev.target.closest && ev.target.closest('.cn-thread-tree [role="treeitem"]');
+      var treeOwnsKey = treeKeyTarget &&
+        ["ArrowLeft", "ArrowRight", "h", "l", "Enter"].indexOf(ev.key) >= 0;
+      if (!treeOwnsKey && keyAction && actionKeyAllowed(keyAction, keyAlias, ev.target)) {
+        ev.preventDefault();
+        return window.NB_ACTIONS.invoke(keyAction, {}, actionContext("keyboard")).catch(function (error) {
+          status("action failed · " + ((error && error.message) || keyAction));
+          return false;
+        });
+      }
 
       if (state.ctxMenu && state.ctxMenu.open && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
         if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
@@ -7302,6 +7834,12 @@
       // native keyboard behavior; Tab continues to return to the prompt.
       var message = ev.target.closest && ev.target.closest(".cn-comment[data-key]");
       if (message && !ev.target.closest("button, a, input, textarea, select")) {
+        var threadItem = message.getAttribute("role") === "treeitem";
+        if (threadItem && (k === "ArrowLeft" || k === "h" || k === "ArrowRight" ||
+            k === "l" || k === "Enter")) {
+          ev.preventDefault();
+          return handleThreadTreeKey(message, k);
+        }
         if (k === "ArrowLeft" || k === "h") {
           if (ascendFocusedMessage()) {
             ev.preventDefault();
@@ -7323,20 +7861,6 @@
         if (k === "Enter" || k === "ArrowRight" || k === "l") {
           ev.preventDefault();
           return openFocusedMessage(message.getAttribute("data-key"));
-        }
-        var postAction = ev.shiftKey && k.toLowerCase() === "r"
-          ? "[data-repost]"
-          : {
-            u: '[data-vote="up"]', d: '[data-vote="down"]', a: "[data-react-pick]",
-            f: "[data-fold]", r: "[data-reply]", s: "[data-share-post]", y: "[data-copy-post]",
-          }[k.toLowerCase()];
-        if (postAction) {
-          var postControl = message.querySelector(postAction);
-          if (postControl) {
-            ev.preventDefault();
-            postControl.click();
-            return;
-          }
         }
       }
 
@@ -7738,6 +8262,7 @@
     wireVoice();
     wireAttach();
     wireMount();
+    wireBrowserHistory();
     render();
     renderNotice();
     paintActivityBell();
@@ -7762,7 +8287,7 @@
     if (browserNotifySupported()) {
       bootNote = (bootNote ? bootNote + " · " : "") + window.NB_NOTIFY.permissionLabel();
     }
-    status(bootNote);
+    status(state.sessionRecovery ? state.sessionRecovery.message : (navigationRestoreNotice || bootNote));
     // First visit: open keys after the boot status so the onboard cue wins.
     maybeOpenKeysOnboard();
     setInterval(tick, 9000);
@@ -7986,6 +8511,9 @@
     render: render, status: status, navigate: navigate, state: state,
     executeAction: executeAction,
     cancelTopLayer: cancelTopLayer,
+    navigationLocation: navigationLocation,
+    restoreNavigation: restoreNavigation,
+    commitNavigation: commitNavigation,
     composeContext: composeContext,
     composeLabel: composeLabel,
     publishCompose: publishCompose,
@@ -8012,6 +8540,7 @@
     setLive: function (on) { state.live = on; },
     run: run,
     runSearch: runSearch,
+    viewerContext: viewerContext,
     pushLine: pushLine,
     toggleKeys: toggleKeys,
     openIntel: openIntel,

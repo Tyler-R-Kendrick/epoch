@@ -245,6 +245,19 @@
     return (D.dmMessages || []).concat(live.filter(function (m) { return m.dm; }));
   }
 
+  function canViewPost(post, viewer) {
+    return window.NB_CORE.canReadCommunityResource({
+      kind: post && post.dm ? "dm" : "message",
+      resourceId: post && post.dm ? post.dm : String(post && post.id || "unknown"),
+      visibility: post && post.dm ? "private" : "public",
+      participantIds: post && Array.isArray(post.participantIds) ? post.participantIds : [],
+    }, viewer || {});
+  }
+
+  function visibleDmMessages(viewer) {
+    return allDmMessages().filter(function (post) { return canViewPost(post, viewer); });
+  }
+
   function memberOf(handle) {
     if (handle === "you") return null;
     var m = D.members.filter(function (x) { return x.handle === handle; })[0];
@@ -260,23 +273,23 @@
     return window.NB_CORE.objectUrl(ref, origin ? { origin: origin } : {});
   }
 
-  function allMessages() {
-    return allPosts().concat(allDmMessages(), D.projectPosts || []);
+  function allMessages(viewer) {
+    return allPosts().concat(visibleDmMessages(viewer), D.projectPosts || []);
   }
 
-  function findMessage(objectId) {
-    var message = MAP.messageGraph(allMessages()).messageOf(objectId);
+  function findMessage(objectId, viewer) {
+    var message = MAP.messageGraph(allMessages(viewer)).messageOf(objectId);
     return message ? MAP.postFromMessage(message) : null;
   }
 
-  function parentMessage(post) {
-    var graph = MAP.messageGraph(allMessages());
+  function parentMessage(post, viewer) {
+    var graph = MAP.messageGraph(allMessages(viewer));
     var parent = graph.parentOf(objectRef(post));
     return parent ? MAP.postFromMessage(graph.messageOf(parent)) : null;
   }
 
-  function rootMessage(post) {
-    var graph = MAP.messageGraph(allMessages());
+  function rootMessage(post, viewer) {
+    var graph = MAP.messageGraph(allMessages(viewer));
     return MAP.postFromMessage(graph.messageOf(graph.rootOf(objectRef(post))));
   }
 
@@ -295,11 +308,11 @@
     };
   }
 
-  function locationsFor(post) {
+  function locationsFor(post, viewer) {
     var ref = objectRef(post);
     var locations = MAP.projectionLocations(ref.objectId);
     var primary = MAP.pathForObject(ref.objectId);
-    if (primary) locations.push({ projectionId: "thread-" + objectRef(rootMessage(post)).objectId,
+    if (primary) locations.push({ projectionId: "thread-" + objectRef(rootMessage(post, viewer)).objectId,
       aliasPath: primary });
     return locations;
   }
@@ -317,7 +330,7 @@
     return c ? MAP.channelPath(c.label) : "/projects/community/channels";
   }
 
-  function decoratePost(p) {
+  function decoratePost(p, viewer) {
     var ref = objectRef(p);
     var common = {
       ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
@@ -328,18 +341,18 @@
         return Object.assign(context, { canonicalUrl: canonicalUrl(context) });
       },
       aliases: [ref.objectId, (D.legacyPostAliases || {})[p.id]].filter(Boolean),
-      inReplyTo: function () { var parent = parentMessage(p); return parent ? decoratePost(parent) : null; },
-      threadRoot: function () { return decoratePost(rootMessage(p)); },
+      inReplyTo: function () { var parent = parentMessage(p, viewer); return parent ? decoratePost(parent, viewer) : null; },
+      threadRoot: function () { return decoratePost(rootMessage(p, viewer), viewer); },
       replies: function (args) {
-        var graph = MAP.messageGraph(allMessages());
+        var graph = MAP.messageGraph(allMessages(viewer));
         var children = graph.childrenOf(ref).map(function (child) {
           return MAP.postFromMessage(graph.messageOf(child));
         });
-        return connection(children, args, decoratePost);
+        return connection(children, args, function (child) { return decoratePost(child, viewer); });
       },
       relations: function (args) {
         var relations = (p.relations || []).slice();
-        var parent = parentMessage(p);
+        var parent = parentMessage(p, viewer);
         if (parent) relations.unshift({ type: "reply", source: ref, target: objectRef(parent) });
         return relations.filter(function (relation) { return !args.type || relation.type === args.type; })
           .map(function (relation) {
@@ -350,7 +363,7 @@
           });
       },
       tombstone: p.tombstone || null,
-      locations: function () { return locationsFor(p); },
+      locations: function () { return locationsFor(p, viewer); },
     };
     if (p.dm) {
       var dmIdx = allDmMessages().filter(function (q) { return q.dm === p.dm; }).indexOf(p);
@@ -370,14 +383,15 @@
     });
   }
 
-  function decorateDm(d) {
+  function decorateDm(d, viewer) {
     return Object.assign({}, d, {
       member: function () { return memberOf(d.peer); },
       messages: function () {
-        return allDmMessages().filter(function (m) { return m.dm === d.id; }).map(decoratePost);
+        return visibleDmMessages(viewer).filter(function (m) { return m.dm === d.id; })
+          .map(function (post) { return decoratePost(post, viewer); });
       },
       messageCount: function () {
-        return allDmMessages().filter(function (m) { return m.dm === d.id; }).length;
+        return visibleDmMessages(viewer).filter(function (m) { return m.dm === d.id; }).length;
       },
       path: MAP.dmPath(d.id),
     });
@@ -420,7 +434,7 @@
     };
   }
 
-  function projectionSpecs() {
+  function projectionSpecs(viewer) {
     var specs = (D.channels || []).filter(function (channel) {
       return !channel.voice && channel.kind !== "voice";
     }).map(function (channel) {
@@ -428,7 +442,10 @@
       return Object.assign({}, MAP.projectionForPath(path), { path: path });
     });
     if (window.NB_SAVED_VIEWS) {
-      specs = specs.concat(window.NB_SAVED_VIEWS.list({ includePrivate: false }).map(function (view) {
+      specs = specs.concat(window.NB_SAVED_VIEWS.list({
+        includePrivate: true,
+        principalId: viewer && viewer.actorId,
+      }).map(function (view) {
         var path = "/views/" + view.projectionId;
         return Object.assign({}, MAP.projectionForPath(path), {
           path: path,
@@ -558,6 +575,48 @@
     },
   };
 
+  function rootForViewer(viewer) {
+    viewer = viewer || {};
+    return Object.assign({}, root, {
+      dms: function (args) {
+        if (!viewer.actorId) return [];
+        var readable = new Set(viewer.readableDmIds || []);
+        return (D.dms || [])
+          .filter(function (d) { return readable.has(d.id) && (!args.kind || d.kind === args.kind); })
+          .map(function (d) { return decorateDm(d, viewer); });
+      },
+      dm: function (args) {
+        if (!viewer.actorId) return null;
+        var key = String(args.peer || "").replace(/^@/, "");
+        if ((viewer.readableDmIds || []).indexOf(key) === -1) return null;
+        var d = (D.dms || []).filter(function (item) {
+          return item.id === key || item.peer === key;
+        })[0];
+        return d ? decorateDm(d, viewer) : null;
+      },
+      search: function (args) {
+        var q = String(args.text || "").toLowerCase();
+        return allPosts().concat(visibleDmMessages(viewer))
+          .filter(function (post) {
+            return ((post.subject || "") + " " + post.body).toLowerCase().indexOf(q) !== -1;
+          })
+          .slice(0, args.limit || 10)
+          .map(function (post) { return decoratePost(post, viewer); });
+      },
+      object: function (args) {
+        var post = findMessage(args.objectId, viewer);
+        return post ? decoratePost(post, viewer) : null;
+      },
+      projections: function () { return projectionSpecs(viewer).map(decorateProjection); },
+      projection: function (args) {
+        var spec = projectionSpecs(viewer).filter(function (item) {
+          return item.projectionId === args.projectionId;
+        })[0];
+        return spec ? decorateProjection(spec) : null;
+      },
+    });
+  }
+
   var schema = null;
   function ready() {
     if (!window.GraphQLEngine) return false;
@@ -566,14 +625,14 @@
   }
 
   /** Run a query. Errors come back as GraphQL errors, not exceptions. */
-  async function query(source, variables) {
+  async function query(source, variables, viewer) {
     if (!ready()) {
       return { errors: [{ message: "GraphQL engine not loaded — run build-graphql.mjs" }] };
     }
     return window.GraphQLEngine.graphql({
       schema: schema,
       source: source,
-      rootValue: root,
+      rootValue: rootForViewer(viewer),
       variableValues: variables || undefined,
     });
   }

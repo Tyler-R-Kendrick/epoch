@@ -42,6 +42,11 @@ export async function runCommunityApiProviderVerification(): Promise<void> {
     getProjection: (projectionId, authorization) => state.api.getProjection(projectionId, authorization),
     saveProjection: (input, authorization) => state.api.saveProjection(input, authorization),
     deleteProjection: (projectionId, authorization) => state.api.deleteProjection(projectionId, authorization),
+  }, {
+    resolveAuthorization: () => ({
+      actorId: "pact-provider",
+      permissions: ["object:state:write"],
+    }),
   });
 
   const server = await startFetchHandlerServer(handler);

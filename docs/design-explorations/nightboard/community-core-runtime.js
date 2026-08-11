@@ -20,7 +20,7 @@ var NB_CORE = (() => {
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/index.ts
+  // packages/Epoch.Community.Core/src/index.ts
   var index_exports = {};
   __export(index_exports, {
     BUILT_IN_ACTIONS: () => BUILT_IN_ACTIONS,
@@ -28,11 +28,13 @@ var NB_CORE = (() => {
     NAVIGATION_ACTION_IDS: () => NAVIGATION_ACTION_IDS,
     QUERY_LANGUAGE_VERSION: () => QUERY_LANGUAGE_VERSION,
     VERSION: () => VERSION,
+    canReadCommunityResource: () => canReadCommunityResource,
     createActionRegistry: () => createActionRegistry,
     createCommunityClient: () => createCommunityClient,
     createHttpCommunityClient: () => createHttpCommunityClient,
     createMessageGraph: () => createMessageGraph,
     createProjection: () => createProjection,
+    hasCommunityPermission: () => hasCommunityPermission,
     matchesNormalizedQuery: () => matchesNormalizedQuery,
     migrateNormalizedQuery: () => migrateNormalizedQuery,
     normalizeQuery: () => normalizeQuery,
@@ -43,7 +45,23 @@ var NB_CORE = (() => {
     validateProjectionId: () => validateProjectionId
   });
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/navigation.ts
+  // packages/Epoch.Community.Core/src/authorization.ts
+  function hasCommunityPermission(authorization, permission) {
+    return authorization.actorId !== void 0 && authorization.permissions?.includes(permission) === true;
+  }
+  function canReadCommunityResource(target, authorization = {}) {
+    const actorId = authorization.actorId;
+    if (target.kind === "dm") {
+      if (actorId === void 0) return false;
+      return target.participantIds?.includes(actorId) === true || authorization.readableDmIds?.includes(target.resourceId) === true;
+    }
+    if (target.visibility === "private" && (actorId === void 0 || actorId !== target.ownerId)) {
+      return false;
+    }
+    return true;
+  }
+
+  // packages/Epoch.Community.Core/src/navigation.ts
   var NAVIGATION_ACTION_IDS = [
     "nav.next",
     "nav.previous",
@@ -74,7 +92,7 @@ var NB_CORE = (() => {
     "cancel.topLayer"
   ];
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/actions.ts
+  // packages/Epoch.Community.Core/src/actions.ts
   var labels = {
     "nav.next": "Next",
     "nav.previous": "Previous",
@@ -115,8 +133,8 @@ var NB_CORE = (() => {
     ...actionId === "jump.interactive" ? { commandAliases: ["zi"], mcp: { toolName: "board_jump", inputSchema: { type: "object" } } } : {}
   }));
   function createActionRegistry(definitions, executors) {
-    const actions = new Map(definitions.map((definition) => [definition.actionId, definition]));
-    if (actions.size !== definitions.length) throw new Error("Action registry contains duplicate action IDs");
+    const definitionsById = new Map(definitions.map((definition) => [definition.actionId, definition]));
+    if (definitionsById.size !== definitions.length) throw new Error("Action registry contains duplicate action IDs");
     let lastEvent;
     const event = (actionId, context, outcome) => {
       lastEvent = {
@@ -127,35 +145,41 @@ var NB_CORE = (() => {
         outcome
       };
     };
+    const executeAction = async (actionId, input, context) => {
+      const definition = definitionsById.get(actionId);
+      if (definition === void 0) throw new Error(`Unknown community action: ${actionId}`);
+      if (definition.permission !== void 0 && !context.permissions.includes(definition.permission)) {
+        event(definition.actionId, context, "denied");
+        throw new Error(`Action permission denied: ${definition.permission}`);
+      }
+      const execute = executors[definition.actionId];
+      if (execute === void 0) {
+        event(definition.actionId, context, "invalid");
+        throw new Error(`Community action is unavailable: ${definition.actionId}`);
+      }
+      try {
+        const result = await execute(input, context);
+        event(definition.actionId, context, "success");
+        return result;
+      } catch (error) {
+        event(definition.actionId, context, "failed");
+        throw error;
+      }
+    };
+    const actions = definitions.map((definition) => Object.freeze({
+      ...definition,
+      execute: (input, context) => executeAction(definition.actionId, input, context)
+    }));
+    const actionsById = new Map(actions.map((action) => [action.actionId, action]));
     return {
-      actions: [...definitions],
-      resolve: (actionId) => actions.get(actionId),
-      async execute(actionId, input, context) {
-        const definition = actions.get(actionId);
-        if (definition === void 0) throw new Error(`Unknown community action: ${actionId}`);
-        if (definition.permission !== void 0 && !context.permissions.includes(definition.permission)) {
-          event(definition.actionId, context, "denied");
-          throw new Error(`Action permission denied: ${definition.permission}`);
-        }
-        const execute = executors[definition.actionId];
-        if (execute === void 0) {
-          event(definition.actionId, context, "invalid");
-          throw new Error(`Community action is unavailable: ${definition.actionId}`);
-        }
-        try {
-          const result = await execute(input, context);
-          event(definition.actionId, context, "success");
-          return result;
-        } catch (error) {
-          event(definition.actionId, context, "failed");
-          throw error;
-        }
-      },
+      actions,
+      resolve: (actionId) => actionsById.get(actionId),
+      execute: executeAction,
       lastActionEvent: () => lastEvent === void 0 ? void 0 : { ...lastEvent }
     };
   }
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/identity.ts
+  // packages/Epoch.Community.Core/src/identity.ts
   var VERSION = "community-core/1";
   var kinds = /* @__PURE__ */ new Set([
     "message",
@@ -236,7 +260,7 @@ var NB_CORE = (() => {
     };
   }
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/graph.ts
+  // packages/Epoch.Community.Core/src/graph.ts
   function createMessageGraph(input) {
     const messages = /* @__PURE__ */ new Map();
     for (const message of input) {
@@ -346,7 +370,7 @@ var NB_CORE = (() => {
     };
   }
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/projection.ts
+  // packages/Epoch.Community.Core/src/projection.ts
   function createProjection(spec, objects) {
     validateProjectionId(spec.projectionId);
     validateObjectRef(spec.root);
@@ -389,7 +413,7 @@ var NB_CORE = (() => {
     };
   }
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/query.ts
+  // packages/Epoch.Community.Core/src/query.ts
   var QUERY_LANGUAGE_VERSION = 1;
   var COMMUNITY_QUERY_FIELDS = [
     "who",
@@ -418,7 +442,12 @@ var NB_CORE = (() => {
     if (options.version !== void 0 && options.version > QUERY_LANGUAGE_VERSION) {
       return invalid(`Query language version ${options.version} is newer than supported version ${QUERY_LANGUAGE_VERSION}`);
     }
-    const tokens = tokenize(input);
+    let tokens;
+    try {
+      tokens = tokenize(input);
+    } catch (error) {
+      return invalid(error instanceof Error ? error.message : String(error));
+    }
     let position = 0;
     const peek = () => tokens[position] ?? { type: "EOF", value: "" };
     const take = (type) => {
@@ -678,7 +707,7 @@ var NB_CORE = (() => {
     return row[right.length] ?? Number.MAX_SAFE_INTEGER;
   }
 
-  // ../epoch-swarm-core-api/packages/Epoch.Community.Core/src/index.ts
+  // packages/Epoch.Community.Core/src/index.ts
   function createCommunityClient(transport) {
     return {
       listWorkflows: () => transport.listWorkflows(),
