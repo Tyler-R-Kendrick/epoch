@@ -53,6 +53,7 @@
       folded: {},
       votes: {},
       reactions: {},
+      reposts: {},
       treeOpen: {},
       history: [],
       histIndex: -1,
@@ -74,7 +75,7 @@
 
   var SESSION_FIELDS = [
     "path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "feedPinnedViews", "prev",
-    "folded", "votes", "reactions", "treeOpen",
+    "folded", "votes", "reactions", "reposts", "treeOpen",
     "history", "histIndex", "lines", "openTools", "busy",
     "detailOpen", "homeFeed", "homeCursor", "threadFocus", "feedMark",
   ];
@@ -122,6 +123,7 @@
     votes: {},
     // reactions[postId] = { counts: { "+1": n }, mine: { "+1": true } }
     reactions: {},
+    reposts: {},
     reactPick: null,
     // Discord spoilers revealed this session: spoilers[innerText] = true
     spoilers: {},
@@ -191,6 +193,7 @@
     // Right-click context menu + agent-bound context chips (id/name above CLI).
     ctxMenu: null,
     boundContext: [],
+    cdPreviewPath: null,
     // Terminal file editor (detail pane for files).
     editor: {
       active: null,
@@ -1754,6 +1757,7 @@
       folded: state.folded,
       votes: state.votes,
       reactions: state.reactions,
+      reposts: state.reposts,
       treeOpen: state.treeOpen,
       history: state.history,
       histIndex: state.histIndex,
@@ -1807,6 +1811,7 @@
         state.folded = Object.assign({}, snap.folded || {});
         state.votes = Object.assign({}, snap.votes || {});
         state.reactions = Object.assign({}, snap.reactions || {});
+        state.reposts = Object.assign({}, snap.reposts || {});
         state.treeOpen = Object.assign({}, snap.treeOpen || {});
         state.openTools = Object.assign({}, snap.openTools || {});
         state.lines = (snap.lines || []).slice();
@@ -1816,7 +1821,7 @@
         if (state.sessions[0]) {
           SESSION_FIELDS.forEach(function (k) {
             if (k === "lines" || k === "history") state.sessions[0][k] = (state[k] || []).slice();
-            else if (k === "folded" || k === "openTools" || k === "votes" || k === "reactions" || k === "treeOpen") {
+            else if (k === "folded" || k === "openTools" || k === "votes" || k === "reactions" || k === "reposts" || k === "treeOpen") {
               state.sessions[0][k] = Object.assign({}, state[k] || {});
             } else state.sessions[0][k] = state[k];
           });
@@ -1842,7 +1847,7 @@
     if (!sess) return;
     SESSION_FIELDS.forEach(function (k) {
       if (k === "lines" || k === "history" || k === "feedPinnedViews") sess[k] = (state[k] || []).slice();
-      else if (k === "folded" || k === "openTools" || k === "votes" || k === "reactions" || k === "treeOpen") {
+      else if (k === "folded" || k === "openTools" || k === "votes" || k === "reactions" || k === "reposts" || k === "treeOpen") {
         sess[k] = Object.assign({}, state[k] || {});
       } else if (k === "detailOpen") {
         sess.detailOpen = state.detailOpen !== false;
@@ -1881,6 +1886,7 @@
     state.openTools = Object.assign({}, sess.openTools || {});
     state.votes = Object.assign({}, sess.votes || {});
     state.reactions = Object.assign({}, sess.reactions || {});
+    state.reposts = Object.assign({}, sess.reposts || {});
     state.treeOpen = Object.assign({}, sess.treeOpen || {});
     state.reactPick = null;
     state.lines = (sess.lines || []).slice();
@@ -2025,6 +2031,7 @@
 
   function switchSession(i, opts) {
     if (i === state.activeSession || i < 0 || i >= state.sessions.length) return;
+    cancelCdPreview({ noRender: true });
     freezeSession();
     thawSession(i);
     recompute();
@@ -2034,6 +2041,7 @@
   }
 
   function newSession() {
+    cancelCdPreview({ noRender: true });
     freezeSession();
     // Isolated worktree: default home path + empty transcript/history —
     // never inherit the previous tab's path, filter, editor, or attachments.
@@ -2048,6 +2056,7 @@
 
   function closeSession(i) {
     if (state.sessions.length <= 1) return;
+    cancelCdPreview({ noRender: true });
     freezeSession();
     var was = state.activeSession;
     state.sessions.splice(i, 1);
@@ -2103,6 +2112,7 @@
     var fallback = {
       c0: 15, c1: 20, mc0: false, mc1: false,
       out: false, outH: 12, outW: 28, outMax: false, dock: "bottom", zoom: false,
+      focusMax: null,
     };
     try {
       var raw = window.localStorage.getItem("nb-panes");
@@ -2118,6 +2128,7 @@
         outMax: !!got.outMax,
         dock: docks[got.dock] ? got.dock : "bottom",
         zoom: false,
+        focusMax: null,
       };
     } catch { return fallback; }
   }
@@ -2135,6 +2146,7 @@
     opts = opts || {};
     if (!state.panes) state.panes = loadPanes();
     var next = !!on;
+    state.panes.focusMax = null;
     if (state.panes.zoom === next && !opts.forceRender) {
       if (!opts.silent) status(next ? "nav collapsed" : "nav expanded");
       return next;
@@ -2158,6 +2170,18 @@
 
   function isNavCollapsed() {
     return !!(state.panes && state.panes.zoom);
+  }
+
+  function toggleFocusedPanel(opts) {
+    opts = opts || {};
+    if (!state.panes) state.panes = loadPanes();
+    var focused = state.focus != null ? Number(state.focus) : listBladeIndex();
+    var expanded = state.panes.focusMax === focused;
+    state.panes.focusMax = expanded ? null : focused;
+    state.panes.zoom = false;
+    if (!opts.noRender) render(true);
+    if (!opts.silent) status(expanded ? "focus restored" : "focus expanded · z to restore");
+    return state.panes.focusMax;
   }
 
   /* ── Terminal file editor (detail pane) ────────────────────────────────── */
@@ -2339,7 +2363,7 @@
     var found = probe.findIndex(function (e) { return e.name === leaf; });
     if (found === -1) return false;
     state.prev = state.path;
-    state.path = target;
+    state.path = opts.contextPath || target;
     state.filter = "";
     state.cursor = found;
     if (!opts.keepThread) {
@@ -2424,6 +2448,7 @@
     lastScrolled = cur;
     paintActivityBell();
     paintKeysCue();
+    paintRestartCue();
     // Narrow ranger: keep the focused blade in view (Enter/→ must reveal feed).
     revealFocusedBlade();
     schedulePersist();
@@ -2455,6 +2480,32 @@
     var open = !!(state.helpOpen && state.intelOpen);
     el.dataset.open = open ? "true" : "false";
     el.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+
+  function startupPending() {
+    return window.NB_STARTUP && window.NB_STARTUP.pending
+      ? window.NB_STARTUP.pending()
+      : [];
+  }
+
+  function paintRestartCue() {
+    var el = $("[data-restart-cue]");
+    if (!el) return;
+    var pending = startupPending();
+    el.hidden = !pending.length;
+    el.setAttribute("aria-label", pending.length
+      ? "Apply " + pending.map(function (item) { return item.label; }).join(", ") + " and restart (Control+U)"
+      : "No restart action pending");
+  }
+
+  function bottomLine() {
+    var pending = startupPending();
+    if (pending.length) {
+      return "next · Ctrl+U restart — " + pending.map(function (item) { return item.label; }).join(" · ");
+    }
+    if (state.busy) return "next · Esc cancel · Ctrl+Space keys";
+    if (state.columnFocus) return "next · Enter open · z expand focus · : prompt";
+    return "next · Enter run · Tab panels · Ctrl+Space keys";
   }
 
   /** Toggle the same overlay Ctrl+Space opens (status cue + /keys). */
@@ -2540,7 +2591,11 @@
   }
 
   function status(msg) {
-    $("[data-status-line]").textContent = msg || exp().keys;
+    var line = $("[data-status-line]");
+    if (!line) return;
+    var next = bottomLine();
+    line.textContent = startupPending().length ? next : (msg ? msg + " · " + next : next);
+    paintRestartCue();
   }
 
   /**
@@ -2793,12 +2848,14 @@
 
   function navigate(path, opts) {
     opts = opts || {};
+    if (cdPreview && !opts.preview) cancelCdPreview({ noRender: true });
     var target = MAP.resolve(state.path, path);
     // Deep post URLs land on the channel feed with that thread focused in detail.
     var deepPost = MAP.postAt ? MAP.postAt(target, state.merged) : null;
     if (deepPost && MAP.channelFeedPath && MAP.isPostReplyPath && MAP.isPostReplyPath(target)) {
       var feedTarget = MAP.channelFeedPath(target);
       return openTerminalChannel(feedTarget, {
+        contextPath: target,
         keepCli: opts.keepCli,
         focusDetail: true,
         threadFocus: deepPost.id,
@@ -3161,11 +3218,25 @@
 
   function openFocusedMessage(id) {
     if (!id) return false;
-    openThread(id);
+    var target = MAP.messagePath ? MAP.messagePath(state.path, id, state.merged) : null;
+    if (!target || !navigate(target, { keepCli: true })) return openThread(id);
     requestAnimationFrame(function () {
       var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
       if (el) try { el.focus({ preventScroll: true }); } catch { /* fine */ }
     });
+    return true;
+  }
+
+  function ascendFocusedMessage() {
+    var feedPath = MAP.channelFeedPath ? MAP.channelFeedPath(state.path) : state.path;
+    var parts = MAP.split(state.path);
+    var feedParts = MAP.split(feedPath);
+    if (parts.length <= feedParts.length) return false;
+    parts.pop();
+    var target = MAP.join(parts);
+    var parent = MAP.postAt ? MAP.postAt(target, state.merged) : null;
+    if (!navigate(target, { keepCli: true })) return false;
+    if (!parent) state.feedMark = null;
     return true;
   }
 
@@ -3384,7 +3455,7 @@
     var base = navListPath();
     if (e.post) {
       if (MAP.isTerminalNavPath && MAP.isTerminalNavPath(state.path)) {
-        base = state.path;
+        base = MAP.channelFeedPath ? MAP.channelFeedPath(state.path) : state.path;
       } else {
         var sel = entries()[state.cursor];
         if (sel && sel.kind === "channel") base = MAP.resolve(navListPath(), sel.name);
@@ -3472,7 +3543,7 @@
     }
     if (e.notification) {
       openNotification(e.notification.id);
-      // Keep nav open — collapse is explicit (z / Alt+Z / header).
+      // Keep nav open — focused-panel expansion is explicit (z / Alt+Z / header).
       return;
     }
     // Posts (space feed / other listings): open thread in detail — never nav.
@@ -4108,7 +4179,142 @@
 
   /* ── Command line ──────────────────────────────────────────────────────── */
 
+  var cdPreview = null;
+  var cdPreviewLine = null;
+  var cdTypeaheadTrail = [];
+
+  function cdPreviewSnapshot() {
+    return {
+      path: state.path,
+      prev: state.prev,
+      cursor: state.cursor,
+      focus: state.focus,
+      filter: state.filter,
+      threadFocus: state.threadFocus,
+      feedMark: state.feedMark,
+      detailOpen: state.detailOpen,
+      replyTo: state.replyTo,
+      personPane: state.personPane,
+      personPeer: state.personPeer,
+      columnFocus: state.columnFocus,
+      cdPreviewPath: state.cdPreviewPath,
+    };
+  }
+
+  function applyCdPreviewSnapshot(snap) {
+    Object.keys(snap || {}).forEach(function (key) { state[key] = snap[key]; });
+    retargetPendingMirror();
+  }
+
+  function selectedCompletionLine() {
+    var c = state.completion;
+    if (!c || !c.candidates || !c.candidates.length) return cliValue;
+    var cand = c.candidates[state.candIndex] || c.candidates[0];
+    return cliValue.slice(0, c.replaceFrom || 0) + cand.value;
+  }
+
+  function previewCdLine(line) {
+    if (!cdPreview) cdPreview = cdPreviewSnapshot();
+    applyCdPreviewSnapshot(cdPreview);
+    var arg = line.trim().split(/\s+/).slice(1).join(" ");
+    state.cdPreviewPath = "pending";
+    if (!navigate(arg, { keepCli: true, preview: true })) {
+      applyCdPreviewSnapshot(cdPreview);
+      return false;
+    }
+    cdPreviewLine = line;
+    state.cdPreviewPath = state.path;
+    state.columnFocus = false;
+    state.menuDismissed = false;
+    render(true);
+    focusCli();
+    highlightCandidate();
+    paintGhost();
+    status("preview · " + state.path + " · Enter accept · Esc cancel");
+    return true;
+  }
+
+  function previewCdCandidate() {
+    var c = state.completion;
+    if (!/^cd\s+/i.test(cliValue) || !c || c.kind !== "path" || !c.candidates.length) return false;
+    return previewCdLine(selectedCompletionLine());
+  }
+
+  function drillCdTypeahead(cli) {
+    var c = state.completion;
+    if (!/^cd\s+/i.test(cliValue) || !c || c.kind !== "path" || !menuShouldOpen() ||
+        cli.selectionStart !== cli.value.length) return false;
+    var before = cliValue;
+    if (!acceptGhost()) return false;
+    if (!/\/$/.test(cliValue)) {
+      cliValue += "/";
+      var input = $("[data-cli]");
+      if (input) input.value = cliValue;
+      recompute();
+      render(true);
+    }
+    cdTypeaheadTrail.push(before);
+    previewCdLine(cliValue);
+    return true;
+  }
+
+  function ascendCdTypeahead(cli) {
+    var c = state.completion;
+    if (!/^cd\s+/i.test(cliValue) || !c || c.kind !== "path" || !menuShouldOpen() ||
+        cli.selectionStart !== cli.value.length) return false;
+    var prior = cdTypeaheadTrail.pop();
+    if (!prior) {
+      var match = /^(cd\s+)(.*)$/i.exec(cliValue);
+      var arg = match ? match[2].replace(/\/+$/, "") : "";
+      var slash = arg.lastIndexOf("/");
+      if (!match || slash < 0) return false;
+      prior = match[1] + arg.slice(0, slash + 1);
+    }
+    if (!cdPreview) cdPreview = cdPreviewSnapshot();
+    applyCdPreviewSnapshot(cdPreview);
+    cdPreviewLine = null;
+    state.cdPreviewPath = null;
+    state.menuDismissed = false;
+    cliValue = prior;
+    cli.value = prior;
+    recompute();
+    if (/^cd\s+\S+\/$/i.test(prior)) previewCdLine(prior);
+    else {
+      render(true);
+      focusCli();
+      highlightCandidate();
+      paintGhost();
+      status("typeahead · " + state.path + " · → drill · Enter run · Esc cancel");
+    }
+    return true;
+  }
+
+  function cancelCdPreview(opts) {
+    if (!cdPreview) return false;
+    var origin = cdPreview;
+    cdPreview = null;
+    cdPreviewLine = null;
+    cdTypeaheadTrail = [];
+    applyCdPreviewSnapshot(origin);
+    if (!(opts && opts.noRender)) {
+      state.menuDismissed = true;
+      render(true);
+      focusCli();
+      status("cd preview cancelled · " + state.path);
+    }
+    return true;
+  }
+
+  function acceptCdPreviewLine() {
+    if (!cdPreview) return null;
+    var line = cdPreviewLine || selectedCompletionLine();
+    cancelCdPreview({ noRender: true });
+    status("cd preview accepted");
+    return line;
+  }
+
   function closeCli() {
+    cancelCdPreview({ noRender: true });
     state.cliOpen = false;
     state.intelOpen = false;
     state.helpOpen = false;
@@ -4122,7 +4328,7 @@
 
   function recompute() {
     state.completion = window.NB_COMPLETE.analyse(cliValue, {
-      cwd: state.path, extra: state.merged,
+      cwd: cdPreview ? cdPreview.path : state.path, extra: state.merged,
       // Agent chat prefers slash verbs; empty prompt catalogues them.
       slash: !!state.ai || String(cliValue || "").charAt(0) === "/",
     });
@@ -4274,14 +4480,43 @@
     return true;
   }
 
-  function closeContextMenu() {
+  var ctxReturnFocus = null;
+
+  function contextMenuItems() {
+    var menu = $("[data-ctx-menu]");
+    return menu ? Array.prototype.slice.call(menu.querySelectorAll("[role='menuitem']")) : [];
+  }
+
+  function focusContextMenuItem(index) {
+    var items = contextMenuItems();
+    if (!items.length) return false;
+    var next = ((index % items.length) + items.length) % items.length;
+    try { items[next].focus({ preventScroll: true }); } catch { /* fine */ }
+    return true;
+  }
+
+  function moveContextMenuFocus(delta) {
+    var items = contextMenuItems();
+    var current = items.indexOf(document.activeElement);
+    return focusContextMenuItem((current < 0 ? (delta > 0 ? -1 : 0) : current) + delta);
+  }
+
+  function closeContextMenu(restoreFocus) {
     if (!(state.ctxMenu && state.ctxMenu.open)) return false;
     state.ctxMenu = null;
+    var previous = ctxReturnFocus;
+    ctxReturnFocus = null;
+    if (restoreFocus && previous && previous.isConnected) {
+      window.requestAnimationFrame(function () {
+        try { previous.focus({ preventScroll: true }); } catch { /* fine */ }
+      });
+    }
     return true;
   }
 
   function openContextMenu(ev, target) {
     if (!target || !window.NB_CTX) return false;
+    ctxReturnFocus = document.activeElement;
     var actions = window.NB_CTX.actionsFor(target.controlKey, target.kind) || [];
     state.ctxMenu = {
       open: true,
@@ -4624,6 +4859,11 @@
         ? window.NB_POWER.command(arg)
         : { ok: false, text: "macro: unavailable" };
       reply = macroResult.text;
+    } else if (cmd === "hobo") {
+      var hoboResult = window.NB_HOBO
+        ? window.NB_HOBO.run(arg)
+        : { ok: false, text: "hobo: workbench unavailable" };
+      reply = hoboResult.text;
     } else if (cmd === "stat") {
       reply = "epoch " + D.board.epoch + " · " + D.board.landed + "/" + D.board.total +
         " landed · ships " + D.board.ships;
@@ -4967,6 +5207,7 @@
     try {
       await window.NB_AGENT.run(turn.agentInput, {
         cwd: state.path,
+        workspaceId: "workspace-" + (state.activeSession + 1),
         here: here,
         compose: composeContext(),
         signal: undefined,
@@ -5632,6 +5873,9 @@
       try { ev.preventDefault(); } catch { /* fine */ }
       openContextMenu(ev, t);
       render(true);
+      if (!focusContextMenuItem(0)) {
+        window.requestAnimationFrame(function () { focusContextMenuItem(0); });
+      }
       status("context · " + (t.kind || "ctrl") + " · " + (t.name || t.id));
     });
 
@@ -5731,6 +5975,14 @@
         if (state.votes[vid] === 0) delete state.votes[vid];
         return render(true);
       }
+      var repostBtn = ev.target.closest("[data-repost]");
+      if (repostBtn) {
+        var repostId = repostBtn.dataset.repost;
+        if (state.reposts[repostId]) delete state.reposts[repostId];
+        else state.reposts[repostId] = true;
+        render(true);
+        return status((state.reposts[repostId] ? "reposted " : "repost removed · ") + repostId);
+      }
       // Discord spoilers — persist open set so morph/live ticks keep reveal.
       var spoiler = ev.target.closest("[data-spoiler]");
       if (spoiler) {
@@ -5817,11 +6069,17 @@
         focusCli();
         return status();
       }
-      if (ev.target.closest("[data-share]")) {
+      var shareBtn = ev.target.closest("[data-share]");
+      if (shareBtn) {
         var sharePath = state.path || "/";
-        var hereList = entries();
-        var sel = hereList[state.cursor];
-        if (sel && sel.post) sharePath = MAP.resolve(state.path, sel.name);
+        var sharePostId = shareBtn.dataset.sharePost;
+        if (sharePostId && MAP.messagePath) {
+          sharePath = MAP.messagePath(state.path, sharePostId, state.merged) || sharePath;
+        } else {
+          var hereList = entries();
+          var sel = hereList[state.cursor];
+          if (sel && sel.post) sharePath = MAP.resolve(state.path, sel.name);
+        }
         var link = "nightboard:" + sharePath + "?sort=" + (state.sort || "hot");
         var done = function (ok) {
           status(ok ? "copied " + link : "share: " + link);
@@ -5953,8 +6211,11 @@
         closeBlade(Number(paneMin.dataset.paneMin));
         return;
       }
-      if (ev.target.closest("[data-pane-zoom]") ||
-          ev.target.closest("[data-nav-collapse]")) {
+      if (ev.target.closest("[data-pane-zoom]")) {
+        toggleFocusedPanel();
+        return;
+      }
+      if (ev.target.closest("[data-nav-collapse]")) {
         toggleNavCollapsed();
         return;
       }
@@ -5990,7 +6251,7 @@
       }
       var commentHit = ev.target.closest(".cn-comment");
       if (commentHit && !ev.target.closest(
-        "button, a, [data-vote-id], [data-reply], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
+        "button, a, [data-vote-id], [data-reply], [data-repost], [data-share-post], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
       )) {
         var cid = commentHit.getAttribute("data-key");
         if (cid) {
@@ -6253,8 +6514,11 @@
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
       cliValue = cli.value;
+      var editedCdPreview = !!cdPreview;
+      if (editedCdPreview) cancelCdPreview({ noRender: true });
       state.menuDismissed = false;
       recompute();
+      if (editedCdPreview) render(true);
       // Repaint the menu without stealing focus or resetting the caret.
       var menu = mount.querySelector(".cn-menu");
       var wrap = mount.querySelector(".cn-tui-foot") || mount.querySelector(".cn-prompt-stack");
@@ -6370,6 +6634,11 @@
       }
       if (ev.key === "Enter") {
         ev.preventDefault();
+        var previewLine = acceptCdPreviewLine();
+        if (previewLine) {
+          cliValue = previewLine;
+          cli.value = previewLine;
+        }
         // Enter always submits/runs the typed line. Autocomplete accept is Tab
         // (or click a candidate) — never Enter — so a open suggestion menu
         // cannot trap the key that means "send".
@@ -6414,6 +6683,7 @@
       }
       if (ev.key === "Escape") {
         ev.preventDefault();
+        if (cancelCdPreview()) return;
         // Dictation Esc is handled in capture-phase wireSpeech; if we still
         // see it here, fall through to intel / suggestions / columns.
         if (dismissMenu()) {
@@ -6452,7 +6722,7 @@
       // same way the mode toggle is; bare z still works in column mode.
       if (ev.altKey && ev.key.toLowerCase() === "z") {
         ev.preventDefault();
-        return toggleNavCollapsed();
+        return toggleFocusedPanel();
       }
       if (ev.altKey && ev.key.toLowerCase() === "j") {
         ev.preventDefault();
@@ -6469,6 +6739,14 @@
       if (ev.altKey && ev.key.toLowerCase() === "t") {
         ev.preventDefault();
         return newSession();
+      }
+      if (ev.key === "ArrowLeft" && ascendCdTypeahead(cli)) {
+        ev.preventDefault();
+        return;
+      }
+      if (ev.key === "ArrowRight" && drillCdTypeahead(cli)) {
+        ev.preventDefault();
+        return;
       }
       if (ev.key === "ArrowRight" || ev.key === "End") {
         if (cli.selectionStart === cli.value.length && acceptGhost()) ev.preventDefault();
@@ -6487,6 +6765,7 @@
           syncCompletionToIndex();
           highlightCandidate();
           paintGhost();
+          previewCdCandidate();
           return;
         }
         if (!state.history.length) return;
@@ -6502,6 +6781,10 @@
 
   function wireGlobal() {
     document.addEventListener("click", function (ev) {
+      if (ev.target.closest("[data-restart-cue]")) {
+        ev.preventDefault();
+        return window.NB_STARTUP && window.NB_STARTUP.apply && window.NB_STARTUP.apply();
+      }
       if (ev.target.closest("[data-keys-open]")) {
         ev.preventDefault();
         return toggleKeys();
@@ -6672,6 +6955,13 @@
     }
 
     document.addEventListener("keydown", function (ev) {
+      // Ctrl+U restarts only when startup work is pending. Otherwise the file
+      // editor keeps its native page-up chord.
+      if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && ev.key.toLowerCase() === "u" &&
+          startupPending().length) {
+        ev.preventDefault();
+        return window.NB_STARTUP.apply();
+      }
       // Global Ctrl/Cmd+Space — available from columns as well as the prompt.
       if ((ev.ctrlKey || ev.metaKey) && (ev.key === " " || ev.code === "Space")) {
         // In editor insert mode, Ctrl+Space still opens intellisense only if not typing.
@@ -6679,6 +6969,26 @@
               state.editor.active.mode === "insert")) {
           ev.preventDefault();
           return toggleKeys();
+        }
+      }
+
+      if (state.ctxMenu && state.ctxMenu.open && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
+        if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+          ev.preventDefault();
+          return moveContextMenuFocus(ev.key === "ArrowDown" ? 1 : -1);
+        }
+        if (ev.key === "Home" || ev.key === "End") {
+          ev.preventDefault();
+          return focusContextMenuItem(ev.key === "Home" ? 0 : -1);
+        }
+        if (ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar") {
+          var menuItem = document.activeElement && document.activeElement.closest
+            ? document.activeElement.closest("[role='menuitem']")
+            : null;
+          if (menuItem) {
+            ev.preventDefault();
+            return menuItem.click();
+          }
         }
       }
 
@@ -6697,7 +7007,7 @@
         }
         if (state.ctxMenu && state.ctxMenu.open) {
           ev.preventDefault();
-          closeContextMenu();
+          closeContextMenu(true);
           render(true);
           return status("context closed");
         }
@@ -6781,6 +7091,12 @@
       // native keyboard behavior; Tab continues to return to the prompt.
       var message = ev.target.closest && ev.target.closest(".cn-comment[data-key]");
       if (message && !ev.target.closest("button, a, input, textarea, select")) {
+        if (k === "ArrowLeft" || k === "h") {
+          if (ascendFocusedMessage()) {
+            ev.preventDefault();
+            return;
+          }
+        }
         if (k === "ArrowDown" || k === "j") {
           ev.preventDefault();
           return moveMessageFocus(1);
@@ -6796,6 +7112,20 @@
         if (k === "Enter" || k === "ArrowRight" || k === "l") {
           ev.preventDefault();
           return openFocusedMessage(message.getAttribute("data-key"));
+        }
+        var postAction = ev.shiftKey && k.toLowerCase() === "r"
+          ? "[data-repost]"
+          : {
+            u: '[data-vote="up"]', d: '[data-vote="down"]', a: "[data-react-pick]",
+            f: "[data-fold]", r: "[data-reply]", s: "[data-share-post]", y: "[data-copy-post]",
+          }[k.toLowerCase()];
+        if (postAction) {
+          var postControl = message.querySelector(postAction);
+          if (postControl) {
+            ev.preventDefault();
+            postControl.click();
+            return;
+          }
         }
       }
 
@@ -6859,7 +7189,7 @@
       if (k === "z") {
         ev.preventDefault();
         focusColumns();
-        return toggleNavCollapsed();
+        return toggleFocusedPanel();
       }
       // Yank: copy focused content (post thread, channel feed, chat, …).
       if (k === "y" && state.columnFocus && window.NB_CTX && window.NB_COPY) {
@@ -7530,6 +7860,7 @@
     setNavCollapsed: setNavCollapsed,
     toggleNavCollapsed: toggleNavCollapsed,
     isNavCollapsed: isNavCollapsed,
+    toggleFocusedPanel: toggleFocusedPanel,
     // Detail pane open/close.
     openDetail: openDetail,
     closeDetail: closeDetail,

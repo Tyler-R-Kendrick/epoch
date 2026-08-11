@@ -422,7 +422,9 @@ const CASES = [
         total: document.querySelectorAll(".cn-comment").length,
         threadCtx: !!document.querySelector(".cn-thread-ctx"),
         feedBar: !!document.querySelector(".cn-feed-bar"),
-        navPosts: (window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [])
+        navPosts: (window.NB_MAP.list(
+          window.NB_MAP.navParentPath(window.NB_APP.state.path), window.NB_APP.state.merged,
+        ) || [])
           .filter((e) => e && e.post).length,
       }));
       if (feed.navPosts !== 0) return log("channel nav should be empty of posts: " + JSON.stringify(feed));
@@ -582,6 +584,91 @@ const CASES = [
         return log("Enter did not open/focus selected thread: " + JSON.stringify(opened));
       }
       return true;
+    },
+  },
+  {
+    name: "power: messages drill into addressable directory context with left/right",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.focus('.cn-comment[data-key="p3"]');
+      await page.keyboard.press("ArrowRight");
+      await page.waitForFunction(() => window.NB_APP.state.path.endsWith("/p1/p2/p3"));
+      const drilled = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        thread: window.NB_APP.state.threadFocus,
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+      }));
+      if (drilled.path !== "/projects/community/channels/general/p1/p2/p3" ||
+          drilled.thread !== "p3" || drilled.active !== "p3") {
+        return log("message did not become directory context: " + JSON.stringify(drilled));
+      }
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() => window.NB_APP.state.path.endsWith("/p1/p2"));
+      const ascended = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        thread: window.NB_APP.state.threadFocus,
+      }));
+      return ascended.path === "/projects/community/channels/general/p1/p2" &&
+        ascended.thread === "p2" || log("message did not ascend: " + JSON.stringify(ascended));
+    },
+  },
+  {
+    name: "power: cd message ids show summaries and preview can cancel or commit",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const prompt = page.locator("[data-cli]");
+      await prompt.fill("cd p3");
+      await page.waitForSelector('.cn-menu:not([hidden]) [role="option"]');
+      const labelled = await page.evaluate(() => {
+        const row = Array.from(document.querySelectorAll('.cn-menu [role="option"]'))
+          .find((el) => el.querySelector("span")?.textContent?.trim() === "p3");
+        return {
+          found: !!row,
+          summary: row?.querySelector("i")?.textContent?.trim() || "",
+        };
+      });
+      if (!labelled.found || !/Drafted a plan to split the cache key/i.test(labelled.summary)) {
+        return log("message completion lacks id/title: " + JSON.stringify(labelled));
+      }
+
+      await prompt.fill("cd p");
+      await prompt.press("ArrowDown");
+      await page.waitForFunction(() => window.NB_APP.state.path !==
+        "/projects/community/channels/general");
+      const preview = await page.evaluate(() => ({
+        preview: document.querySelector("[data-cd-preview]")?.textContent || "",
+        path: window.NB_APP.state.path,
+        draft: document.querySelector("[data-cli]")?.value,
+      }));
+      if (!preview.path.includes("/general/p") || preview.draft !== "cd p" ||
+          !/preview.*Enter.*Esc/i.test(preview.preview)) {
+        return log("cd candidate did not preview: " + JSON.stringify(preview));
+      }
+      await prompt.press("Escape");
+      await page.waitForFunction(() => window.NB_APP.state.path ===
+        "/projects/community/channels/general");
+      const cancelled = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        draft: document.querySelector("[data-cli]")?.value,
+      }));
+      if (cancelled.path !== "/projects/community/channels/general" || cancelled.draft !== "cd p") {
+        return log("cd preview did not cancel: " + JSON.stringify(cancelled));
+      }
+
+      await prompt.fill("");
+      await prompt.fill("cd p");
+      await prompt.press("ArrowDown");
+      const acceptedPath = await page.evaluate(() => window.NB_APP.state.path);
+      await prompt.press("Enter");
+      await page.waitForFunction((path) => window.NB_APP.state.path === path, acceptedPath);
+      const accepted = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        draft: document.querySelector("[data-cli]")?.value,
+        status: document.querySelector("[data-status-line]")?.textContent || "",
+      }));
+      return accepted.path === acceptedPath && /\/general\/p/.test(accepted.path) &&
+        accepted.draft === "" && !/^preview\b/i.test(accepted.status.trim()) ||
+        log("cd preview did not commit: " + JSON.stringify(accepted));
     },
   },
   {
@@ -797,6 +884,81 @@ const CASES = [
         return log("non-ascii chrome: " + JSON.stringify(deep));
       }
       return true;
+    },
+  },
+  {
+    name: "power: every focused-post action has a visible control and hotkey",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.state.feedMark = "p1";
+        window.NB_APP.state.votes = {};
+        window.NB_APP.state.folded = {};
+        window.NB_APP.state.reposts = {};
+        window.NB_APP.state.reactPick = null;
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: { writeText: async (text) => { window.__postActionClipboard = text; } },
+        });
+        window.NB_APP.render(true);
+        document.querySelector('.cn-comment[data-key="p1"]')?.focus();
+      });
+      const article = page.locator('.cn-comment[data-key="p1"]');
+      const controls = await article.evaluate((node) => ({
+        up: node.querySelector('[data-vote="up"]')?.getAttribute("aria-keyshortcuts"),
+        down: node.querySelector('[data-vote="down"]')?.getAttribute("aria-keyshortcuts"),
+        react: node.querySelector("[data-react-pick]")?.getAttribute("aria-keyshortcuts"),
+        fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts"),
+        foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label"),
+        reply: node.querySelector("[data-reply]")?.getAttribute("aria-keyshortcuts"),
+        repost: node.querySelector("[data-repost]")?.getAttribute("aria-keyshortcuts"),
+        share: node.querySelector("[data-share-post]")?.getAttribute("aria-keyshortcuts"),
+        copy: node.querySelector("[data-copy-post]")?.getAttribute("aria-keyshortcuts"),
+      }));
+      const expected = { up: "u", down: "d", react: "a", fold: "f", foldName: "Collapse replies", reply: "r",
+        repost: "Shift+R", share: "s", copy: "y" };
+      if (JSON.stringify(controls) !== JSON.stringify(expected)) {
+        return log("post action controls: " + JSON.stringify(controls));
+      }
+      await page.keyboard.press("u");
+      await page.keyboard.press("d");
+      await page.keyboard.press("a");
+      const reactionOpened = await page.evaluate(() => window.NB_APP.state.reactPick === "p1");
+      await page.keyboard.press("f");
+      await page.keyboard.press("Shift+r");
+      await page.keyboard.press("s");
+      const shared = await page.evaluate(() => window.__postActionClipboard || "");
+      await page.keyboard.press("y");
+      await page.waitForFunction(() => /nightboard thread.*p1/i.test(window.__postActionClipboard || ""));
+      const acted = await page.evaluate(() => ({
+        vote: window.NB_APP.state.votes.p1,
+        reactionOpen: window.NB_APP.state.reactPick === "p1",
+        folded: window.NB_APP.state.folded.p1 === true,
+        reposted: window.NB_APP.state.reposts?.p1 === true,
+        copied: window.__postActionClipboard || "",
+        focused: document.activeElement?.getAttribute("data-key"),
+      }));
+      if (!(acted.vote === -1 && reactionOpened && acted.folded && acted.reposted &&
+            acted.focused === "p1" && shared.startsWith("nightboard:") &&
+            /nightboard thread.*p1/i.test(acted.copied))) {
+        return log("post action hotkeys: " + JSON.stringify(acted));
+      }
+      await page.keyboard.press("Alt+t");
+      const isolated = await page.evaluate(() => window.NB_APP.state.reposts?.p1 !== true);
+      await page.click('.cn-workspace-tab[data-session="0"]');
+      const restored = await page.evaluate(() => {
+        const post = document.querySelector('.cn-comment[data-key="p1"]');
+        post?.focus();
+        return window.NB_APP.state.reposts?.p1 === true;
+      });
+      if (!isolated || !restored) return log("repost workspace isolation failed");
+      await page.keyboard.press("r");
+      const reply = await page.evaluate(() => ({
+        id: window.NB_APP.composeContext?.().postId,
+        prompt: document.activeElement === document.querySelector("[data-cli]"),
+      }));
+      return (reply.id === "p1" && reply.prompt) || log("reply hotkey: " + JSON.stringify(reply));
     },
   },
   {
@@ -1121,7 +1283,8 @@ const CASES = [
           : [];
         const ix = feed.findIndex((e) => e && e.post);
         if (ix < 0) return { err: "no feed post" };
-        const nav = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
+        const navPath = window.NB_MAP.navParentPath(window.NB_APP.state.path);
+        const nav = window.NB_MAP.list(navPath, window.NB_APP.state.merged) || [];
         if (nav.some((e) => e && e.post)) return { err: "channel nav still lists posts" };
         window.NB_APP.state.feedMark = feed[ix].post.id;
         window.NB_APP.state.focus = 1;
@@ -1133,6 +1296,9 @@ const CASES = [
         return { id: feed[ix].post.id, path: window.NB_APP.state.path, navLen: nav.length };
       });
       if (armed.err) return log(armed.err);
+      await page.waitForFunction((id) =>
+        document.activeElement?.classList.contains("cn-comment") === true &&
+        document.activeElement.getAttribute("data-key") === id, armed.id);
       await page.keyboard.press("ArrowRight");
       await page.waitForTimeout(120);
       const after = await page.evaluate(() => ({
@@ -1140,8 +1306,8 @@ const CASES = [
         thread: window.NB_APP.state.threadFocus,
         editor: !!(window.NB_APP.state.editor && window.NB_APP.state.editor.focused),
       }));
-      if (after.path !== armed.path) {
-        return log("→ should stay on channel path: " + JSON.stringify({ armed, after }));
+      if (!after.path.startsWith(armed.path + "/") || !after.path.split("/").includes(armed.id)) {
+        return log("→ should address the message path: " + JSON.stringify({ armed, after }));
       }
       if (!after.thread) return log("→ did not open thread: " + JSON.stringify(after));
       if (after.editor) return log("→ opened editor instead of thread: " + JSON.stringify(after));
@@ -1536,8 +1702,9 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(120);
-      // Collapse nav (detail-first reading).
-      await page.keyboard.press("Alt+z");
+      // Rail-collapse remains available as a direct layout control; z now
+      // expands whichever panel actually has focus.
+      await page.evaluate(() => window.NB_APP.setNavCollapsed(true));
       await page.waitForTimeout(150);
       const collapsed = await page.evaluate(() => {
         const host = document.querySelector(".cn-blades");
@@ -1555,7 +1722,7 @@ const CASES = [
         };
       });
       if (!collapsed.flag || collapsed.rails < 1 || collapsed.listOpen) {
-        return log("Alt+Z did not collapse nav to rails: " + JSON.stringify(collapsed));
+        return log("nav layout control did not collapse to rails: " + JSON.stringify(collapsed));
       }
       // Click a rail to expand.
       await page.click(".cn-blade-rail-hit");
@@ -2027,7 +2194,9 @@ const CASES = [
         window.NB_APP.state.columnFocus = true;
         window.NB_APP.state.focus = 1;
         window.NB_APP.state.threadFocus = null;
-        const nav = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
+        const nav = window.NB_MAP.list(
+          window.NB_MAP.navParentPath(window.NB_APP.state.path), window.NB_APP.state.merged,
+        ) || [];
         const feed = window.NB_MAP.feedEntriesAt
           ? window.NB_MAP.feedEntriesAt(window.NB_APP.state.path, window.NB_APP.state.merged)
           : [];
@@ -2075,7 +2244,7 @@ const CASES = [
         return log("Enter did not focus detail: " + JSON.stringify(postEnter));
       }
       if (postEnter.path !== "/projects/community/channels/general") {
-        return log("Enter should not leave channel path: " + JSON.stringify(postEnter));
+        return log("Enter on a feed mark should keep channel context: " + JSON.stringify(postEnter));
       }
       if (!postEnter.thread || !postEnter.threadCtx) {
         return log("Enter did not open post detail: " + JSON.stringify(postEnter));
@@ -2096,7 +2265,9 @@ const CASES = [
         document.querySelector("[data-cli]")?.blur();
         window.NB_APP.focusColumns();
         window.NB_APP.clearReplyTo?.();
-        const nav = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
+        const nav = window.NB_MAP.list(
+          window.NB_MAP.navParentPath(window.NB_APP.state.path), window.NB_APP.state.merged,
+        ) || [];
         if (nav.some((e) => e && e.post)) return { err: "channel nav lists posts" };
         window.NB_APP.openThread("p1", { silent: true });
         window.NB_APP.state.focus = 1;
@@ -3099,6 +3270,58 @@ const CASES = [
           log("→ accepted first/wrong verb: " + JSON.stringify({ want, accepted, after }));
       }
       return ok || log("→ did not accept highlighted: " + JSON.stringify({ want, accepted, after }));
+    },
+  },
+  {
+    name: "power: ←→ drill cd typeahead and keep preview context synchronized",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        window.NB_APP.state.ai = false;
+        window.NB_APP.render(true);
+      });
+      const prompt = page.locator("[data-cli]");
+      await prompt.focus();
+      await prompt.fill("cd p");
+      const before = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        value: document.querySelector("[data-cli]")?.value || "",
+        selected: window.NB_APP.state.completion?.candidates?.[0]?.value || "",
+      }));
+      await prompt.press("ArrowRight");
+      await page.waitForTimeout(80);
+      const drilled = await page.evaluate(() => {
+        const c = window.NB_APP.state.completion;
+        return {
+          path: window.NB_APP.state.path,
+          value: document.querySelector("[data-cli]")?.value || "",
+          preview: document.querySelector("[data-cd-preview]")?.textContent || "",
+          selected: c?.candidates?.[window.NB_APP.state.candIndex || 0]?.value || "",
+          current: document.querySelector('.cn-cand[aria-current="true"] span')?.textContent || "",
+        };
+      });
+      const expected = await page.evaluate(({ origin, selected }) =>
+        window.NB_MAP.resolve(origin, selected), { origin: before.path, selected: before.selected });
+      if (drilled.path !== expected) return log("→ preview path: " + drilled.path + " != " + expected);
+      if (!drilled.value.endsWith(before.selected)) {
+        return log("→ prompt value: " + drilled.value + " !~ " + before.selected);
+      }
+      if (!/preview/i.test(drilled.preview)) return log("→ preview badge missing");
+      if (!drilled.current) return log("→ child candidate highlight missing");
+      await prompt.press("ArrowLeft");
+      await page.waitForTimeout(80);
+      const ascended = await page.evaluate(() => {
+        const c = window.NB_APP.state.completion;
+        return {
+          path: window.NB_APP.state.path,
+          value: document.querySelector("[data-cli]")?.value || "",
+          selected: c?.candidates?.[window.NB_APP.state.candIndex || 0]?.value || "",
+          current: document.querySelector('.cn-cand[aria-current="true"] span')?.textContent || "",
+        };
+      });
+      return ascended.path === before.path && ascended.value === before.value &&
+        !!ascended.selected && !!ascended.current ||
+        log("← typeahead ascent desynchronized: " + JSON.stringify({ before, ascended }));
     },
   },
   {
@@ -5240,7 +5463,9 @@ const CASES = [
       await page.keyboard.press("ArrowRight");
       await page.waitForTimeout(120);
       const threadAfter = await page.evaluate(() => {
-        const nav = window.NB_MAP.list(window.NB_APP.state.path, window.NB_APP.state.merged) || [];
+        const nav = window.NB_MAP.list(
+          window.NB_MAP.navParentPath(window.NB_APP.state.path), window.NB_APP.state.merged,
+        ) || [];
         return {
           path: window.NB_APP.state.path,
           thread: window.NB_APP.state.threadFocus,
@@ -5249,8 +5474,9 @@ const CASES = [
           replyInDetail: !!document.querySelector('.cn-comment[data-key="p2"]'),
         };
       });
-      if (threadAfter.path !== postPrep.path) {
-        return log("→ should stay on channel: " + JSON.stringify(threadAfter));
+      if (!threadAfter.path.startsWith(postPrep.path + "/") ||
+          !threadAfter.path.split("/").includes(threadAfter.thread)) {
+        return log("→ should address the message path: " + JSON.stringify(threadAfter));
       }
       if (threadAfter.navPosts !== 0 || threadAfter.editor || threadAfter.thread !== "p1") {
         return log("→ should open thread in detail: " + JSON.stringify(threadAfter));
@@ -6617,6 +6843,12 @@ const CASES = [
         '[data-blade-kind="list"] .cn-item[data-key="general"], [data-blade-path="/projects/community/channels"] .cn-item[data-key="general"]',
       ).first();
       if (!(await item.count())) return log("general channel missing");
+      await item.focus();
+      const before = await page.evaluate(() => ({
+        cursor: window.NB_APP.state.cursor,
+        focus: window.NB_APP.state.focus,
+        thread: window.NB_APP.state.threadFocus,
+      }));
       await item.click({ button: "right" });
       await page.waitForTimeout(80);
       const menu = await page.evaluate(() => {
@@ -6647,6 +6879,43 @@ const CASES = [
       // TTY: no soft pill radius.
       if (menu.radius && menu.radius !== "0px") {
         return log("rounded menu chrome: " + menu.radius);
+      }
+      const initialFocus = await page.evaluate(() => ({
+        menuitem: document.activeElement?.getAttribute?.("role"),
+        prompt: document.activeElement?.hasAttribute?.("data-ctx-prompt"),
+      }));
+      if (initialFocus.menuitem !== "menuitem" || !initialFocus.prompt) {
+        return log("context menu did not take focus: " + JSON.stringify(initialFocus));
+      }
+      await page.keyboard.press("ArrowDown");
+      await page.evaluate(() => new Promise((resolve) =>
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
+      const down = await page.evaluate(() => ({
+        action: document.activeElement?.getAttribute?.("data-ctx-action"),
+        cursor: window.NB_APP.state.cursor,
+        focus: window.NB_APP.state.focus,
+        thread: window.NB_APP.state.threadFocus,
+      }));
+      if (!down.action || down.cursor !== before.cursor || down.focus !== before.focus ||
+          down.thread !== before.thread) {
+        return log("ArrowDown escaped context menu: " + JSON.stringify({ before, down }));
+      }
+      await page.keyboard.press("ArrowUp");
+      const up = await page.evaluate(() => ({
+        prompt: document.activeElement?.hasAttribute?.("data-ctx-prompt"),
+        cursor: window.NB_APP.state.cursor,
+      }));
+      if (!up.prompt || up.cursor !== before.cursor) {
+        return log("ArrowUp escaped context menu: " + JSON.stringify({ before, up }));
+      }
+      await page.keyboard.press("Escape");
+      await page.evaluate(() => new Promise((resolve) => window.requestAnimationFrame(resolve)));
+      const restored = await page.evaluate(() => ({
+        closed: !document.querySelector("[data-ctx-menu]"),
+        path: document.activeElement?.getAttribute?.("data-path"),
+      }));
+      if (!restored.closed || restored.path !== "/projects/community/channels/general") {
+        return log("context menu did not restore nav focus: " + JSON.stringify(restored));
       }
       return true;
     },
@@ -6807,6 +7076,148 @@ const CASES = [
         }
       }
       return true;
+    },
+  },
+  {
+    name: "startup: Ctrl+U applies update defaults and continuation in one restart",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        localStorage.setItem("nb-startup-signals-v1", JSON.stringify({
+          continuation: { host: "codex", sessionId: "codex-42", workspace: "epoch" },
+          update: { current: "0.8.0", available: "0.9.0" },
+          workspace: { id: "epoch", defaultsVersion: 2, appliedVersion: 1 },
+        }));
+      });
+      await page.reload({ waitUntil: "networkidle" });
+      await page.waitForTimeout(180);
+      const offered = await page.evaluate(() => ({
+        text: document.querySelector("[data-status-line]")?.textContent || "",
+        cue: document.querySelector("[data-restart-cue]")?.textContent || "",
+        pending: window.NB_STARTUP?.pending?.().map((item) => item.kind) || [],
+      }));
+      if (!/Ctrl\+U/i.test(offered.text + offered.cue) ||
+          offered.pending.join(",") !== "update,workspace,continuation") {
+        return log("restart offer incomplete: " + JSON.stringify(offered));
+      }
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+        page.keyboard.press("Control+u"),
+      ]);
+      await page.waitForTimeout(120);
+      await page.waitForFunction(() => {
+        const applied = JSON.parse(localStorage.getItem("nb-startup-applied-v1") || "{}");
+        return applied.update === "0.9.0" && applied.workspace === 2 &&
+          applied.continuation === "codex-42";
+      });
+      const applied = await page.evaluate(() => ({
+        value: JSON.parse(localStorage.getItem("nb-startup-applied-v1") || "{}"),
+        pending: window.NB_STARTUP?.pending?.().length,
+        next: document.querySelector("[data-status-line]")?.textContent || "",
+      }));
+      if (applied.pending !== 0) return log("restart still pending: " + JSON.stringify(applied));
+      return /Ctrl\+Space|Alt\+T|Enter|keys/i.test(applied.next) ||
+        log("bottom line lacks next action: " + JSON.stringify(applied));
+    },
+  },
+  {
+    name: "routing: one workspace route stays sticky until invalidated",
+    run: async (page, log) => {
+      const routed = await page.evaluate(() => {
+        const policy = {
+          version: "p1",
+          routes: [
+            { id: "local", model: "on-device", format: "native" },
+            { id: "capable", model: "anthropic/claude-sonnet", format: "anthropic" },
+          ],
+        };
+        const first = window.NB_ROUTE?.pick("workspace-1", policy);
+        const second = window.NB_ROUTE?.pick("workspace-1", Object.assign({}, policy, {
+          routes: policy.routes.slice().reverse(),
+        }));
+        window.NB_ROUTE?.invalidate("workspace-1", "recoverable-failure");
+        const fallback = window.NB_ROUTE?.pick("workspace-1", policy);
+        return {
+          first: first?.id,
+          second: second?.id,
+          fallback: fallback?.id,
+          reason: fallback?.reason,
+          stored: JSON.parse(localStorage.getItem("nb-route-affinity-v1") || "{}"),
+        };
+      });
+      if (routed.first !== "local" || routed.second !== "local") {
+        return log("route was not sticky: " + JSON.stringify(routed));
+      }
+      return (routed.fallback === "capable" && /failure/i.test(routed.reason || "")) ||
+        log("route did not fail over once: " + JSON.stringify(routed));
+    },
+  },
+  {
+    name: "hobo: Bo exposes deterministic app loop and trainable fallback",
+    run: async (page, log) => {
+      await go(page, "/.agents/bo");
+      const bo = await page.evaluate(() => {
+        const agent = window.NB_DATA.agents.board.find((item) => item.id === "bo");
+        const commands = [
+          "new demo --template api",
+          "build demo",
+          "test demo",
+          "debug demo",
+          "up demo --plan",
+          "stub demo complex-billing-rule",
+        ].map((line) => window.NB_HOBO?.run(line));
+        return {
+          agent,
+          commands,
+          card: document.querySelector(".cn-agent-card")?.textContent || "",
+        };
+      });
+      if (!bo.agent || !/generated docs|docs manifest/i.test(bo.agent.instructions || "")) {
+        return log("Bo lacks docs contract: " + JSON.stringify(bo.agent));
+      }
+      if (bo.commands.some((result) => !result?.ok)) {
+        return log("HoBo loop failed: " + JSON.stringify(bo.commands));
+      }
+      const stub = bo.commands[5]?.text || "";
+      return (/use training/i.test(stub) && /hobo (build|test|up)/i.test(
+        bo.commands.map((result) => result.text).join(" "),
+      )) || log("HoBo loop not deterministic: " + JSON.stringify(bo.commands));
+    },
+  },
+  {
+    name: "blades: expand and restore keeps the focused panel context",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        window.NB_APP.state.focus = 1;
+        window.NB_APP.state.columnFocus = true;
+        window.NB_APP.render(true);
+      });
+      const before = await page.evaluate(() => ({
+        focus: window.NB_APP.state.focus,
+        mark: window.NB_APP.state.feedMark,
+      }));
+      await page.keyboard.press("z");
+      await page.waitForTimeout(100);
+      const expanded = await page.evaluate(() => ({
+        focus: window.NB_APP.state.focus,
+        mark: window.NB_APP.state.feedMark,
+        max: document.querySelector(".cn-blades")?.getAttribute("data-focus-expanded"),
+        visible: document.querySelectorAll('.cn-blade:not([data-focus-hidden="true"])').length,
+      }));
+      if (expanded.max !== String(before.focus) || expanded.visible !== 1 ||
+          expanded.focus !== before.focus || expanded.mark !== before.mark) {
+        return log("focused panel did not expand in place: " + JSON.stringify({ before, expanded }));
+      }
+      await page.keyboard.press("z");
+      await page.waitForTimeout(100);
+      const restored = await page.evaluate(() => ({
+        focus: window.NB_APP.state.focus,
+        mark: window.NB_APP.state.feedMark,
+        max: document.querySelector(".cn-blades")?.getAttribute("data-focus-expanded"),
+        visible: document.querySelectorAll('.cn-blade:not([data-focus-hidden="true"])').length,
+      }));
+      return (restored.max === "" && restored.visible > 1 && restored.focus === before.focus &&
+        restored.mark === before.mark) || log("focused panel did not restore: " + JSON.stringify(restored));
     },
   },
 ];

@@ -1,0 +1,64 @@
+{
+  "featureId": "community-web-power-controls",
+  "scenarioSlug": "forge-power-user-operates-every-focused-post-action-by-keyboard",
+  "personaIds": [
+    "screen-reader-power-user",
+    "forge-community-power-user",
+    "agentic-coding-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-11T15:52:05.161Z",
+  "runId": "20260811-ux-nightboard-post-actions",
+  "screen": {
+    "widthPx": 1440,
+    "heightPx": 900,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 329253,
+    "sha256": "e28ac65348443cdb70dec8587f75350ccab8dba0eb59b8aac19af8f42b9de044"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I open `http://127.0.0.1:8787/` and focus a post in a Nightboard channel"
+    },
+    {
+      "id": "claim-2",
+      "text": "Then its action row offers vote, react, fold, reply, repost, share, and copy"
+    },
+    {
+      "id": "claim-3",
+      "text": "When I use the disclosed single-key shortcut for each action"
+    },
+    {
+      "id": "claim-4",
+      "text": "Then each shortcut produces the same result as its adjacent action control"
+    },
+    {
+      "id": "claim-5",
+      "text": "And focus or reply context remains on the post I acted on"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-focused-actions.png",
+    "03-reaction-picker.png",
+    "04-folded-reposted.png",
+    "05-reply-armed.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "node .optimizexp/harness/community-web-capture.mjs forge-power-user-operates-every-focused-post-action-by-keyboard",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

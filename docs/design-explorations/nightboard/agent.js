@@ -115,11 +115,16 @@
   async function run(input, ctx, emit) {
     var R = window.NBResilient;
     var runId = "run-" + Date.now();
+    var workspaceId = (ctx && (ctx.workspaceId || ctx.cwd)) || "default";
+    var route = window.NB_ROUTE
+      ? window.NB_ROUTE.pick(workspaceId, window.NB_ROUTE.DEFAULT_POLICY)
+      : null;
     emit({
       type: EVENT.RUN_STARTED,
       runId: runId,
       input: input,
       displayInput: (ctx && ctx.displayInput != null) ? ctx.displayInput : input,
+      route: route,
     });
 
     var state = await R.availability();

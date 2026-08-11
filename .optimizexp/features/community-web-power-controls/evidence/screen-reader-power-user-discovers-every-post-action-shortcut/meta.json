@@ -1,0 +1,59 @@
+{
+  "featureId": "community-web-power-controls",
+  "scenarioSlug": "screen-reader-power-user-discovers-every-post-action-shortcut",
+  "personaIds": [
+    "screen-reader-power-user",
+    "forge-community-power-user",
+    "agentic-coding-power-user"
+  ],
+  "interface": "native",
+  "driver": "native",
+  "capturedAt": "2026-08-11T15:52:29.656Z",
+  "runId": "20260811-ux-nightboard-post-actions",
+  "screen": {
+    "widthPx": 390,
+    "heightPx": 844,
+    "cols": null,
+    "rows": null
+  },
+  "primary": {
+    "file": "primary.webm",
+    "kind": "video",
+    "bytes": 291966,
+    "sha256": "6dcbff1715b13704e5ea469d1d0f9d500578e1d8ebd3d0f8dfa93b4e215aed24"
+  },
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "Given I focus a post in a Nightboard text channel"
+    },
+    {
+      "id": "claim-2",
+      "text": "When I inspect its action controls and focused-component shortcut sheet"
+    },
+    {
+      "id": "claim-3",
+      "text": "Then vote, react, fold, reply, repost, share, and copy have accessible names"
+    },
+    {
+      "id": "claim-4",
+      "text": "And each action exposes the same keyboard shortcut shown in the shortcut sheet"
+    }
+  ],
+  "frames": [
+    "01-entry.png",
+    "02-focused-actions.png",
+    "03-focused-shortcut-sheet.png",
+    "04-action-shortcuts.png",
+    "99-outcome.png"
+  ],
+  "repro": {
+    "nativeCmd": "node .optimizexp/harness/community-web-capture.mjs screen-reader-power-user-discovers-every-post-action-shortcut",
+    "via": "capture-evidence"
+  },
+  "exitCode": null,
+  "degraded": false,
+  "notes": [
+    "native command exit 0"
+  ]
+}

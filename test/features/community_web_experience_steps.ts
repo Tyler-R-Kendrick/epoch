@@ -27,6 +27,34 @@ let world: CommunityWebWorld = {};
 /** Title of the message whose provenance a scenario revealed. */
 let revealedMessageTitle = "";
 let nightboardFocusedMessage = "";
+let nightboardContextMenuResult: {
+  readonly navStable: boolean;
+  readonly downStayedInMenu: boolean;
+  readonly upStayedInMenu: boolean;
+  readonly focusRestored: boolean;
+} | undefined;
+let nightboardCdResult: {
+  readonly labelled: boolean;
+  readonly horizontal: boolean;
+  readonly previewed: boolean;
+  readonly cancelled: boolean;
+  readonly committed: boolean;
+} | undefined;
+let nightboardPostActionResult: {
+  readonly controls: Readonly<Record<string, string | null>>;
+  readonly vote: number;
+  readonly reactionOpened: boolean;
+  readonly folded: boolean;
+  readonly reposted: boolean;
+  readonly shared: boolean;
+  readonly copied: boolean;
+  readonly replied: boolean;
+} | undefined;
+let nightboardStartupApplied = false;
+let nightboardRouteSticky = false;
+let nightboardBoReady = false;
+let nightboardTrainableReady = false;
+let nightboardFocusRestored = false;
 
 const NIGHTBOARD_ROOT = join(process.cwd(), "docs", "design-explorations", "nightboard");
 const NIGHTBOARD_CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -175,6 +203,327 @@ Then("the selected Nightboard message remains the single focused feed item", asy
     await page.evaluate(() => (window as unknown as { NB_APP: { state: { threadFocus: string } } }).NB_APP.state.threadFocus),
     nightboardFocusedMessage,
   );
+  assert.equal(
+    await page.evaluate(() => (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path
+      .split("/").includes((window as unknown as { NB_APP: { state: { threadFocus: string } } }).NB_APP.state.threadFocus)),
+    true,
+  );
+});
+
+When("I enter the community board with a resumable session update and workspace defaults", async function () {
+  const page = requirePage();
+  await page.evaluate(() => localStorage.setItem("nb-startup-signals-v1", JSON.stringify({
+    continuation: { host: "codex", sessionId: "codex-cucumber", workspace: "epoch" },
+    update: { current: "0.8.0", available: "0.9.0" },
+    workspace: { id: "epoch", defaultsVersion: 2, appliedVersion: 1 },
+  })));
+  await page.locator("#nb-enter-board").click();
+});
+
+Then("the bottom line recommends one Ctrl+U restart action", async function () {
+  const page = requirePage();
+  await page.locator("[data-restart-cue]").waitFor({ state: "visible" });
+  const status = await page.locator("[data-status-line]").innerText();
+  assert.match(status, /Ctrl\+U.*update.*prime.*resume/i);
+});
+
+When("I restart Nightboard with Ctrl+U", async function () {
+  const page = requirePage();
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+    page.keyboard.press("Control+u"),
+  ]);
+  nightboardStartupApplied = await page.evaluate(() => {
+    const got = JSON.parse(localStorage.getItem("nb-startup-applied-v1") ?? "{}");
+    return got.update === "0.9.0" && got.workspace === 2 && got.continuation === "codex-cucumber";
+  });
+});
+
+Then("the session is continued on the updated workspace defaults", function () {
+  assert.equal(nightboardStartupApplied, true);
+});
+
+When("I send repeated agent turns in one workspace", async function () {
+  nightboardRouteSticky = await requirePage().evaluate(() => {
+    const browserWindow = window as unknown as {
+      NB_ROUTE: { pick(id: string, policy: unknown): { id: string } | null };
+    };
+    const policy = {
+      version: "cucumber-v1",
+      routes: [{ id: "local", model: "on-device" }, { id: "capable", model: "switchyard/capable" }],
+    };
+    const first = browserWindow.NB_ROUTE.pick("workspace-cucumber", policy);
+    const second = browserWindow.NB_ROUTE.pick("workspace-cucumber", {
+      ...policy, routes: [...policy.routes].reverse(),
+    });
+    return first?.id === "local" && second?.id === "local";
+  });
+});
+
+Then("Nightboard keeps the same cache route until policy or failure invalidates it", function () {
+  assert.equal(nightboardRouteSticky, true);
+});
+
+When("I open the default Bo agent", async function () {
+  const page = requirePage();
+  await page.evaluate(() => (window as unknown as {
+    NB_APP: { navigate(path: string): void };
+  }).NB_APP.navigate("/.agents/bo"));
+  await page.locator('[data-blade-path="/.agents/bo"][data-blade-kind="list"]')
+    .waitFor({ state: "visible" });
+});
+
+Then("Bo offers deterministic HoBo new build test debug and up actions", async function () {
+  const results = await requirePage().evaluate(() => {
+    const browserWindow = window as unknown as {
+      NB_HOBO: { run(line: string): { ok: boolean; text: string } };
+    };
+    return [
+      "new cucumber-app --template api",
+      "build cucumber-app",
+      "test cucumber-app",
+      "debug cucumber-app",
+      "up cucumber-app --plan",
+    ].map((line) => browserWindow.NB_HOBO.run(line));
+  });
+  nightboardBoReady = results.every((result) => result.ok) &&
+    /codegen --check/.test(results[1]?.text ?? "") && /dry-run/.test(results[4]?.text ?? "");
+  assert.equal(nightboardBoReady, true);
+});
+
+Then("complex unsupported logic is emitted as a trainable stub", async function () {
+  nightboardTrainableReady = await requirePage().evaluate(() => {
+    const result = (window as unknown as {
+      NB_HOBO: { run(line: string): { ok: boolean; text: string } };
+    }).NB_HOBO.run("stub cucumber-app complex-billing-rule");
+    return result.ok && /use training/.test(result.text) && /contract examples/.test(result.text);
+  });
+  assert.equal(nightboardTrainableReady, true);
+});
+
+When("I expand and restore the focused panel by keyboard", async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    const app = (window as unknown as {
+      NB_APP: { state: { focus: number; columnFocus: boolean }; render(keep?: boolean): void };
+    }).NB_APP;
+    app.state.focus = 1;
+    app.state.columnFocus = true;
+    app.render(true);
+  });
+  await page.keyboard.press("z");
+  const expanded = await page.locator(".cn-blades").getAttribute("data-focus-expanded");
+  await page.keyboard.press("z");
+  const restored = await page.locator(".cn-blades").getAttribute("data-focus-expanded");
+  nightboardFocusRestored = expanded === "1" && restored === "";
+});
+
+Then("focus and selection remain in the same panel context", function () {
+  assert.equal(nightboardFocusRestored, true);
+});
+
+When("I operate every focused Nightboard post action by keyboard", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  await page.evaluate(() => {
+    const app = (window as unknown as {
+      NB_APP: { state: {
+        columnFocus: boolean; feedMark: string; votes: Record<string, number>;
+        folded: Record<string, boolean>; reposts: Record<string, boolean>; reactPick: string | null;
+      }; navigate(path: string): void; render(preserve?: boolean): void };
+    }).NB_APP;
+    app.navigate("/projects/community/channels/general");
+    app.state.columnFocus = true;
+    app.state.feedMark = "p1";
+    app.state.votes = {};
+    app.state.folded = {};
+    app.state.reposts = {};
+    app.state.reactPick = null;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (text: string) => {
+        (window as unknown as { __postActionClipboard?: string }).__postActionClipboard = text;
+      } },
+    });
+    app.render(true);
+    document.querySelector<HTMLElement>('.cn-comment[data-key="p1"]')?.focus();
+  });
+  const article = page.locator('.cn-comment[data-key="p1"]');
+  const controls = await article.evaluate((node) => ({
+    up: node.querySelector('[data-vote="up"]')?.getAttribute("aria-keyshortcuts") ?? null,
+    down: node.querySelector('[data-vote="down"]')?.getAttribute("aria-keyshortcuts") ?? null,
+    react: node.querySelector("[data-react-pick]")?.getAttribute("aria-keyshortcuts") ?? null,
+    fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts") ?? null,
+    foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label") ?? null,
+    reply: node.querySelector("[data-reply]")?.getAttribute("aria-keyshortcuts") ?? null,
+    repost: node.querySelector("[data-repost]")?.getAttribute("aria-keyshortcuts") ?? null,
+    share: node.querySelector("[data-share-post]")?.getAttribute("aria-keyshortcuts") ?? null,
+    copy: node.querySelector("[data-copy-post]")?.getAttribute("aria-keyshortcuts") ?? null,
+  }));
+  await page.keyboard.press("u");
+  await page.keyboard.press("d");
+  await page.keyboard.press("a");
+  const reactionOpened = await page.evaluate(() =>
+    (window as unknown as { NB_APP: { state: { reactPick: string | null } } }).NB_APP.state.reactPick === "p1");
+  await page.keyboard.press("f");
+  await page.keyboard.press("Shift+r");
+  await page.keyboard.press("s");
+  const shared = await page.evaluate(() =>
+    ((window as unknown as { __postActionClipboard?: string }).__postActionClipboard ?? "")
+      .startsWith("nightboard:"));
+  await page.keyboard.press("y");
+  await page.waitForFunction(() => /nightboard thread.*p1/i.test(
+    (window as unknown as { __postActionClipboard?: string }).__postActionClipboard ?? ""));
+  const acted = await page.evaluate(() => {
+    const browserWindow = window as unknown as {
+      __postActionClipboard?: string;
+      NB_APP: { state: {
+        votes: Record<string, number>; folded: Record<string, boolean>; reposts: Record<string, boolean>;
+      } };
+    };
+    return {
+      vote: browserWindow.NB_APP.state.votes.p1,
+      folded: browserWindow.NB_APP.state.folded.p1 === true,
+      reposted: browserWindow.NB_APP.state.reposts.p1 === true,
+      copied: /nightboard thread.*p1/i.test(browserWindow.__postActionClipboard ?? ""),
+    };
+  });
+  await page.keyboard.press("r");
+  const replied = await page.evaluate(() => {
+    const app = (window as unknown as {
+      NB_APP: { composeContext(): { postId?: string } };
+    }).NB_APP;
+    return app.composeContext().postId === "p1" &&
+      document.activeElement === document.querySelector("[data-cli]");
+  });
+  nightboardPostActionResult = { controls, reactionOpened, shared, replied, ...acted };
+});
+
+Then("repost and share are visible and every post action has keyboard parity", function () {
+  assert.deepEqual(nightboardPostActionResult, {
+    controls: {
+      up: "u", down: "d", react: "a", fold: "f", foldName: "Collapse replies", reply: "r",
+      repost: "Shift+R", share: "s", copy: "y",
+    },
+    vote: -1,
+    reactionOpened: true,
+    folded: true,
+    reposted: true,
+    shared: true,
+    copied: true,
+    replied: true,
+  });
+});
+
+When("I browse Nightboard message directories with cd completion", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  const prompt = page.locator("[data-cli]");
+  await prompt.fill("cd /projects/community/channels/general");
+  await prompt.press("Enter");
+  await page.locator(".cn-comment").first().waitFor({ state: "visible" });
+  const origin = await page.evaluate(() =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+
+  await prompt.fill("cd p3");
+  const p3 = page.locator('.cn-menu [role="option"]', { hasText: "p3" }).first();
+  await p3.waitFor({ state: "visible" });
+  const labelled = /Drafted a plan to split the cache key/i.test(await p3.locator("i").innerText());
+
+  await prompt.fill("cd p");
+  const selected = await page.evaluate(() =>
+    (window as unknown as { NB_APP: { state: { completion: { candidates: Array<{ value: string }> } } } })
+      .NB_APP.state.completion.candidates[0]?.value || "");
+  await prompt.press("ArrowRight");
+  await page.waitForFunction((path) =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path !== path, origin);
+  const drilled = await prompt.inputValue();
+  await prompt.press("ArrowLeft");
+  await page.waitForFunction((path) =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === path, origin);
+  const horizontal = drilled.endsWith(selected) && await prompt.inputValue() === "cd p";
+
+  await prompt.press("ArrowDown");
+  await page.waitForFunction((path) =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path !== path, origin);
+  const previewed = await page.locator("[data-cd-preview]").isVisible();
+  await prompt.press("Escape");
+  await page.waitForFunction((path) =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === path, origin);
+  const cancelled = await prompt.inputValue() === "cd p";
+
+  await prompt.fill("");
+  await prompt.fill("cd p");
+  await prompt.press("ArrowDown");
+  const acceptedPath = await page.evaluate(() =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+  await prompt.press("Enter");
+  await page.waitForFunction((path) =>
+    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === path, acceptedPath);
+  nightboardCdResult = {
+    labelled,
+    horizontal,
+    previewed,
+    cancelled,
+    committed: acceptedPath !== origin && await prompt.inputValue() === "",
+  };
+});
+
+Then("message choices explain their content and cd typeahead can drill cancel or commit", function () {
+  assert.deepEqual(nightboardCdResult, {
+    labelled: true,
+    horizontal: true,
+    previewed: true,
+    cancelled: true,
+    committed: true,
+  });
+});
+
+When("I open the general channel context menu and move down and up by keyboard", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  const prompt = page.locator("[data-cli]");
+  await prompt.fill("cd /projects/community/channels");
+  await prompt.press("Enter");
+  const item = page.locator('[data-blade-kind="list"] .cn-item[data-key="general"]').first();
+  await item.waitFor({ state: "visible" });
+  await item.focus();
+  const before = await page.evaluate(() => {
+    const state = (window as unknown as { NB_APP: { state: { cursor: number; focus: number } } }).NB_APP.state;
+    return { cursor: state.cursor, focus: state.focus };
+  });
+  await item.click({ button: "right" });
+  await page.waitForFunction(() => document.activeElement?.hasAttribute("data-ctx-prompt") === true);
+  await page.keyboard.press("ArrowDown");
+  await page.waitForFunction(() => document.activeElement?.hasAttribute("data-ctx-action") === true);
+  const downStayedInMenu = await page.evaluate(() => document.activeElement?.getAttribute("role") === "menuitem");
+  await page.keyboard.press("ArrowUp");
+  await page.waitForFunction(() => document.activeElement?.hasAttribute("data-ctx-prompt") === true);
+  const upStayedInMenu = await page.evaluate(() => document.activeElement?.getAttribute("role") === "menuitem");
+  const after = await page.evaluate(() => {
+    const state = (window as unknown as { NB_APP: { state: { cursor: number; focus: number } } }).NB_APP.state;
+    return { cursor: state.cursor, focus: state.focus };
+  });
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("[data-ctx-menu]"));
+  nightboardContextMenuResult = {
+    navStable: before.cursor === after.cursor && before.focus === after.focus,
+    downStayedInMenu,
+    upStayedInMenu,
+    focusRestored: await item.evaluate((element) => document.activeElement === element),
+  };
+});
+
+Then("the Nightboard context menu retains focus without moving the nav selection", function () {
+  assert.deepEqual(nightboardContextMenuResult, {
+    navStable: true,
+    downStayedInMenu: true,
+    upStayedInMenu: true,
+    focusRestored: true,
+  });
 });
 
 When("I define the Nightboard review macro with voice phrase {string}", async function (phrase: string) {

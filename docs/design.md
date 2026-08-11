@@ -340,7 +340,10 @@ Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
 Community Web dogfooding history and
 [ADR-0027](design-decisions/0027-community-visual-world-nightboard.md) for the
-canonical runtime decision.
+canonical runtime decision, and
+[ADR-0028](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md)
+for recoverable startup, workspace-sticky model routing, and deterministic HoBo
+authoring through the default Bo agent.
 
 ### Federated Community and gossip (shipped MVP)
 

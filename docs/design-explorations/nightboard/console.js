@@ -131,7 +131,8 @@
     return '<div class="cn-reacts" data-key="react-' + esc(postId) + '">' +
       pills.join("") +
       '<button type="button" class="cn-react-add" data-react-pick="' + esc(postId) + '"' +
-      ' aria-expanded="' + !!pickOpen + '" title="Add reaction" aria-label="Add reaction">+</button>' +
+      ' aria-keyshortcuts="a"' +
+      ' aria-expanded="' + !!pickOpen + '" title="Add reaction (a)" aria-label="Add reaction">+</button>' +
       '<div class="cn-react-picker" data-react-picker="' + esc(postId) + '"' +
       ' data-open="' + (pickOpen ? "true" : "false") + '"' +
       (pickOpen ? "" : " hidden") + ' role="menu" aria-label="Choose a reaction">' +
@@ -343,7 +344,7 @@
    * [−]/[+] fold a chain, vote column, reply on the action row. Always a tree
    * — no graph/diff/raw costume changes.
    */
-  function viewTree(entries, markId, folded, sort, votes, reactions, reactPick, feedQuery, opts) {
+  function viewTree(entries, markId, folded, sort, votes, reactions, reposts, reactPick, feedQuery, opts) {
     opts = opts || {};
     var rawEntries = entries || [];
     var queryInfo = null;
@@ -371,6 +372,7 @@
     folded = folded || {};
     votes = votes || {};
     reactions = reactions || {};
+    reposts = reposts || {};
     reactPick = reactPick || null;
     sort = SORTS.indexOf(sort) >= 0 ? sort : "hot";
 
@@ -401,6 +403,7 @@
       var isFolded = !!folded[p.id];
       var sc = scoreOf(p, votes);
       var myVote = votes[p.id] || 0;
+      var reposted = !!reposts[p.id];
       var member = who(p.who);
 
       // Nest rails: one clickable │ per ancestor depth so you can collapse
@@ -413,8 +416,10 @@
 
       var foldCtl = replies.length
         ? '<button type="button" class="cn-pm" data-fold="' + esc(p.id) + '"' +
-          ' aria-expanded="' + !isFolded + '" title="' +
-          (isFolded ? "Expand" : "Collapse") + ' replies">' +
+          ' aria-keyshortcuts="f"' +
+          ' aria-expanded="' + !isFolded + '" aria-label="' +
+          (isFolded ? "Expand" : "Collapse") + ' replies" title="' +
+          (isFolded ? "Expand" : "Collapse") + ' replies (f)">' +
           (isFolded ? "+" : "-") + "</button>"
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
@@ -430,11 +435,11 @@
         '<div class="cn-rails" data-key="rails-' + esc(p.id) + '">' + rails + "</div>" +
         '<div class="cn-vote" data-key="vote-' + esc(p.id) + '">' +
         '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(p.id) + '"' +
-        ' aria-pressed="' + (myVote === 1) + '" aria-label="Upvote">+</button>' +
+        ' aria-pressed="' + (myVote === 1) + '" aria-keyshortcuts="u" aria-label="Upvote">+</button>' +
         '<span class="cn-score" data-score="' + (sc > 0 ? "pos" : sc < 0 ? "neg" : "zero") + '">' +
         sc + "</span>" +
         '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(p.id) + '"' +
-        ' aria-pressed="' + (myVote === -1) + '" aria-label="Downvote">-</button>' +
+        ' aria-pressed="' + (myVote === -1) + '" aria-keyshortcuts="d" aria-label="Downvote">-</button>' +
         "</div>" +
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
@@ -454,9 +459,14 @@
         '<span class="cn-sig-text">' + esc(p.sig) + "</span></div>" +
         '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '"' +
-        ' data-reply-who="' + esc(p.who) + '">reply</button>' +
+        ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
+        '<button type="button" class="cn-act" data-repost="' + esc(p.id) + '"' +
+        ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
+        (reposted ? "reposted" : "repost") + '</button>' +
+        '<button type="button" class="cn-act" data-share data-share-post="' + esc(p.id) + '"' +
+        ' aria-keyshortcuts="s" title="Share (s)">share</button>' +
         '<button type="button" class="cn-act" data-copy-post="' + esc(p.id) + '"' +
-        ' title="Copy this thread in an optimized paste format">copy</button>' +
+        ' aria-keyshortcuts="y" title="Copy this thread in an optimized paste format (y)">copy</button>' +
         (isFolded && below
           ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(p.id) + '">' +
             below + (below === 1 ? " more" : " more") + "</button>"
@@ -1450,7 +1460,7 @@
       pendingCount: pendingCount,
       terminalMin: false,
       terminalMax: false,
-      zoomed: !!panes.zoom,
+      zoomed: Number.isInteger(panes.focusMax),
       speech: speechOn,
       speechListening: !!(state && state.speech && state.speech.listening),
       voiceIntent: (state && state.speech && state.speech.intent) || "default",
@@ -1523,7 +1533,7 @@
           note: function (ctx) { return ctx.ai ? "now: ai" : "now: cli"; } },
         { keys: "Alt+T", desc: "New isolated workspace" },
         { keys: "Alt+Z", desc: function (ctx) {
-          return ctx.zoomed ? "Expand navigation rail" : "Collapse navigation rail";
+          return ctx.zoomed ? "Restore panel layout" : "Expand focused panel";
         } },
         { keys: "esc", desc: "Hand steering to navigation / detail" },
         { keys: "compose", desc: function (ctx) {
@@ -1577,7 +1587,7 @@
           when: function (ctx) { return !ctx.hasFilter; } },
         { keys: "Tab", desc: "Swap to prompt" },
         { keys: "i or :", desc: "Focus the prompt" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
         { keys: "R", desc: "Load queued posts",
           when: function (ctx) { return ctx.hasPending; } },
         { keys: "T", desc: "Re-apply Grid theme" },
@@ -1611,7 +1621,7 @@
         { keys: "Shift+click / drag", desc: "Visual selection" },
         { keys: "←", desc: "Leave editor focus → navigation" },
         { keys: "i or :", desc: "Focus the prompt (from normal)" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
       ],
     },
     {
@@ -1619,22 +1629,23 @@
       title: "Thread",
       contexts: ["thread"],
       rows: [
-        { keys: "− / +", desc: "Fold or expand a chain" },
+        { keys: "f", desc: "Fold or expand the focused chain" },
         { keys: "nest rail", desc: "Collapse that depth" },
-        { keys: "[+] [-]", desc: "Upvote / downvote" },
-        { keys: "reply", desc: "Arm the prompt to reply" },
+        { keys: "u / d", desc: "Upvote / downvote the focused post" },
+        { keys: "a", desc: "Open reactions for the focused post" },
+        { keys: "r / Shift+R", desc: "Reply / repost the focused post" },
+        { keys: "s / y", desc: "Share link / copy the focused thread" },
         { keys: "j k / ↑ ↓", desc: "Previous / next visible message (roots and replies)" },
         { keys: "Home / End", desc: "First / last visible message" },
         { keys: "v", desc: "Cycle feed sort",
           note: function (ctx) { return "now: " + (ctx.sort || "hot"); } },
         { keys: "hot new top", desc: "Default sorts — pin more with [+]" },
-        { keys: "share", desc: "Copy nightboard: link" },
         { keys: "esc", desc: "Leave thread → channel feed" },
         { keys: "Backspace", desc: "Same as esc — channel feed" },
         { keys: "← / h", desc: "Focus navigation (detail stays open)" },
         { keys: "i or :", desc: "Focus the prompt" },
         { keys: "e", desc: "Open the post in the terminal editor" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
       ],
     },
     {
@@ -1643,15 +1654,16 @@
       contexts: ["dm"],
       rows: [
         { keys: "tabs", desc: "messages (default) · profile" },
-        { keys: "− / +", desc: "Fold or expand a chain" },
-        { keys: "[+] [-]", desc: "Upvote / downvote" },
-        { keys: "reply", desc: "Arm the prompt to reply in this DM" },
+        { keys: "f", desc: "Fold or expand the focused chain" },
+        { keys: "u / d", desc: "Upvote / downvote the focused message" },
+        { keys: "a", desc: "Open reactions for the focused message" },
+        { keys: "r / Shift+R", desc: "Reply / repost the focused message" },
+        { keys: "s / y", desc: "Share link / copy the focused thread" },
         { keys: "d", desc: "Dismiss — use in Activity for DM alerts (not leave thread)" },
         { keys: "i or :", desc: "Focus the prompt · Enter sends" },
-        { keys: "share", desc: "Copy nightboard: link" },
         { keys: "esc", desc: "Leave selection → Following log" },
         { keys: "← / h", desc: "Focus navigation (detail stays open)" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
       ],
     },
     {
@@ -1667,7 +1679,7 @@
         { keys: "← / h", desc: "Focus the nav sidebar (from home)" },
         { keys: "i or :", desc: "Focus the prompt" },
         { keys: "esc", desc: "Leave columns → prompt" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
         { keys: "/", desc: "Filter the nav list (focus nav first)" },
       ],
     },
@@ -1696,7 +1708,7 @@
         { keys: "Backspace", desc: "Same as esc — Following log" },
         { keys: "← / h", desc: "Focus navigation (detail stays open)" },
         { keys: "i or :", desc: "Focus the prompt" },
-        { keys: "z / Alt+Z", desc: "Collapse / expand nav rail" },
+        { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
         { keys: "Enter / click", desc: "Follow links and actions in the pane" },
       ],
     },
@@ -2141,7 +2153,7 @@
         " — send from the prompt.</p>";
     }
     return viewTree(dmMsgs, null, state.folded, sort, votes,
-      state.reactions, state.reactPick, state.feedQuery);
+      state.reactions, state.reposts, state.reactPick, state.feedQuery);
   }
 
   /**
@@ -2388,7 +2400,7 @@
    * render as thin rails so detail/session can claim the width without losing
    * path context.
    */
-  function bladeHtml(blade, focused, bodyHtml, navCollapsed) {
+  function bladeHtml(blade, focused, bodyHtml, navCollapsed, focusExpanded) {
     var isSession = blade.kind === "session";
     var title = isSession
       ? "session"
@@ -2398,17 +2410,19 @@
     var subtitle = isSession ? "chat" : (blade.kind === "detail" ? "detail" : "blade");
     var isList = blade.kind !== "detail" && !isSession;
     var collapsed = !!(navCollapsed && isList);
+    var focusHidden = focusExpanded != null && blade.index !== focusExpanded;
 
     // Collapsed nav rail — same stable blade, slimmed; click expands.
     if (collapsed) {
       return '<section class="cn-blade cn-col cn-blade-rail" data-blade="' + blade.index + '"' +
         ' data-column="' + blade.index + '" data-blade-path="' + esc(blade.path) + '"' +
         ' data-blade-kind="list" data-collapsed="true" data-nav="true"' +
+        ' data-focus-hidden="' + focusHidden + '"' +
         (focused ? ' data-focus="true"' : "") +
         ' data-key="blade-nav">' +
         '<button type="button" class="cn-blade-rail-hit" data-nav-expand' +
         ' data-blade-path="' + esc(blade.path) + '"' +
-        ' title="Expand navigation — ' + esc(title) + ' (z)"' +
+        ' title="Expand navigation — ' + esc(title) + '"' +
         ' aria-label="Expand navigation: ' + esc(title) + '">' +
         '<span class="cn-blade-rail-mark" aria-hidden="true">›</span>' +
         '<span class="cn-blade-rail-title">' + esc(title) + "</span>" +
@@ -2436,6 +2450,7 @@
       ' data-column="' + blade.index + '" data-blade-path="' + esc(blade.path) + '"' +
       ' data-blade-kind="' + esc(blade.kind) + '"' +
       ' data-collapsed="false"' +
+      ' data-focus-hidden="' + focusHidden + '"' +
       (isList ? ' data-nav="true"' : "") +
       (isSession && blade.active ? ' data-session-active="true"' : "") +
       (navBack ? ' data-nav-drilled="true"' : "") +
@@ -2457,19 +2472,15 @@
         ? '<span class="cn-blade-path" aria-hidden="true" title="' + esc(blade.path) + '">' +
           esc(blade.path) + "</span>"
         : "") +
-      (isList
-        ? '<button type="button" class="cn-pane-act" data-nav-collapse' +
-          ' title="Collapse navigation (z / Alt+Z) — give detail the width"' +
-          ' aria-label="Collapse navigation">—</button>'
-        : (!isSession
-          ? '<button type="button" class="cn-pane-act" data-pane-zoom data-nav-collapse' +
-            ' title="' + (navCollapsed
-              ? "Expand navigation (z / Alt+Z)"
-              : "Collapse navigation (z / Alt+Z) — detail fills the row") + '"' +
-            ' aria-label="' + (navCollapsed ? "Expand navigation" : "Collapse navigation") + '"' +
-            ' aria-pressed="' + !!navCollapsed + '">' +
-            (navCollapsed ? "▣" : "▭") + "</button>"
-          : "")) +
+      '<button type="button" class="cn-pane-act" data-pane-zoom' +
+        ' title="' + (focusExpanded === blade.index
+          ? "Restore panel layout (z / Alt+Z)"
+          : "Expand focused panel (z / Alt+Z)") + '"' +
+        ' aria-label="' + (focusExpanded === blade.index
+          ? "Restore panel layout"
+          : "Expand focused panel") + '"' +
+        ' aria-pressed="' + (focusExpanded === blade.index) + '">' +
+        (focusExpanded === blade.index ? "▣" : "▭") + "</button>" +
       (isSession
         ? '<button type="button" class="cn-pane-act" data-copy-chat' +
           ' title="Copy session chat in an optimized paste format"' +
@@ -2524,6 +2535,7 @@
     [data-exp="console"] .cn-crumb:hover{color:var(--nb-ink);text-decoration:underline}
     [data-exp="console"] .cn-crumb:last-of-type{color:var(--nb-ink);font-weight:700}
     [data-exp="console"] .cn-sep{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-path-preview{margin-inline-start:auto;color:var(--nb-warn);font-weight:700}
     [data-exp="console"] .cn-views{margin-inline-start:auto;display:flex;gap:.15rem;align-items:center;flex-wrap:wrap}
     [data-exp="console"] .cn-feed-notice{position:sticky;top:0;z-index:2;width:100%;
       margin:0;border:0;border-block-end:1px solid var(--nb-rule);
@@ -2660,6 +2672,9 @@
       transition:flex-basis .16s ease,max-width .16s ease,opacity .12s ease}
     [data-exp="console"] .cn-blade[data-blade-kind=detail],[data-exp="console"] .cn-pane{
       flex:1 1 24rem;max-width:none;opacity:.92}
+    [data-exp="console"] .cn-blades[data-focus-expanded]:not([data-focus-expanded=""]) .cn-blade[data-focus-hidden=true]{display:none}
+    [data-exp="console"] .cn-blades[data-focus-expanded]:not([data-focus-expanded=""]) .cn-blade[data-focus=true]{
+      flex:1 1 100%;max-width:none;min-width:100%;opacity:1}
     /* Nav stays a sidebar; detail always hosts selection or the Following feed. */
     [data-exp="console"] .cn-blade[data-blade-kind=list],[data-exp="console"] .cn-blade[data-nav=true]{
       flex:0 0 clamp(12rem,28vw,18rem);max-width:clamp(12rem,28vw,18rem)}
@@ -3886,10 +3901,10 @@
             preview = viewFileEditor(chEdPost, state.editor.active.path, state);
           } else if (state.threadFocus) {
             preview = viewTree(chFeed, state.threadFocus, state.folded, sort, votes,
-              state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
+              state.reactions, state.reposts, state.reactPick, null, { threadOf: state.threadFocus });
           } else {
             preview = viewTree(chFeed, chMark, state.folded, sort, votes,
-              state.reactions, state.reactPick, state.feedQuery);
+              state.reactions, state.reposts, state.reactPick, state.feedQuery);
           }
         }
       } else if (selected && selected.kind === "dir") {
@@ -3903,7 +3918,7 @@
           preview = viewNotifications(child, null);
         } else {
           preview = viewTree(child, null, state.folded, sort, votes,
-            state.reactions, state.reactPick, state.feedQuery);
+            state.reactions, state.reposts, state.reactPick, state.feedQuery);
           if (!child.some(function (e) { return e.post; }) &&
               !child.some(function (e) { return e.notification; })) {
             // No posts — show the next listing as a dependent blade body.
@@ -3932,10 +3947,10 @@
           preview = viewFileEditor(selected, postPath, state);
         } else if (state.threadFocus) {
           preview = viewTree(feedEntries, state.feedMark || state.threadFocus, state.folded, sort, votes,
-            state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
+            state.reactions, state.reposts, state.reactPick, null, { threadOf: state.threadFocus });
         } else {
           preview = viewTree(feedEntries, selected.post.id, state.folded, sort, votes,
-            state.reactions, state.reactPick, state.feedQuery);
+            state.reactions, state.reposts, state.reactPick, state.feedQuery);
         }
       } else if (
         (parts[0] === "projects" && parts[2] === "channels" && parts[3]) ||
@@ -3956,10 +3971,10 @@
           preview = viewFileEditor(edPost, state.editor.active.path, state);
         } else if (state.threadFocus) {
           preview = viewTree(insideFeed, state.feedMark || state.threadFocus, state.folded, sort, votes,
-            state.reactions, state.reactPick, null, { threadOf: state.threadFocus });
+            state.reactions, state.reposts, state.reactPick, null, { threadOf: state.threadFocus });
         } else {
           preview = viewTree(insideFeed, insideMark, state.folded, sort, votes,
-            state.reactions, state.reactPick, state.feedQuery);
+            state.reactions, state.reposts, state.reactPick, state.feedQuery);
         }
       } else if (selected && selected.notification) {
         preview = viewNotification(selected.notification,
@@ -4044,6 +4059,10 @@
         crumbs.push('<button type="button" class="cn-crumb" data-goto="' +
           esc(MAP.join(parts.slice(0, i + 1))) + '">' + esc(seg) + "</button>");
       });
+      if (state.cdPreviewPath) {
+        crumbs.push('<span class="cn-path-preview" data-cd-preview role="status">' +
+          "[preview · Enter accept · Esc cancel]</span>");
+      }
 
       // Sort / Lucene bar + feed-scoped new-posts notice — not inside a thread.
       if (!showingFollow && !state.threadFocus && isFeedSortContext(parts, selected, extra)) {
@@ -4093,15 +4112,16 @@
 
       // Cascade: list + detail (+ session when transcript exists).
       var navCollapsed = !!(panes.zoom || panes.navCollapsed);
+      var focusExpanded = Number.isInteger(panes.focusMax) ? panes.focusMax : null;
       var bladeHtmls = blades.map(function (b) {
         if (b.kind === "session") {
-          return bladeHtml(b, focusBlade === b.index, sessionBody, navCollapsed);
+          return bladeHtml(b, focusBlade === b.index, sessionBody, navCollapsed, focusExpanded);
         }
         if (b.kind === "detail") {
-          return bladeHtml(b, focusBlade === b.index, preview, navCollapsed);
+          return bladeHtml(b, focusBlade === b.index, preview, navCollapsed, focusExpanded);
         }
         return bladeHtml(b, focusBlade === b.index,
-          bladeListHtml(b, focusBlade === b.index, b.filter, state), navCollapsed);
+          bladeListHtml(b, focusBlade === b.index, b.filter, state), navCollapsed, focusExpanded);
       }).join("");
 
       // Structured lines are rendered into the session blade (above), not a foot panel.
@@ -4157,6 +4177,7 @@
           : "") +
         '<div class="cn-blades cn-cols" data-key="blades" data-zoom="' + !!navCollapsed +
         '" data-nav-collapsed="' + (navCollapsed ? "true" : "false") +
+        '" data-focus-expanded="' + (focusExpanded == null ? "" : focusExpanded) +
         '" role="group" aria-label="Navigation blades">' +
         bladeHtmls +
         "</div>" +

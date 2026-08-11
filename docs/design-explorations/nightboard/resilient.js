@@ -261,6 +261,74 @@
     return { state: shared.state, error: shared.error || null, seenBefore: wasReadyBefore() };
   }
 
+  /* One route per workspace. Re-pick only after policy change or failure. */
+  var ROUTE_KEY = "nb-route-affinity-v1";
+  var DEFAULT_POLICY = {
+    version: "nightboard-local-v1",
+    affinity: "workspace-session",
+    invalidateOn: ["policy-change", "recoverable-failure"],
+    routes: [
+      { id: "local", model: "on-device", format: "native" },
+      { id: "capable", model: "switchyard/capable", format: "auto" },
+    ],
+  };
+
+  function readRoutes() {
+    try {
+      var got = JSON.parse(window.localStorage.getItem(ROUTE_KEY) || "{}");
+      return got && typeof got === "object" && !Array.isArray(got) ? got : {};
+    } catch { return {}; }
+  }
+
+  function writeRoutes(routes) {
+    try { window.localStorage.setItem(ROUTE_KEY, JSON.stringify(routes)); } catch { /* session only */ }
+  }
+
+  function pickRoute(workspaceId, policy) {
+    var workspace = String(workspaceId || "default");
+    var p = policy || DEFAULT_POLICY;
+    var routes = Array.isArray(p.routes) ? p.routes.filter(function (route) {
+      return route && typeof route.id === "string" && route.id && typeof route.model === "string";
+    }) : [];
+    if (!routes.length) return null;
+    var bag = readRoutes();
+    var prior = bag[workspace];
+    var samePolicy = prior && prior.policyVersion === String(p.version || "default");
+    var sticky = samePolicy && !prior.invalidated
+      ? routes.find(function (route) { return route.id === prior.routeId; })
+      : null;
+    if (sticky) return Object.assign({}, sticky, { reason: "workspace affinity" });
+    var excluded = samePolicy && prior && prior.invalidated ? prior.routeId : null;
+    var selected = routes.find(function (route) { return route.id !== excluded; }) || routes[0];
+    var reason = prior && prior.invalidated
+      ? String(prior.invalidated)
+      : (prior && !samePolicy ? "policy changed" : "policy default");
+    bag[workspace] = {
+      policyVersion: String(p.version || "default"),
+      routeId: selected.id,
+      invalidated: null,
+      selectedAt: Date.now(),
+    };
+    writeRoutes(bag);
+    return Object.assign({}, selected, { reason: reason });
+  }
+
+  function invalidateRoute(workspaceId, reason) {
+    var workspace = String(workspaceId || "default");
+    var bag = readRoutes();
+    if (!bag[workspace]) return false;
+    bag[workspace].invalidated = String(reason || "recoverable failure");
+    writeRoutes(bag);
+    return true;
+  }
+
+  window.NB_ROUTE = {
+    pick: pickRoute,
+    invalidate: invalidateRoute,
+    DEFAULT_POLICY: DEFAULT_POLICY,
+    STORAGE_KEY: ROUTE_KEY,
+  };
+
   window.NBResilient = {
     warm: warm,
     session: session,

@@ -38,6 +38,7 @@
     { name: "watch", arg: null, help: "resume the live stream", run: "watch" },
     { name: "macro", arg: "macro", help: "define and run safe reusable actions", run: "macro" },
     { name: "skill", arg: "macro", help: "alias for macro; actions become agent tools", run: "macro" },
+    { name: "hobo", arg: "hobo", help: "deterministic HoBo new | build | test | debug | up | stub", run: "hobo" },
     { name: "stat", arg: null, help: "epoch status", run: "stat" },
     { name: "help", arg: null, help: "this list", run: "help" },
     { name: "clear", arg: null, help: "clear the transcript", run: "clear" },
@@ -209,7 +210,15 @@
 
   function rank(candidates, query) {
     return candidates
-      .map(function (x) { return { value: x.value, hint: x.hint, kind: x.kind, s: score(x.value, query) }; })
+      .map(function (x) {
+        return {
+          value: x.value,
+          label: x.label,
+          hint: x.hint,
+          kind: x.kind,
+          s: score(x.label || x.value, query),
+        };
+      })
       .filter(function (x) { return x.s !== null; })
       .sort(function (a, b) { return b.s - a.s; });
   }
@@ -247,6 +256,20 @@
           hint: child.hint || "",
           kind: child.kind === "channel" ? "channel" : "dir",
         });
+        if (child.kind === "channel" && MAP.feedEntriesAt && MAP.messagePath) {
+          (MAP.feedEntriesAt(full, extra) || []).forEach(function (entry) {
+            if (!entry.post || !entry.post.id) return;
+            var messageFull = MAP.messagePath(full, entry.post.id, extra);
+            if (!messageFull) return;
+            out.push({
+              value: messageFull,
+              label: entry.post.id,
+              hint: String(entry.post.subject || entry.post.body || "message")
+                .replace(/\s+/g, " ").trim().slice(0, 96),
+              kind: "message",
+            });
+          });
+        }
         // Deep enough to reach /projects/<id>/channels/<room> so `cd bugs`
         // still resolves after channels moved under projects. Channels are
         // leaves — do not walk into their (empty) nav listing.
@@ -267,7 +290,8 @@
     if (!entries) return { base: dirPart, leaf: leaf, items: [] };
     var items = entries.map(function (e) {
       return {
-        value: e.name + (e.kind === "dir" || e.kind === "channel" ? "/" : ""),
+        value: e.name + (e.kind === "dir" || e.kind === "channel" || e.kind === "message" ? "/" : ""),
+        label: e.label || (e.kind === "message" && e.post ? e.post.id : null),
         hint: e.hint || e.meta || "",
         kind: e.kind,
       };
@@ -863,6 +887,16 @@
       return { kind: "text", query: fragment, candidates: [], ghost: "", replaceFrom: fragStart, insert: fragment };
     }
 
+    if (spec.arg === "hobo" && tokens.length <= 2 && window.NB_HOBO) {
+      var hc = window.NB_HOBO.suggestions(fragment);
+      return {
+        kind: "hobo", query: fragment, candidates: hc, replaceFrom: fragStart,
+        insert: hc[0] ? hc[0].value : fragment,
+        ghost: hc[0] && hc[0].value.indexOf(fragment) === 0
+          ? hc[0].value.slice(fragment.length) : "",
+      };
+    }
+
     if (spec.arg === "sort" || spec.arg === "view") {
       var rv = sortCandidates(fragment);
       return {
@@ -909,11 +943,13 @@
       // with "ch", so scoring the full string buried the obvious answer under
       // any local name that happened to contain the letters.
       var global = globalDirs(extra).map(function (g) {
-        var base = g.value.slice(g.value.lastIndexOf("/") + 1);
+        var base = g.label || g.value.slice(g.value.lastIndexOf("/") + 1);
         var s1 = score(base, pc.leaf);
         var s2 = score(g.value, pc.leaf);
         var best = s1 === null ? s2 : s2 === null ? s1 : Math.max(s1, s2);
-        return best === null ? null : { value: g.value, hint: g.hint, kind: g.kind, s: best, absolute: true };
+        return best === null ? null : {
+          value: g.value, label: g.label, hint: g.hint, kind: g.kind, s: best, absolute: true,
+        };
       }).filter(Boolean).sort(function (a, b) { return b.s - a.s; });
       if (global.length) {
         // Proximity is a tiebreaker, not a veto: enough to prefer what is in

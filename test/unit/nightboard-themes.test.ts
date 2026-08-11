@@ -1414,6 +1414,33 @@ export async function runNightboardThemeTests(): Promise<void> {
   assert.ok(bareTopic.candidates.some((c) => c.value === "#bugs" || c.kind === "channel"),
     "# also surfaces channel short-names");
 
+  const pathWin: {
+    NB_DATA?: unknown;
+    NB_MAP?: {
+      messagePath: (path: string, id: string, extra: unknown[]) => string | null;
+      list: (path: string, extra?: unknown[]) => Array<{ name: string; hint?: string }> | null;
+    };
+    NB_COMPLETE?: {
+      analyse: (input: string, ctx: { cwd: string; extra: unknown[] }) => {
+        candidates: Array<{ value: string; label?: string; hint?: string; kind?: string }>;
+      };
+    };
+  } = { NB_DATA: JSON.parse(dataJson()) };
+  new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(pathWin);
+  new Function("window", completeSrc)(pathWin);
+  const messagePath = pathWin.NB_MAP!.messagePath(
+    "/projects/community/channels/general", "p3", [],
+  );
+  assert.equal(messagePath, "/projects/community/channels/general/p1/p2/p3");
+  assert.ok(pathWin.NB_MAP!.list("/projects/community/channels/general/p1/p2", [])
+    ?.some((entry) => entry.name === "p3"), "message directories list direct replies by id");
+  const messageCd = pathWin.NB_COMPLETE!.analyse("cd p3", {
+    cwd: "/projects/community/channels/general", extra: [],
+  });
+  const p3Choice = messageCd.candidates.find((candidate) => candidate.label === "p3");
+  assert.ok(p3Choice && /Drafted a plan to split the cache key/i.test(p3Choice.hint || ""),
+    "cd completion pairs message ids with their title/summary");
+
   // ── Speech-to-text: feature-detect + Discord-style hotkeys ───────────────
   const speechSrc = readFileSync(join(ROOT, "speech.js"), "utf8");
   assert.ok(speechSrc.includes("NB_SPEECH") && speechSrc.includes("SpeechRecognition"),

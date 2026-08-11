@@ -521,6 +521,80 @@
     } catch { /* private */ }
   }
 
+  /* ── One restart lane for local startup conditions ───────────────────── */
+
+  var STARTUP_SIGNALS_KEY = "nb-startup-signals-v1";
+  var STARTUP_APPLIED_KEY = "nb-startup-applied-v1";
+
+  function readJson(key) {
+    try {
+      var ls = storage();
+      return JSON.parse((ls && ls.getItem(key)) || "{}");
+    } catch { return {}; }
+  }
+
+  function pendingStartup() {
+    var signals = readJson(STARTUP_SIGNALS_KEY);
+    var applied = readJson(STARTUP_APPLIED_KEY);
+    var out = [];
+    var update = signals.update;
+    if (update && typeof update.available === "string" && update.available &&
+        update.available !== update.current && applied.update !== update.available) {
+      out.push({ kind: "update", label: "update " + update.available, value: update.available });
+    }
+    var workspace = signals.workspace;
+    if (workspace && typeof workspace.id === "string" && workspace.id &&
+        Number.isInteger(workspace.defaultsVersion) && Number.isInteger(workspace.appliedVersion) &&
+        workspace.defaultsVersion > workspace.appliedVersion &&
+        applied.workspace !== workspace.defaultsVersion) {
+      out.push({
+        kind: "workspace", label: "prime " + workspace.id + " defaults",
+        value: workspace.defaultsVersion,
+      });
+    }
+    var continuation = signals.continuation;
+    if (continuation && /^(?:claude|codex|grok)$/i.test(String(continuation.host || "")) &&
+        typeof continuation.sessionId === "string" && continuation.sessionId &&
+        typeof continuation.workspace === "string" && continuation.workspace &&
+        applied.continuation !== continuation.sessionId) {
+      out.push({
+        kind: "continuation", label: "resume " + continuation.host + " session",
+        value: continuation.sessionId,
+      });
+    }
+    return out;
+  }
+
+  function applyStartup(opts) {
+    opts = opts || {};
+    var pending = pendingStartup();
+    if (!pending.length) return false;
+    var applied = readJson(STARTUP_APPLIED_KEY);
+    pending.forEach(function (item) { applied[item.kind] = item.value; });
+    try {
+      var ls = storage();
+      if (ls) {
+        ls.setItem(STARTUP_APPLIED_KEY, JSON.stringify(applied));
+        ls.removeItem(STARTUP_SIGNALS_KEY);
+      }
+    } catch { return false; }
+    if (!opts.noReload) window.location.reload();
+    return true;
+  }
+
+  function startupLabel() {
+    var items = pendingStartup();
+    return items.length ? items.map(function (item) { return item.label; }).join(" · ") : "";
+  }
+
+  window.NB_STARTUP = {
+    pending: pendingStartup,
+    apply: applyStartup,
+    label: startupLabel,
+    SIGNALS_KEY: STARTUP_SIGNALS_KEY,
+    APPLIED_KEY: STARTUP_APPLIED_KEY,
+  };
+
   window.NB_SESSION = {
     KEYS: KEYS,
     loadPolicy: loadPolicy,
