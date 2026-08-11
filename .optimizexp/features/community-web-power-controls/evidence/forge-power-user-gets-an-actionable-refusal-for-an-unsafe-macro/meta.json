@@ -2,9 +2,7 @@
   "featureId": "community-web-power-controls",
   "scenarioSlug": "forge-power-user-gets-an-actionable-refusal-for-an-unsafe-macro",
   "personaIds": [
-    "screen-reader-power-user",
-    "forge-community-power-user",
-    "agentic-coding-power-user"
+    "forge-community-power-user"
   ],
   "interface": "web",
   "driver": "web",
@@ -38,14 +36,6 @@
     {
       "id": "claim-4",
       "text": "And no script is evaluated or saved"
-    },
-    {
-      "id": "claim-5",
-      "text": "Given persona \"screen-reader-power-user\" is active"
-    },
-    {
-      "id": "claim-6",
-      "text": "And feature \"community-web-power-controls\" is under optimizexp review"
     }
   ],
   "frames": [],
@@ -56,6 +46,6 @@
   "exitCode": null,
   "degraded": false,
   "notes": [
-    "playwright screenshot captured"
+    "Nightboard refusal flow captured for the forge-community-power-user journey"
   ]
 }

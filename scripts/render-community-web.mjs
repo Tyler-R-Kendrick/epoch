@@ -1,11 +1,17 @@
 import { copyFile, mkdir, readdir, rm, writeFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-const sourceDirectory = "docs/design-explorations/nightboard";
-const outputDirectory = outputDirectoryFromArgs(process.argv.slice(2))
-  ?? "packages/Epoch.Community.Web/.vercel-output";
+const sourceDirectory = resolve("docs/design-explorations/nightboard");
+const outputDirectory = resolve(outputDirectoryFromArgs(process.argv.slice(2))
+  ?? "packages/Epoch.Community.Web/.vercel-output");
 const runtimeExtensions = new Set([".css", ".html", ".jpg", ".js", ".png", ".svg", ".webp"]);
 const excludedFiles = new Set(["progress.html"]);
+
+const sourceFromOutput = relative(outputDirectory, sourceDirectory);
+if (sourceFromOutput === "" ||
+    (sourceFromOutput !== ".." && !sourceFromOutput.startsWith(`..${sep}`) && !isAbsolute(sourceFromOutput))) {
+  throw new Error("--output must not contain the Nightboard source directory");
+}
 
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });

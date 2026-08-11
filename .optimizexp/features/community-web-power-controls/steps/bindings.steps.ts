@@ -2,7 +2,7 @@
  * Cucumber step bindings for OptimizeXP feature `community-web-power-controls`.
  * Thin adapters → implementations.ts (keeps Gherkin text stable).
  */
-import { Given, Then, When } from "@cucumber/cucumber";
+import { Given, setWorldConstructor, Then, When } from "@cucumber/cucumber";
 import {
   assertClearStatus,
   assertErrorActionable,
@@ -16,29 +16,23 @@ import {
 } from "./implementations.ts";
 import { createWorld, type OptimizexpWorld } from "./world.ts";
 
-// Cucumber World — attach helpers on `this`
-function w(world: OptimizexpWorld | undefined): OptimizexpWorld {
-  // cucumber may use World class; fall back to module singleton for simple runs
-  return world ?? getSingleton();
+function ScenarioWorld(this: OptimizexpWorld) {
+  Object.assign(this, createWorld("community-web-power-controls"));
 }
+setWorldConstructor(ScenarioWorld);
 
-let singleton: OptimizexpWorld | null = null;
-function getSingleton(): OptimizexpWorld {
-  singleton ??= createWorld("community-web-power-controls");
-  return singleton;
+function w(world: OptimizexpWorld): OptimizexpWorld {
+  return world;
 }
 
 Given("persona {string} is active", function (this: OptimizexpWorld, personaId: string) {
-  const world = this?.featureId ? this : getSingleton();
-  if (!world.featureId) Object.assign(world, createWorld("community-web-power-controls"));
-  setPersona(world, personaId);
+  setPersona(w(this), personaId);
 });
 
 Given(
   "feature {string} is under optimizexp review",
   function (this: OptimizexpWorld, featureId: string) {
-    const world = this?.featureId ? this : getSingleton();
-    setFeatureContext(world, featureId);
+    setFeatureContext(w(this), featureId);
   },
 );
 
@@ -93,4 +87,4 @@ Then(
 );
 
 // re-export for tests
-export { createWorld, getSingleton };
+export { createWorld };

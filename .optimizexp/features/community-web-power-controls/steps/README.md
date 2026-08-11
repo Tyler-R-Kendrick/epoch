@@ -6,18 +6,18 @@
 | `bindings.steps.ts` | Given/When/Then → implementations |
 | `implementations.ts` | Real or stub logic (discovery-wired when possible) |
 | `discovery.json` | Code discovery report |
-| `../test/community-web-power-controls.bindings.test.ts` | Vitest smoke for bindings |
+| `../test/community-web-power-controls.bindings.test.ts` | Node test smoke for bindings |
 
 ## Primary binding
 
-- **package-script** `pnpm run nightboard:e2e` (high)
+- **package-script** `npm run nightboard:e2e` (high)
 - package.json scripts["nightboard:e2e"] exists; mentioned in feature/seed
 
 ## Run
 
 ```bash
-# unit/smoke (vitest)
-pnpm run test:file .optimizexp/features/community-web-power-controls/test/community-web-power-controls.bindings.test.ts
+# unit/smoke
+node --import tsx --test .optimizexp/features/community-web-power-controls/test/community-web-power-controls.bindings.test.ts
 
 # cucumber (optimizexp profile, if configured)
 pnpm run test:behavior:optimizexp -- --name "community-web-power-controls"

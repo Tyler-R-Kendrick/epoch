@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "community-web-power-controls",
-  "title": "A keyboard-first Nightboard power user navigates messages and defines one safe r",
+  "title": "A keyboard-first Nightboard power user navigates messages and defines one safe reusable action",
   "experiences": [
     "ux",
     "ax"
@@ -24,8 +24,7 @@
   ],
   "driver": "web",
   "surfaces": [
-    "npm run nightboard:e2e",
-    "pnpm run nightboard:e2e"
+    "npm run nightboard:e2e"
   ],
   "tags": [
     "@optimizexp",
@@ -41,5 +40,5 @@
     "tests": "test/community-web-power-controls.bindings.test.ts"
   },
   "implementationStatus": "wired",
-  "primaryCommand": "pnpm run nightboard:e2e"
+  "primaryCommand": "npm run nightboard:e2e"
 }

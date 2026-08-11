@@ -2,8 +2,6 @@
   "featureId": "community-web-power-controls",
   "scenarioSlug": "agentic-coding-power-user-avoids-accidental-voice-activation",
   "personaIds": [
-    "screen-reader-power-user",
-    "forge-community-power-user",
     "agentic-coding-power-user"
   ],
   "interface": "web",
@@ -25,27 +23,23 @@
   "claims": [
     {
       "id": "claim-1",
-      "text": "Given the saved voice phrase is exactly `start review`"
+      "text": "Given I open Nightboard with the review action already saved"
     },
     {
       "id": "claim-2",
-      "text": "When voice command mode hears `start reviewing`"
+      "text": "And the saved voice phrase is exactly `start review`"
     },
     {
       "id": "claim-3",
-      "text": "Then it reports an unknown voice command"
+      "text": "When voice command mode hears `start reviewing`"
     },
     {
       "id": "claim-4",
-      "text": "And `user_review` is not invoked"
+      "text": "Then it reports an unknown voice command"
     },
     {
       "id": "claim-5",
-      "text": "Given persona \"forge-community-power-user\" is active"
-    },
-    {
-      "id": "claim-6",
-      "text": "And feature \"community-web-power-controls\" is under optimizexp review"
+      "text": "And `user_review` is not invoked"
     }
   ],
   "frames": [],

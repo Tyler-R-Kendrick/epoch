@@ -2,9 +2,7 @@
   "featureId": "community-web-power-controls",
   "scenarioSlug": "forge-power-user-defines-and-runs-a-safe-reusable-macro",
   "personaIds": [
-    "screen-reader-power-user",
-    "forge-community-power-user",
-    "agentic-coding-power-user"
+    "forge-community-power-user"
   ],
   "interface": "web",
   "driver": "web",

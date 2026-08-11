@@ -10,12 +10,26 @@
  *   node docs/design-explorations/nightboard/e2e.mjs [baseUrl]
  */
 import { chromium } from "playwright";
+import { request } from "node:http";
 import { serveNightboard } from "./serve.mjs";
 
 const own = process.argv[2] ? null : await serveNightboard();
 const BASE = process.argv[2] || own.url;
 const BOARD = new URL("board.html", BASE.endsWith("/") ? BASE : BASE + "/").href;
 const FILTER = process.env.NB_E2E || "";
+
+if (own) {
+  const malformedStatus = await new Promise((resolve) => {
+    request(new URL("%", BASE), (response) => {
+      response.resume();
+      response.on("end", () => resolve(response.statusCode));
+    }).on("error", () => resolve(0)).end();
+  });
+  if (malformedStatus !== 400) {
+    await own.close();
+    throw new Error("malformed URL path must return 400, got " + malformedStatus);
+  }
+}
 
 const CASES = [
   {
@@ -590,6 +604,25 @@ const CASES = [
         return log("near voice phrase should fail closed: " + JSON.stringify(defined.near));
       }
 
+      await prompt.fill("macro run review");
+      await prompt.press("Enter");
+      const prompted = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        query: window.NB_APP.state.feedQuery,
+      }));
+      if (prompted.path !== "/projects/community/channels/general" || prompted.query !== "state:open") {
+        return log("prompt did not run saved macro: " + JSON.stringify(prompted));
+      }
+
+      await prompt.fill("macro set foo-bar = cd /projects/community/channels/general");
+      await prompt.press("Enter");
+      await prompt.fill("macro set foo_bar = cd /projects/community/channels/general");
+      await prompt.press("Enter");
+      const collisionTools = await page.evaluate(() => window.NB_MCP.list().map((tool) => tool.name));
+      if (!collisionTools.includes("user_foo-bar") || !collisionTools.includes("user_foo_bar")) {
+        return log("custom tool names collided: " + JSON.stringify(collisionTools));
+      }
+
       const called = await page.evaluate(async () => {
         const result = await window.NB_MCP.call("user_review", {});
         return {
@@ -603,10 +636,22 @@ const CASES = [
         return log("agent tool did not run saved macro: " + JSON.stringify(called));
       }
 
+      await page.evaluate(() => localStorage.setItem("nb-power-actions-v1", JSON.stringify({
+        review: { commands: ["cd /projects/community/channels/general", "view state:open"], voice: "start review" },
+        "foo-bar": { commands: ["cd /projects/community/channels/general"], voice: "" },
+        foo_bar: { commands: ["cd /projects/community/channels/general"], voice: "" },
+        loop: { commands: ["macro run loop"], voice: "loop" },
+        duplicate: { commands: ["cd /projects/community/channels/general"], voice: "start review" },
+      })));
       await page.reload();
       await page.waitForSelector("[data-cli]");
-      const persisted = await page.evaluate(() => window.NB_POWER?.list() || []);
-      if (persisted.length !== 1 || persisted[0].voice !== "start review") {
+      const persisted = await page.evaluate(() => ({
+        actions: window.NB_POWER?.list() || [],
+        tools: window.NB_MCP.list().map((tool) => tool.name),
+      }));
+      if (persisted.actions.map((item) => item.name).join(",") !== "foo-bar,foo_bar,review" ||
+          persisted.actions.find((item) => item.name === "review")?.voice !== "start review" ||
+          persisted.tools.includes("user_loop") || persisted.tools.includes("user_duplicate")) {
         return log("macro did not persist: " + JSON.stringify(persisted));
       }
 

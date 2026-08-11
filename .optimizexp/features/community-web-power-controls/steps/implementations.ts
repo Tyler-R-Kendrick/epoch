@@ -10,7 +10,7 @@ import type { OptimizexpWorld } from "./world.ts";
 
 /** Discovery snapshot — see discovery.json for full report. */
 export const DISCOVERY_PRIMARY = {
-  command: "pnpm run nightboard:e2e" as string | null,
+  command: "npm run nightboard:e2e" as string | null,
   confidence: "high",
   reason: "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
 };

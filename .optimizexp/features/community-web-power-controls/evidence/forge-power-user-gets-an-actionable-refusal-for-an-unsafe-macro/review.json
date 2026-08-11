@@ -9,12 +9,10 @@
     "claim-1",
     "claim-2",
     "claim-3",
-    "claim-4",
-    "claim-5",
-    "claim-6"
+    "claim-4"
   ],
   "defects": [],
   "artifactSha256": "171a8739539635cfdc98f4e762c01d9db9972be7a33b13bb72f8c4f195efece2",
   "reviewedAt": "2026-08-11T02:06:37.535Z",
-  "notes": "Live browser playback plus focused Playwright regression covered the named keyboard, persistence, tool, voice, or refusal outcome."
+  "notes": "The forge-user recording and focused Playwright regression show the unsafe macro rejected without evaluation or persistence."
 }

@@ -15,12 +15,16 @@
     try {
       var raw = JSON.parse(window.localStorage.getItem(KEY) || "{}");
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+      var voices = {};
       Object.keys(raw).forEach(function (name) {
         var item = raw[name];
         if (!/^[a-z][a-z0-9_-]{0,31}$/.test(name) || !item || !Array.isArray(item.commands)) return;
         var commands = item.commands.map(function (line) { return String(line || "").trim(); }).filter(Boolean);
-        if (!commands.length) return;
-        actions[name] = { name: name, commands: commands, voice: normalPhrase(item.voice) };
+        var voice = normalPhrase(item.voice);
+        if (!commands.length || commands.some(function (line) { return !knownCommand(line); }) ||
+            (voice && voices[voice])) return;
+        if (voice) voices[voice] = true;
+        actions[name] = { name: name, commands: commands, voice: voice };
       });
     } catch { /* private storage / malformed prior value: start empty */ }
   }
@@ -58,7 +62,7 @@
     if (!window.NB_MCP || !actions[name]) return;
     var item = actions[name];
     unregister[name] = window.NB_MCP.registerTool({
-      name: "user_" + name.replace(/-/g, "_"),
+      name: "user_" + name,
       description: "User-defined Nightboard skill " + name + ": " + item.commands.join("; "),
       inputSchema: { type: "object", properties: {} },
       execute: async function () {

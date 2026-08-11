@@ -7,7 +7,7 @@
       "kind": "package-script",
       "id": "script:nightboard:e2e",
       "scriptName": "nightboard:e2e",
-      "command": "pnpm run nightboard:e2e",
+      "command": "npm run nightboard:e2e",
       "confidence": "high",
       "reason": "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
       "implementsSteps": [
@@ -19,7 +19,7 @@
       "kind": "package-script",
       "id": "script:nightboard:e2e",
       "scriptName": "nightboard:e2e",
-      "command": "pnpm run nightboard:e2e",
+      "command": "npm run nightboard:e2e",
       "confidence": "high",
       "reason": "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
       "implementsSteps": [
@@ -31,7 +31,7 @@
       "kind": "package-script",
       "id": "script:nightboard:e2e",
       "scriptName": "nightboard:e2e",
-      "command": "pnpm run nightboard:e2e",
+      "command": "npm run nightboard:e2e",
       "confidence": "high",
       "reason": "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
       "implementsSteps": [

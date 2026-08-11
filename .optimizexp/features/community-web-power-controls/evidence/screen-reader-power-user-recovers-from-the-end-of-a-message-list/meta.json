@@ -2,9 +2,7 @@
   "featureId": "community-web-power-controls",
   "scenarioSlug": "screen-reader-power-user-recovers-from-the-end-of-a-message-list",
   "personaIds": [
-    "screen-reader-power-user",
-    "forge-community-power-user",
-    "agentic-coding-power-user"
+    "screen-reader-power-user"
   ],
   "interface": "web",
   "driver": "web",
@@ -25,7 +23,7 @@
   "claims": [
     {
       "id": "claim-1",
-      "text": "Given focus is on the last message in a Nightboard channel"
+      "text": "Given I open a Nightboard text channel and focus its last message"
     },
     {
       "id": "claim-2",

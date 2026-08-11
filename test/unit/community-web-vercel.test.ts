@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInMemoryCommunityApi } from "@epoch/community-api";
@@ -45,6 +45,7 @@ export async function runCommunityWebVercelTests(): Promise<void> {
   await communityWebSnapshotModeLabelsHonestyAndDisablesLiveIntentCopy();
   await communityWebHtmlIncludesReceiptSearchPromoteAndIdentity();
   renderScriptProducesDeployableCommunityHtml();
+  renderScriptRejectsAnOutputContainingItsSource();
   inlinedRuntimeBundleStaysWithinByteBudget();
 }
 
@@ -376,6 +377,21 @@ function renderScriptProducesDeployableCommunityHtml(): void {
   assert.ok(existsSync(join(outputDirectory, "app.js")));
   assert.equal(existsSync(join(outputDirectory, "community", "index.html")), false);
   assert.equal(readFileSync(join(outputDirectory, "healthz"), "utf8"), "ok\n");
+}
+
+function renderScriptRejectsAnOutputContainingItsSource(): void {
+  const workspace = mkdtempSync(join(tmpdir(), "epoch-community-render-guard-"));
+  const source = join(workspace, "docs", "design-explorations", "nightboard");
+  const marker = join(source, "index.html");
+  mkdirSync(source, { recursive: true });
+  writeFileSync(marker, "keep\n");
+
+  assert.throws(() => execFileSync(process.execPath, [
+    join(process.cwd(), "scripts", "render-community-web.mjs"),
+    "--output",
+    join(workspace, "docs", "design-explorations"),
+  ], { cwd: workspace, stdio: "pipe" }));
+  assert.equal(readFileSync(marker, "utf8"), "keep\n");
 }
 
 async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {

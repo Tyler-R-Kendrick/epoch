@@ -1,4 +1,4 @@
-# A keyboard-first Nightboard power user navigates messages and defines one safe r
+# A keyboard-first Nightboard power user navigates messages and defines one safe reusable action
 
 Feature id: `community-web-power-controls`
 Scope: `global` (`.optimizexp`)
@@ -22,7 +22,7 @@ Generated one Gherkin file per persona (explicit --personas; config prefer/exclu
 | `steps/bindings.steps.ts` | Cucumber Given/When/Then |
 | `steps/implementations.ts` | Real command when discovered, else stub |
 | `steps/discovery.json` | Code discovery report |
-| `test/community-web-power-controls.bindings.test.ts` | Vitest smoke |
+| `test/community-web-power-controls.bindings.test.ts` | Node test smoke |
 
 Re-discover / rewire: `generate-feature.mts --mode implement --id community-web-power-controls`
 

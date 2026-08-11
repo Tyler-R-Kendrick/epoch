@@ -24,7 +24,14 @@ export async function serveNightboard({ host = "127.0.0.1", port = 0 } = {}) {
     throw new Error(`Invalid port: ${port}`);
   }
   const server = createServer(async (req, res) => {
-    const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
+    let path;
+    try {
+      path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
+    } catch (error) {
+      if (!(error instanceof URIError)) throw error;
+      res.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("bad request\n");
+      return;
+    }
     if (path === "/healthz") {
       res.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end("ok\n");
       return;

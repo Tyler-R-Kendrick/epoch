@@ -4,10 +4,6 @@ Feature: Safe reusable Nightboard actions for a forge power user
   I want to compose existing Nightboard commands into a named action
   So that repeated review navigation takes one deterministic command
 
-  Background:
-    Given persona "forge-community-power-user" is active
-    And feature "community-web-power-controls" is under optimizexp review
-
   Scenario: Forge power user defines and runs a safe reusable macro
     Given I open `http://127.0.0.1:8787/` and enter Nightboard
     When I run `macro set review = cd /projects/epoch/changes; view state:needs-review`
