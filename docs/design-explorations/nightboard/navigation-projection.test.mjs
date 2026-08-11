@@ -94,6 +94,10 @@ assert.notEqual(channelOccurrence.projectionId, savedOccurrence.projectionId);
 assert.equal(map.objectAtPath(savedOccurrence.aliasPath).objectId, "p1");
 assert.equal(map.pathForProjection(saved.projectionId), `/views/${saved.projectionId}`);
 assert.equal(map.pathForObject("p1", saved.projectionId), `/views/${saved.projectionId}/p1`);
+const mounted = map.projectionLocations("p2");
+assert.ok(["channel-general", saved.projectionId, "activity-subscribed", "search-global"]
+  .every((projectionId) => mounted.some((location) => location.projectionId === projectionId)));
+assert.equal(map.objectAtPath("/notifications/subscribed/n6").objectId, "p2");
 
 // NAV-PROJ-002: a saved view retains the canonical backing object.
 savedOccurrence.post.state = "read";

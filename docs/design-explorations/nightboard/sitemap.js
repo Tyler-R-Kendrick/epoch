@@ -158,9 +158,33 @@
     }
     if (parts[0] === "dms" && parts[1]) return "dm-" + parts[1];
     if (parts[0] === "notifications") return "activity-" + (parts[1] || "all");
+    if (parts[0] === "search") return "search-global";
     if (parts[0] === "views" && parts[1]) return parts[1];
-    if (parts[0] === "spaces" && parts[1]) return "space-" + parts[1] + "-" + (parts[2] || "home");
+    if (parts[0] === "spaces" && parts[1]) {
+      return "space-" + parts[1] + "-" + (parts[2] || "home") + (parts[3] ? "-" + parts[3] : "");
+    }
     return "namespace-root";
+  }
+
+  function registeredProjectionPaths() {
+    var paths = ["/", "/search", "/notifications/all", "/notifications/mentions",
+      "/notifications/subscribed", "/notifications/hooks"];
+    allDms().forEach(function (dm) { paths.push(dmPath(dm.id)); });
+    allProjects().forEach(function (project) {
+      projectChannelNames(project).forEach(function (channel) {
+        paths.push("/projects/" + project.id + "/channels/" + channel);
+      });
+    });
+    allSpaces().forEach(function (space) {
+      paths.push(spacePath(space.id) + "/feed");
+      (space.channels || []).forEach(function (channel) {
+        paths.push(spacePath(space.id) + "/channels/" + channel);
+      });
+    });
+    if (window.NB_SAVED_VIEWS) {
+      window.NB_SAVED_VIEWS.list().forEach(function (view) { paths.push("/views/" + view.projectionId); });
+    }
+    return paths;
   }
 
   function projectionEntries(entries, path) {
@@ -213,6 +237,8 @@
     } else if (parts[0] === "notifications") {
       kind = "notifications";
       visibility = "private";
+    } else if (parts[0] === "search") {
+      kind = "search";
     } else if ((parts[0] === "projects" || parts[0] === "spaces") && parts.indexOf("channels") >= 0) {
       kind = "channel-feed";
     }
@@ -231,18 +257,9 @@
   }
 
   function pathForProjection(projectionId) {
-    if (projectionId === "namespace-root") return "/";
-    if (projectionId.indexOf("channel-") === 0) {
-      var channelId = projectionId.slice("channel-".length);
-      var channel = findChannelByLabel(channelId);
-      if (channel) return channelPath(channel.label);
-      var dash = channelId.lastIndexOf("-");
-      if (dash > 0) return "/projects/" + channelId.slice(0, dash) + "/channels/" + channelId.slice(dash + 1);
-    }
-    if (projectionId.indexOf("dm-") === 0) return "/dms/" + projectionId.slice(3);
-    if (projectionId.indexOf("activity-") === 0) return "/notifications/" + projectionId.slice(9);
-    if (window.NB_SAVED_VIEWS && window.NB_SAVED_VIEWS.get(projectionId)) return "/views/" + projectionId;
-    return null;
+    return registeredProjectionPaths().filter(function (path) {
+      return projectionIdForPath(path) === projectionId;
+    })[0] || null;
   }
 
   function objectAtPath(path, extra) {
@@ -285,6 +302,15 @@
         if (path) locations.push({ projectionId: saved.projectionId, aliasPath: path });
       });
     }
+    (D.notifications || []).filter(function (notification) {
+      return notification.ref === objectId;
+    }).forEach(function (notification) {
+      var filter = notification.kind === "mention" ? "mentions"
+        : notification.kind === "subscription" ? "subscribed" : "all";
+      locations.push({ projectionId: "activity-" + filter,
+        aliasPath: "/notifications/" + filter + "/" + notification.id });
+    });
+    if (primary) locations.push({ projectionId: "search-global", aliasPath: "/search/" + objectId });
     return locations;
   }
 
@@ -1229,8 +1255,15 @@
         var savedView = window.NB_SAVED_VIEWS.get(parts[1]);
         if (!savedView || !window.NB_QUERY) return null;
         var result = window.NB_SAVED_VIEWS.open(savedView.projectionId, allMessages(extra));
-        return result.error ? null : messageEntries(result.posts, null);
+        return result.error ? null : result.posts.map(function (post) { return postEntry(post); });
       }
+      return null;
+    }
+
+    if (parts[0] === "search") {
+      if (parts.length === 1) return allMessages(extra).filter(function (post) {
+        return !post.dm;
+      }).map(function (post) { return postEntry(post); });
       return null;
     }
 
@@ -1366,11 +1399,21 @@
           return String(b.at || "").localeCompare(String(a.at || ""));
         });
         return items.map(function (n, i) {
+          var target = allMessages(extra).filter(function (post) {
+            return objectRef(post).objectId === n.ref;
+          })[0] || null;
           return {
-            name: notifName(n, i),
+            name: n.id,
+            alias: n.id,
+            aliases: [n.id, notifName(n, i)],
             // Human label for the nav blade — same grammar as Activity cards.
             label: (n.who || "someone") + " · " + (n.reason || n.kind || "activity"),
-            kind: "file",
+            kind: target ? "message" : "notification",
+            objectId: target ? objectRef(target).objectId : n.id,
+            ref: target ? objectRef(target) : { objectId: n.id, kind: "notification" },
+            post: target,
+            capabilities: target ? messageCapabilities(target, false)
+              : { read: true, enter: false, expand: false, composeUnder: false, execute: false },
             meta: n.kind,
             hint: n.whereLabel || n.where || "",
             notification: n,
@@ -1586,6 +1629,16 @@
   /** The post at a path, if the path names one (detail / deep-link; not nav). */
   function postAt(path, extra) {
     var parts = split(canonicalize(path));
+    if ((parts[0] === "search" && parts.length >= 2) ||
+        (parts[0] === "notifications" && parts.length >= 3)) {
+      var baseLength = parts[0] === "search" ? 1 : 2;
+      var projected = list(join(parts.slice(0, baseLength)), extra) || [];
+      var projectedHit = projected.filter(function (entry) {
+        return entry.objectId === parts[parts.length - 1] || entry.name === parts[parts.length - 1] ||
+          (entry.aliases || []).indexOf(parts[parts.length - 1]) !== -1;
+      })[0];
+      return projectedHit ? projectedHit.post : null;
+    }
     if (parts[0] === "views" && parts.length >= 3) {
       var viewEntries = list(join(parts.slice(0, 2)), extra) || [];
       var viewHit = viewEntries.filter(function (entry) {
