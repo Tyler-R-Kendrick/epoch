@@ -149,7 +149,11 @@ Then("the landing presents the creator story with CanvasUI motion", async functi
 });
 
 When("I enter the community board", async function () {
-  await requirePage().locator("#nb-enter-board").click();
+  const page = requirePage();
+  await page.locator("#nb-enter-board").click();
+  await page.waitForFunction(() => typeof (window as unknown as {
+    NB_APP?: { navigate?: unknown };
+  }).NB_APP?.navigate === "function");
 });
 
 Then("the tmux-style Nightboard is ready for keyboard collaboration", async function () {
@@ -266,9 +270,6 @@ Then("Nightboard keeps the same cache route until policy or failure invalidates 
 
 When("I open the default Bo agent", async function () {
   const page = requirePage();
-  await page.waitForFunction(() => typeof (window as unknown as {
-    NB_APP?: { navigate?: unknown };
-  }).NB_APP?.navigate === "function");
   await page.evaluate(() => (window as unknown as {
     NB_APP: { navigate(path: string): void };
   }).NB_APP.navigate("/.agents/bo"));
