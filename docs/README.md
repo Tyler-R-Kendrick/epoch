@@ -85,6 +85,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0019: Epoch Live Browser State And Propagation](design-decisions/0019-epoch-live-browser-state-and-propagation.md) | Designs `@epoch/live` as a browser client competing with Redux and Yjs for rollback and data propagation, advancing ADR-0003 Options 2 and 6. |
 | [ADR-0026: Community Visual World Course Line](design-decisions/0026-community-visual-world-course-line.md) | Superseded by ADR-0027 — light civic-workshop / ISOM world, archived. |
 | [ADR-0027: Community Visual World Nightboard](design-decisions/0027-community-visual-world-nightboard.md) | Makes Nightboard (Grid) the canonical Community Web runtime and deployment. |
+| [ADR-0028: Recoverable Nightboard Startup, Sticky Routing, And Deterministic HoBo Authoring](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md) | Defines the Ctrl+U restart inbox, workspace route affinity, and Bo's checked HoBo app loop. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
@@ -93,6 +94,7 @@ decisions, operations, or contribution workflow.
 |---|---|
 | [Contributing](../CONTRIBUTING.md) | Coding workflow, testing expectations, and pull request checklist. |
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
+| [Nightboard Startup And HoBo Workbench Plan](plans/nightboard-startup-hobo/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, deterministic HoBo authoring, next-action guidance, and focus expansion. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
 | [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |

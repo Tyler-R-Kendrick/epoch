@@ -1,0 +1,19 @@
+{
+  "status": "accepted",
+  "reviewer": "codex-visual-playback",
+  "authoredBy": "20260811-ux-nightboard-post-actions",
+  "relevance": "relevant",
+  "completeness": "complete",
+  "coverageMode": "full-journey",
+  "coveredClaims": [
+    "claim-1",
+    "claim-2",
+    "claim-3",
+    "claim-4",
+    "claim-5"
+  ],
+  "defects": [],
+  "artifactSha256": "e28ac65348443cdb70dec8587f75350ccab8dba0eb59b8aac19af8f42b9de044",
+  "reviewedAt": "2026-08-11T15:52:56.884Z",
+  "notes": "Playback shows focused action row, reaction picker, folded and reposted state, share and copy sequence, and reply handoff without losing context."
+}

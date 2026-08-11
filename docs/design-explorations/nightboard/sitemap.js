@@ -137,6 +137,27 @@
     return replies.map(function (p, i) { return postEntry(p, i, "reply"); });
   }
 
+  function messageSummary(post) {
+    return String((post && (post.subject || post.body)) || "message")
+      .replace(/\s+/g, " ").trim().slice(0, 96);
+  }
+
+  /** Filesystem-only message children; nav deliberately keeps channels as leaves. */
+  function messageEntries(pool, parentId) {
+    return (pool || []).filter(function (post) {
+      return parentId ? post.re === parentId : !post.re;
+    }).map(function (post) {
+      return {
+        name: post.id,
+        label: post.id,
+        kind: "message",
+        post: post,
+        meta: post.state,
+        hint: messageSummary(post),
+      };
+    });
+  }
+
   /**
    * Walk …/channels/<ch>/<post>/… name segments against listing names.
    * Returns { post, listing } for the deepest segment, or null.
@@ -146,12 +167,32 @@
     var listing = (pool || []).map(function (p, i) { return postEntry(p, i); });
     var current = null;
     for (var i = 0; i < nameSegs.length; i++) {
-      var hit = listing.filter(function (e) { return e.name === nameSegs[i]; })[0];
+      var hit = listing.filter(function (e) {
+        return e.name === nameSegs[i] || (e.post && e.post.id === nameSegs[i]);
+      })[0];
       if (!hit || !hit.post) return null;
       current = hit.post;
       listing = replyEntries(current.id, pool);
     }
     return { post: current, listing: listing };
+  }
+
+  /** Canonical hidden directory path for a message id, including reply parents. */
+  function messagePath(path, postId, extra) {
+    var feedPath = channelFeedPath(path);
+    var pool = feedEntriesAt(feedPath, extra).map(function (e) { return e.post; }).filter(Boolean);
+    var byId = {};
+    pool.forEach(function (post) { byId[post.id] = post; });
+    var current = byId[postId];
+    if (!current) return null;
+    var chain = [];
+    var seen = {};
+    while (current && !seen[current.id]) {
+      seen[current.id] = true;
+      chain.unshift(current.id);
+      current = current.re ? byId[current.re] : null;
+    }
+    return feedPath.replace(/\/$/, "") + "/" + chain.join("/");
   }
 
   function findChannelByLabel(label) {
@@ -944,7 +985,8 @@
           });
         });
       }
-      // Channel is a terminal nav node — posts live in the detail pane.
+      // Channel is a terminal nav node; filesystem callers can still list its
+      // hidden root-message directories for cd/ls completion.
       if (parts.length === 4 && parts[2] === "channels") {
         var chanLabel = parts[3];
         var knownSpaceChan = (spaceNode.channels || []).some(function (label) {
@@ -953,11 +995,16 @@
           return c.label === chanLabel || c.id === chanLabel;
         });
         if (!knownSpaceChan) return null;
-        return [];
+        var spacePosts = feedEntriesAt(join(parts.slice(0, 4)), extra)
+          .map(function (e) { return e.post; }).filter(Boolean);
+        return messageEntries(spacePosts, null);
       }
-      // Deep post URLs are not nav listings (canonicalize via postAt / navigate).
+      // Deep message directories expose direct replies to filesystem callers.
       if (parts.length >= 5 && parts[2] === "channels") {
-        return null;
+        var spacePool = feedEntriesAt(join(parts.slice(0, 4)), extra)
+          .map(function (e) { return e.post; }).filter(Boolean);
+        var spaceWalk = walkPostSegments(spacePool, parts.slice(4));
+        return spaceWalk ? messageEntries(spacePool, spaceWalk.post.id) : null;
       }
       if (parts.length === 3 && parts[2] === "projects") {
         return (spaceNode.projects || []).map(function (pslug) {
@@ -1070,7 +1117,11 @@
           };
         });
       }
-      // /dms/<peer>/<message> is a file leaf — not listable
+      if (parts.length === 3) {
+        var dmPool = messagesInDm(parts[1], extra);
+        var dmWalk = walkPostSegments(dmPool, parts.slice(2));
+        return dmWalk ? messageEntries(dmPool, dmWalk.post.id) : null;
+      }
       return null;
     }
 
@@ -1153,23 +1204,28 @@
         });
       }
 
-      // /projects/<id>/channels/<channel> → terminal leaf (not a nav parent).
-      // list() stays non-null for existence checks; isDir/navParentPath keep
-      // the navbar on …/channels so siblings remain visible.
+      // /projects/<id>/channels/<channel> remains terminal in nav, while
+      // filesystem callers can list hidden root-message directories.
       if (parts.length === 4 && parts[2] === "channels") {
         var chanName = parts[3];
+        var channelPosts;
         if (proj.community) {
           var ch = findChannelByLabel(chanName);
           if (!ch) return null;
-          return [];
+          channelPosts = postsIn(ch.id, extra);
+        } else {
+          if (projectChannelNames(proj).indexOf(chanName) === -1) return null;
+          channelPosts = projectPosts(proj.id, chanName);
         }
-        if (projectChannelNames(proj).indexOf(chanName) === -1) return null;
-        return [];
+        return messageEntries(channelPosts, null);
       }
 
-      // Deep post URLs are not nav listings — resolve via postAt / navigate.
+      // Deep message directories expose direct replies to filesystem callers.
       if (parts.length >= 5 && parts[2] === "channels") {
-        return null;
+        var projectPool = feedEntriesAt(join(parts.slice(0, 4)), extra)
+          .map(function (e) { return e.post; }).filter(Boolean);
+        var projectWalk = walkPostSegments(projectPool, parts.slice(4));
+        return projectWalk ? messageEntries(projectPool, projectWalk.post.id) : null;
       }
       return null;
     }
@@ -1204,10 +1260,10 @@
    */
   function isTerminalNavPath(path) {
     var parts = split(canonicalize(path));
-    if (parts[0] === "projects" && parts[2] === "channels" && parts.length === 4) {
+    if (parts[0] === "projects" && parts[2] === "channels" && parts.length >= 4) {
       return true;
     }
-    if (parts[0] === "spaces" && parts[2] === "channels" && parts.length === 4) {
+    if (parts[0] === "spaces" && parts[2] === "channels" && parts.length >= 4) {
       return true;
     }
     return false;
@@ -1218,11 +1274,12 @@
     var canon = canonicalize(path);
     if (!isTerminalNavPath(canon)) return canon;
     var parts = split(canon);
-    return join(parts.slice(0, -1)) || "/";
+    return join(parts.slice(0, 3)) || "/";
   }
 
   /** Does this path address a directory we can enter as a nav parent? */
   function isDir(path, extra) {
+    if (postAt(path, extra)) return true;
     if (isTerminalNavPath(path)) return false;
     return list(path, extra) !== null;
   }
@@ -1242,7 +1299,10 @@
     if (parts[0] === "dms" && parts.length === 3) {
       var dmEntries = list(join(parts.slice(0, -1)), extra);
       if (!dmEntries) return null;
-      var dmHit = dmEntries.filter(function (e) { return e.name === parts[parts.length - 1]; })[0];
+      var dmHit = dmEntries.filter(function (e) {
+        return e.name === parts[parts.length - 1] ||
+          (e.post && e.post.id === parts[parts.length - 1]);
+      })[0];
       return dmHit ? dmHit.post : null;
     }
     // /spaces/<id>/channels/<ch>/<post>/…
@@ -1257,7 +1317,8 @@
     if (parts[0] === "spaces" && parts[2] === "feed" && parts.length >= 4) {
       var feedEntries = feedEntriesAt(join(parts.slice(0, 3)), extra);
       var feedHit = feedEntries.filter(function (e) {
-        return e.name === parts[parts.length - 1];
+        return e.name === parts[parts.length - 1] ||
+          (e.post && e.post.id === parts[parts.length - 1]);
       })[0];
       return feedHit ? feedHit.post : null;
     }
@@ -1323,6 +1384,7 @@
     isTerminalNavPath: isTerminalNavPath,
     navParentPath: navParentPath,
     feedEntriesAt: feedEntriesAt,
+    messagePath: messagePath,
     isPostReplyPath: isPostReplyPath,
     replyNavParent: replyNavParent,
     findProject: findProject, membersForProject: membersForProject,

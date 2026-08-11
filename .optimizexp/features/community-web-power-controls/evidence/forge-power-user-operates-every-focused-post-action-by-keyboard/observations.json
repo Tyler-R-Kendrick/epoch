@@ -1,0 +1,61 @@
+{
+  "title": "Epoch",
+  "path": "/projects/community/channels/general",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "horizontalOverflow": false,
+  "focused": "Command and compose input",
+  "actions": [
+    {
+      "label": "Upvote",
+      "key": "u",
+      "pressed": "false"
+    },
+    {
+      "label": "Downvote",
+      "key": "d",
+      "pressed": "true"
+    },
+    {
+      "label": "Expand replies",
+      "key": "f",
+      "pressed": null
+    },
+    {
+      "label": "reply",
+      "key": "r",
+      "pressed": null
+    },
+    {
+      "label": "reposted",
+      "key": "Shift+R",
+      "pressed": "true"
+    },
+    {
+      "label": "share",
+      "key": "s",
+      "pressed": null
+    },
+    {
+      "label": "copy",
+      "key": "y",
+      "pressed": null
+    },
+    {
+      "label": "Add reaction",
+      "key": "a",
+      "pressed": null
+    }
+  ],
+  "reposted": true,
+  "reply": {
+    "kind": "reply",
+    "postId": "p1",
+    "who": "lea",
+    "channel": "general",
+    "project": null,
+    "path": "/projects/community/channels/general"
+  }
+}

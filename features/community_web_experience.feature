@@ -19,6 +19,30 @@ Feature: Community Web community-first experience
     And I move to the next Nightboard message and open its thread by keyboard
     Then the selected Nightboard message remains the single focused feed item
 
+  @persona.slack_power_user
+  Scenario: Power user operates every Nightboard post action without a pointer
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I operate every focused Nightboard post action by keyboard
+    Then repost and share are visible and every post action has keyboard parity
+
+  @persona.slack_power_user
+  Scenario: Power user previews and enters message directories from the prompt
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I browse Nightboard message directories with cd completion
+    Then message choices explain their content and cd typeahead can drill cancel or commit
+
+  @persona.slack_power_user
+  Scenario: Power user navigates a Nightboard context menu without losing focus
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open the general channel context menu and move down and up by keyboard
+    Then the Nightboard context menu retains focus without moving the nav selection
+
   @persona.maintainer
   Scenario: Maintainer defines one action for prompt agent and voice control
     Given Epoch Community is available
@@ -28,6 +52,34 @@ Feature: Community Web community-first experience
     Then the review macro persists as the "user_review" agent skill
     And the exact voice phrase runs the same review macro
     But a near voice phrase does not run it
+
+  @persona.platform_operator
+  Scenario: Agent operator consumes compatible startup conditions with one restart
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board with a resumable session update and workspace defaults
+    Then the bottom line recommends one Ctrl+U restart action
+    When I restart Nightboard with Ctrl+U
+    Then the session is continued on the updated workspace defaults
+
+  @persona.platform_operator
+  Scenario: Agent operator keeps model routing sticky within a workspace
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I send repeated agent turns in one workspace
+    Then Nightboard keeps the same cache route until policy or failure invalidates it
+
+  @persona.github_open_source_contributor
+  Scenario: App builder uses deterministic HoBo authoring and focused-panel controls
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open the default Bo agent
+    Then Bo offers deterministic HoBo new build test debug and up actions
+    And complex unsupported logic is emitted as a trainable stub
+    When I expand and restore the focused panel by keyboard
+    Then focus and selection remain in the same panel context
 
   @persona.github_open_source_contributor
   Scenario: Contributor opens a community and sees community-owned channels first

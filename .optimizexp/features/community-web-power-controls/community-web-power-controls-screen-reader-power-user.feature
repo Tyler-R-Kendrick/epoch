@@ -17,3 +17,9 @@ Feature: Keyboard-operable Nightboard messages for a screen-reader power user
     When I press ArrowDown
     Then focus remains on the last message without scrolling the page unexpectedly
     And pressing ArrowUp moves to the previous message
+
+  Scenario: Screen-reader power user discovers every post action shortcut
+    Given I focus a post in a Nightboard text channel
+    When I inspect its action controls and focused-component shortcut sheet
+    Then vote, react, fold, reply, repost, share, and copy have accessible names
+    And each action exposes the same keyboard shortcut shown in the shortcut sheet

@@ -82,6 +82,11 @@ count instead of interrupting.
 |---|---|
 | `R` | Load queued posts for the open feed |
 | `J` / `K` or arrows | Move through the focused message list (roots and replies) |
+| `→` / `←` on a message | Drill into its message-ID directory path / return to its parent context |
+| `u` / `d` on a message | Upvote / downvote |
+| `a` / `f` on a message | Open reactions / fold its reply chain |
+| `r` / `Shift+R` on a message | Reply / repost |
+| `s` / `y` on a message | Share its `nightboard:` link / copy the optimized thread |
 | `Home` / `End` | First / last visible message |
 | `1`–`9` | Open a post by its number |
 | `Esc` | Home feed (or leave columns for the prompt) |
@@ -94,9 +99,10 @@ count instead of interrupting.
 | `Enter` (in channel) | Publish a new post |
 | `Enter` (after reply) | Publish a reply under that post |
 | `Enter` (in nav) | AI/tools act in the current path scope |
-| `Alt+Z` / `z` | Collapse / expand nav panes (detail fills width) |
+| `Alt+Z` / `z` | Expand / restore the **focused panel** without changing its selection |
+| `Ctrl+U` | Apply compatible update, workspace-default, and agent-session continuation signals in one restart; remains editor page-up when none are pending |
 | `Ctrl+Space` | Intellisense + hotkey cheatsheet for the **focused component** (also always on the status bar as `[Ctrl+Space] keys`). **First visit** opens this sheet automatically so keyboard navigation is the obvious default — Esc dismisses and remembers. |
-| Right-click | Themed context menu: **Prompt…**, **Copy** (optimized paste format for chats/posts/messages), + learned actions |
+| Right-click | Themed context menu: **Prompt…**, **Copy** (optimized paste format for chats/posts/messages), + learned actions; ↑/↓ moves, Home/End jumps, Enter runs, Esc closes and restores focus |
 | `y` | Yank / copy the focused post, channel feed, or session chat (same optimized format) |
 | Hold `` ` `` | Push-to-talk speech (when on-device STT model is ready); channel-voice transmit when joined in PTT mode |
 | `Alt+V` | Toggle continuous listening (when on-device STT is ready) |
@@ -104,15 +110,17 @@ count instead of interrupting.
 | `Ctrl+Shift+M` | Mute / unmute while in a voice channel |
 | `/voice` | Join / leave / mute / deafen / PTT·VAD for channel voice |
 | `macro` / `skill` | Define, list, run, voice-bind, or delete a safe reusable action |
+| `hobo` | Deterministic `new`, `build`, `test`, `debug`, `up --plan`, and trainable `stub` workbench used by Bo |
 
 Everything is clickable too: channels, members, projects, posts, and the signed
 actions on each post. **Right-click** any control for a Grid-themed menu:
 **Prompt…** binds that control’s id/name as chips above the agent input; **Copy**
 pastes an optimized plain-text snapshot (thread, channel feed, DM, or session
 chat) for agents and docs; below that, up to three actions the Epoch agent
-pre-generates from how you use the board. Posts also expose a **copy** action;
-session blades expose **copy** for the full chat. Press **`y`** to yank the
-focused content.
+pre-generates from how you use the board. Every post exposes adjacent **reply**,
+**repost**, **share**, and **copy** actions plus vote, reaction, and fold controls;
+their hotkeys are declared to assistive technology and repeated in the focused
+component sheet. Session blades expose **copy** for the full chat.
 
 ### User-defined actions
 
@@ -345,16 +353,16 @@ never cloned into a stack of path-segment columns.
 | `:` | command line |
 | `/` | start filtering the **nav** list (nav must own focus) |
 | `v` | cycle sort — hot, new, top (and any views you pin with `[+]`) |
-| `z` / `Alt+Z` | collapse / expand **nav** (detail fills the row) |
+| `z` / `Alt+Z` | expand / restore the **focused panel** |
 
-#### Collapsible nav
+#### Focused-panel expansion
 
-When **detail** has content, the single nav blade can **collapse to a thin rail**:
+Every nav, detail, session, and editor blade exposes the same TUICR-style focus control:
 
-- **—** on the nav header, or **▭** on detail, collapses nav
-- Collapsed rail keeps the current folder title; click expands
-- Opening a file/post does **not** auto-collapse — nav stays open so you can keep navigating
-- `z` / `Alt+Z` toggles (session-only — never traps you after reload)
+- **▭** or `z` / `Alt+Z` expands the blade that actually owns focus
+- **▣** or the same hotkey restores the prior blade layout
+- cursor, message mark, editor buffer, and scroll context stay attached to that blade
+- expansion is session-only, so reload cannot strand a hidden panel
 
 Pointer and touch are peers, not fallbacks: every entry, breadcrumb segment and
 sort chip is a real button, blades swipe with scroll-snap on a phone, and every
@@ -364,6 +372,27 @@ control clears the 32px floor wherever the pointer is coarse.
 
 One box, two readings. **AI is the default**; `Alt+A` or the chip at the prompt
 switches.
+
+### Startup, routing, and Bo
+
+The status footer is the **bottom line**: it always ends with one recommended
+next action and its hotkey. A host adapter can publish validated local signals
+for a resumable Claude/Codex/Grok session, an available Nightboard update, or
+unapplied workspace defaults. The footer combines compatible signals behind
+`Ctrl+U`; one restart applies update → defaults → continuation. Static browser
+code does not scan arbitrary host files, and malformed signals are ignored.
+
+`NB_ROUTE` selects once per workspace and policy version, then keeps that model
+route until an explicit recoverable failure or policy-version change. This is a
+Switchyard-compatible policy seam with native provider `format` preserved for
+prompt caching; no remote route runs without a host adapter and user-scoped
+authorization. See [ADR-0028](../../design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md).
+
+`/.agents/bo` is the default HoBo app builder. Bo retrieves the generated HoBo
+agent-doc contract and calls `hobo_workbench`; it never invents lifecycle verbs
+or templates. The checked loop is `new --template` → `build` → `test` → `debug`
+→ `up --plan`. Logic outside the selected model's declared capability becomes a
+signature-preserving `"use training"` stub with a request for contract examples.
 
 **Slash commands** — in ai (chat) mode, type `/` for intellisense. The catalogue
 is **static**: `/go`, `/search`, `/sort`, `/mode`, `/dm`, `/help`, `/attach`,
@@ -450,10 +479,41 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
 - **`cd` resolves like completion does.** `cd bugs` and `cd tuner` work from
   anywhere; execution refusing what completion offered made the completion look
   like a liar.
+- **Messages are hidden directories.** `cd p3` resolves the message ID to its
+  reply chain, and each completion row pairs the ID with its title/body summary.
+- **`cd` browsing is transactional.** Moving through path candidates paints the
+  destination as `[preview]`; `Esc` restores the original context and `Enter`
+  commits the selected path.
 - **Smart markers** mid-input, Discord/Slack style:
   - `@` mentions people and agents on the board (`@maya`, `@scout`)
   - `#` tags trending topics and channel short-names (`#draft-persistence`,
     `#bugs`)
+
+### Adversarial design critique — message directory navigation
+
+Persona: `@persona.slack_power_user`
+Surface: `/board.html` message list, prompt completion, and path breadcrumb
+DESIGN.md north star check: pass — message paths stay inside the existing TTY surface and use stateful teal/gold accents without pills, glass, or gradient text (`DESIGN.md`; `.optimizexp/audits/token-conformance.json`).
+Craft (hierarchy, density, typography, color rarity): pass — ID, summary, selected row, breadcrumb, and preview transaction remain distinct at scan density (`console.js`; `e2e.mjs`).
+Playfulness / wonder (craft delight, not slop): pass — drilling into a message makes the filesystem metaphor tangible, while the preview badge communicates reversible motion (`app.js`; `e2e.mjs`).
+Competitive bar (vs Discord/Slack/X/Bluesky/Tangled where relevant): pass — arrows, IDs, summaries, and transactional preview match power-user command palettes without hiding keyboard state (`features/community_web_experience.feature`; `e2e.mjs`).
+Accessibility / honesty / trust legibility: pass — focused articles are keyboard-addressable; preview, accepted, and cancelled states are explicit; no reviewed-surface defects remain (`docs/evidence/nightboard/axe.json`; `.optimizexp/defects.json`; `e2e.mjs`).
+Unacceptable issues (must fix before merge):
+- None.
+Delight opportunities (should fix this pass if cheap):
+- None.
+
+Persona: `@persona.github_open_source_contributor`
+Surface: `/board.html` message list, prompt completion, and path breadcrumb
+DESIGN.md north star check: pass — the interaction reads as one crafted terminal product, not added web chrome (`DESIGN.md`; `.optimizexp/audits/token-conformance.json`).
+Craft (hierarchy, density, typography, color rarity): pass — summaries disambiguate terse IDs and the breadcrumb makes reply ancestry legible (`console.js`; `e2e.mjs`).
+Playfulness / wonder (craft delight, not slop): pass — reversible path travel gives the signed community thread a memorable, purposeful filesystem character (`app.js`; `e2e.mjs`).
+Competitive bar (vs Discord/Slack/X/Bluesky/Tangled where relevant): pass — message browsing keeps Slack-class keyboard speed while exposing stable linkable context (`features/community_web_experience.feature`; `e2e.mjs`).
+Accessibility / honesty / trust legibility: pass — DOM focus, path state, preview rollback, and commit are asserted in browser automation and the standing ledger is clear (`docs/evidence/nightboard/axe.json`; `.optimizexp/defects.json`; `e2e.mjs`).
+Unacceptable issues (must fix before merge):
+- None.
+Delight opportunities (should fix this pass if cheap):
+- None.
   - Tab accepts (with a trailing space); Enter always submits/sends as typed.
     Markers are extensible in `complete.js` (`MARKER_SPECS`).
 - **Speech-to-text** uses an **on-device** quantized model (Microsoft Edge’s
@@ -503,10 +563,12 @@ Arrow keys take focus to the columns implicitly, so nothing needs remembering.
   - Open a second tab on the same origin to prove peer audio; without mic
     permission join fails soft
 - **Arrows belong to the menu when it is open.** `↑↓` walk the candidates;
-  **Tab** (or click) accepts the highlighted one. **Enter always submits** the
-  typed line — autocomplete never steals it. On an empty prompt (menu closed),
-  `↑↓` walk command history even though a full verb catalogue exists in
-  completion state.
+  `→` drills into the highlighted `cd` directory and `←` returns to the prior
+  typeahead level, keeping the prompt, child candidates, and context preview in
+  sync. **Tab** (or click) accepts the highlighted one. **Enter always submits**
+  the typed line — autocomplete never steals it. On an empty prompt (menu
+  closed), `↑↓` walk command history even though a full verb catalogue exists
+  in completion state.
 - **Tab discipline**, `cd -`, and `..` completes.
 
 ## The GraphQL API
@@ -882,13 +944,11 @@ Polish that had been missing, each piece done the terminal way:
 
 - **Scrollbars take the theme's ink** — thin, square, trackless, on both
   engines. A scrollbar is a position marker, not a component.
-- **Panes resize; nav collapses to rails.** The terminal sash is the pane's own
+- **Panes resize; focus expands in place.** The terminal sash is the pane's own
   control: drag resizes (pointer events — mouse, touch and pen are one path),
-  double-click or Enter collapses and reopens, arrow keys nudge. Nav list blades
-  collapse to thin path **rails** (`z` / `Alt+Z`, or — / ▭ on the header) so
-  detail can claim the width when you choose to read full-width. Rails stay
-  clickable; opening a post does not auto-collapse — nav stays open for further
-  navigation. Collapse is session-only so a reload never traps you.
+  double-click or Enter collapses and reopens, arrow keys nudge. `z` / `Alt+Z`
+  expands the focused nav, detail, session, or editor blade; the same action
+  restores the layout without changing selection. Expansion is session-only.
 - **The whole page is the TUI.** There is no separate dockable terminal window
   and no foot transcript strip. Workspace tabs (`Alt+T` / `+`) are isolated
   virtual worktrees — each has its own path, folds, session log, history, detail

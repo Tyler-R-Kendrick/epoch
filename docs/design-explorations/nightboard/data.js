@@ -19,6 +19,38 @@ window.NB_DATA = {
   agents: {
     board: [
       {
+        id: "bo",
+        name: "Bo",
+        scope: "space",
+        model: "route:workspace-sticky",
+        status: "active",
+        summary: "Builds HoBo apps from checked templates, docs, and gates.",
+        instructions:
+          "You are Bo, the default HoBo app builder.\n" +
+          "Treat the generated docs manifest and llms.txt as the authoring source; retrieve the exact command or contract before acting.\n" +
+          "Use hobo_workbench for new, build, test, debug, and up --plan. Never improvise a parallel template or lifecycle verb.\n" +
+          "For logic beyond the selected model capability, emit a contract-backed use training stub and ask for examples; never guess the implementation.\n" +
+          "Keep the workspace route sticky so the system prompt and docs prefix remain cacheable.",
+        skills: [
+          {
+            id: "hobo-docs-rag", title: "Generated HoBo docs RAG",
+            body: "Retrieve packages/cli/agent-docs/docs.json or llms.txt; cite the matching CLI/MCP contract before acting.",
+          },
+          {
+            id: "hobo-app-loop", title: "Deterministic HoBo app loop",
+            body: "new --template → build/codegen check → test sandbox → debug/dev inspect → up --plan → verify → up.",
+          },
+          {
+            id: "trainable-fallback", title: "Trainable fallback",
+            body: "Unsupported logic becomes a signature-preserving use training stub with contract examples.",
+          },
+        ],
+        tools: [
+          { id: "hobo_workbench", title: "HoBo workbench", body: "new, build, test, debug, up --plan, and stub." },
+          { id: "graph_query", title: "graph_query", body: "Inspect workspace and generated contract context." },
+        ],
+      },
+      {
         id: "space-steward",
         name: "Space Steward",
         scope: "space",
