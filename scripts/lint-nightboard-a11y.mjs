@@ -51,6 +51,18 @@ if (!/role="combobox"/.test(consoleSrc) || !/aria-controls="cn-cli-listbox"/.tes
 if (!/role="listbox"/.test(consoleSrc) || !/role="option"/.test(consoleSrc)) {
   errors.push("console.js: suggestion menu must be listbox/option");
 }
+if (!/opts\.threadOf \? "tree" : "feed"/.test(consoleSrc) ||
+    !/aria-busy/.test(consoleSrc) || !/aria-posinset/.test(consoleSrc) || !/aria-setsize/.test(consoleSrc)) {
+  errors.push("console.js: message projections must expose feed/tree position and busy semantics");
+}
+if (!/cn-thread-tree/.test(consoleSrc) || !/role="group"/.test(consoleSrc) ||
+    !/aria-level/.test(consoleSrc) || !/aria-selected/.test(consoleSrc) ||
+    !/cn-thread-reading/.test(consoleSrc)) {
+  errors.push("console.js: thread detail must expose a tree outline and synchronized reading pane");
+}
+if (/cn-cand[^\n]+aria-current/.test(consoleSrc)) {
+  errors.push("console.js: combobox options must use selection, not aria-current");
+}
 
 const indexHtml = readFileSync(join(ROOT, "index.html"), "utf8");
 if (!/class="nb-skip"/.test(indexHtml)) {

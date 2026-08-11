@@ -392,12 +392,70 @@
     }
     var keyboardId = markId || null;
 
+    function objectIdOf(p) {
+      return p && p.ref && p.ref.objectId ? p.ref.objectId : (p && (p.objectId || p.id));
+    }
+
+    function parentIdOf(p) {
+      return p && p.inReplyTo && p.inReplyTo.objectId ? p.inReplyTo.objectId : (p && p.re);
+    }
+
     function subtreeCount(p) {
       return (kids[p.id] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
     }
     posts.forEach(function (p) { p._below = subtreeCount(p); });
 
-    function nodeHtml(p, depth, ancestors) {
+    var visiblePosts = [];
+    function collectVisible(p) {
+      visiblePosts.push(p);
+      if (folded[p.id]) return;
+      sortPosts(kids[p.id] || [], sort, votes).forEach(collectVisible);
+    }
+    var sortedRoots = sortPosts(roots, sort, votes);
+    sortedRoots.forEach(collectVisible);
+    var feedPosition = 0;
+
+    function postLabel(p, depth, position, setSize) {
+      var tombstone = p.tombstone;
+      var identity = tombstone ? "Unavailable ancestor" : ("Message by " + p.who);
+      var topology = "level " + (depth + 1) + ", " + position + " of " + setSize;
+      var children = (kids[p.id] || []).length;
+      var detail = tombstone
+        ? (", " + (tombstone.reason || "unavailable"))
+        : (": " + String(p.subject || p.body || "").slice(0, 120));
+      return identity + ", " + topology + ", " + children +
+        (children === 1 ? " child" : " children") + detail;
+    }
+
+    function readingHtml(p) {
+      if (!p) return "";
+      var objectId = objectIdOf(p);
+      var tombstone = p.tombstone;
+      return '<div class="cn-thread-reading" role="region" aria-label="Selected message">' +
+        '<article class="cn-reading-article" tabindex="-1" data-object-id="' + esc(objectId) + '"' +
+        (tombstone ? ' data-tombstone="true"' : "") + ' aria-label="' +
+        esc(tombstone ? ("Unavailable message: " + (tombstone.reason || "unavailable")) :
+          ("Message by " + p.who)) + '">' +
+        '<header class="cn-comment-head"><span data-c="actor"><b data-c="handle">' +
+        esc(tombstone ? "unavailable" : p.who) + '</b></span>' +
+        '<span class="cn-head-sep" aria-hidden="true">|</span><span data-c="meta">' +
+        '<time data-c="time">' + esc(p.at || "") + '</time><span class="cn-head-sep" aria-hidden="true">|</span>' +
+        '<span data-c="state">' + esc(tombstone ? tombstone.reason : p.state) + '</span></span></header>' +
+        (p.subject && !tombstone ? '<div class="cn-subject">' + esc(p.subject) + '</div>' : "") +
+        '<div class="cn-comment-body">' + (tombstone
+          ? esc("This ancestor is " + (tombstone.reason || "unavailable") + ". Thread topology is preserved.")
+          : formatBody(p.body)) + '</div>' +
+        (!tombstone ? '<div class="cn-actions">' +
+          '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '" data-reply-who="' +
+          esc(p.who) + '" aria-keyshortcuts="r">reply</button>' +
+          '<button type="button" class="cn-act" data-repost="' + esc(p.id) +
+          '" aria-keyshortcuts="Shift+R">repost</button>' +
+          '<button type="button" class="cn-act" data-share data-share-post="' + esc(p.id) +
+          '" aria-keyshortcuts="s">share</button></div>' : "") +
+        '</article></div>';
+    }
+
+    function nodeHtml(p, depth, ancestors, siblingPosition, siblingSetSize) {
       var replies = sortPosts(kids[p.id] || [], sort, votes);
       var below = p._below || 0;
       var isFolded = !!folded[p.id];
@@ -405,6 +463,12 @@
       var myVote = votes[p.id] || 0;
       var reposted = !!reposts[p.id];
       var member = who(p.who);
+      var objectId = objectIdOf(p);
+      var isThread = !!opts.threadOf;
+      var tombstone = p.tombstone;
+      feedPosition += 1;
+      var position = isThread ? siblingPosition : feedPosition;
+      var setSize = isThread ? siblingSetSize : visiblePosts.length;
 
       // Nest rails: one clickable │ per ancestor depth so you can collapse
       // any level of the chain by hitting its line (terminal tree, not pills).
@@ -424,10 +488,18 @@
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
       var html = '<article class="cn-comment" data-key="' + esc(p.id) + '"' +
-        ' role="article" tabindex="' + (p.id === keyboardId ? "0" : "-1") + '"' +
-        ' aria-current="' + (p.id === keyboardId ? "true" : "false") + '"' +
-        ' aria-label="Message by ' + esc(p.who) + ': ' +
-          esc(String(p.subject || p.body || "").slice(0, 120)) + '"' +
+        ' data-object-id="' + esc(objectId) + '"' +
+        (parentIdOf(p) ? ' data-parent-id="' + esc(parentIdOf(p)) + '"' : "") +
+        (tombstone ? ' data-tombstone="true"' : "") +
+        ' role="' + (isThread ? "treeitem" : "article") + '" tabindex="' +
+        (p.id === keyboardId ? "0" : "-1") + '"' +
+        ' aria-current="' + ((opts.threadOf ? p.id === opts.threadOf : p.id === keyboardId) ? "true" : "false") + '"' +
+        (isThread ? ' aria-selected="' + (p.id === keyboardId ? "true" : "false") + '"' +
+          ' aria-level="' + (depth + 1) + '"' +
+          ' aria-posinset="' + position + '" aria-setsize="' + setSize + '"' +
+          (replies.length ? ' aria-expanded="' + !isFolded + '"' : "") :
+          ' aria-posinset="' + position + '" aria-setsize="' + setSize + '"') +
+        ' aria-label="' + esc(postLabel(p, depth, position, setSize)) + '"' +
         ' data-kind="' + esc(member.kind) + '" data-state-of="' + esc(p.state) + '"' +
         ' data-depth="' + depth + '"' +
         (p.id === keyboardId ? ' data-here="true"' : "") +
@@ -444,20 +516,22 @@
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
         foldCtl +
-        '<span data-c="actor"><b data-c="handle">' + esc(p.who) + "</b>" +
+        '<span data-c="actor"><b data-c="handle">' + esc(tombstone ? "unavailable" : p.who) + "</b>" +
         '<span data-c="role">' + esc(member.role) + "</span></span>" +
         '<span class="cn-head-sep" aria-hidden="true">|</span>' +
         '<span data-c="meta"><time data-c="time">' + esc(p.at) + "</time>" +
         '<span class="cn-head-sep" aria-hidden="true">|</span>' +
-        '<span data-c="state">' + esc(p.state) + "</span></span>" +
+        '<span data-c="state">' + esc(tombstone ? tombstone.reason : p.state) + "</span></span>" +
         "</header>" +
-        (p.subject ? '<div class="cn-subject">' + esc(p.subject) + "</div>" : "") +
-        '<div class="cn-comment-body">' + formatBody(p.body) + "</div>" +
+        (p.subject && !tombstone ? '<div class="cn-subject">' + esc(p.subject) + "</div>" : "") +
+        '<div class="cn-comment-body">' + (tombstone
+          ? esc("Unavailable ancestor: " + (tombstone.reason || "unavailable"))
+          : formatBody(p.body)) + "</div>" +
         (p.anchor ? '<div data-c="anchor" class="cn-anchor">-&gt; ' + esc(p.anchor) + "</div>" : "") +
         '<div data-c="receipt" class="cn-receipt">' +
         '<span class="cn-sigil" aria-hidden="true">' + window.NB_ASCII.sigil(p.sig, 4) + "</span>" +
         '<span class="cn-sig-text">' + esc(p.sig) + "</span></div>" +
-        '<div class="cn-actions">' +
+        (!tombstone ? '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '"' +
         ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
         '<button type="button" class="cn-act" data-repost="' + esc(p.id) + '"' +
@@ -472,19 +546,19 @@
             below + (below === 1 ? " more" : " more") + "</button>"
           : "") +
         "</div>" +
-        renderReactions(p.id, p, reactions, reactPick === p.id) +
+        renderReactions(p.id, p, reactions, reactPick === p.id) : "") +
         "</div></article>";
 
       if (replies.length && !isFolded) {
-        html += '<div class="cn-replies" data-key="re-' + esc(p.id) + '">' +
-          replies.map(function (c) {
-            return nodeHtml(c, depth + 1, ancestors.concat([p]));
+        html += '<div class="cn-replies"' + (isThread ? ' role="group"' : "") +
+          ' data-key="re-' + esc(p.id) + '">' +
+          replies.map(function (c, index) {
+            return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
           }).join("") + "</div>";
       }
       return html;
     }
 
-    var sortedRoots = sortPosts(roots, sort, votes);
     if (!keyboardId && sortedRoots[0]) keyboardId = sortedRoots[0].id;
     var matchNote = "";
     if (queryInfo && feedQuery && !queryInfo.error) {
@@ -497,11 +571,21 @@
       matchNote = '<div class="cn-feed-match cn-feed-err" data-key="feed-match">' +
         "query error: " + esc(queryInfo.error) + "</div>";
     }
-    return matchNote +
-      '<div class="cn-tree" role="feed" aria-label="Channel messages" data-feed-sort="' + esc(sort) + '"' +
+    var tree = '<div class="cn-tree' + (opts.threadOf ? " cn-thread-tree" : "") + '" role="' +
+      (opts.threadOf ? "tree" : "feed") + '" aria-label="' +
+      (opts.threadOf ? "Thread outline" : "Channel messages") + '"' +
+      (!opts.threadOf ? ' aria-busy="' + !!(window.NB_APP && window.NB_APP.state &&
+        window.NB_APP.state.feedBusy) + '"' : "") + ' data-feed-sort="' + esc(sort) + '"' +
       (feedQuery ? ' data-query="true"' : "") + ">" +
-      sortedRoots.map(function (p) { return nodeHtml(p, 0, []); }).join("") +
+      sortedRoots.map(function (p, index) {
+        return nodeHtml(p, 0, [], index + 1, sortedRoots.length);
+      }).join("") +
       "</div>";
+    if (opts.threadOf) {
+      return matchNote + '<div class="cn-thread-layout">' + tree +
+        readingHtml(byId[keyboardId] || byId[opts.threadOf] || sortedRoots[0]) + '</div>';
+    }
+    return matchNote + tree;
   }
 
   /**
@@ -2909,6 +2993,34 @@
     [data-exp="console"] .cn-comment[data-state-of=signed] .cn-comment-head [data-c=state]{color:var(--nb-signed)}
     [data-exp="console"] .cn-comment[data-kind=agent] [data-c=handle]{color:var(--nb-agent)}
 
+    /* Thread is an APG tree outline synchronized with a readable article. */
+    [data-exp="console"] .cn-thread-layout{display:grid;grid-template-columns:minmax(12rem,34%) minmax(0,1fr);
+      min-width:0;min-height:0;align-items:start}
+    [data-exp="console"] .cn-thread-tree{min-width:0;border-inline-end:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-thread-tree .cn-comment{grid-template-columns:auto minmax(0,1fr);
+      min-height:2rem;padding:.2rem .45rem .2rem .15rem}
+    [data-exp="console"] .cn-thread-tree .cn-comment > .cn-vote,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-comment-body,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-receipt,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-actions,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-reactions{display:none}
+    [data-exp="console"] .cn-thread-tree .cn-comment-head{font-size:.85em}
+    [data-exp="console"] .cn-thread-tree .cn-subject{font-size:.85em;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap}
+    [data-exp="console"] .cn-thread-tree [role=treeitem][aria-selected=true]{background:var(--nb-surface);
+      box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-thread-tree [role=treeitem][data-tombstone=true]{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-thread-reading{min-width:0;padding:.55rem .7rem .8rem}
+    [data-exp="console"] .cn-reading-article{display:grid;gap:.35rem;min-width:0;max-width:76ch}
+    [data-exp="console"] .cn-reading-article:focus-visible{outline:2px solid var(--nb-accent);outline-offset:2px}
+    [data-exp="console"] .cn-reading-article[data-tombstone=true]{color:var(--nb-ink-faint)}
+    @media (max-width:52rem){
+      [data-exp="console"] .cn-thread-layout{grid-template-columns:minmax(0,1fr)}
+      [data-exp="console"] .cn-thread-tree{border-inline-end:0;border-block-end:1px solid var(--nb-rule);
+        max-height:42vh;overflow:auto}
+      [data-exp="console"] .cn-thread-reading{padding:.5rem .55rem .75rem}
+    }
+
     /* Nest rails: literal | columns — no rounded bars. */
     [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0}
     [data-exp="console"] .cn-rail{display:flex;align-items:stretch;justify-content:center;
@@ -3644,9 +3756,9 @@
       overflow-wrap:break-word}
     [data-exp="console"] .cn-cand{display:grid;grid-template-columns:minmax(0,14rem) minmax(0,1fr);gap:.8rem;
       padding:.18rem .8rem;cursor:pointer}
-    [data-exp="console"] .cn-cand[aria-current=true]{background:var(--nb-accent);color:var(--nb-accent-ink)}
+    [data-exp="console"] .cn-cand[data-active=true]{background:var(--nb-accent);color:var(--nb-accent-ink)}
     [data-exp="console"] .cn-cand i{font-style:normal;color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-cand[aria-current=true] i{color:inherit;opacity:.8}
+    [data-exp="console"] .cn-cand[data-active=true] i{color:inherit;opacity:.8}
     [data-exp="console"] .cn-prompt{display:flex;align-items:center;gap:.4rem;padding:.35rem .8rem;
       border-block-start:1px solid var(--nb-rule);background:var(--nb-bg)}
     [data-exp="console"] .cn-prompt-stack[data-drop=true] .cn-prompt{
@@ -3835,6 +3947,9 @@
       [data-exp="console"] .cn-activity-filter,[data-exp="console"] .cn-feed-q-btn{min-height:2.25rem;padding-inline:.2rem}
       [data-exp="console"] .cn-crumb{min-height:2.25rem;padding-inline:.45rem}
       [data-exp="console"] .cn-cand{min-height:2.5rem;align-items:center}
+      [data-exp="console"] .cn-thread-tree [role=treeitem],
+      [data-exp="console"] .cn-thread-reading button,
+      [data-exp="console"] .cn-prompt button{min-height:2rem;min-width:2rem}
       [data-exp="console"] .cn-path{gap:.25rem}
       [data-exp="console"] .cn-panel-act,[data-exp="console"] .cn-pane-act{min-width:2.25rem;min-height:2.25rem}
       [data-exp="console"] .cn-panel-tab{min-height:2.25rem}
@@ -4099,10 +4214,11 @@
           (intel ? "Intellisense" : "Suggestions") +
           (menuLabel ? " · " + esc(menuLabel) : "") + "</div>" +
         cand.candidates.slice(0, 40).map(function (c, i) {
+          var activeCandidate = i === state.candIndex && state.candIndex >= 0;
           return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
             (c.kind ? ' data-cand-kind="' + esc(c.kind) + '"' : "") +
-            ' aria-selected="' + (i === (state.candIndex || 0) ? "true" : "false") + '"' +
-            (i === (state.candIndex || 0) ? ' aria-current="true"' : "") + ">" +
+            ' aria-selected="' + (activeCandidate ? "true" : "false") + '"' +
+            (activeCandidate ? ' data-active="true"' : "") + ">" +
             "<span>" + esc(c.label || c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
         }).join(""));
 
@@ -4206,8 +4322,8 @@
         ' role="combobox" aria-autocomplete="list" aria-haspopup="listbox"' +
         ' aria-expanded="' + (menuOpen ? "true" : "false") + '"' +
         ' aria-controls="cn-cli-listbox"' +
-        (menuOpen && cand.candidates.length
-          ? ' aria-activedescendant="cn-cand-' + (state.candIndex || 0) + '"'
+        (menuOpen && cand.candidates.length && state.candIndex >= 0
+          ? ' aria-activedescendant="cn-cand-' + state.candIndex + '"'
           : "") +
         ' aria-label="Command and compose input"></span>' +
         '<button type="button" class="cn-attach" data-attach-pick' +
