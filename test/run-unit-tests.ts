@@ -5,6 +5,7 @@ import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runCommunityOperationsWebTests } from "./unit/community-operations-web.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
 import { runNightboardThemeTests } from "./unit/nightboard-themes.test";
+import { runNightboardNavigationRuntimeTests } from "./unit/nightboard-navigation-runtime.test";
 import { runCommunityWebTextBudgetTests } from "./unit/community-web-text-budget.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
   await runCommunityWebVercelTests();
   await runCommunityWebRenderParityTests();
   await runNightboardThemeTests();
+  await runNightboardNavigationRuntimeTests();
   await runCommunityWebTextBudgetTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();

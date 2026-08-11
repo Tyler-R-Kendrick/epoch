@@ -25,24 +25,7 @@
 
   var MAP = window.NB_MAP;
 
-  var COMMANDS = [
-    { name: "cd", arg: "path", help: "change directory", run: "cd" },
-    { name: "ls", arg: "path", help: "list a directory", run: "ls" },
-    { name: "cat", arg: "path", help: "read one entry in full", run: "cat" },
-    { name: "sort", arg: "sort", help: "hot | new | top — pin more via [+]", run: "sort" },
-    { name: "view", arg: "sort", help: "alias for sort", run: "sort" },
-    { name: "find", arg: "text", help: "search names anywhere", run: "find" },
-    { name: "search", arg: "query", help: "Lucene search across the board", run: "search" },
-    { name: "grep", arg: "text", help: "search post bodies", run: "grep" },
-    { name: "tail", arg: null, help: "load queued posts", run: "tail" },
-    { name: "watch", arg: null, help: "resume the live stream", run: "watch" },
-    { name: "macro", arg: "macro", help: "define and run safe reusable actions", run: "macro" },
-    { name: "skill", arg: "macro", help: "alias for macro; actions become agent tools", run: "macro" },
-    { name: "hobo", arg: "hobo", help: "deterministic HoBo new | build | test | debug | up | stub", run: "hobo" },
-    { name: "stat", arg: null, help: "epoch status", run: "stat" },
-    { name: "help", arg: null, help: "this list", run: "help" },
-    { name: "clear", arg: null, help: "clear the transcript", run: "clear" },
-  ];
+  var COMMANDS = window.NB_ACTIONS.commandRows();
 
   /**
    * Slash commands for agent/chat mode — Discord/Slack-style verbs that run
@@ -57,49 +40,14 @@
    * Context-bound actions (reply, create channel/project, voice, …) live under
    * `/act` only. Hotkey-only verbs (keys cheatsheet) are not listed here.
    */
-  var SLASH_COMMANDS = [
-    { name: "/go", arg: "path", help: "navigate to a path", run: "cd" },
-    { name: "/sort", arg: "sort", help: "hot | new | top — pin more via [+]", run: "sort" },
-    { name: "/view", arg: "query", help: "Lucene feed view / projection", run: "view" },
-    { name: "/q", arg: "query", help: "alias of /view", run: "view" },
-    { name: "/query", arg: "query", help: "alias of /view", run: "view" },
-    { name: "/search", arg: "query", help: "Lucene search across feeds/projects/dms", run: "search" },
-    { name: "/mode", arg: "mode", help: "ai | cli — prompt interpretation mode", run: "mode" },
-    { name: "/act", arg: "act", help: "context action — reply, channel, project, voice, share", run: "act" },
-    { name: "/help", arg: null, help: "list slash commands", run: "slash-help" },
-    { name: "/share", arg: null, help: "copy a nightboard: link for the current path", run: "share" },
-    { name: "/tab", arg: null, help: "new workspace tab", run: "tab" },
-    { name: "/workspace", arg: null, help: "new workspace tab", run: "tab" },
-    { name: "/dm", arg: "handle", help: "open a direct message", run: "dm" },
-    { name: "/msg", arg: "handle", help: "alias of /dm", run: "dm" },
-    { name: "/notifications", arg: "filter", help: "all|mentions|subscribed|hooks|enable|test", run: "notifications" },
-    { name: "/activity", arg: "filter", help: "alias of /notifications", run: "notifications" },
-    { name: "/hooks", arg: "cmd", help: "list|events|add|rm|on|off|test|reset", run: "hooks" },
-    { name: "/attach", arg: "cmd", help: "open|list|clear — files for chat context", run: "attach" },
-    { name: "/file", arg: "cmd", help: "alias of /attach", run: "attach" },
-    { name: "/whoami", arg: null, help: "show profile and space", run: "whoami" },
-    { name: "/space", arg: "space", help: "list spaces, or join one by id", run: "space" },
-    { name: "/login", arg: "handle", help: "sign in to a space", run: "login" },
-    { name: "/signin", arg: "handle", help: "alias of /login", run: "login" },
-    { name: "/claim", arg: "handle", help: "claim anonymous identity in a space", run: "claim" },
-    { name: "/logout", arg: null, help: "sign out → Anonymous", run: "logout" },
-    { name: "/signout", arg: null, help: "alias of /logout", run: "logout" },
-  ];
+  var ALL_SLASH_COMMANDS = window.NB_ACTIONS.slashRows();
+  var SLASH_COMMANDS = ALL_SLASH_COMMANDS.filter(function (item) { return !item.hidden; });
 
   /**
    * Agent / legacy slash verbs — resolve via slashSpec and runSlash, but are
    * excluded from intellisense and /help. Prefer `/mode`, `/act`, and WebMCP.
    */
-  var AGENT_SLASH_COMMANDS = [
-    { name: "/ai", arg: null, help: "switch to ai mode (agent)", run: "ai" },
-    { name: "/cli", arg: null, help: "switch to cli mode (agent)", run: "cli" },
-    { name: "/theme", arg: "theme", help: "switch built-in theme (agent)", run: "theme" },
-    { name: "/reply", arg: "text", help: "arm reply (prefer /act reply)", run: "reply" },
-    { name: "/channel", arg: "new name", help: "create channel (prefer /act channel)", run: "channel" },
-    { name: "/project", arg: "new name", help: "create project (prefer /act project)", run: "project" },
-    { name: "/voice", arg: "cmd", help: "channel voice (prefer /act voice)", run: "voice" },
-    { name: "/keys", arg: null, help: "hotkey cheatsheet (prefer Ctrl+Space)", run: "keys" },
-  ];
+  var AGENT_SLASH_COMMANDS = ALL_SLASH_COMMANDS.filter(function (item) { return item.hidden; });
 
   /**
    * Group commands that share a `run` key (aliases) so help and catalogues
@@ -236,14 +184,7 @@
     return p;
   }
 
-  /**
-   * Every directory in the tree, as absolute paths.
-   *
-   * Used when a fragment matches nothing in the current directory. A power user
-   * typing `cd cgen` from anywhere means /channels/general, and making them
-   * walk there first is the difference between a shell and a toy — this is the
-   * same move zoxide and fzf made.
-   */
+  /** Every navigable destination. Used by z/zi, never by deterministic cd. */
   function globalDirs(extra) {
     var out = [];
     function walk(path, depth) {
@@ -308,6 +249,45 @@
       { value: "top", hint: "highest score", kind: "sort" },
       { value: "best", hint: "score plus engagement", kind: "sort" },
     ], fragment);
+  }
+
+  function jumpCandidates(fragment, ctx) {
+    ctx = ctx || {};
+    var cwd = ctx.cwd || "/";
+    var current = (MAP.list(cwd, ctx.extra) || []).filter(function (entry) {
+      return entry.kind === "dir" || entry.kind === "channel" || entry.kind === "message";
+    }).map(function (entry) {
+      var path = MAP.resolve(cwd, entry.name);
+      return { id: entry.objectId || path, value: path, path: path, label: entry.label || entry.name,
+        hint: entry.hint || entry.meta || "current namespace", kind: entry.kind, group: "CURRENT",
+        objectId: entry.objectId || (entry.post && entry.post.id) || null };
+    });
+    var saved = window.NB_QUERY && window.NB_QUERY.listSavedViews
+      ? window.NB_QUERY.listSavedViews().map(function (view) {
+        var path = "/views/" + (view.id || view.projectionId);
+        return { id: view.id || view.projectionId, value: path, path: path, label: view.label,
+          hint: view.canonical || "saved query", kind: "saved-view", group: "SAVED VIEWS",
+          projectionId: view.projectionId || view.id };
+      }) : [];
+    var global = globalDirs(ctx.extra).map(function (entry) {
+      return { id: entry.objectId || entry.value, value: entry.value, path: entry.value,
+        label: entry.label || entry.value.slice(entry.value.lastIndexOf("/") + 1), hint: entry.hint,
+        kind: entry.kind, group: "GLOBAL", objectId: entry.objectId || null };
+    });
+    var visits = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.navigationVisits) || [];
+    var recentIds = {};
+    visits.forEach(function (visit) { recentIds[visit.id] = true; });
+    var recent = global.filter(function (entry) { return recentIds[entry.id]; }).map(function (entry) {
+      return Object.assign({}, entry, { group: "RECENT" });
+    });
+    var seen = {};
+    return window.NB_NAV.rankJumpCandidates(fragment, current.concat(recent, saved, global), visits)
+      .filter(function (entry) {
+        var key = entry.group + ":" + entry.id;
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      });
   }
 
   function themeCandidates(fragment) {
@@ -815,6 +795,13 @@
             ? qranked[0].value.slice(sfragment.length) : "",
         };
       }
+      if (sspec.arg === "terms") {
+        var sj = jumpCandidates(sfragment, ctx);
+        return {
+          kind: "jump", query: sfragment, candidates: sj, replaceFrom: sfragStart,
+          insert: sj[0] ? sj[0].value : sfragment, ghost: "", preview: "",
+        };
+      }
       // Path arg: complete against the board tree (same engine as `cd`).
       var pathFrag = trailingSpace ? "" : sfragment;
       var pathFragStart = text.length - pathFrag.length;
@@ -922,6 +909,14 @@
       };
     }
 
+    if (spec.arg === "terms") {
+      var jc = jumpCandidates(fragment, ctx);
+      return {
+        kind: "jump", query: fragment, candidates: jc, replaceFrom: fragStart,
+        insert: jc[0] ? jc[0].value : fragment, ghost: "", preview: "",
+      };
+    }
+
     return completePath(cwd, fragment, extra, fragStart);
   }
 
@@ -932,68 +927,12 @@
   function completePath(cwd, fragment, extra, fragStart) {
     var pc = pathCandidates(cwd, fragment, extra);
     var local = rank(pc.items, pc.leaf);
-    var scope = "local";
-
-    // Local and global are merged rather than tried in order. Falling back only
-    // at zero matches meant one weak local hit could hide an obviously better
-    // destination elsewhere in the tree — `cd ch` matching a post name instead
-    // of /channels. Proximity is a nudge, not a veto.
-    if (pc.leaf !== "") {
-      // Score the basename, not the whole path: "/channels" never *starts*
-      // with "ch", so scoring the full string buried the obvious answer under
-      // any local name that happened to contain the letters.
-      var global = globalDirs(extra).map(function (g) {
-        var base = g.label || g.value.slice(g.value.lastIndexOf("/") + 1);
-        var s1 = score(base, pc.leaf);
-        var s2 = score(g.value, pc.leaf);
-        var best = s1 === null ? s2 : s2 === null ? s1 : Math.max(s1, s2);
-        return best === null ? null : {
-          value: g.value, label: g.label, hint: g.hint, kind: g.kind, s: best, absolute: true,
-        };
-      }).filter(Boolean).sort(function (a, b) { return b.s - a.s; });
-      if (global.length) {
-        // Proximity is a tiebreaker, not a veto: enough to prefer what is in
-        // front of you when the match quality is comparable, not enough to hide
-        // a far better destination elsewhere.
-        var boosted = local.map(function (l) { return Object.assign({}, l, { s: l.s + 12 }); });
-        var merged = boosted.concat(global).sort(function (a, b) { return b.s - a.s; });
-        var seen = {};
-        local = merged.filter(function (x) {
-          if (seen[x.value]) return false;
-          seen[x.value] = true;
-          return true;
-        });
-        if (local.length && local[0].absolute) scope = "global";
-      }
-    }
     var rp = local;
-
-    if (scope === "global") {
-      var gFull = rp[0] ? rp[0].value : "";
-      var gGhost = "";
-      var gPreview = "";
-      if (gFull && gFull.toLowerCase().indexOf(String(fragment).toLowerCase()) === 0) {
-        gGhost = gFull.slice(fragment.length);
-      } else if (gFull) {
-        // Absolute path whose basename matches — fish cannot suffix-extend
-        // `pro` into `/projects`, so surface a replace preview instead.
-        var gBase = gFull.slice(gFull.lastIndexOf("/") + 1);
-        if (gBase.toLowerCase().indexOf(String(fragment).toLowerCase()) === 0) {
-          gPreview = gFull;
-        }
-      }
-      return {
-        kind: "path", scope: scope, query: fragment, candidates: rp,
-        replaceFrom: fragStart, insert: rp[0] ? rp[0].value : fragment,
-        ghost: gGhost,
-        preview: gPreview,
-      };
-    }
     var prefix2 = commonPrefix(rp.map(function (r) { return r.value; }));
     var best = rp[0] ? rp[0].value : "";
     return {
       kind: "path",
-      scope: scope,
+      scope: "local",
       query: pc.leaf,
       candidates: rp,
       replaceFrom: fragStart + pc.base.length,
@@ -1112,5 +1051,7 @@
     modeCandidates: modeCandidates,
     actCapabilities: actCapabilities,
     actCandidates: actCandidates,
+    jumpCandidates: jumpCandidates,
+    globalDestinations: globalDirs,
   };
 })();

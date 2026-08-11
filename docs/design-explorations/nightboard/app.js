@@ -106,7 +106,9 @@
     helpCtx: null,
     keysOnboard: false,
     completion: null,
-    candIndex: 0,
+    candIndex: -1,
+    layers: [],
+    navigationVisits: [],
     // Esc closes the suggestion combobox without clearing the draft; typing
     // clears this so the catalogue can reopen for the next fragment.
     menuDismissed: false,
@@ -1554,6 +1556,7 @@
     menu.dataset.open = "true";
     paintProfileMenu();
     positionProfileMenu();
+    pushLayer("profile-menu", "profile menu", "close profile menu", closeProfileMenu, $("[data-profile-btn]"));
   }
 
   function closeProfileMenu() {
@@ -1565,6 +1568,7 @@
     }
     var btn = $("[data-profile-btn]");
     if (btn) btn.setAttribute("aria-expanded", "false");
+    removeLayer("profile-menu");
   }
 
   function toggleProfileMenu() {
@@ -1633,6 +1637,7 @@
       input.value = identity.handle || "";
       setTimeout(function () { try { input.focus({ preventScroll: true }); input.select(); } catch { /* fine */ } }, 0);
     }
+    pushLayer("auth-dialog", "auth dialog", "close sign in", closeAuth, $("[data-profile-btn]"));
   }
 
   function closeAuth() {
@@ -1642,6 +1647,7 @@
     dlg.hidden = true;
     var err = $("[data-auth-err]");
     if (err) { err.hidden = true; err.textContent = ""; }
+    removeLayer("auth-dialog");
   }
 
   function authError(msg) {
@@ -2503,6 +2509,8 @@
     if (pending.length) {
       return "next · Ctrl+U restart — " + pending.map(function (item) { return item.label; }).join(" · ");
     }
+    var topLayer = interactionStack && interactionStack.top();
+    if (topLayer) return "next · Esc " + (topLayer.escapeLabel || ("close " + topLayer.label));
     if (state.busy) return "next · Esc cancel · Ctrl+Space keys";
     if (state.columnFocus) return "next · Enter open · z expand focus · : prompt";
     return "next · Enter run · Tab panels · Ctrl+Space keys";
@@ -2526,6 +2534,7 @@
     if (!menu) return;
     var opts = menu.querySelectorAll('[role="option"], [data-cand]');
     var input = $("[data-cli]");
+    if (input && state.candIndex < 0) input.removeAttribute("aria-activedescendant");
     Array.prototype.forEach.call(opts, function (el) {
       var i = Number(el.getAttribute("data-cand"));
       if (i === state.candIndex) {
@@ -2548,6 +2557,7 @@
   function syncCompletionToIndex() {
     var c = state.completion;
     if (!c || !c.candidates || !c.candidates.length) return;
+    if (state.candIndex < 0) return;
     var n = c.candidates.length;
     var i = ((state.candIndex % n) + n) % n;
     state.candIndex = i;
@@ -2596,6 +2606,61 @@
     var next = bottomLine();
     line.textContent = startupPending().length ? next : (msg ? msg + " · " + next : next);
     paintRestartCue();
+  }
+
+  var interactionStack = null;
+
+  function layers() {
+    if (!interactionStack) {
+      interactionStack = window.NB_NAV.createLayerStack(function () {
+        state.layers = interactionStack ? interactionStack.list().map(function (item) { return item.id; }) : [];
+      });
+    }
+    return interactionStack;
+  }
+
+  function pushLayer(id, label, escapeLabel, cancel, returnFocus) {
+    layers().push({ id: id, label: label, escapeLabel: escapeLabel, cancel: cancel, returnFocus: returnFocus });
+    state.layers = layers().list().map(function (item) { return item.id; });
+  }
+
+  function removeLayer(id) {
+    layers().remove(id);
+    state.layers = layers().list().map(function (item) { return item.id; });
+  }
+
+  function cancelTopLayer() {
+    if (state.speech && state.speech.listening) {
+      endDictation({ skipLeftover: true });
+      removeLayer("listening");
+      status("listening stopped");
+      return true;
+    }
+    if (cdPreview) {
+      cancelCdPreview();
+      removeLayer("completion");
+      status("cd preview cancelled");
+      return true;
+    }
+    var top = layers().top();
+    if (!top) {
+      status("Esc: no action · use cd .. for namespace parent or browser Back for history");
+      return false;
+    }
+    var label = top.escapeLabel || ("close " + (top.label || top.id));
+    layers().cancelTop();
+    state.layers = layers().list().map(function (item) { return item.id; });
+    status(label);
+    return true;
+  }
+
+  function wireInteractionLayers() {
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key !== "Escape") return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      cancelTopLayer();
+    }, true);
   }
 
   /**
@@ -2745,6 +2810,7 @@
     if (state.focus === 2) state.focus = detailBladeIndex();
     if (!opts.noRender) render(true);
     if (!opts.silent) status("session · closed");
+    removeLayer("session-transcript");
     return true;
   }
 
@@ -2802,6 +2868,7 @@
     if (state.editor) state.editor.focused = false;
     if (!opts.noRender) render(true);
     if (!opts.silent) status("thread · " + postId);
+    pushLayer("thread-detail", "thread", "close thread", function () { clearThreadFocus(); }, document.activeElement);
     return true;
   }
 
@@ -2812,6 +2879,7 @@
     state.threadFocus = null;
     if (!opts.noRender) render(true);
     if (!opts.silent) status("channel feed");
+    removeLayer("thread-detail");
     return true;
   }
 
@@ -4332,7 +4400,7 @@
       // Agent chat prefers slash verbs; empty prompt catalogues them.
       slash: !!state.ai || String(cliValue || "").charAt(0) === "/",
     });
-    state.candIndex = 0;
+    state.candIndex = -1;
   }
 
   /** Whether the completion palette should be visible. */
@@ -4356,7 +4424,7 @@
     }
     // CLI: show suggestions as soon as a verb/path/sort/query has matches.
     if (typed.length > 0 && c.candidates.length >= 1 &&
-        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query")) {
+        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
       return true;
     }
     return c.candidates.length > 1 && typed.length > 0;
@@ -4375,7 +4443,7 @@
       return true;
     }
     if (typed.length > 0 && c.candidates.length >= 1 &&
-        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query")) {
+        (c.kind === "command" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
       return true;
     }
     return c.candidates.length > 1 && typed.length > 0;
@@ -4429,7 +4497,7 @@
       state.completion = window.NB_COMPLETE.analyse(state.ai ? "/" : "", {
         cwd: state.path, extra: state.merged, slash: !!state.ai,
       });
-      state.candIndex = 0;
+      state.candIndex = -1;
     }
     state.intelOpen = true;
     state.helpOpen = true;
@@ -4440,6 +4508,7 @@
       ? state.helpCtx.contextLabel
       : (state.helpCtx && state.helpCtx.path ? state.helpCtx.path : state.path);
     status("keys · " + where + " — Esc closes");
+    pushLayer("help", "help", "close help", function () { closeIntel(); render(true); focusCli(); }, document.activeElement);
   }
 
   function closeIntel() {
@@ -4451,6 +4520,8 @@
     state.helpCtx = null;
     state.keysOnboard = false;
     if (wasOnboard) markKeysOnboarded();
+    removeLayer("help");
+    removeLayer("completion");
     return true;
   }
 
@@ -4511,6 +4582,7 @@
         try { previous.focus({ preventScroll: true }); } catch { /* fine */ }
       });
     }
+    removeLayer("context-menu");
     return true;
   }
 
@@ -4525,6 +4597,9 @@
       target: target,
       actions: actions.slice(0, window.NB_CTX.MAX_ACTIONS || 3),
     };
+    pushLayer("context-menu", "context menu", "close context menu", function () {
+      closeContextMenu(true); render(true);
+    }, ctxReturnFocus);
     return true;
   }
 
@@ -4694,29 +4769,10 @@
     }
   }
 
-  /** Tab: complete the unambiguous part first, then cycle. */
-  function complete(shift) {
-    var c = state.completion;
-    if (!c || !c.candidates.length) return;
-    var input = $("[data-cli]");
-    if (c.insert && c.insert.length > String(c.query || "").length && !shift) {
-      applyCandidate(c.insert, c);
-    } else {
-      var n = c.candidates.length;
-      state.candIndex = ((state.candIndex + (shift ? -1 : 1)) % n + n) % n;
-      applyCandidate(c.candidates[state.candIndex].value, c);
-    }
-    input.value = cliValue;
-    recompute();
-    render(true);
-    var el = $("[data-cli]");
-    if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(cliValue.length, cliValue.length); }
-  }
-
   function acceptGhost() {
     var c = state.completion;
     if (!c) return false;
-    if (c.candidates && c.candidates.length) syncCompletionToIndex();
+    if (state.candIndex >= 0 && c.candidates && c.candidates.length) syncCompletionToIndex();
     c = state.completion;
     // Replace-preview (absolute path from basename) — insert the selected value.
     if (c.preview && c.insert) {
@@ -4744,7 +4800,108 @@
     return true;
   }
 
+  function actionContext(origin) {
+    var focused = state.threadFocus || state.feedMark || null;
+    var current = entries()[state.cursor];
+    return {
+      origin: origin,
+      context: "board",
+      objectId: focused || (current && (current.objectId || (current.post && current.post.id))) || undefined,
+      projectionId: state.projectionId || undefined,
+    };
+  }
+
+  function recordNavigationVisit(candidate) {
+    if (!candidate) return;
+    var id = candidate.id || candidate.objectId || candidate.projectionId || candidate.value;
+    if (!id) return;
+    var visits = (state.navigationVisits || []).filter(function (item) { return item.id !== id; });
+    var prior = (state.navigationVisits || []).find(function (item) { return item.id === id; });
+    visits.unshift({ id: id, count: (prior && prior.count || 0) + 1, visitedAt: Date.now() });
+    state.navigationVisits = visits.slice(0, 40);
+  }
+
+  function openJumpChooser(terms) {
+    cliValue = "zi " + String(terms || "").trim();
+    state.cliOpen = true;
+    state.intelOpen = false;
+    state.helpOpen = false;
+    state.menuDismissed = false;
+    recompute();
+    state.candIndex = -1;
+    render(true);
+    focusCli();
+    status("jump chooser · ↑/↓ select · Enter accept · Esc close");
+    return true;
+  }
+
+  function jumpBest(terms) {
+    var candidates = window.NB_COMPLETE.jumpCandidates(terms, { cwd: state.path, extra: state.merged });
+    if (!candidates.length) {
+      status("z: no destination for " + terms);
+      return false;
+    }
+    var first = candidates[0];
+    var second = candidates[1];
+    var unique = first.matchReason === "exact" || !second || first.score - second.score >= 15;
+    if (!unique) return openJumpChooser(terms);
+    if (!navigate(first.value, { keepCli: true })) {
+      status("z: destination unavailable: " + first.value);
+      return false;
+    }
+    recordNavigationVisit(first);
+    status("z · " + first.value + " · " + first.matchReason);
+    return true;
+  }
+
+  function threadAction(actionId) {
+    if (!window.NB_CORE || !window.NB_CORE.createMessageGraph) return false;
+    var messages = (D.posts || []).concat(state.merged || []);
+    var graph = window.NB_CORE.createMessageGraph(messages);
+    var current = state.threadFocus || state.feedMark;
+    if (!current) return false;
+    var method = {
+      "thread.parent": "parentOf",
+      "thread.root": "rootOf",
+      "thread.firstChild": "firstChildOf",
+      "thread.nextSibling": "nextSiblingOf",
+      "thread.previousSibling": "previousSiblingOf",
+      "thread.nextUnread": "nextUnreadOf",
+    }[actionId];
+    if (!method || typeof graph[method] !== "function") return false;
+    var target = graph[method](current);
+    var id = target && (target.objectId || (target.ref && target.ref.objectId) || target.id || target);
+    if (!id) return false;
+    return openThread(id);
+  }
+
+  function executeAction(actionId, input, context) {
+    input = input || {};
+    context = context || {};
+    if (input.line) {
+      var nested = Object.assign({}, input.options || {}, { actionDispatch: true });
+      return context.origin === "slash" ? runSlash(input.line, nested) : run(input.line, nested);
+    }
+    if (actionId === "jump.best") return jumpBest(input.terms || input.arg || "");
+    if (actionId === "jump.interactive") {
+      return input.interactive === false ? jumpBest(input.terms || "") : openJumpChooser(input.terms || "");
+    }
+    if (actionId === "history.back") return window.history.back();
+    if (actionId === "history.forward") return window.history.forward();
+    if (actionId === "history.previousLocation") return navigate(state.prev || "/", { keepCli: true });
+    if (actionId === "cancel.topLayer") return cancelTopLayer();
+    if (actionId.indexOf("thread.") === 0) return threadAction(actionId);
+    if (actionId === "view.open" && window.NB_QUERY && window.NB_QUERY.openSavedView) {
+      var opened = window.NB_QUERY.openSavedView(input.view || input.projectionId);
+      if (!opened) throw new Error("saved view unavailable");
+      if (opened.path) navigate(opened.path, { keepCli: true });
+      return opened;
+    }
+    throw new Error("action has no runtime: " + actionId);
+  }
+
   function run(line, opts) {
+    opts = opts || {};
     var text = String(line || "").trim();
     // Empty text is still a send when attachments are staged (chat context only).
     if (text === "" && !(state.attachments && state.attachments.length)) {
@@ -4758,6 +4915,17 @@
     var parts = text ? text.split(/\s+/) : [""];
     var cmd = parts[0];
     var arg = parts.slice(1).join(" ");
+    if (!opts.actionDispatch && window.NB_ACTIONS) {
+      var cliAction = window.NB_ACTIONS.resolve("cli", cmd);
+      if (cliAction) {
+        return window.NB_ACTIONS.invoke(cliAction, { line: text, arg: arg, options: opts }, actionContext("cli"))
+          .catch(function (error) {
+            pushLine({ kind: "error", text: error && error.message || String(error) });
+            status("action failed · " + cliAction);
+            return false;
+          });
+      }
+    }
     var reply = null;
     var atts = takeAttachments();
 
@@ -4787,17 +4955,17 @@
     if (cmd === "cd") {
       var dest = arg === "-" ? state.prev : arg;
       if (!navigate(dest || "/", { keepCli: true })) {
-        // Completion already resolves `bugs` to /channels/bugs from anywhere;
-        // execution refusing the same input made the two disagree, which reads
-        // as the completion lying. One resolver, one answer.
         var guess = window.NB_COMPLETE.analyse("cd " + dest, { cwd: state.path, extra: state.merged });
-        var best = guess && guess.candidates && guess.candidates[0];
-        if (best && navigate(best.value, { keepCli: true })) {
-          reply = "cd: " + dest + " → " + state.path;
-        } else {
-          reply = "cd: no such path: " + dest;
-        }
+        var suggestions = guess && guess.candidates || [];
+        reply = "cd: no exact path: " + dest +
+          (suggestions.length ? " · suggestions: " + suggestions.slice(0, 6).map(function (item) { return item.value; }).join(", ") : "");
       }
+    } else if (cmd === "z") {
+      jumpBest(arg);
+      reply = null;
+    } else if (cmd === "zi") {
+      openJumpChooser(arg);
+      reply = null;
     } else if (cmd === "ls") {
       var l = MAP.list(MAP.resolve(state.path, arg || "."), state.merged);
       reply = l
@@ -5369,12 +5537,24 @@
    * Run a slash command from agent chat. Returns true if handled (including
    * errors printed to the transcript); false if the line is not a slash verb.
    */
-  function runSlash(line) {
+  function runSlash(line, opts) {
+    opts = opts || {};
     var text = String(line || "").trim();
     if (!window.NB_COMPLETE.isSlash(text)) return false;
     var parts = text.split(/\s+/);
     var verb = parts[0].toLowerCase();
     var arg = parts.slice(1).join(" ");
+    if (!opts.actionDispatch && window.NB_ACTIONS) {
+      var slashAction = window.NB_ACTIONS.resolve("slash", verb);
+      if (slashAction) {
+        return window.NB_ACTIONS.invoke(slashAction, { line: text, arg: arg, options: opts }, actionContext("slash"))
+          .catch(function (error) {
+            pushLine({ kind: "error", text: error && error.message || String(error) });
+            status("action failed · " + slashAction);
+            return false;
+          });
+      }
+    }
     var spec = window.NB_COMPLETE.slashSpec(verb);
     // /attach manages the tray itself — do not consume staged files.
     var attachCmd = spec && spec.run === "attach";
@@ -5414,15 +5594,15 @@
       var dest = arg === "-" ? state.prev : (arg || "/");
       if (!navigate(dest, { keepCli: true })) {
         var guess = window.NB_COMPLETE.analyse("cd " + dest, { cwd: state.path, extra: state.merged });
-        var best = guess && guess.candidates && guess.candidates[0];
-        if (best && navigate(best.value, { keepCli: true })) {
-          reply = "/go: " + dest + " → " + state.path;
-        } else {
-          reply = "/go: no such path: " + dest;
-        }
+        var suggestions = guess && guess.candidates || [];
+        reply = "/go: no exact path: " + dest +
+          (suggestions.length ? " · suggestions: " + suggestions.slice(0, 6).map(function (item) { return item.value; }).join(", ") : "");
       } else {
         reply = "/go: " + state.path;
       }
+    } else if (run === "jump-interactive") {
+      openJumpChooser(arg);
+      reply = null;
     } else if (run === "ls" || run === "cat" || run === "sort" || run === "find" ||
                run === "search" || run === "grep" || run === "tail" || run === "watch" ||
                run === "stat" || run === "clear") {
@@ -6522,14 +6702,21 @@
       // Repaint the menu without stealing focus or resetting the caret.
       var menu = mount.querySelector(".cn-menu");
       var wrap = mount.querySelector(".cn-tui-foot") || mount.querySelector(".cn-prompt-stack");
-      state.candIndex = 0;
+      state.candIndex = -1;
       var open = menuShouldOpen();
+      if (open && !state.helpOpen) {
+        pushLayer("completion", "suggestions", "close suggestions", function () {
+          state.menuDismissed = true; state.candIndex = -1; render(true); focusCli();
+        }, cli);
+      } else if (!open) {
+        removeLayer("completion");
+      }
       // Typing keeps intellisense in sync when it was opened via Ctrl+Space.
       if (wrap) wrap.dataset.open = String(open);
       // data-morph-keep freezes the input node — sync live ARIA here.
       cli.setAttribute("aria-expanded", open ? "true" : "false");
-      if (open && state.completion && state.completion.candidates.length) {
-        cli.setAttribute("aria-activedescendant", "cn-cand-0");
+      if (open && state.completion && state.completion.candidates.length && state.candIndex >= 0) {
+        cli.setAttribute("aria-activedescendant", "cn-cand-" + state.candIndex);
       } else {
         cli.removeAttribute("aria-activedescendant");
       }
@@ -6547,8 +6734,8 @@
           menu.innerHTML = head + cands.slice(0, 40)
             .map(function (c, i) {
               return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
-                ' aria-selected="' + (i === 0 ? "true" : "false") + '"' +
-                (i === 0 ? ' aria-current="true"' : "") +
+                ' aria-selected="' + (i === state.candIndex ? "true" : "false") + '"' +
+                (i === state.candIndex ? ' aria-current="true"' : "") +
                 '><span>' + (c.label || c.value) + "</span><i>" + (c.hint || "") + "</i></div>";
             }).join("");
         }
@@ -6625,15 +6812,37 @@
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
       if (ev.key === "Tab") {
-        ev.preventDefault();
-        // Suggestions open → Tab completes. Otherwise Tab swaps to panels.
-        if (menuShouldOpen() || menuIsActive()) {
-          return complete(ev.shiftKey);
-        }
-        return swapFocusContext();
+        // Accessible default: Tab always follows native focus order. Completion
+        // is explicit with arrows + Enter, or fish-style Right/End ghost accept.
+        return;
       }
       if (ev.key === "Enter") {
         ev.preventDefault();
+        if (menuShouldOpen() && state.candIndex >= 0 && state.completion &&
+            state.completion.candidates[state.candIndex]) {
+          var selected = state.completion.candidates[state.candIndex];
+          if (state.completion.kind === "jump") {
+            state.menuDismissed = true;
+            state.candIndex = -1;
+            var jumped = navigate(selected.value, { keepCli: true });
+            if (jumped) recordNavigationVisit(selected);
+            cliValue = "";
+            cli.value = "";
+            recompute();
+            render(true);
+            return status(jumped
+              ? "jump · " + selected.value + " · " + (selected.matchReason || "selected")
+              : "jump destination unavailable");
+          }
+          applyCandidate(selected.value, state.completion);
+          cli.value = cliValue;
+          state.menuDismissed = true;
+          state.candIndex = -1;
+          recompute();
+          render(true);
+          focusCli();
+          return status("accepted suggestion · Enter again to run");
+        }
         var previewLine = acceptCdPreviewLine();
         if (previewLine) {
           cliValue = previewLine;
@@ -6759,9 +6968,11 @@
         // prompt still has a full command catalogue in completion state, but
         // that menu is closed — ↑↓ must mean history for power users.
         var menuOpen = menuShouldOpen();
-        if (c && c.candidates.length > 1 && menuOpen) {
+        if (c && c.candidates.length > 0 && menuOpen) {
           var n = c.candidates.length;
-          state.candIndex = ((state.candIndex + (ev.key === "ArrowDown" ? 1 : -1)) % n + n) % n;
+          state.candIndex = state.candIndex < 0
+            ? (ev.key === "ArrowDown" ? 0 : n - 1)
+            : ((state.candIndex + (ev.key === "ArrowDown" ? 1 : -1)) % n + n) % n;
           syncCompletionToIndex();
           highlightCandidate();
           paintGhost();
@@ -7521,6 +7732,7 @@
     }
     paintIdentity();
     paintActivityBell();
+    wireInteractionLayers();
     wireGlobal();
     wireSpeech();
     wireVoice();
@@ -7772,6 +7984,8 @@
   // calls, so a tool cannot drift from the button it mirrors.
   window.NB_APP = {
     render: render, status: status, navigate: navigate, state: state,
+    executeAction: executeAction,
+    cancelTopLayer: cancelTopLayer,
     composeContext: composeContext,
     composeLabel: composeLabel,
     publishCompose: publishCompose,
