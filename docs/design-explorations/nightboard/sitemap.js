@@ -1629,6 +1629,7 @@
   /** The post at a path, if the path names one (detail / deep-link; not nav). */
   function postAt(path, extra) {
     var parts = split(canonicalize(path));
+    if (parts[parts.length - 1] === "body.md") parts = parts.slice(0, -1);
     if ((parts[0] === "search" && parts.length >= 2) ||
         (parts[0] === "notifications" && parts.length >= 3)) {
       var baseLength = parts[0] === "search" ? 1 : 2;

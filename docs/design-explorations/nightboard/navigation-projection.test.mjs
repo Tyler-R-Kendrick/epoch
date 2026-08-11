@@ -63,6 +63,7 @@ assert.deepEqual(
   map.list("/projects/community/channels/general/p1").map((item) => item.name),
   ["body.md", "metadata.json", "replies", "backlinks", "receipts"],
 );
+assert.equal(map.postAt("/projects/community/channels/general/p1/body.md").body, message.body);
 assert.deepEqual(
   map.list("/projects/community/channels/general/p1/replies").map((item) => item.objectId),
   ["p2"],
@@ -168,6 +169,7 @@ assert.equal(graph.rootOf("p3").objectId, "p1");
 assert.equal(graph.firstChildOf("p1").objectId, "p2-sibling");
 assert.equal(graph.nextSiblingOf("p2-sibling").objectId, "p2");
 assert.equal(graph.previousSiblingOf("p2").objectId, "p2-sibling");
+assert.equal(graph.nextUnreadOf("p2-sibling").objectId, "p2");
 
 // NAV-QUERY-004: previous query versions migrate once without reinterpretation.
 const legacyStorage = storage({
