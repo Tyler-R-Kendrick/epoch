@@ -7,10 +7,12 @@ tags: [epoch, plans, sdlc, nightboard, hobo, routing]
 
 # Initiative: Nightboard startup and HoBo workbench
 
-- **Phase:** complete
+- **Phase:** closeout
 - **Slug:** `nightboard-startup-hobo`
 - **Opened:** 2026-08-11
 - **Host:** Codex
+- **Pull request:** [#113](https://github.com/Tyler-R-Kendrick/epoch/pull/113)
+- **Branch:** `agent/nightboard-startup-hobo`
 
 ## Goal
 
@@ -35,3 +37,8 @@ Give power users one recoverable startup/restart action, a cache-friendly model 
 - Failing product Gherkin and Nightboard browser checks preceded implementation.
 - Full verify stages passed: docs, lint, design, typecheck, structure, 152 Cucumber scenarios / 1388 steps, desktop/mobile axe, coverage, Pact, and Nightboard faults; the final Nightboard matrix was rerun independently after its focus synchronization fix and reported `all features hold`.
 - Desktop and 390px browser captures passed adversarial persona review with no overflow or automatic fail.
+
+## Closeout
+
+- Commit `55d5f3d` was based on current `origin/main` and pushed after `gate:fast` passed.
+- PR review, authoritative CI, feedback resolution, and squash merge are in progress.
