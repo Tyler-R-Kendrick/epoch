@@ -92,130 +92,10 @@
   }
 
   function parse(input) {
-    var tokens = tokenize(input);
-    var pos = 0;
-    function peek() { return tokens[pos]; }
-    function take(type) {
-      if (peek().type === type) { var t = tokens[pos]; pos += 1; return t; }
-      return null;
-    }
-    function expect(type) {
-      var t = take(type);
-      if (!t) throw new Error("expected " + type + " near " + (peek().value || "end"));
-      return t;
-    }
-
-    function parseOr() {
-      var left = parseAnd();
-      while (peek().type === "OR") {
-        take("OR");
-        left = { op: "or", left: left, right: parseAnd() };
-      }
-      return left;
-    }
-
-    function parseAnd() {
-      var left = parseNot();
-      while (true) {
-        if (peek().type === "OR" || peek().type === "RPAREN" || peek().type === "EOF") break;
-        if (peek().type === "AND") take("AND");
-        // Juxtaposition = AND, but stop if next would be invalid.
-        if (peek().type === "EOF" || peek().type === "RPAREN") break;
-        // If next is OR-level only, break handled above.
-        left = { op: "and", left: left, right: parseNot() };
-      }
-      return left;
-    }
-
-    function parseNot() {
-      if (peek().type === "NOT") {
-        take("NOT");
-        return { op: "not", node: parseNot() };
-      }
-      return parsePrimary();
-    }
-
-    function parsePrimary() {
-      if (take("LPAREN")) {
-        var inner = parseOr();
-        expect("RPAREN");
-        return inner;
-      }
-      // field:value  or  field:(group)
-      if (peek().type === "WORD") {
-        var word = take("WORD").value;
-        if (take("COLON")) {
-          var field = word.toLowerCase();
-          if (take("LPAREN")) {
-            var group = parseOr();
-            expect("RPAREN");
-            return { op: "field_group", field: field, node: group };
-          }
-          if (peek().type === "PHRASE") {
-            return { op: "field", field: field, value: take("PHRASE").value, phrase: true };
-          }
-          if (peek().type === "WORD") {
-            return { op: "field", field: field, value: take("WORD").value, phrase: false };
-          }
-          // field: with missing value — treat as bare field name presence
-          return { op: "field", field: field, value: "*", phrase: false };
-        }
-        return { op: "term", value: word, phrase: false };
-      }
-      if (peek().type === "PHRASE") {
-        return { op: "term", value: take("PHRASE").value, phrase: true };
-      }
-      throw new Error("unexpected token: " + (peek().value || peek().type));
-    }
-
-    if (peek().type === "EOF") {
-      return { ast: null, sort: null, error: null };
-    }
-    try {
-      var ast = parseOr();
-      if (peek().type !== "EOF") {
-        // leftover
-        throw new Error("unexpected trailing input: " + peek().value);
-      }
-      var extracted = extractSort(ast);
-      return { ast: extracted.ast, sort: extracted.sort, error: null };
-    } catch (e) {
-      return { ast: null, sort: null, error: e.message || String(e) };
-    }
+    return window.NB_CORE.normalizeQuery(String(input || ""));
   }
 
-  /** Pull sort:… clauses out of the AST (they order, not filter). */
-  function extractSort(ast) {
-    if (!ast) return { ast: null, sort: null };
-    if (ast.op === "field" && ast.field === "sort") {
-      var s = String(ast.value || "").toLowerCase();
-      return { ast: null, sort: SORTS.indexOf(s) >= 0 ? s : null };
-    }
-    if (ast.op === "and") {
-      var L = extractSort(ast.left);
-      var R = extractSort(ast.right);
-      var sort = L.sort || R.sort;
-      if (!L.ast) return { ast: R.ast, sort: sort };
-      if (!R.ast) return { ast: L.ast, sort: sort };
-      return { ast: { op: "and", left: L.ast, right: R.ast }, sort: sort };
-    }
-    if (ast.op === "or") {
-      var Lo = extractSort(ast.left);
-      var Ro = extractSort(ast.right);
-      // sort on either side — prefer left then right
-      var sortO = Lo.sort || Ro.sort;
-      if (!Lo.ast && !Ro.ast) return { ast: null, sort: sortO };
-      if (!Lo.ast) return { ast: Ro.ast, sort: sortO };
-      if (!Ro.ast) return { ast: Lo.ast, sort: sortO };
-      return { ast: { op: "or", left: Lo.ast, right: Ro.ast }, sort: sortO };
-    }
-    if (ast.op === "not") {
-      var inner = extractSort(ast.node);
-      if (!inner.ast) return { ast: null, sort: inner.sort };
-      return { ast: { op: "not", node: inner.ast }, sort: inner.sort };
-    }
-    return { ast: ast, sort: null };
-  }
+  function normalize(input) { return parse(input); }
 
   function lower(s) { return String(s == null ? "" : s).toLowerCase(); }
 
@@ -311,8 +191,7 @@
         // Handled by extractSort — never filters.
         return true;
       default:
-        // Unknown field: search as text in that named property if present.
-        return contains(post[field] || "", value, phrase);
+        return false;
     }
   }
 
@@ -912,6 +791,7 @@
 
   window.NB_QUERY = {
     parse: parse,
+    normalize: normalize,
     apply: apply,
     filterEntries: filterEntries,
     presets: presets,
@@ -929,6 +809,7 @@
     SORTS: SORTS,
     DEFAULT_SORTS: DEFAULT_SORTS,
     PRESET_VIEWS: PRESET_VIEWS,
+    VERSION: window.NB_CORE.QUERY_LANGUAGE_VERSION,
     tokenize: tokenize,
   };
 })();

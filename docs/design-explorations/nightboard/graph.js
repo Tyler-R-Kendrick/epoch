@@ -18,6 +18,41 @@
   var MAP = window.NB_MAP;
 
   var SDL = `
+    type ObjectRef {
+      objectId: ID!
+      kind: String!
+      atUri: String
+      revision: String
+      canonicalUrl: String!
+    }
+
+    type Tombstone {
+      formerKind: String!
+      reason: String!
+      deletedAt: String
+      replacement: ObjectRef
+    }
+
+    type Relation {
+      type: String!
+      source: ObjectRef!
+      target: ObjectRef!
+    }
+
+    type ProjectionLocation {
+      projectionId: ID!
+      aliasPath: String!
+      parentObjectId: ID
+    }
+
+    type EntryCapabilities {
+      read: Boolean!
+      enter: Boolean!
+      expand: Boolean!
+      composeUnder: Boolean!
+      execute: Boolean!
+    }
+
     "A person or an agent on the roll."
     type Member {
       handle: String!
@@ -35,6 +70,8 @@
     "One thing that happened: a message, an agent run, a promotion, or a DM."
     type Post {
       id: ID!
+      ref: ObjectRef!
+      context: ObjectRef!
       "Channel id when this is a room post; null for direct messages."
       channel: String
       "DM thread id when this is a direct message; null for channel posts."
@@ -51,6 +88,65 @@
       sig: String!
       "Where this sits in the tree."
       path: String!
+      aliases: [String!]!
+      inReplyTo: Message
+      threadRoot: Message!
+      replies(first: Int = 50, after: String, order: String): MessageConnection!
+      relations(type: String): [Relation!]!
+      tombstone: Tombstone
+      locations: [ProjectionLocation!]!
+    }
+
+    "Canonical message graph object; Post remains a compatibility feed shape."
+    type Message {
+      id: ID!
+      ref: ObjectRef!
+      context: ObjectRef!
+      author: Member
+      at: String!
+      state: String!
+      subject: String
+      body: String!
+      path: String!
+      aliases: [String!]!
+      inReplyTo: Message
+      threadRoot: Message!
+      replies(first: Int = 50, after: String, order: String): MessageConnection!
+      relations(type: String): [Relation!]!
+      tombstone: Tombstone
+      locations: [ProjectionLocation!]!
+    }
+
+    type MessageEdge { cursor: String!, node: Message! }
+    type PageInfo { endCursor: String, hasNextPage: Boolean! }
+    type MessageConnection { edges: [MessageEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
+
+    type ProjectionEntry {
+      ref: ObjectRef!
+      alias: String!
+      aliasPath: String!
+      parentObjectId: ID
+      depth: Int!
+      position: Int!
+      setSize: Int!
+      capabilities: EntryCapabilities!
+    }
+
+    type ProjectionEntryEdge { cursor: String!, node: ProjectionEntry! }
+    type ProjectionEntryConnection {
+      edges: [ProjectionEntryEdge!]!
+      pageInfo: PageInfo!
+      totalCount: Int!
+    }
+
+    type Projection {
+      projectionId: ID!
+      kind: String!
+      label: String!
+      visibility: String!
+      query: String
+      queryLanguageVersion: Int
+      entries(first: Int = 50, after: String): ProjectionEntryConnection!
     }
 
     "A room. Social channels are where people are; work channels are where work is."
@@ -121,6 +217,9 @@
       search(text: String!, limit: Int = 10): [Post!]!
       "Posts in a given state, e.g. needs-review."
       posts(state: String, channel: String, limit: Int = 50): [Post!]!
+      object(objectId: ID!): Message
+      projections: [Projection!]!
+      projection(projectionId: ID!): Projection
       "What a path in the tree contains — the sitemap, queryable."
       listPath(path: String!): [PathEntry!]!
     }
@@ -131,6 +230,8 @@
       kind: String!
       hint: String
       path: String!
+      ref: ObjectRef
+      capabilities: EntryCapabilities!
     }
   `;
 
@@ -150,6 +251,59 @@
     return m ? decorateMember(m) : null;
   }
 
+  function objectRef(post) {
+    return MAP.objectRef(post);
+  }
+
+  function canonicalUrl(ref) {
+    var origin = window.location && window.location.origin || "";
+    return window.NB_CORE.objectUrl(ref, origin ? { origin: origin } : {});
+  }
+
+  function allMessages() {
+    return allPosts().concat(allDmMessages(), D.projectPosts || []);
+  }
+
+  function findMessage(objectId) {
+    var message = MAP.messageGraph(allMessages()).messageOf(objectId);
+    return message ? MAP.postFromMessage(message) : null;
+  }
+
+  function parentMessage(post) {
+    var graph = MAP.messageGraph(allMessages());
+    var parent = graph.parentOf(objectRef(post));
+    return parent ? MAP.postFromMessage(graph.messageOf(parent)) : null;
+  }
+
+  function rootMessage(post) {
+    var graph = MAP.messageGraph(allMessages());
+    return MAP.postFromMessage(graph.messageOf(graph.rootOf(objectRef(post))));
+  }
+
+  function connection(items, args, decorate) {
+    args = args || {};
+    var start = args.after ? Number(args.after) + 1 : 0;
+    var limit = args.first == null ? 50 : Math.max(0, args.first);
+    var page = items.slice(start, start + limit);
+    return {
+      edges: page.map(function (item, index) {
+        return { cursor: String(start + index), node: decorate ? decorate(item) : item };
+      }),
+      pageInfo: { endCursor: page.length ? String(start + page.length - 1) : null,
+        hasNextPage: start + page.length < items.length },
+      totalCount: items.length,
+    };
+  }
+
+  function locationsFor(post) {
+    var ref = objectRef(post);
+    var locations = MAP.projectionLocations(ref.objectId);
+    var primary = MAP.pathForObject(ref.objectId);
+    if (primary) locations.push({ projectionId: "thread-" + objectRef(rootMessage(post)).objectId,
+      aliasPath: primary });
+    return locations;
+  }
+
   function decorateMember(m) {
     return Object.assign({}, m, {
       posts: function () {
@@ -164,9 +318,43 @@
   }
 
   function decoratePost(p) {
+    var ref = objectRef(p);
+    var common = {
+      ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
+      context: function () {
+        var contextId = p.dm ? "dm:" + p.dm : p.project
+          ? "project-channel:" + p.project + ":" + p.channel : "channel:" + p.channel;
+        var context = { objectId: contextId, kind: p.dm ? "dm" : "channel" };
+        return Object.assign(context, { canonicalUrl: canonicalUrl(context) });
+      },
+      aliases: [ref.objectId, (D.legacyPostAliases || {})[p.id]].filter(Boolean),
+      inReplyTo: function () { var parent = parentMessage(p); return parent ? decoratePost(parent) : null; },
+      threadRoot: function () { return decoratePost(rootMessage(p)); },
+      replies: function (args) {
+        var graph = MAP.messageGraph(allMessages());
+        var children = graph.childrenOf(ref).map(function (child) {
+          return MAP.postFromMessage(graph.messageOf(child));
+        });
+        return connection(children, args, decoratePost);
+      },
+      relations: function (args) {
+        var relations = (p.relations || []).slice();
+        var parent = parentMessage(p);
+        if (parent) relations.unshift({ type: "reply", source: ref, target: objectRef(parent) });
+        return relations.filter(function (relation) { return !args.type || relation.type === args.type; })
+          .map(function (relation) {
+            return Object.assign({}, relation, {
+              source: Object.assign({}, relation.source, { canonicalUrl: canonicalUrl(relation.source) }),
+              target: Object.assign({}, relation.target, { canonicalUrl: canonicalUrl(relation.target) }),
+            });
+          });
+      },
+      tombstone: p.tombstone || null,
+      locations: function () { return locationsFor(p); },
+    };
     if (p.dm) {
       var dmIdx = allDmMessages().filter(function (q) { return q.dm === p.dm; }).indexOf(p);
-      return Object.assign({}, p, {
+      return Object.assign({}, p, common, {
         channel: p.channel || null,
         dm: p.dm,
         author: function () { return memberOf(p.who); },
@@ -174,7 +362,7 @@
       });
     }
     var idx = allPosts().filter(function (q) { return q.channel === p.channel; }).indexOf(p);
-    return Object.assign({}, p, {
+    return Object.assign({}, p, common, {
       channel: p.channel || null,
       dm: null,
       author: function () { return memberOf(p.who); },
@@ -230,6 +418,54 @@
         };
       }),
     };
+  }
+
+  function projectionSpecs() {
+    var specs = (D.channels || []).filter(function (channel) {
+      return !channel.voice && channel.kind !== "voice";
+    }).map(function (channel) {
+      var path = MAP.channelPath(channel.label);
+      return Object.assign({}, MAP.projectionForPath(path), { path: path });
+    });
+    if (window.NB_SAVED_VIEWS) {
+      specs = specs.concat(window.NB_SAVED_VIEWS.list({ includePrivate: false }).map(function (view) {
+        var path = "/views/" + view.projectionId;
+        return Object.assign({}, MAP.projectionForPath(path), {
+          path: path,
+          query: view.query,
+          queryLanguageVersion: view.queryLanguageVersion,
+        });
+      }));
+    }
+    return specs;
+  }
+
+  function decorateProjection(spec) {
+    return Object.assign({}, spec, {
+      entries: function (args) {
+        var entries = MAP.list(spec.path) || [];
+        return connection(entries, args, function (entry) {
+          var post = entry.post;
+          var ref = post ? objectRef(post) : entry.ref || {
+            objectId: entry.objectId || spec.projectionId + ":" + entry.name,
+            kind: entry.kind === "message" ? "message" : "artifact",
+          };
+          return {
+            ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
+            alias: entry.alias || entry.name,
+            aliasPath: entry.aliasPath || MAP.resolve(spec.path, entry.name),
+            parentObjectId: entry.parentRef && entry.parentRef.objectId || null,
+            depth: entry.depth == null ? MAP.split(spec.path).length + 1 : entry.depth,
+            position: entry.position || 1,
+            setSize: entry.setSize || entries.length,
+            capabilities: entry.capabilities || {
+              read: true, enter: entry.kind !== "file", expand: false,
+              composeUnder: false, execute: false,
+            },
+          };
+        });
+      },
+    });
   }
 
   var root = {
@@ -293,6 +529,17 @@
         .slice(0, args.limit || 50)
         .map(decoratePost);
     },
+    object: function (args) {
+      var post = findMessage(args.objectId);
+      return post ? decoratePost(post) : null;
+    },
+    projections: function () { return projectionSpecs().map(decorateProjection); },
+    projection: function (args) {
+      var spec = projectionSpecs().filter(function (item) {
+        return item.projectionId === args.projectionId;
+      })[0];
+      return spec ? decorateProjection(spec) : null;
+    },
     listPath: function (args) {
       var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
       var entries = MAP.list(args.path, live);
@@ -301,6 +548,11 @@
         return {
           name: e.name, kind: e.kind, hint: e.hint || e.meta || "",
           path: MAP.resolve(args.path, e.name),
+          ref: e.ref ? Object.assign({}, e.ref, { canonicalUrl: canonicalUrl(e.ref) }) : null,
+          capabilities: e.capabilities || {
+            read: true, enter: e.kind !== "file", expand: false,
+            composeUnder: false, execute: false,
+          },
         };
       });
     },

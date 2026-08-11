@@ -9,6 +9,44 @@
 window.NB_DATA = {
   board: { name: "EPOCH CIVIC WORKSHOP", node: "node 1 of 1", epoch: 13, landed: 9, total: 12, ships: "FRI 17:00" },
 
+  /** Frozen compatibility aliases from the pre-object-ID namespace. */
+  legacyPostAliases: {
+    p1: "001-lea-every-cold-install-her", p2: "002-nora-reproduced-on-a-clean",
+    p3: "003-scout-drafted-a-plan-to-spli", p4: "004-maya-promoted-this-thread-t",
+    p5: "005-sam-as-the-person-who-comp", s1: "001-lea-offline-shelf-drawn-o",
+    sc2: "002-sam-board-running-on-the-b", i1: "001-nora-agent-runs-should-link",
+    id2: "002-lea-plain-words-mode-for-a", b1: "001-sam-composer-loses-the-dra",
+    bg2: "002-nora-draft-loss-reproduced", su1: "001-sam-does-the-offline-shelf",
+    su2: "002-nora-yes-the-shelf-is-loc", su3: "003-maya-captured-that-answer-i",
+    ar1: "001-ui-reviewer-contrast-sweep-across", ar2: "002-patcher-draft-persistence-per",
+    pv1: "001-lea-preview-of-the-install", pv2: "002-maya-signed-off-on-the-prev",
+    gv1: "001-maya-agents-may-propose-ne", gv2: "002-nora-acknowledged-worth-pu",
+    "t-i1": "001-nora-cache-key-includes-the", "t-c1": "001-scout-change-12-split-the",
+    "t-c2": "002-maya-approved-and-signed", "t-r1": "001-maya-v0-2-0",
+    "k-i1": "001-sam-composer-loses-the-dra", "k-c1": "001-patcher-change-04-draft-pers",
+    "dm-s1": "001-you-can-you-split-the-cach", "dm-s2": "002-scout-yes-plan-key-on-the",
+    "dm-s3": "003-you-scoped-to-ci-config-on", "dm-s4": "004-scout-change-12-drafted",
+    "dm-m1": "001-maya-scout-s-plan-looks-sol", "dm-m2": "002-you-will-do-after-nora-con",
+    "dm-m3": "003-maya-when-you-are-ready-pr", "dm-p1": "001-you-draft-text-is-still-lo",
+    "dm-p2": "002-patcher-reproduced-composer-r", "dm-p3": "003-patcher-change-04-ready",
+    "dm-l1": "001-lea-i-can-retest-on-the-th", "dm-l2": "002-you-appreciate-it-will-p",
+    "dm-l3": "003-lea-i-can-retest-on-the-th",
+  },
+
+  /** Explicit RFC-style thread roots; display order and paths never participate. */
+  threadRoots: {
+    p1: "p1", p2: "p1", p3: "p1", p4: "p4", p5: "p4",
+    s1: "s1", sc2: "sc2", i1: "i1", id2: "id2", b1: "b1", bg2: "bg2",
+    su1: "su1", su2: "su1", su3: "su1", ar1: "ar1", ar2: "ar2",
+    pv1: "pv1", pv2: "pv2", gv1: "gv1", gv2: "gv2",
+    "t-i1": "t-i1", "t-c1": "t-c1", "t-c2": "t-c2", "t-r1": "t-r1",
+    "k-i1": "k-i1", "k-c1": "k-c1",
+    "dm-s1": "dm-s1", "dm-s2": "dm-s1", "dm-s3": "dm-s1", "dm-s4": "dm-s1",
+    "dm-m1": "dm-m1", "dm-m2": "dm-m1", "dm-m3": "dm-m1",
+    "dm-p1": "dm-p1", "dm-p2": "dm-p1", "dm-p3": "dm-p1",
+    "dm-l1": "dm-l1", "dm-l2": "dm-l1", "dm-l3": "dm-l1",
+  },
+
   /**
    * Vercel Eve-style agents as directories (`.agents/<id>/`).
    *

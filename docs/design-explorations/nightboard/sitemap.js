@@ -1,10 +1,8 @@
 /**
  * The board as a filesystem.
  *
- * Every destination has a path, so one navigation model serves the command
- * line, the blades, the breadcrumb and the URL. That is what makes `cd` and
- * clicking a folder the same operation instead of two features that happen to
- * agree.
+ * Paths are mounted projections over canonical objects. The same object can
+ * therefore appear in several feeds without changing its identity.
  *
  *   /projects/community/channels/general/003-scout-plan
  *   /projects/community/members/scout
@@ -31,13 +29,92 @@
 
   var D = window.NB_DATA;
 
+  function core() {
+    if (!window.NB_CORE) throw new Error("Community Core runtime must load before the Nightboard namespace");
+    return window.NB_CORE;
+  }
+
   function slug(s) {
     return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   }
 
-  /** Stable, sortable, greppable name for a post — like a numbered log file. */
-  function postName(p, i) {
-    return String(i + 1).padStart(3, "0") + "-" + slug(p.who) + "-" + slug((p.subject || p.body).slice(0, 22));
+  /** New aliases are stable object IDs; pre-object-ID slugs remain aliases. */
+  function postName(p) {
+    return objectRef(p).objectId;
+  }
+
+  function legacyPostName(p) {
+    return (D.legacyPostAliases || {})[p && p.id] || null;
+  }
+
+  function objectRef(post) {
+    var ref = post && post.ref && post.ref.objectId ? post.ref : {
+      objectId: String(post && (post.objectId || post.id) || ""),
+      kind: post && post.tombstone ? "tombstone" : "message",
+      ...(post && post.atUri ? { atUri: post.atUri } : {}),
+      ...(post && (post.revision || post.cid) ? { revision: post.revision || post.cid } : {}),
+    };
+    return core().validateObjectRef(ref);
+  }
+
+  function contextRef(post) {
+    if (post.dm) return { objectId: "dm-" + post.dm, kind: "dm" };
+    if (post.project) return { objectId: "channel-" + post.project + "-" + post.channel, kind: "channel" };
+    return { objectId: "channel-" + post.channel, kind: "channel" };
+  }
+
+  function toCommunityMessage(post) {
+    var ref = objectRef(post);
+    var rootId = (D.threadRoots || {})[ref.objectId] ||
+      (post.threadRoot && post.threadRoot.objectId) || post.threadRootId ||
+      (post.inReplyTo && post.inReplyTo.objectId) || post.re || ref.objectId;
+    var parentId = post.inReplyTo && post.inReplyTo.objectId || post.re;
+    return {
+      ref: ref,
+      context: core().validateObjectRef(post.context || contextRef(post)),
+      authorId: post.authorId || post.who || "unavailable",
+      title: post.title || post.subject,
+      body: post.body || "",
+      publishedAt: post.publishedAt || post.at || "unknown",
+      ...(post.updatedAt ? { updatedAt: post.updatedAt } : {}),
+      ...(parentId ? { inReplyTo: core().validateObjectRef({ objectId: parentId, kind: "message" }) } : {}),
+      threadRoot: core().validateObjectRef({ objectId: rootId, kind: "message" }),
+      relations: post.relations || [],
+      state: post.state || "unavailable",
+      aliases: [ref.objectId, legacyPostName(post)].filter(Boolean),
+      ...(post.tombstone ? { tombstone: post.tombstone } : {}),
+      source: post,
+    };
+  }
+
+  function messageGraph(pool) {
+    return core().createMessageGraph((pool || []).map(toCommunityMessage));
+  }
+
+  function postFromMessage(message) {
+    if (message.source) return message.source;
+    return {
+      id: message.ref.objectId,
+      objectId: message.ref.objectId,
+      ref: message.ref,
+      who: message.authorId,
+      at: message.publishedAt,
+      state: message.state,
+      body: message.body,
+      sig: "unavailable",
+      tombstone: message.tombstone,
+    };
+  }
+
+  function messageCapabilities(post, hasChildren) {
+    var actionable = !(post && post.tombstone);
+    return {
+      read: true,
+      enter: true,
+      expand: !!hasChildren,
+      composeUnder: actionable,
+      execute: false,
+    };
   }
 
   function projectPosts(projectSlug, channel) {
@@ -51,14 +128,164 @@
   }
 
   /** Detail-pane entry for a post (posts live in detail — not nav under channels). */
-  function postEntry(p, i, hintExtra) {
+  function postEntry(p, hintExtra) {
+    var ref = objectRef(p);
+    var children = messageGraph(allMessages()).childrenOf(ref).length > 0;
     return {
-      name: postName(p, i),
-      kind: "file",
+      name: postName(p),
+      alias: postName(p),
+      aliases: [postName(p), legacyPostName(p)].filter(Boolean),
+      kind: p.tombstone ? "tombstone" : "message",
+      objectId: ref.objectId,
+      ref: ref,
+      capabilities: messageCapabilities(p, children),
       post: p,
       meta: p.state,
       hint: p.who + " · " + p.at + (hintExtra ? " · " + hintExtra : ""),
     };
+  }
+
+  function allMessages(extra) {
+    return (D.posts || []).concat(D.projectPosts || [], D.dmMessages || [], extra || []);
+  }
+
+  function projectionIdForPath(path) {
+    var parts = split(canonicalize(path));
+    if (parts[0] === "projects" && parts[2] === "channels" && parts[3]) {
+      var project = findProject(parts[1]);
+      var channel = project && project.community ? findChannelByLabel(parts[3]) : null;
+      return "channel-" + (channel && channel.id || parts[1] + "-" + parts[3]);
+    }
+    if (parts[0] === "dms" && parts[1]) return "dm-" + parts[1];
+    if (parts[0] === "notifications") return "activity-" + (parts[1] || "all");
+    if (parts[0] === "views" && parts[1]) return parts[1];
+    if (parts[0] === "spaces" && parts[1]) return "space-" + parts[1] + "-" + (parts[2] || "home");
+    return "namespace-root";
+  }
+
+  function projectionEntries(entries, path) {
+    var list = entries || [];
+    var spec = projectionForPath(path);
+    var source = list.map(function (entry) {
+      var ref = entry.ref;
+      if (!ref || entry.kind === "representation" || entry.kind === "relation") {
+        ref = {
+          objectId: (entry.objectId ? entry.objectId + "." : spec.projectionId + ".") + slug(entry.name),
+          kind: "artifact",
+        };
+      }
+      return {
+        ref: core().validateObjectRef(ref),
+        alias: entry.alias || entry.name,
+        aliasPath: resolve(path, entry.name),
+        ...(entry.parentRef ? { parentRef: entry.parentRef } : {}),
+        capabilities: entry.capabilities || {
+          read: true,
+          enter: entry.kind !== "file" && entry.kind !== "representation",
+          expand: false,
+          composeUnder: false,
+          execute: false,
+        },
+      };
+    });
+    var projected = core().createProjection(spec, source).entries;
+    return projected.map(function (entry, index) {
+      return Object.assign({}, list[index], entry, { projectionId: spec.projectionId });
+    });
+  }
+
+  function projectionForPath(path) {
+    var canonical = canonicalize(path);
+    var parts = split(canonical);
+    var projectionId = projectionIdForPath(canonical);
+    var kind = "namespace";
+    var label = parts[parts.length - 1] || "Board";
+    var visibility = "public";
+    var saved = parts[0] === "views" && parts[1] && window.NB_SAVED_VIEWS
+      ? window.NB_SAVED_VIEWS.get(parts[1]) : null;
+    if (saved) {
+      kind = "saved-query";
+      label = saved.label;
+      visibility = saved.visibility;
+    } else if (parts[0] === "dms") {
+      kind = "dm";
+      visibility = "private";
+    } else if (parts[0] === "notifications") {
+      kind = "notifications";
+      visibility = "private";
+    } else if ((parts[0] === "projects" || parts[0] === "spaces") && parts.indexOf("channels") >= 0) {
+      kind = "channel-feed";
+    }
+    return {
+      projectionId: projectionId,
+      kind: kind,
+      label: label,
+      root: core().validateObjectRef({ objectId: projectionId + ".root", kind: kind === "dm" ? "dm" : "artifact" }),
+      parentRelation: "projection",
+      order: { by: "manual", direction: "ascending" },
+      visibility: visibility,
+      ...(saved ? { query: window.NB_QUERY.normalize(saved.query),
+        queryLanguageVersion: saved.queryLanguageVersion } : {}),
+      version: saved && saved.version || 1,
+    };
+  }
+
+  function pathForProjection(projectionId) {
+    if (projectionId === "namespace-root") return "/";
+    if (projectionId.indexOf("channel-") === 0) {
+      var channelId = projectionId.slice("channel-".length);
+      var channel = findChannelByLabel(channelId);
+      if (channel) return channelPath(channel.label);
+      var dash = channelId.lastIndexOf("-");
+      if (dash > 0) return "/projects/" + channelId.slice(0, dash) + "/channels/" + channelId.slice(dash + 1);
+    }
+    if (projectionId.indexOf("dm-") === 0) return "/dms/" + projectionId.slice(3);
+    if (projectionId.indexOf("activity-") === 0) return "/notifications/" + projectionId.slice(9);
+    if (window.NB_SAVED_VIEWS && window.NB_SAVED_VIEWS.get(projectionId)) return "/views/" + projectionId;
+    return null;
+  }
+
+  function objectAtPath(path, extra) {
+    var post = postAt(path, extra);
+    return post ? objectRef(post) : null;
+  }
+
+  function pathForObject(objectId, projectionId, extra) {
+    var base = projectionId ? pathForProjection(projectionId) : null;
+    if (base) {
+      var match = feedEntriesAt(base, extra).filter(function (entry) {
+        return entry.objectId === objectId || entry.post && objectRef(entry.post).objectId === objectId;
+      })[0];
+      if (match) return base + "/" + match.name;
+      if (base.indexOf("/views/") === 0) {
+        var savedEntries = list(base, extra) || [];
+        if (savedEntries.some(function (entry) { return entry.objectId === objectId; })) return base + "/" + objectId;
+      }
+    }
+    var post = allMessages(extra).filter(function (candidate) {
+      return objectRef(candidate).objectId === objectId;
+    })[0];
+    if (!post) return null;
+    if (post.dm) base = dmPath(post.dm);
+    else if (post.project) base = "/projects/" + post.project + "/channels/" + post.channel;
+    else base = channelPath(post.channel);
+    return base + "/" + objectId;
+  }
+
+  function projectionLocations(objectId, extra) {
+    var locations = [];
+    var primary = pathForObject(objectId, null, extra);
+    if (primary) {
+      var base = channelFeedPath(primary);
+      locations.push({ projectionId: projectionIdForPath(base), aliasPath: primary });
+    }
+    if (window.NB_SAVED_VIEWS) {
+      window.NB_SAVED_VIEWS.list().forEach(function (saved) {
+        var path = pathForObject(objectId, saved.projectionId, extra);
+        if (path) locations.push({ projectionId: saved.projectionId, aliasPath: path });
+      });
+    }
+    return locations;
   }
 
   /** Terminal nav node for a channel — posts are explored in the detail pane. */
@@ -96,10 +323,10 @@
       if (proj.community) {
         var ch = findChannelByLabel(chanName);
         if (!ch || ch.voice || ch.kind === "voice") return [];
-        return postsIn(ch.id, extra).map(function (p, i) { return postEntry(p, i); });
+        return postsIn(ch.id, extra).map(function (p) { return postEntry(p); });
       }
       if (projectChannelNames(proj).indexOf(chanName) === -1) return [];
-      return projectPosts(proj.id, chanName).map(function (p, i) { return postEntry(p, i); });
+      return projectPosts(proj.id, chanName).map(function (p) { return postEntry(p); });
     }
     if (parts[0] === "spaces" && parts[2] === "channels" && parts.length >= 4) {
       var spaceNode = findSpaceNode(parts[1]);
@@ -108,8 +335,8 @@
         return c.label === parts[3] || c.id === parts[3];
       })[0];
       if (!chObj || chObj.voice || chObj.kind === "voice") return [];
-      return postsIn(chObj.id, extra).map(function (p, i) {
-        var e = postEntry(p, i);
+      return postsIn(chObj.id, extra).map(function (p) {
+        var e = postEntry(p);
         e.spaceId = spaceNode.id;
         return e;
       });
@@ -117,12 +344,10 @@
     if (parts[0] === "spaces" && parts[2] === "feed" && parts.length >= 3) {
       var sp = findSpaceNode(parts[1]);
       if (!sp) return [];
-      return postsForSpace(sp.id, extra).map(function (p, i) {
-        return {
-          name: postName(p, i), kind: "file", post: p, meta: p.state,
-          hint: p.who + " · " + p.at + " · #" + p.channel,
-          spaceId: sp.id,
-        };
+      return postsForSpace(sp.id, extra).map(function (p) {
+        var entry = postEntry(p, "#" + p.channel);
+        entry.spaceId = sp.id;
+        return entry;
       });
     }
     if (parts[0] === "dms" && parts.length >= 2) {
@@ -133,8 +358,9 @@
 
   /** Direct replies to parentId within a flat post list. */
   function replyEntries(parentId, pool) {
-    var replies = (pool || []).filter(function (p) { return p.re === parentId; });
-    return replies.map(function (p, i) { return postEntry(p, i, "reply"); });
+    return messageEntries(pool, parentId).map(function (entry) {
+      return Object.assign({}, entry, { hint: entry.hint + " · reply" });
+    });
   }
 
   function messageSummary(post) {
@@ -144,13 +370,33 @@
 
   /** Filesystem-only message children; nav deliberately keeps channels as leaves. */
   function messageEntries(pool, parentId) {
-    return (pool || []).filter(function (post) {
-      return parentId ? post.re === parentId : !post.re;
-    }).map(function (post) {
+    var messages = pool || [];
+    var graph = messageGraph(messages);
+    var refs;
+    if (parentId) {
+      refs = graph.childrenOf(parentId);
+    } else {
+      var seenRoots = {};
+      refs = messages.map(function (post) { return graph.rootOf(objectRef(post)); })
+        .filter(function (ref) {
+          if (seenRoots[ref.objectId]) return false;
+          seenRoots[ref.objectId] = true;
+          return true;
+        });
+    }
+    return refs.map(function (messageRef) {
+      var post = postFromMessage(graph.messageOf(messageRef));
+      var ref = objectRef(post);
+      var children = graph.childrenOf(ref).length > 0;
       return {
-        name: post.id,
-        label: post.id,
-        kind: "message",
+        name: ref.objectId,
+        label: ref.objectId,
+        alias: ref.objectId,
+        aliases: [ref.objectId, legacyPostName(post)].filter(Boolean),
+        kind: post.tombstone ? "tombstone" : "message",
+        objectId: ref.objectId,
+        ref: ref,
+        capabilities: messageCapabilities(post, children),
         post: post,
         meta: post.state,
         hint: messageSummary(post),
@@ -164,11 +410,11 @@
    */
   function walkPostSegments(pool, nameSegs) {
     if (!nameSegs || !nameSegs.length) return null;
-    var listing = (pool || []).map(function (p, i) { return postEntry(p, i); });
+    var listing = messageEntries(pool, null);
     var current = null;
     for (var i = 0; i < nameSegs.length; i++) {
       var hit = listing.filter(function (e) {
-        return e.name === nameSegs[i] || (e.post && e.post.id === nameSegs[i]);
+        return e.name === nameSegs[i] || (e.aliases || []).indexOf(nameSegs[i]) !== -1;
       })[0];
       if (!hit || !hit.post) return null;
       current = hit.post;
@@ -177,20 +423,54 @@
     return { post: current, listing: listing };
   }
 
+  function virtualMessageEntries(post, pool) {
+    var ref = objectRef(post);
+    var replyCount = messageEntries(pool, ref.objectId).length;
+    return [
+      { name: "body.md", kind: "representation", meta: "text/markdown", post: post,
+        objectId: ref.objectId, ref: ref, capabilities: { read: true, enter: false, expand: false, composeUnder: false, execute: false } },
+      { name: "metadata.json", kind: "representation", meta: "application/json", post: post,
+        objectId: ref.objectId, ref: ref, capabilities: { read: true, enter: false, expand: false, composeUnder: false, execute: false } },
+      { name: "replies", kind: "relation", meta: "reply", hint: replyCount + " direct replies",
+        objectId: ref.objectId, ref: ref, capabilities: { read: true, enter: true, expand: replyCount > 0, composeUnder: true, execute: false } },
+      { name: "backlinks", kind: "relation", meta: "backlink", objectId: ref.objectId, ref: ref,
+        capabilities: { read: true, enter: true, expand: false, composeUnder: false, execute: false } },
+      { name: "receipts", kind: "relation", meta: "provenance", objectId: ref.objectId, ref: ref,
+        capabilities: { read: true, enter: true, expand: false, composeUnder: false, execute: false } },
+    ];
+  }
+
+  function listMessagePath(pool, segments) {
+    var walked = walkPostSegments(pool, [segments[0]]);
+    if (!walked) return null;
+    var post = walked.post;
+    if (segments.length === 1) return virtualMessageEntries(post, pool);
+    if (segments[1] === "replies") {
+      if (segments.length === 2) return messageEntries(pool, objectRef(post).objectId);
+      var child = walkPostSegments(pool, [segments[2]]);
+      return child && ((child.post.inReplyTo && child.post.inReplyTo.objectId) || child.post.re) === objectRef(post).objectId
+        ? virtualMessageEntries(child.post, pool) : null;
+    }
+    if (segments[1] === "backlinks" || segments[1] === "receipts") return segments.length === 2 ? [] : null;
+    if (segments[1] === "body.md" || segments[1] === "metadata.json") return null;
+    // Compatibility for legacy /parent/reply paths.
+    var legacy = walkPostSegments(pool, segments);
+    return legacy ? virtualMessageEntries(legacy.post, pool) : null;
+  }
+
   /** Canonical hidden directory path for a message id, including reply parents. */
   function messagePath(path, postId, extra) {
     var feedPath = channelFeedPath(path);
     var pool = feedEntriesAt(feedPath, extra).map(function (e) { return e.post; }).filter(Boolean);
-    var byId = {};
-    pool.forEach(function (post) { byId[post.id] = post; });
-    var current = byId[postId];
-    if (!current) return null;
+    var graph = messageGraph(pool);
+    if (!graph.messageOf(postId)) return null;
     var chain = [];
     var seen = {};
-    while (current && !seen[current.id]) {
-      seen[current.id] = true;
-      chain.unshift(current.id);
-      current = current.re ? byId[current.re] : null;
+    var current = objectRef(graph.messageOf(postId));
+    while (current && !seen[current.objectId]) {
+      seen[current.objectId] = true;
+      chain.unshift(current.objectId);
+      current = graph.parentOf(current);
     }
     return feedPath.replace(/\/$/, "") + "/" + chain.join("/");
   }
@@ -920,12 +1200,38 @@
             (unreadAct ? " · " + unreadAct + " new" : ""),
           unread: unreadAct },
         { name: "members", kind: "dir", hint: membersForBoard().length + " on the roll" },
+        { name: "views", kind: "dir", meta: "saved queries",
+          hint: (window.NB_SAVED_VIEWS ? window.NB_SAVED_VIEWS.list().length : 0) + " saved views" },
         {
           name: ".agents", kind: "dir", meta: "eve",
           hint: nBoardAgents + " space agent" + (nBoardAgents === 1 ? "" : "s") +
             " · vercel/eve",
         },
       ];
+    }
+
+    if (parts[0] === "views") {
+      if (!window.NB_SAVED_VIEWS) return parts.length === 1 ? [] : null;
+      if (parts.length === 1) {
+        return window.NB_SAVED_VIEWS.list().map(function (view) {
+          return {
+            name: view.projectionId,
+            label: view.label,
+            kind: "saved-view",
+            projectionId: view.projectionId,
+            meta: view.visibility,
+            hint: view.query,
+            capabilities: { read: true, enter: true, expand: true, composeUnder: false, execute: false },
+          };
+        });
+      }
+      if (parts.length === 2) {
+        var savedView = window.NB_SAVED_VIEWS.get(parts[1]);
+        if (!savedView || !window.NB_QUERY) return null;
+        var result = window.NB_SAVED_VIEWS.open(savedView.projectionId, allMessages(extra));
+        return result.error ? null : messageEntries(result.posts, null);
+      }
+      return null;
     }
 
     // Board /.agents/… (space-scoped Eve agents)
@@ -967,12 +1273,10 @@
         ];
       }
       if (parts.length === 3 && parts[2] === "feed") {
-        return postsForSpace(spaceNode.id, extra).map(function (p, i) {
-          return {
-            name: postName(p, i), kind: "file", post: p, meta: p.state,
-            hint: p.who + " · " + p.at + " · #" + p.channel,
-            spaceId: spaceNode.id,
-          };
+        return postsForSpace(spaceNode.id, extra).map(function (p) {
+          var entry = postEntry(p, "#" + p.channel);
+          entry.spaceId = spaceNode.id;
+          return entry;
         });
       }
       if (parts.length === 3 && parts[2] === "channels") {
@@ -1003,8 +1307,7 @@
       if (parts.length >= 5 && parts[2] === "channels") {
         var spacePool = feedEntriesAt(join(parts.slice(0, 4)), extra)
           .map(function (e) { return e.post; }).filter(Boolean);
-        var spaceWalk = walkPostSegments(spacePool, parts.slice(4));
-        return spaceWalk ? messageEntries(spacePool, spaceWalk.post.id) : null;
+        return listMessagePath(spacePool, parts.slice(4));
       }
       if (parts.length === 3 && parts[2] === "projects") {
         return (spaceNode.projects || []).map(function (pslug) {
@@ -1109,18 +1412,15 @@
             unread: 0,
           };
         }
-        return messagesInDm(thread.id, extra).map(function (p, i) {
-          return {
-            name: postName(p, i), kind: "file", post: p, meta: p.state,
-            hint: p.who + " · " + p.at,
-            dm: thread.id,
-          };
+        return messagesInDm(thread.id, extra).map(function (p) {
+          var entry = postEntry(p);
+          entry.dm = thread.id;
+          return entry;
         });
       }
       if (parts.length === 3) {
         var dmPool = messagesInDm(parts[1], extra);
-        var dmWalk = walkPostSegments(dmPool, parts.slice(2));
-        return dmWalk ? messageEntries(dmPool, dmWalk.post.id) : null;
+        return listMessagePath(dmPool, parts.slice(2));
       }
       return null;
     }
@@ -1224,8 +1524,7 @@
       if (parts.length >= 5 && parts[2] === "channels") {
         var projectPool = feedEntriesAt(join(parts.slice(0, 4)), extra)
           .map(function (e) { return e.post; }).filter(Boolean);
-        var projectWalk = walkPostSegments(projectPool, parts.slice(4));
-        return projectWalk ? messageEntries(projectPool, projectWalk.post.id) : null;
+        return listMessagePath(projectPool, parts.slice(4));
       }
       return null;
     }
@@ -1287,6 +1586,13 @@
   /** The post at a path, if the path names one (detail / deep-link; not nav). */
   function postAt(path, extra) {
     var parts = split(canonicalize(path));
+    if (parts[0] === "views" && parts.length >= 3) {
+      var viewEntries = list(join(parts.slice(0, 2)), extra) || [];
+      var viewHit = viewEntries.filter(function (entry) {
+        return entry.objectId === parts[2] || entry.name === parts[2];
+      })[0];
+      return viewHit ? viewHit.post : null;
+    }
     // /projects/<id>/channels/<channel>/<post>/…
     if (parts[0] === "projects" && parts[2] === "channels" && parts.length >= 5) {
       var pool = feedEntriesAt(join(parts.slice(0, 4)), extra).map(function (e) {
@@ -1376,14 +1682,19 @@
   }
 
   window.NB_MAP = {
-    list: list, split: split, join: join, resolve: resolve,
+    list: function (path, extra) {
+      var entries = list(path, extra);
+      return entries === null ? null : projectionEntries(entries, path);
+    }, split: split, join: join, resolve: resolve,
     isDir: isDir, postAt: postAt, postName: postName, slug: slug,
     canonicalize: canonicalize, channelPath: channelPath, dmPath: dmPath,
     spacePath: spacePath,
     channelFeedPath: channelFeedPath,
     isTerminalNavPath: isTerminalNavPath,
     navParentPath: navParentPath,
-    feedEntriesAt: feedEntriesAt,
+    feedEntriesAt: function (path, extra) {
+      return projectionEntries(feedEntriesAt(path, extra), path);
+    },
     messagePath: messagePath,
     isPostReplyPath: isPostReplyPath,
     replyNavParent: replyNavParent,
@@ -1409,5 +1720,15 @@
     findNotification: findNotification,
     unreadNotificationCount: unreadNotificationCount,
     notifName: notifName,
+    objectRef: objectRef,
+    toCommunityMessage: toCommunityMessage,
+    messageGraph: messageGraph,
+    postFromMessage: postFromMessage,
+    projectionIdForPath: projectionIdForPath,
+    projectionForPath: projectionForPath,
+    pathForProjection: pathForProjection,
+    objectAtPath: objectAtPath,
+    pathForObject: pathForObject,
+    projectionLocations: projectionLocations,
   };
 })();
