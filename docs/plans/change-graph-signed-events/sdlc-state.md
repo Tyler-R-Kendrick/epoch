@@ -10,9 +10,8 @@
 
 ## Phase
 
-Closing fail-closed remotes — branch `sdlc/change-graph-close-failclosed`
-from `7c5621f`. Isolated worktree `/tmp/epoch-change-graph-signed`.
-Dirty community-search work in the original checkout is still preserved.
+Closed — [PR #122](https://github.com/Tyler-R-Kendrick/epoch/pull/122) squash-merged
+to `main` as `a809586f792cbc38676c8a9e366a8a2611c2a183` on 2026-08-12.
 
 Change Graph CLI commands persist signed Epoch events. Local clone/fetch,
 HTTP gossip, Git ingest, hydrate, mirror definitions, budget allocation,
@@ -21,11 +20,12 @@ Save Code Now archival (`EPOCH_SWH_SAVE_URL`) are implemented.
 
 ## Verification
 
-- Focused store/CLI/nomenclature/transaction/protocol tests passed
+- Focused store/CLI/git/nomenclature tests passed
 - Full `npm run test:unit:runtime` passed
-- `features/cli_wasm.feature` 5/5 scenarios passed, including signed Change creation
 - `npm run gate:fast` passed
-- Typecheck passed for `@epoch/core`, `@epoch/cli`, and `@epoch/git-proxy`
+- Workspace typecheck passed
+- Quality Gates, Coverage, Pact, Nightboard, A11y, and Vercel passed on #122
+- CodeRabbit stayed rate-limited / non-blocking
 
 ## Authority decisions
 
