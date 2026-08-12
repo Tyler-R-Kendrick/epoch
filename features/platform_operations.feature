@@ -86,3 +86,31 @@ Feature: Epoch.Platform operations
     When I approve the Community project as moderator "mod"
     Then the Community project moderation state is "approved"
     And the latest audit event is "community.project.approved"
+
+  @persona.platform_operator
+  Scenario: Operator distinguishes availability gaps from integrity failures
+    Given the convergence operations console has a partial promisor and quarantined mirror
+    When I inspect repository convergence health
+    Then promised missing objects are reported as availability gaps not corruption
+    And quarantine recovery names the signed checkpoint and explicit retry
+
+  @persona.platform_operator
+  Scenario: Operator verifies Git protocol fidelity and a rejected push
+    Given the convergence operations console negotiated Git protocol v2 with blob filtering
+    When a protected ref rejects an unauthorized push
+    Then the operator sees the negotiated partial-clone capability and rejection reason
+    And no rejected object is reported as mirrored or archived
+
+  @persona.platform_operator
+  Scenario: Operator audits continuous mirror lag identity authority and archive state
+    Given the convergence operations console has mirror lag and a finite sponsored agent
+    When I inspect the convergence audit surface
+    Then mirror drift retry principal key grant and budget states remain independently labeled
+    And workspace provider object residency F3 fidelity SWHID and archive status are visible
+
+  @persona.security_compliance_responder
+  Scenario: Responder exports a redacted support bundle and confirms dangerous operations
+    Given the convergence operations console contains private session and credential sentinels
+    When I prepare a support bundle and inspect merge force grant budget and public archive controls
+    Then the support bundle contains diagnostics without either sentinel
+    And every mutating control names required authority and requires confirmation

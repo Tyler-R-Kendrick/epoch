@@ -14,6 +14,7 @@ import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderAgentMemberButton, renderChannelButton } from "../view/rail";
 import { renderLegend } from "../view/legend";
 import { renderSiteHistory } from "../view/site-history";
+import { renderConvergenceWorkbench } from "../view/convergence-workbench";
 import { asListState, renderChannelOrigin, renderEmptyState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 import { renderServiceWorkerRegistration } from "./pwa";
@@ -159,6 +160,7 @@ ${communityStyles()}
         </div>
       </header>
       ${renderCommunityHonestyBanner(live, snapshotMode)}
+      ${app.convergenceWorkbench === undefined ? "" : `<div class="surface-stage" data-surface-panel="convergence">${renderConvergenceWorkbench(app.convergenceWorkbench)}</div>`}
       <div class="surface-stage" data-surface-panel="network" hidden>
         <div class="feed-tabs" role="tablist" aria-label="Network Dev Feed tabs">
           <button class="feed-tab" type="button" role="tab" data-feed-tab="following" aria-selected="true">Following</button>
