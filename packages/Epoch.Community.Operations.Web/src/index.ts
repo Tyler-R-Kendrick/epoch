@@ -38,6 +38,54 @@ export type CommunitySandboxWorkspaceState = "running" | "interrupted" | "checks
 export type CommunitySandboxWorkspaceReviewDecision = "pending" | "approved" | "rejected";
 export type CommunityAgentSandboxState = AiActionPlan["state"] | "queued" | "running" | "succeeded" | "failed";
 
+export interface CommunityConvergenceOperations {
+  readonly promisor: {
+    readonly health: "healthy" | "degraded" | "unavailable";
+    readonly missingPromised: number;
+    readonly integrity: "verified" | "failed";
+  };
+  readonly workspace: {
+    readonly provider: string;
+    readonly copyMode: "copy-on-write" | "full-copy" | "reflink";
+    readonly executionIsolation: "none" | "sandboxed" | "vm";
+  };
+  readonly mirror: {
+    readonly state: "current" | "lagging" | "quarantined";
+    readonly lagSeconds: number;
+    readonly drift: number;
+    readonly checkpoint: string;
+    readonly retryAction: string;
+  };
+  readonly forge: {
+    readonly protocol: string;
+    readonly fidelity: string;
+    readonly transport: string;
+  };
+  readonly archive: {
+    readonly swhid?: string;
+    readonly status: "not-requested" | "pending" | "remote-confirmed" | "denied-private";
+  };
+  readonly identity: {
+    readonly principal: string;
+    readonly key: string;
+    readonly sponsor: string;
+    readonly grant: string;
+    readonly budget: {
+      readonly allocated: number;
+      readonly reserved: number;
+      readonly consumed: number;
+      readonly released: number;
+      readonly expired: number;
+    };
+  };
+  readonly git: { readonly protocol: string; readonly objectFilter: string };
+  readonly sync: { readonly bundle: string; readonly checkpoint: string; readonly quarantine: string };
+  readonly objectResidency: string;
+  readonly rejectedPush?: { readonly ref: string; readonly reason: string };
+  readonly supportBundle: string;
+  readonly mutationAuthorities: Readonly<Record<"merge" | "force" | "grant" | "budget" | "public-archive", string>>;
+}
+
 export interface CommunityWorkflowAutomation {
   readonly id: string;
   readonly name: string;
@@ -190,6 +238,7 @@ export interface CommunityOperationsWebAppDefinition {
   readonly runnerSummary: CommunityRunnerSummary;
   readonly activity: readonly CommunityOperationsActivity[];
   readonly moderationReports: readonly CommunityModerationReport[];
+  readonly convergence?: CommunityConvergenceOperations;
 }
 
 /**
@@ -263,6 +312,7 @@ export interface CreateCommunityOperationsWebAppOptions {
   readonly workspaceReviews?: readonly CommunitySandboxWorkspaceReview[];
   /** Community repositories whose moderation-labelled issues form the queue. */
   readonly communityRepositories?: readonly ModerationSourceRepository[];
+  readonly convergence?: CommunityConvergenceOperations;
 }
 
 export async function createCommunityOperationsWebApp(
@@ -304,6 +354,7 @@ export async function createCommunityOperationsWebApp(
     runnerSummary: runnerSummary(snapshot.runners),
     activity: activityFromAudit(snapshot.auditEvents, snapshot.platformEvents),
     moderationReports: moderationReportsFromRepositories(options.communityRepositories ?? []),
+    convergence: options.convergence,
   };
 }
 
@@ -364,6 +415,7 @@ ${communityOperationsStyles()}
       </dl>
     </header>
     <nav class="ops-tabs" aria-label="Community operations sections">
+      ${app.convergence === undefined ? "" : `<a href="#convergence">Convergence</a>`}
       <a href="#moderation">Moderation</a>
       <a href="#apps">Apps</a>
       <a href="#workspaces">Sandbox Workspaces</a>
@@ -375,6 +427,7 @@ ${communityOperationsStyles()}
       <a href="#activity">Activity</a>
     </nav>
     <section id="operations-content" class="ops-grid" aria-label="Community operations dashboard">
+      ${app.convergence === undefined ? "" : `<section id="convergence" class="ops-section convergence-section" aria-labelledby="convergence-operations-title">${renderConvergenceOperationsPanel(app.convergence)}</section>`}
       <section id="moderation" class="ops-section" aria-labelledby="moderation-title" data-moderation-queue>
         <h2 id="moderation-title">Moderation${openModerationCount(app.moderationReports) === 0 ? "" : ` <span class="ops-queue-count" data-moderation-open>${openModerationCount(app.moderationReports)} open</span>`}</h2>
         ${app.moderationReports.length === 0
@@ -418,6 +471,89 @@ ${communityOperationsStyles()}
   </main>
 </body>
 </html>`;
+}
+
+export function renderConvergenceOperationsPanel(status: CommunityConvergenceOperations): string {
+  const availability = status.promisor.missingPromised > 0
+    ? `${status.promisor.missingPromised} promised objects are an availability gap`
+    : "all promised objects are available";
+  const integrity = status.promisor.integrity === "verified" ? "integrity verified" : "INTEGRITY FAILURE";
+  const budget = status.identity.budget;
+  const authorities = Object.entries(status.mutationAuthorities);
+  return `<div class="convergence-operations" data-convergence-operations>
+    <header>
+      <p class="eyebrow">object availability · fidelity · authority</p>
+      <h2 id="convergence-operations-title">Repository convergence</h2>
+      <p class="provenance-note">${escapeHtml(availability)} · ${escapeHtml(integrity)}. Availability never masquerades as corruption.</p>
+    </header>
+    <div class="convergence-status-grid" role="list" aria-label="Repository convergence status">
+      ${operationsStatus("Promisor health", status.promisor.health, `${availability}; ${integrity}`)}
+      ${operationsStatus("Workspace provider", status.workspace.provider, `Actual copy mode: ${status.workspace.copyMode}; execution isolation: ${status.workspace.executionIsolation}`)}
+      ${operationsStatus("Mirror lag", `${status.mirror.lagSeconds}s · ${status.mirror.state}`, `Drift: ${status.mirror.drift}; checkpoint ${status.mirror.checkpoint}; ${status.mirror.retryAction}`)}
+      ${operationsStatus("Git protocol", status.git.protocol, `Partial clone filter: ${status.git.objectFilter}`)}
+      ${operationsStatus("Sync bundle", status.sync.bundle, `Checkpoint: ${status.sync.checkpoint}; quarantine: ${status.sync.quarantine}`)}
+      ${operationsStatus("Forge fidelity", status.forge.protocol, `${status.forge.fidelity}; transport: ${status.forge.transport}`)}
+      ${operationsStatus("Object residency", status.objectResidency, "Hydration changes availability, never object identity or integrity.")}
+      ${operationsStatus("SWHID", status.archive.swhid ?? "not assigned", `Archive status: ${status.archive.status}`)}
+    </div>
+    ${status.mirror.state === "quarantined" ? `<section class="ops-alert" role="alert"><h3>Mirror quarantined</h3><p>Recover from signed ${escapeHtml(status.mirror.checkpoint)} after inspection.</p><button type="button">${escapeHtml(status.mirror.retryAction)}</button></section>` : ""}
+    ${status.rejectedPush === undefined ? "" : `<section class="ops-alert" role="status"><h3>Push rejected · ${escapeHtml(status.rejectedPush.ref)}</h3><p>${escapeHtml(status.rejectedPush.reason)}</p></section>`}
+    <section aria-labelledby="identity-authority-title">
+      <h3 id="identity-authority-title">Principal, sponsor, grant, and finite budget</h3>
+      <dl class="ops-facts">
+        <div><dt>Principal</dt><dd>${escapeHtml(status.identity.principal)}</dd></div>
+        <div><dt>Key</dt><dd>${escapeHtml(status.identity.key)}</dd></div>
+        <div><dt>Sponsor</dt><dd>${escapeHtml(status.identity.sponsor)}</dd></div>
+        <div><dt>Grant</dt><dd>${escapeHtml(status.identity.grant)}</dd></div>
+        <div><dt>Allocated</dt><dd>${budget.allocated}</dd></div>
+        <div><dt>Reserved</dt><dd>${budget.reserved}</dd></div>
+        <div><dt>Consumed</dt><dd>${budget.consumed}</dd></div>
+        <div><dt>Released</dt><dd>${budget.released}</dd></div>
+        <div><dt>Expired</dt><dd>${budget.expired}</dd></div>
+      </dl>
+    </section>
+    <section aria-labelledby="mutation-authority-title">
+      <h3 id="mutation-authority-title">Confirmed mutations</h3>
+      <p class="provenance-note">These operations do not execute from this overview. Open the preview, inspect the authority explanation, then confirm.</p>
+      <div class="actions">${authorities.map(([action, authority]) => `<button type="button" data-mutation="${escapeHtml(action)}" data-confirmation-required="true" data-authority="${escapeHtml(authority)}">${escapeHtml(action)} · requires ${escapeHtml(authority)} · confirm…</button>`).join("")}</div>
+    </section>
+  </div>`;
+}
+
+/**
+ * Produces an allowlisted diagnostic bundle. `privateContext` is accepted at
+ * the boundary to make the security property testable, but is intentionally
+ * never traversed or serialized: raw sessions and credentials are not
+ * diagnostic fields.
+ */
+export function createRedactedConvergenceSupportBundle(
+  status: CommunityConvergenceOperations,
+  _privateContext?: unknown,
+): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    promisor: status.promisor,
+    workspace: status.workspace,
+    mirror: status.mirror,
+    forge: status.forge,
+    archive: status.archive,
+    git: status.git,
+    sync: status.sync,
+    objectResidency: status.objectResidency,
+    identity: {
+      principal: status.identity.principal,
+      keyStatus: status.identity.key,
+      sponsor: status.identity.sponsor,
+      grantStatus: status.identity.grant,
+      budget: status.identity.budget,
+    },
+    rejectedPush: status.rejectedPush,
+    redacted: true,
+  });
+}
+
+function operationsStatus(label: string, value: string, explanation: string): string {
+  return `<article class="ops-card convergence-status" role="listitem"><h3>${escapeHtml(label)}</h3><p><strong>${escapeHtml(value)}</strong></p><p>${escapeHtml(explanation)}</p></article>`;
 }
 
 function hostedAppsForProject(snapshot: PlatformSnapshot, projectId: string): CommunityHostedApp[] {
@@ -912,6 +1048,44 @@ function communityOperationsStyles(): string {
       background: var(--epoch-color-ink);
       color: var(--epoch-color-surface-raised);
     }
+
+    .actions button,
+    .ops-alert button {
+      min-height: 44px;
+      padding: 0.58rem 0.75rem;
+      border: 1px solid var(--epoch-color-control);
+      border-radius: var(--epoch-radius-sm);
+      color: var(--epoch-color-ink);
+      background: var(--epoch-color-surface-raised);
+      font: inherit;
+      text-align: start;
+    }
+
+    .actions button:focus-visible,
+    .ops-alert button:focus-visible {
+      outline: 2px solid var(--epoch-color-control);
+      outline-offset: 2px;
+    }
+
+    .convergence-section { grid-column: 1 / -1; }
+
+    .convergence-status-grid,
+    .ops-facts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+      gap: var(--epoch-space-sm);
+    }
+
+    .ops-facts { margin: 0; }
+
+    .ops-facts div,
+    .ops-alert {
+      padding: var(--epoch-space-sm);
+      border: 1px solid var(--epoch-color-line);
+      background: var(--epoch-color-surface-raised);
+    }
+
+    .ops-alert { border-color: var(--epoch-color-danger); }
 
     .ops-grid {
       display: grid;

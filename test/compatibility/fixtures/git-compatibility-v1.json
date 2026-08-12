@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithms": {
+    "sha1": "native-projection",
+    "sha256": "capability-negotiated-only"
+  },
+  "objectKinds": ["blob", "tree", "commit", "tag"],
+  "treeModes": ["100644", "100755", "120000", "160000", "040000"],
+  "preserved": ["merge-parents", "annotated-tags", "notes", "executable-mode", "symlink-mode"],
+  "unsupported": ["replace-refs", "filter-without-promisor"]
+}

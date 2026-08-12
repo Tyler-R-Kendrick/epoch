@@ -3,6 +3,98 @@ Feature: Community Web community-first experience
   with Network Feed discovery and linked repository projects as secondary planes.
 
   @persona.github_open_source_contributor
+  Scenario: Contributor splits a logical stack atomically and reconstructs the exact snapshot
+    Given a convergence workbench with changes "base,api,ui" and dependencies "api>base,ui>api"
+    When I split "api" into "api-schema,api-runtime" at unambiguous file boundaries
+    Then the logical stack contains both atomic changes in dependency order
+    And reconstructing the stack produces the original snapshot digest
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor gets a safe failure when an atomic split is ambiguous
+    Given a convergence workbench with an inseparable edit in "shared.ts"
+    When I try to split the edit into "schema,runtime"
+    Then the split is rejected without changing the logical stack
+    And the workbench explains the ambiguous hunk that needs a human boundary
+
+  @persona.maintainer
+  Scenario: Maintainer follows stable revisions across multiple heads and supersession
+    Given a change with two concurrent revision heads
+    When I open its revision history
+    Then both heads retain stable revision identities
+    And the superseded revision remains visible without becoming current
+
+  @persona.maintainer
+  Scenario: Maintainer reviews a combined weave without losing individual change context
+    Given a combined weave review for a three-change stack
+    When I traverse cumulative and per-change review by keyboard
+    Then the selected change remains synchronized with the review detail
+    And the gate matrix distinguishes current passing stale and missing evidence
+
+  @persona.maintainer
+  Scenario: Maintainer partially merges only a dependency-closed subset
+    Given a logical stack where "ui" depends on "api" and "api" depends on "base"
+    When I request a partial merge through "api"
+    Then the merge preview includes "base,api" and excludes "ui"
+    And the merge control explains dependency closure before confirmation
+
+  @persona.maintainer
+  Scenario: Maintainer squashes a stack without erasing provenance
+    Given a dependency-closed merge preview for "base,api"
+    When I confirm a squash with maintainer authority
+    Then the squash records both source changes and their revisions
+    And the resulting change has a new stable identity
+
+  @persona.maintainer
+  Scenario: Maintainer cannot merge with stale review evidence
+    Given an approved review for an older revision
+    When a new revision supersedes the approved revision
+    Then merge remains blocked with an unmistakable stale approval explanation
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor resolves a durable conflict after deterministic help precedes AI
+    Given a durable unresolved conflict with base left and right identities
+    When deterministic resolution cannot resolve it
+    Then the conflict remains first-class and actionable
+    When an AI resolution proposal arrives and I later confirm a human resolution
+    Then the AI proposal remains untrusted and the human resolution closes the conflict
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor hydrates a partial browser replica and sees truthful copy isolation
+    Given an offline browser replica with promised objects and a copy-on-write workspace
+    When I reconnect and hydrate the selected object
+    Then availability changes without changing integrity
+    And the workspace reports copy-on-write storage separately from execution isolation
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor keeps stable mappings while escaping through interoperable forges
+    Given a change mapped to jj and a continuous mirror with an F3 escape archive
+    When the mirror synchronizes the latest revision
+    Then the jj change identity remains stable across revisions
+    And the forge fidelity report names preserved and lossy fields without exporting private content
+
+  @persona.maintainer
+  Scenario: Maintainer sponsors a finite-budget agent and later revokes it
+    Given an agent principal with its own key sponsored by a maintainer grant
+    When the agent reserves and consumes part of its finite budget
+    Then allocated reserved consumed released and expired amounts are distinguishable
+    When the sponsor revokes the grant
+    Then new agent work is denied with the principal sponsor grant and budget reason
+
+  @persona.security_compliance_responder
+  Scenario: Responder archives a public release but denies a private archive request
+    Given a public release with an SWHID and a private raw session
+    When I confirm the public archive request with release authority
+    Then archive status is remote-confirmed for the public release
+    And the private archive request is denied without exposing the raw session
+
+  @persona.screen_reader_power_user
+  Scenario: Screen-reader maintainer traverses the change graph at mobile width and 200 percent zoom
+    Given an accessible convergence workbench for a branching stack
+    When I navigate the change graph and review list entirely by keyboard
+    Then tree and list focus identify the same selected change and revision
+    And at 200 percent zoom the workbench has no horizontal page overflow
+
+  @persona.github_open_source_contributor
   Scenario: Contributor enters the Nightboard community from the Epoch landing
     Given Epoch Community is available
     When I open Epoch Community

@@ -32,6 +32,13 @@ import { runGitProxyTests } from "./unit/git-proxy.test";
 import { runAtprotoCommunityTests } from "./unit/atproto-community.test";
 import { runGossipAtprotoIntegrationTests } from "./unit/gossip-atproto-integration.test";
 import { runIdentityBridgeTests } from "./unit/identity-bridge.test";
+import { runConvergenceChangeGraphTests } from "./unit/convergence-change-graph.test";
+import { runConvergenceCoreTransactionTests } from "./unit/convergence-core-transactions.test";
+import { runCoreStorageSyncV2Tests } from "./unit/core-storage-sync-v2.test";
+import { runGitConvergenceFoundationTests } from "./unit/git-convergence-foundation.test";
+import { runProtocolRequiredEventTests } from "./unit/protocol-required-events.test";
+import { runFrontierBrowserWrapperTests } from "./unit/frontier-browser-wrappers.test";
+import { runFrontierCliTests } from "./unit/frontier-cli.test";
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
@@ -69,6 +76,13 @@ async function main(): Promise<void> {
   await runAtprotoCommunityTests();
   await runGossipAtprotoIntegrationTests();
   await runIdentityBridgeTests();
+  runConvergenceChangeGraphTests();
+  await runConvergenceCoreTransactionTests();
+  await runCoreStorageSyncV2Tests();
+  await runGitConvergenceFoundationTests();
+  runProtocolRequiredEventTests();
+  runFrontierBrowserWrapperTests();
+  await runFrontierCliTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
   console.log("unit and component tests passed");

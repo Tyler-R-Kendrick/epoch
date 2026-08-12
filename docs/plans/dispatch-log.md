@@ -137,3 +137,9 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Two shared page-readiness races failed authoritative CI and were fixed at the common board-entry step; ignored primary browser evidence was force-included before review. |
 | Notes | Contextual tuicr/hunk-style bottom line; `Ctrl+U` startup recovery; sticky local routing; deterministic Bo/HoBo workflow; focus expansion; message-directory/typeahead synchronization; keyboard post actions. Quality Gates, CodeRabbit, and Vercel green; 152 scenarios / 1388 steps. |
+# 2026-08-11 — Frontier version-control convergence
+
+- Starting commit: `a0c427c2e731dd26cdb933c1a08785f9e4c743ee`.
+- Dispatched wave 1 across three concurrent bounded owners: Protocol/Core graph and transactions; storage/sync/workspace/Git/mirror; identity/grants/budgets/forge/SWHID/evidence.
+- Coordinator retained root manifests, lockfile, compatibility façade wiring, central exports, product scenarios/docs, integration, review, and delivery.
+- Four-slot runtime is saturated; Swarms 13–16 are queued and will be dispatched as wave 1 owners hand back.

@@ -2,10 +2,10 @@
 
 ## Status
 
-Accepted (design). Builds on existing one-shot `importFromGit` / `exportToGit`
-and `EpochCoreGit` / `epoch-git` shims, and elevates them into a network-facing
-projection and live-migration subsystem required by
-[ADR-0020](0020-community-federation-atproto-git-proxy.md).
+Accepted and partially implemented. Deterministic object/ref projection,
+quarantine receive, protocol-v2 capability forwarding, compatibility profiles,
+and mirror coordination ship as a bounded foundation. A complete production
+Git hosting/migration service does not.
 
 ## Context
 
@@ -106,6 +106,16 @@ Cutover recipe is normative for operators:
 - `epoch-git` gains operator commands (`serve`, `mirror`, `migrate`) over time.  
 - Existing `EpochCoreGit` remains a local helper, not the server.
 
+## Implementation Update (2026-08-11)
+
+Projection includes explicit file modes, byte-sorted trees, parents, author and
+committer identities/times/zones, notes, and custom refs without absolute
+paths. Git protocol v2 is an honest subset; `filter` is advertised only when a
+promisor is configured. Mirror authority, expected-old-OID drift, conflict refs,
+idempotency, checkpoints, and pause behavior ship through injected adapters.
+SSH serving, Git SHA-256 repositories, replace refs, and full hosted migration
+operations remain unsupported.
+
 ## Consequences
 
 Positive:
@@ -135,5 +145,7 @@ Revisit if:
 - Spec: [docs/git-compatibility-proxy.md](../git-compatibility-proxy.md)  
 - Existing foundation: `packages/Epoch.Core/src/git.ts`, `importFromGit`,
   `exportToGit`, CLI Git commands in [docs/cli.md](../cli.md)  
-- Future: projection unit tests, proxy integration tests, mirror feature
-  scenarios
+- Current convergence coverage: `test/unit/git-proxy-protocol-v2.test.ts`,
+  `test/unit/git-proxy-quarantine.test.ts`,
+  `packages/Epoch.Git.Proxy/test/projection.test.mjs`, and
+  `packages/Epoch.Forge/test/mirror.test.mjs`

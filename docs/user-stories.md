@@ -8,6 +8,32 @@ for scenario-level persona records.
 
 ## Developer Stories
 
+### DEV-003: Evolve A Stable Change Safely
+
+**As a** contributor,
+**I want** stable change identity across revisions, splits, stacks, and weaves,
+**So that** review context survives rebases, parallel heads, and presentation changes.
+
+Acceptance criteria:
+
+- Atomic split reconstructs the original snapshot exactly or fails without mutation.
+- Revision heads and superseded revisions retain stable identities.
+- Partial merge is dependency-closed; squash preserves source provenance.
+- Stale review/gate/target evidence blocks merge with a typed explanation.
+
+### DEV-004: Work With Partial Data Honestly
+
+**As a** contributor,
+**I want** metadata-only replicas and workspaces to distinguish availability from integrity,
+**So that** I can hydrate safely without mistaking promised bytes for corruption.
+
+Acceptance criteria:
+
+- Manifests and promises are versioned and verified before materialization.
+- Range fetch occurs only when verified chunk boundaries prove it.
+- Workspace reports residency, materialization, storage, and execution separately.
+- Full checkout and verified export remain available escape paths.
+
 ### DEV-001: Initialize A Signed Repository
 
 **As a** developer,  
@@ -33,6 +59,33 @@ Acceptance criteria:
 - CLI output names the repository path, author, and event count.
 
 ## Operator Stories
+
+### OPS-022: Operate Convergence Boundaries
+
+**As a** platform operator,
+**I want** protocol, quarantine, mirror, identity-budget, and archive state reported independently,
+**So that** I can diagnose lag or rejected data without inventing success.
+
+Acceptance criteria:
+
+- Git and native sync report negotiated capabilities and bounded limits.
+- Quarantined/rejected objects are never reported as mirrored or archived.
+- Mirror drift creates a conflict/import ref and pauses only the affected ref.
+- Support bundles redact private sessions and credentials; dangerous operations
+  name authority and require confirmation.
+
+### OPS-023: Archive Public Source Without Leaking Private Work
+
+**As a** security/compliance responder,
+**I want** deterministic SWHIDs and verified public archive receipts,
+**So that** preserved source is independently identifiable without exposing private sessions.
+
+Acceptance criteria:
+
+- Local SWHID computation and verification do not require network access.
+- Archive requests require public visibility and explicit authority.
+- Remote archival is confirmed only from a matching succeeded/full result.
+- Private archive requests fail without including private content in output.
 
 ### OPS-004: Create A Platform Project Headlessly
 

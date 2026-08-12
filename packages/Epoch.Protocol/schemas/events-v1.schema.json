@@ -1,0 +1,1511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.dev/schemas/protocol/events-v1.json",
+  "title": "Epoch Protocol Events v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "type",
+    "eventId",
+    "revisionId",
+    "body"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "type": {
+      "enum": [
+        "repository.identity",
+        "change.created",
+        "change.revised",
+        "change.superseded",
+        "change.dependency.added",
+        "change.dependency.removed",
+        "stack.defined",
+        "stack.revised",
+        "split.accepted",
+        "review.bundle.created",
+        "review.bundle.revised",
+        "review.recorded",
+        "merge.plan.created",
+        "merge.plan.gate-recorded",
+        "merge.plan.applied",
+        "conflict.recorded",
+        "conflict.resolution.proposed",
+        "conflict.resolution.accepted",
+        "conflict.resolution.rejected",
+        "agent.membership.granted",
+        "agent.membership.revoked",
+        "agent.capability.granted",
+        "agent.capability.revoked",
+        "agent.budget.allocated",
+        "agent.budget.reserved",
+        "agent.budget.consumed",
+        "agent.budget.released",
+        "projection.recorded",
+        "mirror.defined",
+        "mirror.checkpoint",
+        "mirror.run",
+        "object.promise.recorded",
+        "software-heritage.mapping",
+        "software-heritage.archive-requested",
+        "software-heritage.archive-status"
+      ]
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+    },
+    "revisionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+    },
+    "body": {
+      "type": "object"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": {
+          "const": "repository.identity"
+        },
+        "body": {
+          "$ref": "#/$defs/repositoryIdentityBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "change.created"
+        },
+        "body": {
+          "$ref": "#/$defs/changeRevisionBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "change.revised"
+        },
+        "body": {
+          "$ref": "#/$defs/changeRevisionBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "change.superseded"
+        },
+        "body": {
+          "$ref": "#/$defs/changeSupersededBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "change.dependency.added"
+        },
+        "body": {
+          "$ref": "#/$defs/changeDependencyBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "change.dependency.removed"
+        },
+        "body": {
+          "$ref": "#/$defs/changeDependencyBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "stack.defined"
+        },
+        "body": {
+          "$ref": "#/$defs/stackBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "stack.revised"
+        },
+        "body": {
+          "$ref": "#/$defs/stackBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "split.accepted"
+        },
+        "body": {
+          "$ref": "#/$defs/splitBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "review.bundle.created"
+        },
+        "body": {
+          "$ref": "#/$defs/reviewBundleBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "review.bundle.revised"
+        },
+        "body": {
+          "$ref": "#/$defs/reviewBundleBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "review.recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/reviewRecordedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "merge.plan.created"
+        },
+        "body": {
+          "$ref": "#/$defs/mergePlanBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "merge.plan.gate-recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/mergeGateBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "merge.plan.applied"
+        },
+        "body": {
+          "$ref": "#/$defs/mergeAppliedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "conflict.recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/conflictBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "conflict.resolution.proposed"
+        },
+        "body": {
+          "$ref": "#/$defs/conflictResolutionBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "conflict.resolution.accepted"
+        },
+        "body": {
+          "$ref": "#/$defs/conflictResolutionBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "conflict.resolution.rejected"
+        },
+        "body": {
+          "$ref": "#/$defs/conflictResolutionBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.membership.granted"
+        },
+        "body": {
+          "$ref": "#/$defs/agentMembershipBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.membership.revoked"
+        },
+        "body": {
+          "$ref": "#/$defs/agentMembershipBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.capability.granted"
+        },
+        "body": {
+          "$ref": "#/$defs/agentCapabilityBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.capability.revoked"
+        },
+        "body": {
+          "$ref": "#/$defs/agentCapabilityBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.budget.allocated"
+        },
+        "body": {
+          "$ref": "#/$defs/agentBudgetBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.budget.reserved"
+        },
+        "body": {
+          "$ref": "#/$defs/agentBudgetBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.budget.consumed"
+        },
+        "body": {
+          "$ref": "#/$defs/agentBudgetBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "agent.budget.released"
+        },
+        "body": {
+          "$ref": "#/$defs/agentBudgetBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "projection.recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/projectionBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "mirror.defined"
+        },
+        "body": {
+          "$ref": "#/$defs/mirrorBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "mirror.checkpoint"
+        },
+        "body": {
+          "$ref": "#/$defs/mirrorBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "mirror.run"
+        },
+        "body": {
+          "$ref": "#/$defs/mirrorBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "object.promise.recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/objectPromiseBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "software-heritage.mapping"
+        },
+        "body": {
+          "$ref": "#/$defs/softwareHeritageMappingBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "software-heritage.archive-requested"
+        },
+        "body": {
+          "$ref": "#/$defs/softwareHeritageArchiveBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "software-heritage.archive-status"
+        },
+        "body": {
+          "$ref": "#/$defs/softwareHeritageArchiveBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    }
+  ],
+  "$defs": {
+    "canonicalId": {
+      "type": "string",
+      "pattern": "^epoch:(repo|principal|key|change|stack|fragment|review|merge-plan|conflict|workspace|operation|grant|budget|projection|mirror|version|session|promise):[a-z2-7]{52}$"
+    },
+    "revisionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
+    },
+    "fragmentSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "fragmentPrecondition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "absent"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "digest"
+          ],
+          "properties": {
+            "kind": {
+              "const": "digest"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "fragmentProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principalId"
+      ],
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "sourceRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        }
+      }
+    },
+    "fragment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fragmentId",
+        "kind",
+        "path",
+        "precondition",
+        "resultDigest",
+        "order",
+        "dependencies",
+        "provenance",
+        "mergeStrategy"
+      ],
+      "properties": {
+        "fragmentId": {
+          "type": "string",
+          "pattern": "^epoch:fragment:[a-z2-7]{52}$"
+        },
+        "kind": {
+          "enum": [
+            "add",
+            "delete",
+            "move",
+            "copy",
+            "text",
+            "structured",
+            "binary"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
+        },
+        "from": {
+          "$ref": "#/$defs/fragmentSource"
+        },
+        "precondition": {
+          "$ref": "#/$defs/fragmentPrecondition"
+        },
+        "resultDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "contentRef": {
+          "type": "string",
+          "pattern": "^(sha256:[a-f0-9]{64}|swh:[A-Za-z0-9:._~-]+|promise:epoch:promise:[a-z2-7]{52})$"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^epoch:fragment:[a-z2-7]{52}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "provenance": {
+          "$ref": "#/$defs/fragmentProvenance"
+        },
+        "mergeStrategy": {
+          "enum": [
+            "exact",
+            "text",
+            "structured",
+            "binary-replace"
+          ]
+        }
+      }
+    },
+    "changeRevisionBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changeId",
+        "baseFrontier",
+        "baseTreeDigest",
+        "parentRevisionIds",
+        "fragments",
+        "resultingTreeDigest",
+        "authorPrincipalId"
+      ],
+      "properties": {
+        "changeId": {
+          "type": "string",
+          "pattern": "^epoch:change:[a-z2-7]{52}$"
+        },
+        "baseFrontier": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "baseTreeDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "parentRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "fragments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fragment"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "resultingTreeDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authorPrincipalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        }
+      }
+    },
+    "stackEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "kind"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "kind": {
+          "enum": [
+            "requires",
+            "orders-after",
+            "conflicts",
+            "derived"
+          ]
+        }
+      }
+    },
+    "stackBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stackId",
+        "revisionIds",
+        "edges"
+      ],
+      "properties": {
+        "stackId": {
+          "type": "string",
+          "pattern": "^epoch:stack:[a-z2-7]{52}$"
+        },
+        "revisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stackEdge"
+          }
+        }
+      }
+    },
+    "splitGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fragmentIds",
+        "risk",
+        "reason"
+      ],
+      "properties": {
+        "fragmentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^epoch:fragment:[a-z2-7]{52}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "risk": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "ambiguous"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "splitBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceRevisionId",
+        "groups",
+        "resultingRevisionIds",
+        "reconstructionDigest"
+      ],
+      "properties": {
+        "sourceRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/splitGroup"
+          },
+          "minItems": 1
+        },
+        "resultingRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "reconstructionDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "reviewOverlap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "left",
+        "right"
+      ],
+      "properties": {
+        "left": {
+          "type": "string",
+          "pattern": "^epoch:fragment:[a-z2-7]{52}$"
+        },
+        "right": {
+          "type": "string",
+          "pattern": "^epoch:fragment:[a-z2-7]{52}$"
+        }
+      }
+    },
+    "reviewBundleBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewId",
+        "revisionIds",
+        "baseFrontier",
+        "baseTreeDigest",
+        "resultingTreeDigest",
+        "overlaps",
+        "conflictIds",
+        "gateDigest"
+      ],
+      "properties": {
+        "reviewId": {
+          "type": "string",
+          "pattern": "^epoch:review:[a-z2-7]{52}$"
+        },
+        "revisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "baseFrontier": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "baseTreeDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "resultingTreeDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "overlaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reviewOverlap"
+          }
+        },
+        "conflictIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^epoch:conflict:[a-z2-7]{52}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "gateDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "mergePlanBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mergePlanId",
+        "targetRevisionId",
+        "revisionIds",
+        "dependencyClosure",
+        "reviewBundleRevisionId",
+        "resolutionRevisionIds",
+        "gateDigest",
+        "mode",
+        "expectedResultDigest"
+      ],
+      "properties": {
+        "mergePlanId": {
+          "type": "string",
+          "pattern": "^epoch:merge-plan:[a-z2-7]{52}$"
+        },
+        "targetRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "revisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "dependencyClosure": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "reviewBundleRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "resolutionRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "gateDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mode": {
+          "enum": [
+            "merge",
+            "squash"
+          ]
+        },
+        "expectedResultDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "conflictBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflictId",
+        "sideRevisionIds",
+        "status",
+        "resolutionRevisionIds"
+      ],
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "pattern": "^epoch:conflict:[a-z2-7]{52}$"
+        },
+        "sideRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "status": {
+          "enum": [
+            "unresolved",
+            "proposed",
+            "accepted",
+            "rejected"
+          ]
+        },
+        "resolutionRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "repositoryIdentityBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repositoryId",
+        "principalId"
+      ],
+      "properties": {
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^epoch:repo:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "keyId": {
+          "type": "string",
+          "pattern": "^epoch:key:[a-z2-7]{52}$"
+        }
+      }
+    },
+    "changeSupersededBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changeId",
+        "supersededRevisionId",
+        "byRevisionId"
+      ],
+      "properties": {
+        "changeId": {
+          "type": "string",
+          "pattern": "^epoch:change:[a-z2-7]{52}$"
+        },
+        "supersededRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "byRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        }
+      }
+    },
+    "changeDependencyBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changeRevisionId",
+        "dependencyRevisionId"
+      ],
+      "properties": {
+        "changeRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "dependencyRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        }
+      }
+    },
+    "reviewRecordedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewId",
+        "bundleRevisionId",
+        "reviewerPrincipalId",
+        "verdict"
+      ],
+      "properties": {
+        "reviewId": {
+          "type": "string",
+          "pattern": "^epoch:review:[a-z2-7]{52}$"
+        },
+        "bundleRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "reviewerPrincipalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "verdict": {
+          "enum": [
+            "approved",
+            "changes-requested",
+            "commented"
+          ]
+        }
+      }
+    },
+    "mergeGateBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mergePlanId",
+        "gateDigest",
+        "status",
+        "evidenceRevisionIds"
+      ],
+      "properties": {
+        "mergePlanId": {
+          "type": "string",
+          "pattern": "^epoch:merge-plan:[a-z2-7]{52}$"
+        },
+        "gateDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "evidenceRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "mergeAppliedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mergePlanId",
+        "targetRevisionId",
+        "resultRevisionId",
+        "resultTreeDigest",
+        "mode",
+        "sourceRevisionIds"
+      ],
+      "properties": {
+        "mergePlanId": {
+          "type": "string",
+          "pattern": "^epoch:merge-plan:[a-z2-7]{52}$"
+        },
+        "targetRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "resultRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "resultTreeDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mode": {
+          "enum": [
+            "merge",
+            "squash"
+          ]
+        },
+        "sourceRevisionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "conflictResolutionBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflictId",
+        "resolutionRevisionId",
+        "principalId"
+      ],
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "pattern": "^epoch:conflict:[a-z2-7]{52}$"
+        },
+        "resolutionRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        }
+      }
+    },
+    "agentMembershipBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "principalId",
+        "grantId"
+      ],
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "pattern": "^epoch:workspace:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "grantId": {
+          "type": "string",
+          "pattern": "^epoch:grant:[a-z2-7]{52}$"
+        }
+      }
+    },
+    "agentCapabilityBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grantId",
+        "principalId",
+        "capability"
+      ],
+      "properties": {
+        "grantId": {
+          "type": "string",
+          "pattern": "^epoch:grant:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "agentBudgetBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "budgetId",
+        "principalId",
+        "units"
+      ],
+      "properties": {
+        "budgetId": {
+          "type": "string",
+          "pattern": "^epoch:budget:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "projectionBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectionId",
+        "repositoryId",
+        "definitionDigest"
+      ],
+      "properties": {
+        "projectionId": {
+          "type": "string",
+          "pattern": "^epoch:projection:[a-z2-7]{52}$"
+        },
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^epoch:repo:[a-z2-7]{52}$"
+        },
+        "definitionDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "mirrorBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mirrorId",
+        "repositoryId",
+        "remoteRef",
+        "frontier"
+      ],
+      "properties": {
+        "mirrorId": {
+          "type": "string",
+          "pattern": "^epoch:mirror:[a-z2-7]{52}$"
+        },
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^epoch:repo:[a-z2-7]{52}$"
+        },
+        "remoteRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "frontier": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "objectPromiseBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "promiseId",
+        "contentDigest",
+        "status"
+      ],
+      "properties": {
+        "promiseId": {
+          "type": "string",
+          "pattern": "^epoch:promise:[a-z2-7]{52}$"
+        },
+        "contentDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "softwareHeritageMappingBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repositoryId",
+        "swhId",
+        "frontier"
+      ],
+      "properties": {
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^epoch:repo:[a-z2-7]{52}$"
+        },
+        "swhId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "frontier": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "softwareHeritageArchiveBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repositoryId",
+        "versionId",
+        "requestId",
+        "status"
+      ],
+      "properties": {
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^epoch:repo:[a-z2-7]{52}$"
+        },
+        "versionId": {
+          "type": "string",
+          "pattern": "^epoch:version:[a-z2-7]{52}$"
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "requested",
+            "pending",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -9,6 +9,7 @@
     "typecheck": "tsgo -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@epoch/platform-core": "0.1.0"
+    "@epoch/platform-core": "0.1.0",
+    "@epoch/protocol": "0.1.0"
   }
 }

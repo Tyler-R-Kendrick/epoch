@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted (design). Implementation is phased; this ADR freezes the product
-boundary and authority model.
+Accepted and partially implemented. ATProto public-record modes and the bounded
+Git proxy foundation ship; a full PDS/AppView deployment and general hosted Git
+service do not.
 
 ## Context
 
@@ -64,6 +65,14 @@ Adopt a **dual-plane federated Community** model:
 Public `org.epoch.repo` records MUST include a `gitCloneUrl` pointing at the
 Git proxy (and MAY include a native `epochSyncUrl`). Without the proxy URL,
 AT repo cards cannot serve ordinary Git clients.
+
+## Implementation Update (2026-08-11)
+
+`@epoch/atproto` enforces local-only/federated modes and fail-closed private
+publishing. `@epoch/git-proxy` supplies deterministic projection, a bounded
+protocol-v2 profile, quarantine receive, and remote-helper seams. These modules
+do not claim a hosted PDS/AppView, SSH Git server, complete partial-clone server,
+or general forge transport.
 
 ## Consequences
 

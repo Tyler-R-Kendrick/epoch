@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "rule": {
+    "ruleId": "compat-mirror",
+    "direction": "import",
+    "authority": "git-primary",
+    "sourceRef": "refs/heads/main",
+    "destinationRef": "refs/heads/main",
+    "credentialRef": "fixture-credential",
+    "force": "deny",
+    "deletion": "deny"
+  },
+  "operation": {
+    "operationId": "divergent-1",
+    "sourceOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "expectedOldOid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "observedDestinationOid": "cccccccccccccccccccccccccccccccccccccccc"
+  },
+  "expectedOutcome": "conflict"
+}

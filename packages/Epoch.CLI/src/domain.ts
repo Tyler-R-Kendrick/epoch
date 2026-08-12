@@ -98,7 +98,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate>",
+  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|new|change|log|op|stack|split|weave|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
   pushUsage: "usage: epoch push [--author NAME] [--version NAME] [--message TEXT] [--no-version] [PATH...]",
   trackUsage: "usage: epoch track [--author NAME] [--type MIME] [--include-ignored] PATH",

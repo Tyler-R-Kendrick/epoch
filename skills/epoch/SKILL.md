@@ -37,6 +37,7 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 | Reference | Use it for |
 |---|---|
 | [Core SDK](references/core-sdk.md) | Repository lifecycle, event log, CRDT operations, hooks, actors, Git-compatible core exports, and Epoch.Platform Core/SDK/Community/Web foundation. |
+| [Frontier VCS Convergence](../../docs/frontier-vcs-convergence.md) | Stable changes/revisions/stacks, conflicts, objects/sync/workspaces, Git/forge interop, agent authority, archival, migrations, and honest limits. |
 | [CLI](references/cli.md) | Running `epoch` and `epoch-git`, repository commands, views, policy events, import/export, and verification. |
 | [WASM](references/wasm.md) | Browser/worker-safe exports, CRDT helpers, and unsupported native Git behavior. |
 | [Platform Packages](../../docs/platforms.md) | Separate Platform Web and Epoch Community API/Core/CLI/Web responsibilities and deployment boundary. |
@@ -65,3 +66,7 @@ For design, behavior, workflow, CLI, SDK, WASM, React, hook, or agent-skill chan
 - Feature specifications live in `features/`; step definitions and lower-level tests live in `test/`.
 - Build output is generated into `dist/` directories and should not be committed.
 - Public behavior, architecture, design decisions, and agent workflows should be documented in the docs index, ADRs, feature registry, and relevant skill reference when they change.
+- For frontier work, preserve stable opaque IDs and existing events; verify
+  explicit parents/expected heads, object bytes, quarantine, capability and
+  loss manifests, authority, and typed unsupported states before claiming a
+  provider or transport is available.

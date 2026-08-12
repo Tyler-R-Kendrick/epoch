@@ -107,6 +107,10 @@ Do not replace Discord with forge-only chrome. Do not abandon signed intents for
 ## Persona bar (adversarial)
 
 Community Web must pass [adversarial persona critique](community-human-centered-design.md#adversarial-design-critique-protocol).
+The frontier convergence workbench critique is recorded in the
+[package design note](../packages/Epoch.Community.Web/CONVERGENCE-UX-CRITIQUE.md).
+The convergence workbench critique is recorded with its implementation in
+[`packages/Epoch.Community.Web/CONVERGENCE-UX-CRITIQUE.md`](../packages/Epoch.Community.Web/CONVERGENCE-UX-CRITIQUE.md).
 Personas treat **lifeless styling**, **missing craft delight / wonder**, and
 **DESIGN.md philosophy drift** as product defects — not taste preferences.
 
@@ -131,3 +135,14 @@ Agent membership, in-stream multi-agent work, and receipt-oriented collaboration
 ## Experience gap scorecard
 
 Competitive dimensions (belong, discover, identity, share, promote, agents-as-members, receipts, honesty, craft, persistence) are tracked in [community-web-experience-gap-scorecard.md](community-web-experience-gap-scorecard.md) and `.optimizexp/competitive/community-web-dimensions.json`. OptimizeXP Community Web runs must update that scorecard — see `skills/optimizexp/references/competitive-coverage.md`.
+The convergence workbench adds stable multi-head revision browsing, atomic
+split, dependency stack/weave review, dependency-closed partial merge, squash
+provenance, stale-review blocking, durable conflict resolution, partial replica
+hydration, forge fidelity, sponsored-agent budgets, and public/private archive
+decisions. At mobile width and 200% zoom, keyboard tree/list focus identifies
+the same selected change and revision without horizontal page overflow.
+
+These views consume canonical Core/Protocol contracts. They do not derive
+identity from labels or paths, trust AI proposals before acceptance, describe a
+promise as resident data, or claim that an adapter offers a native service it
+does not implement. See [Frontier VCS Convergence](frontier-vcs-convergence.md).

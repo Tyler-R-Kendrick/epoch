@@ -13,6 +13,10 @@ decisions, operations, or contribution workflow.
 | [User Stories](user-stories.md) | Persona-oriented workflows supported by the current prototype, including platform conformance flows. |
 | [Community Human-Centered Design](community-human-centered-design.md) | Design thinking, personas (adversarial critics), craft/playfulness/wonder bar, DESIGN.md adherence, pain points, and human considerations for Epoch Community. |
 | [Community Web Experience](community-web-experience.md) | Channel-first Community Web behavior, personas, browser evidence, and selected-message signed actions. |
+| [Frontier Version-Control Convergence](frontier-vcs-convergence.md) | Stable changes, stacks, review weaves, merge plans, conflicts, interoperability, and migration. |
+| [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
+| [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
+| [Forge And Mirror Adapters](forge-adapters.md) | Authority, fidelity, loss, mirror safety, and federation codec boundaries. |
 | [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
 | [Design Critique Record](evidence/design-critique/README.md) | Both adversarial critique rounds against Community Web, the findings worked, measured before/after, and the residual list. |
 | [Community Web Competitive Evaluation](community-web-competitive-evaluation.md) | Scored compare/contrast vs GitHub and Tangled; wedge vs overall outcompete assessment. |
@@ -26,6 +30,7 @@ decisions, operations, or contribution workflow.
 | [Samples](../samples/README.md) | Runnable minimal integrations for Epoch browser, Node backend, and repository workflows. |
 | [Notebooks](../notebooks/README.md) | Executable Node.js notebook examples for Epoch usage scenarios with stored results and output explanations. |
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
+| [Frontier VCS And Forge Dossier](competition/frontier-vcs-dossier.md) | Primary-source comparison of Rift, jj, Pijul, Graphite, GitButler, Radicle, F3, ForgeFed, and Software Heritage with explicit official/experiment/inference/unsupported labels. |
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
 | [Nightboard](design-explorations/nightboard/README.md) | **Canonical Community Web app** ([ADR-0027](design-decisions/0027-community-visual-world-nightboard.md)): CanvasUI creator landing at `/`, Tron/tmux-style keyboard-first board at `board.html`. Evidence under [`evidence/nightboard/`](evidence/nightboard/README.md). |
 | [Nightboard Navigation/Projection Parity](evidence/nightboard-navigation-projection-parity/README.md) | Executable evidence for stable object identity, mounted projections, explicit graph navigation, route restoration, shared actions, and APG feed/tree/combobox behavior. |
@@ -47,6 +52,10 @@ decisions, operations, or contribution workflow.
 | Document | Use it for |
 |---|---|
 | [Current Design](design.md) | Current architecture, event model, sync, policy, CRDT surfaces, hooks, actors, and non-goals. |
+| [Frontier VCS Convergence](frontier-vcs-convergence.md) | Shipped stable change/revision graphs, explicit transactions, conflicts, storage, sync, Git/forge interoperability, authority, migration, and honest capability boundaries. |
+| [Object Resolver And Native Sync](resolver-sync.md) | Storage descriptors, promises, verified hydration, `epoch.sync/v2`, bounded commands, and recovery behavior. |
+| [Workspace Providers](workspace-providers.md) | Separate residency, materialization, storage, and execution capabilities for memory, filesystem, browser, and opt-in Rift launch. |
+| [Forge Adapters And Mirror Authority](forge-adapters.md) | Public-only loss-aware codecs, explicit mirror authority, drift handling, SSRF controls, and escape paths. |
 | [Blob And Large-File Gap Analysis](blob-large-file-gap-analysis.md) | Competitive capability matrix and residual gaps behind Epoch's large-file direction, feeding the ADR-0018 reference architecture. |
 | [Visual Design System](../DESIGN.md) | Epoch Community visual tokens, component rules, accessibility guardrails, and design-system sidecar guidance. |
 | [CLI Reference](cli.md) | Source checkout commands, `epoch` shorthand, `epoch-git`, global linking, and command groups. |
@@ -88,6 +97,13 @@ decisions, operations, or contribution workflow.
 | [ADR-0027: Community Visual World Nightboard](design-decisions/0027-community-visual-world-nightboard.md) | Makes Nightboard (Grid) the canonical Community Web runtime and deployment. |
 | [ADR-0028: Recoverable Nightboard Startup, Sticky Routing, And Deterministic HoBo Authoring](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md) | Defines the Ctrl+U restart inbox, workspace route affinity, and Bo's checked HoBo app loop. |
 | [ADR-0029: Community Canonical Objects, Mounted Projections, And Explicit Navigation](design-decisions/0029-community-canonical-objects-and-projections.md) | Defines stable object IDs, mounted projections, explicit graph and navigation operations, private-safe links, saved views, one action registry, and APG interaction contracts. |
+| [ADR-0030: Stable Changes, Revisions, Stacks, Reviews, And Merges](design-decisions/0030-stable-changes-revisions-stacks-reviews-merges.md) | Defines stable lineages, immutable revisions, dependency stacks, exact review bundles, stale-safe merge plans, and additive legacy migration. |
+| [ADR-0031: Durable Conflicts And Conservative Commutation](design-decisions/0031-durable-conflicts-and-conservative-commutation.md) | Makes conflicts durable, commutation proof-based, and provider proposals explicitly non-authoritative. |
+| [ADR-0032: Residency, Native Sync, And Workspace Providers](design-decisions/0032-residency-native-sync-and-workspace-providers.md) | Separates residency/materialization/storage/execution and defines chunk manifests, promises, sync v2, and truthful providers. |
+| [ADR-0033: Git v2, Quarantine, And Projection Fidelity](design-decisions/0033-git-v2-quarantine-and-projection-fidelity.md) | Defines deterministic Git projection, quarantine receive, a bounded v2 profile, and explicit fidelity/loss reporting. |
+| [ADR-0034: Agent Principals, Grants, And Budgets](design-decisions/0034-agent-principals-grants-and-budgets.md) | Defines attenuated agent authority, transactional budgets, receipts, and injected persistence boundaries. |
+| [ADR-0035: Forge Adapters And Mirror Authority](design-decisions/0035-forge-adapters-and-mirror-authority.md) | Defines public-only forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause behavior. |
+| [ADR-0036: SWHIDs And Software Heritage Archival](design-decisions/0036-swhids-and-software-heritage-archival.md) | Defines browser-safe SWHIDs and injected, verified public archival requests. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
@@ -96,6 +112,7 @@ decisions, operations, or contribution workflow.
 |---|---|
 | [Contributing](../CONTRIBUTING.md) | Coding workflow, testing expectations, and pull request checklist. |
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
+| [Frontier Version-Control Convergence State](plans/frontier-vcs-convergence/sdlc-state.md) | Active implementation record for stable changes, projections, synchronization, interoperability, authority, and validation. |
 | [Nightboard Startup And HoBo Workbench Plan](plans/nightboard-startup-hobo/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, deterministic HoBo authoring, next-action guidance, and focus expansion. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |

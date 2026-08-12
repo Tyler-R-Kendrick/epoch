@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "suite": "frontier-vcs-convergence-compatibility",
+  "generatedBy": "test/compatibility/frontier-compatibility.test.ts",
+  "profiles": [
+    {
+      "id": "COMPAT-EPOCH-LEGACY",
+      "surface": "Epoch repository",
+      "status": "verified",
+      "proof": ["legacyRepositoryOpensVerifiesAndSynchronizesWithoutRewrite"],
+      "supported": ["existing JSON events", "existing blob IDs", "verify(): string[]", "idempotent path sync", "source event bytes unchanged"]
+    },
+    {
+      "id": "COMPAT-GIT-SHA1",
+      "surface": "Git SHA-1 projection",
+      "status": "verified",
+      "proof": ["gitGraphFixturesPreserveExactObjectSemantics", "FRONTIER-PROP-010"],
+      "supported": ["blobs", "trees", "commits", "merge parents", "heads", "tag refs", "notes refs", "100644", "100755", "120000", "160000", "040000"]
+    },
+    {
+      "id": "COMPAT-GIT-SHA256",
+      "surface": "Git SHA-256 repository format",
+      "status": "unsupported",
+      "proof": ["git-compatibility-v1.json"],
+      "supported": ["sync capability negotiation identifies Epoch SHA-256 content objects"],
+      "unsupported": ["Git SHA-256 object-format projection"]
+    },
+    {
+      "id": "COMPAT-GIT-PARTIAL",
+      "surface": "Git partial clone",
+      "status": "partial",
+      "proof": ["protocolV2Advertisement package tests", "filteredHydrate benchmark"],
+      "supported": ["filter advertised only when promisorConfigured", "verified chunk range hydration"],
+      "unsupported": ["filter without configured promisor"]
+    },
+    {
+      "id": "COMPAT-JJ",
+      "surface": "jj change header",
+      "status": "verified",
+      "proof": ["toolCompatibilityProfilesAreHonest"],
+      "supported": ["stable identity from change ID plus immutable header across description edits"]
+    },
+    {
+      "id": "COMPAT-GRAPHITE",
+      "surface": "Graphite stack",
+      "status": "verified",
+      "proof": ["toolCompatibilityProfilesAreHonest"],
+      "supported": ["linear parent chain"]
+    },
+    {
+      "id": "COMPAT-GITBUTLER",
+      "surface": "GitButler parallel branches",
+      "status": "verified",
+      "proof": ["toolCompatibilityProfilesAreHonest"],
+      "supported": ["parallel branch mapping onto shared base"]
+    },
+    {
+      "id": "COMPAT-HG",
+      "surface": "Mercurial",
+      "status": "partial",
+      "proof": ["toolCompatibilityProfilesAreHonest", "tool-projections-v1.json"],
+      "supported": ["heads", "bookmarks", "linear changesets"],
+      "unsupported": ["phases", "evolve", "native wire protocol"]
+    },
+    {
+      "id": "COMPAT-MIRROR-DIVERGENCE",
+      "surface": "Forge mirror",
+      "status": "verified",
+      "proof": ["mirrorDivergenceCreatesConflictWithoutRewrite", "FRONTIER-PROP-008"],
+      "supported": ["idempotent replay", "loop marker", "destination divergence conflict ref", "force/delete policy"]
+    },
+    {
+      "id": "COMPAT-FORGEFED",
+      "surface": "ForgeFed codec",
+      "status": "partial",
+      "proof": ["FRONTIER-FUZZ-006", "Epoch.Forge codec tests"],
+      "supported": ["Ticket/issue", "MergeRequest/change"],
+      "unsupported": ["comment", "release", "live transport"],
+      "note": "Unsupported kinds now fail closed instead of silently becoming issues."
+    }
+  ]
+}

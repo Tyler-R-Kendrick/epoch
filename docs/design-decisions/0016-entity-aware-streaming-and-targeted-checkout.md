@@ -104,6 +104,14 @@ files or the whole repository. Five parts:
    **never** address content by a partial or sampled hash — the Kazaa/UUHash
    pollution lesson.
 
+## Implementation Update (2026-08-11)
+
+The object-promise, filter, range, hydration, and workspace contracts ship as a
+bounded reference implementation. A range is fetched only when a verified
+manifest proves its boundaries; otherwise the caller fetches the full object or
+gets `unsupported-capability`. Entity-aware semantic merging, signed exclusive
+locks, and transparent on-read hydration are not implied by these contracts.
+
 ## Consequences
 
 Positive:

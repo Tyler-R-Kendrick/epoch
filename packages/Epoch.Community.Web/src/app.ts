@@ -39,6 +39,7 @@ export async function createCommunityWebApp(
     apiBaseUrl: options.apiBaseUrl,
     session: options.session ?? defaultSessionForApi(options.apiBaseUrl),
     liveAgentIds: options.liveAgentIds ?? [],
+    convergenceWorkbench: options.convergenceWorkbench,
   };
 }
 

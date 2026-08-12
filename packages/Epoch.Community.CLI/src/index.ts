@@ -2,6 +2,8 @@
 import type {
   CommunityClient,
   CommunityReviewDecision,
+  ConvergenceWorkbenchSnapshot,
+  PartialMergePlan,
 } from "@epoch/community-core";
 
 export interface CommunityCliIO {
@@ -11,6 +13,10 @@ export interface CommunityCliIO {
 
 export interface CommunityCliContext {
   readonly client: CommunityClient;
+  readonly convergence?: {
+    getSnapshot(): ConvergenceWorkbenchSnapshot;
+    planPartialMerge(changeId: string): PartialMergePlan;
+  };
 }
 
 const usage = [
@@ -19,6 +25,9 @@ const usage = [
   "  epoch-community issues open REPOSITORY --title TITLE --author AUTHOR [--body BODY] [--label LABEL]",
   "  epoch-community changes propose REPOSITORY --title TITLE --author AUTHOR --source-view VIEW --target-view VIEW [--body BODY]",
   "  epoch-community changes review REPOSITORY PROPOSAL --reviewer AUTHOR --decision approved|changes-requested|commented [--body BODY]",
+  "  epoch-community stack graph",
+  "  epoch-community review weave",
+  "  epoch-community merge preview CHANGE",
 ].join("\n");
 
 export async function main(
@@ -99,7 +108,37 @@ async function run(
     return;
   }
 
+  if (command === "stack" && subcommand === "graph") {
+    const snapshot = requireConvergence(context).getSnapshot();
+    for (const change of snapshot.changes) {
+      io.stdout(`${change.changeId}\t${change.currentRevisionIds.join("+")}\tdepends:${change.dependsOn.join(",") || "root"}\n`);
+    }
+    return;
+  }
+
+  if (command === "review" && subcommand === "weave") {
+    const snapshot = requireConvergence(context).getSnapshot();
+    for (const change of snapshot.changes) {
+      const gates = snapshot.gates.filter((gate) => gate.changeId === change.changeId);
+      io.stdout(`${change.changeId}\t${gates.map((gate) => `${gate.label}:${gate.state}`).join(",") || "gates:missing"}\n`);
+    }
+    return;
+  }
+
+  if (command === "merge" && subcommand === "preview") {
+    const changeId = rest[0];
+    if (changeId === undefined) throw new Error("merge preview requires a change id");
+    const preview = requireConvergence(context).planPartialMerge(changeId);
+    io.stdout(`${preview.included.join(",")}\tconfirmation-required\t${preview.explanation}\n`);
+    return;
+  }
+
   throw new Error(usage);
+}
+
+function requireConvergence(context: CommunityCliContext): NonNullable<CommunityCliContext["convergence"]> {
+  if (context.convergence === undefined) throw new Error("Convergence workbench is not configured for this Community client context");
+  return context.convergence;
 }
 
 const processCliIO: CommunityCliIO = {

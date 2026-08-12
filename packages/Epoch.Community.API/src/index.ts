@@ -36,6 +36,8 @@ import {
   validateProjectionId,
 } from "@epoch/community-core";
 
+export * from "./convergence";
+
 function newObjectRef(kind: CommunityObjectKind): CommunityObjectRef {
   return { objectId: randomUUID(), kind };
 }

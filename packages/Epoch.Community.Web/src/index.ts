@@ -40,5 +40,6 @@ export { buildCommunitySpaces, defaultCommunityIdForRepo } from "./model/spaces"
 export { buildCommunityFeed } from "./model/feed";
 export { buildDevFeed, filterDevFeedItems } from "./model/dev-feed";
 export { renderCommunityWebDocument } from "./render/document";
+export { renderConvergenceWorkbench } from "./view/convergence-workbench";
 export { renderServiceWorker, renderWebManifest } from "./render/pwa";
 export { materializeCommunityWebSiteWithEpoch } from "./epoch-site";

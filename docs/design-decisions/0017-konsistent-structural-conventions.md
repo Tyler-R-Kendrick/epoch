@@ -47,6 +47,13 @@ Adopt `konsistent` as a required, npm-managed quality gate.
     `src/cli.ts` and `src/cli-git.ts` entrypoints instead); and
   - every `samples/*` app directory has a `package.json`.
 
+## Implementation Update (2026-08-11)
+
+The root `konsistent.json` and `npm run konsistent` remain active in
+`gate:fast`, pull-request CI, and `npm run verify`. The frontier package additions
+conform to those workspace rules; no exception or new structural dependency was
+introduced.
+
 ## Consequences
 
 Positive:

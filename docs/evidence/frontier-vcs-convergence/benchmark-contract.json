@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "suite": "frontier-convergence",
+  "entrypoint": "benchmarks/frontier-convergence.mjs",
+  "optInEnvironment": "EPOCH_RUN_FRONTIER_BENCHMARKS=1",
+  "baselineEnvironment": "EPOCH_FRONTIER_BASELINE",
+  "fixture": {
+    "objects": 2000,
+    "workspaceFiles": 250,
+    "fragments": 200,
+    "stackRevisions": 500,
+    "mirrorOperations": 1000,
+    "budgetReservations": 500,
+    "blobBytes": 2000000
+  },
+  "metrics": ["metadataClone", "filteredHydrate", "chunkReuse", "workspaceCreateCapture", "splitWeaveMerge", "manyRefMirror", "operationRestore", "budgetContention"],
+  "comparison": {
+    "sameMachineOnly": true,
+    "fingerprintFields": ["node major", "platform", "architecture", "CPU model"],
+    "maxMedianRatio": 4,
+    "rationale": "A generous smoke guard detects catastrophic regressions without pretending cross-machine wall-clock samples are comparable."
+  },
+  "output": "JSON to stdout and optional first positional output path",
+  "limitations": ["opt-in and non-CI-authoritative", "relative smoke signal rather than throughput certification", "generated temporary fixtures only"]
+}

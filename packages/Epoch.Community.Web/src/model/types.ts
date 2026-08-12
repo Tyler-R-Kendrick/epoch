@@ -3,6 +3,7 @@ import type {
   CommunityRepository,
   CommunityWorkflow,
   CommunityWorkflowId,
+  ConvergenceWorkbenchSnapshot,
 } from "@epoch/community-core";
 
 export interface PwaAppDescriptor {
@@ -53,6 +54,7 @@ export interface CommunityWebAppDefinition {
   readonly siteHistory?: CommunitySiteEpochHistory;
   readonly session?: CommunitySessionIdentity;
   readonly liveAgentIds?: readonly string[];
+  readonly convergenceWorkbench?: ConvergenceWorkbenchSnapshot;
 }
 
 /** Viewer identity rendered in the header chip (state-driven, not hard-coded sample only). */
@@ -74,6 +76,8 @@ export interface CreateCommunityWebAppOptions {
   readonly session?: CommunitySessionIdentity;
   /** Agent ids that have a live ACP session (sessionKind becomes live). */
   readonly liveAgentIds?: readonly string[];
+  /** Optional logical-stack/review surface rendered inside the Community workspace. */
+  readonly convergenceWorkbench?: ConvergenceWorkbenchSnapshot;
 }
 
 export interface CommunitySiteEpochOperation {

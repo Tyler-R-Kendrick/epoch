@@ -191,6 +191,15 @@ describe the shipped behavior precisely.
 - Unknown future `storage` kinds fail closed, so old readers never silently accept bytes they cannot
   verify.
 
+## Implementation Update (2026-08-11)
+
+The shipped subset covers storage descriptors, full-byte verification,
+FastCDC-v1 manifests, promised missing objects, bounded range/full hydration,
+`epoch.sync/v2`, and memory/filesystem/browser workspace providers. External
+object transport and durable resolver/provider persistence remain injected.
+There is no native Eden/Pijul filesystem, transparent lazy-read hook, or F3
+server claim. Existing inline objects remain valid and no event rewrite occurs.
+
 ## Consequences
 
 Positive:

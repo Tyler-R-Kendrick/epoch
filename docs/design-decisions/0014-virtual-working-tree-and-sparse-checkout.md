@@ -48,6 +48,15 @@ to hold whole, content-addressed, signed-and-verifiable blobs, unchanged.
   `epoch status` reports still-virtual paths with a `V` marker instead of
   treating them as deleted.
 
+## Implementation Update (2026-08-11)
+
+The existing virtual/full checkout and sparse materialization behavior remains
+shipped. The frontier foundation additionally ships versioned object
+descriptors, chunk manifests, promises, native sync contracts, and truthful
+workspace capability reports. It does not yet provide a kernel VFS/FUSE layer,
+transparent read-hook hydration, or an isolated remote workspace. Full checkout
+and verified export remain the escape paths.
+
 ## Consequences
 
 Positive:

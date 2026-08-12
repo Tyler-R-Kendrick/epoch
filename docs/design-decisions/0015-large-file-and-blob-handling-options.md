@@ -289,6 +289,15 @@ The following are **explicitly documented but not adopted as the default**:
   they are not part of this decision.
 - **Option 12 (IPFS/CID)** remains an anti-pattern already on record.
 
+## Implementation Update (2026-08-11)
+
+`epoch.chunk-manifest/v1` now pins deterministic FastCDC-v1 parameters and
+records ordered offsets, lengths, chunk hashes, full size, full SHA-256, entity,
+and chunker metadata. Inline, chunk-manifest, and external-pointer descriptors
+are typed; unknown chunkers and malformed layouts fail closed. This is a
+verifiable reference object store and resolver seam, not a hosted object
+service or transparent large-file filesystem.
+
 ## Consequences
 
 Positive:

@@ -15,6 +15,8 @@ import {
 import type { EventMetadata } from "@epoch/core";
 import { FederatedCommunity, MockPds } from "@epoch/atproto";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
+import { executeFrontierCommand, formatFrontierEnvelope, isFrontierInvocation } from "./frontier";
+import { interopDoctor } from "./interop-doctor";
 
 interface ParsedArgs {
   repo: string;
@@ -28,6 +30,7 @@ export interface CliIO {
 }
 
 const processCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
+class CliHandledError extends Error {}
 
 export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): number {
   try {
@@ -47,6 +50,7 @@ export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): nu
     }
     return 0;
   } catch (error) {
+    if (error instanceof CliHandledError) return 1;
     io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     return 1;
   }
@@ -56,6 +60,26 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
   const parsed = parseGlobalArgs(argv);
   if (parsed.command === undefined) {
     throw new Error(CliText.usage);
+  }
+
+  if (parsed.command === "help") {
+    writeLine(io, CliText.usage);
+    writeLine(io, "Frontier commands: new, change, log --revisions, op, stack, split, weave, review record, merge-plan, conflict, workspace, clone/fetch/hydrate/backfill, mirror, principal/agent, forge, swhid, archive, interop doctor.");
+    writeLine(io, "Authoritative/destructive actions require an explicit configured adapter; unavailable adapters return unsupported-capability.");
+    return;
+  }
+  if (parsed.command === "interop" && parsed.args[0] === "doctor") {
+    const json = parsed.args.includes("--json");
+    return interopDoctor().then((report) => writeLine(io, json ? JSON.stringify(report) : formatDoctor(report)));
+  }
+  if (isFrontierInvocation(parsed.command, parsed.args)) {
+    const json = parsed.args.includes("--json");
+    const args = parsed.args.filter((argument) => argument !== "--json");
+    const envelope = executeFrontierCommand(parsed.repo, [parsed.command, ...args]);
+    const output = formatFrontierEnvelope(envelope, json);
+    (envelope.ok ? io.stdout : io.stderr).write(`${output}\n`);
+    if (!envelope.ok) throw new CliHandledError(output);
+    return;
   }
 
   const repo = new EpochRepository(parsed.repo);
@@ -515,6 +539,12 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
   }
 }
 
+function formatDoctor(report: Awaited<ReturnType<typeof interopDoctor>>): string {
+  return [report.git, ...report.optionalTools, report.copyOnWrite, ...report.adapters, report.swhid]
+    .map((probe) => `${probe.id}: ${probe.status}${probe.version ? ` (${probe.version})` : ""}${probe.reason ? ` — ${probe.reason}` : ""}`)
+    .join("\n");
+}
+
 function parseGlobalArgs(argv: string[]): ParsedArgs {
   const args = [...argv];
   let repo: string = CliSyntax.repositoryDefault;
@@ -654,3 +684,6 @@ function writeErrorLine(io: CliIO, message: string): void {
 if (require.main === module) {
   process.exitCode = main();
 }
+
+export { executeFrontierCommand, formatFrontierEnvelope, isFrontierCommand, isFrontierInvocation } from "./frontier";
+export { interopDoctor } from "./interop-doctor";

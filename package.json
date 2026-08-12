@@ -5,6 +5,7 @@
   "private": true,
   "packageManager": "npm@10.9.7",
   "workspaces": [
+    "packages/Epoch.Protocol",
     "packages/Epoch.Core",
     "packages/Epoch.CLI",
     "packages/Epoch.WASM",
@@ -28,6 +29,8 @@
     "packages/Epoch.Community.Operations.Web",
     "packages/Epoch.Community.CLI",
     "packages/Epoch.Git.Proxy",
+    "packages/Epoch.Forge",
+    "packages/Epoch.SoftwareHeritage",
     "packages/Epoch.Atproto",
     "packages/Epoch.Identity.Bridge",
     "samples/hello-world-cli",
@@ -43,6 +46,10 @@
   },
   "exports": {
     ".": "./packages/Epoch.Core/dist/index.js",
+    "./Epoch.Protocol": {
+      "types": "./packages/Epoch.Protocol/src/index.ts",
+      "default": "./packages/Epoch.Protocol/dist/index.js"
+    },
     "./Epoch.Core.Git": "./packages/Epoch.Core/dist/git.js",
     "./Epoch.CLI.Git": {
       "types": "./packages/Epoch.CLI/src/cli-git.ts",
@@ -129,6 +136,14 @@
       "types": "./packages/Epoch.Git.Proxy/src/index.ts",
       "default": "./packages/Epoch.Git.Proxy/dist/index.js"
     },
+    "./Epoch.Forge": {
+      "types": "./packages/Epoch.Forge/src/index.ts",
+      "default": "./packages/Epoch.Forge/dist/index.js"
+    },
+    "./Epoch.SoftwareHeritage": {
+      "types": "./packages/Epoch.SoftwareHeritage/src/index.ts",
+      "default": "./packages/Epoch.SoftwareHeritage/dist/index.js"
+    },
     "./Epoch.Atproto": {
       "types": "./packages/Epoch.Atproto/src/index.ts",
       "default": "./packages/Epoch.Atproto/dist/index.js"
@@ -143,8 +158,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/core && npm run build -w @epoch/git-proxy && npm run build -w @epoch/atproto && npm run build -w @epoch/identity-bridge && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/live && npm run build -w @epoch/live-react && npm run build -w @epoch/live-redux && npm run build -w @epoch/live-yjs && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/design-tokens && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && npm run build -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/design-tokens && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/protocol && npm run build -w @epoch/core && npm run build -w @epoch/git-proxy && npm run build -w @epoch/forge && npm run build -w @epoch/software-heritage && npm run build -w @epoch/atproto && npm run build -w @epoch/identity-bridge && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/live && npm run build -w @epoch/live-react && npm run build -w @epoch/live-redux && npm run build -w @epoch/live-yjs && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/design-tokens && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && npm run build -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/protocol && npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/forge && npm run typecheck -w @epoch/software-heritage && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/design-tokens && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "design:lint": "designmd lint DESIGN.md",
     "design:audit": "node scripts/audit-design-tokens.mjs --enforce-structural",
@@ -161,17 +176,22 @@
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
     "test:features:runtime": "cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test:unit:runtime": "node dist/test/run-unit-tests.js",
+    "frontier:packages": "npm test -w @epoch/protocol && npm test -w @epoch/forge && npm test -w @epoch/software-heritage && npm run build -w @epoch/identity-bridge && node --test packages/Epoch.Identity.Bridge/test/*.test.mjs",
+    "frontier:conformance": "npm run build -- --pretty false && node dist/test/conformance/frontier-convergence.property.test.js && node dist/test/security/frontier-security.test.js && node dist/test/compatibility/frontier-compatibility.test.js",
+    "frontier:fuzz-smoke": "npm run build -- --pretty false && node dist/test/fuzz/frontier-parser.fuzz.test.js",
+    "frontier:benchmark": "node benchmarks/frontier-convergence.mjs",
+    "frontier:schemas:check": "npm run schemas:check -w @epoch/protocol",
     "test:unit:nightboard-parity": "npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && tsgo -p tsconfig.test.json && node dist/test/run-nightboard-parity-tests.js",
     "test:pact:consumer": "npm run build -- --pretty false && node dist/test/pact/run-pact-consumer.js",
     "test:pact:provider": "npm run build -- --pretty false && node dist/test/pact/run-pact-provider.js",
     "test:pact": "npm run build -- --pretty false && node dist/test/pact/run-pact-tests.js",
-    "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime",
+    "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime && npm run frontier:packages && node dist/test/conformance/frontier-convergence.property.test.js && node dist/test/security/frontier-security.test.js && node dist/test/compatibility/frontier-compatibility.test.js && node dist/test/fuzz/frontier-parser.fuzz.test.js",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
     "a11y:community-web": "node scripts/run-community-web-axe.mjs",
     "a11y:nightboard": "node scripts/run-nightboard-axe.mjs",
     "lint:nightboard-a11y": "node scripts/lint-nightboard-a11y.mjs",
-    "verify": "npm run docs:check && npm run lint && npm run lint:nightboard-a11y && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run a11y:community-web && npm run a11y:nightboard && npm run coverage && npm run test:pact && npm run nightboard:parity && npm run nightboard:faults && npm run nightboard:e2e",
+    "verify": "npm run docs:check && npm run lint && npm run lint:nightboard-a11y && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run frontier:schemas:check && npm run nightboard:build:check && npm run a11y:community-web && npm run a11y:nightboard && npm run coverage && npm run test:pact && npm run nightboard:parity && npm run nightboard:faults && npm run nightboard:e2e",
     "nightboard:faults": "node docs/design-explorations/nightboard/faults.mjs",
     "nightboard:build": "node docs/design-explorations/nightboard/build-core-runtime.mjs && node docs/design-explorations/nightboard/build-openui.mjs && node docs/design-explorations/nightboard/build-graphql.mjs",
     "nightboard:build:check": "node docs/design-explorations/nightboard/build-core-runtime.mjs --check",

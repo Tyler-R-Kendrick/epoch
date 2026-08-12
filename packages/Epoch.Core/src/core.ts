@@ -90,6 +90,13 @@ export interface EpochTransport {
   exportSnapshot(): MemoryEpochTransportSnapshot;
 }
 
+export interface AppendWithParentsOptions {
+  readonly author?: string;
+  readonly parents: readonly string[];
+  readonly expectedHeads?: readonly string[];
+  readonly transactionId: string;
+}
+
 /**
  * Bidirectional peer for the gossip event plane. Peers exchange full
  * MemoryEpochTransportSnapshot payloads (events + base64 blobs + heads).
@@ -613,6 +620,41 @@ export class EpochRepository {
     this.trackLocalViewIntent(type, event.id);
     this.emitHook("repository.append.after", { event });
     return event;
+  }
+
+  appendWithParents(type: string, payload: EventPayload, options: AppendWithParentsOptions): Event {
+    this.requireInitialized();
+    const appendPayload = Schemas.eventPayload.parse(JSON.parse(canonicalJson(payload)));
+    const parents = [...new Set(options.parents)];
+    if (parents.length !== options.parents.length) throw new Error("duplicate explicit parent");
+    const author = options.author ?? this.identity();
+    const transactionDirectory = join(this.epochDir, "transactions");
+    const transactionPath = join(transactionDirectory, `${sha256(options.transactionId)}.json`);
+    mkdirSync(transactionDirectory, { recursive: true });
+
+    return withDirectoryLock(`${this.headsPath}.lock`, () => {
+      if (existsAsFile(transactionPath)) throw new Error(`transaction replay: ${options.transactionId}`);
+      const currentHeads = readJson(this.headsPath, Schemas.heads);
+      if (options.expectedHeads !== undefined && !sameStrings(currentHeads, options.expectedHeads)) {
+        throw new Error(`stale head: expected ${[...options.expectedHeads].sort().join(",")} but found ${currentHeads.join(",")}`);
+      }
+      const parentEvents = parents.map((parent) => this.read(parent));
+      for (const parent of parentEvents) {
+        if (parent.id !== parent.computedId() || verifyEventSignature(parent) !== undefined) throw new Error(`invalid explicit parent: ${parent.id}`);
+      }
+      this.emitHook("repository.append.before", { type, payload: appendPayload, author });
+      const identity = this.identityFor(author);
+      const lamport = Math.max(0, ...parentEvents.map((parent) => parent.lamport)) + 1;
+      const unsigned = Event.create(type, author, identity.publicKey, lamport, parents, appendPayload);
+      const event = new Event({ ...unsigned.unsigned(), signature: signEvent(unsigned, identity.privateKey) });
+      this.writeEvent(event);
+      const mergedParents = new Set(parents);
+      writeJson(this.headsPath, [...new Set([...currentHeads.filter((head) => !mergedParents.has(head)), event.id])].sort());
+      writeJson(transactionPath, { schemaVersion: 1, transactionId: options.transactionId, eventId: event.id });
+      this.trackLocalViewIntent(type, event.id);
+      this.emitHook("repository.append.after", { event });
+      return event;
+    });
   }
 
   createView(name: string, rule: InclusionRule, parentView?: string, metadata?: ViewMetadata, author = this.identity()): Event {
@@ -2048,6 +2090,12 @@ function verifyEventSignature(event: Event): string | undefined {
   } catch (error) {
     return `signature verification error (key mismatch or corrupted signature data): ${error instanceof Error ? error.message : String(error)}`;
   }
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.length === sortedRight.length && sortedLeft.every((value, index) => value === sortedRight[index]);
 }
 
 function copyMissingFiles(sourceDir: string, targetDir: string): number {

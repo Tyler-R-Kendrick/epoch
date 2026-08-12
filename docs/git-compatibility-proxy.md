@@ -19,7 +19,7 @@ It implements the design decisions in
 4. **Migration must be live.** Teams moving to or from Git servers need
    continuous mirror modes, not only one-shot import/export.
 
-## Current Foundation (not the proxy)
+## Current Foundation
 
 | Surface | What it does |
 |---|---|
@@ -28,9 +28,12 @@ It implements the design decisions in
 | `EpochCoreGit` / `epoch-git` | Local Git-like CLI over a real `.git` + Epoch recording |
 | `.epoch/git.json` | Stored remote/ref/commit metadata |
 | Platform `git_mirror_ref` | Spec field; not a live service yet |
+| `@epoch/git-proxy` | Deterministic SHA-1 object/ref projection, bounded protocol-v2 profile, quarantine receive, `Git-Protocol` forwarding, compatibility profiles, and remote-helper foundation |
+| `@epoch/forge` mirror | Injected direction/authority coordinator with expected-old-OID drift, conflict refs, idempotency, checkpoints, retry, pause, and SSRF policy |
 
-The proxy elevates these into a **deployable service** with protocol coverage,
-mapping events, and live sync.
+The shipped proxy is a bounded foundation, not a complete deployable Git host.
+It advertises `filter` only with a configured promisor and does not claim SSH,
+Git SHA-256, replace-ref, complete partial-clone, or native forge-server support.
 
 ## Architecture
 
@@ -163,7 +166,19 @@ Public repo records (lexicon TBD, target `org.epoch.repo`) include:
 - owner DID, name, description, topics  
 - optional head anchors (event ids / content tips)
 
-## Phased Delivery
+## Shipped Boundary And Further Integration Conditions
+
+Deterministic projection, quarantine, protocol-v2 capability honesty, and
+injected mirror reconciliation ship now. A host may compose them into a service,
+but must still supply authentication, durable storage, resolver/promisor,
+network policy, lifecycle, and operational supervision. This document does not
+label those injected responsibilities as shipped merely because their seams
+exist.
+
+The compatibility and threat evidence is recorded under
+[`docs/evidence/frontier-vcs-convergence/`](evidence/frontier-vcs-convergence/).
+
+## Original Phased Delivery
 
 | Phase | Outcome |
 |---|---|
