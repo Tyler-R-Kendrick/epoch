@@ -5,6 +5,7 @@ import type { CommunityAuthorizationContext } from "./authorization";
 
 export * from "./authorization";
 export * from "./actions";
+export * from "./convergence";
 export * from "./graph";
 export * from "./identity";
 export * from "./navigation";
