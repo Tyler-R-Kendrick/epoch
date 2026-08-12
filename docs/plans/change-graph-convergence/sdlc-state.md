@@ -1,4 +1,4 @@
-# Frontier Version-Control Convergence — SDLC State
+# Change Graph Convergence — SDLC State
 
 ## Baseline
 
@@ -20,7 +20,7 @@ local and authoritative CI gates completed successfully.
 - Signed Epoch events and verified content references remain authoritative.
 - Git refs, forge objects, F3 archives, social/federation records, SWHIDs, and archive receipts are projections, mappings, or evidence unless an explicit import lane says otherwise.
 - `@epoch/protocol` is browser-safe and owns wire/domain schemas; Core depends on Protocol, never the reverse.
-- Existing `EpochRepository` APIs remain compatibility façades. New implementation belongs in cohesive modules rather than expanding `core.ts`.
+- Pre-release aliases and identifier spellings are rejected rather than maintained as compatibility APIs. New implementation belongs in cohesive modules rather than expanding `core.ts`.
 - Object residency, materialization, workspace storage, and execution isolation remain distinct contracts.
 - AI outputs are untrusted proposals gated by authorization, budget, disclosure, deterministic validation, and explicit acceptance.
 
@@ -28,14 +28,14 @@ local and authoritative CI gates completed successfully.
 
 | Wave | Owner | Scope | Shared-file exclusions |
 |---|---|---|---|
-| 1A | `core_api` | Protocol schemas/IDs; Core transactions, changes, stacks, splits, weaves, merges, conflicts, operations | Root manifests, lockfile, `core.ts`, central barrels, docs registries, CLI/UI |
+| 1A | `core_api` | Protocol schemas/IDs; Core transactions, Changes, Change Graphs, splits, Review Bundles, merges, conflicts, operations | Root manifests, lockfile, `core.ts`, central barrels, docs registries, CLI/UI |
 | 1B | `nightboard_data` | Chunk store/promises/sync/workspaces; Git fidelity/protocol/quarantine; mirror foundation | Root manifests, lockfile, `core.ts`, central barrels, docs, CLI/UI |
 | 1C | `a11y_evidence_docs` | Principals/grants/budgets; forge codecs; SWHID/archive; evidence/session/provider boundaries | Root manifests, lockfile, `core.ts`, central barrels, docs registries, CLI/UI |
 | Conductor | `/root` | Root wiring, compatibility façades, central exports, CI/scripts, feature registration, docs, final integration/review/delivery | Does not duplicate swarm domain logic |
 
 ## Delivered waves
 
-1. Protocol/Core change, stack, split, weave, merge, conflict, transaction, operation, storage, sync, and workspace foundations.
+1. Protocol/Core Change, Change Graph, split, Review Bundle, merge, conflict, transaction, operation, storage, sync, and Workspace foundations.
 2. Git, mirror, forge, identity, grant, budget, evidence, session, SWHID, and archival adapters with honest capability manifests.
 3. CLI, SDK, WASM/browser inspection, revset grammar, and interop doctor.
 4. Community and Operations keyboard-first surfaces with 16 persona journeys and 89 executable steps.
@@ -57,3 +57,17 @@ local and authoritative CI gates completed successfully.
 - CodeRabbit could not run because the 155-file change exceeded its 100-file plan limit; this was a tooling limitation, not a code failure, and the repository's independent review plus authoritative gates remained green.
 - Closeout CI also exposed the Gossip Pact consumer running redundantly inside the unit/coverage process; it now runs only in the dedicated `test:pact` gate, while stable Community contract coverage remains in the unit runner.
 - Remote `main` was verified at the squash merge SHA above. No product or migration work remains open for this initiative.
+
+## Nomenclature hardening follow-up
+
+- Starting commit: `d00008f02c21c76602acf497b6517fdaee548e90`
+- Working branch: `feat/normalize-change-graph-language`
+- Canonical language: Change, Revision, Fragment, Change Graph, Review Bundle,
+  Materialization, Merge Plan, Conflict, View, Projection, Residency, Workspace,
+  Sandbox, Principal, Grant, Budget, Evidence, Operation, and Code Operation.
+- Removed pre-release `frontier` product branding, native `stack`, `weave`,
+  `epoch:change:legacy:*`, and mutable-revision identifier compatibility.
+- Added strict executable nomenclature coverage and a direct DeltaDB comparison.
+- Added signed Code Operation context/query support for explicit Change, session,
+  tool, and private-conversation-digest linkage. This narrows provenance gaps
+  without claiming continuous editor capture or a live arbitrary-tool CRDT mount.

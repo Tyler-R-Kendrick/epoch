@@ -13,8 +13,8 @@ Use `@epoch/wasm` when browser, worker, or embedded runtimes need Epoch-compatib
 
 The WASM package re-exports CRDT helpers such as `CRDTRegistry`, `EntityType`, `JsonMapCRDT`, `CsvTableCRDT`, `TextWeaveCRDT`, `dumpEntity`, `loadEntity`, and `threeWayMerge`.
 
-It also re-exports the browser-safe frontier helpers `parseRevset`,
-`evaluateRevset`, `inspectRevisionGraph`, `inspectFrontierFilter`,
+It also re-exports the browser-safe Change Graph helpers `parseRevset`,
+`evaluateRevset`, `inspectRevisionGraph`, `inspectCloneFilter`,
 `inspectSyncContract`, `inspectSwhid`, and `nodeOnlyAdapterStatus`. Node-only
 Git, workspace, mirror, and archival adapters return explicit
 `unsupported-capability` instead of entering the browser bundle.

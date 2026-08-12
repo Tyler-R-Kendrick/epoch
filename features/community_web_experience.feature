@@ -3,17 +3,17 @@ Feature: Community Web community-first experience
   with Network Feed discovery and linked repository projects as secondary planes.
 
   @persona.github_open_source_contributor
-  Scenario: Contributor splits a logical stack atomically and reconstructs the exact snapshot
+  Scenario: Contributor splits a change graph atomically and reconstructs the exact snapshot
     Given a convergence workbench with changes "base,api,ui" and dependencies "api>base,ui>api"
     When I split "api" into "api-schema,api-runtime" at unambiguous file boundaries
-    Then the logical stack contains both atomic changes in dependency order
-    And reconstructing the stack produces the original snapshot digest
+    Then the change graph contains both atomic changes in dependency order
+    And reconstructing the change graph produces the original snapshot digest
 
   @persona.github_open_source_contributor
   Scenario: Contributor gets a safe failure when an atomic split is ambiguous
     Given a convergence workbench with an inseparable edit in "shared.ts"
     When I try to split the edit into "schema,runtime"
-    Then the split is rejected without changing the logical stack
+    Then the split is rejected without changing the change graph
     And the workbench explains the ambiguous hunk that needs a human boundary
 
   @persona.maintainer
@@ -24,21 +24,21 @@ Feature: Community Web community-first experience
     And the superseded revision remains visible without becoming current
 
   @persona.maintainer
-  Scenario: Maintainer reviews a combined weave without losing individual change context
-    Given a combined weave review for a three-change stack
+  Scenario: Maintainer reviews a bundle without losing individual change context
+    Given a review bundle for a three-change graph
     When I traverse cumulative and per-change review by keyboard
     Then the selected change remains synchronized with the review detail
     And the gate matrix distinguishes current passing stale and missing evidence
 
   @persona.maintainer
   Scenario: Maintainer partially merges only a dependency-closed subset
-    Given a logical stack where "ui" depends on "api" and "api" depends on "base"
+    Given a change graph where "ui" depends on "api" and "api" depends on "base"
     When I request a partial merge through "api"
     Then the merge preview includes "base,api" and excludes "ui"
     And the merge control explains dependency closure before confirmation
 
   @persona.maintainer
-  Scenario: Maintainer squashes a stack without erasing provenance
+  Scenario: Maintainer squashes a change graph without erasing provenance
     Given a dependency-closed merge preview for "base,api"
     When I confirm a squash with maintainer authority
     Then the squash records both source changes and their revisions
@@ -89,7 +89,7 @@ Feature: Community Web community-first experience
 
   @persona.screen_reader_power_user
   Scenario: Screen-reader maintainer traverses the change graph at mobile width and 200 percent zoom
-    Given an accessible convergence workbench for a branching stack
+    Given an accessible convergence workbench for a branching change graph
     When I navigate the change graph and review list entirely by keyboard
     Then tree and list focus identify the same selected change and revision
     And at 200 percent zoom the workbench has no horizontal page overflow
@@ -236,12 +236,12 @@ Feature: Community Web community-first experience
     Then the Community Web shows the Agent Guild channels
 
   @persona.maintainer
-  Scenario: Maintainer promotes a community idea into an intent
+  Scenario: Maintainer promotes a community idea into a Change
     Given the Community Web live API has repository activity
     And I open the Community Web channel experience
     And I open the ideas channel in the active community
     When I select the "Dashboard widget should group revenue by region" community message
-    And I mark the selected message as an intent candidate
+    And I promote the selected message to a Change candidate
     Then the live API records a change proposal for the selected conversation
 
   @persona.maintainer
@@ -259,8 +259,8 @@ Feature: Community Web community-first experience
     Then the snapshot banner explains how to reconnect for signed work
     And I open the ideas channel in the active community
     When I select the "Dashboard widget should group revenue by region" community message
-    And I mark the selected message as an intent candidate
-    Then the selected message explains how to reconnect and retry Mark intent
+    And I promote the selected message to a Change candidate
+    Then the selected message explains how to reconnect and retry Promote to Change
 
   @persona.github_open_source_contributor
   Scenario: Contributor adds a unified signed comment to the current channel
@@ -299,7 +299,7 @@ Feature: Community Web community-first experience
     Then the selected message shows legal-hold evidence status
 
   @persona.slack_power_user
-  Scenario: Contributor searches community receipts by harness and intent
+  Scenario: Contributor searches community receipts by harness and Change
     Given the Community Web live API has repository activity
     And I open the Community Web channel experience
     When I search community receipts for "goose"
@@ -307,12 +307,12 @@ Feature: Community Web community-first experience
     And a visible agent receipt includes harness "goose"
 
   @persona.github_power_user
-  Scenario: Maintainer sees promote receipt after recording an intent
+  Scenario: Maintainer sees a receipt after recording a Change
     Given the Community Web live API has repository activity
     And I open the Community Web channel experience
     And I open the ideas channel in the active community
     When I select the "Dashboard widget should group revenue by region" community message
-    And I mark the selected message as an intent candidate
+    And I promote the selected message to a Change candidate
     Then the Community Web shows a signed promote receipt for the new proposal
 
   @persona.github_open_source_contributor
@@ -321,7 +321,7 @@ Feature: Community Web community-first experience
     And I open the Community Web channel experience
     When the community repository refreshes from the live API
     And I select the "Welcome to Epoch Civic Workshop" community message
-    Then the selected message keeps the Mark intent and Report signed actions
+    Then the selected message keeps the Promote to Change and Report signed actions
 
   @persona.bluesky_power_user
   Scenario: Contributor sees state-driven identity honesty on a live API session
@@ -374,6 +374,6 @@ Feature: Community Web community-first experience
     And I open the Community Web channel experience
     And I open the ideas channel in the active community
     And I select the "Dashboard widget should group revenue by region" community message
-    And I mark the selected message as an intent candidate
+    And I promote the selected message to a Change candidate
     When I view the lineage of the promoted message
     Then the origin message and the resulting change are marked as one contribution

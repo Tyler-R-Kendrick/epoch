@@ -1,12 +1,12 @@
 import { ProtocolError, assertRevisionId } from "@epoch/protocol";
 import type {
   ChangeFragment,
+  ChangeGraphDefinition,
   ChangeRevisionBody,
   DurableConflict,
   MergePlan,
   ReviewBundle,
   SplitPlan,
-  StackDefinition,
 } from "@epoch/protocol";
 
 export class ChangeGraph {
@@ -56,63 +56,36 @@ export class ChangeGraph {
   }
 }
 
-export interface LegacyIntentProjection {
-  readonly changeId: `epoch:change:legacy:${string}`;
-  readonly revisionId: string;
-  readonly baseFrontier: readonly string[];
-  readonly patches: readonly unknown[];
-  readonly metadata?: Readonly<Record<string, unknown>>;
-}
-
-/** Read-only compatibility projection; it never rewrites legacy event bytes. */
-export function projectLegacyIntent(event: {
-  readonly eventId: string;
-  readonly type: string;
-  readonly payload: Readonly<Record<string, unknown>>;
-}): LegacyIntentProjection {
-  if (event.type !== "intent" || !Array.isArray(event.payload.base) || !Array.isArray(event.payload.patches)) {
-    throw fail("invalid-schema", "Legacy event is not a valid intent");
-  }
-  return Object.freeze({
-    changeId: `epoch:change:legacy:${event.eventId}`,
-    revisionId: event.eventId,
-    baseFrontier: [...event.payload.base] as string[],
-    patches: structuredClone(event.payload.patches),
-    ...(typeof event.payload.metadata === "object" && event.payload.metadata !== null
-      ? { metadata: structuredClone(event.payload.metadata) as Readonly<Record<string, unknown>> } : {}),
-  });
-}
-
-export interface StackGraph {
+export interface ValidatedChangeGraph {
   readonly topologicalOrder: readonly string[];
   closure(revisionIds: readonly string[]): readonly string[];
   downwardMergeSet(revisionId: string): readonly string[];
 }
 
-export function validateStack(stack: StackDefinition): StackGraph {
-  const members = new Set(stack.revisionIds);
-  if (members.size !== stack.revisionIds.length) throw fail("invalid-schema", "Duplicate stack revision");
-  const dependencies = new Map<string, Set<string>>(stack.revisionIds.map((revisionId) => [revisionId, new Set()]));
-  for (const edge of stack.edges) {
-    if (!members.has(edge.from) || !members.has(edge.to)) throw fail("invalid-ref", "Stack edge references nonmember revision");
-    if (edge.from === edge.to) throw fail("invalid-schema", "Stack cycle: self edge");
-    if (["requires", "orders-after", "derived"].includes(edge.kind)) dependencies.get(edge.from)!.add(edge.to);
+export function validateChangeGraph(changeGraph: ChangeGraphDefinition): ValidatedChangeGraph {
+  const members = new Set(changeGraph.memberRevisionIds);
+  if (members.size !== changeGraph.memberRevisionIds.length) throw fail("invalid-schema", "Duplicate change graph revision");
+  const dependencies = new Map<string, Set<string>>(changeGraph.memberRevisionIds.map((revisionId) => [revisionId, new Set()]));
+  for (const edge of changeGraph.edges) {
+    if (!members.has(edge.from) || !members.has(edge.to)) throw fail("invalid-ref", "Change graph edge references nonmember revision");
+    if (edge.from === edge.to) throw fail("invalid-schema", "Change graph cycle: self edge");
+    if (["requires", "orders-after", "derived-from"].includes(edge.kind)) dependencies.get(edge.from)!.add(edge.to);
   }
   const order: string[] = [];
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const visit = (revisionId: string): void => {
-    if (visiting.has(revisionId)) throw fail("invalid-schema", `Stack cycle at ${revisionId}`);
+    if (visiting.has(revisionId)) throw fail("invalid-schema", `Change graph cycle at ${revisionId}`);
     if (visited.has(revisionId)) return;
     visiting.add(revisionId);
     for (const dependency of [...dependencies.get(revisionId)!].sort()) visit(dependency);
     visiting.delete(revisionId); visited.add(revisionId); order.push(revisionId);
   };
-  for (const revisionId of stack.revisionIds) visit(revisionId);
+  for (const revisionId of changeGraph.memberRevisionIds) visit(revisionId);
   const closure = (revisionIds: readonly string[]): readonly string[] => {
     const selected = new Set<string>();
     const select = (revisionId: string): void => {
-      if (!members.has(assertRevisionId(revisionId))) throw fail("missing-dependency", `Revision is not in stack: ${revisionId}`);
+      if (!members.has(assertRevisionId(revisionId))) throw fail("missing-dependency", `Revision is not in change graph: ${revisionId}`);
       if (selected.has(revisionId)) return;
       selected.add(revisionId);
       for (const dependency of dependencies.get(revisionId)!) select(dependency);
@@ -154,64 +127,64 @@ export function acceptSplit(
 }
 
 export function buildReviewBundle(input: {
-  readonly reviewId: string;
-  readonly revisionIds: readonly string[];
+  readonly reviewBundleId: string;
+  readonly selectedRevisionIds: readonly string[];
   readonly baseFrontier: readonly string[];
   readonly baseTreeDigest: string;
-  readonly resultingTreeDigest: string;
+  readonly combinedTreeDigest: string;
   readonly overlaps: ReviewBundle["overlaps"];
   readonly conflicts: ReviewBundle["conflictIds"];
-  readonly gateDigest: string;
+  readonly gateDefinitionDigest: string;
   readonly priorBundle?: ReviewBundle;
 }): ReviewBundle {
   const bundle: ReviewBundle = deepFreeze({
-    reviewId: input.reviewId as ReviewBundle["reviewId"], revisionIds: input.revisionIds.map(assertRevisionId), baseFrontier: input.baseFrontier.map(assertRevisionId),
-    baseTreeDigest: input.baseTreeDigest, resultingTreeDigest: input.resultingTreeDigest, overlaps: structuredClone(input.overlaps),
-    conflictIds: [...input.conflicts], gateDigest: input.gateDigest,
+    reviewBundleId: input.reviewBundleId as ReviewBundle["reviewBundleId"], selectedRevisionIds: input.selectedRevisionIds.map(assertRevisionId), baseFrontier: input.baseFrontier.map(assertRevisionId),
+    baseTreeDigest: input.baseTreeDigest, combinedTreeDigest: input.combinedTreeDigest, overlaps: structuredClone(input.overlaps),
+    conflictIds: [...input.conflicts], gateDefinitionDigest: input.gateDefinitionDigest,
   });
-  if (input.priorBundle !== undefined && canonical({ ...bundle, reviewId: undefined }) !== canonical({ ...input.priorBundle, reviewId: undefined })) {
-    throw fail("stale-review", "Review weave evidence changed; create a new bundle revision");
+  if (input.priorBundle !== undefined && canonical({ ...bundle, reviewBundleId: undefined }) !== canonical({ ...input.priorBundle, reviewBundleId: undefined })) {
+    throw fail("stale-review", "Review bundle evidence changed; create a new bundle revision");
   }
   return bundle;
 }
 
-export interface MergePlanningContext { readonly stack: StackDefinition }
+export interface MergePlanningContext { readonly changeGraph: ChangeGraphDefinition }
 
 export function createMergePlan(input: MergePlan, context: MergePlanningContext): MergePlan {
-  if (new Set(input.revisionIds).size !== input.revisionIds.length || new Set(input.dependencyClosure).size !== input.dependencyClosure.length) throw fail("invalid-schema", "Merge plan contains duplicate revisions");
-  assertDependencyClosure(input, context.stack);
+  if (new Set(input.selectedRevisionIds).size !== input.selectedRevisionIds.length || new Set(input.hardDependencyClosure).size !== input.hardDependencyClosure.length) throw fail("invalid-schema", "Merge plan contains duplicate revisions");
+  assertDependencyClosure(input, context.changeGraph);
   return Object.freeze(structuredClone(input));
 }
 
 export interface MergeApplicationContext {
   readonly currentTargetRevisionId: string;
   readonly availableRevisionIds: readonly string[];
-  readonly stack: StackDefinition;
+  readonly changeGraph: ChangeGraphDefinition;
   readonly reviewBundleRevisionId: string;
   readonly acceptedResolutionRevisionIds: readonly string[];
-  readonly gateDigest: string;
+  readonly gateDefinitionDigest: string;
   readonly unresolvedConflictIds: readonly string[];
   readonly protectedTarget: boolean;
   readonly resultDigest: string;
 }
 
-export interface AppliedMerge { readonly mode: MergePlan["mode"]; readonly resultRevisionProvenance: readonly string[]; readonly resultDigest: string }
+export interface AppliedMerge { readonly mergeMode: MergePlan["mergeMode"]; readonly resultRevisionProvenance: readonly string[]; readonly resultDigest: string }
 
 export function applyMergePlan(plan: MergePlan, context: MergeApplicationContext): AppliedMerge {
   if (context.currentTargetRevisionId !== plan.targetRevisionId) throw fail("stale-head", "Merge target moved");
-  assertDependencyClosure(plan, context.stack);
-  if (plan.dependencyClosure.some((revisionId) => !context.availableRevisionIds.includes(revisionId))) throw fail("missing-dependency", "Merge plan dependency closure is unavailable");
+  assertDependencyClosure(plan, context.changeGraph);
+  if (plan.hardDependencyClosure.some((revisionId) => !context.availableRevisionIds.includes(revisionId))) throw fail("missing-dependency", "Merge plan hard dependency closure is unavailable");
   if (context.reviewBundleRevisionId !== plan.reviewBundleRevisionId) throw fail("stale-review", "Merge review evidence changed");
-  if (!sameValues(context.acceptedResolutionRevisionIds, plan.resolutionRevisionIds)) throw fail("stale-revision", "Merge conflict resolution evidence changed");
-  if (context.gateDigest !== plan.gateDigest) throw fail("stale-gate", "Merge gate evidence changed");
+  if (!sameValues(context.acceptedResolutionRevisionIds, plan.conflictResolutionRevisionIds)) throw fail("stale-revision", "Merge conflict resolution evidence changed");
+  if (context.gateDefinitionDigest !== plan.gateDefinitionDigest) throw fail("stale-gate", "Merge gate evidence changed");
   if (context.protectedTarget && context.unresolvedConflictIds.length > 0) throw fail("unresolved-conflict", "Protected merge has unresolved conflicts");
-  if (context.resultDigest !== plan.expectedResultDigest) throw fail("integrity-failure", "Merge result digest does not match plan");
-  return Object.freeze({ mode: plan.mode, resultRevisionProvenance: [...plan.revisionIds], resultDigest: context.resultDigest });
+  if (context.resultDigest !== plan.resultingTreeDigest) throw fail("integrity-failure", "Merge result digest does not match plan");
+  return Object.freeze({ mergeMode: plan.mergeMode, resultRevisionProvenance: [...plan.selectedRevisionIds], resultDigest: context.resultDigest });
 }
 
-function assertDependencyClosure(plan: MergePlan, stack: StackDefinition): void {
-  const authoritative = validateStack(stack).closure(plan.revisionIds);
-  if (!sameValues(authoritative, plan.dependencyClosure)) throw fail("missing-dependency", "Merge plan does not contain the authoritative stack dependency closure");
+function assertDependencyClosure(plan: MergePlan, changeGraph: ChangeGraphDefinition): void {
+  const authoritative = validateChangeGraph(changeGraph).closure(plan.selectedRevisionIds);
+  if (!sameValues(authoritative, plan.hardDependencyClosure)) throw fail("missing-dependency", "Merge plan does not contain the authoritative hard dependency closure");
 }
 
 function sameValues(left: readonly string[], right: readonly string[]): boolean {

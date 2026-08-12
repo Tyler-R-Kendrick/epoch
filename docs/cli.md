@@ -184,16 +184,16 @@ to its base and leaves the rest virtual. The full tree is described in
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.
 
-## Frontier Change, Stack, And Merge Commands
+## Change Graph And Merge Commands
 
-These commands use the reference `.epoch/frontier-v1.json` store. They exercise
+These commands use the local `.epoch/change-graph-v1.json` reference host. They exercise
 the canonical schemas and validation rules, but do not replace the signed
 repository event log.
 
 New object IDs are generated through the Protocol 256-bit lowercase-base32
 canonical ID generator, whose CSPRNG is injectable for deterministic hosts and
 tests. Only Protocol-declared kinds are emitted: a split proposal is an
-operation and a weave uses stack identity. Exact revision IDs are branded
+Operation and a Review Bundle uses `review-bundle` identity. Exact Revision IDs are branded
 signed event IDs; `epoch:revision:*` is not a valid canonical ID kind.
 
 | Command group | Shipped operations |
@@ -201,19 +201,19 @@ signed event IDs; `epoch:revision:*` is not a valid canonical ID kind.
 | `new`, `change` | Create a revision from one or more explicit parents; create, revise, show, and diff a stable logical change. |
 | `log --revisions REVSET` | Parse and evaluate the canonical browser-safe revset against the available revision graph. |
 | `op` | Inspect the local operation DAG, undo an operation, or restore a prior local state. Operation history is local-only. |
-| `stack` | Create, show, add, remove, move, restack, and submit dependency-ordered changes. |
+| `graph` | Create, show, add, remove, order, restack, and submit dependency-ordered Changes. |
 | `split` | Propose or inspect a JSON split plan, then accept/reject it. Acceptance requires byte-exact ordered reconstruction. |
-| `weave` | Create, show, or check out an explicit multi-change weave. |
+| `bundle` | Create, show, or materialize an explicit Review Bundle. |
 | `review record` | Record review evidence bound to an exact revision/frontier and gate digest. |
 | `merge-plan` | Plan, inspect, or apply a dependency-closed merge; stale target, gate, conflict, or digest fails closed. |
 | `conflict` | List/show durable conflicts, record a resolution, request a non-authoritative AI proposal, or accept/reject it. |
 
 Revsets support `heads`, `roots`, `ancestors`, `descendants`, `change`,
-`stack`, `conflicts`, `pending`, `approved`, `mergeable`, and `author`, with
+`graph`, `conflicts`, `pending`, `approved`, `mergeable`, and `author`, with
 union, intersection, difference, and parentheses. Parse errors are typed and
 ordering is deterministic.
 
-## Frontier Storage, Interop, And Authority Commands
+## Storage, Interop, And Authority Commands
 
 | Command group | Shipped operations and limitations |
 |---|---|
@@ -236,7 +236,8 @@ destructive operations require the same validation in text and JSON modes.
 - [Core SDK Reference](sdk.md)
 - [Feature Registry](features.md)
 - [Current Design](design.md)
-- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Epoch Nomenclature](nomenclature.md)
+- [Change Graph And Operation History](change-graph.md)
 - [Object Resolver And Native Sync](resolver-sync.md)
 - [Workspace Providers](workspace-providers.md)
 - [Forge Adapters](forge-adapters.md)

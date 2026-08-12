@@ -1,25 +1,26 @@
-# ADR-0030: Stable Changes, Revisions, Stacks, Reviews, And Merges
+# ADR-0030: Stable Changes, Revisions, Change Graphs, Review Bundles, And Merge Plans
 
 Status: Accepted and implemented
 
 ## Context
 
-An intent event was useful but could not express a stable logical change with
-multiple immutable revisions, explicit dependency stacks, review evidence tied
+The pre-release proposal model could not express a stable logical Change with
+multiple immutable Revisions, an explicit dependency graph, review evidence tied
 to an exact frontier, or a merge plan that fails when its target moves.
 
 ## Decision
 
-- Canonical 256-bit IDs distinguish changes, revisions, fragments, stacks,
-  reviews, merge plans, conflicts, principals, and repositories.
+- Canonical 256-bit IDs distinguish Changes, Change Graphs, Fragments, Review
+  Bundles, Merge Plans, Conflicts, Principals, and repositories. A Revision is
+  identified by its signed event ID rather than a second canonical-ID kind.
 - A `ChangeId` names the logical lineage; a revision names immutable content
   with explicit parent revisions and base/result tree digests.
-- Stack edges are typed and acyclic. Partial merge takes a dependency-closed
+- Change Graph edges are typed and hard dependencies are acyclic. Partial merge takes a dependency-closed
   subset. Split acceptance must reconstruct the original ordered fragments
   byte-for-byte. Squash records every source revision as provenance.
 - Review bundles bind exact revisions, frontier, tree digests, conflicts, and a
   gate digest. Merge planning and application recompute closure from the supplied
-  authoritative stack and require the exact review and accepted resolution
+  authoritative Change Graph and require the exact review and accepted resolution
   revisions. Merge applies only when target, closure, evidence, gate, conflict
   state, and expected result digest still match.
 - `epoch.protocol/v1` owns the browser-safe schemas and typed errors. Core owns
@@ -29,16 +30,13 @@ to an exact frontier, or a merge plan that fails when its target moves.
   append, generic sync batches, and callback-based Git promotion are explicitly
   reported as non-atomic until they are routed through a transactional store.
 
-## Compatibility And Migration
+## Pre-release cleanup
 
-Existing events are never rewritten. A valid legacy `intent` is exposed by a
-read-only projection whose `ChangeId` is `epoch:change:legacy:<event-id>` and
-whose revision remains the original event ID. Repository identity is additive;
-opening an old repository assigns no replacement identity to existing events.
-
-The local `.epoch/frontier-v1.json` CLI store is a reference host for the new
-command grammar, not the canonical repository event store. Delete that file to
-remove its local records; signed legacy events remain intact.
+Epoch had no released compatibility contract for the exploratory `stack`,
+`weave`, `review`, `epoch:revision:*`, or `epoch:change:legacy:*` spellings.
+They are rejected rather than aliased. The local `.epoch/change-graph-v1.json`
+CLI store is a reference host for the command grammar, not the canonical signed
+repository event log. Delete that file to remove its local records.
 
 ## Consequences
 
@@ -54,7 +52,8 @@ new schema version requires an explicit event migration.
 
 ## Related
 
-- [Frontier VCS Convergence](../frontier-vcs-convergence.md)
+- [Epoch Nomenclature](../nomenclature.md)
+- [Change Graph And Operation History](../change-graph.md)
 - [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md)
 - [CLI Reference](../cli.md)
 - [SDK Reference](../sdk.md)

@@ -41,7 +41,7 @@ export interface AuthorityGrant {
   readonly paths?: readonly string[];
   readonly views?: readonly string[];
   readonly changes?: readonly string[];
-  readonly stacks?: readonly string[];
+  readonly changeGraphs?: readonly string[];
   readonly tools?: readonly string[];
   readonly models?: readonly string[];
   readonly providers?: readonly string[];
@@ -136,7 +136,7 @@ export class AuthorityLedger {
 
   authorize(input: { readonly principalId: PrincipalId; readonly grantId: string; readonly action: string;
     readonly resource: string; readonly repository?: string; readonly community?: string; readonly path?: string;
-    readonly view?: string; readonly change?: string; readonly stack?: string; readonly tool?: string;
+    readonly view?: string; readonly change?: string; readonly changeGraph?: string; readonly tool?: string;
     readonly model?: string; readonly provider?: string; readonly cost?: number; readonly unit?: BudgetDimension; readonly audience?: string }): AuthorizationDecision {
     const explanation: string[] = [];
     const grant = this.#grants.get(input.grantId);
@@ -155,7 +155,7 @@ export class AuthorityLedger {
     const dimensions: readonly [keyof typeof input, keyof AuthorityGrant, string][] = [
       ["repository", "repositories", "repository-denied"], ["community", "communities", "community-denied"],
       ["path", "paths", "path-denied"], ["view", "views", "view-denied"], ["change", "changes", "change-denied"],
-      ["stack", "stacks", "stack-denied"], ["tool", "tools", "tool-denied"], ["model", "models", "model-denied"],
+      ["changeGraph", "changeGraphs", "change-graph-denied"], ["tool", "tools", "tool-denied"], ["model", "models", "model-denied"],
       ["provider", "providers", "provider-denied"],
     ];
     for (const [requestKey, grantKey, reason] of dimensions) {
@@ -248,7 +248,7 @@ export class AuthorityLedger {
         !subset(child.actions, parent.actions) || !subset(child.resources, parent.resources) ||
         !subset(child.repositories, parent.repositories) || !subset(child.communities, parent.communities) ||
         !subset(child.paths, parent.paths) || !subset(child.views, parent.views) || !subset(child.changes, parent.changes) ||
-        !subset(child.stacks, parent.stacks) || !subset(child.tools, parent.tools) || !subset(child.models, parent.models) ||
+        !subset(child.changeGraphs, parent.changeGraphs) || !subset(child.tools, parent.tools) || !subset(child.models, parent.models) ||
         !subset(child.providers, parent.providers) || !subset(child.audience, parent.audience)) throw new Error("child grant must attenuate parent authority");
     const depth = this.#depth(parent) + 1;
     if (parent.maxDelegationDepth !== undefined && depth > parent.maxDelegationDepth) throw new Error("delegation depth exceeded");

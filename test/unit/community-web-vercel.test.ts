@@ -440,7 +440,7 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
   assert.match(html, /data-dev-feed/u);
   assert.match(html, /data-feed-source="api"/u);
   assert.match(html, /"apiBaseUrl":"https:\/\/community\.test"/u);
-  assert.match(html, /data-action="intent"/u);
+  assert.match(html, /data-action="promote-change"/u);
   assert.match(html, /data-action="agent"/u);
   assert.match(html, /data-action="report"/u);
   assert.match(html, /state\.apiBaseUrl/u);

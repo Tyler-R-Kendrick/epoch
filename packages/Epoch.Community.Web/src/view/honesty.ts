@@ -7,7 +7,7 @@ import { escapeHtml } from "./html";
  * meta, rail status, identity chip, composer footer, and three agent rows — with
  * the banner and the composer footer contradicting each other. Worse, the band
  * reserved for state was spent on feature copy: "social channels are
- * community-owned; linked projects add issues, changes, and signed intents" is one
+ * community-owned; linked projects add issues and signed Changes" is one
  * word of state and eighteen of marketing.
  *
  * So: the working state carries no band at all — `renderStateChip` in the header is

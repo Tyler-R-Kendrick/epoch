@@ -2,14 +2,14 @@
 
 Epoch is a signed, event-driven Distributed Version Control System — a
 successor to Git, prototyped in TypeScript. It keeps the useful parts of Git,
-such as offline work and content-addressed history, while adding append-only
-intent events, cryptographic author identity, deterministic policy, local sync,
-and CRDT-backed shared state.
+such as offline work and content-addressed history, while adding stable logical
+Changes, immutable signed Revisions, cryptographic principal identity,
+deterministic policy, local sync, and CRDT-backed shared state.
 
 **Epoch.Community.Web is to Epoch what GitHub is to Git**: the community
 experience built on the DVCS. It is the central place where an open-source
 community follows the work of the people and projects it cares about, where
-maintainers manage contributions as signed intents, and where members engage
+maintainers manage signed Changes and Review Bundles, and where members engage
 each other — messaging, questions, decisions, showcases — in the same context
 as the work itself. Its participants include professional developers, citizen
 builders building in the open, and agents committing concurrently under human
@@ -52,12 +52,12 @@ Epoch itself supports repository workflows where:
 - history should be auditable and tamper-evident by default;
 - authorship is based on local Ed25519 identities instead of a central account
   system;
-- proposed changes are represented as signed intent events;
+- logical Changes retain stable identity across immutable signed Revisions;
 - peers can exchange local repository state without requiring a forge; and
 - applications and agents can use repository history as programmable state.
 
-The frontier convergence surface adds stable logical changes and immutable
-revisions, dependency stacks, exact review/merge evidence, durable conflicts,
+The Change Graph surface adds stable logical Changes and immutable signed
+Revisions, dependency graphs, exact review/merge evidence, durable conflicts,
 verified metadata-only storage, native `epoch.sync/v2`, deterministic Git
 projection, loss-aware forge codecs, attenuated agent authority, and SWHIDs.
 These are explicit bounded contracts: Epoch does not claim a native
@@ -124,11 +124,11 @@ npm exec -- epoch push dist --author alice --version initial-site
 npm exec -- epoch version materialize initial-site --out deploy
 ```
 
-Create and inspect an intent:
+Create a Change and put its exact Revision in a Change Graph:
 
 ```bash
-npm exec -- epoch intent README.md --type text/plain --title "Update README"
-npm exec -- epoch status
+npm exec -- epoch change create "Update README"
+npm exec -- epoch graph create docs-update <revision-id>
 ```
 
 Track working-tree lifecycle changes natively:
@@ -180,7 +180,8 @@ High-value entry points:
 | Topic | Link |
 |---|---|
 | Architecture | [docs/design.md](docs/design.md) |
-| Frontier VCS convergence | [docs/frontier-vcs-convergence.md](docs/frontier-vcs-convergence.md) |
+| Change Graph and operation history | [docs/change-graph.md](docs/change-graph.md) |
+| Canonical terminology | [docs/nomenclature.md](docs/nomenclature.md) |
 | Object resolution and native sync | [docs/resolver-sync.md](docs/resolver-sync.md) |
 | Workspace providers | [docs/workspace-providers.md](docs/workspace-providers.md) |
 | Forge adapters and mirror authority | [docs/forge-adapters.md](docs/forge-adapters.md) |

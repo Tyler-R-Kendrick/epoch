@@ -1,6 +1,7 @@
 ---
 product: Zed DeltaDB
 marketing_sources:
+  - https://zed.dev/blog/introducing-deltadb
   - https://zed.dev/
   - https://zed.dev/blog/sequoia-backs-zed
   - https://zed.dev/blog/zed-1-0
@@ -20,7 +21,7 @@ marketing_sources:
 
 ## Positioning
 
-Zed positions DeltaDB as the next step after a high-performance AI-native editor: operation-level version control that lets humans and agents share a live, consistent, code-linked history. The message is not "replace Git today"; it is "Git snapshots are not enough for continuous collaboration."
+Zed positions DeltaDB as operation-level version control for humans and agents sharing a live, code-linked history. Git and CI remain interoperability and checking surfaces; they are not the high-resolution authoring record.
 
 ## Customer Model
 

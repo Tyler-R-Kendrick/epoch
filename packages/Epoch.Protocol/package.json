@@ -1,14 +1,14 @@
 {
   "name": "@epoch/protocol",
   "version": "0.1.0",
-  "description": "Browser-safe canonical identifiers, events, schemas, and capability contracts for Epoch convergence.",
+  "description": "Browser-safe canonical identifiers, events, schemas, and capability contracts for Epoch Change Graphs.",
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
     "build": "tsgo -p tsconfig.json",
     "typecheck": "tsgo -p tsconfig.json --noEmit",
     "test": "node scripts/run-tests.mjs",
-    "schemas:generate": "node scripts/generate-schemas.mjs",
-    "schemas:check": "node scripts/generate-schemas.mjs --check"
+    "schemas:generate": "npm run build && node scripts/generate-schemas.mjs",
+    "schemas:check": "npm run build && node scripts/generate-schemas.mjs --check"
   }
 }

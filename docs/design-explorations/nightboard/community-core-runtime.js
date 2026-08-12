@@ -244,13 +244,13 @@ var NB_CORE = (() => {
     }
     splitChange(changeId, partIds, fileBoundaries) {
       const index = __privateGet(this, _state).changes.findIndex((change) => change.changeId === changeId);
-      if (index < 0) return { ok: false, explanation: `Unknown change ${changeId}; stack unchanged.` };
+      if (index < 0) return { ok: false, explanation: `Unknown change ${changeId}; change graph unchanged.` };
       const duplicateBoundary = new Set(fileBoundaries).size !== fileBoundaries.length;
       if (partIds.length < 2 || partIds.length !== fileBoundaries.length || duplicateBoundary || fileBoundaries.includes(__privateGet(this, _state).ambiguousPath ?? "")) {
-        return { ok: false, explanation: `${__privateGet(this, _state).ambiguousPath ?? "edit"} contains an ambiguous hunk; define a human boundary before splitting. Stack unchanged.` };
+        return { ok: false, explanation: `${__privateGet(this, _state).ambiguousPath ?? "edit"} contains an ambiguous hunk; define a human boundary before splitting. Change graph unchanged.` };
       }
       if (new Set(partIds).size !== partIds.length || partIds.some((id) => __privateGet(this, _state).changes.some((change) => change.changeId === id && change.changeId !== changeId))) {
-        return { ok: false, explanation: "Split identities must be unique; stack unchanged." };
+        return { ok: false, explanation: "Split identities must be unique; change graph unchanged." };
       }
       const original = __privateGet(this, _state).changes[index];
       if (original === void 0) throw new Error(`Invariant: missing change ${changeId}`);

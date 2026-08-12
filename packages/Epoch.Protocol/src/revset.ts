@@ -1,4 +1,4 @@
-export type RevsetFunction = "heads" | "roots" | "ancestors" | "descendants" | "change" | "stack" |
+export type RevsetFunction = "heads" | "roots" | "ancestors" | "descendants" | "change" | "graph" |
   "conflicts" | "pending" | "approved" | "mergeable" | "author";
 export type RevsetExpression =
   | { readonly type: "call"; readonly name: RevsetFunction; readonly argument?: RevsetExpression | string }
@@ -11,7 +11,7 @@ export class RevsetParseError extends Error {
 }
 
 interface Token { readonly type: "word" | "(" | ")" | "|" | "&" | "-" | "eof"; readonly value: string; readonly offset: number }
-const functions = new Set<RevsetFunction>(["heads", "roots", "ancestors", "descendants", "change", "stack", "conflicts", "pending", "approved", "mergeable", "author"]);
+const functions = new Set<RevsetFunction>(["heads", "roots", "ancestors", "descendants", "change", "graph", "conflicts", "pending", "approved", "mergeable", "author"]);
 
 function tokenize(input: string): readonly Token[] {
   if (input.length > 4096) throw new RevsetParseError("revset exceeds 4096 characters", 4096);
@@ -64,7 +64,7 @@ export interface RevsetNode {
   readonly revisionId: string;
   readonly parentRevisionIds: readonly string[];
   readonly changeId?: string;
-  readonly stackIds?: readonly string[];
+  readonly changeGraphIds?: readonly string[];
   readonly authorId?: string;
   readonly conflict?: boolean;
   readonly reviewState?: "pending" | "approved" | "rejected";
@@ -93,7 +93,7 @@ export function evaluateRevset(expression: RevsetExpression | string, nodes: rea
     }
     if (value.name === "roots") return new Set(nodes.filter((node) => node.parentRevisionIds.length === 0).map((node) => node.revisionId));
     if (value.name === "change") return new Set(nodes.filter((node) => node.changeId === literal).map((node) => node.revisionId));
-    if (value.name === "stack") return new Set(nodes.filter((node) => node.stackIds?.includes(literal ?? "")).map((node) => node.revisionId));
+    if (value.name === "graph") return new Set(nodes.filter((node) => node.changeGraphIds?.includes(literal ?? "")).map((node) => node.revisionId));
     if (value.name === "author") return new Set(nodes.filter((node) => node.authorId === literal).map((node) => node.revisionId));
     if (value.name === "conflicts") return new Set(nodes.filter((node) => node.conflict).map((node) => node.revisionId));
     if (value.name === "pending" || value.name === "approved") return new Set(nodes.filter((node) => node.reviewState === value.name).map((node) => node.revisionId));

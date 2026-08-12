@@ -21,9 +21,9 @@ Dev feed / network home comparison (X · Bluesky · Tangled · GitHub):
 Community-owned channels comparison (Discord-led):
 [community-channels-comparison.md](community-channels-comparison.md).
 
-Frontier version-control and forge comparison (Rift, jj, Pijul, Graphite,
-GitButler, Radicle, F3, ForgeFed, Software Heritage):
-[frontier-vcs-dossier.md](frontier-vcs-dossier.md).
+Change Graph and operation-history comparison led by Zed DeltaDB, then jj,
+Pijul/Darcs, Graphite, GitButler, Git, forge adapters, and Software Heritage:
+[change-graph-vcs-dossier.md](change-graph-vcs-dossier.md).
 
 AI-native room concepts (Block Buzz):
 [ai-native-room-concepts.md](ai-native-room-concepts.md).

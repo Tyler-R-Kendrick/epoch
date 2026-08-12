@@ -25,12 +25,12 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, transport and serialization helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
 
-Frontier packages add `@epoch/protocol` browser-safe IDs, errors, schemas,
+Change Graph packages add `@epoch/protocol` browser-safe IDs, errors, schemas,
 revsets, and inspection; Core change/transaction/conflict, object/chunk/promise,
 sync-v2, and workspace-provider modules; `@epoch/git-proxy`; `@epoch/forge`;
 `@epoch/identity`; and `@epoch/software-heritage`. Persistence, network
 transport, and external authority are injected where capability manifests say
-so. See [Frontier VCS Convergence](../../../docs/frontier-vcs-convergence.md).
+so. See [Change Graph And Operation History](../../../docs/change-graph.md).
 
 See the public [SDK docs](../../../docs/sdk.md) for code examples.
 

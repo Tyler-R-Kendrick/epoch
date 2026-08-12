@@ -84,7 +84,7 @@ const workflowCatalog: readonly CommunityWorkflow[] = [
   {
     id: "change-review",
     label: "Change Reviews",
-    purpose: "Review Epoch intents and view proposals with maintainer decisions.",
+    purpose: "Review Epoch Changes and their exact maintainer decisions.",
   },
   {
     id: "discussion-threads",

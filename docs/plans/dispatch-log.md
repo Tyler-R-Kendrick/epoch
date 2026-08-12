@@ -148,7 +148,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 
 | Field | Value |
 |---|---|
-| Initiative | [`frontier-vcs-convergence`](frontier-vcs-convergence/sdlc-state.md) |
+| Initiative | [`change-graph-convergence`](change-graph-convergence/sdlc-state.md) |
 | Backend | Three bounded concurrent implementation swarms plus integration conductor |
 | PR | [#116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) — squash-merged `0d560488` |
 | Result | **success** |

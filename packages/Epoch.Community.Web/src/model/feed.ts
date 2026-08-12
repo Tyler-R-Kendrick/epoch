@@ -74,7 +74,7 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
   };
 }
 
-/** Buzz-aligned multi-agent handoff samples (member agents, harness, intent receipts). */
+/** Buzz-aligned multi-agent handoff samples (member agents, harness, Change receipts). */
 function agentMemberConversations(
   spaces: readonly CommunitySpace[],
   slug: string,
@@ -98,12 +98,12 @@ function agentMemberConversations(
       visibility: "community",
       state: "handoff",
       reactions: ["receipts"],
-      linkedArtifact: "intent://install-cache-hardening",
+      linkedArtifact: "change://install-cache-hardening",
       source,
       harness: "goose",
       managedBy: "lea",
-      intentId: "intent-install-cache",
-      artifactCard: "Intent · install-cache-hardening",
+      linkedChangeId: "change-install-cache",
+      artifactCard: "Change · install-cache-hardening",
     },
     {
       id: "agent-handoff-patcher",
@@ -125,7 +125,7 @@ function agentMemberConversations(
       source,
       harness: "codex",
       managedBy: "maya",
-      intentId: "intent-install-cache",
+      linkedChangeId: "change-install-cache",
       artifactCard: "Epoch · draft change CHANGE-install-cache",
     },
     {
@@ -136,7 +136,7 @@ function agentMemberConversations(
       author: "ui-reviewer",
       role: "agent",
       title: "ui-reviewer drafted copy cleanup for preview card",
-      body: "Policy allows copy and test updates only. Human review is still required before merge. Intent linked for receipts.",
+      body: "Policy allows copy and test updates only. Human review is still required before merge. Change linked for receipts.",
       time: "10:03",
       anchor: "agent-run://ui-reviewer/173",
       signature: "sig:agent-173",
@@ -147,8 +147,8 @@ function agentMemberConversations(
       source,
       harness: "claude-code",
       managedBy: "maya",
-      intentId: "intent-preview-copy",
-      artifactCard: "Intent · preview-copy-cleanup",
+      linkedChangeId: "change-preview-copy",
+      artifactCard: "Change · preview-copy-cleanup",
     },
   ];
 }
@@ -287,7 +287,7 @@ function communitySocialConversations(
         communityId: space.id,
         author: "maya",
         role: "maintainer",
-        title: "Promoted this thread to a signed intent",
+        title: "Promoted this thread to a signed Change",
         body: "Carrying Nora's measurements and Scout's plan across as receipts, so the change arrives with its evidence attached.",
         time: "09:47",
         anchor: `community://${space.slug}/general`,
@@ -295,7 +295,7 @@ function communitySocialConversations(
         visibility: "community",
         state: "promoted",
         reactions: ["thanks"],
-        linkedArtifact: "intent://install-cache",
+        linkedArtifact: "change://install-cache",
         source,
       });
     }

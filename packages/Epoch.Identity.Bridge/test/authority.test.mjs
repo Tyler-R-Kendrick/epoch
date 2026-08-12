@@ -42,7 +42,7 @@ test("delegated grants attenuate scope, expiry, resources, and budget", () => {
     subjectId: "epoch:principal:agent",
     actions: ["repository.read", "change.propose"],
     resources: ["repo:epoch/*"],
-    repositories: ["epoch/*"], paths: ["src/**"], tools: ["read"], models: ["local-*"], providers: ["local"],
+    repositories: ["epoch/*"], paths: ["src/**"], changeGraphs: ["epoch:change-graph:*"], tools: ["read"], models: ["local-*"], providers: ["local"],
     expiresAt: NOW + 60_000,
     budget: { unit: "model-token", limit: 100 },
   });
@@ -61,6 +61,12 @@ test("delegated grants attenuate scope, expiry, resources, and budget", () => {
   assert.equal(ledger.authorize({ principalId: "epoch:principal:agent", grantId: "grant-root",
     action: "repository.read", resource: "repo:epoch/core", repository: "epoch/core", path: "secrets/key",
   }).reason, "path-denied");
+  assert.equal(ledger.authorize({ principalId: "epoch:principal:agent", grantId: "grant-root",
+    action: "repository.read", resource: "repo:epoch/core", changeGraph: "epoch:change-graph:outside",
+  }).allow, true);
+  assert.equal(ledger.authorize({ principalId: "epoch:principal:agent", grantId: "grant-root",
+    action: "repository.read", resource: "repo:epoch/core", changeGraph: "other:graph",
+  }).reason, "change-graph-denied");
   const exceeded = ledger.authorize({
     principalId: "epoch:principal:agent", grantId: "grant-root",
     action: "repository.read", resource: "repo:epoch/core", cost: 81,

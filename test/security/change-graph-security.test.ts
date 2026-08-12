@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   await remoteAndArchiveBoundariesFailClosed();
   grantsBudgetsAndFederationRejectReplayOrWidening();
   await providerOutputIsNonAuthoritativeAndBounded();
-  process.stdout.write(JSON.stringify({ suite: "frontier-security", status: "passed" }) + "\n");
+  process.stdout.write(JSON.stringify({ suite: "change-graph-security", status: "passed" }) + "\n");
 }
 
 async function workspacePathsRejectTraversalAndSymlinkEscape(): Promise<void> {

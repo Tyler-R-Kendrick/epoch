@@ -25,8 +25,8 @@ const usage = [
   "  epoch-community issues open REPOSITORY --title TITLE --author AUTHOR [--body BODY] [--label LABEL]",
   "  epoch-community changes propose REPOSITORY --title TITLE --author AUTHOR --source-view VIEW --target-view VIEW [--body BODY]",
   "  epoch-community changes review REPOSITORY PROPOSAL --reviewer AUTHOR --decision approved|changes-requested|commented [--body BODY]",
-  "  epoch-community stack graph",
-  "  epoch-community review weave",
+  "  epoch-community graph show",
+  "  epoch-community bundle review",
   "  epoch-community merge preview CHANGE",
 ].join("\n");
 
@@ -108,7 +108,7 @@ async function run(
     return;
   }
 
-  if (command === "stack" && subcommand === "graph") {
+  if (command === "graph" && subcommand === "show") {
     const snapshot = requireConvergence(context).getSnapshot();
     for (const change of snapshot.changes) {
       io.stdout(`${change.changeId}\t${change.currentRevisionIds.join("+")}\tdepends:${change.dependsOn.join(",") || "root"}\n`);
@@ -116,7 +116,7 @@ async function run(
     return;
   }
 
-  if (command === "review" && subcommand === "weave") {
+  if (command === "bundle" && subcommand === "review") {
     const snapshot = requireConvergence(context).getSnapshot();
     for (const change of snapshot.changes) {
       const gates = snapshot.gates.filter((gate) => gate.changeId === change.changeId);

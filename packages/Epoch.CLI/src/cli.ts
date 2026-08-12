@@ -15,7 +15,7 @@ import {
 import type { EventMetadata } from "@epoch/core";
 import { FederatedCommunity, MockPds } from "@epoch/atproto";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
-import { executeFrontierCommand, formatFrontierEnvelope, isFrontierInvocation } from "./frontier";
+import { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphInvocation } from "./change-graph";
 import { interopDoctor } from "./interop-doctor";
 
 interface ParsedArgs {
@@ -64,7 +64,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
 
   if (parsed.command === "help") {
     writeLine(io, CliText.usage);
-    writeLine(io, "Frontier commands: new, change, log --revisions, op, stack, split, weave, review record, merge-plan, conflict, workspace, clone/fetch/hydrate/backfill, mirror, principal/agent, forge, swhid, archive, interop doctor.");
+    writeLine(io, "Change graph commands: new, change, log --revisions, op, graph, split, bundle, review record, merge-plan, conflict, workspace, clone/fetch/hydrate/backfill, mirror, principal/agent, forge, swhid, archive, interop doctor.");
     writeLine(io, "Authoritative/destructive actions require an explicit configured adapter; unavailable adapters return unsupported-capability.");
     return;
   }
@@ -72,11 +72,11 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     const json = parsed.args.includes("--json");
     return interopDoctor().then((report) => writeLine(io, json ? JSON.stringify(report) : formatDoctor(report)));
   }
-  if (isFrontierInvocation(parsed.command, parsed.args)) {
+  if (isChangeGraphInvocation(parsed.command, parsed.args)) {
     const json = parsed.args.includes("--json");
     const args = parsed.args.filter((argument) => argument !== "--json");
-    const envelope = executeFrontierCommand(parsed.repo, [parsed.command, ...args]);
-    const output = formatFrontierEnvelope(envelope, json);
+    const envelope = executeChangeGraphCommand(parsed.repo, [parsed.command, ...args]);
+    const output = formatChangeGraphCommandEnvelope(envelope, json);
     (envelope.ok ? io.stdout : io.stderr).write(`${output}\n`);
     if (!envelope.ok) throw new CliHandledError(output);
     return;
@@ -685,5 +685,5 @@ if (require.main === module) {
   process.exitCode = main();
 }
 
-export { executeFrontierCommand, formatFrontierEnvelope, isFrontierCommand, isFrontierInvocation } from "./frontier";
+export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";

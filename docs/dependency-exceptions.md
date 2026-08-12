@@ -2,20 +2,20 @@
 
 ## `protobufjs` override for Collabs
 
-Epoch pins `protobufjs@7.5.5` and uses npm `overrides` to force Collabs' transitive protobuf dependency to the patched version.
+Epoch pins `protobufjs@7.6.5` and uses npm `overrides` to force Collabs' transitive protobuf dependency to the patched version.
 
 Reason:
 
 - `@collabs/collabs@0.13.4` is the selected CRDT entity backend.
 - Collabs packages currently request `protobufjs ~6.9.0`.
-- `protobufjs <7.5.5` has a critical advisory.
+- `protobufjs <=7.6.4` has code-injection, prototype-pollution, and denial-of-service advisories.
 - The override keeps the Collabs backend while allowing `npm audit --omit=dev` to report zero production vulnerabilities.
 
 See [ADR-0002: CRDT Backend Selection](crdt-backend-decision.md) for the backend decision and exception rationale.
 
-## Frontier convergence dependency result
+## Change Graph convergence dependency result
 
-The 2026-08-11 frontier convergence implementation added no external runtime
+The 2026-08-11 Change Graph convergence implementation added no external runtime
 dependency and therefore needs no new exception. Package-local dependencies
 connect existing Epoch workspaces (`@epoch/protocol`, Core, SDK/WASM, Git proxy,
 forge, identity, and Software Heritage). Hashing, URL validation, subprocess

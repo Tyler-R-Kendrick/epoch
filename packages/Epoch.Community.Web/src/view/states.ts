@@ -76,7 +76,7 @@ export function asListState(
 export function renderSearchZeroState(query: string): string {
   return renderEmptyState({
     title: `No receipts match “${query}”.`,
-    action: "Search covers messages, intents, harness labels, and promote receipts in this community.",
+    action: "Search covers messages, Changes, harness labels, and promote receipts in this community.",
   });
 }
 

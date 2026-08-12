@@ -39,9 +39,9 @@ function renderProvenancePanel(conversation: CommunityConversationView): string 
     ["Author", `@${conversation.author}`],
     ["Visibility", conversation.visibility],
     ["Source", conversation.source === "api" ? "live Community API" : "snapshot sample"],
-    ...(conversation.intentId === undefined
+    ...(conversation.linkedChangeId === undefined
       ? []
-      : [["Intent", `intent:${conversation.intentId}`] as const]),
+      : [["Change", `change:${conversation.linkedChangeId}`] as const]),
     ...(conversation.linkedProposalId === undefined
       ? []
       : [["Proposal", `proposal:${conversation.linkedProposalId}`] as const]),
@@ -99,7 +99,7 @@ export function renderConversation(
     ? `<div class="message-artifact-card" data-artifact-card>
         <span class="message-artifact-kind">${escapeHtml(isAgent ? "Agent receipt" : "Artifact")}</span>
         <strong>${escapeHtml(conversation.artifactCard)}</strong>
-        ${conversation.intentId ? `<a class="message-artifact-link" href="#intent-${escapeHtml(conversation.intentId)}" data-intent-link="${escapeHtml(conversation.intentId)}">Open signed intent</a>` : ""}
+        ${conversation.linkedChangeId ? `<a class="message-artifact-link" href="#change-${escapeHtml(conversation.linkedChangeId)}" data-change-link="${escapeHtml(conversation.linkedChangeId)}">Open signed Change</a>` : ""}
       </div>`
     : "";
   const comments = conversation.comments ?? [];
@@ -121,10 +121,10 @@ export function renderConversation(
           data-view-lineage="${escapeHtml(conversation.linkedProposalId)}"
         >View lineage</button>
       </div>`
-    : conversation.intentId
-    ? `<div class="message-promote-receipt" data-promote-receipt data-intent-id="${escapeHtml(conversation.intentId)}">
-        <span class="promote-receipt-label">Signed intent</span>
-        <strong data-intent-meta>intent:${escapeHtml(conversation.intentId)}</strong>
+    : conversation.linkedChangeId
+    ? `<div class="message-promote-receipt" data-promote-receipt data-change-id="${escapeHtml(conversation.linkedChangeId)}">
+        <span class="promote-receipt-label">Signed Change</span>
+        <strong data-change-meta>change:${escapeHtml(conversation.linkedChangeId)}</strong>
         <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")}</span>
       </div>`
     : "";
@@ -157,7 +157,7 @@ export function renderConversation(
           aria-controls="provenance-${escapeHtml(conversation.id)}"
           aria-label="Show provenance for ${escapeHtml(selectLabel)}"
         ><span class="row-receipt-mark" aria-hidden="true"></span>signed</button>${
-    conversation.intentId ? `<span class="visually-hidden" data-intent-meta>intent:${escapeHtml(conversation.intentId)}</span>` : ""
+    conversation.linkedChangeId ? `<span class="visually-hidden" data-change-meta>change:${escapeHtml(conversation.linkedChangeId)}</span>` : ""
   }${
     conversation.linkedProposalId === undefined ? "" : `<span class="visually-hidden" data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`
   }`;
@@ -173,7 +173,7 @@ export function renderConversation(
           <div><dt>Artifact</dt><dd data-tray-artifact>${escapeHtml(conversation.linkedArtifact ?? conversation.repositorySlug ?? conversation.communityId)}</dd></div>
         </dl>
         <div class="action-row action-row-primary">
-          <button type="button" class="button-intent" data-action="intent">Mark intent</button>
+          <button type="button" class="button-change" data-action="promote-change">Promote to Change</button>
           ${changeId === undefined ? "" : `<button type="button" class="button-primary" data-action="approve">Approve change</button>`}
         </div>
         <details class="action-more" data-action-more>

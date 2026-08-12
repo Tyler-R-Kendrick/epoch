@@ -19,15 +19,15 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
   repositoryIdentityBody: object(["repositoryId", "principalId"], { repositoryId: id("repo"), principalId: id("principal"), keyId: id("key") }),
   changeSupersededBody: object(["changeId", "supersededRevisionId", "byRevisionId"], { changeId: id("change"), supersededRevisionId: revisionId, byRevisionId: revisionId }),
   changeDependencyBody: object(["changeRevisionId", "dependencyRevisionId"], { changeRevisionId: revisionId, dependencyRevisionId: revisionId }),
-  reviewRecordedBody: object(["reviewId", "bundleRevisionId", "reviewerPrincipalId", "verdict"], {
-    reviewId: id("review"), bundleRevisionId: revisionId, reviewerPrincipalId: id("principal"), verdict: { enum: ["approved", "changes-requested", "commented"] },
+  reviewRecordedBody: object(["reviewBundleId", "bundleRevisionId", "reviewerPrincipalId", "verdict"], {
+    reviewBundleId: id("review-bundle"), bundleRevisionId: revisionId, reviewerPrincipalId: id("principal"), verdict: { enum: ["approved", "changes-requested", "commented"] },
   }),
-  mergeGateBody: object(["mergePlanId", "gateDigest", "status", "evidenceRevisionIds"], {
-    mergePlanId: id("merge-plan"), gateDigest: digest, status: { enum: ["passed", "failed"] }, evidenceRevisionIds: arrayOf(revisionId),
+  mergeGateBody: object(["mergePlanId", "gateDefinitionDigest", "status", "evidenceRevisionIds"], {
+    mergePlanId: id("merge-plan"), gateDefinitionDigest: digest, status: { enum: ["passed", "failed"] }, evidenceRevisionIds: arrayOf(revisionId),
   }),
-  mergeAppliedBody: object(["mergePlanId", "targetRevisionId", "resultRevisionId", "resultTreeDigest", "mode", "sourceRevisionIds"], {
+  mergeAppliedBody: object(["mergePlanId", "targetRevisionId", "resultRevisionId", "resultTreeDigest", "mergeMode", "sourceRevisionIds"], {
     mergePlanId: id("merge-plan"), targetRevisionId: revisionId, resultRevisionId: revisionId, resultTreeDigest: digest,
-    mode: { enum: ["merge", "squash"] }, sourceRevisionIds: arrayOf(revisionId),
+    mergeMode: { enum: ["per-change-squash", "change-graph-squash"] }, sourceRevisionIds: arrayOf(revisionId),
   }),
   conflictResolutionBody: object(["conflictId", "resolutionRevisionId", "principalId"], {
     conflictId: id("conflict"), resolutionRevisionId: revisionId, principalId: id("principal"),
@@ -79,22 +79,22 @@ const complexBodies: Readonly<Record<string, JsonSchema>> = {
     changeId: id("change"), baseFrontier: arrayOf(revisionId), baseTreeDigest: digest, parentRevisionIds: arrayOf(revisionId),
     fragments: arrayOf(ref("fragment"), 1), resultingTreeDigest: digest, authorPrincipalId: id("principal"),
   }),
-  stackEdge: object(["from", "to", "kind"], { from: revisionId, to: revisionId, kind: { enum: ["requires", "orders-after", "conflicts", "derived"] } }),
-  stackBody: object(["stackId", "revisionIds", "edges"], { stackId: id("stack"), revisionIds: arrayOf(revisionId), edges: { type: "array", items: ref("stackEdge") } }),
+  changeGraphEdge: object(["from", "to", "kind"], { from: revisionId, to: revisionId, kind: { enum: ["requires", "orders-after", "conflicts-with", "derived-from"] } }),
+  changeGraphBody: object(["changeGraphId", "memberRevisionIds", "edges"], { changeGraphId: id("change-graph"), memberRevisionIds: arrayOf(revisionId), edges: { type: "array", items: ref("changeGraphEdge") } }),
   splitGroup: object(["fragmentIds", "risk", "reason"], { fragmentIds: arrayOf(id("fragment")), risk: { enum: ["low", "medium", "high", "ambiguous"] }, reason: { type: "string" } }),
   splitBody: object(["sourceRevisionId", "groups", "resultingRevisionIds", "reconstructionDigest"], {
     sourceRevisionId: revisionId, groups: { type: "array", items: ref("splitGroup"), minItems: 1 },
     resultingRevisionIds: arrayOf(revisionId), reconstructionDigest: digest,
   }),
   reviewOverlap: object(["left", "right"], { left: id("fragment"), right: id("fragment") }),
-  reviewBundleBody: object(["reviewId", "revisionIds", "baseFrontier", "baseTreeDigest", "resultingTreeDigest", "overlaps", "conflictIds", "gateDigest"], {
-    reviewId: id("review"), revisionIds: arrayOf(revisionId), baseFrontier: arrayOf(revisionId), baseTreeDigest: digest,
-    resultingTreeDigest: digest, overlaps: { type: "array", items: ref("reviewOverlap") }, conflictIds: arrayOf(id("conflict")), gateDigest: digest,
+  reviewBundleBody: object(["reviewBundleId", "selectedRevisionIds", "baseFrontier", "baseTreeDigest", "combinedTreeDigest", "overlaps", "conflictIds", "gateDefinitionDigest"], {
+    reviewBundleId: id("review-bundle"), selectedRevisionIds: arrayOf(revisionId), baseFrontier: arrayOf(revisionId), baseTreeDigest: digest,
+    combinedTreeDigest: digest, overlaps: { type: "array", items: ref("reviewOverlap") }, conflictIds: arrayOf(id("conflict")), gateDefinitionDigest: digest,
   }),
-  mergePlanBody: object(["mergePlanId", "targetRevisionId", "revisionIds", "dependencyClosure", "reviewBundleRevisionId", "resolutionRevisionIds", "gateDigest", "mode", "expectedResultDigest"], {
-    mergePlanId: id("merge-plan"), targetRevisionId: revisionId, revisionIds: arrayOf(revisionId), dependencyClosure: arrayOf(revisionId),
-    reviewBundleRevisionId: revisionId, resolutionRevisionIds: arrayOf(revisionId), gateDigest: digest,
-    mode: { enum: ["merge", "squash"] }, expectedResultDigest: digest,
+  mergePlanBody: object(["mergePlanId", "targetRevisionId", "selectedRevisionIds", "hardDependencyClosure", "reviewBundleRevisionId", "conflictResolutionRevisionIds", "gateDefinitionDigest", "mergeMode", "resultingTreeDigest"], {
+    mergePlanId: id("merge-plan"), targetRevisionId: revisionId, selectedRevisionIds: arrayOf(revisionId), hardDependencyClosure: arrayOf(revisionId),
+    reviewBundleRevisionId: revisionId, conflictResolutionRevisionIds: arrayOf(revisionId), gateDefinitionDigest: digest,
+    mergeMode: { enum: ["per-change-squash", "change-graph-squash"] }, resultingTreeDigest: digest,
   }),
   conflictBody: object(["conflictId", "sideRevisionIds", "status", "resolutionRevisionIds"], {
     conflictId: id("conflict"), sideRevisionIds: arrayOf(revisionId, 2), status: { enum: ["unresolved", "proposed", "accepted", "rejected"] },
@@ -106,7 +106,7 @@ const bodyDefinitionByType: Readonly<Record<ProtocolEventType, string>> = {
   "repository.identity": "repositoryIdentityBody",
   "change.created": "changeRevisionBody", "change.revised": "changeRevisionBody", "change.superseded": "changeSupersededBody",
   "change.dependency.added": "changeDependencyBody", "change.dependency.removed": "changeDependencyBody",
-  "stack.defined": "stackBody", "stack.revised": "stackBody", "split.accepted": "splitBody",
+  "change-graph.defined": "changeGraphBody", "change-graph.revised": "changeGraphBody", "split.accepted": "splitBody",
   "review.bundle.created": "reviewBundleBody", "review.bundle.revised": "reviewBundleBody", "review.recorded": "reviewRecordedBody",
   "merge.plan.created": "mergePlanBody", "merge.plan.gate-recorded": "mergeGateBody", "merge.plan.applied": "mergeAppliedBody",
   "conflict.recorded": "conflictBody", "conflict.resolution.proposed": "conflictResolutionBody",

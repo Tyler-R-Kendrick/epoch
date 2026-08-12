@@ -1,311 +1,80 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-06T00:00:00.0000000Z",
-  "title": "Design System: Epoch Community",
+  "generatedAt": "2026-08-12T15:00:00.000Z",
+  "title": "Design System: Epoch Nightboard",
   "extensions": {
     "colorMeta": {
-      "surface": {
-        "role": "neutral",
-        "displayName": "Map Paper",
-        "canonical": "#070b12",
-        "tonalRamp": [
-        "#010203",
-        "#030407",
-        "#04070b",
-        "#06090f",
-        "#070b12",
-        "#56595e",
-        "#97999b",
-        "#d7d8d9"
-      ]
-      },
-      "surface-raised": {
-        "role": "neutral",
-        "displayName": "Printed Sheet",
-        "canonical": "#0c121c",
-        "tonalRamp": [
-        "#020305",
-        "#05070b",
-        "#070b11",
-        "#0a0f17",
-        "#0c121c",
-        "#5a5e65",
-        "#999ba0",
-        "#d8d9db"
-      ]
-      },
-      "ink": {
-        "role": "primary",
-        "displayName": "Map Ink",
-        "canonical": "#c8d0d8",
-        "tonalRamp": [
-        "#242527",
-        "#4c4f52",
-        "#787d82",
-        "#a4abb1",
-        "#c8d0d8",
-        "#dadfe4",
-        "#e8ebef",
-        "#f6f7f9"
-      ]
-      },
       "accent": {
         "role": "primary",
-        "displayName": "Control Purple",
-        "canonical": "#ff2cf0",
-        "tonalRamp": [
-        "#2e082b",
-        "#61115b",
-        "#991a90",
-        "#d124c5",
-        "#ff2cf0",
-        "#ff70f5",
-        "#ffa6f9",
-        "#ffddfd"
-      ]
+        "displayName": "Grid Magenta",
+        "canonical": "#ff2cf0"
       },
-      "teal": {
+      "agent": {
         "role": "secondary",
-        "displayName": "Workflow Teal",
-        "canonical": "#40f0ff",
-        "tonalRamp": [
-        "#0c2b2e",
-        "#185b61",
-        "#269099",
-        "#34c5d1",
-        "#40f0ff",
-        "#7df5ff",
-        "#aff9ff",
-        "#e0fdff"
-      ]
+        "displayName": "Agent Cyan",
+        "canonical": "#40f0ff"
       },
-      "gold": {
+      "signed": {
         "role": "secondary",
-        "displayName": "Verified Gold",
-        "canonical": "#f0e050",
-        "tonalRamp": [
-        "#2b280e",
-        "#5b551e",
-        "#908630",
-        "#c5b842",
-        "#f0e050",
-        "#f5ea88",
-        "#f9f2b6",
-        "#fdfae3"
-      ]
+        "displayName": "Signed Gold",
+        "canonical": "#f0e050"
       },
-      "runnable": {
+      "surface": {
         "role": "neutral",
-        "displayName": "Runnable — social channel",
-        "canonical": "#0c121c",
-        "tonalRamp": [
-        "#020305",
-        "#05070b",
-        "#070b11",
-        "#0a0f17",
-        "#0c121c",
-        "#5a5e65",
-        "#999ba0",
-        "#d8d9db"
-      ]
+        "displayName": "Grid Surface",
+        "canonical": "#070b12"
       },
-      "rough": {
+      "ink": {
         "role": "neutral",
-        "displayName": "Rough — work channel",
-        "canonical": "#1a2836",
-        "tonalRamp": [
-        "#05070a",
-        "#0a0f15",
-        "#101820",
-        "#15212c",
-        "#1a2836",
-        "#636d76",
-        "#9fa5ab",
-        "#dadddf"
-      ]
-      },
-      "marsh": {
-        "role": "secondary",
-        "displayName": "Marsh — anchored to code",
-        "canonical": "#40f0ff",
-        "tonalRamp": [
-        "#0c2b2e",
-        "#185b61",
-        "#269099",
-        "#34c5d1",
-        "#40f0ff",
-        "#7df5ff",
-        "#aff9ff",
-        "#e0fdff"
-      ]
-      },
-      "contour": {
-        "role": "neutral",
-        "displayName": "Contour — structural rule",
-        "canonical": "#8a5a2a",
-        "tonalRamp": [
-          "#191008",
-          "#342210",
-          "#533619",
-          "#714a22",
-          "#8a5a2a",
-          "#af8f6e",
-          "#cebaa6",
-          "#ece5dd"
-        ]
-      },
-      "control": {
-        "role": "primary",
-        "displayName": "Control — the active leg",
-        "canonical": "#ff2cf0",
-        "tonalRamp": [
-        "#2e082b",
-        "#61115b",
-        "#991a90",
-        "#d124c5",
-        "#ff2cf0",
-        "#ff70f5",
-        "#ffa6f9",
-        "#ffddfd"
-      ]
-      },
-      "out-of-bounds": {
-        "role": "primary",
-        "displayName": "Out of bounds — destructive",
-        "canonical": "#ff3355",
-        "tonalRamp": [
-        "#2e090f",
-        "#611320",
-        "#991f33",
-        "#d12a46",
-        "#ff3355",
-        "#ff748b",
-        "#ffa9b8",
-        "#ffdee4"
-      ]
+        "displayName": "Phosphor Ink",
+        "canonical": "#c8d0d8"
       }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "App name in the first viewport only."
-      },
       "body": {
-        "displayName": "Body",
-        "purpose": "Repository descriptions and explanatory copy."
-      },
-      "label": {
-        "displayName": "Label",
-        "purpose": "Compact UI labels, chips, visibility, and counts."
+        "displayName": "Terminal Body",
+        "purpose": "Readable product copy and terminal notation share the canonical monospace stack."
       }
     },
-    "shadows": [
-      {
-        "name": "low-product-lift",
-        "value": "0 16px 40px rgba(15, 22, 20, 0.08)",
-        "purpose": "Signed-history panel and workflow hover lift."
-      }
-    ],
-    "motion": [
-      {
-        "name": "ease-out-product",
-        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
-        "purpose": "Short hover, focus, and panel state transitions."
-      }
-    ],
-    "breakpoints": [
-      {
-        "name": "mobile",
-        "value": "560px"
-      },
-      {
-        "name": "tablet",
-        "value": "860px"
-      }
-    ]
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
   },
-  "components": [
-    {
-      "name": "Primary Button",
-      "kind": "button",
-      "refersTo": "button-primary",
-      "description": "Main Community action for browsing repositories.",
-      "html": "<a class=\"ds-button-primary\" href=\"#repositories\">Browse Repositories</a>",
-      "css": ".ds-button-primary { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 4px; background: #1a1a17; color: #ffffff; font: 800 0.78rem/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; text-decoration: none; transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-button-primary:hover { background: #7a007a; transform: translateY(-1px); } .ds-button-primary:focus-visible { outline: 3px solid rgba(180, 83, 47, 0.42); outline-offset: 3px; }"
-    },
-    {
-      "name": "Workflow Link",
-      "kind": "nav",
-      "refersTo": "workflow-link",
-      "description": "Grid or rail item for one Community workflow.",
-      "html": "<a class=\"ds-workflow-link\" href=\"/community/change-review\"><span>Change Reviews</span><small>Review Epoch intents with maintainer decisions.</small></a>",
-      "css": ".ds-workflow-link { display: grid; gap: 4px; min-height: 112px; padding: 16px; border: 1px solid #d5d2c4; border-radius: 8px; background: #ffffff; color: #1a1a17; text-decoration: none; transition: border-color 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-workflow-link span { font-weight: 800; } .ds-workflow-link small { color: #5f6058; font-size: 0.82rem; line-height: 1.45; } .ds-workflow-link:hover { border-color: rgba(180, 83, 47, 0.46); box-shadow: 0 16px 40px rgba(15, 22, 20, 0.08); transform: translateY(-2px); } .ds-workflow-link:focus-visible { outline: 3px solid rgba(180, 83, 47, 0.42); outline-offset: 3px; }"
-    },
-    {
-      "name": "Repository Card",
-      "kind": "card",
-      "refersTo": "repository-card",
-      "description": "Primary record for repository discovery and workflow entry.",
-      "html": "<article class=\"ds-repo-card\"><p class=\"ds-repo-visibility\">public</p><h3>epoch/epoch</h3><p>Event-driven version control for signed, collaborative repository history.</p><dl><div><dt>Issues</dt><dd>0</dd></div><div><dt>Change Proposals</dt><dd>0</dd></div></dl></article>",
-      "css": ".ds-repo-card { display: grid; gap: 16px; padding: 24px; border: 1px solid #d5d2c4; border-radius: 8px; background: #ffffff; color: #1a1a17; box-shadow: 0 1px 0 rgba(15, 22, 20, 0.04); font-family: 'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif; } .ds-repo-card h3, .ds-repo-card p, .ds-repo-card dl { margin: 0; } .ds-repo-card h3 { font-size: 1.1rem; line-height: 1.2; } .ds-repo-card p { color: #5f6058; line-height: 1.58; } .ds-repo-visibility { color: #7a007a; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; } .ds-repo-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 16px; border-top: 1px solid #d5d2c4; } .ds-repo-card dt { color: #5f6058; font-size: 0.78rem; font-weight: 700; } .ds-repo-card dd { margin: 2px 0 0; font-weight: 750; }"
-    },
-    {
-      "name": "Topic Chip",
-      "kind": "chip",
-      "refersTo": "topic-chip",
-      "description": "Non-interactive repository topic marker.",
-      "html": "<span class=\"ds-topic-chip\">crdt</span>",
-      "css": ".ds-topic-chip { display: inline-flex; align-items: center; border: 1px solid rgba(42, 111, 108, 0.24); border-radius: 999px; background: rgba(216, 236, 229, 0.6); color: #1f6f5c; font: 750 0.78rem/1 'Helvetica Neue', 'Segoe UI', ui-sans-serif, system-ui, sans-serif; padding: 7px 10px; }"
-    }
-  ],
+  "components": [],
   "narrative": {
-    "northStar": "The Legend, Not The Sentence",
-    "overview": "Epoch Community is where a conversation becomes signed work without leaving the conversation. The interface is built as an orienteering map: a permanent legend, every ink meaning exactly one thing, and one reserved ink carrying the course from talk to signed work. It is read first by people building in the open without version-control fluency, so it teaches its vocabulary by showing the legend rather than by explaining itself in prose.",
+    "northStar": "The Grid Is The Board",
+    "overview": "Epoch Nightboard is a keyboard-first terminal board on a near-black Grid. Magenta is chrome and promotion, cyan is agents and focus, gold is verification, and all state remains legible without color alone.",
     "keyCharacteristics": [
-      "A permanent legend replaces explanatory copy; when a reader needs to learn a meaning, the legend gains an entry.",
-      "Terrain inks (runnable, rough, open land, marsh) are grounds that say where you are; they never carry text weight.",
-      "One reserved control ink carries the conversation-to-signed-work path and focus, and nothing else may wear it.",
-      "Light throughout, including the rail: a legend prints on the same paper as its map.",
-      "Mono is notation — anchors, signatures, paths, measured values — and never prose.",
-      "State is never colour-alone: shape, weight and text carry it too."
+      "The whole page is the terminal rather than a terminal-shaped card.",
+      "Square TTY cells and zero-radius controls preserve the Grid identity.",
+      "Keyboard focus, live versus snapshot state, and signed provenance are always explicit."
     ],
     "rules": [
       {
-        "name": "The Surface Is Product Rule",
-        "body": "The page background must always expose the design system token, never the browser default.",
+        "name": "The Signal Rule",
+        "body": "Magenta is chrome and promotion; cyan is agents and focus; gold is signed or verified only.",
         "section": "colors"
       },
       {
-        "name": "The Copper Rarity Rule",
-        "body": "Copper is for action and attention only. Do not use it as broad decoration or inactive chrome.",
-        "section": "colors"
+        "name": "The No Pill Rule",
+        "body": "Radius is zero. Controls read as terminal cells, not bubbles.",
+        "section": "shapes"
       },
       {
-        "name": "The Product Type Rule",
-        "body": "Do not introduce display fonts or decorative type in Community UI. The work is the product.",
-        "section": "typography"
-      },
-      {
-        "name": "The Flat Until Useful Rule",
-        "body": "Surfaces are flat at rest unless the element is a framed tool or a hoverable workflow target.",
-        "section": "elevation"
+        "name": "The Keyboard First Rule",
+        "body": "Every primary path has a key and visible focus; pointer input provides parity.",
+        "section": "components"
       }
     ],
     "dos": [
-      "Do expose CSS custom properties on `:root` so browser tests and future agents can verify the design system.",
-      "Do keep cards at 8px radius or below.",
-      "Do use semantic landmarks, skip links, visible focus, and reduced-motion handling.",
-      "Do keep repository actions concrete: Browse, View Issues, Review Changes.",
-      "Do keep Community visually separate from the hosting control plane while preserving shared product discipline.",
-      "Do express channel kind as terrain ground (background tint), never a left side-tab stripe."
+      "Do preserve the Nightboard Grid as the only shipped Community theme.",
+      "Do keep signed, live, agent, and focus states semantically distinct.",
+      "Do honor reduced motion, narrow viewports, and 200 percent zoom."
     ],
     "donts": [
-      "Don't ship default browser typography, link lists, or white backgrounds.",
-      "Don't use gradient text, decorative glass, side-stripe borders, or hero-metric templates.",
-      "Don't add inactive saturated color, purple-blue gradients, dark terminal theming, or beige-only palettes.",
-      "Don't create dead controls. If an element looks actionable, it must navigate to a route or section.",
-      "Don't hide Community workflows in desktop-only navigation. Mobile users must still reach the workflow rail.",
-      "Don't use Inter or Inter Display — Helvetica Neue + platform UI sans only."
+      "Do not introduce pills, generic SaaS cards, glass, or decorative gradients.",
+      "Do not use gold for decoration or color as the only state signal.",
+      "Do not hide primary actions behind pointer-only controls."
     ]
   }
 }

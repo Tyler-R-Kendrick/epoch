@@ -53,7 +53,7 @@ credited as visibly as the person who wrote the code.
 
 The mechanism a neighboring product cannot truthfully copy: **conversation and
 work share one substrate, and the link between them is cryptographic rather than
-editorial.** A message can be promoted to a signed intent that carries its own
+editorial.** A message can be promoted to a signed Change that carries its own
 provenance — who said it, what it anchored to, who reviewed it — and that
 lineage is verifiable rather than a rendered breadcrumb.
 
@@ -89,8 +89,8 @@ its name.
 Confirmed and shipping:
 
 - Channel feed with composer, receipt search across channels in a community,
-  message selection with a signed action tray (mark intent, request agent,
-  accept answer, docs patch, report), provenance disclosure, promote-to-intent
+  message selection with a signed action tray (promote to change, request agent,
+  accept answer, docs patch, report), provenance disclosure, promote-to-change
   with receipts, moderation queue, unread watermarks, deep links.
 - Issues and change proposals for a linked repository; approve-change flow.
 - Network feed tabs (following / all / contributions).
@@ -111,7 +111,7 @@ Dark product UI is allowed for Nightboard under ADR-0027 (amends ADR-0024).
 ## Brand Commitments
 
 - Names are binding: **Epoch**, **Epoch.Community.Web**, and the **epoch** as
-  the credited materialization artifact. Product vocabulary — intent, anchor,
+  the credited materialization artifact. Product vocabulary — Change, Revision, anchor,
   receipt, signer, promote, linked project, member agent — is established and
   should be treated as terminology, not copy to reword.
 - **Honesty is the brand.** The product must never present sample or snapshot

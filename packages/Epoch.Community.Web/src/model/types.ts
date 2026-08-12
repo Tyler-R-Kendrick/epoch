@@ -76,7 +76,7 @@ export interface CreateCommunityWebAppOptions {
   readonly session?: CommunitySessionIdentity;
   /** Agent ids that have a live ACP session (sessionKind becomes live). */
   readonly liveAgentIds?: readonly string[];
-  /** Optional logical-stack/review surface rendered inside the Community workspace. */
+  /** Optional change-graph/review-bundle surface rendered inside the Community workspace. */
   readonly convergenceWorkbench?: ConvergenceWorkbenchSnapshot;
 }
 
@@ -150,7 +150,7 @@ export type DevFeedKind =
   | "issue_open"
   | "proposal"
   | "review"
-  | "intent"
+  | "change"
   | "agent_run"
   | "contribution"
   | "community_post";
@@ -231,7 +231,7 @@ export interface CommunityConversationView {
   readonly author: string;
   readonly role: string;
   /**
-   * Subject line, for messages that are about an object — a promoted intent, an
+   * Subject line, for messages that are about an object — a promoted Change, an
    * agent run, an issue. Conversational messages have no title: a chat message
    * with a headline above it is a forum post, and rendering one for every line
    * doubled row height and read as ceremony.
@@ -253,8 +253,8 @@ export interface CommunityConversationView {
   readonly harness?: string;
   /** Buzz-aligned: human manager of a member agent ("managed by"). */
   readonly managedBy?: string;
-  /** Optional signed intent id for agent work receipts. */
-  readonly intentId?: string;
+  /** Optional signed Change ID for agent work receipts. */
+  readonly linkedChangeId?: string;
   /** Optional in-channel artifact card label (e.g. PR title). */
   readonly artifactCard?: string;
 }

@@ -116,7 +116,7 @@ Content bridging; ActivityPub/Farcaster; NIP-26; FROSTR implementation (interfac
 human/agent/service/device/organization principals, public-key bindings,
 attenuated grants, finite budgets, CAS reservations, and idempotent receipts.
 Grant constraints cover action, resource, repository, Community object/path,
-view, change, stack, tool, model, provider, audience, expiry, depth, and budget.
+View, Change, Change Graph, tool, model, provider, audience, expiry, depth, and budget.
 
 This does not merge or derive the Epoch, Nostr, and AT identifiers. Provider
 calls require an applicable grant, reservation, disclosure, and output bound;

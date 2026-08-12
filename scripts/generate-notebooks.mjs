@@ -249,8 +249,8 @@ const root = mkdtempSync(join(tmpdir(), 'epoch-notebook-actors-'));
 const actors = new EpochActorSystem(root);
 await actors.init('alice');
 await Promise.all([
-  actors.user('alice').appendCRDTOperation({ kind: 'map-set', entity: 'tasks', key: 'design', value: { status: 'draft' } }),
-  actors.user('bob').appendCRDTOperation({ kind: 'map-set', entity: 'tasks', key: 'tests', value: { status: 'green' } }),
+  actors.user('alice').recordCodeOperation({ kind: 'map-set', entity: 'tasks', key: 'design', value: { status: 'draft' } }),
+  actors.user('bob').recordCodeOperation({ kind: 'map-set', entity: 'tasks', key: 'tests', value: { status: 'green' } }),
 ]);
 const tasks = await actors.materialize('tasks');
 const peerRoot = mkdtempSync(join(tmpdir(), 'epoch-notebook-peer-'));

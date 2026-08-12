@@ -11,8 +11,8 @@ export {
 } from "./gossip";
 export type { GossipServer } from "./gossip";
 export { EpochActorSystem, EpochUserActor } from "./actors";
-export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, diffLines, dumpEntity, loadEntity, threeWayMerge } from "./crdt";
-export type { CRDTOperation, EntityAdapter, TextHunk } from "./crdt";
+export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, diffLines, dumpEntity, loadEntity, threeWayMerge, validateCodeOperation } from "./crdt";
+export type { CodeOperation, CodeOperationContext, CodeOperationFilter, CodeOperationRecord, EntityAdapter, TextHunk } from "./crdt";
 export { applyUnifiedDiff, formatUnifiedDiff, isTextBlob } from "./patch";
 export type { UnifiedDiffInput } from "./patch";
 export { canonicalJson } from "./json";

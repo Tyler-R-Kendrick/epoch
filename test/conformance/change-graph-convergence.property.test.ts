@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  ConflictLedger, acceptSplit, applyMergePlan, buildReviewBundle, createMergePlan, validateStack,
+  ConflictLedger, acceptSplit, applyMergePlan, buildReviewBundle, createMergePlan, validateChangeGraph,
 } from "@epoch/core";
 import {
   QuarantineTransaction, recoverQuarantineTransaction,
@@ -17,23 +17,23 @@ import { AuthorityLedger, type PrincipalId } from "@epoch/identity-bridge";
 import { MirrorCoordinator, createMirrorRule } from "@epoch/forge";
 import { formatSwhid, parseSwhid, type SwhObjectKind } from "@epoch/software-heritage";
 import { assertRevisionId } from "@epoch/protocol";
-import type { ChangeFragment, ChangeRevisionBody, SplitPlan, StackDefinition } from "@epoch/protocol";
+import type { ChangeFragment, ChangeGraphDefinition, ChangeRevisionBody, SplitPlan } from "@epoch/protocol";
 import { canonical, property } from "../fuzz/deterministic";
 
 const SEED = 0x45504f43;
 const CASES = 64;
 
 async function main(): Promise<void> {
-  await property("FRONTIER-PROP-001 stack topology and closure", SEED, CASES, (random) => {
+  await property("CHANGE-GRAPH-PROP-001 topology and hard dependency closure", SEED, CASES, (random) => {
     const count = 2 + random.integer(10);
     const revisions = Array.from({ length: count }, (_, index) => assertRevisionId(`revision-${index}`));
-    const edges: Array<StackDefinition["edges"][number]> = [];
+    const edges: Array<ChangeGraphDefinition["edges"][number]> = [];
     for (let index = 1; index < count; index += 1) {
       for (let dependency = 0; dependency < index; dependency += 1) {
-        if (random.boolean()) edges.push({ from: revisions[index]!, to: revisions[dependency]!, kind: random.pick(["requires", "orders-after", "derived"] as const) });
+        if (random.boolean()) edges.push({ from: revisions[index]!, to: revisions[dependency]!, kind: random.pick(["requires", "orders-after", "derived-from"] as const) });
       }
     }
-    const graph = validateStack({ stackId: id("stack", "s") as StackDefinition["stackId"], revisionIds: revisions, edges });
+    const graph = validateChangeGraph({ changeGraphId: id("change-graph", "s") as ChangeGraphDefinition["changeGraphId"], memberRevisionIds: revisions, edges });
     const positions = new Map(graph.topologicalOrder.map((revision, index) => [revision, index]));
     for (const edge of edges) assert.ok(positions.get(edge.to)! < positions.get(edge.from)!);
     const selected = revisions[random.integer(revisions.length)]!;
@@ -67,11 +67,11 @@ async function main(): Promise<void> {
 
   await property("FRONTIER-PROP-004 exact evidence and merge digest invalidate", SEED ^ 3, CASES, (random) => {
     const revisions = [assertRevisionId(`r-${random.next()}`), assertRevisionId(`r-${random.next()}`)];
-    const stack = { stackId: id("stack", "s") as `epoch:stack:${string}`, revisionIds: revisions, edges: [] };
-    const bundle = buildReviewBundle({ reviewId: id("review", "r"), revisionIds: revisions, baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
-    assert.throws(() => buildReviewBundle({ reviewId: bundle.reviewId, revisionIds: [...revisions].reverse(), baseFrontier: bundle.baseFrontier, baseTreeDigest: bundle.baseTreeDigest, resultingTreeDigest: bundle.resultingTreeDigest, overlaps: [], conflicts: [], gateDigest: bundle.gateDigest, priorBundle: bundle }), /stale-review/u);
-    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: assertRevisionId("target"), revisionIds: revisions, dependencyClosure: revisions, reviewBundleRevisionId: assertRevisionId("review-event"), resolutionRevisionIds: [], gateDigest: digest("c"), mode: "merge", expectedResultDigest: digest("d") }, { stack });
-    const context = { currentTargetRevisionId: "target", availableRevisionIds: revisions, stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDigest: digest("c"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("d") };
+    const changeGraph = { changeGraphId: id("change-graph", "s") as `epoch:change-graph:${string}`, memberRevisionIds: revisions, edges: [] };
+    const bundle = buildReviewBundle({ reviewBundleId: id("review-bundle", "r"), selectedRevisionIds: revisions, baseFrontier: ["base"], baseTreeDigest: digest("a"), combinedTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDefinitionDigest: digest("c") });
+    assert.throws(() => buildReviewBundle({ reviewBundleId: bundle.reviewBundleId, selectedRevisionIds: [...revisions].reverse(), baseFrontier: bundle.baseFrontier, baseTreeDigest: bundle.baseTreeDigest, combinedTreeDigest: bundle.combinedTreeDigest, overlaps: [], conflicts: [], gateDefinitionDigest: bundle.gateDefinitionDigest, priorBundle: bundle }), /stale-review/u);
+    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: assertRevisionId("target"), selectedRevisionIds: revisions, hardDependencyClosure: revisions, reviewBundleRevisionId: assertRevisionId("review-event"), conflictResolutionRevisionIds: [], gateDefinitionDigest: digest("c"), mergeMode: "per-change-squash", resultingTreeDigest: digest("d") }, { changeGraph });
+    const context = { currentTargetRevisionId: "target", availableRevisionIds: revisions, changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDefinitionDigest: digest("c"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("d") };
     assert.equal(applyMergePlan(plan, context).resultDigest, digest("d"));
     assert.throws(() => applyMergePlan(plan, { ...context, resultDigest: digest("e") }), /integrity-failure/u);
   });
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
     assert.equal(formatSwhid(parseSwhid(encoded)), encoded);
   });
 
-  process.stdout.write(JSON.stringify({ suite: "frontier-convergence-properties", seed: SEED, cases: CASES, status: "passed" }) + "\n");
+  process.stdout.write(JSON.stringify({ suite: "change-graph-properties", seed: SEED, cases: CASES, status: "passed" }) + "\n");
 }
 
 function id(kind: string, token: string): string { return `epoch:${kind}:${token.repeat(52)}`; }

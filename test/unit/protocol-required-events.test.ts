@@ -4,7 +4,7 @@ import { PROTOCOL_EVENT_SCHEMAS } from "@epoch/protocol";
 export function runProtocolRequiredEventTests(): void {
   const required = [
     "repository.identity", "change.created", "change.revised", "change.superseded",
-    "change.dependency.added", "change.dependency.removed", "stack.defined", "stack.revised",
+    "change.dependency.added", "change.dependency.removed", "change-graph.defined", "change-graph.revised",
     "split.accepted", "review.bundle.created", "review.bundle.revised", "review.recorded",
     "merge.plan.created", "merge.plan.gate-recorded", "merge.plan.applied", "conflict.recorded",
     "conflict.resolution.proposed", "conflict.resolution.accepted", "conflict.resolution.rejected",

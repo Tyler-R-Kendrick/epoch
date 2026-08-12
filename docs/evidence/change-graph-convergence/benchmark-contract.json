@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "suite": "frontier-convergence",
-  "entrypoint": "benchmarks/frontier-convergence.mjs",
-  "optInEnvironment": "EPOCH_RUN_FRONTIER_BENCHMARKS=1",
-  "baselineEnvironment": "EPOCH_FRONTIER_BASELINE",
+  "suite": "change-graph-convergence",
+  "entrypoint": "benchmarks/change-graph-convergence.mjs",
+  "optInEnvironment": "EPOCH_RUN_CHANGE_GRAPH_BENCHMARKS=1",
+  "baselineEnvironment": "EPOCH_CHANGE_GRAPH_BASELINE",
   "fixture": {
     "objects": 2000,
     "workspaceFiles": 250,
     "fragments": 200,
-    "stackRevisions": 500,
+    "changeGraphRevisions": 500,
     "mirrorOperations": 1000,
     "budgetReservations": 500,
     "blobBytes": 2000000
   },
-  "metrics": ["metadataClone", "filteredHydrate", "chunkReuse", "workspaceCreateCapture", "splitWeaveMerge", "manyRefMirror", "operationRestore", "budgetContention"],
+  "metrics": ["metadataClone", "filteredHydrate", "chunkReuse", "workspaceCreateCapture", "splitBundleMerge", "manyRefMirror", "operationRestore", "budgetContention"],
   "comparison": {
     "sameMachineOnly": true,
     "fingerprintFields": ["node major", "platform", "architecture", "CPU model"],

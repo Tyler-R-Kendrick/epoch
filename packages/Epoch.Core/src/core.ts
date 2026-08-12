@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { CRDTEventLog, CRDTOperation, EntityRegistry } from "./crdt";
+import { CodeOperation, CodeOperationFilter, CodeOperationRecord, CRDTEventLog, EntityRegistry, validateCodeOperation } from "./crdt";
 import { canonicalJson, isRecord } from "./json";
 import {
   CryptoSpec,
@@ -1144,7 +1144,8 @@ export class EpochRepository {
     return key.split(TextToken.dot).reduce<unknown>((current, part) => isRecord(current) ? current[part] : undefined, this.repositoryConfig());
   }
 
-  appendCRDTOperation(operation: CRDTOperation, author = this.identity()): Event {
+  recordCodeOperation(operation: CodeOperation, author = this.identity()): Event {
+    validateCodeOperation(operation);
     this.emitHook("repository.crdt.operation.before", { operation, author });
     const events = this.events();
     const replicaID = sha256(canonicalJson({ author, nextLamport: events.length + 1, operation })).slice(0, 32);
@@ -1152,6 +1153,11 @@ export class EpochRepository {
     const event = this.append(EventType.crdt, payload, author);
     this.emitHook("repository.crdt.operation.after", { operation, author, event });
     return event;
+  }
+
+  codeOperations(filter: CodeOperationFilter = {}): CodeOperationRecord[] {
+    this.requireInitialized();
+    return new CRDTEventLog().operations(this.events(), filter);
   }
 
   materialize(entity: string): unknown {

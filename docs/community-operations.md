@@ -211,5 +211,5 @@ capability, and in-process execution is not sandbox isolation.
 - [ADR-0013: Community Operations Extension Package](design-decisions/0013-community-operations-extension-package.md)
 - [User Stories](user-stories.md#ops-020-manage-community-sandbox-workspaces)
 - [Agent Sandbox User Story](user-stories.md#ops-021-manage-community-agent-sandboxes)
-- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Change Graph And Operation History](change-graph.md)
 - [Convergence Operator Story](user-stories.md#ops-022-operate-convergence-boundaries)

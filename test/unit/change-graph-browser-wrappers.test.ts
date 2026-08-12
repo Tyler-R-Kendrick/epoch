@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import * as Wasm from "@epoch/wasm";
 import * as Sdk from "@epoch/platform-sdk";
 
-export function runFrontierBrowserWrapperTests(): void {
+export function runChangeGraphBrowserWrapperTests(): void {
   const graph = [{ revisionId: "root", parentRevisionIds: [] }, { revisionId: "head", parentRevisionIds: ["root"] }];
   assert.deepEqual(Wasm.inspectRevisionGraph(graph), Sdk.inspectRevisionGraph(graph));
   assert.deepEqual(Wasm.evaluateRevset("heads() | roots()", graph), ["head", "root"]);
-  assert.deepEqual(Sdk.inspectFrontierFilter({ paths: ["src/**"] }).canonical, { paths: ["src/**"] });
+  assert.deepEqual(Sdk.inspectCloneFilter({ paths: ["src/**"] }).canonical, { paths: ["src/**"] });
   assert.equal(Wasm.inspectSyncContract({ protocol: "epoch.sync/v2", commands: [] }).code, "ok");
   assert.equal(Sdk.inspectSwhid(`swh:1:rev:${"b".repeat(40)}`).objectType, "rev");
   assert.deepEqual(Wasm.nodeOnlyAdapterStatus("git"), {

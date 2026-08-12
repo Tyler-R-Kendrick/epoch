@@ -28,14 +28,14 @@ export function inspectRevisionGraph(nodes: readonly InspectableRevision[]): {
     roots: Object.freeze(nodes.filter((node) => node.parentRevisionIds.length === 0).map((node) => node.revisionId).sort()) });
 }
 
-export interface FrontierFilter {
+export interface EpochCloneFilter {
   readonly paths?: readonly string[];
   readonly entityTypes?: readonly string[];
   readonly maxBytes?: number;
   readonly includePromises?: boolean;
 }
 
-export function inspectFrontierFilter(value: unknown): { readonly valid: true; readonly canonical: FrontierFilter } {
+export function inspectCloneFilter(value: unknown): { readonly valid: true; readonly canonical: EpochCloneFilter } {
   if (typeof value !== "object" || value === null || Array.isArray(value)) fail("invalid-schema", "Filter must be an object");
   const input = value as Record<string, unknown>;
   const known = new Set(["paths", "entityTypes", "maxBytes", "includePromises"]);

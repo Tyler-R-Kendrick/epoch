@@ -142,7 +142,7 @@ Epoch has two entity and CRDT-related surfaces:
 
 - `CRDTRegistry` handles snapshot-style three-way merges for media-aware entity
   adapters. Defaults include text, JSON, and row-keyed CSV.
-- `appendCRDTOperation()` records operation CRDT updates, and `materialize(entity)` replays signed CRDT events into a current map or text value.
+- `recordCodeOperation()` records signed operation-level CRDT updates. Optional Change, session, tool, and private-conversation-digest context links code edits to collaboration without publishing raw transcripts. `materialize(entity)` replays those events into a current map or text value.
 
 The operation CRDT backend is Collabs with a protobuf override documented in
 [ADR-0002: CRDT Backend Selection](crdt-backend-decision.md).
@@ -385,16 +385,16 @@ See [Epoch Platform Packages](platforms.md),
 [ADR-0008](design-decisions/0008-separate-platform-web-and-community.md), and
 [ADR-0013](design-decisions/0013-community-operations-extension-package.md).
 
-## Frontier Version-Control Convergence
+## Change Graph And Operation History
 
 The current implementation separates browser-safe contracts from host
 adapters:
 
 - `@epoch/protocol` defines `epoch.protocol/v1`, typed stable IDs and errors,
-  revision/change/stack/review/merge schemas, the revset parser/evaluator, and
+  Revision/Change/Change Graph/Review Bundle/Merge Plan schemas, the revset parser/evaluator, and
   browser-safe graph, filter, sync, and SWHID inspection.
-- `@epoch/core` implements explicit-parent atomic transactions, change and
-  stack graphs, exact split/review/merge validation, durable conflicts,
+- `@epoch/core` implements explicit-parent atomic transactions, Change Graphs,
+  exact split/review/merge validation, durable conflicts,
   conservative commutation, object/chunk/promise verification,
   `epoch.sync/v2`, and workspace providers.
 - `@epoch/git-proxy` projects deterministic SHA-1 Git objects and refs, keeps
@@ -410,17 +410,17 @@ adapters:
 - `@epoch/software-heritage` parses and computes SWHID v1.2 identifiers and
   exposes an injected Save Code Now client for public origins.
 
-Existing events are never rewritten. A legacy intent is projected through the
-derived `epoch:change:legacy:<event-id>` lineage, while repository identity is
-added independently. The CLI's `.epoch/frontier-v1.json` is a reference command
-store rather than the canonical repository log.
+Pre-release compatibility identifiers and aliases are not supported. The CLI's
+`.epoch/change-graph-v1.json` is a local reference command host rather than the
+canonical signed repository log.
 
 Capability manifests are authoritative. The Git service is a bounded
 protocol-v2 subset, ForgeFed reports `transport: none`, F3 is a codec rather
 than a native server, browser OPFS/IndexedDB are detected capabilities rather
 than implicit persistence, and Rift is only an explicit safe launch spec whose
 execution mode is `in-process`. Details and escape paths are in
-[Frontier VCS Convergence](frontier-vcs-convergence.md).
+[Change Graph And Operation History](change-graph.md). Canonical terms are in
+[Epoch Nomenclature](nomenclature.md).
 
 ## Non-Goals In The Current Prototype
 

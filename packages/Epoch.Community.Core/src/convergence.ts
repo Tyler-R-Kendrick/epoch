@@ -176,13 +176,13 @@ export class ConvergenceWorkbench {
 
   splitChange(changeId: string, partIds: readonly string[], fileBoundaries: readonly string[]): { readonly ok: boolean; readonly explanation: string } {
     const index = this.#state.changes.findIndex((change) => change.changeId === changeId);
-    if (index < 0) return { ok: false, explanation: `Unknown change ${changeId}; stack unchanged.` };
+    if (index < 0) return { ok: false, explanation: `Unknown change ${changeId}; change graph unchanged.` };
     const duplicateBoundary = new Set(fileBoundaries).size !== fileBoundaries.length;
     if (partIds.length < 2 || partIds.length !== fileBoundaries.length || duplicateBoundary || fileBoundaries.includes(this.#state.ambiguousPath ?? "")) {
-      return { ok: false, explanation: `${this.#state.ambiguousPath ?? "edit"} contains an ambiguous hunk; define a human boundary before splitting. Stack unchanged.` };
+      return { ok: false, explanation: `${this.#state.ambiguousPath ?? "edit"} contains an ambiguous hunk; define a human boundary before splitting. Change graph unchanged.` };
     }
     if (new Set(partIds).size !== partIds.length || partIds.some((id) => this.#state.changes.some((change) => change.changeId === id && change.changeId !== changeId))) {
-      return { ok: false, explanation: "Split identities must be unique; stack unchanged." };
+      return { ok: false, explanation: "Split identities must be unique; change graph unchanged." };
     }
     const original = this.#state.changes[index];
     if (original === undefined) throw new Error(`Invariant: missing change ${changeId}`);

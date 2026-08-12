@@ -6,4 +6,4 @@ Epoch signed state remains authoritative. Git refs are rebuildable projections o
 
 Mirror definitions separate direction and authority. The reference engine validates HTTPS remotes, rejects embedded credentials and private or rebinding addresses, uses idempotency markers and expected old OIDs, records drift, and pauses only the affected ref. Force and deletion default to deny. Credentials are secret references and never portable signed content.
 
-See [ADR-0035](design-decisions/0035-forge-adapters-and-mirror-authority.md) and the machine-readable [compatibility matrix](evidence/frontier-vcs-convergence/compatibility-matrix.json).
+See [ADR-0035](design-decisions/0035-forge-adapters-and-mirror-authority.md) and the machine-readable [compatibility matrix](evidence/change-graph-convergence/compatibility-matrix.json).
