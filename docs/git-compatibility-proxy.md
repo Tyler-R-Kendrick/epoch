@@ -176,7 +176,7 @@ label those injected responsibilities as shipped merely because their seams
 exist.
 
 The compatibility and threat evidence is recorded under
-[`docs/evidence/frontier-vcs-convergence/`](evidence/frontier-vcs-convergence/).
+[`docs/evidence/change-graph-convergence/`](evidence/change-graph-convergence/).
 
 ## Original Phased Delivery
 

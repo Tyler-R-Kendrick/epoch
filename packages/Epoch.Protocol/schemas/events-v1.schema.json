@@ -23,8 +23,8 @@
         "change.superseded",
         "change.dependency.added",
         "change.dependency.removed",
-        "stack.defined",
-        "stack.revised",
+        "change-graph.defined",
+        "change-graph.revised",
         "split.accepted",
         "review.bundle.created",
         "review.bundle.revised",
@@ -154,10 +154,10 @@
     {
       "properties": {
         "type": {
-          "const": "stack.defined"
+          "const": "change-graph.defined"
         },
         "body": {
-          "$ref": "#/$defs/stackBody"
+          "$ref": "#/$defs/changeGraphBody"
         }
       },
       "required": [
@@ -168,10 +168,10 @@
     {
       "properties": {
         "type": {
-          "const": "stack.revised"
+          "const": "change-graph.revised"
         },
         "body": {
-          "$ref": "#/$defs/stackBody"
+          "$ref": "#/$defs/changeGraphBody"
         }
       },
       "required": [
@@ -561,7 +561,7 @@
   "$defs": {
     "canonicalId": {
       "type": "string",
-      "pattern": "^epoch:(repo|principal|key|change|stack|fragment|review|merge-plan|conflict|workspace|operation|grant|budget|projection|mirror|version|session|promise):[a-z2-7]{52}$"
+      "pattern": "^epoch:(repo|principal|key|change|change-graph|fragment|review-bundle|merge-plan|conflict|workspace|operation|grant|budget|projection|mirror|version|session|promise):[a-z2-7]{52}$"
     },
     "revisionId": {
       "type": "string",
@@ -779,7 +779,7 @@
         }
       }
     },
-    "stackEdge": {
+    "changeGraphEdge": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -800,26 +800,26 @@
           "enum": [
             "requires",
             "orders-after",
-            "conflicts",
-            "derived"
+            "conflicts-with",
+            "derived-from"
           ]
         }
       }
     },
-    "stackBody": {
+    "changeGraphBody": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "stackId",
-        "revisionIds",
+        "changeGraphId",
+        "memberRevisionIds",
         "edges"
       ],
       "properties": {
-        "stackId": {
+        "changeGraphId": {
           "type": "string",
-          "pattern": "^epoch:stack:[a-z2-7]{52}$"
+          "pattern": "^epoch:change-graph:[a-z2-7]{52}$"
         },
-        "revisionIds": {
+        "memberRevisionIds": {
           "type": "array",
           "items": {
             "type": "string",
@@ -831,7 +831,7 @@
         "edges": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/stackEdge"
+            "$ref": "#/$defs/changeGraphEdge"
           }
         }
       }
@@ -925,21 +925,21 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "reviewId",
-        "revisionIds",
+        "reviewBundleId",
+        "selectedRevisionIds",
         "baseFrontier",
         "baseTreeDigest",
-        "resultingTreeDigest",
+        "combinedTreeDigest",
         "overlaps",
         "conflictIds",
-        "gateDigest"
+        "gateDefinitionDigest"
       ],
       "properties": {
-        "reviewId": {
+        "reviewBundleId": {
           "type": "string",
-          "pattern": "^epoch:review:[a-z2-7]{52}$"
+          "pattern": "^epoch:review-bundle:[a-z2-7]{52}$"
         },
-        "revisionIds": {
+        "selectedRevisionIds": {
           "type": "array",
           "items": {
             "type": "string",
@@ -961,7 +961,7 @@
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
-        "resultingTreeDigest": {
+        "combinedTreeDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
@@ -980,7 +980,7 @@
           "minItems": 0,
           "uniqueItems": true
         },
-        "gateDigest": {
+        "gateDefinitionDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         }
@@ -992,13 +992,13 @@
       "required": [
         "mergePlanId",
         "targetRevisionId",
-        "revisionIds",
-        "dependencyClosure",
+        "selectedRevisionIds",
+        "hardDependencyClosure",
         "reviewBundleRevisionId",
-        "resolutionRevisionIds",
-        "gateDigest",
-        "mode",
-        "expectedResultDigest"
+        "conflictResolutionRevisionIds",
+        "gateDefinitionDigest",
+        "mergeMode",
+        "resultingTreeDigest"
       ],
       "properties": {
         "mergePlanId": {
@@ -1009,7 +1009,7 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
         },
-        "revisionIds": {
+        "selectedRevisionIds": {
           "type": "array",
           "items": {
             "type": "string",
@@ -1018,7 +1018,7 @@
           "minItems": 0,
           "uniqueItems": true
         },
-        "dependencyClosure": {
+        "hardDependencyClosure": {
           "type": "array",
           "items": {
             "type": "string",
@@ -1031,7 +1031,7 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
         },
-        "resolutionRevisionIds": {
+        "conflictResolutionRevisionIds": {
           "type": "array",
           "items": {
             "type": "string",
@@ -1040,17 +1040,17 @@
           "minItems": 0,
           "uniqueItems": true
         },
-        "gateDigest": {
+        "gateDefinitionDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
-        "mode": {
+        "mergeMode": {
           "enum": [
-            "merge",
-            "squash"
+            "per-change-squash",
+            "change-graph-squash"
           ]
         },
-        "expectedResultDigest": {
+        "resultingTreeDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         }
@@ -1165,15 +1165,15 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "reviewId",
+        "reviewBundleId",
         "bundleRevisionId",
         "reviewerPrincipalId",
         "verdict"
       ],
       "properties": {
-        "reviewId": {
+        "reviewBundleId": {
           "type": "string",
-          "pattern": "^epoch:review:[a-z2-7]{52}$"
+          "pattern": "^epoch:review-bundle:[a-z2-7]{52}$"
         },
         "bundleRevisionId": {
           "type": "string",
@@ -1197,7 +1197,7 @@
       "additionalProperties": false,
       "required": [
         "mergePlanId",
-        "gateDigest",
+        "gateDefinitionDigest",
         "status",
         "evidenceRevisionIds"
       ],
@@ -1206,7 +1206,7 @@
           "type": "string",
           "pattern": "^epoch:merge-plan:[a-z2-7]{52}$"
         },
-        "gateDigest": {
+        "gateDefinitionDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
@@ -1235,7 +1235,7 @@
         "targetRevisionId",
         "resultRevisionId",
         "resultTreeDigest",
-        "mode",
+        "mergeMode",
         "sourceRevisionIds"
       ],
       "properties": {
@@ -1255,10 +1255,10 @@
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
-        "mode": {
+        "mergeMode": {
           "enum": [
-            "merge",
-            "squash"
+            "per-change-squash",
+            "change-graph-squash"
           ]
         },
         "sourceRevisionIds": {

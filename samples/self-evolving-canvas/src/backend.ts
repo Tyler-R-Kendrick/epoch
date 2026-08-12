@@ -79,7 +79,7 @@ export function createCanvasClusterNode(options: CanvasClusterNodeOptions): Canv
 
   function recordBackendCanvas(canvas: CanvasDocument): void {
     if (stableJson(readBackendCanvas(backendRepository)) === stableJson(canvas)) return;
-    backendRepository.appendCRDTOperation({
+    backendRepository.recordCodeOperation({
       kind: "map-set",
       entity: CANVAS_ENTITY,
       key: "document",

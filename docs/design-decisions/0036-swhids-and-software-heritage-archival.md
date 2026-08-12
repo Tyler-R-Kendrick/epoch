@@ -36,4 +36,4 @@ durable receipt store ships with provider conformance tests.
 
 - [Software Heritage SWHIDs](https://docs.softwareheritage.org/devel/swh-model/persistent-identifiers.html)
 - [HA/DR](../HA-DR.md)
-- [Frontier VCS Convergence](../frontier-vcs-convergence.md)
+- [Change Graph And Operation History](../change-graph.md)

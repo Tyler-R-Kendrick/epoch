@@ -1,7 +1,7 @@
 # Convergence Workbench Adversarial Design Critique
 
 Date: 2026-08-11
-Scope: Community change-weave and Operations convergence surfaces
+Scope: Community change-graph and review-bundle surfaces
 
 This scoped note records the product critique that shaped the implementation. It
 is intended to be linked from the conductor-owned convergence documentation; it

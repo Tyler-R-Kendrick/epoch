@@ -8,8 +8,8 @@ import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
 
-if (process.env.EPOCH_RUN_FRONTIER_BENCHMARKS !== "1") {
-  process.stdout.write(JSON.stringify({ schemaVersion: 1, suite: "frontier-convergence", status: "skipped", reason: "set EPOCH_RUN_FRONTIER_BENCHMARKS=1" }) + "\n");
+if (process.env.EPOCH_RUN_CHANGE_GRAPH_BENCHMARKS !== "1") {
+  process.stdout.write(JSON.stringify({ schemaVersion: 1, suite: "change-graph-convergence", status: "skipped", reason: "set EPOCH_RUN_CHANGE_GRAPH_BENCHMARKS=1" }) + "\n");
   process.exit(0);
 }
 
@@ -21,12 +21,12 @@ const { fetchVerifiedRange } = require(join(root, "packages/Epoch.Core/dist/blob
 const { planSyncV2, SYNC_V2_PROTOCOL } = require(join(root, "packages/Epoch.Core/dist/sync-v2.js"));
 const { MemoryWorkspaceProvider } = require(join(root, "packages/Epoch.Core/dist/workspace.js"));
 const { OperationDag } = require(join(root, "packages/Epoch.Core/dist/convergence-transactions.js"));
-const { acceptSplit, applyMergePlan, buildReviewBundle, createMergePlan, validateStack } = require(join(root, "packages/Epoch.Core/dist/convergence-changes.js"));
+const { acceptSplit, applyMergePlan, buildReviewBundle, createMergePlan, validateChangeGraph } = require(join(root, "packages/Epoch.Core/dist/convergence-changes.js"));
 const { MirrorCoordinator, createMirrorRule } = require(join(root, "packages/Epoch.Forge/dist/mirror.js"));
 const { AuthorityLedger } = require(join(root, "packages/Epoch.Identity.Bridge/dist/authority/index.js"));
 
-const fixture = Object.freeze({ objects: 2_000, workspaceFiles: 250, fragments: 200, stackRevisions: 500, mirrorOperations: 1_000, budgetReservations: 500, blobBytes: 2_000_000 });
-const sandbox = mkdtempSync(join(tmpdir(), "epoch-frontier-benchmark-"));
+const fixture = Object.freeze({ objects: 2_000, workspaceFiles: 250, fragments: 200, changeGraphRevisions: 500, mirrorOperations: 1_000, budgetReservations: 500, blobBytes: 2_000_000 });
+const sandbox = mkdtempSync(join(tmpdir(), "epoch-change-graph-benchmark-"));
 let operationRun = 0;
 try {
   const metrics = {};
@@ -53,18 +53,18 @@ try {
     for (let index = 0; index < fixture.workspaceFiles; index += 1) await workspace.write(`src/file-${index}.txt`, Buffer.from(`content-${index}`));
     for (let index = 0; index < fixture.workspaceFiles; index += 1) assert.ok((await workspace.read(`src/file-${index}.txt`)).length > 0);
   });
-  metrics.splitWeaveMerge = await measure(async () => {
-    const revisionIds = Array.from({ length: fixture.stackRevisions }, (_, index) => `revision-${index}`);
-    const stack = { stackId: id("stack", "s"), revisionIds, edges: revisionIds.slice(1).map((revision, index) => ({ from: revision, to: revisionIds[index], kind: "requires" })) };
-    const graph = validateStack(stack);
-    assert.equal(graph.closure([revisionIds.at(-1)]).length, fixture.stackRevisions);
+  metrics.splitBundleMerge = await measure(async () => {
+    const revisionIds = Array.from({ length: fixture.changeGraphRevisions }, (_, index) => `revision-${index}`);
+    const changeGraph = { changeGraphId: id("change-graph", "s"), memberRevisionIds: revisionIds, edges: revisionIds.slice(1).map((revision, index) => ({ from: revision, to: revisionIds[index], kind: "requires" })) };
+    const graph = validateChangeGraph(changeGraph);
+    assert.equal(graph.closure([revisionIds.at(-1)]).length, fixture.changeGraphRevisions);
     const fragments = Array.from({ length: fixture.fragments }, (_, index) => fragment(index)); const source = revision(fragments);
     const groups = Array.from({ length: 10 }, (_, group) => fragments.filter((_, index) => index % 10 === group));
     const accepted = acceptSplit(source, { sourceRevisionId: "source", groups: groups.map((items) => ({ fragmentIds: items.map((item) => item.fragmentId), risk: "low", reason: "benchmark" })) }, groups);
     assert.equal(accepted.reconstructedFragments.length, fixture.fragments);
-    const bundle = buildReviewBundle({ reviewId: id("review", "r"), revisionIds, baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
-    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m"), targetRevisionId: "target", revisionIds, dependencyClosure: revisionIds, reviewBundleRevisionId: bundle.reviewId, resolutionRevisionIds: [], gateDigest: bundle.gateDigest, mode: "squash", expectedResultDigest: digest("b") }, { stack });
-    assert.equal(applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: revisionIds, stack, reviewBundleRevisionId: bundle.reviewId, acceptedResolutionRevisionIds: [], gateDigest: bundle.gateDigest, unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") }).resultRevisionProvenance.length, fixture.stackRevisions);
+    const bundle = buildReviewBundle({ reviewBundleId: id("review-bundle", "r"), selectedRevisionIds: revisionIds, baseFrontier: ["base"], baseTreeDigest: digest("a"), combinedTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDefinitionDigest: digest("c") });
+    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m"), targetRevisionId: "target", selectedRevisionIds: revisionIds, hardDependencyClosure: revisionIds, reviewBundleRevisionId: "review-event", conflictResolutionRevisionIds: [], gateDefinitionDigest: bundle.gateDefinitionDigest, mergeMode: "change-graph-squash", resultingTreeDigest: digest("b") }, { changeGraph });
+    assert.equal(applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: revisionIds, changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDefinitionDigest: bundle.gateDefinitionDigest, unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") }).resultRevisionProvenance.length, fixture.changeGraphRevisions);
   }, 3);
   metrics.manyRefMirror = await measure(async () => {
     const rule = createMirrorRule({ ruleId: "benchmark", direction: "import", authority: "git-primary", sourceRef: "refs/heads/main", destinationRef: "refs/heads/main", credentialRef: "credential", force: "deny", deletion: "deny" }); const coordinator = new MirrorCoordinator([rule]);
@@ -85,7 +85,7 @@ try {
 
   for (const metric of Object.values(metrics)) metric.relativeToCalibration = metric.medianMs / metrics.calibration.medianMs;
   const runner = { node: process.version, platform: platform(), arch: arch(), cpuModel: cpus()[0]?.model ?? "unknown", cpuCount: cpus().length };
-  const output = { schemaVersion: 1, suite: "frontier-convergence", status: "passed", generatedAt: new Date().toISOString(), runner, fixture, guard: compareBaseline(process.env.EPOCH_FRONTIER_BASELINE, runner, metrics), metrics };
+  const output = { schemaVersion: 1, suite: "change-graph-convergence", status: "passed", generatedAt: new Date().toISOString(), runner, fixture, guard: compareBaseline(process.env.EPOCH_CHANGE_GRAPH_BASELINE, runner, metrics), metrics };
   const serialized = JSON.stringify(output, null, 2) + "\n";
   if (process.argv[2]) writeFileSync(resolve(process.argv[2]), serialized, "utf8");
   process.stdout.write(serialized);
@@ -101,7 +101,7 @@ function compareBaseline(path, runner, metrics) {
   const baseline = JSON.parse(readFileSync(resolve(path), "utf8")); const sameMachine = baseline.runner?.platform === runner.platform && baseline.runner?.arch === runner.arch && baseline.runner?.cpuModel === runner.cpuModel && String(baseline.runner?.node).split(".")[0] === runner.node.split(".")[0];
   if (!sameMachine) return { applied: false, maxMedianRatio: 4, reason: "runner fingerprint differs" };
   const ratios = Object.fromEntries(Object.entries(metrics).map(([metricName, metric]) => [metricName, metric.medianMs / baseline.metrics[metricName].medianMs]));
-  const worst = Math.max(...Object.values(ratios)); if (worst > 4) throw new Error(`frontier benchmark regression ${worst.toFixed(2)}x exceeds 4x same-machine guard`);
+  const worst = Math.max(...Object.values(ratios)); if (worst > 4) throw new Error(`change graph benchmark regression ${worst.toFixed(2)}x exceeds 4x same-machine guard`);
   return { applied: true, maxMedianRatio: 4, ratios };
 }
 function id(kind, token) { return `epoch:${kind}:${token.repeat(52)}`; }

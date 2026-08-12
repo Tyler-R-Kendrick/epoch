@@ -43,7 +43,7 @@ const json = JSON.parse(readText(jsonPath));
 const names = JSON.stringify(json);
 for (const expected of [
   "Contributor opens a community and sees community-owned channels first",
-  "Maintainer promotes a community idea into an intent",
+  "Maintainer promotes a community idea into a Change",
   "Contributor adds a unified signed comment to the current channel",
 ]) {
   if (!names.includes(expected)) {

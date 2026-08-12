@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "suite": "frontier-vcs-convergence-security",
-  "generatedBy": "test/security/frontier-security.test.ts",
+  "suite": "change-graph-convergence-security",
+  "generatedBy": "test/security/change-graph-security.test.ts",
   "statusVocabulary": ["verified", "partial", "unsupported", "not-applicable"],
   "threats": [
     {

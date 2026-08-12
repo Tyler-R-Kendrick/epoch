@@ -1,7 +1,7 @@
 import { fail } from "./errors";
 
 export const CANONICAL_ID_KINDS = [
-  "repo", "principal", "key", "change", "stack", "fragment", "review", "merge-plan",
+  "repo", "principal", "key", "change", "change-graph", "fragment", "review-bundle", "merge-plan",
   "conflict", "workspace", "operation", "grant", "budget", "projection", "mirror",
   "version", "session", "promise",
 ] as const;
@@ -38,18 +38,7 @@ export function parseCanonicalId(value: unknown, expectedKind?: CanonicalIdKind)
   return { kind: kind as CanonicalIdKind, token };
 }
 
-export function legacyChangeId(eventId: RevisionId): string {
-  assertRevisionId(eventId);
-  return `epoch:change:legacy:${eventId}`;
-}
-
-export function parseChangeId(value: unknown):
-  | { readonly kind: "change"; readonly token: string }
-  | { readonly kind: "change"; readonly legacyEventId: RevisionId } {
-  if (typeof value === "string" && value.startsWith("epoch:change:legacy:")) {
-    const eventId = value.slice("epoch:change:legacy:".length);
-    return { kind: "change", legacyEventId: assertRevisionId(eventId) };
-  }
+export function parseChangeId(value: unknown): { readonly kind: "change"; readonly token: string } {
   const parsed = parseCanonicalId(value, "change");
   return { kind: "change", token: parsed.token };
 }

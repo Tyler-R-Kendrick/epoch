@@ -727,7 +727,7 @@ function applyChannelFilter(): void {
   }
   if (channelTopic) {
     channelTopic.textContent = q
-      ? "Searching messages, intents, harness labels, and promote receipts"
+      ? "Searching messages, Changes, harness labels, and promote receipts"
       : (channelMeta?.topic || channelTopics.get(activeChannel) || "");
   }
   if (contextSub && productMode === "community") {
@@ -976,7 +976,7 @@ function renderRepository(repo: CommunityRepository): void {
     const proposals = repo.changeProposals ?? [];
     changeList.innerHTML = proposals.length
       ? proposals.map((proposal) => renderChangeListItem(changeListModel(proposal, repo))).join("")
-      : emptyArtifactItem("No change proposals yet. Promote a message with Mark intent.");
+      : emptyArtifactItem("No Changes yet. Promote a message with Promote to Change.");
   }
   updateChannelCounts(repo);
   updateRepositoryMeta(repo);
@@ -1106,7 +1106,7 @@ async function handleComposerSubmit(text: string): Promise<void> {
 }
 
 async function handleAction(action: string, message: HTMLElement): Promise<void> {
-  const title = message.querySelector(".row-heading")?.textContent || "Community intent";
+  const title = message.querySelector(".row-heading")?.textContent || "Community Change";
   const body = message.querySelector("p")?.textContent || "";
   const issueId = message.dataset.issueId;
   const changeId = message.dataset.changeId;
@@ -1114,7 +1114,7 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
 
   if (!live()) {
     const actionLabels: Record<string, string> = {
-      intent: "Mark intent",
+      "promote-change": "Promote to Change",
       agent: "Request agent",
       answer: "Accept answer",
       docs: "Docs patch",
@@ -1127,8 +1127,8 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
   }
 
   try {
-    if (action === "intent") {
-      setStatus(message, "Recording intent candidate...");
+    if (action === "promote-change") {
+      setStatus(message, "Recording Change candidate...");
       const updated = await postChange({
         title,
         author: actor,
@@ -1165,7 +1165,7 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
           selectMessage(`change-${proposal.id}`);
           setStatus(
             next,
-            `Intent candidate recorded from the live API: ${proposal.id}`
+            `Change candidate recorded from the live API: ${proposal.id}`
               + ` (${proposal.status}). Promote receipt recorded. Human review still required.`,
           );
         }

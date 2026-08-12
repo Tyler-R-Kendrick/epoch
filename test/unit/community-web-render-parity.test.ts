@@ -54,7 +54,7 @@ export async function runCommunityWebRenderParityTests(): Promise<void> {
 
 function serverSocialMessagesCarryTheFullActionTray(html: string): void {
   // The server renderer is the parity contract: signed actions exist on first paint.
-  assert.match(html, /data-action="intent"/u);
+  assert.match(html, /data-action="promote-change"/u);
   assert.match(html, /data-action="agent"/u);
   assert.match(html, /data-action="report"/u);
 }
@@ -66,8 +66,8 @@ function civicWorkshopChromeContracts(html: string): void {
   assert.match(html, /data-action-more/u, "secondary tray actions live behind More actions");
   assert.match(
     html,
-    /class="action-row action-row-primary"[\s\S]*?data-action="intent"/u,
-    "Mark intent must stay a primary tray control",
+    /class="action-row action-row-primary"[\s\S]*?data-action="promote-change"/u,
+    "Promote to Change must stay a primary tray control",
   );
   const stylesPath = join(process.cwd(), "packages/Epoch.Community.Web/src/render/styles.ts");
   const styles = readFileSync(stylesPath, "utf8");

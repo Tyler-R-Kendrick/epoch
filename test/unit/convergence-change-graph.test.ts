@@ -6,18 +6,16 @@ import {
   applyMergePlan,
   buildReviewBundle,
   createMergePlan,
-  projectLegacyIntent,
-  validateStack,
+  validateChangeGraph,
 } from "@epoch/core";
 import { assertRevisionId } from "@epoch/protocol";
-import type { ChangeFragment, ChangeRevisionBody, DurableConflict, SplitPlan, StackDefinition, StackEdgeKind } from "@epoch/protocol";
+import type { ChangeFragment, ChangeGraphDefinition, ChangeGraphEdgeKind, ChangeRevisionBody, DurableConflict, SplitPlan } from "@epoch/protocol";
 
 export function runConvergenceChangeGraphTests(): void {
   test("CONV-CHANGE-001 stable ChangeId supports multi-parent revisions", stableLineage);
-  test("CONV-CHANGE-002 legacy intents project without rewriting source bytes", legacyIntentProjection);
-  test("CONV-STACK-001 stack graph closes and topologically sorts exact revisions", stackClosure);
+  test("CONV-GRAPH-001 change graph closes and topologically sorts exact revisions", changeGraphClosure);
   test("CONV-SPLIT-001 split acceptance reconstructs without dropping ambiguous fragments", splitReconstruction);
-  test("CONV-REVIEW-001 review evidence invalidates when exact weave changes", reviewEvidence);
+  test("CONV-REVIEW-001 review evidence invalidates when the exact bundle changes", reviewEvidence);
   test("CONV-MERGE-001 stale target nonclosed gates and conflicts fail closed", mergePreconditions);
   test("CONV-MERGE-002 squash preserves exact source revision provenance", squashProvenance);
   test("CONV-CONFLICT-001 multi-side conflicts carry in drafts and block protected merge", multiSideConflicts);
@@ -40,30 +38,21 @@ function stableLineage(): void {
   assert.throws(() => graph.add("rev-cycle", revision(changeId, ["rev-cycle"], [fragment("e", "e.txt", "add", "e")])), /cycle/u);
 }
 
-function legacyIntentProjection(): void {
-  const event = { eventId: "legacy-event", type: "intent", payload: { base: ["base"], patches: [{ path: "a.txt" }], metadata: { title: "old" } } } as const;
-  const before = JSON.stringify(event);
-  const projected = projectLegacyIntent(event);
-  assert.equal(projected.changeId, "epoch:change:legacy:legacy-event");
-  assert.equal(projected.revisionId, "legacy-event");
-  assert.equal(JSON.stringify(event), before);
-}
-
-function stackClosure(): void {
-  const stack: StackDefinition = {
-    stackId: id("stack", "a") as StackDefinition["stackId"],
-    revisionIds: [rid("r1"), rid("r2"), rid("r3")],
+function changeGraphClosure(): void {
+  const changeGraph: ChangeGraphDefinition = {
+    changeGraphId: id("change-graph", "a") as ChangeGraphDefinition["changeGraphId"],
+    memberRevisionIds: [rid("r1"), rid("r2"), rid("r3")],
     edges: [
       { from: rid("r2"), to: rid("r1"), kind: "requires" },
-      { from: rid("r3"), to: rid("r2"), kind: "derived" },
+      { from: rid("r3"), to: rid("r2"), kind: "derived-from" },
       { from: rid("r3"), to: rid("r1"), kind: "orders-after" },
     ],
   };
-  const graph = validateStack(stack);
+  const graph = validateChangeGraph(changeGraph);
   assert.deepEqual(graph.topologicalOrder, ["r1", "r2", "r3"]);
   assert.deepEqual(graph.closure(["r3"]), ["r1", "r2", "r3"]);
   assert.deepEqual(graph.downwardMergeSet("r2"), ["r1", "r2"]);
-  assert.throws(() => validateStack({ ...stack, edges: [...stack.edges, { from: rid("r1"), to: rid("r3"), kind: "requires" }] }), /cycle/u);
+  assert.throws(() => validateChangeGraph({ ...changeGraph, edges: [...changeGraph.edges, { from: rid("r1"), to: rid("r3"), kind: "requires" }] }), /cycle/u);
 }
 
 function splitReconstruction(): void {
@@ -83,37 +72,37 @@ function splitReconstruction(): void {
 }
 
 function reviewEvidence(): void {
-  const bundle = buildReviewBundle({ reviewId: id("review", "a"), revisionIds: ["r1", "r2"], baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
-  assert.equal(bundle.revisionIds[0], "r1");
-  assert.throws(() => Reflect.apply(Array.prototype.push, bundle.revisionIds, ["mutate"]), /extensible|read only|frozen/u);
+  const bundle = buildReviewBundle({ reviewBundleId: id("review-bundle", "a"), selectedRevisionIds: ["r1", "r2"], baseFrontier: ["base"], baseTreeDigest: digest("a"), combinedTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDefinitionDigest: digest("c") });
+  assert.equal(bundle.selectedRevisionIds[0], "r1");
+  assert.throws(() => Reflect.apply(Array.prototype.push, bundle.selectedRevisionIds, ["mutate"]), /extensible|read only|frozen/u);
   assert.throws(() => buildReviewBundle({
-    reviewId: bundle.reviewId, revisionIds: ["r2", "r1"], baseFrontier: bundle.baseFrontier,
-    baseTreeDigest: bundle.baseTreeDigest, resultingTreeDigest: bundle.resultingTreeDigest,
-    overlaps: bundle.overlaps, conflicts: bundle.conflictIds, gateDigest: bundle.gateDigest, priorBundle: bundle,
+    reviewBundleId: bundle.reviewBundleId, selectedRevisionIds: ["r2", "r1"], baseFrontier: bundle.baseFrontier,
+    baseTreeDigest: bundle.baseTreeDigest, combinedTreeDigest: bundle.combinedTreeDigest,
+    overlaps: bundle.overlaps, conflicts: bundle.conflictIds, gateDefinitionDigest: bundle.gateDefinitionDigest, priorBundle: bundle,
   }), /stale-review/u);
 }
 
 function mergePreconditions(): void {
-  const stack = stackFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
-  const planInput = { mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), revisionIds: [rid("r1")], dependencyClosure: [rid("r1")], reviewBundleRevisionId: rid("review-event"), resolutionRevisionIds: [rid("resolution-event")], gateDigest: digest("a"), mode: "merge" as const, expectedResultDigest: digest("b") };
-  const plan = createMergePlan(planInput, { stack });
-  const base = { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: ["resolution-event"], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") };
+  const changeGraph = graphFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
+  const planInput = { mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), selectedRevisionIds: [rid("r1")], hardDependencyClosure: [rid("r1")], reviewBundleRevisionId: rid("review-event"), conflictResolutionRevisionIds: [rid("resolution-event")], gateDefinitionDigest: digest("a"), mergeMode: "per-change-squash" as const, resultingTreeDigest: digest("b") };
+  const plan = createMergePlan(planInput, { changeGraph });
+  const base = { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: ["resolution-event"], gateDefinitionDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") };
   assert.equal(applyMergePlan(plan, base).resultRevisionProvenance.length, 1);
   assert.throws(() => applyMergePlan(plan, { ...base, currentTargetRevisionId: "moved" }), /stale-head/u);
-  assert.throws(() => createMergePlan({ ...planInput, revisionIds: [rid("r2")], dependencyClosure: [rid("r2")] }, { stack }), /missing-dependency/u);
-  assert.throws(() => applyMergePlan({ ...plan, dependencyClosure: [rid("r1"), rid("r2")] }, base), /missing-dependency/u);
+  assert.throws(() => createMergePlan({ ...planInput, selectedRevisionIds: [rid("r2")], hardDependencyClosure: [rid("r2")] }, { changeGraph }), /missing-dependency/u);
+  assert.throws(() => applyMergePlan({ ...plan, hardDependencyClosure: [rid("r1"), rid("r2")] }, base), /missing-dependency/u);
   assert.throws(() => applyMergePlan(plan, { ...base, reviewBundleRevisionId: "stale-review" }), /stale-review/u);
   assert.throws(() => applyMergePlan(plan, { ...base, acceptedResolutionRevisionIds: [] }), /stale-revision/u);
-  assert.throws(() => applyMergePlan(plan, { ...base, gateDigest: digest("c") }), /stale-gate/u);
+  assert.throws(() => applyMergePlan(plan, { ...base, gateDefinitionDigest: digest("c") }), /stale-gate/u);
   assert.throws(() => applyMergePlan(plan, { ...base, unresolvedConflictIds: [id("conflict", "a")] }), /unresolved-conflict/u);
 }
 
 function squashProvenance(): void {
-  const stack = stackFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
-  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), revisionIds: [rid("r1"), rid("r2")], dependencyClosure: [rid("r1"), rid("r2")], reviewBundleRevisionId: rid("review-event"), resolutionRevisionIds: [], gateDigest: digest("a"), mode: "squash", expectedResultDigest: digest("b") }, { stack });
-  const result = applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") });
+  const changeGraph = graphFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
+  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), selectedRevisionIds: [rid("r1"), rid("r2")], hardDependencyClosure: [rid("r1"), rid("r2")], reviewBundleRevisionId: rid("review-event"), conflictResolutionRevisionIds: [], gateDefinitionDigest: digest("a"), mergeMode: "change-graph-squash", resultingTreeDigest: digest("b") }, { changeGraph });
+  const result = applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDefinitionDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") });
   assert.deepEqual(result.resultRevisionProvenance, ["r1", "r2"]);
-  assert.equal(result.mode, "squash");
+  assert.equal(result.mergeMode, "change-graph-squash");
 }
 
 function multiSideConflicts(): void {
@@ -154,6 +143,6 @@ function fragment(token: string, path: string, kind: ChangeFragment["kind"], dig
 function id(kind: string, token: string): string { return `epoch:${kind}:${token.repeat(52)}`; }
 function digest(token: string): string { return token.repeat(64); }
 function rid(value: string) { return assertRevisionId(value); }
-function stackFor(revisionIds: readonly string[], edges: readonly { readonly from: string; readonly to: string; readonly kind: StackEdgeKind }[]): StackDefinition {
-  return { stackId: id("stack", "m") as StackDefinition["stackId"], revisionIds: revisionIds.map(rid), edges: edges.map((edge) => ({ ...edge, from: rid(edge.from), to: rid(edge.to) })) };
+function graphFor(revisionIds: readonly string[], edges: readonly { readonly from: string; readonly to: string; readonly kind: ChangeGraphEdgeKind }[]): ChangeGraphDefinition {
+  return { changeGraphId: id("change-graph", "m") as ChangeGraphDefinition["changeGraphId"], memberRevisionIds: revisionIds.map(rid), edges: edges.map((edge) => ({ ...edge, from: rid(edge.from), to: rid(edge.to) })) };
 }

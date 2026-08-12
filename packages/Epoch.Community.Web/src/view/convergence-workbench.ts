@@ -15,14 +15,14 @@ export function renderConvergenceWorkbench(snapshot: ConvergenceWorkbenchSnapsho
   return `<section class="convergence-workbench" data-convergence-workbench aria-labelledby="convergence-title">
   <style>${convergenceWorkbenchStyles()}</style>
   <header class="convergence-header">
-    <p class="convergence-kicker">logical stack · signed revisions</p>
-    <h2 id="convergence-title">Change weave</h2>
-    <p>Review the cumulative result, then drill into each stable change without losing stack context.</p>
+    <p class="convergence-kicker">change graph · signed revisions</p>
+    <h2 id="convergence-title">Review bundle</h2>
+    <p>Review the combined result, then drill into each stable change without losing graph context.</p>
   </header>
   <div class="convergence-layout">
     <section class="convergence-navigator" aria-labelledby="change-graph-title">
       <h3 id="change-graph-title">Change graph</h3>
-      <div role="tree" aria-label="Logical stack change graph" data-change-tree>
+      <div role="tree" aria-label="Logical change graph" data-change-tree>
         ${ordered.map((change) => {
           const siblings = snapshot.changes.filter((candidate) => (candidate.dependsOn[0] ?? "") === (change.dependsOn[0] ?? ""));
           return renderTreeItem(change, siblings.indexOf(change) + 1, siblings.length, changeLevel(change, snapshot.changes), change.changeId === selected?.changeId);
@@ -32,7 +32,7 @@ export function renderConvergenceWorkbench(snapshot: ConvergenceWorkbenchSnapsho
     </section>
     <article class="convergence-detail" data-review-detail data-change-id="${escapeHtml(selected?.changeId ?? "")}" aria-live="polite" aria-labelledby="review-detail-title">
       <div class="review-modes" role="group" aria-label="Cumulative and individual review modes">
-        <button type="button" aria-pressed="false" data-review-mode="cumulative">Combined weave</button>
+        <button type="button" aria-pressed="false" data-review-mode="cumulative">Combined result</button>
         <button type="button" aria-pressed="true" data-review-mode="individual">Individual change</button>
       </div>
       ${renderReviewDetail(selected)}
@@ -81,7 +81,7 @@ function renderReviewDetail(change: ConvergenceChange | undefined): string {
     <dl>
       <div><dt>Stable change</dt><dd><code>${escapeHtml(change.changeId)}</code></dd></div>
       <div><dt>Current revision</dt><dd><code>${escapeHtml(change.currentRevisionIds.join(", "))}</code></dd></div>
-      <div><dt>Depends on</dt><dd>${escapeHtml(change.dependsOn.join(", ") || "stack root")}</dd></div>
+      <div><dt>Depends on</dt><dd>${escapeHtml(change.dependsOn.join(", ") || "graph root")}</dd></div>
       <div><dt>Files</dt><dd>${escapeHtml(change.files.join(", "))}</dd></div>
     </dl>
     <button type="button" data-mutation="merge" data-authority="maintainer.merge" data-confirmation-required="true">Preview dependency-closed merge…</button>`;

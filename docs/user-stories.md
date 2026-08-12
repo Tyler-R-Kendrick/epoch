@@ -11,7 +11,7 @@ for scenario-level persona records.
 ### DEV-003: Evolve A Stable Change Safely
 
 **As a** contributor,
-**I want** stable change identity across revisions, splits, stacks, and weaves,
+**I want** stable Change identity across Revisions, splits, Change Graphs, and Review Bundles,
 **So that** review context survives rebases, parallel heads, and presentation changes.
 
 Acceptance criteria:

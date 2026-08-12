@@ -38,4 +38,4 @@ golden vectors and conservative failure behavior.
 ## Related
 
 - [ADR-0030](0030-stable-changes-revisions-stacks-reviews-merges.md)
-- [Threat And Compatibility Evidence](../frontier-vcs-convergence.md#evidence-and-limits)
+- [Change Graph And Operation History](../change-graph.md)

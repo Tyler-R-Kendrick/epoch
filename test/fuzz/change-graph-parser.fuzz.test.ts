@@ -11,16 +11,16 @@ const CASES = 96;
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
 
 async function main(): Promise<void> {
-  await property("FRONTIER-FUZZ-001 protocol IDs and legacy decoding", SEED, CASES, (random, index) => {
+  await property("CHANGE-GRAPH-FUZZ-001 protocol IDs reject pre-release spellings", SEED, CASES, (random) => {
     const bytes = random.bytes(32);
     const identifier = createCanonicalId("change", (length) => { assert.equal(length, 32); return bytes; });
     assert.equal(parseCanonicalId(identifier, "change").kind, "change");
-    assert.deepEqual(parseChangeId(`epoch:change:legacy:event-${index}`), { kind: "change", legacyEventId: `event-${index}` });
+    assert.throws(() => parseChangeId("epoch:change:legacy:event"), /Invalid canonical ID/u);
     const mutations = [identifier.toUpperCase(), identifier + "/escape", identifier.replace(/.$/u, "1"), `epoch:unknown:${identifier.split(":")[2]}`, `epoch:change:${"a".repeat(53)}`, `epoch:change:${"é".repeat(52)}`];
     for (const mutation of mutations) assert.throws(() => parseCanonicalId(mutation), /Invalid canonical ID|bounded ASCII/u);
   });
 
-  await property("FRONTIER-FUZZ-002 event schema JSON fails closed", SEED ^ 1, CASES, (random, index) => {
+  await property("CHANGE-GRAPH-FUZZ-002 event schema JSON fails closed", SEED ^ 1, CASES, (random, index) => {
     const principalId = id("principal", random.integer(ALPHABET.length));
     const budgetId = id("budget", random.integer(ALPHABET.length));
     const event = { schemaVersion: 1, type: random.pick(["agent.budget.allocated", "agent.budget.consumed"] as const), eventId: `event-${index}`, revisionId: `event-${index}`, body: { budgetId, principalId, units: random.integer(1_000_000) } };
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     assert.throws(() => assertProtocolEvent({ ...event, revisionId: `other-${index}` }), /must equal/u);
   });
 
-  await property("FRONTIER-FUZZ-003 revset parser is bounded and deterministic", SEED ^ 2, CASES, (random) => {
+  await property("CHANGE-GRAPH-FUZZ-003 revset parser is bounded and deterministic", SEED ^ 2, CASES, (random) => {
     const atom = random.pick(["heads()", "roots()", "pending()", "approved()", "mergeable()"] as const);
     const other = random.pick(["conflicts()", "author(alice)", "change(change1)"] as const);
     const expression = `${atom} ${random.pick(["|", "&", "-"] as const)} ${other}`;
@@ -38,7 +38,7 @@ async function main(): Promise<void> {
     for (const invalid of ["", "unknown()", "heads(", `${"a".repeat(4097)}()`]) assert.throws(() => parseRevset(invalid), /revset|unknown|expected/u);
   });
 
-  await property("FRONTIER-FUZZ-004 chunk manifest JSON and packet ranges stay bounded", SEED ^ 3, 32, (random) => {
+  await property("CHANGE-GRAPH-FUZZ-004 chunk manifest JSON and packet ranges stay bounded", SEED ^ 3, 32, (random) => {
     const bytes = random.bytes(1 + random.integer(180_000));
     const manifest = createChunkManifest(bytes, "application/octet-stream");
     assert.deepEqual(decodeChunkManifest(encodeChunkManifest(manifest)), manifest);
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
     assert.throws(() => parsePktLines(Buffer.from("ffffshort")), /frame|packet/u);
   });
 
-  await property("FRONTIER-FUZZ-005 Git refs headers and push options reject injection", SEED ^ 4, CASES, (random, index) => {
+  await property("CHANGE-GRAPH-FUZZ-005 Git refs headers and push options reject injection", SEED ^ 4, CASES, (random, index) => {
     const verbosity = String(random.integer(4));
     assert.deepEqual(parseRemoteHelperCommand(`option verbosity ${verbosity}`), { command: "option", name: "verbosity", value: verbosity });
     assert.equal(proposalRef(`proposal-${index}`), `refs/epoch/for/proposal-${index}`);
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     for (const invalid of ["version=2\nGIT_CONFIG_COUNT=1", "version=2;sh", "version=two", " version=2"]) assert.throws(() => gitProtocolEnvironment({ "git-protocol": invalid }), /Invalid/u);
   });
 
-  await property("FRONTIER-FUZZ-006 forge codecs preserve declared public subset", SEED ^ 5, 32, (random, index) => {
+  await property("CHANGE-GRAPH-FUZZ-006 forge codecs preserve declared public subset", SEED ^ 5, 32, (random, index) => {
     const value = forgeObject(index, random.integer(4));
     assert.deepEqual(decodeF3Archive(encodeF3Archive([value]).bytes).objects, [value]);
     if (value.kind === "issue" || value.kind === "change") {
@@ -77,14 +77,14 @@ async function main(): Promise<void> {
     assert.throws(() => decodeRadicle(radicle, { lastSequence: index + 1, signedRefEvidence }), /stale/u);
   });
 
-  await property("FRONTIER-FUZZ-007 SWHID parser rejects malformed variants", SEED ^ 6, CASES, (random) => {
+  await property("CHANGE-GRAPH-FUZZ-007 SWHID parser rejects malformed variants", SEED ^ 6, CASES, (random) => {
     const value = { version: 1 as const, kind: random.pick(["cnt", "dir", "rev", "rel", "snp"] as const), digest: random.bytes(20).toString("hex"), qualifiers: { path: `/src/${random.next()}.ts` } };
     const canonical = formatSwhid(value);
     assert.equal(formatSwhid(parseSwhid(canonical)), canonical);
     for (const invalid of [canonical.toUpperCase(), canonical.replace("swh:1:", "swh:2:"), canonical + ";unknown=x", canonical + ";path=duplicate"]) assert.throws(() => parseSwhid(invalid), /invalid|unsupported|duplicate/iu);
   });
 
-  process.stdout.write(JSON.stringify({ suite: "frontier-parser-fuzz", seed: SEED, cases: CASES, status: "passed" }) + "\n");
+  process.stdout.write(JSON.stringify({ suite: "change-graph-parser-fuzz", seed: SEED, cases: CASES, status: "passed" }) + "\n");
 }
 
 function id(kind: string, index: number): string { return `epoch:${kind}:${ALPHABET[index % ALPHABET.length]!.repeat(52)}`; }

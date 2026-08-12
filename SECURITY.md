@@ -48,5 +48,5 @@ Include:
 - Reference CLI state, browser capability probes, and in-process workspace
   execution are not durability or sandbox-isolation claims.
 
-See [Frontier VCS Convergence](docs/frontier-vcs-convergence.md) and the
-[threat matrix](docs/evidence/frontier-vcs-convergence/threat-matrix.json).
+See [Change Graph And Operation History](docs/change-graph.md) and the
+[threat matrix](docs/evidence/change-graph-convergence/threat-matrix.json).

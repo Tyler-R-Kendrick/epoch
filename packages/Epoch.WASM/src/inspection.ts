@@ -1,6 +1,6 @@
 export {
   evaluateRevset,
-  inspectFrontierFilter,
+  inspectCloneFilter,
   inspectRevisionGraph,
   inspectSwhid,
   inspectSyncContract,

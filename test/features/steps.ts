@@ -427,23 +427,23 @@ Then("the main projection skips the last intent", function () {
 });
 
 When("I append CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
-  state.lastEvent = state.repo.appendCRDTOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
+  state.lastEvent = state.repo.recordCodeOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
   state.lastIntent = state.lastEvent;
 });
 
 When("the peer appends CRDT map value for {string} key {string} as {string} with JSON {}", function (entity: string, key: string, author: string, value: string) {
   assert.ok(state.peerRepo);
-  state.lastEvent = state.peerRepo.appendCRDTOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
+  state.lastEvent = state.peerRepo.recordCodeOperation({ kind: "map-set", entity, key, value: JSON.parse(value) }, author);
 });
 
 When("I append CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
-  state.lastEvent = state.repo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
+  state.lastEvent = state.repo.recordCodeOperation({ kind: "text-insert", entity, value }, author);
   state.lastIntent = state.lastEvent;
 });
 
 When("the peer appends CRDT text {string} to {string} as {string}", function (value: string, entity: string, author: string) {
   assert.ok(state.peerRepo);
-  state.lastEvent = state.peerRepo.appendCRDTOperation({ kind: "text-insert", entity, value }, author);
+  state.lastEvent = state.peerRepo.recordCodeOperation({ kind: "text-insert", entity, value }, author);
 });
 
 Then("the repository materialized view {string} equals JSON:", function (entity: string, expected: string) {

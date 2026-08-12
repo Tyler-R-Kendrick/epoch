@@ -43,9 +43,9 @@ export function buildCommunitySpaces(
           emptyAction: "Requested agent work lands here for human review.",
         }),
         deriveChannel("ideas", {
-          topic: "Agent product ideas promoted toward signed intents.",
+          topic: "Agent product ideas promoted toward signed Changes.",
           emptyTitle: "No agent ideas yet.",
-          emptyAction: "Propose one — it can become a signed intent.",
+          emptyAction: "Propose one — it can become a signed Change.",
         }),
         deriveChannel("governance", {
           topic: "Agent policy, hold, and witness discussion.",

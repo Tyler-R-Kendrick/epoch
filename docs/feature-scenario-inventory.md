@@ -59,12 +59,12 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor submits a repository patch without local setup | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resumes an interrupted sandbox workspace | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.maintainer` | Scenario | Maintainer approves a submitted sandbox workspace result | None | 0 |
-| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor splits a logical stack atomically and reconstructs the exact snapshot | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor splits a change graph atomically and reconstructs the exact snapshot | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor gets a safe failure when an atomic split is ambiguous | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer follows stable revisions across multiple heads and supersession | None | 0 |
-| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reviews a combined weave without losing individual change context | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reviews a bundle without losing individual change context | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer partially merges only a dependency-closed subset | None | 0 |
-| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer squashes a stack without erasing provenance | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer squashes a change graph without erasing provenance | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer cannot merge with stale review evidence | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resolves a durable conflict after deterministic help precedes AI | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor hydrates a partial browser replica and sees truthful copy isolation | None | 0 |
@@ -89,15 +89,15 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user chooses global jump without weakening deterministic cd | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor opens Network Feed for cross-community discovery | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer switches communities and gets a new channel list | None | 0 |
-| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer promotes a community idea into an intent | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer promotes a community idea into a Change | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer requests an agent from a selected conversation | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer recovers a signed action from snapshot mode | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor adds a unified signed comment to the current channel | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor reaches a channel conversation on a narrow screen | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor keeps community content in reach at 200 percent zoom | None | 0 |
 | `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Moderator reports a selected conversation for legal hold | None | 0 |
-| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Contributor searches community receipts by harness and intent | None | 0 |
-| `features/community_web_experience.feature` | `@persona.github_power_user` | Scenario | Maintainer sees promote receipt after recording an intent | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Contributor searches community receipts by harness and Change | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_power_user` | Scenario | Maintainer sees a receipt after recording a Change | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor keeps signed actions after a live refresh | None | 0 |
 | `features/community_web_experience.feature` | `@persona.bluesky_power_user` | Scenario | Contributor sees state-driven identity honesty on a live API session | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor sees an inviting empty state in a quiet channel | None | 0 |

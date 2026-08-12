@@ -149,13 +149,19 @@ const alice = repository.user("alice");
 const bob = repository.user("bob");
 
 await Promise.all([
-  alice.appendCRDTOperation({
+  alice.recordCodeOperation({
     kind: "map-set",
     entity: "tasks",
     key: "alice",
     value: { status: "draft" },
+    context: {
+      changeId,
+      sessionId,
+      conversationDigest: sha256(privateConversation),
+      tool: "editor",
+    },
   }),
-  bob.appendCRDTOperation({
+  bob.recordCodeOperation({
     kind: "map-set",
     entity: "tasks",
     key: "bob",
@@ -164,7 +170,12 @@ await Promise.all([
 ]);
 
 const tasks = await repository.materialize("tasks");
+const linkedEdits = await repository.codeOperations({ changeId });
 ```
+
+Conversation context is a lowercase SHA-256 digest, never a raw prompt or
+transcript. This is explicit signed capture; Epoch does not claim to observe
+editor or terminal activity that the caller did not record.
 
 Use `CRDTRegistry.defaults()` for built-in text, JSON, and row-keyed CSV merges.
 Use `EntityRegistry.defaults()` when callers need the richer entity adapter
@@ -406,11 +417,11 @@ const repository = new EpochRepository("./repo", {
 Native Git operations are for trusted host environments and should not be
 assumed to work in WASM.
 
-## Frontier Protocol And Core APIs
+## Change Graph Protocol And Core APIs
 
 `@epoch/protocol` is the canonical browser-safe contract package. It exports
 stable IDs and typed errors plus `parseRevset`, `evaluateRevset`,
-`inspectRevisionGraph`, `inspectFrontierFilter`, `inspectSyncContract`,
+`inspectRevisionGraph`, `inspectCloneFilter`, `inspectSyncContract`,
 `inspectSwhid`, and `nodeOnlyAdapterStatus`.
 
 `createCanonicalId(kind, random?)` requires exactly 256 random bits and emits
@@ -446,7 +457,7 @@ Host packages add explicit seams:
   injected durability required for production authority; and
 - `@epoch/software-heritage`: SWHID v1.2 plus injected Save Code Now transport.
 
-See [Frontier VCS Convergence](frontier-vcs-convergence.md) for migrations,
+See [Change Graph And Operation History](change-graph.md) for capability,
 fidelity/loss matrices, security boundaries, and escape paths.
 
 ## Epoch.Platform Core and SDK
@@ -675,7 +686,8 @@ renderPlatformConsole(document.getElementById("root"), {
 - [Current Design](design.md)
 - [CLI Reference](cli.md)
 - [Feature Registry](features.md)
-- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Change Graph And Operation History](change-graph.md)
+- [Epoch Nomenclature](nomenclature.md)
 - [Object Resolver And Native Sync](resolver-sync.md)
 - [Workspace Providers](workspace-providers.md)
 - [Forge Adapters](forge-adapters.md)

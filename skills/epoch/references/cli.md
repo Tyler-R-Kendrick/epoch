@@ -105,11 +105,11 @@ rolling `.epoch/patches/<hash>.patch` (regenerable caches, excluded from `verify
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.
 
-## Frontier commands
+## Change Graph commands
 
 - `new`, `change create|revise|show|diff`, and `log --revisions REVSET` operate
   on stable changes/revisions using the canonical revset parser.
-- `op`, `stack`, `split`, `weave`, `review record`, `merge-plan`, and
+- `op`, `graph`, `split`, `bundle`, `review record`, `merge-plan`, and
   `conflict` expose local operation recovery, dependency graphs, exact split,
   exact review/merge, and durable resolution workflows.
 - `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose truthful
@@ -117,7 +117,7 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 - `mirror`, `principal`, `agent`, `forge`, `swhid`, `archive`, and
   `interop doctor` inspect interop and authority without printing credentials.
 
-The reference store is `.epoch/frontier-v1.json`, not the canonical event log.
+The local reference host is `.epoch/change-graph-v1.json`, not the canonical signed event log.
 JSON failures use stable codes including `invalid-input`, `stale-revision`,
 `auth-denied`, `unsupported-capability`, and `conflict`. See the
 [public CLI reference](../../../docs/cli.md) for exact subcommands and limits.

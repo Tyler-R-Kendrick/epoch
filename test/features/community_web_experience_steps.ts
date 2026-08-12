@@ -300,8 +300,7 @@ When("I open the default Bo agent", async function () {
   await page.evaluate(() => (window as unknown as {
     NB_APP: { navigate(path: string): void };
   }).NB_APP.navigate("/.agents/bo"));
-  await page.locator('[data-blade-path="/.agents/bo"][data-blade-kind="list"]')
-    .waitFor({ state: "visible" });
+  await page.locator('[data-blade-path="/.agents/bo"]').first().waitFor({ state: "visible" });
 });
 
 Then("Bo offers deterministic HoBo new build test debug and up actions", async function () {
@@ -960,9 +959,9 @@ When("the community repository refreshes from the live API", async function () {
     .waitFor({ state: "attached", timeout: 5_000 });
 });
 
-When("I mark the selected message as an intent candidate", async function () {
+When("I promote the selected message to a Change candidate", async function () {
   const page = requirePage();
-  await page.locator("[data-selected-message=\"true\"] [data-action=\"intent\"]").click();
+  await page.locator("[data-selected-message=\"true\"] [data-action=\"promote-change\"]").click();
 });
 
 When("I request an agent from the selected message", async function () {
@@ -1047,14 +1046,14 @@ Then("signed project actions are collapsed until I select a message", async func
   assert.equal(await page.locator("[data-message-actions]:visible").count(), 0);
   await selectCommunityMessage("Dashboard widget should group revenue by region");
   await page.locator("[data-selected-message=\"true\"] [data-message-actions]").waitFor({ state: "visible", timeout: 5_000 });
-  await page.locator("[data-selected-message=\"true\"] [data-action=\"intent\"]").waitFor({ state: "visible", timeout: 5_000 });
+  await page.locator("[data-selected-message=\"true\"] [data-action=\"promote-change\"]").waitFor({ state: "visible", timeout: 5_000 });
   assert.equal(await page.locator("[data-selected-message=\"true\"]").count(), 1);
 });
 
 Then("the live API records a change proposal for the selected conversation", async function () {
   const page = requirePage();
   assert.ok(world.api);
-  await assertVisible(page, "Intent candidate recorded from the live API");
+  await assertVisible(page, "Change candidate recorded from the live API");
   const repository = await world.api.getRepository("epoch/epoch");
   const promoted = repository.changeProposals.find((proposal) =>
     proposal.title === "Dashboard widget should group revenue by region"
@@ -1073,10 +1072,10 @@ Then("the selected message shows that human review remains required", async func
   await assertVisible(page, "Agent run requested. Human review remains required.");
 });
 
-Then("the selected message explains how to reconnect and retry Mark intent", async function () {
+Then("the selected message explains how to reconnect and retry Promote to Change", async function () {
   await assertVisible(
     requirePage(),
-    "Reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry Mark intent.",
+    "Reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry Promote to Change.",
   );
 });
 
@@ -1236,7 +1235,7 @@ Then("a visible agent receipt includes harness {string}", async function (harnes
 Then("the Community Web shows a signed promote receipt for the new proposal", async function () {
   const page = requirePage();
   assert.ok(world.api);
-  await assertVisible(page, "Intent candidate recorded from the live API");
+  await assertVisible(page, "Change candidate recorded from the live API");
   const repository = await world.api.getRepository("epoch/epoch");
   const promoted = repository.changeProposals.find((proposal) =>
     proposal.title === "Dashboard widget should group revenue by region"
@@ -1250,16 +1249,16 @@ Then("the Community Web shows a signed promote receipt for the new proposal", as
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
 });
 
-Then("the selected message keeps the Mark intent and Report signed actions", async function () {
+Then("the selected message keeps the Promote to Change and Report signed actions", async function () {
   const page = requirePage();
   const selected = page.locator('[data-selected-message="true"]');
   await selected.waitFor({ state: "attached", timeout: 5_000 });
   await selected.locator("[data-message-actions]").waitFor({ state: "visible", timeout: 5_000 });
   // EPX-D001: client-rendered social messages must keep the signed action tray after a live refresh.
   assert.equal(
-    await selected.locator('[data-action="intent"]').count(),
+    await selected.locator('[data-action="promote-change"]').count(),
     1,
-    "Mark intent action must survive a live client refresh on community-owned messages",
+    "Promote to Change action must survive a live client refresh on community-owned messages",
   );
   assert.equal(
     await selected.locator('[data-action="report"]').count(),
@@ -1384,7 +1383,7 @@ Then("the feed shows a zero-result state naming {string}", async function (query
   const title = await state.locator(".state-title").innerText();
   assert.ok(title.includes(query), `zero-result state should name the query, got: ${title}`);
   const action = await state.locator(".state-action").innerText();
-  assert.match(action, /Search covers messages, intents, harness labels, and promote receipts/u);
+  assert.match(action, /Search covers messages, Changes, harness labels, and promote receipts/u);
 });
 
 Then("the receipt search is empty and announces the channel", async function () {

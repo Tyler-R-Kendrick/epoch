@@ -229,4 +229,4 @@ export class EpochPlatformSdk {
 
 export { PlatformError } from "@epoch/platform-core";
 export type * from "@epoch/platform-core";
-export * from "./frontier";
+export * from "./inspection";

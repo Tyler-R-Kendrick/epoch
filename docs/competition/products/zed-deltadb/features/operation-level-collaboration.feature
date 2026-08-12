@@ -7,7 +7,7 @@ Feature: Operation-level collaborative code history
     Given a codebase is open in Zed with collaboration enabled
     And an agent thread is working in the same project context
     When a developer and the agent edit related code before a commit exists
-    Then DeltaDB records and synchronizes the edit operations as they happen
+    Then DeltaDB records and synchronizes stable fine-grained deltas as the operations happen
     And the team can later relate those operations to Git history
 
   Scenario: Discussion remains attached after code moves

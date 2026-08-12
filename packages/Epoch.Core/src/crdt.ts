@@ -1,6 +1,8 @@
 import { CRuntime, CText, CValueMap, SendEvent } from "@collabs/collabs";
 import { canonicalJson, isRecord } from "./json";
 import { EntityType, MergeText, TextToken } from "./domain";
+import { parseCanonicalId, parseChangeId } from "@epoch/protocol";
+import type { CanonicalId } from "@epoch/protocol";
 
 export interface CRDTDefinition {
   readonly entityType: string;
@@ -14,11 +16,33 @@ export interface EntityAdapter extends CRDTDefinition {
   display?(value: unknown): string;
 }
 
-export type CRDTOperation =
-  | { kind: "map-set"; entity: string; key: string; value: unknown }
-  | { kind: "map-delete"; entity: string; key: string }
-  | { kind: "text-insert"; entity: string; value: string; index?: number }
-  | { kind: "text-delete"; entity: string; index: number; count?: number };
+export interface CodeOperationContext {
+  readonly changeId?: CanonicalId<"change">;
+  readonly sessionId?: CanonicalId<"session">;
+  /** Digest of private conversation content; raw prompts and transcripts stay outside signed history. */
+  readonly conversationDigest?: string;
+  readonly tool?: string;
+}
+
+interface CodeOperationBase {
+  readonly entity: string;
+  readonly context?: CodeOperationContext;
+}
+
+export type CodeOperation = CodeOperationBase & (
+  | { readonly kind: "map-set"; readonly key: string; readonly value: unknown }
+  | { readonly kind: "map-delete"; readonly key: string }
+  | { readonly kind: "text-insert"; readonly value: string; readonly index?: number }
+  | { readonly kind: "text-delete"; readonly index: number; readonly count?: number }
+);
+
+export interface CodeOperationRecord {
+  readonly eventId: string;
+  readonly author: string;
+  readonly operation: CodeOperation;
+}
+
+export type CodeOperationFilter = Readonly<Partial<Pick<CodeOperationContext, "changeId" | "sessionId" | "conversationDigest">>>;
 
 export interface CRDTEvent {
   readonly id: string;
@@ -33,7 +57,7 @@ interface CollabsPayload extends Record<string, unknown> {
   readonly entity: string;
   readonly entity_kind: "map" | "text";
   readonly messages_base64: string[];
-  readonly operation?: CRDTOperation;
+  readonly operation?: CodeOperation;
 }
 
 interface CollabsDocument {
@@ -70,7 +94,7 @@ export class CRDTRegistry {
 }
 
 export class CRDTEventLog {
-  changeForOperation(events: readonly CRDTEvent[], operation: CRDTOperation, replicaID: string): CollabsPayload {
+  changeForOperation(events: readonly CRDTEvent[], operation: CodeOperation, replicaID: string): CollabsPayload {
     const document = this.documentFor(events, replicaID, operation.entity);
     const messages: Uint8Array[] = [];
     document.runtime.on("Send", (event: SendEvent) => messages.push(event.message));
@@ -96,6 +120,17 @@ export class CRDTEventLog {
     const document = this.documentFor(events, "materializer", entity);
     if (payloads[0]?.entity_kind === "text") return document.text.toString();
     return JSON.parse(JSON.stringify(Object.fromEntries(document.map.entries()))) as Record<string, unknown>;
+  }
+
+  operations(events: readonly CRDTEvent[], filter: CodeOperationFilter = {}): CodeOperationRecord[] {
+    return events
+      .filter((event) => event.type === "crdt")
+      .sort(compareEvents)
+      .flatMap((event) => {
+        const operation = collabsPayload(event.payload)?.operation;
+        if (operation === undefined || !matchesOperationFilter(operation.context, filter)) return [];
+        return [{ eventId: event.id, author: event.author, operation }];
+      });
   }
 
   private documentFor(events: readonly CRDTEvent[], replicaID: string, entity?: string): CollabsDocument {
@@ -435,7 +470,7 @@ function createCollabsDocument(replicaID: string): CollabsDocument {
   };
 }
 
-function applyOperation(document: CollabsDocument, operation: CRDTOperation): void {
+function applyOperation(document: CollabsDocument, operation: CodeOperation): void {
   switch (operation.kind) {
     case "map-set":
       document.map.set(operation.key, operation.value);
@@ -455,6 +490,26 @@ function applyOperation(document: CollabsDocument, operation: CRDTOperation): vo
       return;
     }
   }
+}
+
+export function validateCodeOperation(operation: CodeOperation): CodeOperation {
+  if (operation.entity.length === 0 || operation.entity.length > 512) throw new TypeError("Code operation entity must contain 1-512 characters");
+  const context = operation.context;
+  if (context?.changeId !== undefined) parseChangeId(context.changeId);
+  if (context?.sessionId !== undefined) parseCanonicalId(context.sessionId, "session");
+  if (context?.conversationDigest !== undefined && !/^[a-f0-9]{64}$/u.test(context.conversationDigest)) {
+    throw new TypeError("Code operation conversationDigest must be a lowercase SHA-256 digest");
+  }
+  if (context?.tool !== undefined && !/^[ -~]{1,128}$/u.test(context.tool)) {
+    throw new TypeError("Code operation tool must be bounded printable ASCII");
+  }
+  return operation;
+}
+
+function matchesOperationFilter(context: CodeOperationContext | undefined, filter: CodeOperationFilter): boolean {
+  return (filter.changeId === undefined || context?.changeId === filter.changeId)
+    && (filter.sessionId === undefined || context?.sessionId === filter.sessionId)
+    && (filter.conversationDigest === undefined || context?.conversationDigest === filter.conversationDigest);
 }
 
 function collabsPayload(payload: Record<string, unknown>): CollabsPayload | undefined {

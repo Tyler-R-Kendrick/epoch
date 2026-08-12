@@ -1,11 +1,11 @@
 import { fail } from "./errors";
 import { assertRevisionId, parseCanonicalId, type RevisionId } from "./ids";
-import type { ChangeFragment, ChangeRevisionBody, DurableConflict, MergePlan, ReviewBundle, SplitPlan, StackDefinition } from "./models";
+import type { ChangeFragment, ChangeGraphDefinition, ChangeRevisionBody, DurableConflict, MergePlan, ReviewBundle, SplitPlan } from "./models";
 
 export const PROTOCOL_EVENT_SCHEMAS = [
   "repository.identity",
   "change.created", "change.revised", "change.superseded", "change.dependency.added", "change.dependency.removed",
-  "stack.defined", "stack.revised", "split.accepted",
+  "change-graph.defined", "change-graph.revised", "split.accepted",
   "review.bundle.created", "review.bundle.revised", "review.recorded",
   "merge.plan.created", "merge.plan.gate-recorded", "merge.plan.applied",
   "conflict.recorded", "conflict.resolution.proposed", "conflict.resolution.accepted", "conflict.resolution.rejected",
@@ -49,7 +49,7 @@ export function assertProtocolEvent(value: unknown): ProtocolEvent {
 function validateBody(type: ProtocolEventType, value: unknown): void {
   switch (type) {
     case "change.created": case "change.revised": validateChangeRevision(value); return;
-    case "stack.defined": case "stack.revised": validateStack(value); return;
+    case "change-graph.defined": case "change-graph.revised": validateChangeGraph(value); return;
     case "split.accepted": validateSplit(value); return;
     case "review.bundle.created": case "review.bundle.revised": validateReviewBundle(value); return;
     case "merge.plan.created": validateMergePlan(value); return;
@@ -66,18 +66,18 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
       required: ["changeRevisionId", "dependencyRevisionId"], revisions: ["changeRevisionId", "dependencyRevisionId"],
     }); return;
     case "review.recorded": validateFields(value, {
-      required: ["reviewId", "bundleRevisionId", "reviewerPrincipalId", "verdict"],
-      ids: { reviewId: "review", reviewerPrincipalId: "principal" }, revisions: ["bundleRevisionId"],
+      required: ["reviewBundleId", "bundleRevisionId", "reviewerPrincipalId", "verdict"],
+      ids: { reviewBundleId: "review-bundle", reviewerPrincipalId: "principal" }, revisions: ["bundleRevisionId"],
       enums: { verdict: ["approved", "changes-requested", "commented"] },
     }); return;
     case "merge.plan.gate-recorded": validateFields(value, {
-      required: ["mergePlanId", "gateDigest", "status", "evidenceRevisionIds"], ids: { mergePlanId: "merge-plan" },
-      digests: ["gateDigest"], revisionArrays: ["evidenceRevisionIds"], enums: { status: ["passed", "failed"] },
+      required: ["mergePlanId", "gateDefinitionDigest", "status", "evidenceRevisionIds"], ids: { mergePlanId: "merge-plan" },
+      digests: ["gateDefinitionDigest"], revisionArrays: ["evidenceRevisionIds"], enums: { status: ["passed", "failed"] },
     }); return;
     case "merge.plan.applied": validateFields(value, {
-      required: ["mergePlanId", "targetRevisionId", "resultRevisionId", "resultTreeDigest", "mode", "sourceRevisionIds"],
+      required: ["mergePlanId", "targetRevisionId", "resultRevisionId", "resultTreeDigest", "mergeMode", "sourceRevisionIds"],
       ids: { mergePlanId: "merge-plan" }, revisions: ["targetRevisionId", "resultRevisionId"],
-      digests: ["resultTreeDigest"], revisionArrays: ["sourceRevisionIds"], enums: { mode: ["merge", "squash"] },
+      digests: ["resultTreeDigest"], revisionArrays: ["sourceRevisionIds"], enums: { mergeMode: ["per-change-squash", "change-graph-squash"] },
     }); return;
     case "conflict.resolution.proposed": case "conflict.resolution.accepted": case "conflict.resolution.rejected": validateFields(value, {
       required: ["conflictId", "resolutionRevisionId", "principalId"],
@@ -160,18 +160,18 @@ function validateFragment(value: unknown): asserts value is ChangeFragment {
   if (!["exact", "text", "structured", "binary-replace"].includes(String(fragment.mergeStrategy))) fail("invalid-schema", "Unknown fragment merge strategy");
 }
 
-function validateStack(value: unknown): asserts value is StackDefinition {
-  const body = record(value, "stack");
-  exact(body, ["stackId", "revisionIds", "edges"], "stack");
-  parseCanonicalId(body.stackId, "stack");
-  const members = revisions(body.revisionIds, "stack revisions");
-  if (!Array.isArray(body.edges)) fail("invalid-schema", "Stack edges must be an array");
+function validateChangeGraph(value: unknown): asserts value is ChangeGraphDefinition {
+  const body = record(value, "change graph");
+  exact(body, ["changeGraphId", "memberRevisionIds", "edges"], "change graph");
+  parseCanonicalId(body.changeGraphId, "change-graph");
+  const members = revisions(body.memberRevisionIds, "change graph revisions");
+  if (!Array.isArray(body.edges)) fail("invalid-schema", "Change graph edges must be an array");
   for (const edgeValue of body.edges) {
-    const edge = record(edgeValue, "stack edge");
-    exact(edge, ["from", "to", "kind"], "stack edge");
+    const edge = record(edgeValue, "change graph edge");
+    exact(edge, ["from", "to", "kind"], "change graph edge");
     assertRevisionId(edge.from); assertRevisionId(edge.to);
-    if (!members.has(String(edge.from)) || !members.has(String(edge.to))) fail("invalid-ref", "Stack edge must reference exact stack revisions");
-    if (!["requires", "orders-after", "conflicts", "derived"].includes(String(edge.kind))) fail("invalid-schema", "Unknown stack edge kind");
+    if (!members.has(String(edge.from)) || !members.has(String(edge.to))) fail("invalid-ref", "Change graph edge must reference exact member revisions");
+    if (!["requires", "orders-after", "conflicts-with", "derived-from"].includes(String(edge.kind))) fail("invalid-schema", "Unknown change graph edge kind");
   }
 }
 
@@ -192,10 +192,10 @@ function validateSplit(value: unknown): asserts value is SplitPlan {
 
 function validateReviewBundle(value: unknown): asserts value is ReviewBundle {
   const body = record(value, "review bundle");
-  exact(body, ["reviewId", "revisionIds", "baseFrontier", "baseTreeDigest", "resultingTreeDigest", "overlaps", "conflictIds", "gateDigest"], "review bundle");
-  parseCanonicalId(body.reviewId, "review");
-  revisions(body.revisionIds, "review revisions"); revisions(body.baseFrontier, "review base frontier");
-  digest(body.baseTreeDigest, "review base digest"); digest(body.resultingTreeDigest, "review result digest"); digest(body.gateDigest, "review gate digest");
+  exact(body, ["reviewBundleId", "selectedRevisionIds", "baseFrontier", "baseTreeDigest", "combinedTreeDigest", "overlaps", "conflictIds", "gateDefinitionDigest"], "review bundle");
+  parseCanonicalId(body.reviewBundleId, "review-bundle");
+  revisions(body.selectedRevisionIds, "selected review revisions"); revisions(body.baseFrontier, "review base frontier");
+  digest(body.baseTreeDigest, "review base digest"); digest(body.combinedTreeDigest, "combined review tree digest"); digest(body.gateDefinitionDigest, "review gate definition digest");
   canonicalIds(body.conflictIds, "conflict", "review conflicts");
   if (!Array.isArray(body.overlaps)) fail("invalid-schema", "Review overlaps must be an array");
   for (const overlapValue of body.overlaps) {
@@ -206,12 +206,12 @@ function validateReviewBundle(value: unknown): asserts value is ReviewBundle {
 
 function validateMergePlan(value: unknown): asserts value is MergePlan {
   const body = record(value, "merge plan");
-  exact(body, ["mergePlanId", "targetRevisionId", "revisionIds", "dependencyClosure", "reviewBundleRevisionId", "resolutionRevisionIds", "gateDigest", "mode", "expectedResultDigest"], "merge plan");
+  exact(body, ["mergePlanId", "targetRevisionId", "selectedRevisionIds", "hardDependencyClosure", "reviewBundleRevisionId", "conflictResolutionRevisionIds", "gateDefinitionDigest", "mergeMode", "resultingTreeDigest"], "merge plan");
   parseCanonicalId(body.mergePlanId, "merge-plan");
-  assertRevisionId(body.targetRevisionId); revisions(body.revisionIds, "merge revisions"); revisions(body.dependencyClosure, "merge dependency closure");
-  assertRevisionId(body.reviewBundleRevisionId); revisions(body.resolutionRevisionIds, "merge resolutions");
-  digest(body.gateDigest, "merge gate digest"); digest(body.expectedResultDigest, "merge result digest");
-  if (!["merge", "squash"].includes(String(body.mode))) fail("invalid-schema", "Unknown merge mode");
+  assertRevisionId(body.targetRevisionId); revisions(body.selectedRevisionIds, "selected merge revisions"); revisions(body.hardDependencyClosure, "hard dependency closure");
+  assertRevisionId(body.reviewBundleRevisionId); revisions(body.conflictResolutionRevisionIds, "conflict resolutions");
+  digest(body.gateDefinitionDigest, "merge gate definition digest"); digest(body.resultingTreeDigest, "merge result digest");
+  if (!["per-change-squash", "change-graph-squash"].includes(String(body.mergeMode))) fail("invalid-schema", "Unknown merge mode");
 }
 
 function validateConflict(value: unknown): asserts value is DurableConflict {

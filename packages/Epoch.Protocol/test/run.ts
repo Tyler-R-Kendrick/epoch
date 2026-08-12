@@ -8,12 +8,11 @@ import {
   assertRevisionId,
   assertProtocolEvent,
   createCanonicalId,
-  legacyChangeId,
   parseCanonicalId,
   parseChangeId,
   parseRevset,
   evaluateRevset,
-  inspectFrontierFilter,
+  inspectCloneFilter,
   inspectRevisionGraph,
   inspectSwhid,
   inspectSyncContract,
@@ -24,7 +23,7 @@ import {
 const tests: readonly [string, () => void][] = [
   ["PROTO-ID-001 canonical vectors are stable across runtimes", canonicalVectors],
   ["PROTO-ID-002 malformed and unknown identifiers fail closed", malformedIdentifiers],
-  ["PROTO-ID-003 legacy change IDs decode only through compatibility parser", legacyCompatibility],
+  ["PROTO-ID-003 removed pre-release change identifiers fail closed", removedPreReleaseIdentifiers],
   ["PROTO-SCHEMA-001 event schemas accept exact versioned payloads", schemaValidation],
   ["PROTO-SCHEMA-002 unknown fields variants and versions fail closed", schemaFailures],
   ["PROTO-CAP-001 capability manifest is explicit and machine-readable", capabilityManifest],
@@ -67,11 +66,10 @@ function malformedIdentifiers(): void {
   assert.throws(() => createCanonicalId("change", () => new Uint8Array(31)), /256 bits/u);
 }
 
-function legacyCompatibility(): void {
-  const legacy = legacyChangeId(assertRevisionId("01HF7YAT00Z7XR5R6J5M0D8V0F"));
-  assert.equal(legacy, "epoch:change:legacy:01HF7YAT00Z7XR5R6J5M0D8V0F");
-  assert.deepEqual(parseChangeId(legacy), { kind: "change", legacyEventId: "01HF7YAT00Z7XR5R6J5M0D8V0F" });
-  assert.throws(() => parseCanonicalId(legacy), (error) => error instanceof ProtocolError && error.code === "invalid-id");
+function removedPreReleaseIdentifiers(): void {
+  const preReleaseId = "epoch:change:legacy:01HF7YAT00Z7XR5R6J5M0D8V0F";
+  assert.throws(() => parseChangeId(preReleaseId), (error) => error instanceof ProtocolError && error.code === "invalid-id");
+  assert.throws(() => parseCanonicalId(preReleaseId), (error) => error instanceof ProtocolError && error.code === "invalid-id");
 }
 
 function schemaValidation(): void {
@@ -141,6 +139,11 @@ function revsetContract(): void {
   ];
   assert.deepEqual(evaluateRevset(parseRevset("ancestors(heads()) & author(alice) | approved()"), nodes), ["r1", "r2", "r3"]);
   assert.deepEqual(evaluateRevset("descendants(change(c1)) - conflicts()", nodes), ["r1", "r2"]);
+  assert.deepEqual(evaluateRevset("graph(g1)", [
+    { revisionId: "r1", parentRevisionIds: [], changeGraphIds: ["g1"] },
+    { revisionId: "r2", parentRevisionIds: [], changeGraphIds: ["g2"] },
+  ]), ["r1"]);
+  assert.throws(() => parseRevset("stack(g1)"), /unknown revset function stack/u);
   assert.deepEqual(evaluateRevset("author(alice-smith)", [
     { revisionId: "r4", parentRevisionIds: [], authorId: "alice-smith" },
   ]), ["r4"], "hyphenated opaque arguments are not parsed as difference operators");
@@ -152,9 +155,9 @@ function inspectionContract(): void {
   assert.deepEqual(inspectRevisionGraph([
     { revisionId: "r2", parentRevisionIds: ["r1"] }, { revisionId: "r1", parentRevisionIds: [] },
   ]), { valid: true, revisions: ["r1", "r2"], heads: ["r2"], roots: ["r1"] });
-  assert.deepEqual(inspectFrontierFilter({ paths: ["b", "a", "a"], maxBytes: 10 }).canonical,
+  assert.deepEqual(inspectCloneFilter({ paths: ["b", "a", "a"], maxBytes: 10 }).canonical,
     { paths: ["a", "b"], maxBytes: 10 });
-  assert.throws(() => inspectFrontierFilter({ mystery: true }), /Unknown filter field/u);
+  assert.throws(() => inspectCloneFilter({ mystery: true }), /Unknown filter field/u);
   assert.equal(inspectSyncContract({ protocol: "epoch.sync/v2", commands: ["capabilities"] }).supported, true);
   assert.equal(inspectSyncContract({ protocol: "epoch.sync/v9", commands: [] }).code, "unsupported-capability");
   assert.equal(inspectSwhid(`swh:1:cnt:${"a".repeat(40)}`).objectType, "cnt");

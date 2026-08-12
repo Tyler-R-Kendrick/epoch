@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "suite": "frontier-vcs-convergence-compatibility",
-  "generatedBy": "test/compatibility/frontier-compatibility.test.ts",
+  "suite": "change-graph-convergence-compatibility",
+  "generatedBy": "test/compatibility/change-graph-compatibility.test.ts",
   "profiles": [
     {
       "id": "COMPAT-EPOCH-LEGACY",

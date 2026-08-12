@@ -40,17 +40,17 @@ export interface ChangeRevisionBody {
   readonly authorPrincipalId: CanonicalId<"principal">;
 }
 
-export type StackEdgeKind = "requires" | "orders-after" | "conflicts" | "derived";
-export interface StackEdge {
+export type ChangeGraphEdgeKind = "requires" | "orders-after" | "conflicts-with" | "derived-from";
+export interface ChangeGraphEdge {
   readonly from: RevisionId;
   readonly to: RevisionId;
-  readonly kind: StackEdgeKind;
+  readonly kind: ChangeGraphEdgeKind;
 }
 
-export interface StackDefinition {
-  readonly stackId: CanonicalId<"stack">;
-  readonly revisionIds: readonly RevisionId[];
-  readonly edges: readonly StackEdge[];
+export interface ChangeGraphDefinition {
+  readonly changeGraphId: CanonicalId<"change-graph">;
+  readonly memberRevisionIds: readonly RevisionId[];
+  readonly edges: readonly ChangeGraphEdge[];
 }
 
 export interface SplitGroup {
@@ -65,26 +65,26 @@ export interface SplitPlan {
 }
 
 export interface ReviewBundle {
-  readonly reviewId: CanonicalId<"review">;
-  readonly revisionIds: readonly RevisionId[];
+  readonly reviewBundleId: CanonicalId<"review-bundle">;
+  readonly selectedRevisionIds: readonly RevisionId[];
   readonly baseFrontier: readonly RevisionId[];
   readonly baseTreeDigest: Digest;
-  readonly resultingTreeDigest: Digest;
+  readonly combinedTreeDigest: Digest;
   readonly overlaps: readonly { readonly left: CanonicalId<"fragment">; readonly right: CanonicalId<"fragment"> }[];
   readonly conflictIds: readonly CanonicalId<"conflict">[];
-  readonly gateDigest: Digest;
+  readonly gateDefinitionDigest: Digest;
 }
 
 export interface MergePlan {
   readonly mergePlanId: CanonicalId<"merge-plan">;
   readonly targetRevisionId: RevisionId;
-  readonly revisionIds: readonly RevisionId[];
-  readonly dependencyClosure: readonly RevisionId[];
+  readonly selectedRevisionIds: readonly RevisionId[];
+  readonly hardDependencyClosure: readonly RevisionId[];
   readonly reviewBundleRevisionId: RevisionId;
-  readonly resolutionRevisionIds: readonly RevisionId[];
-  readonly gateDigest: Digest;
-  readonly mode: "merge" | "squash";
-  readonly expectedResultDigest: Digest;
+  readonly conflictResolutionRevisionIds: readonly RevisionId[];
+  readonly gateDefinitionDigest: Digest;
+  readonly mergeMode: "per-change-squash" | "change-graph-squash";
+  readonly resultingTreeDigest: Digest;
 }
 
 export interface DurableConflict {

@@ -1,6 +1,6 @@
 import { createActor, fromCallback } from "xstate";
 import { EpochRepository, EpochRepositoryOptions, Event, EventPayload, SyncResult } from "./core";
-import { CRDTOperation } from "./crdt";
+import { CodeOperation } from "./crdt";
 import { DefaultAuthor, EntityType } from "./domain";
 
 interface Reply<T> {
@@ -11,7 +11,7 @@ interface Reply<T> {
 type RepositoryCommand =
   | { type: "init"; author: string; reply: Reply<void> }
   | { type: "append"; eventType: string; payload: EventPayload; author?: string; reply: Reply<Event> }
-  | { type: "appendCRDTOperation"; operation: CRDTOperation; author?: string; reply: Reply<Event> }
+  | { type: "recordCodeOperation"; operation: CodeOperation; author?: string; reply: Reply<Event> }
   | { type: "recordFile"; path: string; entityType: string; author?: string; reply: Reply<Event> }
   | { type: "materialize"; entity: string; reply: Reply<unknown> }
   | { type: "read"; eventId: string; reply: Reply<Event> }
@@ -24,7 +24,7 @@ type RepositoryCommand =
 
 type UserCommand =
   | { type: "append"; eventType: string; payload: EventPayload; reply: Reply<Event> }
-  | { type: "appendCRDTOperation"; operation: CRDTOperation; reply: Reply<Event> }
+  | { type: "recordCodeOperation"; operation: CodeOperation; reply: Reply<Event> }
   | { type: "recordFile"; path: string; entityType: string; reply: Reply<Event> };
 
 type CommandWithoutReply<T> = T extends unknown ? Omit<T, "reply"> : never;
@@ -54,8 +54,8 @@ const repositoryActorLogic = fromCallback<RepositoryCommand, { root: string; opt
       case "append":
         enqueue(event.reply, () => repository.append(event.eventType, event.payload, event.author));
         return;
-      case "appendCRDTOperation":
-        enqueue(event.reply, () => repository.appendCRDTOperation(event.operation, event.author));
+      case "recordCodeOperation":
+        enqueue(event.reply, () => repository.recordCodeOperation(event.operation, event.author));
         return;
       case "recordFile":
         enqueue(event.reply, () => repository.recordFile(event.path, event.entityType, event.author));
@@ -108,8 +108,8 @@ export class EpochActorSystem {
     return this.request({ type: "append", eventType: type, payload, author });
   }
 
-  appendCRDTOperation(operation: CRDTOperation, author?: string): Promise<Event> {
-    return this.request({ type: "appendCRDTOperation", operation, author });
+  recordCodeOperation(operation: CodeOperation, author?: string): Promise<Event> {
+    return this.request({ type: "recordCodeOperation", operation, author });
   }
 
   recordFile(path: string, entityType: string = EntityType.octetStream, author?: string): Promise<Event> {
@@ -181,8 +181,8 @@ export class EpochUserActor {
           case "append":
             this.repository.append(event.eventType, event.payload, this.author).then(event.reply.resolve, event.reply.reject);
             return;
-          case "appendCRDTOperation":
-            this.repository.appendCRDTOperation(event.operation, this.author).then(event.reply.resolve, event.reply.reject);
+          case "recordCodeOperation":
+            this.repository.recordCodeOperation(event.operation, this.author).then(event.reply.resolve, event.reply.reject);
             return;
           case "recordFile":
             this.repository.recordFile(event.path, event.entityType, this.author).then(event.reply.resolve, event.reply.reject);
@@ -196,8 +196,8 @@ export class EpochUserActor {
     return this.request({ type: "append", eventType: type, payload });
   }
 
-  appendCRDTOperation(operation: CRDTOperation): Promise<Event> {
-    return this.request({ type: "appendCRDTOperation", operation });
+  recordCodeOperation(operation: CodeOperation): Promise<Event> {
+    return this.request({ type: "recordCodeOperation", operation });
   }
 
   recordFile(path: string, entityType: string = EntityType.octetStream): Promise<Event> {

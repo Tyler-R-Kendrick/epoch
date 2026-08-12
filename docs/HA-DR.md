@@ -46,9 +46,9 @@ The CLI command `epoch dr-plan` prints the recovery checklist:
 4. Bootstrap at least two additional peers from that seed.
 5. Run `epoch verify` on the seed and each peer before resuming normal sync.
 
-## Frontier Objects, Sync, And Interop Recovery
+## Change Graph Objects, Sync, And Interop Recovery
 
-Backups for the frontier contracts must retain canonical events, object bytes,
+Backups for Change Graph and sync contracts must retain canonical events, object bytes,
 chunk manifests, promises, workspace manifests, sync receipts/cursors, mirror
 rules/checkpoints, and external credential/resolver configuration as separate
 classes of state.
@@ -78,5 +78,5 @@ verified export when promised sources cannot be included in the recovery plan.
 - [Current Design](design.md#compacts-and-recovery)
 - [Feature Registry](features.md#f-010---compacts-cold-backups-and-seed-bootstrap)
 - [CLI Reference](cli.md)
-- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Change Graph And Operation History](change-graph.md)
 - [Object Resolver And Native Sync](resolver-sync.md)

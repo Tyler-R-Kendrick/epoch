@@ -37,8 +37,10 @@ import { runConvergenceCoreTransactionTests } from "./unit/convergence-core-tran
 import { runCoreStorageSyncV2Tests } from "./unit/core-storage-sync-v2.test";
 import { runGitConvergenceFoundationTests } from "./unit/git-convergence-foundation.test";
 import { runProtocolRequiredEventTests } from "./unit/protocol-required-events.test";
-import { runFrontierBrowserWrapperTests } from "./unit/frontier-browser-wrappers.test";
-import { runFrontierCliTests } from "./unit/frontier-cli.test";
+import { runChangeGraphBrowserWrapperTests } from "./unit/change-graph-browser-wrappers.test";
+import { runChangeGraphCliTests } from "./unit/change-graph-cli.test";
+import { runNomenclatureContractTests } from "./unit/nomenclature-contract.test";
+import { runCodeOperationContextTests } from "./unit/code-operation-context.test";
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
@@ -78,8 +80,10 @@ async function main(): Promise<void> {
   await runCoreStorageSyncV2Tests();
   await runGitConvergenceFoundationTests();
   runProtocolRequiredEventTests();
-  runFrontierBrowserWrapperTests();
-  await runFrontierCliTests();
+  runChangeGraphBrowserWrapperTests();
+  await runChangeGraphCliTests();
+  runNomenclatureContractTests();
+  runCodeOperationContextTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
   console.log("unit and component tests passed");

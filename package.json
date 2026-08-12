@@ -176,22 +176,22 @@
     "features": "npm run build -- --pretty false && npm run test:features:runtime",
     "test:features:runtime": "cucumber-js features/**/*.feature --require dist/test/features/**/*.js",
     "test:unit:runtime": "node dist/test/run-unit-tests.js",
-    "frontier:packages": "npm test -w @epoch/protocol && npm test -w @epoch/forge && npm test -w @epoch/software-heritage && npm run build -w @epoch/identity-bridge && node --test packages/Epoch.Identity.Bridge/test/*.test.mjs",
-    "frontier:conformance": "npm run build -- --pretty false && node dist/test/conformance/frontier-convergence.property.test.js && node dist/test/security/frontier-security.test.js && node dist/test/compatibility/frontier-compatibility.test.js",
-    "frontier:fuzz-smoke": "npm run build -- --pretty false && node dist/test/fuzz/frontier-parser.fuzz.test.js",
-    "frontier:benchmark": "node benchmarks/frontier-convergence.mjs",
-    "frontier:schemas:check": "npm run schemas:check -w @epoch/protocol",
+    "change-graph:packages": "npm test -w @epoch/protocol && npm test -w @epoch/forge && npm test -w @epoch/software-heritage && npm run build -w @epoch/identity-bridge && node --test packages/Epoch.Identity.Bridge/test/*.test.mjs",
+    "change-graph:conformance": "npm run build -- --pretty false && node dist/test/conformance/change-graph-convergence.property.test.js && node dist/test/security/change-graph-security.test.js && node dist/test/compatibility/change-graph-compatibility.test.js",
+    "change-graph:fuzz-smoke": "npm run build -- --pretty false && node dist/test/fuzz/change-graph-parser.fuzz.test.js",
+    "change-graph:benchmark": "node benchmarks/change-graph-convergence.mjs",
+    "change-graph:schemas:check": "npm run schemas:check -w @epoch/protocol",
     "test:unit:nightboard-parity": "npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && tsgo -p tsconfig.test.json && node dist/test/run-nightboard-parity-tests.js",
     "test:pact:consumer": "npm run build -- --pretty false && node dist/test/pact/run-pact-consumer.js",
     "test:pact:provider": "npm run build -- --pretty false && node dist/test/pact/run-pact-provider.js",
     "test:pact": "npm run build -- --pretty false && node dist/test/pact/run-pact-tests.js",
-    "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime && npm run frontier:packages && node dist/test/conformance/frontier-convergence.property.test.js && node dist/test/security/frontier-security.test.js && node dist/test/compatibility/frontier-compatibility.test.js && node dist/test/fuzz/frontier-parser.fuzz.test.js",
+    "test:runtime": "npm run test:unit:runtime && npm run test:features:runtime && npm run change-graph:packages && node dist/test/conformance/change-graph-convergence.property.test.js && node dist/test/security/change-graph-security.test.js && node dist/test/compatibility/change-graph-compatibility.test.js && node dist/test/fuzz/change-graph-parser.fuzz.test.js",
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
     "a11y:community-web": "node scripts/run-community-web-axe.mjs",
     "a11y:nightboard": "node scripts/run-nightboard-axe.mjs",
     "lint:nightboard-a11y": "node scripts/lint-nightboard-a11y.mjs",
-    "verify": "npm run docs:check && npm run lint && npm run lint:nightboard-a11y && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run frontier:schemas:check && npm run nightboard:build:check && npm run a11y:community-web && npm run a11y:nightboard && npm run coverage && npm run test:pact && npm run nightboard:parity && npm run nightboard:faults && npm run nightboard:e2e",
+    "verify": "npm run docs:check && npm run lint && npm run lint:nightboard-a11y && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run change-graph:schemas:check && npm run nightboard:build:check && npm run a11y:community-web && npm run a11y:nightboard && npm run coverage && npm run test:pact && npm run nightboard:parity && npm run nightboard:faults && npm run nightboard:e2e",
     "nightboard:faults": "node docs/design-explorations/nightboard/faults.mjs",
     "nightboard:build": "node docs/design-explorations/nightboard/build-core-runtime.mjs && node docs/design-explorations/nightboard/build-openui.mjs && node docs/design-explorations/nightboard/build-graphql.mjs",
     "nightboard:build:check": "node docs/design-explorations/nightboard/build-core-runtime.mjs --check",
@@ -211,7 +211,6 @@
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
     "@google/design.md": "^0.4.0",
-    "@higgsfield/cli": "^1.1.20",
     "@openuidev/lang-core": "^0.2.10",
     "@pact-foundation/pact": "^16.4.0",
     "@pact-foundation/pact-cli": "^18.1.1",
@@ -237,16 +236,17 @@
   },
   "dependencies": {
     "@collabs/collabs": "0.13.4",
-    "protobufjs": "7.5.5",
+    "protobufjs": "7.6.5",
     "xstate": "^5.31.0",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
+    "@higgsfield/cli": "^1.1.20",
     "@pact-foundation/pact-core-linux-x64-glibc": "^19.2.0",
     "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
     "@typescript/native-preview-linux-x64": "^7.0.0-dev.20260504.1"
   },
   "overrides": {
-    "protobufjs": "7.5.5"
+    "protobufjs": "7.6.5"
   }
 }

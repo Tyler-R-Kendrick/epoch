@@ -41,12 +41,12 @@ When("I split {string} into {string} at unambiguous file boundaries", function (
   convergence.result = requiredWorkbench().splitChange(changeId, parts.split(","), ["schema.ts", "runtime.ts"]);
 });
 
-Then("the logical stack contains both atomic changes in dependency order", function () {
+Then("the change graph contains both atomic changes in dependency order", function () {
   const ids = requiredWorkbench().snapshot().changes.map((change) => change.changeId);
   assert.deepEqual(ids.slice(1, 3), ["api-schema", "api-runtime"]);
 });
 
-Then("reconstructing the stack produces the original snapshot digest", function () {
+Then("reconstructing the change graph produces the original snapshot digest", function () {
   assert.equal(requiredWorkbench().reconstructDigest(), convergence.beforeDigest);
 });
 
@@ -59,7 +59,7 @@ When("I try to split the edit into {string}", function (parts: string) {
   convergence.result = requiredWorkbench().splitChange("shared", parts.split(","), ["shared.ts", "shared.ts"]);
 });
 
-Then("the split is rejected without changing the logical stack", function () {
+Then("the split is rejected without changing the change graph", function () {
   assert.equal((convergence.result as { ok: boolean }).ok, false);
   assert.equal(requiredWorkbench().snapshot().snapshotDigest, convergence.beforeDigest);
 });
@@ -86,7 +86,7 @@ Then("the superseded revision remains visible without becoming current", functio
   assert.ok(history.revisions.some((revision) => revision.revisionId === "rev-change-0" && !revision.current && revision.supersededBy));
 });
 
-Given("a combined weave review for a three-change stack", function () {
+Given("a review bundle for a three-change graph", function () {
   convergence.workbench = new ConvergenceWorkbench(createConvergenceFixture({ changes: "base,api,ui", dependencies: "api>base,ui>api", gates: true }));
 });
 
@@ -114,7 +114,7 @@ Then("the gate matrix distinguishes current passing stale and missing evidence",
   assert.match(text, /missing/iu);
 });
 
-Given("a logical stack where {string} depends on {string} and {string} depends on {string}", function (_child: string, _parent: string, _middle: string, _root: string) {
+Given("a change graph where {string} depends on {string} and {string} depends on {string}", function (_child: string, _parent: string, _middle: string, _root: string) {
   convergence.workbench = new ConvergenceWorkbench(createConvergenceFixture({ changes: "base,api,ui", dependencies: "api>base,ui>api" }));
 });
 
@@ -275,7 +275,7 @@ Then("the private archive request is denied without exposing the raw session", f
   assert.doesNotMatch(JSON.stringify(denied), /PRIVATE_RAW_SESSION/iu);
 });
 
-Given("an accessible convergence workbench for a branching stack", function () {
+Given("an accessible convergence workbench for a branching change graph", function () {
   convergence.workbench = new ConvergenceWorkbench(createConvergenceFixture({ changes: "base,left,right", dependencies: "left>base,right>base", gates: true }));
 });
 

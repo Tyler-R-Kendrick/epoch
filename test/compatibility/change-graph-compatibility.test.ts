@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   gitGraphFixturesPreserveExactObjectSemantics();
   toolCompatibilityProfilesAreHonest();
   mirrorDivergenceCreatesConflictWithoutRewrite();
-  process.stdout.write(JSON.stringify({ suite: "frontier-compatibility", status: "passed" }) + "\n");
+  process.stdout.write(JSON.stringify({ suite: "change-graph-compatibility", status: "passed" }) + "\n");
 }
 
 function legacyRepositoryOpensVerifiesAndSynchronizesWithoutRewrite(): void {

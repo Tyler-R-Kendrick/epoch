@@ -785,14 +785,6 @@ export function communityStyles(): string {
       font-weight: 700;
       letter-spacing: -0.01em;
     }
-    .row-heading-legacy {
-      margin: 0;
-      color: var(--epoch-color-ink);
-      font-size: var(--epoch-type-title-size);
-      font-weight: 700;
-      line-height: 1.3;
-      letter-spacing: -0.01em;
-    }
     .message-body p {
       max-width: 70ch;
       margin: 0;
@@ -803,7 +795,7 @@ export function communityStyles(): string {
     /* The anchor/signature line duplicated what the provenance disclosure and
        the action tray already show — three renderings of the same fields, and
        on the network plane the trust string was longer than the message. */
-    .message-footer span:not([data-intent-meta]):not([data-proposal-link]) { display: none; }
+    .message-footer span:not([data-change-meta]):not([data-proposal-link]) { display: none; }
     .message-footer .signature-mark { display: inline; }
     .message-footer {
       color: var(--epoch-color-muted);
@@ -1356,7 +1348,7 @@ export function communityStyles(): string {
       flex: none;
       width: 3px;
       height: 0.85rem;
-      border-radius: 1px;
+      border-radius: var(--epoch-radius-xs);
       background: var(--epoch-color-line-strong);
     }
     .row-foot {
@@ -1572,7 +1564,7 @@ export function communityStyles(): string {
 
     /* ── Four button treatments, not thirteen ─────────────────────────────── */
     .button-primary,
-    .button-intent,
+    .button-change,
     .button-chip {
       display: inline-flex;
       align-items: center;
@@ -1599,7 +1591,7 @@ export function communityStyles(): string {
       background: var(--epoch-color-accent-strong);
       border-color: var(--epoch-color-accent-strong);
     }
-    .button-intent {
+    .button-change {
       background: var(--epoch-color-teal);
       border-color: var(--epoch-color-teal-deep);
       color: var(--epoch-color-surface-raised);

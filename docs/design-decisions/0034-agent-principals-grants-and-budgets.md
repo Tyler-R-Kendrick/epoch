@@ -13,7 +13,7 @@ inspectable, replay-safe decisions.
 - Human, agent, service, device, and organization principals have stable IDs
   and public key bindings; private key material is forbidden from records.
 - Grants scope actions/resources plus optional repository, community, path,
-  view, change, stack, tool, model, provider, and audience dimensions.
+  View, Change, Change Graph, tool, model, provider, and audience dimensions.
 - Delegation only attenuates scope, expiry, depth, and budgets. Revoking any
   ancestor revokes descendants.
 - Budgets use non-negative safe integers. CAS reservations, leases, release,

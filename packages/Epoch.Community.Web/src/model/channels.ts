@@ -13,9 +13,9 @@ export const defaultWorkChannels: readonly CommunityChannel[] = [
     id: "ideas",
     label: "ideas",
     kind: "work",
-    topic: "Ideas into signed intents",
+    topic: "Ideas into signed Changes",
     emptyTitle: "No ideas in #ideas yet.",
-    emptyAction: "Propose one — ideas here become signed intents you can review.",
+    emptyAction: "Propose one — ideas here become signed Changes you can review.",
   },
   {
     id: "bugs",

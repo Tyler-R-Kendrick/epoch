@@ -178,7 +178,7 @@ ${communityStyles()}
         <span class="channel-name" data-current-channel># ${escapeHtml(defaultChannel)}</span>
         <span class="channel-topic" data-current-topic>${escapeHtml(activeCommunity?.channels.find((c) => c.id === defaultChannel)?.topic ?? "Community conversation")}</span>
         <label class="receipt-search" data-receipt-search-wrap>
-          <span class="visually-hidden">Search messages, intents, and agent receipts</span>
+          <span class="visually-hidden">Search messages, Changes, and agent receipts</span>
           <input type="search" data-receipt-search placeholder="Search receipts…" autocomplete="off" enterkeyhint="search" />
         </label>
         <span class="receipt-search-status" data-receipt-search-status role="status" aria-live="polite"></span>
@@ -205,7 +205,7 @@ ${communityStyles()}
         <ol class="artifact-list" data-issue-list aria-label="Issue list">
           ${feed.issues.map(renderIssueListItem).join("") || emptyArtifactItem(
             "No open issues in linked repositories.",
-            "Open one from a conversation with Mark intent, or from the project itself.",
+            "Open one from a conversation with Promote to Change, or from the project itself.",
           )}
         </ol>
       </div>
@@ -217,7 +217,7 @@ ${communityStyles()}
         <ol class="artifact-list" data-change-list aria-label="Change proposal list">
           ${feed.changes.map(renderChangeListItem).join("") || emptyArtifactItem(
             "No change proposals yet.",
-            "Promote a message with Mark intent to turn talk into a reviewable change.",
+            "Use Promote to Change on a message to turn talk into a reviewable Change.",
           )}
         </ol>
       </div>
