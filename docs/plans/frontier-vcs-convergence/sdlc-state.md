@@ -12,7 +12,8 @@
 
 Delivery closeout — implementation, independent review, review repairs, and the
 full local verification bar are complete. The single integration branch is
-ready for PR review and squash merge.
+published as [PR #116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) for
+review and squash merge.
 
 ## Authority decisions
 
