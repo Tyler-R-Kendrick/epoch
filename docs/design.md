@@ -385,6 +385,43 @@ See [Epoch Platform Packages](platforms.md),
 [ADR-0008](design-decisions/0008-separate-platform-web-and-community.md), and
 [ADR-0013](design-decisions/0013-community-operations-extension-package.md).
 
+## Frontier Version-Control Convergence
+
+The current implementation separates browser-safe contracts from host
+adapters:
+
+- `@epoch/protocol` defines `epoch.protocol/v1`, typed stable IDs and errors,
+  revision/change/stack/review/merge schemas, the revset parser/evaluator, and
+  browser-safe graph, filter, sync, and SWHID inspection.
+- `@epoch/core` implements explicit-parent atomic transactions, change and
+  stack graphs, exact split/review/merge validation, durable conflicts,
+  conservative commutation, object/chunk/promise verification,
+  `epoch.sync/v2`, and workspace providers.
+- `@epoch/git-proxy` projects deterministic SHA-1 Git objects and refs, keeps
+  incoming objects in quarantine until validation, forwards a validated
+  `Git-Protocol` value as `GIT_PROTOCOL`, and advertises `filter` only when a
+  promisor is configured and tested.
+- `@epoch/forge` supplies public-only loss-aware codecs and an injected mirror
+  coordinator with explicit direction/authority, expected-old-OID drift,
+  idempotency, checkpoints, SSRF policy, and per-ref pause.
+- `@epoch/identity` models principals, attenuated grants, budgets, and receipts;
+  its shipped authority ledger is in memory, so durable deployments inject a
+  transactional store.
+- `@epoch/software-heritage` parses and computes SWHID v1.2 identifiers and
+  exposes an injected Save Code Now client for public origins.
+
+Existing events are never rewritten. A legacy intent is projected through the
+derived `epoch:change:legacy:<event-id>` lineage, while repository identity is
+added independently. The CLI's `.epoch/frontier-v1.json` is a reference command
+store rather than the canonical repository log.
+
+Capability manifests are authoritative. The Git service is a bounded
+protocol-v2 subset, ForgeFed reports `transport: none`, F3 is a codec rather
+than a native server, browser OPFS/IndexedDB are detected capabilities rather
+than implicit persistence, and Rift is only an explicit safe launch spec whose
+execution mode is `in-process`. Details and escape paths are in
+[Frontier VCS Convergence](frontier-vcs-convergence.md).
+
 ## Non-Goals In The Current Prototype
 
 The current implementation does not provide:

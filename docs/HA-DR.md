@@ -46,8 +46,37 @@ The CLI command `epoch dr-plan` prints the recovery checklist:
 4. Bootstrap at least two additional peers from that seed.
 5. Run `epoch verify` on the seed and each peer before resuming normal sync.
 
+## Frontier Objects, Sync, And Interop Recovery
+
+Backups for the frontier contracts must retain canonical events, object bytes,
+chunk manifests, promises, workspace manifests, sync receipts/cursors, mirror
+rules/checkpoints, and external credential/resolver configuration as separate
+classes of state.
+
+- A promised missing object is recoverable only while its source remains
+  available. Never replace missing bytes with zero-filled placeholders.
+- Verify ordered chunk offsets, lengths, per-chunk hashes, full size, and full
+  SHA-256 before materialization.
+- Resume `epoch.sync/v2` only from a verified cursor and receipt. Unknown
+  protocol, chunker, storage, or required extension versions fail closed.
+- Keep received events/objects and Git pushes in quarantine until graph,
+  signature, digest, and expected-head/OID checks pass.
+- Mirror drift produces an import/conflict ref and pauses the affected ref. It
+  does not rewrite declared authority during recovery.
+- The reference CLI store and in-memory identity ledger are not sufficient
+  disaster-recovery authorities. Production hosts must back them with the
+  canonical event log and injected transactional persistence.
+- SWHIDs remain verifiable without the remote service, but successful archival
+  is claimed only after the injected Software Heritage transport returns a
+  matching succeeded/full result.
+
+A metadata-only backup is not a complete offline backup. Use full hydration and
+verified export when promised sources cannot be included in the recovery plan.
+
 ## Related Docs
 
 - [Current Design](design.md#compacts-and-recovery)
 - [Feature Registry](features.md#f-010---compacts-cold-backups-and-seed-bootstrap)
 - [CLI Reference](cli.md)
+- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Object Resolver And Native Sync](resolver-sync.md)

@@ -190,9 +190,26 @@ forcing a Python-only adapter path.
 - Community Agent Sandbox behavior is covered by the named app feature
   [`features/community_agent_sandboxes.feature`](../features/community_agent_sandboxes.feature).
 
+## Convergence Operations Surface
+
+The current Operations model exposes object availability versus integrity,
+negotiated Git/native-sync capability, quarantine state, mirror lag/drift,
+workspace provider modes, principal/grant/budget state, forge fidelity/loss,
+SWHIDs, and archive status as separate facts. Rejected or quarantined objects
+are never shown as mirrored or archived.
+
+This surface observes Core/Protocol/adapter state; it does not become repository,
+identity, mirror, or archive authority. Support export redacts private-session
+and credential values. Merge, force, grant, budget, and public-archive controls
+name required authority and require confirmation. Reference/injected adapters
+remain visibly labeled: ForgeFed transport is `none`, browser persistence is a
+capability, and in-process execution is not sandbox isolation.
+
 ## Related Documents
 
 - [Platform Packages](platforms.md)
 - [ADR-0013: Community Operations Extension Package](design-decisions/0013-community-operations-extension-package.md)
 - [User Stories](user-stories.md#ops-020-manage-community-sandbox-workspaces)
 - [Agent Sandbox User Story](user-stories.md#ops-021-manage-community-agent-sandboxes)
+- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Convergence Operator Story](user-stories.md#ops-022-operate-convergence-boundaries)

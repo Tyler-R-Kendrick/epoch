@@ -104,3 +104,20 @@ rolling `.epoch/patches/<hash>.patch` (regenerable caches, excluded from `verify
 - `epoch-git` provides a Git-like command surface for integrations that expect clone/add/commit/status behavior.
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.
+
+## Frontier commands
+
+- `new`, `change create|revise|show|diff`, and `log --revisions REVSET` operate
+  on stable changes/revisions using the canonical revset parser.
+- `op`, `stack`, `split`, `weave`, `review record`, `merge-plan`, and
+  `conflict` expose local operation recovery, dependency graphs, exact split,
+  exact review/merge, and durable resolution workflows.
+- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose truthful
+  provider and injected resolver/sync boundaries.
+- `mirror`, `principal`, `agent`, `forge`, `swhid`, `archive`, and
+  `interop doctor` inspect interop and authority without printing credentials.
+
+The reference store is `.epoch/frontier-v1.json`, not the canonical event log.
+JSON failures use stable codes including `invalid-input`, `stale-revision`,
+`auth-denied`, `unsupported-capability`, and `conflict`. See the
+[public CLI reference](../../../docs/cli.md) for exact subcommands and limits.

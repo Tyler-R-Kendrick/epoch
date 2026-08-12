@@ -34,6 +34,16 @@ Adopt a **three-plane identity model** linked by **mutual, dual-signed, hash-cha
 
 ## Consequences
 
+### Implementation update (2026-08-11)
+
+The identity bridge verifier and witness-index boundary remain shipped. The
+frontier authority model adds stable human/agent/service/device/organization
+principals, public-key bindings, attenuated grants, budget reservations, and
+receipts without replacing any plane-specific identifier. Its current ledger
+is in memory; a production host must inject durable transactional persistence.
+Provider calls remain non-authoritative and disclose only digest/metadata
+telemetry permitted by the grant.
+
 ### Positive
 
 - Buzz room participation without weakening Ed25519 root verification

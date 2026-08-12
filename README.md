@@ -56,6 +56,13 @@ Epoch itself supports repository workflows where:
 - peers can exchange local repository state without requiring a forge; and
 - applications and agents can use repository history as programmable state.
 
+The frontier convergence surface adds stable logical changes and immutable
+revisions, dependency stacks, exact review/merge evidence, durable conflicts,
+verified metadata-only storage, native `epoch.sync/v2`, deterministic Git
+projection, loss-aware forge codecs, attenuated agent authority, and SWHIDs.
+These are explicit bounded contracts: Epoch does not claim a native
+Eden/Pijul/F3 server or a full Git/forge transport where one is not shipped.
+
 For the full architecture, see [Epoch Current Design](docs/design.md). For the
 principles and research influences behind those choices, see
 [Design Decisions and ADRs](docs/design-decisions/README.md).
@@ -173,6 +180,10 @@ High-value entry points:
 | Topic | Link |
 |---|---|
 | Architecture | [docs/design.md](docs/design.md) |
+| Frontier VCS convergence | [docs/frontier-vcs-convergence.md](docs/frontier-vcs-convergence.md) |
+| Object resolution and native sync | [docs/resolver-sync.md](docs/resolver-sync.md) |
+| Workspace providers | [docs/workspace-providers.md](docs/workspace-providers.md) |
+| Forge adapters and mirror authority | [docs/forge-adapters.md](docs/forge-adapters.md) |
 | Visual design system | [DESIGN.md](DESIGN.md) |
 | Samples | [samples/README.md](samples/README.md) |
 | Notebooks | [notebooks/README.md](notebooks/README.md) |

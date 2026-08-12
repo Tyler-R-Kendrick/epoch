@@ -184,8 +184,53 @@ to its base and leaves the rest virtual. The full tree is described in
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.
 
+## Frontier Change, Stack, And Merge Commands
+
+These commands use the reference `.epoch/frontier-v1.json` store. They exercise
+the canonical schemas and validation rules, but do not replace the signed
+repository event log.
+
+| Command group | Shipped operations |
+|---|---|
+| `new`, `change` | Create a revision from one or more explicit parents; create, revise, show, and diff a stable logical change. |
+| `log --revisions REVSET` | Parse and evaluate the canonical browser-safe revset against the available revision graph. |
+| `op` | Inspect the local operation DAG, undo an operation, or restore a prior local state. Operation history is local-only. |
+| `stack` | Create, show, add, remove, move, restack, and submit dependency-ordered changes. |
+| `split` | Propose or inspect a JSON split plan, then accept/reject it. Acceptance requires byte-exact ordered reconstruction. |
+| `weave` | Create, show, or check out an explicit multi-change weave. |
+| `review record` | Record review evidence bound to an exact revision/frontier and gate digest. |
+| `merge-plan` | Plan, inspect, or apply a dependency-closed merge; stale target, gate, conflict, or digest fails closed. |
+| `conflict` | List/show durable conflicts, record a resolution, request a non-authoritative AI proposal, or accept/reject it. |
+
+Revsets support `heads`, `roots`, `ancestors`, `descendants`, `change`,
+`stack`, `conflicts`, `pending`, `approved`, `mergeable`, and `author`, with
+union, intersection, difference, and parentheses. Parse errors are typed and
+ordering is deterministic.
+
+## Frontier Storage, Interop, And Authority Commands
+
+| Command group | Shipped operations and limitations |
+|---|---|
+| `workspace` | Create, list, inspect, capture, and safely remove memory/filesystem/browser workspaces. Providers report actual residency, materialization, storage, and execution modes. |
+| `clone`, `fetch`, `hydrate`, `backfill` | Pass explicit filter JSON to injected sync/resolver adapters. Missing adapters return `unsupported-capability`. |
+| `mirror` | Inspect/configure/reconcile explicit authority rules; credentials remain opaque references. No hosted forge transport is implied. |
+| `principal`, `agent` | Inspect capabilities, grants, budgets, and authorization explanations. The reference authority ledger is not durable. |
+| `forge` | Inspect capabilities and import/export public records through loss-aware codecs. ForgeFed transport is `none`. |
+| `swhid` | Inspect, compute, and verify SWHIDs locally. |
+| `archive` | Request archival only when a Software Heritage backend is injected; otherwise fail with `unsupported-capability`. |
+| `interop doctor` | Probe Git/protocol, optional jj/hg/Rift commands, CoW support, adapter manifests, and SWHID support without printing credentials. |
+
+`--json` output is deterministic. Stable error codes are `invalid-command`,
+`invalid-input`, `not-found`, `stale-revision`, `auth-denied`,
+`unsupported-capability`, `conflict`, and `external-error`. Authoritative or
+destructive operations require the same validation in text and JSON modes.
+
 ## Related Docs
 
 - [Core SDK Reference](sdk.md)
 - [Feature Registry](features.md)
 - [Current Design](design.md)
+- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Object Resolver And Native Sync](resolver-sync.md)
+- [Workspace Providers](workspace-providers.md)
+- [Forge Adapters](forge-adapters.md)

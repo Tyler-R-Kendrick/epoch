@@ -110,6 +110,21 @@ Integration fixture notes: [test/integration/identity-bridge/README.md](../test/
 
 Content bridging; ActivityPub/Farcaster; NIP-26; FROSTR implementation (interface-ready only); default DID `alsoKnownAs` mirroring; Core `CryptoSpec` changes.
 
+## Frontier Principal Authority
+
+`@epoch/identity` complements this bridge with stable
+human/agent/service/device/organization principals, public-key bindings,
+attenuated grants, finite budgets, CAS reservations, and idempotent receipts.
+Grant constraints cover action, resource, repository, Community object/path,
+view, change, stack, tool, model, provider, audience, expiry, depth, and budget.
+
+This does not merge or derive the Epoch, Nostr, and AT identifiers. Provider
+calls require an applicable grant, reservation, disclosure, and output bound;
+their results are non-authoritative proposals. Telemetry retains permitted
+digests and metadata, not private prompts or credentials. The shipped ledger is
+in memory, so production authority requires an injected durable transactional
+store. See [ADR-0034](design-decisions/0034-agent-principals-grants-and-budgets.md).
+
 ## References
 
 NIP-01, NIP-46, NIP-98, NIP-65; ATProto repo/sync + `getRecord`; ATProto OAuth permission sets; did:plc; did:web; did:nostr (optional projection).

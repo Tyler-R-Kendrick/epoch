@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 4 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 34 |
+| `features/community_web_experience.feature` | 47 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -24,7 +24,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/platform_core.feature` | 4 |
 | `features/platform_enterprise_conformance.feature` | 4 |
 | `features/platform_infrastructure_delivery.feature` | 4 |
-| `features/platform_operations.feature` | 6 |
+| `features/platform_operations.feature` | 10 |
 | `features/platform_product_domains.feature` | 5 |
 | `features/platform_projects.feature` | 5 |
 | `features/platform_web.feature` | 3 |
@@ -59,6 +59,19 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor submits a repository patch without local setup | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resumes an interrupted sandbox workspace | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.maintainer` | Scenario | Maintainer approves a submitted sandbox workspace result | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor splits a logical stack atomically and reconstructs the exact snapshot | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor gets a safe failure when an atomic split is ambiguous | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer follows stable revisions across multiple heads and supersession | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reviews a combined weave without losing individual change context | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer partially merges only a dependency-closed subset | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer squashes a stack without erasing provenance | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer cannot merge with stale review evidence | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resolves a durable conflict after deterministic help precedes AI | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor hydrates a partial browser replica and sees truthful copy isolation | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor keeps stable mappings while escaping through interoperable forges | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer sponsors a finite-budget agent and later revokes it | None | 0 |
+| `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Responder archives a public release but denies a private archive request | None | 0 |
+| `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader maintainer traverses the change graph at mobile width and 200 percent zoom | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor opens a community and sees community-owned channels first | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor enters the Nightboard community from the Epoch landing | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user traverses Nightboard messages without a pointer | None | 0 |
@@ -144,6 +157,10 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/platform_operations.feature` | `@persona.platform_operator` | Scenario | Incident diagnosis and rollback preserve operator context | None | 0 |
 | `features/platform_operations.feature` | `@persona.platform_operator` | Scenario | AI action plans are scoped, auditable, and approval gated | None | 0 |
 | `features/platform_operations.feature` | `@persona.platform_operator` | Scenario | Community publication includes moderation before public visibility | None | 0 |
+| `features/platform_operations.feature` | `@persona.platform_operator` | Scenario | Operator distinguishes availability gaps from integrity failures | None | 0 |
+| `features/platform_operations.feature` | `@persona.platform_operator` | Scenario | Operator verifies Git protocol fidelity and a rejected push | None | 0 |
+| `features/platform_operations.feature` | `@persona.platform_operator` | Scenario | Operator audits continuous mirror lag identity authority and archive state | None | 0 |
+| `features/platform_operations.feature` | `@persona.security_compliance_responder` | Scenario | Responder exports a redacted support bundle and confirms dangerous operations | None | 0 |
 | `features/platform_product_domains.feature` | `@persona.maintainer` | Scenario | Environment approvals are governed by RBAC | None | 0 |
 | `features/platform_product_domains.feature` | `@persona.maintainer` | Scenario | Issues, intents, checks, and reviews form a forge workflow | None | 0 |
 | `features/platform_product_domains.feature` | `@persona.maintainer` | Scenario | Packages, search, and observability connect platform surfaces | None | 0 |

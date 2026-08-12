@@ -406,6 +406,42 @@ const repository = new EpochRepository("./repo", {
 Native Git operations are for trusted host environments and should not be
 assumed to work in WASM.
 
+## Frontier Protocol And Core APIs
+
+`@epoch/protocol` is the canonical browser-safe contract package. It exports
+stable IDs and typed errors plus `parseRevset`, `evaluateRevset`,
+`inspectRevisionGraph`, `inspectFrontierFilter`, `inspectSyncContract`,
+`inspectSwhid`, and `nodeOnlyAdapterStatus`.
+
+`@epoch/core` re-exports the protocol-facing domain and adds host-capable
+implementations from `convergence-changes`, `convergence-transactions`,
+`object-store`, `chunks`, `promises`, `sync-protocol-v2`, `sync-v2`,
+`workspace`, and `workspace-providers`. Important boundaries are:
+
+- explicit parent sets and expected heads are validated atomically;
+- full object SHA-256 is always computed over complete bytes;
+- promised absence is distinct from resident corruption;
+- range fetch requires a manifest that proves chunk boundaries;
+- received state remains quarantined until verification;
+- AI/provider proposals are non-authoritative until accepted; and
+- memory/browser reference providers do not imply durable or isolated hosting.
+
+`@epoch/wasm` and `@epoch/platform-sdk` expose the same inspection and revset
+functions through thin browser-safe wrappers. Node-only adapters return
+`unsupported-capability`; their implementation is not bundled into the browser.
+
+Host packages add explicit seams:
+
+- `@epoch/git-proxy`: deterministic Git projection, protocol-v2 capability
+  profile, quarantine receive, and remote-helper foundation;
+- `@epoch/forge`: public-only codecs and injected mirror reconciliation;
+- `@epoch/identity`: principals, grants, budget reservations, and receipts with
+  injected durability required for production authority; and
+- `@epoch/software-heritage`: SWHID v1.2 plus injected Save Code Now transport.
+
+See [Frontier VCS Convergence](frontier-vcs-convergence.md) for migrations,
+fidelity/loss matrices, security boundaries, and escape paths.
+
 ## Epoch.Platform Core and SDK
 
 Use `@epoch/platform-core` when embedding the platform domain service directly
@@ -632,3 +668,7 @@ renderPlatformConsole(document.getElementById("root"), {
 - [Current Design](design.md)
 - [CLI Reference](cli.md)
 - [Feature Registry](features.md)
+- [Frontier VCS Convergence](frontier-vcs-convergence.md)
+- [Object Resolver And Native Sync](resolver-sync.md)
+- [Workspace Providers](workspace-providers.md)
+- [Forge Adapters](forge-adapters.md)
