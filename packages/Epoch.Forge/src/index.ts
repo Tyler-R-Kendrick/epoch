@@ -91,3 +91,5 @@ export function decodeRadicle(value: unknown, options?: { lastSequence?: number 
   const row = object(value); const sequence = number(row.sequence, "Radicle sequence"); if (sequence <= (options?.lastSequence ?? -1)) throw new Error("stale Radicle replay");
   text(row.radicleId, "Radicle id"); text(row.signedRef, "Radicle signed ref"); return { object: parseForge(row.payload), losses: [] };
 }
+
+export * from "./mirror";

@@ -2,11 +2,11 @@
   "name": "@epoch/forge",
   "version": "0.1.0",
   "description": "Forge-neutral mirror authority and reconciliation contracts for Epoch.",
-  "main": "dist/mirror.js",
-  "types": "src/mirror.ts",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsgo -p tsconfig.json",
     "typecheck": "tsgo -p tsconfig.json --noEmit",
-    "test": "npm run build && node test/mirror.test.mjs"
+    "test": "npm run build && node --test test/*.test.mjs"
   }
 }
