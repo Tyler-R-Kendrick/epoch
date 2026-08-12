@@ -11,11 +11,11 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "conflict.recorded", "conflict.resolution.proposed", "conflict.resolution.accepted", "conflict.resolution.rejected",
   "agent.membership.granted", "agent.membership.revoked",
   "agent.capability.granted", "agent.capability.revoked",
-  "agent.budget.allocated", "agent.budget.consumed",
-  "projection.created", "projection.revised",
-  "mirror.created", "mirror.synchronized",
-  "promise.created", "promise.fulfilled", "promise.rejected",
-  "swh.snapshot.recorded",
+  "agent.budget.allocated", "agent.budget.reserved", "agent.budget.consumed", "agent.budget.released",
+  "projection.recorded",
+  "mirror.defined", "mirror.checkpoint", "mirror.run",
+  "object.promise.recorded",
+  "software-heritage.mapping", "software-heritage.archive-requested", "software-heritage.archive-status",
 ] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
@@ -89,20 +89,25 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
     case "agent.capability.granted": case "agent.capability.revoked": validateFields(value, {
       required: ["grantId", "principalId", "capability"], ids: { grantId: "grant", principalId: "principal" }, strings: ["capability"],
     }); return;
-    case "agent.budget.allocated": case "agent.budget.consumed": validateFields(value, {
+    case "agent.budget.allocated": case "agent.budget.reserved": case "agent.budget.consumed": case "agent.budget.released": validateFields(value, {
       required: ["budgetId", "principalId", "units"], ids: { budgetId: "budget", principalId: "principal" }, nonnegativeIntegers: ["units"],
     }); return;
-    case "projection.created": case "projection.revised": validateFields(value, {
+    case "projection.recorded": validateFields(value, {
       required: ["projectionId", "repositoryId", "definitionDigest"], ids: { projectionId: "projection", repositoryId: "repo" }, digests: ["definitionDigest"],
     }); return;
-    case "mirror.created": case "mirror.synchronized": validateFields(value, {
+    case "mirror.defined": case "mirror.checkpoint": case "mirror.run": validateFields(value, {
       required: ["mirrorId", "repositoryId", "remoteRef", "frontier"], ids: { mirrorId: "mirror", repositoryId: "repo" }, strings: ["remoteRef"], revisionArrays: ["frontier"],
     }); return;
-    case "promise.created": case "promise.fulfilled": case "promise.rejected": validateFields(value, {
+    case "object.promise.recorded": validateFields(value, {
       required: ["promiseId", "contentDigest", "status"], ids: { promiseId: "promise" }, digests: ["contentDigest"], enums: { status: ["pending", "fulfilled", "rejected"] },
     }); return;
-    case "swh.snapshot.recorded": validateFields(value, {
+    case "software-heritage.mapping": validateFields(value, {
       required: ["repositoryId", "swhId", "frontier"], ids: { repositoryId: "repo" }, strings: ["swhId"], revisionArrays: ["frontier"],
+    }); return;
+    case "software-heritage.archive-requested": case "software-heritage.archive-status": validateFields(value, {
+      required: ["repositoryId", "versionId", "requestId", "status"],
+      ids: { repositoryId: "repo", versionId: "version" }, strings: ["requestId"],
+      enums: { status: ["requested", "pending", "succeeded", "failed", "cancelled"] },
     }); return;
   }
 }

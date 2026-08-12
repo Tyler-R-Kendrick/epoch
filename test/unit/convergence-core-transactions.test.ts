@@ -8,12 +8,39 @@ import {
   QuarantineTransaction,
   recoverQuarantineTransaction,
 } from "../../packages/Epoch.Core/src/convergence-transactions";
+import { EpochRepository } from "../../packages/Epoch.Core/src/core";
 
 export async function runConvergenceCoreTransactionTests(): Promise<void> {
   test("CONV-TXN-001 explicit parents exclude unrelated heads and choose Lamport from parents", explicitParents);
   test("CONV-TXN-002 stale CAS missing parent cycle and replay fail closed", invalidAppends);
   test("CONV-TXN-003 crash boundaries recover all-old or all-new", atomicCrashRecovery);
   test("CONV-OP-001 operation DAG survives restart and redacts secrets", operationsPersistAndRedact);
+  test("CONV-TXN-004 EpochRepository appendWithParents preserves unrelated heads", repositoryFacadeParents);
+}
+
+function repositoryFacadeParents(): void {
+  const directory = mkdtempSync(join(tmpdir(), "epoch-explicit-parents-"));
+  try {
+    const repository = EpochRepository.create(directory, { author: "alice" });
+    const root = repository.appendWithParents("change.created", { schema: "epoch.change.created.v2" }, {
+      author: "alice", parents: [], expectedHeads: [], transactionId: "tx-root",
+    });
+    const left = repository.appendWithParents("change.revised", { schema: "epoch.change.revised.v2" }, {
+      author: "alice", parents: [root.id], expectedHeads: [root.id], transactionId: "tx-left",
+    });
+    const unrelated = repository.appendWithParents("change.created", { schema: "epoch.change.created.v2" }, {
+      author: "alice", parents: [root.id], expectedHeads: [left.id], transactionId: "tx-unrelated",
+    });
+    assert.deepEqual(repository.heads(), [left.id, unrelated.id].sort());
+    const merged = repository.appendWithParents("change.revised", { schema: "epoch.change.revised.v2" }, {
+      author: "alice", parents: [left.id], expectedHeads: [left.id, unrelated.id], transactionId: "tx-right",
+    });
+    assert.deepEqual(merged.parents, [left.id]);
+    assert.deepEqual(repository.heads(), [merged.id, unrelated.id].sort());
+    assert.throws(() => repository.appendWithParents("change.revised", {}, {
+      author: "alice", parents: [merged.id], expectedHeads: [merged.id], transactionId: "tx-stale",
+    }), /stale head/i);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 }
 
 function test(name: string, run: () => void): void {

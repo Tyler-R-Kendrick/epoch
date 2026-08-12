@@ -106,3 +106,9 @@ export {
 export type { CeremonyConfirmation, CeremonyResult } from "./ceremony";
 
 export { InMemoryRelay, GuardedRelayClient, DisabledRelayClient } from "./nostr/relays";
+export * from "./authority";
+export * from "./authority/membership";
+export * from "./authority/signers";
+export * from "./conductor/evidence";
+export * from "./conductor/provider";
+export * from "./conductor/session";
