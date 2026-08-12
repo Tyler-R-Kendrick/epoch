@@ -28,6 +28,7 @@ decisions, operations, or contribution workflow.
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
 | [Nightboard](design-explorations/nightboard/README.md) | **Canonical Community Web app** ([ADR-0027](design-decisions/0027-community-visual-world-nightboard.md)): CanvasUI creator landing at `/`, Tron/tmux-style keyboard-first board at `board.html`. Evidence under [`evidence/nightboard/`](evidence/nightboard/README.md). |
+| [Nightboard Navigation/Projection Parity](evidence/nightboard-navigation-projection-parity/README.md) | Executable evidence for stable object identity, mounted projections, explicit graph navigation, route restoration, shared actions, and APG feed/tree/combobox behavior. |
 | [Ten Directions (2026 redesign)](design-explorations/redesign-2026/README.md) | Ten candidate replacement design worlds for the product family, each a different information architecture, with a runtime picker for side-by-side review. |
 | [Design Explorations](design-explorations/00-foundation.md) | Ten candidate successor-experience design loops (philosophy, design system, hardened mockup, screenshot evidence) with the shared persona foundation and distinctness ledger. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, HA/DR, and platform behavior. |
@@ -86,6 +87,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0026: Community Visual World Course Line](design-decisions/0026-community-visual-world-course-line.md) | Superseded by ADR-0027 — light civic-workshop / ISOM world, archived. |
 | [ADR-0027: Community Visual World Nightboard](design-decisions/0027-community-visual-world-nightboard.md) | Makes Nightboard (Grid) the canonical Community Web runtime and deployment. |
 | [ADR-0028: Recoverable Nightboard Startup, Sticky Routing, And Deterministic HoBo Authoring](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md) | Defines the Ctrl+U restart inbox, workspace route affinity, and Bo's checked HoBo app loop. |
+| [ADR-0029: Community Canonical Objects, Mounted Projections, And Explicit Navigation](design-decisions/0029-community-canonical-objects-and-projections.md) | Defines stable object IDs, mounted projections, explicit graph and navigation operations, private-safe links, saved views, one action registry, and APG interaction contracts. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

@@ -647,6 +647,18 @@ body {
 [data-c="swatch"][data-kind="agent"] { background: var(--nb-agent); }
 
 [data-region="status"] { color: var(--nb-ink-faint); }
+.nb-session-recovery {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .7rem;
+  padding: .45rem .7rem; border-block: 1px solid var(--nb-warn);
+  background: var(--nb-bg); color: var(--nb-warn); font: inherit;
+}
+.nb-session-recovery > span { flex: 1 1 28rem; }
+.nb-session-recovery button {
+  min-height: 2.75rem; padding: .35rem .65rem; border: 1px solid currentColor;
+  border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.nb-session-recovery button:hover,
+.nb-session-recovery button:focus-visible { background: var(--nb-warn); color: var(--nb-bg); }
 [data-region="masthead"] [data-c="board"] { color: var(--nb-ink); letter-spacing: .06em; }
 [data-region="masthead"] [data-c="meta"] { color: var(--nb-ink-dim); }
 .nb-empty { color: var(--nb-ink-faint); padding: var(--nb-pad) calc(var(--nb-pad) * 2); }

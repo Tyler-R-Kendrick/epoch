@@ -314,6 +314,13 @@ canonical browser runtime is Nightboard: a CanvasUI creator landing at `/` and
 a tmux-style, keyboard-first board at `/board.html`, both sourced from
 `docs/design-explorations/nightboard`. The local server and Vercel static build
 use that same source tree, so no second visual shell can drift into production.
+Nightboard renders a hierarchical navigator + detail blade over Community
+Core's stable objects, explicit relations, projections, navigation operations,
+normalized saved queries, and action descriptors. Filesystem-like paths are a
+namespace adapter rather than object identity; reply ancestry and tombstones
+remain explicit when aliases, order, visibility, or projection change. The
+generated browser artifact prevents a second identity/graph/action algorithm
+from drifting away from Core.
 `Epoch.Community.Core` and the package model still own the API-facing repository,
 issue, review, discussion, profile, and release contracts used by CLI and
 integration code. `materializeCommunityWebSiteWithEpoch()` remains available to
@@ -329,9 +336,11 @@ are degraded. See
 [ADR-0012](design-decisions/0012-community-human-centered-design.md).
 
 `Epoch.Community.API` owns the in-memory API implementation for the current
-prototype. `Epoch.Community.Core` owns shared community domain types and the API
-client wrapper. `Epoch.Community.CLI` uses Core to list repositories and operate
-issue/change-review workflows from the command line.
+prototype and its versioned persisted object/projection state.
+`Epoch.Community.Core` owns shared canonical object, graph, projection, query,
+navigation, action, transport, and API client contracts. `Epoch.Community.CLI`
+uses Core to list repositories and operate issue/change-review workflows from
+the command line.
 
 See [Epoch Platform Packages](platforms.md) and
 [ADR-0008](design-decisions/0008-separate-platform-web-and-community.md). See

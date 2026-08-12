@@ -1,3 +1,16 @@
+import type { CommunityMessage, CommunityThreadRelations } from "./graph";
+import type { CommunityObjectRef } from "./identity";
+import type { CommunityProjection, SavedProjection, SaveProjectionInput } from "./projection";
+import type { CommunityAuthorizationContext } from "./authorization";
+
+export * from "./authorization";
+export * from "./actions";
+export * from "./graph";
+export * from "./identity";
+export * from "./navigation";
+export * from "./projection";
+export * from "./query";
+
 export type CommunityWorkflowId =
   | "repository-browsing"
   | "issue-tracking"
@@ -28,6 +41,7 @@ export interface CreateCommunityRepositoryInput {
 }
 
 export interface CommunityRepository {
+  readonly ref?: CommunityObjectRef;
   readonly slug: string;
   readonly displayName: string;
   readonly description: string;
@@ -50,6 +64,7 @@ export interface OpenCommunityIssueInput {
 
 export interface CommunityIssue {
   readonly id: string;
+  readonly ref?: CommunityObjectRef;
   readonly title: string;
   readonly author: string;
   readonly body: string;
@@ -69,6 +84,7 @@ export interface ProposeCommunityChangeInput {
 
 export interface CommunityChangeProposal {
   readonly id: string;
+  readonly ref?: CommunityObjectRef;
   readonly title: string;
   readonly author: string;
   readonly body: string;
@@ -92,17 +108,21 @@ export interface CommunityReview {
 
 export interface CommunityDiscussion {
   readonly id: string;
+  readonly ref?: CommunityObjectRef;
   readonly title: string;
   readonly author: string;
   readonly comments: readonly CommunityComment[];
 }
 
 export interface CommunityComment {
+  readonly id?: string;
+  readonly ref?: CommunityObjectRef;
   readonly author: string;
   readonly body: string;
 }
 
 export interface CommentOnCommunityIssueInput {
+  readonly id?: string;
   readonly author: string;
   readonly body: string;
 }
@@ -116,6 +136,13 @@ export interface CommunityApiTransport {
   commentOnIssue(slug: string, issueId: string, input: CommentOnCommunityIssueInput): Promise<CommunityRepository>;
   proposeChange(slug: string, input: ProposeCommunityChangeInput): Promise<CommunityRepository>;
   reviewChange(slug: string, proposalId: string, input: CommunityReviewInput): Promise<CommunityRepository>;
+  getObject(objectId: string, authorization?: CommunityAuthorizationContext): Promise<CommunityMessage>;
+  updateObjectState(objectId: string, state: string, authorization?: CommunityAuthorizationContext): Promise<CommunityMessage>;
+  listThreadRelations(objectId: string, authorization?: CommunityAuthorizationContext): Promise<CommunityThreadRelations>;
+  listProjections(authorization?: CommunityAuthorizationContext): Promise<readonly SavedProjection[]>;
+  getProjection(projectionId: string, authorization?: CommunityAuthorizationContext): Promise<CommunityProjection>;
+  saveProjection(input: SaveProjectionInput, authorization?: CommunityAuthorizationContext): Promise<SavedProjection>;
+  deleteProjection(projectionId: string, authorization?: CommunityAuthorizationContext): Promise<void>;
 }
 
 export type CommunityClient = CommunityApiTransport;
@@ -135,6 +162,13 @@ export function createCommunityClient(transport: CommunityApiTransport): Communi
     commentOnIssue: (slug, issueId, input) => transport.commentOnIssue(slug, issueId, input),
     proposeChange: (slug, input) => transport.proposeChange(slug, input),
     reviewChange: (slug, proposalId, input) => transport.reviewChange(slug, proposalId, input),
+    getObject: (objectId, authorization) => transport.getObject(objectId, authorization),
+    updateObjectState: (objectId, state, authorization) => transport.updateObjectState(objectId, state, authorization),
+    listThreadRelations: (objectId, authorization) => transport.listThreadRelations(objectId, authorization),
+    listProjections: (authorization) => transport.listProjections(authorization),
+    getProjection: (projectionId, authorization) => transport.getProjection(projectionId, authorization),
+    saveProjection: (input, authorization) => transport.saveProjection(input, authorization),
+    deleteProjection: (projectionId, authorization) => transport.deleteProjection(projectionId, authorization),
   };
 }
 
@@ -150,6 +184,13 @@ export function createHttpCommunityClient(options: CreateHttpCommunityClientOpti
     commentOnIssue: (slug, issueId, input) => request("POST", `${repositoryPath(slug)}/issues/${encodeURIComponent(issueId)}/comments`, input),
     proposeChange: (slug, input) => request("POST", `${repositoryPath(slug)}/changes`, input),
     reviewChange: (slug, proposalId, input) => request("POST", `${repositoryPath(slug)}/changes/${encodeURIComponent(proposalId)}/reviews`, input),
+    getObject: (objectId) => request("GET", `/objects/${encodeURIComponent(objectId)}`),
+    updateObjectState: (objectId, state) => request("PATCH", `/objects/${encodeURIComponent(objectId)}/state`, { state }),
+    listThreadRelations: (objectId) => request("GET", `/objects/${encodeURIComponent(objectId)}/thread`),
+    listProjections: () => request("GET", "/projections"),
+    getProjection: (projectionId) => request("GET", `/projections/${encodeURIComponent(projectionId)}`),
+    saveProjection: (input) => request("POST", "/projections", input),
+    deleteProjection: (projectionId) => request("DELETE", `/projections/${encodeURIComponent(projectionId)}`),
   });
 }
 

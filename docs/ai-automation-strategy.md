@@ -86,6 +86,8 @@ organization, or a `runs-on` edit in a later PR. A first step that asserts
 failing rather than proceeding when either check does not hold, keeps a future
 change from quietly turning free CI into billed CI. **Larger runners are billed
 even on public repositories**, so the runner pin is the load-bearing half.
+Browser jobs use the Google Chrome already included on the standard Ubuntu
+image; they do not download a second browser from Playwright's CDN.
 
 ## Finding 2 — no Claude Code configuration is version-controlled
 

@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # ubuntu-latest already ships Google Chrome. Use that browser so CI does not
+  # depend on a second download from the Playwright CDN.
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+
 jobs:
   # Fail-closed guard: the free-CI assumption below (standard GitHub-hosted
   # runners are free and unmetered) holds only while this repository stays
@@ -187,9 +192,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
       - name: Test
         run: npm test
 
@@ -211,9 +213,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
 
       - name: Coverage
         run: npm run coverage
@@ -259,9 +258,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
       # Duplicates the Build job's work rather than downloading its artifact.
       # A dedicated Build job above already gives build failures their own
       # attributable status check; this local build keeps this job
@@ -291,9 +287,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
 
       - name: Nightboard accessibility gate
         run: npm run a11y:nightboard

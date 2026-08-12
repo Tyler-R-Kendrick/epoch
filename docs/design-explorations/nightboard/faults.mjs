@@ -150,7 +150,7 @@ const CASES = [
       const s = await transcript(page);
       // The point is not the message; it is that the surface still works.
       await page.click("[data-mode-toggle]");
-      await page.keyboard.type("cd bugs");
+      await page.keyboard.type("cd ../bugs");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(400);
       const path = await page.textContent(".cn-ps1");
@@ -229,6 +229,74 @@ const CASES = [
       return res.isError === true && /HTML-in-canvas|did not load/.test(res.content[0].text) && intact;
     },
   },
+  {
+    name: "a malformed canonical route fails with an unavailable state",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const result = await page.evaluate(() => ({
+        restored: window.NB_APP.restoreNavigation({ projectionId: "missing-view", objectId: "missing-object" }),
+        status: document.querySelector("[data-status-line]")?.textContent || "",
+      }));
+      log(JSON.stringify(result));
+      return result.restored === false && /unavailable/.test(result.status);
+    },
+  },
+  {
+    name: "a missing reply parent remains a tombstone ancestor",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const result = await page.evaluate(() => {
+        const child = { id: "fault-orphan", channel: "general", who: "lea", at: "12:31", state: "open", body: "orphan", re: "fault-missing" };
+        const graph = window.NB_MAP.messageGraph(window.NB_DATA.posts.concat(child));
+        return { parent: graph.parentOf(child.id), root: graph.rootOf(child.id) };
+      });
+      log(JSON.stringify(result));
+      return result.parent?.objectId === "fault-missing" && result.parent?.kind === "tombstone" && result.root?.objectId === "fault-missing";
+    },
+  },
+  {
+    name: "an invalid query names the unknown field without evaluating it",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const result = await page.evaluate(() => window.NB_QUERY.parse("sttae:needs-review"));
+      log(JSON.stringify(result));
+      return /sttae/.test(result.error || "") && /state/.test(result.error || "");
+    },
+  },
+  {
+    name: "an unauthorized private saved projection fails closed",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const result = await page.evaluate(() => {
+        const view = window.NB_SAVED_VIEWS.save({ label: "Private fault", query: "", visibility: "private" });
+        return window.NB_SAVED_VIEWS.open(view.projectionId, window.NB_DATA.posts, { includePrivate: false });
+      });
+      log(JSON.stringify(result));
+      return result.view === null && /unauthorized/.test(result.error || "");
+    },
+  },
+  {
+    name: "a malformed board migration preserves an actionable recovery state",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const result = await page.evaluate(() => window.NB_SESSION.migrateBoardState(null));
+      log(JSON.stringify(result));
+      return result.recovery?.reason === "malformed" && /export|reset/.test(result.recovery?.message || "");
+    },
+  },
+  {
+    name: "ambiguous deterministic navigation does not change location",
+    spec: { availability: "unavailable" },
+    check: async (page, log) => {
+      const result = await page.evaluate(async () => {
+        const before = window.NB_APP.state.path;
+        const response = await window.NB_MCP.call("board_navigate", { path: "gen" });
+        return { before, after: window.NB_APP.state.path, isError: response.isError, text: response.content?.[0]?.text || "" };
+      });
+      log(JSON.stringify(result));
+      return result.before === result.after && result.isError === true && /path|exact|not found/i.test(result.text);
+    },
+  },
 ];
 
 async function ask(page, text, waitMs) {
@@ -241,7 +309,11 @@ async function transcript(page) {
   return page.$eval(".cn-out", (el) => el.textContent).catch(() => "");
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+    : {},
+);
 let failed = 0;
 
 for (const testCase of CASES) {

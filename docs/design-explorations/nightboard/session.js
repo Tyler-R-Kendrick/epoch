@@ -24,6 +24,7 @@
     board: "nb-board-state",
     policy: "nb-community-policy",
   };
+  var BOARD_SCHEMA_VERSION = 2;
 
   /** Community policy: guest participation is a community choice. */
   var DEFAULT_POLICY = {
@@ -496,21 +497,72 @@
 
   /* ── Durable board state ──────────────────────────────────────────────── */
 
+  function migrateSessionState(session) {
+    session = session && typeof session === "object" ? Object.assign({}, session) : {};
+    var alias = typeof session.path === "string" ? session.path : "/projects/community/channels/general";
+    var focused = session.focusedObjectId || session.threadFocus || session.feedMark || null;
+    session.path = alias;
+    session.navigation = Object.assign({
+      legacyLocationAlias: alias,
+      focusRegion: session.editorFocused ? "detail" : "navigator",
+      focusedObjectId: focused,
+      selectedObjectId: session.selectedObjectId || focused,
+      detailObjectId: session.threadFocus || null,
+      threadRootId: session.threadFocus || null,
+      layers: [],
+    }, session.navigation || {});
+    return session;
+  }
+
+  /** Previous unversioned snapshots become v2 exactly once; aliases resolve after NB_MAP loads. */
+  function migrateBoardState(snapshot) {
+    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+      return {
+        schemaVersion: BOARD_SCHEMA_VERSION,
+        recovery: {
+          reason: "malformed",
+          message: "Saved board state is malformed; export it for recovery or reset it to continue.",
+          actions: ["export", "reset"],
+        },
+        sessions: [],
+      };
+    }
+    var out = JSON.parse(JSON.stringify(snapshot));
+    if (out.schemaVersion > BOARD_SCHEMA_VERSION) {
+      return Object.assign(out, {
+        recovery: {
+          reason: "unsupported-version",
+          message: "Saved board state is newer than this Nightboard; update or export it before reset.",
+          actions: ["export", "reset"],
+        },
+      });
+    }
+    out.sessions = (Array.isArray(out.sessions) ? out.sessions : [out]).map(migrateSessionState);
+    if (!out.navigation) out.navigation = migrateSessionState(out).navigation;
+    out.schemaVersion = BOARD_SCHEMA_VERSION;
+    return out;
+  }
+
   function loadBoardState() {
     try {
       var ls = storage();
       var raw = ls && ls.getItem(KEYS.board);
       if (!raw) return null;
-      return JSON.parse(raw);
+      var parsed = JSON.parse(raw);
+      var migrated = migrateBoardState(parsed);
+      if (!migrated.recovery && JSON.stringify(migrated) !== raw && ls) {
+        ls.setItem(KEYS.board, JSON.stringify(migrated));
+      }
+      return migrated;
     } catch {
-      return null;
+      return migrateBoardState(null);
     }
   }
 
   function saveBoardState(snapshot) {
     try {
       var ls = storage();
-      if (ls) ls.setItem(KEYS.board, JSON.stringify(snapshot));
+      if (ls) ls.setItem(KEYS.board, JSON.stringify(migrateBoardState(snapshot)));
     } catch { /* private / quota */ }
   }
 
@@ -519,6 +571,13 @@
       var ls = storage();
       if (ls) ls.removeItem(KEYS.board);
     } catch { /* private */ }
+  }
+
+  function exportBoardState() {
+    try {
+      var ls = storage();
+      return ls ? ls.getItem(KEYS.board) : null;
+    } catch { return null; }
   }
 
   /* ── One restart lane for local startup conditions ───────────────────── */
@@ -617,6 +676,9 @@
     loadBoardState: loadBoardState,
     saveBoardState: saveBoardState,
     clearBoardState: clearBoardState,
+    exportBoardState: exportBoardState,
+    migrateBoardState: migrateBoardState,
+    BOARD_SCHEMA_VERSION: BOARD_SCHEMA_VERSION,
     DEFAULT_POLICY: DEFAULT_POLICY,
     DEFAULT_SPACES: DEFAULT_SPACES,
   };

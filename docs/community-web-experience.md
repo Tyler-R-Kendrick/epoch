@@ -56,6 +56,28 @@ the feed mouse-only. The prompt hands focus to one roving message article;
 `j`/`k`, arrows, Home/End, and Enter move or open it while focus, selection,
 and the current thread stay aligned.
 
+Community objects have opaque stable IDs. Channel feeds, explicit reply trees,
+DMs, Activity, search, saved queries, projects, and filesystem-like paths are
+mounted projections over the same objects. The canonical composition is a
+**hierarchical navigator + detail blade**; namespace ancestry, reply ancestry,
+browser history, shell `cd -`, and Escape cancellation remain distinct actions.
+
+Channel messages implement the APG feed model. Opening a thread reveals an APG
+tree outline synchronized with a full reading article; tombstones preserve
+missing or moderated ancestry without exposing forbidden actions. Prompt
+completion is a manual-selection combobox: opening suggestions does not select
+one, arrows do, Escape preserves the draft, and default Tab remains focus
+traversal.
+
+`cd` resolves exact namespace paths and aliases only. `z` performs a ranked
+global jump and `zi`/`/jump` opens a grouped chooser. Named saved queries retain
+a stable view ID, normalized versioned query, visibility, and order. Mutations
+through them update the canonical object in every projection.
+
+Share distinguishes current-origin HTTPS canonical, contextual, and exact
+revision links. URLs, browser history, notifications, and action diagnostics
+carry stable IDs rather than private message text or content-derived aliases.
+
 Users can save a deterministic action with
 `macro set <name> = <command>; <command>` (or the `skill` alias), bind an exact
 spoken phrase with `macro voice <name> = <phrase>`, and run it with
@@ -100,6 +122,7 @@ See:
 Features: [`features/community_web_experience.feature`](../features/community_web_experience.feature).  
 Browser evidence notes: [`docs/evidence/community-web/README.md`](evidence/community-web/README.md).  
 Screenshots: [`docs/evidence/design-screenshots/`](evidence/design-screenshots/README.md).
+Navigation/projection parity: [`docs/evidence/nightboard-navigation-projection-parity/`](evidence/nightboard-navigation-projection-parity/README.md).
 
 ## AI-native rooms (Block Buzz)
 

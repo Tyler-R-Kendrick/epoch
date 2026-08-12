@@ -27,42 +27,49 @@ const runs = [];
 let browser;
 
 try {
-  browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox"],
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {}),
+  });
   for (const viewport of VIEWPORTS) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
     await page.goto(`${server.url}board.html`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(400);
-    // Exercise a channel with markdown + code so scrollable regions and feed
-    // chrome are in the tree axe actually sees.
     await page.waitForFunction(
       () => !!(window.NB_APP && typeof window.NB_APP.navigate === "function"),
       { timeout: 10000 },
     );
-    await page.evaluate(() => {
-      window.NB_APP.navigate("/projects/community/channels/bugs", { keepCli: true });
-    });
-    await page.waitForTimeout(300);
     await page.addScriptTag({ content: axeSource });
+    for (const surface of ["feed", "thread"]) {
+      await page.evaluate((nextSurface) => {
+        window.NB_APP.navigate("/projects/community/channels/general", { keepCli: true });
+        if (nextSurface === "thread") window.NB_APP.openThread("p3");
+      }, surface);
+      await page.evaluate(() => new Promise((resolve) =>
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
 
-    const result = await page.evaluate(async () => {
-      return await window.axe.run(document, {
-        resultTypes: ["violations"],
-        runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },
+      const result = await page.evaluate(async () => {
+        return await window.axe.run(document, {
+          resultTypes: ["violations"],
+          runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },
+        });
       });
-    });
 
-    runs.push({
-      viewport: viewport.name,
-      width: viewport.width,
-      height: viewport.height,
-      violations: result.violations.map((violation) => ({
-        id: violation.id,
-        impact: violation.impact,
-        help: violation.help,
-        nodes: violation.nodes.length,
-        targets: violation.nodes.slice(0, 5).map((node) => node.target.join(" ")),
-      })),
-    });
+      runs.push({
+        viewport: `${viewport.name}-${surface}`,
+        width: viewport.width,
+        height: viewport.height,
+        violations: result.violations.map((violation) => ({
+          id: violation.id,
+          impact: violation.impact,
+          help: violation.help,
+          nodes: violation.nodes.length,
+          targets: violation.nodes.slice(0, 5).map((node) => node.target.join(" ")),
+        })),
+      });
+    }
     await page.close();
   }
 } finally {

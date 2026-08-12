@@ -376,46 +376,135 @@
     reactPick = reactPick || null;
     sort = SORTS.indexOf(sort) >= 0 ? sort : "hot";
 
+    function objectIdOf(p) {
+      return p && p.ref && p.ref.objectId ? p.ref.objectId : (p && (p.objectId || p.id));
+    }
+
+    var graph = MAP.messageGraph ? MAP.messageGraph(posts) : null;
     var byId = {}, kids = {}, roots = [];
-    posts.forEach(function (p) { byId[p.id] = p; });
+    posts.forEach(function (p) { byId[objectIdOf(p)] = p; });
+    // Query and authorization projections may omit an ancestor. Materialize
+    // Core's typed tombstone so the accessible topology stays connected.
+    if (graph && MAP.postFromMessage) {
+      posts.slice().forEach(function (post) {
+        var parent = graph.parentOf(objectIdOf(post));
+        while (parent && !byId[parent.objectId]) {
+          var parentMessage = graph.messageOf(parent);
+          if (!parentMessage) break;
+          var parentPost = MAP.postFromMessage(parentMessage);
+          byId[parent.objectId] = parentPost;
+          posts.push(parentPost);
+          parent = graph.parentOf(parent);
+        }
+      });
+    }
+
+    function parentIdOf(p) {
+      var parent = graph && graph.parentOf(objectIdOf(p));
+      return parent && parent.objectId ||
+        (p && p.inReplyTo && p.inReplyTo.objectId ? p.inReplyTo.objectId : (p && p.re));
+    }
+
     posts.forEach(function (p) {
-      if (p.re && byId[p.re]) (kids[p.re] = kids[p.re] || []).push(p);
+      var parentId = parentIdOf(p);
+      if (parentId && byId[parentId]) (kids[parentId] = kids[parentId] || []).push(p);
       else roots.push(p);
     });
 
     // Thread detail: keep only the root conversation that contains threadOf.
     if (opts.threadOf && byId[opts.threadOf]) {
-      var walk = byId[opts.threadOf];
-      while (walk.re && byId[walk.re]) walk = byId[walk.re];
-      roots = [walk];
+      var root = graph && graph.rootOf(opts.threadOf);
+      roots = [byId[root && root.objectId || opts.threadOf]];
       if (!markId) markId = opts.threadOf;
     }
     var keyboardId = markId || null;
 
     function subtreeCount(p) {
-      return (kids[p.id] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
+      return (kids[objectIdOf(p)] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
     }
     posts.forEach(function (p) { p._below = subtreeCount(p); });
 
-    function nodeHtml(p, depth, ancestors) {
-      var replies = sortPosts(kids[p.id] || [], sort, votes);
+    var visiblePosts = [];
+    function collectVisible(p) {
+      visiblePosts.push(p);
+      if (folded[objectIdOf(p)]) return;
+      sortPosts(kids[objectIdOf(p)] || [], sort, votes).forEach(collectVisible);
+    }
+    var sortedRoots = sortPosts(roots, sort, votes);
+    sortedRoots.forEach(collectVisible);
+    var feedPosition = 0;
+
+    function postLabel(p, depth, position, setSize) {
+      var tombstone = p.tombstone;
+      var identity = tombstone ? "Unavailable ancestor" : ("Message by " + p.who);
+      var topology = "level " + (depth + 1) + ", " + position + " of " + setSize;
+      var children = (kids[objectIdOf(p)] || []).length;
+      var detail = tombstone
+        ? (", " + (tombstone.reason || "unavailable"))
+        : (": " + String(p.subject || p.body || "").slice(0, 120));
+      return identity + ", " + topology + ", " + children +
+        (children === 1 ? " child" : " children") + detail;
+    }
+
+    function readingHtml(p) {
+      if (!p) return "";
+      var objectId = objectIdOf(p);
+      var tombstone = p.tombstone;
+      return '<div class="cn-thread-reading" role="region" aria-label="Selected message">' +
+        '<article class="cn-reading-article" tabindex="-1" data-object-id="' + esc(objectId) + '"' +
+        (tombstone ? ' data-tombstone="true"' : "") + ' aria-label="' +
+        esc(tombstone ? ("Unavailable message: " + (tombstone.reason || "unavailable")) :
+          ("Message by " + p.who)) + '">' +
+        '<header class="cn-comment-head"><span data-c="actor"><b data-c="handle">' +
+        esc(tombstone ? "unavailable" : p.who) + '</b></span>' +
+        '<span class="cn-head-sep" aria-hidden="true">|</span><span data-c="meta">' +
+        '<time data-c="time">' + esc(p.at || "") + '</time><span class="cn-head-sep" aria-hidden="true">|</span>' +
+        '<span data-c="state">' + esc(tombstone ? tombstone.reason : p.state) + '</span></span></header>' +
+        (p.subject && !tombstone ? '<div class="cn-subject">' + esc(p.subject) + '</div>' : "") +
+        '<div class="cn-comment-body">' + (tombstone
+          ? esc("This ancestor is " + (tombstone.reason || "unavailable") + ". Thread topology is preserved.")
+          : formatBody(p.body)) + '</div>' +
+        (!tombstone ? '<div class="cn-actions">' +
+          '<button type="button" class="cn-act" data-reply="' + esc(objectId) + '" data-reply-who="' +
+          esc(p.who) + '" aria-keyshortcuts="r">reply</button>' +
+          '<button type="button" class="cn-act" data-repost="' + esc(objectId) +
+          '" aria-keyshortcuts="Shift+R">repost</button>' +
+          '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(objectId) +
+          '" aria-keyshortcuts="s">share contextual</button>' +
+          '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(objectId) +
+          '">copy canonical</button>' +
+          ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
+            esc(objectId) + '">copy exact revision</button>' : "") + '</div>' +
+          renderReactions(objectId, p, reactions, reactPick === objectId) : "") +
+        '</article></div>';
+    }
+
+    function nodeHtml(p, depth, ancestors, siblingPosition, siblingSetSize) {
+      var key = objectIdOf(p);
+      var replies = sortPosts(kids[key] || [], sort, votes);
       var below = p._below || 0;
-      var isFolded = !!folded[p.id];
+      var isFolded = !!folded[key];
       var sc = scoreOf(p, votes);
-      var myVote = votes[p.id] || 0;
-      var reposted = !!reposts[p.id];
+      var myVote = votes[key] || 0;
+      var reposted = !!reposts[key];
       var member = who(p.who);
+      var objectId = objectIdOf(p);
+      var isThread = !!opts.threadOf;
+      var tombstone = p.tombstone;
+      feedPosition += 1;
+      var position = isThread ? siblingPosition : feedPosition;
+      var setSize = isThread ? siblingSetSize : visiblePosts.length;
 
       // Nest rails: one clickable │ per ancestor depth so you can collapse
       // any level of the chain by hitting its line (terminal tree, not pills).
       var rails = ancestors.map(function (anc) {
-        return '<button type="button" class="cn-rail" data-fold="' + esc(anc.id) + '"' +
+        return '<button type="button" class="cn-rail" data-fold="' + esc(objectIdOf(anc)) + '"' +
           ' title="Collapse thread" aria-label="Collapse thread by ' + esc(anc.who) + '">' +
           '<span class="cn-rail-mark" aria-hidden="true">|</span></button>';
       }).join("");
 
       var foldCtl = replies.length
-        ? '<button type="button" class="cn-pm" data-fold="' + esc(p.id) + '"' +
+        ? '<button type="button" class="cn-pm" data-fold="' + esc(key) + '"' +
           ' aria-keyshortcuts="f"' +
           ' aria-expanded="' + !isFolded + '" aria-label="' +
           (isFolded ? "Expand" : "Collapse") + ' replies" title="' +
@@ -423,69 +512,84 @@
           (isFolded ? "+" : "-") + "</button>"
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
-      var html = '<article class="cn-comment" data-key="' + esc(p.id) + '"' +
-        ' role="article" tabindex="' + (p.id === keyboardId ? "0" : "-1") + '"' +
-        ' aria-current="' + (p.id === keyboardId ? "true" : "false") + '"' +
-        ' aria-label="Message by ' + esc(p.who) + ': ' +
-          esc(String(p.subject || p.body || "").slice(0, 120)) + '"' +
+      var html = '<article class="cn-comment" data-key="' + esc(key) + '"' +
+        ' data-object-id="' + esc(objectId) + '"' +
+        (parentIdOf(p) ? ' data-parent-id="' + esc(parentIdOf(p)) + '"' : "") +
+        (tombstone ? ' data-tombstone="true"' : "") +
+        ' role="' + (isThread ? "treeitem" : "article") + '" tabindex="' +
+        (key === keyboardId ? "0" : "-1") + '"' +
+        ' aria-current="' + ((opts.threadOf ? key === opts.threadOf : key === keyboardId) ? "true" : "false") + '"' +
+        (isThread ? ' aria-selected="' + (key === keyboardId ? "true" : "false") + '"' +
+          ' aria-level="' + (depth + 1) + '"' +
+          ' aria-posinset="' + position + '" aria-setsize="' + setSize + '"' +
+          (replies.length ? ' aria-expanded="' + !isFolded + '"' : "") :
+          ' aria-posinset="' + position + '" aria-setsize="' + setSize + '"') +
+        ' aria-label="' + esc(postLabel(p, depth, position, setSize)) + '"' +
         ' data-kind="' + esc(member.kind) + '" data-state-of="' + esc(p.state) + '"' +
         ' data-depth="' + depth + '"' +
-        (p.id === keyboardId ? ' data-here="true"' : "") +
-        (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
-        '<div class="cn-rails" data-key="rails-' + esc(p.id) + '">' + rails + "</div>" +
-        '<div class="cn-vote" data-key="vote-' + esc(p.id) + '">' +
-        '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(p.id) + '"' +
+        (key === keyboardId ? ' data-here="true"' : "") +
+        (String(key).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
+        '<div class="cn-rails" data-key="rails-' + esc(key) + '">' + rails + "</div>" +
+        '<div class="cn-vote" data-key="vote-' + esc(key) + '">' +
+        '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(key) + '"' +
         ' aria-pressed="' + (myVote === 1) + '" aria-keyshortcuts="u" aria-label="Upvote">+</button>' +
         '<span class="cn-score" data-score="' + (sc > 0 ? "pos" : sc < 0 ? "neg" : "zero") + '">' +
         sc + "</span>" +
-        '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(key) + '"' +
         ' aria-pressed="' + (myVote === -1) + '" aria-keyshortcuts="d" aria-label="Downvote">-</button>' +
         "</div>" +
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
         foldCtl +
-        '<span data-c="actor"><b data-c="handle">' + esc(p.who) + "</b>" +
+        '<span data-c="actor"><b data-c="handle">' + esc(tombstone ? "unavailable" : p.who) + "</b>" +
         '<span data-c="role">' + esc(member.role) + "</span></span>" +
         '<span class="cn-head-sep" aria-hidden="true">|</span>' +
         '<span data-c="meta"><time data-c="time">' + esc(p.at) + "</time>" +
         '<span class="cn-head-sep" aria-hidden="true">|</span>' +
-        '<span data-c="state">' + esc(p.state) + "</span></span>" +
+        '<span data-c="state">' + esc(tombstone ? tombstone.reason : p.state) + "</span></span>" +
         "</header>" +
-        (p.subject ? '<div class="cn-subject">' + esc(p.subject) + "</div>" : "") +
-        '<div class="cn-comment-body">' + formatBody(p.body) + "</div>" +
+        (p.subject && !tombstone ? '<div class="cn-subject">' + esc(p.subject) + "</div>" : "") +
+        '<div class="cn-comment-body">' + (tombstone
+          ? esc("Unavailable ancestor: " + (tombstone.reason || "unavailable"))
+          : formatBody(p.body)) + "</div>" +
         (p.anchor ? '<div data-c="anchor" class="cn-anchor">-&gt; ' + esc(p.anchor) + "</div>" : "") +
         '<div data-c="receipt" class="cn-receipt">' +
         '<span class="cn-sigil" aria-hidden="true">' + window.NB_ASCII.sigil(p.sig, 4) + "</span>" +
         '<span class="cn-sig-text">' + esc(p.sig) + "</span></div>" +
-        '<div class="cn-actions">' +
-        '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '"' +
+        (!tombstone ? '<div class="cn-actions">' +
+        '<button type="button" class="cn-act" data-reply="' + esc(key) + '"' +
         ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
-        '<button type="button" class="cn-act" data-repost="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-act" data-repost="' + esc(key) + '"' +
         ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
         (reposted ? "reposted" : "repost") + '</button>' +
-        '<button type="button" class="cn-act" data-share data-share-post="' + esc(p.id) + '"' +
-        ' aria-keyshortcuts="s" title="Share (s)">share</button>' +
-        '<button type="button" class="cn-act" data-copy-post="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(key) + '"' +
+        ' aria-keyshortcuts="s" title="Share contextual link (s)">share contextual</button>' +
+        '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(key) +
+        '" title="Copy canonical link">copy canonical</button>' +
+        ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
+          esc(key) + '" title="Copy exact revision link">copy exact revision</button>' : "") +
+        '<button type="button" class="cn-act" data-copy-post="' + esc(key) + '"' +
         ' aria-keyshortcuts="y" title="Copy this thread in an optimized paste format (y)">copy</button>' +
         (isFolded && below
-          ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(p.id) + '">' +
+          ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(key) + '">' +
             below + (below === 1 ? " more" : " more") + "</button>"
           : "") +
         "</div>" +
-        renderReactions(p.id, p, reactions, reactPick === p.id) +
-        "</div></article>";
+        renderReactions(key, p, reactions, reactPick === key) : "") +
+        "</div>" + (isThread ? "" : "</article>");
 
       if (replies.length && !isFolded) {
-        html += '<div class="cn-replies" data-key="re-' + esc(p.id) + '">' +
-          replies.map(function (c) {
-            return nodeHtml(c, depth + 1, ancestors.concat([p]));
+        html += '<div class="cn-replies"' + (isThread ? ' role="group"' : "") +
+          ' data-key="re-' + esc(key) + '">' +
+          replies.map(function (c, index) {
+            return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
           }).join("") + "</div>";
       }
+      if (isThread) html += "</article>";
       return html;
     }
 
-    var sortedRoots = sortPosts(roots, sort, votes);
-    if (!keyboardId && sortedRoots[0]) keyboardId = sortedRoots[0].id;
+    if (!keyboardId && sortedRoots[0]) keyboardId = objectIdOf(sortedRoots[0]);
     var matchNote = "";
     if (queryInfo && feedQuery && !queryInfo.error) {
       matchNote = '<div class="cn-feed-match" data-key="feed-match">' +
@@ -497,11 +601,21 @@
       matchNote = '<div class="cn-feed-match cn-feed-err" data-key="feed-match">' +
         "query error: " + esc(queryInfo.error) + "</div>";
     }
-    return matchNote +
-      '<div class="cn-tree" role="feed" aria-label="Channel messages" data-feed-sort="' + esc(sort) + '"' +
+    var tree = '<div class="cn-tree' + (opts.threadOf ? " cn-thread-tree" : "") + '" role="' +
+      (opts.threadOf ? "tree" : "feed") + '" aria-label="' +
+      (opts.threadOf ? "Thread outline" : "Channel messages") + '"' +
+      (!opts.threadOf ? ' aria-busy="' + !!(window.NB_APP && window.NB_APP.state &&
+        window.NB_APP.state.feedBusy) + '"' : "") + ' data-feed-sort="' + esc(sort) + '"' +
       (feedQuery ? ' data-query="true"' : "") + ">" +
-      sortedRoots.map(function (p) { return nodeHtml(p, 0, []); }).join("") +
+      sortedRoots.map(function (p, index) {
+        return nodeHtml(p, 0, [], index + 1, sortedRoots.length);
+      }).join("") +
       "</div>";
+    if (opts.threadOf) {
+      return matchNote + '<div class="cn-thread-layout">' + tree +
+        readingHtml(byId[keyboardId] || byId[opts.threadOf] || sortedRoots[0]) + '</div>';
+    }
+    return matchNote + tree;
   }
 
   /**
@@ -2499,6 +2613,23 @@
 
   /* ── The experience ────────────────────────────────────────────────────── */
 
+  function renderCandidateRows(candidates, activeIndex) {
+    var previousGroup = null;
+    return (candidates || []).slice(0, 40).map(function (c, i) {
+      var activeCandidate = i === activeIndex && activeIndex >= 0;
+      var group = c.group || null;
+      var heading = group && group !== previousGroup
+        ? '<div class="cn-cand-group" role="presentation" aria-hidden="true">' + esc(group) + "</div>"
+        : "";
+      previousGroup = group;
+      return heading + '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
+        (c.kind ? ' data-cand-kind="' + esc(c.kind) + '"' : "") +
+        ' aria-selected="' + (activeCandidate ? "true" : "false") + '"' +
+        (activeCandidate ? ' data-active="true"' : "") + ">" +
+        "<span>" + esc(c.label || c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
+    }).join("");
+  }
+
   var CONSOLE = {
     id: "console",
     name: "Console",
@@ -2908,6 +3039,34 @@
     [data-exp="console"] .cn-comment[data-state-of=promoted] .cn-comment-head [data-c=state]{color:var(--nb-accent)}
     [data-exp="console"] .cn-comment[data-state-of=signed] .cn-comment-head [data-c=state]{color:var(--nb-signed)}
     [data-exp="console"] .cn-comment[data-kind=agent] [data-c=handle]{color:var(--nb-agent)}
+
+    /* Thread is an APG tree outline synchronized with a readable article. */
+    [data-exp="console"] .cn-thread-layout{display:grid;grid-template-columns:minmax(12rem,34%) minmax(0,1fr);
+      min-width:0;min-height:0;align-items:start}
+    [data-exp="console"] .cn-thread-tree{min-width:0;border-inline-end:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-thread-tree .cn-comment{grid-template-columns:auto minmax(0,1fr);
+      min-height:2rem;padding:.2rem .45rem .2rem .15rem}
+    [data-exp="console"] .cn-thread-tree .cn-comment > .cn-vote,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-comment-body,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-receipt,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-actions,
+    [data-exp="console"] .cn-thread-tree .cn-comment .cn-reactions{display:none}
+    [data-exp="console"] .cn-thread-tree .cn-comment-head{font-size:.85em}
+    [data-exp="console"] .cn-thread-tree .cn-subject{font-size:.85em;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap}
+    [data-exp="console"] .cn-thread-tree [role=treeitem][aria-selected=true]{background:var(--nb-surface);
+      box-shadow:inset 2px 0 0 var(--nb-accent)}
+    [data-exp="console"] .cn-thread-tree [role=treeitem][data-tombstone=true]{color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-thread-reading{min-width:0;padding:.55rem .7rem .8rem}
+    [data-exp="console"] .cn-reading-article{display:grid;gap:.35rem;min-width:0;max-width:76ch}
+    [data-exp="console"] .cn-reading-article:focus-visible{outline:2px solid var(--nb-accent);outline-offset:2px}
+    [data-exp="console"] .cn-reading-article[data-tombstone=true]{color:var(--nb-ink-faint)}
+    @media (max-width:52rem){
+      [data-exp="console"] .cn-thread-layout{grid-template-columns:minmax(0,1fr)}
+      [data-exp="console"] .cn-thread-tree{border-inline-end:0;border-block-end:1px solid var(--nb-rule);
+        max-height:42vh;overflow:auto}
+      [data-exp="console"] .cn-thread-reading{padding:.5rem .55rem .75rem}
+    }
 
     /* Nest rails: literal | columns — no rounded bars. */
     [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0}
@@ -3644,9 +3803,11 @@
       overflow-wrap:break-word}
     [data-exp="console"] .cn-cand{display:grid;grid-template-columns:minmax(0,14rem) minmax(0,1fr);gap:.8rem;
       padding:.18rem .8rem;cursor:pointer}
-    [data-exp="console"] .cn-cand[aria-current=true]{background:var(--nb-accent);color:var(--nb-accent-ink)}
+    [data-exp="console"] .cn-cand-group{padding:.35rem .8rem .12rem;color:var(--nb-accent);
+      font-size:.72em;font-weight:700;letter-spacing:.1em;border-block-start:1px solid var(--nb-rule)}
+    [data-exp="console"] .cn-cand[data-active=true]{background:var(--nb-accent);color:var(--nb-accent-ink)}
     [data-exp="console"] .cn-cand i{font-style:normal;color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-cand[aria-current=true] i{color:inherit;opacity:.8}
+    [data-exp="console"] .cn-cand[data-active=true] i{color:inherit;opacity:.8}
     [data-exp="console"] .cn-prompt{display:flex;align-items:center;gap:.4rem;padding:.35rem .8rem;
       border-block-start:1px solid var(--nb-rule);background:var(--nb-bg)}
     [data-exp="console"] .cn-prompt-stack[data-drop=true] .cn-prompt{
@@ -3660,12 +3821,12 @@
     [data-exp="console"] .cn-mode[aria-pressed=true]::before,
     [data-exp="console"] .cn-mode[aria-pressed=true]::after{color:var(--nb-bg)}
     /* File attach for chat context — paperclip next to the prompt. */
-    [data-exp="console"] .cn-attach{font:inherit;background:none;border:0;
+    [data-exp="console"] .cn-attach,[data-exp="console"] .cn-jump{font:inherit;background:none;border:0;
       color:var(--nb-ink-dim);cursor:pointer;padding:0 .05rem;min-height:1.5rem;min-width:1.5rem;
       border-radius:0;line-height:1;flex:none}
-    [data-exp="console"] .cn-attach::before{content:"[";color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-attach::after{content:"]";color:var(--nb-ink-faint)}
-    [data-exp="console"] .cn-attach:hover{color:var(--nb-ink);text-decoration:underline}
+    [data-exp="console"] .cn-attach::before,[data-exp="console"] .cn-jump::before{content:"[";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach::after,[data-exp="console"] .cn-jump::after{content:"]";color:var(--nb-ink-faint)}
+    [data-exp="console"] .cn-attach:hover,[data-exp="console"] .cn-jump:hover{color:var(--nb-ink);text-decoration:underline}
     [data-exp="console"] .cn-attach[data-count]:not([data-count="0"]){color:var(--nb-accent)}
     [data-exp="console"] .cn-attach[data-count]:not([data-count="0"])::before,
     [data-exp="console"] .cn-attach[data-count]:not([data-count="0"])::after{color:var(--nb-accent)}
@@ -3835,6 +3996,9 @@
       [data-exp="console"] .cn-activity-filter,[data-exp="console"] .cn-feed-q-btn{min-height:2.25rem;padding-inline:.2rem}
       [data-exp="console"] .cn-crumb{min-height:2.25rem;padding-inline:.45rem}
       [data-exp="console"] .cn-cand{min-height:2.5rem;align-items:center}
+      [data-exp="console"] .cn-thread-tree [role=treeitem],
+      [data-exp="console"] .cn-thread-reading button,
+      [data-exp="console"] .cn-prompt button{min-height:2rem;min-width:2rem}
       [data-exp="console"] .cn-path{gap:.25rem}
       [data-exp="console"] .cn-panel-act,[data-exp="console"] .cn-pane-act{min-width:2.25rem;min-height:2.25rem}
       [data-exp="console"] .cn-panel-tab{min-height:2.25rem}
@@ -3891,7 +4055,7 @@
           preview = renderVoiceRoom(selected.channel, state);
         } else {
           var chFeed = detailFeedEntries(chPreviewPath, extra);
-          var chMark = state.threadFocus || state.feedMark || null;
+          var chMark = state.feedMark || state.threadFocus || null;
           var chEdPost = state.editor && state.editor.focused && state.editor.active
             ? chFeed.find(function (e) {
               return e.post && state.editor.active.path === MAP.resolve(chPreviewPath, e.name);
@@ -3900,7 +4064,7 @@
           if (chEdPost) {
             preview = viewFileEditor(chEdPost, state.editor.active.path, state);
           } else if (state.threadFocus) {
-            preview = viewTree(chFeed, state.threadFocus, state.folded, sort, votes,
+            preview = viewTree(chFeed, state.feedMark || state.threadFocus, state.folded, sort, votes,
               state.reactions, state.reposts, state.reactPick, null, { threadOf: state.threadFocus });
           } else {
             preview = viewTree(chFeed, chMark, state.folded, sort, votes,
@@ -3961,7 +4125,7 @@
           MAP.channelFeedPath ? MAP.channelFeedPath(path) : path,
           extra,
         );
-        var insideMark = state.threadFocus || state.feedMark || null;
+        var insideMark = state.feedMark || state.threadFocus || null;
         var edPost = state.editor && state.editor.focused && state.editor.active
           ? insideFeed.find(function (e) {
             return e.post && state.editor.active.path === MAP.resolve(path, e.name);
@@ -4098,13 +4262,7 @@
         : ('<div class="cn-menu-head" data-key="menu-head">' +
           (intel ? "Intellisense" : "Suggestions") +
           (menuLabel ? " · " + esc(menuLabel) : "") + "</div>" +
-        cand.candidates.slice(0, 40).map(function (c, i) {
-          return '<div class="cn-cand" role="option" id="cn-cand-' + i + '" data-cand="' + i + '"' +
-            (c.kind ? ' data-cand-kind="' + esc(c.kind) + '"' : "") +
-            ' aria-selected="' + (i === (state.candIndex || 0) ? "true" : "false") + '"' +
-            (i === (state.candIndex || 0) ? ' aria-current="true"' : "") + ">" +
-            "<span>" + esc(c.label || c.value) + "</span><i>" + esc(c.hint || "") + "</i></div>";
-        }).join(""));
+        renderCandidateRows(cand.candidates, state.candIndex));
 
       var panes = state.panes || {
         c0: 15, c1: 20, mc0: false, mc1: false, zoom: false,
@@ -4206,10 +4364,13 @@
         ' role="combobox" aria-autocomplete="list" aria-haspopup="listbox"' +
         ' aria-expanded="' + (menuOpen ? "true" : "false") + '"' +
         ' aria-controls="cn-cli-listbox"' +
-        (menuOpen && cand.candidates.length
-          ? ' aria-activedescendant="cn-cand-' + (state.candIndex || 0) + '"'
+        (menuOpen && cand.candidates.length && state.candIndex >= 0
+          ? ' aria-activedescendant="cn-cand-' + state.candIndex + '"'
           : "") +
         ' aria-label="Command and compose input"></span>' +
+        '<button type="button" class="cn-jump" data-action-id="jump.interactive"' +
+        ' data-action-terms="" title="Global jump chooser (Ctrl+J)"' +
+        ' aria-label="Open global jump chooser">jump</button>' +
         '<button type="button" class="cn-attach" data-attach-pick' +
         ' data-count="' + ((state.attachments || []).length) + '"' +
         ' title="Attach files for chat context — click, drop, or paste" aria-label="Attach files">' +
@@ -4282,6 +4443,7 @@
     DEFAULT_SORTS: DEFAULT_SORTS,
     visibleFeedViews: visibleFeedViews,
     isFeedSortContext: isFeedSortContext,
+    renderCandidateRows: renderCandidateRows,
   };
   window.NB_TRANSCRIPT = { render: renderTranscript };
   window.NB_HELP = {

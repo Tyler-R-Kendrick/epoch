@@ -82,6 +82,46 @@ Feature: Community Web community-first experience
     Then focus and selection remain in the same panel context
 
   @persona.github_open_source_contributor
+  Scenario: Contributor shares one message with stable context choices
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open one Nightboard message from its channel projection
+    Then canonical contextual and exact links identify the same message without private content
+
+  @persona.maintainer
+  Scenario: Maintainer reopens a durable saved query projection
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I save and reopen the Nightboard needs-review view
+    Then the saved view keeps its identity normalized query and canonical message state
+
+  @persona.screen_reader_power_user
+  Scenario: Screen-reader power user traverses explicit reply ancestry
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I traverse a Nightboard thread outline with tree keys
+    Then the thread outline and reading pane report the same selected object and topology
+
+  @persona.slack_power_user
+  Scenario: Power user distinguishes namespace ascent thread ancestry and history
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I invoke namespace parent thread parent browser back and previous location
+    Then each Nightboard navigation operation reports its distinct action and outcome
+
+  @persona.slack_power_user
+  Scenario: Power user chooses global jump without weakening deterministic cd
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I compare ambiguous cd with the Nightboard global jump chooser
+    Then cd stays put while jump candidates await explicit acceptance with reasons
+
+  @persona.github_open_source_contributor
   Scenario: Contributor opens a community and sees community-owned channels first
     Given the Community Web live API has repository activity
     When I open the Community Web channel experience

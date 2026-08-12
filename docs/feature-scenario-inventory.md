@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 4 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 29 |
+| `features/community_web_experience.feature` | 34 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -69,6 +69,11 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator consumes compatible startup conditions with one restart | None | 0 |
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator keeps model routing sticky within a workspace | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | App builder uses deterministic HoBo authoring and focused-panel controls | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor shares one message with stable context choices | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reopens a durable saved query projection | None | 0 |
+| `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader power user traverses explicit reply ancestry | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user distinguishes namespace ascent thread ancestry and history | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user chooses global jump without weakening deterministic cd | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor opens Network Feed for cross-community discovery | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer switches communities and gets a new channel list | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer promotes a community idea into an intent | None | 0 |

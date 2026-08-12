@@ -144,6 +144,17 @@ Acceptance criteria:
 - Community Web has one runtime: the CanvasUI creator landing at `/` and the
   tmux-style, keyboard-first Nightboard at `/board.html`; local and Vercel
   entrypoints serve those same files.
+- Community objects keep stable opaque IDs while channel, thread, DM, Activity,
+  search, saved-query, project, and filesystem-like projections provide
+  contextual locations over one explicit relation graph.
+- Nightboard uses a hierarchical navigator + detail blade; exact namespace,
+  reply ancestry, browser history, previous shell location, and top-layer
+  cancellation remain separately invokable and testable.
+- Canonical, contextual, and exact HTTPS links contain stable references rather
+  than private content, and legacy locators migrate without losing work.
+- Keyboard, pointer, CLI, slash, voice, macros, and WebMCP resolve through one
+  permissioned action registry; feed, thread tree, and prompt completion follow
+  their WAI-ARIA interaction contracts.
 - The historical document renderer has no local or production route.
 - Community Core and API are covered by Pact contract tests for their HTTP
   boundary.

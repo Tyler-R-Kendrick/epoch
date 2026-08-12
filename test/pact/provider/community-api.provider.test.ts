@@ -35,6 +35,18 @@ export async function runCommunityApiProviderVerification(): Promise<void> {
     commentOnIssue: (slug, issueId, input) => state.api.commentOnIssue(slug, issueId, input),
     proposeChange: (slug, input) => state.api.proposeChange(slug, input),
     reviewChange: (slug, proposalId, input) => state.api.reviewChange(slug, proposalId, input),
+    getObject: (objectId, authorization) => state.api.getObject(objectId, authorization),
+    updateObjectState: (objectId, objectState, authorization) => state.api.updateObjectState(objectId, objectState, authorization),
+    listThreadRelations: (objectId, authorization) => state.api.listThreadRelations(objectId, authorization),
+    listProjections: (authorization) => state.api.listProjections(authorization),
+    getProjection: (projectionId, authorization) => state.api.getProjection(projectionId, authorization),
+    saveProjection: (input, authorization) => state.api.saveProjection(input, authorization),
+    deleteProjection: (projectionId, authorization) => state.api.deleteProjection(projectionId, authorization),
+  }, {
+    resolveAuthorization: () => ({
+      actorId: "pact-provider",
+      permissions: ["object:state:write"],
+    }),
   });
 
   const server = await startFetchHandlerServer(handler);
@@ -54,6 +66,9 @@ export async function runCommunityApiProviderVerification(): Promise<void> {
         "community workflows are available": async () => {
           state.api = createInMemoryCommunityApi();
         },
+        "community object m-pact exists": async () => {
+          state.api = seededObjectApi();
+        },
       },
     }).verifyProvider();
   } finally {
@@ -61,6 +76,23 @@ export async function runCommunityApiProviderVerification(): Promise<void> {
   }
 
   assert.ok(true, "Community API provider verification completed");
+}
+
+function seededObjectApi(): CommunityApiTransport {
+  const ref = { objectId: "m-pact", kind: "message" as const };
+  return createInMemoryCommunityApi({
+    messages: [{
+      ref,
+      context: { objectId: "channel-general", kind: "channel" },
+      authorId: "alice",
+      body: "Pact object",
+      publishedAt: "2026-08-11T00:00:00.000Z",
+      threadRoot: ref,
+      relations: [],
+      state: "read",
+      aliases: ["pact-object"],
+    }],
+  });
 }
 
 function seededApi(): CommunityApiTransport {

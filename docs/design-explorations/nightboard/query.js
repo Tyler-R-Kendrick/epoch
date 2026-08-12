@@ -92,132 +92,28 @@
   }
 
   function parse(input) {
-    var tokens = tokenize(input);
-    var pos = 0;
-    function peek() { return tokens[pos]; }
-    function take(type) {
-      if (peek().type === type) { var t = tokens[pos]; pos += 1; return t; }
-      return null;
-    }
-    function expect(type) {
-      var t = take(type);
-      if (!t) throw new Error("expected " + type + " near " + (peek().value || "end"));
-      return t;
-    }
-
-    function parseOr() {
-      var left = parseAnd();
-      while (peek().type === "OR") {
-        take("OR");
-        left = { op: "or", left: left, right: parseAnd() };
-      }
-      return left;
-    }
-
-    function parseAnd() {
-      var left = parseNot();
-      while (true) {
-        if (peek().type === "OR" || peek().type === "RPAREN" || peek().type === "EOF") break;
-        if (peek().type === "AND") take("AND");
-        // Juxtaposition = AND, but stop if next would be invalid.
-        if (peek().type === "EOF" || peek().type === "RPAREN") break;
-        // If next is OR-level only, break handled above.
-        left = { op: "and", left: left, right: parseNot() };
-      }
-      return left;
-    }
-
-    function parseNot() {
-      if (peek().type === "NOT") {
-        take("NOT");
-        return { op: "not", node: parseNot() };
-      }
-      return parsePrimary();
-    }
-
-    function parsePrimary() {
-      if (take("LPAREN")) {
-        var inner = parseOr();
-        expect("RPAREN");
-        return inner;
-      }
-      // field:value  or  field:(group)
-      if (peek().type === "WORD") {
-        var word = take("WORD").value;
-        if (take("COLON")) {
-          var field = word.toLowerCase();
-          if (take("LPAREN")) {
-            var group = parseOr();
-            expect("RPAREN");
-            return { op: "field_group", field: field, node: group };
-          }
-          if (peek().type === "PHRASE") {
-            return { op: "field", field: field, value: take("PHRASE").value, phrase: true };
-          }
-          if (peek().type === "WORD") {
-            return { op: "field", field: field, value: take("WORD").value, phrase: false };
-          }
-          // field: with missing value — treat as bare field name presence
-          return { op: "field", field: field, value: "*", phrase: false };
-        }
-        return { op: "term", value: word, phrase: false };
-      }
-      if (peek().type === "PHRASE") {
-        return { op: "term", value: take("PHRASE").value, phrase: true };
-      }
-      throw new Error("unexpected token: " + (peek().value || peek().type));
-    }
-
-    if (peek().type === "EOF") {
-      return { ast: null, sort: null, error: null };
-    }
-    try {
-      var ast = parseOr();
-      if (peek().type !== "EOF") {
-        // leftover
-        throw new Error("unexpected trailing input: " + peek().value);
-      }
-      var extracted = extractSort(ast);
-      return { ast: extracted.ast, sort: extracted.sort, error: null };
-    } catch (e) {
-      return { ast: null, sort: null, error: e.message || String(e) };
-    }
+    var normalized = window.NB_CORE.normalizeQuery(String(input || ""));
+    return Object.assign({}, normalized, { error: normalized.error || null });
   }
 
-  /** Pull sort:… clauses out of the AST (they order, not filter). */
-  function extractSort(ast) {
-    if (!ast) return { ast: null, sort: null };
-    if (ast.op === "field" && ast.field === "sort") {
-      var s = String(ast.value || "").toLowerCase();
-      return { ast: null, sort: SORTS.indexOf(s) >= 0 ? s : null };
-    }
-    if (ast.op === "and") {
-      var L = extractSort(ast.left);
-      var R = extractSort(ast.right);
-      var sort = L.sort || R.sort;
-      if (!L.ast) return { ast: R.ast, sort: sort };
-      if (!R.ast) return { ast: L.ast, sort: sort };
-      return { ast: { op: "and", left: L.ast, right: R.ast }, sort: sort };
-    }
-    if (ast.op === "or") {
-      var Lo = extractSort(ast.left);
-      var Ro = extractSort(ast.right);
-      // sort on either side — prefer left then right
-      var sortO = Lo.sort || Ro.sort;
-      if (!Lo.ast && !Ro.ast) return { ast: null, sort: sortO };
-      if (!Lo.ast) return { ast: Ro.ast, sort: sortO };
-      if (!Ro.ast) return { ast: Lo.ast, sort: sortO };
-      return { ast: { op: "or", left: Lo.ast, right: Ro.ast }, sort: sortO };
-    }
-    if (ast.op === "not") {
-      var inner = extractSort(ast.node);
-      if (!inner.ast) return { ast: null, sort: inner.sort };
-      return { ast: { op: "not", node: inner.ast }, sort: inner.sort };
-    }
-    return { ast: ast, sort: null };
-  }
+  function normalize(input) { return parse(input); }
 
   function lower(s) { return String(s == null ? "" : s).toLowerCase(); }
+
+  function canViewPost(post, ctx) {
+    ctx = ctx || {};
+    var viewer = ctx.viewer || {};
+    return window.NB_CORE.canReadCommunityResource({
+      kind: post && post.dm ? "dm" : "message",
+      resourceId: post && post.dm ? post.dm : String(post && post.id || "unknown"),
+      visibility: post && post.dm ? "private" : "public",
+      participantIds: post && Array.isArray(post.participantIds) ? post.participantIds : [],
+    }, viewer);
+  }
+
+  function authorizedPosts(posts, ctx) {
+    return (posts || []).filter(function (post) { return canViewPost(post, ctx); });
+  }
 
   function contains(hay, needle, phrase) {
     hay = lower(hay);
@@ -311,8 +207,7 @@
         // Handled by extractSort — never filters.
         return true;
       default:
-        // Unknown field: search as text in that named property if present.
-        return contains(post[field] || "", value, phrase);
+        return false;
     }
   }
 
@@ -376,14 +271,15 @@
    */
   function apply(posts, query, ctx) {
     ctx = ctx || {};
+    var visible = authorizedPosts(posts, ctx);
     var parsed = parse(query);
     if (parsed.error) {
-      return { posts: posts.slice(), sort: null, error: parsed.error, query: query };
+      return { posts: visible, sort: null, error: parsed.error, query: query };
     }
     var sort = parsed.sort || null;
-    var filtered = posts;
+    var filtered = visible;
     if (parsed.ast) {
-      filtered = posts.filter(function (p) { return evalNode(p, parsed.ast, ctx); });
+      filtered = visible.filter(function (p) { return evalNode(p, parsed.ast, ctx); });
     }
     return { posts: filtered, sort: sort, error: null, query: query, ast: parsed.ast };
   }
@@ -611,13 +507,13 @@
    * Every searchable post across community channels, project rooms, DMs, and
    * live merged traffic — de-duplicated by id.
    */
-  function collectCorpus(extra) {
+  function collectCorpus(extra, ctx) {
     var D = window.NB_DATA || {};
     var MAP = window.NB_MAP;
     var seen = {};
     var out = [];
     function add(p, where) {
-      if (!p || !p.id || seen[p.id]) return;
+      if (!p || !p.id || seen[p.id] || !canViewPost(p, ctx)) return;
       seen[p.id] = true;
       var copy = Object.assign({}, p);
       if (where) copy._where = where;
@@ -644,9 +540,11 @@
   }
 
   /** Directory / room hits for free-text terms (channels, projects, spaces, DMs). */
-  function pathHits(terms, extra) {
+  function pathHits(terms, extra, ctx) {
     if (!terms || !terms.length || !window.NB_MAP || !window.NB_COMPLETE) return [];
     var MAP = window.NB_MAP;
+    var viewer = ctx && ctx.viewer || {};
+    var readableDmIds = viewer.actorId ? viewer.readableDmIds || [] : [];
     var score = window.NB_COMPLETE.score;
     var hits = [];
     var seen = {};
@@ -664,7 +562,9 @@
       hits.push({ type: "path", path: path, name: name, kind: kind, hint: hint || "", score: best });
     }
     ["/projects", "/members", "/spaces", "/dms"].forEach(function (root) {
+      if (root === "/dms" && !viewer.actorId) return;
       (MAP.list(root, extra) || []).forEach(function (e) {
+        if (root === "/dms" && readableDmIds.indexOf(e.name) === -1) return;
         consider(root + "/" + e.name, e.name, e.kind || "dir", e.hint || "");
         if (e.kind === "dir") {
           (MAP.list(root + "/" + e.name, extra) || []).forEach(function (f) {
@@ -706,7 +606,7 @@
     if (!q || q === "help" || q === "?") {
       return { hits: [], error: null, query: q, help: true, matched: 0 };
     }
-    var corpus = collectCorpus(ctx.extra);
+    var corpus = collectCorpus(ctx.extra, ctx);
     var applied = apply(corpus, q, ctx);
     if (applied.error) {
       return { hits: [], error: applied.error, query: q, matched: 0 };
@@ -725,7 +625,7 @@
       };
     });
     var terms = freeTermsFromAst(applied.ast);
-    var paths = pathHits(terms.length ? terms : needles, ctx.extra);
+    var paths = pathHits(terms.length ? terms : needles, ctx.extra, ctx);
     // Prefer post hits; interleave a few path hits that are not already covered.
     var covered = {};
     postHits.forEach(function (h) { covered[h.where] = true; });
@@ -912,6 +812,7 @@
 
   window.NB_QUERY = {
     parse: parse,
+    normalize: normalize,
     apply: apply,
     filterEntries: filterEntries,
     presets: presets,
@@ -929,6 +830,7 @@
     SORTS: SORTS,
     DEFAULT_SORTS: DEFAULT_SORTS,
     PRESET_VIEWS: PRESET_VIEWS,
+    VERSION: window.NB_CORE.QUERY_LANGUAGE_VERSION,
     tokenize: tokenize,
   };
 })();

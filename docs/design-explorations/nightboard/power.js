@@ -27,7 +27,10 @@
         if (!commands.length || commands.some(function (line) { return !knownCommand(line); }) ||
             (voice && voices[voice])) return;
         if (voice) voices[voice] = true;
-        actions[name] = { name: name, commands: commands, voice: voice };
+        try {
+          var migrated = window.NB_ACTIONS.migrateMacro({ commands: commands });
+          actions[name] = { name: name, commands: commands, actionIds: migrated.actionIds, voice: voice };
+        } catch { /* unknown or unsafe legacy action stays fail-closed */ }
       });
     } catch { /* private storage / malformed prior value: start empty */ }
   }
@@ -39,25 +42,43 @@
   function list() {
     return Object.keys(actions).sort().map(function (name) {
       var item = actions[name];
-      return { name: item.name, commands: item.commands.slice(), voice: item.voice || "" };
+      return { name: item.name, commands: item.commands.slice(), actionIds: item.actionIds.slice(), voice: item.voice || "" };
     });
   }
 
   function knownCommand(line) {
     var first = String(line || "").trim().split(/\s+/)[0];
     if (!first || first === "macro" || first === "skill") return false;
-    return !!(window.NB_COMPLETE && window.NB_COMPLETE.COMMANDS.some(function (cmd) {
-      return cmd.name === first;
-    }));
+    return !!(window.NB_ACTIONS &&
+      (window.NB_ACTIONS.resolve("cli", first) || window.NB_ACTIONS.resolve("slash", first)));
   }
 
   function run(name) {
     var item = actions[name];
     if (!item) return { ok: false, text: "macro: no such action: " + name };
-    if (!runtime || typeof runtime.run !== "function") return { ok: false, text: "macro: runtime not ready" };
-    item.commands.forEach(function (line) { runtime.run(line, { silentUser: true }); });
-    return { ok: true, text: "macro " + name + " ran " + item.commands.length + " command" +
-      (item.commands.length === 1 ? "" : "s") };
+    if (!runtime || !window.NB_ACTIONS) return { ok: false, text: "macro: runtime not ready" };
+    var completion = item.actionIds.reduce(function (prior, actionId, index) {
+      return prior.then(function () {
+        var descriptor = window.NB_ACTIONS.get(actionId);
+        if (!descriptor) throw new Error("macro: unknown action: " + actionId);
+        var original = String(item.commands[index] || "").trim();
+        var surface = original.charAt(0) === "/" ? "slash" : "cli";
+        var aliases = surface === "slash" ? descriptor.slashAliases : descriptor.commandAliases;
+        var alias = aliases && aliases[0];
+        if (!alias) throw new Error("macro: action is no longer available through " + surface + ": " + actionId);
+        var arg = original.split(/\s+/).slice(1).join(" ");
+        return window.NB_ACTIONS.invoke(actionId, {
+          line: alias + (arg ? " " + arg : ""), arg: arg, surface: surface,
+          path: actionId === "nav.enter" ? arg : undefined,
+        }, { origin: "macro", context: "board" });
+      });
+    }, Promise.resolve());
+    return {
+      ok: true,
+      completion: completion,
+      text: "macro " + name + " ran " + item.commands.length + " command" +
+        (item.commands.length === 1 ? "" : "s"),
+    };
   }
 
   function register(name) {
@@ -70,6 +91,7 @@
       inputSchema: { type: "object", properties: {} },
       execute: async function () {
         var result = run(name);
+        if (result.completion) await result.completion;
         return result.ok ? window.NB_MCP.text(result.text) : window.NB_MCP.fail(result.text);
       },
     });
@@ -87,7 +109,10 @@
     var unknown = commands.find(function (line) { return !knownCommand(line); });
     if (unknown) return { ok: false, text: "macro: unknown command: " + unknown.split(/\s+/)[0] };
     var voice = actions[name] ? actions[name].voice : "";
-    actions[name] = { name: name, commands: commands, voice: voice };
+    var migrated;
+    try { migrated = window.NB_ACTIONS.migrateMacro({ commands: commands }); }
+    catch (error) { return { ok: false, text: error.message }; }
+    actions[name] = { name: name, commands: commands, actionIds: migrated.actionIds, voice: voice };
     write();
     register(name);
     return { ok: true, text: "macro " + name + " saved · " + commands.join("; ") };
@@ -133,7 +158,13 @@
     var del = /^(?:delete|remove|rm)\s+(\S+)$/i.exec(text);
     if (del) return remove(del[1]);
     var call = /^(?:run\s+)?(\S+)$/i.exec(text);
-    if (call) return run(call[1].toLowerCase());
+    if (call) {
+      var result = run(call[1].toLowerCase());
+      if (result.completion) result.completion.catch(function (error) {
+        if (runtime && typeof runtime.status === "function") runtime.status(error.message || String(error));
+      });
+      return result;
+    }
     return { ok: false, text: "macro: set <name> = <commands> | voice <name> = <phrase> | run <name> | delete <name> | list" };
   }
 

@@ -9,6 +9,47 @@
 window.NB_DATA = {
   board: { name: "EPOCH CIVIC WORKSHOP", node: "node 1 of 1", epoch: 13, landed: 9, total: 12, ships: "FRI 17:00" },
 
+  /** Frozen compatibility aliases from the pre-object-ID namespace. */
+  legacyPostAliases: {
+    p1: "001-lea-every-cold-install-her", p2: "002-nora-reproduced-on-a-clean",
+    p3: "003-scout-drafted-a-plan-to-spli", p4: "004-maya-promoted-this-thread-t",
+    p5: "005-sam-as-the-person-who-comp", s1: "001-lea-offline-shelf-drawn-o",
+    sc2: "002-sam-board-running-on-the-b", i1: "001-nora-agent-runs-should-link",
+    id2: "002-lea-plain-words-mode-for-a", b1: "001-sam-composer-loses-the-dra",
+    bg2: "002-nora-draft-loss-reproduced", su1: "001-sam-does-the-offline-shelf",
+    su2: "002-nora-yes-the-shelf-is-loc", su3: "003-maya-captured-that-answer-i",
+    ar1: "001-ui-reviewer-contrast-sweep-across", ar2: "002-patcher-draft-persistence-per",
+    pv1: "001-lea-preview-of-the-install", pv2: "002-maya-signed-off-on-the-prev",
+    gv1: "001-maya-agents-may-propose-ne", gv2: "002-nora-acknowledged-worth-pu",
+    "t-i1": "001-nora-cache-key-includes-the", "t-c1": "001-scout-change-12-split-the",
+    "t-c2": "002-maya-approved-and-signed", "t-r1": "001-maya-v0-2-0",
+    "k-i1": "001-sam-composer-loses-the-draft-kit", "k-c1": "001-patcher-change-04-draft-pers",
+    "dm-s1": "001-you-can-you-split-the-cach", "dm-s2": "002-scout-yes-plan-key-on-the",
+    "dm-s3": "003-you-scoped-to-ci-config-on", "dm-s4": "004-scout-change-12-drafted",
+    "dm-m1": "001-maya-scout-s-plan-looks-sol", "dm-m2": "002-you-will-do-after-nora-con",
+    "dm-m3": "003-maya-when-you-are-ready-pr", "dm-p1": "001-you-draft-text-is-still-lo",
+    "dm-p2": "002-patcher-reproduced-composer-r", "dm-p3": "003-patcher-change-04-ready",
+    "dm-l1": "001-lea-i-can-retest-on-the-th", "dm-l2": "002-you-appreciate-it-will-p",
+    "dm-l3": "003-lea-i-can-retest-on-the-th",
+  },
+  legacyPostAliasHistory: {
+    "k-i1": ["001-sam-composer-loses-the-dra"],
+  },
+
+  /** Explicit RFC-style thread roots; display order and paths never participate. */
+  threadRoots: {
+    p1: "p1", p2: "p1", p3: "p1", p4: "p4", p5: "p4",
+    s1: "s1", sc2: "sc2", i1: "i1", id2: "id2", b1: "b1", bg2: "bg2",
+    su1: "su1", su2: "su1", su3: "su1", ar1: "ar1", ar2: "ar2",
+    pv1: "pv1", pv2: "pv2", gv1: "gv1", gv2: "gv2",
+    "t-i1": "t-i1", "t-c1": "t-c1", "t-c2": "t-c2", "t-r1": "t-r1",
+    "k-i1": "k-i1", "k-c1": "k-c1",
+    "dm-s1": "dm-s1", "dm-s2": "dm-s1", "dm-s3": "dm-s1", "dm-s4": "dm-s1",
+    "dm-m1": "dm-m1", "dm-m2": "dm-m1", "dm-m3": "dm-m1",
+    "dm-p1": "dm-p1", "dm-p2": "dm-p1", "dm-p3": "dm-p1",
+    "dm-l1": "dm-l1", "dm-l2": "dm-l1", "dm-l3": "dm-l1",
+  },
+
   /**
    * Vercel Eve-style agents as directories (`.agents/<id>/`).
    *
@@ -19,7 +60,7 @@ window.NB_DATA = {
   agents: {
     board: [
       {
-        id: "bo",
+        id: "bo", objectId: "agent-bo",
         name: "Bo",
         scope: "space",
         model: "route:workspace-sticky",
@@ -51,7 +92,7 @@ window.NB_DATA = {
         ],
       },
       {
-        id: "space-steward",
+        id: "space-steward", objectId: "agent-space-steward",
         name: "Space Steward",
         scope: "space",
         model: "anthropic/claude-sonnet-4.6",
@@ -82,7 +123,7 @@ window.NB_DATA = {
         ],
       },
       {
-        id: "activity-relay",
+        id: "activity-relay", objectId: "agent-activity-relay",
         name: "Activity Relay",
         scope: "space",
         model: "openai/gpt-5-mini",
@@ -103,7 +144,7 @@ window.NB_DATA = {
     projects: {
       community: [
         {
-          id: "community-host",
+          id: "community-host", objectId: "agent-community-host",
           name: "Community Host",
           scope: "project",
           project: "community",
@@ -122,7 +163,7 @@ window.NB_DATA = {
           ],
         },
         {
-          id: "triage-clerk",
+          id: "triage-clerk", objectId: "agent-triage-clerk",
           name: "Triage Clerk",
           scope: "project",
           project: "community",
@@ -142,7 +183,7 @@ window.NB_DATA = {
       ],
       "civic-tuner": [
         {
-          id: "install-cache",
+          id: "install-cache", objectId: "agent-install-cache",
           name: "Install Cache Agent",
           scope: "project",
           project: "civic-tuner",
@@ -163,7 +204,7 @@ window.NB_DATA = {
           ],
         },
         {
-          id: "change-reviewer",
+          id: "change-reviewer", objectId: "agent-change-reviewer",
           name: "Change Reviewer",
           scope: "project",
           project: "civic-tuner",
@@ -184,7 +225,7 @@ window.NB_DATA = {
       ],
       "civic-community-kit": [
         {
-          id: "draft-persistence",
+          id: "draft-persistence", objectId: "agent-draft-persistence",
           name: "Draft Persistence Agent",
           scope: "project",
           project: "civic-community-kit",
@@ -279,23 +320,23 @@ window.NB_DATA = {
   ],
 
   channels: [
-    { id: "general", label: "general", kind: "social", count: 5, spaceId: "civic-workshop" },
-    { id: "showcase", label: "showcase", kind: "social", count: 1, spaceId: "civic-workshop" },
-    { id: "support", label: "support", kind: "social", count: 3, spaceId: "civic-workshop" },
-    { id: "ideas", label: "ideas", kind: "work", count: 4, spaceId: "civic-workshop" },
-    { id: "bugs", label: "bugs", kind: "work", count: 2, spaceId: "civic-workshop" },
-    { id: "agent-runs", label: "agent-runs", kind: "work", count: 2, spaceId: "agent-lab" },
-    { id: "previews", label: "previews", kind: "work", count: 1, spaceId: "agent-lab" },
-    { id: "governance", label: "governance", kind: "work", count: 0, spaceId: "civic-workshop" },
+    { id: "general", objectId: "channel-general", label: "general", kind: "social", count: 5, spaceId: "civic-workshop" },
+    { id: "showcase", objectId: "channel-showcase", label: "showcase", kind: "social", count: 1, spaceId: "civic-workshop" },
+    { id: "support", objectId: "channel-support", label: "support", kind: "social", count: 3, spaceId: "civic-workshop" },
+    { id: "ideas", objectId: "channel-ideas", label: "ideas", kind: "work", count: 4, spaceId: "civic-workshop" },
+    { id: "bugs", objectId: "channel-bugs", label: "bugs", kind: "work", count: 2, spaceId: "civic-workshop" },
+    { id: "agent-runs", objectId: "channel-agent-runs", label: "agent-runs", kind: "work", count: 2, spaceId: "agent-lab" },
+    { id: "previews", objectId: "channel-previews", label: "previews", kind: "work", count: 1, spaceId: "agent-lab" },
+    { id: "governance", objectId: "channel-governance", label: "governance", kind: "work", count: 0, spaceId: "civic-workshop" },
     // Discord-style voice rooms — WebRTC mesh, no text backlog.
-    { id: "lounge", label: "lounge", kind: "voice", count: 0, spaceId: "civic-workshop",
+    { id: "lounge", objectId: "channel-lounge", label: "lounge", kind: "voice", count: 0, spaceId: "civic-workshop",
       voice: true, bitrateKbps: 64, frameMs: 20 },
-    { id: "standup", label: "standup", kind: "voice", count: 0, spaceId: "civic-workshop",
+    { id: "standup", objectId: "channel-standup", label: "standup", kind: "voice", count: 0, spaceId: "civic-workshop",
       voice: true, bitrateKbps: 64, frameMs: 20 },
   ],
 
   members: [
-    { handle: "maya", name: "Maya Chen", role: "maintainer", kind: "person", state: "here",
+    { handle: "maya", objectId: "member-maya", name: "Maya Chen", role: "maintainer", kind: "person", state: "here",
       company: "Epoch · civic workshop", location: "Portland, OR",
       url: "https://github.com/maya", joined: "2024-03",
       bio: "Signs promotions and keeps Scout's drafts honest.\n\n" +
@@ -304,7 +345,7 @@ window.NB_DATA = {
         { slug: "civic/tuner", blurb: "Install cache that survives image bumps" },
         { slug: "civic/community-kit", blurb: "Composer furniture for civic boards" },
       ] },
-    { handle: "lea", name: "Lea Ortiz", role: "citizen builder", kind: "person", state: "here",
+    { handle: "lea", objectId: "member-lea", name: "Lea Ortiz", role: "citizen builder", kind: "person", state: "here",
       company: "Boat wifi lab", location: "Mobile",
       url: "https://github.com/lea", joined: "2024-06",
       bio: "I break installs on three old phones so you don't have to.\n\n" +
@@ -312,7 +353,7 @@ window.NB_DATA = {
       pinned: [
         { slug: "civic/tuner", blurb: "Cold-install repros and warm-path checks" },
       ] },
-    { handle: "nora", name: "Nora Vale", role: "contributor", kind: "person", state: "here",
+    { handle: "nora", objectId: "member-nora", name: "Nora Vale", role: "contributor", kind: "person", state: "here",
       company: "Measurements", location: "Remote",
       url: "https://github.com/nora", joined: "2024-05",
       bio: "Repro measurements that make cold-install claims believable.\n\n" +
@@ -320,14 +361,14 @@ window.NB_DATA = {
       pinned: [
         { slug: "civic/tuner", blurb: "Cache-key timing tables" },
       ] },
-    { handle: "sam", name: "Sam Rivera", role: "community member", kind: "person", state: "away",
+    { handle: "sam", objectId: "member-sam", name: "Sam Rivera", role: "community member", kind: "person", state: "away",
       company: "Community kit", location: "Austin, TX",
       url: "https://github.com/sam", joined: "2024-08",
       bio: "Draft text should stick per channel. Filing the boring bugs so agents can fix them.",
       pinned: [
         { slug: "civic/community-kit", blurb: "Draft persistence issues" },
       ] },
-    { handle: "scout", name: "Scout", role: "member agent", kind: "agent", state: "working",
+    { handle: "scout", objectId: "agent-scout", name: "Scout", role: "member agent", kind: "agent", state: "working",
       detail: "goose · supervised by @maya",
       company: "goose runtime", location: "agent mesh",
       url: "agent://scout", joined: "2025-01",
@@ -336,7 +377,7 @@ window.NB_DATA = {
       pinned: [
         { slug: "civic/tuner", blurb: "CHANGE-12 · split the cache key" },
       ] },
-    { handle: "patcher", name: "Patcher", role: "member agent", kind: "agent", state: "idle",
+    { handle: "patcher", objectId: "agent-patcher", name: "Patcher", role: "member agent", kind: "agent", state: "idle",
       detail: "codex · supervised by @maya",
       company: "codex runtime", location: "agent mesh",
       url: "agent://patcher", joined: "2025-01",
@@ -461,13 +502,13 @@ window.NB_DATA = {
    * their side (same post shape as channel threads so the tree view reuses).
    */
   dms: [
-    { id: "scout", peer: "scout", kind: "agent", unread: 1,
+    { id: "scout", objectId: "dm-scout", peer: "scout", kind: "agent", unread: 1,
       preview: "Drafting CHANGE-12 now. Will need your review before merge." },
-    { id: "maya", peer: "maya", kind: "person", unread: 0,
+    { id: "maya", objectId: "dm-maya", peer: "maya", kind: "person", unread: 0,
       preview: "When you are ready, promote Scout's plan with the receipts." },
-    { id: "patcher", peer: "patcher", kind: "agent", unread: 2,
+    { id: "patcher", objectId: "dm-patcher", peer: "patcher", kind: "agent", unread: 2,
       preview: "Session-scoped draft storage is ready for human review." },
-    { id: "lea", peer: "lea", kind: "person", unread: 0,
+    { id: "lea", objectId: "dm-lea", peer: "lea", kind: "person", unread: 0,
       preview: "I can retest on the three old phones once it lands." },
   ],
 
@@ -563,47 +604,51 @@ window.NB_DATA = {
       where: "/projects/community/channels/general", whereLabel: "#general",
       subject: "Mentioned you",
       body: "@you — ready to sign the intent when you confirm Nora's warm path.",
-      reason: "mentioned you", ref: "p4" },
+      reason: "mentioned you", ref: { objectId: "notification-n1", kind: "notification" }, targetRef: "p4" },
     { id: "n2", kind: "mention", unread: true, at: "09:56", who: "scout",
       where: "/dms/scout", whereLabel: "@scout",
       subject: "CHANGE-12 drafted",
       body: "Drafting CHANGE-12 now. Will need your review before merge.",
-      reason: "mentioned you in DM", ref: "dm-s4" },
+      reason: "mentioned you in DM", ref: { objectId: "notification-n2", kind: "notification" }, targetRef: "dm-s4" },
     { id: "n3", kind: "subscription", unread: true, at: "09:55", who: "patcher",
       where: "/projects/community/channels/bugs", whereLabel: "#bugs",
       subject: "Draft persistence, scoped to the session",
       body: "Keeps one draft per channel in session storage. Human review required.",
-      reason: "subscribed to #bugs", sub: { kind: "channel", target: "bugs" }, ref: "b1" },
+      reason: "subscribed to #bugs", sub: { kind: "channel", target: "bugs" },
+      ref: { objectId: "notification-n3", kind: "notification" }, targetRef: "b1" },
     { id: "n4", kind: "subscription", unread: true, at: "09:52", who: "scout",
       where: "/dms/scout", whereLabel: "@scout",
       subject: "Cache key plan",
       body: "Key on the lockfile hash only, restore the OS layer separately.",
-      reason: "subscribed to @scout", sub: { kind: "member", target: "scout" }, ref: "dm-s2" },
+      reason: "subscribed to @scout", sub: { kind: "member", target: "scout" },
+      ref: { objectId: "notification-n4", kind: "notification" }, targetRef: "dm-s2" },
     { id: "n5", kind: "subscription", unread: false, at: "09:40", who: "scout",
       where: "/projects/civic-tuner/channels/changes", whereLabel: "civic/tuner · changes",
       subject: "CHANGE-12 · split the cache key",
       body: "Key on the lockfile hash only, restore the OS layer separately. Human review required.",
-      reason: "subscribed to civic/tuner", sub: { kind: "project", target: "civic-tuner" }, ref: "t-c1" },
+      reason: "subscribed to civic/tuner", sub: { kind: "project", target: "civic-tuner" },
+      ref: { objectId: "notification-n5", kind: "notification" }, targetRef: "t-c1" },
     { id: "n6", kind: "subscription", unread: false, at: "09:31", who: "nora",
       where: "/projects/community/channels/general", whereLabel: "#general",
       subject: "Cache key includes the OS image tag",
       body: "Reproduced on a clean container: 3m52s cold, 14s warm.",
-      reason: "subscribed to #install-cache", sub: { kind: "topic", target: "install-cache" }, ref: "p2" },
+      reason: "subscribed to #install-cache", sub: { kind: "topic", target: "install-cache" },
+      ref: { objectId: "notification-n6", kind: "notification" }, targetRef: "p2" },
     { id: "n7", kind: "reply", unread: false, at: "10:14", who: "sam",
       where: "/projects/community/channels/general", whereLabel: "#general",
       subject: "Replied in a thread you follow",
       body: "As the person who complained about this in the first place — nice.",
-      reason: "reply in thread", ref: "p5" },
+      reason: "reply in thread", ref: { objectId: "notification-n7", kind: "notification" }, targetRef: "p5" },
     { id: "n8", kind: "dm", unread: true, at: "09:55", who: "patcher",
       where: "/dms/patcher", whereLabel: "@patcher",
       subject: "CHANGE-04 ready",
       body: "Session-scoped draft storage is ready for human review.",
-      reason: "new direct message", ref: "dm-p3" },
+      reason: "new direct message", ref: { objectId: "notification-n8", kind: "notification" }, targetRef: "dm-p3" },
     { id: "n9", kind: "mention", unread: false, at: "08:40", who: "nora",
       where: "/projects/community/channels/ideas", whereLabel: "#ideas",
       subject: "Agent runs should link back to the intent",
       body: "When an agent posts a run, @you should get a one-click path to the signed intent.",
-      reason: "mentioned you", ref: "i1" },
+      reason: "mentioned you", ref: { objectId: "notification-n9", kind: "notification" }, targetRef: "i1" },
   ],
 
   /**
@@ -628,12 +673,12 @@ window.NB_DATA = {
    */
   projects: [
     {
-      slug: "civic/tuner", open: 5, channels: ["issues", "changes", "releases"], spaceId: "tuner-crew",
+      objectId: "project-civic-tuner", slug: "civic/tuner", open: 5, channels: ["issues", "changes", "releases"], spaceId: "tuner-crew",
       // Project roster — open a handle → /dms/<handle>
       members: ["maya", "nora", "scout", "lea"],
     },
     {
-      slug: "civic/community-kit", open: 1, channels: ["issues", "changes"], spaceId: "tuner-crew",
+      objectId: "project-civic-community-kit", slug: "civic/community-kit", open: 1, channels: ["issues", "changes"], spaceId: "tuner-crew",
       members: ["maya", "sam", "patcher"],
     },
   ],

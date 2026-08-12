@@ -13,13 +13,25 @@
   "pass": true,
   "runs": [
     {
-      "viewport": "desktop",
+      "viewport": "desktop-feed",
       "width": 1440,
       "height": 960,
       "violations": []
     },
     {
-      "viewport": "mobile",
+      "viewport": "desktop-thread",
+      "width": 1440,
+      "height": 960,
+      "violations": []
+    },
+    {
+      "viewport": "mobile-feed",
+      "width": 390,
+      "height": 844,
+      "violations": []
+    },
+    {
+      "viewport": "mobile-thread",
       "width": 390,
       "height": 844,
       "violations": []
