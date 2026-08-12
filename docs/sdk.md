@@ -413,6 +413,13 @@ stable IDs and typed errors plus `parseRevset`, `evaluateRevset`,
 `inspectRevisionGraph`, `inspectFrontierFilter`, `inspectSyncContract`,
 `inspectSwhid`, and `nodeOnlyAdapterStatus`.
 
+`createCanonicalId(kind, random?)` requires exactly 256 random bits and emits
+lowercase unpadded base32. `RevisionId` is a branded signed `EventId`, validated
+with `assertRevisionId`; it is intentionally not an `epoch:revision:*`
+canonical object ID. Protocol also owns the browser-safe SWHID parser used by
+`inspectSwhid` and wrapped by `@epoch/software-heritage`, so both surfaces
+accept the same kinds, qualifiers, percent encoding, and malformed-input rules.
+
 `@epoch/core` re-exports the protocol-facing domain and adds host-capable
 implementations from `convergence-changes`, `convergence-transactions`,
 `object-store`, `chunks`, `promises`, `sync-protocol-v2`, `sync-v2`,

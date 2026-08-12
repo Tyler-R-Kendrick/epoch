@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeFrontierCommand, formatFrontierEnvelope } from "../../packages/Epoch.CLI/src/frontier";
+import { assertRevisionId, parseCanonicalId, type CanonicalIdKind } from "../../packages/Epoch.Protocol/src/index";
 import { interopDoctor } from "../../packages/Epoch.CLI/src/interop-doctor";
 import { main } from "../../packages/Epoch.CLI/src/cli";
 
@@ -66,6 +67,27 @@ export async function runFrontierCliTests(): Promise<void> {
     const one = formatFrontierEnvelope(created, true);
     assert.equal(one, formatFrontierEnvelope(created, true), "JSON output is byte deterministic");
     assert.doesNotMatch(one, /token|password|secret/iu);
+
+    let randomByte = 0;
+    let revisionSequence = 0;
+    const dependencies = {
+      random: () => new Uint8Array(32).fill(++randomByte),
+      revisionId: () => assertRevisionId(`signed-event-${++revisionSequence}`),
+    };
+    const injectedRevision = executeFrontierCommand(root, ["new", "--message", "canonical"], 200, dependencies);
+    assert.equal((injectedRevision.data as { id: string }).id, "signed-event-1");
+    assert.doesNotMatch((injectedRevision.data as { id: string }).id, /^epoch:revision:/u);
+    const canonicalRecords = [
+      executeFrontierCommand(root, ["change", "create", "Canonical"], 201, dependencies),
+      executeFrontierCommand(root, ["stack", "create", "Canonical stack"], 202, dependencies),
+      executeFrontierCommand(root, ["split", "propose", "signed-event-1", "--plan", '{"groups":[]}'], 203, dependencies),
+      executeFrontierCommand(root, ["weave", "create", "Canonical weave", "signed-event-1"], 204, dependencies),
+    ];
+    const expectedKinds: readonly CanonicalIdKind[] = ["change", "stack", "operation", "stack"];
+    canonicalRecords.forEach((envelope, index) => {
+      assert.equal(envelope.ok, true);
+      assert.equal(parseCanonicalId((envelope.data as { id: string }).id).kind, expectedKinds[index]);
+    });
 
     const invoke = (args: string[]) => {
       let stdout = ""; let stderr = "";

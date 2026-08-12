@@ -9,7 +9,8 @@ import {
   projectLegacyIntent,
   validateStack,
 } from "../../packages/Epoch.Core/src/convergence-changes";
-import type { ChangeFragment, ChangeRevisionBody, DurableConflict, SplitPlan, StackDefinition } from "../../packages/Epoch.Protocol/src/index";
+import { assertRevisionId } from "../../packages/Epoch.Protocol/src/index";
+import type { ChangeFragment, ChangeRevisionBody, DurableConflict, SplitPlan, StackDefinition, StackEdgeKind } from "../../packages/Epoch.Protocol/src/index";
 
 export function runConvergenceChangeGraphTests(): void {
   test("CONV-CHANGE-001 stable ChangeId supports multi-parent revisions", stableLineage);
@@ -51,18 +52,18 @@ function legacyIntentProjection(): void {
 function stackClosure(): void {
   const stack: StackDefinition = {
     stackId: id("stack", "a") as StackDefinition["stackId"],
-    revisionIds: ["r1", "r2", "r3"],
+    revisionIds: [rid("r1"), rid("r2"), rid("r3")],
     edges: [
-      { from: "r2", to: "r1", kind: "requires" },
-      { from: "r3", to: "r2", kind: "derived" },
-      { from: "r3", to: "r1", kind: "orders-after" },
+      { from: rid("r2"), to: rid("r1"), kind: "requires" },
+      { from: rid("r3"), to: rid("r2"), kind: "derived" },
+      { from: rid("r3"), to: rid("r1"), kind: "orders-after" },
     ],
   };
   const graph = validateStack(stack);
   assert.deepEqual(graph.topologicalOrder, ["r1", "r2", "r3"]);
   assert.deepEqual(graph.closure(["r3"]), ["r1", "r2", "r3"]);
   assert.deepEqual(graph.downwardMergeSet("r2"), ["r1", "r2"]);
-  assert.throws(() => validateStack({ ...stack, edges: [...stack.edges, { from: "r1", to: "r3", kind: "requires" }] }), /cycle/u);
+  assert.throws(() => validateStack({ ...stack, edges: [...stack.edges, { from: rid("r1"), to: rid("r3"), kind: "requires" }] }), /cycle/u);
 }
 
 function splitReconstruction(): void {
@@ -70,7 +71,7 @@ function splitReconstruction(): void {
     fragment("a", "a.txt", "add", "a"), fragment("b", "b.txt", "text", "b"), fragment("c", "c.bin", "binary", "c"),
   ]);
   const plan: SplitPlan = {
-    sourceRevisionId: "source-rev",
+    sourceRevisionId: rid("source-rev"),
     groups: [
       { fragmentIds: [source.fragments[0]!.fragmentId], risk: "low", reason: "independent add" },
       { fragmentIds: [source.fragments[1]!.fragmentId, source.fragments[2]!.fragmentId], risk: "ambiguous", reason: "binary/text coupling unknown" },
@@ -84,7 +85,7 @@ function splitReconstruction(): void {
 function reviewEvidence(): void {
   const bundle = buildReviewBundle({ reviewId: id("review", "a"), revisionIds: ["r1", "r2"], baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
   assert.equal(bundle.revisionIds[0], "r1");
-  assert.throws(() => (bundle.revisionIds as string[]).push("mutate"), /extensible|read only|frozen/u);
+  assert.throws(() => Reflect.apply(Array.prototype.push, bundle.revisionIds, ["mutate"]), /extensible|read only|frozen/u);
   assert.throws(() => buildReviewBundle({
     reviewId: bundle.reviewId, revisionIds: ["r2", "r1"], baseFrontier: bundle.baseFrontier,
     baseTreeDigest: bundle.baseTreeDigest, resultingTreeDigest: bundle.resultingTreeDigest,
@@ -94,13 +95,13 @@ function reviewEvidence(): void {
 
 function mergePreconditions(): void {
   const stack = stackFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
-  const planInput = { mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: ["r1"], dependencyClosure: ["r1"], reviewBundleRevisionId: "review-event", resolutionRevisionIds: ["resolution-event"], gateDigest: digest("a"), mode: "merge" as const, expectedResultDigest: digest("b") };
+  const planInput = { mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), revisionIds: [rid("r1")], dependencyClosure: [rid("r1")], reviewBundleRevisionId: rid("review-event"), resolutionRevisionIds: [rid("resolution-event")], gateDigest: digest("a"), mode: "merge" as const, expectedResultDigest: digest("b") };
   const plan = createMergePlan(planInput, { stack });
   const base = { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: ["resolution-event"], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") };
   assert.equal(applyMergePlan(plan, base).resultRevisionProvenance.length, 1);
   assert.throws(() => applyMergePlan(plan, { ...base, currentTargetRevisionId: "moved" }), /stale-head/u);
-  assert.throws(() => createMergePlan({ ...planInput, revisionIds: ["r2"], dependencyClosure: ["r2"] }, { stack }), /missing-dependency/u);
-  assert.throws(() => applyMergePlan({ ...plan, dependencyClosure: ["r1", "r2"] }, base), /missing-dependency/u);
+  assert.throws(() => createMergePlan({ ...planInput, revisionIds: [rid("r2")], dependencyClosure: [rid("r2")] }, { stack }), /missing-dependency/u);
+  assert.throws(() => applyMergePlan({ ...plan, dependencyClosure: [rid("r1"), rid("r2")] }, base), /missing-dependency/u);
   assert.throws(() => applyMergePlan(plan, { ...base, reviewBundleRevisionId: "stale-review" }), /stale-review/u);
   assert.throws(() => applyMergePlan(plan, { ...base, acceptedResolutionRevisionIds: [] }), /stale-revision/u);
   assert.throws(() => applyMergePlan(plan, { ...base, gateDigest: digest("c") }), /stale-gate/u);
@@ -109,14 +110,14 @@ function mergePreconditions(): void {
 
 function squashProvenance(): void {
   const stack = stackFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
-  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: ["r1", "r2"], dependencyClosure: ["r1", "r2"], reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("a"), mode: "squash", expectedResultDigest: digest("b") }, { stack });
+  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), revisionIds: [rid("r1"), rid("r2")], dependencyClosure: [rid("r1"), rid("r2")], reviewBundleRevisionId: rid("review-event"), resolutionRevisionIds: [], gateDigest: digest("a"), mode: "squash", expectedResultDigest: digest("b") }, { stack });
   const result = applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") });
   assert.deepEqual(result.resultRevisionProvenance, ["r1", "r2"]);
   assert.equal(result.mode, "squash");
 }
 
 function multiSideConflicts(): void {
-  const conflict: DurableConflict = { conflictId: id("conflict", "a") as DurableConflict["conflictId"], sideRevisionIds: ["r1", "r2", "r3"], status: "unresolved", resolutionRevisionIds: [] };
+  const conflict: DurableConflict = { conflictId: id("conflict", "a") as DurableConflict["conflictId"], sideRevisionIds: [rid("r1"), rid("r2"), rid("r3")], status: "unresolved", resolutionRevisionIds: [] };
   const ledger = new ConflictLedger([conflict]);
   assert.deepEqual(ledger.draftState([conflict.conflictId]).carriedConflictIds, [conflict.conflictId]);
   assert.throws(() => ledger.assertMergeable([conflict.conflictId], true), /unresolved-conflict/u);
@@ -137,7 +138,7 @@ function conservativeCommutation(): void {
 }
 
 function providerDenial(): void {
-  const conflict: DurableConflict = { conflictId: id("conflict", "a") as DurableConflict["conflictId"], sideRevisionIds: ["r1", "r2"], status: "unresolved", resolutionRevisionIds: [] };
+  const conflict: DurableConflict = { conflictId: id("conflict", "a") as DurableConflict["conflictId"], sideRevisionIds: [rid("r1"), rid("r2")], status: "unresolved", resolutionRevisionIds: [] };
   const ledger = new ConflictLedger([conflict]);
   const proposal = ledger.requestProviderProposal(conflict.conflictId, { propose: () => ({ content: "resolved", confidence: 1, autoAccept: true } as never) });
   assert.equal(proposal.trusted, false);
@@ -145,13 +146,14 @@ function providerDenial(): void {
 }
 
 function revision(changeId: string, parents: readonly string[], fragments: readonly ChangeFragment[]): ChangeRevisionBody {
-  return { changeId: changeId as ChangeRevisionBody["changeId"], baseFrontier: ["base"], baseTreeDigest: digest("0"), parentRevisionIds: parents, fragments, resultingTreeDigest: digest("f"), authorPrincipalId: id("principal", "a") as ChangeRevisionBody["authorPrincipalId"] };
+  return { changeId: changeId as ChangeRevisionBody["changeId"], baseFrontier: [rid("base")], baseTreeDigest: digest("0"), parentRevisionIds: parents.map(rid), fragments, resultingTreeDigest: digest("f"), authorPrincipalId: id("principal", "a") as ChangeRevisionBody["authorPrincipalId"] };
 }
 function fragment(token: string, path: string, kind: ChangeFragment["kind"], digestToken: string): ChangeFragment {
   return { fragmentId: id("fragment", token) as ChangeFragment["fragmentId"], kind, path, precondition: { kind: "absent" }, resultDigest: digest(digestToken), contentRef: `sha256:${digest(digestToken)}`, order: 0, dependencies: [], provenance: { principalId: id("principal", "a") as ChangeFragment["provenance"]["principalId"] }, mergeStrategy: kind === "binary" ? "binary-replace" : kind === "text" ? "text" : "exact" };
 }
 function id(kind: string, token: string): string { return `epoch:${kind}:${token.repeat(52)}`; }
 function digest(token: string): string { return token.repeat(64); }
-function stackFor(revisionIds: readonly string[], edges: StackDefinition["edges"]): StackDefinition {
-  return { stackId: id("stack", "m") as StackDefinition["stackId"], revisionIds, edges };
+function rid(value: string) { return assertRevisionId(value); }
+function stackFor(revisionIds: readonly string[], edges: readonly { readonly from: string; readonly to: string; readonly kind: StackEdgeKind }[]): StackDefinition {
+  return { stackId: id("stack", "m") as StackDefinition["stackId"], revisionIds: revisionIds.map(rid), edges: edges.map((edge) => ({ ...edge, from: rid(edge.from), to: rid(edge.to) })) };
 }

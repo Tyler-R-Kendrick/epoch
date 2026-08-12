@@ -16,6 +16,7 @@ import { createProjectionManifest, gitBlob, gitCommit, gitTree, projectGitGraph 
 import { AuthorityLedger, type PrincipalId } from "../../packages/Epoch.Identity.Bridge/src/authority/index";
 import { MirrorCoordinator, createMirrorRule } from "../../packages/Epoch.Forge/src/mirror";
 import { formatSwhid, parseSwhid, type SwhObjectKind } from "../../packages/Epoch.SoftwareHeritage/src/index";
+import { assertRevisionId } from "../../packages/Epoch.Protocol/src/index";
 import type { ChangeFragment, ChangeRevisionBody, SplitPlan, StackDefinition } from "../../packages/Epoch.Protocol/src/index";
 import { canonical, property } from "../fuzz/deterministic";
 
@@ -25,7 +26,7 @@ const CASES = 64;
 async function main(): Promise<void> {
   await property("FRONTIER-PROP-001 stack topology and closure", SEED, CASES, (random) => {
     const count = 2 + random.integer(10);
-    const revisions = Array.from({ length: count }, (_, index) => `revision-${index}`);
+    const revisions = Array.from({ length: count }, (_, index) => assertRevisionId(`revision-${index}`));
     const edges: Array<StackDefinition["edges"][number]> = [];
     for (let index = 1; index < count; index += 1) {
       for (let dependency = 0; dependency < index; dependency += 1) {
@@ -46,7 +47,7 @@ async function main(): Promise<void> {
     const groupCount = 1 + random.integer(Math.min(4, fragments.length));
     const groups = Array.from({ length: groupCount }, () => [] as ChangeFragment[]);
     fragments.forEach((item, index) => groups[index % groupCount]!.push(structuredClone(item)));
-    const plan: SplitPlan = { sourceRevisionId: "split-source", groups: groups.map((group) => ({ fragmentIds: group.map((item) => item.fragmentId), risk: group.length > 1 ? "ambiguous" : "low", reason: "generated bounded split" })) };
+    const plan: SplitPlan = { sourceRevisionId: assertRevisionId("split-source"), groups: groups.map((group) => ({ fragmentIds: group.map((item) => item.fragmentId), risk: group.length > 1 ? "ambiguous" : "low", reason: "generated bounded split" })) };
     const source = revision(fragments);
     const accepted = acceptSplit(source, plan, groups);
     assert.equal(canonical(accepted.reconstructedFragments), canonical(source.fragments));
@@ -65,11 +66,11 @@ async function main(): Promise<void> {
   });
 
   await property("FRONTIER-PROP-004 exact evidence and merge digest invalidate", SEED ^ 3, CASES, (random) => {
-    const revisions = [`r-${random.next()}`, `r-${random.next()}`];
+    const revisions = [assertRevisionId(`r-${random.next()}`), assertRevisionId(`r-${random.next()}`)];
     const stack = { stackId: id("stack", "s") as `epoch:stack:${string}`, revisionIds: revisions, edges: [] };
     const bundle = buildReviewBundle({ reviewId: id("review", "r"), revisionIds: revisions, baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
     assert.throws(() => buildReviewBundle({ reviewId: bundle.reviewId, revisionIds: [...revisions].reverse(), baseFrontier: bundle.baseFrontier, baseTreeDigest: bundle.baseTreeDigest, resultingTreeDigest: bundle.resultingTreeDigest, overlaps: [], conflicts: [], gateDigest: bundle.gateDigest, priorBundle: bundle }), /stale-review/u);
-    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: revisions, dependencyClosure: revisions, reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("c"), mode: "merge", expectedResultDigest: digest("d") }, { stack });
+    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: assertRevisionId("target"), revisionIds: revisions, dependencyClosure: revisions, reviewBundleRevisionId: assertRevisionId("review-event"), resolutionRevisionIds: [], gateDigest: digest("c"), mode: "merge", expectedResultDigest: digest("d") }, { stack });
     const context = { currentTargetRevisionId: "target", availableRevisionIds: revisions, stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDigest: digest("c"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("d") };
     assert.equal(applyMergePlan(plan, context).resultDigest, digest("d"));
     assert.throws(() => applyMergePlan(plan, { ...context, resultDigest: digest("e") }), /integrity-failure/u);
@@ -161,7 +162,7 @@ function fragment(index: number): ChangeFragment {
   return { fragmentId: id("fragment", token) as ChangeFragment["fragmentId"], kind: index % 3 === 0 ? "text" : "add", path: `src/file-${index}.txt`, precondition: { kind: "absent" }, resultDigest: digest(token), contentRef: `sha256:${digest(token)}`, order: index, dependencies: [], provenance: { principalId: id("principal", "p") as ChangeFragment["provenance"]["principalId"] }, mergeStrategy: index % 3 === 0 ? "text" : "exact" };
 }
 function revision(fragments: readonly ChangeFragment[]): ChangeRevisionBody {
-  return { changeId: id("change", "c") as ChangeRevisionBody["changeId"], baseFrontier: ["base"], baseTreeDigest: digest("a"), parentRevisionIds: [], fragments, resultingTreeDigest: digest("b"), authorPrincipalId: id("principal", "p") as ChangeRevisionBody["authorPrincipalId"] };
+  return { changeId: id("change", "c") as ChangeRevisionBody["changeId"], baseFrontier: [assertRevisionId("base")], baseTreeDigest: digest("a"), parentRevisionIds: [], fragments, resultingTreeDigest: digest("b"), authorPrincipalId: id("principal", "p") as ChangeRevisionBody["authorPrincipalId"] };
 }
 
 void main().catch((error: unknown) => { process.stderr.write(`${String((error as Error).stack ?? error)}\n`); process.exitCode = 1; });

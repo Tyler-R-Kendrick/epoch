@@ -190,6 +190,12 @@ These commands use the reference `.epoch/frontier-v1.json` store. They exercise
 the canonical schemas and validation rules, but do not replace the signed
 repository event log.
 
+New object IDs are generated through the Protocol 256-bit lowercase-base32
+canonical ID generator, whose CSPRNG is injectable for deterministic hosts and
+tests. Only Protocol-declared kinds are emitted: a split proposal is an
+operation and a weave uses stack identity. Exact revision IDs are branded
+signed event IDs; `epoch:revision:*` is not a valid canonical ID kind.
+
 | Command group | Shipped operations |
 |---|---|
 | `new`, `change` | Create a revision from one or more explicit parents; create, revise, show, and diff a stable logical change. |

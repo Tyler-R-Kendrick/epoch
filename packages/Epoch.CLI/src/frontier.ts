@@ -1,7 +1,15 @@
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { evaluateRevset, parseRevset, type RevsetNode } from "@epoch/protocol";
+import {
+  assertRevisionId,
+  createCanonicalId,
+  evaluateRevset,
+  parseRevset,
+  type CanonicalIdKind,
+  type RandomSource,
+  type RevisionId,
+  type RevsetNode,
+} from "@epoch/protocol";
 import { parseSwhid, swhidForGitObject, swhKindForGitType } from "@epoch/software-heritage";
 
 export type FrontierErrorCode =
@@ -20,6 +28,11 @@ export interface FrontierEnvelope {
 interface RecordValue { readonly id: string; readonly kind: string; readonly revision: number; readonly createdAt: number; readonly updatedAt: number; readonly data: Readonly<Record<string, unknown>> }
 interface Operation { readonly operationId: string; readonly command: string; readonly targetId?: string; readonly timestamp: number; readonly restores?: string }
 interface FrontierState { readonly schemaVersion: 1; readonly sequence: number; readonly records: Readonly<Record<string, RecordValue>>; readonly operations: readonly Operation[] }
+
+export interface FrontierCommandDependencies {
+  readonly random?: RandomSource;
+  readonly revisionId?: () => RevisionId;
+}
 
 const initialState = (): FrontierState => ({ schemaVersion: 1, sequence: 0, records: {}, operations: [] });
 const FRONTIER_COMMANDS = new Set(["new", "change", "log", "op", "stack", "split", "weave", "merge-plan",
@@ -53,8 +66,21 @@ function writeState(root: string, state: FrontierState): void {
   const path = statePath(root); mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.tmp`; writeFileSync(temporary, `${stable(state)}\n`, "utf8"); renameSync(temporary, path);
 }
-function id(kind: string, sequence: number, data: unknown): string {
-  return `epoch:${kind}:${createHash("sha256").update(`${kind}\0${sequence}\0${stable(data)}`).digest("hex").slice(0, 32)}`;
+const recordIdKinds: Readonly<Record<string, CanonicalIdKind>> = Object.freeze({
+  change: "change", stack: "stack", split: "operation", weave: "stack", review: "review",
+  "merge-plan": "merge-plan", conflict: "conflict", workspace: "workspace",
+});
+
+function canonicalRecordId(kind: string, dependencies: FrontierCommandDependencies): string {
+  const canonicalKind = recordIdKinds[kind];
+  if (canonicalKind === undefined) throw frontierError("invalid-input", `record kind has no canonical ID contract: ${kind}`);
+  return createCanonicalId(canonicalKind, dependencies.random);
+}
+
+function exactRevisionId(dependencies: FrontierCommandDependencies): RevisionId {
+  if (dependencies.revisionId !== undefined) return assertRevisionId(dependencies.revisionId());
+  const token = createCanonicalId("operation", dependencies.random).split(":")[2]!;
+  return assertRevisionId(`event-${token}`);
 }
 function frontierError(code: FrontierErrorCode, message: string, details?: Readonly<Record<string, unknown>>): Error & { code: FrontierErrorCode; details?: Readonly<Record<string, unknown>> } {
   return Object.assign(new Error(message), { code, ...(details === undefined ? {} : { details }) });
@@ -109,8 +135,10 @@ function gitObjectType(value: string | undefined): GitObjectType {
   throw frontierError("invalid-input", "Git object type must be blob, tree, commit, or tag");
 }
 
-function createRecord(state: FrontierState, kind: string, data: Readonly<Record<string, unknown>>, now: number): [FrontierState, RecordValue] {
-  const sequence = state.sequence + 1; const recordId = id(kind, sequence, data);
+function createRecord(state: FrontierState, kind: string, data: Readonly<Record<string, unknown>>, now: number, dependencies: FrontierCommandDependencies): [FrontierState, RecordValue] {
+  const sequence = state.sequence + 1;
+  const recordId = kind === "revision" ? exactRevisionId(dependencies) : canonicalRecordId(kind, dependencies);
+  if (state.records[recordId] !== undefined) throw frontierError("conflict", `record ID already exists: ${recordId}`);
   const record = Object.freeze({ id: recordId, kind, revision: 1, createdAt: now, updatedAt: now, data: structuredClone(data) });
   return [{ ...state, sequence, records: { ...state.records, [recordId]: record } }, record];
 }
@@ -120,19 +148,20 @@ function updateRecord(state: FrontierState, recordId: string, data: Readonly<Rec
   const record = Object.freeze({ ...current, revision: current.revision + 1, updatedAt: now, data: { ...current.data, ...structuredClone(data) } });
   return [{ ...state, sequence: state.sequence + 1, records: { ...state.records, [recordId]: record } }, record];
 }
-function recordOperation(state: FrontierState, command: string, now: number, targetId?: string, restores?: string): FrontierState {
-  const operationId = id("operation", state.sequence + 1, { command, targetId, restores });
+function recordOperation(state: FrontierState, command: string, now: number, dependencies: FrontierCommandDependencies, targetId?: string, restores?: string): FrontierState {
+  const operationId = createCanonicalId("operation", dependencies.random);
+  if (state.operations.some((operation) => operation.operationId === operationId)) throw frontierError("conflict", `operation ID already exists: ${operationId}`);
   return { ...state, sequence: state.sequence + 1, operations: [...state.operations,
     { operationId, command, timestamp: now, ...(targetId ? { targetId } : {}), ...(restores ? { restores } : {}) }] };
 }
 
-export function executeFrontierCommand(root: string, argv: readonly string[], now = Date.now()): FrontierEnvelope {
+export function executeFrontierCommand(root: string, argv: readonly string[], now = Date.now(), dependencies: FrontierCommandDependencies = {}): FrontierEnvelope {
   const command = argv[0] ?? "";
   try {
     if (!isFrontierCommand(command) && command !== "review" && command !== "hydrate") {
       throw frontierError("invalid-command", `unsupported frontier command: ${command || "empty"}`);
     }
-    const result = execute(root, command, argv.slice(1), now);
+    const result = execute(root, command, argv.slice(1), now, dependencies);
     return { schemaVersion: 1, ok: true, command: argv.join(" "), code: "ok", data: result };
   } catch (error) {
     const known = error as Error & { code?: FrontierErrorCode; details?: Readonly<Record<string, unknown>> };
@@ -141,11 +170,11 @@ export function executeFrontierCommand(root: string, argv: readonly string[], no
   }
 }
 
-function execute(root: string, command: string, args: readonly string[], now: number): unknown {
+function execute(root: string, command: string, args: readonly string[], now: number, dependencies: FrontierCommandDependencies): unknown {
   let state = readState(root); const parsed = parse(args); const action = parsed.positionals[0];
   const persist = <T>(next: FrontierState, value: T): T => { writeState(root, next); return value; };
-  const create = (kind: string, data: Record<string, unknown>) => { const [next, value] = createRecord(state, kind, data, now); return persist(recordOperation(next, command, now, value.id), value); };
-  const update = (recordId: string, data: Record<string, unknown>) => { const expected = stringOption(parsed, "expected-revision"); const [next, value] = updateRecord(state, recordId, data, now, expected ? Number(expected) : undefined); return persist(recordOperation(next, command, now, value.id), value); };
+  const create = (kind: string, data: Record<string, unknown>) => { const [next, value] = createRecord(state, kind, data, now, dependencies); return persist(recordOperation(next, command, now, dependencies, value.id), value); };
+  const update = (recordId: string, data: Record<string, unknown>) => { const expected = stringOption(parsed, "expected-revision"); const [next, value] = updateRecord(state, recordId, data, now, expected ? Number(expected) : undefined); return persist(recordOperation(next, command, now, dependencies, value.id), value); };
   const get = (recordId: string, kind?: string) => { const value = state.records[recordId]; if (!value || kind && value.kind !== kind) throw frontierError("not-found", `record not found: ${recordId}`); return value; };
   const list = (kind?: string) => Object.values(state.records).filter((value) => kind === undefined || value.kind === kind).sort((a, b) => a.id.localeCompare(b.id));
 
@@ -170,7 +199,7 @@ function execute(root: string, command: string, args: readonly string[], now: nu
     if (action === "undo" || action === "restore") {
       const target = required(parsed.positionals[1], "operation ID");
       if (!state.operations.some((operation) => operation.operationId === target)) throw frontierError("not-found", `operation not found: ${target}`);
-      state = recordOperation(state, action, now, undefined, target); writeState(root, state); return state.operations.at(-1);
+      state = recordOperation(state, action, now, dependencies, undefined, target); writeState(root, state); return state.operations.at(-1);
     }
   }
   if (command === "stack") {
