@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   PROTOCOL_CAPABILITIES,
   PROTOCOL_EVENT_SCHEMAS,
@@ -30,11 +32,18 @@ for (const [name, run] of tests) {
 }
 
 function canonicalVectors(): void {
-  const bytes = Uint8Array.from({ length: 32 }, (_, index) => index);
-  const id = createCanonicalId("change", () => bytes);
-  assert.equal(id, "epoch:change:aaaqeayeaudaocajbifqydiob4ibceqtcqkrmfyydenbwha5dypq");
-  assert.deepEqual(parseCanonicalId(id), { kind: "change", token: id.split(":")[2] });
-  assert.equal(createCanonicalId("change", () => bytes), id);
+  const fixture = JSON.parse(readFileSync(join(__dirname, "../fixtures/canonical-id-vectors.json"), "utf8")) as {
+    readonly schemaVersion: number;
+    readonly vectors: readonly { readonly kind: "change" | "repo"; readonly bytesHex: string; readonly canonicalId: string }[];
+  };
+  assert.equal(fixture.schemaVersion, 1);
+  for (const vector of fixture.vectors) {
+    const bytes = Uint8Array.from(vector.bytesHex.match(/.{2}/gu)!.map((value) => Number.parseInt(value, 16)));
+    const id = createCanonicalId(vector.kind, () => bytes);
+    assert.equal(id, vector.canonicalId);
+    assert.deepEqual(parseCanonicalId(id), { kind: vector.kind, token: id.split(":")[2] });
+    assert.equal(createCanonicalId(vector.kind, () => bytes), id);
+  }
 }
 
 function malformedIdentifiers(): void {

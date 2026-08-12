@@ -44,6 +44,42 @@ export class ChangeGraph {
     const parents = this.#revisions.get(revisionId)?.parentRevisionIds ?? [];
     return parents.length === 0 ? 0 : Math.max(...parents.map((parent) => this.depth(parent))) + 1;
   }
+
+  reconstruct(revisionId: string): readonly ChangeFragment[] {
+    const body = this.#revisions.get(revisionId);
+    if (body === undefined) throw fail("missing-object", `Missing change revision: ${revisionId}`);
+    const ordered = [...this.ancestors(revisionId), revisionId];
+    const fragments = new Map<string, ChangeFragment>();
+    for (const id of ordered) for (const fragment of this.#revisions.get(id)!.fragments) fragments.set(fragment.fragmentId, structuredClone(fragment));
+    return [...fragments.values()].sort((left, right) => left.order - right.order || left.fragmentId.localeCompare(right.fragmentId));
+  }
+}
+
+export interface LegacyIntentProjection {
+  readonly changeId: `epoch:change:legacy:${string}`;
+  readonly revisionId: string;
+  readonly baseFrontier: readonly string[];
+  readonly patches: readonly unknown[];
+  readonly metadata?: Readonly<Record<string, unknown>>;
+}
+
+/** Read-only compatibility projection; it never rewrites legacy event bytes. */
+export function projectLegacyIntent(event: {
+  readonly eventId: string;
+  readonly type: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+}): LegacyIntentProjection {
+  if (event.type !== "intent" || !Array.isArray(event.payload.base) || !Array.isArray(event.payload.patches)) {
+    throw fail("invalid-schema", "Legacy event is not a valid intent");
+  }
+  return Object.freeze({
+    changeId: `epoch:change:legacy:${event.eventId}`,
+    revisionId: event.eventId,
+    baseFrontier: [...event.payload.base] as string[],
+    patches: structuredClone(event.payload.patches),
+    ...(typeof event.payload.metadata === "object" && event.payload.metadata !== null
+      ? { metadata: structuredClone(event.payload.metadata) as Readonly<Record<string, unknown>> } : {}),
+  });
 }
 
 export interface StackGraph {
@@ -127,7 +163,7 @@ export function buildReviewBundle(input: {
   readonly gateDigest: string;
   readonly priorBundle?: ReviewBundle;
 }): ReviewBundle {
-  const bundle: ReviewBundle = Object.freeze({
+  const bundle: ReviewBundle = deepFreeze({
     reviewId: input.reviewId as ReviewBundle["reviewId"], revisionIds: [...input.revisionIds], baseFrontier: [...input.baseFrontier],
     baseTreeDigest: input.baseTreeDigest, resultingTreeDigest: input.resultingTreeDigest, overlaps: structuredClone(input.overlaps),
     conflictIds: [...input.conflicts], gateDigest: input.gateDigest,
@@ -202,6 +238,13 @@ function canonical(value: unknown): string { return JSON.stringify(sortValue(val
 function sortValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortValue);
   if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, sortValue(item)]));
+  return value;
+}
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object") {
+    for (const child of Object.values(value)) deepFreeze(child);
+    Object.freeze(value);
+  }
   return value;
 }
 function fail(code: ConstructorParameters<typeof ProtocolError>[0], message: string): ProtocolError { return new ProtocolError(code, `${code}: ${message}`); }

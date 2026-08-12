@@ -6,12 +6,14 @@ import {
   applyMergePlan,
   buildReviewBundle,
   createMergePlan,
+  projectLegacyIntent,
   validateStack,
 } from "../../packages/Epoch.Core/src/convergence-changes";
 import type { ChangeFragment, ChangeRevisionBody, DurableConflict, SplitPlan, StackDefinition } from "../../packages/Epoch.Protocol/src/index";
 
 export function runConvergenceChangeGraphTests(): void {
   test("CONV-CHANGE-001 stable ChangeId supports multi-parent revisions", stableLineage);
+  test("CONV-CHANGE-002 legacy intents project without rewriting source bytes", legacyIntentProjection);
   test("CONV-STACK-001 stack graph closes and topologically sorts exact revisions", stackClosure);
   test("CONV-SPLIT-001 split acceptance reconstructs without dropping ambiguous fragments", splitReconstruction);
   test("CONV-REVIEW-001 review evidence invalidates when exact weave changes", reviewEvidence);
@@ -33,7 +35,17 @@ function stableLineage(): void {
   graph.add("rev-4", revision(changeId, ["rev-2", "rev-3"], [fragment("d", "d.txt", "add", "d")]));
   assert.equal(graph.changeIdOf("rev-4"), changeId);
   assert.deepEqual(graph.ancestors("rev-4"), ["rev-1", "rev-2", "rev-3"]);
+  assert.deepEqual(graph.reconstruct("rev-4").map((value) => value.fragmentId), ["epoch:fragment:" + "a".repeat(52), "epoch:fragment:" + "b".repeat(52), "epoch:fragment:" + "c".repeat(52), "epoch:fragment:" + "d".repeat(52)]);
   assert.throws(() => graph.add("rev-cycle", revision(changeId, ["rev-cycle"], [fragment("e", "e.txt", "add", "e")])), /cycle/u);
+}
+
+function legacyIntentProjection(): void {
+  const event = { eventId: "legacy-event", type: "intent", payload: { base: ["base"], patches: [{ path: "a.txt" }], metadata: { title: "old" } } } as const;
+  const before = JSON.stringify(event);
+  const projected = projectLegacyIntent(event);
+  assert.equal(projected.changeId, "epoch:change:legacy:legacy-event");
+  assert.equal(projected.revisionId, "legacy-event");
+  assert.equal(JSON.stringify(event), before);
 }
 
 function stackClosure(): void {
@@ -72,6 +84,7 @@ function splitReconstruction(): void {
 function reviewEvidence(): void {
   const bundle = buildReviewBundle({ reviewId: id("review", "a"), revisionIds: ["r1", "r2"], baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
   assert.equal(bundle.revisionIds[0], "r1");
+  assert.throws(() => (bundle.revisionIds as string[]).push("mutate"), /extensible|read only|frozen/u);
   assert.throws(() => buildReviewBundle({
     reviewId: bundle.reviewId, revisionIds: ["r2", "r1"], baseFrontier: bundle.baseFrontier,
     baseTreeDigest: bundle.baseTreeDigest, resultingTreeDigest: bundle.resultingTreeDigest,
