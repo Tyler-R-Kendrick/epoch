@@ -14,7 +14,9 @@
   "dependencies": {
     "@epoch/atproto": "0.1.0",
     "@epoch/core": "0.1.0",
-    "@epoch/git-proxy": "0.1.0"
+    "@epoch/git-proxy": "0.1.0",
+    "@epoch/protocol": "0.1.0",
+    "@epoch/software-heritage": "0.1.0"
   },
   "types": "src/cli.ts"
 }
