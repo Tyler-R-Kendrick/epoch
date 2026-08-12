@@ -211,7 +211,6 @@
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
     "@google/design.md": "^0.4.0",
-    "@higgsfield/cli": "^1.1.20",
     "@openuidev/lang-core": "^0.2.10",
     "@pact-foundation/pact": "^16.4.0",
     "@pact-foundation/pact-cli": "^18.1.1",
@@ -242,6 +241,7 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
+    "@higgsfield/cli": "^1.1.20",
     "@pact-foundation/pact-core-linux-x64-glibc": "^19.2.0",
     "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
     "@typescript/native-preview-linux-x64": "^7.0.0-dev.20260504.1"
