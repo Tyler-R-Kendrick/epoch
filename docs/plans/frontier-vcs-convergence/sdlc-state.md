@@ -55,4 +55,5 @@ local and authoritative CI gates completed successfully.
 - Focused package/conformance tests, seeded fuzz smoke, compatibility fixtures, generated-schema freshness, browser/a11y validation, and the full repository verification bar passed.
 - Independent review completed and its eight trust/fidelity findings were repaired; PR #116 had no unresolved review threads.
 - CodeRabbit could not run because the 155-file change exceeded its 100-file plan limit; this was a tooling limitation, not a code failure, and the repository's independent review plus authoritative gates remained green.
+- Closeout CI also exposed the Gossip Pact consumer running redundantly inside the unit/coverage process; it now runs only in the dedicated `test:pact` gate, while stable Community contract coverage remains in the unit runner.
 - Remote `main` was verified at the squash merge SHA above. No product or migration work remains open for this initiative.

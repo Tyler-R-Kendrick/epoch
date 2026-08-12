@@ -152,5 +152,5 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Backend | Three bounded concurrent implementation swarms plus integration conductor |
 | PR | [#116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) — squash-merged `0d560488` |
 | Result | **success** |
-| Failure class | One CI-only browser cleanup race initially stopped the feature suite before frontier coverage tests; sequential teardown and cleared timeout handles fixed the root cause. |
+| Failure class | An initial browser cleanup race stopped coverage before frontier tests, and closeout CI exposed redundant Gossip Pact execution inside the unit runner; sequential teardown/cleared timers and a single dedicated Pact execution boundary fixed both root causes. |
 | Notes | All GitHub quality jobs, Vercel, local `npm run verify`, clean Node 22 coverage, conformance, fuzz, compatibility, security, Pact, accessibility, and Nightboard parity/fault/e2e gates passed. CodeRabbit skipped the 155-file diff because its plan limit is 100 files; independent review found and resolved eight trust/fidelity defects. Existing unrelated untracked work was preserved. |
