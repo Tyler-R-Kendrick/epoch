@@ -165,3 +165,14 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | PR | [#119](https://github.com/Tyler-R-Kendrick/epoch/pull/119) — squash-merged `f9b00f50` |
 | Notes | Close the #116/#118 honesty gap: CLI persists signed protocol events; leftover JSON host is ignored; local replica/hydrate/mirror/budget/SWHID mapping are implemented; named remotes and live archival stay fail-closed. Quality Gates, Nightboard, Pact, Coverage, and Vercel passed. CodeRabbit stayed PENDING; independent closeout review found no blockers. |
+
+## 2026-08-12 — Change Graph remotes, archive, and split
+
+| Field | Value |
+|---|---|
+| Initiative | [`change-graph-signed-events`](change-graph-signed-events/sdlc-state.md) |
+| Backend | Isolated worktree `/tmp/epoch-change-graph-signed` from `origin/main` `7c5621f`; original checkout dirty community-search work left untouched |
+| Branch | `sdlc/change-graph-close-failclosed` |
+| Result | **success** |
+| PR | [#122](https://github.com/Tyler-R-Kendrick/epoch/pull/122) — squash-merged `a809586f` |
+| Notes | Implement remaining fail-closed surfaces: HTTP gossip + Git ingest for clone/fetch, Save Code Now HTTP with `EPOCH_SWH_SAVE_URL`, deterministic untrusted AI proposals with accept/reject, and `split.accepted`. Quality Gates, Nightboard, Pact, Coverage, and Vercel passed. CodeRabbit stayed rate-limited. |
