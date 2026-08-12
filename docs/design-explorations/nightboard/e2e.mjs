@@ -4988,6 +4988,25 @@ const CASES = [
     },
   },
   {
+    name: "NAV-ID-004 unattributed board state cannot claim the private DM inbox",
+    storage: {
+      "nb-board-state": JSON.stringify({
+        v: 2,
+        path: "/projects/community/channels/general",
+        sessions: [],
+      }),
+    },
+    run: async (page, log) => {
+      const access = await page.evaluate(() => ({
+        principalId: window.NB_APP.getIdentity()?.principalId,
+        dmOwnerPrincipalId: window.NB_APP.state.dmOwnerPrincipalId,
+        readableDmIds: window.NB_APP.viewerContext().readableDmIds,
+      }));
+      return (access.principalId && access.dmOwnerPrincipalId === null &&
+        access.readableDmIds.length === 0) || log(JSON.stringify(access));
+    },
+  },
+  {
     name: "profile: claim keeps principalId; profile shows handle; /whoami honest",
     run: async (page, log) => {
       const before = await page.evaluate(() => window.NB_APP.getIdentity()?.principalId);

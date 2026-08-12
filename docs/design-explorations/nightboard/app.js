@@ -1970,8 +1970,8 @@
       state.sessionRecovery = snap.recovery;
       return;
     }
-    state.dmOwnerPrincipalId = snap.dmOwnerPrincipalId || snap.principalId ||
-      (identity && identity.principalId) || null;
+    // Unattributed persisted state cannot establish private-inbox ownership.
+    state.dmOwnerPrincipalId = snap.dmOwnerPrincipalId || snap.principalId || null;
     // Only restore board work that belongs to this principal (guest continuity ok).
     if (snap.principalId && identity.principalId && snap.principalId !== identity.principalId) {
       // Different principal on a shared machine — keep furniture panes only.
