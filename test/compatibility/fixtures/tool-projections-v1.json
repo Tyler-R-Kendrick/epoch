@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    { "tool": "jj", "mode": "immutable-change-header", "expected": "stable-across-description-edit" },
+    { "tool": "Graphite", "mode": "linear-stack", "expected": "parent-chain" },
+    { "tool": "GitButler", "mode": "parallel-branches", "expected": "shared-base" },
+    { "tool": "Mercurial", "mode": "bridge-subset", "supported": ["heads", "bookmarks", "linear-changesets"], "unsupported": ["phases", "evolve"] }
+  ]
+}
