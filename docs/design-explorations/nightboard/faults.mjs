@@ -309,7 +309,11 @@ async function transcript(page) {
   return page.$eval(".cn-out", (el) => el.textContent).catch(() => "");
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+    : {},
+);
 let failed = 0;
 
 for (const testCase of CASES) {

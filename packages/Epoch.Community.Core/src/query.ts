@@ -143,8 +143,11 @@ export function matchesNormalizedQuery(message: CommunityMessage, query: Normali
       case "has":
         if (needle === "subject") return Boolean(message.title);
         if (["re", "reply", "parent"].includes(needle)) return message.inReplyTo !== undefined;
-        return message.relations.some((relation) => relation.type === needle || (needle === "reactions" && relation.type === "reply"));
-      case "react": case "reaction": return message.relations.some((relation) => relation.type === "reply" && contains(relation.target.objectId));
+        if (["reaction", "reactions"].includes(needle)) {
+          return Object.values(message.reactions ?? {}).some((count) => Number.isFinite(count) && count > 0);
+        }
+        return message.relations.some((relation) => relation.type === needle);
+      case "react": case "reaction": return (message.reactions?.[value] ?? 0) > 0;
       case "score": return false;
       case "sort": return true;
     }

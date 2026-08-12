@@ -4953,6 +4953,41 @@ const CASES = [
     },
   },
   {
+    name: "NAV-ID-004 DM owner access is revoked after a principal switch",
+    run: async (page, log) => {
+      const before = await page.evaluate(() => ({
+        principalId: window.NB_APP.getIdentity()?.principalId,
+        readableDmIds: window.NB_APP.viewerContext().readableDmIds,
+      }));
+      if (!before.principalId || before.readableDmIds.length === 0) {
+        return log("fixture DM owner was not initialized: " + JSON.stringify(before));
+      }
+      await page.evaluate(() => window.NB_APP.signOut());
+      const after = await page.evaluate(async () => {
+        const viewer = window.NB_APP.viewerContext();
+        window.NB_APP.state.path = "/dms/scout";
+        window.NB_APP.state.detailOpen = true;
+        const mergedBefore = window.NB_APP.state.merged.length;
+        const post = await window.NB_MCP.call("board_post", { body: "foreign write must fail" });
+        const listed = await window.NB_GRAPH.query(`{
+          listPath(path: "/dms") { name }
+        }`, undefined, viewer);
+        return {
+          principalId: window.NB_APP.getIdentity()?.principalId,
+          readableDmIds: viewer.readableDmIds,
+          listed: listed.data?.listPath || [],
+          postDenied: post.isError === true,
+          wrotePost: window.NB_APP.state.merged.length !== mergedBefore,
+          navigated: window.NB_APP.navigate("/dms/scout", { keepCli: true }),
+        };
+      });
+      return (after.principalId !== before.principalId &&
+        after.readableDmIds.length === 0 && after.listed.length === 0 && after.postDenied &&
+        !after.wrotePost && after.navigated === false) ||
+        log("foreign principal retained DM access: " + JSON.stringify(after));
+    },
+  },
+  {
     name: "profile: claim keeps principalId; profile shows handle; /whoami honest",
     run: async (page, log) => {
       const before = await page.evaluate(() => window.NB_APP.getIdentity()?.principalId);
@@ -6723,6 +6758,39 @@ const CASES = [
     },
   },
   {
+    name: "NAV-ID-005 exact revision routes persist and report mismatches honestly",
+    run: async (page, log) => {
+      const proof = await page.evaluate(() => {
+        const post = window.NB_DATA.posts.find((item) => item.id === "p1");
+        post.revision = "cid-p1-current";
+        window.NB_APP.restoreNavigation({ objectId: "p1", revision: "cid-p1-current" });
+        window.NB_APP.commitNavigation(true);
+        const matched = {
+          href: window.location.href,
+          location: window.NB_APP.navigationLocation(),
+          status: document.querySelector("[data-status-line]")?.textContent || "",
+        };
+        window.NB_APP.restoreNavigation({ objectId: "p1", revision: "cid-p1-stale" });
+        window.NB_APP.commitNavigation(true);
+        return {
+          matched,
+          stale: {
+            href: window.location.href,
+            location: window.NB_APP.navigationLocation(),
+            status: document.querySelector("[data-status-line]")?.textContent || "",
+          },
+        };
+      });
+      return proof.matched.location.revision === "cid-p1-current" &&
+        /object=p1/.test(proof.matched.href) && /revision=cid-p1-current/.test(proof.matched.href) &&
+        !/projection=/.test(proof.matched.href) && !/mismatch|unavailable/i.test(proof.matched.status) &&
+        proof.stale.location.revision === "cid-p1-stale" &&
+        /object=p1/.test(proof.stale.href) && /revision=cid-p1-stale/.test(proof.stale.href) &&
+        /exact revision mismatch.*current revision cid-p1-current/i.test(proof.stale.status) ||
+        log("exact revision restoration failed: " + JSON.stringify(proof));
+    },
+  },
+  {
     name: "NAV-PROJ-003 namespace reply browser and shell ancestry remain distinct",
     run: async (page, log) => {
       const firstThree = await page.evaluate(async () => {
@@ -6899,10 +6967,27 @@ const CASES = [
       await prompt.press("Escape");
       const after = await page.evaluate(() => ({ path: window.NB_APP.state.path,
         expanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded") }));
+      await page.locator('[data-action-id="jump.interactive"]').click();
+      const pointerOpened = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        kind: window.NB_APP.state.completion?.kind,
+        expanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded"),
+        completionLayer: window.NB_APP.state.layers.includes("completion"),
+      }));
+      await page.keyboard.press("Escape");
+      const pointerAfter = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        expanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded"),
+        completionLayer: window.NB_APP.state.layers.includes("completion"),
+      }));
       return chooser.path === "/projects/community/channels" && chooser.kind === "jump" && chooser.active === -1 &&
         chooser.groups.includes("CURRENT") && chooser.groups.includes("GLOBAL") && chooser.complete &&
         chooser.visibleGroups.includes("CURRENT") && chooser.visibleGroups.includes("GLOBAL") &&
-        after.path === chooser.path && after.expanded === "false" || log("jump chooser contract: " + JSON.stringify({ chooser, after }));
+        after.path === chooser.path && after.expanded === "false" &&
+        pointerOpened.path === chooser.path && pointerOpened.kind === "jump" &&
+        pointerOpened.expanded === "true" && pointerOpened.completionLayer &&
+        pointerAfter.path === chooser.path && pointerAfter.expanded === "false" && !pointerAfter.completionLayer ||
+        log("jump chooser contract: " + JSON.stringify({ chooser, after, pointerOpened, pointerAfter }));
     },
   },
   {
@@ -7352,6 +7437,18 @@ const CASES = [
       if (!selected.inputFocused || !selected.active || selected.value !== "hel") {
         return log("manual selection did not retain input: " + JSON.stringify(selected));
       }
+      const pathBeforeAccept = await page.evaluate(() => window.NB_APP.state.path);
+      await prompt.press("Enter");
+      const accepted = await page.evaluate((beforePath) => ({
+        value: document.querySelector("[data-cli]")?.value,
+        focused: document.activeElement === document.querySelector("[data-cli]"),
+        pathStable: window.NB_APP.state.path === beforePath,
+      }), pathBeforeAccept);
+      if (!accepted.focused || accepted.value === "hel" || !accepted.pathStable) {
+        return log("explicit option acceptance executed or lost focus: " + JSON.stringify(accepted));
+      }
+      await prompt.fill("hel");
+      await page.waitForSelector('.cn-menu:not([hidden]) [role="option"]');
       await prompt.press("Escape");
       const escaped = await page.evaluate(() => ({
         value: document.querySelector("[data-cli]")?.value,
@@ -7360,10 +7457,16 @@ const CASES = [
       if (escaped.value !== "hel" || escaped.expanded !== "false") {
         return log("Escape cleared draft or kept popup: " + JSON.stringify(escaped));
       }
+      await prompt.fill("cd /pro");
+      await prompt.press("End");
+      const ghostAccepted = await prompt.inputValue();
+      if (ghostAccepted === "cd /pro") return log("End did not accept deterministic ghost text");
       await prompt.fill("cd pro");
       await prompt.press("Tab");
-      return (await page.evaluate(() => document.activeElement !== document.querySelector("[data-cli]"))) ||
-        log("Tab did not follow normal focus order");
+      return (await page.evaluate(() => ({
+        moved: document.activeElement !== document.querySelector("[data-cli]"),
+        draft: document.querySelector("[data-cli]")?.value,
+      }))).moved && (await prompt.inputValue()) === "cd pro" || log("Tab did not preserve draft and follow focus order");
     },
   },
   {
@@ -7374,6 +7477,11 @@ const CASES = [
       await prompt.evaluate((input) => input.setSelectionRange(5, 5));
       await prompt.press("Home");
       await prompt.press("Shift+End");
+      await prompt.evaluate((input) => input.addEventListener("copy", () => { window.__nativeCopyObserved = true; }, { once: true }));
+      await prompt.press("Control+c");
+      const copyObserved = await page.evaluate(() => window.__nativeCopyObserved === true);
+      await prompt.press("Backspace");
+      await prompt.press("Delete");
       await prompt.dispatchEvent("compositionstart", { data: "あ" });
       await prompt.dispatchEvent("compositionupdate", { data: "あ" });
       await prompt.dispatchEvent("compositionend", { data: "あ" });
@@ -7383,10 +7491,12 @@ const CASES = [
           focused: document.activeElement === input,
           start: input?.selectionStart,
           end: input?.selectionEnd,
+          value: input?.value,
           path: window.NB_APP.state.path,
         };
       });
-      return (editing.focused && editing.start === 0 && editing.end === 10) ||
+      return (copyObserved && editing.focused && editing.value !== "alpha beta" &&
+        editing.path === "/projects/community/channels/general") ||
         log("native editing was intercepted: " + JSON.stringify(editing));
     },
   },
@@ -7398,12 +7508,15 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.evaluate(() => window.NB_APP.openThread("p3"));
       await page.waitForSelector('.cn-thread-tree[role="tree"]');
+      await page.click("[data-action-id='jump.interactive']");
+      await page.waitForSelector('.cn-menu:not([hidden]) [role="option"]');
       const narrow = await page.evaluate(() => {
         const targets = Array.from(document.querySelectorAll(
           '.cn-thread-tree [role="treeitem"], .cn-thread-reading button, .cn-prompt button, .cn-menu [role="option"]',
         )).filter((element) => {
           const style = getComputedStyle(element);
-          return style.display !== "none" && style.visibility !== "hidden";
+          const box = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
         });
         return {
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -7411,14 +7524,29 @@ const CASES = [
           reading: !!document.querySelector('.cn-thread-reading article'),
           navigator: !!document.querySelector('.cn-blade[data-nav="true"]'),
           composer: !!document.querySelector("[data-cli]"),
+          chooser: !!document.querySelector('.cn-menu:not([hidden]) [role="option"]'),
+          focusOnScreen: (() => {
+            const box = document.activeElement?.getBoundingClientRect();
+            return !!box && box.left >= 0 && box.right <= window.innerWidth &&
+              box.top >= 0 && box.bottom <= window.innerHeight;
+          })(),
           small: targets.filter((element) => {
             const box = element.getBoundingClientRect();
             return box.width < 32 || box.height < 32;
-          }).length,
+          }).map((element) => {
+            const box = element.getBoundingClientRect();
+            return { className: element.className, width: box.width, height: box.height };
+          }),
         };
       });
       return (narrow.overflow <= 1 && narrow.tree && narrow.reading && narrow.navigator &&
-        narrow.composer && narrow.small === 0) || log("narrow contract failed: " + JSON.stringify(narrow));
+        narrow.composer && narrow.chooser && narrow.focusOnScreen && narrow.small.length === 0) ||
+        log("narrow contract failed: " + JSON.stringify({
+          chooser: narrow.chooser, focusOnScreen: narrow.focusOnScreen,
+          small: narrow.small.map((item) => item.className + ":" + Math.round(item.width) + "x" + Math.round(item.height)).join("|"),
+          overflow: narrow.overflow, tree: narrow.tree, reading: narrow.reading,
+          navigator: narrow.navigator, composer: narrow.composer,
+        }));
     },
   },
   {
@@ -8200,6 +8328,141 @@ const CASES = [
     },
   },
   {
+    name: "NAV-LAYER-001 reaction picker and query editor cancel before thread or location",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.click("[data-feed-query-toggle]");
+      await page.fill("[data-feed-query]", "state:open");
+      const queryBefore = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        layers: window.NB_APP.state.layers.slice(),
+      }));
+      await page.keyboard.press("Escape");
+      const queryAfter = await page.evaluate(() => ({
+        path: window.NB_APP.state.path,
+        open: window.NB_APP.state.feedQueryOpen,
+        query: window.NB_APP.state.feedQuery,
+        exists: !!document.querySelector("[data-feed-query]"),
+      }));
+      await page.evaluate(() => window.NB_APP.openThread("p1"));
+      await page.click('.cn-thread-reading [data-react-pick="p1"]');
+      const reactionBefore = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        picker: window.NB_APP.state.reactPick,
+        layers: window.NB_APP.state.layers.slice(),
+      }));
+      await page.keyboard.press("Escape");
+      const reactionAfter = await page.evaluate(() => ({
+        thread: window.NB_APP.state.threadFocus,
+        picker: window.NB_APP.state.reactPick,
+        layers: window.NB_APP.state.layers.slice(),
+      }));
+      return (queryBefore.layers.at(-1) === "query-editor" && queryAfter.path === queryBefore.path &&
+        queryAfter.open === false && queryAfter.query === "" && !queryAfter.exists &&
+        reactionBefore.thread === "p1" && reactionBefore.picker === "p1" &&
+        reactionBefore.layers.at(-1) === "reaction-picker" && reactionAfter.thread === "p1" &&
+        reactionAfter.picker == null && reactionAfter.layers.at(-1) === "thread-detail") ||
+        log("top-layer cancellation drift: " + JSON.stringify({ queryBefore, queryAfter, reactionBefore, reactionAfter }));
+    },
+  },
+  {
+    name: "NAV-ROUTE-002 refresh restores history focus region and detail reading anchor",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => window.NB_APP.openThread("p1"));
+      await page.focus('.cn-thread-tree [role="treeitem"][data-key="p2"]');
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
+      const before = await page.evaluate(() => {
+        const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
+        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        pane.scrollTop = Math.max(1, target.offsetTop - 18);
+        window.NB_APP.commitNavigation(true);
+        return {
+          state: window.history.state,
+          offset: target.getBoundingClientRect().top - pane.getBoundingClientRect().top,
+        };
+      });
+      if (before.state?.focusRegion !== "detail" || before.state?.readingAnchor?.objectId !== "p2") {
+        return log("meaningful reading state not committed: " + JSON.stringify(before));
+      }
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
+      await page.evaluate(() => new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
+      const after = await page.evaluate(() => {
+        const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
+        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        return {
+          focusRegion: window.NB_APP.navigationLocation().focusRegion,
+          active: document.activeElement?.getAttribute("data-object-id"),
+          offset: target.getBoundingClientRect().top - pane.getBoundingClientRect().top,
+        };
+      });
+      return (after.focusRegion === "detail" && after.active === "p2" &&
+        Math.abs(after.offset - before.offset) <= 8) || log("refresh reading restore drift: " + JSON.stringify({ before, after }));
+    },
+  },
+  {
+    name: "NAV-A11Y-003 canonical inReplyTo drives thread topology without legacy re",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        const post = window.NB_DATA.posts.find((item) => item.id === "p3");
+        delete post.re;
+        post.inReplyTo = { objectId: "p2", kind: "message" };
+        post.threadRoot = { objectId: "p1", kind: "message" };
+        window.NB_APP.openThread("p3");
+      });
+      await page.waitForSelector('.cn-thread-tree [role="treeitem"][data-object-id="p3"]');
+      const topology = await page.evaluate(() => {
+        const item = document.querySelector('.cn-thread-tree [role="treeitem"][data-object-id="p3"]');
+        return { level: item?.getAttribute("aria-level"), parent: item?.getAttribute("data-parent-id") };
+      });
+      return (topology.level === "3" && topology.parent === "p2") ||
+        log("canonical graph was not rendered: " + JSON.stringify(topology));
+    },
+  },
+  {
+    name: "NAV-A11Y-001 feed PageDown and PageUp move the synchronized roving article",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const first = page.locator('.cn-tree[role="feed"] [role="article"][tabindex="0"]');
+      await first.focus();
+      const start = await first.getAttribute("data-object-id");
+      await page.keyboard.press("PageDown");
+      const down = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.('[role="article"]')?.getAttribute("data-object-id"),
+        current: document.querySelector('.cn-tree[role="feed"] [role="article"][tabindex="0"]')?.getAttribute("data-object-id"),
+        state: window.NB_APP.state.feedMark,
+      }));
+      await page.keyboard.press("PageUp");
+      const up = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.('[role="article"]')?.getAttribute("data-object-id"),
+        current: document.querySelector('.cn-tree[role="feed"] [role="article"][tabindex="0"]')?.getAttribute("data-object-id"),
+      }));
+      return (down.active && down.active !== start && down.active === down.current && down.current === down.state &&
+        up.active === up.current) || log("page-wise feed focus drift: " + JSON.stringify({ start, down, up }));
+    },
+  },
+  {
+    name: "NAV-A11Y-003 collapsing an ancestor retains exactly one visible roving tree item",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => window.NB_APP.openThread("p1"));
+      await page.focus('.cn-thread-tree [role="treeitem"][data-key="p2"]');
+      await page.keyboard.press("ArrowDown");
+      await page.click('.cn-thread-tree [role="treeitem"][data-key="p1"] [data-fold="p1"]');
+      const folded = await page.evaluate(() => ({
+        selected: document.querySelector('.cn-thread-tree [aria-selected="true"]')?.getAttribute("data-object-id"),
+        tabbable: Array.from(document.querySelectorAll('.cn-thread-tree [role="treeitem"][tabindex="0"]'))
+          .map((item) => item.getAttribute("data-object-id")),
+        state: window.NB_APP.state.feedMark,
+      }));
+      return (folded.selected === "p1" && folded.state === "p1" && folded.tabbable.join("|") === "p1") ||
+        log("hidden descendant retained roving selection: " + JSON.stringify(folded));
+    },
+  },
+  {
     name: "blades: expand and restore keeps the focused panel context",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
@@ -8264,7 +8527,11 @@ async function _count(page, sel) {
 void _count;
 
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+    : {},
+);
 let failed = 0;
 const selected = FILTER
   ? CASES.filter((c) => c.name.includes(FILTER))

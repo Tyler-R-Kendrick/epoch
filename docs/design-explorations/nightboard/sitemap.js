@@ -57,6 +57,12 @@
     return core().validateObjectRef(ref);
   }
 
+  function entityRef(entity, kind, prefix, stableId) {
+    if (entity && entity.ref && entity.ref.objectId) return core().validateObjectRef(entity.ref);
+    var objectId = entity && entity.objectId || (prefix + String(stableId || ""));
+    return core().validateObjectRef({ objectId: objectId, kind: kind });
+  }
+
   function contextRef(post) {
     if (post.dm) return { objectId: "dm-" + post.dm, kind: "dm" };
     if (post.project) return { objectId: "channel-" + post.project + "-" + post.channel, kind: "channel" };
@@ -80,6 +86,7 @@
       ...(parentId ? { inReplyTo: core().validateObjectRef({ objectId: parentId, kind: "message" }) } : {}),
       threadRoot: core().validateObjectRef({ objectId: rootId, kind: "message" }),
       relations: post.relations || [],
+      ...(post.reactions ? { reactions: Object.assign({}, post.reactions) } : {}),
       state: post.state || "unavailable",
       aliases: [ref.objectId, legacyPostName(post)].filter(Boolean),
       ...(post.tombstone ? { tombstone: post.tombstone } : {}),
@@ -88,7 +95,11 @@
   }
 
   function messageGraph(pool) {
-    return core().createMessageGraph((pool || []).map(toCommunityMessage));
+    var messages = (pool || []).map(toCommunityMessage);
+    var provisional = core().createMessageGraph(messages);
+    return core().createMessageGraph(messages.map(function (message) {
+      return Object.assign({}, message, { threadRoot: provisional.rootOf(message.ref) });
+    }));
   }
 
   function postFromMessage(message) {
@@ -320,13 +331,14 @@
     var voice = !!(c && (c.voice || c.kind === "voice"));
     var id = c && (c.id || c.label);
     var label = (c && (c.label || c.id)) || opts.name || "channel";
-    var nPosts = voice ? 0 : postsIn(id, opts.extra).length;
+    var nPosts = voice ? 0 : (opts.count == null ? postsIn(id, opts.extra).length : opts.count);
     var entry = {
       name: opts.name || label,
       kind: "channel",
       meta: (c && c.kind) || opts.meta || "channel",
       voice: voice,
       channel: c || { id: id || label, label: label },
+      ref: entityRef(c, "channel", "channel-", opts.projectId ? opts.projectId + "-" + id : id),
       hint: voice
         ? "voice · Opus · low-latency"
         : (nPosts + " posts" + (c && c.unread ? " · " + c.unread + " unread" : "")),
@@ -466,6 +478,23 @@
     ];
   }
 
+  function listMessageVirtualTail(post, pool, segments) {
+    if (!segments.length) return virtualMessageEntries(post, pool);
+    var relation = segments[0];
+    var tail = segments.slice(1);
+    if (relation === "replies") {
+      var replies = messageEntries(pool, objectRef(post).objectId);
+      if (!tail.length) return replies;
+      var child = replies.filter(function (entry) {
+        return entry.name === tail[0] || entry.objectId === tail[0] ||
+          (entry.aliases || []).indexOf(tail[0]) !== -1;
+      })[0];
+      return child && child.post ? listMessageVirtualTail(child.post, pool, tail.slice(1)) : null;
+    }
+    if (relation === "backlinks" || relation === "receipts") return tail.length ? null : [];
+    return null;
+  }
+
   function listMessagePath(pool, segments) {
     var virtual = ["body.md", "metadata.json", "replies", "backlinks", "receipts"];
     var relationIndex = segments.findIndex(function (segment) { return virtual.indexOf(segment) >= 0; });
@@ -474,16 +503,7 @@
     if (!walked) return null;
     var post = walked.post;
     if (relationIndex < 0) return virtualMessageEntries(post, pool);
-    var relation = segments[relationIndex];
-    var tail = segments.slice(relationIndex + 1);
-    if (relation === "replies") {
-      if (!tail.length) return messageEntries(pool, objectRef(post).objectId);
-      var child = walkPostSegments(pool, [tail[0]]);
-      return child && ((child.post.inReplyTo && child.post.inReplyTo.objectId) || child.post.re) === objectRef(post).objectId
-        ? virtualMessageEntries(child.post, pool) : null;
-    }
-    if (relation === "backlinks" || relation === "receipts") return tail.length ? null : [];
-    return null;
+    return listMessageVirtualTail(post, pool, segments.slice(relationIndex));
   }
 
   /** Canonical hidden directory path for a message id, including reply parents. */
@@ -903,6 +923,7 @@
     list.unshift({
       slug: "community",
       id: "community",
+      objectId: "project-community",
       open: allChannels().reduce(function (n, c) { return n + (c.unread || 0); }, 0),
       channels: allChannels().map(function (c) { return c.label; }),
       community: true,
@@ -1053,6 +1074,8 @@
       hint: (m.detail || m.state || "member") +
         (n ? " · " + n + " dm" : " · open dm"),
       member: m,
+      ref: entityRef(m, m.kind === "agent" ? "agent" : "member",
+        m.kind === "agent" ? "agent-" : "member-", m.handle),
       openDm: m.handle,
     };
   }
@@ -1082,6 +1105,7 @@
       meta: "eve",
       hint: (a.status || "agent") + " · " + (a.summary || a.name || a.id),
       agent: a,
+      ref: entityRef(a, "agent", "agent-", (a.project ? a.project + "-" : "") + a.id),
       agentScope: a.scope || "space",
     };
   }
@@ -1246,6 +1270,7 @@
             name: view.projectionId,
             label: view.label,
             kind: "saved-view",
+            ref: entityRef(view, "saved-view", "saved-view-", view.projectionId),
             projectionId: view.projectionId,
             meta: view.visibility,
             hint: view.query,
@@ -1440,6 +1465,7 @@
               (d.unread ? " · " + d.unread + " unread" : ""),
             unread: d.unread || 0,
             dm: d,
+            ref: entityRef(d, "dm", "dm-", d.id),
           };
         });
       }
@@ -1489,6 +1515,7 @@
             kind: "dir",
             meta: p.community ? "community" : "linked project",
             hint: nChan + " channels" + (p.community ? " · social home" : " · " + p.open + " open"),
+            ref: entityRef(p, "project", "project-", p.id),
           };
         });
       }
@@ -1538,14 +1565,9 @@
         }
         return projectChannelNames(proj).map(function (c) {
           var n = projectPosts(proj.id, c).length;
-          return {
-            name: c,
-            kind: "channel",
-            meta: "work",
-            channel: { id: c, label: c, kind: "work" },
-            hint: n + " posts",
-            unread: 0,
-          };
+          return channelNavEntry({ id: c, label: c, kind: "work" }, {
+            projectId: proj.id, meta: "work", extra: extra, count: n,
+          });
         });
       }
 

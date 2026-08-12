@@ -26,6 +26,8 @@ export interface CommunityMessage {
   readonly inReplyTo?: CommunityObjectRef;
   readonly threadRoot: CommunityObjectRef;
   readonly relations: readonly CommunityRelation[];
+  /** Canonical aggregate counts keyed by reaction token. Zero counts are inert. */
+  readonly reactions?: Readonly<Record<string, number>>;
   readonly state: string;
   readonly aliases: readonly string[];
   readonly tombstone?: CommunityTombstone;

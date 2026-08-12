@@ -557,10 +557,13 @@ var NB_CORE = (() => {
         case "has":
           if (needle === "subject") return Boolean(message.title);
           if (["re", "reply", "parent"].includes(needle)) return message.inReplyTo !== void 0;
-          return message.relations.some((relation) => relation.type === needle || needle === "reactions" && relation.type === "reply");
+          if (["reaction", "reactions"].includes(needle)) {
+            return Object.values(message.reactions ?? {}).some((count) => Number.isFinite(count) && count > 0);
+          }
+          return message.relations.some((relation) => relation.type === needle);
         case "react":
         case "reaction":
-          return message.relations.some((relation) => relation.type === "reply" && contains(relation.target.objectId));
+          return (message.reactions?.[value] ?? 0) > 0;
         case "score":
           return false;
         case "sort":

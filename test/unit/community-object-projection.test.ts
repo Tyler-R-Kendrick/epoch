@@ -5,6 +5,7 @@ import {
   createActionRegistry,
   createMessageGraph,
   createProjection,
+  matchesNormalizedQuery,
   migrateNormalizedQuery,
   normalizeQuery,
   objectUrl,
@@ -35,6 +36,7 @@ export async function runCommunityObjectProjectionTests(): Promise<void> {
   await test("NAV-QUERY-001 unknown field is an error", unknownQueryFieldFails);
   await test("NAV-QUERY-002 normalized saved view survives reload", normalizedQuerySurvivesReload);
   await test("NAV-QUERY-004 query language migration is deterministic", queryMigrationIsIdempotent);
+  await test("NAV-QUERY-002 reaction queries use canonical reaction state", reactionQueriesUseCanonicalState);
   await test("NAV-ACTION-002 signed action permission parity", actionPermissionIsCentralized);
   await test("NAV-ACTION-004 generated catalogs cannot drift", actionCatalogCannotDrift);
   await test("canonical references and projections reject malformed identity and topology", validationFailsClosed);
@@ -177,6 +179,20 @@ function queryMigrationIsIdempotent(): void {
   const second = migrateNormalizedQuery(first);
   assert.deepEqual(second, first);
   assert.equal(first.version, QUERY_LANGUAGE_VERSION);
+}
+
+function reactionQueriesUseCanonicalState(): void {
+  const reacted = {
+    ...message(rootRef, undefined, rootRef, "Reacted", "body"),
+    reactions: { "+1": 2, eyes: 0 },
+  };
+  assert.equal(matchesNormalizedQuery(reacted, normalizeQuery("has:reactions")), true);
+  assert.equal(matchesNormalizedQuery(reacted, normalizeQuery("react:+1")), true);
+  assert.equal(matchesNormalizedQuery(reacted, normalizeQuery("react:eyes")), false);
+  assert.equal(matchesNormalizedQuery(
+    message(childARef, rootRef, rootRef, "Reply without reactions", "body"),
+    normalizeQuery("has:reactions"),
+  ), false, "reply topology is not reaction state");
 }
 
 async function actionPermissionIsCentralized(): Promise<void> {

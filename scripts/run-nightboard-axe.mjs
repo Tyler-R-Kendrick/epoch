@@ -27,7 +27,13 @@ const runs = [];
 let browser;
 
 try {
-  browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox"],
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {}),
+  });
   for (const viewport of VIEWPORTS) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
     await page.goto(`${server.url}board.html`, { waitUntil: "networkidle" });

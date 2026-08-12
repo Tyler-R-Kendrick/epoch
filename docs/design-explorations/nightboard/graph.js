@@ -237,7 +237,10 @@
 
   function allPosts() {
     var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
-    return D.posts.concat(live);
+    // Live DMs share the merged queue with channel traffic, but they must never
+    // enter the public post corpus. They are admitted only by
+    // visibleDmMessages(viewer), after the caller's authorization is known.
+    return D.posts.concat(live.filter(function (post) { return !post.dm; }));
   }
 
   function allDmMessages() {
@@ -256,6 +259,58 @@
 
   function visibleDmMessages(viewer) {
     return allDmMessages().filter(function (post) { return canViewPost(post, viewer); });
+  }
+
+  function readableDmIds(viewer) {
+    if (!viewer || !viewer.actorId) return new Set();
+    return new Set(viewer.readableDmIds || []);
+  }
+
+  function dmIdFromNotification(notification) {
+    var match = /^\/dms\/([^/?#]+)/.exec(String(notification && notification.where || ""));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  /** Filter raw namespace entries before any hint, body, or metadata is exposed. */
+  function filterNamespaceEntries(path, entries, viewer) {
+    var parts = MAP.split(path);
+    var readable = readableDmIds(viewer);
+    if (parts[0] === "dms" && parts[1] && !readable.has(parts[1])) return [];
+    return (entries || []).filter(function (entry) {
+      var dmId = null;
+      if (parts[0] === "dms" && parts.length === 1) {
+        dmId = entry.dm && entry.dm.id || entry.name;
+      } else if (entry.post && entry.post.dm) {
+        dmId = entry.post.dm;
+      } else if (entry.notification) {
+        dmId = dmIdFromNotification(entry.notification);
+      }
+      return !dmId || readable.has(dmId);
+    }).map(function (entry) {
+      if (parts.length !== 0 || entry.name !== "dms") return entry;
+      var visible = (D.dms || []).filter(function (dm) { return readable.has(dm.id); });
+      var unread = visible.reduce(function (count, dm) { return count + (dm.unread || 0); }, 0);
+      return Object.assign({}, entry, {
+        hint: visible.length + " threads" + (unread ? " · " + unread + " unread" : ""),
+      });
+    });
+  }
+
+  function listPath(path, viewer) {
+    var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
+    var entries = MAP.list(path, live);
+    if (!entries) return null;
+    return filterNamespaceEntries(path, entries, viewer).map(function (e) {
+      return {
+        name: e.name, kind: e.kind, hint: e.hint || e.meta || "",
+        path: MAP.resolve(path, e.name),
+        ref: e.ref ? Object.assign({}, e.ref, { canonicalUrl: canonicalUrl(e.ref) }) : null,
+        capabilities: e.capabilities || {
+          read: true, enter: e.kind !== "file", expand: false,
+          composeUnder: false, execute: false,
+        },
+      };
+    });
   }
 
   function memberOf(handle) {
@@ -335,10 +390,8 @@
     var common = {
       ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
       context: function () {
-        var contextId = p.dm ? "dm:" + p.dm : p.project
-          ? "project-channel:" + p.project + ":" + p.channel : "channel:" + p.channel;
-        var context = { objectId: contextId, kind: p.dm ? "dm" : "channel" };
-        return Object.assign(context, { canonicalUrl: canonicalUrl(context) });
+        var context = MAP.toCommunityMessage(p).context;
+        return Object.assign({}, context, { canonicalUrl: canonicalUrl(context) });
       },
       aliases: [ref.objectId, (D.legacyPostAliases || {})[p.id]].filter(Boolean),
       inReplyTo: function () { var parent = parentMessage(p, viewer); return parent ? decoratePost(parent, viewer) : null; },
@@ -449,6 +502,8 @@
         var path = "/views/" + view.projectionId;
         return Object.assign({}, MAP.projectionForPath(path), {
           path: path,
+          // Override MAP's normalized query object. GraphQL exposes a string to
+          // the owner and null to other viewers, matching the Community API.
           query: view.query,
           queryLanguageVersion: view.queryLanguageVersion,
         });
@@ -558,20 +613,7 @@
       return spec ? decorateProjection(spec) : null;
     },
     listPath: function (args) {
-      var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
-      var entries = MAP.list(args.path, live);
-      if (!entries) return [];
-      return entries.map(function (e) {
-        return {
-          name: e.name, kind: e.kind, hint: e.hint || e.meta || "",
-          path: MAP.resolve(args.path, e.name),
-          ref: e.ref ? Object.assign({}, e.ref, { canonicalUrl: canonicalUrl(e.ref) }) : null,
-          capabilities: e.capabilities || {
-            read: true, enter: e.kind !== "file", expand: false,
-            composeUnder: false, execute: false,
-          },
-        };
-      });
+      return listPath(args.path, {}) || [];
     },
   };
 
@@ -614,6 +656,7 @@
         })[0];
         return spec ? decorateProjection(spec) : null;
       },
+      listPath: function (args) { return listPath(args.path, viewer) || []; },
     });
   }
 
@@ -641,5 +684,11 @@
     return query(window.GraphQLEngine.getIntrospectionQuery({ descriptions: true }));
   }
 
-  window.NB_GRAPH = { query: query, introspect: introspect, SDL: SDL };
+  window.NB_GRAPH = {
+    query: query,
+    introspect: introspect,
+    listPath: listPath,
+    filterNamespaceEntries: filterNamespaceEntries,
+    SDL: SDL,
+  };
 })();

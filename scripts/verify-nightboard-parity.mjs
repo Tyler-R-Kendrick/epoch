@@ -4,6 +4,7 @@ import { join, normalize } from "node:path";
 
 const manifestPath = join("docs", "evidence", "nightboard-navigation-projection-parity", "parity-manifest.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const required = ["testId", "sourcePatternId", "primarySourceUrl", "invariant", "proofKind", "implementationSurface"];
 const proofKinds = new Set(["unit", "contract", "feature", "browser", "fault", "accessibility", "design", "docs"]);
 const errors = [];
@@ -21,7 +22,25 @@ const candidates = ["test", "features", join("docs", "design-explorations", "nig
 const candidateSet = new Set(candidates.map(normalize));
 const references = manifest.testReferences || {};
 
+function containsExecutableTest(source, testId, path) {
+  const escaped = testId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (path.endsWith("e2e.mjs") || path.endsWith("faults.mjs")) {
+    const title = new RegExp(`name\\s*:\\s*["'][^"']*${escaped}[^"']*["']`, "u");
+    const start = source.search(title);
+    if (start < 0) return false;
+    const next = source.indexOf("\n  {\n    name:", start + testId.length);
+    const block = source.slice(start, next < 0 ? source.length : next);
+    return /run\s*:\s*async/u.test(block) && /(?:return|throw)\b/u.test(block) && /\blog\s*\(/u.test(block);
+  }
+  const lines = source.split("\n");
+  return lines.some((line, index) => line.includes(testId) &&
+    /(?:\btest\s*\(|\bassert(?:\.|\s*\()|\bScenario:)/u.test(lines.slice(Math.max(0, index - 3), index + 1).join("\n")));
+}
+
 if (manifest.schemaVersion !== 2) errors.push("manifest schemaVersion must be 2");
+if (!String(packageJson.scripts?.["nightboard:parity"] || "").includes("test:unit:nightboard-parity")) {
+  errors.push("nightboard:parity must execute the referenced Core/API parity unit suites");
+}
 
 for (const claim of manifest.claims || []) {
   for (const field of required) {
@@ -51,8 +70,7 @@ for (const claim of manifest.claims || []) {
   if (!claimedKinds.includes(reference.kind) && !claimedKinds.includes(compatibleKind)) {
     errors.push(`${claim.testId}: ${reference.kind} test does not match declared ${claim.proofKind} proof`);
   }
-  const executable = readFileSync(path, "utf8").split("\n").some((line) =>
-    !/^\s*(?:\/\/|\/\*|\*|#)/.test(line) && line.includes(claim.testId));
+  const executable = containsExecutableTest(readFileSync(path, "utf8"), claim.testId, path);
   if (!executable) errors.push(`${claim.testId}: referenced test does not contain the ID in executable code`);
 }
 

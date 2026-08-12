@@ -376,40 +376,59 @@
     reactPick = reactPick || null;
     sort = SORTS.indexOf(sort) >= 0 ? sort : "hot";
 
+    function objectIdOf(p) {
+      return p && p.ref && p.ref.objectId ? p.ref.objectId : (p && (p.objectId || p.id));
+    }
+
+    var graph = MAP.messageGraph ? MAP.messageGraph(posts) : null;
     var byId = {}, kids = {}, roots = [];
-    posts.forEach(function (p) { byId[p.id] = p; });
+    posts.forEach(function (p) { byId[objectIdOf(p)] = p; });
+    // Query and authorization projections may omit an ancestor. Materialize
+    // Core's typed tombstone so the accessible topology stays connected.
+    if (graph && MAP.postFromMessage) {
+      posts.slice().forEach(function (post) {
+        var parent = graph.parentOf(objectIdOf(post));
+        while (parent && !byId[parent.objectId]) {
+          var parentMessage = graph.messageOf(parent);
+          if (!parentMessage) break;
+          var parentPost = MAP.postFromMessage(parentMessage);
+          byId[parent.objectId] = parentPost;
+          posts.push(parentPost);
+          parent = graph.parentOf(parent);
+        }
+      });
+    }
+
+    function parentIdOf(p) {
+      var parent = graph && graph.parentOf(objectIdOf(p));
+      return parent && parent.objectId ||
+        (p && p.inReplyTo && p.inReplyTo.objectId ? p.inReplyTo.objectId : (p && p.re));
+    }
+
     posts.forEach(function (p) {
-      if (p.re && byId[p.re]) (kids[p.re] = kids[p.re] || []).push(p);
+      var parentId = parentIdOf(p);
+      if (parentId && byId[parentId]) (kids[parentId] = kids[parentId] || []).push(p);
       else roots.push(p);
     });
 
     // Thread detail: keep only the root conversation that contains threadOf.
     if (opts.threadOf && byId[opts.threadOf]) {
-      var walk = byId[opts.threadOf];
-      while (walk.re && byId[walk.re]) walk = byId[walk.re];
-      roots = [walk];
+      var root = graph && graph.rootOf(opts.threadOf);
+      roots = [byId[root && root.objectId || opts.threadOf]];
       if (!markId) markId = opts.threadOf;
     }
     var keyboardId = markId || null;
 
-    function objectIdOf(p) {
-      return p && p.ref && p.ref.objectId ? p.ref.objectId : (p && (p.objectId || p.id));
-    }
-
-    function parentIdOf(p) {
-      return p && p.inReplyTo && p.inReplyTo.objectId ? p.inReplyTo.objectId : (p && p.re);
-    }
-
     function subtreeCount(p) {
-      return (kids[p.id] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
+      return (kids[objectIdOf(p)] || []).reduce(function (n, c) { return n + 1 + subtreeCount(c); }, 0);
     }
     posts.forEach(function (p) { p._below = subtreeCount(p); });
 
     var visiblePosts = [];
     function collectVisible(p) {
       visiblePosts.push(p);
-      if (folded[p.id]) return;
-      sortPosts(kids[p.id] || [], sort, votes).forEach(collectVisible);
+      if (folded[objectIdOf(p)]) return;
+      sortPosts(kids[objectIdOf(p)] || [], sort, votes).forEach(collectVisible);
     }
     var sortedRoots = sortPosts(roots, sort, votes);
     sortedRoots.forEach(collectVisible);
@@ -419,7 +438,7 @@
       var tombstone = p.tombstone;
       var identity = tombstone ? "Unavailable ancestor" : ("Message by " + p.who);
       var topology = "level " + (depth + 1) + ", " + position + " of " + setSize;
-      var children = (kids[p.id] || []).length;
+      var children = (kids[objectIdOf(p)] || []).length;
       var detail = tombstone
         ? (", " + (tombstone.reason || "unavailable"))
         : (": " + String(p.subject || p.body || "").slice(0, 120));
@@ -446,26 +465,28 @@
           ? esc("This ancestor is " + (tombstone.reason || "unavailable") + ". Thread topology is preserved.")
           : formatBody(p.body)) + '</div>' +
         (!tombstone ? '<div class="cn-actions">' +
-          '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '" data-reply-who="' +
+          '<button type="button" class="cn-act" data-reply="' + esc(objectId) + '" data-reply-who="' +
           esc(p.who) + '" aria-keyshortcuts="r">reply</button>' +
-          '<button type="button" class="cn-act" data-repost="' + esc(p.id) +
+          '<button type="button" class="cn-act" data-repost="' + esc(objectId) +
           '" aria-keyshortcuts="Shift+R">repost</button>' +
-          '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(p.id) +
+          '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(objectId) +
           '" aria-keyshortcuts="s">share contextual</button>' +
-          '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(p.id) +
+          '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(objectId) +
           '">copy canonical</button>' +
           ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
-            esc(p.id) + '">copy exact revision</button>' : "") + '</div>' : "") +
+            esc(objectId) + '">copy exact revision</button>' : "") + '</div>' +
+          renderReactions(objectId, p, reactions, reactPick === objectId) : "") +
         '</article></div>';
     }
 
     function nodeHtml(p, depth, ancestors, siblingPosition, siblingSetSize) {
-      var replies = sortPosts(kids[p.id] || [], sort, votes);
+      var key = objectIdOf(p);
+      var replies = sortPosts(kids[key] || [], sort, votes);
       var below = p._below || 0;
-      var isFolded = !!folded[p.id];
+      var isFolded = !!folded[key];
       var sc = scoreOf(p, votes);
-      var myVote = votes[p.id] || 0;
-      var reposted = !!reposts[p.id];
+      var myVote = votes[key] || 0;
+      var reposted = !!reposts[key];
       var member = who(p.who);
       var objectId = objectIdOf(p);
       var isThread = !!opts.threadOf;
@@ -477,13 +498,13 @@
       // Nest rails: one clickable │ per ancestor depth so you can collapse
       // any level of the chain by hitting its line (terminal tree, not pills).
       var rails = ancestors.map(function (anc) {
-        return '<button type="button" class="cn-rail" data-fold="' + esc(anc.id) + '"' +
+        return '<button type="button" class="cn-rail" data-fold="' + esc(objectIdOf(anc)) + '"' +
           ' title="Collapse thread" aria-label="Collapse thread by ' + esc(anc.who) + '">' +
           '<span class="cn-rail-mark" aria-hidden="true">|</span></button>';
       }).join("");
 
       var foldCtl = replies.length
-        ? '<button type="button" class="cn-pm" data-fold="' + esc(p.id) + '"' +
+        ? '<button type="button" class="cn-pm" data-fold="' + esc(key) + '"' +
           ' aria-keyshortcuts="f"' +
           ' aria-expanded="' + !isFolded + '" aria-label="' +
           (isFolded ? "Expand" : "Collapse") + ' replies" title="' +
@@ -491,14 +512,14 @@
           (isFolded ? "+" : "-") + "</button>"
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
-      var html = '<article class="cn-comment" data-key="' + esc(p.id) + '"' +
+      var html = '<article class="cn-comment" data-key="' + esc(key) + '"' +
         ' data-object-id="' + esc(objectId) + '"' +
         (parentIdOf(p) ? ' data-parent-id="' + esc(parentIdOf(p)) + '"' : "") +
         (tombstone ? ' data-tombstone="true"' : "") +
         ' role="' + (isThread ? "treeitem" : "article") + '" tabindex="' +
-        (p.id === keyboardId ? "0" : "-1") + '"' +
-        ' aria-current="' + ((opts.threadOf ? p.id === opts.threadOf : p.id === keyboardId) ? "true" : "false") + '"' +
-        (isThread ? ' aria-selected="' + (p.id === keyboardId ? "true" : "false") + '"' +
+        (key === keyboardId ? "0" : "-1") + '"' +
+        ' aria-current="' + ((opts.threadOf ? key === opts.threadOf : key === keyboardId) ? "true" : "false") + '"' +
+        (isThread ? ' aria-selected="' + (key === keyboardId ? "true" : "false") + '"' +
           ' aria-level="' + (depth + 1) + '"' +
           ' aria-posinset="' + position + '" aria-setsize="' + setSize + '"' +
           (replies.length ? ' aria-expanded="' + !isFolded + '"' : "") :
@@ -506,15 +527,15 @@
         ' aria-label="' + esc(postLabel(p, depth, position, setSize)) + '"' +
         ' data-kind="' + esc(member.kind) + '" data-state-of="' + esc(p.state) + '"' +
         ' data-depth="' + depth + '"' +
-        (p.id === keyboardId ? ' data-here="true"' : "") +
-        (String(p.id).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
-        '<div class="cn-rails" data-key="rails-' + esc(p.id) + '">' + rails + "</div>" +
-        '<div class="cn-vote" data-key="vote-' + esc(p.id) + '">' +
-        '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(p.id) + '"' +
+        (key === keyboardId ? ' data-here="true"' : "") +
+        (String(key).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
+        '<div class="cn-rails" data-key="rails-' + esc(key) + '">' + rails + "</div>" +
+        '<div class="cn-vote" data-key="vote-' + esc(key) + '">' +
+        '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(key) + '"' +
         ' aria-pressed="' + (myVote === 1) + '" aria-keyshortcuts="u" aria-label="Upvote">+</button>' +
         '<span class="cn-score" data-score="' + (sc > 0 ? "pos" : sc < 0 ? "neg" : "zero") + '">' +
         sc + "</span>" +
-        '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(key) + '"' +
         ' aria-pressed="' + (myVote === -1) + '" aria-keyshortcuts="d" aria-label="Downvote">-</button>' +
         "</div>" +
         '<div class="cn-comment-main">' +
@@ -536,30 +557,30 @@
         '<span class="cn-sigil" aria-hidden="true">' + window.NB_ASCII.sigil(p.sig, 4) + "</span>" +
         '<span class="cn-sig-text">' + esc(p.sig) + "</span></div>" +
         (!tombstone ? '<div class="cn-actions">' +
-        '<button type="button" class="cn-act" data-reply="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-act" data-reply="' + esc(key) + '"' +
         ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
-        '<button type="button" class="cn-act" data-repost="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-act" data-repost="' + esc(key) + '"' +
         ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
         (reposted ? "reposted" : "repost") + '</button>' +
-        '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(p.id) + '"' +
+        '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(key) + '"' +
         ' aria-keyshortcuts="s" title="Share contextual link (s)">share contextual</button>' +
-        '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(p.id) +
+        '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(key) +
         '" title="Copy canonical link">copy canonical</button>' +
         ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
-          esc(p.id) + '" title="Copy exact revision link">copy exact revision</button>' : "") +
-        '<button type="button" class="cn-act" data-copy-post="' + esc(p.id) + '"' +
+          esc(key) + '" title="Copy exact revision link">copy exact revision</button>' : "") +
+        '<button type="button" class="cn-act" data-copy-post="' + esc(key) + '"' +
         ' aria-keyshortcuts="y" title="Copy this thread in an optimized paste format (y)">copy</button>' +
         (isFolded && below
-          ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(p.id) + '">' +
+          ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(key) + '">' +
             below + (below === 1 ? " more" : " more") + "</button>"
           : "") +
         "</div>" +
-        renderReactions(p.id, p, reactions, reactPick === p.id) : "") +
+        renderReactions(key, p, reactions, reactPick === key) : "") +
         "</div></article>";
 
       if (replies.length && !isFolded) {
         html += '<div class="cn-replies"' + (isThread ? ' role="group"' : "") +
-          ' data-key="re-' + esc(p.id) + '">' +
+          ' data-key="re-' + esc(key) + '">' +
           replies.map(function (c, index) {
             return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
           }).join("") + "</div>";
@@ -567,7 +588,7 @@
       return html;
     }
 
-    if (!keyboardId && sortedRoots[0]) keyboardId = sortedRoots[0].id;
+    if (!keyboardId && sortedRoots[0]) keyboardId = objectIdOf(sortedRoots[0]);
     var matchNote = "";
     if (queryInfo && feedQuery && !queryInfo.error) {
       matchNote = '<div class="cn-feed-match" data-key="feed-match">' +

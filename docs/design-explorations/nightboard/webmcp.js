@@ -22,6 +22,13 @@
     return (typeof document !== "undefined" && document.modelContext) || null;
   }
 
+  function actionContext() {
+    if (window.NB_APP && typeof window.NB_APP.actionContext === "function") {
+      return window.NB_APP.actionContext("mcp");
+    }
+    return { origin: "mcp", context: "board" };
+  }
+
   /**
    * Register a tool with the browser if it will take it, and always with the
    * local registry so the page's own agent can call it.
@@ -36,13 +43,14 @@
           label: descriptor.name,
           description: descriptor.description,
           contexts: ["board"],
-          sideEffect: "local",
+          sideEffect: descriptor.sideEffect || "local",
+          permission: descriptor.permission,
           mcp: { toolName: descriptor.name, inputSchema: descriptor.inputSchema },
           execute: descriptor.execute,
         });
       }
       descriptor = Object.assign({}, descriptor, { actionId: actionId, execute: function (args) {
-        return window.NB_ACTIONS.invoke(actionId, args || {}, { origin: "mcp", context: "board" });
+        return window.NB_ACTIONS.invoke(actionId, args || {}, actionContext());
       } });
     }
     var native = nativeContext();

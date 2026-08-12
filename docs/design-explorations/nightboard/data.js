@@ -57,7 +57,7 @@ window.NB_DATA = {
   agents: {
     board: [
       {
-        id: "bo",
+        id: "bo", objectId: "agent-bo",
         name: "Bo",
         scope: "space",
         model: "route:workspace-sticky",
@@ -89,7 +89,7 @@ window.NB_DATA = {
         ],
       },
       {
-        id: "space-steward",
+        id: "space-steward", objectId: "agent-space-steward",
         name: "Space Steward",
         scope: "space",
         model: "anthropic/claude-sonnet-4.6",
@@ -120,7 +120,7 @@ window.NB_DATA = {
         ],
       },
       {
-        id: "activity-relay",
+        id: "activity-relay", objectId: "agent-activity-relay",
         name: "Activity Relay",
         scope: "space",
         model: "openai/gpt-5-mini",
@@ -141,7 +141,7 @@ window.NB_DATA = {
     projects: {
       community: [
         {
-          id: "community-host",
+          id: "community-host", objectId: "agent-community-host",
           name: "Community Host",
           scope: "project",
           project: "community",
@@ -160,7 +160,7 @@ window.NB_DATA = {
           ],
         },
         {
-          id: "triage-clerk",
+          id: "triage-clerk", objectId: "agent-triage-clerk",
           name: "Triage Clerk",
           scope: "project",
           project: "community",
@@ -180,7 +180,7 @@ window.NB_DATA = {
       ],
       "civic-tuner": [
         {
-          id: "install-cache",
+          id: "install-cache", objectId: "agent-install-cache",
           name: "Install Cache Agent",
           scope: "project",
           project: "civic-tuner",
@@ -201,7 +201,7 @@ window.NB_DATA = {
           ],
         },
         {
-          id: "change-reviewer",
+          id: "change-reviewer", objectId: "agent-change-reviewer",
           name: "Change Reviewer",
           scope: "project",
           project: "civic-tuner",
@@ -222,7 +222,7 @@ window.NB_DATA = {
       ],
       "civic-community-kit": [
         {
-          id: "draft-persistence",
+          id: "draft-persistence", objectId: "agent-draft-persistence",
           name: "Draft Persistence Agent",
           scope: "project",
           project: "civic-community-kit",
@@ -317,23 +317,23 @@ window.NB_DATA = {
   ],
 
   channels: [
-    { id: "general", label: "general", kind: "social", count: 5, spaceId: "civic-workshop" },
-    { id: "showcase", label: "showcase", kind: "social", count: 1, spaceId: "civic-workshop" },
-    { id: "support", label: "support", kind: "social", count: 3, spaceId: "civic-workshop" },
-    { id: "ideas", label: "ideas", kind: "work", count: 4, spaceId: "civic-workshop" },
-    { id: "bugs", label: "bugs", kind: "work", count: 2, spaceId: "civic-workshop" },
-    { id: "agent-runs", label: "agent-runs", kind: "work", count: 2, spaceId: "agent-lab" },
-    { id: "previews", label: "previews", kind: "work", count: 1, spaceId: "agent-lab" },
-    { id: "governance", label: "governance", kind: "work", count: 0, spaceId: "civic-workshop" },
+    { id: "general", objectId: "channel-general", label: "general", kind: "social", count: 5, spaceId: "civic-workshop" },
+    { id: "showcase", objectId: "channel-showcase", label: "showcase", kind: "social", count: 1, spaceId: "civic-workshop" },
+    { id: "support", objectId: "channel-support", label: "support", kind: "social", count: 3, spaceId: "civic-workshop" },
+    { id: "ideas", objectId: "channel-ideas", label: "ideas", kind: "work", count: 4, spaceId: "civic-workshop" },
+    { id: "bugs", objectId: "channel-bugs", label: "bugs", kind: "work", count: 2, spaceId: "civic-workshop" },
+    { id: "agent-runs", objectId: "channel-agent-runs", label: "agent-runs", kind: "work", count: 2, spaceId: "agent-lab" },
+    { id: "previews", objectId: "channel-previews", label: "previews", kind: "work", count: 1, spaceId: "agent-lab" },
+    { id: "governance", objectId: "channel-governance", label: "governance", kind: "work", count: 0, spaceId: "civic-workshop" },
     // Discord-style voice rooms — WebRTC mesh, no text backlog.
-    { id: "lounge", label: "lounge", kind: "voice", count: 0, spaceId: "civic-workshop",
+    { id: "lounge", objectId: "channel-lounge", label: "lounge", kind: "voice", count: 0, spaceId: "civic-workshop",
       voice: true, bitrateKbps: 64, frameMs: 20 },
-    { id: "standup", label: "standup", kind: "voice", count: 0, spaceId: "civic-workshop",
+    { id: "standup", objectId: "channel-standup", label: "standup", kind: "voice", count: 0, spaceId: "civic-workshop",
       voice: true, bitrateKbps: 64, frameMs: 20 },
   ],
 
   members: [
-    { handle: "maya", name: "Maya Chen", role: "maintainer", kind: "person", state: "here",
+    { handle: "maya", objectId: "member-maya", name: "Maya Chen", role: "maintainer", kind: "person", state: "here",
       company: "Epoch · civic workshop", location: "Portland, OR",
       url: "https://github.com/maya", joined: "2024-03",
       bio: "Signs promotions and keeps Scout's drafts honest.\n\n" +
@@ -342,7 +342,7 @@ window.NB_DATA = {
         { slug: "civic/tuner", blurb: "Install cache that survives image bumps" },
         { slug: "civic/community-kit", blurb: "Composer furniture for civic boards" },
       ] },
-    { handle: "lea", name: "Lea Ortiz", role: "citizen builder", kind: "person", state: "here",
+    { handle: "lea", objectId: "member-lea", name: "Lea Ortiz", role: "citizen builder", kind: "person", state: "here",
       company: "Boat wifi lab", location: "Mobile",
       url: "https://github.com/lea", joined: "2024-06",
       bio: "I break installs on three old phones so you don't have to.\n\n" +
@@ -350,7 +350,7 @@ window.NB_DATA = {
       pinned: [
         { slug: "civic/tuner", blurb: "Cold-install repros and warm-path checks" },
       ] },
-    { handle: "nora", name: "Nora Vale", role: "contributor", kind: "person", state: "here",
+    { handle: "nora", objectId: "member-nora", name: "Nora Vale", role: "contributor", kind: "person", state: "here",
       company: "Measurements", location: "Remote",
       url: "https://github.com/nora", joined: "2024-05",
       bio: "Repro measurements that make cold-install claims believable.\n\n" +
@@ -358,14 +358,14 @@ window.NB_DATA = {
       pinned: [
         { slug: "civic/tuner", blurb: "Cache-key timing tables" },
       ] },
-    { handle: "sam", name: "Sam Rivera", role: "community member", kind: "person", state: "away",
+    { handle: "sam", objectId: "member-sam", name: "Sam Rivera", role: "community member", kind: "person", state: "away",
       company: "Community kit", location: "Austin, TX",
       url: "https://github.com/sam", joined: "2024-08",
       bio: "Draft text should stick per channel. Filing the boring bugs so agents can fix them.",
       pinned: [
         { slug: "civic/community-kit", blurb: "Draft persistence issues" },
       ] },
-    { handle: "scout", name: "Scout", role: "member agent", kind: "agent", state: "working",
+    { handle: "scout", objectId: "agent-scout", name: "Scout", role: "member agent", kind: "agent", state: "working",
       detail: "goose · supervised by @maya",
       company: "goose runtime", location: "agent mesh",
       url: "agent://scout", joined: "2025-01",
@@ -374,7 +374,7 @@ window.NB_DATA = {
       pinned: [
         { slug: "civic/tuner", blurb: "CHANGE-12 · split the cache key" },
       ] },
-    { handle: "patcher", name: "Patcher", role: "member agent", kind: "agent", state: "idle",
+    { handle: "patcher", objectId: "agent-patcher", name: "Patcher", role: "member agent", kind: "agent", state: "idle",
       detail: "codex · supervised by @maya",
       company: "codex runtime", location: "agent mesh",
       url: "agent://patcher", joined: "2025-01",
@@ -499,13 +499,13 @@ window.NB_DATA = {
    * their side (same post shape as channel threads so the tree view reuses).
    */
   dms: [
-    { id: "scout", peer: "scout", kind: "agent", unread: 1,
+    { id: "scout", objectId: "dm-scout", peer: "scout", kind: "agent", unread: 1,
       preview: "Drafting CHANGE-12 now. Will need your review before merge." },
-    { id: "maya", peer: "maya", kind: "person", unread: 0,
+    { id: "maya", objectId: "dm-maya", peer: "maya", kind: "person", unread: 0,
       preview: "When you are ready, promote Scout's plan with the receipts." },
-    { id: "patcher", peer: "patcher", kind: "agent", unread: 2,
+    { id: "patcher", objectId: "dm-patcher", peer: "patcher", kind: "agent", unread: 2,
       preview: "Session-scoped draft storage is ready for human review." },
-    { id: "lea", peer: "lea", kind: "person", unread: 0,
+    { id: "lea", objectId: "dm-lea", peer: "lea", kind: "person", unread: 0,
       preview: "I can retest on the three old phones once it lands." },
   ],
 
@@ -666,12 +666,12 @@ window.NB_DATA = {
    */
   projects: [
     {
-      slug: "civic/tuner", open: 5, channels: ["issues", "changes", "releases"], spaceId: "tuner-crew",
+      objectId: "project-civic-tuner", slug: "civic/tuner", open: 5, channels: ["issues", "changes", "releases"], spaceId: "tuner-crew",
       // Project roster — open a handle → /dms/<handle>
       members: ["maya", "nora", "scout", "lea"],
     },
     {
-      slug: "civic/community-kit", open: 1, channels: ["issues", "changes"], spaceId: "tuner-crew",
+      objectId: "project-civic-community-kit", slug: "civic/community-kit", open: 1, channels: ["issues", "changes"], spaceId: "tuner-crew",
       members: ["maya", "sam", "patcher"],
     },
   ],

@@ -170,6 +170,62 @@ export async function runNightboardNavigationRuntimeTests(): Promise<void> {
   const migratedMacro = actions.migrateMacro({ name: "daily", commands: ["view-open saved-1"], voice: "open daily" });
   assert.deepEqual(migratedMacro.actionIds, ["view.open"], "NAV-ACTION-003 legacy macro resolves action IDs");
 
+  const mcpWindow: BrowserWindow = {
+    document: {},
+  };
+  let mcpAllowed = false;
+  let mcpWrites = 0;
+  mcpWindow.NB_APP = {
+    actionContext(origin: string) {
+      return {
+        origin,
+        context: "board",
+        authorize(permission: string) {
+          return permission === "community.participate" && mcpAllowed;
+        },
+      };
+    },
+    executeAction(actionId: string) {
+      assert.equal(actionId, "compose.publish");
+      mcpWrites += 1;
+      return { ok: true };
+    },
+  };
+  load("action-registry.js", mcpWindow);
+  load("actions.js", mcpWindow);
+  load("webmcp.js", mcpWindow);
+  const mcp = mcpWindow.NB_MCP as {
+    registerTool(descriptor: Record<string, unknown>): void;
+    call(name: string, input: unknown): Promise<Record<string, unknown>>;
+  };
+  const mcpActions = mcpWindow.NB_ACTIONS as {
+    resolve(origin: string, alias: string): string | null;
+    get(actionId: string): Record<string, unknown> | null;
+  };
+  mcp.registerTool({
+    name: "board_post",
+    description: "Publish a message",
+    inputSchema: { type: "object" },
+    execute() { mcpWrites += 1; return { ok: true }; },
+  });
+  const deniedPost = await mcp.call("board_post", { body: "denied" });
+  assert.equal(deniedPost.isError, true,
+    "NAV-ACTION-002 WebMCP cannot bypass a denied participation policy");
+  assert.equal(mcpWrites, 0, "NAV-ACTION-002 denied MCP mutation does not execute");
+  assert.equal(mcpActions.resolve("mcp", "board_post"), "compose.publish");
+  assert.equal(mcpActions.get("compose.publish")?.sideEffect, "shared");
+  assert.equal(mcpActions.get("compose.publish")?.permission, "community.participate");
+  for (const toolName of ["board_create_channel", "board_rename_channel", "board_create_project"]) {
+    const actionId = mcpActions.resolve("mcp", toolName);
+    assert.ok(actionId, `NAV-ACTION-004 ${toolName} has a canonical action descriptor`);
+    assert.equal(mcpActions.get(actionId)?.permission, "community.participate");
+  }
+  mcpAllowed = true;
+  const allowedPost = await mcp.call("board_post", { body: "allowed" });
+  assert.notEqual(allowedPost.isError, true,
+    "NAV-ACTION-002 authorized WebMCP uses the same canonical action");
+  assert.equal(mcpWrites, 1);
+
   const storage = new Map<string, string>();
   const sessionWindow: BrowserWindow = {
     localStorage: {

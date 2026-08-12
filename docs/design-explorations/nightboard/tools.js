@@ -44,7 +44,10 @@
         required: ["path"],
       },
       execute: async function (args) {
-        var entries = MAP.list(MAP.resolve(api.state.path, args.path), api.state.merged);
+        var resolved = MAP.resolve(api.state.path, args.path);
+        var entries = GRAPH.listPath
+          ? GRAPH.listPath(resolved, api.viewerContext ? api.viewerContext() : {})
+          : null;
         if (!entries) return MCP.fail("not a directory: " + args.path);
         return MCP.text(entries.map(function (e) {
           var type = e.kind === "message" ? "message" : e.kind === "dir" ? "dir" : e.kind;

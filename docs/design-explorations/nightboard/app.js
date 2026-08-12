@@ -109,6 +109,9 @@
     candIndex: -1,
     feedBusy: false,
     sessionRecovery: null,
+    // The first durable local principal owns the fixture-backed private inbox.
+    // Sign-out mints a different principal and must not transfer this ACL.
+    dmOwnerPrincipalId: null,
     layers: [],
     navigationVisits: [],
     // Esc closes the suggestion combobox without clearing the draft; typing
@@ -1463,12 +1466,43 @@
   }
 
   function viewerContext() {
+    var actorId = identity && identity.principalId || undefined;
+    var readable = actorId ? ((window.NB_DATA && window.NB_DATA.dms) || []).filter(function (dm) {
+      if (dm.ownerId) return dm.ownerId === actorId;
+      if (Array.isArray(dm.participantIds) && dm.participantIds.length) {
+        return dm.participantIds.indexOf(actorId) >= 0;
+      }
+      return state.dmOwnerPrincipalId === actorId;
+    }).map(function (dm) { return dm.id; }) : [];
+    if (actorId && state.dmOwnerPrincipalId === actorId && window.NB_MAP) {
+      var known = [];
+      if (window.NB_MAP.membersForBoard) known = known.concat(window.NB_MAP.membersForBoard());
+      if (window.NB_MAP.allProjects && window.NB_MAP.membersForProject) {
+        window.NB_MAP.allProjects().forEach(function (project) {
+          known = known.concat(window.NB_MAP.membersForProject(project));
+        });
+      }
+      known.forEach(function (member) {
+        var handle = String(member && member.handle || "").replace(/^@/, "").toLowerCase();
+        if (handle && readable.indexOf(handle) < 0) readable.push(handle);
+      });
+    }
     return {
-      actorId: identity && identity.principalId || undefined,
-      readableDmIds: identity && identity.principalId
-        ? ((window.NB_DATA && window.NB_DATA.dms) || []).map(function (dm) { return dm.id; })
-        : [],
+      actorId: actorId,
+      readableDmIds: readable,
     };
+  }
+
+  function authorizedNamespaceEntries(path) {
+    var listed = MAP.list(path, state.merged);
+    if (!listed || !window.NB_GRAPH || !window.NB_GRAPH.filterNamespaceEntries) return listed || [];
+    return window.NB_GRAPH.filterNamespaceEntries(path, listed, viewerContext());
+  }
+
+  function canEnterNamespace(path) {
+    var parts = MAP.split(path);
+    if (parts[0] !== "dms" || !parts[1]) return true;
+    return viewerContext().readableDmIds.indexOf(parts[1]) >= 0;
   }
 
   syncSavedViewPrincipal();
@@ -1797,6 +1831,7 @@
     return {
       v: 2,
       principalId: identity.principalId,
+      dmOwnerPrincipalId: state.dmOwnerPrincipalId,
       path: state.path,
       cursor: state.cursor,
       focus: state.focus,
@@ -1903,11 +1938,18 @@
   function restoreBoardState() {
     if (!window.NB_SESSION) return;
     var snap = window.NB_SESSION.loadBoardState();
-    if (!snap) return;
+    if (!snap) {
+      state.dmOwnerPrincipalId = identity && identity.principalId || null;
+      return;
+    }
     if (snap.recovery) {
+      // Corrupt or unsupported private state cannot safely establish ownership.
+      state.dmOwnerPrincipalId = null;
       state.sessionRecovery = snap.recovery;
       return;
     }
+    state.dmOwnerPrincipalId = snap.dmOwnerPrincipalId || snap.principalId ||
+      (identity && identity.principalId) || null;
     // Only restore board work that belongs to this principal (guest continuity ok).
     if (snap.principalId && identity.principalId && snap.principalId !== identity.principalId) {
       // Different principal on a shared machine — keep furniture panes only.
@@ -2468,7 +2510,7 @@
     return (MAP.navParentPath ? MAP.navParentPath(state.path) : state.path) || "/";
   }
 
-  function entries() { return MAP.list(navListPath(), state.merged) || []; }
+  function entries() { return authorizedNamespaceEntries(navListPath()); }
 
   /** Keep a terminal channel address aligned with the navbar cursor. */
   function syncTerminalPathFromCursor() {
@@ -2590,6 +2632,7 @@
     paintKeysCue();
     paintRestartCue();
     paintSessionRecovery();
+    syncVisibleInteractionLayers();
     // Narrow ranger: keep the focused blade in view (Enter/→ must reveal feed).
     revealFocusedBlade();
     schedulePersist();
@@ -2750,9 +2793,17 @@
   var navigationHistory = window.NB_NAV.createHistory(window.history);
   var restoringHistory = false;
   var navigationRestoreNotice = "";
+  var navigationRevision = "";
 
-  function readingAnchorTarget(objectId) {
-    return Array.prototype.find.call(document.querySelectorAll("[data-object-id]"), function (element) {
+  function readingAnchorTarget(objectId, focusRegion) {
+    var selector = focusRegion === "detail"
+      ? ".cn-thread-reading [data-object-id]"
+      : focusRegion === "thread-outline"
+        ? '.cn-thread-tree [role="treeitem"][data-object-id]'
+        : focusRegion === "feed"
+          ? '.cn-tree[role="feed"] [role="article"][data-object-id]'
+          : "[data-object-id]";
+    return Array.prototype.find.call(document.querySelectorAll(selector), function (element) {
       return element.getAttribute("data-object-id") === objectId;
     });
   }
@@ -2763,8 +2814,8 @@
       : null;
   }
 
-  function currentReadingAnchor(objectId) {
-    var target = readingAnchorTarget(objectId);
+  function currentReadingAnchor(objectId, focusRegion) {
+    var target = readingAnchorTarget(objectId, focusRegion);
     if (!target) return undefined;
     var container = readingScrollContainer(target);
     var pixelOffset = target.getBoundingClientRect().top -
@@ -2772,21 +2823,42 @@
     return { objectId: objectId, pixelOffset: pixelOffset };
   }
 
+  function activeFocusRegion() {
+    var active = document.activeElement;
+    if (active && active.closest) {
+      if (active.closest(".cn-thread-reading")) return "detail";
+      if (active.closest(".cn-thread-tree")) return "thread-outline";
+      if (active.closest('.cn-tree[role="feed"]')) return "feed";
+      if (active.closest("[data-cli]")) return menuShouldOpen() ? "completion" : "composer";
+      if (active.closest('[role="dialog"], [role="menu"]')) return "dialog";
+      if (active.closest('.cn-blade[data-blade-kind="list"]')) return "navigator";
+    }
+    return state.threadFocus ? "thread-outline" : (state.detailOpen ? "feed" : "navigator");
+  }
+
   function navigationLocation() {
     var projection = MAP.projectionForPath(state.path);
     var objectId = state.feedMark || state.threadFocus || null;
     var atPath = MAP.objectAtPath(state.path, state.merged);
     if (!objectId && atPath) objectId = atPath.objectId;
+    var focusRegion = activeFocusRegion();
+    var threadRootId;
+    if (state.threadFocus) {
+      var graph = threadGraph();
+      var rootRef = graph && graph.rootOf(state.threadFocus);
+      threadRootId = rootRef && rootRef.objectId || state.threadFocus;
+    }
     return {
-      projectionId: projection.projectionId,
+      projectionId: navigationRevision ? undefined : projection.projectionId,
       objectId: objectId,
-      threadRootId: state.threadFocus || undefined,
+      revision: navigationRevision || undefined,
+      threadRootId: threadRootId || undefined,
       detailObjectId: state.feedMark || undefined,
       sort: state.sort,
       workspaceId: state.sessions[state.activeSession] &&
         (state.sessions[state.activeSession].id || "workspace-" + (state.activeSession + 1)),
-      focusRegion: state.threadFocus ? "thread-outline" : (state.detailOpen ? "feed" : "navigator"),
-      readingAnchor: objectId ? currentReadingAnchor(objectId) : undefined,
+      focusRegion: focusRegion,
+      readingAnchor: objectId ? currentReadingAnchor(objectId, focusRegion) : undefined,
     };
   }
 
@@ -2811,6 +2883,17 @@
     var objectPath = location.objectId && MAP.pathForObject(location.objectId, location.projectionId, state.merged);
     var fallback = !projectionPath && !!location.projectionId;
     if (!fallback) navigationRestoreNotice = "";
+    navigationRevision = location.revision || "";
+    var revisionNotice = "";
+    if (navigationRevision && location.objectId) {
+      var revisionPath = objectPath || MAP.pathForObject(location.objectId, null, state.merged);
+      var currentRef = revisionPath && MAP.objectAtPath(revisionPath, state.merged);
+      if (!currentRef || !currentRef.revision) {
+        revisionNotice = "exact revision unavailable · opened current object";
+      } else if (currentRef.revision !== navigationRevision) {
+        revisionNotice = "exact revision mismatch · opened current revision " + currentRef.revision;
+      }
+    }
     // A contextual route's location is its projection; the focused object is
     // restored separately below. Preferring the object's deep namespace alias
     // turned a channel refresh into `.../channel/message-id` and collapsed the
@@ -2854,8 +2937,8 @@
     }
     restoringHistory = false;
     if (location.readingAnchor && restored) requestAnimationFrame(function () {
-      var current = currentReadingAnchor(location.readingAnchor.objectId);
-      var anchorTarget = readingAnchorTarget(location.readingAnchor.objectId);
+      var current = currentReadingAnchor(location.readingAnchor.objectId, location.focusRegion);
+      var anchorTarget = readingAnchorTarget(location.readingAnchor.objectId, location.focusRegion);
       var container = readingScrollContainer(anchorTarget);
       if (current && container) {
         container.scrollTop += current.pixelOffset - location.readingAnchor.pixelOffset;
@@ -2863,6 +2946,9 @@
     });
     if (fallback && restored) {
       navigationRestoreNotice = "projection unavailable · opened canonical object";
+      status(navigationRestoreNotice);
+    } else if (revisionNotice && restored) {
+      navigationRestoreNotice = revisionNotice;
       status(navigationRestoreNotice);
     }
     return restored;
@@ -2872,9 +2958,16 @@
     window.addEventListener("popstate", function (event) {
       restoreNavigation(event.state || window.NB_NAV.parseLocation(window.location.href));
     });
-    var route = window.NB_NAV.parseLocation(window.location.href);
-    if (route.objectId || route.projectionId) restoreNavigation(route);
-    commitNavigation(true);
+    var persisted = window.history.state;
+    var route = persisted && (persisted.objectId || persisted.projectionId)
+      ? persisted
+      : window.NB_NAV.parseLocation(window.location.href);
+    if (route.objectId || route.projectionId) {
+      restoreNavigation(route);
+      requestAnimationFrame(function () { requestAnimationFrame(function () { commitNavigation(true); }); });
+    } else {
+      commitNavigation(true);
+    }
   }
 
   function layers() {
@@ -2919,6 +3012,43 @@
     state.layers = layers().list().map(function (item) { return item.id; });
     status(label);
     return true;
+  }
+
+  function hasLayer(id) {
+    return !!(interactionStack && interactionStack.list().some(function (item) { return item.id === id; }));
+  }
+
+  function dataControl(attribute, value) {
+    return Array.prototype.find.call(document.querySelectorAll("[" + attribute + "]"), function (element) {
+      return element.getAttribute(attribute) === value;
+    });
+  }
+
+  function syncVisibleInteractionLayers() {
+    if (state.reactPick) {
+      if (!hasLayer("reaction-picker")) {
+        pushLayer("reaction-picker", "reaction picker", "close reaction picker", function () {
+          state.reactPick = null;
+          render(true);
+        }, dataControl("data-react-pick", state.reactPick) || document.activeElement);
+      }
+    } else if (hasLayer("reaction-picker")) {
+      removeLayer("reaction-picker");
+    }
+    if (state.feedQueryOpen && $("[data-feed-query]")) {
+      if (!hasLayer("query-editor")) {
+        pushLayer("query-editor", "query editor", "clear filter", function () {
+          state.feedQuery = "";
+          state.feedQueryOpen = false;
+          state.feedQueryError = null;
+          state.feedView = "hot";
+          state.sort = "hot";
+          render(true);
+        }, $("[data-feed-query-toggle]"));
+      }
+    } else if (hasLayer("query-editor")) {
+      removeLayer("query-editor");
+    }
   }
 
   function wireInteractionLayers() {
@@ -3186,7 +3316,10 @@
 
   function navigate(path, opts) {
     opts = opts || {};
-    if (!restoringHistory && navigationRestoreNotice) navigationRestoreNotice = "";
+    if (!restoringHistory) {
+      navigationRestoreNotice = "";
+      navigationRevision = "";
+    }
     // Pre-object-ID share links used `nightboard:<path>?sort=<order>`. Treat
     // the scheme and query as locator metadata, never as namespace segments;
     // the normal history commit below replaces a successful legacy locator
@@ -3207,6 +3340,10 @@
     }
     if (cdPreview && !opts.preview) cancelCdPreview({ noRender: true });
     var target = MAP.resolve(state.path, requestedPath);
+    if (!canEnterNamespace(target)) {
+      status("direct message unavailable for this principal");
+      return false;
+    }
     // Deep post URLs land on the channel feed with that thread focused in detail.
     var deepPost = MAP.postAt ? MAP.postAt(target, state.merged) : null;
     if (deepPost && MAP.channelFeedPath && MAP.isPostReplyPath && MAP.isPostReplyPath(target)) {
@@ -3235,7 +3372,7 @@
         // Only a leaf that actually exists counts as arriving. Reporting
         // success for a name that is not there made every caller believe a
         // typo had worked, which is why `cd bugs` silently did nothing.
-        var probe = MAP.list(dir, state.merged) || [];
+        var probe = authorizedNamespaceEntries(dir);
         var leaf = parts[parts.length - 1];
         var found = probe.findIndex(function (e) { return e.name === leaf; });
         if (found === -1) return false;
@@ -3490,8 +3627,12 @@
   /** Detail-pane post pool for the current channel / DM / space feed. */
   function feedEntries() {
     var feedPath = MAP.channelFeedPath ? MAP.channelFeedPath(state.path) : state.path;
-    if (MAP.feedEntriesAt) return MAP.feedEntriesAt(feedPath, state.merged) || [];
-    return MAP.list(feedPath, state.merged) || [];
+    var listed = MAP.feedEntriesAt
+      ? (MAP.feedEntriesAt(feedPath, state.merged) || [])
+      : (MAP.list(feedPath, state.merged) || []);
+    return window.NB_GRAPH && window.NB_GRAPH.filterNamespaceEntries
+      ? window.NB_GRAPH.filterNamespaceEntries(feedPath, listed, viewerContext())
+      : listed;
   }
 
   /**
@@ -3557,8 +3698,23 @@
       return el.getAttribute("data-key") === (state.feedMark || state.threadFocus);
     });
     if (ix < 0) ix = 0;
-    var next = edge === "start" ? 0 : edge === "end" ? list.length - 1
-      : Math.max(0, Math.min(list.length - 1, ix + delta));
+    var next;
+    if (edge === "page") {
+      var activeRect = list[ix].getBoundingClientRect();
+      var pane = list[ix].closest(".cn-blade-body, .cn-col-body");
+      var distance = Math.max(activeRect.height, (pane && pane.clientHeight || window.innerHeight) * 0.8);
+      var targetTop = activeRect.top + (delta < 0 ? -distance : distance);
+      next = ix;
+      var closest = Infinity;
+      list.forEach(function (element, index) {
+        var difference = Math.abs(element.getBoundingClientRect().top - targetTop);
+        if (difference < closest) { closest = difference; next = index; }
+      });
+      if (next === ix) next = Math.max(0, Math.min(list.length - 1, ix + (delta < 0 ? -1 : 1)));
+    } else {
+      next = edge === "start" ? 0 : edge === "end" ? list.length - 1
+        : Math.max(0, Math.min(list.length - 1, ix + delta));
+    }
     var id = list[next].getAttribute("data-key");
     state.feedMark = id;
     state.detailOpen = true;
@@ -4251,6 +4407,16 @@
     return "you";
   }
 
+  function canComposeInContext(ctx) {
+    ctx = ctx || {};
+    var dmId = ctx.kind === "dm" ? ctx.dm : null;
+    if (!dmId && ctx.path) {
+      var parts = MAP.split(ctx.path);
+      if (parts[0] === "dms" && parts[1]) dmId = parts[1];
+    }
+    return !dmId || viewerContext().readableDmIds.indexOf(dmId) >= 0;
+  }
+
   /**
    * Publish from the prompt into the active compose scope (reply / post / dm).
    */
@@ -4259,6 +4425,10 @@
     body = String(body || "").trim();
     if (!body) return null;
     if (ctx.kind !== "reply" && ctx.kind !== "post" && ctx.kind !== "dm") return null;
+    if (!canComposeInContext(ctx)) {
+      status("direct message unavailable for this principal");
+      return null;
+    }
     var who = authorHandle();
     var post = {
       id: "live-" + state.nextId,
@@ -5228,6 +5398,7 @@
 
   function openJumpChooser(terms) {
     terms = String(terms || "").trim();
+    var returnFocus = document.activeElement;
     cliValue = "zi " + terms;
     state.cliOpen = true;
     state.intelOpen = false;
@@ -5252,6 +5423,12 @@
     state.candIndex = -1;
     render(true);
     focusCli();
+    pushLayer("completion", "jump chooser", "close jump chooser", function () {
+      state.menuDismissed = true;
+      state.candIndex = -1;
+      render(true);
+      focusCli();
+    }, returnFocus);
     status("jump chooser · ↑/↓ select · Enter accept · Esc close");
     return true;
   }
@@ -5387,6 +5564,53 @@
     if (actionId === "jump.interactive") {
       return input.interactive === false ? jumpBest(input.terms || "") : openJumpChooser(input.terms || input.arg || "");
     }
+    if (actionId === "compose.publish") {
+      var body = String(input.body || "").trim();
+      if (!body) throw new Error("body required");
+      var compose = composeContext();
+      if (input.re) {
+        armReplyTo(input.re, "there", input.channel || (compose && compose.channel), compose && compose.project);
+        compose = composeContext();
+      } else if (input.channel && compose.kind !== "reply") {
+        compose = {
+          kind: "post",
+          channel: input.channel,
+          channelLabel: input.channel,
+          project: (compose && compose.project) || "community",
+          path: state.path,
+        };
+      }
+      if (compose.kind !== "reply" && compose.kind !== "post" && compose.kind !== "dm") {
+        throw new Error("not in a channel/dm/reply scope — navigate first or pass channel");
+      }
+      var published = publishCompose(body, compose);
+      if (!published) throw new Error("could not publish");
+      return context.origin === "mcp" && window.NB_MCP
+        ? window.NB_MCP.text("posted " + published.id + (published.re ? " re:" + published.re : "") +
+          (published.channel ? " #" + published.channel : "") + (published.dm ? " dm:" + published.dm : ""))
+        : published;
+    }
+    if (actionId === "channel.create" && !input.line) {
+      var createdChannel = createChannel(input.name || actionArg, { project: input.project });
+      if (!createdChannel || !createdChannel.ok) throw new Error(createdChannel && createdChannel.error || "create failed");
+      return context.origin === "mcp" && window.NB_MCP
+        ? window.NB_MCP.text("created channel " + createdChannel.name + " in " + createdChannel.project)
+        : createdChannel;
+    }
+    if (actionId === "channel.rename") {
+      var renamedChannel = renameChannel(input.from, input.to, { project: input.project });
+      if (!renamedChannel || !renamedChannel.ok) throw new Error(renamedChannel && renamedChannel.error || "rename failed");
+      return context.origin === "mcp" && window.NB_MCP
+        ? window.NB_MCP.text("renamed #" + renamedChannel.from + " → #" + renamedChannel.to + " · " + renamedChannel.path)
+        : renamedChannel;
+    }
+    if (actionId === "project.create" && !input.line) {
+      var createdProject = createProject(input.name || actionArg);
+      if (!createdProject || !createdProject.ok) throw new Error(createdProject && createdProject.error || "create failed");
+      return context.origin === "mcp" && window.NB_MCP
+        ? window.NB_MCP.text("created project " + createdProject.id + " → /projects/" + createdProject.id)
+        : createdProject;
+    }
     if (input.line) {
       var nested = Object.assign({}, input.options || {}, { actionDispatch: true });
       return context.origin === "slash" || input.surface === "slash"
@@ -5407,7 +5631,14 @@
     }
     if (actionId === "post.fold") {
       if (state.folded[postId]) delete state.folded[postId];
-      else state.folded[postId] = true;
+      else {
+        var foldGraph = threadGraph();
+        var selectedId = state.feedMark;
+        var hidesSelection = foldGraph && selectedId && foldGraph.descendantsOf(postId)
+          .some(function (ref) { return ref.objectId === selectedId; });
+        state.folded[postId] = true;
+        if (hidesSelection) state.feedMark = postId;
+      }
       render(true);
       return { objectId: postId, folded: !!state.folded[postId] };
     }
@@ -5521,12 +5752,14 @@
     } else if (cmd === "zi") {
       return openJumpChooser(arg);
     } else if (cmd === "ls") {
-      var l = MAP.list(MAP.resolve(state.path, arg || "."), state.merged);
+      var listTarget = MAP.resolve(state.path, arg || ".");
+      var l = canEnterNamespace(listTarget) ? authorizedNamespaceEntries(listTarget) : null;
       reply = l
         ? l.map(function (e) { return (e.kind === "dir" ? "▸ " : "  ") + e.name; }).join("  ")
         : "ls: not a directory";
     } else if (cmd === "cat") {
-      var p = MAP.postAt(MAP.resolve(state.path, arg), state.merged);
+      var catTarget = MAP.resolve(state.path, arg);
+      var p = canEnterNamespace(catTarget) ? MAP.postAt(catTarget, state.merged) : null;
       reply = p
         ? p.who + " " + p.at + " · " + p.state + "\n" + p.body + "\nsig: " + p.sig
         : "cat: not a readable entry";
@@ -5552,10 +5785,10 @@
     } else if (cmd === "find") {
       var hits = [];
       ["/projects", "/members", "/spaces", "/dms"].forEach(function (root) {
-        (MAP.list(root, state.merged) || []).forEach(function (e) {
+        authorizedNamespaceEntries(root).forEach(function (e) {
           if (window.NB_COMPLETE.score(e.name, arg) !== null) hits.push(root + "/" + e.name);
           if (e.kind === "dir") {
-            (MAP.list(root + "/" + e.name, state.merged) || []).forEach(function (f) {
+            authorizedNamespaceEntries(root + "/" + e.name).forEach(function (f) {
               if (window.NB_COMPLETE.score(f.name, arg) !== null) hits.push(root + "/" + e.name + "/" + f.name);
             });
           }
@@ -5565,7 +5798,7 @@
     } else if (cmd === "search") {
       return finishSearch(arg);
     } else if (cmd === "grep") {
-      var g = D.posts.concat(state.merged).filter(function (q) {
+      var g = D.posts.concat(state.merged.filter(function (post) { return !post.dm; })).filter(function (q) {
         return (q.body + " " + (q.subject || "")).toLowerCase().indexOf(arg.toLowerCase()) !== -1;
       });
       reply = g.length ? g.slice(0, 8).map(function (q) {
@@ -5927,7 +6160,7 @@
     if (state.busy) return;
     state.busy = true;
     state._askInconclusive = false;
-    var here = (MAP.list(state.path, state.merged) || []).map(function (e) { return e.name; });
+    var here = authorizedNamespaceEntries(state.path).map(function (e) { return e.name; });
     var turn = beginUserTurn(text, "ai");
     try {
       await window.NB_AGENT.run(turn.agentInput, {
@@ -6237,7 +6470,7 @@
         return true;
       }
       state.ai = true;
-      var hereR = MAP.list(state.path, state.merged) || [];
+      var hereR = authorizedNamespaceEntries(state.path);
       var selR = hereR[state.cursor];
       if (selR && selR.post) {
         armReplyTo(selR.post.id, selR.post.who, selR.post.channel, selR.post.project);
@@ -7858,6 +8091,10 @@
           ev.preventDefault();
           return moveMessageFocus(0, k === "Home" ? "start" : "end");
         }
+        if (k === "PageUp" || k === "PageDown") {
+          ev.preventDefault();
+          return moveMessageFocus(k === "PageUp" ? -1 : 1, "page");
+        }
         if (k === "Enter" || k === "ArrowRight" || k === "l") {
           ev.preventDefault();
           return openFocusedMessage(message.getAttribute("data-key"));
@@ -8541,6 +8778,7 @@
     run: run,
     runSearch: runSearch,
     viewerContext: viewerContext,
+    actionContext: actionContext,
     pushLine: pushLine,
     toggleKeys: toggleKeys,
     openIntel: openIntel,
