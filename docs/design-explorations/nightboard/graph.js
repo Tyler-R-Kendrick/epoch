@@ -296,6 +296,13 @@
     });
   }
 
+  function defaultCapabilities(kind) {
+    return {
+      read: true, enter: kind !== "file", expand: false,
+      composeUnder: false, execute: false,
+    };
+  }
+
   function listPath(path, viewer) {
     var live = (window.NB_APP && window.NB_APP.state && window.NB_APP.state.merged) || [];
     var entries = MAP.list(path, live);
@@ -305,10 +312,7 @@
         name: e.name, kind: e.kind, hint: e.hint || e.meta || "",
         path: MAP.resolve(path, e.name),
         ref: e.ref ? Object.assign({}, e.ref, { canonicalUrl: canonicalUrl(e.ref) }) : null,
-        capabilities: e.capabilities || {
-          read: true, enter: e.kind !== "file", expand: false,
-          composeUnder: false, execute: false,
-        },
+        capabilities: e.capabilities || defaultCapabilities(e.kind),
       };
     });
   }
@@ -334,6 +338,23 @@
 
   function messageGraphFor(viewer) {
     return viewer && viewer.messageGraph || MAP.messageGraph(allMessages(viewer));
+  }
+
+  function buildPostIndexes() {
+    var channelCounts = new Map();
+    var dmCounts = new Map();
+    var indexes = { channels: new Map(), dms: new Map() };
+    allPosts().forEach(function (post) {
+      var index = channelCounts.get(post.channel) || 0;
+      indexes.channels.set(objectRef(post).objectId, index);
+      channelCounts.set(post.channel, index + 1);
+    });
+    allDmMessages().forEach(function (post) {
+      var index = dmCounts.get(post.dm) || 0;
+      indexes.dms.set(objectRef(post).objectId, index);
+      dmCounts.set(post.dm, index + 1);
+    });
+    return indexes;
   }
 
   function findMessage(objectId, viewer) {
@@ -392,6 +413,7 @@
 
   function decoratePost(p, viewer) {
     var ref = objectRef(p);
+    var indexes = viewer && viewer.postIndexes || buildPostIndexes();
     var common = {
       ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
       context: function () {
@@ -424,7 +446,7 @@
       locations: function () { return locationsFor(p, viewer); },
     };
     if (p.dm) {
-      var dmIdx = allDmMessages().filter(function (q) { return q.dm === p.dm; }).indexOf(p);
+      var dmIdx = indexes.dms.get(ref.objectId);
       return Object.assign({}, p, common, {
         channel: p.channel || null,
         dm: p.dm,
@@ -432,7 +454,7 @@
         path: MAP.dmPath(p.dm) + "/" + MAP.postName(p, Math.max(0, dmIdx)),
       });
     }
-    var idx = allPosts().filter(function (q) { return q.channel === p.channel; }).indexOf(p);
+    var idx = indexes.channels.get(ref.objectId);
     return Object.assign({}, p, common, {
       channel: p.channel || null,
       dm: null,
@@ -518,10 +540,10 @@
     return specs;
   }
 
-  function decorateProjection(spec) {
+  function decorateProjection(spec, viewer) {
     return Object.assign({}, spec, {
       entries: function (args) {
-        var entries = MAP.list(spec.path) || [];
+        var entries = filterNamespaceEntries(spec.path, MAP.list(spec.path) || [], viewer);
         return connection(entries, args, function (entry) {
           var post = entry.post;
           var ref = post ? objectRef(post) : entry.ref || {
@@ -536,10 +558,7 @@
             depth: entry.depth == null ? MAP.split(spec.path).length + 1 : entry.depth,
             position: entry.position || 1,
             setSize: entry.setSize || entries.length,
-            capabilities: entry.capabilities || {
-              read: true, enter: entry.kind !== "file", expand: false,
-              composeUnder: false, execute: false,
-            },
+            capabilities: entry.capabilities || defaultCapabilities(entry.kind),
           };
         });
       },
@@ -679,12 +698,14 @@
         var post = findMessage(args.objectId, viewer);
         return post ? decoratePost(post, viewer) : null;
       },
-      projections: function () { return projectionSpecs(viewer).map(decorateProjection); },
+      projections: function () {
+        return projectionSpecs(viewer).map(function (spec) { return decorateProjection(spec, viewer); });
+      },
       projection: function (args) {
         var spec = projectionSpecs(viewer).filter(function (item) {
           return item.projectionId === args.projectionId;
         })[0];
-        return spec ? decorateProjection(spec) : null;
+        return spec ? decorateProjection(spec, viewer) : null;
       },
       listPath: function (args) { return listPath(args.path, viewer) || []; },
     });
@@ -704,6 +725,7 @@
     }
     var queryViewer = Object.assign({}, viewer || {});
     queryViewer.messageGraph = MAP.messageGraph(allMessages(queryViewer));
+    queryViewer.postIndexes = buildPostIndexes();
     return window.GraphQLEngine.graphql({
       schema: schema,
       source: source,

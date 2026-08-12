@@ -47,6 +47,11 @@
     return (D.legacyPostAliases || {})[p && p.id] || null;
   }
 
+  function legacyPostNames(p) {
+    return [legacyPostName(p)].concat((D.legacyPostAliasHistory || {})[p && p.id] || [])
+      .filter(function (alias, index, aliases) { return alias && aliases.indexOf(alias) === index; });
+  }
+
   function objectRef(post) {
     var ref = post && post.ref && post.ref.objectId ? post.ref : {
       objectId: String(post && (post.objectId || post.id) || ""),
@@ -88,7 +93,7 @@
       relations: post.relations || [],
       ...(post.reactions ? { reactions: Object.assign({}, post.reactions) } : {}),
       state: post.state || "unavailable",
-      aliases: [ref.objectId, legacyPostName(post)].filter(Boolean),
+      aliases: [ref.objectId].concat(legacyPostNames(post)),
       ...(post.tombstone ? { tombstone: post.tombstone } : {}),
       source: post,
     };
@@ -145,7 +150,7 @@
     return {
       name: postName(p),
       alias: postName(p),
-      aliases: [postName(p), legacyPostName(p)].filter(Boolean),
+      aliases: [postName(p)].concat(legacyPostNames(p)),
       kind: p.tombstone ? "tombstone" : "message",
       objectId: ref.objectId,
       ref: ref,
@@ -451,7 +456,7 @@
         name: ref.objectId,
         label: ref.objectId,
         alias: ref.objectId,
-        aliases: [ref.objectId, legacyPostName(post)].filter(Boolean),
+        aliases: [ref.objectId].concat(legacyPostNames(post)),
         kind: post.tombstone ? "tombstone" : "message",
         objectId: ref.objectId,
         ref: ref,
@@ -1468,8 +1473,9 @@
           if (a.unread !== b.unread) return a.unread ? -1 : 1;
           return String(b.at || "").localeCompare(String(a.at || ""));
         });
+        var notificationPool = allMessages(extra);
         return items.map(function (n, i) {
-          var target = allMessages(extra).filter(function (post) {
+          var target = notificationPool.filter(function (post) {
             return objectRef(post).objectId === notificationTargetId(n);
           })[0] || null;
           var notificationRef = notificationObjectRef(n);

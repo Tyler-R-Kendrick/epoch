@@ -7,10 +7,11 @@
   var SCHEMA_VERSION = 3;
   var principalId = null;
   var recoveryRaw = null;
+  var cachedState = null;
 
   function failedState(raw, reason, detail) {
     recoveryRaw = raw;
-    return {
+    cachedState = {
       schemaVersion: SCHEMA_VERSION,
       views: [],
       error: detail,
@@ -20,9 +21,11 @@
         actions: ["export", "reset"],
       },
     };
+    return cachedState;
   }
 
   function read() {
+    if (cachedState) return cachedState;
     try {
       var current = window.localStorage.getItem(STORAGE_KEY);
       var parsed = JSON.parse(current || "null");
@@ -35,7 +38,8 @@
         return failedState(current, "unsupported", "unsupported saved-view schema");
       }
       recoveryRaw = null;
-      return parsed;
+      cachedState = parsed;
+      return cachedState;
     } catch (error) {
       var raw = null;
       try { raw = window.localStorage.getItem(STORAGE_KEY); } catch { /* private */ }
@@ -80,7 +84,10 @@
     var empty = { schemaVersion: SCHEMA_VERSION, views: [] };
     try {
       var raw = window.localStorage.getItem(LEGACY_KEY);
-      if (!raw) return empty;
+      if (!raw) {
+        cachedState = empty;
+        return cachedState;
+      }
       var legacy = JSON.parse(raw);
       var source = Array.isArray(legacy) ? legacy : legacy.views;
       if (!Array.isArray(source)) {
@@ -123,6 +130,7 @@
   function write(state) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      cachedState = state;
       return true;
     } catch {
       return false;
@@ -143,6 +151,7 @@
       window.localStorage.removeItem(STORAGE_KEY);
       window.localStorage.removeItem(LEGACY_KEY);
       recoveryRaw = null;
+      cachedState = { schemaVersion: SCHEMA_VERSION, views: [] };
       return true;
     } catch {
       return false;
@@ -175,10 +184,18 @@
   }
 
   function setPrincipal(value) {
-    principalId = typeof value === "string" && value.trim() ? value.trim() : null;
+    var nextPrincipalId = typeof value === "string" && value.trim() ? value.trim() : null;
+    if (nextPrincipalId !== principalId) cachedState = null;
+    principalId = nextPrincipalId;
     if (!principalId) return null;
     read();
     return principalId;
+  }
+
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener("storage", function (event) {
+      if (!event || event.key === STORAGE_KEY || event.key === LEGACY_KEY) cachedState = null;
+    });
   }
 
   function selectedPrincipal(options) {

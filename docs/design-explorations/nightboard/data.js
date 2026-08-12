@@ -23,7 +23,7 @@ window.NB_DATA = {
     gv1: "001-maya-agents-may-propose-ne", gv2: "002-nora-acknowledged-worth-pu",
     "t-i1": "001-nora-cache-key-includes-the", "t-c1": "001-scout-change-12-split-the",
     "t-c2": "002-maya-approved-and-signed", "t-r1": "001-maya-v0-2-0",
-    "k-i1": "001-sam-composer-loses-the-dra", "k-c1": "001-patcher-change-04-draft-pers",
+    "k-i1": "001-sam-composer-loses-the-draft-kit", "k-c1": "001-patcher-change-04-draft-pers",
     "dm-s1": "001-you-can-you-split-the-cach", "dm-s2": "002-scout-yes-plan-key-on-the",
     "dm-s3": "003-you-scoped-to-ci-config-on", "dm-s4": "004-scout-change-12-drafted",
     "dm-m1": "001-maya-scout-s-plan-looks-sol", "dm-m2": "002-you-will-do-after-nora-con",
@@ -31,6 +31,9 @@ window.NB_DATA = {
     "dm-p2": "002-patcher-reproduced-composer-r", "dm-p3": "003-patcher-change-04-ready",
     "dm-l1": "001-lea-i-can-retest-on-the-th", "dm-l2": "002-you-appreciate-it-will-p",
     "dm-l3": "003-lea-i-can-retest-on-the-th",
+  },
+  legacyPostAliasHistory: {
+    "k-i1": ["001-sam-composer-loses-the-dra"],
   },
 
   /** Explicit RFC-style thread roots; display order and paths never participate. */

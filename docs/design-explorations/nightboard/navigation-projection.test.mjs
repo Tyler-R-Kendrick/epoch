@@ -14,11 +14,13 @@ function load(name, window) {
 
 function storage(seed = {}) {
   const values = new Map(Object.entries(seed));
+  let reads = 0;
   return {
-    getItem: (key) => values.get(key) ?? null,
+    getItem: (key) => { reads += 1; return values.get(key) ?? null; },
     setItem: (key, value) => values.set(key, String(value)),
     removeItem: (key) => values.delete(key),
     snapshot: () => Object.fromEntries(values),
+    readCount: () => reads,
   };
 }
 
@@ -50,6 +52,12 @@ const message = data.posts.find((post) => post.id === "p1");
 assert.equal(map.objectRef(message).objectId, "p1");
 assert.equal(map.postName(message, 0), "p1");
 assert.equal(map.postName({ ...message, subject: "changed", body: "changed" }, 99), "p1");
+assert.equal(new Set(Object.values(data.legacyPostAliases)).size,
+  Object.values(data.legacyPostAliases).length,
+  "legacy aliases remain unambiguous compatibility locators");
+assert.equal(map.postAt("/projects/civic-community-kit/channels/issues/" +
+  "001-sam-composer-loses-the-dra").id, "k-i1",
+"the former colliding alias remains a path-scoped compatibility locator");
 
 // NAV-ID-005: canonical, contextual, and exact links identify one object distinctly.
 const canonicalLink = window.NB_CORE.objectUrl(map.objectRef(message));
@@ -267,6 +275,26 @@ assert.equal(sharedProjectionGraph.errors, undefined);
 assert.equal(sharedProjectionGraph.data.projection.projectionId, sharedSecretView.projectionId);
 assert.equal(sharedProjectionGraph.data.projection.query, null,
   "GraphQL applies the same non-owner query redaction as the Community API");
+const originalList = map.list;
+const privateProjectionPost = data.dmMessages.find((post) => post.id === "dm-s3");
+map.list = (path, ...args) => path === `/views/${sharedSecretView.projectionId}`
+  ? [{ name: privateProjectionPost.id, post: privateProjectionPost }]
+  : originalList(path, ...args);
+const deniedProjectionEntries = await window.NB_GRAPH.query(`{
+  projection(projectionId: "${sharedSecretView.projectionId}") {
+    entries { edges { node { ref { objectId } } } }
+  }
+}`, undefined, { actorId: "principal-bob", readableDmIds: [] });
+assert.deepEqual(deniedProjectionEntries.data.projection.entries.edges, [],
+  "NAV-QUERY-003 projection entries filter private objects at the GraphQL boundary");
+const allowedProjectionEntries = await window.NB_GRAPH.query(`{
+  projection(projectionId: "${sharedSecretView.projectionId}") {
+    entries { edges { node { ref { objectId } } } }
+  }
+}`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
+assert.deepEqual(allowedProjectionEntries.data.projection.entries.edges
+  .map((edge) => edge.node.ref.objectId), ["dm-s3"]);
+map.list = originalList;
 const authorizedLiveGraphSearch = await window.NB_GRAPH.query(`{
   search(text: "${livePrivateNeedle}") { id }
 }`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
@@ -375,6 +403,11 @@ const jumpSaved = views.save({ label: "Jump review", query: "state:open", visibi
 const savedJumpCandidates = window.NB_COMPLETE.jumpCandidates("jump review", { cwd: "/" });
 assert.equal(savedJumpCandidates.some((candidate) => candidate.projectionId === jumpSaved.projectionId &&
   candidate.group === "SAVED VIEWS"), true);
+const readsBeforeStatus = localStorage.readCount();
+views.status();
+views.status();
+assert.equal(localStorage.readCount(), readsBeforeStatus,
+  "saved-view status reuses the parsed state until a write or principal change");
 const generalJumpCandidates = window.NB_COMPLETE.jumpCandidates("general", {
   cwd: "/projects/community/channels",
 });
