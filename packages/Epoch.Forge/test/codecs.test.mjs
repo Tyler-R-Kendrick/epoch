@@ -27,6 +27,9 @@ test("ForgeFed is codec-only, rejects private export, and reports unsupported fi
   assert.ok(encoded.losses.some((loss) => loss.path === "labels"));
   assert.deepEqual(decodeForgeFed(encoded.document).object.objectId, issue.objectId);
   assert.throws(() => encodeForgeFed({ ...issue, visibility: "private" }), /private/u);
+  assert.deepEqual(FORGE_CAPABILITIES.forgefed.subset, ["Ticket", "MergeRequest"]);
+  assert.throws(() => encodeForgeFed({ ...issue, kind: "comment" }), /unsupported ForgeFed kind/u);
+  assert.throws(() => encodeForgeFed({ ...issue, kind: "release" }), /unsupported ForgeFed kind/u);
 });
 
 test("NIP-34 mapping rejects replay, expiry, audience, size, and malformed events", () => {

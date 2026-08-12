@@ -50,7 +50,9 @@ export function decodeF3Archive(bytes: string): { readonly objects: readonly For
 }
 
 export function encodeForgeFed(value: ForgeObject): { readonly document: Record<string, unknown>; readonly losses: readonly CodecLoss[] } {
-  assertPublic(value); const losses: CodecLoss[] = [];
+  assertPublic(value);
+  if (value.kind !== "issue" && value.kind !== "change") throw new Error(`unsupported ForgeFed kind: ${value.kind}`);
+  const losses: CodecLoss[] = [];
   if (value.labels?.length) losses.push({ path: "labels", reason: "not-in-declared-subset", severity: "warning" });
   return { document: { "@context": "https://www.w3.org/ns/activitystreams", type: value.kind === "change" ? "MergeRequest" : "Ticket", id: value.objectId,
     context: value.repositoryId, name: value.title, content: value.body, attributedTo: value.authorId, published: value.createdAt, updated: value.updatedAt,
