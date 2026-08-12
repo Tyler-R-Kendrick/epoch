@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseSwhid as parseProtocolSwhid } from "@epoch/protocol";
 
 export type SwhObjectKind = "cnt" | "dir" | "rev" | "rel" | "snp";
 export interface Swhid {
@@ -15,28 +16,20 @@ export const SWH_CAPABILITIES = Object.freeze({
 });
 
 const KINDS = new Set<SwhObjectKind>(["cnt", "dir", "rev", "rel", "snp"]);
-const QUALIFIERS = new Set(["origin", "visit", "anchor", "path", "lines"]);
 
 export function parseSwhid(value: string): Swhid {
-  const [core, ...parts] = value.split(";"); const fields = core!.split(":");
-  if (fields[0] !== "swh") throw new Error("invalid SWHID namespace");
-  if (fields[1] !== "1") throw new Error("unsupported SWHID version");
-  if (!KINDS.has(fields[2] as SwhObjectKind)) throw new Error("invalid SWHID object kind");
-  if (!/^[0-9a-f]{40}$/u.test(fields[3] ?? "")) throw new Error("invalid SWHID digest");
-  const qualifiers: Record<string, string> = {};
-  for (const part of parts) {
-    const equals = part.indexOf("="); if (equals < 1) throw new Error("malformed SWHID qualifier");
-    const key = part.slice(0, equals); if (!QUALIFIERS.has(key) || qualifiers[key] !== undefined) throw new Error("unsupported or duplicate SWHID qualifier");
-    try { qualifiers[key] = decodeURIComponent(part.slice(equals + 1)); } catch { throw new Error("malformed SWHID qualifier encoding"); }
-  }
-  return Object.freeze({ version: 1, kind: fields[2] as SwhObjectKind, digest: fields[3]!, qualifiers: Object.freeze(qualifiers) });
+  const parsed = parseProtocolSwhid(value);
+  return Object.freeze({ version: parsed.version, kind: parsed.kind, digest: parsed.digest, qualifiers: parsed.qualifiers });
 }
 
 export function formatSwhid(value: Swhid): string {
   if (!KINDS.has(value.kind) || !/^[0-9a-f]{40}$/u.test(value.digest)) throw new Error("invalid SWHID");
   const preferred = ["origin", "visit", "anchor", "path", "lines"];
-  return `swh:1:${value.kind}:${value.digest}` + preferred.filter((key) => value.qualifiers[key] !== undefined)
+  if (Object.keys(value.qualifiers).some((key) => !preferred.includes(key))) throw new Error("unsupported SWHID qualifier");
+  const formatted = `swh:1:${value.kind}:${value.digest}` + preferred.filter((key) => value.qualifiers[key] !== undefined)
     .map((key) => `;${key}=${encodeURIComponent(value.qualifiers[key]!)}`).join("");
+  parseProtocolSwhid(formatted);
+  return formatted;
 }
 
 export function serializeGitObject(type: "blob" | "tree" | "commit" | "tag", body: Uint8Array): Uint8Array {

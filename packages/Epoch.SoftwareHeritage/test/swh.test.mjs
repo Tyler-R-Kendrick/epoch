@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { SaveCodeNowClient, SWH_CAPABILITIES, formatSwhid, gitObjectId, parseSwhid, swhidForGitObject, swhKindForGitType } from "../dist/index.js";
+import { inspectSwhid } from "../../Epoch.Protocol/dist/index.js";
 
 test("SWHID v1.2 parses and canonically formats all core object kinds and qualifiers", () => {
   for (const kind of ["cnt", "dir", "rev", "rel", "snp"]) {
@@ -9,6 +10,17 @@ test("SWHID v1.2 parses and canonically formats all core object kinds and qualif
   }
   assert.throws(() => parseSwhid(`swh:2:cnt:${"ab".repeat(20)}`), /version/u);
   assert.throws(() => parseSwhid("swh:1:cnt:abc"), /digest/u);
+  const qualified = `swh:1:rev:${"ab".repeat(20)};path=%2Fsrc%2Fmain.ts;lines=1-2`;
+  assert.deepEqual(parseSwhid(qualified).qualifiers, inspectSwhid(qualified).qualifiers);
+  for (const malformed of [
+    `swh:1:ori:${"ab".repeat(20)}`,
+    `swh:1:rev:${"ab".repeat(20)}:ignored`,
+    `swh:1:rev:${"ab".repeat(20)};unknown=value`,
+    `swh:1:rev:${"ab".repeat(20)};path=%zz`,
+  ]) {
+    assert.throws(() => parseSwhid(malformed));
+    assert.throws(() => inspectSwhid(malformed));
+  }
 });
 
 test("Git-compatible object serialization matches official empty blob golden vector", () => {
