@@ -10,6 +10,12 @@ import {
   legacyChangeId,
   parseCanonicalId,
   parseChangeId,
+  parseRevset,
+  evaluateRevset,
+  inspectFrontierFilter,
+  inspectRevisionGraph,
+  inspectSwhid,
+  inspectSyncContract,
   protocolJsonSchemas,
   type ProtocolEvent,
 } from "../src/index";
@@ -21,6 +27,8 @@ const tests: readonly [string, () => void][] = [
   ["PROTO-SCHEMA-001 event schemas accept exact versioned payloads", schemaValidation],
   ["PROTO-SCHEMA-002 unknown fields variants and versions fail closed", schemaFailures],
   ["PROTO-CAP-001 capability manifest is explicit and machine-readable", capabilityManifest],
+  ["PROTO-REVSET-001 parser and evaluator are deterministic and browser-safe", revsetContract],
+  ["PROTO-INSPECT-001 browser inspection is strict and deterministic", inspectionContract],
 ];
 
 for (const [name, run] of tests) {
@@ -119,6 +127,30 @@ function capabilityManifest(): void {
   assert.equal(PROTOCOL_CAPABILITIES.merge.conservativeCommutation, true);
   assert.equal(PROTOCOL_CAPABILITIES.providers.mayMutateCanonicalState, false);
   assert.equal(PROTOCOL_CAPABILITIES.fidelity.binarySemanticMerge, false);
+}
+
+function revsetContract(): void {
+  const nodes = [
+    { revisionId: "r1", parentRevisionIds: [], changeId: "c1", authorId: "alice" },
+    { revisionId: "r2", parentRevisionIds: ["r1"], changeId: "c1", authorId: "bob", reviewState: "approved" as const, mergeable: true },
+    { revisionId: "r3", parentRevisionIds: ["r1"], changeId: "c2", authorId: "alice", conflict: true },
+  ];
+  assert.deepEqual(evaluateRevset(parseRevset("ancestors(heads()) & author(alice) | approved()"), nodes), ["r1", "r2", "r3"]);
+  assert.deepEqual(evaluateRevset("descendants(change(c1)) - conflicts()", nodes), ["r1", "r2"]);
+  assert.throws(() => parseRevset("unknown()"), (error: unknown) =>
+    error instanceof Error && "code" in error && error.code === "invalid-revset");
+}
+
+function inspectionContract(): void {
+  assert.deepEqual(inspectRevisionGraph([
+    { revisionId: "r2", parentRevisionIds: ["r1"] }, { revisionId: "r1", parentRevisionIds: [] },
+  ]), { valid: true, revisions: ["r1", "r2"], heads: ["r2"], roots: ["r1"] });
+  assert.deepEqual(inspectFrontierFilter({ paths: ["b", "a", "a"], maxBytes: 10 }).canonical,
+    { paths: ["a", "b"], maxBytes: 10 });
+  assert.throws(() => inspectFrontierFilter({ mystery: true }), /Unknown filter field/u);
+  assert.equal(inspectSyncContract({ protocol: "epoch.sync/v2", commands: ["capabilities"] }).supported, true);
+  assert.equal(inspectSyncContract({ protocol: "epoch.sync/v9", commands: [] }).code, "unsupported-capability");
+  assert.equal(inspectSwhid(`swh:1:cnt:${"a".repeat(40)}`).objectType, "cnt");
 }
 
 function canonical(kind: string, token: string): string {
