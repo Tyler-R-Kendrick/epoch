@@ -1,5 +1,6 @@
 import type { ObjectStore } from "./object-store";
 import { objectIdFor, validateObjectId } from "./object-store";
+import { isIP } from "node:net";
 
 export const OBJECT_PROMISE_PROTOCOL = "epoch.object-promise/v1" as const;
 
@@ -34,7 +35,12 @@ export function validateObjectPromise(value: unknown): ObjectPromiseValidation {
   for (const source of promise.sources) {
     if (source.kind === "https") {
       try {
-        if (new URL(source.url).protocol !== "https:") return { ok: false, reason: "object promise URL must use HTTPS" };
+        const url = new URL(source.url);
+        if (url.protocol !== "https:") return { ok: false, reason: "object promise URL must use HTTPS" };
+        if (url.username || url.password) return { ok: false, reason: "object promise URL must not embed credentials" };
+        if (url.hostname === "localhost" || url.hostname.endsWith(".localhost") || privateAddress(url.hostname)) {
+          return { ok: false, reason: "object promise URL must not target a private or loopback host" };
+        }
       } catch { return { ok: false, reason: "object promise URL is invalid" }; }
     } else if (source.kind !== "peer" || !source.peerId) return { ok: false, reason: "unsupported object promise source" };
   }
@@ -42,6 +48,15 @@ export function validateObjectPromise(value: unknown): ObjectPromiseValidation {
     return { ok: false, reason: "object promise expiry is invalid" };
   }
   return { ok: true };
+}
+
+function privateAddress(hostname: string): boolean {
+  const value = hostname.toLowerCase().replace(/^\[|\]$/gu, "");
+  if (isIP(value) === 6) return value === "::" || value === "::1" || /^(?:fc|fd|fe8|fe9|fea|feb)/u.test(value);
+  if (isIP(value) !== 4) return false;
+  const [first = -1, second = -1] = value.split(".").map(Number);
+  return first === 0 || first === 10 || first === 127 || first === 169 && second === 254 ||
+    first === 172 && second >= 16 && second <= 31 || first === 192 && second === 168 || first >= 224;
 }
 
 export async function fulfillObjectPromise(

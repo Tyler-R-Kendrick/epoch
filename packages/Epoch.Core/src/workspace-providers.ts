@@ -1,6 +1,6 @@
 import { copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { constants } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { constants, lstatSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import type { WorkspaceCapability, WorkspaceCapabilityName, WorkspaceProvider } from "./workspace";
 import { requireWorkspaceCapability } from "./workspace";
 
@@ -13,6 +13,16 @@ function child(root: string, path: string): string {
   const rel = relative(root, target);
   if (!rel || rel === ".." || rel.startsWith("../") || rel.startsWith("..\\")) {
     throw new Error("Workspace path must remain below the provider root");
+  }
+  let cursor = root;
+  for (const segment of rel.split(/[\\/]/u)) {
+    cursor = join(cursor, segment);
+    try {
+      if (lstatSync(cursor).isSymbolicLink()) throw new Error("Workspace path crosses a symbolic link");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") break;
+      throw error;
+    }
   }
   return target;
 }
