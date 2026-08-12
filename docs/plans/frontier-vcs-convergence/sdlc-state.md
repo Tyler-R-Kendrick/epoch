@@ -10,7 +10,9 @@
 
 ## Phase
 
-Implementation — wave 1 foundations.
+Delivery closeout — implementation, independent review, review repairs, and the
+full local verification bar are complete. The single integration branch is
+ready for PR review and squash merge.
 
 ## Authority decisions
 
@@ -30,12 +32,20 @@ Implementation — wave 1 foundations.
 | 1C | `a11y_evidence_docs` | Principals/grants/budgets; forge codecs; SWHID/archive; evidence/session/provider boundaries | Root manifests, lockfile, `core.ts`, central barrels, docs registries, CLI/UI |
 | Conductor | `/root` | Root wiring, compatibility façades, central exports, CI/scripts, feature registration, docs, final integration/review/delivery | Does not duplicate swarm domain logic |
 
-## Queued waves
+## Delivered waves
 
-1. CLI, SDK, WASM/browser exports, revset grammar, interop doctor.
-2. Community and Operations keyboard-first product surfaces with persona journeys.
-3. Cross-cutting fuzz/property/chaos/compatibility/performance harnesses and threat matrix.
-4. ADRs, current architecture, capability matrices, migration/onboarding, feature inventories, and competitor evidence.
+1. Protocol/Core change, stack, split, weave, merge, conflict, transaction, operation, storage, sync, and workspace foundations.
+2. Git, mirror, forge, identity, grant, budget, evidence, session, SWHID, and archival adapters with honest capability manifests.
+3. CLI, SDK, WASM/browser inspection, revset grammar, and interop doctor.
+4. Community and Operations keyboard-first surfaces with 16 persona journeys and 89 executable steps.
+5. Seeded property, fuzz, compatibility, security, performance, accessibility, ADR, migration, and onboarding evidence.
+
+## Verification evidence
+
+- Independent review findings were repaired at the shared trust boundaries: server-derived merge authority, grant ancestry on budget use, authoritative dependency closure and review evidence, canonical CLI/revision IDs, verified NIP-34/Radicle codec evidence, truthful atomic capabilities, one SWHID parser, and event-specific JSON Schemas.
+- `npm run verify` exits 0 after those repairs.
+- Generated Protocol schemas and the Nightboard Core browser runtime both pass freshness checks.
+- Existing unrelated untracked Cursor, Impeccable, OptimizeXP, Serena, and CanvasUI work remains untouched.
 
 ## Required closeout
 
