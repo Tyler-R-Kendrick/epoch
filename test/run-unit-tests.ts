@@ -48,9 +48,6 @@ async function main(): Promise<void> {
   await runCommunityContractTests();
   await runCommunityObjectProjectionTests();
   await runCommunityApiProjectionTests();
-  // Gossip HTTP consumer contracts (writes durable pacts/ for provider verification).
-  const { runGossipHttpConsumerContractTests } = await import("./pact/consumer/gossip-http.consumer.test");
-  await runGossipHttpConsumerContractTests();
   await runCommunityCoverageTests();
   await runCommunityOperationsWebTests();
   await runCommunityWebVercelTests();

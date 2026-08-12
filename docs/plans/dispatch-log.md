@@ -143,3 +143,14 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 - Dispatched wave 1 across three concurrent bounded owners: Protocol/Core graph and transactions; storage/sync/workspace/Git/mirror; identity/grants/budgets/forge/SWHID/evidence.
 - Coordinator retained root manifests, lockfile, compatibility façade wiring, central exports, product scenarios/docs, integration, review, and delivery.
 - Four-slot runtime is saturated; Swarms 13–16 are queued and will be dispatched as wave 1 owners hand back.
+
+## 2026-08-12 — Frontier version-control convergence `/sdlc finish`
+
+| Field | Value |
+|---|---|
+| Initiative | [`frontier-vcs-convergence`](frontier-vcs-convergence/sdlc-state.md) |
+| Backend | Three bounded concurrent implementation swarms plus integration conductor |
+| PR | [#116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) — squash-merged `0d560488` |
+| Result | **success** |
+| Failure class | An initial browser cleanup race stopped coverage before frontier tests, and closeout CI exposed redundant Gossip Pact execution inside the unit runner; sequential teardown/cleared timers and a single dedicated Pact execution boundary fixed both root causes. |
+| Notes | All GitHub quality jobs, Vercel, local `npm run verify`, clean Node 22 coverage, conformance, fuzz, compatibility, security, Pact, accessibility, and Nightboard parity/fault/e2e gates passed. CodeRabbit skipped the 155-file diff because its plan limit is 100 files; independent review found and resolved eight trust/fidelity defects. Existing unrelated untracked work was preserved. |

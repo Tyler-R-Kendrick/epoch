@@ -10,10 +10,10 @@
 
 ## Phase
 
-Delivery closeout — implementation, independent review, review repairs, and the
-full local verification bar are complete. The single integration branch is
-published as [PR #116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) for
-review and squash merge.
+Closed — [PR #116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) was
+squash-merged to `main` as `0d5604888f6c8fa9b7852a3838bdb8ba9404dd46`
+on 2026-08-12 after implementation, independent review, review repair, and all
+local and authoritative CI gates completed successfully.
 
 ## Authority decisions
 
@@ -44,13 +44,16 @@ review and squash merge.
 ## Verification evidence
 
 - Independent review findings were repaired at the shared trust boundaries: server-derived merge authority, grant ancestry on budget use, authoritative dependency closure and review evidence, canonical CLI/revision IDs, verified NIP-34/Radicle codec evidence, truthful atomic capabilities, one SWHID parser, and event-specific JSON Schemas.
-- `npm run verify` exits 0 after those repairs.
+- `npm run verify` and the clean Node 22 `npm run coverage` reproduction exit 0 after those repairs.
+- GitHub Actions run [`31608720542`](https://github.com/Tyler-R-Kendrick/epoch/actions/runs/31608720542) passed Build, Docs, Lint, Konsistent, Design, Typecheck, Test, Coverage, Pact, Community accessibility, and Nightboard accessibility/fault/e2e jobs; Vercel also passed.
+- Coverage remained above the existing thresholds: 80.06% lines/statements, 86.63% functions, and 78.02% branches.
 - Generated Protocol schemas and the Nightboard Core browser runtime both pass freshness checks.
 - Existing unrelated untracked Cursor, Impeccable, OptimizeXP, Serena, and CanvasUI work remains untouched.
 
-## Required closeout
+## Closeout
 
-- Focused package and conformance tests, fuzz smoke, compatibility fixtures, generated-schema freshness.
-- `npm ci`, `npm run gate:fast`, `npm run typecheck`, `npm run build`, unit/features, coverage, Pact, and `npm run verify`.
-- Visual browser and accessibility validation for new Community/Operations behavior.
-- Independent review, all comments resolved, CI green, squash merge, and remote main verification.
+- Focused package/conformance tests, seeded fuzz smoke, compatibility fixtures, generated-schema freshness, browser/a11y validation, and the full repository verification bar passed.
+- Independent review completed and its eight trust/fidelity findings were repaired; PR #116 had no unresolved review threads.
+- CodeRabbit could not run because the 155-file change exceeded its 100-file plan limit; this was a tooling limitation, not a code failure, and the repository's independent review plus authoritative gates remained green.
+- Closeout CI also exposed the Gossip Pact consumer running redundantly inside the unit/coverage process; it now runs only in the dedicated `test:pact` gate, while stable Community contract coverage remains in the unit runner.
+- Remote `main` was verified at the squash merge SHA above. No product or migration work remains open for this initiative.
