@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SaveCodeNowClient, SWH_CAPABILITIES, formatSwhid, gitObjectId, parseSwhid, swhidForGitObject } from "../dist/index.js";
+import { SaveCodeNowClient, SWH_CAPABILITIES, formatSwhid, gitObjectId, parseSwhid, swhidForGitObject, swhKindForGitType } from "../dist/index.js";
 
 test("SWHID v1.2 parses and canonically formats all core object kinds and qualifiers", () => {
   for (const kind of ["cnt", "dir", "rev", "rel", "snp"]) {
@@ -15,6 +15,8 @@ test("Git-compatible object serialization matches official empty blob golden vec
   const empty = new Uint8Array();
   assert.equal(gitObjectId("blob", empty, "sha1"), "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
   assert.equal(swhidForGitObject("cnt", "blob", empty), "swh:1:cnt:e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+  assert.equal(gitObjectId("tree", empty, "sha1"), "4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+  assert.deepEqual(["blob", "tree", "commit", "tag"].map(swhKindForGitType), ["cnt", "dir", "rev", "rel"]);
 });
 
 test("Save Code Now uses injected transport, bounded retry, and remote confirmation", async () => {

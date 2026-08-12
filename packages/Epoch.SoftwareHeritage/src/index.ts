@@ -49,6 +49,9 @@ export function gitObjectId(type: "blob" | "tree" | "commit" | "tag", body: Uint
 export function swhidForGitObject(kind: SwhObjectKind, type: "blob" | "tree" | "commit" | "tag", body: Uint8Array): string {
   return formatSwhid({ version: 1, kind, digest: gitObjectId(type, body, "sha1"), qualifiers: {} });
 }
+export function swhKindForGitType(type: "blob" | "tree" | "commit" | "tag"): Exclude<SwhObjectKind, "snp"> {
+  return ({ blob: "cnt", tree: "dir", commit: "rev", tag: "rel" } as const)[type];
+}
 
 export interface SaveTransportResponse { readonly status: number; readonly body: unknown }
 export interface SaveResult { readonly confirmed: boolean; readonly state: "succeeded" | "pending" | "failed"; readonly attempts: number; readonly origin?: string }
