@@ -21,7 +21,7 @@ function tokenize(input: string): readonly Token[] {
     if (/\s/u.test(character)) { index += 1; continue; }
     if (["(", ")", "|", "&", "-"].includes(character)) { tokens.push({ type: character as Token["type"], value: character, offset: index++ }); continue; }
     const start = index;
-    while (index < input.length && !/[\s()|&-]/u.test(input[index]!)) index += 1;
+    while (index < input.length && !/[\s()|&]/u.test(input[index]!)) index += 1;
     tokens.push({ type: "word", value: input.slice(start, index), offset: start });
   }
   tokens.push({ type: "eof", value: "", offset: input.length });

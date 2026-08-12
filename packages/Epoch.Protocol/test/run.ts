@@ -137,6 +137,9 @@ function revsetContract(): void {
   ];
   assert.deepEqual(evaluateRevset(parseRevset("ancestors(heads()) & author(alice) | approved()"), nodes), ["r1", "r2", "r3"]);
   assert.deepEqual(evaluateRevset("descendants(change(c1)) - conflicts()", nodes), ["r1", "r2"]);
+  assert.deepEqual(evaluateRevset("author(alice-smith)", [
+    { revisionId: "r4", parentRevisionIds: [], authorId: "alice-smith" },
+  ]), ["r4"], "hyphenated opaque arguments are not parsed as difference operators");
   assert.throws(() => parseRevset("unknown()"), (error: unknown) =>
     error instanceof Error && "code" in error && error.code === "invalid-revset");
 }
