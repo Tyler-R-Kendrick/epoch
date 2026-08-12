@@ -8,6 +8,7 @@ import {
 } from "@epoch/community-core";
 import { renderConvergenceWorkbench } from "@epoch/community-web";
 import {
+  createRedactedConvergenceSupportBundle,
   renderConvergenceOperationsPanel,
   type CommunityConvergenceOperations,
 } from "@epoch/community-operations-web";
@@ -352,7 +353,14 @@ Then("workspace provider object residency F3 fidelity SWHID and archive status a
 });
 
 Given("the convergence operations console contains private session and credential sentinels", function () {
-  convergence.operations = operationsFixture({ privateSentinels: ["PRIVATE_SESSION", "SECRET_CREDENTIAL"] });
+  const unsafe = operationsFixture({});
+  convergence.operations = {
+    ...unsafe,
+    supportBundle: createRedactedConvergenceSupportBundle(unsafe, {
+      rawSession: "PRIVATE_SESSION",
+      credential: "SECRET_CREDENTIAL",
+    }),
+  };
 });
 
 When("I prepare a support bundle and inspect merge force grant budget and public archive controls", function () {

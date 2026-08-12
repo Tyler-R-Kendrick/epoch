@@ -520,6 +520,38 @@ export function renderConvergenceOperationsPanel(status: CommunityConvergenceOpe
   </div>`;
 }
 
+/**
+ * Produces an allowlisted diagnostic bundle. `privateContext` is accepted at
+ * the boundary to make the security property testable, but is intentionally
+ * never traversed or serialized: raw sessions and credentials are not
+ * diagnostic fields.
+ */
+export function createRedactedConvergenceSupportBundle(
+  status: CommunityConvergenceOperations,
+  _privateContext?: unknown,
+): string {
+  return JSON.stringify({
+    schemaVersion: 1,
+    promisor: status.promisor,
+    workspace: status.workspace,
+    mirror: status.mirror,
+    forge: status.forge,
+    archive: status.archive,
+    git: status.git,
+    sync: status.sync,
+    objectResidency: status.objectResidency,
+    identity: {
+      principal: status.identity.principal,
+      keyStatus: status.identity.key,
+      sponsor: status.identity.sponsor,
+      grantStatus: status.identity.grant,
+      budget: status.identity.budget,
+    },
+    rejectedPush: status.rejectedPush,
+    redacted: true,
+  });
+}
+
 function operationsStatus(label: string, value: string, explanation: string): string {
   return `<article class="ops-card convergence-status" role="listitem"><h3>${escapeHtml(label)}</h3><p><strong>${escapeHtml(value)}</strong></p><p>${escapeHtml(explanation)}</p></article>`;
 }

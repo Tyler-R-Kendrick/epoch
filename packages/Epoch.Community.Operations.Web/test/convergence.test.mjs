@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderConvergenceOperationsPanel } from "../dist/index.js";
+import { createRedactedConvergenceSupportBundle, renderConvergenceOperationsPanel } from "../dist/index.js";
 
 const status = {
   promisor: { health: "degraded", missingPromised: 3, integrity: "verified" },
@@ -24,4 +24,13 @@ test("operations view separates availability integrity copy mode authority and c
   assert.match(html, /F3 v4\.0/iu);
   assert.equal((html.match(/data-confirmation-required="true"/gu) ?? []).length, 5);
   assert.doesNotMatch(html, /private session|credential value/iu);
+});
+
+test("support bundle uses an allowlist and drops private sessions and credentials", () => {
+  const bundle = createRedactedConvergenceSupportBundle(status, {
+    rawSession: "PRIVATE_SESSION_SENTINEL",
+    credential: "SECRET_CREDENTIAL_SENTINEL",
+  });
+  assert.match(bundle, /"promisor".*"mirror".*"redacted":true/isu);
+  assert.doesNotMatch(bundle, /PRIVATE_SESSION_SENTINEL|SECRET_CREDENTIAL_SENTINEL/iu);
 });
