@@ -16,6 +16,11 @@ discard fields, loop forever, or let a mirror overwrite the declared authority.
 - ForgeFed has `transport: none`; the package does not claim ActivityPub
   delivery. F3 is a deterministic JSON codec, not a complete native F3 server
   or archive extractor.
+- NIP-34 and Radicle have `transport: codec-only` and
+  `verification: injected-evidence-required`. Their decoders reject records
+  unless a trusted caller supplies prior cryptographic verification evidence
+  bound to the exact event/pubkey or repository/signed-ref/revision/sequence.
+  Codec parsing does not claim to verify a network transport or signature.
 - Mirror rules declare direction, `epoch-primary` or `git-primary` authority,
   source/destination refs, opaque `credentialRef`, force, and deletion policy.
 - HTTPS remotes reject embedded credentials, unsafe ports, loopback/private

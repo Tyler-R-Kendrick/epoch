@@ -8,6 +8,8 @@ test("capability manifests pin honest source revisions and transport boundaries"
   assert.equal(FORGE_CAPABILITIES.f3.specVersion, "4.0");
   assert.equal(FORGE_CAPABILITIES.forgefed.specVersion, "Branch Snapshot, 18 June 2025");
   assert.equal(FORGE_CAPABILITIES.forgefed.transport, "none");
+  assert.equal(FORGE_CAPABILITIES.nip34.verification, "injected-evidence-required");
+  assert.equal(FORGE_CAPABILITIES.radicle.verification, "injected-evidence-required");
   assert.equal(FORGE_CAPABILITIES.accessedAt, "2026-08-11");
 });
 
@@ -35,17 +37,24 @@ test("ForgeFed is codec-only, rejects private export, and reports unsupported fi
 test("NIP-34 mapping rejects replay, expiry, audience, size, and malformed events", () => {
   const encoded = encodeNip34(issue, { eventId: "ab".repeat(32), pubkey: "cd".repeat(32), createdAt: 1700000000, expiresAt: 1700000100, audience: ["repo-1"] });
   const seen = new Set();
-  assert.equal(decodeNip34(encoded.event, { now: 1700000001, audience: "repo-1", seen }).object.objectId, "issue-1");
-  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, audience: "repo-1", seen }), /replay/u);
-  assert.throws(() => decodeNip34(encoded.event, { now: 1700000200, audience: "repo-1", seen: new Set() }), /expired/u);
-  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, audience: "repo-2", seen: new Set() }), /audience/u);
-  assert.throws(() => decodeNip34({ ...encoded.event, content: "x".repeat(70_000) }, { now: 1700000001, audience: "repo-1", seen: new Set() }), /size/u);
+  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, audience: "repo-1", seen }), /verified signature evidence/iu);
+  const evidence = { verified: true, eventId: encoded.event.id, pubkey: encoded.event.pubkey, verifier: "test-schnorr-verifier" };
+  assert.equal(decodeNip34(encoded.event, { now: 1700000001, audience: "repo-1", seen, signatureEvidence: evidence }).object.objectId, "issue-1");
+  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, audience: "repo-1", seen, signatureEvidence: evidence }), /replay/u);
+  assert.throws(() => decodeNip34(encoded.event, { now: 1700000200, audience: "repo-1", seen: new Set(), signatureEvidence: evidence }), /expired/u);
+  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, audience: "repo-2", seen: new Set(), signatureEvidence: evidence }), /audience/u);
+  assert.throws(() => decodeNip34({ ...encoded.event, content: "x".repeat(70_000) }, { now: 1700000001, audience: "repo-1", seen: new Set(), signatureEvidence: evidence }), /size/u);
+  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, signatureEvidence: { ...evidence, eventId: "other" } }), /evidence.*event/iu);
+  assert.throws(() => decodeNip34(encoded.event, { now: 1700000001, signatureEvidence: { ...evidence, pubkey: "other" } }), /evidence.*pubkey/iu);
   assert.throws(() => decodeNip34({}), /malformed/u);
 });
 
 test("Radicle IDs, signed refs, and patches preserve revisions and reject stale replay", () => {
   const encoded = encodeRadicle(issue, { radicleId: "rad:z3gqcJUoA1n9HaHKufZs5FCSGazv5", signedRef: "refs/rad/sigrefs/abc", sequence: 2 });
+  assert.throws(() => decodeRadicle(encoded.record, { lastSequence: 1 }), /verified signed-ref evidence/iu);
+  const evidence = { verified: true, radicleId: encoded.record.radicleId, signedRef: encoded.record.signedRef, sequence: 2, revision: "rev-1", verifier: "test-radicle-verifier" };
   assert.equal(encoded.record.patchId, "issue-1");
-  assert.equal(decodeRadicle(encoded.record, { lastSequence: 1 }).object.revision, "rev-1");
-  assert.throws(() => decodeRadicle(encoded.record, { lastSequence: 2 }), /stale/u);
+  assert.equal(decodeRadicle(encoded.record, { lastSequence: 1, signedRefEvidence: evidence }).object.revision, "rev-1");
+  assert.throws(() => decodeRadicle(encoded.record, { lastSequence: 2, signedRefEvidence: evidence }), /stale/u);
+  assert.throws(() => decodeRadicle(encoded.record, { lastSequence: 1, signedRefEvidence: { ...evidence, signedRef: "refs/rad/sigrefs/other" } }), /evidence.*signed ref/iu);
 });

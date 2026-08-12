@@ -11,8 +11,8 @@ export const FORGE_CAPABILITIES = Object.freeze({
   schemaVersion: 1, accessedAt: "2026-08-11",
   f3: { specVersion: "4.0", source: "https://f3.forgefriends.org/", transport: "archive", subset: ["issue", "change", "comment", "release"] },
   forgefed: { specVersion: "Branch Snapshot, 18 June 2025", source: "https://forgefed.org/", transport: "none", subset: ["Ticket", "MergeRequest"] },
-  nip34: { specVersion: "NIP-34", source: "https://github.com/nostr-protocol/nips/blob/master/34.md", transport: "codec-only" },
-  radicle: { specVersion: "codec-boundary-v1", source: "https://radicle.xyz/", transport: "codec-only" },
+  nip34: { specVersion: "NIP-34", source: "https://github.com/nostr-protocol/nips/blob/master/34.md", transport: "codec-only", verification: "injected-evidence-required" },
+  radicle: { specVersion: "codec-boundary-v1", source: "https://radicle.xyz/", transport: "codec-only", verification: "injected-evidence-required" },
 });
 
 function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("malformed forge record"); return value as Record<string, unknown>; }
@@ -66,14 +66,24 @@ export function decodeForgeFed(value: unknown): { readonly object: ForgeObject; 
 }
 
 export interface Nip34Event { readonly id: string; readonly pubkey: string; readonly created_at: number; readonly kind: number; readonly tags: readonly (readonly string[])[]; readonly content: string }
+export interface Nip34SignatureEvidence {
+  readonly verified: true;
+  readonly eventId: string;
+  readonly pubkey: string;
+  readonly verifier: string;
+}
 export function encodeNip34(value: ForgeObject, meta: { eventId: string; pubkey: string; createdAt: number; expiresAt: number; audience: readonly string[] }): { event: Nip34Event; losses: readonly CodecLoss[] } {
   assertPublic(value); return { event: { id: meta.eventId, pubkey: meta.pubkey, created_at: meta.createdAt, kind: value.kind === "issue" ? 1621 : 1617,
     tags: [["d", value.objectId], ["a", value.repositoryId], ["expiration", String(meta.expiresAt)], ...meta.audience.map((item) => ["aud", item]), ["revision", value.revision]],
     content: stable(value) }, losses: [] };
 }
-export function decodeNip34(value: unknown, options?: { now?: number; audience?: string; seen?: Set<string>; maxBytes?: number }): { object: ForgeObject; losses: readonly CodecLoss[] } {
-  const row = object(value); const id = text(row.id, "NIP-34 event id"); text(row.pubkey, "NIP-34 pubkey"); number(row.created_at, "NIP-34 created_at");
+export function decodeNip34(value: unknown, options?: { now?: number; audience?: string; seen?: Set<string>; maxBytes?: number; signatureEvidence?: Nip34SignatureEvidence }): { object: ForgeObject; losses: readonly CodecLoss[] } {
+  const row = object(value); const id = text(row.id, "NIP-34 event id"); const pubkey = text(row.pubkey, "NIP-34 pubkey"); number(row.created_at, "NIP-34 created_at");
   if (!Array.isArray(row.tags) || typeof row.content !== "string") throw new Error("malformed NIP-34 event");
+  const evidence = options?.signatureEvidence;
+  if (evidence?.verified !== true || !evidence.verifier) throw new Error("NIP-34 decode requires verified signature evidence from an injected verifier");
+  if (evidence.eventId !== id) throw new Error("NIP-34 signature evidence event id mismatch");
+  if (evidence.pubkey !== pubkey) throw new Error("NIP-34 signature evidence pubkey mismatch");
   if (new TextEncoder().encode(row.content).length > (options?.maxBytes ?? 65_536)) throw new Error("NIP-34 size limit exceeded");
   const tags = row.tags as unknown[][]; const tag = (name: string) => tags.filter((item) => item[0] === name).map((item) => String(item[1] ?? ""));
   const expires = Number(tag("expiration")[0]); if (!Number.isSafeInteger(expires)) throw new Error("malformed NIP-34 expiration");
@@ -85,13 +95,31 @@ export function decodeNip34(value: unknown, options?: { now?: number; audience?:
 }
 
 export interface RadicleRecord { readonly radicleId: string; readonly signedRef: string; readonly patchId: string; readonly sequence: number; readonly revision: string; readonly payload: ForgeObject }
+export interface RadicleSignedRefEvidence {
+  readonly verified: true;
+  readonly radicleId: string;
+  readonly signedRef: string;
+  readonly sequence: number;
+  readonly revision: string;
+  readonly verifier: string;
+}
 export function encodeRadicle(value: ForgeObject, meta: { radicleId: string; signedRef: string; sequence: number }): { record: RadicleRecord; losses: readonly CodecLoss[] } {
   assertPublic(value); if (!/^rad:/u.test(meta.radicleId) || !/^refs\/rad\/sigrefs\//u.test(meta.signedRef)) throw new Error("malformed Radicle identity or signed ref");
   return { record: { ...meta, patchId: value.objectId, revision: value.revision, payload: value }, losses: value.kind === "change" ? [] : [{ path: "kind", reason: "mapped-to-patch", severity: "info" }] };
 }
-export function decodeRadicle(value: unknown, options?: { lastSequence?: number }): { object: ForgeObject; losses: readonly CodecLoss[] } {
-  const row = object(value); const sequence = number(row.sequence, "Radicle sequence"); if (sequence <= (options?.lastSequence ?? -1)) throw new Error("stale Radicle replay");
-  text(row.radicleId, "Radicle id"); text(row.signedRef, "Radicle signed ref"); return { object: parseForge(row.payload), losses: [] };
+export function decodeRadicle(value: unknown, options?: { lastSequence?: number; signedRefEvidence?: RadicleSignedRefEvidence }): { object: ForgeObject; losses: readonly CodecLoss[] } {
+  const row = object(value); const sequence = number(row.sequence, "Radicle sequence");
+  const radicleId = text(row.radicleId, "Radicle id"); const signedRef = text(row.signedRef, "Radicle signed ref"); const revision = text(row.revision, "Radicle revision");
+  if (!/^rad:/u.test(radicleId) || !/^refs\/rad\/sigrefs\//u.test(signedRef)) throw new Error("malformed Radicle identity or signed ref");
+  const evidence = options?.signedRefEvidence;
+  if (evidence?.verified !== true || !evidence.verifier) throw new Error("Radicle decode requires verified signed-ref evidence from an injected verifier");
+  if (evidence.radicleId !== radicleId) throw new Error("Radicle signed-ref evidence identity mismatch");
+  if (evidence.signedRef !== signedRef) throw new Error("Radicle signed-ref evidence signed ref mismatch");
+  if (evidence.sequence !== sequence) throw new Error("Radicle signed-ref evidence sequence mismatch");
+  if (evidence.revision !== revision) throw new Error("Radicle signed-ref evidence revision mismatch");
+  if (sequence <= (options?.lastSequence ?? -1)) throw new Error("stale Radicle replay");
+  const parsed = parseForge(row.payload); if (parsed.revision !== revision) throw new Error("Radicle payload revision does not match signed ref evidence");
+  return { object: parsed, losses: [] };
 }
 
 export * from "./mirror";
