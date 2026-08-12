@@ -42,7 +42,8 @@
   "bin": {
     "epoch": "packages/Epoch.CLI/dist/cli.js",
     "epoch-git": "packages/Epoch.CLI/dist/cli-git.js",
-    "epoch-community": "packages/Epoch.Community.CLI/dist/index.js"
+    "epoch-community": "packages/Epoch.Community.CLI/dist/index.js",
+    "git-remote-epoch": "packages/Epoch.Git.Proxy/dist/git-remote-epoch.js"
   },
   "exports": {
     ".": "./packages/Epoch.Core/dist/index.js",

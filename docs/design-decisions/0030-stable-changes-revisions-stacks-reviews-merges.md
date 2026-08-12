@@ -34,9 +34,9 @@ to an exact frontier, or a merge plan that fails when its target moves.
 
 Epoch had no released compatibility contract for the exploratory `stack`,
 `weave`, `review`, `epoch:revision:*`, or `epoch:change:legacy:*` spellings.
-They are rejected rather than aliased. The local `.epoch/change-graph-v1.json`
-CLI store is a reference host for the command grammar, not the canonical signed
-repository event log. Delete that file to remove its local records.
+They are rejected rather than aliased. The Change Graph CLI now appends signed
+protocol events through `SignedChangeGraphStore`. A leftover
+`.epoch/change-graph-v1.json` file is ignored and is not a source of truth.
 
 ## Consequences
 
@@ -47,7 +47,8 @@ unsupported; binary fragments use exact or replace behavior.
 
 ## Revisit Criteria
 
-Revisit when the reference CLI is wired to durable canonical transactions or a
+Revisit when split acceptance and workspace capture also become signed
+protocol events, or a
 new schema version requires an explicit event migration.
 
 ## Related

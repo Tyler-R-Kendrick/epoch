@@ -46,6 +46,7 @@ export type {
 } from "./git-projection";
 export * from "./blob-storage";
 export * from "./chunks";
+export * from "./change-graph-store";
 export * from "./convergence-changes";
 export * from "./convergence-transactions";
 export * from "./object-store";

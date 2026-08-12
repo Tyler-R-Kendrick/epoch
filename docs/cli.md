@@ -39,8 +39,10 @@ Remove the global link with:
 npm unlink -g epoch
 ```
 
-When Epoch is installed as a package, use the installed `epoch` and `epoch-git`
-binaries directly.
+When Epoch is installed as a package, use the installed `epoch`, `epoch-git`,
+and `git-remote-epoch` binaries directly. `git-remote-epoch` speaks the Git
+remote-helper protocol for `epoch://` remotes and fails closed for fetch/push
+until an authenticated Epoch endpoint is configured.
 
 ## Global Options
 
@@ -186,9 +188,13 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 
 ## Change Graph And Merge Commands
 
-These commands use the local `.epoch/change-graph-v1.json` reference host. They exercise
-the canonical schemas and validation rules, but do not replace the signed
-repository event log.
+These commands persist signed repository events (`change.created`,
+`change.revised`, `change-graph.defined`, `review.bundle.created`,
+`merge.plan.created`, and related protocol types). The leftover
+`.epoch/change-graph-v1.json` file is ignored and is not authoritative.
+Local operation undo/restore stays in `.epoch/operations/`. Split proposals
+and workspace handles remain local drafts until a protocol event exists for
+them.
 
 New object IDs are generated through the Protocol 256-bit lowercase-base32
 canonical ID generator, whose CSPRNG is injectable for deterministic hosts and
@@ -218,12 +224,12 @@ ordering is deterministic.
 | Command group | Shipped operations and limitations |
 |---|---|
 | `workspace` | Create, list, inspect, capture, and safely remove memory/filesystem/browser workspaces. Providers report actual residency, materialization, storage, and execution modes. |
-| `clone`, `fetch`, `hydrate`, `backfill` | Pass explicit filter JSON to injected sync/resolver adapters. Missing adapters return `unsupported-capability`. |
-| `mirror` | Inspect/configure/reconcile explicit authority rules; credentials remain opaque references. No hosted forge transport is implied. |
-| `principal`, `agent` | Inspect capabilities, grants, budgets, and authorization explanations. The reference authority ledger is not durable. |
+| `clone`, `fetch`, `hydrate`, `backfill` | Local Epoch replicas sync through `syncFrom`; `hydrate` materializes virtual checkout paths; `backfill` reports promised objects. Named remotes and URLs return `unsupported-capability`. |
+| `mirror` | Add, list, inspect, and record a run for a signed mirror definition. Credentials stay opaque; no hosted forge transport is implied. |
+| `principal`, `agent` | Inspect capabilities, allocate/status signed budget units, and explain authorization. Missing grants deny. |
 | `forge` | Inspect capabilities and import/export public records through loss-aware codecs. ForgeFed transport is `none`. |
 | `swhid` | Inspect, compute, and verify SWHIDs locally. |
-| `archive` | Request archival only when a Software Heritage backend is injected; otherwise fail with `unsupported-capability`. |
+| `archive` | `archive software-heritage map` records a local SWHID mapping. Live Save Code Now still requires an injected transport. |
 | `interop doctor` | Probe Git/protocol, optional jj/hg/Rift commands, CoW support, adapter manifests, and SWHID support without printing credentials. |
 
 `--json` output is deterministic. Stable error codes are `invalid-command`,

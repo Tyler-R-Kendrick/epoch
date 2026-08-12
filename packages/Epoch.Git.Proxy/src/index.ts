@@ -503,3 +503,4 @@ export * from "./deterministic-projection";
 export * from "./protocol-v2";
 export * from "./quarantine";
 export * from "./remote-helper";
+export { remoteHelperCapabilities, runGitRemoteEpoch } from "./git-remote-epoch";

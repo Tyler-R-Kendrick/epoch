@@ -4,6 +4,9 @@
   "description": "Git smart-HTTP façade and live migration workers over Epoch repositories.",
   "main": "dist/index.js",
   "types": "src/index.ts",
+  "bin": {
+    "git-remote-epoch": "dist/git-remote-epoch.js"
+  },
   "scripts": {
     "build": "tsgo -p tsconfig.json",
     "typecheck": "tsgo -p tsconfig.json --noEmit"

@@ -10,7 +10,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 |---|---:|
 | `features/actors.feature` | 4 |
 | `features/advanced_collaboration.feature` | 9 |
-| `features/cli_wasm.feature` | 4 |
+| `features/cli_wasm.feature` | 5 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
 | `features/community_web_experience.feature` | 47 |
@@ -50,6 +50,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/advanced_collaboration.feature` | `@persona.github_open_source_contributor` | Scenario | Event serialization can be substituted by repository providers | None | 0 |
 | `features/advanced_collaboration.feature` | `@persona.github_open_source_contributor` | Scenario | CLI exposes collaboration, gate, operation, and redaction workflows | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI records, verifies, lists, and resolves repository content | None | 0 |
+| `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor creates a stable Change as a signed revision | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI policy, view, sync, Git import/export, and DR commands are covered | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI errors and Git compatibility command wrapper return failures | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | WASM exports support CRDT helpers and reject native Git operations | None | 0 |

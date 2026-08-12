@@ -112,12 +112,13 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 - `op`, `graph`, `split`, `bundle`, `review record`, `merge-plan`, and
   `conflict` expose local operation recovery, dependency graphs, exact split,
   exact review/merge, and durable resolution workflows.
-- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose truthful
-  provider and injected resolver/sync boundaries.
+- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose local replica
+  sync/hydration and fail closed for unconfigured remotes.
 - `mirror`, `principal`, `agent`, `forge`, `swhid`, `archive`, and
   `interop doctor` inspect interop and authority without printing credentials.
 
-The local reference host is `.epoch/change-graph-v1.json`, not the canonical signed event log.
+Change Graph commands persist signed protocol events. A leftover
+`.epoch/change-graph-v1.json` file is ignored.
 JSON failures use stable codes including `invalid-input`, `stale-revision`,
 `auth-denied`, `unsupported-capability`, and `conflict`. See the
 [public CLI reference](../../../docs/cli.md) for exact subcommands and limits.

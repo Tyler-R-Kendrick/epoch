@@ -149,6 +149,8 @@ export class OperationDag {
 
   get(operationId: string): OperationRecord | undefined { return this.#operations.get(operationId); }
 
+  list(): readonly OperationRecord[] { return [...this.#operations.values()]; }
+
   heads(): readonly string[] {
     const parents = new Set([...this.#operations.values()].flatMap((operation) => [...operation.parents]));
     return [...this.#operations.keys()].filter((id) => !parents.has(id)).sort();

@@ -32,6 +32,7 @@ import { runGitProxyTests } from "./unit/git-proxy.test";
 import { runAtprotoCommunityTests } from "./unit/atproto-community.test";
 import { runGossipAtprotoIntegrationTests } from "./unit/gossip-atproto-integration.test";
 import { runIdentityBridgeTests } from "./unit/identity-bridge.test";
+import { runChangeGraphStoreTests } from "./unit/change-graph-store.test";
 import { runConvergenceChangeGraphTests } from "./unit/convergence-change-graph.test";
 import { runConvergenceCoreTransactionTests } from "./unit/convergence-core-transactions.test";
 import { runCoreStorageSyncV2Tests } from "./unit/core-storage-sync-v2.test";
@@ -75,6 +76,7 @@ async function main(): Promise<void> {
   await runAtprotoCommunityTests();
   await runGossipAtprotoIntegrationTests();
   await runIdentityBridgeTests();
+  runChangeGraphStoreTests();
   runConvergenceChangeGraphTests();
   await runConvergenceCoreTransactionTests();
   await runCoreStorageSyncV2Tests();
