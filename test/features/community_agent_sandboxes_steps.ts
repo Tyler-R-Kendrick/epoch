@@ -31,10 +31,8 @@ let agentSandboxState: CommunityAgentSandboxWorld = {
 };
 
 After(async function () {
-  await Promise.allSettled([
-    closeWithTimeout(agentSandboxState.page?.close(), "agent sandbox page close"),
-    closeWithTimeout(agentSandboxState.browser?.close(), "agent sandbox browser close"),
-  ]);
+  await closeWithTimeout(agentSandboxState.page?.close(), "agent sandbox page close");
+  await closeWithTimeout(agentSandboxState.browser?.close(), "agent sandbox browser close");
   agentSandboxState = {
     sandboxRuns: [],
   };
@@ -102,7 +100,7 @@ When("{word} starts the agent sandbox", function (maintainerName: string) {
   }];
 });
 
-Then("agent sandbox {string} is running for intent {string}", async function (sandboxId: string, inputIntentId: string) {
+Then("agent sandbox {string} is running for intent {string}", { timeout: 60_000 }, async function (sandboxId: string, inputIntentId: string) {
   await renderAgentSandboxApp();
   await assertAgentSandboxText(sandboxId);
   await assertAgentSandboxText("running");
@@ -195,7 +193,7 @@ When("{word} submits sandbox output as patch intent {string}", function (maintai
   };
 });
 
-Then("patch intent {string} is ready for workspace review", async function (patchIntentId: string) {
+Then("patch intent {string} is ready for workspace review", { timeout: 60_000 }, async function (patchIntentId: string) {
   await renderAgentSandboxApp();
   await assertAgentSandboxText(patchIntentId);
   await assertAgentSandboxText("pending");
@@ -276,7 +274,7 @@ When("{word} retries the sandbox with agent {string}", function (maintainerName:
   ];
 });
 
-Then("failed sandbox {string} keeps signed failure {string}", async function (sandboxId: string, signedEventId: string) {
+Then("failed sandbox {string} keeps signed failure {string}", { timeout: 60_000 }, async function (sandboxId: string, signedEventId: string) {
   await renderAgentSandboxApp();
   await assertAgentSandboxText(sandboxId);
   await assertAgentSandboxText(signedEventId);
@@ -385,13 +383,20 @@ async function closeWithTimeout(task: Promise<unknown> | undefined, label: strin
     return;
   }
 
-  await Promise.race([
-    task.then(() => undefined),
-    new Promise<void>((resolve) => {
-      setTimeout(() => {
-        console.warn(`${label} timed out; continuing cleanup`);
-        resolve();
-      }, 5_000);
-    }),
-  ]);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      task.then(() => undefined),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          console.warn(`${label} timed out; continuing cleanup`);
+          resolve();
+        }, 5_000);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
 }

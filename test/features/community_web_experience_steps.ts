@@ -91,10 +91,8 @@ const NIGHTBOARD_CONTENT_TYPES: Readonly<Record<string, string>> = {
 };
 
 After(async function () {
-  await Promise.allSettled([
-    closeWithTimeout(world.page?.context().close(), "community web browser context close"),
-    closeWithTimeout(world.browser?.close(), "community web browser close"),
-  ]);
+  await closeWithTimeout(world.page?.context().close(), "community web browser context close");
+  await closeWithTimeout(world.browser?.close(), "community web browser close");
   world = {};
 });
 
@@ -1318,15 +1316,22 @@ async function closeWithTimeout(task: Promise<unknown> | undefined, label: strin
     return;
   }
 
-  await Promise.race([
-    task.then(() => undefined),
-    new Promise<void>((resolve) => {
-      setTimeout(() => {
-        console.warn(`${label} timed out; continuing cleanup`);
-        resolve();
-      }, 5_000);
-    }),
-  ]);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      task.then(() => undefined),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          console.warn(`${label} timed out; continuing cleanup`);
+          resolve();
+        }, 5_000);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 // ── Experience layer: empty states, search clearing, unread, first run ───────
