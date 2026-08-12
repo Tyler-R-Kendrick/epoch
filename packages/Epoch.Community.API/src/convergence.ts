@@ -12,6 +12,18 @@ export interface CommunityConvergenceApi {
   squash(plan: PartialMergePlan, authority: MutationAuthority): ConvergenceChange;
 }
 
+export interface CommunityConvergenceRequestAuthorization {
+  readonly principalId: string;
+  readonly authorities: readonly string[];
+}
+
+export interface CommunityConvergenceFetchHandlerOptions {
+  /** Resolves authenticated identity from a trusted host/session boundary. */
+  readonly resolveAuthorization?: (
+    request: Request,
+  ) => CommunityConvergenceRequestAuthorization | Promise<CommunityConvergenceRequestAuthorization>;
+}
+
 export function createInMemoryCommunityConvergenceApi(snapshot: ConvergenceWorkbenchSnapshot): CommunityConvergenceApi {
   const workbench = new ConvergenceWorkbench(snapshot);
   return {
@@ -22,7 +34,10 @@ export function createInMemoryCommunityConvergenceApi(snapshot: ConvergenceWorkb
 }
 
 /** A small fetch adapter for static/local hosts; mutation authority stays in the domain service. */
-export function createCommunityConvergenceFetchHandler(api: CommunityConvergenceApi): (request: Request) => Promise<Response> {
+export function createCommunityConvergenceFetchHandler(
+  api: CommunityConvergenceApi,
+  options: CommunityConvergenceFetchHandlerOptions = {},
+): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/convergence") return json(api.getSnapshot());
@@ -32,9 +47,19 @@ export function createCommunityConvergenceFetchHandler(api: CommunityConvergence
     }
     if (request.method === "POST" && url.pathname === "/convergence/squash") {
       const body = await objectBody(request);
+      const authorization = await options.resolveAuthorization?.(request);
+      if (authorization === undefined) {
+        return json({ error: "Squash requires authenticated authority from trusted request context." }, 403);
+      }
+      if (!authorization.authorities.includes("maintainer.merge")) {
+        return json({
+          error: `${authorization.principalId} lacks required authority maintainer.merge.`,
+          principalId: authorization.principalId,
+        }, 403);
+      }
       const preview = api.planPartialMerge(requiredString(body, "changeId"));
       return json(api.squash(preview, {
-        authority: requiredString(body, "authority"),
+        authority: "maintainer.merge",
         confirmed: body.confirmed === true,
       }));
     }
