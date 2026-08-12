@@ -66,27 +66,50 @@ export function inspectSyncContract(value: unknown): { readonly supported: boole
 export interface ParsedSwhid {
   readonly namespace: "swh";
   readonly version: 1;
-  readonly objectType: "cnt" | "dir" | "rev" | "rel" | "snp" | "ori";
+  readonly objectType: SwhObjectKind;
   readonly objectId: string;
   readonly qualifiers: Readonly<Record<string, string>>;
 }
 
-export function inspectSwhid(value: string): ParsedSwhid {
-  if (value.length > 2048 || !value.startsWith("swh:1:")) fail("invalid-id", "Invalid SWHID prefix or length");
-  const [core, ...rawQualifiers] = value.split(";"); const parts = core!.split(":");
-  const objectType = parts[2]; const objectId = parts[3];
-  if (parts.length !== 4 || !["cnt", "dir", "rev", "rel", "snp", "ori"].includes(objectType ?? "") || !/^[a-f0-9]{40}$/u.test(objectId ?? "")) {
-    return fail("invalid-id", "Invalid SWHID object identity");
-  }
+export type SwhObjectKind = "cnt" | "dir" | "rev" | "rel" | "snp";
+
+export interface CanonicalSwhid {
+  readonly version: 1;
+  readonly kind: SwhObjectKind;
+  readonly digest: string;
+  readonly qualifiers: Readonly<Record<string, string>>;
+}
+
+const swhKinds = new Set<SwhObjectKind>(["cnt", "dir", "rev", "rel", "snp"]);
+const swhQualifiers = new Set(["origin", "visit", "anchor", "path", "lines"]);
+
+/** Browser-safe canonical SWHID v1 parser shared by inspectors and host packages. */
+export function parseSwhid(value: string): CanonicalSwhid {
+  if (typeof value !== "string" || value.length > 2048) fail("invalid-id", "Invalid SWHID length");
+  const [core, ...parts] = value.split(";");
+  const fields = core!.split(":");
+  if (fields.length !== 4 || fields[0] !== "swh") fail("invalid-id", "Invalid SWHID namespace or shape");
+  if (fields[1] !== "1") fail("invalid-id", "Unsupported SWHID version");
+  const kind = fields[2] as SwhObjectKind;
+  if (!swhKinds.has(kind)) fail("invalid-id", "Invalid SWHID object kind");
+  const digest = fields[3]!;
+  if (!/^[0-9a-f]{40}$/u.test(digest)) fail("invalid-id", "Invalid SWHID digest");
   const qualifiers: Record<string, string> = {};
-  for (const qualifier of rawQualifiers) {
-    const separator = qualifier.indexOf("="); if (separator <= 0) fail("invalid-id", "Invalid SWHID qualifier");
-    const key = qualifier.slice(0, separator); const item = qualifier.slice(separator + 1);
-    if (!/^[a-z_]+$/u.test(key) || !item || key in qualifiers) fail("invalid-id", "Invalid or duplicate SWHID qualifier");
-    qualifiers[key] = item;
+  for (const part of parts) {
+    const equals = part.indexOf("=");
+    if (equals < 1) fail("invalid-id", "Malformed SWHID qualifier");
+    const key = part.slice(0, equals);
+    if (!swhQualifiers.has(key) || qualifiers[key] !== undefined) fail("invalid-id", "Unsupported or duplicate SWHID qualifier");
+    try { qualifiers[key] = decodeURIComponent(part.slice(equals + 1)); }
+    catch { fail("invalid-id", "Malformed SWHID qualifier encoding"); }
   }
-  return Object.freeze({ namespace: "swh", version: 1, objectType: objectType as ParsedSwhid["objectType"], objectId: objectId!,
+  return Object.freeze({ version: 1, kind, digest,
     qualifiers: Object.freeze(Object.fromEntries(Object.entries(qualifiers).sort(([left], [right]) => left.localeCompare(right)))) });
+}
+
+export function inspectSwhid(value: string): ParsedSwhid {
+  const parsed = parseSwhid(value);
+  return Object.freeze({ namespace: "swh", version: 1, objectType: parsed.kind, objectId: parsed.digest, qualifiers: parsed.qualifiers });
 }
 
 export function nodeOnlyAdapterStatus(adapter: string): { readonly code: "unsupported-capability"; readonly adapter: string; readonly reason: string } {

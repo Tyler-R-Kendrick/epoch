@@ -5,6 +5,7 @@ import {
   PROTOCOL_CAPABILITIES,
   PROTOCOL_EVENT_SCHEMAS,
   ProtocolError,
+  assertRevisionId,
   assertProtocolEvent,
   createCanonicalId,
   legacyChangeId,
@@ -29,6 +30,8 @@ const tests: readonly [string, () => void][] = [
   ["PROTO-CAP-001 capability manifest is explicit and machine-readable", capabilityManifest],
   ["PROTO-REVSET-001 parser and evaluator are deterministic and browser-safe", revsetContract],
   ["PROTO-INSPECT-001 browser inspection is strict and deterministic", inspectionContract],
+  ["PROTO-SWHID-001 inspection uses canonical SWHID v1.2 parsing", swhidContract],
+  ["PROTO-SCHEMA-003 generated schema binds event types to exact body definitions", eventBodySchemaContract],
 ];
 
 for (const [name, run] of tests) {
@@ -65,7 +68,7 @@ function malformedIdentifiers(): void {
 }
 
 function legacyCompatibility(): void {
-  const legacy = legacyChangeId("01HF7YAT00Z7XR5R6J5M0D8V0F");
+  const legacy = legacyChangeId(assertRevisionId("01HF7YAT00Z7XR5R6J5M0D8V0F"));
   assert.equal(legacy, "epoch:change:legacy:01HF7YAT00Z7XR5R6J5M0D8V0F");
   assert.deepEqual(parseChangeId(legacy), { kind: "change", legacyEventId: "01HF7YAT00Z7XR5R6J5M0D8V0F" });
   assert.throws(() => parseCanonicalId(legacy), (error) => error instanceof ProtocolError && error.code === "invalid-id");
@@ -75,8 +78,8 @@ function schemaValidation(): void {
   const event: ProtocolEvent = {
     schemaVersion: 1,
     type: "change.created",
-    eventId: "event-01",
-    revisionId: "event-01",
+    eventId: assertRevisionId("event-01"),
+    revisionId: assertRevisionId("event-01"),
     body: {
       changeId: canonical("change", "a"),
       baseFrontier: ["event-base"],
@@ -123,7 +126,8 @@ function schemaFailures(): void {
 
 function capabilityManifest(): void {
   assert.equal(PROTOCOL_CAPABILITIES.schemaVersion, 1);
-  assert.equal(PROTOCOL_CAPABILITIES.transactions.atomicPublish, true);
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.atomicPublish, false);
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.quarantineAtomicPublish, true);
   assert.equal(PROTOCOL_CAPABILITIES.merge.conservativeCommutation, true);
   assert.equal(PROTOCOL_CAPABILITIES.providers.mayMutateCanonicalState, false);
   assert.equal(PROTOCOL_CAPABILITIES.fidelity.binarySemanticMerge, false);
@@ -154,6 +158,40 @@ function inspectionContract(): void {
   assert.equal(inspectSyncContract({ protocol: "epoch.sync/v2", commands: ["capabilities"] }).supported, true);
   assert.equal(inspectSyncContract({ protocol: "epoch.sync/v9", commands: [] }).code, "unsupported-capability");
   assert.equal(inspectSwhid(`swh:1:cnt:${"a".repeat(40)}`).objectType, "cnt");
+}
+
+function swhidContract(): void {
+  const digestValue = "a".repeat(40);
+  const parsed = inspectSwhid(`swh:1:rev:${digestValue};path=%2Fsrc%2Fmain.ts;lines=1-2`);
+  assert.equal(parsed.objectType, "rev");
+  assert.deepEqual(parsed.qualifiers, { path: "/src/main.ts", lines: "1-2" });
+  for (const malformed of [
+    `swh:1:ori:${digestValue}`,
+    `swh:1:rev:${digestValue}:ignored`,
+    `swh:1:rev:${digestValue};unknown=value`,
+    `swh:1:rev:${digestValue};path=%zz`,
+    `swh:1:rev:${digestValue};path=one;path=two`,
+  ]) assert.throws(() => inspectSwhid(malformed), (error) => error instanceof ProtocolError && error.code === "invalid-id");
+}
+
+function eventBodySchemaContract(): void {
+  const schema = protocolJsonSchemas() as unknown as {
+    readonly oneOf: readonly { readonly properties: { readonly type: { readonly const: string }; readonly body: { readonly $ref: string } } }[];
+    readonly $defs: Readonly<Record<string, { readonly required?: readonly string[]; readonly additionalProperties?: boolean }>>;
+  };
+  const branch = schema.oneOf.find((candidate) => candidate.properties.type.const === "repository.identity");
+  assert.equal(branch?.properties.body.$ref, "#/$defs/repositoryIdentityBody");
+  assert.deepEqual(schema.$defs.repositoryIdentityBody?.required, ["repositoryId", "principalId"]);
+  assert.equal(schema.$defs.repositoryIdentityBody?.additionalProperties, false);
+  assert.equal(schema.oneOf.length, PROTOCOL_EVENT_SCHEMAS.length);
+
+  const malformed = {
+    schemaVersion: 1, type: "repository.identity", eventId: "event-01", revisionId: "event-01",
+    body: { repositoryId: canonical("repo", "a"), principalId: canonical("principal", "b"), unexpected: true },
+  };
+  assert.throws(() => assertProtocolEvent(malformed), (error) => error instanceof ProtocolError && error.code === "invalid-schema");
+  assert.equal(schema.$defs.repositoryIdentityBody?.additionalProperties, false,
+    "the generated body schema rejects the same representative unknown field as runtime validation");
 }
 
 function canonical(kind: string, token: string): string {

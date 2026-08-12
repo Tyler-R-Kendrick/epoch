@@ -8,7 +8,8 @@ export const CANONICAL_ID_KINDS = [
 
 export type CanonicalIdKind = typeof CANONICAL_ID_KINDS[number];
 export type CanonicalId<K extends CanonicalIdKind = CanonicalIdKind> = `epoch:${K}:${string}`;
-export type RevisionId = string;
+declare const revisionIdBrand: unique symbol;
+export type RevisionId = string & { readonly [revisionIdBrand]: "signed-event-id" };
 export type RandomSource = (byteLength: number) => Uint8Array;
 
 const kindSet = new Set<string>(CANONICAL_ID_KINDS);
@@ -47,8 +48,7 @@ export function parseChangeId(value: unknown):
   | { readonly kind: "change"; readonly legacyEventId: RevisionId } {
   if (typeof value === "string" && value.startsWith("epoch:change:legacy:")) {
     const eventId = value.slice("epoch:change:legacy:".length);
-    assertRevisionId(eventId);
-    return { kind: "change", legacyEventId: eventId };
+    return { kind: "change", legacyEventId: assertRevisionId(eventId) };
   }
   const parsed = parseCanonicalId(value, "change");
   return { kind: "change", token: parsed.token };
@@ -56,7 +56,7 @@ export function parseChangeId(value: unknown):
 
 export function assertRevisionId(value: unknown): RevisionId {
   if (typeof value !== "string" || !eventIdPattern.test(value)) fail("invalid-ref", "RevisionId must be a signed EventId");
-  return value;
+  return value as RevisionId;
 }
 
 function platformRandom(byteLength: number): Uint8Array {
