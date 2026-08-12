@@ -66,10 +66,11 @@ async function main(): Promise<void> {
 
   await property("FRONTIER-PROP-004 exact evidence and merge digest invalidate", SEED ^ 3, CASES, (random) => {
     const revisions = [`r-${random.next()}`, `r-${random.next()}`];
+    const stack = { stackId: id("stack", "s") as `epoch:stack:${string}`, revisionIds: revisions, edges: [] };
     const bundle = buildReviewBundle({ reviewId: id("review", "r"), revisionIds: revisions, baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
     assert.throws(() => buildReviewBundle({ reviewId: bundle.reviewId, revisionIds: [...revisions].reverse(), baseFrontier: bundle.baseFrontier, baseTreeDigest: bundle.baseTreeDigest, resultingTreeDigest: bundle.resultingTreeDigest, overlaps: [], conflicts: [], gateDigest: bundle.gateDigest, priorBundle: bundle }), /stale-review/u);
-    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: revisions, dependencyClosure: revisions, reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("c"), mode: "merge", expectedResultDigest: digest("d") });
-    const context = { currentTargetRevisionId: "target", availableRevisionIds: revisions, gateDigest: digest("c"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("d") };
+    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: revisions, dependencyClosure: revisions, reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("c"), mode: "merge", expectedResultDigest: digest("d") }, { stack });
+    const context = { currentTargetRevisionId: "target", availableRevisionIds: revisions, stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDigest: digest("c"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("d") };
     assert.equal(applyMergePlan(plan, context).resultDigest, digest("d"));
     assert.throws(() => applyMergePlan(plan, { ...context, resultDigest: digest("e") }), /integrity-failure/u);
   });

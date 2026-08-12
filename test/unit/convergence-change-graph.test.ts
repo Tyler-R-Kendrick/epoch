@@ -93,18 +93,24 @@ function reviewEvidence(): void {
 }
 
 function mergePreconditions(): void {
-  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: ["r1"], dependencyClosure: ["r1"], reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("a"), mode: "merge", expectedResultDigest: digest("b") });
-  const base = { currentTargetRevisionId: "target", availableRevisionIds: ["r1"], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") };
+  const stack = stackFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
+  const planInput = { mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: ["r1"], dependencyClosure: ["r1"], reviewBundleRevisionId: "review-event", resolutionRevisionIds: ["resolution-event"], gateDigest: digest("a"), mode: "merge" as const, expectedResultDigest: digest("b") };
+  const plan = createMergePlan(planInput, { stack });
+  const base = { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: ["resolution-event"], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") };
   assert.equal(applyMergePlan(plan, base).resultRevisionProvenance.length, 1);
   assert.throws(() => applyMergePlan(plan, { ...base, currentTargetRevisionId: "moved" }), /stale-head/u);
+  assert.throws(() => createMergePlan({ ...planInput, revisionIds: ["r2"], dependencyClosure: ["r2"] }, { stack }), /missing-dependency/u);
   assert.throws(() => applyMergePlan({ ...plan, dependencyClosure: ["r1", "r2"] }, base), /missing-dependency/u);
+  assert.throws(() => applyMergePlan(plan, { ...base, reviewBundleRevisionId: "stale-review" }), /stale-review/u);
+  assert.throws(() => applyMergePlan(plan, { ...base, acceptedResolutionRevisionIds: [] }), /stale-revision/u);
   assert.throws(() => applyMergePlan(plan, { ...base, gateDigest: digest("c") }), /stale-gate/u);
   assert.throws(() => applyMergePlan(plan, { ...base, unresolvedConflictIds: [id("conflict", "a")] }), /unresolved-conflict/u);
 }
 
 function squashProvenance(): void {
-  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: ["r1", "r2"], dependencyClosure: ["r1", "r2"], reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("a"), mode: "squash", expectedResultDigest: digest("b") });
-  const result = applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") });
+  const stack = stackFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
+  const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: "target", revisionIds: ["r1", "r2"], dependencyClosure: ["r1", "r2"], reviewBundleRevisionId: "review-event", resolutionRevisionIds: [], gateDigest: digest("a"), mode: "squash", expectedResultDigest: digest("b") }, { stack });
+  const result = applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], stack, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") });
   assert.deepEqual(result.resultRevisionProvenance, ["r1", "r2"]);
   assert.equal(result.mode, "squash");
 }
@@ -146,3 +152,6 @@ function fragment(token: string, path: string, kind: ChangeFragment["kind"], dig
 }
 function id(kind: string, token: string): string { return `epoch:${kind}:${token.repeat(52)}`; }
 function digest(token: string): string { return token.repeat(64); }
+function stackFor(revisionIds: readonly string[], edges: StackDefinition["edges"]): StackDefinition {
+  return { stackId: id("stack", "m") as StackDefinition["stackId"], revisionIds, edges };
+}

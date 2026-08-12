@@ -1,4 +1,4 @@
-import { ProtocolError } from "@epoch/protocol";
+import { ProtocolError, assertRevisionId } from "@epoch/protocol";
 import type {
   ChangeFragment,
   ChangeRevisionBody,
@@ -13,13 +13,14 @@ export class ChangeGraph {
   readonly #revisions = new Map<string, ChangeRevisionBody>();
 
   add(revisionId: string, body: ChangeRevisionBody): void {
-    if (this.#revisions.has(revisionId) || body.parentRevisionIds.includes(revisionId)) throw fail("stale-revision", "Change revision cycle or duplicate");
+    const validatedRevisionId = assertRevisionId(revisionId);
+    if (this.#revisions.has(validatedRevisionId) || body.parentRevisionIds.includes(validatedRevisionId)) throw fail("stale-revision", "Change revision cycle or duplicate");
     for (const parentId of body.parentRevisionIds) {
       const parent = this.#revisions.get(parentId);
       if (parent === undefined) throw fail("missing-dependency", `Missing change parent: ${parentId}`);
       if (parent.changeId !== body.changeId) throw fail("invalid-ref", "Parent revision belongs to different ChangeId");
     }
-    this.#revisions.set(revisionId, structuredClone(body));
+    this.#revisions.set(validatedRevisionId, structuredClone(body));
   }
 
   changeIdOf(revisionId: string): string {
@@ -111,7 +112,7 @@ export function validateStack(stack: StackDefinition): StackGraph {
   const closure = (revisionIds: readonly string[]): readonly string[] => {
     const selected = new Set<string>();
     const select = (revisionId: string): void => {
-      if (!members.has(revisionId)) throw fail("missing-dependency", `Revision is not in stack: ${revisionId}`);
+      if (!members.has(assertRevisionId(revisionId))) throw fail("missing-dependency", `Revision is not in stack: ${revisionId}`);
       if (selected.has(revisionId)) return;
       selected.add(revisionId);
       for (const dependency of dependencies.get(revisionId)!) select(dependency);
@@ -164,7 +165,7 @@ export function buildReviewBundle(input: {
   readonly priorBundle?: ReviewBundle;
 }): ReviewBundle {
   const bundle: ReviewBundle = deepFreeze({
-    reviewId: input.reviewId as ReviewBundle["reviewId"], revisionIds: [...input.revisionIds], baseFrontier: [...input.baseFrontier],
+    reviewId: input.reviewId as ReviewBundle["reviewId"], revisionIds: input.revisionIds.map(assertRevisionId), baseFrontier: input.baseFrontier.map(assertRevisionId),
     baseTreeDigest: input.baseTreeDigest, resultingTreeDigest: input.resultingTreeDigest, overlaps: structuredClone(input.overlaps),
     conflictIds: [...input.conflicts], gateDigest: input.gateDigest,
   });
@@ -174,14 +175,20 @@ export function buildReviewBundle(input: {
   return bundle;
 }
 
-export function createMergePlan(input: MergePlan): MergePlan {
+export interface MergePlanningContext { readonly stack: StackDefinition }
+
+export function createMergePlan(input: MergePlan, context: MergePlanningContext): MergePlan {
   if (new Set(input.revisionIds).size !== input.revisionIds.length || new Set(input.dependencyClosure).size !== input.dependencyClosure.length) throw fail("invalid-schema", "Merge plan contains duplicate revisions");
+  assertDependencyClosure(input, context.stack);
   return Object.freeze(structuredClone(input));
 }
 
 export interface MergeApplicationContext {
   readonly currentTargetRevisionId: string;
   readonly availableRevisionIds: readonly string[];
+  readonly stack: StackDefinition;
+  readonly reviewBundleRevisionId: string;
+  readonly acceptedResolutionRevisionIds: readonly string[];
   readonly gateDigest: string;
   readonly unresolvedConflictIds: readonly string[];
   readonly protectedTarget: boolean;
@@ -192,12 +199,23 @@ export interface AppliedMerge { readonly mode: MergePlan["mode"]; readonly resul
 
 export function applyMergePlan(plan: MergePlan, context: MergeApplicationContext): AppliedMerge {
   if (context.currentTargetRevisionId !== plan.targetRevisionId) throw fail("stale-head", "Merge target moved");
-  const selected = new Set(plan.revisionIds);
-  if (plan.dependencyClosure.some((revisionId) => !selected.has(revisionId) || !context.availableRevisionIds.includes(revisionId))) throw fail("missing-dependency", "Merge plan dependency closure is unavailable or nonclosed");
+  assertDependencyClosure(plan, context.stack);
+  if (plan.dependencyClosure.some((revisionId) => !context.availableRevisionIds.includes(revisionId))) throw fail("missing-dependency", "Merge plan dependency closure is unavailable");
+  if (context.reviewBundleRevisionId !== plan.reviewBundleRevisionId) throw fail("stale-review", "Merge review evidence changed");
+  if (!sameValues(context.acceptedResolutionRevisionIds, plan.resolutionRevisionIds)) throw fail("stale-revision", "Merge conflict resolution evidence changed");
   if (context.gateDigest !== plan.gateDigest) throw fail("stale-gate", "Merge gate evidence changed");
   if (context.protectedTarget && context.unresolvedConflictIds.length > 0) throw fail("unresolved-conflict", "Protected merge has unresolved conflicts");
   if (context.resultDigest !== plan.expectedResultDigest) throw fail("integrity-failure", "Merge result digest does not match plan");
   return Object.freeze({ mode: plan.mode, resultRevisionProvenance: [...plan.revisionIds], resultDigest: context.resultDigest });
+}
+
+function assertDependencyClosure(plan: MergePlan, stack: StackDefinition): void {
+  const authoritative = validateStack(stack).closure(plan.revisionIds);
+  if (!sameValues(authoritative, plan.dependencyClosure)) throw fail("missing-dependency", "Merge plan does not contain the authoritative stack dependency closure");
+}
+
+function sameValues(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && [...left].sort().every((value, index) => value === [...right].sort()[index]);
 }
 
 export interface ConflictResolutionProvider {
@@ -215,7 +233,7 @@ export class ConflictLedger {
   propose(conflictId: string, resolutionRevisionId: string, _principalId: string): void { this.transition(conflictId, "proposed", resolutionRevisionId); }
   accept(conflictId: string, resolutionRevisionId: string, _principalId: string): void {
     const conflict = this.required(conflictId);
-    if (conflict.status !== "proposed" || !conflict.resolutionRevisionIds.includes(resolutionRevisionId)) throw fail("stale-revision", "Resolution was not proposed for this conflict");
+    if (conflict.status !== "proposed" || !conflict.resolutionRevisionIds.includes(assertRevisionId(resolutionRevisionId))) throw fail("stale-revision", "Resolution was not proposed for this conflict");
     this.#conflicts.set(conflictId, Object.freeze({ ...conflict, status: "accepted" }));
   }
   reject(conflictId: string, resolutionRevisionId: string, _principalId: string): void { this.transition(conflictId, "rejected", resolutionRevisionId); }
@@ -229,7 +247,8 @@ export class ConflictLedger {
   }
   private transition(conflictId: string, status: "proposed" | "rejected", resolutionRevisionId: string): void {
     const conflict = this.required(conflictId);
-    this.#conflicts.set(conflictId, Object.freeze({ ...conflict, status, resolutionRevisionIds: [...new Set([...conflict.resolutionRevisionIds, resolutionRevisionId])] }));
+    const revisionId = assertRevisionId(resolutionRevisionId);
+    this.#conflicts.set(conflictId, Object.freeze({ ...conflict, status, resolutionRevisionIds: [...new Set([...conflict.resolutionRevisionIds, revisionId])] }));
   }
   private required(conflictId: string): DurableConflict { const conflict = this.#conflicts.get(conflictId); if (conflict === undefined) throw fail("missing-object", `Missing conflict: ${conflictId}`); return conflict; }
 }

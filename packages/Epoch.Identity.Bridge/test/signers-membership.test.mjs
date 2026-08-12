@@ -74,3 +74,44 @@ test("budget reservations use CAS, leases, releases, and idempotent receipts", (
   assert.equal(ledger.release("r3"), true);
   assert.equal(ledger.release("r3"), false);
 });
+
+test("budget reservation and consumption fail closed when principal or grant ancestry becomes inactive", () => {
+  let now = NOW;
+  const ledger = new AuthorityLedger({ now: () => now });
+  const human = { principalId: "epoch:principal:human", kind: "human",
+    keys: [{ keyId: "did:key:human#root", algorithm: "Ed25519", purpose: "root", state: "active" }] };
+  const agent = { principalId: "epoch:principal:agent", kind: "agent",
+    keys: [{ keyId: "did:key:agent#sign", algorithm: "Ed25519", purpose: "signing", state: "active" }] };
+  ledger.registerPrincipal(human);
+  ledger.registerPrincipal(agent);
+  ledger.issueGrant({ grantId: "parent", issuerId: human.principalId, subjectId: agent.principalId,
+    actions: ["model.call"], resources: ["provider:local"], expiresAt: NOW + 100,
+    budget: [{ unit: "model-call", limit: 4 }] });
+  ledger.issueGrant({ grantId: "child", parentGrantId: "parent", issuerId: agent.principalId, subjectId: agent.principalId,
+    actions: ["model.call"], resources: ["provider:local"], notBefore: NOW + 10, expiresAt: NOW + 100,
+    budget: [{ unit: "model-call", limit: 4 }] });
+
+  assert.throws(() => ledger.reserve({ reservationId: "early", grantId: "child", unit: "model-call", amount: 1,
+    expectedVersion: 0, leaseMs: 100 }), /not active/u);
+  now += 10;
+  ledger.reserve({ reservationId: "reserved", grantId: "child", unit: "model-call", amount: 1,
+    expectedVersion: 0, leaseMs: 100 });
+  ledger.revokeGrant("parent", "compromised");
+  assert.throws(() => ledger.consume({ reservationId: "reserved", receiptId: "blocked" }), /ancestor.*revoked/u);
+  assert.throws(() => ledger.reserve({ reservationId: "revoked", grantId: "child", unit: "model-call", amount: 1,
+    expectedVersion: 1, leaseMs: 100 }), /ancestor.*revoked/u);
+
+  const suspended = new AuthorityLedger({ now: () => now });
+  suspended.registerPrincipal(human);
+  suspended.registerPrincipal(agent);
+  suspended.issueGrant({ grantId: "budget", issuerId: human.principalId, subjectId: agent.principalId,
+    actions: ["model.call"], resources: ["provider:local"], expiresAt: now + 10,
+    budget: [{ unit: "model-call", limit: 1 }] });
+  suspended.registerPrincipal({ ...agent, status: "suspended" });
+  assert.throws(() => suspended.reserve({ reservationId: "suspended", grantId: "budget", unit: "model-call", amount: 1,
+    expectedVersion: 0, leaseMs: 5 }), /principal.*inactive/u);
+  suspended.registerPrincipal(agent);
+  now += 10;
+  assert.throws(() => suspended.reserve({ reservationId: "expired", grantId: "budget", unit: "model-call", amount: 1,
+    expectedVersion: 0, leaseMs: 5 }), /expired/u);
+});

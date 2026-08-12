@@ -55,15 +55,16 @@ try {
   });
   metrics.splitWeaveMerge = await measure(async () => {
     const revisionIds = Array.from({ length: fixture.stackRevisions }, (_, index) => `revision-${index}`);
-    const graph = validateStack({ stackId: id("stack", "s"), revisionIds, edges: revisionIds.slice(1).map((revision, index) => ({ from: revision, to: revisionIds[index], kind: "requires" })) });
+    const stack = { stackId: id("stack", "s"), revisionIds, edges: revisionIds.slice(1).map((revision, index) => ({ from: revision, to: revisionIds[index], kind: "requires" })) };
+    const graph = validateStack(stack);
     assert.equal(graph.closure([revisionIds.at(-1)]).length, fixture.stackRevisions);
     const fragments = Array.from({ length: fixture.fragments }, (_, index) => fragment(index)); const source = revision(fragments);
     const groups = Array.from({ length: 10 }, (_, group) => fragments.filter((_, index) => index % 10 === group));
     const accepted = acceptSplit(source, { sourceRevisionId: "source", groups: groups.map((items) => ({ fragmentIds: items.map((item) => item.fragmentId), risk: "low", reason: "benchmark" })) }, groups);
     assert.equal(accepted.reconstructedFragments.length, fixture.fragments);
     const bundle = buildReviewBundle({ reviewId: id("review", "r"), revisionIds, baseFrontier: ["base"], baseTreeDigest: digest("a"), resultingTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDigest: digest("c") });
-    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m"), targetRevisionId: "target", revisionIds, dependencyClosure: revisionIds, reviewBundleRevisionId: bundle.reviewId, resolutionRevisionIds: [], gateDigest: bundle.gateDigest, mode: "squash", expectedResultDigest: digest("b") });
-    assert.equal(applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: revisionIds, gateDigest: bundle.gateDigest, unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") }).resultRevisionProvenance.length, fixture.stackRevisions);
+    const plan = createMergePlan({ mergePlanId: id("merge-plan", "m"), targetRevisionId: "target", revisionIds, dependencyClosure: revisionIds, reviewBundleRevisionId: bundle.reviewId, resolutionRevisionIds: [], gateDigest: bundle.gateDigest, mode: "squash", expectedResultDigest: digest("b") }, { stack });
+    assert.equal(applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: revisionIds, stack, reviewBundleRevisionId: bundle.reviewId, acceptedResolutionRevisionIds: [], gateDigest: bundle.gateDigest, unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") }).resultRevisionProvenance.length, fixture.stackRevisions);
   }, 3);
   metrics.manyRefMirror = await measure(async () => {
     const rule = createMirrorRule({ ruleId: "benchmark", direction: "import", authority: "git-primary", sourceRef: "refs/heads/main", destinationRef: "refs/heads/main", credentialRef: "credential", force: "deny", deletion: "deny" }); const coordinator = new MirrorCoordinator([rule]);

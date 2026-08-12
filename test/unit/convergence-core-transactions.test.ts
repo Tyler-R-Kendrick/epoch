@@ -9,6 +9,7 @@ import {
   recoverQuarantineTransaction,
 } from "../../packages/Epoch.Core/src/convergence-transactions";
 import { EpochRepository } from "../../packages/Epoch.Core/src/core";
+import { PROTOCOL_CAPABILITIES } from "../../packages/Epoch.Protocol/src/index";
 
 export async function runConvergenceCoreTransactionTests(): Promise<void> {
   test("CONV-TXN-001 explicit parents exclude unrelated heads and choose Lamport from parents", explicitParents);
@@ -16,6 +17,15 @@ export async function runConvergenceCoreTransactionTests(): Promise<void> {
   test("CONV-TXN-003 crash boundaries recover all-old or all-new", atomicCrashRecovery);
   test("CONV-OP-001 operation DAG survives restart and redacts secrets", operationsPersistAndRedact);
   test("CONV-TXN-004 EpochRepository appendWithParents preserves unrelated heads", repositoryFacadeParents);
+  test("CONV-TXN-005 atomic publish capability is limited to recoverable quarantine", atomicCapabilityIsTruthful);
+}
+
+function atomicCapabilityIsTruthful(): void {
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.atomicPublish, false);
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.quarantineAtomicPublish, true);
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.repositoryAppendRecovery, false);
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.syncBatchAtomic, false);
+  assert.equal(PROTOCOL_CAPABILITIES.transactions.gitPromotionAtomic, false);
 }
 
 function repositoryFacadeParents(): void {

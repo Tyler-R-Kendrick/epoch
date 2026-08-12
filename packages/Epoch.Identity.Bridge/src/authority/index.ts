@@ -182,10 +182,10 @@ export class AuthorityLedger {
 
   reserve(input: { readonly reservationId: string; readonly grantId: string; readonly unit: BudgetDimension;
     readonly amount: number; readonly expectedVersion: number; readonly leaseMs: number }): Readonly<Reservation> {
+    const grant = this.#assertGrantUsable(input.grantId);
     const existing = this.#reservations.get(input.reservationId);
     if (existing) return Object.freeze({ ...existing });
     const amount = integer(input.amount, "reservation amount");
-    const grant = this.#requiredGrant(input.grantId);
     const budget = budgetList(grant.budget).find((item) => item.unit === input.unit);
     if (!budget) throw new Error("budget dimension denied");
     const key = `${grant.grantId}:${input.unit}`;
@@ -202,11 +202,13 @@ export class AuthorityLedger {
   }
 
   consume(input: { readonly reservationId: string; readonly receiptId: string; readonly amount?: number }): Readonly<{ receiptId: string; reservationId: string; amount: number }> {
+    const reservation = this.#reservations.get(input.reservationId);
+    if (!reservation) throw new Error("reservation unavailable");
+    this.#assertGrantUsable(reservation.grantId);
     const prior = this.#receipts.get(input.receiptId);
     if (prior) return prior;
     this.#expireReservations();
-    const reservation = this.#reservations.get(input.reservationId);
-    if (!reservation || reservation.state !== "reserved") throw new Error("reservation unavailable");
+    if (reservation.state !== "reserved") throw new Error("reservation unavailable");
     const amount = input.amount === undefined ? reservation.amount : integer(input.amount, "consumed amount");
     if (amount > reservation.amount) throw new Error("consume exceeds reservation");
     const key = `${reservation.grantId}:${reservation.unit}`;
@@ -226,6 +228,21 @@ export class AuthorityLedger {
 
   #activePrincipal(id: PrincipalId): boolean { const item = this.#principals.get(id); return !!item && (item.status ?? "active") === "active"; }
   #requiredGrant(id: string): AuthorityGrant { const item = this.#grants.get(id); if (!item) throw new Error(`grant not found: ${id}`); return item; }
+  #assertGrantUsable(id: string): AuthorityGrant {
+    const grant = this.#requiredGrant(id);
+    let current: AuthorityGrant | undefined = grant;
+    const visited = new Set<string>();
+    while (current !== undefined) {
+      if (visited.has(current.grantId)) throw new Error("grant ancestry cycle");
+      visited.add(current.grantId);
+      if (!this.#activePrincipal(current.subjectId) || !this.#activePrincipal(current.issuerId)) throw new Error("grant principal inactive");
+      if (this.#revocations.has(current.grantId)) throw new Error(current === grant ? "grant revoked" : "grant ancestor revoked");
+      if (current.notBefore !== undefined && this.#now() < current.notBefore) throw new Error("grant not active");
+      if (this.#now() >= current.expiresAt) throw new Error("grant expired");
+      current = current.parentGrantId === undefined ? undefined : this.#requiredGrant(current.parentGrantId);
+    }
+    return grant;
+  }
   #assertAttenuated(child: AuthorityGrant, parent: AuthorityGrant): void {
     if (child.issuerId !== parent.subjectId || child.expiresAt > parent.expiresAt ||
         !subset(child.actions, parent.actions) || !subset(child.resources, parent.resources) ||

@@ -18,10 +18,16 @@ to an exact frontier, or a merge plan that fails when its target moves.
   subset. Split acceptance must reconstruct the original ordered fragments
   byte-for-byte. Squash records every source revision as provenance.
 - Review bundles bind exact revisions, frontier, tree digests, conflicts, and a
-  gate digest. Merge applies only when target, closure, gate, conflict state,
-  and expected result digest still match.
+  gate digest. Merge planning and application recompute closure from the supplied
+  authoritative stack and require the exact review and accepted resolution
+  revisions. Merge applies only when target, closure, evidence, gate, conflict
+  state, and expected result digest still match.
 - `epoch.protocol/v1` owns the browser-safe schemas and typed errors. Core owns
   pure graph validation and transaction application.
+- The machine-readable transaction capability limits crash-recoverable atomic
+  publication to the journaled `QuarantineTransaction`. Direct repository
+  append, generic sync batches, and callback-based Git promotion are explicitly
+  reported as non-atomic until they are routed through a transactional store.
 
 ## Compatibility And Migration
 

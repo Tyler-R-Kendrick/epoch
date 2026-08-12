@@ -2,7 +2,7 @@
 
 Epoch now models stable logical changes separately from immutable signed revisions. Stacks pin exact revisions and hard dependencies; review bundles weave those revisions without rewriting them; merge plans require a dependency-closed selection, exact gate evidence, an unchanged target, and resolved conflicts. Squash projection flattens Git while retaining Epoch revision provenance.
 
-The additive protocol schemas are browser-safe in `@epoch/protocol`. Existing event bytes remain unchanged. A legacy intent projects to `epoch:change:legacy:<event-id>` and stays addressable through the compatibility façade. New repository operations can select explicit causal parents through `appendWithParents`; the legacy `append` behavior remains available.
+The additive protocol schemas are browser-safe in `@epoch/protocol`. Existing event bytes remain unchanged. A legacy intent projects to `epoch:change:legacy:<event-id>` and stays addressable through the compatibility façade. New repository operations can select explicit causal parents through `appendWithParents`; the legacy `append` behavior remains available. Atomic all-old/all-new publication is provided only by the journaled `QuarantineTransaction`; direct repository appends, generic sync object-store batches, and callback-based Git promotion do not advertise crash-recoverable atomicity.
 
 The CLI exposes graph, stack, split, weave, merge, conflict, operation, workspace, mirror, agent, forge, SWHID, and archive command families. JSON output returns stable typed error codes. Capabilities that lack an installed or configured adapter fail with `unsupported-capability`; they do not claim success.
 
