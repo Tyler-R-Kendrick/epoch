@@ -457,6 +457,7 @@ Host packages add explicit seams:
 - `@epoch/identity`: principals, grants, budget reservations, and receipts with
   injected durability required for production authority; and
 - `@epoch/software-heritage`: SWHID v1.2 plus injected Save Code Now transport.
+  The Change Graph CLI ships the default HTTP adapter and records signed archive status.
 
 See [Change Graph And Operation History](change-graph.md) for capability,
 fidelity/loss matrices, security boundaries, and escape paths.

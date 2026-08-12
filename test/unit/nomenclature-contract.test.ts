@@ -10,7 +10,7 @@ import {
   isChangeGraphCommand,
 } from "@epoch/cli";
 
-export function runNomenclatureContractTests(): void {
+export async function runNomenclatureContractTests(): Promise<void> {
   assert.ok(CANONICAL_ID_KINDS.includes("change-graph"));
   assert.ok(CANONICAL_ID_KINDS.includes("review-bundle"));
   assert.equal((CANONICAL_ID_KINDS as readonly string[]).includes("stack"), false);
@@ -32,8 +32,8 @@ export function runNomenclatureContractTests(): void {
   assert.equal(isChangeGraphCommand("weave"), false);
 
   const root = process.cwd();
-  assert.equal(executeChangeGraphCommand(root, ["stack", "create"]).code, "invalid-command");
-  assert.equal(executeChangeGraphCommand(root, ["weave", "create"]).code, "invalid-command");
+  assert.equal((await executeChangeGraphCommand(root, ["stack", "create"])).code, "invalid-command");
+  assert.equal((await executeChangeGraphCommand(root, ["weave", "create"])).code, "invalid-command");
 }
 
 function hasCode(code: string): (error: unknown) => boolean {

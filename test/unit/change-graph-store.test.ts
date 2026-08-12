@@ -113,11 +113,17 @@ export function runChangeGraphStoreTests(): void {
     assert.throws(() => store.createMergePlan({ targetRevisionId: "deadbeef", selectedRevisionIds: [] }), /existing signed EventId/u);
     assert.throws(() => store.allocateBudget({ units: -1 }), /nonnegative/u);
     assert.throws(() => store.syncFromLocal(join(root, "no-peer")), /not found/u);
-    assert.throws(() => store.requestHeritageArchive({ visibility: "private" }), /cannot be archived/u);
+    assert.throws(() => store.assertPublicArchive("private"), /cannot be archived/u);
     assert.throws(() => store.authExplain({ principal: "alice", action: "merge" }), /no grant/u);
     assert.equal(store.budgetStatus("bob").allocated, 0);
-    const emptySplit = store.rememberDraft("split", "split-empty", { plan: { groups: [] } });
-    assert.throws(() => store.acceptSplit(emptySplit.id), /non-empty reconstructable/u);
+    const sourceSplit = store.rememberDraft("split", "split-auto", { sourceRevisionId: String(created.data.revisionId), plan: { groups: [] } });
+    assert.equal(store.acceptSplit(sourceSplit.id).data.status, "accepted");
+    assert.ok(repository.events().some((event) => event.type === "split.accepted"));
+    const proposal = store.proposeAiConflict("conflict-a");
+    assert.equal(proposal.data.trusted, false);
+    assert.ok(repository.events().some((event) => event.type === "conflict.resolution.proposed"));
+    assert.equal(store.decideConflict(proposal.id, "accepted").data.status, "accepted");
+    assert.ok(repository.events().some((event) => event.type === "conflict.resolution.accepted"));
     rmSync(peer, { recursive: true, force: true });
   } finally {
     rmSync(root, { recursive: true, force: true });

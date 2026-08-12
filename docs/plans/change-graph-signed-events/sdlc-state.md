@@ -10,12 +10,14 @@
 
 ## Phase
 
-Closed — [PR #119](https://github.com/Tyler-R-Kendrick/epoch/pull/119) squash-merged
-to `main` as `f9b00f507a459f3d46bf2729a159323b945230c8` on 2026-08-12.
+Closing fail-closed remotes — branch `sdlc/change-graph-close-failclosed`
+from `7c5621f`. Isolated worktree `/tmp/epoch-change-graph-signed`.
+Dirty community-search work in the original checkout is still preserved.
 
 Change Graph CLI commands persist signed Epoch events. Local clone/fetch,
-hydrate, mirror definitions, budget allocation, and SWHID mappings are
-implemented; unconfigured remotes and live archival remain fail-closed.
+HTTP gossip, Git ingest, hydrate, mirror definitions, budget allocation,
+deterministic untrusted AI conflict proposals, `split.accepted`, and live
+Save Code Now archival (`EPOCH_SWH_SAVE_URL`) are implemented.
 
 ## Verification
 

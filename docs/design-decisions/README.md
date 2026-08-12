@@ -50,7 +50,7 @@ and when the decision should be revisited.
 | [ADR-0033](0033-git-v2-quarantine-and-projection-fidelity.md) | Accepted and implemented as a bounded profile | Project deterministic Git objects, quarantine receives, propagate validated protocol-v2 metadata, and report unsupported/lossy semantics. |
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted and implemented with injected durability | Give human and agent principals attenuated grants, transactional budgets, receipts, and non-authoritative provider boundaries. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted and implemented as codecs plus an injected coordinator | Provide public-only loss-aware forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause contracts. |
-| [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted and implemented with injected transport | Compute and inspect SWHIDs locally and request public archival through an injected, verified Save Code Now client. |
+| [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted and implemented with injected transport; CLI default HTTP adapter | Compute and inspect SWHIDs locally and request public archival through Save Code Now. The library client stays injected; the CLI ships HTTP with `EPOCH_SWH_SAVE_URL` override. |
 
 ## Supporting Decision Records
 

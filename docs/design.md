@@ -408,7 +408,9 @@ adapters:
   its shipped authority ledger is in memory, so durable deployments inject a
   transactional store.
 - `@epoch/software-heritage` parses and computes SWHID v1.2 identifiers and
-  exposes an injected Save Code Now client for public origins.
+  exposes an injected Save Code Now client for public origins. The Change Graph
+  CLI ships a default HTTP adapter (`EPOCH_SWH_SAVE_URL` overrides the
+  endpoint) and still denies private or non-HTTPS origins.
 
 Pre-release compatibility identifiers and aliases are not supported. Change
 Graph CLI commands persist signed protocol events. A leftover

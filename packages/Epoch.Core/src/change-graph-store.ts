@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { DefaultAuthor } from "./domain";
-import { EpochRepository } from "./core";
+import { EpochRepository, MemoryEpochTransport, type MemoryEpochTransportSnapshot, type SyncResult } from "./core";
 import { OperationDag } from "./convergence-transactions";
+import { acceptSplit } from "./convergence-changes";
+import { GitMappingEventType, ingestGitToEpoch } from "./git-projection";
 import {
   assertProtocolEvent,
   assertRevisionId,
@@ -269,9 +271,43 @@ export class SignedChangeGraphStore {
   }
 
   listConflicts(): readonly ChangeGraphRecord[] {
-    return this.#repository.events()
-      .filter((event) => event.type === "conflict.recorded")
-      .map((event) => this.namedRecord(String(event.payload.conflictId), "conflict", 1, event.payload as Record<string, unknown>));
+    const latest = new Map<string, ChangeGraphRecord>();
+    for (const event of this.#repository.events()) {
+      if (event.type === "conflict.recorded") {
+        latest.set(String(event.payload.conflictId), this.namedRecord(String(event.payload.conflictId), "conflict", 1, event.payload as Record<string, unknown>));
+        continue;
+      }
+      if (event.type !== "conflict.resolution.proposed" && event.type !== "conflict.resolution.accepted" && event.type !== "conflict.resolution.rejected") continue;
+      const id = String(event.payload.conflictId);
+      const current = latest.get(id);
+      const status = event.type.endsWith("accepted") ? "accepted" : event.type.endsWith("rejected") ? "rejected" : "proposed";
+      latest.set(id, this.namedRecord(id, "conflict", (current?.revision ?? 0) + 1, {
+        ...(current?.data ?? {}),
+        status,
+        resolutionRevisionId: event.payload.resolutionRevisionId,
+        eventId: event.id,
+      }));
+    }
+    return [...latest.values()].sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  decideConflict(conflictId: string, decision: "accepted" | "rejected"): ChangeGraphRecord {
+    const conflict = this.showConflict(conflictId);
+    const resolutionRevisionId = String(
+      conflict.data.resolutionRevisionId ??
+      (Array.isArray(conflict.data.resolutionRevisionIds) ? conflict.data.resolutionRevisionIds[0] : undefined) ??
+      (Array.isArray(conflict.data.sideRevisionIds) ? conflict.data.sideRevisionIds[0] : ""),
+    );
+    if (!/^[a-f0-9]{64}$/u.test(resolutionRevisionId)) {
+      throw Object.assign(new Error("conflict has no resolution revision"), { code: "invalid-input" as const });
+    }
+    const event = this.append(decision === "accepted" ? "conflict.resolution.accepted" : "conflict.resolution.rejected", {
+      conflictId,
+      resolutionRevisionId,
+      principalId: this.principalId(),
+    });
+    this.note(`conflict.${decision}`, [conflictId, event.id]);
+    return this.showConflict(conflictId);
   }
 
   showConflict(conflictId: string): ChangeGraphRecord {
@@ -420,6 +456,12 @@ export class SignedChangeGraphStore {
     });
   }
 
+  assertPublicArchive(visibility?: string): void {
+    if (visibility !== undefined && visibility !== "public") {
+      throw Object.assign(new Error("private or shared origins cannot be archived"), { code: "auth-denied" as const });
+    }
+  }
+
   recordHeritageMapping(swhId: string): ChangeGraphRecord {
     const event = this.append("software-heritage.mapping", {
       repositoryId: this.repositoryId(),
@@ -430,23 +472,105 @@ export class SignedChangeGraphStore {
     return this.namedRecord(this.repositoryId(), "archive-mapping", 1, { swhId, eventId: event.id, frontier: this.#repository.heads() });
   }
 
-  requestHeritageArchive(input: { readonly origin?: string; readonly visibility?: string }): never {
-    if (input.visibility !== undefined && input.visibility !== "public") {
-      throw Object.assign(new Error("private or shared origins cannot be archived"), { code: "auth-denied" as const });
+  applySnapshot(snapshot: MemoryEpochTransportSnapshot): SyncResult {
+    const result = this.#repository.syncWithTransport(new MemoryEpochTransport(snapshot));
+    this.note("replica.snapshot", [String(result.eventsCopied), String(result.blobsCopied)]);
+    return result;
+  }
+
+  exportSnapshot(): MemoryEpochTransportSnapshot {
+    return this.#repository.exportToMemoryTransport().exportSnapshot();
+  }
+
+  ingestGit(gitRoot: string, remote: string): { readonly commitOid: string; readonly recorded: number; readonly remote: string } {
+    const result = ingestGitToEpoch(this.#repository, { gitRoot, remote, mappingType: GitMappingEventType.commitImport });
+    this.note("replica.git-ingest", [remote, result.commitOid]);
+    return { commitOid: result.commitOid, recorded: result.recorded.length, remote };
+  }
+
+  recordArchiveRequest(input: { readonly origin: string; readonly status: "requested" | "pending" | "succeeded" | "failed" | "cancelled"; readonly requestId: string }): ChangeGraphRecord {
+    const versionId = createCanonicalId("version", this.#random);
+    const event = this.append("software-heritage.archive-requested", {
+      repositoryId: this.repositoryId(),
+      versionId,
+      requestId: input.requestId,
+      status: input.status,
+    });
+    this.note("archive.request", [input.origin, input.status, event.id]);
+    return this.namedRecord(input.requestId, "archive-request", 1, { origin: input.origin, status: input.status, eventId: event.id, versionId });
+  }
+
+  proposeAiConflict(label?: string): ChangeGraphRecord {
+    const revisions = this.listRevisions().map((item) => item.id);
+    if (revisions.length < 2) {
+      const base = revisions[0] ?? this.createChange({ title: "conflict-base" }).data.revisionId as string;
+      this.createRevision({ parentRevisionIds: [String(base)], message: "conflict-side" });
     }
-    throw Object.assign(new Error("archive adapter is not configured"), {
-      code: "unsupported-capability" as const,
-      details: { capability: "archive", origin: input.origin ?? null },
+    const sides = this.listRevisions().map((item) => item.id).slice(-2);
+    const conflictId = label !== undefined && label.startsWith("epoch:conflict:")
+      ? label
+      : createCanonicalId("conflict", this.#random);
+    if (this.#repository.events().every((event) => event.type !== "conflict.recorded" || event.payload.conflictId !== conflictId)) {
+      this.append("conflict.recorded", {
+        conflictId,
+        sideRevisionIds: sides,
+        status: "proposed",
+        resolutionRevisionIds: [],
+      });
+    }
+    const proposal = this.createChange({
+      title: `untrusted-ai-resolution:${conflictId}`,
+      parentRevisionIds: [sides[0]!],
+    });
+    const event = this.append("conflict.resolution.proposed", {
+      conflictId,
+      resolutionRevisionId: String(proposal.data.revisionId),
+      principalId: this.principalId(),
+    });
+    this.note("conflict.propose-ai", [conflictId, event.id]);
+    return this.namedRecord(conflictId, "conflict", 1, {
+      status: "proposed",
+      trusted: false,
+      provider: "epoch.deterministic-proposal.v1",
+      resolutionRevisionId: proposal.data.revisionId,
+      eventId: event.id,
+      explanation: "Deterministic untrusted proposal: keep the first side until a principal accepts.",
     });
   }
 
   acceptSplit(splitId: string): ChangeGraphRecord {
     const draft = this.readDraft("split", splitId);
-    const plan = draft.data.plan;
-    if (plan === undefined || typeof plan !== "object" || plan === null || !Array.isArray((plan as { groups?: unknown }).groups) || (plan as { groups: unknown[] }).groups.length === 0) {
-      throw Object.assign(new Error("split accept requires a non-empty reconstructable group list"), { code: "invalid-input" as const });
+    const sourceRevisionId = String(draft.data.sourceRevisionId ?? "");
+    const sourceEvent = this.#repository.events().find((event) => event.id === sourceRevisionId);
+    if (sourceEvent === undefined || (sourceEvent.type !== "change.created" && sourceEvent.type !== "change.revised")) {
+      throw Object.assign(new Error("split source revision is not a signed change revision"), { code: "invalid-input" as const });
     }
-    return this.updateDraft("split", splitId, { status: "accepted" });
+    const source = sourceEvent.payload as unknown as import("@epoch/protocol").ChangeRevisionBody;
+    const planned = draft.data.plan && typeof draft.data.plan === "object" && draft.data.plan !== null
+      ? (draft.data.plan as { groups?: readonly { fragmentIds?: readonly string[]; risk?: string; reason?: string }[] }).groups ?? []
+      : [];
+    const groups = planned.length > 0
+      ? planned.map((group) => ({
+          fragmentIds: (group.fragmentIds ?? []) as import("@epoch/protocol").SplitGroup["fragmentIds"],
+          risk: (group.risk === "medium" || group.risk === "high" || group.risk === "ambiguous" ? group.risk : "low") as import("@epoch/protocol").SplitGroup["risk"],
+          reason: group.reason ?? "declared group",
+        }))
+      : source.fragments.map((fragment) => ({ fragmentIds: [fragment.fragmentId], risk: "low" as const, reason: "one group per fragment" }));
+    const fragmentGroups = groups.map((group) => group.fragmentIds.map((id) => source.fragments.find((fragment) => fragment.fragmentId === id)!));
+    const accepted = acceptSplit(source, { sourceRevisionId: sourceRevisionId as import("@epoch/protocol").RevisionId, groups }, fragmentGroups);
+    const resulting = groups.map((group, index) => this.createChange({
+      title: `split-${index + 1}`,
+      parentRevisionIds: source.parentRevisionIds,
+    }));
+    const reconstructionDigest = sha256Hex(accepted.reconstructedFragments.map((fragment) => fragment.fragmentId).join(","));
+    const event = this.append("split.accepted", {
+      sourceRevisionId,
+      groups,
+      resultingRevisionIds: resulting.map((item) => String(item.data.revisionId)),
+      reconstructionDigest,
+    });
+    this.note("split.accept", [splitId, event.id]);
+    return this.updateDraft("split", splitId, { status: "accepted", eventId: event.id, reconstructionDigest });
   }
 
   private namedPrincipal(name?: string): CanonicalId<"principal"> {
