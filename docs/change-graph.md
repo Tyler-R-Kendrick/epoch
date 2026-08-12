@@ -21,7 +21,9 @@ The CLI persists Change, Change Graph, Review Bundle, review, and Merge Plan
 facts as signed events through `SignedChangeGraphStore` and
 `appendWithParents()`. Local operation undo/restore stays in
 `.epoch/operations/`. Split proposals and workspace handles remain local drafts
-until they have a protocol event. Recoverable all-old/all-new publication is
+until they have a protocol event. Local clone/fetch, hydrate, mirror
+definitions, budget allocation, and SWHID mappings are signed or local replica
+operations; unconfigured remotes and live archival stay fail-closed. Recoverable all-old/all-new publication is
 provided by `QuarantineTransaction`; a capability declaration must not promote
 weaker callback or in-memory behavior as atomic. A leftover
 `.epoch/change-graph-v1.json` file is ignored.

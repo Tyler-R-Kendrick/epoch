@@ -84,8 +84,24 @@ export function runChangeGraphStoreTests(): void {
     assert.ok(repository.events().some((event) => event.type === "merge.plan.applied"));
 
     assert.equal(store.listConflicts().length, 0);
+
+    const peer = mkdtempSync(join(tmpdir(), "epoch-change-graph-peer-"));
+    const peerStore = SignedChangeGraphStore.open(peer, { random: deterministicRandom(2) });
+    peerStore.createChange({ title: "Peer change" });
+    const synced = store.syncFromLocal(peer);
+    assert.ok(synced.eventsCopied > 0);
+    assert.deepEqual(store.hydratePaths(), { hydrated: [] });
+    assert.deepEqual(store.backfill(), { fetched: [], promised: 0 });
+    const mirror = store.addMirror({ remoteRef: "refs/heads/main" });
+    parseCanonicalId(mirror.id, "mirror");
+    assert.equal(store.runMirror(mirror.id).data.status, "recorded");
+    store.allocateBudget({ units: 8 });
+    assert.equal(store.budgetStatus().remaining, 8);
+    store.recordHeritageMapping("swh:1:cnt:e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+    assert.ok(repository.events().some((event) => event.type === "software-heritage.mapping"));
     assert.deepEqual(repository.verify(), []);
     assert.equal(repository.events().some((event) => event.type === "repository.identity"), true);
+    rmSync(peer, { recursive: true, force: true });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

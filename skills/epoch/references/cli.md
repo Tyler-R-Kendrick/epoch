@@ -112,8 +112,8 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 - `op`, `graph`, `split`, `bundle`, `review record`, `merge-plan`, and
   `conflict` expose local operation recovery, dependency graphs, exact split,
   exact review/merge, and durable resolution workflows.
-- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose truthful
-  provider and injected resolver/sync boundaries.
+- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose local replica
+  sync/hydration and fail closed for unconfigured remotes.
 - `mirror`, `principal`, `agent`, `forge`, `swhid`, `archive`, and
   `interop doctor` inspect interop and authority without printing credentials.
 

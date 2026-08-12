@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { DefaultAuthor } from "./domain";
 import { EpochRepository } from "./core";
 import { OperationDag } from "./convergence-transactions";
@@ -313,6 +315,131 @@ export class SignedChangeGraphStore {
     return [...latest.values()].sort((left, right) => left.id.localeCompare(right.id));
   }
 
+  syncFromLocal(peerRoot: string): { readonly eventsCopied: number; readonly blobsCopied: number; readonly peer: string } {
+    const peer = resolve(peerRoot);
+    if (!existsSync(peer) || !new EpochRepository(peer).isInitialized()) {
+      throw Object.assign(new Error(`local Epoch replica not found: ${peerRoot}`), { code: "not-found" as const });
+    }
+    const result = this.#repository.syncFrom(peer);
+    this.note("replica.sync", [peer, String(result.eventsCopied), String(result.blobsCopied)]);
+    return { ...result, peer };
+  }
+
+  hydratePaths(paths?: readonly string[]): { readonly hydrated: readonly string[] } {
+    const hydrated = this.#repository.hydrate(paths);
+    this.note("replica.hydrate", hydrated);
+    return { hydrated };
+  }
+
+  backfill(): { readonly fetched: readonly string[]; readonly promised: number } {
+    const promised = this.#repository.events().filter((event) => event.type === "object.promise.recorded").length;
+    this.note("replica.backfill", [String(promised)]);
+    return { fetched: [], promised };
+  }
+
+  addMirror(input: { readonly remoteRef: string }): ChangeGraphRecord {
+    const mirrorId = createCanonicalId("mirror", this.#random);
+    const event = this.append("mirror.defined", {
+      mirrorId,
+      repositoryId: this.repositoryId(),
+      remoteRef: input.remoteRef,
+      frontier: this.#repository.heads(),
+    });
+    this.note("mirror.add", [mirrorId, input.remoteRef, event.id]);
+    return this.namedRecord(mirrorId, "mirror", 1, { remoteRef: input.remoteRef, eventId: event.id, frontier: this.#repository.heads() });
+  }
+
+  listMirrors(): readonly ChangeGraphRecord[] {
+    return this.#repository.events()
+      .filter((event) => event.type === "mirror.defined")
+      .map((event) => this.namedRecord(String(event.payload.mirrorId), "mirror", 1, {
+        remoteRef: event.payload.remoteRef,
+        frontier: event.payload.frontier,
+        eventId: event.id,
+      }));
+  }
+
+  showMirror(mirrorId: string): ChangeGraphRecord {
+    try { parseCanonicalId(mirrorId, "mirror"); } catch { throw missing(`record not found: ${mirrorId}`); }
+    const found = this.listMirrors().find((item) => item.id === mirrorId);
+    if (found === undefined) throw missing(`record not found: ${mirrorId}`);
+    return found;
+  }
+
+  runMirror(mirrorId: string): ChangeGraphRecord {
+    const mirror = this.showMirror(mirrorId);
+    const event = this.append("mirror.run", {
+      mirrorId,
+      repositoryId: this.repositoryId(),
+      remoteRef: String(mirror.data.remoteRef),
+      frontier: this.#repository.heads(),
+    });
+    this.note("mirror.run", [mirrorId, event.id]);
+    return this.namedRecord(mirrorId, "mirror", mirror.revision + 1, { ...mirror.data, lastRunEventId: event.id, status: "recorded" });
+  }
+
+  allocateBudget(input: { readonly principal?: string; readonly units: number }): ChangeGraphRecord {
+    if (!Number.isSafeInteger(input.units) || input.units < 0) {
+      throw Object.assign(new Error("budget units must be a nonnegative integer"), { code: "invalid-input" as const });
+    }
+    const budgetId = createCanonicalId("budget", this.#random);
+    const principalId = this.namedPrincipal(input.principal);
+    const event = this.append("agent.budget.allocated", { budgetId, principalId, units: input.units });
+    this.note("budget.allocate", [budgetId, principalId, String(input.units)]);
+    return this.namedRecord(budgetId, "budget", 1, { principalId, units: input.units, consumed: 0, eventId: event.id });
+  }
+
+  budgetStatus(principal?: string): { readonly principalId: string; readonly allocated: number; readonly consumed: number; readonly remaining: number } {
+    const principalId = this.namedPrincipal(principal);
+    const events = this.#repository.events().filter((event) =>
+      event.type.startsWith("agent.budget.") && event.payload.principalId === principalId);
+    const allocated = sumUnits(events.filter((event) => event.type === "agent.budget.allocated"));
+    const consumed = sumUnits(events.filter((event) => event.type === "agent.budget.consumed"));
+    return { principalId, allocated, consumed, remaining: Math.max(0, allocated - consumed) };
+  }
+
+  authExplain(input: { readonly principal?: string; readonly action?: string }): never {
+    const principalId = this.namedPrincipal(input.principal);
+    throw Object.assign(new Error(`no grant authorizes ${input.action ?? "action"} for ${principalId}`), {
+      code: "auth-denied" as const,
+      details: { principal: principalId, authorized: false, action: input.action ?? "unspecified" },
+    });
+  }
+
+  recordHeritageMapping(swhId: string): ChangeGraphRecord {
+    const event = this.append("software-heritage.mapping", {
+      repositoryId: this.repositoryId(),
+      swhId,
+      frontier: this.#repository.heads(),
+    });
+    this.note("archive.map", [swhId, event.id]);
+    return this.namedRecord(this.repositoryId(), "archive-mapping", 1, { swhId, eventId: event.id, frontier: this.#repository.heads() });
+  }
+
+  requestHeritageArchive(input: { readonly origin?: string; readonly visibility?: string }): never {
+    if (input.visibility !== undefined && input.visibility !== "public") {
+      throw Object.assign(new Error("private or shared origins cannot be archived"), { code: "auth-denied" as const });
+    }
+    throw Object.assign(new Error("archive adapter is not configured"), {
+      code: "unsupported-capability" as const,
+      details: { capability: "archive", origin: input.origin ?? null },
+    });
+  }
+
+  acceptSplit(splitId: string): ChangeGraphRecord {
+    const draft = this.readDraft("split", splitId);
+    const plan = draft.data.plan;
+    if (plan === undefined || typeof plan !== "object" || plan === null || !Array.isArray((plan as { groups?: unknown }).groups)) {
+      throw Object.assign(new Error("split plan is missing groups"), { code: "invalid-input" as const });
+    }
+    return this.updateDraft("split", splitId, { status: "accepted" });
+  }
+
+  private namedPrincipal(name?: string): CanonicalId<"principal"> {
+    if (name === undefined || name === "current" || name === this.#author) return this.principalId();
+    return createCanonicalId("principal", () => sha256Bytes(`principal:${name}`));
+  }
+
   private ensureIdentity(): void {
     if (this.#repository.events().some((event) => event.type === "repository.identity")) return;
     this.append("repository.identity", { repositoryId: this.repositoryId(), principalId: this.principalId() });
@@ -424,4 +551,8 @@ function sha256Bytes(value: string): Uint8Array {
 
 function missing(message: string): Error & { code: "not-found" } {
   return Object.assign(new Error(message), { code: "not-found" as const });
+}
+
+function sumUnits(events: readonly { readonly payload: Readonly<Record<string, unknown>> }[]): number {
+  return events.reduce((total, event) => total + (typeof event.payload.units === "number" ? event.payload.units : 0), 0);
 }

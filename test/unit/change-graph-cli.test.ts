@@ -64,17 +64,24 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(executeChangeGraphCommand(root, ["workspace", "capture", (workspace.data as { id: string }).id]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["workspace", "remove", (workspace.data as { id: string }).id]).ok, true);
 
-    for (const command of ["clone", "fetch", "hydrate", "backfill"] as const) {
+    for (const command of ["clone", "fetch", "backfill"] as const) {
       const result = executeChangeGraphCommand(root, [command, "origin", "--filter", '{"paths":["src/**"]}']);
       assert.equal(result.ok, false);
       assert.equal(result.code, "unsupported-capability");
     }
     assert.equal(executeChangeGraphCommand(root, ["clone", "origin"]).code, "unsupported-capability");
+    assert.equal(executeChangeGraphCommand(root, ["hydrate", "--filter", '{"paths":["src/**"]}']).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["hydrate", "origin", "--filter", "{"]).code, "invalid-input");
-    assert.equal(executeChangeGraphCommand(root, ["mirror", "status"]).code, "unsupported-capability");
+    assert.equal(executeChangeGraphCommand(root, ["mirror", "status"]).ok, true);
+    const mirror = executeChangeGraphCommand(root, ["mirror", "add", "refs/heads/main"]);
+    assert.equal(mirror.ok, true);
+    assert.equal(executeChangeGraphCommand(root, ["mirror", "inspect", (mirror.data as { id: string }).id]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["principal", "capabilities", "alice"]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["agent", "capabilities"]).ok, true);
-    assert.equal(executeChangeGraphCommand(root, ["principal", "budget", "alice"]).code, "unsupported-capability");
+    const budget = executeChangeGraphCommand(root, ["principal", "budget", "alice"]);
+    assert.equal(budget.ok, true);
+    assert.equal((budget.data as { remaining: number }).remaining, 0);
+    assert.equal(executeChangeGraphCommand(root, ["principal", "budget", "allocate", "--units", "12"]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["principal", "auth-explain", "alice"]).code, "auth-denied");
     assert.equal(executeChangeGraphCommand(root, ["forge", "capabilities"]).ok, true);
     const emptyBlob = join(root, "empty"); writeFileSync(emptyBlob, "");
@@ -88,6 +95,7 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(executeChangeGraphCommand(root, ["swhid", "compute", "blob", join(root, "missing")]).code, "invalid-input");
     assert.equal(executeChangeGraphCommand(root, ["swhid", "inspect", "x"]).code, "invalid-input");
     assert.equal(executeChangeGraphCommand(root, ["archive", "create"]).code, "unsupported-capability");
+    assert.equal(executeChangeGraphCommand(root, ["archive", "software-heritage", "map", (computed.data as { swhid: string }).swhid]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["interop", "doctor"]).code, "unsupported-capability");
     const operations = (executeChangeGraphCommand(root, ["op", "log"]).data as { operationId: string }[]);
     assert.ok(operations.length > 0);

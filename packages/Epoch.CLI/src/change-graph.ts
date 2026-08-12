@@ -47,6 +47,10 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function isRemoteLocator(value: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/iu.test(value) || value === "origin";
+}
+
 function commandError(code: ChangeGraphCommandErrorCode, message: string, details?: Readonly<Record<string, unknown>>): Error & { code: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> } {
   return Object.assign(new Error(message), { code, ...(details === undefined ? {} : { details }) });
 }
@@ -163,9 +167,8 @@ function execute(root: string, command: string, args: readonly string[], now: nu
       });
     }
     if (action === "inspect") return store.readDraft("split", required(parsed.positionals[1], "split ID"));
-    if (action === "accept" || action === "reject") {
-      return store.updateDraft("split", required(parsed.positionals[1], "split ID"), { status: action });
-    }
+    if (action === "accept") return store.acceptSplit(required(parsed.positionals[1], "split ID"));
+    if (action === "reject") return store.updateDraft("split", required(parsed.positionals[1], "split ID"), { status: action });
   }
   if (command === "bundle") {
     if (action === "create") return store.createReviewBundle({ name: required(parsed.positionals[1], "review bundle name"), selectedRevisionIds: parsed.positionals.slice(2) });
@@ -211,18 +214,35 @@ function execute(root: string, command: string, args: readonly string[], now: nu
   }
   if (["clone", "fetch", "hydrate", "backfill"].includes(command)) {
     const filter = stringOption(parsed, "filter");
-    if (filter) { try { JSON.parse(filter); } catch { throw commandError("invalid-input", "--filter must be valid JSON"); } }
-    throw commandError("unsupported-capability", "no sync adapter is configured",
-      { capability: `change-graph-${command}`, filter: filter ? JSON.parse(filter) : null });
+    const parsedFilter = filter === undefined ? undefined : (() => {
+      try { return JSON.parse(filter) as { readonly paths?: readonly string[] }; }
+      catch { throw commandError("invalid-input", "--filter must be valid JSON"); }
+    })();
+    const target = parsed.positionals[0];
+    if (command === "hydrate") return store.hydratePaths(parsedFilter?.paths);
+    if (command === "backfill" && (target === undefined || target === ".")) return store.backfill();
+    if ((command === "clone" || command === "fetch" || command === "backfill") && target !== undefined && !isRemoteLocator(target)) {
+      return command === "backfill" ? store.backfill() : store.syncFromLocal(target);
+    }
+    throw commandError("unsupported-capability", "no remote sync adapter is configured",
+      { capability: `change-graph-${command}`, filter: parsedFilter ?? null });
   }
-  if (command === "mirror") throw commandError("unsupported-capability", "mirror coordinator adapter is not configured",
-    { capability: "forge-mirror-runtime", action: action ?? "missing", args: parsed.positionals.slice(1) });
+  if (command === "mirror") {
+    if (action === "add") return store.addMirror({ remoteRef: required(stringOption(parsed, "remote") ?? parsed.positionals[1], "remote ref") });
+    if (action === "list" || action === "status") return store.listMirrors();
+    if (action === "inspect") return store.showMirror(required(parsed.positionals[1], "mirror ID"));
+    if (action === "run" || action === "reconcile") return store.runMirror(required(parsed.positionals[1], "mirror ID"));
+    throw commandError("invalid-command", `invalid mirror action: ${action ?? "missing"}`);
+  }
   if (command === "principal" || command === "agent") {
     if (action === "capabilities") return { principal: parsed.positionals[1] ?? "current", capabilities: [] };
-    if (action === "budget") throw commandError("unsupported-capability", "no budget adapter is configured",
-      { principal: parsed.positionals[1] ?? "current", capability: "principal-budget" });
-    if (action === "auth-explain") throw commandError("auth-denied", "no authority adapter is configured",
-      { principal: parsed.positionals[1] ?? "current", authorized: false });
+    if (action === "budget") {
+      if (parsed.positionals[1] === "allocate") {
+        return store.allocateBudget({ principal: parsed.positionals[2], units: Number(required(stringOption(parsed, "units") ?? parsed.positionals[3], "units")) });
+      }
+      return store.budgetStatus(parsed.positionals[1] === "status" ? parsed.positionals[2] : parsed.positionals[1]);
+    }
+    if (action === "auth-explain") return store.authExplain({ principal: parsed.positionals[1], action: stringOption(parsed, "action") });
   }
   if (command === "forge") {
     if (action === "capabilities") return FORGE_CAPABILITIES;
@@ -255,7 +275,15 @@ function execute(root: string, command: string, args: readonly string[], now: nu
       } catch (error) { throw commandError("invalid-input", error instanceof Error ? error.message : "unable to verify SWHID"); }
     }
   }
-  if (command === "archive") throw commandError("unsupported-capability", "archive adapter is not configured", { capability: "archive" });
+  if (command === "archive") {
+    if (action === "software-heritage" && parsed.positionals[1] === "map") {
+      return store.recordHeritageMapping(required(parsed.positionals[2], "SWHID"));
+    }
+    if (action === "software-heritage" && parsed.positionals[1] === "request") {
+      return store.requestHeritageArchive({ origin: parsed.positionals[2], visibility: stringOption(parsed, "visibility") });
+    }
+    throw commandError("unsupported-capability", "archive adapter is not configured", { capability: "archive" });
+  }
   if (command === "interop") throw commandError("unsupported-capability", "run through the Node interop doctor adapter", { capability: "interop-doctor" });
   throw commandError("invalid-command", `invalid ${command} action: ${action ?? "missing"}`);
 }

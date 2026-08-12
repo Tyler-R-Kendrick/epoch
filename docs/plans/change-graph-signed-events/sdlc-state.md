@@ -10,8 +10,10 @@
 
 ## Phase
 
-Implemented locally on `sdlc/change-graph-signed-store-01`. Change Graph CLI
-commands persist signed Epoch events instead of `.epoch/change-graph-v1.json`.
+Ready to land on `sdlc/change-graph-signed-store-01`. Change Graph CLI commands
+persist signed Epoch events. Local clone/fetch, hydrate, mirror definitions,
+budget allocation, and SWHID mappings are implemented; unconfigured remotes and
+live archival remain fail-closed.
 
 ## Verification
 
