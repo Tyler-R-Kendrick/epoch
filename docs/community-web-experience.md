@@ -107,6 +107,10 @@ Do not replace Discord with forge-only chrome. Do not abandon signed intents for
 ## Persona bar (adversarial)
 
 Community Web must pass [adversarial persona critique](community-human-centered-design.md#adversarial-design-critique-protocol).
+The frontier convergence workbench critique is recorded in the
+[package design note](../packages/Epoch.Community.Web/CONVERGENCE-UX-CRITIQUE.md).
+The convergence workbench critique is recorded with its implementation in
+[`packages/Epoch.Community.Web/CONVERGENCE-UX-CRITIQUE.md`](../packages/Epoch.Community.Web/CONVERGENCE-UX-CRITIQUE.md).
 Personas treat **lifeless styling**, **missing craft delight / wonder**, and
 **DESIGN.md philosophy drift** as product defects — not taste preferences.
 

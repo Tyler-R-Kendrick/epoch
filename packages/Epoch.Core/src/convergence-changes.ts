@@ -1,4 +1,4 @@
-import { ProtocolError } from "../../Epoch.Protocol/src/errors";
+import { ProtocolError } from "@epoch/protocol";
 import type {
   ChangeFragment,
   ChangeRevisionBody,
@@ -7,7 +7,7 @@ import type {
   ReviewBundle,
   SplitPlan,
   StackDefinition,
-} from "../../Epoch.Protocol/src/index";
+} from "@epoch/protocol";
 
 export class ChangeGraph {
   readonly #revisions = new Map<string, ChangeRevisionBody>();

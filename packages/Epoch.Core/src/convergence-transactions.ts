@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { ProtocolError } from "../../Epoch.Protocol/src/errors";
+import { ProtocolError } from "@epoch/protocol";
 
 export interface ParentEvent {
   readonly eventId: string;
