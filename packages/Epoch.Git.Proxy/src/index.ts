@@ -9,6 +9,7 @@ import {
   ingestGitToEpoch,
   projectEpochToGit,
 } from "@epoch/core";
+import { gitProtocolEnvironment } from "./protocol-v2";
 
 export interface GitProxyOptions {
   readonly epochRoot: string;
@@ -233,6 +234,7 @@ async function handleWithHttpBackend(
     // Some git versions read these:
     REMOTE_USER: "epoch",
     SERVER_PROTOCOL: "HTTP/1.1",
+    ...gitProtocolEnvironment(req.headers),
   };
 
   const result = await runHttpBackend(env, body);
