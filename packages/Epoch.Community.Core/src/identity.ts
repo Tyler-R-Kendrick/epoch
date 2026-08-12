@@ -39,6 +39,14 @@ const kinds = new Set<CommunityObjectKind>([
   "issue", "change", "member", "agent", "artifact", "tombstone",
 ]);
 const opaqueId = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u;
+const MAX_REVISION_LENGTH = 512;
+
+function validateRevision(value: unknown): string {
+  if (typeof value !== "string" || value.length === 0 || value.length > MAX_REVISION_LENGTH) {
+    throw new Error("Community object revision must be a non-empty bounded value");
+  }
+  return value;
+}
 
 export function validateObjectRef(value: unknown): CommunityObjectRef {
   if (typeof value !== "object" || value === null) throw new Error("Community object reference must be an object");
@@ -49,12 +57,10 @@ export function validateObjectRef(value: unknown): CommunityObjectRef {
   if (typeof ref.kind !== "string" || !kinds.has(ref.kind as CommunityObjectKind)) {
     throw new Error(`Unsupported community object kind: ${String(ref.kind)}`);
   }
-  if (ref.atUri !== undefined && !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri)) {
+  if (ref.atUri !== undefined && (typeof ref.atUri !== "string" || !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri))) {
     throw new Error("Federated object identity must be a valid AT URI");
   }
-  if (ref.revision !== undefined && (ref.revision.length === 0 || ref.revision.length > 512)) {
-    throw new Error("Community object revision must be a non-empty bounded value");
-  }
+  if (ref.revision !== undefined) validateRevision(ref.revision);
   return Object.freeze({
     objectId: ref.objectId,
     kind: ref.kind as CommunityObjectKind,
@@ -64,7 +70,9 @@ export function validateObjectRef(value: unknown): CommunityObjectRef {
 }
 
 export function validateProjectionId(projectionId: string): string {
-  if (!opaqueId.test(projectionId)) throw new Error("Projection ID must be an opaque URL-safe identifier");
+  if (typeof projectionId !== "string" || !opaqueId.test(projectionId)) {
+    throw new Error("Projection ID must be an opaque URL-safe identifier");
+  }
   return projectionId;
 }
 
@@ -79,8 +87,7 @@ export function objectUrl(ref: CommunityObjectRef, options: ObjectUrlOptions = {
   }
   const revision = options.revision;
   if (revision !== undefined) {
-    if (revision.length === 0) throw new Error("Exact object links require a revision");
-    params.set("revision", revision);
+    params.set("revision", validateRevision(revision));
   }
   const relative = `/board.html?${params.toString()}`;
   return options.origin === undefined ? relative : new URL(relative, options.origin).toString();
@@ -99,6 +106,13 @@ export function parseObjectUrl(input: string): ParsedObjectUrl | undefined {
   if (objectId === undefined || !opaqueId.test(objectId)) return undefined;
   if (projectionId !== undefined && !opaqueId.test(projectionId)) return undefined;
   const revision = url.searchParams.get("revision") ?? undefined;
+  if (revision !== undefined) {
+    try {
+      validateRevision(revision);
+    } catch {
+      return undefined;
+    }
+  }
   return {
     objectId,
     ...(projectionId === undefined ? {} : { projectionId }),

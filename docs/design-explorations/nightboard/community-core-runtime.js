@@ -55,10 +55,16 @@ var NB_CORE = (() => {
       if (actorId === void 0) return false;
       return target.participantIds?.includes(actorId) === true || authorization.readableDmIds?.includes(target.resourceId) === true;
     }
-    if (target.visibility === "private" && (actorId === void 0 || actorId !== target.ownerId)) {
-      return false;
+    switch (target.visibility) {
+      case "public":
+        return true;
+      case "shared":
+        return actorId !== void 0 && (actorId === target.ownerId || target.participantIds?.includes(actorId) === true);
+      case "private":
+        return actorId !== void 0 && actorId === target.ownerId;
+      default:
+        return false;
     }
-    return true;
   }
 
   // packages/Epoch.Community.Core/src/navigation.ts
@@ -197,6 +203,13 @@ var NB_CORE = (() => {
     "tombstone"
   ]);
   var opaqueId = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u;
+  var MAX_REVISION_LENGTH = 512;
+  function validateRevision(value) {
+    if (typeof value !== "string" || value.length === 0 || value.length > MAX_REVISION_LENGTH) {
+      throw new Error("Community object revision must be a non-empty bounded value");
+    }
+    return value;
+  }
   function validateObjectRef(value) {
     if (typeof value !== "object" || value === null) throw new Error("Community object reference must be an object");
     const ref = value;
@@ -206,12 +219,10 @@ var NB_CORE = (() => {
     if (typeof ref.kind !== "string" || !kinds.has(ref.kind)) {
       throw new Error(`Unsupported community object kind: ${String(ref.kind)}`);
     }
-    if (ref.atUri !== void 0 && !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri)) {
+    if (ref.atUri !== void 0 && (typeof ref.atUri !== "string" || !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri))) {
       throw new Error("Federated object identity must be a valid AT URI");
     }
-    if (ref.revision !== void 0 && (ref.revision.length === 0 || ref.revision.length > 512)) {
-      throw new Error("Community object revision must be a non-empty bounded value");
-    }
+    if (ref.revision !== void 0) validateRevision(ref.revision);
     return Object.freeze({
       objectId: ref.objectId,
       kind: ref.kind,
@@ -220,7 +231,9 @@ var NB_CORE = (() => {
     });
   }
   function validateProjectionId(projectionId) {
-    if (!opaqueId.test(projectionId)) throw new Error("Projection ID must be an opaque URL-safe identifier");
+    if (typeof projectionId !== "string" || !opaqueId.test(projectionId)) {
+      throw new Error("Projection ID must be an opaque URL-safe identifier");
+    }
     return projectionId;
   }
   function objectUrl(ref, options = {}) {
@@ -234,8 +247,7 @@ var NB_CORE = (() => {
     }
     const revision = options.revision;
     if (revision !== void 0) {
-      if (revision.length === 0) throw new Error("Exact object links require a revision");
-      params.set("revision", revision);
+      params.set("revision", validateRevision(revision));
     }
     const relative = `/board.html?${params.toString()}`;
     return options.origin === void 0 ? relative : new URL(relative, options.origin).toString();
@@ -253,6 +265,13 @@ var NB_CORE = (() => {
     if (objectId === void 0 || !opaqueId.test(objectId)) return void 0;
     if (projectionId !== void 0 && !opaqueId.test(projectionId)) return void 0;
     const revision = url.searchParams.get("revision") ?? void 0;
+    if (revision !== void 0) {
+      try {
+        validateRevision(revision);
+      } catch {
+        return void 0;
+      }
+    }
     return {
       objectId,
       ...projectionId === void 0 ? {} : { projectionId },
@@ -383,8 +402,12 @@ var NB_CORE = (() => {
       byId.set(object.ref.objectId, object);
     }
     const siblingGroups = /* @__PURE__ */ new Map();
+    const siblingGroupKey = (object) => {
+      const parentId = object.parentRef?.objectId;
+      return parentId !== void 0 && byId.has(parentId) ? parentId : spec.root.objectId;
+    };
     for (const object of objects) {
-      const key = object.parentRef?.objectId ?? spec.root.objectId;
+      const key = siblingGroupKey(object);
       const siblings = siblingGroups.get(key) ?? [];
       siblings.push(object);
       siblingGroups.set(key, siblings);
@@ -399,7 +422,7 @@ var NB_CORE = (() => {
     return {
       spec: Object.freeze({ ...spec }),
       entries: objects.map((object) => {
-        const key = object.parentRef?.objectId ?? spec.root.objectId;
+        const key = siblingGroupKey(object);
         const siblings = siblingGroups.get(key) ?? [];
         const capabilities = object.ref.kind === "tombstone" ? { read: true, enter: true, expand: object.capabilities.expand, composeUnder: false, execute: false } : { ...object.capabilities };
         return Object.freeze({
@@ -621,14 +644,21 @@ var NB_CORE = (() => {
         continue;
       }
       if (character === '"') {
+        const start2 = index;
         index += 1;
-        let phrase = "";
         while (index < input.length && input[index] !== '"') {
-          phrase += input[index];
+          if (input[index] === "\\") index += 1;
           index += 1;
         }
         if (input[index] !== '"') throw new Error("unterminated quoted phrase");
         index += 1;
+        let phrase;
+        try {
+          phrase = JSON.parse(input.slice(start2, index));
+        } catch {
+          throw new Error("invalid quoted phrase escape");
+        }
+        if (typeof phrase !== "string") throw new Error("invalid quoted phrase");
         push("PHRASE", phrase);
         continue;
       }

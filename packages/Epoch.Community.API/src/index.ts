@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
@@ -9,6 +9,7 @@ import type {
   CommunityComment,
   CommunityDiscussion,
   CommunityIssue,
+  LegacySavedQuery,
   CommunityMessage,
   CommunityObjectKind,
   CommunityObjectRef,
@@ -111,8 +112,12 @@ export function createInMemoryCommunityApi(
   const repositories = new Map<string, CommunityRepository>();
   const objects = new Map<string, CommunityMessage>();
   const projections = new Map<string, SavedProjection>();
+  const repositoryObjectIndex = new Map<string, string>();
   const persistencePath = options.persistencePath;
-  const authorizeObject = options.authorizeObject ?? defaultObjectAuthorization;
+  const configuredObjectAuthorization = options.authorizeObject ?? defaultObjectAuthorization;
+  const authorizeObject = (message: CommunityMessage, authorization: CommunityAuthorizationContext): boolean =>
+    repositoryContextAuthorized(message, authorization, repositories, repositoryObjectIndex)
+    && configuredObjectAuthorization(message, authorization);
 
   if (persistencePath !== undefined && existsSync(persistencePath)) {
     loadPersistedState(persistencePath, repositories, objects, projections);
@@ -135,6 +140,8 @@ export function createInMemoryCommunityApi(
       persistCommunityState(persistencePath, repositories, objects, projections);
     }
   }
+
+  for (const repository of repositories.values()) indexRepositoryObject(repositoryObjectIndex, repository);
 
   const persist = (): void => {
     if (persistencePath !== undefined) {
@@ -159,6 +166,7 @@ export function createInMemoryCommunityApi(
 
       const repository = createCommunityRepository(input);
       repositories.set(repository.slug, repository);
+      indexRepositoryObject(repositoryObjectIndex, repository);
       persist();
       return cloneRepository(repository);
     },
@@ -269,7 +277,13 @@ export function createInMemoryCommunityApi(
       const updatedProposal = changeProposals.find((proposal) => proposal.id === proposalId);
       if (updatedProposal?.ref !== undefined) {
         const currentObject = objects.get(updatedProposal.ref.objectId);
-        if (currentObject !== undefined) objects.set(currentObject.ref.objectId, { ...currentObject, state: updatedProposal.status });
+        if (currentObject !== undefined) {
+          objects.set(currentObject.ref.objectId, {
+            ...currentObject,
+            state: updatedProposal.status,
+            updatedAt: new Date().toISOString(),
+          });
+        }
       }
       persist();
       return cloneRepository(repository);
@@ -278,12 +292,12 @@ export function createInMemoryCommunityApi(
       return cloneMessage(authorizeMessage(objectById(objects, objectId), authorization, authorizeObject));
     },
     async updateObjectState(objectId: string, state: string, authorization: CommunityAuthorizationContext = {}) {
-      if (state.trim().length === 0) throw new Error("Community object state cannot be empty");
+      const validatedState = validateObjectState(state);
       const current = authorizeMessage(objectById(objects, objectId), authorization, authorizeObject);
       if (!hasCommunityPermission(authorization, "object:state:write")) {
         throw new Error("Community object state permission denied");
       }
-      const updated = { ...current, state };
+      const updated = { ...current, state: validatedState, updatedAt: new Date().toISOString() };
       objects.set(objectId, updated);
       persist();
       return cloneMessage(updated);
@@ -305,7 +319,7 @@ export function createInMemoryCommunityApi(
       return createProjection(projectionForViewer(saved, authorization), messages.map((message) => ({
         ref: message.ref,
         alias: message.aliases[0] ?? message.ref.objectId,
-        aliasPath: `/views/${saved.projectionId}/${message.aliases[0] ?? message.ref.objectId}`,
+        aliasPath: `/views/${saved.projectionId}/${encodeURIComponent(message.aliases[0] ?? message.ref.objectId)}`,
         ...(message.inReplyTo === undefined ? {} : { parentRef: message.inReplyTo }),
         capabilities: capabilitiesFor(message),
       })));
@@ -316,10 +330,18 @@ export function createInMemoryCommunityApi(
       const existing = projections.get(input.projection.projectionId);
       if (existing !== undefined && existing.ownerId !== input.ownerId) throw new Error("Saved projection permission denied");
       const now = new Date().toISOString();
-      const query = input.projection.query === undefined ? undefined : migrateNormalizedQuery(input.projection.query);
+      const source = input.projection;
+      const query = source.query === undefined ? undefined : migrateProjectionQuery(source.query);
       if (query?.error !== undefined) throw new Error(`Invalid saved projection query: ${query.error}`);
       const saved: SavedProjection = {
-        ...input.projection,
+        projectionId: source.projectionId,
+        kind: source.kind,
+        label: source.label,
+        root: validateObjectRef(source.root),
+        parentRelation: source.parentRelation,
+        order: { ...source.order },
+        visibility: source.visibility,
+        version: source.version,
         ...(query === undefined ? {} : { query, queryLanguageVersion: query.version }),
         ownerId: input.ownerId,
         createdAt: existing?.createdAt ?? now,
@@ -345,17 +367,19 @@ function loadPersistedState(
   objects: Map<string, CommunityMessage>,
   projections: Map<string, SavedProjection>,
 ): void {
-  let parsed: CommunityApiPersistedState | LegacyCommunityApiPersistedState;
+  let decoded: unknown;
   try {
-    parsed = JSON.parse(readFileSync(persistencePath, "utf8")) as CommunityApiPersistedState | LegacyCommunityApiPersistedState;
+    decoded = JSON.parse(readFileSync(persistencePath, "utf8"));
   } catch (error) {
     throw new Error(`Invalid Community API persistence file ${persistencePath}; restore a valid export or remove the file to reset`, { cause: error });
   }
-  if (![1, 2].includes(parsed.schemaVersion) || !Array.isArray(parsed.repositories)) {
+  if (!isRecord(decoded) || Array.isArray(decoded) || ![1, 2].includes(decoded.schemaVersion as number) || !Array.isArray(decoded.repositories)) {
     throw new Error(`Unsupported Community API persistence schema in ${persistencePath}; update Epoch or restore a compatible export`);
   }
+  const parsed = decoded as unknown as CommunityApiPersistedState | LegacyCommunityApiPersistedState;
   for (const repository of parsed.repositories) {
-    const migrated = migrateRepository(repository);
+    const migrated = migrateRepository(validatePersistedRepository(repository));
+    if (repositories.has(migrated.slug)) throw new Error(`Duplicate persisted community repository: ${migrated.slug}`);
     repositories.set(migrated.slug, migrated);
   }
   if (parsed.schemaVersion === 2) {
@@ -363,9 +387,10 @@ function loadPersistedState(
       throw new Error(`Invalid Community API persistence collections in ${persistencePath}`);
     }
     for (const message of parsed.objects) {
-      const ref = validateObjectRef(message.ref);
+      const validated = validatePersistedMessage(message);
+      const ref = validated.ref;
       if (objects.has(ref.objectId)) throw new Error(`Duplicate persisted community object: ${ref.objectId}`);
-      objects.set(ref.objectId, cloneMessage(message));
+      objects.set(ref.objectId, validated);
     }
     for (const projection of parsed.projections) {
       const migrated = migrateSavedProjection(projection);
@@ -393,7 +418,18 @@ function persistCommunityState(
     objects: [...objects.values()].map(cloneMessage),
     projections: [...projections.values()].map(cloneSavedProjection),
   };
-  writeFileSync(persistencePath, `${JSON.stringify(body, null, 2)}\n`, "utf8");
+  const temporaryPath = `${persistencePath}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(body, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    renameSync(temporaryPath, persistencePath);
+  } catch (error) {
+    try {
+      unlinkSync(temporaryPath);
+    } catch {
+      // The temporary file may not have been created or may already have been renamed.
+    }
+    throw error;
+  }
 }
 
 export function createCommunityApiFetchHandler(
@@ -531,6 +567,32 @@ function defaultObjectAuthorization(message: CommunityMessage, authorization: Co
   }, authorization);
 }
 
+function indexRepositoryObject(index: Map<string, string>, repository: CommunityRepository): void {
+  const ref = requiredRef(repository.ref, `repository ${repository.slug}`);
+  index.set(ref.objectId, repository.slug);
+}
+
+function repositoryContextAuthorized(
+  message: CommunityMessage,
+  authorization: CommunityAuthorizationContext,
+  repositories: ReadonlyMap<string, CommunityRepository>,
+  repositoryObjectIndex: ReadonlyMap<string, string>,
+): boolean {
+  if (message.context.kind !== "project") return true;
+  const slug = repositoryObjectIndex.get(message.context.objectId);
+  const repository = slug === undefined ? undefined : repositories.get(slug);
+  if (repository === undefined) return false;
+  switch (repository.visibility) {
+    case "public":
+    case "unlisted":
+      return true;
+    case "private":
+      return authorization.actorId !== undefined && repository.maintainers.includes(authorization.actorId);
+    default:
+      return false;
+  }
+}
+
 function authorizeMessage(
   message: CommunityMessage,
   authorization: CommunityAuthorizationContext,
@@ -570,8 +632,16 @@ function authorizedGraphMessages(
 }
 
 function canAccessProjection(projection: SavedProjection, authorization: CommunityAuthorizationContext): boolean {
-  return projection.visibility !== "private"
-    || (authorization.actorId !== undefined && authorization.actorId === projection.ownerId);
+  switch (projection.visibility) {
+    case "public":
+      return true;
+    case "shared":
+      return authorization.actorId !== undefined;
+    case "private":
+      return authorization.actorId !== undefined && authorization.actorId === projection.ownerId;
+    default:
+      return false;
+  }
 }
 
 function projectionForViewer(projection: SavedProjection, authorization: CommunityAuthorizationContext): SavedProjection {
@@ -611,23 +681,126 @@ function capabilitiesFor(message: CommunityMessage) {
 }
 
 function validateSavedProjection(projection: SavedProjection): void {
+  if (!isRecord(projection)) throw new Error("Saved projection must be an object");
+  if (typeof projection.projectionId !== "string") throw new Error("Saved projection ID is required");
   validateProjectionId(projection.projectionId);
   validateObjectRef(projection.root);
-  if (projection.ownerId.trim().length === 0) throw new Error("Saved projection owner is required");
+  if (typeof projection.ownerId !== "string" || projection.ownerId.trim().length === 0) throw new Error("Saved projection owner is required");
+  if (typeof projection.label !== "string" || projection.label.trim().length === 0 || projection.label.length > 128) {
+    throw new Error("Saved projection label must be a non-empty bounded value");
+  }
   if (projection.kind !== "saved-query") throw new Error("Saved projections must use saved-query kind");
+  if (projection.parentRelation !== "projection") throw new Error("Saved projections require projection parent relation");
+  if (!isRecord(projection.order)
+    || !["publishedAt", "updatedAt", "state", "score", "alias", "manual"].includes(String(projection.order.by))
+    || !["ascending", "descending"].includes(String(projection.order.direction))) {
+    throw new Error("Saved projection order is invalid");
+  }
+  if (!["private", "shared", "public"].includes(String(projection.visibility))) {
+    throw new Error("Saved projection visibility is invalid");
+  }
+  if (!Number.isInteger(projection.version) || projection.version < 1) throw new Error("Saved projection version is invalid");
+  if (typeof projection.createdAt !== "string" || Number.isNaN(Date.parse(projection.createdAt))
+    || typeof projection.updatedAt !== "string" || Number.isNaN(Date.parse(projection.updatedAt))) {
+    throw new Error("Saved projection timestamps are invalid");
+  }
   if (projection.query !== undefined && projection.query.error !== undefined) {
     throw new Error(`Invalid saved projection query: ${projection.query.error}`);
+  }
+  if (projection.query !== undefined
+    && (!Number.isInteger(projection.queryLanguageVersion)
+      || projection.queryLanguageVersion !== projection.query.version)) {
+    throw new Error("Saved projection query language version is invalid");
   }
 }
 
 function migrateSavedProjection(projection: SavedProjection): SavedProjection {
-  const query = projection.query === undefined ? undefined : migrateNormalizedQuery(projection.query);
+  if (!isRecord(projection)) throw new Error("Saved projection must be an object");
+  const query = projection.query === undefined ? undefined : migrateProjectionQuery(projection.query);
   const migrated = {
     ...projection,
     ...(query === undefined ? {} : { query, queryLanguageVersion: query.version }),
   };
   validateSavedProjection(migrated);
   return cloneSavedProjection(migrated);
+}
+
+function migrateProjectionQuery(query: unknown) {
+  if (!isRecord(query)) throw new Error("Invalid saved projection query: query must be an object");
+  return migrateNormalizedQuery(query as LegacySavedQuery);
+}
+
+const objectStates = new Set([
+  "read", "unread", "open", "closed", "needs-review", "promoted", "signed",
+  "approved", "changes-requested", "unavailable",
+]);
+
+function validateObjectState(state: unknown): string {
+  if (typeof state !== "string" || state.length === 0 || state.length > 64 || !objectStates.has(state)) {
+    throw new Error("Community object state is not in the supported state vocabulary");
+  }
+  return state;
+}
+
+function validatePersistedRepository(value: unknown): CommunityRepository {
+  if (!isRecord(value)) throw new Error("Invalid persisted Community repository");
+  for (const field of ["slug", "displayName", "description", "visibility", "defaultView"] as const) {
+    if (typeof value[field] !== "string") throw new Error(`Invalid persisted Community repository ${field}`);
+  }
+  for (const field of ["maintainers", "topics", "issues", "changeProposals", "discussions"] as const) {
+    if (!Array.isArray(value[field])) throw new Error(`Invalid persisted Community repository ${field}`);
+  }
+  if (!["public", "private", "unlisted"].includes(String(value.visibility))) {
+    throw new Error("Invalid persisted Community repository visibility");
+  }
+  if (!(value.maintainers as unknown[]).every((maintainer) => typeof maintainer === "string")
+    || !(value.topics as unknown[]).every((topic) => typeof topic === "string")) {
+    throw new Error("Invalid persisted Community repository member metadata");
+  }
+  if (value.ref !== undefined) validateObjectRef(value.ref);
+  for (const issue of value.issues as unknown[]) {
+    if (!isRecord(issue) || !Array.isArray(issue.comments)) throw new Error("Invalid persisted Community issue");
+  }
+  for (const discussion of value.discussions as unknown[]) {
+    if (!isRecord(discussion) || !Array.isArray(discussion.comments)) throw new Error("Invalid persisted Community discussion");
+  }
+  for (const proposal of value.changeProposals as unknown[]) {
+    if (!isRecord(proposal) || !Array.isArray(proposal.reviews)) throw new Error("Invalid persisted Community change proposal");
+  }
+  return value as unknown as CommunityRepository;
+}
+
+function validatePersistedMessage(value: unknown): CommunityMessage {
+  if (!isRecord(value)) throw new Error("Invalid persisted Community object");
+  const ref = validateObjectRef(value.ref);
+  const context = validateObjectRef(value.context);
+  const threadRoot = validateObjectRef(value.threadRoot);
+  const inReplyTo = value.inReplyTo === undefined ? undefined : validateObjectRef(value.inReplyTo);
+  for (const field of ["authorId", "body", "publishedAt", "state"] as const) {
+    if (typeof value[field] !== "string") throw new Error(`Invalid persisted Community object ${field}`);
+  }
+  if (value.title !== undefined && typeof value.title !== "string") throw new Error("Invalid persisted Community object title");
+  if (value.updatedAt !== undefined && typeof value.updatedAt !== "string") throw new Error("Invalid persisted Community object updatedAt");
+  if (!Array.isArray(value.aliases) || !value.aliases.every((alias) => typeof alias === "string")) {
+    throw new Error("Invalid persisted Community object aliases");
+  }
+  if (!Array.isArray(value.relations)) throw new Error("Invalid persisted Community object relations");
+  for (const relation of value.relations) {
+    if (!isRecord(relation) || typeof relation.type !== "string") throw new Error("Invalid persisted Community relation");
+    validateObjectRef(relation.source);
+    validateObjectRef(relation.target);
+  }
+  return cloneMessage({
+    ...(value as unknown as CommunityMessage),
+    ref,
+    context,
+    threadRoot,
+    ...(inReplyTo === undefined ? {} : { inReplyTo }),
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function migrateRepository(repository: CommunityRepository): CommunityRepository {

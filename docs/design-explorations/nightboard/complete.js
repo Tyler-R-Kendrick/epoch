@@ -196,6 +196,8 @@
           value: full,
           hint: child.hint || "",
           kind: child.kind === "channel" ? "channel" : "dir",
+          objectId: child.objectId || null,
+          projectionId: child.projectionId || null,
         });
         if (child.kind === "channel" && MAP.feedEntriesAt && MAP.messagePath) {
           (MAP.feedEntriesAt(full, extra) || []).forEach(function (entry) {
@@ -208,6 +210,8 @@
               hint: String(entry.post.subject || entry.post.body || "message")
                 .replace(/\s+/g, " ").trim().slice(0, 96),
               kind: "message",
+              objectId: entry.objectId || entry.post.id,
+              projectionId: entry.projectionId || null,
             });
           });
         }
@@ -276,11 +280,11 @@
         hint: entry.hint || entry.meta || "current namespace", kind: entry.kind, group: "CURRENT",
         objectId: entry.objectId || (entry.post && entry.post.id) || null };
     });
-    var saved = window.NB_QUERY && window.NB_QUERY.listSavedViews
-      ? window.NB_QUERY.listSavedViews().map(function (view) {
+    var saved = window.NB_SAVED_VIEWS && window.NB_SAVED_VIEWS.list
+      ? window.NB_SAVED_VIEWS.list().map(function (view) {
         var path = "/views/" + (view.id || view.projectionId);
         return { id: view.id || view.projectionId, value: path, path: path, label: view.label,
-          hint: view.canonical || "saved query", kind: "saved-view", group: "SAVED VIEWS",
+          hint: view.query || "saved query", kind: "saved-view", group: "SAVED VIEWS",
           projectionId: view.projectionId || view.id };
       }) : [];
     var global = globalDirs(ctx.extra).map(function (entry) {
@@ -297,7 +301,8 @@
     var seen = {};
     return window.NB_NAV.rankJumpCandidates(fragment, current.concat(recent, saved, global), visits)
       .filter(function (entry) {
-        var key = entry.group + ":" + entry.id;
+        var key = entry.path || ((entry.projectionId || "") + ":" +
+          (entry.objectId || entry.id));
         if (seen[key]) return false;
         seen[key] = true;
         return true;

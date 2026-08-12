@@ -179,11 +179,21 @@ function tokenize(input: string): readonly Token[] {
     if (character === ":") { push("COLON", character); index += 1; continue; }
     if (character === "-" && !/\s|\)/u.test(input[index + 1] ?? "")) { push("NOT", character); index += 1; continue; }
     if (character === "\"") {
+      const start = index;
       index += 1;
-      let phrase = "";
-      while (index < input.length && input[index] !== "\"") { phrase += input[index]; index += 1; }
+      while (index < input.length && input[index] !== "\"") {
+        if (input[index] === "\\") index += 1;
+        index += 1;
+      }
       if (input[index] !== "\"") throw new Error("unterminated quoted phrase");
       index += 1;
+      let phrase: unknown;
+      try {
+        phrase = JSON.parse(input.slice(start, index));
+      } catch {
+        throw new Error("invalid quoted phrase escape");
+      }
+      if (typeof phrase !== "string") throw new Error("invalid quoted phrase");
       push("PHRASE", phrase);
       continue;
     }

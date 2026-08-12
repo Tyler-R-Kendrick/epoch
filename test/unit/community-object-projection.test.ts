@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   BUILT_IN_ACTIONS,
   QUERY_LANGUAGE_VERSION,
+  canReadCommunityResource,
   createActionRegistry,
   createMessageGraph,
   createProjection,
@@ -35,11 +36,14 @@ export async function runCommunityObjectProjectionTests(): Promise<void> {
   await test("NAV-GRAPH-004 graph API does not require alias parsing", graphIgnoresAliases);
   await test("NAV-QUERY-001 unknown field is an error", unknownQueryFieldFails);
   await test("NAV-QUERY-002 normalized saved view survives reload", normalizedQuerySurvivesReload);
+  await test("quoted query phrases round-trip escaped content", escapedQueryPhrasesRoundTrip);
   await test("NAV-QUERY-004 query language migration is deterministic", queryMigrationIsIdempotent);
   await test("NAV-QUERY-002 reaction queries use canonical reaction state", reactionQueriesUseCanonicalState);
   await test("NAV-ACTION-002 signed action permission parity", actionPermissionIsCentralized);
   await test("NAV-ACTION-004 generated catalogs cannot drift", actionCatalogCannotDrift);
   await test("canonical references and projections reject malformed identity and topology", validationFailsClosed);
+  await test("projection orphans share root sibling positions", projectionOrphansShareRootSiblingGroup);
+  await test("resource visibility is explicit and fails closed", resourceVisibilityFailsClosed);
 }
 
 async function test(name: string, run: () => void | Promise<void>): Promise<void> {
@@ -173,6 +177,20 @@ function normalizedQuerySurvivesReload(): void {
   assert.equal(second.version, QUERY_LANGUAGE_VERSION);
 }
 
+function escapedQueryPhrasesRoundTrip(): void {
+  const first = normalizeQuery(String.raw`body:"say \"hello\" from C:\\temp"`);
+  assert.equal(first.error, undefined);
+  assert.deepEqual(first.ast, {
+    op: "field",
+    field: "body",
+    value: "say \"hello\" from C:\\temp",
+    phrase: true,
+  });
+  const second = normalizeQuery(first.canonical);
+  assert.equal(second.error, undefined);
+  assert.deepEqual(second, first);
+}
+
 function queryMigrationIsIdempotent(): void {
   const previous = { query: "state:needs-review   sort:new", queryLanguageVersion: 0, sort: "new" } as const;
   const first = migrateNormalizedQuery(previous);
@@ -220,15 +238,21 @@ function actionCatalogCannotDrift(): void {
 function validationFailsClosed(): void {
   for (const invalid of [null, {}, { objectId: "bad/id", kind: "message" }, { objectId: "ok", kind: "unknown" },
     { objectId: "ok", kind: "message", atUri: "@mutable-handle" },
+    { objectId: "ok", kind: "message", atUri: 7 },
+    { objectId: "ok", kind: "message", revision: 7 },
     { objectId: "ok", kind: "message", revision: "" }]) {
     assert.throws(() => validateObjectRef(invalid));
   }
   assert.throws(() => validateProjectionId("unsafe/projection"));
+  assert.throws(() => validateProjectionId(7 as unknown as string));
   assert.equal(parseObjectUrl("not a url"), undefined);
   assert.equal(parseObjectUrl("/elsewhere?object=m-001"), undefined);
   assert.equal(parseObjectUrl("/board.html?object=bad%2Fid"), undefined);
   assert.equal(parseObjectUrl("/board.html?projection=bad%2Fid&focus=m-001"), undefined);
   assert.throws(() => objectUrl(rootRef, { revision: "" }), /revision/u);
+  assert.throws(() => objectUrl(rootRef, { revision: 7 as unknown as string }), /revision/u);
+  assert.throws(() => objectUrl(rootRef, { revision: "r".repeat(513) }), /revision/u);
+  assert.equal(parseObjectUrl(`/board.html?object=m-001&revision=${"r".repeat(513)}`), undefined);
 
   const original = message(rootRef, undefined, rootRef, "root", "root");
   assert.throws(() => createProjection({ ...projection("invalid-version"), version: 0 }, []), /version/u);
@@ -242,6 +266,39 @@ function validationFailsClosed(): void {
   assert.deepEqual(mounted?.capabilities, {
     read: true, enter: true, expand: true, composeUnder: false, execute: false,
   });
+}
+
+function projectionOrphansShareRootSiblingGroup(): void {
+  const first = {
+    ...entry(message(childARef, { objectId: "missing-a", kind: "message" }, rootRef, "a", "a"), "a"),
+    parentRef: { objectId: "missing-a", kind: "message" } as const,
+  };
+  const second = {
+    ...entry(message(childBRef, { objectId: "missing-b", kind: "message" }, rootRef, "b", "b"), "b"),
+    parentRef: { objectId: "missing-b", kind: "message" } as const,
+  };
+  const mounted = createProjection(projection("orphans"), [first, second]).entries;
+  assert.deepEqual(mounted.map(({ depth, position, setSize }) => ({ depth, position, setSize })), [
+    { depth: 1, position: 1, setSize: 2 },
+    { depth: 1, position: 2, setSize: 2 },
+  ]);
+}
+
+function resourceVisibilityFailsClosed(): void {
+  const target = { kind: "project" as const, resourceId: "project-1" };
+  assert.equal(canReadCommunityResource({ ...target, visibility: "public" }, {}), true);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "shared", ownerId: "alice",
+    participantIds: ["bob"] }, {}), false);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "shared", ownerId: "alice",
+    participantIds: ["bob"] }, { actorId: "alice" }), true);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "shared", ownerId: "alice",
+    participantIds: ["bob"] }, { actorId: "bob" }), true);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "shared", ownerId: "alice",
+    participantIds: ["bob"] }, { actorId: "mallory" }), false);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "private", ownerId: "alice" }, { actorId: "alice" }), true);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "private", ownerId: "alice" }, { actorId: "mallory" }), false);
+  assert.equal(canReadCommunityResource(target, {}), false);
+  assert.equal(canReadCommunityResource({ ...target, visibility: "invalid" as "public" }, {}), false);
 }
 
 function projection(projectionId: string) {

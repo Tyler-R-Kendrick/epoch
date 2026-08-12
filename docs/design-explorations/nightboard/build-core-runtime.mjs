@@ -7,9 +7,10 @@ import { argv, cwd } from "node:process";
 const check = argv.includes("--check");
 const repository = resolve(argv.find((value) => !value.startsWith("--") && value !== argv[0] && value !== argv[1]) || cwd());
 const source = resolve(repository, "packages/Epoch.Community.Core/src/index.ts");
-const output = resolve(cwd(), "docs/design-explorations/nightboard/community-core-runtime.js");
+const output = resolve(repository, "docs/design-explorations/nightboard/community-core-runtime.js");
 
 const result = await build({
+  absWorkingDir: repository,
   entryPoints: [source],
   outfile: output,
   bundle: true,

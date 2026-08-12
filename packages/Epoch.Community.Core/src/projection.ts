@@ -74,8 +74,12 @@ export function createProjection(spec: ProjectionSpec, objects: readonly Project
     byId.set(object.ref.objectId, object);
   }
   const siblingGroups = new Map<string, ProjectionSourceEntry[]>();
+  const siblingGroupKey = (object: ProjectionSourceEntry): string => {
+    const parentId = object.parentRef?.objectId;
+    return parentId !== undefined && byId.has(parentId) ? parentId : spec.root.objectId;
+  };
   for (const object of objects) {
-    const key = object.parentRef?.objectId ?? spec.root.objectId;
+    const key = siblingGroupKey(object);
     const siblings = siblingGroups.get(key) ?? [];
     siblings.push(object);
     siblingGroups.set(key, siblings);
@@ -90,7 +94,7 @@ export function createProjection(spec: ProjectionSpec, objects: readonly Project
   return {
     spec: Object.freeze({ ...spec }),
     entries: objects.map((object) => {
-      const key = object.parentRef?.objectId ?? spec.root.objectId;
+      const key = siblingGroupKey(object);
       const siblings = siblingGroups.get(key) ?? [];
       const capabilities = object.ref.kind === "tombstone"
         ? { read: true, enter: true, expand: object.capabilities.expand, composeUnder: false, execute: false }

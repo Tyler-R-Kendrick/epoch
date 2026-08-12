@@ -576,7 +576,7 @@
           : "") +
         "</div>" +
         renderReactions(key, p, reactions, reactPick === key) : "") +
-        "</div></article>";
+        "</div>" + (isThread ? "" : "</article>");
 
       if (replies.length && !isFolded) {
         html += '<div class="cn-replies"' + (isThread ? ' role="group"' : "") +
@@ -585,6 +585,7 @@
             return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
           }).join("") + "</div>";
       }
+      if (isThread) html += "</article>";
       return html;
     }
 

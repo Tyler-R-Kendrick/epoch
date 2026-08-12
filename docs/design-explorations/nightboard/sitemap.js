@@ -139,9 +139,9 @@
   }
 
   /** Detail-pane entry for a post (posts live in detail — not nav under channels). */
-  function postEntry(p, hintExtra) {
+  function postEntry(p, hintExtra, graph) {
     var ref = objectRef(p);
-    var children = messageGraph(allMessages()).childrenOf(ref).length > 0;
+    var children = (graph || messageGraph([p])).childrenOf(ref).length > 0;
     return {
       name: postName(p),
       alias: postName(p),
@@ -154,6 +154,15 @@
       meta: p.state,
       hint: p.who + " · " + p.at + (hintExtra ? " · " + hintExtra : ""),
     };
+  }
+
+  function postEntries(posts, hintForPost) {
+    var pool = posts || [];
+    var graph = messageGraph(pool);
+    return pool.map(function (post) {
+      var hint = typeof hintForPost === "function" ? hintForPost(post) : hintForPost;
+      return postEntry(post, hint, graph);
+    });
   }
 
   function allMessages(extra) {
@@ -274,6 +283,13 @@
   }
 
   function objectAtPath(path, extra) {
+    var parts = split(path);
+    if (parts[0] === "notifications" && parts.length === 3) {
+      var entry = (list("/notifications/" + parts[1], extra) || []).filter(function (candidate) {
+        return candidate.name === parts[2];
+      })[0];
+      if (entry && entry.ref) return core().validateObjectRef(entry.ref);
+    }
     var post = postAt(path, extra);
     return post ? objectRef(post) : null;
   }
@@ -302,6 +318,9 @@
 
   function projectionLocations(objectId, extra) {
     var locations = [];
+    var target = allMessages(extra).filter(function (post) {
+      return objectRef(post).objectId === objectId;
+    })[0] || null;
     var primary = pathForObject(objectId, null, extra);
     if (primary) {
       var base = channelFeedPath(primary);
@@ -314,14 +333,16 @@
       });
     }
     (D.notifications || []).filter(function (notification) {
-      return notification.ref === objectId;
+      return notificationTargetId(notification) === objectId;
     }).forEach(function (notification) {
       var filter = notification.kind === "mention" ? "mentions"
         : notification.kind === "subscription" ? "subscribed" : "all";
       locations.push({ projectionId: "activity-" + filter,
         aliasPath: "/notifications/" + filter + "/" + notification.id });
     });
-    if (primary) locations.push({ projectionId: "search-global", aliasPath: "/search/" + objectId });
+    if (primary && target && !target.dm) {
+      locations.push({ projectionId: "search-global", aliasPath: "/search/" + objectId });
+    }
     return locations;
   }
 
@@ -361,10 +382,10 @@
       if (proj.community) {
         var ch = findChannelByLabel(chanName);
         if (!ch || ch.voice || ch.kind === "voice") return [];
-        return postsIn(ch.id, extra).map(function (p) { return postEntry(p); });
+        return postEntries(postsIn(ch.id, extra));
       }
       if (projectChannelNames(proj).indexOf(chanName) === -1) return [];
-      return projectPosts(proj.id, chanName).map(function (p) { return postEntry(p); });
+      return postEntries(projectPosts(proj.id, chanName));
     }
     if (parts[0] === "spaces" && parts[2] === "channels" && parts.length >= 4) {
       var spaceNode = findSpaceNode(parts[1]);
@@ -373,8 +394,7 @@
         return c.label === parts[3] || c.id === parts[3];
       })[0];
       if (!chObj || chObj.voice || chObj.kind === "voice") return [];
-      return postsIn(chObj.id, extra).map(function (p) {
-        var e = postEntry(p);
+      return postEntries(postsIn(chObj.id, extra)).map(function (e) {
         e.spaceId = spaceNode.id;
         return e;
       });
@@ -382,8 +402,9 @@
     if (parts[0] === "spaces" && parts[2] === "feed" && parts.length >= 3) {
       var sp = findSpaceNode(parts[1]);
       if (!sp) return [];
-      return postsForSpace(sp.id, extra).map(function (p) {
-        var entry = postEntry(p, "#" + p.channel);
+      return postEntries(postsForSpace(sp.id, extra), function (p) {
+        return "#" + p.channel;
+      }).map(function (entry) {
         entry.spaceId = sp.id;
         return entry;
       });
@@ -572,6 +593,26 @@
       out.push(n);
     });
     return out;
+  }
+
+  function notificationTargetId(notification) {
+    if (!notification) return null;
+    if (typeof notification.ref === "string") return notification.ref;
+    if (notification.targetRef) {
+      return typeof notification.targetRef === "string"
+        ? notification.targetRef : notification.targetRef.objectId;
+    }
+    return null;
+  }
+
+  function notificationObjectRef(notification) {
+    if (notification && notification.ref && typeof notification.ref === "object") {
+      return core().validateObjectRef(notification.ref);
+    }
+    return core().validateObjectRef({
+      objectId: "notification-" + String(notification && notification.id || "unavailable"),
+      kind: "notification",
+    });
   }
 
   function filterNotifications(filter, readSet) {
@@ -1282,15 +1323,16 @@
         var savedView = window.NB_SAVED_VIEWS.get(parts[1]);
         if (!savedView || !window.NB_QUERY) return null;
         var result = window.NB_SAVED_VIEWS.open(savedView.projectionId, allMessages(extra));
-        return result.error ? null : result.posts.map(function (post) { return postEntry(post); });
+        return result.error ? null : postEntries(result.posts);
       }
       return null;
     }
 
     if (parts[0] === "search") {
-      if (parts.length === 1) return allMessages(extra).filter(function (post) {
-        return !post.dm;
-      }).map(function (post) { return postEntry(post); });
+      if (parts.length === 1) {
+        var searchPosts = allMessages(extra).filter(function (post) { return !post.dm; });
+        return postEntries(searchPosts);
+      }
       return null;
     }
 
@@ -1333,8 +1375,9 @@
         ];
       }
       if (parts.length === 3 && parts[2] === "feed") {
-        return postsForSpace(spaceNode.id, extra).map(function (p) {
-          var entry = postEntry(p, "#" + p.channel);
+        return postEntries(postsForSpace(spaceNode.id, extra), function (p) {
+          return "#" + p.channel;
+        }).map(function (entry) {
           entry.spaceId = spaceNode.id;
           return entry;
         });
@@ -1427,17 +1470,19 @@
         });
         return items.map(function (n, i) {
           var target = allMessages(extra).filter(function (post) {
-            return objectRef(post).objectId === n.ref;
+            return objectRef(post).objectId === notificationTargetId(n);
           })[0] || null;
+          var notificationRef = notificationObjectRef(n);
           return {
             name: n.id,
             alias: n.id,
             aliases: [n.id, notifName(n, i)],
             // Human label for the nav blade — same grammar as Activity cards.
             label: (n.who || "someone") + " · " + (n.reason || n.kind || "activity"),
-            kind: target ? "message" : "notification",
-            objectId: target ? objectRef(target).objectId : n.id,
-            ref: target ? objectRef(target) : { objectId: n.id, kind: "notification" },
+            kind: "notification",
+            objectId: notificationRef.objectId,
+            ref: notificationRef,
+            targetRef: target ? objectRef(target) : null,
             post: target,
             capabilities: target ? messageCapabilities(target, false)
               : { read: true, enter: false, expand: false, composeUnder: false, execute: false },
@@ -1483,8 +1528,7 @@
             unread: 0,
           };
         }
-        return messagesInDm(thread.id, extra).map(function (p) {
-          var entry = postEntry(p);
+        return postEntries(messagesInDm(thread.id, extra)).map(function (entry) {
           entry.dm = thread.id;
           return entry;
         });

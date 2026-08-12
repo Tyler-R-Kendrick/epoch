@@ -6973,12 +6973,15 @@ const CASES = [
         kind: window.NB_APP.state.completion?.kind,
         expanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded"),
         completionLayer: window.NB_APP.state.layers.includes("completion"),
+        layers: window.NB_APP.state.layers.slice(),
       }));
       await page.keyboard.press("Escape");
       const pointerAfter = await page.evaluate(() => ({
         path: window.NB_APP.state.path,
         expanded: document.querySelector("[data-cli]")?.getAttribute("aria-expanded"),
         completionLayer: window.NB_APP.state.layers.includes("completion"),
+        layers: window.NB_APP.state.layers.slice(),
+        focusAction: document.activeElement?.getAttribute("data-action-id"),
       }));
       return chooser.path === "/projects/community/channels" && chooser.kind === "jump" && chooser.active === -1 &&
         chooser.groups.includes("CURRENT") && chooser.groups.includes("GLOBAL") && chooser.complete &&
@@ -6986,7 +6989,10 @@ const CASES = [
         after.path === chooser.path && after.expanded === "false" &&
         pointerOpened.path === chooser.path && pointerOpened.kind === "jump" &&
         pointerOpened.expanded === "true" && pointerOpened.completionLayer &&
-        pointerAfter.path === chooser.path && pointerAfter.expanded === "false" && !pointerAfter.completionLayer ||
+        pointerOpened.layers.filter((layer) => layer === "completion").length === 1 &&
+        pointerAfter.path === chooser.path && pointerAfter.expanded === "false" && !pointerAfter.completionLayer &&
+        pointerAfter.layers.length === pointerOpened.layers.length - 1 &&
+        pointerAfter.focusAction === "jump.interactive" ||
         log("jump chooser contract: " + JSON.stringify({ chooser, after, pointerOpened, pointerAfter }));
     },
   },
@@ -7208,13 +7214,44 @@ const CASES = [
     name: "NAV-LAYER-002 Escape does not replace ancestry or browser history",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
-      await page.evaluate(() => { window.NB_APP.state.layers = []; });
+      await page.evaluate(() => {
+        for (let attempts = 0; attempts < 20 && window.NB_APP.cancelTopLayer(); attempts += 1) {
+          // Drain the canonical stack so this is genuinely a bare Escape.
+        }
+        window.__bareEscape = { bubbled: 0, prevented: null, phases: [] };
+        window.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") window.__bareEscape.phases.push(["capture", event.defaultPrevented]);
+        }, { capture: true, once: true });
+        document.activeElement?.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") window.__bareEscape.phases.push(["target", event.defaultPrevented]);
+        }, { once: true });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") window.__bareEscape.phases.push(["document", event.defaultPrevented]);
+        }, { once: true });
+        window.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape") return;
+          window.__bareEscape.bubbled += 1;
+          window.__bareEscape.prevented = event.defaultPrevented;
+        }, { once: true });
+      });
       const before = await page.evaluate(() => ({ path: window.NB_APP.state.path, length: window.history.length }));
       await page.keyboard.press("Escape");
       const after = await page.evaluate(() => ({ path: window.NB_APP.state.path, length: window.history.length,
-        status: document.querySelector("[data-status-line]")?.textContent || "" }));
-      return before.path === after.path && before.length === after.length && /no action/i.test(after.status) ||
-        log("Escape changed navigation: " + JSON.stringify({ before, after }));
+        status: document.querySelector("[data-status-line]")?.textContent || "",
+        bareEscape: window.__bareEscape,
+        flags: {
+          intelOpen: window.NB_APP.state.intelOpen,
+          helpOpen: window.NB_APP.state.helpOpen,
+          contextOpen: window.NB_APP.state.ctxMenu?.open,
+          authOpen: document.querySelector("[data-auth-dialog]")?.dataset.open,
+          profileOpen: !document.querySelector("[data-profile-menu]")?.hidden,
+        } }));
+      return before.path === after.path && before.length === after.length && /no action/i.test(after.status) &&
+        after.bareEscape.bubbled === 1 && after.bareEscape.prevented === false ||
+        log("Escape phases " + JSON.stringify(after.bareEscape.phases) + " flags " + Object.values(after.flags).join(":") +
+          " · " + JSON.stringify({ bareEscape: after.bareEscape,
+          samePath: before.path === after.path, sameHistory: before.length === after.length,
+          status: after.status }));
     },
   },
   {
@@ -7364,6 +7401,14 @@ const CASES = [
         const items = Array.from(tree?.querySelectorAll('[role="treeitem"]') || []);
         return {
           count: items.length,
+          groupsOwned: Array.from(tree?.querySelectorAll('.cn-replies[role="group"]') || []).every((group) =>
+            group.parentElement?.getAttribute("role") === "treeitem"),
+          groupParents: Array.from(tree?.querySelectorAll('.cn-replies[role="group"]') || []).map((group) => ({
+            className: group.className,
+            key: group.getAttribute("data-key"),
+            parentRole: group.parentElement?.getAttribute("role"),
+            parentKey: group.parentElement?.getAttribute("data-key"),
+          })),
           tabbable: items.filter((item) => item.getAttribute("tabindex") === "0").length,
           selected: items.filter((item) => item.getAttribute("aria-selected") === "true").length,
           levels: items.map((item) => Number(item.getAttribute("aria-level"))),
@@ -7375,9 +7420,11 @@ const CASES = [
           active: document.activeElement?.closest?.('[role="treeitem"]')?.getAttribute("data-object-id"),
         };
       });
-      if (before.count < 3 || before.tabbable !== 1 || before.selected !== 1 ||
+      if (before.count < 3 || !before.groupsOwned || before.tabbable !== 1 || before.selected !== 1 ||
           before.levels.some((level) => level < 1) || before.reading !== "p3") {
-        return log("thread topology incomplete: " + JSON.stringify(before));
+        return log("thread group parents " + before.groupParents.map((item) =>
+          [item.className, item.key, item.parentRole, item.parentKey].join(":" )).join("|") +
+          " · " + JSON.stringify(before));
       }
       await page.focus('.cn-thread-tree [role="treeitem"][tabindex="0"]');
       await page.keyboard.press("Home");
@@ -7407,7 +7454,8 @@ const CASES = [
           label: item?.getAttribute("aria-label"),
           level: item?.getAttribute("aria-level"),
           parent: item?.getAttribute("data-parent-id"),
-          actions: item?.querySelectorAll("[data-reply], [data-repost], [data-react-pick]").length,
+          actions: Array.from(item?.querySelectorAll("[data-reply], [data-repost], [data-react-pick]") || [])
+            .filter((control) => control.closest('[role="treeitem"]') === item).length,
         };
       });
       return (/moderated/i.test(tombstone.label || "") && Number(tombstone.level) > 1 &&
@@ -8328,6 +8376,38 @@ const CASES = [
     },
   },
   {
+    name: "NAV-MIGRATE-004 saved-view recovery reuses the actionable recovery surface",
+    firstVisit: true,
+    storage: {
+      "nb-saved-views-v2": "{malformed saved view state",
+    },
+    run: async (page, log) => {
+      await page.waitForTimeout(100);
+      const recovery = await page.evaluate(() => ({
+        text: document.querySelector("[data-session-recovery]")?.textContent,
+        exportAction: !!document.querySelector("[data-session-recovery-export]"),
+        resetAction: !!document.querySelector("[data-session-recovery-reset]"),
+        surfaces: document.querySelectorAll("[data-session-recovery]").length,
+        preserved: localStorage.getItem("nb-saved-views-v2"),
+        status: window.NB_SAVED_VIEWS.status(),
+      }));
+      if (!recovery.exportAction || !recovery.resetAction) {
+        return log("saved-view recovery: " + JSON.stringify(recovery));
+      }
+      await page.evaluate(() => document.querySelector("[data-session-recovery-reset]").click());
+      await page.waitForTimeout(100);
+      const reset = await page.evaluate(() => ({
+        surface: !!document.querySelector("[data-session-recovery]"),
+        stored: localStorage.getItem("nb-saved-views-v2"),
+        status: window.NB_SAVED_VIEWS.status(),
+      }));
+      return recovery.surfaces === 1 && !!recovery.preserved &&
+        recovery.status?.actions?.includes("export") && recovery.status?.actions?.includes("reset") &&
+        /saved.view|malformed|export|reset/i.test(recovery.text || "") && !reset.surface && !reset.stored && !reset.status ||
+        log("saved-view recovery is not actionable: " + JSON.stringify({ recovery, reset }));
+    },
+  },
+  {
     name: "NAV-LAYER-001 reaction picker and query editor cancel before thread or location",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
@@ -8451,7 +8531,13 @@ const CASES = [
       await page.evaluate(() => window.NB_APP.openThread("p1"));
       await page.focus('.cn-thread-tree [role="treeitem"][data-key="p2"]');
       await page.keyboard.press("ArrowDown");
-      await page.click('.cn-thread-tree [role="treeitem"][data-key="p1"] [data-fold="p1"]');
+      const collapsed = await page.evaluate(() => {
+        const root = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p1"]');
+        const control = root?.querySelector(':scope > .cn-comment-main .cn-pm[data-fold="p1"]');
+        control?.click();
+        return !!control;
+      });
+      if (!collapsed) return log("root collapse control unavailable");
       const folded = await page.evaluate(() => ({
         selected: document.querySelector('.cn-thread-tree [aria-selected="true"]')?.getAttribute("data-object-id"),
         tabbable: Array.from(document.querySelectorAll('.cn-thread-tree [role="treeitem"][tabindex="0"]'))

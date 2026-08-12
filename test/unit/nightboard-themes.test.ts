@@ -780,8 +780,8 @@ export async function runNightboardThemeTests(): Promise<void> {
   assert.ok(readFileSync(join(ROOT, "sitemap.js"), "utf8").includes("homeFeedUnreadCounts"),
     "sitemap must compute per-tab home feed unread counts");
   assert.ok(
-    /Escape[\s\S]{0,200}isDetailOpen|isDetailOpen\(\)[\s\S]{0,80}closeDetail/.test(appSrc),
-    "Esc closes the detail pane when open",
+    /bladeClose[\s\S]{0,200}closeBlade/.test(appSrc),
+    "an explicit blade control closes detail without overloading bare Escape",
   );
 
   // Following feed: only followed authors; sam is not followed.

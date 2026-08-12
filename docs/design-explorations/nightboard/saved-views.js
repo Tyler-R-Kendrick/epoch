@@ -49,6 +49,7 @@
       var next = {
         schemaVersion: SCHEMA_VERSION,
         views: state.views.map(function (view) {
+          if (!view.ownerId) throw new Error("saved view owner is missing");
           var query = window.NB_CORE.migrateNormalizedQuery({
             query: view.query,
             canonical: view.canonical,
@@ -58,7 +59,7 @@
           });
           if (query.error) throw new Error(query.error);
           return Object.assign({}, view, {
-            ownerId: view.ownerId || null,
+            ownerId: view.ownerId,
             query: query.canonical,
             ast: query.ast,
             queryLanguageVersion: query.version,
@@ -82,9 +83,13 @@
       if (!raw) return empty;
       var legacy = JSON.parse(raw);
       var source = Array.isArray(legacy) ? legacy : legacy.views;
-      if (!Array.isArray(source)) return Object.assign(empty, { error: "legacy saved views are malformed" });
+      if (!Array.isArray(source)) {
+        return failedState(raw, "migration", "legacy saved views are malformed");
+      }
       var now = new Date().toISOString();
       var migrated = source.map(function (view) {
+        var ownerId = view.ownerId || principalId;
+        if (!ownerId) throw new Error("saved view owner is missing");
         var query = window.NB_CORE.migrateNormalizedQuery({
           query: view.query || "",
           queryLanguageVersion: view.queryLanguageVersion || 0,
@@ -95,7 +100,7 @@
           kind: "saved-query",
           label: view.label || view.name || "Saved view",
           visibility: view.visibility || "private",
-          ownerId: view.ownerId || null,
+          ownerId: ownerId,
           query: query.canonical,
           ast: query.ast,
           queryLanguageVersion: query.version,
@@ -172,15 +177,7 @@
   function setPrincipal(value) {
     principalId = typeof value === "string" && value.trim() ? value.trim() : null;
     if (!principalId) return null;
-    var state = read();
-    if (state.error) return principalId;
-    var changed = false;
-    state.views = state.views.map(function (view) {
-      if (view.ownerId) return view;
-      changed = true;
-      return Object.assign({}, view, { ownerId: principalId });
-    });
-    if (changed) write(state);
+    read();
     return principalId;
   }
 
@@ -189,12 +186,11 @@
   }
 
   function canAccess(view, options) {
-    return window.NB_CORE.canReadCommunityResource({
-      kind: "saved-view",
-      resourceId: view.projectionId,
-      visibility: view.visibility,
-      ownerId: view.ownerId || undefined,
-    }, { actorId: selectedPrincipal(options) || undefined });
+    var actorId = selectedPrincipal(options);
+    if (view.visibility === "public") return true;
+    if (view.visibility === "shared") return !!actorId;
+    if (view.visibility === "private") return !!actorId && actorId === view.ownerId;
+    return false;
   }
 
   function requirePrincipal() {
@@ -286,10 +282,20 @@
     if (!view) return { view: null, posts: [], error: "saved view is unavailable or unauthorized" };
     var visible = (objects || []).filter(function (post) {
       if (typeof context.authorize === "function") return context.authorize(post, view);
-      return view.visibility === "private" || !post.dm;
+      return window.NB_CORE.canReadCommunityResource({
+        kind: post && post.dm ? "dm" : "message",
+        resourceId: post && post.dm ? post.dm : String(post && post.id || "unknown"),
+        visibility: post && post.dm ? "private" : "public",
+        participantIds: post && Array.isArray(post.participantIds) ? post.participantIds : [],
+      }, context.viewer || {});
     });
     var result = window.NB_QUERY.apply(visible, view.query, context);
     return Object.assign({ view: forViewer(view, options) }, result);
+  }
+
+  function status() {
+    var state = read();
+    return state.recovery || null;
   }
 
   window.NB_SAVED_VIEWS = {
@@ -300,6 +306,7 @@
     rename: rename,
     delete: remove,
     open: open,
+    status: status,
     exportState: exportState,
     resetState: resetState,
     STORAGE_KEY: STORAGE_KEY,

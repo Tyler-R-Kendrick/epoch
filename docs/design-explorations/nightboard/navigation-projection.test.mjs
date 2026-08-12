@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stdout } from "node:process";
-import { fileURLToPath, URL } from "node:url";
+import { execPath, stdout } from "node:process";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, URL, URLSearchParams } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 
@@ -21,7 +23,12 @@ function storage(seed = {}) {
 }
 
 const localStorage = storage();
-const window = { localStorage };
+const window = {
+  localStorage,
+  location: { origin: "http://localhost" },
+  URL,
+  URLSearchParams,
+};
 load("community-core-runtime.js", window);
 load("data.js", window);
 load("query.js", window);
@@ -29,6 +36,10 @@ load("saved-views.js", window);
 load("sitemap.js", window);
 load("graphql-engine.js", window);
 load("graph.js", window);
+load("action-registry.js", window);
+load("actions.js", window);
+load("navigation.js", window);
+load("complete.js", window);
 
 const { NB_DATA: data, NB_MAP: map, NB_QUERY: query, NB_SAVED_VIEWS: views } = window;
 
@@ -109,6 +120,14 @@ assert.match(views.open(saved.projectionId, data.posts).error, /unauthorized/);
 views.setPrincipal("principal-alice");
 assert.equal(views.get(saved.projectionId).projectionId, saved.projectionId);
 
+// NAV-QUERY-003: even a private saved view applies object authorization by default.
+const privateDmView = views.save({ label: "Readable DMs", query: "", visibility: "private" });
+assert.deepEqual(views.open(privateDmView.projectionId, data.dmMessages, {
+  viewer: { actorId: "principal-alice", readableDmIds: ["scout"] },
+}).posts.map((post) => post.dm).filter((dm, index, all) => all.indexOf(dm) === index), ["scout"]);
+assert.deepEqual(views.open(privateDmView.projectionId, data.dmMessages).posts, [],
+  "NAV-QUERY-003 private projection ownership does not imply access to every DM");
+
 // NAV-PROJ-001/NAV-ID-003: mounted occurrences retain identity and context.
 const channelOccurrence = map.list("/projects/community/channels/general")
   .find((item) => item.objectId === "p1");
@@ -122,7 +141,18 @@ assert.equal(map.pathForObject("p1", saved.projectionId), `/views/${saved.projec
 const mounted = map.projectionLocations("p2");
 assert.ok(["channel-general", saved.projectionId, "activity-subscribed", "search-global"]
   .every((projectionId) => mounted.some((location) => location.projectionId === projectionId)));
-assert.equal(map.objectAtPath("/notifications/subscribed/n6").objectId, "p2");
+assert.equal(map.objectAtPath("/notifications/subscribed/n6").objectId, "notification-n6");
+assert.equal(new Set(data.notifications.map((notification) => notification.ref.objectId)).size,
+  data.notifications.length, "notifications have independent canonical identities");
+assert.equal(data.notifications.find((notification) => notification.id === "n6").targetRef, "p2");
+const notificationEntry = map.list("/notifications/subscribed").find((item) => item.name === "n6");
+assert.equal(notificationEntry.ref.objectId, "notification-n6");
+assert.equal(notificationEntry.targetRef.objectId, "p2");
+data.notifications.push({ ...data.notifications.find((notification) => notification.id === "n6"),
+  id: "n6-duplicate", ref: { objectId: "notification-n6-duplicate", kind: "notification" } });
+assert.doesNotThrow(() => map.list("/notifications/subscribed"),
+  "multiple notifications may point at one canonical message");
+data.notifications.pop();
 
 // NAV-PROJ-002: a saved view retains the canonical backing object.
 savedOccurrence.post.state = "read";
@@ -133,6 +163,8 @@ savedOccurrence.post.state = "open";
 // NAV-QUERY-003: public projections exclude private DM objects by default.
 const publicView = views.save({ label: "Public all", query: "", visibility: "public" });
 assert.equal(views.open(publicView.projectionId, data.dmMessages).posts.length, 0);
+assert.equal(map.projectionLocations("dm-s3").some((location) => location.projectionId === "search-global"), false,
+  "NAV-QUERY-003 a private DM has no public-search projection location");
 const sharedSecretView = views.save({
   label: "Shared without raw query", query: "body:PRIVATE_QUERY_SENTINEL", visibility: "shared",
 });
@@ -187,6 +219,12 @@ assert.match(window.NB_GRAPH.SDL, /inReplyTo: Message/);
 assert.match(window.NB_GRAPH.SDL, /threadRoot: Message!/);
 assert.match(window.NB_GRAPH.SDL, /type Projection/);
 assert.match(window.NB_GRAPH.SDL, /capabilities: EntryCapabilities!/);
+const createGraph = map.messageGraph;
+let graphBuilds = 0;
+map.messageGraph = (...args) => {
+  graphBuilds += 1;
+  return createGraph(...args);
+};
 const graphResult = await window.NB_GRAPH.query(`{
   object(objectId: "p2") {
     ref { objectId canonicalUrl }
@@ -196,7 +234,9 @@ const graphResult = await window.NB_GRAPH.query(`{
     locations { projectionId aliasPath }
   }
 }`);
+map.messageGraph = createGraph;
 assert.equal(graphResult.errors, undefined);
+assert.equal(graphBuilds, 1, "one GraphQL query builds one canonical message graph");
 assert.equal(graphResult.data.object.ref.objectId, "p2");
 assert.equal(graphResult.data.object.context.objectId, "channel-general");
 assert.equal(graphResult.data.object.context.kind, "channel");
@@ -314,12 +354,33 @@ const liveChild = { id: "live-child", channel: "general", who: "nora", at: "12:4
 const liveGrandchild = { id: "live-grandchild", channel: "general", who: "scout", at: "12:42", state: "open", body: "nested", re: "live-child" };
 const liveGraph = map.messageGraph([liveRoot, liveChild, liveGrandchild]);
 assert.equal(liveGraph.messageOf("live-grandchild").threadRoot.objectId, "live-root");
+const liveFeed = map.feedEntriesAt("/projects/community/channels/general", [liveRoot, liveChild, liveGrandchild]);
+assert.equal(liveFeed.find((item) => item.objectId === "live-root").capabilities.expand, true,
+  "NAV-GRAPH-001 live reply children are reflected in projection capabilities");
 
 // The formal replies namespace remains traversable beyond its direct listing.
 assert.deepEqual(
   map.list("/projects/community/channels/general/p1/replies/p2").map((item) => item.name),
   ["body.md", "metadata.json", "replies", "backlinks", "receipts"],
 );
+assert.deepEqual(
+  map.list("/projects/community/channels/general/live-root/replies/live-child/replies/live-grandchild",
+    [liveRoot, liveChild, liveGrandchild]).map((item) => item.name),
+  ["body.md", "metadata.json", "replies", "backlinks", "receipts"],
+  "NAV-GRAPH-001 nested live reply namespaces remain traversable",
+);
+
+// NAV-JUMP-003: current saved projections feed completion and destinations de-duplicate across groups.
+const jumpSaved = views.save({ label: "Jump review", query: "state:open", visibility: "private" });
+const savedJumpCandidates = window.NB_COMPLETE.jumpCandidates("jump review", { cwd: "/" });
+assert.equal(savedJumpCandidates.some((candidate) => candidate.projectionId === jumpSaved.projectionId &&
+  candidate.group === "SAVED VIEWS"), true);
+const generalJumpCandidates = window.NB_COMPLETE.jumpCandidates("general", {
+  cwd: "/projects/community/channels",
+});
+assert.equal(generalJumpCandidates.filter((candidate) =>
+  candidate.path === "/projects/community/channels/general").length, 1,
+"NAV-JUMP-003 one destination is not duplicated across CURRENT and GLOBAL groups");
 
 // NAV-QUERY-004: previous query versions migrate once without reinterpretation.
 const legacyStorage = storage({
@@ -355,6 +416,53 @@ v2Window.NB_SAVED_VIEWS.setPrincipal("owner");
 assert.equal(v2Window.NB_SAVED_VIEWS.get("view-v2").query, "state:open sort:new");
 assert.equal(v2Window.NB_SAVED_VIEWS.get("view-v2").queryLanguageVersion, query.VERSION);
 
+// Ownerless versioned views are not claimed by whichever principal initializes first.
+const ownerlessRaw = JSON.stringify({
+  schemaVersion: 2,
+  views: [{ projectionId: "view-ownerless", label: "Ownerless", visibility: "private",
+    query: "state:open", queryLanguageVersion: 0, order: "new", version: 1 }],
+});
+const ownerlessStorage = storage({ "nb-saved-views-v2": ownerlessRaw });
+const ownerlessWindow = { localStorage: ownerlessStorage };
+load("community-core-runtime.js", ownerlessWindow);
+load("data.js", ownerlessWindow);
+load("query.js", ownerlessWindow);
+load("saved-views.js", ownerlessWindow);
+ownerlessWindow.NB_SAVED_VIEWS.setPrincipal("first-principal");
+assert.equal(ownerlessWindow.NB_SAVED_VIEWS.get("view-ownerless"), null);
+assert.equal(ownerlessWindow.NB_SAVED_VIEWS.exportState(), ownerlessRaw);
+assert.match(ownerlessWindow.NB_SAVED_VIEWS.status().message, /owner|export.*reset/i);
+assert.throws(() => ownerlessWindow.NB_SAVED_VIEWS.save({ label: "must not claim", query: "" }),
+  /owner|export.*reset/i);
+
+// Malformed legacy and unreadable storage enter the same explicit recovery/write-block state.
+const badLegacyRaw = JSON.stringify({ views: "not-an-array" });
+const badLegacyStorage = storage({ "nb-saved-views-v1": badLegacyRaw });
+const badLegacyWindow = { localStorage: badLegacyStorage };
+load("community-core-runtime.js", badLegacyWindow);
+load("data.js", badLegacyWindow);
+load("query.js", badLegacyWindow);
+load("saved-views.js", badLegacyWindow);
+badLegacyWindow.NB_SAVED_VIEWS.setPrincipal("owner");
+assert.equal(badLegacyWindow.NB_SAVED_VIEWS.exportState(), badLegacyRaw);
+assert.deepEqual(badLegacyWindow.NB_SAVED_VIEWS.status().actions, ["export", "reset"]);
+assert.throws(() => badLegacyWindow.NB_SAVED_VIEWS.save({ label: "blocked", query: "" }),
+  /export.*reset/i);
+
+const unreadableWindow = { localStorage: {
+  getItem() { throw new Error("storage denied"); },
+  setItem() { throw new Error("storage denied"); },
+  removeItem() { throw new Error("storage denied"); },
+} };
+load("community-core-runtime.js", unreadableWindow);
+load("data.js", unreadableWindow);
+load("query.js", unreadableWindow);
+load("saved-views.js", unreadableWindow);
+unreadableWindow.NB_SAVED_VIEWS.setPrincipal("owner");
+assert.match(unreadableWindow.NB_SAVED_VIEWS.status().message, /storage denied|export.*reset/i);
+assert.throws(() => unreadableWindow.NB_SAVED_VIEWS.save({ label: "blocked", query: "" }),
+  /storage denied|export.*reset/i);
+
 const malformedRaw = "{broken-saved-views";
 const malformedStorage = storage({ "nb-saved-views-v2": malformedRaw });
 const malformedWindow = { localStorage: malformedStorage };
@@ -369,5 +477,17 @@ assert.throws(() => malformedWindow.NB_SAVED_VIEWS.save({ label: "must not overw
 assert.equal(malformedStorage.snapshot()["nb-saved-views-v2"], malformedRaw);
 assert.equal(malformedWindow.NB_SAVED_VIEWS.resetState(), true);
 assert.equal(malformedWindow.NB_SAVED_VIEWS.exportState(), null);
+
+// Generated runtime checks resolve both source and output from the repository argument.
+const outsideCwd = mkdtempSync(join(tmpdir(), "epoch-nightboard-build-"));
+try {
+  const repository = join(root, "..", "..", "..");
+  const buildCheck = spawnSync(execPath,
+    [join(root, "build-core-runtime.mjs"), "--check", repository],
+    { cwd: outsideCwd, encoding: "utf8" });
+  assert.equal(buildCheck.status, 0, buildCheck.stderr || buildCheck.stdout);
+} finally {
+  rmSync(outsideCwd, { recursive: true, force: true });
+}
 
 stdout.write("nightboard navigation/projection focused tests passed\n");

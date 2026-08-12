@@ -34,8 +34,15 @@ export function canReadCommunityResource(
     return target.participantIds?.includes(actorId) === true
       || authorization.readableDmIds?.includes(target.resourceId) === true;
   }
-  if (target.visibility === "private" && (actorId === undefined || actorId !== target.ownerId)) {
-    return false;
+  switch (target.visibility) {
+    case "public":
+      return true;
+    case "shared":
+      return actorId !== undefined
+        && (actorId === target.ownerId || target.participantIds?.includes(actorId) === true);
+    case "private":
+      return actorId !== undefined && actorId === target.ownerId;
+    default:
+      return false;
   }
-  return true;
 }

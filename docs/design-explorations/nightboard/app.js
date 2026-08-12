@@ -1874,17 +1874,30 @@
     }, 200);
   }
 
+  function activeRecovery() {
+    if (state.sessionRecovery) {
+      return Object.assign({ source: "session" }, state.sessionRecovery);
+    }
+    if (!window.NB_SAVED_VIEWS || typeof window.NB_SAVED_VIEWS.status !== "function") return null;
+    var saved = window.NB_SAVED_VIEWS.status();
+    return saved ? Object.assign({ source: "saved-views" }, saved) : null;
+  }
+
   function exportSessionRecovery() {
-    var raw = window.NB_SESSION && window.NB_SESSION.exportBoardState
-      ? window.NB_SESSION.exportBoardState()
-      : null;
+    var recovery = activeRecovery();
+    var savedViews = recovery && recovery.source === "saved-views";
+    var raw = savedViews && window.NB_SAVED_VIEWS.exportState
+      ? window.NB_SAVED_VIEWS.exportState()
+      : window.NB_SESSION && window.NB_SESSION.exportBoardState
+        ? window.NB_SESSION.exportBoardState()
+        : null;
     if (!raw) return status("session recovery · no saved state is available to export");
     try {
       var blob = new Blob([raw], { type: "application/json" });
       var href = URL.createObjectURL(blob);
       var link = document.createElement("a");
       link.href = href;
-      link.download = "nightboard-session-recovery.json";
+      link.download = savedViews ? "nightboard-saved-views-recovery.json" : "nightboard-session-recovery.json";
       link.hidden = true;
       document.body.appendChild(link);
       link.click();
@@ -1897,15 +1910,23 @@
   }
 
   function resetSessionRecovery() {
-    if (window.NB_SESSION) window.NB_SESSION.clearBoardState();
-    state.sessionRecovery = null;
+    var recovery = activeRecovery();
+    if (recovery && recovery.source === "saved-views") {
+      if (!window.NB_SAVED_VIEWS.resetState()) {
+        return status("saved-view recovery · reset unavailable; saved state was not changed");
+      }
+    } else {
+      if (window.NB_SESSION) window.NB_SESSION.clearBoardState();
+      state.sessionRecovery = null;
+    }
     paintSessionRecovery();
     status("session recovery · saved state reset; current workspace remains open");
   }
 
   function paintSessionRecovery() {
     var existing = document.querySelector("[data-session-recovery]");
-    if (!state.sessionRecovery) {
+    var recovery = activeRecovery();
+    if (!recovery) {
       if (existing) existing.remove();
       return;
     }
@@ -1913,10 +1934,11 @@
     host.setAttribute("data-session-recovery", "");
     host.setAttribute("role", "status");
     host.setAttribute("aria-live", "polite");
+    host.setAttribute("data-recovery-source", recovery.source);
     host.className = "nb-session-recovery";
     host.replaceChildren();
     var message = document.createElement("span");
-    message.textContent = state.sessionRecovery.message || "Saved board state needs recovery.";
+    message.textContent = recovery.message || "Saved board state needs recovery.";
     var exportButton = document.createElement("button");
     exportButton.type = "button";
     exportButton.setAttribute("data-session-recovery-export", "");
@@ -2782,7 +2804,8 @@
     var line = $("[data-status-line]");
     if (!line) return;
     var next = bottomLine();
-    var persistent = state.sessionRecovery && state.sessionRecovery.message || navigationRestoreNotice;
+    var recovery = activeRecovery();
+    var persistent = recovery && recovery.message || navigationRestoreNotice;
     line.textContent = persistent ? persistent + " · " + next
       : startupPending().length ? next
         : (msg ? msg + " · " + next : next);
@@ -3055,6 +3078,11 @@
     document.addEventListener("keydown", function (ev) {
       if (ev.key !== "Escape") return;
       if (ev.isComposing || ev.keyCode === 229 || state.editor && state.editor.focused) return;
+      var cancellable = state.speech && state.speech.listening || cdPreview || layers().top();
+      if (!cancellable) {
+        cancelTopLayer();
+        return;
+      }
       ev.preventDefault();
       ev.stopImmediatePropagation();
       cancelTopLayer();
@@ -4955,33 +4983,6 @@
       return true;
     }
     return c.candidates.length > 1 && typed.length > 0;
-  }
-
-  /** True when the suggestion list is (or would be) showing for this draft. */
-  function menuIsActive() {
-    if (state.intelOpen || state.helpOpen) return true;
-    if (state.menuDismissed) return false;
-    var c = state.completion;
-    if (!c || !c.candidates || !c.candidates.length) return false;
-    var typed = String(cliValue || "");
-    if (typed.charAt(0) === "/" && c.candidates.length >= 1) return true;
-    if (window.NB_COMPLETE.isMarkerKind && window.NB_COMPLETE.isMarkerKind(c.kind) &&
-        c.candidates.length >= 1) {
-      return true;
-    }
-    if (typed.length > 0 && c.candidates.length >= 1 &&
-        (c.kind === "command" || c.kind === "slash" || c.kind === "path" || c.kind === "sort" || c.kind === "query" || c.kind === "jump")) {
-      return true;
-    }
-    return c.candidates.length > 1 && typed.length > 0;
-  }
-
-  /** Dismiss the suggestion combobox; keep the draft. Returns true if it was open. */
-  function dismissMenu() {
-    if (state.intelOpen || state.helpOpen) return closeIntel();
-    if (!menuIsActive()) return false;
-    state.menuDismissed = true;
-    return true;
   }
 
   /** Apply a completion candidate into the prompt, with marker trailing space. */
@@ -7641,33 +7642,9 @@
         return run(text);
       }
       if (ev.key === "Escape") {
-        ev.preventDefault();
-        if (cancelCdPreview()) return;
-        // Dictation Esc is handled in capture-phase wireSpeech; if we still
-        // see it here, fall through to intel / suggestions / columns.
-        if (dismissMenu()) {
-          render(true);
-          focusCli();
-          return status("closed suggestions");
-        }
-        if (state.sessionOutFocus) {
-          closeSessionBlade();
-          return focusCli();
-        }
-        // Idempotent with the document handler: if columns already own
-        // steering (state ahead of DOM focus), Esc closes detail then
-        // returns to the prompt — same ladder as when the body is focused.
-        if (state.columnFocus) {
-          cli.blur();
-          if (state.threadFocus) return clearThreadFocus();
-          if (isDetailOpen()) return closeDetail();
-          state.columnFocus = false;
-          render();
-          return focusCli();
-        }
-        // First Esc from the prompt hands steering to the columns.
-        focusColumns();
-        return status("columns — ←→↑↓ to move, i or : to return to the prompt");
+        // The capture-phase layer stack already consumed a cancellable
+        // Escape. Reaching the prompt means this is a bare, native Escape.
+        return;
       }
       if (ev.altKey && ev.key.toLowerCase() === "a") {
         ev.preventDefault();
@@ -7937,6 +7914,9 @@
       }
       var keyAlias = actionKeyAlias(ev);
       var keyAction = window.NB_ACTIONS && window.NB_ACTIONS.resolve("key", keyAlias);
+      // A cancellable Escape is consumed by wireInteractionLayers in capture
+      // phase. Reaching this dispatcher means it is a bare native Escape.
+      if (ev.key === "Escape" && keyAction === "cancel.topLayer") keyAction = null;
       var treeKeyTarget = ev.target.closest && ev.target.closest('.cn-thread-tree [role="treeitem"]');
       var treeOwnsKey = treeKeyTarget &&
         ["ArrowLeft", "ArrowRight", "h", "l", "Enter"].indexOf(ev.key) >= 0;
@@ -8125,25 +8105,10 @@
       }
       if (k === "/") { ev.preventDefault(); state.filter = ""; state.focus = 1; render(); return status("filter: type to narrow, Esc to clear"); }
       if (k === "Escape") {
-        if (state.filter) { state.filter = ""; render(true); return; }
-        if (state.sessionOutFocus) {
-          ev.preventDefault();
-          closeSessionBlade();
-          return focusCli();
-        }
-        // Esc leaves a focused thread for the channel feed before closing detail.
-        if (state.threadFocus) {
-          ev.preventDefault();
-          focusColumns();
-          return clearThreadFocus();
-        }
-        // Esc returns to Following feed when selection detail is open (matches [esc]).
-        if (isDetailOpen()) {
-          ev.preventDefault();
-          focusColumns();
-          return closeDetail();
-        }
-        state.columnFocus = false; render(); return focusCli();
+        // Escape cancellation is owned by the explicit capture-phase layer
+        // stack. A bare Escape must bubble without mutating focus, ancestry,
+        // detail, or history.
+        return;
       }
       if (k === "v") {
         ev.preventDefault();
@@ -8524,7 +8489,8 @@
     if (browserNotifySupported()) {
       bootNote = (bootNote ? bootNote + " · " : "") + window.NB_NOTIFY.permissionLabel();
     }
-    status(state.sessionRecovery ? state.sessionRecovery.message : (navigationRestoreNotice || bootNote));
+    var recovery = activeRecovery();
+    status(recovery ? recovery.message : (navigationRestoreNotice || bootNote));
     // First visit: open keys after the boot status so the onboard cue wins.
     maybeOpenKeysOnboard();
     setInterval(tick, 9000);
