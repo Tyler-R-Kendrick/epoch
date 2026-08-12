@@ -9,7 +9,7 @@ import { assertRevisionId, parseCanonicalId, type CanonicalIdKind } from "@epoch
 export async function runChangeGraphCliTests(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "epoch-change-graph-cli-"));
   try {
-    const created = executeChangeGraphCommand(root, ["change", "create", "Parser", "parent-1"], 100);
+    const created = executeChangeGraphCommand(root, ["change", "create", "Parser"], 100);
     assert.equal(created.ok, true);
     const change = created.data as { id: string; revision: number };
     assert.match(change.id, /^epoch:change:/u);
@@ -23,13 +23,16 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(executeChangeGraphCommand(root, ["change", "show", "missing"]).code, "not-found");
     assert.equal(executeChangeGraphCommand(root, ["change", "create"]).code, "invalid-input");
 
-    const revision = executeChangeGraphCommand(root, ["new", "parent-a", "parent-b", "--message", "merge"], 101);
-    assert.equal(revision.ok, true);
+    assert.equal(executeChangeGraphCommand(root, ["new", "parent-a", "parent-b", "--message", "merge"]).code, "invalid-input");
     const rootRevision = executeChangeGraphCommand(root, ["new", "--message", "root"], 101);
+    const otherRevision = executeChangeGraphCommand(root, ["new", "--message", "other"], 101);
+    const revision = executeChangeGraphCommand(root, ["new", (rootRevision.data as { id: string }).id, (otherRevision.data as { id: string }).id, "--message", "merge"], 101);
+    assert.equal(revision.ok, true);
     const childRevision = executeChangeGraphCommand(root, ["new", (rootRevision.data as { id: string }).id, "--message", "child"], 101);
     const roots = executeChangeGraphCommand(root, ["log", "--revisions", "roots()"]);
-    assert.deepEqual((roots.data as { revisions: readonly { id: string }[] }).revisions.map((item) => item.id),
-      [(rootRevision.data as { id: string }).id]);
+    const rootIds = (roots.data as { revisions: readonly { id: string }[] }).revisions.map((item) => item.id);
+    assert.ok(rootIds.includes((rootRevision.data as { id: string }).id));
+    assert.equal(rootIds.includes((childRevision.data as { id: string }).id), false);
     const ancestry = executeChangeGraphCommand(root, ["log", "--revisions", `ancestors(${(childRevision.data as { id: string }).id})`]);
     assert.deepEqual((ancestry.data as { revisions: readonly { id: string }[] }).revisions.map((item) => item.id).sort(),
       [(childRevision.data as { id: string }).id, (rootRevision.data as { id: string }).id].sort());
@@ -38,22 +41,22 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(graph.ok, true);
     assert.equal(executeChangeGraphCommand(root, ["graph", "show", (graph.data as { id: string }).id]).ok, true);
     for (const action of ["add", "remove", "order", "restack"] as const) {
-      assert.equal(executeChangeGraphCommand(root, ["graph", action, (graph.data as { id: string }).id, "revision-b"]).ok, true);
+      assert.equal(executeChangeGraphCommand(root, ["graph", action, (graph.data as { id: string }).id, (otherRevision.data as { id: string }).id]).ok, true);
     }
     assert.equal(executeChangeGraphCommand(root, ["graph", "submit", (graph.data as { id: string }).id]).ok, true);
-    const split = executeChangeGraphCommand(root, ["split", "propose", "revision-a", "--plan", '{"groups":[]}']);
+    const split = executeChangeGraphCommand(root, ["split", "propose", (rootRevision.data as { id: string }).id, "--plan", '{"groups":[]}']);
     assert.equal(split.ok, true);
     assert.equal(executeChangeGraphCommand(root, ["split", "inspect", (split.data as { id: string }).id]).ok, true);
-    assert.equal(executeChangeGraphCommand(root, ["split", "accept", (split.data as { id: string }).id]).ok, true);
+    assert.equal(executeChangeGraphCommand(root, ["split", "accept", (split.data as { id: string }).id]).code, "invalid-input");
     assert.equal(executeChangeGraphCommand(root, ["split", "reject", (split.data as { id: string }).id]).ok, true);
-    assert.equal(executeChangeGraphCommand(root, ["split", "propose", "revision-a", "--plan", "{"]).code, "invalid-input");
-    const bundle = executeChangeGraphCommand(root, ["bundle", "create", "parallel", "revision-a", "revision-b"]);
+    assert.equal(executeChangeGraphCommand(root, ["split", "propose", (rootRevision.data as { id: string }).id, "--plan", "{"]).code, "invalid-input");
+    const bundle = executeChangeGraphCommand(root, ["bundle", "create", "parallel", (rootRevision.data as { id: string }).id, (otherRevision.data as { id: string }).id]);
     assert.equal(executeChangeGraphCommand(root, ["bundle", "show", (bundle.data as { id: string }).id]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["bundle", "materialize", (bundle.data as { id: string }).id]).ok, true);
     const review = executeChangeGraphCommand(root, ["review", "record", change.id, "--state", "approved"]);
     assert.equal(review.ok, true);
     assert.match((review.data as { id: string }).id, /^[a-f0-9]{64}$/u);
-    const merge = executeChangeGraphCommand(root, ["merge-plan", "plan", "target", "revision-a"]);
+    const merge = executeChangeGraphCommand(root, ["merge-plan", "plan", (rootRevision.data as { id: string }).id, (otherRevision.data as { id: string }).id]);
     assert.equal(executeChangeGraphCommand(root, ["merge-plan", "inspect", (merge.data as { id: string }).id]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["merge-plan", "apply", (merge.data as { id: string }).id]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["conflict", "propose-ai", "conflict-a"]).code, "unsupported-capability");
@@ -70,6 +73,8 @@ export async function runChangeGraphCliTests(): Promise<void> {
       assert.equal(result.code, "unsupported-capability");
     }
     assert.equal(executeChangeGraphCommand(root, ["clone", "origin"]).code, "unsupported-capability");
+    assert.equal(executeChangeGraphCommand(root, ["clone", "git@github.com:org/repo.git"]).code, "unsupported-capability");
+    assert.equal(executeChangeGraphCommand(root, ["clone", "upstream"]).code, "unsupported-capability");
     assert.equal(executeChangeGraphCommand(root, ["hydrate", "--filter", '{"paths":["src/**"]}']).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["hydrate", "origin", "--filter", "{"]).code, "invalid-input");
     assert.equal(executeChangeGraphCommand(root, ["mirror", "status"]).ok, true);
@@ -127,8 +132,8 @@ export async function runChangeGraphCliTests(): Promise<void> {
     const canonicalRecords = [
       executeChangeGraphCommand(root, ["change", "create", "Canonical"], 201, dependencies),
       executeChangeGraphCommand(root, ["graph", "create", "Canonical graph"], 202, dependencies),
-      executeChangeGraphCommand(root, ["split", "propose", "signed-event-1", "--plan", '{"groups":[]}'], 203, dependencies),
-      executeChangeGraphCommand(root, ["bundle", "create", "Canonical bundle", "signed-event-1"], 204, dependencies),
+      executeChangeGraphCommand(root, ["split", "propose", (injectedRevision.data as { id: string }).id, "--plan", '{"groups":[]}'], 203, dependencies),
+      executeChangeGraphCommand(root, ["bundle", "create", "Canonical bundle", (injectedRevision.data as { id: string }).id], 204, dependencies),
     ];
     const expectedKinds: readonly CanonicalIdKind[] = ["change", "change-graph", "operation", "review-bundle"];
     canonicalRecords.forEach((envelope, index) => {

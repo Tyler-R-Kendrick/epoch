@@ -14,6 +14,7 @@ export function runChangeGraphStoreTests(): void {
       random: deterministicRandom(1),
     });
 
+    assert.throws(() => store.createChange({ title: "Bad parent", parentRevisionIds: ["parent-1"] }), /existing signed EventId/u);
     const created = store.createChange({ title: "Parser", parentRevisionIds: [] });
     assert.match(created.id, /^epoch:change:/u);
     parseCanonicalId(created.id, "change");
@@ -101,6 +102,22 @@ export function runChangeGraphStoreTests(): void {
     assert.ok(repository.events().some((event) => event.type === "software-heritage.mapping"));
     assert.deepEqual(repository.verify(), []);
     assert.equal(repository.events().some((event) => event.type === "repository.identity"), true);
+    assert.equal(JSON.stringify(repository.events().map((event) => event.toJSON())).includes("privateKey"), false);
+    assert.ok(store.listRevisions().some((revision) => revision.data.changeId === created.id));
+    assert.throws(() => store.showChange("missing"), /not found/u);
+    assert.throws(() => store.showGraph("missing"), /not found/u);
+    assert.throws(() => store.showBundle("missing"), /not found/u);
+    assert.throws(() => store.showMergePlan("missing"), /not found/u);
+    assert.throws(() => store.showMirror("missing"), /not found/u);
+    assert.throws(() => store.createReviewBundle({ name: "empty", selectedRevisionIds: [] }), /at least one/u);
+    assert.throws(() => store.createMergePlan({ targetRevisionId: "deadbeef", selectedRevisionIds: [] }), /existing signed EventId/u);
+    assert.throws(() => store.allocateBudget({ units: -1 }), /nonnegative/u);
+    assert.throws(() => store.syncFromLocal(join(root, "no-peer")), /not found/u);
+    assert.throws(() => store.requestHeritageArchive({ visibility: "private" }), /cannot be archived/u);
+    assert.throws(() => store.authExplain({ principal: "alice", action: "merge" }), /no grant/u);
+    assert.equal(store.budgetStatus("bob").allocated, 0);
+    const emptySplit = store.rememberDraft("split", "split-empty", { plan: { groups: [] } });
+    assert.throws(() => store.acceptSplit(emptySplit.id), /non-empty reconstructable/u);
     rmSync(peer, { recursive: true, force: true });
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -208,10 +208,10 @@ signed event IDs; `epoch:revision:*` is not a valid canonical ID kind.
 | `log --revisions REVSET` | Parse and evaluate the canonical browser-safe revset against the available revision graph. |
 | `op` | Inspect the local operation DAG, undo an operation, or restore a prior local state. Operation history is local-only. |
 | `graph` | Create, show, add, remove, order, restack, and submit dependency-ordered Changes. |
-| `split` | Propose or inspect a JSON split plan, then accept/reject it. Acceptance requires byte-exact ordered reconstruction. |
-| `bundle` | Create, show, or materialize an explicit Review Bundle. |
-| `review record` | Record review evidence bound to an exact revision/frontier and gate digest. |
-| `merge-plan` | Plan, inspect, or apply a dependency-closed merge; stale target, gate, conflict, or digest fails closed. |
+| `split` | Propose or inspect a JSON split plan, then accept/reject it. Accept fails closed on an empty plan. Byte-exact reconstruction is required before a `split.accepted` event is written; that event is not emitted yet. |
+| `bundle` | Create, show, or materialize a Review Bundle bound to existing signed revision Event IDs. Digests hash the selected revision set. |
+| `review record` | Record review evidence against an existing Change or Review Bundle. |
+| `merge-plan` | Plan or apply a merge of existing signed revisions. Apply recomputes the selected-revision digest and refuses unresolved conflicts or a moved/missing set. |
 | `conflict` | List/show durable conflicts, record a resolution, request a non-authoritative AI proposal, or accept/reject it. |
 
 Revsets support `heads`, `roots`, `ancestors`, `descendants`, `change`,
@@ -224,7 +224,7 @@ ordering is deterministic.
 | Command group | Shipped operations and limitations |
 |---|---|
 | `workspace` | Create, list, inspect, capture, and safely remove memory/filesystem/browser workspaces. Providers report actual residency, materialization, storage, and execution modes. |
-| `clone`, `fetch`, `hydrate`, `backfill` | Local Epoch replicas sync through `syncFrom`; `hydrate` materializes virtual checkout paths; `backfill` reports promised objects. Named remotes and URLs return `unsupported-capability`. |
+| `clone`, `fetch`, `hydrate`, `backfill` | Local initialized Epoch replicas sync through `syncFrom`; `hydrate` materializes virtual checkout paths; `backfill` reports promised objects. Any locator that is not a local Epoch repository returns `unsupported-capability`. |
 | `mirror` | Add, list, inspect, and record a run for a signed mirror definition. Credentials stay opaque; no hosted forge transport is implied. |
 | `principal`, `agent` | Inspect capabilities, allocate/status signed budget units, and explain authorization. Missing grants deny. |
 | `forge` | Inspect capabilities and import/export public records through loss-aware codecs. ForgeFed transport is `none`. |

@@ -19,7 +19,9 @@ import {
   parseRemoteHelperCommand,
   proposalRef,
   remoteHelperCapabilities,
+  runGitRemoteEpoch,
 } from "@epoch/git-proxy";
+import { Readable } from "node:stream";
 import {
   COMPATIBILITY_PROFILES,
   graphiteStack,
@@ -31,7 +33,7 @@ export async function runGitConvergenceFoundationTests(): Promise<void> {
   deterministicObjectsAndProjectionManifest();
   protocolV2IsBoundedAndFilterIsHonest();
   await receiveQuarantineVerifiesBeforePromotion();
-  remoteHelperAndCompatibilityProfilesAreExplicit();
+  await remoteHelperAndCompatibilityProfilesAreExplicit();
 }
 
 function deterministicObjectsAndProjectionManifest(): void {
@@ -81,13 +83,23 @@ async function receiveQuarantineVerifiesBeforePromotion(): Promise<void> {
   assert.equal(rejected.status, "rejected");
 }
 
-function remoteHelperAndCompatibilityProfilesAreExplicit(): void {
+async function remoteHelperAndCompatibilityProfilesAreExplicit(): Promise<void> {
   assert.ok(REMOTE_HELPER_CAPABILITIES.includes("fetch"));
   assert.deepEqual(parseRemoteHelperCommand("fetch deadbeef refs/heads/main"), {
     command: "fetch", oid: "deadbeef", ref: "refs/heads/main",
   });
   assert.equal(proposalRef("change-1"), "refs/epoch/for/change-1");
   assert.deepEqual(remoteHelperCapabilities(), [...REMOTE_HELPER_CAPABILITIES]);
+  await assert.doesNotReject(async () => {
+    const output: string[] = [];
+    const code = await runGitRemoteEpoch({
+      input: Readable.from(["fetch abcdef refs/heads/main\n"]),
+      output: { write(chunk) { output.push(chunk); } },
+      remoteUrl: "epoch://local",
+    });
+    assert.equal(code, 1);
+    assert.match(output.join(""), /authenticated Epoch endpoint/u);
+  });
   assert.throws(() => proposalRef("../escape"), /proposal/i);
   assert.equal(jjChangeRevision("change", "header", "body-a"), jjChangeRevision("change", "header", "body-b"));
   assert.deepEqual(graphiteStack(["one", "two"]).map((item) => item.parent), [null, "one"]);

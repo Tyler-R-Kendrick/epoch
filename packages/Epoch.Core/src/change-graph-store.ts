@@ -65,7 +65,8 @@ export class SignedChangeGraphStore {
     if (this.#repository.events().some((event) => event.payload.changeId === changeId)) {
       throw Object.assign(new Error(`record ID already exists: ${changeId}`), { code: "conflict" as const });
     }
-    const body = this.revisionBody(changeId, input.parentRevisionIds ?? [], input.title);
+    const parents = this.requireExistingRevisions(input.parentRevisionIds ?? []);
+    const body = this.revisionBody(changeId, parents, input.title);
     const event = this.append("change.created", body);
     this.note("change.create", [changeId, input.title, event.id]);
     return this.changeRecord(changeId, 1, { title: input.title, parentRevisionIds: body.parentRevisionIds, revisionId: event.id, message: input.title });
@@ -75,7 +76,8 @@ export class SignedChangeGraphStore {
     parseCanonicalId(changeId, "change");
     const current = this.showChange(changeId);
     const prior = String(current.data.revisionId);
-    const body = this.revisionBody(changeId, input.parentRevisionIds ?? [prior], String(input.message ?? current.data.title ?? ""), prior);
+    const parents = this.requireExistingRevisions(input.parentRevisionIds ?? [prior]);
+    const body = this.revisionBody(changeId, parents, String(input.message ?? current.data.title ?? ""), prior);
     const event = this.append("change.revised", body);
     this.note("change.revise", [changeId, event.id]);
     return this.changeRecord(changeId, current.revision + 1, {
@@ -119,9 +121,8 @@ export class SignedChangeGraphStore {
   }
 
   listRevisions(): readonly ChangeGraphRecord[] {
-    const created = new Set(this.#operations.list().filter((operation) => operation.command === "revision.create").map((operation) => operation.args[0]));
     return this.#repository.events()
-      .filter((event) => created.has(event.id) && (event.type === "change.created" || event.type === "change.revised"))
+      .filter((event) => event.type === "change.created" || event.type === "change.revised")
       .map((event) => ({
         id: event.id,
         kind: "revision",
@@ -138,7 +139,7 @@ export class SignedChangeGraphStore {
 
   createGraph(input: { readonly name: string; readonly memberRevisionIds: readonly string[] }): ChangeGraphRecord {
     const changeGraphId = createCanonicalId("change-graph", this.#random);
-    const members = input.memberRevisionIds.map((id) => assertRevisionId(id));
+    const members = this.requireExistingRevisions(input.memberRevisionIds);
     const body: ChangeGraphDefinition = { changeGraphId, memberRevisionIds: members, edges: [] };
     const event = this.append("change-graph.defined", body);
     this.note("graph.create", [changeGraphId, input.name, event.id]);
@@ -157,8 +158,8 @@ export class SignedChangeGraphStore {
   updateGraph(graphId: string, input: { readonly action: string; readonly memberRevisionIds: readonly string[] }): ChangeGraphRecord {
     const current = this.showGraph(graphId);
     const members = input.memberRevisionIds.length > 0
-      ? input.memberRevisionIds.map((id) => assertRevisionId(id))
-      : (current.data.memberRevisionIds as readonly RevisionId[]);
+      ? this.requireExistingRevisions(input.memberRevisionIds)
+      : this.requireExistingRevisions((current.data.memberRevisionIds as readonly string[]) ?? []);
     const body: ChangeGraphDefinition = {
       changeGraphId: graphId as ChangeGraphDefinition["changeGraphId"],
       memberRevisionIds: members,
@@ -171,16 +172,18 @@ export class SignedChangeGraphStore {
 
   createReviewBundle(input: { readonly name: string; readonly selectedRevisionIds: readonly string[] }): ChangeGraphRecord {
     const reviewBundleId = createCanonicalId("review-bundle", this.#random);
-    const selected = input.selectedRevisionIds.map((id) => assertRevisionId(id));
+    const selected = this.requireExistingRevisions(input.selectedRevisionIds);
+    if (selected.length === 0) throw Object.assign(new Error("review bundle requires at least one existing revision"), { code: "invalid-input" as const });
+    const digest = this.revisionSetDigest(selected);
     const body: ReviewBundle = {
       reviewBundleId,
       selectedRevisionIds: selected,
-      baseFrontier: selected.length > 0 ? [selected[0]!] : [assertRevisionId("identity")],
-      baseTreeDigest: emptyDigest,
-      combinedTreeDigest: emptyDigest,
+      baseFrontier: [selected[0]!],
+      baseTreeDigest: digest,
+      combinedTreeDigest: digest,
       overlaps: [],
       conflictIds: [],
-      gateDefinitionDigest: emptyDigest,
+      gateDefinitionDigest: digest,
     };
     const event = this.append("review.bundle.created", body);
     this.note("bundle.create", [reviewBundleId, input.name, event.id]);
@@ -214,18 +217,20 @@ export class SignedChangeGraphStore {
 
   createMergePlan(input: { readonly targetRevisionId: string; readonly selectedRevisionIds: readonly string[]; readonly mergeMode?: MergePlan["mergeMode"] }): ChangeGraphRecord {
     const mergePlanId = createCanonicalId("merge-plan", this.#random);
-    const selected = (input.selectedRevisionIds.length > 0 ? input.selectedRevisionIds : [input.targetRevisionId]).map((id) => assertRevisionId(id));
+    const targetRevisionId = this.requireExistingRevisions([input.targetRevisionId])[0]!;
+    const selected = this.requireExistingRevisions(input.selectedRevisionIds.length > 0 ? input.selectedRevisionIds : [targetRevisionId]);
+    const digest = this.revisionSetDigest(selected);
     const bundle = this.createReviewBundle({ name: `merge-${mergePlanId.slice(-8)}`, selectedRevisionIds: selected });
     const body: MergePlan = {
       mergePlanId,
-      targetRevisionId: assertRevisionId(input.targetRevisionId),
+      targetRevisionId,
       selectedRevisionIds: selected,
       hardDependencyClosure: selected,
       reviewBundleRevisionId: assertRevisionId(String(bundle.data.eventId)),
       conflictResolutionRevisionIds: [],
-      gateDefinitionDigest: emptyDigest,
+      gateDefinitionDigest: digest,
       mergeMode: input.mergeMode ?? "change-graph-squash",
-      resultingTreeDigest: emptyDigest,
+      resultingTreeDigest: digest,
     };
     const event = this.append("merge.plan.created", body);
     this.note("merge-plan.create", [mergePlanId, event.id]);
@@ -242,6 +247,15 @@ export class SignedChangeGraphStore {
 
   applyMergePlan(mergePlanId: string): ChangeGraphRecord {
     const plan = this.showMergePlan(mergePlanId);
+    const selected = this.requireExistingRevisions((plan.data.selectedRevisionIds as readonly string[]) ?? []);
+    this.requireExistingRevisions([String(plan.data.targetRevisionId)]);
+    const digest = this.revisionSetDigest(selected);
+    if (digest !== plan.data.resultingTreeDigest || digest !== plan.data.gateDefinitionDigest) {
+      throw Object.assign(new Error("merge plan digest no longer matches the selected revisions"), { code: "stale-revision" as const });
+    }
+    if (this.listConflicts().some((conflict) => conflict.data.status !== "accepted")) {
+      throw Object.assign(new Error("unresolved conflict blocks merge apply"), { code: "conflict" as const });
+    }
     const event = this.append("merge.plan.applied", {
       mergePlanId,
       targetRevisionId: plan.data.targetRevisionId,
@@ -429,8 +443,8 @@ export class SignedChangeGraphStore {
   acceptSplit(splitId: string): ChangeGraphRecord {
     const draft = this.readDraft("split", splitId);
     const plan = draft.data.plan;
-    if (plan === undefined || typeof plan !== "object" || plan === null || !Array.isArray((plan as { groups?: unknown }).groups)) {
-      throw Object.assign(new Error("split plan is missing groups"), { code: "invalid-input" as const });
+    if (plan === undefined || typeof plan !== "object" || plan === null || !Array.isArray((plan as { groups?: unknown }).groups) || (plan as { groups: unknown[] }).groups.length === 0) {
+      throw Object.assign(new Error("split accept requires a non-empty reconstructable group list"), { code: "invalid-input" as const });
     }
     return this.updateDraft("split", splitId, { status: "accepted" });
   }
@@ -478,11 +492,14 @@ export class SignedChangeGraphStore {
     try {
       if (targetId.startsWith("epoch:review-bundle:")) return this.showBundle(targetId);
     } catch { /* fall through and create */ }
-    let selected: readonly string[] = [assertRevisionId("pending-review")];
     try {
-      selected = [String(this.showChange(targetId).data.revisionId)];
-    } catch { /* use placeholder when the target is not a change */ }
-    return this.createReviewBundle({ name: `review-${targetId.slice(-8)}`, selectedRevisionIds: selected });
+      return this.createReviewBundle({
+        name: `review-${targetId.slice(-8)}`,
+        selectedRevisionIds: [String(this.showChange(targetId).data.revisionId)],
+      });
+    } catch {
+      throw Object.assign(new Error(`review target is not an existing change or bundle: ${targetId}`), { code: "not-found" as const });
+    }
   }
 
   private append(type: string, body: object) {
@@ -514,8 +531,34 @@ export class SignedChangeGraphStore {
   }
 
   private repositoryId(): CanonicalId<"repo"> {
-    this.#repositoryId ??= createCanonicalId("repo", () => sha256Bytes(`${this.#repository.root}\n${this.#repository.identityDocument().publicKey}`));
+    if (this.#repositoryId !== undefined) return this.#repositoryId;
+    const identity = this.#repository.events().find((event) => event.type === "repository.identity");
+    if (typeof identity?.payload.repositoryId === "string") {
+      this.#repositoryId = identity.payload.repositoryId as CanonicalId<"repo">;
+      return this.#repositoryId;
+    }
+    this.#repositoryId = createCanonicalId("repo", () => sha256Bytes(this.#repository.identityDocument().publicKey));
     return this.#repositoryId;
+  }
+
+  private requireExistingRevisions(ids: readonly string[]): readonly RevisionId[] {
+    return ids.map((id) => {
+      if (!/^[a-f0-9]{64}$/u.test(id)) {
+        throw Object.assign(new Error(`RevisionId must be an existing signed EventId: ${id}`), { code: "invalid-input" as const });
+      }
+      const event = this.#repository.events().find((item) => item.id === id);
+      if (event === undefined) throw Object.assign(new Error(`revision event not found: ${id}`), { code: "not-found" as const });
+      return assertRevisionId(event.id);
+    });
+  }
+
+  private revisionSetDigest(revisionIds: readonly string[]): string {
+    const material = revisionIds.map((id) => {
+      const event = this.#repository.events().find((item) => item.id === id);
+      const result = event && typeof event.payload.resultingTreeDigest === "string" ? event.payload.resultingTreeDigest : id;
+      return `${id}:${result}`;
+    }).sort();
+    return sha256Hex(material.join("\n"));
   }
 
   private namedValue(id: string, command: string): string | undefined {
