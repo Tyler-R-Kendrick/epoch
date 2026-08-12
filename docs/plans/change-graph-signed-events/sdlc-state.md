@@ -10,10 +10,12 @@
 
 ## Phase
 
-Ready to land on `sdlc/change-graph-signed-store-01`. Change Graph CLI commands
-persist signed Epoch events. Local clone/fetch, hydrate, mirror definitions,
-budget allocation, and SWHID mappings are implemented; unconfigured remotes and
-live archival remain fail-closed.
+Closed — [PR #119](https://github.com/Tyler-R-Kendrick/epoch/pull/119) squash-merged
+to `main` as `f9b00f507a459f3d46bf2729a159323b945230c8` on 2026-08-12.
+
+Change Graph CLI commands persist signed Epoch events. Local clone/fetch,
+hydrate, mirror definitions, budget allocation, and SWHID mappings are
+implemented; unconfigured remotes and live archival remain fail-closed.
 
 ## Verification
 
