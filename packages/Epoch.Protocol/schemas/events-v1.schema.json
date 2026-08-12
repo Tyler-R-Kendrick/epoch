@@ -41,15 +41,17 @@
         "agent.capability.granted",
         "agent.capability.revoked",
         "agent.budget.allocated",
+        "agent.budget.reserved",
         "agent.budget.consumed",
-        "projection.created",
-        "projection.revised",
-        "mirror.created",
-        "mirror.synchronized",
-        "promise.created",
-        "promise.fulfilled",
-        "promise.rejected",
-        "swh.snapshot.recorded"
+        "agent.budget.released",
+        "projection.recorded",
+        "mirror.defined",
+        "mirror.checkpoint",
+        "mirror.run",
+        "object.promise.recorded",
+        "software-heritage.mapping",
+        "software-heritage.archive-requested",
+        "software-heritage.archive-status"
       ]
     },
     "eventId": {
