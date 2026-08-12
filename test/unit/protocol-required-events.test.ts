@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { PROTOCOL_EVENT_SCHEMAS } from "../../packages/Epoch.Protocol/src/events";
+import { PROTOCOL_EVENT_SCHEMAS } from "@epoch/protocol";
 
 export function runProtocolRequiredEventTests(): void {
   const required = [

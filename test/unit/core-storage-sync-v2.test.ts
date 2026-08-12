@@ -5,44 +5,44 @@ import {
   decodeChunkManifest,
   encodeChunkManifest,
   verifyChunkManifest,
-} from "../../packages/Epoch.Core/src/chunks";
+} from "@epoch/core";
 import {
   FileObjectStore,
   MemoryObjectStore,
   objectIdFor,
-} from "../../packages/Epoch.Core/src/object-store";
+} from "@epoch/core";
 import {
   createObjectPromise,
   fulfillObjectPromise,
   validateObjectPromise,
-} from "../../packages/Epoch.Core/src/promises";
+} from "@epoch/core";
 import {
   SYNC_V2_PROTOCOL,
   applySyncV2Batch,
   planSyncV2,
-} from "../../packages/Epoch.Core/src/sync-v2";
+} from "@epoch/core";
 import {
   MemoryWorkspaceProvider,
   WorkspaceProviderRegistry,
   requireWorkspaceCapability,
-} from "../../packages/Epoch.Core/src/workspace";
+} from "@epoch/core";
 import {
   FileSystemWorkspaceProvider,
   browserWorkspaceCapabilities,
   createRiftLaunchSpec,
   createWorkspaceStateManifest,
-} from "../../packages/Epoch.Core/src/workspace-providers";
+} from "@epoch/core";
 import {
   EMPTY_BLOB_SHA256,
   fetchVerifiedRange,
   verifyBlobAvailability,
-} from "../../packages/Epoch.Core/src/blob-storage";
+} from "@epoch/core";
 import {
   InProcessSyncV2Transport,
   SyncV2TransactionReceiver,
   createSyncV2Handshake,
   negotiateSyncV2,
-} from "../../packages/Epoch.Core/src/sync-protocol-v2";
+} from "@epoch/core";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

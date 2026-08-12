@@ -7,9 +7,9 @@ import {
   OperationDag,
   QuarantineTransaction,
   recoverQuarantineTransaction,
-} from "../../packages/Epoch.Core/src/convergence-transactions";
-import { EpochRepository } from "../../packages/Epoch.Core/src/core";
-import { PROTOCOL_CAPABILITIES } from "../../packages/Epoch.Protocol/src/index";
+} from "@epoch/core";
+import { EpochRepository } from "@epoch/core";
+import { PROTOCOL_CAPABILITIES } from "@epoch/protocol";
 
 export async function runConvergenceCoreTransactionTests(): Promise<void> {
   test("CONV-TXN-001 explicit parents exclude unrelated heads and choose Lamport from parents", explicitParents);

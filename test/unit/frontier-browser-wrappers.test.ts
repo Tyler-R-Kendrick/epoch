@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import * as Wasm from "../../packages/Epoch.WASM/src/frontier";
-import * as Sdk from "../../packages/Epoch.Platform.Sdk/src/frontier";
+import * as Wasm from "@epoch/wasm";
+import * as Sdk from "@epoch/platform-sdk";
 
 export function runFrontierBrowserWrapperTests(): void {
   const graph = [{ revisionId: "root", parentRevisionIds: [] }, { revisionId: "head", parentRevisionIds: ["root"] }];

@@ -8,9 +8,9 @@ import {
   createMergePlan,
   projectLegacyIntent,
   validateStack,
-} from "../../packages/Epoch.Core/src/convergence-changes";
-import { assertRevisionId } from "../../packages/Epoch.Protocol/src/index";
-import type { ChangeFragment, ChangeRevisionBody, DurableConflict, SplitPlan, StackDefinition, StackEdgeKind } from "../../packages/Epoch.Protocol/src/index";
+} from "@epoch/core";
+import { assertRevisionId } from "@epoch/protocol";
+import type { ChangeFragment, ChangeRevisionBody, DurableConflict, SplitPlan, StackDefinition, StackEdgeKind } from "@epoch/protocol";
 
 export function runConvergenceChangeGraphTests(): void {
   test("CONV-CHANGE-001 stable ChangeId supports multi-parent revisions", stableLineage);

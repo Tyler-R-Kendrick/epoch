@@ -684,3 +684,6 @@ function writeErrorLine(io: CliIO, message: string): void {
 if (require.main === module) {
   process.exitCode = main();
 }
+
+export { executeFrontierCommand, formatFrontierEnvelope, isFrontierCommand, isFrontierInvocation } from "./frontier";
+export { interopDoctor } from "./interop-doctor";

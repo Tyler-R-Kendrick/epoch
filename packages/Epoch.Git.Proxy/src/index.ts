@@ -497,3 +497,9 @@ export function readMirrorState<T>(path: string): T | undefined {
   if (!existsSync(path)) return undefined;
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
+
+export * from "./compatibility";
+export * from "./deterministic-projection";
+export * from "./protocol-v2";
+export * from "./quarantine";
+export * from "./remote-helper";

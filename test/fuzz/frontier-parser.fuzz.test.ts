@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { assertProtocolEvent, createCanonicalId, parseCanonicalId, parseChangeId, parseRevset } from "../../packages/Epoch.Protocol/src/index";
-import { assertChunkManifest, createChunkManifest, decodeChunkManifest, encodeChunkManifest } from "../../packages/Epoch.Core/src/chunks";
-import { gitProtocolEnvironment, parsePktLines, encodePktLine } from "../../packages/Epoch.Git.Proxy/src/protocol-v2";
-import { parseRemoteHelperCommand, proposalRef } from "../../packages/Epoch.Git.Proxy/src/remote-helper";
-import { decodeF3Archive, decodeForgeFed, decodeNip34, decodeRadicle, encodeF3Archive, encodeForgeFed, encodeNip34, encodeRadicle, type ForgeObject } from "../../packages/Epoch.Forge/src/index";
-import { formatSwhid, parseSwhid } from "../../packages/Epoch.SoftwareHeritage/src/index";
+import { assertProtocolEvent, createCanonicalId, parseCanonicalId, parseChangeId, parseRevset } from "@epoch/protocol";
+import { assertChunkManifest, createChunkManifest, decodeChunkManifest, encodeChunkManifest } from "@epoch/core";
+import { gitProtocolEnvironment, parsePktLines, encodePktLine, parseRemoteHelperCommand, proposalRef } from "@epoch/git-proxy";
+import { decodeF3Archive, decodeForgeFed, decodeNip34, decodeRadicle, encodeF3Archive, encodeForgeFed, encodeNip34, encodeRadicle, type ForgeObject } from "@epoch/forge";
+import { formatSwhid, parseSwhid } from "@epoch/software-heritage";
 import { property } from "./deterministic";
 
 const SEED = 0x46555a5a;
@@ -68,19 +67,21 @@ async function main(): Promise<void> {
       assert.throws(() => encodeForgeFed(value), /unsupported ForgeFed kind/u);
     }
     const nip = encodeNip34(value, { eventId: `nostr-${index}`, pubkey: "pubkey", createdAt: 100, expiresAt: 1_000, audience: ["maintainers"] }).event;
-    assert.equal(decodeNip34(nip, { now: 500, audience: "maintainers", seen: new Set() }).object.objectId, value.objectId);
-    assert.throws(() => decodeNip34(nip, { now: 1_000 }), /expired/u);
-    assert.throws(() => decodeNip34(nip, { now: 500, audience: "outsider" }), /audience/u);
+    const signatureEvidence = { verified: true as const, eventId: nip.id, pubkey: nip.pubkey, verifier: "fuzz-fixture" };
+    assert.equal(decodeNip34(nip, { now: 500, audience: "maintainers", seen: new Set(), signatureEvidence }).object.objectId, value.objectId);
+    assert.throws(() => decodeNip34(nip, { now: 1_000, signatureEvidence }), /expired/u);
+    assert.throws(() => decodeNip34(nip, { now: 500, audience: "outsider", signatureEvidence }), /audience/u);
     const radicle = encodeRadicle(value, { radicleId: `rad:z${index}`, signedRef: `refs/rad/sigrefs/${index}`, sequence: index + 1 }).record;
-    assert.equal(decodeRadicle(radicle, { lastSequence: index }).object.objectId, value.objectId);
-    assert.throws(() => decodeRadicle(radicle, { lastSequence: index + 1 }), /stale/u);
+    const signedRefEvidence = { verified: true as const, radicleId: radicle.radicleId, signedRef: radicle.signedRef, sequence: radicle.sequence, revision: radicle.revision, verifier: "fuzz-fixture" };
+    assert.equal(decodeRadicle(radicle, { lastSequence: index, signedRefEvidence }).object.objectId, value.objectId);
+    assert.throws(() => decodeRadicle(radicle, { lastSequence: index + 1, signedRefEvidence }), /stale/u);
   });
 
   await property("FRONTIER-FUZZ-007 SWHID parser rejects malformed variants", SEED ^ 6, CASES, (random) => {
     const value = { version: 1 as const, kind: random.pick(["cnt", "dir", "rev", "rel", "snp"] as const), digest: random.bytes(20).toString("hex"), qualifiers: { path: `/src/${random.next()}.ts` } };
     const canonical = formatSwhid(value);
     assert.equal(formatSwhid(parseSwhid(canonical)), canonical);
-    for (const invalid of [canonical.toUpperCase(), canonical.replace("swh:1:", "swh:2:"), canonical + ";unknown=x", canonical + ";path=duplicate"]) assert.throws(() => parseSwhid(invalid), /invalid|unsupported|duplicate/u);
+    for (const invalid of [canonical.toUpperCase(), canonical.replace("swh:1:", "swh:2:"), canonical + ";unknown=x", canonical + ";path=duplicate"]) assert.throws(() => parseSwhid(invalid), /invalid|unsupported|duplicate/iu);
   });
 
   process.stdout.write(JSON.stringify({ suite: "frontier-parser-fuzz", seed: SEED, cases: CASES, status: "passed" }) + "\n");

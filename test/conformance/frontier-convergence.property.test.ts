@@ -4,20 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ConflictLedger, acceptSplit, applyMergePlan, buildReviewBundle, createMergePlan, validateStack,
-} from "../../packages/Epoch.Core/src/convergence-changes";
+} from "@epoch/core";
 import {
   QuarantineTransaction, recoverQuarantineTransaction,
-} from "../../packages/Epoch.Core/src/convergence-transactions";
-import { createChunkManifest, verifyChunkManifest } from "../../packages/Epoch.Core/src/chunks";
-import { MemoryObjectStore, objectIdFor } from "../../packages/Epoch.Core/src/object-store";
-import { planSyncV2, SYNC_V2_PROTOCOL } from "../../packages/Epoch.Core/src/sync-v2";
-import { SyncV2TransactionReceiver } from "../../packages/Epoch.Core/src/sync-protocol-v2";
-import { createProjectionManifest, gitBlob, gitCommit, gitTree, projectGitGraph } from "../../packages/Epoch.Git.Proxy/src/deterministic-projection";
-import { AuthorityLedger, type PrincipalId } from "../../packages/Epoch.Identity.Bridge/src/authority/index";
-import { MirrorCoordinator, createMirrorRule } from "../../packages/Epoch.Forge/src/mirror";
-import { formatSwhid, parseSwhid, type SwhObjectKind } from "../../packages/Epoch.SoftwareHeritage/src/index";
-import { assertRevisionId } from "../../packages/Epoch.Protocol/src/index";
-import type { ChangeFragment, ChangeRevisionBody, SplitPlan, StackDefinition } from "../../packages/Epoch.Protocol/src/index";
+} from "@epoch/core";
+import { createChunkManifest, verifyChunkManifest } from "@epoch/core";
+import { MemoryObjectStore, objectIdFor } from "@epoch/core";
+import { planSyncV2, SYNC_V2_PROTOCOL } from "@epoch/core";
+import { SyncV2TransactionReceiver } from "@epoch/core";
+import { createProjectionManifest, gitBlob, gitCommit, gitTree, projectGitGraph } from "@epoch/git-proxy";
+import { AuthorityLedger, type PrincipalId } from "@epoch/identity-bridge";
+import { MirrorCoordinator, createMirrorRule } from "@epoch/forge";
+import { formatSwhid, parseSwhid, type SwhObjectKind } from "@epoch/software-heritage";
+import { assertRevisionId } from "@epoch/protocol";
+import type { ChangeFragment, ChangeRevisionBody, SplitPlan, StackDefinition } from "@epoch/protocol";
 import { canonical, property } from "../fuzz/deterministic";
 
 const SEED = 0x45504f43;

@@ -2,21 +2,21 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryWorkspaceProvider } from "../../packages/Epoch.Core/src/workspace";
-import { FileSystemWorkspaceProvider, createRiftLaunchSpec } from "../../packages/Epoch.Core/src/workspace-providers";
-import { createObjectPromise } from "../../packages/Epoch.Core/src/promises";
-import { createChunkManifest } from "../../packages/Epoch.Core/src/chunks";
-import { fetchVerifiedRange } from "../../packages/Epoch.Core/src/blob-storage";
-import { MemoryObjectStore, objectIdFor } from "../../packages/Epoch.Core/src/object-store";
-import { applySyncV2Batch } from "../../packages/Epoch.Core/src/sync-v2";
-import { createMirrorRule, MirrorCoordinator, validateMirrorRemote } from "../../packages/Epoch.Forge/src/mirror";
-import { decodeF3Archive, encodeF3Archive, encodeNip34, decodeNip34, encodeRadicle, decodeRadicle, type ForgeObject } from "../../packages/Epoch.Forge/src/index";
-import { parseRemoteHelperCommand, proposalRef } from "../../packages/Epoch.Git.Proxy/src/remote-helper";
-import { gitProtocolEnvironment } from "../../packages/Epoch.Git.Proxy/src/protocol-v2";
-import { gitCommit } from "../../packages/Epoch.Git.Proxy/src/deterministic-projection";
-import { AuthorityLedger, type PrincipalId } from "../../packages/Epoch.Identity.Bridge/src/authority/index";
-import { GuardedAiProvider } from "../../packages/Epoch.Identity.Bridge/src/conductor/provider";
-import { SaveCodeNowClient } from "../../packages/Epoch.SoftwareHeritage/src/index";
+import {
+  FileSystemWorkspaceProvider,
+  MemoryObjectStore,
+  MemoryWorkspaceProvider,
+  applySyncV2Batch,
+  createChunkManifest,
+  createObjectPromise,
+  createRiftLaunchSpec,
+  fetchVerifiedRange,
+  objectIdFor,
+} from "@epoch/core";
+import { createMirrorRule, MirrorCoordinator, validateMirrorRemote, decodeF3Archive, encodeF3Archive, encodeNip34, decodeNip34, encodeRadicle, decodeRadicle, type ForgeObject } from "@epoch/forge";
+import { gitCommit, gitProtocolEnvironment, parseRemoteHelperCommand, proposalRef } from "@epoch/git-proxy";
+import { AuthorityLedger, GuardedAiProvider, type PrincipalId } from "@epoch/identity-bridge";
+import { SaveCodeNowClient } from "@epoch/software-heritage";
 
 async function main(): Promise<void> {
   await workspacePathsRejectTraversalAndSymlinkEscape();
@@ -104,10 +104,12 @@ function grantsBudgetsAndFederationRejectReplayOrWidening(): void {
   ledger.revokeGrant("parent", "compromised");
   assert.equal(ledger.authorize({ principalId: worker, grantId: "child", action: "repository.read", resource: "repo:epoch/core", path: "src/lib/a.ts" }).allow, false);
   const forge = publicForgeObject(); const event = encodeNip34(forge, { eventId: "event-1", pubkey: "pubkey", createdAt: 100, expiresAt: 2_000, audience: ["maintainers"] }).event; const seen = new Set<string>();
-  decodeNip34(event, { now, audience: "maintainers", seen });
-  assert.throws(() => decodeNip34(event, { now, audience: "maintainers", seen }), /replay/u);
+  const signatureEvidence = { verified: true as const, eventId: event.id, pubkey: event.pubkey, verifier: "security-fixture" };
+  decodeNip34(event, { now, audience: "maintainers", seen, signatureEvidence });
+  assert.throws(() => decodeNip34(event, { now, audience: "maintainers", seen, signatureEvidence }), /replay/u);
   const record = encodeRadicle(forge, { radicleId: "rad:zsafe", signedRef: "refs/rad/sigrefs/safe", sequence: 2 }).record;
-  assert.throws(() => decodeRadicle(record, { lastSequence: 2 }), /stale/u);
+  const signedRefEvidence = { verified: true as const, radicleId: record.radicleId, signedRef: record.signedRef, sequence: record.sequence, revision: record.revision, verifier: "security-fixture" };
+  assert.throws(() => decodeRadicle(record, { lastSequence: 2, signedRefEvidence }), /stale/u);
 }
 
 async function providerOutputIsNonAuthoritativeAndBounded(): Promise<void> {

@@ -4,7 +4,7 @@ import {
   parsePktLines,
   protocolV2Advertisement,
   gitProtocolEnvironment,
-} from "../../packages/Epoch.Git.Proxy/src/protocol-v2";
+} from "@epoch/git-proxy";
 import {
   gitBlob,
   gitCommit,
@@ -12,19 +12,19 @@ import {
   createProjectionManifest,
   projectGitGraph,
   analyzeGitIngestLoss,
-} from "../../packages/Epoch.Git.Proxy/src/deterministic-projection";
-import { GitReceiveQuarantine } from "../../packages/Epoch.Git.Proxy/src/quarantine";
+} from "@epoch/git-proxy";
+import { GitReceiveQuarantine } from "@epoch/git-proxy";
 import {
   REMOTE_HELPER_CAPABILITIES,
   parseRemoteHelperCommand,
   proposalRef,
-} from "../../packages/Epoch.Git.Proxy/src/remote-helper";
+} from "@epoch/git-proxy";
 import {
   COMPATIBILITY_PROFILES,
   graphiteStack,
   gitButlerParallelBranches,
   jjChangeRevision,
-} from "../../packages/Epoch.Git.Proxy/src/compatibility";
+} from "@epoch/git-proxy";
 
 export async function runGitConvergenceFoundationTests(): Promise<void> {
   deterministicObjectsAndProjectionManifest();

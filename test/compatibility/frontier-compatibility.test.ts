@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EpochRepository } from "../../packages/Epoch.Core/src/core";
-import { createProjectionManifest, gitBlob, gitCommit, gitTree, projectGitGraph } from "../../packages/Epoch.Git.Proxy/src/deterministic-projection";
-import { COMPATIBILITY_PROFILES, gitButlerParallelBranches, graphiteStack, jjChangeRevision } from "../../packages/Epoch.Git.Proxy/src/compatibility";
-import { MirrorCoordinator, createMirrorRule } from "../../packages/Epoch.Forge/src/mirror";
+import { EpochRepository } from "@epoch/core";
+import { COMPATIBILITY_PROFILES, createProjectionManifest, gitBlob, gitButlerParallelBranches, gitCommit, gitTree, graphiteStack, jjChangeRevision, projectGitGraph } from "@epoch/git-proxy";
+import { MirrorCoordinator, createMirrorRule } from "@epoch/forge";
 
 async function main(): Promise<void> {
   legacyRepositoryOpensVerifiesAndSynchronizesWithoutRewrite();
