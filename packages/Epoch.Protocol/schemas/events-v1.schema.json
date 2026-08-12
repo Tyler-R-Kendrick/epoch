@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.dev/schemas/protocol/events-v1.json",
+  "title": "Epoch Protocol Events v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "type",
+    "eventId",
+    "revisionId",
+    "body"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "type": {
+      "enum": [
+        "repository.identity",
+        "change.created",
+        "change.revised",
+        "change.superseded",
+        "change.dependency.added",
+        "change.dependency.removed",
+        "stack.defined",
+        "stack.revised",
+        "split.accepted",
+        "review.bundle.created",
+        "review.bundle.revised",
+        "review.recorded",
+        "merge.plan.created",
+        "merge.plan.gate-recorded",
+        "merge.plan.applied",
+        "conflict.recorded",
+        "conflict.resolution.proposed",
+        "conflict.resolution.accepted",
+        "conflict.resolution.rejected",
+        "agent.membership.granted",
+        "agent.membership.revoked",
+        "agent.capability.granted",
+        "agent.capability.revoked",
+        "agent.budget.allocated",
+        "agent.budget.consumed",
+        "projection.created",
+        "projection.revised",
+        "mirror.created",
+        "mirror.synchronized",
+        "promise.created",
+        "promise.fulfilled",
+        "promise.rejected",
+        "swh.snapshot.recorded"
+      ]
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+    },
+    "revisionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+    },
+    "body": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "canonicalId": {
+      "type": "string",
+      "pattern": "^epoch:(repo|principal|key|change|stack|fragment|review|merge-plan|conflict|workspace|operation|grant|budget|projection|mirror|version|session|promise):[a-z2-7]{52}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}
