@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { SignedChangeGraphStore } from "@epoch/core";
+import { EpochRepository, SignedChangeGraphStore } from "@epoch/core";
 import { decodeF3Archive, encodeF3Archive, FORGE_CAPABILITIES } from "@epoch/forge";
 import {
   createCanonicalId,
@@ -47,8 +47,8 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function isRemoteLocator(value: string): boolean {
-  return /^[a-z][a-z0-9+.-]*:/iu.test(value) || value === "origin";
+function isLocalEpochReplica(value: string): boolean {
+  try { return new EpochRepository(resolve(value)).isInitialized(); } catch { return false; }
 }
 
 function commandError(code: ChangeGraphCommandErrorCode, message: string, details?: Readonly<Record<string, unknown>>): Error & { code: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> } {
@@ -220,9 +220,10 @@ function execute(root: string, command: string, args: readonly string[], now: nu
     })();
     const target = parsed.positionals[0];
     if (command === "hydrate") return store.hydratePaths(parsedFilter?.paths);
-    if (command === "backfill" && (target === undefined || target === ".")) return store.backfill();
-    if ((command === "clone" || command === "fetch" || command === "backfill") && target !== undefined && !isRemoteLocator(target)) {
-      return command === "backfill" ? store.backfill() : store.syncFromLocal(target);
+    if (command === "backfill") {
+      if (target === undefined || target === "." || isLocalEpochReplica(target)) return store.backfill();
+    } else if ((command === "clone" || command === "fetch") && target !== undefined && isLocalEpochReplica(target)) {
+      return store.syncFromLocal(target);
     }
     throw commandError("unsupported-capability", "no remote sync adapter is configured",
       { capability: `change-graph-${command}`, filter: parsedFilter ?? null });

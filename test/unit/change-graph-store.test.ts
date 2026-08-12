@@ -14,6 +14,7 @@ export function runChangeGraphStoreTests(): void {
       random: deterministicRandom(1),
     });
 
+    assert.throws(() => store.createChange({ title: "Bad parent", parentRevisionIds: ["parent-1"] }), /existing signed EventId/u);
     const created = store.createChange({ title: "Parser", parentRevisionIds: [] });
     assert.match(created.id, /^epoch:change:/u);
     parseCanonicalId(created.id, "change");
@@ -101,6 +102,8 @@ export function runChangeGraphStoreTests(): void {
     assert.ok(repository.events().some((event) => event.type === "software-heritage.mapping"));
     assert.deepEqual(repository.verify(), []);
     assert.equal(repository.events().some((event) => event.type === "repository.identity"), true);
+    assert.equal(JSON.stringify(repository.events().map((event) => event.toJSON())).includes("privateKey"), false);
+    assert.ok(store.listRevisions().some((revision) => revision.data.changeId === created.id));
     rmSync(peer, { recursive: true, force: true });
   } finally {
     rmSync(root, { recursive: true, force: true });

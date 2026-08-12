@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { createInterface } from "node:readline";
-import { EpochRepository } from "@epoch/core";
 import {
   parseRemoteHelperCommand,
   REMOTE_HELPER_CAPABILITIES,
@@ -37,15 +36,6 @@ export async function runGitRemoteEpoch(io: RemoteHelperIO = {
         continue;
       }
       if (command.command === "list") {
-        const repoRoot = process.env.EPOCH_REPO;
-        if (repoRoot !== undefined) {
-          const repository = new EpochRepository(repoRoot);
-          if (repository.isInitialized()) {
-            for (const head of repository.heads()) {
-              io.output.write(`${head} refs/epoch/heads/${head.slice(0, 12)}\n`);
-            }
-          }
-        }
         io.output.write("\n");
         continue;
       }

@@ -70,6 +70,10 @@ export const EventType = {
   mergePlanCreated: "merge.plan.created",
   mergePlanApplied: "merge.plan.applied",
   conflictRecorded: "conflict.recorded",
+  agentBudgetAllocated: "agent.budget.allocated",
+  mirrorDefined: "mirror.defined",
+  mirrorRun: "mirror.run",
+  softwareHeritageMapping: "software-heritage.mapping",
 } as const;
 
 export const IntentStatus = {
