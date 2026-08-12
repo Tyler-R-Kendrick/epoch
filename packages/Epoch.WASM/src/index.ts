@@ -10,3 +10,4 @@ export {
 } from "@epoch/core";
 export { EpochWASMGit, EpochWasmGit, EpochWasmGitUnsupportedOperationError } from "./git";
 export type { EpochWasmGitCommandResult } from "./git";
+export * from "./frontier";
