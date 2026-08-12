@@ -112,10 +112,13 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 - `op`, `graph`, `split`, `bundle`, `review record`, `merge-plan`, and
   `conflict` expose local operation recovery, dependency graphs, exact split,
   exact review/merge, and durable resolution workflows.
-- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` expose local replica
-  sync/hydration. Locators that are not initialized Epoch repositories fail closed.
+- `workspace`, `clone`, `fetch`, `hydrate`, and `backfill` sync local Epoch
+  replicas, HTTP gossip peers, and Git locators, then hydrate or report
+  promised objects. Named remotes persist in `.epoch/remotes-v1.json`.
 - `mirror`, `principal`, `agent`, `forge`, `swhid`, `archive`, and
   `interop doctor` inspect interop and authority without printing credentials.
+  `archive software-heritage request` submits public HTTPS origins through
+  Save Code Now HTTP.
 
 Change Graph commands persist signed protocol events. A leftover
 `.epoch/change-graph-v1.json` file is ignored.

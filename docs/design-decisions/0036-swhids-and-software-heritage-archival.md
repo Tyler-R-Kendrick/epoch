@@ -1,6 +1,6 @@
 # ADR-0036: SWHIDs And Software Heritage Archival
 
-Status: Accepted and implemented with injected remote transport
+Status: Accepted and implemented with injected remote transport; CLI ships a default HTTP Save Code Now adapter
 
 ## Context
 
@@ -17,6 +17,11 @@ archive confirmation.
 - `SaveCodeNowClient` accepts only public visibility and public HTTPS origins.
   Its injected transport retries bounded server failures and reports confirmed
   success only for `succeeded` plus `full`, with matching origin.
+- The Change Graph CLI ships a default HTTP adapter to
+  `https://archive.softwareheritage.org/api/1/origin/save/`. Operators override
+  the endpoint with `EPOCH_SWH_SAVE_URL` (tests use a loopback mock). Origin
+  SSRF checks still deny localhost, link-local, and private networks. Success
+  is recorded as `software-heritage.archive-requested` with the remote status.
 - SWHIDs and archive receipts are external evidence, not Epoch object identity
   or authority.
 
@@ -25,7 +30,8 @@ archive confirmation.
 Private/shared origins fail before transport. No credential is placed in an
 identifier. Operators can export Git/F3 and use Software Heritage independently,
 or omit the transport entirely. The package does not claim that a local SWHID
-is archived, nor ship a default live service client.
+is archived. The library client stays injected; only the CLI ships a default
+HTTP adapter, and it still requires a remote `succeeded`/`full` response.
 
 ## Revisit Criteria
 

@@ -32,21 +32,18 @@ export interface CliIO {
 const processCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
 class CliHandledError extends Error {}
 
-export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): number {
+export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): number | Promise<number> {
   try {
-    // Bridge async CLI commands (gossip/network) into the existing sync entrypoint.
     const result = run(argv, io);
     if (result !== undefined && typeof (result as Promise<void>).then === "function") {
-      let exitCode = 0;
-      (result as Promise<void>)
-        .catch((error: unknown) => {
+      return (result as Promise<void>).then(
+        () => 0,
+        (error: unknown) => {
+          if (error instanceof CliHandledError) return 1;
           io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-          exitCode = 1;
-        })
-        .finally(() => {
-          if (require.main === module) process.exitCode = exitCode;
-        });
-      return 0;
+          return 1;
+        },
+      );
     }
     return 0;
   } catch (error) {
@@ -75,11 +72,11 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
   if (isChangeGraphInvocation(parsed.command, parsed.args)) {
     const json = parsed.args.includes("--json");
     const args = parsed.args.filter((argument) => argument !== "--json");
-    const envelope = executeChangeGraphCommand(parsed.repo, [parsed.command, ...args]);
-    const output = formatChangeGraphCommandEnvelope(envelope, json);
-    (envelope.ok ? io.stdout : io.stderr).write(`${output}\n`);
-    if (!envelope.ok) throw new CliHandledError(output);
-    return;
+    return executeChangeGraphCommand(parsed.repo, [parsed.command, ...args]).then((envelope) => {
+      const output = formatChangeGraphCommandEnvelope(envelope, json);
+      (envelope.ok ? io.stdout : io.stderr).write(`${output}\n`);
+      if (!envelope.ok) throw new CliHandledError(output);
+    });
   }
 
   const repo = new EpochRepository(parsed.repo);
@@ -682,7 +679,14 @@ function writeErrorLine(io: CliIO, message: string): void {
 }
 
 if (require.main === module) {
-  process.exitCode = main();
+  const result = main();
+  if (typeof result === "object" && result !== null && "then" in result) {
+    void result.then((code) => {
+      process.exitCode = code;
+    });
+  } else {
+    process.exitCode = result;
+  }
 }
 
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";

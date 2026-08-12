@@ -678,7 +678,7 @@ When("I run unsupported Epoch Git command {string}", function (command: string) 
 });
 
 When("I run the Epoch CLI with arguments:", function (table: DataTable) {
-  runCli(epochCliMain, ["--repo", state.workspace, ...argsFromTable(table)]);
+  return runCli(epochCliMain, ["--repo", state.workspace, ...argsFromTable(table)]);
 });
 
 When("I run the Epoch CLI with remembered argument {string}:", function (name: string, table: DataTable) {
@@ -688,19 +688,19 @@ When("I run the Epoch CLI with remembered argument {string}:", function (name: s
   const resolved = args.includes("__REMEMBERED__")
     ? args.map((arg) => arg === "__REMEMBERED__" ? remembered : arg)
     : [...args, remembered];
-  runCli(epochCliMain, ["--repo", state.workspace, ...resolved]);
+  return runCli(epochCliMain, ["--repo", state.workspace, ...resolved]);
 });
 
 When("I run the Epoch CLI with Git repository argument:", function (table: DataTable) {
   assert.ok(state.gitRepo);
-  runCli(epochCliMain, ["--repo", state.workspace, ...argsFromTable(table), state.gitRepo]);
+  return runCli(epochCliMain, ["--repo", state.workspace, ...argsFromTable(table), state.gitRepo]);
 });
 
 When("I run the Epoch CLI export into a fresh Git repository", function () {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-cli-export-"));
   state.createdDirs.push(workspace);
   state.gitExportRepo = workspace;
-  runCli(epochCliMain, ["--repo", state.workspace, "export", workspace]);
+  return runCli(epochCliMain, ["--repo", state.workspace, "export", workspace]);
 });
 
 When("I run the Epoch Git CLI with arguments:", function (table: DataTable) {
@@ -1026,7 +1026,7 @@ function argsFromTable(table: DataTable): string[] {
   });
 }
 
-function runCli(main: (argv: string[], io: CliIO) => number, argv: string[], cwd = state.workspace): void {
+function runCli(main: (argv: string[], io: CliIO) => number | Promise<number>, argv: string[], cwd = state.workspace): void | Promise<void> {
   let stdout = "";
   let stderr = "";
   const originalCwd = process.cwd();
@@ -1034,13 +1034,25 @@ function runCli(main: (argv: string[], io: CliIO) => number, argv: string[], cwd
     stdout: { write: (message) => { stdout += message; } },
     stderr: { write: (message) => { stderr += message; } },
   };
-  try {
-    process.chdir(cwd);
-    state.cliExitCode = main(argv, io);
-  } finally {
+  process.chdir(cwd);
+  const finish = (exitCode?: number): void => {
+    if (exitCode !== undefined) state.cliExitCode = exitCode;
     process.chdir(originalCwd);
     state.cliStdout = stdout;
     state.cliStderr = stderr;
+  };
+  try {
+    const result = main(argv, io);
+    if (typeof result === "object" && result !== null && "then" in result) {
+      return result.then((exitCode) => finish(exitCode), (error: unknown) => {
+        finish();
+        throw error;
+      });
+    }
+    finish(result);
+  } catch (error) {
+    finish();
+    throw error;
   }
 }
 

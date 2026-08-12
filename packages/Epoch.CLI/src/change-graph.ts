@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { EpochRepository, SignedChangeGraphStore } from "@epoch/core";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { EpochRepository, parseSnapshot, SignedChangeGraphStore } from "@epoch/core";
 import { decodeF3Archive, encodeF3Archive, FORGE_CAPABILITIES } from "@epoch/forge";
 import {
   createCanonicalId,
@@ -49,6 +51,132 @@ function stable(value: unknown): string {
 
 function isLocalEpochReplica(value: string): boolean {
   try { return new EpochRepository(resolve(value)).isInitialized(); } catch { return false; }
+}
+
+function remotesPath(root: string): string { return join(resolve(root), ".epoch", "remotes-v1.json"); }
+function readRemotes(root: string): Record<string, string> {
+  const path = remotesPath(root);
+  if (!existsSync(path)) return {};
+  const value = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+}
+function writeRemote(root: string, name: string, url: string): void {
+  const remotes = { ...readRemotes(root), [name]: url };
+  mkdirSync(join(resolve(root), ".epoch"), { recursive: true });
+  writeFileSync(remotesPath(root), `${JSON.stringify(remotes)}\n`);
+}
+
+function classifyLocator(value: string): { readonly kind: "epoch-local" | "http" | "git"; readonly url: string } {
+  if (isLocalEpochReplica(value)) return { kind: "epoch-local", url: resolve(value) };
+  if (/^https?:\/\//iu.test(value)) return { kind: "http", url: value };
+  if (/^git@/u.test(value)) {
+    const matched = /^git@([^:]+):(.+)$/u.exec(value);
+    if (matched) return { kind: "git", url: `https://${matched[1]}/${matched[2]}` };
+  }
+  if (/^ssh:\/\//iu.test(value) || value.startsWith("file:") || value.endsWith(".git")) return { kind: "git", url: value };
+  return { kind: "git", url: value };
+}
+
+async function syncFromLocator(store: SignedChangeGraphStore, locator: string): Promise<unknown> {
+  const configured = readRemotes(store.repository.root)[locator];
+  const resolved = classifyLocator(configured ?? locator);
+  if (resolved.kind === "epoch-local") return store.syncFromLocal(resolved.url);
+  if (resolved.kind === "http") {
+    const snapshot = store.exportSnapshot();
+    const remote = await requestJson("POST", gossipUrl(resolved.url), snapshot);
+    if (remote.status < 200 || remote.status >= 300) {
+      throw commandError("external-error", `gossip peer request failed (${remote.status})`, { remote: resolved.url });
+    }
+    const result = store.applySnapshot(parseSnapshot(remote.body));
+    writeRemote(store.repository.root, locator === configured ? locator : "origin", resolved.url);
+    return { ...result, remote: resolved.url };
+  }
+  const checkout = mkdtempSync(join(tmpdir(), "epoch-git-clone-"));
+  try {
+    execFileSync("git", ["clone", "--depth", "1", resolved.url, checkout], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 15_000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes -o ConnectTimeout=3" },
+    });
+    const ingested = store.ingestGit(checkout, resolved.url);
+    writeRemote(store.repository.root, locator === configured ? locator : "origin", resolved.url);
+    return ingested;
+  } catch (error) {
+    throw commandError("external-error", error instanceof Error ? error.message : "git clone failed", { remote: resolved.url });
+  } finally {
+    rmSync(checkout, { recursive: true, force: true });
+  }
+}
+
+function gossipUrl(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/$/u, "");
+  return trimmed.endsWith("/epoch/gossip") || trimmed.endsWith("/gossip") ? trimmed : `${trimmed}/epoch/gossip`;
+}
+
+async function requestJson(method: string, url: string, body?: unknown): Promise<{ readonly status: number; readonly body: unknown }> {
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: body === undefined
+        ? { accept: "application/json", connection: "close" }
+        : { "content-type": "application/json", accept: "application/json", connection: "close" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await response.text();
+    let parsed: unknown = text;
+    try { parsed = JSON.parse(text); } catch { /* keep text */ }
+    return { status: response.status, body: parsed };
+  } catch (error) {
+    throw commandError("external-error", error instanceof Error ? error.message : "remote request failed", { url });
+  }
+}
+
+function assertPublicHttpsOrigin(origin: string): void {
+  let url: URL;
+  try { url = new URL(origin); } catch { throw commandError("invalid-input", "invalid archive origin"); }
+  if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname.endsWith(".local") || /^(127\.|10\.|192\.168\.|169\.254\.)/u.test(url.hostname)) {
+    throw commandError("auth-denied", "local or non-HTTPS archive origin denied");
+  }
+}
+
+async function requestSoftwareHeritage(origin: string): Promise<{ readonly state: "succeeded" | "pending" | "failed"; readonly requestId: string }> {
+  assertPublicHttpsOrigin(origin);
+  const endpoint = process.env.EPOCH_SWH_SAVE_URL ?? "https://archive.softwareheritage.org/api/1/origin/save/";
+  const response = await requestJson("POST", endpoint, { origin_url: origin });
+  const body = response.body && typeof response.body === "object" ? response.body as Record<string, unknown> : {};
+  const requestId = typeof body.id === "string" ? body.id : `swh-save-${shaLike(origin)}`;
+  if (response.status >= 200 && response.status < 300 && body.save_task_status === "succeeded" && body.visit_status === "full") {
+    return { state: "succeeded", requestId };
+  }
+  if (response.status < 500 && body.save_task_status === "pending") return { state: "pending", requestId };
+  return { state: "failed", requestId };
+}
+
+function shaLike(value: string): string {
+  return Buffer.from(value).toString("hex").slice(0, 16);
+}
+
+function interopReportSync(): unknown {
+  const exec = (command: string, args: readonly string[]): string =>
+    execFileSync(command, [...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
+    }).trim();
+  const probe = (id: string, command: string, args: readonly string[]) => {
+    try { return { id, status: "supported", version: exec(command, args).split(/\r?\n/u)[0]!.slice(0, 160) }; }
+    catch { return { id, status: "unsupported", reason: `${id} executable was not found` }; }
+  };
+  return {
+    schemaVersion: 1,
+    git: probe("git", "git", ["--version"]),
+    optionalTools: [probe("jj", "jj", ["--version"]), probe("hg", "hg", ["--version", "--quiet"]), probe("rift", "rift", ["--version"])],
+    copyOnWrite: { id: "copy-on-write", status: "supported", mode: "probe-deferred" },
+    adapters: [{ id: "forge-f3", status: "supported", mode: "codec-only" }],
+    swhid: { id: "swhid", status: "supported", version: "1.2" },
+    credentialsRedacted: true,
+  };
 }
 
 function commandError(code: ChangeGraphCommandErrorCode, message: string, details?: Readonly<Record<string, unknown>>): Error & { code: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> } {
@@ -104,13 +232,13 @@ function gitObjectType(value: string | undefined): GitObjectType {
   throw commandError("invalid-input", "Git object type must be blob, tree, commit, or tag");
 }
 
-export function executeChangeGraphCommand(root: string, argv: readonly string[], now = Date.now(), dependencies: ChangeGraphCommandDependencies = {}): ChangeGraphCommandEnvelope {
+export async function executeChangeGraphCommand(root: string, argv: readonly string[], now = Date.now(), dependencies: ChangeGraphCommandDependencies = {}): Promise<ChangeGraphCommandEnvelope> {
   const command = argv[0] ?? "";
   try {
     if (!isChangeGraphCommand(command) && command !== "review" && command !== "hydrate") {
       throw commandError("invalid-command", `unsupported change graph command: ${command || "empty"}`);
     }
-    const result = execute(root, command, argv.slice(1), now, dependencies);
+    const result = await execute(root, command, argv.slice(1), now, dependencies);
     return { schemaVersion: 1, ok: true, command: argv.join(" "), code: "ok", data: result };
   } catch (error) {
     const known = error as Error & { code?: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> };
@@ -119,7 +247,7 @@ export function executeChangeGraphCommand(root: string, argv: readonly string[],
   }
 }
 
-function execute(root: string, command: string, args: readonly string[], now: number, dependencies: ChangeGraphCommandDependencies): unknown {
+async function execute(root: string, command: string, args: readonly string[], now: number, dependencies: ChangeGraphCommandDependencies): Promise<unknown> {
   const parsed = parse(args); const action = parsed.positionals[0];
   const store = SignedChangeGraphStore.open(resolve(root), { random: dependencies.random, now });
   const expected = stringOption(parsed, "expected-revision");
@@ -195,11 +323,9 @@ function execute(root: string, command: string, args: readonly string[], now: nu
   if (command === "conflict") {
     if (action === "list") return store.listConflicts();
     if (action === "show") return store.showConflict(required(parsed.positionals[1], "conflict ID"));
-    if (action === "propose-ai") throw commandError("unsupported-capability", "no AI conflict-resolution adapter is configured",
-      { capability: "ai-conflict-resolution" });
-    if (action === "resolve" || action === "accept" || action === "reject") {
-      throw commandError("not-found", `record not found: ${parsed.positionals[1] ?? "missing"}`);
-    }
+    if (action === "propose-ai") return store.proposeAiConflict(parsed.positionals[1]);
+    if (action === "resolve" || action === "accept") return store.decideConflict(required(parsed.positionals[1], "conflict ID"), "accepted");
+    if (action === "reject") return store.decideConflict(required(parsed.positionals[1], "conflict ID"), "rejected");
   }
   if (command === "workspace") {
     if (action === "create") {
@@ -220,13 +346,10 @@ function execute(root: string, command: string, args: readonly string[], now: nu
     })();
     const target = parsed.positionals[0];
     if (command === "hydrate") return store.hydratePaths(parsedFilter?.paths);
-    if (command === "backfill") {
-      if (target === undefined || target === "." || isLocalEpochReplica(target)) return store.backfill();
-    } else if ((command === "clone" || command === "fetch") && target !== undefined && isLocalEpochReplica(target)) {
-      return store.syncFromLocal(target);
+    if (command === "backfill") return store.backfill();
+    if (command === "clone" || command === "fetch") {
+      return await syncFromLocator(store, required(target, `${command} locator`));
     }
-    throw commandError("unsupported-capability", "no remote sync adapter is configured",
-      { capability: `change-graph-${command}`, filter: parsedFilter ?? null });
   }
   if (command === "mirror") {
     if (action === "add") return store.addMirror({ remoteRef: required(stringOption(parsed, "remote") ?? parsed.positionals[1], "remote ref") });
@@ -281,11 +404,20 @@ function execute(root: string, command: string, args: readonly string[], now: nu
       return store.recordHeritageMapping(required(parsed.positionals[2], "SWHID"));
     }
     if (action === "software-heritage" && parsed.positionals[1] === "request") {
-      return store.requestHeritageArchive({ origin: parsed.positionals[2], visibility: stringOption(parsed, "visibility") });
+      store.assertPublicArchive(stringOption(parsed, "visibility"));
+      const origin = required(parsed.positionals[2], "origin");
+      const result = await requestSoftwareHeritage(origin);
+      return store.recordArchiveRequest({ origin, status: result.state === "succeeded" ? "succeeded" : result.state === "pending" ? "pending" : "failed", requestId: result.requestId });
     }
-    throw commandError("unsupported-capability", "archive adapter is not configured", { capability: "archive" });
+    if (action === "create") {
+      store.assertPublicArchive("public");
+      const origin = required(stringOption(parsed, "origin") ?? parsed.positionals[1], "origin");
+      const result = await requestSoftwareHeritage(origin);
+      return store.recordArchiveRequest({ origin, status: result.state === "succeeded" ? "succeeded" : result.state === "pending" ? "pending" : "failed", requestId: result.requestId });
+    }
+    throw commandError("invalid-command", `invalid archive action: ${action ?? "missing"}`);
   }
-  if (command === "interop") throw commandError("unsupported-capability", "run through the Node interop doctor adapter", { capability: "interop-doctor" });
+  if (command === "interop") return interopReportSync();
   throw commandError("invalid-command", `invalid ${command} action: ${action ?? "missing"}`);
 }
 

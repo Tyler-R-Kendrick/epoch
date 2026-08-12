@@ -21,7 +21,11 @@ import {
   remoteHelperCapabilities,
   runGitRemoteEpoch,
 } from "@epoch/git-proxy";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Readable } from "node:stream";
+import { EpochRepository } from "@epoch/core";
 import {
   COMPATIBILITY_PROFILES,
   graphiteStack,
@@ -98,8 +102,23 @@ async function remoteHelperAndCompatibilityProfilesAreExplicit(): Promise<void> 
       remoteUrl: "epoch://local",
     });
     assert.equal(code, 1);
-    assert.match(output.join(""), /authenticated Epoch endpoint/u);
+    assert.match(output.join(""), /EPOCH_REPO is required/u);
   });
+  const repoRoot = mkdtempSync(join(tmpdir(), "epoch-remote-helper-"));
+  try {
+    EpochRepository.openOrCreate(repoRoot, { author: "epoch-test" });
+    const listed: string[] = [];
+    const listedCode = await runGitRemoteEpoch({
+      input: Readable.from(["capabilities\n", "list\n", "quit\n"]),
+      output: { write(chunk) { listed.push(chunk); } },
+      remoteUrl: "epoch://local",
+      env: { ...process.env, EPOCH_REPO: repoRoot },
+    });
+    assert.equal(listedCode, 0);
+    assert.match(listed.join(""), /refs\/heads\/main/u);
+  } finally {
+    rmSync(repoRoot, { recursive: true, force: true });
+  }
   assert.throws(() => proposalRef("../escape"), /proposal/i);
   assert.equal(jjChangeRevision("change", "header", "body-a"), jjChangeRevision("change", "header", "body-b"));
   assert.deepEqual(graphiteStack(["one", "two"]).map((item) => item.parent), [null, "one"]);

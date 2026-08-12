@@ -208,7 +208,7 @@ signed event IDs; `epoch:revision:*` is not a valid canonical ID kind.
 | `log --revisions REVSET` | Parse and evaluate the canonical browser-safe revset against the available revision graph. |
 | `op` | Inspect the local operation DAG, undo an operation, or restore a prior local state. Operation history is local-only. |
 | `graph` | Create, show, add, remove, order, restack, and submit dependency-ordered Changes. |
-| `split` | Propose or inspect a JSON split plan, then accept/reject it. Accept fails closed on an empty plan. Byte-exact reconstruction is required before a `split.accepted` event is written; that event is not emitted yet. |
+| `split` | Propose or inspect a JSON split plan, then accept/reject it. Accept reconstructs fragments and appends `split.accepted`. Empty plans auto-group one fragment per group. |
 | `bundle` | Create, show, or materialize a Review Bundle bound to existing signed revision Event IDs. Digests hash the selected revision set. |
 | `review record` | Record review evidence against an existing Change or Review Bundle. |
 | `merge-plan` | Plan or apply a merge of existing signed revisions. Apply recomputes the selected-revision digest and refuses unresolved conflicts or a moved/missing set. |
@@ -224,12 +224,12 @@ ordering is deterministic.
 | Command group | Shipped operations and limitations |
 |---|---|
 | `workspace` | Create, list, inspect, capture, and safely remove memory/filesystem/browser workspaces. Providers report actual residency, materialization, storage, and execution modes. |
-| `clone`, `fetch`, `hydrate`, `backfill` | Local initialized Epoch replicas sync through `syncFrom`; `hydrate` materializes virtual checkout paths; `backfill` reports promised objects. Any locator that is not a local Epoch repository returns `unsupported-capability`. |
+| `clone`, `fetch`, `hydrate`, `backfill` | Local Epoch replicas use `syncFrom`. HTTP locators use Epoch gossip. Git locators (`git@`, `ssh://`, `*.git`, `file:`) clone with Git and ingest. Named remotes resolve through `.epoch/remotes-v1.json`. |
 | `mirror` | Add, list, inspect, and record a run for a signed mirror definition. Credentials stay opaque; no hosted forge transport is implied. |
 | `principal`, `agent` | Inspect capabilities, allocate/status signed budget units, and explain authorization. Missing grants deny. |
 | `forge` | Inspect capabilities and import/export public records through loss-aware codecs. ForgeFed transport is `none`. |
 | `swhid` | Inspect, compute, and verify SWHIDs locally. |
-| `archive` | `archive software-heritage map` records a local SWHID mapping. Live Save Code Now still requires an injected transport. |
+| `archive` | `archive software-heritage map` records a local SWHID mapping. `request` submits through Save Code Now HTTP (`EPOCH_SWH_SAVE_URL` overrides the endpoint) and records the signed status. Private origins are denied. |
 | `interop doctor` | Probe Git/protocol, optional jj/hg/Rift commands, CoW support, adapter manifests, and SWHID support without printing credentials. |
 
 `--json` output is deterministic. Stable error codes are `invalid-command`,

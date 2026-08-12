@@ -84,7 +84,7 @@ async function main(): Promise<void> {
   runProtocolRequiredEventTests();
   runChangeGraphBrowserWrapperTests();
   await runChangeGraphCliTests();
-  runNomenclatureContractTests();
+  await runNomenclatureContractTests();
   runCodeOperationContextTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
