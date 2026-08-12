@@ -18,6 +18,7 @@ import {
   REMOTE_HELPER_CAPABILITIES,
   parseRemoteHelperCommand,
   proposalRef,
+  remoteHelperCapabilities,
 } from "@epoch/git-proxy";
 import {
   COMPATIBILITY_PROFILES,
@@ -86,6 +87,7 @@ function remoteHelperAndCompatibilityProfilesAreExplicit(): void {
     command: "fetch", oid: "deadbeef", ref: "refs/heads/main",
   });
   assert.equal(proposalRef("change-1"), "refs/epoch/for/change-1");
+  assert.deepEqual(remoteHelperCapabilities(), [...REMOTE_HELPER_CAPABILITIES]);
   assert.throws(() => proposalRef("../escape"), /proposal/i);
   assert.equal(jjChangeRevision("change", "header", "body-a"), jjChangeRevision("change", "header", "body-b"));
   assert.deepEqual(graphiteStack(["one", "two"]).map((item) => item.parent), [null, "one"]);

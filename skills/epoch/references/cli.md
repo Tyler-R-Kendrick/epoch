@@ -117,7 +117,8 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 - `mirror`, `principal`, `agent`, `forge`, `swhid`, `archive`, and
   `interop doctor` inspect interop and authority without printing credentials.
 
-The local reference host is `.epoch/change-graph-v1.json`, not the canonical signed event log.
+Change Graph commands persist signed protocol events. A leftover
+`.epoch/change-graph-v1.json` file is ignored.
 JSON failures use stable codes including `invalid-input`, `stale-revision`,
 `auth-denied`, `unsupported-capability`, and `conflict`. See the
 [public CLI reference](../../../docs/cli.md) for exact subcommands and limits.

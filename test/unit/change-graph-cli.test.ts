@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, interopDoctor, isChangeGraphCommand, isChangeGraphInvocation, main } from "@epoch/cli";
+import { EpochRepository } from "@epoch/core";
 import { assertRevisionId, parseCanonicalId, type CanonicalIdKind } from "@epoch/protocol";
 
 export async function runChangeGraphCliTests(): Promise<void> {
@@ -51,7 +52,7 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(executeChangeGraphCommand(root, ["bundle", "materialize", (bundle.data as { id: string }).id]).ok, true);
     const review = executeChangeGraphCommand(root, ["review", "record", change.id, "--state", "approved"]);
     assert.equal(review.ok, true);
-    assert.match((review.data as { id: string }).id, /^event-/u);
+    assert.match((review.data as { id: string }).id, /^[a-f0-9]{64}$/u);
     const merge = executeChangeGraphCommand(root, ["merge-plan", "plan", "target", "revision-a"]);
     assert.equal(executeChangeGraphCommand(root, ["merge-plan", "inspect", (merge.data as { id: string }).id]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["merge-plan", "apply", (merge.data as { id: string }).id]).ok, true);
@@ -75,7 +76,7 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(executeChangeGraphCommand(root, ["agent", "capabilities"]).ok, true);
     assert.equal(executeChangeGraphCommand(root, ["principal", "budget", "alice"]).code, "unsupported-capability");
     assert.equal(executeChangeGraphCommand(root, ["principal", "auth-explain", "alice"]).code, "auth-denied");
-    assert.equal(executeChangeGraphCommand(root, ["forge", "capabilities"]).code, "unsupported-capability");
+    assert.equal(executeChangeGraphCommand(root, ["forge", "capabilities"]).ok, true);
     const emptyBlob = join(root, "empty"); writeFileSync(emptyBlob, "");
     const computed = executeChangeGraphCommand(root, ["swhid", "compute", "blob", emptyBlob]);
     assert.equal((computed.data as { swhid: string }).swhid, "swh:1:cnt:e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
@@ -113,7 +114,7 @@ export async function runChangeGraphCliTests(): Promise<void> {
       revisionId: () => assertRevisionId(`signed-event-${++revisionSequence}`),
     };
     const injectedRevision = executeChangeGraphCommand(root, ["new", "--message", "canonical"], 200, dependencies);
-    assert.equal((injectedRevision.data as { id: string }).id, "signed-event-1");
+    assert.match((injectedRevision.data as { id: string }).id, /^[a-f0-9]{64}$/u);
     assert.doesNotMatch((injectedRevision.data as { id: string }).id, /^epoch:revision:/u);
     const canonicalRecords = [
       executeChangeGraphCommand(root, ["change", "create", "Canonical"], 201, dependencies),
@@ -151,19 +152,15 @@ export async function runChangeGraphCliTests(): Promise<void> {
     assert.equal(jsonAuth.stdout, "");
     const jsonUnsupported = invoke(["forge", "export", "--json"]);
     assert.equal(jsonUnsupported.exitCode, 1);
-    assert.equal(JSON.parse(jsonUnsupported.stderr).code, "unsupported-capability");
+    assert.equal(JSON.parse(jsonUnsupported.stderr).code, "invalid-input");
     assert.equal(jsonUnsupported.stdout, "");
+    const exported = executeChangeGraphCommand(root, ["forge", "export-f3", "--objects", "[]"]);
+    assert.equal(exported.ok, true);
 
-    const statePath = join(root, ".epoch", "change-graph-v1.json");
-    for (const malformed of [
-      { schemaVersion: 2, sequence: 0, records: {}, operations: [] },
-      { schemaVersion: 1, sequence: 0.5, records: {}, operations: [] },
-      { schemaVersion: 1, sequence: 0, records: "invalid", operations: [] },
-      { schemaVersion: 1, sequence: 0, records: {}, operations: {} },
-    ]) {
-      writeFileSync(statePath, JSON.stringify(malformed));
-      assert.equal(executeChangeGraphCommand(root, ["op", "log"]).code, "invalid-input");
-    }
+    const leftover = join(root, ".epoch", "change-graph-v1.json");
+    writeFileSync(leftover, "{\"schemaVersion\":2}");
+    assert.equal(executeChangeGraphCommand(root, ["op", "log"]).ok, true);
+    assert.deepEqual(new EpochRepository(root).verify(), []);
   } finally { rmSync(root, { recursive: true, force: true }); }
 
   const report = await interopDoctor({

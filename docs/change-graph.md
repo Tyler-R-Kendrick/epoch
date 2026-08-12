@@ -17,11 +17,14 @@ Canonical IDs use `epoch:change-graph:*` and `epoch:review-bundle:*`.
 `RevisionId` is the signed event ID. Pre-release `stack`, `review`,
 `epoch:change:legacy:*`, and `epoch:revision:*` identifiers fail closed.
 
-The CLI uses `.epoch/change-graph-v1.json` as a local reference host for command
-and browser-contract conformance. It is not the signed repository log and does
-not claim crash-recoverable mutation. Recoverable all-old/all-new publication is
+The CLI persists Change, Change Graph, Review Bundle, review, and Merge Plan
+facts as signed events through `SignedChangeGraphStore` and
+`appendWithParents()`. Local operation undo/restore stays in
+`.epoch/operations/`. Split proposals and workspace handles remain local drafts
+until they have a protocol event. Recoverable all-old/all-new publication is
 provided by `QuarantineTransaction`; a capability declaration must not promote
-weaker callback or in-memory behavior as atomic.
+weaker callback or in-memory behavior as atomic. A leftover
+`.epoch/change-graph-v1.json` file is ignored.
 
 Epoch records local Operations for command recovery, signed Code Operations
 for explicit CRDT edits, and Fragments/Revisions for portable logical history.

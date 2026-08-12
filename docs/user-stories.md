@@ -20,6 +20,7 @@ Acceptance criteria:
 - Revision heads and superseded revisions retain stable identities.
 - Partial merge is dependency-closed; squash preserves source provenance.
 - Stale review/gate/target evidence blocks merge with a typed explanation.
+- `epoch change create` appends a signed `change.created` event that `epoch verify` accepts.
 
 ### DEV-004: Work With Partial Data Honestly
 

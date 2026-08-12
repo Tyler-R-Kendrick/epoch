@@ -410,9 +410,9 @@ adapters:
 - `@epoch/software-heritage` parses and computes SWHID v1.2 identifiers and
   exposes an injected Save Code Now client for public origins.
 
-Pre-release compatibility identifiers and aliases are not supported. The CLI's
-`.epoch/change-graph-v1.json` is a local reference command host rather than the
-canonical signed repository log.
+Pre-release compatibility identifiers and aliases are not supported. Change
+Graph CLI commands persist signed protocol events. A leftover
+`.epoch/change-graph-v1.json` file is ignored and is not authoritative.
 
 Capability manifests are authoritative. The Git service is a bounded
 protocol-v2 subset, ForgeFed reports `transport: none`, F3 is a codec rather

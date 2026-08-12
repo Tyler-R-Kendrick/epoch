@@ -114,6 +114,7 @@ decisions, operations, or contribution workflow.
 | [Contributing](../CONTRIBUTING.md) | Coding workflow, testing expectations, and pull request checklist. |
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
 | [Change Graph Convergence State](plans/change-graph-convergence/sdlc-state.md) | Historical implementation record for stable Changes, projections, synchronization, interoperability, authority, and validation. |
+| [Change Graph Signed Events State](plans/change-graph-signed-events/sdlc-state.md) | Follow-up record for persisting Change Graph CLI commands as signed protocol events. |
 | [Nightboard Startup And HoBo Workbench Plan](plans/nightboard-startup-hobo/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, deterministic HoBo authoring, next-action guidance, and focus expansion. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |

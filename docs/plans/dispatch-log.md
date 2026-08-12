@@ -154,3 +154,13 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | An initial browser cleanup race stopped coverage before frontier tests, and closeout CI exposed redundant Gossip Pact execution inside the unit runner; sequential teardown/cleared timers and a single dedicated Pact execution boundary fixed both root causes. |
 | Notes | All GitHub quality jobs, Vercel, local `npm run verify`, clean Node 22 coverage, conformance, fuzz, compatibility, security, Pact, accessibility, and Nightboard parity/fault/e2e gates passed. CodeRabbit skipped the 155-file diff because its plan limit is 100 files; independent review found and resolved eight trust/fidelity defects. Existing unrelated untracked work was preserved. |
+
+## 2026-08-12 — Change Graph signed event store
+
+| Field | Value |
+|---|---|
+| Initiative | [`change-graph-signed-events`](change-graph-signed-events/sdlc-state.md) |
+| Backend | Isolated worktree from `origin/main` `0a41f10`; original checkout dirty community-search work left untouched |
+| Branch | `sdlc/change-graph-signed-store-01` |
+| Result | **success** (local gates) |
+| Notes | Close the #116/#118 honesty gap: CLI persists signed protocol events; leftover JSON host is ignored; forge codecs are called; `git-remote-epoch` is installed. |

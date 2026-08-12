@@ -39,6 +39,29 @@ Feature: CLI and WASM integration surfaces
     And the CLI output contains "\"ready\": true"
 
   @persona.github_open_source_contributor
+  Scenario: Contributor creates a stable Change as a signed revision
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | change |
+      | create |
+      | Parser |
+    Then the CLI exits with code 0
+    And the CLI output contains "epoch:change:"
+    When I run the Epoch CLI with arguments:
+      | events |
+    Then the CLI exits with code 0
+    And the CLI output contains "change.created"
+    When I run the Epoch CLI with arguments:
+      | verify |
+    Then the CLI exits with code 0
+    And the CLI output contains "ok"
+
+  @persona.github_open_source_contributor
   Scenario: CLI policy, view, sync, Git import/export, and DR commands are covered
     Given a new workspace
     When I run the Epoch CLI with arguments:

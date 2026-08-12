@@ -432,9 +432,10 @@ canonical object ID. Protocol also owns the browser-safe SWHID parser used by
 accept the same kinds, qualifiers, percent encoding, and malformed-input rules.
 
 `@epoch/core` re-exports the protocol-facing domain and adds host-capable
-implementations from `convergence-changes`, `convergence-transactions`,
+implementations from `change-graph-store`, `convergence-changes`, `convergence-transactions`,
 `object-store`, `chunks`, `promises`, `sync-protocol-v2`, `sync-v2`,
-`workspace`, and `workspace-providers`. Important boundaries are:
+`workspace`, and `workspace-providers`. `SignedChangeGraphStore.open(root)`
+appends validated protocol events through `appendWithParents()`. Important boundaries are:
 
 - explicit parent sets and expected heads are validated atomically;
 - full object SHA-256 is always computed over complete bytes;

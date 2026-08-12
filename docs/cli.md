@@ -39,8 +39,10 @@ Remove the global link with:
 npm unlink -g epoch
 ```
 
-When Epoch is installed as a package, use the installed `epoch` and `epoch-git`
-binaries directly.
+When Epoch is installed as a package, use the installed `epoch`, `epoch-git`,
+and `git-remote-epoch` binaries directly. `git-remote-epoch` speaks the Git
+remote-helper protocol for `epoch://` remotes and fails closed for fetch/push
+until an authenticated Epoch endpoint is configured.
 
 ## Global Options
 
@@ -186,9 +188,13 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 
 ## Change Graph And Merge Commands
 
-These commands use the local `.epoch/change-graph-v1.json` reference host. They exercise
-the canonical schemas and validation rules, but do not replace the signed
-repository event log.
+These commands persist signed repository events (`change.created`,
+`change.revised`, `change-graph.defined`, `review.bundle.created`,
+`merge.plan.created`, and related protocol types). The leftover
+`.epoch/change-graph-v1.json` file is ignored and is not authoritative.
+Local operation undo/restore stays in `.epoch/operations/`. Split proposals
+and workspace handles remain local drafts until a protocol event exists for
+them.
 
 New object IDs are generated through the Protocol 256-bit lowercase-base32
 canonical ID generator, whose CSPRNG is injectable for deterministic hosts and

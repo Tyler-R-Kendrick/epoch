@@ -59,6 +59,17 @@ export const EventType = {
   approval: "approval",
   rejection: "rejection",
   ci: "ci",
+  repositoryIdentity: "repository.identity",
+  changeCreated: "change.created",
+  changeRevised: "change.revised",
+  changeGraphDefined: "change-graph.defined",
+  changeGraphRevised: "change-graph.revised",
+  splitAccepted: "split.accepted",
+  reviewBundleCreated: "review.bundle.created",
+  reviewRecorded: "review.recorded",
+  mergePlanCreated: "merge.plan.created",
+  mergePlanApplied: "merge.plan.applied",
+  conflictRecorded: "conflict.recorded",
 } as const;
 
 export const IntentStatus = {
