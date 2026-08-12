@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "suite": "frontier-vcs-convergence-security",
+  "generatedBy": "test/security/frontier-security.test.ts",
+  "statusVocabulary": ["verified", "partial", "unsupported", "not-applicable"],
+  "threats": [
+    {
+      "id": "SEC-PATH-001",
+      "attack": "repository traversal, absolute paths, separator ambiguity, or symlink escape",
+      "status": "verified",
+      "tests": ["workspacePathsRejectTraversalAndSymlinkEscape"],
+      "mitigations": ["normalized repository-relative paths", "lexical root containment", "lstat rejection for every existing path component"]
+    },
+    {
+      "id": "SEC-INJECT-001",
+      "attack": "Git ref, push-option, protocol-header, or execution argument injection",
+      "status": "verified",
+      "tests": ["refsHeadersAndShellBoundariesRejectInjection", "FRONTIER-FUZZ-005"],
+      "mitigations": ["strict ref grammar", "dangerous remote-helper options denied", "bounded protocol header grammar", "exec arguments are arrays and reject control characters"]
+    },
+    {
+      "id": "SEC-OBJECT-001",
+      "attack": "object-count, transaction-byte, corrupt chunk, or byte-range overflow",
+      "status": "verified",
+      "tests": ["objectsChunksAndRangesAreBounded", "FRONTIER-PROP-006", "FRONTIER-FUZZ-004"],
+      "mitigations": ["maxObjects and maxBytes", "full SHA-256 verification", "safe-integer range bounds", "ordered chunk layout verification"]
+    },
+    {
+      "id": "SEC-MIRROR-001",
+      "attack": "mirror SSRF, embedded credentials, loopback/private literal or DNS answer, force/delete, loop replay, or destination drift",
+      "status": "verified",
+      "tests": ["remoteAndArchiveBoundariesFailClosed", "FRONTIER-PROP-008", "mirrorDivergenceCreatesConflictWithoutRewrite"],
+      "mitigations": ["HTTPS-only URL", "credentialRef separation", "literal and resolved private-address rejection", "policy-gated force/delete", "loop markers", "conflict refs instead of authoritative rewrite"],
+      "limitations": ["redirect validation is the injected HTTP transport's responsibility; no redirect-following transport ships in this package"]
+    },
+    {
+      "id": "SEC-PROMISE-001",
+      "attack": "malicious promisor, local metadata endpoint, corrupt promised bytes, or expired promise",
+      "status": "partial",
+      "tests": ["remoteAndArchiveBoundariesFailClosed", "promisesVerifyBeforeMaterializing"],
+      "mitigations": ["HTTPS-only non-credential URLs", "literal private/loopback rejection", "exact size and content hash before materialization", "expiry check"],
+      "limitations": ["object-promise validation has no injected DNS resolver; callers must resolve and pin public addresses before fetch"]
+    },
+    {
+      "id": "SEC-AUTH-001",
+      "attack": "grant widening, wrong scope, expiry, revocation, budget double-spend, reservation CAS race, or receipt replay",
+      "status": "verified",
+      "tests": ["grantsBudgetsAndFederationRejectReplayOrWidening", "FRONTIER-PROP-009"],
+      "mitigations": ["subset attenuation", "transitive revocation", "safe-integer budgets", "CAS reservations", "idempotent receipt identity"]
+    },
+    {
+      "id": "SEC-FEDERATION-001",
+      "attack": "Nostr replay, wrong audience, expiry, oversized event, private export, or Radicle replay",
+      "status": "verified",
+      "tests": ["grantsBudgetsAndFederationRejectReplayOrWidening", "FRONTIER-FUZZ-006"],
+      "mitigations": ["seen-event set", "audience and expiry validation", "byte limit", "public-only export", "monotonic Radicle sequence"]
+    },
+    {
+      "id": "SEC-PROVIDER-001",
+      "attack": "provider disclosure bypass, malformed output, excessive output, or authoritative mutation",
+      "status": "verified",
+      "tests": ["providerOutputIsNonAuthoritativeAndBounded"],
+      "mitigations": ["grant, budget, and disclosure required", "bounded serialized output", "schema validation", "authoritativeMutation is always false"]
+    },
+    {
+      "id": "SEC-F3-001",
+      "attack": "F3 archive traversal or compressed archive bomb",
+      "status": "not-applicable",
+      "tests": ["remoteAndArchiveBoundariesFailClosed", "FRONTIER-FUZZ-006"],
+      "mitigations": ["F3 codec accepts JSON strings only and never extracts paths or decompresses archives", "malformed records are quarantined"],
+      "limitations": ["transport callers must bound input string size before decode"]
+    },
+    {
+      "id": "SEC-SWH-001",
+      "attack": "private repository archival or false remote success",
+      "status": "verified",
+      "tests": ["remoteAndArchiveBoundariesFailClosed", "SWH package archive client tests"],
+      "mitigations": ["public visibility required", "HTTPS public origin required", "success requires succeeded plus full response"]
+    },
+    {
+      "id": "SEC-ADVERTISEMENT-001",
+      "attack": "unauthorized private ref advertisement",
+      "status": "unsupported",
+      "tests": [],
+      "mitigations": ["no authenticated private-ref advertisement API is shipped by the focused convergence packages"],
+      "limitations": ["a future advertisement API must add viewer-scoped filtering before claiming this capability"]
+    }
+  ]
+}
