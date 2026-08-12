@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha256";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import type { AuthoritySigner } from "../authority/signers";
+import { verifyEd25519AuthoritySignature } from "../authority/signers";
 
 export interface InTotoStatement { readonly _type: "https://in-toto.io/Statement/v1"; readonly subject: readonly unknown[]; readonly predicateType: string; readonly predicate: unknown }
 export interface EvidenceEnvelope {
@@ -21,4 +22,9 @@ export async function createEvidenceEnvelope(input: { readonly statement: InToto
     signature: { keyId: input.signer.keyId, algorithm: input.signer.algorithm, publicKey: input.signer.publicKey, value: bytesToHex(signature) },
     ...(input.sigstoreBundleRef ? { sigstoreBundleRef: input.sigstoreBundleRef } : {}), ...(input.scittReceiptRef ? { scittReceiptRef: input.scittReceiptRef } : {}) });
 }
-export async function verifyEvidenceEnvelope(envelope: EvidenceEnvelope): Promise<boolean> { return envelope.schemaVersion === 1 && envelope.statementDigest === digest(envelope.statement) && /^[0-9a-f]+$/u.test(envelope.signature.value); }
+export async function verifyEvidenceEnvelope(envelope: EvidenceEnvelope): Promise<boolean> {
+  if (envelope.schemaVersion !== 1 || envelope.statementDigest !== digest(envelope.statement) ||
+      envelope.signature.algorithm !== "Ed25519" || !/^[0-9a-f]{128}$/u.test(envelope.signature.value)) return false;
+  return verifyEd25519AuthoritySignature(envelope.signature.publicKey,
+    new TextEncoder().encode(envelope.statementDigest), hexToBytes(envelope.signature.value));
+}

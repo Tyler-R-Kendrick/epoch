@@ -3,17 +3,20 @@ import test from "node:test";
 import { createEvidenceEnvelope, verifyEvidenceEnvelope } from "../dist/conductor/evidence.js";
 import { EntireCheckpointSession, OpaqueCheckpointSession } from "../dist/conductor/session.js";
 import { DisabledAiProvider, GuardedAiProvider } from "../dist/conductor/provider.js";
+import { LocalEd25519AuthoritySigner } from "../dist/authority/signers.js";
 
 test("evidence envelope binds statement digest and optional transparency references", async () => {
+  const signer = new LocalEd25519AuthoritySigner(new Uint8Array(32).fill(9), "did:key:evidence#sign");
   const envelope = await createEvidenceEnvelope({
     statement: { _type: "https://in-toto.io/Statement/v1", subject: [{ name: "change-1", digest: { sha256: "ab".repeat(32) } }], predicateType: "https://epoch.dev/evidence/v1", predicate: { outcome: "passed" } },
-    signer: { keyId: "test:key", algorithm: "test-only", publicKey: "fixture", sign: async () => new Uint8Array([1, 2, 3]) },
+    signer,
     sigstoreBundleRef: "sha256:" + "cd".repeat(32), scittReceiptRef: "urn:ietf:params:scitt:receipt:fixture",
   });
   assert.equal(envelope.schemaVersion, 1);
   assert.match(envelope.statementDigest, /^[0-9a-f]{64}$/u);
   assert.equal(await verifyEvidenceEnvelope(envelope), true);
   assert.equal(await verifyEvidenceEnvelope({ ...envelope, statement: { ...envelope.statement, predicate: { outcome: "failed" } } }), false);
+  assert.equal(await verifyEvidenceEnvelope({ ...envelope, signature: { ...envelope.signature, value: "00".repeat(64) } }), false);
 });
 
 test("private session boundary supports Entire checkpoints and opaque fallback without content", async () => {
