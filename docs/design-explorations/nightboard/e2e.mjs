@@ -5155,9 +5155,21 @@ const CASES = [
       });
       if (bell.unread !== "true") return log("bell should show unread: " + JSON.stringify(bell));
 
+      await page.evaluate(() => {
+        window.__activityPermissionRequest = window.NB_NOTIFY.requestPermission;
+        window.__activityPermission = window.NB_NOTIFY.permission;
+        window.NB_NOTIFY.requestPermission = () => new Promise(() => {});
+        window.NB_NOTIFY.permission = () => "default";
+      });
       await page.click("[data-activity-bell]");
-      await page.waitForTimeout(150);
-      let p = await path(page);
+      let p = await page.evaluate(() => {
+        const current = window.NB_APP.state.path;
+        window.NB_NOTIFY.requestPermission = window.__activityPermissionRequest;
+        window.NB_NOTIFY.permission = window.__activityPermission;
+        delete window.__activityPermissionRequest;
+        delete window.__activityPermission;
+        return current;
+      });
       if (p !== "/notifications/all") return log("bell path " + p);
 
       const feed = await page.evaluate(() => ({

@@ -7812,12 +7812,12 @@
         return;
       }
       if (ev.target.closest("[data-activity-bell]")) {
-        // First click also offers permission when still default (user gesture).
+        // Navigation must not wait for a browser permission prompt to settle.
+        openActivity("all");
         if (browserNotifySupported() && browserNotifyPermission() === "default") {
-          requestBrowserNotifications().then(function () { openActivity("all"); });
+          requestBrowserNotifications();
           return;
         }
-        openActivity("all");
         // Already granted: refresh any pending OS alerts.
         if (browserNotifyPermission() === "granted") deliverBrowserNotifications({ silent: true });
         return;
