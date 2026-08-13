@@ -16,6 +16,7 @@ import type { EventMetadata } from "@epoch/core";
 import { FederatedCommunity, MockPds } from "@epoch/atproto";
 import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 import { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphInvocation } from "./change-graph";
+import { executeCommunityCli, isCommunityCliInvocation } from "./community";
 import { interopDoctor } from "./interop-doctor";
 
 interface ParsedArgs {
@@ -64,6 +65,14 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     writeLine(io, "Change graph commands: new, change, log --revisions, op, graph, split, bundle, review record, merge-plan, conflict, workspace, clone/fetch/hydrate/backfill, mirror, principal/agent, forge, swhid, archive, interop doctor.");
     writeLine(io, "Authoritative/destructive actions require an explicit configured adapter; unavailable adapters return unsupported-capability.");
     return;
+  }
+  if (isCommunityCliInvocation(parsed.command, parsed.args)) {
+    return executeCommunityCli(parsed.repo, parsed.command, parsed.args, {
+      stdout: (message) => io.stdout.write(message),
+      stderr: (message) => io.stderr.write(message),
+    }).then((ok) => {
+      if (!ok) throw new CliHandledError("community command failed");
+    });
   }
   if (parsed.command === "interop" && parsed.args[0] === "doctor") {
     const json = parsed.args.includes("--json");
@@ -691,3 +700,4 @@ if (require.main === module) {
 
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";
+export { createFileStorage, executeCommunityCli, isCommunityCliInvocation, openWorkspaceRuntime } from "./community";

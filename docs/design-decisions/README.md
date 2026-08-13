@@ -44,6 +44,7 @@ and when the decision should be revisited.
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted | Authorize agents through distinct principals, attenuated grants, and reserved durable budgets. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted | Treat forge protocols and mirrors as loss-declared adapters with explicit authority. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted | Compute standards-conformant SWHIDs locally and guard public archival with policy and verified status. |
+| [ADR-0037](0037-community-runtime-command-layer.md) | Accepted | Serve web, WebMCP, CLI, and SDK from one command bus, one receipt schema, and one browser UI workspace behind a content-addressed harness ABI. |
 | [ADR-0030](0030-stable-changes-revisions-stacks-reviews-merges.md) | Accepted and implemented | Model stable Change lineages, immutable Revisions, dependency graphs, exact review evidence, and stale-safe Merge Plans. |
 | [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md) | Accepted and implemented | Preserve conflicts as durable objects, commute only when independence is proven, and keep provider proposals untrusted until explicit acceptance. |
 | [ADR-0032](0032-residency-native-sync-and-workspace-providers.md) | Accepted and implemented | Separate object residency, materialization, storage, and execution; add verified chunk manifests, promises, native sync, and truthful workspace providers. |
@@ -51,6 +52,7 @@ and when the decision should be revisited.
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted and implemented with injected durability | Give human and agent principals attenuated grants, transactional budgets, receipts, and non-authoritative provider boundaries. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted and implemented as codecs plus an injected coordinator | Provide public-only loss-aware forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause contracts. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted and implemented with injected transport; CLI default HTTP adapter | Compute and inspect SWHIDs locally and request public archival through Save Code Now. The library client stays injected; the CLI ships HTTP with `EPOCH_SWH_SAVE_URL` override. |
+| [ADR-0037](0037-community-runtime-command-layer.md) | Accepted; runtime, adapters, and browser UI workspace implemented | Route UI, WebMCP, CLI, and SDK through `@epoch/community-runtime`; validate declarative dynamic UI against a content-addressed static harness; keep rollback append-only. |
 
 ## Supporting Decision Records
 

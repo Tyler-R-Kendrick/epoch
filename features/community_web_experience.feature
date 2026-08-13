@@ -377,3 +377,25 @@ Feature: Community Web community-first experience
     And I promote the selected message to a Change candidate
     When I view the lineage of the promoted message
     Then the origin message and the resulting change are marked as one contribution
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor sees what a generated interface change does before accepting it
+    Given a personal Community interface workspace on the installed harness
+    When I propose a denser feed that puts verification status beside each change
+    Then I see which widgets layout and theme tokens the proposal changes
+    And the proposal is not applied until I confirm it
+    And accepting it records the prompt as a digest rather than the text I typed
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor recovers from an interface change that no longer renders
+    Given a personal Community interface workspace whose current interface no longer validates
+    When I open the board
+    Then the installed harness renders its recovery interface instead of the broken one
+    And restoring the last working interface leaves the rejected proposal inspectable
+
+  @persona.maintainer
+  Scenario: Maintainer confirms the terminal and an agent performed the same action
+    Given a personal Community interface workspace on the installed harness
+    When I create the same proposal from the terminal and from an agent tool
+    Then both report the same command identity and resulting view
+    And an agent without permission is refused even though the tool is offered

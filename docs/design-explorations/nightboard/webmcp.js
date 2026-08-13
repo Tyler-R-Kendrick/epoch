@@ -1,22 +1,43 @@
 /**
  * WebMCP — the page's controls, exposed as tools.
  *
- * `document.modelContext.registerTool({ name, description, inputSchema, execute })`
- * is a W3C proposal (webmachinelearning/webmcp) and is not shipping in any
- * browser yet. So this registers against the native object when it exists and
- * against an identical local registry when it does not — same descriptors, same
- * call shape, same results. A browser agent picks up the native ones; the chat
- * in this page uses the registry. Neither knows which it got.
+ * `document.modelContext.registerTool(descriptor, { signal })` shipped as a
+ * Chrome origin trial in 149; the earlier `navigator.modelContext` spelling is
+ * deprecated. It is still an unshipped W3C proposal everywhere else
+ * (webmachinelearning/webmcp), so this registers against the native object when
+ * it exists and against an identical local registry when it does not — same
+ * descriptors, same call shape, same results. A browser agent picks up the
+ * native ones; the chat in this page uses the registry. Neither knows which it
+ * got.
+ *
+ * Three details the API makes load-bearing:
+ *
+ *  - `registerTool` returns a promise. A floating call drops tools silently
+ *    when it rejects, so registration is awaited and its outcome is reported by
+ *    `status()` rather than assumed.
+ *  - There is no `unregisterTool`. Lifetime is an `AbortSignal` passed at
+ *    registration, so every tool gets a controller and unregistering means
+ *    aborting it. Deleting the local entry alone would leave a browser agent
+ *    holding a tool whose page state is gone.
+ *  - `annotations.readOnlyHint` and `annotations.untrustedContentHint` are what
+ *    an agent uses to decide whether it may call something unattended and
+ *    whether the result is data rather than instructions. Both default to the
+ *    cautious answer: a tool is treated as consequential unless it says
+ *    otherwise, because over-claiming safety is the expensive mistake.
  *
  * The important property is that these are *the same* actions the UI performs.
  * A tool that reimplements what a button does is a second implementation to
  * keep in sync; every tool here calls the console's own verb, so an agent can
- * do exactly what a person can do and nothing else.
+ * do exactly what a person can do and nothing else. Authorization lives in the
+ * action registry underneath, never in a tool description — a tool being
+ * visible to an agent says nothing about whether it may be run.
  */
 (function () {
   "use strict";
 
   var local = new Map();
+  var registrations = new Map();
+  var failures = [];
 
   function nativeContext() {
     return (typeof document !== "undefined" && document.modelContext) || null;
@@ -29,12 +50,22 @@
     return { origin: "mcp", context: "board" };
   }
 
+  /** Read-only unless the descriptor or its action says otherwise. */
+  function annotationsFor(descriptor, action) {
+    var readOnly = descriptor.readOnly === true ||
+      (descriptor.readOnly !== false && !!action && action.sideEffect === "read");
+    var untrusted = descriptor.untrusted === true;
+    return { readOnlyHint: readOnly, untrustedContentHint: untrusted };
+  }
+
   /**
    * Register a tool with the browser if it will take it, and always with the
-   * local registry so the page's own agent can call it.
+   * local registry so the page's own agent can call it. Returns an unregister
+   * function synchronously; the native half settles on its own and is recorded.
    */
   function registerTool(descriptor) {
     var actionId = descriptor.actionId || (window.NB_ACTIONS && window.NB_ACTIONS.resolve("mcp", descriptor.name));
+    var action = null;
     if (window.NB_ACTIONS) {
       if (!actionId) {
         actionId = "tool." + descriptor.name;
@@ -49,21 +80,54 @@
           execute: descriptor.execute,
         });
       }
+      action = window.NB_ACTIONS.get(actionId);
       descriptor = Object.assign({}, descriptor, { actionId: actionId, execute: function (args) {
         return window.NB_ACTIONS.invoke(actionId, args || {}, actionContext());
       } });
     }
+
+    var annotations = annotationsFor(descriptor, action);
+    var entry = Object.assign({}, descriptor, { annotations: annotations });
+    local.set(entry.name, entry);
+
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    registrations.set(entry.name, { controller: controller, native: false });
     var native = nativeContext();
     if (native && typeof native.registerTool === "function") {
-      try { native.registerTool(descriptor); } catch { /* fall back to local only */ }
+      // The descriptor handed to the browser carries only what WebMCP defines;
+      // actionId, permission, and side-effect are ours.
+      var registration = {
+        name: entry.name,
+        description: entry.description,
+        inputSchema: entry.inputSchema,
+        annotations: annotations,
+        execute: entry.execute,
+      };
+      var options = controller ? { signal: controller.signal } : undefined;
+      var noted = function (error) {
+        failures.push({ name: entry.name, reason: (error && error.message) || String(error) });
+      };
+      try {
+        Promise.resolve(native.registerTool(registration, options)).then(function () {
+          var state = registrations.get(entry.name);
+          if (state) state.native = true;
+        }, noted);
+      } catch (error) {
+        noted(error);
+      }
     }
-    local.set(descriptor.name, descriptor);
-    return function unregister() { local.delete(descriptor.name); };
+
+    return function unregister() {
+      var state = registrations.get(entry.name);
+      if (state && state.controller) state.controller.abort();
+      registrations.delete(entry.name);
+      local.delete(entry.name);
+    };
   }
 
   function list() {
     return Array.from(local.values()).map(function (t) {
-      return { name: t.name, description: t.description, inputSchema: t.inputSchema };
+      return { name: t.name, description: t.description, inputSchema: t.inputSchema, annotations: t.annotations };
     });
   }
 
@@ -90,12 +154,25 @@
   function text(s) { return { content: [{ type: "text", text: String(s) }] }; }
   function fail(s) { return { isError: true, content: [{ type: "text", text: String(s) }] }; }
 
+  /** What actually happened, so the page can say so instead of guessing. */
+  function status() {
+    var accepted = 0;
+    registrations.forEach(function (state) { if (state.native) accepted += 1; });
+    return {
+      available: !!nativeContext(),
+      registered: local.size,
+      nativelyRegistered: accepted,
+      failures: failures.slice(),
+    };
+  }
+
   window.NB_MCP = {
     registerTool: registerTool,
     list: list,
     call: call,
     text: text,
     fail: fail,
+    status: status,
     isNative: function () { return !!nativeContext(); },
   };
 

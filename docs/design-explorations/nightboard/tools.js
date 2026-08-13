@@ -38,6 +38,8 @@
     MCP.registerTool({
       name: "board_list",
       description: "List what a path contains, without navigating there.",
+      readOnly: true,
+      untrusted: true,
       inputSchema: {
         type: "object",
         properties: { path: { type: "string" } },
@@ -59,6 +61,7 @@
     MCP.registerTool({
       name: "board_where",
       description: "Where the board is currently pointed, and what is selected.",
+      readOnly: true,
       inputSchema: { type: "object", properties: {} },
       execute: async function () {
         var here = MAP.list(api.state.path, api.state.merged) || [];
@@ -220,6 +223,8 @@
 
     MCP.registerTool({
       name: "board_search",
+      readOnly: true,
+      untrusted: true,
       description:
         "Lucene search across all feeds, projects, channels, DMs, and paths. " +
         "Use when the user asks to find posts, mentions, cache talk, needs-review items, " +
@@ -427,6 +432,8 @@
 
     MCP.registerTool({
       name: "graph_query",
+      readOnly: true,
+      untrusted: true,
       description:
         "Run a GraphQL query against the board: channels, posts, members, projects, dms. " +
         "Use graph_schema first if you need to know the shape.",
@@ -455,6 +462,7 @@
     MCP.registerTool({
       name: "graph_schema",
       description: "The GraphQL schema for the board, as SDL. Ask this before writing a query you are unsure of.",
+      readOnly: true,
       inputSchema: { type: "object", properties: {} },
       execute: async function () { return MCP.text(GRAPH.SDL.trim()); },
     });

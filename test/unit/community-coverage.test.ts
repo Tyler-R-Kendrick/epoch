@@ -145,7 +145,11 @@ async function cliReportsUsageAndValidationErrors(): Promise<void> {
   const context = { client: createCommunityClient(createInMemoryCommunityApi()) };
 
   assert.match((await runCli(["help"], context)).stdout, /Usage:/u);
-  assert.match((await runCli([], undefined)).stderr, /requires a Community Core client/u);
+  // Without an injected context the CLI configures itself: help still works,
+  // and a real command explains which knob is missing instead of failing on a
+  // host wiring detail the operator cannot see.
+  assert.match((await runCli([], undefined)).stdout, /Usage:/u);
+  assert.match((await runCli(["repositories"], undefined)).stderr, /No Community remote configured/u);
   assert.match((await runCli(["issues", "open"], context)).stderr, /requires a repository slug/u);
   assert.match((await runCli(["issues", "open", "epoch/epoch", "oops"], context)).stderr, /Unexpected argument/u);
   assert.match((await runCli(["issues", "open", "epoch/epoch", "--title"], context)).stderr, /Missing value/u);
@@ -193,7 +197,7 @@ async function runCli(
   const code = await communityCliMain([...argv], {
     stdout: (line) => stdout.push(line),
     stderr: (line) => stderr.push(line),
-  }, context);
+  }, context, {});
 
   return { code, stdout: stdout.join(""), stderr: stderr.join("") };
 }

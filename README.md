@@ -29,8 +29,10 @@ GitHub-like community app that Platform Web can deploy and manage as a
 separate service. Its canonical UI is Nightboard: the CanvasUI-powered creator
 landing at `/` and the tmux-style, keyboard-first board at `/board.html`.
 Community behavior is split through
-`Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.CLI`, and
-`Epoch.Community.Web`. `Epoch.Community.Operations.Web` is a separate
+`Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.Runtime`,
+`Epoch.Community.CLI`, and `Epoch.Community.Web`. `Epoch.Community.Runtime` is
+the shared command, receipt, and browser interface-workspace layer that the web
+UI, WebMCP tools, and the `epoch` CLI all route through. `Epoch.Community.Operations.Web` is a separate
 Coolify-inspired deployable extension for sandbox workspaces, project hosting,
 workflow, runner, and agent-sandbox operations over Platform SDK/Core state.
 The full implemented

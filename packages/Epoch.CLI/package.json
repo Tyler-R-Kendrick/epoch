@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@epoch/atproto": "0.1.0",
+    "@epoch/community-cli": "0.1.0",
+    "@epoch/community-runtime": "0.1.0",
     "@epoch/core": "0.1.0",
     "@epoch/forge": "0.1.0",
     "@epoch/git-proxy": "0.1.0",

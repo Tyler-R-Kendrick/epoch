@@ -1,0 +1,14 @@
+{
+  "name": "@epoch/community-runtime",
+  "version": "0.1.0",
+  "description": "Shared Epoch Community application command, query, and receipt layer for web, WebMCP, CLI, and SDK adapters.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/integration-core": "0.1.0"
+  }
+}

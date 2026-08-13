@@ -28,7 +28,7 @@ Implemented responsibilities:
 `Epoch.Platform.Web` can manage the Community app only as a deployable service
 descriptor. It does not import `@epoch/community-web`,
 `@epoch/community-core`, `@epoch/community-api`,
-`@epoch/community-operations-web`, or `@epoch/community-cli`.
+`@epoch/community-operations-web`, `@epoch/community-runtime`, or `@epoch/community-cli`.
 
 ## Epoch.Community.API
 
@@ -72,6 +72,27 @@ Implemented responsibilities:
 
 `Epoch.Community.Core` does not import API, Web, or CLI.
 
+## Epoch.Community.Runtime
+
+Workspace package: `packages/Epoch.Community.Runtime`
+
+Published package name: `@epoch/community-runtime`
+
+`Epoch.Community.Runtime` is the shared application layer between Epoch and the
+Community surfaces. It owns one command bus, one receipt schema, the browser
+interface workspace (named views, proposals, semantic diff, validated merge,
+append-only revert, safe mode), and the content-addressed static harness ABI that
+constrains generated UI.
+
+Implemented responsibilities:
+
+- dispatch commands with capability and confirmation checks;
+- return one receipt shape to web, WebMCP, CLI, and SDK adapters;
+- version declarative interface manifests as Epoch events; and
+- validate every dynamic revision against the installed harness release.
+
+It depends only on `@epoch/integration-core` and contains no DOM or React code.
+
 ## Epoch.Community.CLI
 
 Workspace package: `packages/Epoch.Community.CLI`
@@ -81,8 +102,8 @@ Published package name: `@epoch/community-cli`
 Binary name: `epoch-community`
 
 `Epoch.Community.CLI` is a command-line client for Community workflows. It
-depends on `@epoch/community-core` and expects a Core client context from the
-host wiring.
+depends on `@epoch/community-core`. A host may inject a client context; without
+one the CLI configures itself from `--remote` or `EPOCH_COMMUNITY_URL`.
 
 Implemented responsibilities:
 
@@ -91,8 +112,9 @@ Implemented responsibilities:
 - propose changes; and
 - record change reviews.
 
-It does not import `@epoch/community-api`; test and host wiring provide the
-client.
+It does not import `@epoch/community-api`. `epoch community …` runs this same
+implementation, so `epoch-community` is a compatibility binary rather than a
+second command surface.
 
 ## Epoch.Community.Web
 

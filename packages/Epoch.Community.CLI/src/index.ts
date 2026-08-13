@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHttpCommunityClient } from "@epoch/community-core";
 import type {
   CommunityClient,
   CommunityReviewDecision,
@@ -19,8 +20,14 @@ export interface CommunityCliContext {
   };
 }
 
+export interface CommunityCliEnvironment {
+  readonly EPOCH_COMMUNITY_URL?: string;
+}
+
 const usage = [
   "Usage:",
+  "  epoch-community [--remote URL] COMMAND",
+  "",
   "  epoch-community repositories",
   "  epoch-community issues open REPOSITORY --title TITLE --author AUTHOR [--body BODY] [--label LABEL]",
   "  epoch-community changes propose REPOSITORY --title TITLE --author AUTHOR --source-view VIEW --target-view VIEW [--body BODY]",
@@ -28,20 +35,61 @@ const usage = [
   "  epoch-community graph show",
   "  epoch-community bundle review",
   "  epoch-community merge preview CHANGE",
+  "",
+  "The remote comes from --remote, then EPOCH_COMMUNITY_URL.",
 ].join("\n");
 
 export async function main(
   argv = process.argv.slice(2),
   io: CommunityCliIO = processCliIO,
   context?: CommunityCliContext,
+  environment: CommunityCliEnvironment = process.env,
 ): Promise<number> {
   try {
-    await run(argv, io, requireContext(context));
+    const { remote, rest } = takeRemoteOption(argv);
+    const command = rest[0];
+    // Help must work before a remote is configured — it is how you find out
+    // that a remote is what you are missing.
+    if (command === undefined || command === "help" || command === "--help") {
+      io.stdout(`${usage}\n`);
+      return 0;
+    }
+
+    await run(rest, io, context ?? bootstrapContext(remote, environment));
     return 0;
   } catch (error) {
     io.stderr(`${error instanceof Error ? error.message : String(error)}\n`);
     return 1;
   }
+}
+
+/**
+ * Build a context when the host did not inject one.
+ *
+ * The executable entry point calls `main()` with no arguments, so requiring an
+ * injected context made the published `epoch-community` binary throw before it
+ * could parse a single command. A CLI has to be able to configure itself: an
+ * explicit `--remote`, then the environment, then a message that says which
+ * knob to turn.
+ */
+export function bootstrapContext(
+  remote: string | undefined,
+  environment: CommunityCliEnvironment = process.env,
+): CommunityCliContext {
+  const baseUrl = remote ?? environment.EPOCH_COMMUNITY_URL;
+  if (baseUrl === undefined || baseUrl.trim().length === 0) {
+    throw new Error("No Community remote configured. Pass --remote URL or set EPOCH_COMMUNITY_URL.");
+  }
+
+  return { client: createHttpCommunityClient({ baseUrl: baseUrl.trim() }) };
+}
+
+function takeRemoteOption(argv: readonly string[]): { remote?: string; rest: readonly string[] } {
+  const index = argv.indexOf("--remote");
+  if (index === -1) return { rest: argv };
+  const value = argv[index + 1];
+  if (value === undefined || value.startsWith("--")) throw new Error("Missing value for --remote");
+  return { remote: value, rest: [...argv.slice(0, index), ...argv.slice(index + 2)] };
 }
 
 async function run(
@@ -145,14 +193,6 @@ const processCliIO: CommunityCliIO = {
   stdout: (message) => process.stdout.write(message),
   stderr: (message) => process.stderr.write(message),
 };
-
-function requireContext(context: CommunityCliContext | undefined): CommunityCliContext {
-  if (context === undefined) {
-    throw new Error("Epoch Community CLI requires a Community Core client context");
-  }
-
-  return context;
-}
 
 function parseOptions(args: readonly string[]): Record<string, string> {
   const options: Record<string, string> = {};
