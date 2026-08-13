@@ -176,3 +176,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | PR | [#122](https://github.com/Tyler-R-Kendrick/epoch/pull/122) — squash-merged `a809586f` |
 | Notes | Implement remaining fail-closed surfaces: HTTP gossip + Git ingest for clone/fetch, Save Code Now HTTP with `EPOCH_SWH_SAVE_URL`, deterministic untrusted AI proposals with accept/reject, and `split.accepted`. Quality Gates, Community Web, Pact, Coverage, and Vercel passed. CodeRabbit stayed rate-limited. |
+
+## 2026-08-13 — Community search and mounted projections
+
+| Field | Value |
+|---|---|
+| Initiative | [`community-search-projection`](community-search-projection/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline (no cloud dispatch) |
+| Branch | `sdlc/community-search-projection-land` |
+| PR | [#134](https://github.com/Tyler-R-Kendrick/epoch/pull/134) — squash-merged `1ab821c` |
+| Result | **success** |
+| Failure class | None at merge. Earlier Test red was a flaky last-character cursor tamper; Coverage was 77.86% branches vs 78% until host routes and browser-only Web search/workbench dist were accounted for. |
+| Notes | Landed one Core Search Expression, planner, snapshot, and AES-GCM keyset cursor; Projection Definitions and scoped Namespace Mounts; `createCommunityApiHost`; CLI/GraphQL/Community Web workbenches; ADR-0042 (0040/0041 already used on trunk). Independent review blocked on live-namespace tenancy; Alice/Bob isolation and REST scope reject landed in `2cbefd4` before merge. Quality Gates (Test, Coverage, Community Web, Pact, A11y, Vercel) green. CodeRabbit skipped the large diff. Unrelated PRs #125–#133 and #135–#136 were left open. |
