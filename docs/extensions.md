@@ -93,6 +93,7 @@ trust = "explicit"               # "explicit" | "signed" | "any"
 allow = ["difftastic", "mergiraf"]
 block = []
 allow_publishers = ["epoch:principal:<ed25519-public-key>"]
+revoked_publishers = []          # keys this repository refuses, whatever else says
 ```
 
 | Mode | Admits |
@@ -123,12 +124,49 @@ Because the canonical manifest includes `executable_sha256`, signing the
 manifest transitively binds the binary: a valid signed manifest cannot be
 paired with a swapped executable.
 
-A publisher key currently has no lifecycle — the key *is* the identity, so a
-signature never expires and a compromised key cannot be withdrawn.
-[ADR-0042](design-decisions/0042-publisher-key-lifecycle.md) is the design for
-expiry, offline rotation, and revocation. Any failure is reported with a specific
-reason (`publisher-not-allowed`, `executable-mismatch`, `invalid-signature`)
-and the extension does not run.
+Any failure is reported with a specific reason (`publisher-not-allowed`,
+`executable-mismatch`, `invalid-signature`) and the extension does not run.
+
+### Publisher keys have a lifecycle
+
+The key *is* the identity, which is what makes verification offline and
+unspoofable — and what would otherwise leave a signature valid forever with no
+way to take it back. Three statements give it a lifecycle
+([ADR-0042](design-decisions/0042-publisher-key-lifecycle.md)):
+
+**Expiry.** A manifest may declare `not_after`, inside the signed payload. Past
+that instant the signature is treated as absent, with its own reason
+(`signature-expired`) because the remedy differs from a bad signature. A
+manifest without one behaves exactly as before, and produces the same signed
+bytes it did before expiry existed, so no earlier signature stops verifying.
+
+**Rotation.** A publisher retires a key by signing a successor statement *with
+the key being retired*. Any repository already holding the old key can check it
+offline and follow the chain forward, bounded to four rotations by default, so
+`allow_publishers` does not have to be hand-edited in every clone. Rotation is
+not recovery: a compromised key can name an attacker as its successor, which is
+what revocation is for.
+
+**Revocation**, which outranks both. `epoch ext publisher revoke <file>` records
+a self-revocation signed by the key itself; `revoked_publishers` in
+configuration records one the operator decided out of band. Revoking a key takes
+with it every key it went on to name, so rotation cannot be used to outlive it.
+
+Consent does not replicate and revocation does. That sounds contradictory until
+the direction of authority is named:
+
+> A grant must not propagate, because it only ever adds authority.
+> A revocation should propagate, because it only ever removes it.
+
+So revocations and successions travel as ordinary Epoch events, and each carries
+its own signature — replication moves evidence, not trust. An unsigned
+revocation arriving over sync is ignored, because honouring it would let any
+peer revoke any publisher for everyone downstream; the operator's own
+`revoked_publishers` needs no signature, because the file is the authority.
+
+A repository that never syncs never learns of a revocation. That is inherent to
+an offline-first design rather than an oversight, and `revoked_publishers` is
+the answer for operators who need certainty without waiting for replication.
 
 ### Configuration is read, consent is recorded
 

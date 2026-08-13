@@ -8,6 +8,7 @@ import {
   buildExternalInvocation,
   descriptorPath,
   discoverExtensions,
+  ed25519ManifestVerifier,
   EMPTY_TRUST_STORE,
   grantTrust,
   nodeExtensionFileSystem,
@@ -22,10 +23,16 @@ import {
   type DiscoveredExtension,
   type ExtensionFileSystem,
   type ExternalInvocation,
+  evaluatePublisher,
   isExtensionName,
   launchVerificationFor,
   planLaunch,
+  revocationSigningPayload,
+  successorSigningPayload,
+  withPublisherStatements,
   type ExtensionTrustPolicy,
+  type PublisherRevocation,
+  type SuccessorStatement,
   type TrustStore,
 } from "@epoch/extensions";
 import { BUILTIN_COMMANDS, CliText } from "./domain";
@@ -180,7 +187,101 @@ function policyFor(root: string): EffectivePolicy {
   for (const diagnostic of policy.diagnostics) {
     degraded.push(`[extensions] ${diagnostic.key} ${diagnostic.message}`);
   }
-  return { policy: withRecordedConsent(policy.policy, read.store), degraded };
+  const withStatements = withPublisherStatements(policy.policy, replicatedStatements(root));
+  return { policy: withRecordedConsent(withStatements, read.store), degraded };
+}
+
+/** Command names the publisher statements are recorded under. */
+const SUCCESSOR_COMMAND = "ext-publisher-succeed";
+const REVOCATION_COMMAND = "ext-publisher-revoke";
+
+/**
+ * Publisher statements this repository has seen, from its own event log.
+ *
+ * They arrive by ordinary sync, which is exactly the asymmetry ADR-0042 is
+ * built on: consent must not travel, because it only adds authority, while a
+ * revocation should, because it only removes it. Every statement carries its
+ * own signature and is verified where it is used, so replication moves
+ * evidence rather than trust.
+ */
+function replicatedStatements(root: string): {
+  readonly successors: readonly SuccessorStatement[];
+  readonly revocations: readonly PublisherRevocation[];
+} {
+  const successors: SuccessorStatement[] = [];
+  const revocations: PublisherRevocation[] = [];
+  try {
+    for (const operation of new EpochRepository(root).operations()) {
+      const detail = operation.detail;
+      if (typeof detail !== "object" || detail === null) continue;
+      if (operation.command === SUCCESSOR_COMMAND) successors.push(detail as unknown as SuccessorStatement);
+      if (operation.command === REVOCATION_COMMAND) revocations.push(detail as unknown as PublisherRevocation);
+    }
+  } catch {
+    // A repository with no event log yet has seen no statements. That is not
+    // the same as "no statements apply": the operator's own `revoked_publishers`
+    // is read separately and is unaffected.
+  }
+  return { successors, revocations };
+}
+
+/**
+ * Read a publisher statement from a file and check it before recording it.
+ *
+ * Verification happens again at every use, so this check is not what makes the
+ * statement safe — it is what keeps the event log from accumulating statements
+ * that will never do anything, which an operator would otherwise read as
+ * having taken effect.
+ */
+function readPublisherStatement(action: "succeed" | "revoke", path: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `cannot read publisher statement ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`publisher statement ${path} must be a JSON object`);
+  }
+  const record = parsed as Record<string, unknown>;
+
+  if (action === "succeed") {
+    const statement = record as unknown as SuccessorStatement;
+    for (const field of ["predecessor", "successor", "issuedAt", "signature"] as const) {
+      if (typeof statement[field] !== "string") throw new Error(`successor statement needs a string '${field}'`);
+    }
+    const verified = ed25519ManifestVerifier({
+      payload: successorSigningPayload(statement),
+      signature: statement.signature,
+      publisher: statement.predecessor,
+    });
+    if (!verified) {
+      // The retiring key is the only thing that can name a successor. A
+      // statement it did not sign is an assertion by a stranger.
+      throw new Error("successor statement is not signed by the key it retires; refusing to record it");
+    }
+    return { ...record };
+  }
+
+  const revocation = record as unknown as PublisherRevocation;
+  for (const field of ["publisher", "effectiveAt", "signature"] as const) {
+    if (typeof revocation[field] !== "string") throw new Error(`revocation statement needs a string '${field}'`);
+  }
+  const verified = ed25519ManifestVerifier({
+    payload: revocationSigningPayload(revocation),
+    signature: revocation.signature ?? "",
+    publisher: revocation.publisher,
+  });
+  if (!verified) {
+    throw new Error(
+      "revocation is not signed by the key it revokes; to revoke a key out of band, "
+      + "add it to revoked_publishers in .epoch/config.toml",
+    );
+  }
+  return { ...record };
 }
 
 function reportDegradation(degraded: readonly string[], io: ExtensionCliIO): void {
@@ -278,11 +379,34 @@ export function runExtensionCommand(
       // bytes are the hashed bytes by construction, `path` means by timing
       // (ADR-0040).
       launchVerification: launchVerificationFor(process.platform),
+      // Which key verified this, whether it was reached directly or through a
+      // rotation, and whether a revocation is on file. A trust decision an
+      // operator cannot inspect is one they cannot audit (ADR-0042).
+      publisher: extension.manifest?.publisher === undefined ? null : {
+        key: extension.manifest.publisher,
+        notAfter: extension.manifest.notAfter ?? null,
+        status: evaluatePublisher(extension.manifest.publisher, policy.allowPublishers, policy.lifecycle),
+      },
       trust: resolution.kind === "extension" || resolution.kind === "untrusted" ? resolution.trust : null,
       // Named rather than omitted: an empty policy shown as though it were the
       // operator's intent is the failure ADR-0044 exists to end.
       policyDegraded: effective.degraded,
     }, null, 2)}\n`);
+    return;
+  }
+
+  if (action === "publisher") {
+    const verb = args[1];
+    const path = args[2];
+    if ((verb !== "succeed" && verb !== "revoke") || path === undefined) throw new Error(CliText.extUsage);
+    const statement = readPublisherStatement(verb, path);
+    const command = verb === "succeed" ? SUCCESSOR_COMMAND : REVOCATION_COMMAND;
+    new EpochRepository(resolve(root)).appendOperation(command, "succeeded", statement);
+    io.stdout.write(
+      verb === "succeed"
+        ? `recorded succession ${String(statement.predecessor)} -> ${String(statement.successor)}\n`
+        : `recorded revocation of ${String(statement.publisher)}\n`,
+    );
     return;
   }
 

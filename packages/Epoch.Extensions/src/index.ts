@@ -20,15 +20,33 @@ export {
 } from "./manifest";
 
 export {
-  DEFAULT_TRUST_POLICY,
   ed25519ManifestVerifier,
+  type ManifestSignatureVerifier,
+} from "./signing";
+
+export {
+  DEFAULT_SUCCESSION_DEPTH,
+  EMPTY_PUBLISHER_LIFECYCLE,
+  evaluatePublisher,
+  isExpired,
+  revocationSigningPayload,
+  successorSigningPayload,
+  type PublisherEvaluationOptions,
+  type PublisherLifecycle,
+  type PublisherRevocation,
+  type PublisherStatus,
+  type SuccessorStatement,
+} from "./publisher";
+
+export {
+  DEFAULT_TRUST_POLICY,
   evaluateTrust,
   manifestSigningPayload,
   readTrustPolicy,
   readTrustPolicyReport,
+  withPublisherStatements,
   withRecordedConsent,
   type ExtensionTrustPolicy,
-  type ManifestSignatureVerifier,
   type TrustDecision,
   type TrustEvaluationOptions,
   type TrustGrant,

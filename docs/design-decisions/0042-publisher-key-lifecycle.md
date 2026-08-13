@@ -1,6 +1,6 @@
 # ADR-0042: Publisher Key Lifecycle
 
-Status: Proposed
+Status: Accepted; implemented
 
 ## Context
 
@@ -71,7 +71,11 @@ sync like any other event. A repository that has seen the event refuses
 signatures from that key, including signatures that were valid when made and
 including any successor chain rooted in it.
 
-Two origins are accepted, and they are checked independently:
+Two origins are accepted, and they are checked independently. The difference
+between them is *proof*, not severity: a statement that arrives over sync must
+carry its own signature, or any peer could revoke any publisher for everyone
+downstream. The operator's own file needs none, because the file is the
+authority.
 
 - **self-revocation**, signed by the revoked key itself, which anyone can
   verify and which needs no prior relationship; and
@@ -79,6 +83,10 @@ Two origins are accepted, and they are checked independently:
   `.epoch/config.toml`, for out-of-band notice where the key holder cannot or
   will not self-revoke — the case that matters most, since a compromised key's
   holder may be exactly who you are defending against.
+
+Revoking a key takes with it every key it went on to name, or rotation would be
+a way to outlive revocation: a chain is not followed through a revoked link,
+and a chain rooted in a revoked key is not followed at all.
 
 Precedence follows the rule the trust policy already uses: revocation is checked
 before every allow, from either source, and no configuration mode overrides it.

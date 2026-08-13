@@ -102,7 +102,7 @@ export const CliText = {
   verificationFailed: "verification failed",
   usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|ext|semantic|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
-  extUsage: "usage: epoch ext <list|show NAME|trust NAME|untrust NAME>",
+  extUsage: "usage: epoch ext <list|show NAME|trust NAME|untrust NAME|publisher <succeed|revoke> FILE>",
   semanticUsage: "usage: epoch semantic <diff BEFORE AFTER|apply FILE PATCH.json|merge BASE LEFT RIGHT|plan FILE...> [--json]",
   pushUsage: "usage: epoch push [--author NAME] [--version NAME] [--message TEXT] [--no-version] [PATH...]",
   trackUsage: "usage: epoch track [--author NAME] [--type MIME] [--include-ignored] PATH",

@@ -56,6 +56,14 @@ export interface ExtensionManifest {
    * could be paired with a swapped executable.
    */
   readonly executableSha256?: string;
+  /**
+   * RFC 3339 instant after which the signature is treated as absent.
+   *
+   * Inside the signed payload, so it cannot be added, moved, or removed by
+   * anyone but the signer. Optional: a manifest without one behaves exactly as
+   * before, which is why adding this breaks no existing signature (ADR-0042).
+   */
+  readonly notAfter?: string;
   readonly signature?: string;
 }
 
@@ -180,6 +188,10 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
   }
 
   const description = table.description;
+  const notAfter = table.not_after;
+  if (notAfter !== undefined && (typeof notAfter !== "string" || Number.isNaN(Date.parse(notAfter)))) {
+    throw new ExtensionManifestError("invalid-field", "manifest field 'not_after' must be an RFC 3339 timestamp");
+  }
   const signature = table.signature;
   const executableSha256 = table.executable_sha256;
   if (executableSha256 !== undefined && (typeof executableSha256 !== "string" || !/^[a-f0-9]{64}$/u.test(executableSha256))) {
@@ -200,6 +212,7 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
     capabilities,
     determinism,
     executableSha256: typeof executableSha256 === "string" ? executableSha256 : undefined,
+    notAfter: typeof notAfter === "string" ? notAfter : undefined,
     signature: typeof signature === "string" ? signature : undefined,
   };
 }
@@ -217,6 +230,10 @@ export function canonicalManifest(manifest: ExtensionManifest): string {
     determinism: manifest.determinism,
     executableSha256: manifest.executableSha256 ?? null,
     name: manifest.name,
+    // Omitted entirely when absent rather than serialized as null, so a
+    // manifest that declares no expiry produces the bytes it produced before
+    // expiry existed and its signature keeps verifying (ADR-0042).
+    ...(manifest.notAfter === undefined ? {} : { notAfter: manifest.notAfter }),
     publisher: manifest.publisher ?? null,
     version: manifest.version,
   });

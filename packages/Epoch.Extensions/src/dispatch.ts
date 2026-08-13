@@ -1,10 +1,10 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import type { DiscoveredExtension } from "./discovery";
 import { EXTENSION_API_VERSION } from "./manifest";
+import type { ManifestSignatureVerifier } from "./signing";
 import {
   evaluateTrust,
   type ExtensionTrustPolicy,
-  type ManifestSignatureVerifier,
   type TrustDecision,
 } from "./trust";
 

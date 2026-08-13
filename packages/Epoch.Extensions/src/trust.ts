@@ -1,5 +1,13 @@
-import { createPublicKey, verify as verifySignature } from "node:crypto";
 import { canonicalManifest, type ExtensionManifest } from "./manifest";
+import {
+  EMPTY_PUBLISHER_LIFECYCLE,
+  evaluatePublisher,
+  isExpired,
+  type PublisherLifecycle,
+  type PublisherRevocation,
+  type SuccessorStatement,
+} from "./publisher";
+import { ed25519ManifestVerifier, type ManifestSignatureVerifier } from "./signing";
 
 /**
  * Extension trust policy (ADR-0037).
@@ -33,6 +41,14 @@ export interface ExtensionTrustPolicy {
   readonly grants: readonly TrustGrant[];
   readonly block: readonly string[];
   readonly allowPublishers: readonly string[];
+  /**
+   * Expiry, succession, and revocation statements in force here (ADR-0042).
+   *
+   * Optional so a caller that does not care about publisher lifecycle gets
+   * today's behaviour; absent means no successions and no revocations, never
+   * "revocations do not apply".
+   */
+  readonly lifecycle?: PublisherLifecycle;
 }
 
 export const DEFAULT_TRUST_POLICY: ExtensionTrustPolicy = {
@@ -55,6 +71,8 @@ export type TrustReason =
   | "missing-manifest"
   | "not-allowed"
   | "publisher-not-allowed"
+  | "publisher-revoked"
+  | "signature-expired"
   | "unsigned";
 
 export interface TrustDecision {
@@ -64,53 +82,18 @@ export interface TrustDecision {
   readonly detail: string;
 }
 
-/**
- * Verifies a detached signature over the canonical manifest.
- *
- * Injected so the check is testable and so a host can substitute its own key
- * handling. The default is Ed25519 over an SPKI public key, matching the
- * signing scheme Epoch already uses for events.
- */
-export type ManifestSignatureVerifier = (request: {
-  readonly payload: string;
-  readonly signature: string;
-  readonly publisher: string;
-}) => boolean;
-
 export interface TrustEvaluationOptions {
   readonly verifySignature?: ManifestSignatureVerifier;
   /** Actual SHA-256 of the on-disk executable, in lowercase hex. */
   readonly executableSha256?: string;
+  /** Injected so expiry and revocation windows are testable without waiting. */
+  readonly now?: Date;
 }
 
 /** The exact bytes a publisher signs. */
 export function manifestSigningPayload(manifest: ExtensionManifest): string {
   return canonicalManifest(manifest);
 }
-
-/**
- * Default Ed25519 verifier.
- *
- * The publisher identifier carries the base64url SPKI DER of the signing key,
- * and the signature is `ed25519:<base64>`. Any malformed input is a failed
- * verification, never a pass.
- */
-export const ed25519ManifestVerifier: ManifestSignatureVerifier = ({ payload, signature, publisher }) => {
-  try {
-    const encodedKey = publisher.slice("epoch:principal:".length);
-    if (encodedKey.length === 0) return false;
-    const [algorithm, encodedSignature] = signature.split(":");
-    if (algorithm !== "ed25519" || encodedSignature === undefined || encodedSignature.length === 0) return false;
-    const key = createPublicKey({
-      key: Buffer.from(encodedKey, "base64url"),
-      format: "der",
-      type: "spki",
-    });
-    return verifySignature(null, Buffer.from(payload, "utf8"), key, Buffer.from(encodedSignature, "base64"));
-  } catch {
-    return false;
-  }
-};
 
 /** One thing wrong with an `[extensions]` table, named by key (ADR-0044). */
 export interface TrustPolicyDiagnostic {
@@ -124,7 +107,7 @@ export interface TrustPolicyRead {
   readonly diagnostics: readonly TrustPolicyDiagnostic[];
 }
 
-const POLICY_KEYS = new Set(["trust", "allow", "block", "allow_publishers"]);
+const POLICY_KEYS = new Set(["trust", "allow", "block", "allow_publishers", "revoked_publishers"]);
 
 /**
  * Read a trust policy, reporting what it had to ignore.
@@ -171,6 +154,14 @@ export function readTrustPolicyReport(table: Record<string, unknown> | undefined
       grants: [],
       block: strings("block"),
       allowPublishers: strings("allow_publishers"),
+      lifecycle: {
+        successors: [],
+        revocations: [],
+        // Local, immediate, and unsigned: the operator's own file is the
+        // authority, which is what makes this the answer when the key holder
+        // is exactly who they are defending against (ADR-0042).
+        revokedPublishers: strings("revoked_publishers"),
+      },
     },
     diagnostics,
   };
@@ -205,6 +196,33 @@ export function withRecordedConsent(
     ...policy,
     grants: recorded.allow,
     block: [...new Set([...policy.block, ...recorded.block])],
+  };
+}
+
+/**
+ * Add replicated publisher statements to a policy.
+ *
+ * Consent does not replicate and revocation does, which sounds contradictory
+ * until the direction of authority is named: a grant only ever adds authority,
+ * so it must stay where it was given; a revocation only ever removes it, so
+ * spreading it can only ever be safe. Statements arriving this way carry their
+ * own proof and are verified where they are used, not where they arrived.
+ */
+export function withPublisherStatements(
+  policy: ExtensionTrustPolicy,
+  statements: {
+    readonly successors: readonly SuccessorStatement[];
+    readonly revocations: readonly PublisherRevocation[];
+  },
+): ExtensionTrustPolicy {
+  const lifecycle = policy.lifecycle ?? EMPTY_PUBLISHER_LIFECYCLE;
+  return {
+    ...policy,
+    lifecycle: {
+      ...lifecycle,
+      successors: [...lifecycle.successors, ...statements.successors],
+      revocations: [...lifecycle.revocations, ...statements.revocations],
+    },
   };
 }
 
@@ -266,11 +284,45 @@ export function evaluateTrust(
     // `publisher` is manifest input and therefore attacker-controlled. It only
     // narrows which key is allowed to have signed; it never establishes that
     // anyone did. The cryptographic check below is what grants trust.
-    if (manifest.publisher === undefined || !policy.allowPublishers.includes(manifest.publisher)) {
+    if (manifest.publisher === undefined) {
       return {
         trusted: false,
         reason: "publisher-not-allowed",
         detail: `extension '${name}' names a publisher that is not in allow_publishers`,
+      };
+    }
+    // Revocation and succession are resolved before the allow list is
+    // consulted, so a revoked key cannot be trusted by being listed and a
+    // rotated key does not have to be pasted into every clone (ADR-0042).
+    const status = evaluatePublisher(
+      manifest.publisher,
+      policy.allowPublishers,
+      policy.lifecycle ?? EMPTY_PUBLISHER_LIFECYCLE,
+      { now: options.now, verifySignature: options.verifySignature },
+    );
+    if (status.kind === "revoked") {
+      return {
+        trusted: false,
+        reason: "publisher-revoked",
+        detail: `extension '${name}' is signed by a publisher revoked by ${status.origin === "self" ? "its own key" : "this repository"}`
+          + `${status.reason === undefined ? "" : `: ${status.reason}`}`,
+      };
+    }
+    if (status.kind !== "allowed") {
+      return {
+        trusted: false,
+        reason: "publisher-not-allowed",
+        detail: `extension '${name}' names a publisher that is not in allow_publishers`,
+      };
+    }
+    // Expiry is checked after the publisher because "this key is revoked" and
+    // "this signature is stale" have different remedies, and the operator
+    // should be told the more serious one.
+    if (isExpired(manifest.notAfter, options.now)) {
+      return {
+        trusted: false,
+        reason: "signature-expired",
+        detail: `extension '${name}' has a signature that expired at ${manifest.notAfter}`,
       };
     }
     if (manifest.executableSha256 === undefined) {
@@ -305,7 +357,13 @@ export function evaluateTrust(
         detail: `extension '${name}' manifest signature did not verify against its declared publisher`,
       };
     }
-    return { trusted: true, reason: "allowed-by-publisher", detail: `extension '${name}' is signed by an allowed publisher` };
+    return {
+      trusted: true,
+      reason: "allowed-by-publisher",
+      detail: status.via === "direct"
+        ? `extension '${name}' is signed by an allowed publisher`
+        : `extension '${name}' is signed by a key ${status.depth} rotation(s) from an allowed publisher`,
+    };
   }
   return {
     trusted: false,
