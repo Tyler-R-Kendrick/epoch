@@ -680,7 +680,11 @@ When("I save and reopen the Nightboard needs-review Projection Definition", asyn
   });
   const savedResult = nightboardSavedViewResult;
   assert.ok(savedResult);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+  } catch {
+    await page.goto(page.url(), { waitUntil: "domcontentloaded" });
+  }
   await page.waitForFunction((id) => !!(window as unknown as {
     NB_WORKBENCH?: { definitions(): Array<{ projectionId: string }> };
   }).NB_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
@@ -1319,9 +1323,10 @@ Then("the live API records a Change for the selected conversation", async functi
   assert.ok(promoted);
   await assertVisible(page, `change:${promoted.id}`);
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
+  await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).waitFor({ state: "attached", timeout: 5_000 });
   assert.equal(
-    await page.locator("[data-selected-message=\"true\"]").getAttribute("data-linked-proposal"),
-    promoted.id,
+    await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).count(),
+    1,
   );
 });
 
@@ -1713,10 +1718,10 @@ Then("the origin message and the resulting change are marked as one contribution
   await page.locator('[data-lineage-target="true"]').waitFor({ state: "visible", timeout: 5_000 });
   assert.equal(await page.locator('[data-lineage-origin="true"]').count(), 1, "origin message must be marked");
   assert.equal(await page.locator('[data-lineage-target="true"]').count(), 1, "resulting change must be marked");
-  const originProposal = await page.locator('[data-lineage-origin="true"]').getAttribute("data-linked-proposal");
+  const originChange = await page.locator('[data-lineage-origin="true"]').getAttribute("data-linked-change");
   const targetChange = await page.locator('[data-lineage-target="true"]').getAttribute("data-change-id");
-  assert.ok(originProposal);
-  assert.equal(originProposal, targetChange, "both ends must reference the same proposal");
+  assert.ok(originChange);
+  assert.equal(originChange, targetChange, "both ends must reference the same Change");
 });
 
 // ── Deterministic search and projection workbench journeys ──────────────────

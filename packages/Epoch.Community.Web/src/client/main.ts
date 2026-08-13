@@ -1136,12 +1136,17 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
         sourceView: `community/${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
         targetView: repo?.defaultView || "main",
       });
+      const originMessageId = message.dataset.messageId ?? "";
       renderRepository(updated);
       const change = (updated.changes ?? []).filter((item) => item.title === title).slice(-1)[0]
         || (updated.changes ?? []).slice(-1)[0];
       if (change) {
-        // Stamp promote receipt on the originating message when it still exists.
-        message.setAttribute("data-linked-change", change.id);
+        // Stamp the rebuilt origin row. renderRepository replaces the live DOM.
+        const origin = originMessageId
+          ? document.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(originMessageId)}"]`)
+          : null;
+        if (origin) origin.setAttribute("data-linked-change", change.id);
+        message = origin ?? message;
         if (!message.querySelector("[data-promote-receipt]")) {
           // Post-migration structure: rows use .row-body / .row-foot.
           const messageBody = message.querySelector(".row-body");
