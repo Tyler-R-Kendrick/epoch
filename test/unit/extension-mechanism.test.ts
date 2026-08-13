@@ -195,6 +195,20 @@ function discoveryReportsExtensionsWithoutAValidManifest(): void {
     ),
   }).map((extension) => extension.name);
   assert.deepEqual(windowsNames, ["alpha", "beta", "delta", "gamma"]);
+
+  // Several spellings can normalize to one name. `readdirSync` order is
+  // filesystem-dependent, so without an explicit precedence the winner would
+  // vary between machines — the opposite of what this mechanism promises.
+  const duplicates = ["epoch-foo.cmd", "epoch-foo.exe", "epoch-foo.bat", "epoch-foo.com"];
+  const chosen = (entries: readonly string[]): string | undefined => discoverExtensions({
+    pathEntries: [windowsBin],
+    fileSystem: fakeFileSystem({ [windowsBin]: entries }, {}),
+  })[0]?.executable;
+
+  const expected = join(windowsBin, "epoch-foo.exe");
+  assert.equal(chosen(duplicates), expected);
+  assert.equal(chosen([...duplicates].reverse()), expected, "directory order must not decide the winner");
+  assert.equal(chosen(["epoch-foo.cmd", "epoch-foo.bat"]), join(windowsBin, "epoch-foo.bat"));
 }
 
 function discoveredExtension(name: string, manifestText?: string) {

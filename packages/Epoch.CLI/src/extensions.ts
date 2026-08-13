@@ -12,6 +12,7 @@ import {
   type DiscoveredExtension,
   type ExtensionFileSystem,
   type ExternalInvocation,
+  isExtensionName,
   type ExtensionTrustPolicy,
 } from "@epoch/extensions";
 import { BUILTIN_COMMANDS, CliText } from "./domain";
@@ -130,6 +131,14 @@ export function runExtensionCommand(
   if (action === "trust" || action === "untrust") {
     const name = args[1];
     if (name === undefined) throw new Error(CliText.extUsage);
+    // The name is written verbatim into a TOML string in the policy file, so an
+    // unchecked one could close that string and open another key: `greet", "evil`
+    // would allow two extensions, and one carrying a newline could append a whole
+    // `trust = "any"` line. The extension-name grammar admits no quote, newline,
+    // `#`, or bracket, which is what makes `renderList` safe rather than lucky.
+    if (!isExtensionName(name)) {
+      throw new Error(`invalid extension name '${name}'; names are lowercase letters, digits, and hyphens`);
+    }
     // Record the decision before it takes effect. A write that fails after an
     // audit entry leaves a claim with no grant; an audit entry that fails after
     // a write would leave a grant with no claim, which is the dangerous order.
@@ -209,7 +218,14 @@ function updateTrustLists(root: string, name: string, trusted: boolean): void {
   // the raw line would miss it and append a duplicate section.
   const headers: number[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    if (/^\[\s*extensions\s*\]$/u.test(withoutComment(lines[index]).trim())) headers.push(index);
+    const header = withoutComment(lines[index]).trim();
+    if (/^\[\[\s*extensions\s*\]\]$/u.test(header)) {
+      // TOML forbids a regular table at a path already used as an array of
+      // tables, so appending `[extensions]` below this would produce a file no
+      // reader accepts — and an unreadable policy is an unenforced one.
+      throw new ConfigEditError("it declares [extensions] as an array of tables");
+    }
+    if (/^\[\s*extensions\s*\]$/u.test(header)) headers.push(index);
   }
   if (headers.length > 1) throw new ConfigEditError("it declares [extensions] more than once");
 

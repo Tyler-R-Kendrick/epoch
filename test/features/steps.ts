@@ -133,11 +133,31 @@ When("I install a workspace extension named {string}", function (name: string) {
 
 When("I set the workspace extension trust mode to {string}", function (mode: string) {
   // Written by hand rather than through `ext trust`, so the scenario exercises
-  // an operator-authored policy the CLI then has to honour.
+  // an operator-authored policy the CLI then has to honour. Appending a second
+  // `[extensions]` table when one already exists would write invalid TOML, so
+  // an existing table is edited in place.
   const configPath = join(state.workspace, ".epoch", "config.toml");
   const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
-  const separator = existing.length === 0 || existing.endsWith("\n") ? "" : "\n";
-  writeFileSync(configPath, `${existing}${separator}\n[extensions]\ntrust = "${mode}"\n`, "utf8");
+  const lines = existing.length === 0 ? [] : existing.split(/\r?\n/u);
+  const section = lines.findIndex((line) => line.trim() === "[extensions]");
+
+  if (section === -1) {
+    const separator = existing.length === 0 || existing.endsWith("\n") ? "" : "\n";
+    writeFileSync(configPath, `${existing}${separator}\n[extensions]\ntrust = "${mode}"\n`, "utf8");
+    return;
+  }
+
+  let end = lines.length;
+  for (let index = section + 1; index < lines.length; index += 1) {
+    if (lines[index].trim().startsWith("[")) {
+      end = index;
+      break;
+    }
+  }
+  const trust = lines.findIndex((line, index) => index > section && index < end && /^\s*trust\s*=/u.test(line));
+  if (trust === -1) lines.splice(section + 1, 0, `trust = "${mode}"`);
+  else lines[trust] = `trust = "${mode}"`;
+  writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
 });
 
 When("actor users concurrently record:", async function (table: DataTable) {

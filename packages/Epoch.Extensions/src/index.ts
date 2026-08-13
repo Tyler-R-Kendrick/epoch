@@ -12,6 +12,7 @@ export {
   EXTENSION_API_VERSION,
   extensionManifestFile,
   ExtensionManifestError,
+  isExtensionName,
   type CapabilityKind,
   type DeterminismClass,
   type ExtensionManifest,

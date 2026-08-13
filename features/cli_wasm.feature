@@ -247,8 +247,6 @@ Feature: CLI and WASM integration surfaces
       | trust |
       | greet |
     Then the CLI exits with code 0
-    # "trusted" is a substring of "untrusted", so `ext list` cannot witness the
-    # grant. `ext show` names the resolution unambiguously.
     When I run the Epoch CLI with arguments:
       | ext   |
       | show  |

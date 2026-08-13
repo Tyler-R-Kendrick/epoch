@@ -40,8 +40,35 @@ export interface ExtensionFileSystem {
   fileDigest?(path: string): string | undefined;
 }
 
-/** Extensions Windows treats as directly launchable. */
-const WINDOWS_EXECUTABLE_EXTENSIONS = new Set([".exe", ".com", ".cmd", ".bat"]);
+/**
+ * Extensions Windows treats as directly launchable, in `PATHEXT` precedence
+ * order. The order is load-bearing: it decides which of `epoch-foo.exe` and
+ * `epoch-foo.cmd` wins when a directory holds both.
+ */
+const WINDOWS_EXECUTABLE_EXTENSIONS = [".exe", ".com", ".bat", ".cmd"] as const;
+const LAUNCH_SUFFIX = /\.(exe|com|cmd|bat)$/iu;
+
+/** Rank of an entry's launch suffix; a bare name sorts last, as on Windows. */
+function suffixRank(entry: string): number {
+  const suffix = LAUNCH_SUFFIX.exec(entry)?.[0].toLowerCase();
+  if (suffix === undefined) return WINDOWS_EXECUTABLE_EXTENSIONS.length;
+  return WINDOWS_EXECUTABLE_EXTENSIONS.indexOf(suffix as (typeof WINDOWS_EXECUTABLE_EXTENSIONS)[number]);
+}
+
+/**
+ * Directory entries in a stable, platform-independent order.
+ *
+ * Entries are grouped by the name they normalize to, so suffix precedence only
+ * ever breaks a tie between two spellings of the same extension.
+ */
+function orderedEntries(entries: readonly string[]): readonly string[] {
+  return [...entries].sort((left, right) => {
+    const leftName = left.replace(LAUNCH_SUFFIX, "");
+    const rightName = right.replace(LAUNCH_SUFFIX, "");
+    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
+    return suffixRank(left) - suffixRank(right) || (left < right ? -1 : 1);
+  });
+}
 
 export const nodeExtensionFileSystem: ExtensionFileSystem = {
   listDirectory(directory: string): readonly string[] {
@@ -58,7 +85,7 @@ export const nodeExtensionFileSystem: ExtensionFileSystem = {
       if (process.platform === "win32") {
         // Windows does not carry POSIX execute bits; launchability comes from
         // the file extension, so mode checking would reject every real .exe.
-        return WINDOWS_EXECUTABLE_EXTENSIONS.has(extname(path).toLowerCase());
+        return (WINDOWS_EXECUTABLE_EXTENSIONS as readonly string[]).includes(extname(path).toLowerCase());
       }
       // Any execute bit is enough; Epoch does not run it without trust anyway.
       return (stats.mode & 0o111) !== 0;
@@ -115,12 +142,18 @@ export function discoverExtensions(options: DiscoveryOptions = {}): readonly Dis
   const found = new Map<string, DiscoveredExtension>();
 
   for (const { directory, source } of searchDirectories(options)) {
-    for (const entry of fileSystem.listDirectory(directory)) {
+    // `readdirSync` order is filesystem-dependent, and several entries can
+    // normalize to one name (`epoch-foo.exe`, `epoch-foo.com`, `epoch-foo.cmd`).
+    // Sorting first, then preferring the launch-suffix order Windows itself
+    // uses, makes the winner a property of the names rather than of the
+    // directory's on-disk layout — the same determinism the capability registry
+    // promises for providers.
+    for (const entry of orderedEntries(fileSystem.listDirectory(directory))) {
       if (!entry.startsWith(EXTENSION_PREFIX)) continue;
       // Every extension `isExecutableFile` accepts on Windows must be strippable
       // here, or `epoch-foo.com` would be discovered under the name `foo.com`
       // and never match the subcommand `foo`.
-      const name = entry.slice(EXTENSION_PREFIX.length).replace(/\.(exe|com|cmd|bat)$/iu, "");
+      const name = entry.slice(EXTENSION_PREFIX.length).replace(LAUNCH_SUFFIX, "");
       if (name.length === 0 || found.has(name)) continue;
       const executable = join(directory, entry);
       if (!fileSystem.isExecutableFile(executable)) continue;

@@ -71,6 +71,19 @@ export class ExtensionManifestError extends Error {
 const PRINCIPAL_PATTERN = /^epoch:principal:[A-Za-z0-9_-]+$/u;
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 
+/**
+ * Whether a string is a well-formed extension name.
+ *
+ * The grammar is deliberately narrow — lowercase kebab-case — so a name is
+ * safe to interpolate into a subcommand, a file name, and a TOML string
+ * without escaping. Callers that write a name into configuration must check
+ * this first; the grammar admits no quote, newline, `#`, or bracket, which is
+ * what keeps a name from closing one TOML value and opening another.
+ */
+export function isExtensionName(value: string): boolean {
+  return NAME_PATTERN.test(value);
+}
+
 function parseValue(raw: string): unknown {
   const value = raw.trim();
   if (value.startsWith("\"") && value.endsWith("\"") && value.length >= 2) return value.slice(1, -1);

@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EpochRepository } from "@epoch/core";
+import { isExtensionName } from "@epoch/extensions";
 import { dispatchExternalSubcommand, runExtensionCommand } from "@epoch/cli";
 
 /**
@@ -14,6 +15,7 @@ export function runExtensionCliTests(): void {
   trustGrantsAndUntrustRevokesUnderEveryMode();
   trustEditPreservesSurroundingConfiguration();
   configEditRefusesShapesItCannotRewriteSafely();
+  trustRefusesNamesThatWouldInjectPolicy();
 }
 
 interface Captured {
@@ -162,6 +164,13 @@ function configEditRefusesShapesItCannotRewriteSafely(): void {
       label: "an allow entry that is not a quoted name",
       config: `[extensions]\nallow = [mergiraf]\n`,
     },
+    {
+      // TOML forbids a regular table at a path already used as an array of
+      // tables, so appending `[extensions]` here would write a file no reader
+      // accepts — and an unreadable policy is an unenforced one.
+      label: "[extensions] declared as an array of tables",
+      config: `[[extensions]]  # array of tables\nname = "a"\n`,
+    },
   ];
 
   for (const { label, config } of unsupported) {
@@ -180,4 +189,50 @@ function configEditRefusesShapesItCannotRewriteSafely(): void {
       rmSync(root, { force: true, recursive: true });
     }
   }
+}
+
+/**
+ * The name reaches a TOML string unescaped, so the grammar check is the only
+ * thing standing between an argument and a forged policy entry.
+ */
+function trustRefusesNamesThatWouldInjectPolicy(): void {
+  const injections: readonly string[] = [
+    `greet", "evil`,
+    `greet"]\ntrust = "any"\n#`,
+    `greet\nblock = []`,
+    `greet # comment`,
+    `greet"`,
+    `Greet`,
+    `-greet`,
+    ``,
+  ];
+
+  for (const name of injections) {
+    const root = workspace();
+    try {
+      const before = configOf(root);
+      assert.throws(
+        () => runExtensionCommand(root, ["trust", name], capture().io, { pathEntries: [] }),
+        /invalid extension name/u,
+        `'${name}' must be refused`,
+      );
+      assert.equal(configOf(root), before, `'${name}' must not reach the policy file`);
+
+      // Refused before the audit append, so a rejected name leaves no operation
+      // claiming a grant that was never made.
+      const operations = new EpochRepository(root).events()
+        .filter((event) => event.type === "operation")
+        .map((event) => (event.payload as { command?: string }).command);
+      assert.ok(!operations.includes("ext-trust"), `'${name}' must not record an operation`);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  }
+
+  // The grammar the manifest parser enforces and the one the CLI enforces must
+  // be the same, or a name could be trustable but never loadable.
+  assert.equal(isExtensionName("greet"), true);
+  assert.equal(isExtensionName("git-town"), true);
+  assert.equal(isExtensionName("a1"), true);
+  assert.equal(isExtensionName(`a", "b`), false);
 }
