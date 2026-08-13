@@ -90,7 +90,7 @@ The competitive read after the product launch is narrower than "catch up":
 Delta owns the *ergonomics* of the joinable shared agent workspace and has
 explicitly deferred its *governance*, while Epoch holds the governance
 primitives and has never assembled the ergonomics.
-[ADR-0040](../design-decisions/0040-spaces-shared-signed-workspaces.md) proposes
+[ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md) proposes
 the assembly.
 
 ## Jujutsu (jj)

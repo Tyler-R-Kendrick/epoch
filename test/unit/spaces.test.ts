@@ -7,7 +7,7 @@ import { EpochRepository, FileSystemWorkspaceProvider, SignedSpaceStore, SpaceEr
 import { assertProtocolEvent, parseCanonicalId } from "@epoch/protocol";
 
 /**
- * Spaces (ADR-0040).
+ * Spaces (ADR-0042).
  *
  * These assert the *enforcement*, not the shape. A Space is only worth having
  * if a missing grant, a spent budget, and an unconsented capture each actually

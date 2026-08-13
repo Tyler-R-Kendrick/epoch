@@ -14,7 +14,7 @@ public sources do not establish.
 Related: [Change Graph And Operation-History Dossier](change-graph-vcs-dossier.md),
 [Delta product dossier](products/delta/profile.md),
 [Zed DeltaDB product dossier](products/zed-deltadb/profile.md),
-[ADR-0040](../design-decisions/0040-spaces-shared-signed-workspaces.md).
+[ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md).
 
 ## 1. What Zed Shipped
 
@@ -216,7 +216,7 @@ The named gap from §3 is that Epoch has Views, Workspaces, Sandboxes, Changes,
 channels, and Code Operations, and no object that binds them into something a
 second person can join.
 
-[ADR-0040](../design-decisions/0040-spaces-shared-signed-workspaces.md)
+[ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md)
 proposes `epoch.space/v1`: a **Space** is a signed, joinable object that
 composes — and deliberately does not replace — the existing primitives:
 
@@ -339,7 +339,7 @@ Recorded so the plan is not read as more favorable than it is.
   WebGL rendering. Epoch is a TypeScript prototype. No performance claim should
   be made against Delta on any surface.
 - **Nomenclature pressure.** Adding Space to a vocabulary that already carries
-  View, Workspace, Sandbox, Change, and Change Graph is a real cost. ADR-0040
+  View, Workspace, Sandbox, Change, and Change Graph is a real cost. ADR-0042
   must state what a Space is *not* as prominently as what it is.
 - **Delta's gaps are dated, not permanent.** Every safety limitation quoted
   here is described by Zed as a roadmap item. The differentiator in §5 Phase 5

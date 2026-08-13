@@ -60,7 +60,7 @@ metadata.
 
 - Epoch needs an object that binds View, Workspace, conversation, participants,
   and agent turns into something joinable. See
-  [ADR-0040](../../../design-decisions/0040-spaces-shared-signed-workspaces.md).
+  [ADR-0042](../../../design-decisions/0042-spaces-shared-signed-workspaces.md).
 - Delta's comment interaction — pending until submit, delivered with the turn,
   replies linked back — is a better review loop than a comment stream, and is
   worth adopting directly in Community's selected-message action tray.
@@ -80,7 +80,7 @@ metadata.
 - Whether any self-hosting or export boundary appears; deletion currently does
   not reach already-synced server copies.
 - How far the stated roadmap for agent permissions, sandboxing, and worktree
-  trust progresses, since the differentiator in ADR-0040 depends on that gap
+  trust progresses, since the differentiator in ADR-0042 depends on that gap
   persisting.
 - Whether Jujutsu support beyond colocated repositories arrives, and what that
   implies about Delta's willingness to sit under a non-Git model.

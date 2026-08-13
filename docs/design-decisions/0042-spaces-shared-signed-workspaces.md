@@ -1,4 +1,4 @@
-# ADR-0040: Spaces — Shared, Signed, Joinable Workspaces
+# ADR-0042: Spaces — Shared, Signed, Joinable Workspaces
 
 Status: Accepted and implemented for phases 1–3; phases 4–6 are not built
 

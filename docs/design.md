@@ -46,6 +46,12 @@ and `compacts/`: they are not signed and are excluded from `verify()`, which
 still re-hashes whole-content blobs. `checkoutView()` with `materialization:
 "full"` restores whole-tree materialization.
 
+This mode selects files by *difference from a base*, not by user interest, so it
+is delta materialization rather than sparse checkout.
+[ADR-0038](design-decisions/0041-workspace-selection-and-materialization-modes.md)
+keeps the behavior, renames the mode to `delta`, and adds a separate
+workspace-local Selection; neither the rename nor Selection is implemented yet.
+
 ## Event Model
 
 Every event includes:
@@ -472,7 +478,7 @@ The governance is enforced rather than described:
   (`unresolved`) instead of pointing at the wrong place.
 
 `epoch space ...` is the operator surface. Phases that remain unbuilt are named
-in [ADR-0040](design-decisions/0040-spaces-shared-signed-workspaces.md): there
+in [ADR-0042](design-decisions/0042-spaces-shared-signed-workspaces.md): there
 is no mount provider, no isolated execution provider, and no federated join, so
 a per-turn Sandbox binding currently records a fact rather than enforcing a
 boundary.
@@ -524,5 +530,11 @@ The current implementation does not provide:
 - grammar-backed syntax providers for general-purpose languages
 - byte-level entropy coding or a packfile format for semantic compression
 - a kernel VFS/FUSE mount provider, an isolated execution provider, or
-  federated Space discovery (ADR-0040 phases 4 through 6)
+  federated Space discovery (ADR-0042 phases 4 through 6)
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
+- writable nested Repository Links, overlapping mount roots, and transparent
+  lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`
+  ([ADR-0040](design-decisions/0040-repository-composition-and-links.md),
+  [ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md))
+- Repository Link resolution over the network: links resolve through injected
+  resolvers and local sibling repositories only
