@@ -4,8 +4,8 @@ Status: Accepted; runtime, adapters, and browser UI workspace implemented
 
 ## Context
 
-Community Web, Nightboard, the Community CLI, the Core CLI, and the browser
-integration packages each grew their own way to perform an operation. Nightboard
+Community Web, Community Web, the Community CLI, the Core CLI, and the browser
+integration packages each grew their own way to perform an operation. Community Web
 shares an action registry between its buttons and its WebMCP tools, but that
 registry is page-scoped. The Community CLI had its own parser and required a
 host-injected client context, which the published binary never supplied. The

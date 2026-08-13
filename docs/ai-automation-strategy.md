@@ -63,7 +63,7 @@ by a human waiting at a terminal, to save money that was never being spent.
 It also blocks a specific class of downstream work — though not everything, and
 the distinction matters. What genuinely requires an Actions workflow run:
 Claude Code Action, scheduled agent runs, CodeQL scanning workflows, and per-PR
-accessibility (`a11y:community-web`, `a11y:nightboard`), Pact, and coverage
+accessibility (`a11y:community-web`, `community-web:app:a11y`), Pact, and coverage
 evidence. What does **not**: Copilot code review is a GitHub-native pull-request
 feature enabled by policy rather than by a workflow in this repository, and
 Dependabot version and security updates run on GitHub's own infrastructure and
@@ -74,7 +74,7 @@ not by blockage — which makes them the cheapest items in the plan below.
 the hooks as a fast local pre-flight (`gate:fast` on commit), and demote
 `pre-push` to the same fast gate so pushing stops costing minutes of local wall
 clock. Move `typecheck`, `build`, unit, Cucumber, coverage, Pact, axe, and
-Nightboard e2e into parallel CI jobs. Then correct the three documents that
+Community Web e2e into parallel CI jobs. Then correct the three documents that
 assert the constraint.
 
 Do **not** simply delete the `EPOCH_CI_DISABLED` safety net. Replace it with a
@@ -352,9 +352,9 @@ cloud-dispatch recommendation in this document.
 [`DESIGN.md`](../DESIGN.md) is linted by `@google/design.md`; design evidence is
 PNG mocks under `.impeccable/mocks/` and screenshots under `docs/evidence/`. The
 adversarial critique protocol therefore judges *screenshots* against *prose*. If
-a Figma file exists for Nightboard, the token round-trip and Code Connect
+a Figma file exists for Community Web, the token round-trip and Code Connect
 component mapping give the critique a real design source of truth to diff
-against. If the design lives only in code — which the Nightboard exploration
+against. If the design lives only in code — which the Community Web exploration
 suggests — the win is narrower: generating a shareable Figma artifact from code
 for review, not a two-way sync. Worth confirming which case applies before
 investing.
@@ -378,7 +378,7 @@ Effort sizing follows the `DX.md` convention.
    runner-minute claim in `AGENTS.md`, `DX.md`, and `quality.yml`. **[S]**
    *Done 2026-08-10: `.github/workflows/quality.yml` now runs docs, lint,
    konsistent, design, typecheck, test, coverage, Pact, and the
-   Nightboard/a11y suites as separate jobs behind a `guard` job that fails
+   Community Web/a11y suites as separate jobs behind a `guard` job that fails
    the run if `github.event.repository.private` is true.*
 2. ✅ 🔥 **Add the idempotent `SessionStart` hook** that repairs `NODE_OPTIONS`
    only when malformed and installs only when missing, so remote and

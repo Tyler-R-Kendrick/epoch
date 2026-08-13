@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "docs/design-explorations/nightboard/base.css",
+    "css": "packages/Epoch.Community.Web/app/base.css",
     "baseColor": "neutral",
     "cssVariables": true
   },

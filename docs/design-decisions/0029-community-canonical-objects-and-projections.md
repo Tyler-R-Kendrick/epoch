@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Context
 
-Nightboard historically derived useful post aliases from visible order and
+Community Web historically derived useful post aliases from visible order and
 content, then used the same path structure for object identity, namespace
 navigation, and reply ancestry. That made a reorder look like a new object,
 made a message both a leaf and a container, and blurred `cd ..`, reply parent,
@@ -20,7 +20,7 @@ of the objects being mounted.
 
 Community Core owns immutable opaque object references, explicit relations,
 projection specifications, navigation operations, normalized queries, and
-action descriptors. Nightboard consumes the generated browser artifact from
+action descriptors. Community Web consumes the generated browser artifact from
 that implementation.
 
 - `objectId` never derives from author, body, title, order, alias, path, or
@@ -29,7 +29,8 @@ that implementation.
 - HTTPS is the share surface. Canonical links identify an object, contextual
   links add a projection, and exact links add a revision. Private content and
   content-derived aliases never enter routes, history, notifications, or action
-  events. Legacy paths and `nightboard:` locators remain compatibility aliases.
+  events. Legacy paths and `community:`/`nightboard:` locators remain
+  compatibility aliases.
 - Channels, threads, DMs, Activity, following, search, saved queries, projects,
   and filesystem paths are projections over one object graph. A projection
   occurrence has an alias, contextual parent, order, and capabilities without
@@ -77,7 +78,7 @@ one permission boundary. Compatibility migrations and generated-artifact
 freshness checks become required release gates.
 
 The model adds explicit references and projection metadata, but avoids a new
-public URI scheme and new runtime dependency. Static/offline Nightboard remains
+public URI scheme and new runtime dependency. Static/offline Community Web remains
 deployable.
 
 ## Primary References
@@ -97,7 +98,7 @@ deployable.
 
 ## Related Documents
 
-- [Nightboard semantic contract](../design-explorations/nightboard/CONTRACT.md)
-- [Nightboard parity evidence](../evidence/nightboard-navigation-projection-parity/README.md)
+- [Community Web semantic contract](../community-web/CONTRACT.md)
+- [Community Web parity evidence](../evidence/community-web-app-navigation-projection-parity/README.md)
 - [Community Web experience](../community-web-experience.md)
-- [ADR-0027: Nightboard visual world](0027-community-visual-world-nightboard.md)
+- [ADR-0027: Community Web visual world](0027-community-visual-world.md)

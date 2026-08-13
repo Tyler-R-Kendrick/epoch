@@ -77,8 +77,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Nightboard a11y lint
-        run: npm run lint:nightboard-a11y
+      - name: Community Web a11y lint
+        run: npm run community-web:app:a11y-lint
 
   konsistent:
     name: Konsistent
@@ -269,8 +269,8 @@ jobs:
       - name: Community Web accessibility gate
         run: npm run a11y:community-web
 
-  nightboard:
-    name: Nightboard — a11y, faults, e2e
+  community-web-app:
+    name: Community Web app — a11y, faults, e2e
     needs: guard
     runs-on: ubuntu-latest
     steps:
@@ -288,11 +288,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Nightboard accessibility gate
-        run: npm run a11y:nightboard
+      - name: Community Web app accessibility gate
+        run: npm run community-web:app:a11y
 
-      - name: Nightboard fault-injection suite
-        run: npm run nightboard:faults
+      - name: Community Web app fault-injection suite
+        run: npm run community-web:app:faults
 
-      - name: Nightboard end-to-end suite
-        run: npm run nightboard:e2e
+      - name: Community Web app end-to-end suite
+        run: npm run community-web:app:e2e

@@ -71,7 +71,7 @@ export function createCommunityRuntime(options: CreateCommunityRuntimeOptions): 
 }
 
 /**
- * The default harness ABI, modelled on the Nightboard shell so the runtime is
+ * The default harness ABI, modelled on the Community Web shell so the runtime is
  * usable before the board is migrated into the Community Web package. Slots are
  * semantic ("where activity goes"), never selectors, so a generated manifest
  * cannot address arbitrary DOM.

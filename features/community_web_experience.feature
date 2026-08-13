@@ -95,28 +95,28 @@ Feature: Community Web community-first experience
     And at 200 percent zoom the workbench has no horizontal page overflow
 
   @persona.github_open_source_contributor
-  Scenario: Contributor enters the Nightboard community from the Epoch landing
+  Scenario: Contributor enters the Community Web community from the Epoch landing
     Given Epoch Community is available
     When I open Epoch Community
     Then the landing presents the creator story with CanvasUI motion
     When I enter the community board
-    Then the tmux-style Nightboard is ready for keyboard collaboration
+    Then the tmux-style Community Web is ready for keyboard collaboration
 
   @persona.slack_power_user
-  Scenario: Power user traverses Nightboard messages without a pointer
+  Scenario: Power user traverses Community Web messages without a pointer
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I open the Nightboard general channel from the prompt
-    And I move to the next Nightboard message and open its thread by keyboard
-    Then the selected Nightboard message remains the single focused feed item
+    And I open the Community Web general channel from the prompt
+    And I move to the next Community Web message and open its thread by keyboard
+    Then the selected Community Web message remains the single focused feed item
 
   @persona.slack_power_user
-  Scenario: Power user operates every Nightboard post action without a pointer
+  Scenario: Power user operates every Community Web post action without a pointer
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I operate every focused Nightboard post action by keyboard
+    And I operate every focused Community Web post action by keyboard
     Then repost and share are visible and every post action has keyboard parity
 
   @persona.slack_power_user
@@ -124,23 +124,23 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I browse Nightboard message directories with cd completion
+    And I browse Community Web message directories with cd completion
     Then message choices explain their content and cd typeahead can drill cancel or commit
 
   @persona.slack_power_user
-  Scenario: Power user navigates a Nightboard context menu without losing focus
+  Scenario: Power user navigates a Community Web context menu without losing focus
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
     And I open the general channel context menu and move down and up by keyboard
-    Then the Nightboard context menu retains focus without moving the nav selection
+    Then the Community Web context menu retains focus without moving the nav selection
 
   @persona.maintainer
   Scenario: Maintainer defines one action for prompt agent and voice control
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I define the Nightboard review macro with voice phrase "start review"
+    And I define the Community Web review macro with voice phrase "start review"
     Then the review macro persists as the "user_review" agent skill
     And the exact voice phrase runs the same review macro
     But a near voice phrase does not run it
@@ -151,7 +151,7 @@ Feature: Community Web community-first experience
     When I open Epoch Community
     And I enter the community board with a resumable session update and workspace defaults
     Then the bottom line recommends one Ctrl+U restart action
-    When I restart Nightboard with Ctrl+U
+    When I restart Community Web with Ctrl+U
     Then the session is continued on the updated workspace defaults
 
   @persona.platform_operator
@@ -160,7 +160,7 @@ Feature: Community Web community-first experience
     When I open Epoch Community
     And I enter the community board
     And I send repeated agent turns in one workspace
-    Then Nightboard keeps the same cache route until policy or failure invalidates it
+    Then Community Web keeps the same cache route until policy or failure invalidates it
 
   @persona.github_open_source_contributor
   Scenario: App builder uses deterministic HoBo authoring and focused-panel controls
@@ -178,7 +178,7 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I open one Nightboard message from its channel projection
+    And I open one Community Web message from its channel projection
     Then canonical contextual and exact links identify the same message without private content
 
   @persona.maintainer
@@ -186,7 +186,7 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I save and reopen the Nightboard needs-review view
+    And I save and reopen the Community Web needs-review view
     Then the saved view keeps its identity normalized query and canonical message state
 
   @persona.screen_reader_power_user
@@ -194,7 +194,7 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I traverse a Nightboard thread outline with tree keys
+    And I traverse a Community Web thread outline with tree keys
     Then the thread outline and reading pane report the same selected object and topology
 
   @persona.slack_power_user
@@ -203,14 +203,14 @@ Feature: Community Web community-first experience
     When I open Epoch Community
     And I enter the community board
     And I invoke namespace parent thread parent browser back and previous location
-    Then each Nightboard navigation operation reports its distinct action and outcome
+    Then each Community Web navigation operation reports its distinct action and outcome
 
   @persona.slack_power_user
   Scenario: Power user chooses global jump without weakening deterministic cd
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I compare ambiguous cd with the Nightboard global jump chooser
+    And I compare ambiguous cd with the Community Web global jump chooser
     Then cd stays put while jump candidates await explicit acceptance with reasons
 
   @persona.github_open_source_contributor

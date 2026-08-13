@@ -10,13 +10,13 @@ export default [
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**",
-      "docs/design-explorations/nightboard/openui-parser.js",
-      "docs/design-explorations/nightboard/graphql-engine.js",
-      "docs/design-explorations/nightboard/openui-library.js",
+      "packages/Epoch.Community.Web/app/openui-parser.js",
+      "packages/Epoch.Community.Web/app/graphql-engine.js",
+      "packages/Epoch.Community.Web/app/openui-library.js",
       // Vendored from CanvasUI and bundled; see its header for how to rebuild.
-      "docs/design-explorations/nightboard/asciify.js",
-      "docs/design-explorations/nightboard/canvasui-fx.js",
-      "docs/design-explorations/nightboard/canvasui-object.js",
+      "packages/Epoch.Community.Web/app/asciify.js",
+      "packages/Epoch.Community.Web/app/canvasui-fx.js",
+      "packages/Epoch.Community.Web/app/canvasui-object.js",
       // Installed Canvas UI vanilla sources (shadcn registry); lint upstream, not here.
       "components/canvasui/**",
       ".agents/**",
@@ -35,10 +35,11 @@ export default [
   },
   js.configs.recommended,
   {
-    // Design-exploration galleries are browser documents loaded by <script>,
-    // not modules: they legitimately read window and define no exports.
-    files: ["docs/design-explorations/**/*.js"],
-    ignores: ["docs/design-explorations/nightboard/landing-fx.js"],
+    // The Community Web app and the design-exploration galleries are browser
+    // documents loaded by <script>, not modules: they legitimately read window
+    // and define no exports.
+    files: ["docs/design-explorations/**/*.js", "packages/Epoch.Community.Web/app/**/*.js"],
+    ignores: ["packages/Epoch.Community.Web/app/landing-fx.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
@@ -63,7 +64,7 @@ export default [
   },
   {
     // Landing Canvas UI orchestrator is an ES module (imports object bundle).
-    files: ["docs/design-explorations/nightboard/landing-fx.js"],
+    files: ["packages/Epoch.Community.Web/app/landing-fx.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -80,12 +81,10 @@ export default [
     files: [
       "scripts/**/*.mjs",
       "packages/**/scripts/**/*.mjs",
-      // Node tooling for the design explorations. faults.mjs is a Node script
-      // whose page.evaluate callbacks are browser code, so it needs both.
-      "docs/design-explorations/**/build-*.mjs",
-      "docs/design-explorations/**/faults.mjs",
-      "docs/design-explorations/**/e2e.mjs",
-      "docs/design-explorations/**/serve.mjs",
+      // Node tooling for the Community Web app. faults.mjs and e2e.mjs are Node
+      // scripts whose page.evaluate callbacks are browser code, so both apply.
+      "packages/Epoch.Community.Web/scripts/**/*.mjs",
+      "packages/Epoch.Community.Web/test/**/*.mjs",
     ],
     languageOptions: {
       ecmaVersion: 2022,

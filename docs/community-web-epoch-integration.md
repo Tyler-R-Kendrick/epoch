@@ -24,7 +24,7 @@ Everything else in this document follows from that sentence.
 
 The repository was never short of ingredients. It has Core and a real CLI, a
 browser-safe event/VFS layer, tracked-change history in the browser, generated-UI
-version tracking, a Community domain with API/CLI/Web packages, Nightboard with a
+version tracking, a Community domain with API/CLI/Web packages, Community Web with a
 local WebMCP registry, an OpenUI parser and component library, and two
 self-evolving samples that already demonstrate browser history and
 browser-to-Node gossip.
@@ -36,7 +36,7 @@ The defect is composition. Those pieces form several parallel products:
 | Core + `epoch` CLI | DVCS concepts, change graph, signed events | No application layer above it for the browser to share |
 | Community Core/API/CLI/Web | Social and collaboration models | Can describe repositories, proposals, and merges without touching native Epoch objects |
 | Integration Core + GenUI | Browser tracked changes and generated-UI versions | Not composed into any deployed application |
-| Nightboard | The application that is actually deployed | Lives in `docs/design-explorations/`, composed from `window.NB_*` globals |
+| Community Web | The application that is actually deployed | Lives in `docs/design-explorations/`, composed from `window.CW_*` globals |
 | Samples | The missing browser history and sync patterns | Demonstrations, not production packages |
 
 Two claims from earlier framings needed correcting before anything else:
@@ -59,13 +59,14 @@ Two claims from earlier framings needed correcting before anything else:
 |---|---|---|---|
 | 1 | The Community CLI could not bootstrap itself | `main()` called `requireContext(context)`; the `require.main` entry passed none | **Fixed** — `--remote`/`EPOCH_COMMUNITY_URL` bootstrap, help works before configuration |
 | 2 | `epoch` and `epoch-community` were separate command surfaces | Two parsers, two binaries, no shared layer | **Fixed** — `epoch community …` and `epoch ui …` route into one implementation |
-| 3 | No shared command/receipt layer behind UI, WebMCP, CLI, SDK | Nightboard's action registry is page-scoped; Community CLI and Core CLI each have their own | **Fixed for the workspace/UI surface** — `@epoch/community-runtime` |
+| 3 | No shared command/receipt layer behind UI, WebMCP, CLI, SDK | Community Web's action registry is page-scoped; Community CLI and Core CLI each have their own | **Fixed for the workspace/UI surface** — `@epoch/community-runtime` |
 | 4 | The browser had history but no forge vocabulary | `BrowserEpoch` exposes track/read/ledger/subscribe and the raw repository | **Fixed for UI state** — views, diff, merge, revert, recovery |
 | 5 | WebMCP registration was fire-and-forget | `webmcp.js` called `native.registerTool(descriptor)` without awaiting; unregister only deleted the local entry | **Fixed** — awaited registration, `AbortSignal` lifetime, accurate annotations |
 | 6 | The WebMCP availability comment was stale | Said no browser ships it; Chrome 149 runs a public origin trial and deprecated `navigator.modelContext` in 150 | **Fixed** |
-| 7 | Deployment builds the design exploration, not the package | `scripts/render-community-web.mjs` copies `docs/design-explorations/nightboard`; `serve-community-web-local.mjs` serves it | **Open** — workstream H |
+| 7 | Deployment builds the design exploration, not the package | `scripts/render-community-web.mjs` copies `packages/Epoch.Community.Web/app`; `serve-community-web-local.mjs` serves it | **Open** — workstream H |
 | 8 | Community Web does not instantiate a browser Epoch workspace | Its manifest depends on core/community-core/design-tokens only | **Open** — workstream H |
 | 9 | Generated OpenUI and generated themes are not wired into the board | `board.html` loads `openui-parser.js` and `openui-library.js` but never `generate.js`; `theme.js` is loaded by no page | **Open** — workstream D |
+| 13 | Two applications both called Community Web | A TypeScript-rendered document in the package and a script-tag app in `docs/`, kept aligned by a parity script | **One app** — the board is the Community Web application; the rendered-document surface remains as a server-rendered projection until workstream H finishes converging them |
 | 10 | No signed static harness, ABI, or enforced safe mode in the board | Static markup exists; a release manifest, slot ABI, and recovery boundary did not | **Contract landed, board not yet migrated** — workstreams C and H |
 | 11 | Community proposals do not resolve to native Epoch IDs | Social records model their own repositories and changes | **Open** — workstream F |
 | 12 | Browser storage defaults to `localStorage` | Synchronous, quota-bound, unsuited to a growing object graph | **Open** — workstream B |
@@ -164,8 +165,8 @@ packages/Epoch.Community.Web/        the application: static shell, dynamic rend
                                      safe mode, prompt workflow, history, WebMCP, projections
 ```
 
-Nightboard's design and keyboard/social interaction model become the view layer
-inside `Epoch.Community.Web`, with `window.NB_*` globals replaced by typed
+Community Web's design and keyboard/social interaction model become the view layer
+inside `Epoch.Community.Web`, with `window.CW_*` globals replaced by typed
 modules and injected runtime services. `docs/design-explorations/` returns to
 being design record rather than production source, and the deployment scripts run
 a real application build instead of copying files.
@@ -183,7 +184,7 @@ These are independently ownable; the ordering below is dependency, not calendar.
 | **E. WebMCP Epoch tool family in the board** | The runtime's tool catalog registered by the board, tool inspector, evals | A, H |
 | **F. Community remote as an Epoch forge** | Capability discovery, ref negotiation, object transfer, native IDs on social records | B |
 | **G. CLI unification completion** | Config file, session import, browser bundle export/import and pairing | A |
-| **H. Community Web migration** | Port Nightboard into the package, build and deploy from the package | A, C |
+| **H. Community Web migration** | Port Community Web into the package, build and deploy from the package | A, C |
 | **I. Vertical demonstration and hardening** | The end-to-end walkthrough as the primary test and demo | B–H |
 
 ### Acceptance criteria
@@ -203,8 +204,8 @@ marked.
 - [x] Tool execution returns the same receipt schema as UI, CLI, and SDK.
 - [x] `epoch community …` and `epoch ui …` operate without an injected
       test-only context.
-- [ ] The deployed Community app is built from `packages/Epoch.Community.Web`.
-- [ ] No production script copies the application from `docs/design-explorations`.
+- [x] The deployed Community app is built from `packages/Epoch.Community.Web`.
+- [x] No production script copies the application from `docs/design-explorations`.
 - [ ] The browser and the Community remote negotiate and transfer native
       immutable objects; browser, CLI, and remote materialize the same head.
 - [ ] Social proposals and reviews resolve to native base, proposal, change, and
@@ -216,7 +217,7 @@ marked.
 
 ## Showing the technology, not hiding it
 
-Nightboard demonstrates a compelling social interface while concealing what makes
+Community Web demonstrates a compelling social interface while concealing what makes
 it different. The guided scenario the product should perform is one prompt:
 
 > "Make my feed denser, put verification status beside each proposed change, and

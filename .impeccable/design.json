@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-08-12T15:00:00.000Z",
-  "title": "Design System: Epoch Nightboard",
+  "title": "Design System: Epoch Community Web",
   "extensions": {
     "colorMeta": {
       "accent": {
@@ -43,7 +43,7 @@
   "components": [],
   "narrative": {
     "northStar": "The Grid Is The Board",
-    "overview": "Epoch Nightboard is a keyboard-first terminal board on a near-black Grid. Magenta is chrome and promotion, cyan is agents and focus, gold is verification, and all state remains legible without color alone.",
+    "overview": "Epoch Community Web is a keyboard-first terminal board on a near-black Grid. Magenta is chrome and promotion, cyan is agents and focus, gold is verification, and all state remains legible without color alone.",
     "keyCharacteristics": [
       "The whole page is the terminal rather than a terminal-shaped card.",
       "Square TTY cells and zero-radius controls preserve the Grid identity.",
@@ -67,7 +67,7 @@
       }
     ],
     "dos": [
-      "Do preserve the Nightboard Grid as the only shipped Community theme.",
+      "Do preserve the Community Web Grid as the only shipped Community theme.",
       "Do keep signed, live, agent, and focus states semantically distinct.",
       "Do honor reduced motion, narrow viewports, and 200 percent zoom."
     ],

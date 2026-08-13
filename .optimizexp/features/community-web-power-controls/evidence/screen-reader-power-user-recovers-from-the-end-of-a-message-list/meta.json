@@ -7,7 +7,7 @@
   "interface": "web",
   "driver": "web",
   "capturedAt": "2026-08-11T02:25:00.000Z",
-  "runId": "20260810-ux-nightboard-power-controls",
+  "runId": "20260810-ux-community-web-power-controls",
   "screen": {
     "widthPx": 390,
     "heightPx": 844,
@@ -23,7 +23,7 @@
   "claims": [
     {
       "id": "claim-1",
-      "text": "Given I open a Nightboard text channel and focus its last message"
+      "text": "Given I open a Community Web text channel and focus its last message"
     },
     {
       "id": "claim-2",

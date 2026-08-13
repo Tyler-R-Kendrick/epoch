@@ -1,15 +1,15 @@
 {
   "featureId": "community-web-power-controls",
-  "seed": "A keyboard-first Nightboard power user navigates messages and defines one safe reusable action exposed to the prompt, agent tools, and exact voice phrases",
+  "seed": "A keyboard-first Community Web power user navigates messages and defines one safe reusable action exposed to the prompt, agent tools, and exact voice phrases",
   "scannedAt": "2026-08-11T01:56:02.604Z",
   "bindings": [
     {
       "kind": "package-script",
-      "id": "script:nightboard:e2e",
-      "scriptName": "nightboard:e2e",
-      "command": "npm run nightboard:e2e",
+      "id": "script:community-web:app:e2e",
+      "scriptName": "community-web:app:e2e",
+      "command": "npm run community-web:app:e2e",
       "confidence": "high",
-      "reason": "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
+      "reason": "package.json scripts[\"community-web:app:e2e\"] exists; mentioned in feature/seed",
       "implementsSteps": [
         "I exercise the surface as this persona would",
         "I observe the failure as this persona"
@@ -17,11 +17,11 @@
     },
     {
       "kind": "package-script",
-      "id": "script:nightboard:e2e",
-      "scriptName": "nightboard:e2e",
-      "command": "npm run nightboard:e2e",
+      "id": "script:community-web:app:e2e",
+      "scriptName": "community-web:app:e2e",
+      "command": "npm run community-web:app:e2e",
       "confidence": "high",
-      "reason": "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
+      "reason": "package.json scripts[\"community-web:app:e2e\"] exists; mentioned in feature/seed",
       "implementsSteps": [
         "I exercise the surface as this persona would",
         "I observe the failure as this persona"
@@ -29,11 +29,11 @@
     },
     {
       "kind": "package-script",
-      "id": "script:nightboard:e2e",
-      "scriptName": "nightboard:e2e",
-      "command": "npm run nightboard:e2e",
+      "id": "script:community-web:app:e2e",
+      "scriptName": "community-web:app:e2e",
+      "command": "npm run community-web:app:e2e",
       "confidence": "high",
-      "reason": "package.json scripts[\"nightboard:e2e\"] exists; mentioned in feature/seed",
+      "reason": "package.json scripts[\"community-web:app:e2e\"] exists; mentioned in feature/seed",
       "implementsSteps": [
         "I exercise the surface as this persona would",
         "I observe the failure as this persona"
@@ -41,44 +41,44 @@
     },
     {
       "kind": "package-script",
-      "id": "script:a11y:nightboard",
-      "scriptName": "a11y:nightboard",
-      "command": "pnpm run a11y:nightboard",
+      "id": "script:community-web:app:a11y",
+      "scriptName": "community-web:app:a11y",
+      "command": "pnpm run community-web:app:a11y",
       "confidence": "medium",
-      "reason": "script \"a11y:nightboard\" matched seed keywords (score 5)",
+      "reason": "script \"community-web:app:a11y\" matched seed keywords (score 5)",
       "implementsSteps": [
         "I exercise the surface as this persona would"
       ]
     },
     {
       "kind": "package-script",
-      "id": "script:lint:nightboard-a11y",
-      "scriptName": "lint:nightboard-a11y",
-      "command": "pnpm run lint:nightboard-a11y",
+      "id": "script:community-web:app:a11y-lint",
+      "scriptName": "community-web:app:a11y-lint",
+      "command": "pnpm run community-web:app:a11y-lint",
       "confidence": "medium",
-      "reason": "script \"lint:nightboard-a11y\" matched seed keywords (score 5)",
+      "reason": "script \"community-web:app:a11y-lint\" matched seed keywords (score 5)",
       "implementsSteps": [
         "I exercise the surface as this persona would"
       ]
     },
     {
       "kind": "package-script",
-      "id": "script:nightboard:faults",
-      "scriptName": "nightboard:faults",
-      "command": "pnpm run nightboard:faults",
+      "id": "script:community-web:app:faults",
+      "scriptName": "community-web:app:faults",
+      "command": "pnpm run community-web:app:faults",
       "confidence": "medium",
-      "reason": "script \"nightboard:faults\" matched seed keywords (score 5)",
+      "reason": "script \"community-web:app:faults\" matched seed keywords (score 5)",
       "implementsSteps": [
         "I exercise the surface as this persona would"
       ]
     },
     {
       "kind": "package-script",
-      "id": "script:nightboard:build",
-      "scriptName": "nightboard:build",
-      "command": "pnpm run nightboard:build",
+      "id": "script:community-web:app:build",
+      "scriptName": "community-web:app:build",
+      "command": "pnpm run community-web:app:build",
       "confidence": "medium",
-      "reason": "script \"nightboard:build\" matched seed keywords (score 5)",
+      "reason": "script \"community-web:app:build\" matched seed keywords (score 5)",
       "implementsSteps": [
         "I exercise the surface as this persona would"
       ]
@@ -110,12 +110,12 @@
     "coverage",
     "test",
     "a11y:community-web",
-    "a11y:nightboard",
-    "lint:nightboard-a11y",
+    "community-web:app:a11y",
+    "community-web:app:a11y-lint",
     "verify",
-    "nightboard:faults",
-    "nightboard:build",
-    "nightboard:e2e"
+    "community-web:app:faults",
+    "community-web:app:build",
+    "community-web:app:e2e"
   ],
   "notes": [
     "Discovered 7 candidate binding(s); high-confidence ones are wired into implementations.ts."

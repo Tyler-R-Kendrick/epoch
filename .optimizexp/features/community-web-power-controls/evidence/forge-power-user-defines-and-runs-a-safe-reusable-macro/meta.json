@@ -7,7 +7,7 @@
   "interface": "web",
   "driver": "web",
   "capturedAt": "2026-08-11T02:05:46.789Z",
-  "runId": "20260810-ux-nightboard-power-controls",
+  "runId": "20260810-ux-community-web-power-controls",
   "screen": {
     "widthPx": 1280,
     "heightPx": 720,
@@ -23,7 +23,7 @@
   "claims": [
     {
       "id": "claim-1",
-      "text": "Given I open `http://127.0.0.1:8787/` and enter Nightboard"
+      "text": "Given I open `http://127.0.0.1:8787/` and enter Community Web"
     },
     {
       "id": "claim-2",
@@ -35,7 +35,7 @@
     },
     {
       "id": "claim-4",
-      "text": "And `macro list` shows review and its two existing Nightboard commands"
+      "text": "And `macro list` shows review and its two existing Community Web commands"
     },
     {
       "id": "claim-5",
@@ -43,7 +43,7 @@
     },
     {
       "id": "claim-6",
-      "text": "Then Nightboard navigates to `/projects/epoch/changes` and applies `state:needs-review`"
+      "text": "Then Community Web navigates to `/projects/epoch/changes` and applies `state:needs-review`"
     },
     {
       "id": "claim-7",

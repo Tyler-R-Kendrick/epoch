@@ -1,9 +1,9 @@
 # ADR-0026: The Community Visual World Is Course Line
 
-**Status:** Superseded by [ADR-0027](0027-community-visual-world-nightboard.md)
+**Status:** Superseded by [ADR-0027](0027-community-visual-world.md)
 **Date:** 2026-08-04
-**Supersedes:** The visual sections of root `DESIGN.md` (colors, typography, elevation, shapes) — later replaced by Nightboard
-**Related:** [ADR-0024](0024-community-theming-deferral.md), [ADR-0027](0027-community-visual-world-nightboard.md), `PRODUCT.md`, `docs/design-explorations/redesign-2026/`
+**Supersedes:** The visual sections of root `DESIGN.md` (colors, typography, elevation, shapes) — later replaced by Community Web
+**Related:** [ADR-0024](0024-community-theming-deferral.md), [ADR-0027](0027-community-visual-world.md), `PRODUCT.md`, `docs/design-explorations/redesign-2026/`
 
 ## Context
 

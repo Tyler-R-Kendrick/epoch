@@ -381,7 +381,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
 
 function renderScriptRejectsAnOutputContainingItsSource(): void {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-community-render-guard-"));
-  const source = join(workspace, "docs", "design-explorations", "nightboard");
+  const source = join(workspace, "packages", "Epoch.Community.Web", "app");
   const marker = join(source, "index.html");
   mkdirSync(source, { recursive: true });
   writeFileSync(marker, "keep\n");
@@ -389,7 +389,7 @@ function renderScriptRejectsAnOutputContainingItsSource(): void {
   assert.throws(() => execFileSync(process.execPath, [
     join(process.cwd(), "scripts", "render-community-web.mjs"),
     "--output",
-    join(workspace, "docs", "design-explorations"),
+    join(workspace, "packages", "Epoch.Community.Web"),
   ], { cwd: workspace, stdio: "pipe" }));
   assert.equal(readFileSync(marker, "utf8"), "keep\n");
 }

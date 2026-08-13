@@ -292,10 +292,10 @@
       ]
     },
     {
-      "experienceId": "nightboard-message-keyboard",
+      "experienceId": "community-web-message-keyboard",
       "personaId": "screen-reader-power-user",
       "intent": "Traverse a channel message list and open a thread without leaving the keyboard",
-      "entryCommand": "open http://127.0.0.1:8787/ and enter Nightboard",
+      "entryCommand": "open http://127.0.0.1:8787/ and enter Community Web",
       "driver": "web",
       "observableSuccess": "Tab enters one selected message; ArrowUp/ArrowDown or j/k moves it; Enter opens the selected thread with visible and announced focus",
       "observableFailure": "Messages are skipped by Tab, focus is invisible, or navigation requires mutating internal app state",
@@ -311,7 +311,7 @@
       ]
     },
     {
-      "experienceId": "nightboard-custom-actions",
+      "experienceId": "community-web-custom-actions",
       "personaId": "forge-community-power-user",
       "intent": "Define one reusable action and invoke it from the terminal-style prompt",
       "entryCommand": "open http://127.0.0.1:8787/ and run macro set review = cd /projects/epoch/changes; view state:needs-review",
@@ -330,7 +330,7 @@
       ]
     },
     {
-      "experienceId": "nightboard-agent-voice-actions",
+      "experienceId": "community-web-agent-voice-actions",
       "personaId": "agentic-coding-power-user",
       "intent": "Expose a user-defined action to agents and voice without redefining the workflow",
       "entryCommand": "open http://127.0.0.1:8787/ and define a named macro with a voice phrase",

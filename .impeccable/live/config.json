@@ -1,5 +1,5 @@
 {
-  "files": ["docs/design-explorations/nightboard/index.html"],
+  "files": ["packages/Epoch.Community.Web/app/index.html"],
   "exclude": [],
   "insertBefore": "</body>",
   "commentSyntax": "html",

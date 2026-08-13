@@ -9,7 +9,7 @@
   "interface": "native",
   "driver": "native",
   "capturedAt": "2026-08-11T15:52:29.656Z",
-  "runId": "20260811-ux-nightboard-post-actions",
+  "runId": "20260811-ux-community-web-post-actions",
   "screen": {
     "widthPx": 390,
     "heightPx": 844,
@@ -25,7 +25,7 @@
   "claims": [
     {
       "id": "claim-1",
-      "text": "Given I focus a post in a Nightboard text channel"
+      "text": "Given I focus a post in a Community Web text channel"
     },
     {
       "id": "claim-2",
