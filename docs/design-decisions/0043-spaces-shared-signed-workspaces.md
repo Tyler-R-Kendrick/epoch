@@ -1,6 +1,10 @@
 # ADR-0043: Spaces — Shared, Signed, Joinable Workspaces
 
-Status: Accepted and implemented for phases 1–3; phases 4–6 are not built
+Status: Accepted and implemented for phases 1–6, with the boundaries in
+"Implementation record" below. Phase 5 delivers real isolation on Linux hosts
+with user namespaces and an honest refusal everywhere else; phases 4 and 6 ship
+provider-level hydration and explicit-locator sync rather than a kernel mount
+and a discovery network.
 
 ## Context
 
@@ -209,3 +213,45 @@ Revisit this decision if:
 - [ADR-0032: Residency, Native Sync, And Workspace Providers](0032-residency-native-sync-and-workspace-providers.md)
 - [ADR-0034: Agent Principals, Grants, And Budgets](0034-agent-principals-grants-and-budgets.md)
 - [Epoch Nomenclature](../nomenclature.md)
+
+
+## Implementation Record (phases 4–6)
+
+Phases 1–3 shipped with the original decision. Phases 4–6 are now implemented,
+with these boundaries stated so the capability report stays honest.
+
+**Phase 4 — hydration and reflink.** `HydratingWorkspaceProvider` materializes
+a path's bytes on first read and verifies them against the manifest's object ID,
+so a hydration source supplies content but never decides it. A missing object
+with no configured source is reported as an availability gap rather than
+materialized empty (ADR-0032). `FileSystemWorkspaceProvider.create()` probes
+reflink by performing a real `FICLONE` copy. **Not built:** a kernel VFS or
+FUSE/ProjFS mount. Hydration is a provider seam; a tool that opens a virtual
+path outside the provider sees nothing.
+
+**Phase 5 — isolated execution.** `NamespaceSandboxProvider` runs a turn under
+Linux user, PID, mount, and network namespaces. It claims `network: "denied"`
+only after a probe observed a name lookup *fail* inside the namespace, and
+`processes: "isolated"` only after a PID namespace ran. Where the kernel refuses
+the namespaces it reports `unavailable` and refuses to run, because a silent
+downgrade to an unconfined child process is exactly how an isolation guarantee
+becomes a lie. `runTurn(..., { requireIsolation: true })` refuses an unprovable
+provider and records the refusal as a receipt. **Not built:** container or
+microVM isolation, and any isolation at all on non-Linux hosts, where the
+process provider's weaker guarantees are reported rather than disguised.
+
+**Phase 6 — cross-machine join.** `syncSpacesFrom()` pulls Spaces from another
+replica over the shipped transports, verifies locally before trusting, and only
+then makes the Space joinable; the synced replica verifies offline afterwards.
+**Not built:** discovery. `space sync` needs an explicit peer locator, so a
+Space is joinable across machines but not yet *findable* over gossip or ATProto.
+
+### What this changes about the Delta comparison
+
+The per-turn Sandbox binding is no longer descriptive on Linux: a turn that
+claims isolation ran without network access, without the operator's environment,
+and in its own process table, and the receipt is signed evidence of it. That is
+the specific thing Zed's agentic-safety page documents as absent in Delta. The
+claim Epoch should make is narrow and checkable — *proven* confinement where the
+kernel provides it, and a legible refusal where it does not — rather than
+"sandboxed agents".

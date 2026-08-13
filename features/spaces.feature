@@ -50,3 +50,34 @@ Feature: Shared signed workspaces
     When the configuration is reformatted and its settings are reordered
     Then the comment still points at the "rail" setting
     But the comment reports itself unresolved once the "rail" setting is deleted
+
+  @persona.security_compliance_responder
+  Scenario: Responder confirms an agent turn ran inside a proven boundary
+    Given a maintainer has opened a space called "Sandboxed work" over the main view
+    And an agent has joined the space
+    When the agent runs a command in the space through a sandbox
+    Then the turn records the isolation the sandbox actually proved
+    And a signed receipt reports the outcome and the network posture
+
+  @persona.security_compliance_responder
+  Scenario: Responder sees an unprovable sandbox refused rather than trusted
+    Given a maintainer has opened a space called "Isolation required" over the main view
+    And an agent has joined the space
+    When the agent demands isolation from a sandbox that cannot prove it
+    Then the run is refused because the sandbox cannot prove isolation
+    And the refusal is recorded as a receipt so the denied attempt leaves evidence
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor joins a space and pays for content only where they look
+    Given a maintainer has opened a space called "Big tree" over the main view
+    And the space describes a board configuration and a readme
+    When the contributor opens the space without materializing it
+    Then every path is described while its bytes stay virtual
+    And reading the board configuration materializes only that file
+
+  @persona.maintainer
+  Scenario: Maintainer joins a space synced from another machine
+    Given a maintainer has opened a space called "Cross machine" over the main view
+    When a teammate on another replica syncs the space from that machine
+    Then the teammate can join the synced space
+    And the teammate's replica verifies the space history offline

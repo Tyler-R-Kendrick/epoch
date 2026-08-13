@@ -297,6 +297,21 @@ Graph family, and refusals carry their own code — `grant-denied`,
 | `space anchor record ID --revision R --path P --structural-path SP (--content C \| --file F)` | Anchor to a structural path inside an exact Revision. A path absent from the content is refused. |
 | `space anchor resolve ANCHOR_ID (--content C \| --file F)` | Re-resolve: `resolved` (unchanged), `moved` (content changed, construct survives), or `unresolved` (construct gone). |
 | `space anchor list ID` | List anchors recorded in a Space. |
+| `space run ID COMMAND [ARGS...] [--isolated] [--sandbox namespace\|process] [--principal P] [--units N] [--cwd DIR] [--timeout MS]` | Record a turn *and run it* in a sandbox. `--isolated` refuses any provider that cannot prove namespace isolation. |
+| `space receipts ID` | List signed turn receipts: what ran, under which proven confinement, and how it ended. |
+| `space sandbox` | Report what the host actually supports, from a live probe rather than the platform string. |
+| `space sync --from PATH` | Pull Spaces from another replica, verify locally, and report which Spaces became joinable. |
+
+### What a sandbox may claim
+
+`space sandbox` reports a probe, not a capability table. `NamespaceSandboxProvider`
+claims `network: "denied"` only after watching a name lookup fail inside the
+namespace, and `processes: "isolated"` only after a PID namespace ran. On a host
+where the kernel refuses the namespaces it reports `unavailable` and `space run
+--isolated` fails with `policy-denied` — the refusal is recorded as a receipt,
+so a denied attempt still leaves evidence. Isolation today is Linux user
+namespaces; there is no container or microVM provider, and non-Linux hosts get
+the process provider with its weaker, declared guarantees.
 
 Continuous capture is legal only inside a Capture Session, so the consent —
 scope, retention, and redaction policy — is itself signed history. Anchors bind
