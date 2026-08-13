@@ -16,21 +16,18 @@ import {
   COMMUNITY_CLI_EXIT_CODES,
   QUERY_CLI_COMMANDS,
   communityCliExitCode,
+  createHttpCommunityCliContext,
   formatCommunityCliHelp,
-  runQueryCommand,
-  type QueryCommandServices,
-} from "../../packages/Epoch.Community.CLI/src/query-commands";
-import {
-  PROJECTION_CLI_COMMANDS,
-  runProjectionCommand,
-  type ProjectionCommandServices,
-} from "../../packages/Epoch.Community.CLI/src/projection-commands";
-import {
+  main,
   NAMESPACE_CLI_COMMANDS,
+  PROJECTION_CLI_COMMANDS,
   runNamespaceCommand,
+  runProjectionCommand,
+  runQueryCommand,
   type NamespaceCommandServices,
-} from "../../packages/Epoch.Community.CLI/src/namespace-commands";
-import { createHttpCommunityCliContext, main } from "../../packages/Epoch.Community.CLI/src/index";
+  type ProjectionCommandServices,
+  type QueryCommandServices,
+} from "@epoch/community-cli";
 
 const NOW = "2026-08-12T20:00:00.000Z";
 

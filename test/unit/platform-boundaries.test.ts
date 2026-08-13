@@ -101,14 +101,14 @@ async function communityCliUsesCoreClient(): Promise<void> {
 }
 
 function compiledTestsImportCommunityCoreFromThePackage(): void {
-  const relativeCore = /from\s+["'](?:\.\.\/)+packages\/Epoch\.Community\.Core\/src\//;
+  const relativeCore = /from\s+["'](?:\.\.\/)+packages\/Epoch\.Community\.(?:Core|CLI)\/src\//;
   const offenders = files(join(process.cwd(), "test"))
     .filter((filePath) => filePath.endsWith(".ts") || filePath.endsWith(".js") || filePath.endsWith(".mjs"))
     .filter((filePath) => relativeCore.test(readFileSync(filePath, "utf8")));
   assert.deepEqual(
     offenders,
     [],
-    "compiled tests must import @epoch/community-core; relative Core src emit is incomplete on CI: " + offenders.join(", "),
+    "compiled tests must import Community Core/CLI packages; relative src emit is incomplete on CI: " + offenders.join(", "),
   );
 }
 
