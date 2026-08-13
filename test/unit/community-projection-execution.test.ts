@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import type { CommunityEntity } from "../../packages/Epoch.Community.Core/src/entity";
-import type { CommunityRelation } from "../../packages/Epoch.Community.Core/src/graph";
-import type { CommunityObjectRef } from "../../packages/Epoch.Community.Core/src/identity";
-import { EntityProjectionRuntime } from "../../packages/Epoch.Community.Core/src/entity-projection-runtime";
-import type { ProjectionDefinition } from "../../packages/Epoch.Community.Core/src/projection-definition";
+import {
+  EntityProjectionRuntime,
+  type CommunityEntity,
+  type CommunityObjectRef,
+  type CommunityRelation,
+  type ProjectionDefinition,
+} from "@epoch/community-core";
 
 const context = { authorizationFingerprint: "actor-public", snapshotId: "snapshot-1" } as const;
 const complete = { status: "complete", sources: [], omittedSources: [], unsupportedPredicates: [] } as const;

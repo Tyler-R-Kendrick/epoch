@@ -267,7 +267,7 @@ const CASES = [
     name: "an unauthorized private Entity remains absent from deterministic search",
     spec: { availability: "unavailable" },
     check: async (page, log) => {
-      const result = await page.evaluate(() => window.NB_QUERY.searchBoard("body:Scoped", {
+      const result = await page.evaluate(() => window.NB_QUERY.searchBoard("body:\"lockfile hash only\"", {
         viewer: { actorId: "principal-bob", readableDmIds: [] },
       }));
       log(JSON.stringify(result));
