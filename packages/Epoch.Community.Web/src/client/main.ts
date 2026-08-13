@@ -1,5 +1,5 @@
 import type {
-  CommunityChangeProposal,
+  CommunityChange,
   CommunityIssue,
   CommunityRepository,
 } from "@epoch/community-core";
@@ -639,8 +639,8 @@ function applyHighlight(message: HTMLElement, query: string): void {
  * `promote` is otherwise invisible: you can promote a message and never see
  * that the two records are the same piece of work.
  */
-function showLineage(proposalId: string): void {
-  if (proposalId === "") return;
+function showLineage(changeId: string): void {
+  if (changeId === "") return;
   document.querySelectorAll<HTMLElement>("[data-lineage-origin]").forEach((element) => {
     element.removeAttribute("data-lineage-origin");
   });
@@ -649,12 +649,12 @@ function showLineage(proposalId: string): void {
   });
 
   const origin = document.querySelector<HTMLElement>(
-    `[data-message][data-linked-proposal="${CSS.escape(proposalId)}"]`,
+    `[data-message][data-linked-change="${CSS.escape(changeId)}"]`,
   );
   origin?.setAttribute("data-lineage-origin", "true");
 
   const row = document.querySelector<HTMLElement>(
-    `[data-change-list] [data-change-id="${CSS.escape(proposalId)}"]`,
+    `[data-change-list] [data-change-id="${CSS.escape(changeId)}"]`,
   );
   if (row === null) {
     if (origin) setStatus(origin, "Lineage: this change is not in the linked project list yet.");
@@ -807,14 +807,14 @@ function issueListModel(issue: CommunityIssue, repo: CommunityRepository): Commu
   };
 }
 
-function changeListModel(proposal: CommunityChangeProposal, repo: CommunityRepository): CommunityFeedChangeItem {
+function changeListModel(change: CommunityChange, repo: CommunityRepository): CommunityFeedChangeItem {
   return {
-    id: proposal.id,
-    title: proposal.title,
-    author: proposal.author,
-    status: proposal.status,
-    sourceView: proposal.sourceView ?? "",
-    targetView: proposal.targetView ?? "",
+    id: change.id,
+    title: change.title,
+    author: change.author,
+    status: change.status,
+    sourceView: change.sourceView ?? "",
+    targetView: change.targetView ?? "",
     repositorySlug: repo.slug,
   };
 }
@@ -840,24 +840,24 @@ function issueConversation(issue: CommunityIssue, repo: CommunityRepository): Co
   };
 }
 
-function changeConversation(proposal: CommunityChangeProposal, repo: CommunityRepository): CommunityConversationView {
+function changeConversation(change: CommunityChange, repo: CommunityRepository): CommunityConversationView {
   return {
-    id: `change-${proposal.id}`,
+    id: `change-${change.id}`,
     channel: "previews",
     communityId: activeCommunity,
     repositorySlug: repo.slug,
-    author: proposal.author,
+    author: change.author,
     role: "contributor",
-    title: proposal.title,
-    body: proposal.body || `${proposal.sourceView} -> ${proposal.targetView}`,
+    title: change.title,
+    body: change.body || `${change.sourceView} -> ${change.targetView}`,
     time: "live",
-    anchor: `change:${proposal.id}`,
-    signature: `sig:${String(proposal.id).toLowerCase()}`,
+    anchor: `change:${change.id}`,
+    signature: `sig:${String(change.id).toLowerCase()}`,
     visibility: "community",
-    state: proposal.status,
+    state: change.status,
     reactions: ["review", "preview"],
-    linkedArtifact: proposal.sourceView || undefined,
-    linkedProposalId: proposal.id,
+    linkedArtifact: change.sourceView || undefined,
+    linkedChangeId: change.id,
     source: "api",
   };
 }
@@ -870,7 +870,7 @@ function updateChannelCounts(repo: CommunityRepository): void {
     const channel = channelForIssue(issue.labels ?? []);
     counts[channel] = (counts[channel] || 0) + 1;
   }
-  for (const _proposal of repo.changeProposals ?? []) {
+  for (const _change of repo.changes ?? []) {
     counts.previews += 1;
   }
   for (const item of conversations()) {
@@ -887,7 +887,7 @@ function updateChannelCounts(repo: CommunityRepository): void {
   const issueCount = document.querySelector('[data-surface="issues"] .channel-count');
   if (issueCount) issueCount.textContent = String((repo.issues ?? []).length);
   const changeCount = document.querySelector('[data-surface="changes"] .channel-count');
-  if (changeCount) changeCount.textContent = String((repo.changeProposals ?? []).length);
+  if (changeCount) changeCount.textContent = String((repo.changes ?? []).length);
 }
 
 /** Thin DOM wrapper over the shared renderSignerStrip template (honest presence). */
@@ -948,7 +948,7 @@ function renderRepository(repo: CommunityRepository): void {
     );
     const agents = existing.filter((item) => item.role === "agent");
     const issueConvos = (repo.issues ?? []).map((issue) => issueConversation(issue, repo));
-    const changeConvos = (repo.changeProposals ?? []).map((proposal) => changeConversation(proposal, repo));
+    const changeConvos = (repo.changes ?? []).map((change) => changeConversation(change, repo));
     // Merge issue/change conversations back into state for channel counts; keep agent members.
     const retained = existing.filter((item) =>
       !(item.repositorySlug === repo.slug && (item.id.startsWith("issue-") || item.id.startsWith("change-"))),
@@ -973,9 +973,9 @@ function renderRepository(repo: CommunityRepository): void {
       : emptyArtifactItem("No open issues in the connected repository.");
   }
   if (changeList) {
-    const proposals = repo.changeProposals ?? [];
-    changeList.innerHTML = proposals.length
-      ? proposals.map((proposal) => renderChangeListItem(changeListModel(proposal, repo))).join("")
+    const changes = repo.changes ?? [];
+    changeList.innerHTML = changes.length
+      ? changes.map((change) => renderChangeListItem(changeListModel(change, repo))).join("")
       : emptyArtifactItem("No Changes yet. Promote a message with Promote to Change.");
   }
   updateChannelCounts(repo);
@@ -1137,11 +1137,11 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
         targetView: repo?.defaultView || "main",
       });
       renderRepository(updated);
-      const proposal = (updated.changeProposals ?? []).filter((item) => item.title === title).slice(-1)[0]
-        || (updated.changeProposals ?? []).slice(-1)[0];
-      if (proposal) {
+      const change = (updated.changes ?? []).filter((item) => item.title === title).slice(-1)[0]
+        || (updated.changes ?? []).slice(-1)[0];
+      if (change) {
         // Stamp promote receipt on the originating message when it still exists.
-        message.setAttribute("data-linked-proposal", proposal.id);
+        message.setAttribute("data-linked-change", change.id);
         if (!message.querySelector("[data-promote-receipt]")) {
           // Post-migration structure: rows use .row-body / .row-foot.
           const messageBody = message.querySelector(".row-body");
@@ -1149,24 +1149,24 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
             const receipt = document.createElement("div");
             receipt.className = "message-promote-receipt";
             receipt.setAttribute("data-promote-receipt", "true");
-            receipt.setAttribute("data-proposal-id", proposal.id);
-            receipt.innerHTML = '<span class="promote-receipt-label">Signed promote</span><strong data-proposal-link>proposal:'
-              + escapeHtml(proposal.id) + '</strong><span class="promote-receipt-state" data-promote-state>'
-              + escapeHtml(proposal.status || "open") + " · human review required</span>";
+            receipt.setAttribute("data-change-id", change.id);
+            receipt.innerHTML = '<span class="promote-receipt-label">Signed promote</span><strong data-change-link>change:'
+              + escapeHtml(change.id) + '</strong><span class="promote-receipt-state" data-promote-state>'
+              + escapeHtml(change.status || "open") + " · human review required</span>";
             const footer = messageBody.querySelector(".row-foot");
             if (footer) messageBody.insertBefore(receipt, footer);
             else messageBody.appendChild(receipt);
           }
         }
-        const next = document.querySelector(`[data-message-id="change-${CSS.escape(proposal.id)}"]`)
+        const next = document.querySelector(`[data-message-id="change-${CSS.escape(change.id)}"]`)
           || document.querySelector(`[data-message-id="${CSS.escape(message.dataset.messageId ?? "")}"]`);
         if (next) {
           selectChannel("previews");
-          selectMessage(`change-${proposal.id}`);
+          selectMessage(`change-${change.id}`);
           setStatus(
             next,
-            `Change candidate recorded from the live API: ${proposal.id}`
-              + ` (${proposal.status}). Promote receipt recorded. Human review still required.`,
+            `Change candidate recorded from the live API: ${change.id}`
+              + ` (${change.status}). Promote receipt recorded. Human review still required.`,
           );
         }
       }
@@ -1205,7 +1205,7 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
     }
 
     if (action === "docs") {
-      setStatus(message, "Opening docs patch proposal...");
+      setStatus(message, "Opening docs Change...");
       const updated = await postChange({
         title: `Docs: ${title}`,
         author: actor,
@@ -1214,11 +1214,11 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
         targetView: repo?.defaultView || "main",
       });
       renderRepository(updated);
-      const proposal = (updated.changeProposals ?? []).slice(-1)[0];
-      if (proposal) {
+      const change = (updated.changes ?? []).slice(-1)[0];
+      if (change) {
         selectChannel("previews");
-        selectMessage(`change-${proposal.id}`);
-        setStatus(document.querySelector(`[data-message-id="change-${CSS.escape(proposal.id)}"]`), "Docs patch candidate linked to this conversation.");
+        selectMessage(`change-${change.id}`);
+        setStatus(document.querySelector(`[data-message-id="change-${CSS.escape(change.id)}"]`), "Docs Change linked to this conversation.");
       }
       return;
     }
@@ -1243,7 +1243,7 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
 
     if (action === "approve") {
       if (!changeId) {
-        setStatus(message, "No change proposal on this message.");
+        setStatus(message, "No Change is linked to this message.");
         return;
       }
       setStatus(message, "Submitting approval...");
@@ -1436,8 +1436,8 @@ async function handleDelegatedClick(event: MouseEvent): Promise<void> {
   if (lineageButton) {
     event.preventDefault();
     event.stopPropagation();
-    const proposalId = lineageButton.getAttribute("data-view-lineage") ?? "";
-    showLineage(proposalId);
+    const changeId = lineageButton.getAttribute("data-view-lineage") ?? "";
+    showLineage(changeId);
     return;
   }
 

@@ -199,6 +199,10 @@ export async function runChangeGraphCliTests(): Promise<void> {
       const exitCode = typeof result === "object" && result !== null && "then" in result ? await result : result;
       return { exitCode, stdout, stderr };
     };
+    const help = await invoke(["help"]);
+    assert.equal(help.exitCode, 0);
+    assert.match(help.stdout, /epoch-community/u);
+    assert.match(help.stdout, /unsupported-capability/u);
     const jsonSuccess = await invoke(["workspace", "list", "--json"]);
     assert.equal(jsonSuccess.exitCode, 0);
     assert.equal(JSON.parse(jsonSuccess.stdout).code, "ok");

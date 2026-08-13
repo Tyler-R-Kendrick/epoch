@@ -1,0 +1,18 @@
+{
+  "schema": "epoch.community.browser-faults.v1",
+  "cases": [
+    { "id": "opfs-unavailable", "capabilities": { "opfs": false, "crossOriginIsolated": false, "sharedArrayBuffer": false }, "expectedMode": "memory" },
+    { "id": "opfs-no-isolation", "capabilities": { "opfs": true, "crossOriginIsolated": false, "sharedArrayBuffer": false }, "expectedMode": "opfs-sahpool" },
+    { "id": "opfs-worker-locks", "capabilities": { "opfs": true, "crossOriginIsolated": true, "sharedArrayBuffer": true }, "expectedMode": "opfs-wl" },
+    { "id": "quota", "domException": "QuotaExceededError", "expectedCode": "INDEX_QUOTA" },
+    { "id": "lock-contention", "domException": "InvalidStateError", "expectedCode": "INDEX_LOCKED" },
+    { "id": "worker-crash", "error": "worker stopped", "expectedCode": "INDEX_STALE" }
+  ],
+  "ftsInjectionCorpus": [
+    "x\" OR secret:*",
+    "' UNION SELECT entity_json FROM entity --",
+    "NEAR(title body, 999999)",
+    "{title}:*",
+    "\u0000control"
+  ]
+}

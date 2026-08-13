@@ -15,6 +15,7 @@ decisions, operations, or contribution workflow.
 | [Community Web Experience](community-web-experience.md) | Channel-first Community Web behavior, personas, browser evidence, and selected-message signed actions. |
 | [Change Graph And Operation History](change-graph.md) | Stable Changes, immutable Revisions, Review Bundles, Merge Plans, conflicts, interoperability, and honest gaps. |
 | [Epoch Nomenclature](nomenclature.md) | Normative vocabulary and boundaries used across Protocol, Core, CLI, SDK, Community, and Operations. |
+| [Community Search And Projections](community-search-projections.md) | Typed cross-source search, snapshots, GraphQL, Projection Definitions, Namespace Mounts, browser backends, migration, and recovery. |
 | [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
 | [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | The model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
@@ -36,6 +37,7 @@ decisions, operations, or contribution workflow.
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
 | [Nightboard](design-explorations/nightboard/README.md) | **Canonical Community Web app** ([ADR-0027](design-decisions/0027-community-visual-world-nightboard.md)): CanvasUI creator landing at `/`, Tron/tmux-style keyboard-first board at `board.html`. Evidence under [`evidence/nightboard/`](evidence/nightboard/README.md). |
 | [Nightboard Navigation/Projection Parity](evidence/nightboard-navigation-projection-parity/README.md) | Executable evidence for stable object identity, mounted projections, explicit graph navigation, route restoration, shared actions, and APG feed/tree/combobox behavior. |
+| [Community Search/Projection Evidence](evidence/community-search-projection/README.md) | Status-indexed conformance, privacy, browser persistence, performance, and adversarial critique evidence; pending items are not pass claims. |
 | [Ten Directions (2026 redesign)](design-explorations/redesign-2026/README.md) | Ten candidate replacement design worlds for the product family, each a different information architecture, with a runtime picker for side-by-side review. |
 | [Design Explorations](design-explorations/00-foundation.md) | Ten candidate successor-experience design loops (philosophy, design system, hardened mockup, screenshot evidence) with the shared persona foundation and distinctness ledger. |
 | [Cucumber Feature Specs](../features/) | Executable Gherkin scenarios for repository, CLI, WASM, React, merge, actor, CRDT, view, HA/DR, and platform behavior. |
@@ -100,7 +102,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0026: Community Visual World Course Line](design-decisions/0026-community-visual-world-course-line.md) | Superseded by ADR-0027 — light civic-workshop / ISOM world, archived. |
 | [ADR-0027: Community Visual World Nightboard](design-decisions/0027-community-visual-world-nightboard.md) | Makes Nightboard (Grid) the canonical Community Web runtime and deployment. |
 | [ADR-0028: Recoverable Nightboard Startup, Sticky Routing, And Deterministic HoBo Authoring](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md) | Defines the Ctrl+U restart inbox, workspace route affinity, and Bo's checked HoBo app loop. |
-| [ADR-0029: Community Canonical Objects, Mounted Projections, And Explicit Navigation](design-decisions/0029-community-canonical-objects-and-projections.md) | Defines stable object IDs, mounted projections, explicit graph and navigation operations, private-safe links, saved views, one action registry, and APG interaction contracts. |
+| [ADR-0029: Community Canonical Objects, Mounted Projections, And Explicit Navigation](design-decisions/0029-community-canonical-objects-and-projections.md) | Defines stable object IDs, mounted projections, explicit graph and navigation operations, private-safe links, Projection Definitions, one action registry, and APG interaction contracts. |
 | [ADR-0030: Stable Changes, Revisions, Change Graphs, Reviews, And Merges](design-decisions/0030-stable-changes-revisions-stacks-reviews-merges.md) | Defines stable lineages, immutable Revisions, dependency graphs, exact Review Bundles, and stale-safe Merge Plans. |
 | [ADR-0031: Durable Conflicts And Conservative Commutation](design-decisions/0031-durable-conflicts-and-conservative-commutation.md) | Makes conflicts durable, commutation proof-based, and provider proposals explicitly non-authoritative. |
 | [ADR-0032: Residency, Native Sync, And Workspace Providers](design-decisions/0032-residency-native-sync-and-workspace-providers.md) | Separates residency/materialization/storage/execution and defines chunk manifests, promises, sync v2, and truthful providers. |
@@ -113,6 +115,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0039: Native Capabilities From The Git Extension Ecosystem](design-decisions/0039-native-capabilities-from-the-git-extension-ecosystem.md) | Sorts the Git extension ecosystem into native capabilities, genuine extensions, and deliberate non-goals. |
 | [ADR-0040: Repository Composition And Repository Links](design-decisions/0040-repository-composition-and-links.md) | Defines one exact read-only Repository Link, vendorize-plus-provenance instead of a native subtree type, and repository-qualified Change dependencies. |
 | [ADR-0041: Workspace Selection And Materialization Modes](design-decisions/0041-workspace-selection-and-materialization-modes.md) | Defines workspace-local Selection, the `eager`/`explicit`/`lazy`/`delta` materialization modes, and the content-addressed Namespace Manifest. |
+| [ADR-0042: Deterministic Search And Mounted Projections](design-decisions/0042-deterministic-search-and-mounted-projections.md) | Makes Core search semantics authoritative, composes declarative Projection Definitions through scoped Namespace Mounts, and selects optional browser accelerators. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
@@ -123,6 +126,7 @@ decisions, operations, or contribution workflow.
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
 | [Change Graph Convergence State](plans/change-graph-convergence/sdlc-state.md) | Historical implementation record for stable Changes, projections, synchronization, interoperability, authority, and validation. |
 | [Change Graph Signed Events State](plans/change-graph-signed-events/sdlc-state.md) | Follow-up record for persisting Change Graph CLI commands as signed protocol events. |
+| [Community Search And Projection State](plans/community-search-projection/sdlc-state.md) | Active implementation record for deterministic cross-source search, user-defined projections, and namespace recovery. |
 | [Nightboard Startup And HoBo Workbench Plan](plans/nightboard-startup-hobo/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, deterministic HoBo authoring, next-action guidance, and focus expansion. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |

@@ -23,6 +23,15 @@ for (const entry of await readdir(sourceDirectory, { withFileTypes: true })) {
   await copyFile(join(sourceDirectory, entry.name), join(outputDirectory, entry.name));
 }
 
+await copyFile(
+  resolve("node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm"),
+  join(outputDirectory, "sqlite3.wasm"),
+);
+await copyFile(
+  resolve("node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3-opfs-async-proxy.js"),
+  join(outputDirectory, "sqlite3-opfs-async-proxy.js"),
+);
+
 await writeFile(join(outputDirectory, "healthz"), "ok\n");
 
 function outputDirectoryFromArgs(args) {

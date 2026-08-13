@@ -323,6 +323,43 @@ trusted is reported and refused, never run silently.
 `unsupported-capability`, `conflict`, and `external-error`. Authoritative or
 destructive operations require the same validation in text and JSON modes.
 
+
+## Community Search And Namespace Commands
+
+`epoch-community` uses the same Core Search Expression, planner, snapshot,
+Projection Definition compiler, and Namespace runtime as GraphQL and
+Nightboard. Query text is a human frontend; `--graphql` accepts a structured
+operation without generating text internally.
+
+The shipped binary connects to the Community API named by
+`EPOCH_COMMUNITY_API_URL`. An optional `EPOCH_COMMUNITY_API_TOKEN` is sent only
+as an authorization header and is never included in cursors, output, or
+telemetry. SDK hosts may instead inject the same typed services directly, or
+use `createCommunityApiHost` to wire the default handler.
+
+| Command | Purpose |
+|---|---|
+| `search --query QUERY [--json] [--first N] [--after CURSOR]` | Run deterministic cross-source search and report snapshot/completeness. |
+| `search --graphql FILE [--variables FILE]` | Execute the portable structured GraphQL boundary. |
+| `search explain --query QUERY` | Show normalization, source pushdown, residual evaluation, authorization, order, and omissions. |
+| `projections list|show ID` | Inspect Projection Definitions. |
+| `projections validate FILE` | Compile versioned JSON with pointer diagnostics and cost/fanout limits. |
+| `projections preview FILE [--path PATH]` | Lazily preview authorized Projection Entries. |
+| `projections save FILE` / `delete ID` | Persist or remove a definition; saving invalid JSON fails closed. |
+| `projections clone builtin:default NEW_ID` | Create an editable definition from the built-in hierarchy. |
+| `namespace mounts` | List scoped Namespace Mounts in effective order. |
+| `namespace mount PROJECTION PATH --mode MODE --scope SCOPE` | Compose a definition by explicit `replace`, `before`, or `after`. |
+| `namespace unmount MOUNT_ID` / `reset --scope SCOPE` | Remove a mount or restore the built-in root while preserving quarantined definitions. |
+| `namespace ls PATH [--first N] [--after CURSOR]` | List one lazy keyset page. |
+| `namespace explain PATH` | Show mount precedence, winning entry, shadows, collisions, and freshness. |
+
+Exit codes distinguish invalid query, authorization denial, partial source,
+stale cursor, unavailable backend, and internal failure. JSON envelopes use
+stable typed codes such as `QUERY_SYNTAX`, `QUERY_COST_LIMIT`, `CURSOR_STALE`,
+`PROJECTION_INVALID`, `NAMESPACE_RECOVERY_PROTECTED`, `SOURCE_PARTIAL`, and
+`INDEX_STALE`; no command parses message text. Query content is excluded from
+error telemetry unless the user explicitly copies it.
+
 ## Related Docs
 
 - [Core SDK Reference](sdk.md)
@@ -335,3 +372,4 @@ destructive operations require the same validation in text and JSON modes.
 - [Forge Adapters](forge-adapters.md)
 - [Extensions And Capability Providers](extensions.md)
 - [Semantic Content Pipeline](semantic-pipeline.md)
+- [Community Search And Projections](community-search-projections.md)

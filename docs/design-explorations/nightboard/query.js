@@ -93,12 +93,12 @@
 
   function parse(input) {
     var normalized = window.NB_CORE.normalizeQuery(String(input || ""));
-    return Object.assign({}, normalized, { error: normalized.error || null });
+    var error = normalized.error || null;
+    if (error) error = error.charAt(0).toLowerCase() + error.slice(1);
+    return Object.assign({}, normalized, { error: error });
   }
 
   function normalize(input) { return parse(input); }
-
-  function lower(s) { return String(s == null ? "" : s).toLowerCase(); }
 
   function canViewPost(post, ctx) {
     ctx = ctx || {};
@@ -115,156 +115,6 @@
     return (posts || []).filter(function (post) { return canViewPost(post, ctx); });
   }
 
-  function contains(hay, needle, phrase) {
-    hay = lower(hay);
-    needle = lower(needle);
-    if (!needle || needle === "*") return true;
-    if (phrase) return hay.indexOf(needle) !== -1;
-    // Word-ish: substring match is Lucene-ish enough for this exploration.
-    return hay.indexOf(needle) !== -1;
-  }
-
-  function memberKind(who, members) {
-    members = members || (window.NB_DATA && window.NB_DATA.members) || [];
-    for (var i = 0; i < members.length; i++) {
-      if (members[i].handle === who) return members[i].kind || "person";
-    }
-    if (who === "you") return "person";
-    return "person";
-  }
-
-  function reactionCount(post, key, reactions) {
-    var base = (post.reactions && post.reactions[key]) || 0;
-    var bag = reactions && reactions[post.id];
-    if (bag && bag.counts && bag.counts[key] != null) return bag.counts[key];
-    if (bag && bag.mine && bag.mine[key]) return Math.max(base, 1);
-    return base;
-  }
-
-  function hasAnyReaction(post, reactions) {
-    if (post.reactions && Object.keys(post.reactions).length) return true;
-    var bag = reactions && reactions[post.id];
-    if (!bag) return false;
-    if (bag.counts && Object.keys(bag.counts).some(function (k) { return bag.counts[k] > 0; })) return true;
-    if (bag.mine && Object.keys(bag.mine).some(function (k) { return bag.mine[k]; })) return true;
-    return false;
-  }
-
-  function scoreOf(post, votes) {
-    var base = 1;
-    if (post.state === "promoted" || post.state === "signed") base += 3;
-    if (post.state === "needs-review") base += 1;
-    if (post.re) base += 0.5;
-    var v = (votes && votes[post.id]) || 0;
-    return base + v;
-  }
-
-  function fieldMatch(post, field, value, phrase, ctx) {
-    ctx = ctx || {};
-    var v = lower(value);
-    switch (field) {
-      case "who":
-      case "author":
-      case "handle":
-        return contains(post.who, value, phrase) || lower(post.who) === v;
-      case "state":
-        return lower(post.state) === v || contains(post.state, value, phrase);
-      case "channel":
-        return lower(post.channel) === v || contains(post.channel, value, phrase);
-      case "dm":
-        return lower(post.dm || "") === v;
-      case "project":
-        return lower(post.project || "") === v || contains(post.project || "", value, phrase);
-      case "space":
-        return lower(post.space || post.spaceId || "") === v;
-      case "subject":
-        return contains(post.subject || "", value, phrase);
-      case "body":
-        return contains(post.body || "", value, phrase);
-      case "text":
-      case "q":
-        return contains((post.subject || "") + " " + (post.body || ""), value, phrase);
-      case "id":
-        return lower(post.id) === v || contains(post.id, value, phrase);
-      case "re":
-      case "parent":
-        return lower(post.re || "") === v;
-      case "kind":
-        return lower(memberKind(post.who, ctx.members)) === v;
-      case "has":
-        if (v === "anchor") return !!post.anchor;
-        if (v === "subject") return !!post.subject;
-        if (v === "sig" || v === "signature") return !!post.sig;
-        if (v === "reaction" || v === "reactions") return hasAnyReaction(post, ctx.reactions);
-        if (v === "re" || v === "reply" || v === "parent") return !!post.re;
-        return false;
-      case "react":
-      case "reaction":
-        return reactionCount(post, value, ctx.reactions) > 0;
-      case "score":
-        return cmpNumber(scoreOf(post, ctx.votes), value);
-      case "sort":
-        // Handled by extractSort — never filters.
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  function cmpNumber(n, expr) {
-    var m = /^(>=|<=|>|<|!=|=)?\s*(-?\d+(?:\.\d+)?)$/.exec(String(expr).trim());
-    if (!m) return false;
-    var op = m[1] || "=";
-    var target = Number(m[2]);
-    if (op === ">") return n > target;
-    if (op === ">=") return n >= target;
-    if (op === "<") return n < target;
-    if (op === "<=") return n <= target;
-    if (op === "!=") return n !== target;
-    return n === target;
-  }
-
-  /**
-   * For field_group like state:(open OR needs-review), evaluate the group
-   * with field context pushed so bare terms become field values.
-   */
-  function evalFieldGroup(post, field, node, ctx) {
-    if (!node) return true;
-    if (node.op === "or") {
-      return evalFieldGroup(post, field, node.left, ctx) || evalFieldGroup(post, field, node.right, ctx);
-    }
-    if (node.op === "and") {
-      return evalFieldGroup(post, field, node.left, ctx) && evalFieldGroup(post, field, node.right, ctx);
-    }
-    if (node.op === "not") {
-      return !evalFieldGroup(post, field, node.node, ctx);
-    }
-    if (node.op === "term" || node.op === "field") {
-      var val = node.value;
-      return fieldMatch(post, field, val, !!node.phrase, ctx);
-    }
-    if (node.op === "field_group") {
-      return evalFieldGroup(post, node.field, node.node, ctx);
-    }
-    return evalNode(post, node, ctx);
-  }
-
-  function evalNode(post, node, ctx) {
-    if (!node) return true;
-    if (node.op === "and") return evalNode(post, node.left, ctx) && evalNode(post, node.right, ctx);
-    if (node.op === "or") return evalNode(post, node.left, ctx) || evalNode(post, node.right, ctx);
-    if (node.op === "not") return !evalNode(post, node.node, ctx);
-    if (node.op === "term") {
-      var blob = [post.who, post.channel, post.dm, post.project, post.space, post.spaceId,
-        post.state, post.subject, post.body, post.anchor, post.id]
-        .filter(Boolean).join(" ");
-      return contains(blob, node.value, !!node.phrase);
-    }
-    if (node.op === "field") return fieldMatch(post, node.field, node.value, !!node.phrase, ctx);
-    if (node.op === "field_group") return evalFieldGroup(post, node.field, node.node, ctx);
-    return true;
-  }
-
   /**
    * Apply a query to a list of posts.
    * Returns { posts, sort, error, query }.
@@ -276,12 +126,66 @@
     if (parsed.error) {
       return { posts: visible, sort: null, error: parsed.error, query: query };
     }
-    var sort = parsed.sort || null;
+    var sort = legacySort(parsed.sort);
     var filtered = visible;
     if (parsed.ast) {
-      filtered = visible.filter(function (p) { return evalNode(p, parsed.ast, ctx); });
+      filtered = visible.filter(function (post) {
+        return window.NB_CORE.evaluateSearchExpression(feedEntity(post), parsed.ast).matches;
+      });
     }
     return { posts: filtered, sort: sort, error: null, query: query, ast: parsed.ast };
+  }
+
+  function feedEntity(post) {
+    var publishedAt = isoDateTime(post.publishedAt) || "2026-08-12T00:00:00.000Z";
+    var objectId = String(post.id || post.objectId || "unknown");
+    var authorId = post.authorId || post.who || "unavailable";
+    var message = {
+      ref: { objectId: objectId, kind: "message" },
+      context: { objectId: String(post.channel || "general"), kind: "channel" },
+      authorId: authorId,
+      title: post.title || post.subject,
+      body: post.body || "",
+      publishedAt: publishedAt,
+      threadRoot: { objectId: post.re || objectId, kind: "message" },
+      relations: [],
+      state: post.state || "unavailable",
+      aliases: [objectId],
+    };
+    if (post.re) message.inReplyTo = { objectId: post.re, kind: "message" };
+    if (post.reactions) message.reactions = Object.assign({}, post.reactions);
+    var entity = window.NB_CORE.communityMessageToEntity(message, {
+      provenance: { sourceId: "nightboard-feed", nativeId: objectId, observedAt: publishedAt },
+      visibility: post.dm ? "private" : "public",
+      participantIds: Array.isArray(post.participantIds) ? post.participantIds : [],
+    });
+    var has = Array.isArray(entity.fields.has) ? entity.fields.has.slice() : [];
+    if (post.anchor) has.push("anchor");
+    var kind = memberKind(authorId);
+    return Object.assign({}, entity, {
+      ref: Object.assign({}, entity.ref, { kind: kind }),
+      fields: Object.assign({}, entity.fields, { has: has, kind: kind }),
+    });
+  }
+
+  function isoDateTime(value) {
+    if (typeof value !== "string" || !value) return "";
+    var timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value ? value : "";
+  }
+
+  function memberKind(who) {
+    var members = window.NB_DATA && Array.isArray(window.NB_DATA.members) ? window.NB_DATA.members : [];
+    var found = members.find(function (member) { return member.handle === who; });
+    return found && found.kind === "agent" ? "agent" : "message";
+  }
+
+  function legacySort(order) {
+    if (!Array.isArray(order) || !order.length) return null;
+    var primary = order[0];
+    if (primary.field === "score") return "top";
+    if (primary.field === "createdAt" || primary.field === "updatedAt") return "new";
+    return null;
   }
 
   /**
@@ -734,7 +638,7 @@
 
   /**
    * Autocomplete candidates for a Lucene query fragment (field names + values).
-   * Used by `/search`, `search`, and `/view`.
+   * Used by the deterministic search workbench and its result-local filter.
    */
   function querySuggestions(fragment) {
     var frag = String(fragment || "");

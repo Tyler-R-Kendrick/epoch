@@ -39,7 +39,7 @@ async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
   })));
   assert.equal(opened.status, 201);
 
-  const proposed = await jsonResponse<CommunityRepository>(handle(new Request("https://community.test/repositories/epoch%2Fepoch/changes", {
+  const changed = await jsonResponse<CommunityRepository>(handle(new Request("https://community.test/repositories/epoch%2Fepoch/changes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -49,7 +49,7 @@ async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
       targetView: "main",
     }),
   })));
-  assert.equal(proposed.status, 201);
+  assert.equal(changed.status, 201);
 
   const reviewed = await jsonResponse<CommunityRepository>(handle(new Request("https://community.test/repositories/epoch%2Fepoch/changes/CHANGE-1/reviews", {
     method: "POST",
@@ -57,7 +57,7 @@ async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
     body: JSON.stringify({ reviewer: "alice", decision: "changes-requested", body: "Needs browser proof." }),
   })));
   assert.equal(reviewed.status, 201);
-  assert.equal(reviewed.body.changeProposals[0].status, "changes-requested");
+  assert.equal(reviewed.body.changes[0].status, "changes-requested");
 }
 
 async function apiRejectsInvalidAndUnknownRequests(): Promise<void> {
@@ -118,7 +118,7 @@ async function cliCoversIssueAndChangeWorkflows(): Promise<void> {
   assert.match((await runCli(["issues", "open", "epoch/epoch", "--title", "Coverage", "--author", "bob", "--label", "test"], context)).stdout, /ISSUE-/u);
   assert.match((await runCli([
     "changes",
-    "propose",
+    "create",
     "epoch/epoch",
     "--title",
     "Improve coverage",
@@ -145,12 +145,13 @@ async function cliReportsUsageAndValidationErrors(): Promise<void> {
   const context = { client: createCommunityClient(createInMemoryCommunityApi()) };
 
   assert.match((await runCli(["help"], context)).stdout, /Usage:/u);
-  assert.match((await runCli([], undefined)).stderr, /requires a Community Core client/u);
+  assert.match((await runCli([], undefined)).stdout, /Usage:/u);
+  assert.match((await runCli(["repositories"], undefined)).stderr, /EPOCH_COMMUNITY_API_URL/u);
   assert.match((await runCli(["issues", "open"], context)).stderr, /requires a repository slug/u);
   assert.match((await runCli(["issues", "open", "epoch/epoch", "oops"], context)).stderr, /Unexpected argument/u);
   assert.match((await runCli(["issues", "open", "epoch/epoch", "--title"], context)).stderr, /Missing value/u);
-  assert.match((await runCli(["changes", "propose", "epoch/epoch", "--title", "x"], context)).stderr, /Missing required option --author/u);
-  assert.match((await runCli(["changes", "review", "epoch/epoch"], context)).stderr, /requires a repository slug and proposal id/u);
+  assert.match((await runCli(["changes", "create", "epoch/epoch", "--title", "x"], context)).stderr, /Missing required option --author/u);
+  assert.match((await runCli(["changes", "review", "epoch/epoch"], context)).stderr, /requires a repository slug and change id/u);
   assert.match((await runCli([
     "changes",
     "review",

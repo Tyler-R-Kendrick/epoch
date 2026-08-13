@@ -182,6 +182,7 @@ High-value entry points:
 | Architecture | [docs/design.md](docs/design.md) |
 | Change Graph and operation history | [docs/change-graph.md](docs/change-graph.md) |
 | Canonical terminology | [docs/nomenclature.md](docs/nomenclature.md) |
+| Deterministic search and mounted projections | [docs/community-search-projections.md](docs/community-search-projections.md) |
 | Object resolution and native sync | [docs/resolver-sync.md](docs/resolver-sync.md) |
 | Workspace providers | [docs/workspace-providers.md](docs/workspace-providers.md) |
 | Forge adapters and mirror authority | [docs/forge-adapters.md](docs/forge-adapters.md) |

@@ -56,6 +56,7 @@ and when the decision should be revisited.
 | [ADR-0039](0039-native-capabilities-from-the-git-extension-ecosystem.md) | Accepted (design); staged implementation | Adopt the Git extension ecosystem's capabilities natively where Epoch's model already implies them, keep language/vendor adapters as extensions, and reject content-filter encryption. |
 | [ADR-0040](0040-repository-composition-and-links.md) | Accepted and implemented for exact read-only links | Embed independently owned repositories through one exact, read-only Repository Link; treat subtree/subrepo as owned files plus provenance and a Projection; make cross-repository work dependency-linked rather than falsely atomic. |
 | [ADR-0041](0041-workspace-selection-and-materialization-modes.md) | Accepted and implemented; `lazy` behaves like `explicit` | Add workspace-local Selection, name the four materialization modes (`eager`, `explicit`, `lazy`, `delta`), replace whole-namespace metadata with a content-addressed Namespace Manifest, and compose Selection across Repository Links. |
+| [ADR-0042](0042-deterministic-search-and-mounted-projections.md) | Accepted | Compile text and GraphQL into one authorized Search Expression, execute against explicit snapshots, and compose declarative Projection Definitions through scoped Namespace Mounts. |
 
 ## Supporting Decision Records
 

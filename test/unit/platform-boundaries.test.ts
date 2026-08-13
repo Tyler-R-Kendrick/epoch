@@ -60,21 +60,21 @@ async function communityOwnsRepositoryCollaborationWorkflowsThroughCore(): Promi
     author: "bob",
     labels: ["architecture"],
   });
-  const proposed = await client.proposeChange("epoch/epoch", {
+  const created = await client.createChange("epoch/epoch", {
     title: "Separate Web and Community apps",
     author: "carol",
     sourceView: "carol/platform-split",
     targetView: "main",
   });
-  const repository = await client.reviewChange("epoch/epoch", proposed.changeProposals[0].id, {
+  const repository = await client.reviewChange("epoch/epoch", created.changes[0].id, {
     reviewer: "alice",
     decision: "approved",
     body: "The boundary is clear.",
   });
 
   assert.equal(repository.issues[0].status, "open");
-  assert.equal(repository.changeProposals[0].status, "approved");
-  assert.deepEqual(repository.changeProposals[0].reviews.map((review) => review.reviewer), ["alice"]);
+  assert.equal(repository.changes[0].status, "approved");
+  assert.deepEqual(repository.changes[0].reviews.map((review) => review.reviewer), ["alice"]);
 }
 
 async function communityCliUsesCoreClient(): Promise<void> {

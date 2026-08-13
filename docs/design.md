@@ -430,6 +430,36 @@ execution mode is `in-process`. Details and escape paths are in
 [Change Graph And Operation History](change-graph.md). Canonical terms are in
 [Epoch Nomenclature](nomenclature.md).
 
+### Community search and mounted projections
+
+`@epoch/community-core` owns canonical Entities, the Field Registry, typed
+Search Expressions, planning/snapshot/cursor contracts, reference evaluation,
+Projection Definitions, lazy Projection Entries, and Namespace Mount
+composition. `@epoch/community-api` owns transactional canonical state,
+schema-1/schema-2 data migration, source orchestration, and authorization
+boundaries. `@epoch/community-graphql` is the browser/server-portable structured
+API; it imports neither persistence nor browser globals.
+
+Text and GraphQL are frontends to one semantic Search Expression. The Search
+Plan applies authorization, capability partitioning, residual evaluation,
+cost limits, deterministic total ordering, and source checkpoints before any
+observable. Keyset cursors bind the Search Snapshot, plan, authorization, and
+projection version. A source failure reports explicit completeness/freshness.
+
+Projection Definitions use bounded literal/select/group/traverse/union/alias/
+leaf JSON nodes. A Projection Entry is one occurrence whose target remains the
+canonical Entity. Namespace Mounts compose definitions by scoped
+`replace`/`before`/`after` precedence; `/.epoch/*` is immutable recovery. The
+built-in hierarchy is `builtin:default`, not a second procedural authority.
+
+The dependency-free reference backend defines results. Orama is the selected
+browser lexical candidate accelerator; SQLite WASM/FTS5 is the selected optional
+Worker read model with runtime OPFS capability detection. Neither index is
+canonical, and ordinary
+search/projection execution never invokes AI. See
+[Community Search And Projections](community-search-projections.md) and
+[ADR-0042](design-decisions/0042-deterministic-search-and-mounted-projections.md).
+
 ## Extensions And Capability Providers
 
 `@epoch/extensions` implements the two-tier extension model. External

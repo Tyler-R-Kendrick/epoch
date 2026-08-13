@@ -112,7 +112,7 @@ Given("a Community repository named {string}", async function (slug: string) {
   });
 });
 
-When("a contributor uses Epoch Community Core to open an issue and propose a change", async function () {
+When("a contributor uses Epoch Community Core to open an issue and create a Change", async function () {
   assert.ok(platformState.repository);
   assert.ok(platformState.client);
   platformState.repository = await platformState.client.openIssue(platformState.repository.slug, {
@@ -120,7 +120,7 @@ When("a contributor uses Epoch Community Core to open an issue and propose a cha
     author: "bob",
     labels: ["architecture"],
   });
-  platformState.repository = await platformState.client.proposeChange(platformState.repository.slug, {
+  platformState.repository = await platformState.client.createChange(platformState.repository.slug, {
     title: "Move community workflows into Community",
     author: "carol",
     sourceView: "carol/community-workflows",
@@ -128,24 +128,24 @@ When("a contributor uses Epoch Community Core to open an issue and propose a cha
   });
 });
 
-Then("the Community project tracks the issue and proposal", function () {
+Then("the Community project tracks the issue and Change", function () {
   assert.ok(platformState.repository);
   assert.equal(platformState.repository.issues.length, 1);
-  assert.equal(platformState.repository.changeProposals.length, 1);
+  assert.equal(platformState.repository.changes.length, 1);
 });
 
 Then("the Community project can record a maintainer review", function () {
   assert.ok(platformState.repository);
   assert.ok(platformState.client);
-  const proposal = platformState.repository.changeProposals[0];
-  assert.ok(proposal);
-  return platformState.client.reviewChange(platformState.repository.slug, proposal.id, {
+  const change = platformState.repository.changes[0];
+  assert.ok(change);
+  return platformState.client.reviewChange(platformState.repository.slug, change.id, {
     reviewer: "alice",
     decision: "approved",
     body: "This belongs in Community.",
   }).then((repository) => {
     platformState.repository = repository;
-    assert.equal(platformState.repository.changeProposals[0].status, "approved");
+    assert.equal(platformState.repository.changes[0].status, "approved");
   });
 });
 

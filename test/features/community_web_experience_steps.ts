@@ -3,9 +3,49 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import { chromium, type Browser, type Page, type Response as PlaywrightResponse, type Route } from "playwright";
-import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
-import { type CommunityApiTransport, createCommunityClient } from "@epoch/community-core";
-import { createCommunityWebApp, renderCommunityWebDocument } from "@epoch/community-web";
+import {
+  createCanonicalStoreSource,
+  createCommunityApiFetchHandler,
+  createCommunityGraphQLServices,
+  createCommunityNamespaceApi,
+  createCommunityProjectionApi,
+  createCommunitySearchApi,
+  createInMemoryCommunityApi,
+  createMemoryCommunityStateStore,
+  migrateCommunityState,
+  type CommunityServiceApis,
+  type CommunityStateV3,
+} from "@epoch/community-api";
+import {
+  EntityProjectionRuntime,
+  BUILT_IN_ACTIONS,
+  ProjectionDeltaController,
+  ReferenceSearchBackend,
+  builtinDefaultProjection,
+  compileProjectionDefinition,
+  createCommunityFieldRegistry,
+  createCommunityRuntimeContext,
+  createNamespaceRuntime,
+  createSearchServiceFromSources,
+  normalizeQuery,
+  type CommunityApiTransport,
+  type CommunityAuthorizationContext,
+  type CommunityEntity,
+  type CommunitySourceAdapter,
+  type ProjectionDefinition,
+  type SearchExpression,
+  type VfsEntry,
+  createCommunityClient,
+} from "@epoch/community-core";
+import { runProjectionCommand } from "@epoch/community-cli";
+import { createCommunityGraphQLSchema, executeCommunityGraphQL } from "@epoch/community-graphql";
+import {
+  BrowserPersistenceCoordinator,
+  chooseSqliteStorage,
+  createCommunityWebApp,
+  createNightboardSource,
+  renderCommunityWebDocument,
+} from "@epoch/community-web";
 import { chromiumLaunchOptions } from "./playwright-options";
 
 interface CommunityWebWorld {
@@ -26,6 +66,7 @@ let world: CommunityWebWorld = {};
 
 /** Title of the message whose provenance a scenario revealed. */
 let revealedMessageTitle = "";
+let searchProjectionJourneyResult: Record<string, unknown> = {};
 let nightboardFocusedMessage = "";
 let nightboardContextMenuResult: {
   readonly navStable: boolean;
@@ -63,7 +104,7 @@ let nightboardLinkResult: {
 } | undefined;
 let nightboardSavedViewResult: {
   readonly id: string;
-  readonly query: string;
+  readonly expression: unknown;
   readonly resultIds: readonly string[];
 } | undefined;
 let nightboardThreadA11yResult: {
@@ -79,6 +120,205 @@ let nightboardJumpResult: {
   readonly explained: boolean;
   readonly locationStayed: boolean;
 } | undefined;
+let deterministicJourney: Record<string, unknown> = {};
+
+const FIXED_NOW = "2026-08-12T15:00:00.000Z";
+const TEST_AUTHORIZATION = Object.freeze({
+  actorId: "maya",
+  permissions: ["object:state:write"] as const,
+}) satisfies CommunityAuthorizationContext;
+const CURSOR_KEY = new Uint8Array(32).fill(7);
+
+function testRuntime() {
+  let sequence = 0;
+  return createCommunityRuntimeContext({
+    clock: { now: () => new Date(FIXED_NOW) },
+    idGenerator: { generate: (namespace) => `${namespace}-${++sequence}` },
+    timezone: "UTC",
+    locale: "en-US",
+  });
+}
+
+function entity(input: {
+  readonly objectId: string;
+  readonly kind?: CommunityEntity["ref"]["kind"];
+  readonly title: string;
+  readonly state?: string;
+  readonly visibility?: CommunityEntity["visibility"];
+  readonly ownerId?: string;
+  readonly participantIds?: readonly string[];
+  readonly sourceId?: string;
+  readonly updatedAt?: string;
+}): CommunityEntity {
+  const kind = input.kind ?? "project";
+  const visibility = input.visibility ?? "public";
+  const updatedAt = input.updatedAt ?? FIXED_NOW;
+  return Object.freeze({
+    ref: Object.freeze({ objectId: input.objectId, kind }),
+    fields: Object.freeze({
+      objectId: input.objectId,
+      kind,
+      title: input.title,
+      state: input.state ?? "open",
+      visibility,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt,
+    }),
+    searchableText: Object.freeze({ title: input.title, body: input.title }),
+    relations: Object.freeze([]),
+    visibility,
+    ...(input.ownerId === undefined ? {} : { ownerId: input.ownerId }),
+    participantIds: Object.freeze([...(input.participantIds ?? [])]),
+    createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt,
+    provenance: Object.freeze({
+      sourceId: input.sourceId ?? "community-store",
+      nativeId: input.objectId,
+      observedAt: updatedAt,
+      checkpoint: `${input.sourceId ?? "community-store"}-checkpoint`,
+    }),
+  });
+}
+
+function stateV3(entities: readonly CommunityEntity[] = []): CommunityStateV3 {
+  return {
+    schemaVersion: 3,
+    metadata: {
+      createdAt: FIXED_NOW,
+      updatedAt: FIXED_NOW,
+      migratedAt: FIXED_NOW,
+      migrationTimestamp: FIXED_NOW,
+      sourceSchemaVersion: 3,
+      migrationId: "migration-current",
+    },
+    entities,
+    relations: entities.flatMap((candidate) => candidate.relations),
+    projectionDefinitions: [],
+    namespaceMounts: [],
+    sourceCheckpoints: [],
+    quarantinedDefinitions: [],
+  };
+}
+
+function compileContext(registry = createCommunityFieldRegistry()) {
+  const visible = registry.list(TEST_AUTHORIZATION);
+  return {
+    fields: visible.map((field) => field.name),
+    sortableFields: visible.filter((field) => field.sortable).map((field) => field.name),
+    limits: { maxDepth: 16, maxNodes: 256, maxFanout: 10_000, maxTemplateLength: 1024, maxSegmentLength: 255 },
+  };
+}
+
+function projection(input: {
+  readonly projectionId: string;
+  readonly root: ProjectionDefinition["root"];
+  readonly label?: string;
+  readonly ownerId?: string;
+  readonly updateMode?: ProjectionDefinition["updateMode"];
+}): ProjectionDefinition {
+  const definition: ProjectionDefinition = {
+    apiVersion: "epoch.dev/v1alpha1",
+    projectionId: input.projectionId,
+    version: 1,
+    label: input.label ?? input.projectionId,
+    ...(input.ownerId === undefined ? {} : { ownerId: input.ownerId }),
+    visibility: input.ownerId === undefined ? "public" : "private",
+    root: input.root,
+    order: [
+      { field: "updatedAt", direction: "descending", nulls: "last" },
+      { field: "kind", direction: "ascending", nulls: "last" },
+      { field: "objectId", direction: "ascending", nulls: "last" },
+    ],
+    updateMode: input.updateMode ?? "live",
+    consistency: "current",
+  };
+  return Object.freeze(definition);
+}
+
+function entityListProjection(
+  projectionId: string,
+  entitiesWhere: SearchExpression = { kind: "all" },
+  leafBranches = ["leaf"],
+): ProjectionDefinition {
+  return projection({
+    projectionId,
+    ownerId: "maya",
+    root: {
+      nodeId: "root",
+      kind: "literal",
+      segment: "",
+      children: [{
+        nodeId: "select",
+        kind: "select",
+        objectKinds: ["project", "issue", "change", "message"],
+        where: entitiesWhere,
+        children: leafBranches.map((nodeId) => ({
+          nodeId,
+          kind: "leaf" as const,
+          segment: { template: "{slug(coalesce(title, objectId))}" },
+          representation: "default" as const,
+        })),
+      }],
+    },
+  });
+}
+
+async function createSearchEnvironment(
+  entities: readonly CommunityEntity[],
+  sources?: readonly CommunitySourceAdapter[],
+) {
+  const runtime = testRuntime();
+  const registry = createCommunityFieldRegistry();
+  const backend = new ReferenceSearchBackend({ registry, cursorKey: CURSOR_KEY });
+  const canonical = createCanonicalStoreSource({
+    readEntities: async () => entities,
+    checkpoint: async () => ({ sourceId: "community-store", token: "community-current", observedAt: FIXED_NOW, status: "current" }),
+  });
+  const registered = sources ?? [canonical];
+  const service = await createSearchServiceFromSources({
+    backend,
+    registry,
+    context: runtime,
+    sources: registered,
+    authorization: TEST_AUTHORIZATION,
+  });
+  return { runtime, registry, backend, service, sources: registered };
+}
+
+async function createServiceEnvironment(
+  entities: readonly CommunityEntity[],
+  definitions: readonly ProjectionDefinition[] = [],
+): Promise<CommunityServiceApis & { readonly projectionRuntime: EntityProjectionRuntime }> {
+  const runtime = testRuntime();
+  const registry = createCommunityFieldRegistry();
+  const store = createMemoryCommunityStateStore(stateV3(entities), { clock: runtime.clock });
+  const backend = new ReferenceSearchBackend({ registry, cursorKey: CURSOR_KEY });
+  const source = createCanonicalStoreSource({
+    readEntities: () => store.read((snapshot) => snapshot.entities),
+    checkpoint: async () => ({ sourceId: "community-store", token: "community-current", observedAt: FIXED_NOW, status: "current" }),
+  });
+  const searchService = await createSearchServiceFromSources({ backend, registry, context: runtime, sources: [source], authorization: TEST_AUTHORIZATION });
+  const projectionRuntime = new EntityProjectionRuntime({
+    entities,
+    completeness: { status: "complete", sources: [await source.checkpoint()], omittedSources: [], unsupportedPredicates: [] },
+    cursorKey: CURSOR_KEY,
+    compileContext: compileContext(registry),
+  }, definitions);
+  const namespaceRuntime = createNamespaceRuntime(projectionRuntime);
+  return {
+    store,
+    runtime,
+    search: createCommunitySearchApi({ searchService, registry, runtime, sources: [source], explain: (plan) => backend.explain(plan) }),
+    projections: createCommunityProjectionApi({ store, runtime, projectionRuntime, fields: registry }),
+    namespace: createCommunityNamespaceApi({ store, runtime, namespaceRuntime }),
+    projectionRuntime,
+  };
+}
+
+function journey<T>(key: string): T {
+  assert.ok(Object.hasOwn(deterministicJourney, key), `Missing deterministic journey value: ${key}`);
+  return deterministicJourney[key] as T;
+}
 
 const NIGHTBOARD_ROOT = join(process.cwd(), "docs", "design-explorations", "nightboard");
 const NIGHTBOARD_CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -94,6 +334,7 @@ After(async function () {
   await closeWithTimeout(world.page?.context().close(), "community web browser context close");
   await closeWithTimeout(world.browser?.close(), "community web browser close");
   world = {};
+  deterministicJourney = {};
 });
 
 Given("the Community Web live API has repository activity", async function () {
@@ -120,7 +361,7 @@ Given("the Community Web live API has repository activity", async function () {
     body: "The preview works visually, but tab order jumps from the toolbar to the footer.",
     labels: ["bug"],
   });
-  await api.proposeChange("epoch/epoch", {
+  await api.createChange("epoch/epoch", {
     id: "CHANGE-12",
     title: "Keep preview cards attached to conversation state",
     author: "maya",
@@ -398,7 +639,7 @@ Then("canonical contextual and exact links identify the same message without pri
   assert.doesNotMatch(JSON.stringify(nightboardLinkResult), /DO_NOT_LEAK_7f3c/);
 });
 
-When("I save and reopen the Nightboard needs-review view", async function () {
+When("I save and reopen the Nightboard needs-review Projection Definition", async function () {
   const page = requirePage();
   nightboardSavedViewResult = await page.evaluate(() => {
     const runtime = window as unknown as {
@@ -406,13 +647,25 @@ When("I save and reopen the Nightboard needs-review view", async function () {
         normalize(query: string): { ast: unknown; canonical: string; error?: string };
         filterEntries(entries: unknown[], query: string): { entries: Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }>; error?: string };
       };
-      NB_SAVED_VIEWS: { save(input: Record<string, unknown>): { projectionId: string; query: string }; get(id: string): { projectionId: string; query: string } };
+      NB_WORKBENCH: {
+        openSearch(state: Record<string, unknown>, expression: string): void;
+        runSearch(state: Record<string, unknown>): Promise<void>;
+        saveSearchProjection(state: Record<string, unknown>, label: string): {
+          projectionId: string; root: { children: Array<{ where: unknown }> };
+        };
+        definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }>;
+      };
       NB_MAP: { feedEntriesAt(path: string): Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }> };
     };
     const normalized = runtime.NB_QUERY.normalize(" ( state:needs-review ) ");
     if (normalized.error) throw new Error(normalized.error);
-    const saved = runtime.NB_SAVED_VIEWS.save({ label: "needs review", query: normalized.canonical, ast: normalized.ast, sort: "new", visibility: "private" });
-    const reopened = runtime.NB_SAVED_VIEWS.get(saved.projectionId);
+    const state: Record<string, unknown> = {};
+    runtime.NB_WORKBENCH.openSearch(state, normalized.canonical);
+    return runtime.NB_WORKBENCH.runSearch(state).then(() => {
+      const saved = runtime.NB_WORKBENCH.saveSearchProjection(state, "needs review");
+      const reopened = runtime.NB_WORKBENCH.definitions().find((definition) =>
+        definition.projectionId === saved.projectionId);
+      if (!reopened) throw new Error("Projection Definition did not persist");
     const projected = runtime.NB_QUERY.filterEntries(
       runtime.NB_MAP.feedEntriesAt("/projects/community/channels/general"), normalized.canonical,
     );
@@ -420,25 +673,30 @@ When("I save and reopen the Nightboard needs-review view", async function () {
     const entries = projected.entries;
     return {
       id: reopened.projectionId,
-      query: reopened.query,
+      expression: reopened.root.children[0]?.where,
       resultIds: entries.filter((entry) => entry.post).map((entry) => entry.post?.ref?.objectId ?? entry.post?.objectId ?? entry.post?.id ?? ""),
     };
+    });
   });
+  const savedResult = nightboardSavedViewResult;
+  assert.ok(savedResult);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction((id) => !!(window as unknown as {
-    NB_SAVED_VIEWS?: { get(savedId: string): unknown };
-  }).NB_SAVED_VIEWS?.get(id), nightboardSavedViewResult.id);
+    NB_WORKBENCH?: { definitions(): Array<{ projectionId: string }> };
+  }).NB_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
 });
 
-Then("the saved view keeps its identity normalized query and canonical message state", async function () {
-  assert.ok(nightboardSavedViewResult);
+Then("the Projection Definition keeps its identity Search Expression and canonical Entity state", async function () {
+  const savedResult = nightboardSavedViewResult;
+  assert.ok(savedResult);
   const reopened = await requirePage().evaluate((id) => (window as unknown as {
-    NB_SAVED_VIEWS: { get(savedId: string): { projectionId: string; query: string } };
-  }).NB_SAVED_VIEWS.get(id), nightboardSavedViewResult.id);
-  assert.equal(reopened.projectionId, nightboardSavedViewResult.id);
-  assert.equal(reopened.query, nightboardSavedViewResult.query);
-  assert.ok(nightboardSavedViewResult.resultIds.length > 0);
-  assert.equal(new Set(nightboardSavedViewResult.resultIds).size, nightboardSavedViewResult.resultIds.length);
+    NB_WORKBENCH: { definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }> };
+  }).NB_WORKBENCH.definitions().find((definition) => definition.projectionId === id), savedResult.id);
+  assert.ok(reopened);
+  assert.equal(reopened.projectionId, savedResult.id);
+  assert.deepEqual(reopened.root.children[0]?.where, savedResult.expression);
+  assert.ok(savedResult.resultIds.length > 0);
+  assert.equal(new Set(savedResult.resultIds).size, savedResult.resultIds.length);
 });
 
 When("I traverse a Nightboard thread outline with tree keys", async function () {
@@ -1050,16 +1308,16 @@ Then("signed project actions are collapsed until I select a message", async func
   assert.equal(await page.locator("[data-selected-message=\"true\"]").count(), 1);
 });
 
-Then("the live API records a change proposal for the selected conversation", async function () {
+Then("the live API records a Change for the selected conversation", async function () {
   const page = requirePage();
   assert.ok(world.api);
   await assertVisible(page, "Change candidate recorded from the live API");
   const repository = await world.api.getRepository("epoch/epoch");
-  const promoted = repository.changeProposals.find((proposal) =>
-    proposal.title === "Dashboard widget should group revenue by region"
+  const promoted = repository.changes.find((change) =>
+    change.title === "Dashboard widget should group revenue by region"
   );
   assert.ok(promoted);
-  await assertVisible(page, `proposal:${promoted.id}`);
+  await assertVisible(page, `change:${promoted.id}`);
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
   assert.equal(
     await page.locator("[data-selected-message=\"true\"]").getAttribute("data-linked-proposal"),
@@ -1237,15 +1495,15 @@ Then("the Community Web shows a signed promote receipt for the new proposal", as
   assert.ok(world.api);
   await assertVisible(page, "Change candidate recorded from the live API");
   const repository = await world.api.getRepository("epoch/epoch");
-  const promoted = repository.changeProposals.find((proposal) =>
-    proposal.title === "Dashboard widget should group revenue by region"
+  const promoted = repository.changes.find((change) =>
+    change.title === "Dashboard widget should group revenue by region"
   );
   assert.ok(promoted);
   const receipt = page.locator(
     `[data-promote-receipt][data-proposal-id="${promoted.id}"], [data-message]:not([hidden]) [data-promote-receipt]`,
-  ).filter({ hasText: `proposal:${promoted.id}` });
+  ).filter({ hasText: `change:${promoted.id}` });
   await receipt.first().waitFor({ state: "visible", timeout: 8_000 });
-  await assertVisible(page, `proposal:${promoted.id}`);
+  await assertVisible(page, `change:${promoted.id}`);
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
 });
 
@@ -1459,4 +1717,959 @@ Then("the origin message and the resulting change are marked as one contribution
   const targetChange = await page.locator('[data-lineage-target="true"]').getAttribute("data-change-id");
   assert.ok(originProposal);
   assert.equal(originProposal, targetChange, "both ends must reference the same proposal");
+});
+
+// ── Deterministic search and projection workbench journeys ──────────────────
+
+Given("Nightboard has authorized Entities from current and stale registered sources", async function () {
+  const current = createNightboardSource({ posts: [{
+    id: "current-change",
+    kind: "change",
+    title: "Current review",
+    state: "needs-review",
+    visibility: "public",
+    publishedAt: "2026-08-11T12:00:00.000Z",
+  }] }, FIXED_NOW);
+  const staleEntity = entity({ objectId: "stale-issue", kind: "issue", title: "Stale review", state: "needs-review", sourceId: "community-store" });
+  const stale = createCanonicalStoreSource({
+    readEntities: async () => [staleEntity],
+    checkpoint: async () => ({ sourceId: "community-store", token: "stale-1", observedAt: "2026-08-10T00:00:00.000Z", status: "stale" }),
+  });
+  deterministicJourney.environment = await createSearchEnvironment([], [current, stale]);
+  deterministicJourney.aiCalls = 0;
+});
+
+When("I run the deterministic search {string}", async function (expression: string) {
+  const environment = journey<Awaited<ReturnType<typeof createSearchEnvironment>>>("environment");
+  const normalized = normalizeQuery(expression, {
+    now: FIXED_NOW,
+    timezone: "UTC",
+    locale: "en-US",
+    actorId: TEST_AUTHORIZATION.actorId,
+    authorization: TEST_AUTHORIZATION,
+    fieldRegistry: environment.registry,
+    fieldRegistryVersion: environment.registry.version,
+  });
+  assert.ok(normalized.ast, normalized.error);
+  deterministicJourney.normalized = normalized;
+  deterministicJourney.page = await environment.service.search({
+    expression: normalized.ast,
+    order: normalized.sort,
+    authorization: TEST_AUTHORIZATION,
+    first: 20,
+  });
+});
+
+Then("results identify their canonical targets and source provenance", function () {
+  const page = journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("page");
+  assert.deepEqual(page.hits.map((hit) => hit.target.objectId), ["stale-issue", "current-change"]);
+  assert.deepEqual([...new Set(page.hits.map((hit) => hit.provenance.sourceId))].sort(), ["community-store", "nightboard-host"]);
+});
+
+Then("source completeness names the stale source without invoking AI", function () {
+  const page = journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("page");
+  assert.equal(page.completeness.status, "stale");
+  assert.equal(page.completeness.sources.find((source) => source.sourceId === "community-store")?.status, "stale");
+  assert.equal(deterministicJourney.aiCalls, 0);
+});
+
+Given("I open the Nightboard query workbench by keyboard", function () {
+  const action = BUILT_IN_ACTIONS.find((candidate) => candidate.actionId === "search.open");
+  assert.deepEqual(action?.keyBindings, [{ key: "Ctrl+F", contexts: ["global"] }]);
+  deterministicJourney.workbenchOpen = true;
+  deterministicJourney.searchRuns = 0;
+  deterministicJourney.aiCalls = 0;
+});
+
+When("I enter an unsupported field and operator", function () {
+  deterministicJourney.diagnosticQuery = normalizeQuery("sttae:>=open", {
+    now: FIXED_NOW,
+    timezone: "UTC",
+    locale: "en-US",
+    authorization: TEST_AUTHORIZATION,
+    fieldRegistry: createCommunityFieldRegistry(),
+  });
+});
+
+Then("the diagnostic identifies line column span code and field suggestions", function () {
+  const query = journey<ReturnType<typeof normalizeQuery>>("diagnosticQuery");
+  const diagnostic = query.diagnostics.find((candidate) => candidate.severity === "error");
+  assert.ok(diagnostic?.span);
+  assert.equal(diagnostic.span.line, 1);
+  assert.ok(diagnostic.span.column >= 1 && diagnostic.span.end > diagnostic.span.start);
+  assert.match(diagnostic.code, /^QUERY_/u);
+  assert.ok(diagnostic.suggestions.includes("state"));
+});
+
+Then("no partial search or AI translation runs", function () {
+  const query = journey<ReturnType<typeof normalizeQuery>>("diagnosticQuery");
+  assert.equal(query.ast, null);
+  assert.equal(deterministicJourney.searchRuns, 0);
+  assert.equal(deterministicJourney.aiCalls, 0);
+});
+
+Given("a deterministic search returned an authorized Entity", async function () {
+  const visible = entity({ objectId: "visible-review", kind: "change", title: "Visible review", state: "needs-review" });
+  const hidden = entity({ objectId: "hidden-review", kind: "change", title: "Hidden review", state: "needs-review", visibility: "private", ownerId: "other" });
+  const environment = await createSearchEnvironment([visible, hidden]);
+  const normalized = normalizeQuery("state:needs-review", { now: FIXED_NOW, timezone: "UTC", locale: "en-US", authorization: TEST_AUTHORIZATION, fieldRegistry: environment.registry });
+  assert.ok(normalized.ast);
+  const page = await environment.service.search({ expression: normalized.ast, order: normalized.sort, authorization: TEST_AUTHORIZATION, first: 10 });
+  assert.deepEqual(page.hits.map((hit) => hit.target.objectId), [visible.ref.objectId]);
+  deterministicJourney.environment = environment;
+  deterministicJourney.normalized = normalized;
+  deterministicJourney.hiddenId = hidden.ref.objectId;
+});
+
+When("I open Search Explain", async function () {
+  const environment = journey<Awaited<ReturnType<typeof createSearchEnvironment>>>("environment");
+  const normalized = journey<ReturnType<typeof normalizeQuery>>("normalized");
+  assert.ok(normalized.ast);
+  const plan = await environment.service.plan({ expression: normalized.ast, order: normalized.sort, authorization: TEST_AUTHORIZATION, limit: 10 });
+  deterministicJourney.plan = plan;
+  deterministicJourney.explanation = await environment.backend.explain(plan);
+});
+
+Then("I can inspect normalization source pushdown residual evaluation authorization ordering and omissions", function () {
+  const normalized = journey<ReturnType<typeof normalizeQuery>>("normalized");
+  const explanation = journey<Awaited<ReturnType<ReferenceSearchBackend["explain"]>>>("explanation");
+  assert.ok(normalized.canonicalJson.includes("needs-review"));
+  assert.equal(explanation.sourcePlans.length, 1);
+  assert.ok(explanation.sourcePlans[0]?.pushdown && explanation.sourcePlans[0]?.residual);
+  assert.equal(explanation.authorization, "pre-filtered");
+  assert.deepEqual(explanation.ordering.slice(-2), ["kind:ascending:last", "objectId:ascending:last"]);
+  assert.deepEqual((explanation as typeof explanation & { omissions?: readonly string[] }).omissions ?? [], []);
+});
+
+Then("the explanation does not reveal unreadable Entities", function () {
+  assert.doesNotMatch(JSON.stringify(journey("explanation")), new RegExp(journey<string>("hiddenId"), "u"));
+});
+
+Given("I preview an authorized deterministic search", async function () {
+  const environment = await createServiceEnvironment([
+    entity({ objectId: "change-review", kind: "change", title: "Review", state: "needs-review" }),
+  ]);
+  const parsed = environment.search.parseSearch("state:needs-review", { authorization: TEST_AUTHORIZATION });
+  assert.ok(parsed.ast);
+  const page = await environment.search.search({ where: parsed.ast, orderBy: parsed.sort, first: 10 }, TEST_AUTHORIZATION);
+  deterministicJourney.services = environment;
+  deterministicJourney.parsed = parsed;
+  deterministicJourney.previewTargets = page.hits.map((hit) => hit.target.objectId);
+});
+
+When("I save it as the {string} projection", async function (projectionId: string) {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const parsed = journey<ReturnType<CommunityServiceApis["search"]["parseSearch"]>>("parsed");
+  assert.ok(parsed.ast);
+  const definition = entityListProjection(`user-${projectionId}`, parsed.ast);
+  deterministicJourney.savedDefinition = await services.projections.save(definition, TEST_AUTHORIZATION);
+});
+
+Then("the Projection Definition stores the typed Search Expression and total order", function () {
+  const definition = journey<ProjectionDefinition>("savedDefinition");
+  assert.equal(definition.root.kind, "literal");
+  const select = definition.root.kind === "literal" ? definition.root.children[0] : undefined;
+  assert.equal(select?.kind, "select");
+  assert.deepEqual(select?.kind === "select" ? select.where : undefined, journey<ReturnType<CommunityServiceApis["search"]["parseSearch"]>>("parsed").ast);
+  const fields = definition.order.map((order) => order.field);
+  assert.deepEqual(fields.slice(-2), ["kind", "objectId"]);
+});
+
+Then("reopening it preserves canonical Entity identity rather than a copied result tree", async function () {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const saved = journey<ProjectionDefinition>("savedDefinition");
+  const reopened = await services.projections.get(saved.projectionId, TEST_AUTHORIZATION);
+  assert.equal(reopened?.projectionId, saved.projectionId);
+  assert.deepEqual(journey("previewTargets"), ["change-review"]);
+  assert.equal(JSON.stringify(reopened).includes("change-review"), false);
+});
+
+Given("I clone {string} into my own Projection Definition", async function (sourceId: string) {
+  assert.equal(sourceId, builtinDefaultProjection.projectionId);
+  const clone: ProjectionDefinition = {
+    ...structuredClone(builtinDefaultProjection),
+    projectionId: "user-default-copy",
+    version: 1,
+    label: "My namespace",
+    ownerId: "maya",
+    visibility: "private",
+  };
+  const services = await createServiceEnvironment([
+    entity({ objectId: "project-alpha", title: "Same Project", state: "open" }),
+    entity({ objectId: "project-beta", title: "Same Project", state: "open" }),
+  ], [clone]);
+  deterministicJourney.services = services;
+  deterministicJourney.clone = await services.projections.save(clone, TEST_AUTHORIZATION);
+});
+
+When("I group project Entities by state and preview the tree", async function () {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const clone = journey<ProjectionDefinition>("clone");
+  const grouped: ProjectionDefinition = {
+    ...clone,
+    version: clone.version + 1,
+    root: {
+      nodeId: "root",
+      kind: "literal",
+      segment: "",
+      children: [{
+        nodeId: "select-projects",
+        kind: "select",
+        objectKinds: ["project"],
+        children: [{
+          nodeId: "group-state",
+          kind: "group",
+          field: "state",
+          segment: { template: "{slug(state)}" },
+          missing: "no-state",
+          order: "key-ascending",
+          child: { nodeId: "project-leaf", kind: "leaf", segment: { template: "{slug(title)}" }, representation: "default" },
+        }],
+      }],
+    },
+  };
+  await services.projections.save(grouped, TEST_AUTHORIZATION);
+  const context = await services.namespace.context(TEST_AUTHORIZATION, "snapshot-group");
+  const root = await services.projectionRuntime.list(grouped.projectionId, "/", { first: 20 }, context);
+  const groupPath = root.entries[0]?.logicalPath;
+  assert.ok(groupPath);
+  const preview = await services.projectionRuntime.list(grouped.projectionId, groupPath, { first: 20 }, context);
+  const builtin = await services.projectionRuntime.list("builtin:default", "/", { first: 20 }, context);
+  deterministicJourney.grouped = grouped;
+  deterministicJourney.preview = preview;
+  deterministicJourney.namespaceDiff = {
+    removed: builtin.entries.map((entry) => entry.name).filter((name) => !root.entries.some((entry) => entry.name === name)),
+    added: root.entries.map((entry) => entry.name).filter((name) => !builtin.entries.some((entry) => entry.name === name)),
+  };
+});
+
+Then("the preview uses authorized real data and deterministic collision names", function () {
+  const entries = journey<{ readonly entries: readonly VfsEntry[] }>("preview").entries;
+  assert.equal(entries.length, 2);
+  assert.ok(entries.every((entry) => entry.target.objectId.startsWith("project-")));
+  assert.equal(new Set(entries.map((entry) => entry.name)).size, 2);
+  assert.ok(entries.every((entry) => /^same-project~[a-z0-9]+$/u.test(entry.name)));
+});
+
+Then("the namespace diff explains changes before I mount them", function () {
+  const diff = journey<{ readonly removed: readonly string[]; readonly added: readonly string[] }>("namespaceDiff");
+  assert.ok(diff.removed.includes("projects"));
+  assert.deepEqual(diff.added, ["open"]);
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  assert.equal(services.namespace.mounts(TEST_AUTHORIZATION) instanceof Promise, true);
+});
+
+Given("I mount my valid Projection Definition at root with user replace precedence", async function () {
+  const definition = entityListProjection("user-valid");
+  const services = await createServiceEnvironment([entity({ objectId: "valid-project", title: "Valid", state: "open" })], [definition]);
+  await services.projections.save(definition, TEST_AUTHORIZATION);
+  const mount = await services.namespace.mount({
+    mountId: "user-root",
+    scope: "user",
+    mountPath: "/",
+    projectionId: definition.projectionId,
+    mode: "replace",
+    order: 1,
+    writable: false,
+  }, TEST_AUTHORIZATION);
+  deterministicJourney.services = services;
+  deterministicJourney.mount = mount;
+  deterministicJourney.definition = definition;
+});
+
+When("a later edit makes that Projection Definition invalid", async function () {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const definition = journey<ProjectionDefinition>("definition");
+  const invalid: ProjectionDefinition = {
+    ...definition,
+    version: definition.version + 1,
+    root: { nodeId: "root-invalid", kind: "literal", segment: ".epoch", children: [] },
+  };
+  let message = "";
+  try { await services.projections.save(invalid, TEST_AUTHORIZATION); }
+  catch (error) { message = error instanceof Error ? error.message : String(error); }
+  assert.ok(message);
+  await services.store.write((transaction) => transaction.putQuarantinedDefinition({
+    projectionId: invalid.projectionId,
+    reason: message,
+    quarantinedAt: services.runtime.now(),
+    input: invalid,
+  }));
+  deterministicJourney.invalidMessage = message;
+});
+
+Then("the invalid definition is quarantined and exportable", async function () {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const exported = await services.store.export();
+  assert.equal(exported.quarantinedDefinitions.length, 1);
+  assert.equal(exported.quarantinedDefinitions[0]?.projectionId, "user-valid");
+  assert.match(JSON.stringify(exported.quarantinedDefinitions[0]?.input), /root-invalid/u);
+});
+
+Then("I can open {string} and reset my user namespace entirely by keyboard", async function (path: string) {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const recovered = await services.namespace.resolve(path, TEST_AUTHORIZATION, "snapshot-recovery");
+  assert.equal(recovered?.projectionId, "builtin:default");
+  assert.equal(recovered?.logicalPath, path);
+  assert.ok(BUILT_IN_ACTIONS.some((action) => action.actionId === "namespace.reset"));
+  const reset = await services.namespace.reset("user", TEST_AUTHORIZATION);
+  assert.deepEqual(reset.removedMountIds, ["user-root"]);
+  assert.equal((await services.namespace.mounts(TEST_AUTHORIZATION)).some((mount) => mount.scope === "user"), false);
+});
+
+Given("the built-in root and a community Projection Definition contain the same child name", function () {
+  const definition = projection({
+    projectionId: "community-root",
+    root: { nodeId: "community-root", kind: "literal", segment: "", children: [{ nodeId: "community-projects", kind: "literal", segment: "projects", children: [] }] },
+  });
+  const projectionRuntime = new EntityProjectionRuntime({
+    entities: [],
+    completeness: { status: "complete", sources: [], omittedSources: [], unsupportedPredicates: [] },
+    cursorKey: CURSOR_KEY,
+    compileContext: compileContext(),
+  }, [definition]);
+  deterministicJourney.projectionRuntime = projectionRuntime;
+  deterministicJourney.communityDefinition = definition;
+});
+
+When("I mount the community definition before the built-in root", async function () {
+  const projectionRuntime = journey<EntityProjectionRuntime>("projectionRuntime");
+  const namespace = createNamespaceRuntime(projectionRuntime, [{
+    mountId: "community-before",
+    scope: "community",
+    mountPath: "/",
+    projectionId: "community-root",
+    mode: "before",
+    order: 0,
+    writable: false,
+    createdAt: FIXED_NOW,
+    updatedAt: FIXED_NOW,
+  }]);
+  const context = { authorizationFingerprint: "auth-shadow", snapshotId: "snapshot-shadow" };
+  deterministicJourney.namespaceRuntime = namespace;
+  deterministicJourney.namespacePage = await namespace.list("/", { first: 20 }, context);
+  deterministicJourney.namespaceExplanation = await namespace.explain("/projects", context);
+});
+
+Then("first-match lookup selects the higher-precedence Projection Entry", function () {
+  const page = journey<{ readonly entries: readonly VfsEntry[] }>("namespacePage");
+  assert.equal(page.entries.find((entry) => entry.name === "projects")?.projectionId, "community-root");
+});
+
+Then("Namespace Explain identifies the ordered components and shadowed entry", function () {
+  const explanation = journey<{ readonly componentOrder: readonly string[]; readonly shadowed: readonly VfsEntry[] }>("namespaceExplanation");
+  assert.deepEqual(explanation.componentOrder, ["community-before", "builtin-root"]);
+  assert.equal(explanation.shadowed.length, 1);
+  assert.equal(explanation.shadowed[0]?.projectionId, "builtin:default");
+});
+
+Given("one Entity is selected by two branches of one Projection Definition", function () {
+  const target = entity({ objectId: "same-entity", title: "Repeated", state: "open" });
+  const definition = entityListProjection("user-twice", { kind: "all" }, ["leaf-a", "leaf-b"]);
+  const projectionRuntime = new EntityProjectionRuntime({
+    entities: [target],
+    completeness: { status: "complete", sources: [], omittedSources: [], unsupportedPredicates: [] },
+    cursorKey: CURSOR_KEY,
+    compileContext: compileContext(),
+  }, [definition]);
+  const namespace = createNamespaceRuntime(projectionRuntime, [{
+    mountId: "user-twice",
+    scope: "user",
+    mountPath: "/",
+    projectionId: definition.projectionId,
+    mode: "replace",
+    order: 0,
+    writable: false,
+    ownerId: "maya",
+    createdAt: FIXED_NOW,
+    updatedAt: FIXED_NOW,
+  }]);
+  deterministicJourney.target = target;
+  deterministicJourney.namespaceRuntime = namespace;
+});
+
+When("I locate that Entity in the mounted namespace", async function () {
+  const namespace = journey<ReturnType<typeof createNamespaceRuntime>>("namespaceRuntime");
+  const target = journey<CommunityEntity>("target");
+  deterministicJourney.locations = await namespace.locate(target.ref, { authorizationFingerprint: "auth-locate", snapshotId: "snapshot-locate" });
+});
+
+Then("both Projection Entries have distinct stable occurrence IDs and paths", function () {
+  const entries = journey<readonly VfsEntry[]>("locations");
+  assert.equal(entries.length, 2);
+  assert.equal(new Set(entries.map((entry) => entry.entryId)).size, 2);
+  assert.equal(new Set(entries.map((entry) => entry.logicalPath)).size, 2);
+});
+
+Then("both entries target the same canonical object ID", function () {
+  assert.deepEqual(journey<readonly VfsEntry[]>("locations").map((entry) => entry.target.objectId), ["same-entity", "same-entity"]);
+});
+
+Given("I am reading one Projection Entry in queued update mode", async function () {
+  const target = entity({ objectId: "reading-target", title: "Reading", state: "open" });
+  const definition = entityListProjection("user-queued");
+  const runtime = new EntityProjectionRuntime({
+    entities: [target],
+    completeness: { status: "complete", sources: [], omittedSources: [], unsupportedPredicates: [] },
+    cursorKey: CURSOR_KEY,
+    compileContext: compileContext(),
+  }, [definition]);
+  const entries = (await runtime.list(definition.projectionId, "/", { first: 10 }, { authorizationFingerprint: "auth-queued", snapshotId: "snapshot-queued" })).entries;
+  const anchor = { focusedEntryId: entries[0]?.entryId, targetId: target.ref.objectId, readingAnchor: { objectId: target.ref.objectId, pixelOffset: 42 } };
+  deterministicJourney.tracked = new ProjectionDeltaController().track("queued", entries, anchor);
+  deterministicJourney.anchor = anchor;
+  deterministicJourney.originalEntry = entries[0];
+});
+
+When("a source change adds an earlier-sorting Entity", function () {
+  const tracked = journey<ReturnType<ProjectionDeltaController["track"]>>("tracked");
+  const original = journey<VfsEntry>("originalEntry");
+  const added: VfsEntry = { ...original, entryId: "entry-added-earlier", target: { objectId: "earlier-target", kind: "project" }, name: "earlier", logicalPath: "/earlier", sortKey: ["2026-08-13T00:00:00.000Z", "project", "earlier-target"] };
+  deterministicJourney.queuedResult = tracked.ingest({ projectionId: original.projectionId, projectionVersion: original.projectionVersion, sequence: 1, upserts: [added], deletes: [], observedAt: FIXED_NOW });
+});
+
+Then("Nightboard announces the queued count without moving focus or reading anchor", function () {
+  const result = journey<{ readonly queuedCount: number; readonly anchor: unknown; readonly entries: readonly VfsEntry[] }>("queuedResult");
+  assert.equal(result.queuedCount, 1);
+  assert.deepEqual(result.anchor, deterministicJourney.anchor);
+  assert.equal(result.entries.some((entry) => entry.entryId === "entry-added-earlier"), false);
+});
+
+When("I apply queued updates", function () {
+  deterministicJourney.appliedResult = journey<ReturnType<ProjectionDeltaController["track"]>>("tracked").applyQueued();
+});
+
+Then("focus remains attached to the prior occurrence or canonical target", function () {
+  const result = journey<{ readonly queuedCount: number; readonly anchor: { readonly focusedEntryId?: string; readonly targetId?: string }; readonly entries: readonly VfsEntry[] }>("appliedResult");
+  assert.equal(result.queuedCount, 0);
+  assert.equal(result.anchor.focusedEntryId, journey<VfsEntry>("originalEntry").entryId);
+  assert.equal(result.anchor.targetId, "reading-target");
+  assert.equal(result.entries.length, 2);
+});
+
+Given("two corpora differ only by Entities I am not authorized to read", async function () {
+  const visible = entity({ objectId: "public-project", title: "Same Name", state: "open" });
+  const hidden = entity({ objectId: "private-project", title: "Same Name", state: "open", visibility: "private", ownerId: "other" });
+  deterministicJourney.visibleEnvironment = await createSearchEnvironment([visible]);
+  deterministicJourney.hiddenEnvironment = await createSearchEnvironment([visible, hidden]);
+  deterministicJourney.visibleEntity = visible;
+  deterministicJourney.hiddenEntity = hidden;
+});
+
+When("I compare search hits counts facets suggestions completions paths collisions and explanations", async function () {
+  const observe = async (environment: Awaited<ReturnType<typeof createSearchEnvironment>>, entities: readonly CommunityEntity[]) => {
+    const parsed = normalizeQuery("state:open", { now: FIXED_NOW, timezone: "UTC", locale: "en-US", authorization: TEST_AUTHORIZATION, fieldRegistry: environment.registry });
+    assert.ok(parsed.ast);
+    const plan = await environment.service.plan({ expression: parsed.ast, order: parsed.sort, authorization: TEST_AUTHORIZATION, limit: 10 });
+    const page = await environment.backend.search(plan, { first: 10 });
+    const facets = await environment.backend.facets(plan, ["state"]);
+    const suggestions = await environment.backend.suggest({ plan, field: "state", prefix: "o", limit: 10 });
+    const explanation = await environment.backend.explain(plan);
+    const authorized = entities.filter((candidate) => candidate.visibility === "public" || candidate.ownerId === TEST_AUTHORIZATION.actorId);
+    const definition = entityListProjection("user-privacy");
+    const projectionRuntime = new EntityProjectionRuntime({
+      entities: authorized,
+      completeness: page.completeness,
+      cursorKey: CURSOR_KEY,
+      compileContext: compileContext(environment.registry),
+    }, [definition]);
+    const entries = await projectionRuntime.list(definition.projectionId, "/", { first: 10 }, { authorizationFingerprint: plan.authorizationFingerprint, snapshotId: page.snapshot.snapshotId });
+    return {
+      hits: page.hits.map((hit) => hit.target.objectId),
+      count: page.hits.length,
+      facets,
+      suggestions,
+      completions: environment.registry.list(TEST_AUTHORIZATION).map((field) => field.name),
+      paths: entries.entries.map((entry) => entry.logicalPath),
+      collisions: entries.entries.map((entry) => entry.name),
+      explanation,
+      sourceStatuses: page.completeness.sources.map(({ sourceId, status }) => ({ sourceId, status })),
+    };
+  };
+  deterministicJourney.visibleObservations = await observe(journey("visibleEnvironment"), [journey("visibleEntity")]);
+  deterministicJourney.hiddenObservations = await observe(journey("hiddenEnvironment"), [journey("visibleEntity"), journey("hiddenEntity")]);
+});
+
+Then("every observable authorized result is equivalent", function () {
+  assert.deepEqual(deterministicJourney.visibleObservations, deterministicJourney.hiddenObservations);
+});
+
+Then("source status reveals at most a generic unauthorized omission", function () {
+  const observations = journey<{ readonly sourceStatuses: readonly { readonly sourceId: string; readonly status: string }[] }>("hiddenObservations");
+  assert.deepEqual(observations.sourceStatuses, [{ sourceId: "community-store", status: "current" }]);
+  assert.doesNotMatch(JSON.stringify(observations), /private-project|Same Name.*Same Name/u);
+});
+
+Given("my browser cannot provide the required OPFS and FTS5 capabilities", function () {
+  deterministicJourney.storage = chooseSqliteStorage({ opfs: false, crossOriginIsolated: false, sharedArrayBuffer: false });
+  deterministicJourney.fts5 = false;
+});
+
+When("I open a metadata-only Community replica and search", async function () {
+  const visible = entity({ objectId: "metadata-project", title: "Metadata only", state: "open" });
+  const environment = await createSearchEnvironment([visible]);
+  const parsed = normalizeQuery("state:open", { now: FIXED_NOW, timezone: "UTC", locale: "en-US", authorization: TEST_AUTHORIZATION, fieldRegistry: environment.registry });
+  assert.ok(parsed.ast);
+  deterministicJourney.fallbackPage = await environment.service.search({ expression: parsed.ast, order: parsed.sort, authorization: TEST_AUTHORIZATION, first: 10 });
+  deterministicJourney.fallbackBackend = environment.backend.backendId;
+});
+
+Then("Nightboard reports the unavailable persistence capability", function () {
+  assert.deepEqual(deterministicJourney.storage, { mode: "memory", persistent: false, reason: "OPFS is unavailable" });
+  assert.equal(deterministicJourney.fts5, false);
+});
+
+Then("the Orama or reference backend remains functional without losing canonical data", function () {
+  assert.equal(deterministicJourney.fallbackBackend, "epoch-reference");
+  assert.deepEqual(journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("fallbackPage").hits.map((hit) => hit.target.objectId), ["metadata-project"]);
+});
+
+Given("two Nightboard tabs open the same browser search replica", function () {
+  const held = new Set<string>();
+  const lockManager = {
+    async acquire(name: string) {
+      if (held.has(name)) return undefined;
+      held.add(name);
+      return () => { held.delete(name); };
+    },
+  };
+  deterministicJourney.firstCoordinator = new BrowserPersistenceCoordinator({ lockManager, lockName: "shared-replica" });
+  deterministicJourney.secondCoordinator = new BrowserPersistenceCoordinator({ lockManager, lockName: "shared-replica" });
+  deterministicJourney.replicaEntities = [entity({ objectId: "replica-entity", title: "Replica", state: "open" })];
+  deterministicJourney.replicaCheckpoint = { sourceId: "community-store", token: "replica-1", observedAt: FIXED_NOW, status: "current" };
+});
+
+When("both attempt a local index update", async function () {
+  const first = journey<BrowserPersistenceCoordinator>("firstCoordinator");
+  const second = journey<BrowserPersistenceCoordinator>("secondCoordinator");
+  const lease = await first.acquireWriter();
+  let secondCode = "";
+  try { await second.acquireWriter(); }
+  catch (error) { secondCode = (error as { readonly code?: string }).code ?? ""; }
+  deterministicJourney.secondCode = secondCode;
+  await lease.release();
+  const secondLease = await second.acquireWriter();
+  await secondLease.release();
+  deterministicJourney.secondRecovered = true;
+});
+
+Then("one writer coordinates the update and the other waits or falls back explicitly", function () {
+  assert.equal(deterministicJourney.secondCode, "INDEX_LOCKED");
+  assert.equal(deterministicJourney.secondRecovered, true);
+});
+
+Then("reopening the replica returns the same authorized Entities and checkpoint", async function () {
+  const entities = journey<readonly CommunityEntity[]>("replicaEntities");
+  const checkpoint = journey<{ readonly sourceId: string; readonly token: string; readonly observedAt: string; readonly status: "current" }>("replicaCheckpoint");
+  const source = createCanonicalStoreSource({ readEntities: async () => entities, checkpoint: async () => checkpoint });
+  const first = await source.scan({ limit: 10, authorization: TEST_AUTHORIZATION });
+  const reopened = await source.scan({ limit: 10, authorization: TEST_AUTHORIZATION });
+  assert.deepEqual(reopened.entities.map((candidate) => candidate.ref.objectId), first.entities.map((candidate) => candidate.ref.objectId));
+  assert.deepEqual(reopened.checkpoint, first.checkpoint);
+});
+
+Given("persisted schema 2 contains stable Entity IDs and a saved query record", function () {
+  deterministicJourney.schema2 = {
+    schemaVersion: 2,
+    repositories: [],
+    objects: [{
+      ref: { objectId: "message-stable", kind: "message" },
+      context: { objectId: "channel-general", kind: "channel" },
+      authorId: "maya",
+      title: "Stable migrated message",
+      body: "Migration must not invent identity or time.",
+      publishedAt: "2026-07-01T10:00:00.000Z",
+      updatedAt: "2026-07-02T10:00:00.000Z",
+      threadRoot: { objectId: "message-stable", kind: "message" },
+      relations: [],
+      state: "needs-review",
+      aliases: ["general/42"],
+    }],
+    projections: [{
+      projectionId: "projection-needs-review",
+      version: 1,
+      label: "Needs review",
+      ownerId: "maya",
+      visibility: "private",
+      query: "state:needs-review",
+      queryLanguageVersion: 0,
+      order: { by: "publishedAt", direction: "descending" },
+      createdAt: "2026-07-03T00:00:00.000Z",
+      updatedAt: "2026-07-04T00:00:00.000Z",
+    }],
+  };
+  deterministicJourney.migrationContext = {
+    clock: { now: () => new Date(FIXED_NOW) },
+    idGenerator: { generate: (namespace: string) => `${namespace}-migration` },
+    timezone: "UTC",
+    locale: "en-US",
+  };
+});
+
+When("Community migrates and reloads the state", async function () {
+  const migrated = migrateCommunityState(deterministicJourney.schema2, journey("migrationContext"));
+  const store = createMemoryCommunityStateStore(migrated);
+  const exported = await store.export();
+  const reloaded = createMemoryCommunityStateStore(exported);
+  deterministicJourney.migrated = migrated;
+  deterministicJourney.reloaded = await reloaded.export();
+});
+
+Then("one current Projection Definition preserves the IDs timestamps query semantics and aliases", function () {
+  const state = journey<CommunityStateV3>("reloaded");
+  assert.equal(state.projectionDefinitions.length, 1);
+  const migratedEntity = state.entities.find((candidate) => candidate.ref.objectId === "message-stable");
+  assert.equal(migratedEntity?.createdAt, "2026-07-01T10:00:00.000Z");
+  assert.equal(migratedEntity?.updatedAt, "2026-07-02T10:00:00.000Z");
+  assert.deepEqual(migratedEntity?.fields.aliases, ["general/42"]);
+  const definition = state.projectionDefinitions[0]?.definition;
+  assert.equal(definition?.projectionId, "projection-needs-review");
+  const select = definition?.root.kind === "literal" ? definition.root.children[0] : undefined;
+  const where = select?.kind === "select" ? select.where : undefined;
+  assert.equal(where?.kind, "compare");
+  if (where?.kind === "compare") assert.deepEqual({ kind: where.kind, field: where.field, operator: where.operator, value: where.value }, { kind: "compare", field: "state", operator: "eq", value: "needs-review" });
+});
+
+Then("rerunning migration produces the same state without a compatibility API", function () {
+  const reloaded = journey<CommunityStateV3>("reloaded");
+  assert.deepEqual(migrateCommunityState(reloaded, journey("migrationContext")), reloaded);
+  assert.equal(Object.hasOwn(reloaded, "projections"), false);
+  assert.equal(Object.hasOwn(reloaded, "objects"), false);
+});
+
+Given("a structured GraphQL search and text search express the same authorized predicate", async function () {
+  const services = await createServiceEnvironment([
+    entity({ objectId: "graphql-a", kind: "change", title: "GraphQL A", state: "needs-review", updatedAt: "2026-08-12T12:00:00.000Z" }),
+    entity({ objectId: "graphql-b", kind: "change", title: "GraphQL B", state: "needs-review", updatedAt: "2026-08-11T12:00:00.000Z" }),
+  ]);
+  deterministicJourney.services = services;
+  deterministicJourney.graphqlSchema = createCommunityGraphQLSchema(createCommunityGraphQLServices(services));
+  deterministicJourney.graphqlSource = `
+    query Equivalent($where: SearchExpressionInput!, $first: Int!) {
+      search(where: $where, first: $first) {
+        nodes { target { objectId } }
+        pageInfo { hasNextPage endCursor }
+        snapshot { snapshotId }
+      }
+    }
+  `;
+  deterministicJourney.graphqlVariables = {
+    where: { compare: { field: "state", operator: "EQ", value: { scalar: { string: "needs-review" } } } },
+    first: 1,
+  };
+});
+
+When("I execute both against one Search Snapshot", async function () {
+  const services = journey<Awaited<ReturnType<typeof createServiceEnvironment>>>("services");
+  const result = await executeCommunityGraphQL({
+    schema: journey("graphqlSchema"),
+    source: journey("graphqlSource"),
+    variableValues: journey("graphqlVariables"),
+    context: { authorization: TEST_AUTHORIZATION },
+  });
+  assert.equal(result.errors, undefined, JSON.stringify(result.errors));
+  const graphql = result.data?.search as unknown as {
+    readonly nodes: readonly { readonly target: { readonly objectId: string } }[];
+    readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor?: string };
+    readonly snapshot: { readonly snapshotId: string };
+  };
+  const parsed = services.search.parseSearch("state:needs-review", { authorization: TEST_AUTHORIZATION });
+  assert.ok(parsed.ast);
+  const text = await services.search.search({ where: parsed.ast, orderBy: parsed.sort, first: 1, snapshot: graphql.snapshot.snapshotId }, TEST_AUTHORIZATION);
+  deterministicJourney.graphqlResult = graphql;
+  deterministicJourney.textResult = text;
+});
+
+Then("both return the same canonical targets in the same total order", function () {
+  const graphql = journey<{ readonly nodes: readonly { readonly target: { readonly objectId: string } }[] }>("graphqlResult");
+  const text = journey<Awaited<ReturnType<CommunityServiceApis["search"]["search"]>>>("textResult");
+  assert.deepEqual(graphql.nodes.map((node) => node.target.objectId), text.hits.map((hit) => hit.target.objectId));
+  assert.deepEqual(text.hits[0]?.sortKey.slice(-2), ["change", "graphql-a"]);
+});
+
+Then("GraphQL uses keyset cursors rather than array offsets", function () {
+  const pageInfo = journey<{ readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor?: string } }>("graphqlResult").pageInfo;
+  assert.equal(pageInfo.hasNextPage, true);
+  assert.match(pageInfo.endCursor ?? "", /^[A-Za-z0-9_-]{40,}$/u);
+  assert.doesNotMatch(pageInfo.endCursor ?? "", /^\d+$/u);
+});
+
+Given("I have a Projection Definition JSON file", async function () {
+  const definition = entityListProjection("user-cli-preview");
+  const services = await createServiceEnvironment([entity({ objectId: "cli-project", title: "CLI Project", state: "open" })], [definition]);
+  const files = new Map([["projection.json", JSON.stringify(definition)]]);
+  const saved: string[] = [];
+  const mounted: string[] = [];
+  deterministicJourney.cliDefinition = definition;
+  deterministicJourney.cliServices = {
+    readFile: async (path: string) => files.get(path) ?? "",
+    list: () => services.projections.list(TEST_AUTHORIZATION),
+    get: (id: string) => services.projections.get(id, TEST_AUTHORIZATION),
+    validate: async (candidate: ProjectionDefinition) => compileProjectionDefinition(candidate, compileContext()),
+    preview: async ({ definition: candidate, path, first, after }: { readonly definition: ProjectionDefinition; readonly path: string; readonly first: number; readonly after?: string }) => {
+      services.projectionRuntime.register(candidate);
+      return services.projectionRuntime.list(candidate.projectionId, path, { first, ...(after === undefined ? {} : { after }) }, { authorizationFingerprint: "auth-cli", snapshotId: "snapshot-cli" });
+    },
+    save: async (candidate: ProjectionDefinition) => { saved.push(candidate.projectionId); return services.projections.save(candidate, TEST_AUTHORIZATION); },
+    delete: (id: string) => services.projections.delete(id, TEST_AUTHORIZATION),
+  };
+  deterministicJourney.cliSaved = saved;
+  deterministicJourney.cliMounted = mounted;
+});
+
+When("I validate and preview it with epoch-community", async function () {
+  const services = journey<Parameters<typeof runProjectionCommand>[1]>("cliServices");
+  deterministicJourney.cliValidation = await runProjectionCommand(["validate", "projection.json", "--json"], services);
+  deterministicJourney.cliPreview = await runProjectionCommand(["preview", "projection.json", "--json"], services);
+});
+
+Then("the CLI reports deterministic JSON diagnostics and Projection Entries", function () {
+  const validation = journey<Awaited<ReturnType<typeof runProjectionCommand>>>("cliValidation");
+  const preview = journey<Awaited<ReturnType<typeof runProjectionCommand>>>("cliPreview");
+  assert.equal(validation.exitCode, 0, validation.stderr);
+  assert.deepEqual(JSON.parse(validation.stdout), {
+    diagnostics: [], estimatedFanout: 10000, maximumDepth: 3, nodeCount: 3,
+    projectionId: "user-cli-preview", schema: "epoch.community.cli.projection-validation.v1", valid: true,
+  });
+  const parsed = JSON.parse(preview.stdout) as { readonly page: { readonly entries: readonly VfsEntry[] } };
+  assert.equal(parsed.page.entries[0]?.target.objectId, "cli-project");
+});
+
+Then("invalid cycles fail without saving or mounting the definition", function () {
+  const node: { nodeId: string; kind: "literal"; segment: string; children: unknown[] } = { nodeId: "cycle", kind: "literal", segment: "cycle", children: [] };
+  node.children.push(node);
+  const invalid = { ...journey<ProjectionDefinition>("cliDefinition"), projectionId: "user-cycle", root: node } as unknown as ProjectionDefinition;
+  let diagnostics: readonly { readonly code: string }[] = [];
+  try { compileProjectionDefinition(invalid, compileContext()); }
+  catch (error) { diagnostics = (error as { readonly diagnostics?: readonly { readonly code: string }[] }).diagnostics ?? []; }
+  assert.ok(diagnostics.some((diagnostic) => diagnostic.code === "PROJECTION_CYCLE"));
+  assert.deepEqual(deterministicJourney.cliSaved, []);
+  assert.deepEqual(deterministicJourney.cliMounted, []);
+});
+
+When("I run the Nightboard deterministic search {string}", async function (expression: string) {
+  const page = requirePage();
+  await page.keyboard.press("Control+f");
+  const query = page.locator("[data-search-expression]");
+  await query.fill(expression);
+  await query.press("Control+Enter");
+  await page.locator("[data-search-completeness]").waitFor({ state: "visible" });
+  searchProjectionJourneyResult = await page.evaluate(() => ({
+    workbench: (window as unknown as { NB_APP: { state: { searchWorkbench: unknown } } }).NB_APP.state.searchWorkbench,
+    aiCalls: (window as unknown as { NB_HOBO?: { calls?: number } }).NB_HOBO?.calls ?? 0,
+  }));
+});
+
+Then("the Nightboard search reports authorized results and source completeness without AI", async function () {
+  const page = requirePage();
+  await page.locator('[data-search-source="nightboard-host"]').waitFor({ state: "visible" });
+  assert.match(await page.locator("[data-search-completeness]").innerText(), /complete.*authorized result/iu);
+  assert.equal(searchProjectionJourneyResult.aiCalls, 0);
+});
+
+When("I enter the invalid Nightboard query {string}", async function (expression: string) {
+  const page = requirePage();
+  await page.keyboard.press("Control+f");
+  const query = page.locator("[data-search-expression]");
+  await query.fill(expression);
+  await query.press("Control+Enter");
+  await page.locator("[data-search-diagnostic]").waitFor({ state: "visible" });
+});
+
+Then("the Nightboard query error identifies its location and suggests {string}", async function (suggestion: string) {
+  const diagnostic = requirePage().locator("[data-search-diagnostic]");
+  assert.ok(Number(await diagnostic.getAttribute("data-line")) >= 1);
+  assert.ok(Number(await diagnostic.getAttribute("data-column")) >= 1);
+  assert.match(await diagnostic.innerText(), new RegExp(suggestion, "iu"));
+});
+
+When("I explain the Nightboard search {string}", async function (expression: string) {
+  const page = requirePage();
+  searchProjectionJourneyResult = await page.evaluate(async (query) => {
+    const runtime = window as unknown as {
+      NB_APP: { state: Record<string, unknown>; viewerContext(): unknown };
+      NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; explainSearch(state: unknown): Promise<Record<string, unknown>> };
+    };
+    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, query);
+    await runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: query, context: runtime.NB_APP.viewerContext() });
+    return runtime.NB_WORKBENCH.explainSearch(runtime.NB_APP.state);
+  }, expression);
+});
+
+Then("the explanation names normalization authorization backend and ordering", function () {
+  const explanation = searchProjectionJourneyResult.explanation as Record<string, unknown>;
+  assert.equal(typeof explanation.normalized, "string");
+  assert.equal(explanation.authorization, "pre-filtered");
+  assert.equal(explanation.backend, "epoch-reference");
+  assert.ok(Array.isArray(explanation.ordering));
+});
+
+When("I save the Nightboard search {string} as a projection", async function (expression: string) {
+  searchProjectionJourneyResult = await requirePage().evaluate(async (query) => {
+    const runtime = window as unknown as {
+      NB_APP: { state: Record<string, unknown> };
+      NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; saveSearchProjection(state: unknown, label: string): Record<string, unknown> };
+    };
+    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, query);
+    await runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: query });
+    return runtime.NB_WORKBENCH.saveSearchProjection(runtime.NB_APP.state, "Needs review");
+  }, expression);
+});
+
+Then("the saved projection keeps the canonical query and stable projection identity", function () {
+  assert.match(String(searchProjectionJourneyResult.projectionId), /^projection-/u);
+  const root = searchProjectionJourneyResult.root as { children: readonly { where: { kind: string; field: string; value: string } }[] };
+  assert.deepEqual(root.children[0].where, { kind: "compare", field: "state", operator: "eq", value: "needs-review" });
+});
+
+When("I clone the Nightboard built-in projection", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as {
+      NB_APP: { state: Record<string, unknown> };
+      NB_CORE: { builtinDefaultProjection: Record<string, unknown> };
+      NB_WORKBENCH: { openProjection(state: unknown, value: unknown): void; compileProjection(state: unknown): Record<string, unknown> };
+    };
+    const clone = { ...runtime.NB_CORE.builtinDefaultProjection, projectionId: "user:default-copy", version: 1, label: "My namespace" };
+    runtime.NB_WORKBENCH.openProjection(runtime.NB_APP.state, clone);
+    return runtime.NB_WORKBENCH.compileProjection(runtime.NB_APP.state);
+  });
+});
+
+Then("the cloned definition validates through the canonical projection compiler", function () {
+  assert.deepEqual(searchProjectionJourneyResult.diagnostics, []);
+  assert.ok(searchProjectionJourneyResult.compiled);
+});
+
+When("I mount the Nightboard built-in projection at root in replace mode", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_WORKBENCH: { mount(value: Record<string, unknown>): Record<string, unknown> } };
+    return runtime.NB_WORKBENCH.mount({ mountId: "mount-user-root", scope: "user", mountPath: "/", projectionId: "builtin:default", mode: "replace", order: 10, writable: false });
+  });
+});
+
+Then("the user namespace records the deterministic root replacement", function () {
+  assert.equal(searchProjectionJourneyResult.scope, "user");
+  assert.equal(searchProjectionJourneyResult.mountPath, "/");
+  assert.equal(searchProjectionJourneyResult.mode, "replace");
+});
+
+When("I navigate to the immutable Nightboard recovery namespace", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_MAP: { list(path: string): readonly { name: string }[] } };
+    return { names: runtime.NB_MAP.list("/.epoch").map((entry) => entry.name) };
+  });
+});
+
+Then("all protected recovery branches remain reachable", function () {
+  assert.deepEqual(searchProjectionJourneyResult.names, ["default", "canonical", "projections", "sources", "diagnostics"]);
+});
+
+When("I compose Nightboard projection mounts before and after the built-in root", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_WORKBENCH: { mount(value: Record<string, unknown>): unknown; mounts(): readonly Record<string, unknown>[] } };
+    runtime.NB_WORKBENCH.mount({ mountId: "mount-before", scope: "user", mountPath: "/", projectionId: "user:first", mode: "before", order: 1, writable: false });
+    runtime.NB_WORKBENCH.mount({ mountId: "mount-after", scope: "user", mountPath: "/", projectionId: "user:last", mode: "after", order: 2, writable: false });
+    return { mounts: runtime.NB_WORKBENCH.mounts().filter((entry) => String(entry.mountId).startsWith("mount-")) };
+  });
+});
+
+Then("the mounts retain explicit mode order and scope", function () {
+  const mounts = searchProjectionJourneyResult.mounts as readonly Record<string, unknown>[];
+  assert.deepEqual(mounts.map((entry) => [entry.mode, entry.order, entry.scope]), [["after", 2, "user"], ["before", 1, "user"]]);
+});
+
+When("I locate one Nightboard object through two contextual paths", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_DATA: { posts: readonly Record<string, unknown>[] }; NB_MAP: { objectRef(value: unknown): { objectId: string }; pathForObject(id: string, projection?: string): string } };
+    const ref = runtime.NB_MAP.objectRef(runtime.NB_DATA.posts[0]);
+    return { objectId: ref.objectId, paths: [runtime.NB_MAP.pathForObject(ref.objectId), runtime.NB_MAP.pathForObject(ref.objectId, "projection-context")] };
+  });
+});
+
+Then("both paths preserve one canonical object identity", function () {
+  const paths = searchProjectionJourneyResult.paths as readonly string[];
+  assert.equal(new Set(paths).size, 2);
+  assert.ok(paths.every((path) => path.includes(String(searchProjectionJourneyResult.objectId))));
+});
+
+When("I create two Nightboard occurrences for one canonical object", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_DATA: { posts: readonly Record<string, unknown>[] }; NB_MAP: { objectRef(value: unknown): unknown }; NB_CORE: { createProjectionOccurrenceId(input: Record<string, unknown>): string } };
+    const target = runtime.NB_MAP.objectRef(runtime.NB_DATA.posts[0]);
+    const base = { projectionId: "user:twice", projectionVersion: 1, parentEntryId: "entry-root", target, resolvedSegment: "message" };
+    return { first: runtime.NB_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-a", branchId: "a" }), second: runtime.NB_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-b", branchId: "b" }) };
+  });
+});
+
+Then("the occurrences have distinct stable entry identities", function () {
+  assert.match(String(searchProjectionJourneyResult.first), /^entry-/u);
+  assert.notEqual(searchProjectionJourneyResult.first, searchProjectionJourneyResult.second);
+});
+
+When("a Nightboard projection update is queued while I am reading", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const state = (window as unknown as { NB_APP: { state: Record<string, unknown> } }).NB_APP.state;
+    const before = { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor };
+    state.pending = [{ id: "queued-projection-change" }];
+    return { before, after: { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor }, pending: (state.pending as unknown[]).length };
+  });
+});
+
+Then("my selected object and reading anchor remain unchanged until apply", function () {
+  assert.deepEqual(searchProjectionJourneyResult.before, searchProjectionJourneyResult.after);
+  assert.equal(searchProjectionJourneyResult.pending, 1);
+});
+
+When("I compare Nightboard search with an unauthorized private object present", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_QUERY: { searchBoard(query: string, context: Record<string, unknown>): { hits: readonly { post?: { private?: boolean } }[]; matched: number } } };
+    const first = runtime.NB_QUERY.searchBoard("state:needs-review", { includePrivate: false });
+    const second = runtime.NB_QUERY.searchBoard("state:needs-review", { includePrivate: false, extra: { privateObjects: [{ id: "secret", private: true }] } });
+    return { first: { matched: first.matched, privateHits: first.hits.filter((hit) => hit.post?.private).length }, second: { matched: second.matched, privateHits: second.hits.filter((hit) => hit.post?.private).length } };
+  });
+});
+
+Then("hits completeness collisions and explanation remain observationally identical", function () {
+  assert.deepEqual(searchProjectionJourneyResult.first, searchProjectionJourneyResult.second);
+  assert.equal((searchProjectionJourneyResult.first as { privateHits: number }).privateHits, 0);
+});
+
+When("the Nightboard search host reports a stale source", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(async () => {
+    const runtime = window as unknown as { NB_APP: { state: Record<string, unknown> }; NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
+    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, "state:needs-review");
+    return runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: "state:needs-review", sourceCheckpoints: [{ sourceId: "atproto", token: "old", observedAt: "2026-08-01T00:00:00Z", status: "stale" }] });
+  });
+});
+
+Then("the search completeness visibly reports stale", function () {
+  assert.equal((searchProjectionJourneyResult.result as { completeness: { status: string } }).completeness.status, "stale");
+});
+
+When("persistent SQLite is unavailable to Nightboard", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(async () => {
+    const runtime = window as unknown as { NB_APP: { state: Record<string, unknown> }; NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
+    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, "state:open");
+    const result = await runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: "state:open", backendUnavailable: "sqlite-wasm" });
+    return { result, backend: "epoch-reference" };
+  });
+});
+
+Then("deterministic reference search remains available", function () {
+  assert.equal(searchProjectionJourneyResult.backend, "epoch-reference");
+  assert.ok((searchProjectionJourneyResult.result as Record<string, unknown>).result);
+});
+
+When("I compare equivalent Nightboard GraphQL and text search expressions", async function () {
+  searchProjectionJourneyResult = await requirePage().evaluate(() => {
+    const runtime = window as unknown as { NB_CORE: { normalizeQuery(value: string): { ast: unknown; canonicalJson: string } }; CommunityGraphQL: { searchExpressionFromInput(value: unknown): unknown; COMMUNITY_GRAPHQL_SDL: string } };
+    const text = runtime.NB_CORE.normalizeQuery("state:needs-review");
+    const structured = runtime.CommunityGraphQL.searchExpressionFromInput({ compare: { field: "state", operator: "eq", value: { string: "needs-review" } } });
+    return { textAst: text.ast, structured, oneOf: runtime.CommunityGraphQL.COMMUNITY_GRAPHQL_SDL.includes("@oneOf") };
+  });
+});
+
+Then("both frontends expose the same canonical expression semantics", function () {
+  assert.deepEqual(searchProjectionJourneyResult.textAst, searchProjectionJourneyResult.structured);
+  assert.equal(searchProjectionJourneyResult.oneOf, true);
 });

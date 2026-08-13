@@ -61,20 +61,20 @@ function contributionDevFeedItems(
       tabs: ["following", "network", "contributions"] as const,
     })),
   );
-  const proposalItems = repositories.flatMap((repo) =>
-    repo.changeProposals.map((proposal, index) => ({
-      id: `dev-change-${repo.slug}-${proposal.id}`,
-      kind: "proposal" as const,
-      actor: { handle: proposal.author, role: "contributor" },
-      verb: "proposed",
-      object: { type: "proposal" as const, label: `${proposal.id}: ${proposal.title}`, hrefHint: proposal.id },
-      body: proposal.body.slice(0, 180) || undefined,
+  const changeItems = repositories.flatMap((repo) =>
+    repo.changes.map((change, index) => ({
+      id: `dev-change-${repo.slug}-${change.id}`,
+      kind: "change" as const,
+      actor: { handle: change.author, role: "contributor" },
+      verb: "created",
+      object: { type: "change" as const, label: `${change.id}: ${change.title}`, hrefHint: change.id },
+      body: change.body.slice(0, 180) || undefined,
       repoSlug: repo.slug,
       channelHint: "previews" as const,
       trust: {
-        sig: `sig:${proposal.id.toLowerCase()}`,
-        anchor: `change:${proposal.id}`,
-        atUri: source === "api" ? `at://did:plc:demo/org.epoch.proposal/${proposal.id}` : undefined,
+        sig: `sig:${change.id.toLowerCase()}`,
+        anchor: `change:${change.id}`,
+        atUri: source === "api" ? `at://did:plc:demo/org.epoch.change/${change.id}` : undefined,
         source: source === "api" ? "api" as const : "snapshot" as const,
       },
       createdAt: `2026-08-01T1${(index + 2) % 6}:2${index % 9}:00Z`,
@@ -102,7 +102,7 @@ function contributionDevFeedItems(
         tabs: ["network", "contributions"] as const,
       })),
   );
-  return [...issueItems, ...proposalItems, ...agentItems];
+  return [...issueItems, ...changeItems, ...agentItems];
 }
 
 function socialDevFeedItems(

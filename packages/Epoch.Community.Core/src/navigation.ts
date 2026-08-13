@@ -35,7 +35,7 @@ export const NAVIGATION_ACTION_IDS = [
   "nav.next", "nav.previous", "nav.first", "nav.last", "nav.enter", "nav.ascend", "nav.expand", "nav.collapse",
   "thread.parent", "thread.root", "thread.firstChild", "thread.nextSibling", "thread.previousSibling", "thread.nextUnread",
   "history.back", "history.forward", "history.previousLocation",
-  "view.open", "view.filter", "view.save", "view.delete", "jump.best", "jump.interactive",
+  "jump.best", "jump.interactive",
   "detail.open", "detail.close", "compose.open", "cancel.topLayer",
 ] as const;
 

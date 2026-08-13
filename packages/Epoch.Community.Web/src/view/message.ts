@@ -42,9 +42,6 @@ function renderProvenancePanel(conversation: CommunityConversationView): string 
     ...(conversation.linkedChangeId === undefined
       ? []
       : [["Change", `change:${conversation.linkedChangeId}`] as const]),
-    ...(conversation.linkedProposalId === undefined
-      ? []
-      : [["Proposal", `proposal:${conversation.linkedProposalId}`] as const]),
   ];
   return `<div class="signature-provenance" id="provenance-${escapeHtml(conversation.id)}" data-provenance-panel hidden>
         <dl>
@@ -80,9 +77,9 @@ export function renderConversation(
 ): string {
   const inCommunity = activeCommunityId === undefined || conversation.communityId === activeCommunityId;
   const hidden = inCommunity && conversation.channel === activeChannel ? "" : " hidden";
-  const linkedProposal = conversation.linkedProposalId === undefined
+  const linkedChange = conversation.linkedChangeId === undefined
     ? ""
-    : ` data-linked-proposal="${escapeHtml(conversation.linkedProposalId)}"`;
+    : ` data-linked-change="${escapeHtml(conversation.linkedChangeId)}"`;
   const issueId = issueIdFromConversation(conversation);
   const issueAttr = issueId === undefined ? "" : ` data-issue-id="${escapeHtml(issueId)}"`;
   const changeId = conversation.id.startsWith("change-") ? conversation.id.slice("change-".length) : undefined;
@@ -110,22 +107,12 @@ export function renderConversation(
     ? `<div class="thread-comments" data-thread-comments>${comments.map((comment) =>
       `<div class="thread-comment"><strong>${escapeHtml(comment.author)}</strong> <span>${escapeHtml(comment.body)}</span></div>`).join("")}</div>`
     : "";
-  const promoteReceipt = conversation.linkedProposalId !== undefined
-    ? `<div class="message-promote-receipt" data-promote-receipt data-proposal-id="${escapeHtml(conversation.linkedProposalId)}">
-        <span class="promote-receipt-label">Signed promote</span>
-        <strong data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</strong>
-        <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")} · human review required</span>
-        <button
-          type="button"
-          class="lineage-link"
-          data-view-lineage="${escapeHtml(conversation.linkedProposalId)}"
-        >View lineage</button>
-      </div>`
-    : conversation.linkedChangeId
+  const promoteReceipt = conversation.linkedChangeId
     ? `<div class="message-promote-receipt" data-promote-receipt data-change-id="${escapeHtml(conversation.linkedChangeId)}">
-        <span class="promote-receipt-label">Signed Change</span>
+        <span class="promote-receipt-label">Signed promote</span>
         <strong data-change-meta>change:${escapeHtml(conversation.linkedChangeId)}</strong>
-        <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")}</span>
+        <span class="promote-receipt-state" data-promote-state>${escapeHtml(conversation.state || "open")} · human review required</span>
+        <button type="button" class="lineage-link" data-view-lineage="${escapeHtml(conversation.linkedChangeId)}">View lineage</button>
       </div>`
     : "";
   const meta = [
@@ -158,8 +145,6 @@ export function renderConversation(
           aria-label="Show provenance for ${escapeHtml(selectLabel)}"
         ><span class="row-receipt-mark" aria-hidden="true"></span>signed</button>${
     conversation.linkedChangeId ? `<span class="visually-hidden" data-change-meta>change:${escapeHtml(conversation.linkedChangeId)}</span>` : ""
-  }${
-    conversation.linkedProposalId === undefined ? "" : `<span class="visually-hidden" data-proposal-link>proposal:${escapeHtml(conversation.linkedProposalId)}</span>`
   }`;
 
   const actions = conversation.reactions
@@ -190,7 +175,7 @@ export function renderConversation(
 
   return renderRow({
     classNames: `row-message${agentClass}`,
-    attrs: ` data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedProposal}${hidden}`,
+    attrs: ` data-message data-channel="${conversation.channel}" data-community-id="${escapeHtml(conversation.communityId)}" data-message-id="${escapeHtml(conversation.id)}" data-feed-item-source="${conversation.source}" data-author-role="${escapeHtml(conversation.role)}"${issueAttr}${changeAttr}${linkedChange}${hidden}`,
     lead: { text: initials(conversation.author), variant: isAgent ? "agent" : "person" },
     meta,
     titleHtml: conversation.title === undefined

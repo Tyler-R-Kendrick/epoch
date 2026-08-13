@@ -3,19 +3,18 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
-import type { CommunityMessage, ProjectionSpec } from "@epoch/community-core";
+import type { CommunityMessage } from "@epoch/community-core";
 
 export async function runCommunityApiProjectionTests(): Promise<void> {
   await test("NAV-MIGRATE-001 API schema migration preserves data", apiMigrationPreservesDataAndAssignsIdsOnce);
-  await test("NAV-QUERY-003 saved view visibility is enforced", savedProjectionAuthorizationFailsClosed);
+  await test("NAV-PROJ-002 schema-2 saved-view data migrates to canonical projection identity", savedViewIdentityMigratesOnce);
+  await test("unshipped flat projection methods are absent from the repository facade", flatProjectionFacadeIsAbsent);
+  await test("Community facade exposes canonical Change vocabulary only", changeVocabularyIsCanonical);
   await test("NAV-ACTION-002 PATCH object state requires explicit write authorization", objectStateMutationRequiresWriteAuthorization);
-  await test("NAV-PROJ-002 mutation through virtual view updates canonical object", projectionMutationUpdatesCanonicalObject);
-  await test("NAV-PROJ-004 missing projection falls back to canonical object", deletedProjectionDoesNotDeleteCanonicalObject);
-  await test("saved projection input is whitelisted validated and path encoded", savedProjectionInputIsValidatedAndEncoded);
   await test("Community API persistence rejects malformed scalar and graph records", malformedPersistenceFailsAtBoundary);
   await test("Community API persistence replaces files atomically", persistenceWritesAtomically);
   await test("Community API state vocabulary is bounded and updates timestamps", objectStateIsBoundedAndTimestamped);
-  await test("private repository canonical objects use repository authorization", privateRepositoryObjectsFailClosed);
+  await test("NAV-QUERY-003 private repository canonical objects use repository authorization", privateRepositoryObjectsFailClosed);
 }
 
 async function objectStateMutationRequiresWriteAuthorization(): Promise<void> {
@@ -78,7 +77,7 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
           status: "open",
           comments: [{ author: "alice", body: "reply" }],
         }],
-        changeProposals: [],
+        changes: [],
         discussions: [],
       }],
     }));
@@ -91,7 +90,7 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
     assert.ok(commentObjectId);
     assert.equal((await first.getObject(issueObjectId)).title, "Migrated");
     assert.equal((await first.listThreadRelations(commentObjectId)).parent?.objectId, issueObjectId);
-    assert.equal(JSON.parse(readFileSync(persistencePath, "utf8")).schemaVersion, 2);
+    assert.equal(JSON.parse(readFileSync(persistencePath, "utf8")).schemaVersion, 3);
 
     const second = createInMemoryCommunityApi({ persistencePath });
     const reloaded = await second.getRepository("epoch/epoch");
@@ -103,98 +102,48 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
   }
 }
 
-async function savedProjectionAuthorizationFailsClosed(): Promise<void> {
-  const api = createInMemoryCommunityApi({ messages: [sampleMessage(), privateMessage()] });
-  const saved = await api.saveProjection({
-    projection: sampleProjection("private"),
-    ownerId: "alice",
-  }, { actorId: "alice" });
-  assert.equal(saved.ownerId, "alice");
-  await assert.rejects(() => api.getProjection(saved.projectionId, { actorId: "mallory" }), /not found/u);
-  assert.deepEqual(await api.listProjections({ actorId: "mallory" }), []);
-
-  await api.saveProjection({
-    projection: {
-      ...sampleProjection("shared"),
-      projectionId: "saved-shared",
-      query: {
-        ast: {
-          op: "or",
-          left: { op: "field", field: "id", value: "m-api-1", phrase: false },
-          right: { op: "field", field: "body", value: "DO_NOT_LEAK_7f3c", phrase: false },
-        },
-        canonical: "id:m-api-1 OR body:DO_NOT_LEAK_7f3c",
-        sort: null,
-        version: 1,
-      },
-    },
-    ownerId: "alice",
-  }, { actorId: "alice" });
-  const visibleMetadata = await api.listProjections({ actorId: "mallory" });
-  assert.equal(visibleMetadata[0]?.query, undefined, "non-owner metadata does not expose the raw query");
-  assert.deepEqual(
-    (await api.getProjection("saved-shared", { actorId: "mallory" })).entries.map((entry) => entry.ref.objectId),
-    ["m-api-1"],
-  );
-  await assert.rejects(() => api.getProjection("saved-shared"), /not found/u);
-  assert.deepEqual(await api.listProjections(), []);
+async function savedViewIdentityMigratesOnce(): Promise<void> {
+  const directory = mkdtempSync(join(tmpdir(), "epoch-api-projection-kind-"));
+  const persistencePath = join(directory, "state.json");
+  try {
+    const projectionRef = { objectId: "projection-old", kind: "saved-view" };
+    writeFileSync(persistencePath, JSON.stringify({
+      schemaVersion: 2,
+      repositories: [],
+      objects: [{
+        ref: projectionRef,
+        context: { objectId: "channel-general", kind: "channel" },
+        authorId: "alice",
+        body: "projection definition",
+        publishedAt: "2026-08-11T00:00:00.000Z",
+        threadRoot: projectionRef,
+        relations: [],
+        state: "read",
+        aliases: ["old-projection"],
+      }],
+      projections: [],
+    }));
+    const first = createInMemoryCommunityApi({ persistencePath });
+    assert.equal((await first.getObject("projection-old")).ref.kind, "projection");
+    const persisted = JSON.parse(readFileSync(persistencePath, "utf8"));
+    assert.equal(persisted.entities[0].ref.kind, "projection");
+    assert.equal((await createInMemoryCommunityApi({ persistencePath }).getObject("projection-old")).ref.kind, "projection");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
-function privateMessage(): CommunityMessage {
-  const ref = { objectId: "dm-private-1", kind: "message" as const };
-  return {
-    ...sampleMessage(),
-    ref,
-    context: { objectId: "dm-alice", kind: "dm" },
-    authorId: "alice",
-    body: "DO_NOT_LEAK_7f3c",
-    threadRoot: ref,
-    aliases: ["private-message"],
-  };
-}
-
-async function projectionMutationUpdatesCanonicalObject(): Promise<void> {
+function flatProjectionFacadeIsAbsent(): void {
   const api = createInMemoryCommunityApi({ messages: [sampleMessage()] });
-  await api.saveProjection({ projection: sampleProjection("shared"), ownerId: "alice" }, { actorId: "alice" });
-  await api.updateObjectState("m-api-1", "read", {
-    actorId: "alice",
-    permissions: ["object:state:write"],
-  });
-  assert.equal((await api.getObject("m-api-1", { actorId: "alice" })).state, "read");
-  assert.equal((await api.getProjection("saved-needs-review", { actorId: "alice" })).entries[0]?.ref.objectId, "m-api-1");
+  for (const method of ["listProjections", "getProjection", "saveProjection", "deleteProjection"]) {
+    assert.equal(method in api, false, `${method} must not compete with the ProjectionDefinition service`);
+  }
 }
 
-async function deletedProjectionDoesNotDeleteCanonicalObject(): Promise<void> {
-  const api = createInMemoryCommunityApi({ messages: [sampleMessage()] });
-  await api.saveProjection({ projection: sampleProjection("shared"), ownerId: "alice" }, { actorId: "alice" });
-  await api.deleteProjection("saved-needs-review", { actorId: "alice" });
-  await assert.rejects(() => api.getProjection("saved-needs-review", { actorId: "alice" }), /not found/u);
-  assert.equal((await api.getObject("m-api-1", { actorId: "alice" })).ref.objectId, "m-api-1");
-}
-
-async function savedProjectionInputIsValidatedAndEncoded(): Promise<void> {
-  const message = { ...sampleMessage(), aliases: ["folder/message ?"] };
-  const api = createInMemoryCommunityApi({ messages: [message] });
-  const injected = {
-    ...sampleProjection("shared"),
-    rogue: "must-not-persist",
-    ownerId: "mallory",
-    createdAt: "1900-01-01T00:00:00.000Z",
-  } as ProjectionSpec;
-  const saved = await api.saveProjection({ projection: injected, ownerId: "alice" }, { actorId: "alice" });
-  assert.equal("rogue" in saved, false);
-  assert.equal(saved.ownerId, "alice");
-  assert.notEqual(saved.createdAt, "1900-01-01T00:00:00.000Z");
-  assert.equal((await api.getProjection(saved.projectionId, { actorId: "alice" })).entries[0]?.aliasPath,
-    "/views/saved-needs-review/folder%2Fmessage%20%3F");
-
-  await assert.rejects(() => api.saveProjection({
-    projection: { ...sampleProjection("shared"), projectionId: "blank-label", label: " " }, ownerId: "alice",
-  }, { actorId: "alice" }), /label/u);
-  await assert.rejects(() => api.saveProjection({
-    projection: { ...sampleProjection("shared"), projectionId: "bad-visibility", visibility: "unknown" as "shared" },
-    ownerId: "alice",
-  }, { actorId: "alice" }), /visibility/u);
+function changeVocabularyIsCanonical(): void {
+  const api = createInMemoryCommunityApi();
+  assert.equal(typeof api.createChange, "function");
+  assert.equal("proposeChange" in api, false);
 }
 
 async function malformedPersistenceFailsAtBoundary(): Promise<void> {
@@ -227,7 +176,7 @@ async function malformedPersistenceFailsAtBoundary(): Promise<void> {
         maintainers: ["alice"],
         topics: [],
         issues: [],
-        changeProposals: [],
+        changes: [],
         discussions: [],
       }],
       objects: [],
@@ -249,7 +198,7 @@ async function persistenceWritesAtomically(): Promise<void> {
       actorId: "alice", permissions: ["object:state:write"],
     });
     assert.notEqual(statSync(persistencePath).ino, firstInode, "atomic rename replaces the persisted file");
-    assert.equal(JSON.parse(readFileSync(persistencePath, "utf8")).objects[0].state, "read");
+    assert.equal(JSON.parse(readFileSync(persistencePath, "utf8")).entities[0].fields.state, "read");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -267,10 +216,10 @@ async function objectStateIsBoundedAndTimestamped(): Promise<void> {
   const repository = await api.createRepository({
     slug: "epoch/review", displayName: "Review", description: "", maintainers: ["alice"],
   });
-  const proposed = await api.proposeChange(repository.slug, {
+  const created = await api.createChange(repository.slug, {
     id: "CHANGE-1", title: "Change", author: "alice", sourceView: "main", targetView: "next",
   });
-  const changeRef = proposed.changeProposals[0]?.ref;
+  const changeRef = created.changes[0]?.ref;
   assert.ok(changeRef);
   await api.reviewChange(repository.slug, "CHANGE-1", { reviewer: "alice", decision: "approved" });
   assert.ok((await api.getObject(changeRef.objectId, { actorId: "alice" })).updatedAt);
@@ -317,25 +266,5 @@ function sampleMessage(): CommunityMessage {
     relations: [],
     state: "needs-review",
     aliases: ["legacy-message"],
-  };
-}
-
-function sampleProjection(visibility: ProjectionSpec["visibility"]): ProjectionSpec {
-  return {
-    projectionId: "saved-needs-review",
-    kind: "saved-query",
-    label: "Needs review",
-    root: { objectId: "channel-general", kind: "channel" },
-    parentRelation: "projection",
-    order: { by: "publishedAt", direction: "descending" },
-    visibility,
-    query: {
-      ast: { op: "field", field: "id", value: "m-api-1", phrase: false },
-      canonical: "id:m-api-1",
-      sort: null,
-      version: 1,
-    },
-    queryLanguageVersion: 1,
-    version: 1,
   };
 }
