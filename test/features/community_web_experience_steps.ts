@@ -2742,3 +2742,75 @@ Then("the interface it renders is a revision I can inspect and roll back", async
   assert.equal(await page.locator('[data-cw-command="ui.restoreLastKnownGood"]').count(), 1,
     "the way back is part of the page, not part of what a revision may change");
 });
+
+/**
+ * Composing an interface change. The point of these assertions is the order:
+ * a person sees what a proposal does while nothing has happened yet, and only
+ * their acceptance makes it real.
+ */
+interface ComposeProbe {
+  readonly validation: string;
+  readonly diff: string;
+  readonly appliedBefore: string;
+  readonly slotBefore: string;
+}
+
+let composeProbe: ComposeProbe | undefined;
+
+When("I compose a panel for my review queue with a denser row token", async function () {
+  const page = requirePage();
+  await page.waitForFunction(() => {
+    const workspace = (globalThis as unknown as { CW_WORKSPACE?: { project(): unknown } }).CW_WORKSPACE;
+    return workspace !== undefined && workspace.project() !== null;
+  }, undefined, { timeout: 10_000 });
+
+  composeProbe = await page.evaluate(async () => {
+    const compose = (globalThis as unknown as {
+      CW_COMPOSE: { propose(): Promise<{ validation: { state: string } } | null> };
+    }).CW_COMPOSE;
+    document.querySelector<HTMLButtonElement>("[data-compose-open]")?.click();
+    document.querySelector<HTMLTextAreaElement>("[data-gen-ui-input]")!.value = "show my review queue";
+    document.querySelector<HTMLTextAreaElement>("[data-gen-ui-source]")!.value =
+      'root = Panel("Review queue", [Fact("open", "3")])';
+    document.querySelector<HTMLTextAreaElement>("[data-token-editor]")!.value = "--cw-cell: 0.58rem;";
+    const proposed = await compose.propose();
+    return {
+      validation: proposed?.validation.state ?? "none",
+      diff: document.querySelector("[data-compose-diff]")?.textContent ?? "",
+      appliedBefore: getComputedStyle(document.documentElement).getPropertyValue("--cw-cell").trim(),
+      slotBefore: document.querySelector('[data-cw-slot="board.context-panel"]')?.textContent ?? "",
+    };
+  });
+});
+
+Then("I see which widget and which token the proposal changes, and nothing has changed yet", function () {
+  assert.ok(composeProbe, "nothing was composed");
+  assert.equal(composeProbe.validation, "valid");
+  assert.match(composeProbe.diff, /GeneratedPanel/u, "the diff must name the widget that appears");
+  assert.match(composeProbe.diff, /--cw-cell/u, "the diff must name the token that changes");
+  assert.notEqual(composeProbe.appliedBefore, "0.58rem", "nothing may apply before I accept it");
+  assert.doesNotMatch(composeProbe.slotBefore, /Review queue/u, "the panel may not appear before I accept it");
+});
+
+When("I accept the proposed interface change", async function () {
+  const page = requirePage();
+  await page.evaluate(async () => {
+    await (globalThis as unknown as { CW_COMPOSE: { accept(): Promise<unknown> } }).CW_COMPOSE.accept();
+  });
+});
+
+Then("the panel and the token are part of my interface and survive a reload", async function () {
+  const page = requirePage();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => {
+    const workspace = (globalThis as unknown as { CW_WORKSPACE?: { project(): unknown } }).CW_WORKSPACE;
+    return workspace !== undefined && workspace.project() !== null;
+  }, undefined, { timeout: 10_000 });
+
+  const after = await page.evaluate(() => ({
+    generated: document.querySelector('[data-c="generated-panel"]')?.textContent ?? "",
+    cell: getComputedStyle(document.documentElement).getPropertyValue("--cw-cell").trim(),
+  }));
+  assert.match(after.generated, /Review queue/u, "the accepted panel is part of the interface");
+  assert.equal(after.cell, "0.58rem", "the accepted token is part of the interface");
+});

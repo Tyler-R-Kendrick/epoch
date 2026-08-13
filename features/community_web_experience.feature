@@ -513,3 +513,13 @@ Feature: Community Web community-first experience
     And I enter the community board
     Then the board opens my own workspace with a project that owns my interface
     And the interface it renders is a revision I can inspect and roll back
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor composes an interface change and accepts it after reading the diff
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I compose a panel for my review queue with a denser row token
+    Then I see which widget and which token the proposal changes, and nothing has changed yet
+    When I accept the proposed interface change
+    Then the panel and the token are part of my interface and survive a reload

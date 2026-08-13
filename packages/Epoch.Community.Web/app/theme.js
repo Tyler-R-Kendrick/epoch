@@ -129,7 +129,7 @@
    * theme layers over the current one instead of replacing it wholesale.
    */
   async function generate(description, report) {
-    var R = window.NBResilient;
+    var R = window.CWResilient;
     if (!R) { report("The resilience layer did not load.", "rejected"); return null; }
     if (typeof window.OpenUILang === "undefined" || typeof window.CW_OPENUI === "undefined") {
       report("The OpenUI parser did not load. Run build-openui.mjs.", "rejected");
@@ -152,7 +152,8 @@
     if (abortController) abortController.abort();
     abortController = new AbortController();
     var signal = abortController.signal;
-    $("[data-gen-cancel]").hidden = false;
+    var cancelHost = $("[data-gen-cancel]");
+    if (cancelHost) cancelHost.hidden = false;
 
     var session = null;
     var applied = null;
@@ -198,9 +199,13 @@
 
       var finalTree = result.parser.push("");
       applied = fromThemeNode((finalTree && finalTree.root && finalTree.root.props) || {});
-      $("[data-gen-ui-source]").value = result.raw;
-      $("[data-token-editor]").value = Object.keys(applied)
-        .map(function (k) { return k + ": " + applied[k] + ";"; }).join("\n");
+      var rawHost = $("[data-gen-ui-source]");
+      if (rawHost) rawHost.value = result.raw;
+      var editorHost = $("[data-token-editor]");
+      if (editorHost) {
+        editorHost.value = Object.keys(applied)
+          .map(function (k) { return k + ": " + applied[k] + ";"; }).join("\n");
+      }
 
       // Contrast is checked against what is actually on screen, because a
       // partial theme inherits the rest from the theme underneath it.
@@ -232,7 +237,8 @@
       );
       return null;
     } finally {
-      $("[data-gen-cancel]").hidden = true;
+      var cancel = $("[data-gen-cancel]");
+      if (cancel) cancel.hidden = true;
       if (session && session.destroy) { try { session.destroy(); } catch { /* already gone */ } }
     }
   }
@@ -255,12 +261,16 @@
 
   function report(msg, kind) {
     var el = $("[data-gen-status]");
+    if (!el) return;
     el.textContent = msg;
     el.dataset.state = kind || "";
   }
 
   function openPanel() {
-    $("[data-garden]").hidden = false;
+    var host = $("[data-garden]");
+    if (!host) return;
+    host.hidden = false;
+    host.setAttribute("data-open", "true");
     var input = $("[data-gen-input]");
     if (input) input.focus();
   }
@@ -280,8 +290,18 @@
       });
     }
 
-    $("[data-garden-open]").addEventListener("click", openPanel);
-    $("[data-garden-close]").addEventListener("click", function () { $("[data-garden]").hidden = true; });
+    // The garden lives inside the compose panel. A page without it still gets
+    // the theme API; only the chrome is optional.
+    if (!$("[data-garden]")) return;
+    var opener = $("[data-garden-open]");
+    if (opener) opener.addEventListener("click", openPanel);
+    var closer = $("[data-garden-close]");
+    if (closer) {
+      closer.addEventListener("click", function () {
+        $("[data-garden]").hidden = true;
+        $("[data-garden]").setAttribute("data-open", "false");
+      });
+    }
 
     $("[data-gen-run]").addEventListener("click", function () {
       var v = $("[data-gen-input]").value.trim();
@@ -349,20 +369,25 @@
         "Reply with a single line: root = Theme(\"Name\", \"#bg\", \"#surface\", \"#ink\", …)";
       navigator.clipboard.writeText(text).then(
         function () { report("Prompt copied. Paste it into any external tool, then paste its tokens below.", "ok"); },
-        function () { $("[data-token-editor]").value = text; report("Clipboard unavailable — prompt placed in the editor instead.", "ok"); }
+        function () {
+          var editor = $("[data-token-editor]");
+          if (editor) editor.value = text;
+          report("Clipboard unavailable — prompt placed in the editor instead.", "ok");
+        }
       );
     });
 
     // The API reports four states, not three. "downloadable" means the model is
     // supported but not yet on the device — reporting that as unavailable told
     // people the feature was missing when it was one download away.
-    window.NBResilient.availability().then(function (s) {
+    window.CWResilient.availability().then(function (s) {
       var note = $("[data-gen-availability]");
       var text = {
         available: "On-device model ready.",
         downloading: "On-device model is downloading — generation will wait for it.",
         downloadable: "Supported here, but the model is not on this device yet. Generating fetches it once, which can take a few minutes.",
       }[s] || "On-device generation is unavailable in this browser. Manual editing and Export prompt still work.";
+      if (!note) return;
       note.textContent = text;
       note.dataset.state = s === "available" ? "live" : "snapshot";
     });
@@ -379,5 +404,11 @@
   window.CW_THEME = {
     cycle: function () { setTheme(current + 1); },
     openPanel: openPanel,
+    // Exposed so the proposal path screens tokens with the same rules the
+    // panel does. One sanitiser, or the strict one is the one that gets bypassed.
+    sanitize: sanitize,
+    generate: generate,
+    designMd: designMd,
+    tokens: TOKENS.slice(),
   };
 })();
