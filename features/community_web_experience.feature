@@ -417,3 +417,15 @@ Feature: Community Web community-first experience
     Then I see which widget and which token the proposal changes, and nothing has changed yet
     When I accept the proposed interface change
     Then the panel and the token are part of my interface and survive a reload
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor carries their interface to another machine and rolls it back
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I compose a panel for my review queue with a denser row token
+    And I accept the proposed interface change
+    And I hand my workspace to another participant
+    Then the other participant renders the same interface from the same history
+    When I roll my interface back to the revision before the change
+    Then my board no longer shows the panel, and the change I rolled back is still readable

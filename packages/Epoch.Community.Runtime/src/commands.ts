@@ -11,6 +11,7 @@ import {
 import { verifyStaticHarnessRelease } from "./harness";
 import { DEFAULT_PROJECT_SLUG, ensureProject, listProjects } from "./projects";
 import { appendSocialRevision, historyOf, listFeeds, recordsOf, type SocialRecordKind } from "./feeds";
+import { exportWorkspaceBundle, importWorkspaceBundle } from "./sync";
 import type { DynamicUiManifest } from "./ui";
 import type { BrowserEpochWorkspace, WorkspaceMutation } from "./workspace";
 
@@ -82,6 +83,7 @@ interface CommandHandler {
 
 export interface CreateCommandBusOptions {
   readonly workspace: BrowserEpochWorkspace;
+  readonly namespace: string;
   readonly policies: EpochPolicySet;
   readonly defaultSource: EpochCommandSource;
   readonly now: () => string;
@@ -306,6 +308,32 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       eventIds: [record.eventId],
       revisionIds: [record.revision],
       changeId: record.changeId,
+    };
+  });
+
+  register({
+    kind: "workspace.export",
+    summary: "Export this workspace's events as a bundle another participant can import.",
+    capability: "workspace.read",
+    readOnly: true,
+    requiresConfirmation: false,
+    untrustedContent: false,
+    inputSchema: emptySchema(),
+  }, () => ({ data: exportWorkspaceBundle(workspace.epoch, workspace.id, options.namespace) }));
+
+  register({
+    kind: "workspace.import",
+    summary: "Import a workspace bundle. Events already here are skipped; nothing local is dropped.",
+    capability: "workspace.write",
+    readOnly: false,
+    requiresConfirmation: true,
+    untrustedContent: false,
+    inputSchema: schema({ bundle: { type: "object", description: "An Epoch workspace bundle." } }, ["bundle"]),
+  }, (input) => {
+    const report = importWorkspaceBundle(workspace.epoch, input.bundle);
+    return {
+      data: report,
+      validation: validationReceipt("bundle", report.rejected),
     };
   });
 

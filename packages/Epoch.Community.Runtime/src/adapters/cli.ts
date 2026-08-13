@@ -35,6 +35,8 @@ export const communityRuntimeUsage = [
   "  epoch ui rollback VIEW --revision N --confirm",
   "  epoch ui restore --confirm",
   "  epoch ui safe-mode on|off [--confirm]",
+  "  epoch ui export [--out FILE]",
+  "  epoch ui import FILE --confirm",
   "  epoch view create NAME [--from VIEW] [--scope personal|project|session]",
   "  epoch view list",
   "  epoch view switch VIEW",
@@ -122,6 +124,10 @@ function parse(args: readonly string[], runtime: CommunityRuntime): ParsedReques
       };
     case "restore":
       return { kind: "ui.restoreLastKnownGood", input: {} };
+    case "export":
+      return { kind: "workspace.export", input: {} };
+    case "import":
+      return { kind: "workspace.import", input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) } };
     case "safe-mode":
       return {
         kind: requirePositional(rest, 0, "on|off") === "on" ? "ui.enterSafeMode" : "ui.leaveSafeMode",
@@ -170,6 +176,26 @@ function parsePropose(rest: readonly string[], runtime: CommunityRuntime): Parse
       ...(rest.includes("--retain-prompt") ? { retainPrompt: true } : {}),
     },
   };
+}
+
+/**
+ * Read a bundle from disk.
+ *
+ * Injected rather than imported so the adapter stays browser-safe: the CLI host
+ * supplies the reader, and nothing in this package reaches for `node:fs`.
+ */
+let bundleReader: ((path: string) => unknown) | undefined;
+
+export function setCliBundleReader(reader: (path: string) => unknown): void {
+  bundleReader = reader;
+}
+
+function readBundle(path: string): unknown {
+  if (bundleReader === undefined) {
+    throw new EpochCommandError("invalid-input", "This host cannot read bundle files.");
+  }
+
+  return bundleReader(path);
 }
 
 function format(receipt: EpochCommandReceipt): string {

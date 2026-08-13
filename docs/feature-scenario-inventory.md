@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 10 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 52 |
+| `features/community_web_experience.feature` | 53 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -117,6 +117,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer confirms the terminal and an agent performed the same action | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor gets their own workspace and project when they open the board | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor composes an interface change and accepts it after reading the diff | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor carries their interface to another machine and rolls it back | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Valid mutual binding verifies without trusting the index | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Rollback after revocation is rejected | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Mix-and-match plane proofs fail closed | None | 0 |
