@@ -47,9 +47,9 @@ metadata.
   edits, comments, and agent activity live; draft messages are collaborative
   before they are sent; comments stay pending until submit and are delivered
   with the message so the agent answers them in that reply.
-- Access tiers are shipped and legible: invited-only, organization-wide,
-  anyone-with-the-link among authenticated users, and email invitation with a
-  fourteen-day expiry.
+- Access levels are shipped and legible: invited-only, organization-wide, any
+  signed-in user with the link, and fully public. Email invitation is a separate
+  flow with a fourteen-day expiry rather than a fifth level.
 - Git is kept deliberately in its place. Two remotes per checkout — `origin`
   upstream and `local` back to the user's repository — and landing work is
   still `git switch` or a normal pull request.
@@ -58,9 +58,11 @@ metadata.
 
 ## Epoch Implications
 
-- Epoch needs an object that binds View, Workspace, conversation, participants,
-  and agent turns into something joinable. See
+- Epoch now has that object: a **Space** binds View, Workspaces, conversation,
+  participants, and agent turns, with membership enforced as a Grant. See
   [ADR-0042](../../../design-decisions/0042-spaces-shared-signed-workspaces.md).
+  What remains unbuilt is the part Delta leads on: a browser-native surface, a
+  mount provider, an isolated execution provider, and federated join.
 - Delta's comment interaction — pending until submit, delivered with the turn,
   replies linked back — is a better review loop than a comment stream, and is
   worth adopting directly in Community's selected-message action tray.

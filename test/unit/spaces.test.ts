@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeChangeGraphCommand } from "@epoch/cli";
 import { EpochRepository, FileSystemWorkspaceProvider, SignedSpaceStore, SpaceError } from "@epoch/core";
-import { assertProtocolEvent, parseCanonicalId } from "@epoch/protocol";
+import { assertProtocolEvent, createCanonicalId, parseCanonicalId } from "@epoch/protocol";
+import { createHash } from "node:crypto";
 
 /**
  * Spaces (ADR-0042).
@@ -14,6 +15,12 @@ import { assertProtocolEvent, parseCanonicalId } from "@epoch/protocol";
  * refuse, and if an anchor still points at the right construct after the file
  * around it is reformatted.
  */
+/** Mirrors the store's rule that a principal ID hashes real signing key material. */
+function principalIdFor(repository: EpochRepository, author: string): string {
+  const digest = createHash("sha256").update(repository.identityFor(author).publicKey).digest();
+  return createCanonicalId("principal", () => new Uint8Array(digest));
+}
+
 export async function runSpaceTests(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "epoch-space-"));
   try {
@@ -66,6 +73,22 @@ export async function runSpaceTests(): Promise<void> {
       (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
     assert.equal(store.recordTurn(space.id, { request: "finish", principal: "agent-bo", units: 1 }).data.remaining, 0);
 
+    // A budget belongs to the Space that allocated it. Units granted here must
+    // not become spendable in a different Space.
+    const otherSpace = store.createSpace({ title: "Unrelated space", view: "main" });
+    store.join(otherSpace.id, { principal: "agent-bo", role: "agent" });
+    assert.throws(() => store.recordTurn(otherSpace.id, { request: "spend elsewhere", principal: "agent-bo", units: 1 }),
+      (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
+    // ...and consumption in one Space does not silently drain another.
+    store.allocateTurnBudget(otherSpace.id, { principal: "agent-bo", units: 1 });
+    assert.equal(store.recordTurn(otherSpace.id, { request: "spend here", principal: "agent-bo", units: 1 }).data.remaining, 0);
+
+    // A principal is always key-backed: the ID hashes real signing material, so
+    // a grant can never name a principal that holds no key.
+    const bobPrincipal = store.participants(space.id).find((item) => item.role === "collaborator")?.principalId;
+    assert.ok(bobPrincipal !== undefined);
+    assert.equal(bobPrincipal, principalIdFor(repository, "bob"));
+
     // --- workspaces: the provider reports, the Space only records -----------
     const provider = new FileSystemWorkspaceProvider(root);
     const bound = store.bindWorkspace(space.id, { provider, principal: "agent-bo", residency: "virtual", materialization: "virtual" });
@@ -111,6 +134,19 @@ export async function runSpaceTests(): Promise<void> {
     assert.equal(store.resolveAnchor(anchor.id, { content: '{"stream":{"rows":40}}' }).status, "unresolved");
     assert.equal(store.anchors(space.id).length, 1);
 
+    // Paths in signed events are normalized repository-relative paths, so a
+    // capture or anchor can never record an absolute or traversing path.
+    for (const badPath of ["/etc/passwd", "../../secrets.env", "a/../../b"]) {
+      assert.throws(() => store.recordAnchor(space.id, {
+        revisionId, path: badPath, structuralPath: "object#0/member:rail", content: original, principal: "agent-bo",
+      }), /path/iu, `anchor accepted unsafe path: ${badPath}`);
+    }
+    store.openCapture(space.id, { scope: "src", retention: "7d", principal: "agent-bo" });
+    assert.throws(() => store.recordCapturedOperation(space.id, {
+      path: "../escape.json", content: "{}", principal: "agent-bo",
+    }), /path/iu);
+    store.closeCapture(space.id, { principal: "agent-bo" });
+
     // --- rejections stay typed ----------------------------------------------
     assert.throws(() => store.showSpace("epoch:space:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
       (error: unknown) => error instanceof SpaceError && error.code === "not-found");
@@ -119,14 +155,26 @@ export async function runSpaceTests(): Promise<void> {
     assert.throws(() => store.join(space.id, { principal: "dave", role: "sudo" as never }),
       (error: unknown) => error instanceof SpaceError && error.code === "invalid-input");
 
-    await runSpaceCliTests();
+    // Optional fields are still validated when present: a turn body may omit
+    // units, but a negative or fractional value must be rejected.
+    const turnBody = {
+      spaceId: space.id, principalId: bobPrincipal, grantId: store.participants(space.id)[1]!.grantId,
+      execution: "disabled", requestDigest: "a".repeat(64),
+    };
+    assertProtocolEvent({ schemaVersion: 1, type: "space.turn.recorded", eventId: revisionId, revisionId, body: turnBody });
+    for (const units of [-5, 1.5, "many"]) {
+      assert.throws(() => assertProtocolEvent({
+        schemaVersion: 1, type: "space.turn.recorded", eventId: revisionId, revisionId,
+        body: { ...turnBody, units },
+      }), /units/u, `protocol accepted units=${String(units)}`);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
 
 /** The CLI must surface each refusal as its own envelope code, not one blur. */
-async function runSpaceCliTests(): Promise<void> {
+export async function runSpaceCliTests(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "epoch-space-cli-"));
   try {
     const created = await executeChangeGraphCommand(root, ["space", "create", "Board work", "--view", "main"]);

@@ -279,14 +279,20 @@ export class SignedSpaceStore {
       .map((event) => ({ id: event.id, kind: "space-turn", revision: 1, data: { ...event.payload } }));
   }
 
-  /** Allocate budget for a participant. Budgets are per Space, per principal. */
+  /**
+   * Allocate budget for a participant. Budgets are per Space, per principal.
+   *
+   * The allocation event carries its `spaceId` so the binding lives in signed
+   * history. A bare `agent.budget.allocated` would record no Space, and units
+   * granted in one Space would be spendable in every other one.
+   */
   allocateTurnBudget(spaceId: string, input: { readonly principal?: string; readonly units: number }): SpaceRecord {
     this.requireSpace(spaceId);
     const principalId = this.namedPrincipal(input.principal);
     this.requireActiveGrant(spaceId, principalId, "hold a budget");
     if (!Number.isSafeInteger(input.units) || input.units < 0) fail("invalid-input", "budget units must be a nonnegative integer");
     const budgetId = createCanonicalId("budget", this.#random);
-    this.append("agent.budget.allocated", { budgetId, principalId, units: input.units });
+    this.append("space.budget.allocated", { spaceId, budgetId, principalId, units: input.units });
     return { id: budgetId, kind: "space-budget", revision: 1, data: { spaceId, principalId, units: input.units } };
   }
 
@@ -465,9 +471,11 @@ export class SignedSpaceStore {
     return open === undefined ? undefined : open.id;
   }
 
+  /** Allocations and consumption are both scoped to this Space, never just the principal. */
   private budgetFor(spaceId: string, principalId: string): { readonly budgetId: string; readonly remaining: number } | undefined {
     const allocations = this.#repository.events().filter((event) =>
-      event.type === "agent.budget.allocated" && event.payload.principalId === principalId);
+      event.type === "space.budget.allocated"
+      && event.payload.spaceId === spaceId && event.payload.principalId === principalId);
     const latest = allocations.at(-1);
     if (latest === undefined) return undefined;
     const allocated = allocations.reduce((total, event) => total + Number(event.payload.units ?? 0), 0);
@@ -507,9 +515,14 @@ export class SignedSpaceStore {
   }
 
   /**
-   * Resolve a principal name. A canonical ID passes through so a second machine
-   * can address the same principal; anything else is a stable derived ID, which
-   * keeps fixtures and tests deterministic without inventing key material.
+   * Resolve a principal name to a key-backed ID.
+   *
+   * A canonical ID passes through so a second machine can address the same
+   * principal. Any other name resolves through `identityFor()`, so the ID is
+   * always the hash of real signing key material — a grant is never issued to a
+   * principal that holds no key. Deriving IDs from the name itself would let
+   * `--principal alice` mint a signed membership claim for a principal nobody
+   * controls.
    */
   private namedPrincipal(name?: string): CanonicalId<"principal"> {
     if (name === undefined || name === "current" || name === this.#author) return this.principalId();
@@ -517,7 +530,8 @@ export class SignedSpaceStore {
       parseCanonicalId(name, "principal");
       return name as CanonicalId<"principal">;
     }
-    return createCanonicalId("principal", () => sha256Bytes(`principal:${name}`));
+    const identity = this.#repository.identityFor(name);
+    return createCanonicalId("principal", () => sha256Bytes(identity.publicKey));
   }
 
   private principalId(): CanonicalId<"principal"> {

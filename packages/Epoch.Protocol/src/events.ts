@@ -17,7 +17,7 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "object.promise.recorded",
   "software-heritage.mapping", "software-heritage.archive-requested", "software-heritage.archive-status",
   "space.created", "space.participant.joined", "space.participant.left",
-  "space.workspace.bound", "space.turn.recorded",
+  "space.workspace.bound", "space.turn.recorded", "space.budget.allocated",
   "space.capture.opened", "space.capture.closed", "space.capture.operation",
   "space.anchor.recorded",
 ] as const;
@@ -147,7 +147,15 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
       ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
       optionalIds: { sandboxId: "sandbox", budgetId: "budget" },
       digests: ["requestDigest"],
+      optionalNonnegativeIntegers: ["units"],
       enums: { execution: ["disabled", "in-process", "isolated"] },
+    }); return;
+    // Budgets bind to the Space that allocated them. Without the spaceId an
+    // allocation made in one Space would be spendable in another.
+    case "space.budget.allocated": validateFields(value, {
+      required: ["spaceId", "budgetId", "principalId", "units"],
+      ids: { spaceId: "space", budgetId: "budget", principalId: "principal" },
+      nonnegativeIntegers: ["units"],
     }); return;
     case "space.capture.opened": validateFields(value, {
       required: ["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"],
@@ -163,14 +171,14 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
     case "space.capture.operation": validateFields(value, {
       required: ["spaceId", "sessionId", "principalId", "path", "contentDigest"],
       ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
-      strings: ["path"], digests: ["contentDigest"],
+      paths: ["path"], digests: ["contentDigest"],
     }); return;
     // Anchors bind to a structural path inside an exact Revision, so they
     // re-resolve after reformatting rather than naming a byte offset.
     case "space.anchor.recorded": validateFields(value, {
       required: ["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"],
       ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },
-      revisions: ["revisionId"], strings: ["path", "structuralPath"], digests: ["contentDigest"],
+      revisions: ["revisionId"], paths: ["path"], strings: ["structuralPath"], digests: ["contentDigest"],
     }); return;
   }
 }
@@ -295,7 +303,11 @@ interface FieldRules {
   readonly revisionArrays?: readonly string[];
   readonly digests?: readonly string[];
   readonly strings?: readonly string[];
+  /** Normalized repository-relative paths: no absolute, traversal, or NUL segments. */
+  readonly paths?: readonly string[];
   readonly nonnegativeIntegers?: readonly string[];
+  /** Validated when present, permitted to be absent. */
+  readonly optionalNonnegativeIntegers?: readonly string[];
   readonly enums?: Readonly<Record<string, readonly string[]>>;
 }
 
@@ -309,7 +321,13 @@ function validateFields(value: unknown, rules: FieldRules): void {
   for (const field of rules.revisionArrays ?? []) revisions(body[field], field);
   for (const field of rules.digests ?? []) digest(body[field], field);
   for (const field of rules.strings ?? []) if (typeof body[field] !== "string" || body[field] === "") fail("invalid-schema", `${field} must be non-empty string`);
+  for (const field of rules.paths ?? []) path(body[field]);
   for (const field of rules.nonnegativeIntegers ?? []) if (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0) fail("invalid-schema", `${field} must be nonnegative integer`);
+  for (const field of rules.optionalNonnegativeIntegers ?? []) {
+    if (body[field] !== undefined && (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0)) {
+      fail("invalid-schema", `${field} must be nonnegative integer`);
+    }
+  }
   for (const [field, allowed] of Object.entries(rules.enums ?? {})) if (!allowed.includes(String(body[field]))) fail("invalid-schema", `Unknown ${field} variant`);
 }
 

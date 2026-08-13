@@ -83,6 +83,9 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
     execution: { enum: ["disabled", "in-process", "isolated"] }, requestDigest: digest,
     sandboxId: id("sandbox"), budgetId: id("budget"), units: nonnegativeInteger,
   }),
+  spaceBudgetAllocatedBody: object(["spaceId", "budgetId", "principalId", "units"], {
+    spaceId: id("space"), budgetId: id("budget"), principalId: id("principal"), units: nonnegativeInteger,
+  }),
   spaceCaptureOpenedBody: object(["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"], {
     spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
     scope: nonemptyString, retention: nonemptyString,
@@ -93,11 +96,11 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
   }),
   spaceCaptureOperationBody: object(["spaceId", "sessionId", "principalId", "path", "contentDigest"], {
     spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
-    path: nonemptyString, contentDigest: digest,
+    path: repositoryPath, contentDigest: digest,
   }),
   spaceAnchorRecordedBody: object(["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"], {
     spaceId: id("space"), anchorId: id("anchor"), principalId: id("principal"), revisionId,
-    path: nonemptyString, structuralPath: nonemptyString, contentDigest: digest,
+    path: repositoryPath, structuralPath: nonemptyString, contentDigest: digest,
   }),
 };
 
@@ -162,7 +165,7 @@ const bodyDefinitionByType: Readonly<Record<ProtocolEventType, string>> = {
   "software-heritage.archive-requested": "softwareHeritageArchiveBody", "software-heritage.archive-status": "softwareHeritageArchiveBody",
   "space.created": "spaceCreatedBody", "space.participant.joined": "spaceParticipantJoinedBody",
   "space.participant.left": "spaceParticipantLeftBody", "space.workspace.bound": "spaceWorkspaceBoundBody",
-  "space.turn.recorded": "spaceTurnRecordedBody", "space.capture.opened": "spaceCaptureOpenedBody",
+  "space.turn.recorded": "spaceTurnRecordedBody", "space.budget.allocated": "spaceBudgetAllocatedBody", "space.capture.opened": "spaceCaptureOpenedBody",
   "space.capture.closed": "spaceCaptureClosedBody", "space.capture.operation": "spaceCaptureOperationBody",
   "space.anchor.recorded": "spaceAnchorRecordedBody",
 };

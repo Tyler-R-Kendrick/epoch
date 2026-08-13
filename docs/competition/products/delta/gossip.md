@@ -61,10 +61,12 @@ stops being the axis users compare on once the ergonomics are settled.
 
 ## Opportunity For Epoch
 
-Every limitation above is either a governance gap or a portability gap, and
-both are already Epoch contracts rather than aspirations: attenuated agent
-grants, budgets, and receipts; signed events that verify offline; durable
-conflicts instead of silent convergence; and a real exit through compacts, cold
-backups, bundles, Git projection, and archival. The gaps are dated rather than
-permanent, which argues for sequencing against them now rather than assuming
-they persist.
+The limitations fall into three groups. The safety gaps and coarse link sharing
+are **governance** gaps; the single-vendor substrate and incomplete deletion are
+**portability** gaps; the model/machine coupling and partial Jujutsu support are
+**capability and interoperability** gaps. Only the first two are places Epoch
+already holds contracts rather than aspirations: attenuated agent grants,
+budgets, and receipts; signed events that verify offline; durable conflicts; and
+a real exit through compacts, cold backups, bundles, Git projection, and
+archival. Those gaps are dated rather than permanent, which argues for
+sequencing against them now rather than assuming they persist.

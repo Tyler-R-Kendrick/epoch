@@ -63,9 +63,12 @@ A Space references:
   which is how joining, agent authority, and revocation are all expressed; and
 - a per-turn **Sandbox** binding recording where an agent turn actually ran.
 
-Space membership events are signed like every other Epoch event:
-`space.create`, `space.join`, `space.leave`, `space.bind-workspace`, and
-`space.turn`. Joining a Space is receiving a signed grant and synchronizing
+Space events are signed like every other Epoch event. The emitted schema names
+are `space.created`, `space.participant.joined`, `space.participant.left`,
+`space.workspace.bound`, `space.turn.recorded`, `space.budget.allocated`,
+`space.capture.opened` / `.operation` / `.closed`, and `space.anchor.recorded`;
+`epoch space create / join / leave / bind / turn` are the CLI operations that
+produce them. Joining a Space is receiving a signed grant and synchronizing
 over the shipped `epoch.sync/v2` and gossip planes; it is not a server-side
 access-control-list mutation.
 

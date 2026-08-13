@@ -18,12 +18,14 @@ Feature: Joinable multiplayer agent workspace
 
   Scenario: Work moves from a thread into the team's normal Git workflow
     Given a shared thread contains reviewed agent changes
+    And the participant's checkout was created from their own project, so the local remote points back at it
     When a participant asks the agent to push its branch to the local remote
     Then the participant can switch to that branch in their own repository
     And the team can instead publish through origin as an ordinary pull request
 
   Scenario: A participant chooses where the agent runs for a turn
     Given a shared thread with participants on different machines
+    And cloud execution is enabled for the participant, which is still rolling out
     When a participant selects a cloud machine before sending their message
     Then the agent runs that turn on the cloud machine
     And the resulting file changes sync to every participant's checkout

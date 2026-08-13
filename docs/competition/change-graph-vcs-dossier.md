@@ -70,9 +70,11 @@ work that produced it.
   ([ADR-0014](../design-decisions/0014-virtual-working-tree-and-sparse-checkout.md),
   [ADR-0032](../design-decisions/0032-residency-native-sync-and-workspace-providers.md))
   and should be described as such rather than matched to an unstated mechanism.
-- **Difference (conflict semantics):** a conflict-free replicated worktree
-  always converges, so semantic disagreement never becomes an artifact. Epoch
-  keeps durable conflicts with every side and the resolution lineage, and
+- **Difference (conflict semantics):** CRDT convergence guarantees replica
+  agreement, not semantic correctness, and it does not by itself produce an
+  artifact recording that two authors disagreed. Public Delta sources do not
+  state whether one is recorded. Epoch keeps durable conflicts with every side
+  and the resolution lineage, and
   [ADR-0031](../design-decisions/0031-durable-conflicts-and-conservative-commutation.md)
   refuses to treat unknown commutation as permission.
 - **Open DeltaDB questions:** a stable *external* storage/API contract,
@@ -89,9 +91,12 @@ Fragments without making an editor database Epoch's authority.
 The competitive read after the product launch is narrower than "catch up":
 Delta owns the *ergonomics* of the joinable shared agent workspace and has
 explicitly deferred its *governance*, while Epoch holds the governance
-primitives and has never assembled the ergonomics.
-[ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md) proposes
-the assembly.
+primitives. [ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md)
+ships the assembly at the contract and CLI layer — a joinable Space with
+grant-bound turns, budget limits, consent-gated capture, and structural anchors.
+The browser and editor ergonomics that make Delta's thread feel effortless
+remain unbuilt, as do the mount provider, the isolated execution provider, and
+federated join.
 
 ## Jujutsu (jj)
 

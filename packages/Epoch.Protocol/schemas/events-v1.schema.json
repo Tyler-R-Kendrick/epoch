@@ -57,6 +57,7 @@
         "space.participant.left",
         "space.workspace.bound",
         "space.turn.recorded",
+        "space.budget.allocated",
         "space.capture.opened",
         "space.capture.closed",
         "space.capture.operation",
@@ -629,6 +630,20 @@
         },
         "body": {
           "$ref": "#/$defs/spaceTurnRecordedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.budget.allocated"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceBudgetAllocatedBody"
         }
       },
       "required": [
@@ -1834,6 +1849,34 @@
         }
       }
     },
+    "spaceBudgetAllocatedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "budgetId",
+        "principalId",
+        "units"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "budgetId": {
+          "type": "string",
+          "pattern": "^epoch:budget:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "spaceCaptureOpenedBody": {
       "type": "object",
       "additionalProperties": false,
@@ -1928,7 +1971,9 @@
         },
         "path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
         },
         "contentDigest": {
           "type": "string",
@@ -1967,7 +2012,9 @@
         },
         "path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
         },
         "structuralPath": {
           "type": "string",

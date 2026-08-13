@@ -9,9 +9,6 @@ import {
   SignedChangeGraphStore,
   SignedSpaceStore,
   SpaceError,
-  type SpaceExecution,
-  type SpaceRedaction,
-  type SpaceRole,
 } from "@epoch/core";
 import { decodeF3Archive, encodeF3Archive, FORGE_CAPABILITIES } from "@epoch/forge";
 import {
@@ -24,6 +21,8 @@ import {
 } from "@epoch/protocol";
 import { parseSwhid, swhidForGitObject, swhKindForGitType } from "@epoch/software-heritage";
 import { executeComponentCommand, executeSelectionCommand, localLinkResolver } from "./composition";
+
+const SPACE_ROLES = ["owner", "collaborator", "agent", "observer"] as const;
 
 export type ChangeGraphCommandErrorCode =
   | "invalid-command" | "invalid-input" | "not-found" | "stale-revision"
@@ -224,6 +223,15 @@ function resolveLinkRoots(root: string, parsed: Parsed): readonly string[] {
   return [...roots, ...Object.values(readRemotes(root)).map((value) => resolve(value))].filter((value) => value.length > 0);
 }
 function required(value: string | undefined, label: string): string { if (!value) throw commandError("invalid-input", `${label} is required`); return value; }
+/** Parse an enum-valued option, refusing unknown values rather than casting. */
+function oneOf<T extends string>(parsed: Parsed, name: string, allowed: readonly T[]): T | undefined {
+  const value = stringOption(parsed, name);
+  if (value === undefined) return undefined;
+  if (!(allowed as readonly string[]).includes(value)) {
+    throw commandError("invalid-input", `--${name} must be one of: ${allowed.join(", ")}`, { option: name, value });
+  }
+  return value as T;
+}
 function jsonOption(parsed: Parsed, name: string): unknown {
   const raw = required(stringOption(parsed, name), `--${name}`);
   try { return JSON.parse(raw); } catch { throw commandError("invalid-input", `--${name} must be valid JSON`); }
@@ -300,7 +308,7 @@ function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeG
     case "list": return { spaces: store.listSpaces() };
     case "show": return store.showSpace(spaceArgument());
     case "join":
-      return store.join(spaceArgument(), { principal, role: stringOption(parsed, "role") as SpaceRole | undefined });
+      return store.join(spaceArgument(), { principal, role: oneOf(parsed, "role", SPACE_ROLES) });
     case "leave": return store.leave(spaceArgument(), { principal });
     case "participants": return { participants: store.participants(spaceArgument()) };
     case "bind": {
@@ -308,9 +316,9 @@ function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeG
       return store.bindWorkspace(spaceArgument(), {
         provider: new FileSystemWorkspaceProvider(resolve(path), { reflink: parsed.options.reflink === true }),
         principal,
-        residency: stringOption(parsed, "residency") as "resident" | "partial" | "virtual" | undefined,
-        materialization: stringOption(parsed, "materialization") as "materialized" | "virtual" | undefined,
-        execution: stringOption(parsed, "execution") as SpaceExecution | undefined,
+        residency: oneOf(parsed, "residency", ["resident", "partial", "virtual"]),
+        materialization: oneOf(parsed, "materialization", ["materialized", "virtual"]),
+        execution: oneOf(parsed, "execution", ["disabled", "in-process", "isolated"]),
       });
     }
     case "workspaces": return { workspaces: store.workspaces(spaceArgument()) };
@@ -320,7 +328,7 @@ function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeG
       return store.recordTurn(spaceArgument(), {
         request: required(parsed.positionals[2], "turn request"),
         principal,
-        execution: stringOption(parsed, "execution") as SpaceExecution | undefined,
+        execution: oneOf(parsed, "execution", ["disabled", "in-process", "isolated"]),
         units: stringOption(parsed, "units") === undefined ? undefined : Number(stringOption(parsed, "units")),
         sandboxId: stringOption(parsed, "sandbox"),
       });
@@ -331,7 +339,7 @@ function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeG
         return store.openCapture(spaceArgument(2), {
           scope: required(stringOption(parsed, "scope"), "--scope"),
           retention: required(stringOption(parsed, "retention"), "--retention"),
-          redaction: stringOption(parsed, "redaction") as SpaceRedaction | undefined,
+          redaction: oneOf(parsed, "redaction", ["none", "declared-secrets", "full"]),
           principal,
         });
       }

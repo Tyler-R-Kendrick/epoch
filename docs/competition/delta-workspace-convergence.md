@@ -68,9 +68,11 @@ exists to enable.
 - **Per-participant checkouts.** "Each participant gets their own checkout of
   the thread's worktrees, synced through DeltaDB." File changes propagate to
   every participant regardless of which machine ran the agent.
-- **Access tiers.** Invited-only, organization-wide, anyone-with-the-link (any
-  authenticated Delta user), and email invitation (ten recipients per batch,
-  fourteen-day expiry). The docs warn that link URLs are sensitive.
+- **Access levels.** Four: invited-only, organization-wide, any signed-in Delta
+  user with the link, and fully public with the link. Email invitation is a
+  separate flow layered on top of whichever level is set — ten recipients per
+  batch, fourteen-day expiry — not a fifth level. The docs warn that link URLs
+  are sensitive.
 - **Comments as review.** Comments attach to agent output or selected text,
   stay *pending until the next submit*, are delivered together with the
   message, and the agent addresses them in that reply. Replies link back to the
@@ -164,13 +166,13 @@ Every Delta concept, against the Epoch primitive that already covers it.
 | Delta concept | Nearest Epoch primitive | State of play |
 |---|---|---|
 | Delta (one recorded operation) | **Code Operation** / **Fragment** | Epoch's are explicit and Ed25519-signed; Delta's are continuous and unsigned. Granularity comparable; capture posture opposite. |
-| Thread (conversation + worktrees + participants) | *no single object* — Community channel plus Change come closest | **The principal gap.** Nothing in Epoch binds conversation, materialization, participants, and agent turns into one shareable thing. |
-| Worktree (DeltaDB object, shared) | **View** plus **Workspace** | Epoch's Workspace is provider-owned, local, and unshared. It is not addressable or joinable. |
+| Thread (conversation + worktrees + participants) | **Space** (`epoch.space/v1`, ADR-0042) | Shipped as a composition: one View, per-machine Workspaces, participants holding Grants and Budgets, per-turn Sandbox bindings. Delta's browser-native ergonomics are still absent. |
+| Worktree (DeltaDB object, shared) | **View** plus **Workspace**, bound to a Space | A Space makes the binding addressable and joinable; the Workspace itself stays provider-owned and per-machine, and keeps reporting its own capability facts. |
 | Checkout (per-machine folder) | filesystem **Workspace** provider plus virtual working tree | Near parity, and Epoch is ahead: sparse materialization, chunk manifests, and promises give partial residency Delta does not advertise. |
 | Machine selection per turn | **Sandbox** (declared execution provider) | Epoch declares the boundary honestly but ships no isolated provider. Delta ships a cloud runner with no isolation model. |
 | Conflict-free replicated worktree | CRDT entities, Code Operations, `epoch.sync/v2`, gossip | Epoch has the parts; it has no continuous worktree-level CRDT and no always-on replication. |
 | Anchor to a delta | structural paths in `@epoch/semantic` (`object#0/member:version`) | Epoch's anchor survives reformatting *and* rebase; it is not yet wired to conversation. |
-| Share link with four access tiers | **Principals**, **Grants**, **Budgets** ([ADR-0034](../design-decisions/0034-agent-principals-grants-and-budgets.md)) | Epoch's authority model is stronger and has no product surface. Delta's surface is shipped and has no authority model. |
+| Share link with four access levels | Space membership as **Grants** ([ADR-0034](../design-decisions/0034-agent-principals-grants-and-budgets.md)) | Epoch now enforces authority on join, turn, and revoke. It has no link-sharing or invitation surface; Delta has the surface and no authority model. |
 | Review Changes tab → push to `local`/`origin` | **Review Bundle**, **Merge Plan**, Git projection | Epoch has exact, digest-bound review evidence; it has no live review surface over a shared workspace. |
 | Comments pending until submit, delivered with the message | `intent.comment`, Community selected-message action tray | Comparable; Epoch's are signed, Delta's batching-into-the-turn behavior is a better interaction. |
 | Cloud machine | Community Operations agent sandboxes | Descriptors exist; no runners. |
@@ -212,9 +214,11 @@ ergonomics. The wedge is the assembly.
 
 ## 5. Proposed Direction: Spaces
 
-The named gap from §3 is that Epoch has Views, Workspaces, Sandboxes, Changes,
-channels, and Code Operations, and no object that binds them into something a
-second person can join.
+The named gap from §3 was that Epoch had Views, Workspaces, Sandboxes, Changes,
+channels, and Code Operations, and no object binding them into something a
+second person could join. ADR-0042 closes that gap at the contract and CLI
+layer; the remaining gaps are infrastructure and interface, listed as phases
+4–6 below.
 
 [ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md)
 proposes `epoch.space/v1`: a **Space** is a signed, joinable object that
@@ -242,8 +246,10 @@ shipped primitives and **are now implemented** — `epoch.space/v1`,
 Gherkin coverage. Phases 4–6 are genuinely new infrastructure and are **not
 built**; nothing below claims otherwise.
 
-**Phase 1 — Space object and join (shipped).** Signed `space.create`, `space.join`,
-`space.leave`, `space.bind-workspace`, and `space.turn` events. Joining
+**Phase 1 — Space object and join (shipped).** Signed `space.created`,
+`space.participant.joined`, `space.participant.left`, `space.workspace.bound`,
+and `space.turn.recorded` events, reached through the `epoch space create /
+join / leave / bind / turn` commands. Joining
 receives a signed grant, syncs over the shipped `epoch.sync/v2` plus gossip,
 and materializes through an existing workspace provider in virtual mode, so
 joining is cheap by *residency* rather than by any copy-on-write claim. This
@@ -302,15 +308,16 @@ shipped; item 6 depends on Phase 4.
 2. **Attenuated agent authority.** Grants, budgets, and receipts versus
    documented "unrestricted device access" and "no framework for agent
    permissions."
-3. **Durable conflicts over silent convergence.** A CRDT worktree always
-   converges, which means it never surfaces semantic disagreement — two agents
-   editing the same function produce a text-valid, semantically wrong state
-   with no artifact recording that anyone disagreed. Epoch's durable conflicts
-   keep every side and the resolution lineage, and
+3. **Durable conflicts alongside convergence.** CRDT convergence guarantees
+   that replicas agree on a single state; it says nothing about whether that
+   state is semantically correct. Two agents editing the same function can
+   converge on a text-valid, semantically wrong result. Nothing prevents a CRDT
+   system from also recording a conflict artifact, and Delta's docs do not say
+   whether it does — the point is that convergence alone does not produce one.
+   Epoch's durable conflicts keep every side and the resolution lineage, and
    [ADR-0031](../design-decisions/0031-durable-conflicts-and-conservative-commutation.md)
-   refuses to treat unknown commutation as permission. This is the strongest
-   *technical* critique available, and it should be made carefully: CRDT
-   convergence is a correctness property about replicas, not about programs.
+   refuses to treat unknown commutation as permission. State the critique at
+   that precision, not as "CRDTs hide disagreement".
 4. **Structural anchors.** Survive reformatting, renames, and rebases, not just
    line drift.
 5. **Exit is real.** Compacts, cold backups, bundle transport, Git projection,

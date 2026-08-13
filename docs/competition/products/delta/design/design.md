@@ -20,8 +20,9 @@ through WebGL, so the native app and the browser build present the same
 surface. The centre of the screen is the thread — a conversation with an agent
 that also happens to be the review surface, the file-change surface, and the
 place teammates appear. Configuration follows editor conventions: settings
-files, customizable keybindings, and API-key management rather than a
-web-console.
+files and API-key management rather than a web-console. Keybindings are not yet
+rebindable — the documentation states the defaults are fixed apart from the
+composer's Send With Modifier setting.
 
 ## Open Design Assets
 
@@ -38,8 +39,10 @@ web-console.
 - **The thread is the whole interface.** Conversation, diffs, comments, and
   agent activity share one scroll rather than living in a chat pane beside an
   editor.
-- **A share link makes work joinable.** Four access tiers, and each participant
-  receives their own synced checkout rather than a read-only view.
+- **A share link makes work joinable.** Four access levels — invited-only,
+  organization, any signed-in user with the link, and fully public — with email
+  invitation as a separate flow on top. Each participant receives their own
+  synced checkout rather than a read-only view.
 - **Comments batch into the turn.** Comments are pending until the next submit,
   are delivered together with the message, and the agent addresses them in that
   reply, with replies linked back to the comment they answer. This turns
@@ -56,9 +59,11 @@ web-console.
 
 - Review has no ceremony: read the diff, comment on the passage, ask for the
   revision, and only then decide whether it becomes a branch or a pull request.
-- The agent's work is isolated by default — it runs in its own clone, so the
-  user's working tree stays untouched — while adoption in place remains
-  available when the user wants edits to land directly.
+- The agent's work is separated into a managed checkout by default — it runs in
+  its own clone, so the user's working tree stays untouched — while adoption in
+  place remains available when the user wants edits to land directly. This is
+  filesystem separation, not execution isolation; the agent still has
+  unrestricted device access.
 - Handoff is asynchronous without being lossy; a teammate picks up a thread
   without wondering whether anything was committed.
 - Browser access with no install removes the usual cost of inviting someone
