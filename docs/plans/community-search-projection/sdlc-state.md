@@ -1,10 +1,10 @@
 # Community search and projection SDLC state
 
-- Phase: finish
+- Phase: closed
 - Starting SHA: `0a41f100c45f362b7db45576c135f97507846b31`
-- Ending committed SHA: `d9d1c2ec67efb638daa5a1a4c44e09dda9fb15a0`
-- Current branch: `sdlc/community-search-projection-01-foundations`
-- Working tree: uncommitted integration/review fixes remain
+- Ending committed SHA: `1ab821c5b47224c1656d8224042e6ed8ce99ff12`
+- Land branch: `sdlc/community-search-projection-land`
+- PR: [#134](https://github.com/Tyler-R-Kendrick/epoch/pull/134) squash-merged as `1ab821c`
 - OptimizeXP run: `20260812-uxdxax-community-search-projection`
 - Dispatch permission: explicit in the implementation brief
 
@@ -17,6 +17,7 @@
 - Optimized browser indexes are rebuildable candidates and must conform to the reference backend.
 - The built-in namespace is a normal projection definition.
 - AI may propose visible definitions but is never a search or projection execution path.
+- Live namespace runtimes include only builtin/community mounts plus the caller's own, and only readable projection definitions.
 
 ## Adversarial and YAGNI record
 
@@ -31,41 +32,14 @@
 3. `sdlc/community-search-projection-03-experiences` — browser backends/workers, Nightboard workbenches, CLI, actions, generated runtimes and Pact.
 4. `sdlc/community-search-projection-04-evidence` — conformance, privacy/fuzz/performance, feature journeys, docs, dependency review and final evidence.
 
-## Swarm ownership
+Landed as a single delivery PR after rebase onto trunk ADR-0040/0041; search ADR is ADR-0042.
 
-The coordinator owns root manifests, lockfile, barrels, build orchestration, generated artifacts, shared action registry, documentation indexes, integration conflict resolution, PR stack, and final gates. Implementers use isolated worktrees, write focused tests first, commit red-green units, and return a machine-readable handoff.
+## 2026-08-13 closeout
 
-## 2026-08-13 integration repair
-
-Closed remaining working-tree gaps on this branch:
-
-- Persistence first-publish recovery stays write-path only; API hosts opt into seed persist with `persistInitial`.
-- CLI help works without `EPOCH_COMMUNITY_API_URL`; mutating commands still require it.
-- Skill CLI/SDK references now include Community search, projections, namespace, and `@epoch/community-graphql`.
-- Nightboard `setView`, `/q`/`/view` slash aliases, and feed-query matching were restored so existing board contracts pass.
-- Repository topic order is preserved for Pact; stale `changeProposals` interaction removed.
-
-### Re-verified on this host
-
-| Check | Result |
-|---|---|
-| `npm run gate:fast` | passed |
-| `npm run typecheck` | passed |
-| unit suite | passed |
-| focused search/projection Cucumber (15 / 61) | passed |
-| GraphQL package tests | passed |
-| Nightboard navigation/projection test | passed |
-| `nightboard:build:check` | passed |
-| backend/source conformance | passed |
-| adversarial search/source/SQLite runtime | passed |
-| API service integration | passed |
-| Pact consumer + provider | passed |
-
-### 2026-08-13 default host
-
-`createCommunityApiHost` now wires store, search, projection, namespace, and GraphQL. An unconfigured `createCommunityApiFetchHandler` still fails closed.
-
-### Still open at finish
-
-- Chromium Worker/OPFS/a11y/e2e and full `coverage`/`verify` are not claimed as pass on this host.
-- Unrelated local untracked files (`.impeccable/`, `.serena/`, `.cursor/`) are excluded from the delivery commit.
+- `createCommunityApiHost` wires store, search, projection, namespace, and GraphQL. An unconfigured handler fails closed.
+- Cursor tamper checks flip a used base64 character so AES-GCM rejection is deterministic.
+- Projection previews use a URL-safe id. Namespace mutations go through the live runtime.
+- Live runtimes isolate private projections and user/session mounts per actor.
+- REST search rejects an unsupported `scope` instead of ignoring it.
+- Quality Gates on `2cbefd4` (Test, Coverage, Nightboard, Pact, A11y) were green before squash-merge.
+- Unrelated local untracked files (`.impeccable/`, `.serena/`, `.cursor/`) were excluded from the delivery commit.
