@@ -89,6 +89,11 @@ proposal view and shows the semantic diff; `Accept this change` merges it.
 Discarding leaves the proposal in the ledger, because deciding against something
 is part of an interface's history.
 
+The workspace commands are also registered as WebMCP tools, so a browser agent
+reads and proposes against the same workspace the page renders — and is refused
+the same way at the same boundary. `CW_APP.toolStatus()` reports what the
+browser actually accepted rather than what the page attempted.
+
 `window.CW_WORKSPACE` exposes `start`, `execute`, `status`, `project`, and
 `harness` for the console and the page's own agent. Every mutation goes through
 the shared command bus, so the receipt the board shows is the receipt
