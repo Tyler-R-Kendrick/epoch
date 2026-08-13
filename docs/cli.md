@@ -335,6 +335,7 @@ as a compatibility binary over the same code.
 | `ui preview [VIEW]` / `ui diff FROM [--into VIEW]` / `ui validate VIEW` | What the harness would render, the semantic diff, and harness validation errors. |
 | `ui merge FROM [--into VIEW]` | Promote a validated view and advance last-known-good. Requires `--confirm`. |
 | `ui rollback VIEW --revision N` / `ui restore` | Append a revision restoring an earlier manifest, or the last known good one. History is never rewritten. Requires `--confirm`. |
+| `ui export [--out FILE]` / `ui import FILE` | Move a workspace between participants as a bundle of events. Import skips what is already there and is refused if the bundle's digest does not match its events. Import requires `--confirm`. |
 | `ui safe-mode on\|off` | Boot the installed harness only, ignoring the dynamic head. Leaving safe mode requires `--confirm`. |
 
 The workspace persists under `<repo>/.epoch/ui-workspace.json`. `--json` prints

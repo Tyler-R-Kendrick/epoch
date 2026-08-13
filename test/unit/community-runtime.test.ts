@@ -59,6 +59,7 @@ export async function runCommunityRuntimeTests(): Promise<void> {
   await socialRecordsAreChangeFeeds();
   await durableStorageCarriesAWorkspaceForward();
   await identityIsStablePerDevice();
+  await twoParticipantsConvergeThroughBundles();
   harnessDigestDetectsTampering();
   console.log("community runtime tests passed");
 }
@@ -469,6 +470,58 @@ async function identityIsStablePerDevice(): Promise<void> {
   });
   assert.equal(withoutCrypto.kind, "ephemeral");
   assert.equal(withoutCrypto.actor, "did:epoch:anonymous");
+}
+
+async function twoParticipantsConvergeThroughBundles(): Promise<void> {
+  const laptop = runtimeWith();
+  const desktop = runtimeWith();
+
+  await laptop.commands.execute({ kind: "view.create", input: { name: "denser-feed" } });
+  await laptop.commands.execute({ kind: "ui.propose", input: { view: "denser-feed", manifest: denserFeed } });
+  await laptop.commands.execute({ kind: "change.merge", input: { from: "denser-feed" }, confirmed: true });
+
+  const bundle = await laptop.commands.execute<{ events: readonly unknown[]; digest: string }>({
+    kind: "workspace.export",
+  });
+  assert.equal(bundle.readOnly, true);
+  assert.ok(bundle.data.events.length > 0);
+
+  // Importing is consequential, so it waits for a confirmation like any merge.
+  const held = await desktop.commands.execute({ kind: "workspace.import", input: { bundle: bundle.data } });
+  assert.equal(held.policy.decision, "confirm");
+
+  const imported = await desktop.commands.execute<{ applied: number; skipped: number }>({
+    kind: "workspace.import",
+    input: { bundle: bundle.data },
+    confirmed: true,
+  });
+  assert.ok(imported.data.applied > 0);
+  // Both workspaces opened identically, so their opening events are the same
+  // events — content-addressed ids converge instead of duplicating.
+  assert.ok(imported.data.skipped > 0, "identical opening history is recognised, not duplicated");
+  assert.equal(desktop.workspace.materialize().manifest.theme["--density-row"], "32px",
+    "the desktop now renders what the laptop merged");
+
+  const again = await desktop.commands.execute<{ applied: number }>({
+    kind: "workspace.import",
+    input: { bundle: bundle.data },
+    confirmed: true,
+  });
+  assert.equal(again.data.applied, 0, "importing the same bundle twice changes nothing");
+
+  // A bundle is something someone else made: importing one is when to be suspicious.
+  await assert.rejects(
+    desktop.commands.execute({
+      kind: "workspace.import",
+      input: { bundle: { ...bundle.data, digest: "cafebabe" } },
+      confirmed: true,
+    }),
+    /digest does not match/u,
+  );
+  await assert.rejects(
+    desktop.commands.execute({ kind: "workspace.import", input: { bundle: { hello: "world" } }, confirmed: true }),
+    /not an Epoch workspace bundle/u,
+  );
 }
 
 function harnessDigestDetectsTampering(): void {

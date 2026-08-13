@@ -1110,8 +1110,15 @@ Then("the active conversation remains reachable without an oversized navigation 
   // The rail is a sheet on narrow screens: it must not occupy the content
   // column at rest. Four stacked horizontal scrollers used to eat 83% of the
   // first screen before the first message.
-  // The sheet slides on a 180ms transition; settle before measuring.
-  await page.waitForTimeout(300);
+  // The sheet slides on a 180ms transition after the viewport change lands.
+  // Waiting for it to settle beats sleeping a magic number: a loaded runner
+  // can miss a fixed 300ms, and a real regression still fails below — the wait
+  // times out and the assertion reports where the rail actually is.
+  const offCanvas = () => {
+    const element = document.querySelector("[data-community-channel-rail]");
+    return element !== null && Math.round(element.getBoundingClientRect().right) <= 1;
+  };
+  await page.waitForFunction(offCanvas, undefined, { timeout: 5_000 }).catch(() => undefined);
   const rail = await page.evaluate(() => {
     const element = document.querySelector("[data-community-channel-rail]");
     if (element === null) return null;
@@ -1597,4 +1604,106 @@ Then("the panel and the token are part of my interface and survive a reload", as
   }));
   assert.match(after.generated, /Review queue/u, "the accepted panel is part of the interface");
   assert.equal(after.cell, "0.58rem", "the accepted token is part of the interface");
+});
+
+/**
+ * Carrying a workspace somewhere else, and undoing a change without erasing it.
+ * The second participant is a second runtime in the same page: what is being
+ * tested is that a bundle is enough to reproduce an interface, not that two
+ * browsers can reach each other.
+ */
+interface HandoffProbe {
+  readonly applied: number;
+  readonly cell: string;
+  readonly generated: string;
+}
+
+let handoff: HandoffProbe | undefined;
+
+When("I hand my workspace to another participant", async function () {
+  const page = requirePage();
+  handoff = await page.evaluate(async () => {
+    const runtime = (globalThis as unknown as {
+      CW_WORKSPACE: { execute(kind: string, input?: unknown): Promise<{ data: unknown }> };
+      CW_RUNTIME: {
+        createCommunityRuntime(options: Record<string, unknown>): {
+          commands: { execute(request: Record<string, unknown>): Promise<{ data: { applied: number } }> };
+          workspace: { materialize(): { manifest: { theme: Record<string, string>; placements: { component: string }[] } } };
+        };
+      };
+      CW_WORKSPACE_HARNESS?: unknown;
+    });
+
+    const bundle = (await runtime.CW_WORKSPACE.execute("workspace.export")).data;
+    // The other participant installs the same harness release. A participant on
+    // a different release would render safe mode rather than an interface it
+    // cannot validate — which is the ABI doing its job, not a failure.
+    const other = runtime.CW_RUNTIME.createCommunityRuntime({
+      namespace: "community-web",
+      actor: "did:epoch:other-machine",
+      policies: { capabilities: ["*"] },
+      harness: (globalThis as unknown as { CW_WORKSPACE: { harness(): unknown } }).CW_WORKSPACE.harness(),
+    });
+    const imported = await other.commands.execute({
+      kind: "workspace.import",
+      input: { bundle },
+      confirmed: true,
+    });
+    const rendered = other.workspace.materialize();
+    return {
+      applied: imported.data.applied,
+      cell: rendered.manifest.theme["--cw-cell"] ?? "",
+      generated: rendered.manifest.placements.map((placement) => placement.component).join(","),
+    };
+  });
+});
+
+Then("the other participant renders the same interface from the same history", function () {
+  assert.ok(handoff, "no workspace was handed over");
+  assert.ok(handoff.applied > 0, "the other participant received events");
+  assert.equal(handoff.cell, "0.58rem", "the token I accepted is what they render");
+  assert.match(handoff.generated, /GeneratedPanel/u, "the panel I accepted is what they render");
+});
+
+When("I roll my interface back to the revision before the change", async function () {
+  const page = requirePage();
+  await page.evaluate(async () => {
+    const workspace = (globalThis as unknown as {
+      CW_WORKSPACE: {
+        execute(kind: string, input?: unknown, options?: unknown): Promise<unknown>;
+        runtime(): { workspace: { history(view: string): readonly { revision: number }[] } };
+      };
+    }).CW_WORKSPACE;
+    const history = workspace.runtime().workspace.history("main");
+    const previous = history[history.length - 2].revision;
+    await workspace.execute("change.revert", { view: "main", revision: previous }, { confirmed: true });
+  });
+});
+
+Then("my board no longer shows the panel, and the change I rolled back is still readable", async function () {
+  const page = requirePage();
+  const after = await page.evaluate(() => {
+    const workspace = (globalThis as unknown as {
+      CW_WORKSPACE: {
+        runtime(): {
+          workspace: {
+            history(view: string): readonly { revision: number }[];
+            revision(view: string, revision: number): { manifest: { placements: { component: string }[] } };
+          };
+        };
+      };
+    }).CW_WORKSPACE;
+    const history = workspace.runtime().workspace.history("main");
+    const merged = history[history.length - 2].revision;
+    return {
+      generated: document.querySelector('[data-c="generated-panel"]')?.textContent ?? "",
+      cell: getComputedStyle(document.documentElement).getPropertyValue("--cw-cell").trim(),
+      rolledBack: workspace.runtime().workspace.revision("main", merged).manifest.placements
+        .map((placement) => placement.component).join(","),
+    };
+  });
+
+  assert.equal(after.generated, "", "the panel is gone from my board");
+  assert.notEqual(after.cell, "0.58rem", "the token is no longer applied");
+  assert.match(after.rolledBack, /GeneratedPanel/u, "what I rolled back is still there to read");
 });

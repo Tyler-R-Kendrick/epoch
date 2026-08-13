@@ -1036,7 +1036,7 @@ var CW_RUNTIME = (() => {
       exports.useEpochEntity = useEpochEntity;
       exports.useEpochView = useEpochView;
       exports.stableJson = stableJson2;
-      exports.isRecord = isRecord5;
+      exports.isRecord = isRecord6;
       var react_1 = require_react();
       function createMemoryEpochReactStorage(initial = {}) {
         const values = new Map(Object.entries(initial));
@@ -1317,7 +1317,7 @@ var CW_RUNTIME = (() => {
         if (raw === void 0)
           return void 0;
         const parsed = JSON.parse(raw);
-        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord5(parsed.payload)) {
+        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord6(parsed.payload)) {
           throw new Error("invalid Epoch live repository event");
         }
         return {
@@ -1365,7 +1365,7 @@ var CW_RUNTIME = (() => {
         return typeof globalThis.localStorage === "undefined" ? void 0 : globalThis.localStorage;
       }
       function normalizeState(value) {
-        if (!isRecord5(value))
+        if (!isRecord6(value))
           throw new TypeError("Epoch React state must be a JSON object");
         return JSON.parse(JSON.stringify(value));
       }
@@ -1377,7 +1377,7 @@ var CW_RUNTIME = (() => {
           return "null";
         if (Array.isArray(value))
           return `[${value.map((item) => stableJson2(item)).join(",")}]`;
-        if (isRecord5(value))
+        if (isRecord6(value))
           return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson2(value[key])}`).join(",")}}`;
         return JSON.stringify(value);
       }
@@ -1405,20 +1405,20 @@ var CW_RUNTIME = (() => {
         return value;
       }
       function requireRecord(value, label) {
-        if (!isRecord5(value))
+        if (!isRecord6(value))
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
       function asRecord(value) {
-        if (!isRecord5(value))
+        if (!isRecord6(value))
           throw new TypeError("Epoch React state must be a JSON object");
         return value;
       }
-      function isRecord5(value) {
+      function isRecord6(value) {
         return typeof value === "object" && value !== null && !Array.isArray(value);
       }
       function isReactOperation(value) {
-        if (!isRecord5(value) || typeof value.entity !== "string" || typeof value.key !== "string")
+        if (!isRecord6(value) || typeof value.entity !== "string" || typeof value.key !== "string")
           return false;
         return value.kind === "map-delete" || value.kind === "map-set";
       }
@@ -1612,11 +1612,13 @@ var CW_RUNTIME = (() => {
     digestOf: () => digestOf,
     ensureProject: () => ensureProject,
     executeCommunityRuntimeCommand: () => executeCommunityRuntimeCommand,
+    exportWorkspaceBundle: () => exportWorkspaceBundle,
     feedEntity: () => feedEntity,
     findComponent: () => findComponent,
     findSlot: () => findSlot,
     historyOf: () => historyOf,
     identifier: () => identifier,
+    importWorkspaceBundle: () => importWorkspaceBundle,
     isCommunityRuntimeInvocation: () => isCommunityRuntimeInvocation,
     isDynamicUiManifest: () => isDynamicUiManifest,
     listFeeds: () => listFeeds,
@@ -1629,6 +1631,7 @@ var CW_RUNTIME = (() => {
     registerWebMcpTools: () => registerWebMcpTools,
     resolveBrowserIdentity: () => resolveBrowserIdentity,
     revisionsOf: () => revisionsOf,
+    setCliBundleReader: () => setCliBundleReader,
     skippedValidation: () => skippedValidation,
     summarizeReceipt: () => summarizeReceipt,
     toolName: () => toolName,
@@ -2478,6 +2481,55 @@ var CW_RUNTIME = (() => {
     }
   }
 
+  // packages/Epoch.Community.Runtime/src/sync.ts
+  var import_integration_core6 = __toESM(require_dist2());
+  function exportWorkspaceBundle(epoch, workspaceId, namespace) {
+    const events = epoch.repository.history().map((event) => ({
+      id: event.id,
+      entity: event.entity,
+      author: event.author,
+      lamport: event.lamport,
+      payload: event.payload
+    }));
+    return {
+      kind: "epoch-workspace-bundle",
+      version: 1,
+      workspaceId,
+      namespace,
+      events,
+      digest: digestOf(events)
+    };
+  }
+  function importWorkspaceBundle(epoch, bundle) {
+    if (!isBundle(bundle)) throw new Error("That is not an Epoch workspace bundle.");
+    if (digestOf(bundle.events) !== bundle.digest) {
+      throw new Error("Bundle digest does not match its events; refusing to import.");
+    }
+    const known = new Set(epoch.repository.history().map((event) => event.id));
+    let applied = 0;
+    let skipped = 0;
+    const rejected = [];
+    for (const event of bundle.events) {
+      if (known.has(event.id)) {
+        skipped += 1;
+        continue;
+      }
+      if (!isBundledEvent(event)) {
+        rejected.push(`${String(event.id ?? "unknown")}: not an event`);
+        continue;
+      }
+      epoch.repository.append(event.entity, event.payload);
+      applied += 1;
+    }
+    return { applied, skipped, rejected, events: epoch.repository.history().length };
+  }
+  function isBundle(value) {
+    return (0, import_integration_core6.isRecord)(value) && value.kind === "epoch-workspace-bundle" && value.version === 1 && typeof value.digest === "string" && Array.isArray(value.events);
+  }
+  function isBundledEvent(value) {
+    return (0, import_integration_core6.isRecord)(value) && typeof value.id === "string" && typeof value.entity === "string" && value.entity.trim().length > 0 && (0, import_integration_core6.isRecord)(value.payload);
+  }
+
   // packages/Epoch.Community.Runtime/src/commands.ts
   function createCommunityCommandBus(options) {
     const workspace = options.workspace;
@@ -2681,6 +2733,30 @@ var CW_RUNTIME = (() => {
         eventIds: [record.eventId],
         revisionIds: [record.revision],
         changeId: record.changeId
+      };
+    });
+    register({
+      kind: "workspace.export",
+      summary: "Export this workspace's events as a bundle another participant can import.",
+      capability: "workspace.read",
+      readOnly: true,
+      requiresConfirmation: false,
+      untrustedContent: false,
+      inputSchema: emptySchema()
+    }, () => ({ data: exportWorkspaceBundle(workspace.epoch, workspace.id, options.namespace) }));
+    register({
+      kind: "workspace.import",
+      summary: "Import a workspace bundle. Events already here are skipped; nothing local is dropped.",
+      capability: "workspace.write",
+      readOnly: false,
+      requiresConfirmation: true,
+      untrustedContent: false,
+      inputSchema: schema({ bundle: { type: "object", description: "An Epoch workspace bundle." } }, ["bundle"])
+    }, (input) => {
+      const report = importWorkspaceBundle(workspace.epoch, input.bundle);
+      return {
+        data: report,
+        validation: validationReceipt("bundle", report.rejected)
       };
     });
     register({
@@ -2949,6 +3025,7 @@ var CW_RUNTIME = (() => {
     const listeners = /* @__PURE__ */ new Set();
     const commands = createCommunityCommandBus({
       workspace,
+      namespace: options.namespace,
       policies: options.policies ?? readOnlyPolicies,
       defaultSource: options.defaultSource ?? "sdk",
       now: options.now ?? (() => (/* @__PURE__ */ new Date()).toISOString()),
@@ -3022,6 +3099,8 @@ var CW_RUNTIME = (() => {
     "  epoch ui rollback VIEW --revision N --confirm",
     "  epoch ui restore --confirm",
     "  epoch ui safe-mode on|off [--confirm]",
+    "  epoch ui export [--out FILE]",
+    "  epoch ui import FILE --confirm",
     "  epoch view create NAME [--from VIEW] [--scope personal|project|session]",
     "  epoch view list",
     "  epoch view switch VIEW",
@@ -3096,6 +3175,10 @@ var CW_RUNTIME = (() => {
         };
       case "restore":
         return { kind: "ui.restoreLastKnownGood", input: {} };
+      case "export":
+        return { kind: "workspace.export", input: {} };
+      case "import":
+        return { kind: "workspace.import", input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) } };
       case "safe-mode":
         return {
           kind: requirePositional(rest, 0, "on|off") === "on" ? "ui.enterSafeMode" : "ui.leaveSafeMode",
@@ -3140,6 +3223,16 @@ var CW_RUNTIME = (() => {
         ...rest.includes("--retain-prompt") ? { retainPrompt: true } : {}
       }
     };
+  }
+  var bundleReader;
+  function setCliBundleReader(reader) {
+    bundleReader = reader;
+  }
+  function readBundle(path) {
+    if (bundleReader === void 0) {
+      throw new EpochCommandError("invalid-input", "This host cannot read bundle files.");
+    }
+    return bundleReader(path);
   }
   function format(receipt) {
     const lines = [

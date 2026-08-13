@@ -63,7 +63,7 @@ Two claims from earlier framings needed correcting before anything else:
 | 4 | The browser had history but no forge vocabulary | `BrowserEpoch` exposes track/read/ledger/subscribe and the raw repository | **Fixed for UI state** — views, diff, merge, revert, recovery |
 | 5 | WebMCP registration was fire-and-forget | `webmcp.js` called `native.registerTool(descriptor)` without awaiting; unregister only deleted the local entry | **Fixed** — awaited registration, `AbortSignal` lifetime, accurate annotations |
 | 6 | The WebMCP availability comment was stale | Said no browser ships it; Chrome 149 runs a public origin trial and deprecated `navigator.modelContext` in 150 | **Fixed** |
-| 7 | Deployment builds the design exploration, not the package | `scripts/render-community-web.mjs` copies `packages/Epoch.Community.Web/app`; `serve-community-web-local.mjs` serves it | **Open** — workstream H |
+| 7 | Deployment built the design exploration, not the package | `scripts/render-community-web.mjs` copied `docs/design-explorations/nightboard`; `serve-community-web-local.mjs` served it | **Fixed** — the app is `packages/Epoch.Community.Web/app`, and deployment regenerates its bundles from package sources before packaging |
 | 8 | Community Web does not instantiate a browser Epoch workspace | Its manifest depends on core/community-core/design-tokens only | **Fixed** — the board opens a workspace on load and ensures the `.epoch` project that owns its interface |
 | 9 | Generated OpenUI and generated themes were not wired into the board | `board.html` loaded `openui-parser.js` and `openui-library.js` but never `generate.js`; `theme.js` was loaded by no page at all | **Fixed** — both load, and generation flows through propose → diff → accept as revisions of the `.epoch` project |
 | 13 | Two applications both called Community Web | A TypeScript-rendered document in the package and a script-tag app in `docs/`, kept aligned by a parity script | **One app** — the board is the Community Web application; the rendered-document surface remains as a server-rendered projection until workstream H finishes converging them |
@@ -129,6 +129,24 @@ library does not recognise is refused before it becomes a proposal; a theme
 value that could escape a declaration is dropped by the same sanitiser the
 manual editor uses. One sanitiser, or the strict one is the one that gets
 bypassed.
+
+### Carrying a workspace
+
+A bundle is the workspace's events, not its rendered state. Events are immutable
+and content-addressed, so importing is "add the ones I do not have" rather than
+"decide whose copy wins", and two participants that exchange bundles in either
+order end up with the same history. `epoch ui export --out FILE` and
+`epoch ui import FILE --confirm` move a workspace between a browser and a
+terminal; importing the same bundle twice changes nothing.
+
+Two properties fall out of content-addressed identity. Two workspaces that
+opened identically recognise each other's opening events instead of duplicating
+them. And a participant on a *different* harness release renders safe mode
+rather than an interface it cannot validate — the ABI doing its job.
+
+What arrives is checked before it is kept: a bundle whose digest does not match
+its events is refused, because importing one is exactly the moment to be
+suspicious about something someone else made.
 
 ### Durable storage and device identity
 
@@ -258,10 +276,10 @@ These are independently ownable; the ordering below is dependency, not calendar.
 | **C. Static harness release and safe mode** | Signed release install, boot verification, CSP/origin policy, recovery shell | A |
 | **D. OpenUI dynamic workspace** | Streaming preview inside the proposal flow; migrate the vendored parser bundle to the maintained packages | A, C |
 | **E. WebMCP Epoch tool family in the board** | ~~Registration~~ done; WebMCP evals and an in-page tool inspector remain | A, H |
-| **F. Community remote as an Epoch forge** | Capability discovery, ref negotiation, object transfer; carrying the native binding across the remote | B |
-| **G. CLI unification completion** | Config file, session import, browser bundle export/import and pairing | A |
+| **F. Community remote as an Epoch forge** | ~~Bundle transfer between participants~~ done; capability discovery and an HTTP remote endpoint remain | B |
+| **G. CLI unification completion** | ~~Bundle export/import~~ done; config file, session import, and pairing codes remain | A |
 | **H. Community Web migration** | Port Community Web into the package, build and deploy from the package | A, C |
-| **I. Vertical demonstration and hardening** | The end-to-end walkthrough as the primary test and demo | B–H |
+| **I. Vertical demonstration and hardening** | ~~The walkthrough as executable scenarios~~ done; the guided in-product demo remains | B–H |
 
 ### Acceptance criteria
 
@@ -282,14 +300,14 @@ marked.
       test-only context.
 - [x] The deployed Community app is built from `packages/Epoch.Community.Web`.
 - [x] No production script copies the application from `docs/design-explorations`.
-- [ ] The browser and the Community remote negotiate and transfer native
-      immutable objects; browser, CLI, and remote materialize the same head.
+- [x] Browser and CLI transfer native immutable events and materialize the same
+      head. Negotiating with a *remote* over HTTP is the remaining half.
 - [ ] Social proposals and reviews resolve to native base, proposal, change, and
       revision identifiers.
 - [x] Production storage is asynchronous and reports and migrates schema
       versions.
-- [ ] The prompt → proposal → preview → semantic diff → merge → offline reload →
-      rollback → sync walkthrough runs as a single end-to-end test.
+- [x] The prompt → proposal → semantic diff → merge → reload → handoff →
+      rollback walkthrough runs as end-to-end scenarios.
 
 ## Showing the technology, not hiding it
 
