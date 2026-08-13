@@ -219,6 +219,42 @@ Revsets support `heads`, `roots`, `ancestors`, `descendants`, `change`,
 union, intersection, difference, and parentheses. Parse errors are typed and
 ordering is deterministic.
 
+## Semantic Commands
+
+Structural diff, patch, merge, and compression planning over the representation
+ladder in [Semantic Content Pipeline](semantic-pipeline.md). A syntax provider
+is selected from the file path; content with no matching provider is reported
+rather than silently compared as lines.
+
+| Command | Purpose |
+|---|---|
+| `semantic diff BEFORE AFTER [--json]` | Print a structural patch keyed by node path. `--json` emits the applicable patch document. |
+| `semantic apply FILE PATCH.json` | Apply a structural patch to `FILE`, resolving paths against a fresh parse so a reformatted target still accepts it. |
+| `semantic merge BASE LEFT RIGHT [--json]` | Three-way structural merge. Exits non-zero and reports path-scoped conflicts when the sides genuinely disagree. |
+| `semantic plan FILE... [--json]` | Report syntax-guided chunk count, subtree-dedup savings, and the derived dictionary digest without encoding anything. |
+
+`semantic merge` merges independent insertions into declared commutative
+containers — object literals, dependency tables, import blocks — and produces
+byte-identical output regardless of which side is `LEFT`.
+
+## Extension Commands
+
+External subcommands and capability providers, per
+[Extensions And Capability Providers](extensions.md). `epoch NAME` runs
+`epoch-NAME` from `.epoch/ext/bin`, `~/.epoch/ext/bin`, then `$PATH`, but only
+when the `[extensions]` trust policy admits it.
+
+| Command | Purpose |
+|---|---|
+| `ext list` | List discovered extensions with trust state, source, version, declared capabilities, and any builtin shadowing. |
+| `ext show NAME` | Print one extension's manifest, resolution, and trust decision as JSON. |
+| `ext trust NAME` | Record a signed operation consenting to an extension. |
+| `ext untrust NAME` | Record a signed operation withdrawing that consent. |
+
+Builtins always win over an extension of the same name, and `ext list` reports
+the shadowing rather than hiding it. An extension that is installed but not
+trusted is reported and refused, never run silently.
+
 ## Storage, Interop, And Authority Commands
 
 | Command group | Shipped operations and limitations |
@@ -247,3 +283,5 @@ destructive operations require the same validation in text and JSON modes.
 - [Object Resolver And Native Sync](resolver-sync.md)
 - [Workspace Providers](workspace-providers.md)
 - [Forge Adapters](forge-adapters.md)
+- [Extensions And Capability Providers](extensions.md)
+- [Semantic Content Pipeline](semantic-pipeline.md)

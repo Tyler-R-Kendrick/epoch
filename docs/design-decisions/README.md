@@ -51,6 +51,9 @@ and when the decision should be revisited.
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted and implemented with injected durability | Give human and agent principals attenuated grants, transactional budgets, receipts, and non-authoritative provider boundaries. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted and implemented as codecs plus an injected coordinator | Provide public-only loss-aware forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause contracts. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted and implemented with injected transport; CLI default HTTP adapter | Compute and inspect SWHIDs locally and request public archival through Save Code Now. The library client stays injected; the CLI ships HTTP with `EPOCH_SWH_SAVE_URL` override. |
+| [ADR-0037](0037-extension-mechanism-and-capability-registry.md) | Accepted (design); staged implementation | Extend Epoch through declared, trust-gated external `epoch-*` subcommands and a typed capability registry, with provider provenance recorded in signed state. |
+| [ADR-0038](0038-semantic-diff-merge-and-compression.md) | Accepted (design); staged implementation | Share one bytes-to-entities representation ladder across diff, merge, conflict identity, and storage, keyed by structural path. |
+| [ADR-0039](0039-native-capabilities-from-the-git-extension-ecosystem.md) | Accepted (design); staged implementation | Adopt the Git extension ecosystem's capabilities natively where Epoch's model already implies them, keep language/vendor adapters as extensions, and reject content-filter encryption. |
 
 ## Supporting Decision Records
 
