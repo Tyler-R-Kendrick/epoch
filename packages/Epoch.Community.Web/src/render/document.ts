@@ -212,11 +212,11 @@ ${communityStyles()}
       <div class="surface-stage" data-surface-panel="changes" hidden>
         <div class="feed-toolbar artifact-toolbar">
           <span class="channel-name">Changes</span>
-          <span class="channel-topic">Change proposals for linked repositories.</span>
+          <span class="channel-topic">Stable Changes for linked repositories.</span>
         </div>
-        <ol class="artifact-list" data-change-list aria-label="Change proposal list">
+        <ol class="artifact-list" data-change-list aria-label="Change list">
           ${feed.changes.map(renderChangeListItem).join("") || emptyArtifactItem(
-            "No change proposals yet.",
+            "No Changes yet.",
             "Use Promote to Change on a message to turn talk into a reviewable Change.",
           )}
         </ol>

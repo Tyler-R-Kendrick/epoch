@@ -47,6 +47,63 @@
       }
     },
     {
+      "description": "a request to create a community Change",
+      "providerStates": [
+        {
+          "name": "repository epoch/epoch exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "author": "alice",
+          "body": "wire provider verification",
+          "sourceView": "feature/pact",
+          "targetView": "main",
+          "title": "Ship pact gates"
+        },
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/repositories/epoch%2Fepoch/changes"
+      },
+      "response": {
+        "body": {
+          "changes": [
+            {
+              "author": "alice",
+              "body": "wire provider verification",
+              "id": "CHANGE-1",
+              "reviews": [],
+              "sourceView": "feature/pact",
+              "status": "open",
+              "targetView": "main",
+              "title": "Ship pact gates"
+            }
+          ],
+          "defaultView": "main",
+          "description": "Event-driven DVCS",
+          "discussions": [],
+          "displayName": "Epoch",
+          "issues": [],
+          "maintainers": [
+            "alice"
+          ],
+          "slug": "epoch/epoch",
+          "topics": [
+            "dvcs",
+            "crdt"
+          ],
+          "visibility": "public"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 201
+      }
+    },
+    {
       "description": "a request to list community repositories",
       "providerStates": [
         {
@@ -63,7 +120,7 @@
       "response": {
         "body": [
           {
-            "changeProposals": [],
+            "changes": [],
             "defaultView": "main",
             "description": "Event-driven DVCS",
             "discussions": [],
@@ -164,7 +221,7 @@
       },
       "response": {
         "body": {
-          "changeProposals": [],
+          "changes": [],
           "defaultView": "main",
           "description": "Event-driven DVCS",
           "discussions": [],
@@ -197,68 +254,11 @@
         },
         "status": 201
       }
-    },
-    {
-      "description": "a request to propose a community change",
-      "providerStates": [
-        {
-          "name": "repository epoch/epoch exists"
-        }
-      ],
-      "request": {
-        "body": {
-          "author": "alice",
-          "body": "wire provider verification",
-          "sourceView": "feature/pact",
-          "targetView": "main",
-          "title": "Ship pact gates"
-        },
-        "headers": {
-          "Accept": "application/json",
-          "Content-Type": "application/json"
-        },
-        "method": "POST",
-        "path": "/repositories/epoch%2Fepoch/changes"
-      },
-      "response": {
-        "body": {
-          "changeProposals": [
-            {
-              "author": "alice",
-              "body": "wire provider verification",
-              "id": "CHANGE-1",
-              "reviews": [],
-              "sourceView": "feature/pact",
-              "status": "open",
-              "targetView": "main",
-              "title": "Ship pact gates"
-            }
-          ],
-          "defaultView": "main",
-          "description": "Event-driven DVCS",
-          "discussions": [],
-          "displayName": "Epoch",
-          "issues": [],
-          "maintainers": [
-            "alice"
-          ],
-          "slug": "epoch/epoch",
-          "topics": [
-            "dvcs",
-            "crdt"
-          ],
-          "visibility": "public"
-        },
-        "headers": {
-          "Content-Type": "application/json"
-        },
-        "status": 201
-      }
     }
   ],
   "metadata": {
     "pact-js": {
-      "version": "16.4.0"
+      "version": "16.5.0"
     },
     "pactRust": {
       "ffi": "0.5.4",

@@ -33,15 +33,11 @@ export async function runCommunityApiProviderVerification(): Promise<void> {
     createRepository: (input) => state.api.createRepository(input),
     openIssue: (slug, input) => state.api.openIssue(slug, input),
     commentOnIssue: (slug, issueId, input) => state.api.commentOnIssue(slug, issueId, input),
-    proposeChange: (slug, input) => state.api.proposeChange(slug, input),
-    reviewChange: (slug, proposalId, input) => state.api.reviewChange(slug, proposalId, input),
+    createChange: (slug, input) => state.api.createChange(slug, input),
+    reviewChange: (slug, changeId, input) => state.api.reviewChange(slug, changeId, input),
     getObject: (objectId, authorization) => state.api.getObject(objectId, authorization),
     updateObjectState: (objectId, objectState, authorization) => state.api.updateObjectState(objectId, objectState, authorization),
     listThreadRelations: (objectId, authorization) => state.api.listThreadRelations(objectId, authorization),
-    listProjections: (authorization) => state.api.listProjections(authorization),
-    getProjection: (projectionId, authorization) => state.api.getProjection(projectionId, authorization),
-    saveProjection: (input, authorization) => state.api.saveProjection(input, authorization),
-    deleteProjection: (projectionId, authorization) => state.api.deleteProjection(projectionId, authorization),
   }, {
     resolveAuthorization: () => ({
       actorId: "pact-provider",

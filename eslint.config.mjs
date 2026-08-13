@@ -13,6 +13,11 @@ export default [
       "docs/design-explorations/nightboard/openui-parser.js",
       "docs/design-explorations/nightboard/graphql-engine.js",
       "docs/design-explorations/nightboard/openui-library.js",
+      // Reproducible browser bundles are linted at their TypeScript sources and
+      // guarded by nightboard:build:check, like graphql-engine.js above.
+      "docs/design-explorations/nightboard/community-core-runtime.js",
+      "docs/design-explorations/nightboard/community-search-worker.js",
+      "docs/design-explorations/nightboard/community-sqlite-worker.js",
       // Vendored from CanvasUI and bundled; see its header for how to rebuild.
       "docs/design-explorations/nightboard/asciify.js",
       "docs/design-explorations/nightboard/canvasui-fx.js",

@@ -1,0 +1,41 @@
+{
+  "schema": "epoch.community-search.integration-results/v1",
+  "recordedAt": "2026-08-12",
+  "startingRevision": "0a41f100c45f362b7db45576c135f97507846b31",
+  "endingCommittedRevision": "d9d1c2ec67efb638daa5a1a4c44e09dda9fb15a0",
+  "workingTreeCommitted": false,
+  "environment": {
+    "node": "v26.5.0",
+    "platform": "linux",
+    "architecture": "arm64",
+    "constraints": [
+      "Git metadata is read-only",
+      "loopback listeners fail with EPERM",
+      "Chromium exits with sandbox_host_linux.cc SIGTRAP",
+      "npm registry lookup fails with EAI_AGAIN"
+    ]
+  },
+  "commands": [
+    { "command": "npm run gate:fast", "status": "passed" },
+    { "command": "npm run gate:push", "status": "passed" },
+    { "command": "npm run typecheck", "status": "passed" },
+    { "command": "npm run build", "status": "passed" },
+    { "command": "npm run nightboard:build", "status": "passed" },
+    { "command": "npm run nightboard:build:check", "status": "passed" },
+    { "command": "npm run community-search:conformance", "status": "passed" },
+    { "command": "npm run community-source:conformance", "status": "passed" },
+    { "command": "npm run community-search:fuzz-smoke", "status": "passed" },
+    { "command": "npm run community-search:migration-recovery", "status": "passed" },
+    { "command": "npm run community-search:sqlite-runtime", "status": "passed" },
+    { "command": "npm test -w @epoch/community-graphql", "status": "passed" },
+    { "command": "npm run test:unit:nightboard-parity", "status": "passed" },
+    { "command": "node docs/design-explorations/nightboard/navigation-projection.test.mjs", "status": "passed" },
+    { "command": "npm run community-search:browser", "status": "environment-blocked", "reason": "Chromium sandbox SIGTRAP before application execution" },
+    { "command": "npm run test:pact", "status": "passed", "note": "re-verified 2026-08-13 after topic-order and changeProposals contract repair" },
+    { "command": "npm run coverage", "status": "environment-blocked", "reason": "unit runtime stops at Pact mock server; resulting coverage is incomplete" },
+    { "command": "npm run nightboard:parity", "status": "environment-blocked", "reason": "non-browser parity passes, then e2e server listen EPERM" },
+    { "command": "npm run a11y:community-web", "status": "environment-blocked", "reason": "Chromium sandbox SIGTRAP before application execution" },
+    { "command": "npm run verify", "status": "environment-blocked", "reason": "docs, lint, design, typecheck, konsistent, and build pass; unit runtime stops at Pact mock server listen EPERM" },
+    { "command": "npm audit --omit=dev", "status": "environment-blocked", "reason": "registry.npmjs.org lookup EAI_AGAIN; earlier pinned dependency audit evidence records zero vulnerabilities" }
+  ]
+}

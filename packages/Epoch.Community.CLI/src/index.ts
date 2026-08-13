@@ -5,6 +5,15 @@ import type {
   ConvergenceWorkbenchSnapshot,
   PartialMergePlan,
 } from "@epoch/community-core";
+import { NAMESPACE_CLI_COMMANDS, runNamespaceCommand, type NamespaceCommandServices } from "./namespace-commands";
+import { PROJECTION_CLI_COMMANDS, runProjectionCommand, type ProjectionCommandServices } from "./projection-commands";
+import { QUERY_CLI_COMMANDS, formatCommunityCliHelp, runQueryCommand, type QueryCommandServices } from "./query-commands";
+import { createHttpCommunityCliContext } from "./http-context";
+
+export * from "./namespace-commands";
+export * from "./projection-commands";
+export * from "./query-commands";
+export * from "./http-context";
 
 export interface CommunityCliIO {
   stdout(message: string): void;
@@ -17,18 +26,22 @@ export interface CommunityCliContext {
     getSnapshot(): ConvergenceWorkbenchSnapshot;
     planPartialMerge(changeId: string): PartialMergePlan;
   };
+  readonly search?: QueryCommandServices;
+  readonly projections?: ProjectionCommandServices;
+  readonly namespace?: NamespaceCommandServices;
 }
 
-const usage = [
+const workflowUsage = [
   "Usage:",
   "  epoch-community repositories",
   "  epoch-community issues open REPOSITORY --title TITLE --author AUTHOR [--body BODY] [--label LABEL]",
-  "  epoch-community changes propose REPOSITORY --title TITLE --author AUTHOR --source-view VIEW --target-view VIEW [--body BODY]",
-  "  epoch-community changes review REPOSITORY PROPOSAL --reviewer AUTHOR --decision approved|changes-requested|commented [--body BODY]",
+  "  epoch-community changes create REPOSITORY --title TITLE --author AUTHOR --source-view VIEW --target-view VIEW [--body BODY]",
+  "  epoch-community changes review REPOSITORY CHANGE --reviewer AUTHOR --decision approved|changes-requested|commented [--body BODY]",
   "  epoch-community graph show",
   "  epoch-community bundle review",
   "  epoch-community merge preview CHANGE",
 ].join("\n");
+const usage = `${workflowUsage}\n${formatCommunityCliHelp([...QUERY_CLI_COMMANDS, ...PROJECTION_CLI_COMMANDS, ...NAMESPACE_CLI_COMMANDS]).replace(/^Usage:\n/u, "")}`.trimEnd();
 
 export async function main(
   argv = process.argv.slice(2),
@@ -36,8 +49,12 @@ export async function main(
   context?: CommunityCliContext,
 ): Promise<number> {
   try {
-    await run(argv, io, requireContext(context));
-    return 0;
+    const [command] = argv;
+    if (command === undefined || command === "help" || command === "--help") {
+      io.stdout(`${usage}\n`);
+      return 0;
+    }
+    return await run(argv, io, requireContext(context));
   } catch (error) {
     io.stderr(`${error instanceof Error ? error.message : String(error)}\n`);
     return 1;
@@ -48,19 +65,23 @@ async function run(
   argv: readonly string[],
   io: CommunityCliIO,
   context: CommunityCliContext,
-): Promise<void> {
+): Promise<number> {
   const [command, subcommand, ...rest] = argv;
   if (command === undefined || command === "help" || command === "--help") {
     io.stdout(`${usage}\n`);
-    return;
+    return 0;
   }
+
+  if (command === "search") return output(await runQueryCommand([subcommand, ...rest].filter((value): value is string => value !== undefined), requireService(context.search, "Search")), io);
+  if (command === "projections") return output(await runProjectionCommand([subcommand, ...rest].filter((value): value is string => value !== undefined), requireService(context.projections, "Projection")), io);
+  if (command === "namespace") return output(await runNamespaceCommand([subcommand, ...rest].filter((value): value is string => value !== undefined), requireService(context.namespace, "Namespace")), io);
 
   if (command === "repositories") {
     const repositories = await context.client.listRepositories();
     for (const repository of repositories) {
       io.stdout(`${repository.slug}\t${repository.displayName}\n`);
     }
-    return;
+    return 0;
   }
 
   if (command === "issues" && subcommand === "open") {
@@ -74,38 +95,38 @@ async function run(
       labels: options.label === undefined ? [] : [options.label],
     });
     io.stdout(`${repository.slug}\t${repository.issues.at(-1)?.id ?? ""}\n`);
-    return;
+    return 0;
   }
 
-  if (command === "changes" && subcommand === "propose") {
+  if (command === "changes" && subcommand === "create") {
     const [slug, ...args] = rest;
-    if (slug === undefined) throw new Error("changes propose requires a repository slug");
+    if (slug === undefined) throw new Error("changes create requires a repository slug");
     const options = parseOptions(args);
-    const repository = await context.client.proposeChange(slug, {
+    const repository = await context.client.createChange(slug, {
       title: requiredOption(options, "title"),
       author: requiredOption(options, "author"),
       sourceView: requiredOption(options, "source-view"),
       targetView: requiredOption(options, "target-view"),
       body: options.body,
     });
-    io.stdout(`${repository.slug}\t${repository.changeProposals.at(-1)?.id ?? ""}\n`);
-    return;
+    io.stdout(`${repository.slug}\t${repository.changes.at(-1)?.id ?? ""}\n`);
+    return 0;
   }
 
   if (command === "changes" && subcommand === "review") {
-    const [slug, proposalId, ...args] = rest;
-    if (slug === undefined || proposalId === undefined) {
-      throw new Error("changes review requires a repository slug and proposal id");
+    const [slug, changeId, ...args] = rest;
+    if (slug === undefined || changeId === undefined) {
+      throw new Error("changes review requires a repository slug and change id");
     }
 
     const options = parseOptions(args);
-    const repository = await context.client.reviewChange(slug, proposalId, {
+    const repository = await context.client.reviewChange(slug, changeId, {
       reviewer: requiredOption(options, "reviewer"),
       decision: parseDecision(requiredOption(options, "decision")),
       body: options.body,
     });
-    io.stdout(`${repository.slug}\t${proposalId}\t${repository.changeProposals.find((proposal) => proposal.id === proposalId)?.status ?? ""}\n`);
-    return;
+    io.stdout(`${repository.slug}\t${changeId}\t${repository.changes.find((change) => change.id === changeId)?.status ?? ""}\n`);
+    return 0;
   }
 
   if (command === "graph" && subcommand === "show") {
@@ -113,7 +134,7 @@ async function run(
     for (const change of snapshot.changes) {
       io.stdout(`${change.changeId}\t${change.currentRevisionIds.join("+")}\tdepends:${change.dependsOn.join(",") || "root"}\n`);
     }
-    return;
+    return 0;
   }
 
   if (command === "bundle" && subcommand === "review") {
@@ -122,7 +143,7 @@ async function run(
       const gates = snapshot.gates.filter((gate) => gate.changeId === change.changeId);
       io.stdout(`${change.changeId}\t${gates.map((gate) => `${gate.label}:${gate.state}`).join(",") || "gates:missing"}\n`);
     }
-    return;
+    return 0;
   }
 
   if (command === "merge" && subcommand === "preview") {
@@ -130,10 +151,21 @@ async function run(
     if (changeId === undefined) throw new Error("merge preview requires a change id");
     const preview = requireConvergence(context).planPartialMerge(changeId);
     io.stdout(`${preview.included.join(",")}\tconfirmation-required\t${preview.explanation}\n`);
-    return;
+    return 0;
   }
 
   throw new Error(usage);
+}
+
+function output(result: { readonly exitCode: number; readonly stdout: string; readonly stderr: string }, io: CommunityCliIO): number {
+  if (result.stdout) io.stdout(result.stdout);
+  if (result.stderr) io.stderr(result.stderr);
+  return result.exitCode;
+}
+
+function requireService<T>(service: T | undefined, name: string): T {
+  if (service === undefined) throw new Error(`${name} services are not configured for this Community CLI context`);
+  return service;
 }
 
 function requireConvergence(context: CommunityCliContext): NonNullable<CommunityCliContext["convergence"]> {
@@ -147,11 +179,10 @@ const processCliIO: CommunityCliIO = {
 };
 
 function requireContext(context: CommunityCliContext | undefined): CommunityCliContext {
-  if (context === undefined) {
-    throw new Error("Epoch Community CLI requires a Community Core client context");
-  }
-
-  return context;
+  if (context !== undefined) return context;
+  const baseUrl = process.env.EPOCH_COMMUNITY_API_URL;
+  if (baseUrl === undefined || baseUrl.length === 0) throw new Error("Set EPOCH_COMMUNITY_API_URL to the Community API origin");
+  return createHttpCommunityCliContext({ baseUrl, authorizationToken: process.env.EPOCH_COMMUNITY_API_TOKEN });
 }
 
 function parseOptions(args: readonly string[]): Record<string, string> {

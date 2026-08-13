@@ -8,6 +8,36 @@ for scenario-level persona records.
 
 ## Developer Stories
 
+### DEV-005: Find Work Across Sources Without Hidden AI
+
+**As a** contributor,
+**I want** strict deterministic search across every registered source,
+**So that** I can trust why an Entity matched and whether any source is stale or missing.
+
+Acceptance criteria:
+
+- Text and equivalent GraphQL inputs produce the same authorized targets.
+- Syntax errors identify the exact span and suggest approved fields/values.
+- Search reports snapshot and source completeness rather than silent omission.
+- Explain names normalization, pushdown, residual evaluation, authorization,
+  order, and omissions without exposing unreadable Entities.
+- Ordinary search never invokes AI.
+
+### DEV-006: Organize Canonical Entities In My Own Namespace
+
+**As a** contributor,
+**I want** to define, preview, mount, and recover declarative projections,
+**So that** I can arrange work around my task without changing canonical identity.
+
+Acceptance criteria:
+
+- The same Entity can have multiple stable Projection Entries and paths.
+- Mount precedence and shadowing are deterministic and explainable.
+- Invalid/cyclic definitions are quarantined and exportable.
+- `/.epoch/default` remains reachable after a broken custom root.
+- Queued updates preserve focus and reading position until explicitly applied.
+- Ambiguous writes and recovery-namespace mutation fail closed.
+
 ### DEV-003: Evolve A Stable Change Safely
 
 **As a** contributor,

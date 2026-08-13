@@ -148,7 +148,6 @@ export type DevFeedKind =
   | "repo_create"
   | "release"
   | "issue_open"
-  | "proposal"
   | "review"
   | "change"
   | "agent_run"
@@ -185,7 +184,7 @@ export interface DevFeedActor {
 }
 
 export interface DevFeedObject {
-  readonly type: "repo" | "issue" | "proposal" | "actor" | "release";
+  readonly type: "repo" | "issue" | "change" | "actor" | "release";
   readonly label: string;
   readonly hrefHint?: string;
 }
@@ -247,14 +246,12 @@ export interface CommunityConversationView {
   /** Thread comments rendered inside the message body (issue replies). */
   readonly comments?: readonly CommunityConversationComment[];
   readonly linkedArtifact?: string;
-  readonly linkedProposalId?: string;
+  readonly linkedChangeId?: string;
   readonly source: CommunityFeedSource;
   /** Buzz-aligned: ACP harness id when author is a member agent. */
   readonly harness?: string;
   /** Buzz-aligned: human manager of a member agent ("managed by"). */
   readonly managedBy?: string;
-  /** Optional signed Change ID for agent work receipts. */
-  readonly linkedChangeId?: string;
   /** Optional in-channel artifact card label (e.g. PR title). */
   readonly artifactCard?: string;
 }

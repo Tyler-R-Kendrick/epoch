@@ -16,6 +16,11 @@ work that produced it.
   alongside conversations, synchronized as conflict-free replicated worktrees,
   and remain interoperable with Git and CI.
   [Introducing DeltaDB](https://zed.dev/blog/introducing-deltadb)
+- **Official, early access:** Zed's dedicated DeltaDB page presents continuously
+  versioned worktrees, operation-level history, conversations attached to code,
+  and Git/CI interoperation as an early-access product experience. It is a
+  product claim, not a published interoperability protocol.
+  [DeltaDB](https://zed.dev/deltadb)
 - **Official:** Zed has described operation-level version control, CRDT sync,
   character-level permalinks, and Git interoperability as the direction behind
   DeltaDB. [Sequoia backs Zed](https://zed.dev/blog/sequoia-backs-zed),
@@ -33,15 +38,17 @@ work that produced it.
   mount a live CRDT worktree shared by arbitrary tools, or expose durable
   character-level code-to-conversation permalinks. Code Operations are explicit
   signed capture, not DeltaDB parity.
-- **Open DeltaDB questions:** public sources do not yet define a stable external
+- **Open DeltaDB questions:** the two primary pages, rechecked 2026-08-12, do
+  not define a stable external
   storage/API contract, signature and authority model, self-hosting boundary, or
   migration format sufficient for an Epoch fidelity adapter.
 
 The practical opportunity is complementarity rather than a false feature tie:
-DeltaDB can provide high-resolution authoring history; Epoch can verify and
-govern accepted logical work across editors, agents, forges, and archives. A
-future adapter should ingest declared DeltaDB operations as evidence or
-Fragments without making an editor database Epoch's authority.
+DeltaDB's reported design can provide high-resolution authoring history; Epoch
+can verify and govern accepted logical work across editors, agents, forges, and
+archives. Epoch does not ship a speculative adapter: until Zed publishes a
+stable format, mapping DeltaDB operations to Evidence or Fragments would invent
+fidelity rather than prove it.
 
 ## Jujutsu (jj)
 
