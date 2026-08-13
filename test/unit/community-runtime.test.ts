@@ -6,6 +6,8 @@ import { executeCommunityCli, isCommunityCliInvocation } from "@epoch/cli";
 import { createMemoryEpochIntegrationStorage } from "@epoch/integration-core";
 import {
   createCommunityRuntime,
+  openDurableStorage,
+  resolveBrowserIdentity,
   DEFAULT_PROJECT_SLUG,
   createWebMcpTools,
   defaultCommunityHarness,
@@ -55,6 +57,8 @@ export async function runCommunityRuntimeTests(): Promise<void> {
   await theEpochBinaryOwnsBothCommandGroups();
   await theDefaultProjectOwnsTheInterface();
   await socialRecordsAreChangeFeeds();
+  await durableStorageCarriesAWorkspaceForward();
+  await identityIsStablePerDevice();
   harnessDigestDetectsTampering();
   console.log("community runtime tests passed");
 }
@@ -399,6 +403,72 @@ async function socialRecordsAreChangeFeeds(): Promise<void> {
     input: { feed: "general" },
   });
   assert.deepEqual(afterReload.data[0].revisionIds, [opened.data.revisionId, edited.data.revisionId]);
+}
+
+async function durableStorageCarriesAWorkspaceForward(): Promise<void> {
+  // The IndexedDB path is exercised by the browser suite; this covers the
+  // decisions that matter when it is unavailable, which is when a silent
+  // failure would cost someone their workspace.
+  const legacy = createMemoryEpochIntegrationStorage({
+    "epoch:community-web:/.epoch-live/events/e1.json": "{}",
+    "epoch:community-web:identity": "{}",
+    "unrelated:key": "leave me alone",
+  });
+
+  const storage = await openDurableStorage({ namespace: "epoch:community-web", indexedDB: undefined, migrateFrom: legacy });
+  assert.equal(storage.kind, "memory", "no IndexedDB means an honest in-memory workspace");
+  assert.equal(storage.migrated, 2, "the existing workspace is carried over, not abandoned");
+  assert.equal(storage.getItem("unrelated:key"), null, "another product's keys are not adopted");
+  assert.equal(storage.pendingWrites(), 0);
+  assert.equal(storage.lastError(), undefined);
+
+  storage.setItem("epoch:community-web:/.epoch-live/events/e2.json", "{\"id\":2}");
+  await storage.flush();
+  const exported = storage.snapshot();
+  assert.equal(Object.keys(exported).length, 3);
+
+  const target = await openDurableStorage({ namespace: "epoch:community-web", indexedDB: undefined });
+  assert.equal(target.length, 0);
+  await target.restore(exported);
+  assert.deepEqual(target.snapshot(), exported, "an exported workspace can be imported whole");
+
+  // A migrated workspace opens as itself: same id, same history.
+  const runtime = createCommunityRuntime({
+    namespace: "migrated", actor: "did:epoch:tester", policies: fullAccess, now: clock, storage: target,
+  });
+  assert.ok(runtime.workspace.status().events >= 1);
+}
+
+async function identityIsStablePerDevice(): Promise<void> {
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value); },
+  };
+
+  const first = await resolveBrowserIdentity({ namespace: "epoch:community-web", storage });
+  assert.equal(first.kind, "device");
+  assert.match(first.actor, /^did:epoch:/u);
+  assert.equal(first.created, true);
+  assert.ok(first.publicKey, "a device identity carries a public key to bind a claim to later");
+
+  const second = await resolveBrowserIdentity({ namespace: "epoch:community-web", storage });
+  assert.equal(second.actor, first.actor, "the same device keeps the same actor");
+  assert.equal(second.created, false);
+
+  // The private half never leaves: what is stored is the public key only.
+  const stored = JSON.parse(store.get("epoch:community-web:identity") ?? "{}") as Record<string, unknown>;
+  assert.deepEqual(Object.keys(stored).sort(), ["actor", "publicKey", "version"]);
+  assert.equal((stored.publicKey as { d?: string }).d, undefined, "no private key material is stored");
+
+  // Without WebCrypto, say so rather than fake a durable identity.
+  const withoutCrypto = await resolveBrowserIdentity({
+    namespace: "epoch:community-web",
+    storage: { getItem: () => null, setItem: () => {} },
+    crypto: {} as Crypto,
+  });
+  assert.equal(withoutCrypto.kind, "ephemeral");
+  assert.equal(withoutCrypto.actor, "did:epoch:anonymous");
 }
 
 function harnessDigestDetectsTampering(): void {

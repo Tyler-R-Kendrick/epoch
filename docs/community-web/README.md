@@ -78,6 +78,16 @@ register a tool, or run code: the vocabulary it is parsed into cannot express
 any of that. When the head revision fails validation the harness renders itself,
 says why, and keeps the recovery controls exactly where they always are.
 
+### Storage and identity
+
+The workspace lives in IndexedDB, read once into memory at open and persisted
+through a write queue. `CW_WORKSPACE.storage()` reports the store kind, schema
+version, how many entries were migrated from the old `localStorage` workspace,
+pending writes, and the last persistence error; `flush()` waits for the queue and
+`export()` returns the whole namespace for handoff. Each device holds a
+non-extractable WebCrypto key and a stable `did:epoch:` actor derived from its
+public half.
+
 ### Composing
 
 `Compose interface` in the workspace region opens the compose panel: a prompt

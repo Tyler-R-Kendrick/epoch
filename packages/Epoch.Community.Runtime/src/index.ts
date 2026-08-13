@@ -14,6 +14,8 @@ export * from "./ui";
 export * from "./workspace";
 export * from "./projects";
 export * from "./feeds";
+export * from "./storage";
+export * from "./identity";
 export * from "./commands";
 export * from "./runtime";
 export * from "./adapters/cli";

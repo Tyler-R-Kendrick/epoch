@@ -1621,11 +1621,13 @@ var CW_RUNTIME = (() => {
     isDynamicUiManifest: () => isDynamicUiManifest,
     listFeeds: () => listFeeds,
     listProjects: () => listProjects,
+    openDurableStorage: () => openDurableStorage,
     policyReceipt: () => policyReceipt,
     projectEntity: () => projectEntity,
     readProject: () => readProject,
     recordsOf: () => recordsOf,
     registerWebMcpTools: () => registerWebMcpTools,
+    resolveBrowserIdentity: () => resolveBrowserIdentity,
     revisionsOf: () => revisionsOf,
     skippedValidation: () => skippedValidation,
     summarizeReceipt: () => summarizeReceipt,
@@ -1664,8 +1666,8 @@ var CW_RUNTIME = (() => {
 
   // packages/Epoch.Community.Runtime/src/receipts.ts
   var EpochCommandError = class extends Error {
-    constructor(code, message) {
-      super(message);
+    constructor(code, message2) {
+      super(message2);
       __publicField(this, "code");
       this.name = "EpochCommandError";
       this.code = code;
@@ -2307,6 +2309,173 @@ var CW_RUNTIME = (() => {
     const trimmed = String(value ?? "").trim();
     if (trimmed.length === 0) throw new Error(`A social record ${label} is required.`);
     return trimmed;
+  }
+
+  // packages/Epoch.Community.Runtime/src/storage.ts
+  var DEFAULT_DATABASE = "epoch-community";
+  var DEFAULT_STORE = "workspace";
+  var SCHEMA_VERSION = 1;
+  async function openDurableStorage(options) {
+    const schemaVersion = options.schemaVersion ?? SCHEMA_VERSION;
+    const prefix = `${options.namespace}:`;
+    const factory = options.indexedDB ?? globalThis.indexedDB;
+    const values = /* @__PURE__ */ new Map();
+    let database;
+    let pending = 0;
+    let failure;
+    let settled = Promise.resolve();
+    if (factory !== void 0) {
+      try {
+        database = await openDatabase(
+          factory,
+          options.databaseName ?? DEFAULT_DATABASE,
+          options.storeName ?? DEFAULT_STORE,
+          schemaVersion
+        );
+        for (const [key, value] of await readAll(database, options.storeName ?? DEFAULT_STORE)) {
+          if (key.startsWith(prefix)) values.set(key, value);
+        }
+      } catch (error) {
+        failure = message(error);
+        database = void 0;
+      }
+    }
+    let migrated = 0;
+    if (values.size === 0 && options.migrateFrom !== void 0) {
+      for (let index = 0; index < options.migrateFrom.length; index += 1) {
+        const key = options.migrateFrom.key(index);
+        if (key === null || !key.startsWith(prefix)) continue;
+        const value = options.migrateFrom.getItem(key);
+        if (value === null) continue;
+        values.set(key, value);
+        migrated += 1;
+      }
+      for (const [key, value] of values) queue(key, value);
+    }
+    function queue(key, value) {
+      if (database === void 0) return;
+      pending += 1;
+      settled = settled.then(() => write(database, options.storeName ?? DEFAULT_STORE, key, value)).then(() => {
+        pending -= 1;
+      }, (error) => {
+        pending -= 1;
+        failure = message(error);
+      });
+    }
+    return {
+      kind: database === void 0 ? "memory" : "indexeddb",
+      schemaVersion,
+      migrated,
+      get length() {
+        return values.size;
+      },
+      key: (index) => [...values.keys()][index] ?? null,
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value);
+        queue(key, value);
+      },
+      removeItem: (key) => {
+        values.delete(key);
+        queue(key, null);
+      },
+      pendingWrites: () => pending,
+      lastError: () => failure,
+      flush: async () => {
+        await settled;
+      },
+      snapshot: () => Object.fromEntries(values),
+      restore: async (entries) => {
+        for (const key of [...values.keys()]) {
+          values.delete(key);
+          queue(key, null);
+        }
+        for (const [key, value] of Object.entries(entries)) {
+          values.set(key, value);
+          queue(key, value);
+        }
+        await settled;
+      },
+      close: () => {
+        database?.close();
+        database = void 0;
+      }
+    };
+  }
+  function openDatabase(factory, databaseName, storeName, version) {
+    return new Promise((resolve, reject) => {
+      const request = factory.open(databaseName, version);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(storeName)) database.createObjectStore(storeName);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB refused to open"));
+      request.onblocked = () => reject(new Error("IndexedDB open is blocked by another tab"));
+    });
+  }
+  function readAll(database, storeName) {
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(storeName, "readonly");
+      const store = transaction.objectStore(storeName);
+      const keys = store.getAllKeys();
+      const values = store.getAll();
+      transaction.oncomplete = () => {
+        const pairs = keys.result.map((key, index) => [String(key), String(values.result[index])]);
+        resolve(pairs);
+      };
+      transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB read failed"));
+    });
+  }
+  function write(database, storeName, key, value) {
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(storeName, "readwrite");
+      const store = transaction.objectStore(storeName);
+      if (value === null) store.delete(key);
+      else store.put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB write failed"));
+      transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB write aborted"));
+    });
+  }
+  function message(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  // packages/Epoch.Community.Runtime/src/identity.ts
+  var ALGORITHM = { name: "ECDSA", namedCurve: "P-256" };
+  async function resolveBrowserIdentity(options) {
+    const key = `${options.namespace}:identity`;
+    const stored = readStored(options.storage.getItem(key));
+    if (stored !== void 0) {
+      return { actor: stored.actor, kind: "device", publicKey: stored.publicKey, created: false };
+    }
+    const subtle = (options.crypto ?? globalThis.crypto)?.subtle;
+    if (subtle === void 0) {
+      return { actor: "did:epoch:anonymous", kind: "ephemeral", created: false };
+    }
+    try {
+      const pair = await subtle.generateKey(ALGORITHM, false, ["sign", "verify"]);
+      const publicKey = await subtle.exportKey("jwk", pair.publicKey);
+      const actor = `did:epoch:${digestOf(publicKey)}`;
+      const record = { version: 1, actor, publicKey };
+      options.storage.setItem(key, JSON.stringify(record));
+      return { actor, kind: "device", publicKey, created: true };
+    } catch {
+      return { actor: "did:epoch:anonymous", kind: "ephemeral", created: false };
+    }
+  }
+  function readStored(raw) {
+    if (raw === null) return void 0;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.version !== 1 || typeof parsed.actor !== "string" || parsed.publicKey === void 0) {
+        return void 0;
+      }
+      return { version: 1, actor: parsed.actor, publicKey: parsed.publicKey };
+    } catch {
+      return void 0;
+    }
   }
 
   // packages/Epoch.Community.Runtime/src/commands.ts

@@ -81,17 +81,72 @@
   var themeStyle = null;
   var lastError = "";
 
-  function actor() {
+  var identity = null;
+  var storage = null;
+
+  function sessionPrincipal() {
     try {
       if (window.CW_SESSION && typeof window.CW_SESSION.principal === "function") {
         var principal = window.CW_SESSION.principal();
         if (principal) return String(principal);
       }
     } catch { /* an unreadable session is an anonymous one */ }
-    return "browser";
+    return null;
   }
 
-  function boot() {
+  /**
+   * Durable storage first, with the old localStorage workspace carried over.
+   * Moving to better storage must never mean starting over, and a browser that
+   * refuses IndexedDB gets an in-memory workspace that says so rather than a
+   * silent one that loses the session.
+   */
+  async function openStorage() {
+    if (!window.CW_RUNTIME || typeof window.CW_RUNTIME.openDurableStorage !== "function") return undefined;
+    try {
+      return await window.CW_RUNTIME.openDurableStorage({
+        // Matches the key prefix BrowserEpoch writes ("epoch:<namespace>:") and
+        // the identity record, so one namespace covers the whole workspace.
+        namespace: "epoch:community-web",
+        migrateFrom: localStorageAdapter(),
+      });
+    } catch (error) {
+      lastError = (error && error.message) || String(error);
+      return undefined;
+    }
+  }
+
+  function localStorageAdapter() {
+    try {
+      if (typeof localStorage === "undefined") return undefined;
+      return {
+        get length() { return localStorage.length; },
+        key: function (index) { return localStorage.key(index); },
+        getItem: function (key) { return localStorage.getItem(key); },
+        setItem: function (key, value) { localStorage.setItem(key, value); },
+        removeItem: function (key) { localStorage.removeItem(key); },
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** A device identity, so two browsers writing the same history are distinguishable. */
+  async function resolveActor() {
+    var claimed = sessionPrincipal();
+    if (claimed) return claimed;
+    if (!window.CW_RUNTIME || typeof window.CW_RUNTIME.resolveBrowserIdentity !== "function") return "browser";
+    try {
+      identity = await window.CW_RUNTIME.resolveBrowserIdentity({
+        namespace: "epoch:community-web",
+        storage: storage || localStorageAdapter() || { getItem: function () { return null; }, setItem: function () {} },
+      });
+      return identity.actor;
+    } catch {
+      return "browser";
+    }
+  }
+
+  function boot(actorId) {
     if (!window.CW_RUNTIME || typeof window.CW_RUNTIME.createCommunityRuntime !== "function") {
       lastError = "runtime bundle missing";
       return null;
@@ -107,7 +162,8 @@
       });
       runtime = window.CW_RUNTIME.createCommunityRuntime({
         namespace: "community-web",
-        actor: actor(),
+        actor: actorId,
+        ...(storage ? { storage: storage } : {}),
         harness: harness,
         // The workspace is this person's own browser. Capability attenuation
         // matters for agents and remotes, not for the owner of the tab.
@@ -377,7 +433,9 @@
   }
 
   async function start() {
-    if (!boot()) {
+    storage = await openStorage();
+    var actorId = await resolveActor();
+    if (!boot(actorId)) {
       var notice = $("[data-cw-harness-notice]");
       if (notice) {
         notice.hidden = false;
@@ -395,6 +453,8 @@
       project: project,
       harnessRelease: runtime.harness.releaseId,
       tools: tools,
+      storage: storage ? storage.kind : "memory",
+      identity: identity,
     });
     return runtime;
   }
@@ -413,6 +473,20 @@
       }) : [];
     },
     error: function () { return lastError; },
+    identity: function () { return identity; },
+    storage: function () {
+      return storage
+        ? {
+          kind: storage.kind,
+          schemaVersion: storage.schemaVersion,
+          migrated: storage.migrated,
+          pendingWrites: storage.pendingWrites(),
+          lastError: storage.lastError(),
+        }
+        : { kind: "memory", schemaVersion: 0, migrated: 0, pendingWrites: 0, lastError: lastError };
+    },
+    flush: function () { return storage ? storage.flush() : Promise.resolve(); },
+    export: function () { return storage ? storage.snapshot() : {}; },
   };
 
   if (document.readyState === "loading") {

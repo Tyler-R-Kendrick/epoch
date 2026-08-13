@@ -69,7 +69,7 @@ Two claims from earlier framings needed correcting before anything else:
 | 13 | Two applications both called Community Web | A TypeScript-rendered document in the package and a script-tag app in `docs/`, kept aligned by a parity script | **One app** — the board is the Community Web application; the rendered-document surface remains as a server-rendered projection until workstream H finishes converging them |
 | 10 | No signed static harness, ABI, or enforced safe mode in the board | Static markup exists; a release manifest, slot ABI, and recovery boundary did not | **Fixed for the harness region** — the board installs a content-addressed release, renders slots from it, and boots recovery when the head fails validation. Signing the release is workstream C |
 | 11 | Community proposals do not resolve to native Epoch IDs | Social records model their own repositories and changes | **Fixed in the browser** — social records are change feeds with native change and revision ids, and the Community domain types carry the binding. Remote-side binding is workstream F |
-| 12 | Browser storage defaults to `localStorage` | Synchronous, quota-bound, unsuited to a growing object graph | **Open** — workstream B |
+| 12 | Browser storage defaults to `localStorage` | Synchronous, quota-bound, unsuited to a growing object graph | **Fixed** — IndexedDB with an in-memory read model, a durable write queue, migration from the old store, and a device identity |
 
 ## What this change implements
 
@@ -129,6 +129,24 @@ library does not recognise is refused before it becomes a proposal; a theme
 value that could escape a declaration is dropped by the same sanitiser the
 manual editor uses. One sanitiser, or the strict one is the one that gets
 bypassed.
+
+### Durable storage and device identity
+
+`localStorage` is synchronous, small, and shared with everything else on the
+origin — fine for a demo, wrong for a growing object graph. The workspace now
+opens IndexedDB, reads it once into memory, serves reads synchronously, and
+persists writes through a queue that *records* failures rather than swallowing
+them: `pendingWrites()` and `lastError()` exist so a page can say "your last
+change is not on disk". An origin that already had a `localStorage` workspace is
+migrated, because moving to better storage must never mean starting over, and a
+browser that refuses IndexedDB gets an in-memory workspace that says so.
+
+Each device mints a stable actor from a WebCrypto key pair whose private half is
+non-extractable, so an exported workspace cannot leak the ability to impersonate
+its author. Events are not yet signed with that key — that belongs with Core's
+signing path, and claiming it here would be an overstatement. What exists today
+is a stable actor id and a public key to bind a claimed identity to later, by
+addition: anonymous history keeps its anonymous author.
 
 ### Social records are change feeds
 
@@ -236,7 +254,7 @@ These are independently ownable; the ordering below is dependency, not calendar.
 | Workstream | Scope | Depends on |
 |---|---|---|
 | **A. Runtime and command contracts** | Command/query/receipt layer, policy hooks, contract tests | — (**landed**) |
-| **B. Browser workspace and durable storage** | IndexedDB/OPFS storage, real identity and signing, export/import, migration | A |
+| **B. Browser workspace and durable storage** | ~~IndexedDB, identity, export/import, migration~~ done; OPFS for large objects and signing events with the device key remain | A |
 | **C. Static harness release and safe mode** | Signed release install, boot verification, CSP/origin policy, recovery shell | A |
 | **D. OpenUI dynamic workspace** | Streaming preview inside the proposal flow; migrate the vendored parser bundle to the maintained packages | A, C |
 | **E. WebMCP Epoch tool family in the board** | ~~Registration~~ done; WebMCP evals and an in-page tool inspector remain | A, H |
@@ -268,7 +286,7 @@ marked.
       immutable objects; browser, CLI, and remote materialize the same head.
 - [ ] Social proposals and reviews resolve to native base, proposal, change, and
       revision identifiers.
-- [ ] Production storage is asynchronous and reports and migrates schema
+- [x] Production storage is asynchronous and reports and migrates schema
       versions.
 - [ ] The prompt → proposal → preview → semantic diff → merge → offline reload →
       rollback → sync walkthrough runs as a single end-to-end test.

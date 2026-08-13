@@ -8883,6 +8883,40 @@ const CASES = [
       return true;
     },
   },
+  {
+    name: "STORE-001 the workspace is durable and the device keeps one identity",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const first = await page.evaluate(async () => {
+        await window.CW_WORKSPACE.execute("view.create", { name: "durable" });
+        await window.CW_WORKSPACE.flush();
+        return {
+          storage: window.CW_WORKSPACE.storage(),
+          identity: window.CW_WORKSPACE.identity(),
+          actor: window.CW_WORKSPACE.status().actor,
+        };
+      });
+
+      if (first.storage.kind !== "indexeddb") return log("not durable: " + JSON.stringify(first.storage));
+      if (first.storage.pendingWrites !== 0) return log("writes did not settle: " + JSON.stringify(first.storage));
+      if (first.storage.lastError) return log("storage reported: " + first.storage.lastError);
+      if (!/^did:epoch:/.test(first.actor)) return log("no device identity: " + first.actor);
+      if (first.identity?.publicKey?.d) return log("private key material was stored");
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const second = await page.evaluate(() => ({
+        actor: window.CW_WORKSPACE.status().actor,
+        views: window.CW_WORKSPACE.runtime().workspace.listViews().map((view) => view.name),
+        created: window.CW_WORKSPACE.identity()?.created,
+      }));
+
+      if (second.actor !== first.actor) return log("identity changed on reload: " + JSON.stringify([first.actor, second.actor]));
+      if (second.created !== false) return log("a new identity was minted on reload");
+      if (!second.views.includes("durable")) return log("the workspace did not survive: " + JSON.stringify(second.views));
+      return true;
+    },
+  },
 ];
 
 async function path(page) {
