@@ -139,11 +139,6 @@ export function runExtensionCommand(
     if (!isExtensionName(name)) {
       throw new Error(`invalid extension name '${name}'; names are lowercase letters, digits, and hyphens`);
     }
-    // Record the decision before it takes effect. A write that fails after an
-    // audit entry leaves a claim with no grant; an audit entry that fails after
-    // a write would leave a grant with no claim, which is the dangerous order.
-    const repository = new EpochRepository(resolve(root));
-    repository.appendOperation(`ext-${action}`, "succeeded", { extension: name });
     // The decision has to change dispatch, not merely be recorded. `untrust`
     // therefore writes `block` as well as clearing `allow`: `block` wins in
     // every mode, so revocation holds under `trust = "any"` and under a signed
@@ -151,6 +146,12 @@ export function runExtensionCommand(
     // configuration rather than synced state, so consenting in one clone never
     // grants execution in another.
     updateTrustLists(resolve(root), name, action === "trust");
+    // Recorded only once the edit has landed. `succeeded` has to mean it
+    // succeeded: an editor that refuses a config shape it cannot rewrite is a
+    // routine outcome, not a crash, so recording first would stamp a refusal as
+    // a completed grant on every such refusal.
+    const repository = new EpochRepository(resolve(root));
+    repository.appendOperation(`ext-${action}`, "succeeded", { extension: name });
     io.stdout.write(`${action === "trust" ? "trusted" : "untrusted"} extension '${name}' in .epoch/config.toml\n`);
     return;
   }
@@ -172,6 +173,27 @@ function withoutComment(line: string): string {
     else if (character === "#") return line.slice(0, index);
   }
   return line;
+}
+
+/**
+ * Classify a line as a header for the `extensions` table.
+ *
+ * A TOML table header is a key, and keys may be bare or quoted, so
+ * `[extensions]`, `["extensions"]`, and `['extensions']` all name one table.
+ * Only the bare form is rewritable here; the others are recognized precisely so
+ * they can be refused rather than mistaken for an absent table.
+ */
+function extensionsHeaderKind(content: string): "table" | "array" | "quoted" | undefined {
+  const array = /^\[\[\s*(.+?)\s*\]\]$/u.exec(content);
+  const table = array === null ? /^\[\s*(.+?)\s*\]$/u.exec(content) : null;
+  const raw = array?.[1] ?? table?.[1];
+  if (raw === undefined) return undefined;
+
+  const quoted = /^(?:"([^"]*)"|'([^']*)')$/u.exec(raw);
+  const key = quoted === null ? raw : quoted[1] ?? quoted[2];
+  if (key !== "extensions") return undefined;
+  if (array !== null) return "array";
+  return quoted === null ? "table" : "quoted";
 }
 
 function renderList(key: string, names: readonly string[]): string {
@@ -218,14 +240,21 @@ function updateTrustLists(root: string, name: string, trusted: boolean): void {
   // the raw line would miss it and append a duplicate section.
   const headers: number[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const header = withoutComment(lines[index]).trim();
-    if (/^\[\[\s*extensions\s*\]\]$/u.test(header)) {
+    const kind = extensionsHeaderKind(withoutComment(lines[index]).trim());
+    if (kind === "array") {
       // TOML forbids a regular table at a path already used as an array of
       // tables, so appending `[extensions]` below this would produce a file no
       // reader accepts — and an unreadable policy is an unenforced one.
       throw new ConfigEditError("it declares [extensions] as an array of tables");
     }
-    if (/^\[\s*extensions\s*\]$/u.test(header)) headers.push(index);
+    if (kind === "quoted") {
+      // TOML table headers are keys, and keys may be quoted, so `["extensions"]`
+      // names the same table as `[extensions]`. Appending the bare form would
+      // define it twice. Epoch's own reader accepts neither, so the edit would
+      // otherwise report success while changing nothing that takes effect.
+      throw new ConfigEditError("it declares [extensions] with a quoted key");
+    }
+    if (kind === "table") headers.push(index);
   }
   if (headers.length > 1) throw new ConfigEditError("it declares [extensions] more than once");
 

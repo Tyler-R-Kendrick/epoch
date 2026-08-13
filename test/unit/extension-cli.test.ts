@@ -171,6 +171,21 @@ function configEditRefusesShapesItCannotRewriteSafely(): void {
       label: "[extensions] declared as an array of tables",
       config: `[[extensions]]  # array of tables\nname = "a"\n`,
     },
+    {
+      // A TOML table header is a key, and keys may be quoted, so this names the
+      // same table as `[extensions]`. Appending the bare form would define it
+      // twice.
+      label: "[extensions] declared with a quoted key",
+      config: `["extensions"]\nallow = ["mergiraf"]\n`,
+    },
+    {
+      label: "[extensions] declared with a literal-quoted key",
+      config: `[ 'extensions' ]  # literal key\nallow = []\n`,
+    },
+    {
+      label: "[extensions] declared as a quoted array of tables",
+      config: `[["extensions"]]\nname = "a"\n`,
+    },
   ];
 
   for (const { label, config } of unsupported) {
@@ -185,6 +200,14 @@ function configEditRefusesShapesItCannotRewriteSafely(): void {
       // Refusing means leaving the operator's file exactly as it was. A partial
       // rewrite of a trust policy is worse than no rewrite at all.
       assert.equal(configOf(root), config, `${label} must leave the file untouched`);
+
+      // A refusal must not be recorded as a completed grant. `succeeded` has to
+      // mean the policy actually changed, or the audit log describes decisions
+      // the repository never made.
+      const operations = new EpochRepository(root).events()
+        .filter((event) => event.type === "operation")
+        .map((event) => (event.payload as { command?: string }).command);
+      assert.ok(!operations.includes("ext-trust"), `${label} must record no operation`);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
