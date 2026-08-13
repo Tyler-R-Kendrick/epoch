@@ -1,14 +1,50 @@
 import assert from "node:assert/strict";
-import { createInMemoryCommunityApi, createCommunityApiFetchHandler } from "@epoch/community-api";
+import { createCommunityApiHost, createInMemoryCommunityApi, createCommunityApiFetchHandler } from "@epoch/community-api";
 import { main as communityCliMain } from "@epoch/community-cli";
 import { CommunityRepository, createCommunityClient, createHttpCommunityClient } from "@epoch/community-core";
 
 export async function runCommunityCoverageTests(): Promise<void> {
   await apiFetchHandlerRoutesCommunityRequests();
   await apiRejectsInvalidAndUnknownRequests();
+  await defaultHostWiresSearchProjectionsAndNamespace();
   await cliCoversIssueAndChangeWorkflows();
   await cliReportsUsageAndValidationErrors();
   await httpClientReportsNonOkApiErrors();
+}
+
+async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
+  const host = createCommunityApiHost({
+    cursorKey: new Uint8Array(32).fill(19),
+    resolveAuthorization: () => ({ actorId: "alice" }),
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "canonical",
+      maintainers: ["alice"],
+      topics: ["dvcs"],
+    }],
+  });
+  await host.api.openIssue("epoch/epoch", { id: "ISSUE-1", title: "Needs review", author: "alice" });
+  const parsed = host.services.search.parseSearch("kind:issue", { authorization: { actorId: "alice" } });
+  assert.equal(parsed.error, undefined);
+  const searched = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10 }),
+  }));
+  assert.equal(searched.status, 200);
+  const page = await searched.json() as { hits: Array<{ target: { kind: string } }> };
+  assert.ok(page.hits.some((hit) => hit.target.kind === "issue"));
+  assert.equal((await host.handler(new Request("https://epoch.test/projections"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/mounts"))).status, 200);
+  const graphql = await host.handler(new Request("https://epoch.test/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "{ sourceCapabilities { sourceId } }" }),
+  }));
+  assert.equal(graphql.status, 200);
+  const body = await graphql.json() as { data: { sourceCapabilities: Array<{ sourceId: string }> } };
+  assert.deepEqual(body.data.sourceCapabilities.map((value) => value.sourceId), ["community-store"]);
 }
 
 async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
