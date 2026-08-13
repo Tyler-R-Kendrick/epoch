@@ -181,3 +181,141 @@ Feature: CLI and WASM integration surfaces
     Then WASM Git fails with "native Git repository access is unavailable"
     When I run unsupported WASM Git clone for "https://example.invalid/repo.git"
     Then WASM Git fails with "native Git clone is unavailable"
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor merges concurrent dependency additions without a false conflict
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I write raw workspace file "base.json" with content "{\n  \"zod\": \"4\"\n}\n"
+    And I write raw workspace file "mine.json" with content "{\n  \"zod\": \"4\",\n  \"xstate\": \"5\"\n}\n"
+    And I write raw workspace file "theirs.json" with content "{\n  \"zod\": \"4\",\n  \"playwright\": \"1\"\n}\n"
+    And I run the Epoch CLI with arguments:
+      | semantic    |
+      | merge       |
+      | base.json   |
+      | mine.json   |
+      | theirs.json |
+    Then the CLI exits with code 0
+    And the CLI output contains "\"xstate\": \"5\""
+    And the CLI output contains "\"playwright\": \"1\""
+    And the CLI output contains "\"zod\": \"4\""
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor sees a diff that names the changed value, not the surrounding lines
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I write raw workspace file "before.json" with content "{\n  \"name\": \"epoch\",\n  \"version\": \"0.1.0\"\n}\n"
+    And I write raw workspace file "after.json" with content "{\n  \"name\": \"epoch\",\n  \"version\": \"0.2.0\"\n}\n"
+    And I run the Epoch CLI with arguments:
+      | semantic     |
+      | diff         |
+      | before.json  |
+      | after.json   |
+    Then the CLI exits with code 0
+    And the CLI output contains "update object#0/member:version"
+    And the CLI output does not contain "member:name"
+
+  @persona.maintainer
+  Scenario: Maintainer is told when a discovered extension is not trusted
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I install a workspace extension named "greet"
+    And I run the Epoch CLI with arguments:
+      | ext  |
+      | list |
+    Then the CLI exits with code 0
+    And the CLI output contains "greet"
+    And the CLI output contains "untrusted"
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 1
+    And the CLI error contains "not trusted"
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | show  |
+      | greet |
+    Then the CLI exits with code 0
+    And the CLI output contains "\"resolution\": \"extension\""
+    And the CLI output contains "allowed-by-consent"
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+
+  @persona.maintainer
+  Scenario: A trusted extension loses its grant when its binary is replaced
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I install a workspace extension named "greet"
+    And I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+    When I replace the workspace extension named "greet"
+    And I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 1
+    And the CLI error contains "has changed since you trusted it"
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+
+  @persona.maintainer
+  Scenario: Untrusting an extension revokes it even under an open trust policy
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I install a workspace extension named "greet"
+    And I set the workspace extension trust mode to "any"
+    And I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | ext     |
+      | untrust |
+      | greet   |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 1
+    And the CLI error contains "blocked by repository policy"
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0

@@ -420,7 +420,7 @@ Community Web itself is not yet built from this runtime — deployment still shi
 the Nightboard design exploration. See
 [Community Web As An Epoch Participant](community-web-epoch-integration.md) for
 the verified gap ledger and the remaining workstreams, and
-[ADR-0037](design-decisions/0037-community-runtime-command-layer.md).
+[ADR-0040](design-decisions/0040-community-runtime-command-layer.md).
 
 ## Change Graph And Operation History
 
@@ -461,6 +461,48 @@ execution mode is `in-process`. Details and escape paths are in
 [Change Graph And Operation History](change-graph.md). Canonical terms are in
 [Epoch Nomenclature](nomenclature.md).
 
+## Extensions And Capability Providers
+
+`@epoch/extensions` implements the two-tier extension model. External
+subcommands resolve as `epoch-<name>` from `.epoch/ext/bin`,
+`~/.epoch/ext/bin`, then `$PATH`, and run only when the `[extensions]` trust
+policy in repository config admits them; discovery without trust is reported,
+not silently executed or silently ignored. `CapabilityRegistry` holds typed
+providers for `command`, `syntax`, `diff`, `merge`, `compression`, `view`,
+`codec`, and `hook`, resolved by explicit pin, then match specificity, then
+provider ID — never registration order. `CapabilityRegistry.describe()`
+produces the provider descriptor recorded alongside signed state.
+
+`epoch ext list|show|trust|untrust` is the operator surface. See
+[Extensions And Capability Providers](extensions.md) and
+[ADR-0037](design-decisions/0037-extension-mechanism-and-capability-registry.md).
+
+## Semantic Content Pipeline
+
+`@epoch/semantic` is a browser-safe engine for structural diff, patch, merge,
+and compression planning over a bytes → lines → tokens → syntax → entities
+ladder. Artifacts are keyed by structural path (`object#0/member:version`)
+rather than line offset, so a structural patch still applies after the target
+is reformatted, and a conflict still names the same construct after a rebase.
+
+Builtin syntax providers cover JSON, a TOML subset, Markdown heading trees, and
+a generic balanced-delimiter provider for brace-delimited languages. The
+delimiter provider recovers block structure and is not a grammar;
+grammar-backed providers are expected to arrive as extensions through the
+capability registry.
+
+Merge resolves disjoint subtrees independently, merges independent insertions
+into declared commutative containers, and leaves genuine disagreement as a
+path-scoped conflict carrying a formatting-insensitive signature for reusable
+resolutions. Compression planning provides syntax-guided chunking grouped by
+node count, subtree dedup, deterministic dictionary derivation, and semantic
+deltas; object identity and `verify()` are unchanged, since SHA-256 over whole
+content remains authoritative.
+
+`epoch semantic diff|apply|merge|plan` is the operator surface. See
+[Semantic Content Pipeline](semantic-pipeline.md) and
+[ADR-0038](design-decisions/0038-semantic-diff-merge-and-compression.md).
+
 ## Non-Goals In The Current Prototype
 
 The current implementation does not provide:
@@ -478,3 +520,7 @@ The current implementation does not provide:
 - persisted Epoch.Platform control-plane storage
 - real Epoch.Platform runners or infrastructure adapters
 - production container orchestration for the platform service descriptors
+- process, filesystem, or network sandboxing of external extensions
+- grammar-backed syntax providers for general-purpose languages
+- byte-level entropy coding or a packfile format for semantic compression
+- the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)

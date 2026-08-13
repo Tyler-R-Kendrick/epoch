@@ -58,6 +58,8 @@ decisions, operations, or contribution workflow.
 | [Object Resolver And Native Sync](resolver-sync.md) | Storage descriptors, promises, verified hydration, `epoch.sync/v2`, bounded commands, and recovery behavior. |
 | [Workspace Providers](workspace-providers.md) | Separate residency, materialization, storage, and execution capabilities for memory, filesystem, browser, and opt-in Rift launch. |
 | [Forge Adapters And Mirror Authority](forge-adapters.md) | Public-only loss-aware codecs, explicit mirror authority, drift handling, SSRF controls, and escape paths. |
+| [Extensions And Capability Providers](extensions.md) | External `epoch-*` subcommands, manifests, trust policy, the typed capability registry, deterministic resolution, and recorded provenance. |
+| [Semantic Content Pipeline](semantic-pipeline.md) | Structural diff, structural patches, three-way structural merge, path-scoped conflicts, and semantic compression. |
 | [Blob And Large-File Gap Analysis](blob-large-file-gap-analysis.md) | Competitive capability matrix and residual gaps behind Epoch's large-file direction, feeding the ADR-0018 reference architecture. |
 | [Visual Design System](../DESIGN.md) | Epoch Community visual tokens, component rules, accessibility guardrails, and design-system sidecar guidance. |
 | [CLI Reference](cli.md) | Source checkout commands, `epoch` shorthand, `epoch-git`, global linking, and command groups. |
@@ -106,7 +108,10 @@ decisions, operations, or contribution workflow.
 | [ADR-0034: Agent Principals, Grants, And Budgets](design-decisions/0034-agent-principals-grants-and-budgets.md) | Defines attenuated agent authority, transactional budgets, receipts, and injected persistence boundaries. |
 | [ADR-0035: Forge Adapters And Mirror Authority](design-decisions/0035-forge-adapters-and-mirror-authority.md) | Defines public-only forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause behavior. |
 | [ADR-0036: SWHIDs And Software Heritage Archival](design-decisions/0036-swhids-and-software-heritage-archival.md) | Defines browser-safe SWHIDs and injected, verified public archival requests. |
-| [ADR-0037: One Community Command Layer](design-decisions/0037-community-runtime-command-layer.md) | Makes one command bus, receipt schema, browser UI workspace, and static harness ABI serve web, WebMCP, CLI, and SDK. |
+| [ADR-0037: Extension Mechanism And Capability Registry](design-decisions/0037-extension-mechanism-and-capability-registry.md) | Defines external `epoch-*` subcommands with manifests and trust policy, a typed capability registry, deterministic resolution, and mandatory provider provenance. |
+| [ADR-0038: Semantic Diff, Merge, And Compression](design-decisions/0038-semantic-diff-merge-and-compression.md) | Defines the bytes-to-entities representation ladder, structural patches, structural merge with commutative containers, and syntax-guided storage. |
+| [ADR-0039: Native Capabilities From The Git Extension Ecosystem](design-decisions/0039-native-capabilities-from-the-git-extension-ecosystem.md) | Sorts the Git extension ecosystem into native capabilities, genuine extensions, and deliberate non-goals. |
+| [ADR-0040: One Community Command Layer](design-decisions/0040-community-runtime-command-layer.md) | Makes one command bus, receipt schema, browser UI workspace, and static harness ABI serve web, WebMCP, CLI, and SDK. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

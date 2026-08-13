@@ -51,6 +51,8 @@ The current registry is backed by these Cucumber feature files:
 | `@epoch/forge` | Public loss-aware codecs and mirror authority/idempotency/SSRF/drift behavior in `packages/Epoch.Forge/test/`. |
 | `@epoch/identity` | Principal/grant/budget/provider authority and privacy-safe receipts in identity-focused unit suites. |
 | `@epoch/software-heritage` | SWHID parsing/computation/Git mapping and injected public archival client in package unit suites. |
+| `@epoch/extensions` | Manifest parsing/validation, discovery precedence, trust modes (explicit/signed/any, block, missing manifest), builtin shadowing, environment contract, and deterministic capability resolution in `test/unit/extension-mechanism.test.ts`. |
+| `@epoch/semantic` | Structural paths under reformatting, patch application onto reformatted targets, move/rename/reorder detection, round-trip fidelity per edit kind, disjoint and commutative merge, order-independent commutation, path-scoped conflicts with formatting-insensitive signatures, subtree dedup, reindentation-stable chunking, deterministic dictionaries, and semantic deltas in `test/unit/semantic-pipeline.test.ts`. |
 
 See [ADR-0022](design-decisions/0022-gossip-event-plane-atproto-public-artifacts.md) and
 [docs/community-atproto.md](community-atproto.md).

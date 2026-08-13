@@ -14,10 +14,12 @@ import {
 } from "@epoch/core";
 import type { EventMetadata } from "@epoch/core";
 import { FederatedCommunity, MockPds } from "@epoch/atproto";
-import { CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
+import { BUILTIN_COMMANDS, CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 import { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphInvocation } from "./change-graph";
 import { executeCommunityCli, isCommunityCliInvocation } from "./community";
 import { interopDoctor } from "./interop-doctor";
+import { dispatchExternalSubcommand, runExtensionCommand } from "./extensions";
+import { runSemanticCommand } from "./semantic";
 
 interface ParsedArgs {
   repo: string;
@@ -86,6 +88,26 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
       (envelope.ok ? io.stdout : io.stderr).write(`${output}\n`);
       if (!envelope.ok) throw new CliHandledError(output);
     });
+  }
+
+  if (parsed.command === CliCommand.ext) {
+    runExtensionCommand(parsed.repo, parsed.args, io);
+    return;
+  }
+  if (parsed.command === CliCommand.semantic) {
+    runSemanticCommand(parsed.args, io);
+    return;
+  }
+
+  // Git's rule is that any executable named `git-foo` on $PATH becomes a
+  // command. Epoch keeps the reach but not the silent trust: an extension runs
+  // only when the repository's trust policy admits it (ADR-0037).
+  if (!BUILTIN_COMMANDS.includes(parsed.command)) {
+    const dispatched = dispatchExternalSubcommand(parsed.repo, parsed.command, parsed.args, io);
+    if (dispatched.handled) {
+      if (dispatched.exitCode !== 0) throw new CliHandledError(parsed.command);
+      return;
+    }
   }
 
   const repo = new EpochRepository(parsed.repo);
@@ -701,3 +723,4 @@ if (require.main === module) {
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";
 export { createFileStorage, executeCommunityCli, isCommunityCliInvocation, openWorkspaceRuntime } from "./community";
+export { dispatchExternalSubcommand, runExtensionCommand } from "./extensions";

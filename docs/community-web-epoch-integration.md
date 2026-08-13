@@ -5,7 +5,7 @@ social surface over the real object graph, not a second product that talks about
 the same nouns. This document records the gap between that intent and the
 repository as it stands, the target architecture, and the workstreams that close
 the distance. It is the design companion to
-[ADR-0037](design-decisions/0037-community-runtime-command-layer.md).
+[ADR-0040](design-decisions/0040-community-runtime-command-layer.md).
 
 Source-level audit, verified against `main` on 12 August 2026. Findings below
 were re-checked against the files they name; nothing here is inferred from

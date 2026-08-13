@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, setDefaultTimeout, Then, When } from "@cucumber/cucumber";
@@ -116,6 +116,54 @@ When("I write raw workspace file {string} with content {string}", function (path
   const absolute = join(state.workspace, path);
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+});
+
+When("I install a workspace extension named {string}", function (name: string) {
+  const bin = join(state.workspace, ".epoch", "ext", "bin");
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, `epoch-${name}`);
+  writeFileSync(executable, `#!/bin/sh\necho "${name} ran"\n`, "utf8");
+  chmodSync(executable, 0o755);
+  writeFileSync(
+    join(bin, `epoch-${name}.toml`),
+    [`name = "${name}"`, "api = 1", `version = "1.0.0"`, `capabilities = ["command"]`].join("\n"),
+    "utf8",
+  );
+});
+
+When("I replace the workspace extension named {string}", function (name: string) {
+  const executable = join(state.workspace, ".epoch", "ext", "bin", `epoch-${name}`);
+  writeFileSync(executable, `#!/bin/sh\necho "${name} replaced"\n`, "utf8");
+  chmodSync(executable, 0o755);
+});
+
+When("I set the workspace extension trust mode to {string}", function (mode: string) {
+  // Written by hand rather than through `ext trust`, so the scenario exercises
+  // an operator-authored policy the CLI then has to honour. Appending a second
+  // `[extensions]` table when one already exists would write invalid TOML, so
+  // an existing table is edited in place.
+  const configPath = join(state.workspace, ".epoch", "config.toml");
+  const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
+  const lines = existing.length === 0 ? [] : existing.split(/\r?\n/u);
+  const section = lines.findIndex((line) => line.trim() === "[extensions]");
+
+  if (section === -1) {
+    const separator = existing.length === 0 || existing.endsWith("\n") ? "" : "\n";
+    writeFileSync(configPath, `${existing}${separator}\n[extensions]\ntrust = "${mode}"\n`, "utf8");
+    return;
+  }
+
+  let end = lines.length;
+  for (let index = section + 1; index < lines.length; index += 1) {
+    if (lines[index].trim().startsWith("[")) {
+      end = index;
+      break;
+    }
+  }
+  const trust = lines.findIndex((line, index) => index > section && index < end && /^\s*trust\s*=/u.test(line));
+  if (trust === -1) lines.splice(section + 1, 0, `trust = "${mode}"`);
+  else lines[trust] = `trust = "${mode}"`;
+  writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
 });
 
 When("actor users concurrently record:", async function (table: DataTable) {
@@ -723,6 +771,10 @@ Then("the CLI exits with code {int}", function (code: number) {
 
 Then("the CLI output contains {string}", function (expected: string) {
   assert.match(state.cliStdout ?? "", new RegExp(escapeForRegExp(expected)));
+});
+
+Then("the CLI output does not contain {string}", function (unexpected: string) {
+  assert.doesNotMatch(state.cliStdout ?? "", new RegExp(escapeForRegExp(unexpected)));
 });
 
 Then("the CLI error contains {string}", function (expected: string) {

@@ -223,6 +223,13 @@ export interface EpochRepositoryConfig {
   readonly ignore?: {
     readonly global_file?: string;
   };
+  /** Extension trust policy (ADR-0037). Read by `@epoch/extensions`. */
+  readonly extensions?: {
+    readonly trust?: "explicit" | "signed" | "any";
+    readonly allow?: readonly string[];
+    readonly block?: readonly string[];
+    readonly allow_publishers?: readonly string[];
+  };
 }
 
 export interface WorkingTreeEntry {
@@ -2254,6 +2261,7 @@ function deepMergeConfig(left: EpochRepositoryConfig, right: EpochRepositoryConf
     ...right,
     working_tree: { ...(left.working_tree ?? {}), ...(right.working_tree ?? {}) },
     ignore: { ...(left.ignore ?? {}), ...(right.ignore ?? {}) },
+    extensions: { ...(left.extensions ?? {}), ...(right.extensions ?? {}) },
   };
 }
 
