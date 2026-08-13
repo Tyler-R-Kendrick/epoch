@@ -45,6 +45,24 @@ async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
   assert.equal(graphql.status, 200);
   const body = await graphql.json() as { data: { sourceCapabilities: Array<{ sourceId: string }> } };
   assert.deepEqual(body.data.sourceCapabilities.map((value) => value.sourceId), ["community-store"]);
+
+  await assert.rejects(
+    async () => createCommunityApiHost({ store: host.store, repositories: [{ slug: "x/y", displayName: "X", description: "x", maintainers: ["alice"] }] }),
+    /injected CommunityStateStore cannot be combined/,
+  );
+  const closed = createCommunityApiFetchHandler(host.api);
+  const unsupported = await closed(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, first: 10 }),
+  }));
+  assert.equal(unsupported.status, 422);
+  const scoped = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, first: 10, scope: { sourceIds: ["other"] } }),
+  }));
+  assert.ok(scoped.status >= 400, `scoped search must fail closed, got ${scoped.status}`);
 }
 
 async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
