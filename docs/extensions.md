@@ -168,6 +168,17 @@ name-only grant trusts whatever later occupies the path — an upgrade and a
 substitution look identical to it. Epoch cannot tell those apart either, so it
 asks the one party who can. The model is SSH's `known_hosts`, not `$PATH`.
 
+The digest is required rather than usual, so consent to a bare name cannot be
+recorded at all. Trusting an extension that is not installed is an error:
+
+```console
+$ epoch ext trust greet
+cannot trust 'greet': no extension by that name is installed. Install it first, then trust the binary you inspected.
+```
+
+Recording it would have been a promissory grant that any binary later dropped
+at that path would inherit — the exact weakness the digest removes.
+
 An `allow` entry written by hand in `.epoch/config.toml` is deliberately *not*
 digest-bound: an operator who lists a name there is choosing the looser
 guarantee, and the two sources are distinguishable in `ext show`

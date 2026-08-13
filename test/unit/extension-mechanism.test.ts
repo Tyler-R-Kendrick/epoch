@@ -107,8 +107,8 @@ function trustStoreRoundTripsAndFailsClosed(): void {
 
   // Serialization is deterministic, so two clones consenting to the same set
   // produce byte-identical files.
-  const forward = grantTrust(grantTrust(EMPTY_TRUST_STORE, "alpha", undefined), "beta", undefined);
-  const backward = grantTrust(grantTrust(EMPTY_TRUST_STORE, "beta", undefined), "alpha", undefined);
+  const forward = grantTrust(grantTrust(EMPTY_TRUST_STORE, "alpha", "e".repeat(64)), "beta", "f".repeat(64));
+  const backward = grantTrust(grantTrust(EMPTY_TRUST_STORE, "beta", "f".repeat(64)), "alpha", "e".repeat(64));
   assert.equal(serializeTrustStore(forward), serializeTrustStore(backward));
 
   // Every malformed shape is an error, never a silently empty store: reading
@@ -121,6 +121,10 @@ function trustStoreRoundTripsAndFailsClosed(): void {
     `{"version":1,"allow":[{"name":""}],"block":[]}`,
     `{"version":1,"allow":[{"name":"a","executableSha256":"short"}],"block":[]}`,
     `{"version":1,"allow":[],"block":[1]}`,
+    // A grant with no digest is consent to a name rather than a binary. It must
+    // be rejected on read, or a hand-edited or older store could reintroduce
+    // exactly the weakness the digest binding removes.
+    `{"version":1,"allow":[{"name":"greet"}],"block":[]}`,
   ]) {
     assert.throws(() => parseTrustStore(malformed), TrustStoreError, `must reject: ${malformed}`);
   }

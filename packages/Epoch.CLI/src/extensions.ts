@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { EpochRepository } from "@epoch/core";
@@ -62,14 +62,20 @@ function trustStorePath(root: string): string {
   return join(root, ".epoch", "ext", "trust.json");
 }
 
-/** Read recorded consent, or `undefined` when the store cannot be trusted. */
-function readTrustStore(root: string): TrustStore | undefined {
+/**
+ * Read recorded consent.
+ *
+ * The parse failure is carried rather than collapsed, so the operator is told
+ * what is wrong with the file instead of being advised to delete consent they
+ * may still want.
+ */
+function readTrustStore(root: string): { readonly store: TrustStore } | { readonly error: string } {
   const path = trustStorePath(root);
-  if (!existsSync(path)) return EMPTY_TRUST_STORE;
+  if (!existsSync(path)) return { store: EMPTY_TRUST_STORE };
   try {
-    return parseTrustStore(readFileSync(path, "utf8"));
-  } catch {
-    return undefined;
+    return { store: parseTrustStore(readFileSync(path, "utf8")) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -83,24 +89,37 @@ function readTrustStore(root: string): TrustStore | undefined {
  * policy instead of narrowing it.
  */
 function policyFor(root: string): ExtensionTrustPolicy {
-  const store = readTrustStore(root);
-  if (store === undefined) return readTrustPolicy(undefined);
+  const read = readTrustStore(root);
+  if (!("store" in read)) return readTrustPolicy(undefined);
   try {
     const config = new EpochRepository(root).repositoryConfig();
-    return withRecordedConsent(readTrustPolicy(config.extensions as Record<string, unknown> | undefined), store);
+    return withRecordedConsent(readTrustPolicy(config.extensions as Record<string, unknown> | undefined), read.store);
   } catch {
     // A repository whose configuration cannot be read still honours consent
     // already recorded, but adopts no hand-authored policy.
-    return withRecordedConsent(readTrustPolicy(undefined), store);
+    return withRecordedConsent(readTrustPolicy(undefined), read.store);
   }
 }
 
-/** Replace the store atomically, so a crash cannot leave it half-written. */
+/**
+ * Replace the store atomically.
+ *
+ * The temporary file is flushed before the rename, so a power loss cannot
+ * leave a file that exists but is truncated. Truncation would fail the parse
+ * and close the policy, which is safe, but it would also silently discard
+ * recorded revocations that the operator expects to persist.
+ */
 function writeTrustStore(root: string, store: TrustStore): void {
   const path = trustStorePath(root);
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.tmp`;
-  writeFileSync(temporary, serializeTrustStore(store), "utf8");
+  const handle = openSync(temporary, "w");
+  try {
+    writeFileSync(handle, serializeTrustStore(store), "utf8");
+    fsyncSync(handle);
+  } finally {
+    closeSync(handle);
+  }
   renameSync(temporary, path);
 }
 
@@ -182,25 +201,39 @@ export function runExtensionCommand(
       throw new Error(`invalid extension name '${name}'; names are lowercase letters, digits, and hyphens`);
     }
     const absolute = resolve(root);
-    const store = readTrustStore(absolute);
-    if (store === undefined) {
-      throw new Error(
-        `refusing to edit ${trustStorePath(absolute)}: it is not a readable trust store; remove it to start over`,
-      );
+    const read = readTrustStore(absolute);
+    if (!("store" in read)) {
+      throw new Error(`refusing to edit ${trustStorePath(absolute)}: ${read.error}`);
     }
 
-    // Consent binds to the binary, not just the name. Trusting `greet` grants
-    // *this* `epoch-greet`; a different one at the same path has not been
-    // consented to and is refused until the operator says so again.
-    const digest = action === "trust"
-      ? discover(absolute, dependencies).find((extension) => extension.name === name)?.executableSha256
-      : undefined;
-    writeTrustStore(absolute, action === "trust" ? grantTrust(store, name, digest) : revokeTrust(store, name));
+    let next: TrustStore;
+    let bound = "";
+    if (action === "trust") {
+      // Consent binds to a binary, so there has to be a binary to bind to.
+      // Trusting a name that is not installed, or whose executable cannot be
+      // read, would otherwise record a grant with nothing to check a future
+      // binary against — consent to a name, which is exactly what this store
+      // exists to avoid.
+      const found = discover(absolute, dependencies).find((extension) => extension.name === name);
+      if (found === undefined) {
+        throw new Error(
+          `cannot trust '${name}': no extension by that name is installed. `
+          + `Install it first, then trust the binary you inspected.`,
+        );
+      }
+      if (found.executableSha256 === undefined) {
+        throw new Error(`cannot trust '${name}': ${found.executable} could not be read to bind consent to it`);
+      }
+      next = grantTrust(read.store, name, found.executableSha256);
+      bound = ` (${found.executableSha256.slice(0, 12)}…)`;
+    } else {
+      next = revokeTrust(read.store, name);
+    }
+    writeTrustStore(absolute, next);
 
     // Recorded only once the write has landed. `succeeded` has to mean it
     // succeeded, or a refusal is stamped into history as a completed grant.
     new EpochRepository(absolute).appendOperation(`ext-${action}`, "succeeded", { extension: name });
-    const bound = action === "trust" && digest !== undefined ? ` (${digest.slice(0, 12)}…)` : "";
     io.stdout.write(`${action === "trust" ? "trusted" : "untrusted"} extension '${name}'${bound}\n`);
     return;
   }
@@ -247,6 +280,13 @@ export function dispatchExternalSubcommand(
   // shrinks the race to the syscall boundary instead of the whole command, and
   // a swap that loses the race is refused rather than run.
   const digest = (dependencies.fileSystem ?? nodeExtensionFileSystem).fileDigest?.(resolution.extension.executable);
+  if (digest === undefined) {
+    // Comparing two absent digests would compare equal and wave the launch
+    // through, so an unavailable digest has to be its own refusal rather than a
+    // silent pass.
+    io.stderr.write(`extension '${command}' could not be digested before launch; refusing to run it\n`);
+    return { handled: true, exitCode: 1 };
+  }
   if (digest !== resolution.extension.executableSha256) {
     io.stderr.write(`extension '${command}' changed on disk while it was being checked; refusing to run it\n`);
     return { handled: true, exitCode: 1 };

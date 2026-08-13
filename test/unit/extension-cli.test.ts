@@ -17,7 +17,9 @@ export function runExtensionCliTests(): void {
   operatorConfigurationIsReadNeverRewritten();
   aCorruptStoreTrustsNothing();
   trustRefusesNamesOutsideTheGrammar();
+  trustRefusesWhatItCannotBindToABinary();
   dispatchRefusesABinarySwappedAfterTheCheck();
+  dispatchRefusesWhenTheBinaryCannotBeDigested();
 }
 
 interface Captured {
@@ -44,14 +46,18 @@ function workspace(body = "#!/bin/sh\nexit 0\n"): string {
 }
 
 function installGreet(root: string, body: string): void {
+  installExtension(root, "greet", body);
+}
+
+function installExtension(root: string, name: string, body: string): void {
   const bin = join(root, ".epoch", "ext", "bin");
   mkdirSync(bin, { recursive: true });
-  const executable = join(bin, "epoch-greet");
+  const executable = join(bin, `epoch-${name}`);
   writeFileSync(executable, body, "utf8");
   chmodSync(executable, 0o755);
   writeFileSync(
-    join(bin, "epoch-greet.toml"),
-    [`name = "greet"`, "api = 1", `version = "1.0.0"`, `capabilities = ["command"]`].join("\n"),
+    join(bin, `epoch-${name}.toml`),
+    [`name = "${name}"`, "api = 1", `version = "1.0.0"`, `capabilities = ["command"]`].join("\n"),
     "utf8",
   );
 }
@@ -68,8 +74,12 @@ const isolated = { pathEntries: [] as readonly string[] };
 
 /** Dispatch `greet` without launching anything, reporting whether it would run. */
 function wouldRun(root: string): boolean {
+  return wouldRunNamed(root, "greet");
+}
+
+function wouldRunNamed(root: string, name: string): boolean {
   let spawned = false;
-  const result = dispatchExternalSubcommand(root, "greet", [], capture().io, {
+  const result = dispatchExternalSubcommand(root, name, [], capture().io, {
     pathEntries: [],
     homeDirectory: join(root, "absent-home"),
     spawn: () => {
@@ -77,7 +87,7 @@ function wouldRun(root: string): boolean {
       return 0;
     },
   });
-  assert.equal(result.handled, true, "greet is installed, so dispatch must own it either way");
+  assert.equal(result.handled, true, `${name} is installed, so dispatch must own it either way`);
   return spawned;
 }
 
@@ -107,6 +117,11 @@ function trustGrantsAndUntrustRevokesUnderEveryMode(): void {
     // Revocation has to hold under a policy that admits extensions the allow
     // list never named, or `untrust` would report success and change nothing.
     writeFileSync(configPath(root), `${readFileSync(configPath(root), "utf8")}\n[extensions]\ntrust = "any"\n`, "utf8");
+
+    // Prove the open mode is actually in force, or the next assertion could
+    // pass because nothing was admitted rather than because the block held.
+    installExtension(root, "other", "#!/bin/sh\nexit 0\n");
+    assert.equal(wouldRunNamed(root, "other"), true, "trust = 'any' admits an unlisted extension");
     assert.equal(wouldRun(root), false, "a recorded revocation outranks an open trust mode");
 
     runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
@@ -202,9 +217,11 @@ function aCorruptStoreTrustsNothing(): void {
 
     const damaged = readFileSync(storePath(root), "utf8");
     const before = operationsOf(root).length;
+    // The refusal names what is wrong, so the operator can repair the file
+    // rather than being told to delete consent they may still want.
     assert.throws(
       () => runExtensionCommand(root, ["trust", "greet"], capture().io, isolated),
-      /not a readable trust store/u,
+      /refusing to edit .*trust\.json: trust store is not valid JSON/u,
       "and it is never silently overwritten",
     );
     assert.equal(readFileSync(storePath(root), "utf8"), damaged, "the operator's file is left as found");
@@ -236,6 +253,54 @@ function trustRefusesNamesOutsideTheGrammar(): void {
   // trustable but unloadable.
   assert.equal(isExtensionName("git-town"), true);
   assert.equal(isExtensionName(`a", "b`), false);
+}
+
+/**
+ * The hole this design would otherwise have: `ext trust foo` before `foo` is
+ * installed has no binary to bind to. Recording it anyway would grant consent
+ * to a *name*, and any binary later dropped at that path would inherit it —
+ * silently, and permanently.
+ */
+function trustRefusesWhatItCannotBindToABinary(): void {
+  const root = mkdtempSync(join(tmpdir(), "epoch-ext-cli-"));
+  try {
+    new EpochRepository(root).init("alice");
+
+    assert.throws(
+      () => runExtensionCommand(root, ["trust", "greet"], capture().io, isolated),
+      /no extension by that name is installed/u,
+      "consent needs a binary to bind to",
+    );
+    assert.ok(!existsSync(storePath(root)), "nothing may be recorded");
+    assert.ok(!operationsOf(root).includes("ext-trust"), "and no operation claims otherwise");
+
+    // Installing afterwards must not inherit a grant that was never given.
+    installGreet(root, "#!/bin/sh\nexit 0\n");
+    assert.equal(wouldRun(root), false);
+
+    // An executable that cannot be digested is refused for the same reason.
+    assert.throws(
+      () => runExtensionCommand(root, ["trust", "greet"], capture().io, {
+        pathEntries: [],
+        fileSystem: {
+          listDirectory: (directory) => (directory === join(root, ".epoch", "ext", "bin")
+            ? ["epoch-greet", "epoch-greet.toml"]
+            : []),
+          isExecutableFile: () => true,
+          readTextFile: (path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined),
+          fileDigest: () => undefined,
+        },
+      }),
+      /could not be read to bind consent/u,
+    );
+    assert.ok(!existsSync(storePath(root)));
+
+    // Revocation needs no binary — it must work even for something uninstalled.
+    runExtensionCommand(root, ["untrust", "absent"], capture().io, isolated);
+    assert.deepEqual(parseTrustStore(readFileSync(storePath(root), "utf8")).block, ["absent"]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 }
 
 /**
@@ -282,6 +347,48 @@ function dispatchRefusesABinarySwappedAfterTheCheck(): void {
     assert.equal(spawned, false, "a binary that changed mid-command must not be launched");
     assert.equal(result.exitCode, 1);
     assert.match(captured.err(), /changed on disk while it was being checked/u);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+}
+
+/**
+ * Two absent digests compare equal, so a filesystem that cannot digest would
+ * have waved the launch straight through the guard meant to catch swaps.
+ */
+function dispatchRefusesWhenTheBinaryCannotBeDigested(): void {
+  const root = workspace();
+  try {
+    const bin = join(root, ".epoch", "ext", "bin");
+    // A name-only `allow` in configuration is the case where the pre-spawn
+    // guard is the *only* digest check: there is no recorded grant to compare
+    // against, so nothing upstream refuses first.
+    writeFileSync(
+      configPath(root),
+      `${readFileSync(configPath(root), "utf8")}\n[extensions]\nallow = ["greet"]\n`,
+      "utf8",
+    );
+
+    const captured = capture();
+    let spawned = false;
+    const result = dispatchExternalSubcommand(root, "greet", [], captured.io, {
+      pathEntries: [],
+      homeDirectory: join(root, "absent-home"),
+      fileSystem: {
+        listDirectory: (directory) => (directory === bin ? ["epoch-greet", "epoch-greet.toml"] : []),
+        isExecutableFile: () => true,
+        readTextFile: (path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined),
+        // No fileDigest at all: the seam declares it optional.
+      },
+      spawn: () => {
+        spawned = true;
+        return 0;
+      },
+    });
+
+    assert.equal(spawned, false, "an undigestible binary must not be launched");
+    assert.equal(result.exitCode, 1);
+    assert.match(captured.err(), /could not be digested before launch/u);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

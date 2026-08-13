@@ -13,14 +13,16 @@ export type TrustMode = "explicit" | "signed" | "any";
 /**
  * Consent recorded for one extension.
  *
- * The digest is what the operator actually consented to. A grant naming only
- * the extension trusts whatever binary happens to sit at that path later, which
- * is Git's model and the thing this mechanism exists to improve on.
+ * The digest is required, not optional. A grant naming only the extension
+ * trusts whatever binary happens to sit at that path later — Git's model, and
+ * the thing this mechanism exists to improve on. Making it part of the type is
+ * what stops that state from being representable: there is no way to record
+ * consent without saying what was consented to.
  */
 export interface TrustGrant {
   readonly name: string;
   /** SHA-256 of the executable at the moment consent was given. */
-  readonly executableSha256?: string;
+  readonly executableSha256: string;
 }
 
 export interface ExtensionTrustPolicy {
@@ -175,9 +177,6 @@ export function evaluateTrust(
   // is the stronger statement: it names a specific binary, not just a command.
   const grant = policy.grants.find((candidate) => candidate.name === name);
   if (grant !== undefined) {
-    if (grant.executableSha256 === undefined) {
-      return { trusted: true, reason: "allowed-by-consent", detail: `extension '${name}' was trusted by this operator` };
-    }
     if (options.executableSha256 === grant.executableSha256) {
       return {
         trusted: true,

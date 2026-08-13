@@ -82,11 +82,14 @@ export function parseTrustStore(text: string): TrustStore {
     if (typeof grant.name !== "string" || grant.name.length === 0) {
       throw new TrustStoreError("each trust store grant needs a non-empty 'name'");
     }
+    // A grant without a digest is consent to a name rather than to a binary,
+    // which is the property this store exists to provide. Rejecting it here is
+    // what keeps a hand-edited or older store from reintroducing it.
     const digest = grant.executableSha256;
-    if (digest !== undefined && (typeof digest !== "string" || !/^[a-f0-9]{64}$/u.test(digest))) {
-      throw new TrustStoreError(`grant '${grant.name}' has a malformed 'executableSha256'`);
+    if (typeof digest !== "string" || !/^[a-f0-9]{64}$/u.test(digest)) {
+      throw new TrustStoreError(`grant '${grant.name}' needs an 'executableSha256' binding it to a binary`);
     }
-    return { name: grant.name, executableSha256: typeof digest === "string" ? digest : undefined };
+    return { name: grant.name, executableSha256: digest };
   });
 
   return { version: TRUST_STORE_VERSION, allow, block: requireStringArray(record.block, "block") };
@@ -101,9 +104,7 @@ export function parseTrustStore(text: string): TrustStore {
 export function serializeTrustStore(store: TrustStore): string {
   const allow = [...store.allow]
     .sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))
-    .map((grant) => (grant.executableSha256 === undefined
-      ? { name: grant.name }
-      : { executableSha256: grant.executableSha256, name: grant.name }));
+    .map((grant) => ({ executableSha256: grant.executableSha256, name: grant.name }));
   return `${JSON.stringify({ allow, block: [...store.block].sort(), version: TRUST_STORE_VERSION }, null, 2)}\n`;
 }
 
@@ -113,7 +114,7 @@ export function serializeTrustStore(store: TrustStore): string {
  * Trusting also clears any block, so `trust` is a true inverse of `untrust`
  * rather than a half-measure that leaves the name denied.
  */
-export function grantTrust(store: TrustStore, name: string, executableSha256: string | undefined): TrustStore {
+export function grantTrust(store: TrustStore, name: string, executableSha256: string): TrustStore {
   return {
     version: TRUST_STORE_VERSION,
     allow: [...store.allow.filter((grant) => grant.name !== name), { name, executableSha256 }],

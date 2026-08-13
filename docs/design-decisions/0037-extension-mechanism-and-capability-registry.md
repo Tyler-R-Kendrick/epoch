@@ -111,8 +111,11 @@ grant execution in another, where the binary on `$PATH` is a different file.
 
 `epoch ext untrust <name>` is the inverse and must actually revoke. Removing the
 name from `allow` is not enough, because `signed` and `any` admit extensions
-that were never in `allow`; `untrust` therefore records the name in `block`,
-which wins in every mode, and `trust` clears it again.
+that were never in `allow`; `untrust` therefore records the name in the `block`
+list of the consent store (`.epoch/ext/trust.json`), which wins in every mode,
+and `trust` clears it again. The `block` list in `.epoch/config.toml` stays
+operator-authored and is only ever read; the effective block is the union of
+the two.
 
 #### Configuration is read; consent is stored separately
 
@@ -143,6 +146,15 @@ binary does not inherit that grant — it is refused with an instruction to
 re-consent. A name-only allow list trusts whatever later occupies the path, and
 an upgrade is indistinguishable from a substitution. Epoch cannot tell them
 apart either, so it asks the operator, on the model of SSH's `known_hosts`.
+
+The digest is **required**, not merely usual. A grant carrying only a name is
+consent to a command rather than to a program, which is the property this store
+exists to remove, so that state is made unrepresentable: the grant type requires
+the digest, the store parser rejects a record without one, and `ext trust`
+refuses a name it cannot discover and digest rather than recording a grant with
+nothing to check a future binary against. Trusting a not-yet-installed
+extension is therefore an error, not a promissory grant that any future binary
+would inherit.
 
 An `allow` entry written by hand in configuration stays name-only: an operator
 listing a name there is deliberately choosing the looser guarantee, and the two
