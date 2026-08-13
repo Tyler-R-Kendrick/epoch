@@ -8842,6 +8842,47 @@ const CASES = [
       return true;
     },
   },
+  {
+    name: "FEED-001 a published message becomes a change with an append-only line of revisions",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(async () => {
+        // The page's own action context, so this exercises the real permission
+        // path rather than a bypass invented for the test.
+        const posted = await window.CW_ACTIONS.invoke("compose.publish",
+          { body: "cold install fails on a fresh clone", channel: "general" },
+          window.CW_APP.actionContext("test"));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const records = await window.CW_WORKSPACE.execute("feed.read", { feed: "general" });
+        const record = records.data[records.data.length - 1];
+        const edited = await window.CW_WORKSPACE.execute("feed.append", {
+          feed: "general",
+          kind: "post",
+          body: "cold install fails on a fresh clone — it is the lockfile",
+          changeId: record.changeId,
+        });
+        const history = await window.CW_WORKSPACE.execute("feed.history",
+          { feed: "general", changeId: record.changeId });
+        return {
+          bound: posted && typeof posted.changeId === "string",
+          changeId: record.changeId,
+          sameChange: edited.data.changeId === record.changeId,
+          newRevision: edited.data.revisionId !== record.revisionId,
+          edited: edited.data.edited,
+          bodies: history.data.map((entry) => entry.body),
+        };
+      });
+
+      if (!probe.bound) return log("the published message was not bound to a change");
+      if (!probe.changeId?.startsWith("chg_")) return log("no native change id: " + probe.changeId);
+      if (!probe.sameChange) return log("editing changed the record's identity");
+      if (!probe.newRevision || !probe.edited) return log("an edit did not append a revision");
+      if (probe.bodies.length !== 2) return log("history is not append-only: " + JSON.stringify(probe.bodies));
+      // The earlier wording is readable, so "edited" is evidence rather than a claim.
+      if (!/fresh clone$/.test(probe.bodies[0])) return log("the original wording is gone: " + probe.bodies[0]);
+      return true;
+    },
+  },
 ];
 
 async function path(page) {
