@@ -51,6 +51,7 @@ export function createCommunityRuntime(options: CreateCommunityRuntimeOptions): 
   const listeners = new Set<(receipt: EpochCommandReceipt) => void>();
   const commands = createCommunityCommandBus({
     workspace,
+    namespace: options.namespace,
     policies: options.policies ?? readOnlyPolicies,
     defaultSource: options.defaultSource ?? "sdk",
     now: options.now ?? (() => new Date().toISOString()),

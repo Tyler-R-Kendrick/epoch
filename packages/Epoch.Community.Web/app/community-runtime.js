@@ -1036,7 +1036,7 @@ var CW_RUNTIME = (() => {
       exports.useEpochEntity = useEpochEntity;
       exports.useEpochView = useEpochView;
       exports.stableJson = stableJson2;
-      exports.isRecord = isRecord5;
+      exports.isRecord = isRecord6;
       var react_1 = require_react();
       function createMemoryEpochReactStorage(initial = {}) {
         const values = new Map(Object.entries(initial));
@@ -1317,7 +1317,7 @@ var CW_RUNTIME = (() => {
         if (raw === void 0)
           return void 0;
         const parsed = JSON.parse(raw);
-        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord5(parsed.payload)) {
+        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord6(parsed.payload)) {
           throw new Error("invalid Epoch live repository event");
         }
         return {
@@ -1365,7 +1365,7 @@ var CW_RUNTIME = (() => {
         return typeof globalThis.localStorage === "undefined" ? void 0 : globalThis.localStorage;
       }
       function normalizeState(value) {
-        if (!isRecord5(value))
+        if (!isRecord6(value))
           throw new TypeError("Epoch React state must be a JSON object");
         return JSON.parse(JSON.stringify(value));
       }
@@ -1377,7 +1377,7 @@ var CW_RUNTIME = (() => {
           return "null";
         if (Array.isArray(value))
           return `[${value.map((item) => stableJson2(item)).join(",")}]`;
-        if (isRecord5(value))
+        if (isRecord6(value))
           return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson2(value[key])}`).join(",")}}`;
         return JSON.stringify(value);
       }
@@ -1405,20 +1405,20 @@ var CW_RUNTIME = (() => {
         return value;
       }
       function requireRecord(value, label) {
-        if (!isRecord5(value))
+        if (!isRecord6(value))
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
       function asRecord(value) {
-        if (!isRecord5(value))
+        if (!isRecord6(value))
           throw new TypeError("Epoch React state must be a JSON object");
         return value;
       }
-      function isRecord5(value) {
+      function isRecord6(value) {
         return typeof value === "object" && value !== null && !Array.isArray(value);
       }
       function isReactOperation(value) {
-        if (!isRecord5(value) || typeof value.entity !== "string" || typeof value.key !== "string")
+        if (!isRecord6(value) || typeof value.entity !== "string" || typeof value.key !== "string")
           return false;
         return value.kind === "map-delete" || value.kind === "map-set";
       }
@@ -1612,21 +1612,26 @@ var CW_RUNTIME = (() => {
     digestOf: () => digestOf,
     ensureProject: () => ensureProject,
     executeCommunityRuntimeCommand: () => executeCommunityRuntimeCommand,
+    exportWorkspaceBundle: () => exportWorkspaceBundle,
     feedEntity: () => feedEntity,
     findComponent: () => findComponent,
     findSlot: () => findSlot,
     historyOf: () => historyOf,
     identifier: () => identifier,
+    importWorkspaceBundle: () => importWorkspaceBundle,
     isCommunityRuntimeInvocation: () => isCommunityRuntimeInvocation,
     isDynamicUiManifest: () => isDynamicUiManifest,
     listFeeds: () => listFeeds,
     listProjects: () => listProjects,
+    openDurableStorage: () => openDurableStorage,
     policyReceipt: () => policyReceipt,
     projectEntity: () => projectEntity,
     readProject: () => readProject,
     recordsOf: () => recordsOf,
     registerWebMcpTools: () => registerWebMcpTools,
+    resolveBrowserIdentity: () => resolveBrowserIdentity,
     revisionsOf: () => revisionsOf,
+    setCliBundleReader: () => setCliBundleReader,
     skippedValidation: () => skippedValidation,
     summarizeReceipt: () => summarizeReceipt,
     toolName: () => toolName,
@@ -1664,8 +1669,8 @@ var CW_RUNTIME = (() => {
 
   // packages/Epoch.Community.Runtime/src/receipts.ts
   var EpochCommandError = class extends Error {
-    constructor(code, message) {
-      super(message);
+    constructor(code, message2) {
+      super(message2);
       __publicField(this, "code");
       this.name = "EpochCommandError";
       this.code = code;
@@ -2309,6 +2314,222 @@ var CW_RUNTIME = (() => {
     return trimmed;
   }
 
+  // packages/Epoch.Community.Runtime/src/storage.ts
+  var DEFAULT_DATABASE = "epoch-community";
+  var DEFAULT_STORE = "workspace";
+  var SCHEMA_VERSION = 1;
+  async function openDurableStorage(options) {
+    const schemaVersion = options.schemaVersion ?? SCHEMA_VERSION;
+    const prefix = `${options.namespace}:`;
+    const factory = options.indexedDB ?? globalThis.indexedDB;
+    const values = /* @__PURE__ */ new Map();
+    let database;
+    let pending = 0;
+    let failure;
+    let settled = Promise.resolve();
+    if (factory !== void 0) {
+      try {
+        database = await openDatabase(
+          factory,
+          options.databaseName ?? DEFAULT_DATABASE,
+          options.storeName ?? DEFAULT_STORE,
+          schemaVersion
+        );
+        for (const [key, value] of await readAll(database, options.storeName ?? DEFAULT_STORE)) {
+          if (key.startsWith(prefix)) values.set(key, value);
+        }
+      } catch (error) {
+        failure = message(error);
+        database = void 0;
+      }
+    }
+    let migrated = 0;
+    if (values.size === 0 && options.migrateFrom !== void 0) {
+      for (let index = 0; index < options.migrateFrom.length; index += 1) {
+        const key = options.migrateFrom.key(index);
+        if (key === null || !key.startsWith(prefix)) continue;
+        const value = options.migrateFrom.getItem(key);
+        if (value === null) continue;
+        values.set(key, value);
+        migrated += 1;
+      }
+      for (const [key, value] of values) queue(key, value);
+    }
+    function queue(key, value) {
+      if (database === void 0) return;
+      pending += 1;
+      settled = settled.then(() => write(database, options.storeName ?? DEFAULT_STORE, key, value)).then(() => {
+        pending -= 1;
+      }, (error) => {
+        pending -= 1;
+        failure = message(error);
+      });
+    }
+    return {
+      kind: database === void 0 ? "memory" : "indexeddb",
+      schemaVersion,
+      migrated,
+      get length() {
+        return values.size;
+      },
+      key: (index) => [...values.keys()][index] ?? null,
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value);
+        queue(key, value);
+      },
+      removeItem: (key) => {
+        values.delete(key);
+        queue(key, null);
+      },
+      pendingWrites: () => pending,
+      lastError: () => failure,
+      flush: async () => {
+        await settled;
+      },
+      snapshot: () => Object.fromEntries(values),
+      restore: async (entries) => {
+        for (const key of [...values.keys()]) {
+          values.delete(key);
+          queue(key, null);
+        }
+        for (const [key, value] of Object.entries(entries)) {
+          values.set(key, value);
+          queue(key, value);
+        }
+        await settled;
+      },
+      close: () => {
+        database?.close();
+        database = void 0;
+      }
+    };
+  }
+  function openDatabase(factory, databaseName, storeName, version) {
+    return new Promise((resolve, reject) => {
+      const request = factory.open(databaseName, version);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(storeName)) database.createObjectStore(storeName);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB refused to open"));
+      request.onblocked = () => reject(new Error("IndexedDB open is blocked by another tab"));
+    });
+  }
+  function readAll(database, storeName) {
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(storeName, "readonly");
+      const store = transaction.objectStore(storeName);
+      const keys = store.getAllKeys();
+      const values = store.getAll();
+      transaction.oncomplete = () => {
+        const pairs = keys.result.map((key, index) => [String(key), String(values.result[index])]);
+        resolve(pairs);
+      };
+      transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB read failed"));
+    });
+  }
+  function write(database, storeName, key, value) {
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(storeName, "readwrite");
+      const store = transaction.objectStore(storeName);
+      if (value === null) store.delete(key);
+      else store.put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB write failed"));
+      transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB write aborted"));
+    });
+  }
+  function message(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  // packages/Epoch.Community.Runtime/src/identity.ts
+  var ALGORITHM = { name: "ECDSA", namedCurve: "P-256" };
+  async function resolveBrowserIdentity(options) {
+    const key = `${options.namespace}:identity`;
+    const stored = readStored(options.storage.getItem(key));
+    if (stored !== void 0) {
+      return { actor: stored.actor, kind: "device", publicKey: stored.publicKey, created: false };
+    }
+    const subtle = (options.crypto ?? globalThis.crypto)?.subtle;
+    if (subtle === void 0) {
+      return { actor: "did:epoch:anonymous", kind: "ephemeral", created: false };
+    }
+    try {
+      const pair = await subtle.generateKey(ALGORITHM, false, ["sign", "verify"]);
+      const publicKey = await subtle.exportKey("jwk", pair.publicKey);
+      const actor = `did:epoch:${digestOf(publicKey)}`;
+      const record = { version: 1, actor, publicKey };
+      options.storage.setItem(key, JSON.stringify(record));
+      return { actor, kind: "device", publicKey, created: true };
+    } catch {
+      return { actor: "did:epoch:anonymous", kind: "ephemeral", created: false };
+    }
+  }
+  function readStored(raw) {
+    if (raw === null) return void 0;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.version !== 1 || typeof parsed.actor !== "string" || parsed.publicKey === void 0) {
+        return void 0;
+      }
+      return { version: 1, actor: parsed.actor, publicKey: parsed.publicKey };
+    } catch {
+      return void 0;
+    }
+  }
+
+  // packages/Epoch.Community.Runtime/src/sync.ts
+  var import_integration_core6 = __toESM(require_dist2());
+  function exportWorkspaceBundle(epoch, workspaceId, namespace) {
+    const events = epoch.repository.history().map((event) => ({
+      id: event.id,
+      entity: event.entity,
+      author: event.author,
+      lamport: event.lamport,
+      payload: event.payload
+    }));
+    return {
+      kind: "epoch-workspace-bundle",
+      version: 1,
+      workspaceId,
+      namespace,
+      events,
+      digest: digestOf(events)
+    };
+  }
+  function importWorkspaceBundle(epoch, bundle) {
+    if (!isBundle(bundle)) throw new Error("That is not an Epoch workspace bundle.");
+    if (digestOf(bundle.events) !== bundle.digest) {
+      throw new Error("Bundle digest does not match its events; refusing to import.");
+    }
+    const known = new Set(epoch.repository.history().map((event) => event.id));
+    let applied = 0;
+    let skipped = 0;
+    const rejected = [];
+    for (const event of bundle.events) {
+      if (known.has(event.id)) {
+        skipped += 1;
+        continue;
+      }
+      if (!isBundledEvent(event)) {
+        rejected.push(`${String(event.id ?? "unknown")}: not an event`);
+        continue;
+      }
+      epoch.repository.append(event.entity, event.payload);
+      applied += 1;
+    }
+    return { applied, skipped, rejected, events: epoch.repository.history().length };
+  }
+  function isBundle(value) {
+    return (0, import_integration_core6.isRecord)(value) && value.kind === "epoch-workspace-bundle" && value.version === 1 && typeof value.digest === "string" && Array.isArray(value.events);
+  }
+  function isBundledEvent(value) {
+    return (0, import_integration_core6.isRecord)(value) && typeof value.id === "string" && typeof value.entity === "string" && value.entity.trim().length > 0 && (0, import_integration_core6.isRecord)(value.payload);
+  }
+
   // packages/Epoch.Community.Runtime/src/commands.ts
   function createCommunityCommandBus(options) {
     const workspace = options.workspace;
@@ -2512,6 +2733,30 @@ var CW_RUNTIME = (() => {
         eventIds: [record.eventId],
         revisionIds: [record.revision],
         changeId: record.changeId
+      };
+    });
+    register({
+      kind: "workspace.export",
+      summary: "Export this workspace's events as a bundle another participant can import.",
+      capability: "workspace.read",
+      readOnly: true,
+      requiresConfirmation: false,
+      untrustedContent: false,
+      inputSchema: emptySchema()
+    }, () => ({ data: exportWorkspaceBundle(workspace.epoch, workspace.id, options.namespace) }));
+    register({
+      kind: "workspace.import",
+      summary: "Import a workspace bundle. Events already here are skipped; nothing local is dropped.",
+      capability: "workspace.write",
+      readOnly: false,
+      requiresConfirmation: true,
+      untrustedContent: false,
+      inputSchema: schema({ bundle: { type: "object", description: "An Epoch workspace bundle." } }, ["bundle"])
+    }, (input) => {
+      const report = importWorkspaceBundle(workspace.epoch, input.bundle);
+      return {
+        data: report,
+        validation: validationReceipt("bundle", report.rejected)
       };
     });
     register({
@@ -2780,6 +3025,7 @@ var CW_RUNTIME = (() => {
     const listeners = /* @__PURE__ */ new Set();
     const commands = createCommunityCommandBus({
       workspace,
+      namespace: options.namespace,
       policies: options.policies ?? readOnlyPolicies,
       defaultSource: options.defaultSource ?? "sdk",
       now: options.now ?? (() => (/* @__PURE__ */ new Date()).toISOString()),
@@ -2853,6 +3099,8 @@ var CW_RUNTIME = (() => {
     "  epoch ui rollback VIEW --revision N --confirm",
     "  epoch ui restore --confirm",
     "  epoch ui safe-mode on|off [--confirm]",
+    "  epoch ui export [--out FILE]",
+    "  epoch ui import FILE --confirm",
     "  epoch view create NAME [--from VIEW] [--scope personal|project|session]",
     "  epoch view list",
     "  epoch view switch VIEW",
@@ -2927,6 +3175,10 @@ var CW_RUNTIME = (() => {
         };
       case "restore":
         return { kind: "ui.restoreLastKnownGood", input: {} };
+      case "export":
+        return { kind: "workspace.export", input: {} };
+      case "import":
+        return { kind: "workspace.import", input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) } };
       case "safe-mode":
         return {
           kind: requirePositional(rest, 0, "on|off") === "on" ? "ui.enterSafeMode" : "ui.leaveSafeMode",
@@ -2971,6 +3223,16 @@ var CW_RUNTIME = (() => {
         ...rest.includes("--retain-prompt") ? { retainPrompt: true } : {}
       }
     };
+  }
+  var bundleReader;
+  function setCliBundleReader(reader) {
+    bundleReader = reader;
+  }
+  function readBundle(path) {
+    if (bundleReader === void 0) {
+      throw new EpochCommandError("invalid-input", "This host cannot read bundle files.");
+    }
+    return bundleReader(path);
   }
   function format(receipt) {
     const lines = [
