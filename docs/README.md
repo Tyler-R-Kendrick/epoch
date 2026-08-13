@@ -32,6 +32,7 @@ decisions, operations, or contribution workflow.
 | [Notebooks](../notebooks/README.md) | Executable Node.js notebook examples for Epoch usage scenarios with stored results and output explanations. |
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Change Graph And Operation-History Dossier](competition/change-graph-vcs-dossier.md) | Primary-source comparison led by direct competitor Zed DeltaDB, then jj, Pijul/Darcs, Graphite, GitButler, Git, forge adapters, and Software Heritage. |
+| [Delta Workspace Convergence Analysis](competition/delta-workspace-convergence.md) | What Zed shipped in Delta and DeltaDB, the virtualized-worktree claim separated from any copy-on-write mechanism, every Delta concept mapped onto a named Epoch primitive, and the sequenced response. |
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
 | [Nightboard](design-explorations/nightboard/README.md) | **Canonical Community Web app** ([ADR-0027](design-decisions/0027-community-visual-world-nightboard.md)): CanvasUI creator landing at `/`, Tron/tmux-style keyboard-first board at `board.html`. Evidence under [`evidence/nightboard/`](evidence/nightboard/README.md). |
 | [Nightboard Navigation/Projection Parity](evidence/nightboard-navigation-projection-parity/README.md) | Executable evidence for stable object identity, mounted projections, explicit graph navigation, route restoration, shared actions, and APG feed/tree/combobox behavior. |
@@ -43,6 +44,7 @@ decisions, operations, or contribution workflow.
 
 | Product | Profile | Design | Feature | Marketing | Gossip |
 |---|---|---|---|---|---|
+| Delta | [Profile](competition/products/delta/profile.md) | [Design](competition/products/delta/design/design.md) | [Feature](competition/products/delta/features/joinable-agent-workspace.feature) | [Marketing](competition/products/delta/marketing.md) | [Gossip](competition/products/delta/gossip.md) |
 | Tangled | [Profile](competition/products/tangled/profile.md) | [Design](competition/products/tangled/design/design.md) | [Feature](competition/products/tangled/features/atproto-social-coding.feature) | [Marketing](competition/products/tangled/marketing.md) | [Gossip](competition/products/tangled/gossip.md) |
 | Rork | [Profile](competition/products/rork/profile.md) | [Design](competition/products/rork/design/design.md) | [Feature](competition/products/rork/features/mobile-app-store-launch.feature) | [Marketing](competition/products/rork/marketing.md) | [Gossip](competition/products/rork/gossip.md) |
 | Magic Patterns | [Profile](competition/products/magic-patterns/profile.md) | [Design](competition/products/magic-patterns/design/design.md) | [Feature](competition/products/magic-patterns/features/design-system-prototype.feature) | [Marketing](competition/products/magic-patterns/marketing.md) | [Gossip](competition/products/magic-patterns/gossip.md) |
@@ -110,6 +112,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0037: Extension Mechanism And Capability Registry](design-decisions/0037-extension-mechanism-and-capability-registry.md) | Defines external `epoch-*` subcommands with manifests and trust policy, a typed capability registry, deterministic resolution, and mandatory provider provenance. |
 | [ADR-0038: Semantic Diff, Merge, And Compression](design-decisions/0038-semantic-diff-merge-and-compression.md) | Defines the bytes-to-entities representation ladder, structural patches, structural merge with commutative containers, and syntax-guided storage. |
 | [ADR-0039: Native Capabilities From The Git Extension Ecosystem](design-decisions/0039-native-capabilities-from-the-git-extension-ecosystem.md) | Sorts the Git extension ecosystem into native capabilities, genuine extensions, and deliberate non-goals. |
+| [ADR-0040: Spaces — Shared, Signed, Joinable Workspaces](design-decisions/0040-spaces-shared-signed-workspaces.md) | Proposes `epoch.space/v1` as a joinable object composing View, Workspaces, conversation, authority, and per-turn Sandbox bindings, and states what a Space is not. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
