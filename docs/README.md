@@ -17,6 +17,7 @@ decisions, operations, or contribution workflow.
 | [Epoch Nomenclature](nomenclature.md) | Normative vocabulary and boundaries used across Protocol, Core, CLI, SDK, Community, and Operations. |
 | [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
+| [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | The model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
 | [Forge And Mirror Adapters](forge-adapters.md) | Authority, fidelity, loss, mirror safety, and federation codec boundaries. |
 | [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
 | [Design Critique Record](evidence/design-critique/README.md) | Both adversarial critique rounds against Community Web, the findings worked, measured before/after, and the residual list. |
@@ -110,6 +111,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0037: Extension Mechanism And Capability Registry](design-decisions/0037-extension-mechanism-and-capability-registry.md) | Defines external `epoch-*` subcommands with manifests and trust policy, a typed capability registry, deterministic resolution, and mandatory provider provenance. |
 | [ADR-0038: Semantic Diff, Merge, And Compression](design-decisions/0038-semantic-diff-merge-and-compression.md) | Defines the bytes-to-entities representation ladder, structural patches, structural merge with commutative containers, and syntax-guided storage. |
 | [ADR-0039: Native Capabilities From The Git Extension Ecosystem](design-decisions/0039-native-capabilities-from-the-git-extension-ecosystem.md) | Sorts the Git extension ecosystem into native capabilities, genuine extensions, and deliberate non-goals. |
+| [ADR-0040: Repository Composition And Repository Links](design-decisions/0040-repository-composition-and-links.md) | Defines one exact read-only Repository Link, vendorize-plus-provenance instead of a native subtree type, and repository-qualified Change dependencies. |
+| [ADR-0041: Workspace Selection And Materialization Modes](design-decisions/0041-workspace-selection-and-materialization-modes.md) | Defines workspace-local Selection, the `eager`/`explicit`/`lazy`/`delta` materialization modes, and the content-addressed Namespace Manifest. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

@@ -46,6 +46,12 @@ and `compacts/`: they are not signed and are excluded from `verify()`, which
 still re-hashes whole-content blobs. `checkoutView()` with `materialization:
 "full"` restores whole-tree materialization.
 
+This mode selects files by *difference from a base*, not by user interest, so it
+is delta materialization rather than sparse checkout.
+[ADR-0038](design-decisions/0041-workspace-selection-and-materialization-modes.md)
+keeps the behavior, renames the mode to `delta`, and adds a separate
+workspace-local Selection; neither the rename nor Selection is implemented yet.
+
 ## Event Model
 
 Every event includes:
@@ -487,3 +493,9 @@ The current implementation does not provide:
 - grammar-backed syntax providers for general-purpose languages
 - byte-level entropy coding or a packfile format for semantic compression
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
+- writable nested Repository Links, overlapping mount roots, and transparent
+  lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`
+  ([ADR-0040](design-decisions/0040-repository-composition-and-links.md),
+  [ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md))
+- Repository Link resolution over the network: links resolve through injected
+  resolvers and local sibling repositories only
