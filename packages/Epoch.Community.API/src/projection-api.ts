@@ -86,7 +86,7 @@ export function createCommunityProjectionApi(input: {
       const compiled = await input.projectionRuntime.compile(claimDefinition(definition, authorization), compileContext(authorization));
       const failure = compiled.diagnostics.find((diagnostic) => diagnostic.severity === "error");
       if (failure !== undefined) throw new CommunityError(failure.code === "PROJECTION_CYCLE" ? "PROJECTION_CYCLE" : "PROJECTION_INVALID", failure.message);
-      const previewId = `preview:${input.runtime.nextId("projection")}`;
+      const previewId = `preview-${input.runtime.nextId("projection")}`;
       const preview = { ...compiled.definition, projectionId: previewId };
       input.projectionRuntime.register(preview);
       try {

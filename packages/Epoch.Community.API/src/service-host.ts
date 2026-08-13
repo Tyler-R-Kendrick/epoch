@@ -124,9 +124,9 @@ export function createCommunityServiceApis(input: CreateCommunityServiceApisOpti
       explain: async (path, authorization, snapshot) => (await liveNamespace(authorization)).explain(path, authorization, snapshot),
       watch: (path, authorization, signal, snapshot) => persistNamespace.watch(path, authorization, signal, snapshot),
       mounts: async (authorization) => (await liveNamespace(authorization)).mounts(authorization),
-      mount: (value, authorization) => persistNamespace.mount(value, authorization),
-      unmount: (mountId, authorization) => persistNamespace.unmount(mountId, authorization),
-      reset: (scope, authorization) => persistNamespace.reset(scope, authorization),
+      mount: async (value, authorization) => (await liveNamespace(authorization)).mount(value, authorization),
+      unmount: async (mountId, authorization) => (await liveNamespace(authorization)).unmount(mountId, authorization),
+      reset: async (scope, authorization) => (await liveNamespace(authorization)).reset(scope, authorization),
     },
   };
   return Object.freeze(services);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createCommunityApiHost, createInMemoryCommunityApi, createCommunityApiFetchHandler } from "@epoch/community-api";
 import { main as communityCliMain } from "@epoch/community-cli";
-import { CommunityRepository, createCommunityClient, createHttpCommunityClient } from "@epoch/community-core";
+import { builtinDefaultProjection, CommunityRepository, createCommunityClient, createHttpCommunityClient } from "@epoch/community-core";
 
 export async function runCommunityCoverageTests(): Promise<void> {
   await apiFetchHandlerRoutesCommunityRequests();
@@ -46,6 +46,98 @@ async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
   const body = await graphql.json() as { data: { sourceCapabilities: Array<{ sourceId: string }> } };
   assert.deepEqual(body.data.sourceCapabilities.map((value) => value.sourceId), ["community-store"]);
 
+  const parsedSearch = await host.handler(new Request("https://epoch.test/search/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expression: "kind:issue", timezone: "UTC", locale: "en-US" }),
+  }));
+  assert.equal(parsedSearch.status, 200);
+  const explained = await host.handler(new Request("https://epoch.test/search/explain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10 }),
+  }));
+  assert.equal(explained.status, 200);
+  const oversize = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 0 }),
+  }));
+  assert.equal(oversize.status, 413);
+  const malformed = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{",
+  }));
+  assert.equal(malformed.status, 400);
+  const missingQuery = await host.handler(new Request("https://epoch.test/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }));
+  assert.equal(missingQuery.status, 400);
+  const missingExpression = await host.handler(new Request("https://epoch.test/search/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }));
+  assert.equal(missingExpression.status, 400);
+
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/list?path=/&first=10"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/resolve?path=/"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/explain?path=/"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/list?first=0"))).status, 413);
+  const listedProjections = await host.handler(new Request("https://epoch.test/projections"));
+  assert.equal(listedProjections.status, 200);
+  const clone = { ...builtinDefaultProjection, projectionId: "coverage-clone", label: "Coverage clone", version: 1 };
+  const saved = await host.handler(new Request("https://epoch.test/projections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(clone),
+  }));
+  assert.equal(saved.status, 201);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/coverage-clone"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/coverage-clone/explain?path=/"))).status, 200);
+  const previewed = await host.handler(new Request("https://epoch.test/projections/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ definition: { ...clone, projectionId: "coverage-preview" }, path: "/", first: 5 }),
+  }));
+  assert.equal(previewed.status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }))).status, 400);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/missing"))).status, 404);
+  const mounted = await host.handler(new Request("https://epoch.test/namespace/mounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mountId: "coverage-mount",
+      projectionId: "coverage-clone",
+      mountPath: "/coverage",
+      mode: "after",
+      scope: "user",
+      order: 10,
+      writable: false,
+    }),
+  }));
+  assert.equal(mounted.status, 201);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/mounts/coverage-mount", { method: "DELETE" }))).status, 200);
+  const reset = await host.handler(new Request("https://epoch.test/namespace/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scope: "user" }),
+  }));
+  assert.equal(reset.status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scope: "recovery" }),
+  }))).status, 409);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/coverage-clone", { method: "DELETE" }))).status, 204);
+
   await assert.rejects(
     async () => createCommunityApiHost({ store: host.store, repositories: [{ slug: "x/y", displayName: "X", description: "x", maintainers: ["alice"] }] }),
     /injected CommunityStateStore cannot be combined/,
@@ -57,6 +149,12 @@ async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
     body: JSON.stringify({ where: parsed.ast, first: 10 }),
   }));
   assert.equal(unsupported.status, 422);
+  const unconfiguredGraphql = await closed(new Request("https://epoch.test/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "{ sourceCapabilities { sourceId } }" }),
+  }));
+  assert.equal(unconfiguredGraphql.status, 422);
   const scoped = await host.handler(new Request("https://epoch.test/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

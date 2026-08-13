@@ -224,8 +224,28 @@ async function cursorsAreOpaqueBoundAndTamperEvident(): Promise<void> {
     planHash: "plan-7",
     authorizationFingerprint: "sha256:maya",
   })).objectId, "issue-01");
-  await assert.rejects(() => codec.decode(`${cursor.slice(0, -1)}x`, {
+  const tamperIndex = Math.floor(cursor.length / 2);
+  const tampered = `${cursor.slice(0, tamperIndex)}${cursor[tamperIndex] === "A" ? "B" : "A"}${cursor.slice(tamperIndex + 1)}`;
+  await assert.rejects(() => codec.decode(tampered, {
     snapshotId: "snapshot-7", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
+  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  await assert.rejects(() => codec.decode("!!!not-a-cursor!!!", {
+    snapshotId: "snapshot-7", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
+  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  await assert.rejects(() => codec.decode("", {
+    snapshotId: "snapshot-7", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
+  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  assert.throws(
+    () => createKeysetCursorCodec({ key: new Uint8Array(16) }),
+    (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID",
+  );
+  await assert.rejects(() => codec.encode({
+    version: 2,
+    snapshotId: "snapshot-7",
+    planHash: "plan-7",
+    authorizationFingerprint: "sha256:maya",
+    sortKey: [NOW, "issue", "issue-01"],
+    objectId: "issue-01",
   }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
   await assert.rejects(() => codec.decode(cursor, {
     snapshotId: "snapshot-other", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
