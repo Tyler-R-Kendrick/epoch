@@ -27,6 +27,7 @@ import { runSampleHelloWorldCliTests } from "./unit/sample-hello-world-cli.test"
 import { runSampleSelfEvolvingCanvasTests } from "./unit/sample-self-evolving-canvas.test";
 import { runSampleSelfEvolvingDashboardTests } from "./unit/sample-self-evolving-dashboard.test";
 import { runVirtualCheckoutTests } from "./unit/virtual-checkout.test";
+import { runCompositionSelectionTests } from "./unit/composition-selection.test";
 import { runWasmReactShadowDomTests } from "./component/wasm-react-shadow-dom.test";
 import { runWasmReactStoreTests } from "./unit/wasm-react-store.test";
 import { runGitProjectionTests } from "./unit/git-projection.test";
@@ -78,6 +79,7 @@ async function main(): Promise<void> {
   runSampleSelfEvolvingCanvasTests();
   runSampleSelfEvolvingDashboardTests();
   runVirtualCheckoutTests();
+  await runCompositionSelectionTests();
   runGitProjectionTests();
   await runGitProxyTests();
   await runAtprotoCommunityTests();
