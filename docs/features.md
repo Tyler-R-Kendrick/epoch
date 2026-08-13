@@ -21,6 +21,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/merge.feature`](../features/merge.feature) | Intent policy and entity merge behavior. |
 | [`features/named_views.feature`](../features/named_views.feature) | Named logical views and promotion flows. |
 | [`features/cli_wasm.feature`](../features/cli_wasm.feature) | CLI command behavior, signed Change Graph commands, and WASM-safe exports. |
+| [`features/spaces.feature`](../features/spaces.feature) | Shared signed workspaces: joining a Space, grant-bound turns, budget limits, consent-gated capture, truthful workspace binding, and structural anchors that survive a reformat. |
 | [`features/wasm_react.feature`](../features/wasm_react.feature) | Browser-safe React state persistence, rewind, rematerialization, and resume flows. |
 | [`features/ha_dr.feature`](../features/ha_dr.feature) | Compacts, backups, seed bootstrap, and recovery flows. |
 | [`features/advanced_collaboration.feature`](../features/advanced_collaboration.feature) | Signed collaboration objects, gates, memory transport, reusable conflict resolutions, operation events, CSV adapters, redactions, and serialization providers. |

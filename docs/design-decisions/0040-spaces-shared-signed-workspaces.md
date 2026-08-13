@@ -1,6 +1,6 @@
 # ADR-0040: Spaces — Shared, Signed, Joinable Workspaces
 
-Status: Proposed (design); no implementation
+Status: Accepted and implemented for phases 1–3; phases 4–6 are not built
 
 ## Context
 
@@ -104,6 +104,30 @@ paths `@epoch/semantic` already produces, resolved forward through the Change
 Graph — not to an operation identifier. A structural path re-resolves after
 reformatting, renaming, and rebasing, whereas an operation anchor names a
 historical position that must be replayed to interpret.
+
+## Implementation Status (2026-08-13)
+
+Shipped in `@epoch/protocol` (`epoch.space/v1` event schemas, the `space`,
+`sandbox`, and `anchor` ID kinds), `@epoch/core` (`SignedSpaceStore`), and the
+`epoch space ...` CLI family, with unit, CLI-envelope, and Gherkin coverage:
+
+- **Phase 1 — Space object and join.** `space.created`,
+  `space.participant.joined/left`, `space.workspace.bound`, and
+  `space.turn.recorded`. Joining issues a grant; leaving revokes it in the same
+  event; turns are refused without a live grant, past an allocated budget, and
+  for `observer` grants. Binding routes through
+  `createWorkspaceStateManifest()`, so a Space cannot claim isolation or
+  copy-on-write the provider never declared.
+- **Phase 2 — Consent-gated capture.** `space.capture.opened/operation/closed`.
+  Captured operations outside an open session are refused with `policy-denied`.
+- **Phase 3 — Structural anchors.** `space.anchor.recorded` plus
+  `resolveAnchor()`, reporting `resolved`, `moved`, or `unresolved` against
+  `@epoch/semantic` structural paths.
+
+Not built, and not claimed: **Phase 4** (mount/hydration provider), **Phase 5**
+(isolated execution provider), **Phase 6** (federated Space discovery and join).
+Until Phase 5 lands, a per-turn Sandbox binding records where a turn ran; it
+does not enforce a boundary, and the docs say so.
 
 ## Alternatives Considered
 

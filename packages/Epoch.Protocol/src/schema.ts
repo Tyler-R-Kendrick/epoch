@@ -57,6 +57,48 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
     repositoryId: id("repo"), versionId: id("version"), requestId: nonemptyString,
     status: { enum: ["requested", "pending", "succeeded", "failed", "cancelled"] },
   }),
+  spaceCreatedBody: object(["spaceId", "repositoryId", "ownerPrincipalId", "viewName", "title"], {
+    spaceId: id("space"), repositoryId: id("repo"), ownerPrincipalId: id("principal"),
+    viewName: nonemptyString, title: nonemptyString,
+  }),
+  spaceParticipantJoinedBody: object(["spaceId", "principalId", "grantId", "role"], {
+    spaceId: id("space"), principalId: id("principal"), grantId: id("grant"),
+    role: { enum: ["owner", "collaborator", "agent", "observer"] },
+  }),
+  spaceParticipantLeftBody: object(["spaceId", "principalId", "grantId"], {
+    spaceId: id("space"), principalId: id("principal"), grantId: id("grant"),
+  }),
+  spaceWorkspaceBoundBody: object(
+    ["spaceId", "principalId", "workspaceId", "providerId", "storageMode", "residency", "materialization", "execution"],
+    {
+      spaceId: id("space"), principalId: id("principal"), workspaceId: id("workspace"),
+      providerId: nonemptyString, storageMode: nonemptyString,
+      residency: { enum: ["resident", "partial", "virtual"] },
+      materialization: { enum: ["materialized", "virtual"] },
+      execution: { enum: ["disabled", "in-process", "isolated"] },
+    },
+  ),
+  spaceTurnRecordedBody: object(["spaceId", "principalId", "grantId", "execution", "requestDigest"], {
+    spaceId: id("space"), principalId: id("principal"), grantId: id("grant"),
+    execution: { enum: ["disabled", "in-process", "isolated"] }, requestDigest: digest,
+    sandboxId: id("sandbox"), budgetId: id("budget"), units: nonnegativeInteger,
+  }),
+  spaceCaptureOpenedBody: object(["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    scope: nonemptyString, retention: nonemptyString,
+    redaction: { enum: ["none", "declared-secrets", "full"] },
+  }),
+  spaceCaptureClosedBody: object(["spaceId", "sessionId", "principalId", "operationCount"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"), operationCount: nonnegativeInteger,
+  }),
+  spaceCaptureOperationBody: object(["spaceId", "sessionId", "principalId", "path", "contentDigest"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    path: nonemptyString, contentDigest: digest,
+  }),
+  spaceAnchorRecordedBody: object(["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"], {
+    spaceId: id("space"), anchorId: id("anchor"), principalId: id("principal"), revisionId,
+    path: nonemptyString, structuralPath: nonemptyString, contentDigest: digest,
+  }),
 };
 
 const complexBodies: Readonly<Record<string, JsonSchema>> = {
@@ -118,6 +160,11 @@ const bodyDefinitionByType: Readonly<Record<ProtocolEventType, string>> = {
   "projection.recorded": "projectionBody", "mirror.defined": "mirrorBody", "mirror.checkpoint": "mirrorBody", "mirror.run": "mirrorBody",
   "object.promise.recorded": "objectPromiseBody", "software-heritage.mapping": "softwareHeritageMappingBody",
   "software-heritage.archive-requested": "softwareHeritageArchiveBody", "software-heritage.archive-status": "softwareHeritageArchiveBody",
+  "space.created": "spaceCreatedBody", "space.participant.joined": "spaceParticipantJoinedBody",
+  "space.participant.left": "spaceParticipantLeftBody", "space.workspace.bound": "spaceWorkspaceBoundBody",
+  "space.turn.recorded": "spaceTurnRecordedBody", "space.capture.opened": "spaceCaptureOpenedBody",
+  "space.capture.closed": "spaceCaptureClosedBody", "space.capture.operation": "spaceCaptureOperationBody",
+  "space.anchor.recorded": "spaceAnchorRecordedBody",
 };
 
 /** Deterministic, dependency-free JSON Schema emitted by the authoritative runtime contract. */

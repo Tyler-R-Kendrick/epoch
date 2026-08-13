@@ -54,7 +54,7 @@ and when the decision should be revisited.
 | [ADR-0037](0037-extension-mechanism-and-capability-registry.md) | Accepted (design); staged implementation | Extend Epoch through declared, trust-gated external `epoch-*` subcommands and a typed capability registry, with provider provenance recorded in signed state. |
 | [ADR-0038](0038-semantic-diff-merge-and-compression.md) | Accepted (design); staged implementation | Share one bytes-to-entities representation ladder across diff, merge, conflict identity, and storage, keyed by structural path. |
 | [ADR-0039](0039-native-capabilities-from-the-git-extension-ecosystem.md) | Accepted (design); staged implementation | Adopt the Git extension ecosystem's capabilities natively where Epoch's model already implies them, keep language/vendor adapters as extensions, and reject content-filter encryption. |
-| [ADR-0040](0040-spaces-shared-signed-workspaces.md) | Proposed (design); no implementation | Add `epoch.space/v1`, a signed joinable object composing View, Workspaces, conversation, Principals/Grants/Budgets, and per-turn Sandbox bindings, with consent-gated capture sessions and structural anchors. |
+| [ADR-0040](0040-spaces-shared-signed-workspaces.md) | Accepted; phases 1–3 implemented | Add `epoch.space/v1`, a signed joinable object composing View, Workspaces, conversation, Principals/Grants/Budgets, and per-turn Sandbox bindings, with consent-gated capture sessions and structural anchors. |
 
 ## Supporting Decision Records
 

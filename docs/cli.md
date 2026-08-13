@@ -219,6 +219,40 @@ Revsets support `heads`, `roots`, `ancestors`, `descendants`, `change`,
 union, intersection, difference, and parentheses. Parse errors are typed and
 ordering is deterministic.
 
+## Space Commands
+
+Shared, signed, joinable workspaces, per
+[ADR-0040](design-decisions/0040-spaces-shared-signed-workspaces.md). A Space
+composes an existing View, Workspaces, Grants, Budgets, and Sandbox bindings; it
+replaces none of them. Every command emits the same JSON envelope as the Change
+Graph family, and refusals carry their own code — `grant-denied`,
+`budget-exceeded`, and `policy-denied` are separate facts.
+
+| Command | Purpose |
+|---|---|
+| `space create TITLE [--view NAME]` | Open a Space over a View. The creator joins as owner in the same operation. |
+| `space list` / `space show ID` | List Spaces, or show one with its participant, workspace, and turn counts. |
+| `space join ID [--principal P] [--role R]` | Join by receiving a signed grant. Roles: `owner`, `collaborator`, `agent`, `observer`. |
+| `space leave ID [--principal P]` | Leave and revoke the grant in the same signed event. |
+| `space participants ID` | List participants with their grant, role, and whether the grant is still live. |
+| `space bind ID [--path DIR] [--residency R] [--materialization M] [--execution E] [--reflink]` | Bind a workspace. The provider reports residency, storage mode, and execution; a claim the provider did not make is refused. |
+| `space workspaces ID` | List bound workspaces and what each one actually declared. |
+| `space budget ID --units N [--principal P]` | Allocate turn budget for a participant. |
+| `space turn ID REQUEST [--principal P] [--execution E] [--units N] [--sandbox ID]` | Record a turn. Refused without a live grant, refused past the budget, and refused for `observer` grants. |
+| `space turns ID` | List recorded turns. |
+| `space capture open ID --scope S --retention R [--redaction X]` | Open a Capture Session. `--redaction` is `none`, `declared-secrets` (default), or `full`. |
+| `space capture record ID --path P (--content C \| --file F)` | Record one captured operation. Refused outside an open session. |
+| `space capture close ID` | Seal the session with the number of operations it captured. |
+| `space capture list ID` | List sessions and whether each is still open. |
+| `space anchor record ID --revision R --path P --structural-path SP (--content C \| --file F)` | Anchor to a structural path inside an exact Revision. A path absent from the content is refused. |
+| `space anchor resolve ANCHOR_ID (--content C \| --file F)` | Re-resolve: `resolved` (unchanged), `moved` (content changed, construct survives), or `unresolved` (construct gone). |
+| `space anchor list ID` | List anchors recorded in a Space. |
+
+Continuous capture is legal only inside a Capture Session, so the consent —
+scope, retention, and redaction policy — is itself signed history. Anchors bind
+to structural paths rather than line numbers, so a comment survives the file
+being reformatted and reports honestly when the construct it named is deleted.
+
 ## Semantic Commands
 
 Structural diff, patch, merge, and compression planning over the representation

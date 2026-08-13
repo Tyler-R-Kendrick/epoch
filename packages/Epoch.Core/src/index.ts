@@ -51,6 +51,7 @@ export * from "./convergence-changes";
 export * from "./convergence-transactions";
 export * from "./object-store";
 export * from "./promises";
+export * from "./spaces";
 export * from "./sync-protocol-v2";
 export * from "./sync-v2";
 export * from "./workspace";

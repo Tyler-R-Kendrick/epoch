@@ -38,6 +38,7 @@ import { runConvergenceCoreTransactionTests } from "./unit/convergence-core-tran
 import { runCoreStorageSyncV2Tests } from "./unit/core-storage-sync-v2.test";
 import { runGitConvergenceFoundationTests } from "./unit/git-convergence-foundation.test";
 import { runProtocolRequiredEventTests } from "./unit/protocol-required-events.test";
+import { runSpaceTests } from "./unit/spaces.test";
 import { runChangeGraphBrowserWrapperTests } from "./unit/change-graph-browser-wrappers.test";
 import { runChangeGraphCliTests } from "./unit/change-graph-cli.test";
 import { runNomenclatureContractTests } from "./unit/nomenclature-contract.test";
@@ -87,6 +88,7 @@ async function main(): Promise<void> {
   runProtocolRequiredEventTests();
   runChangeGraphBrowserWrapperTests();
   await runChangeGraphCliTests();
+  await runSpaceTests();
   await runNomenclatureContractTests();
   runSemanticPipelineTests();
   runExtensionMechanismTests();

@@ -2,7 +2,17 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { EpochRepository, parseSnapshot, SignedChangeGraphStore } from "@epoch/core";
+import {
+  EpochRepository,
+  FileSystemWorkspaceProvider,
+  parseSnapshot,
+  SignedChangeGraphStore,
+  SignedSpaceStore,
+  SpaceError,
+  type SpaceExecution,
+  type SpaceRedaction,
+  type SpaceRole,
+} from "@epoch/core";
 import { decodeF3Archive, encodeF3Archive, FORGE_CAPABILITIES } from "@epoch/forge";
 import {
   createCanonicalId,
@@ -16,7 +26,11 @@ import { parseSwhid, swhidForGitObject, swhKindForGitType } from "@epoch/softwar
 
 export type ChangeGraphCommandErrorCode =
   | "invalid-command" | "invalid-input" | "not-found" | "stale-revision"
-  | "auth-denied" | "unsupported-capability" | "conflict" | "external-error";
+  | "auth-denied" | "unsupported-capability" | "conflict" | "external-error"
+  // ADR-0040 Space governance refuses for reasons that are not the same fact:
+  // a missing grant, a spent budget, and a missing consent record each need
+  // their own code so the caller can tell them apart.
+  | "grant-denied" | "budget-exceeded" | "policy-denied";
 
 export interface ChangeGraphCommandEnvelope {
   readonly schemaVersion: 1;
@@ -34,7 +48,7 @@ export interface ChangeGraphCommandDependencies {
 
 const CHANGE_GRAPH_COMMANDS = new Set(["new", "change", "log", "op", "graph", "split", "bundle", "merge-plan",
   "conflict", "workspace", "clone", "fetch", "backfill", "mirror", "principal", "agent", "forge",
-  "swhid", "archive", "interop"]);
+  "swhid", "archive", "interop", "space"]);
 
 export function isChangeGraphCommand(command: string | undefined): boolean { return command !== undefined && CHANGE_GRAPH_COMMANDS.has(command); }
 export function isChangeGraphInvocation(command: string | undefined, args: readonly string[]): boolean {
@@ -241,9 +255,106 @@ export async function executeChangeGraphCommand(root: string, argv: readonly str
     const result = await execute(root, command, argv.slice(1), now, dependencies);
     return { schemaVersion: 1, ok: true, command: argv.join(" "), code: "ok", data: result };
   } catch (error) {
+    // A Space refusal is a first-class outcome, not an internal failure: keep
+    // its code and its details so `--json` callers can act on the reason.
+    if (error instanceof SpaceError) {
+      return { schemaVersion: 1, ok: false, command: argv.join(" "), code: error.code,
+        error: { message: error.message, details: error.details } };
+    }
     const known = error as Error & { code?: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> };
     return { schemaVersion: 1, ok: false, command: argv.join(" "), code: known.code ?? "external-error",
       error: { message: known.message, ...(known.details === undefined ? {} : { details: known.details }) } };
+  }
+}
+
+/**
+ * `epoch space ...` (ADR-0040).
+ *
+ * The Space store owns every refusal; this layer only shapes arguments, so the
+ * CLI can never authorize something the store would have denied.
+ */
+function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): unknown {
+  const store = SignedSpaceStore.open(resolve(root), { random: dependencies.random });
+  const action = parsed.positionals[0];
+  const spaceArgument = (index = 1): string => required(parsed.positionals[index], "space ID");
+  const principal = stringOption(parsed, "principal");
+  const contentArgument = (): string => {
+    const inline = stringOption(parsed, "content");
+    if (inline !== undefined) return inline;
+    const file = required(stringOption(parsed, "file"), "--content or --file");
+    try { return readFileSync(resolve(file), "utf8"); }
+    catch { throw commandError("not-found", `unable to read content file: ${file}`); }
+  };
+
+  switch (action) {
+    case "create":
+      return store.createSpace({ title: required(parsed.positionals[1], "space title"), view: stringOption(parsed, "view") });
+    case "list": return { spaces: store.listSpaces() };
+    case "show": return store.showSpace(spaceArgument());
+    case "join":
+      return store.join(spaceArgument(), { principal, role: stringOption(parsed, "role") as SpaceRole | undefined });
+    case "leave": return store.leave(spaceArgument(), { principal });
+    case "participants": return { participants: store.participants(spaceArgument()) };
+    case "bind": {
+      const path = stringOption(parsed, "path") ?? root;
+      return store.bindWorkspace(spaceArgument(), {
+        provider: new FileSystemWorkspaceProvider(resolve(path), { reflink: parsed.options.reflink === true }),
+        principal,
+        residency: stringOption(parsed, "residency") as "resident" | "partial" | "virtual" | undefined,
+        materialization: stringOption(parsed, "materialization") as "materialized" | "virtual" | undefined,
+        execution: stringOption(parsed, "execution") as SpaceExecution | undefined,
+      });
+    }
+    case "workspaces": return { workspaces: store.workspaces(spaceArgument()) };
+    case "budget":
+      return store.allocateTurnBudget(spaceArgument(), { principal, units: Number(required(stringOption(parsed, "units"), "--units")) });
+    case "turn":
+      return store.recordTurn(spaceArgument(), {
+        request: required(parsed.positionals[2], "turn request"),
+        principal,
+        execution: stringOption(parsed, "execution") as SpaceExecution | undefined,
+        units: stringOption(parsed, "units") === undefined ? undefined : Number(stringOption(parsed, "units")),
+        sandboxId: stringOption(parsed, "sandbox"),
+      });
+    case "turns": return { turns: store.turns(spaceArgument()) };
+    case "capture": {
+      const subAction = parsed.positionals[1];
+      if (subAction === "open") {
+        return store.openCapture(spaceArgument(2), {
+          scope: required(stringOption(parsed, "scope"), "--scope"),
+          retention: required(stringOption(parsed, "retention"), "--retention"),
+          redaction: stringOption(parsed, "redaction") as SpaceRedaction | undefined,
+          principal,
+        });
+      }
+      if (subAction === "record") {
+        return store.recordCapturedOperation(spaceArgument(2), {
+          path: required(stringOption(parsed, "path"), "--path"), content: contentArgument(), principal,
+        });
+      }
+      if (subAction === "close") return store.closeCapture(spaceArgument(2), { principal });
+      if (subAction === "list") return { sessions: store.captureSessions(spaceArgument(2)) };
+      throw commandError("invalid-command", `invalid space capture action: ${subAction ?? "missing"}`);
+    }
+    case "anchor": {
+      const subAction = parsed.positionals[1];
+      if (subAction === "record") {
+        return store.recordAnchor(spaceArgument(2), {
+          revisionId: required(stringOption(parsed, "revision"), "--revision"),
+          path: required(stringOption(parsed, "path"), "--path"),
+          structuralPath: required(stringOption(parsed, "structural-path"), "--structural-path"),
+          content: contentArgument(),
+          principal,
+        });
+      }
+      if (subAction === "resolve") {
+        return store.resolveAnchor(required(parsed.positionals[2], "anchor ID"), { content: contentArgument() });
+      }
+      if (subAction === "list") return { anchors: store.anchors(spaceArgument(2)) };
+      throw commandError("invalid-command", `invalid space anchor action: ${subAction ?? "missing"}`);
+    }
+    default:
+      throw commandError("invalid-command", `invalid space action: ${action ?? "missing"}`);
   }
 }
 
@@ -257,6 +368,7 @@ async function execute(root: string, command: string, args: readonly string[], n
     }
   };
 
+  if (command === "space") return executeSpaceCommand(root, parsed, dependencies);
   if (command === "new") return store.createRevision({ parentRevisionIds: parsed.positionals, message: stringOption(parsed, "message") ?? "" });
   if (command === "log") {
     const revisions = store.listRevisions(); const expression = stringOption(parsed, "revisions") ?? "heads()";

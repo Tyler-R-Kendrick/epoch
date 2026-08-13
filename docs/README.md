@@ -112,7 +112,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0037: Extension Mechanism And Capability Registry](design-decisions/0037-extension-mechanism-and-capability-registry.md) | Defines external `epoch-*` subcommands with manifests and trust policy, a typed capability registry, deterministic resolution, and mandatory provider provenance. |
 | [ADR-0038: Semantic Diff, Merge, And Compression](design-decisions/0038-semantic-diff-merge-and-compression.md) | Defines the bytes-to-entities representation ladder, structural patches, structural merge with commutative containers, and syntax-guided storage. |
 | [ADR-0039: Native Capabilities From The Git Extension Ecosystem](design-decisions/0039-native-capabilities-from-the-git-extension-ecosystem.md) | Sorts the Git extension ecosystem into native capabilities, genuine extensions, and deliberate non-goals. |
-| [ADR-0040: Spaces — Shared, Signed, Joinable Workspaces](design-decisions/0040-spaces-shared-signed-workspaces.md) | Proposes `epoch.space/v1` as a joinable object composing View, Workspaces, conversation, authority, and per-turn Sandbox bindings, and states what a Space is not. |
+| [ADR-0040: Spaces — Shared, Signed, Joinable Workspaces](design-decisions/0040-spaces-shared-signed-workspaces.md) | `epoch.space/v1`: a joinable object composing View, Workspaces, conversation, authority, and per-turn Sandbox bindings; what a Space is not; and which phases shipped. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

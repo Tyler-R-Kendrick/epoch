@@ -237,9 +237,12 @@ boundary for worktree-supplied configuration.
 ### Sequenced plan
 
 Ordered by leverage per unit of new machinery. Phases 1–3 are composition over
-shipped primitives; 4–6 are genuinely new infrastructure.
+shipped primitives and **are now implemented** — `epoch.space/v1`,
+`SignedSpaceStore`, and the `epoch space ...` CLI family, with unit, CLI, and
+Gherkin coverage. Phases 4–6 are genuinely new infrastructure and are **not
+built**; nothing below claims otherwise.
 
-**Phase 1 — Space object and join.** Signed `space.create`, `space.join`,
+**Phase 1 — Space object and join (shipped).** Signed `space.create`, `space.join`,
 `space.leave`, `space.bind-workspace`, and `space.turn` events. Joining
 receives a signed grant, syncs over the shipped `epoch.sync/v2` plus gossip,
 and materializes through an existing workspace provider in virtual mode, so
@@ -247,7 +250,7 @@ joining is cheap by *residency* rather than by any copy-on-write claim. This
 delivers the shareable, joinable channel property with almost no new
 infrastructure, and it is the phase that makes the rest legible.
 
-**Phase 2 — Consent-gated continuous capture.** Delta's ergonomic advantage is
+**Phase 2 — Consent-gated continuous capture (shipped).** Delta's ergonomic advantage is
 that the record accumulates without ceremony. Epoch's nomenclature currently
 disclaims continuous capture, and reversing that outright would be wrong. The
 resolution is a signed **capture session**: `session.open` declares scope,
@@ -256,7 +259,7 @@ while it is open; `session.close` seals it. Operations outside a session stay
 explicit. Epoch then matches Delta's fidelity, and the consent itself is a
 signed artifact Delta has no equivalent for.
 
-**Phase 3 — Anchors that outlive refactors, bound to conversation.**
+**Phase 3 — Anchors that outlive refactors, bound to conversation (shipped).**
 `@epoch/semantic` already keys artifacts by structural path so a patch survives
 reformatting. Anchor conversation to `(RevisionId, structural path)` and
 resolve forward through the Change Graph. This is *better* than anchoring to a
@@ -264,7 +267,7 @@ delta: a delta anchor names a historical position that must be replayed, while
 a structural path re-resolves across a rebase and after a rename. Ship
 `epoch anchor resolve`, and make Community's promote-to-change path use it.
 
-**Phase 4 — Live materialization, stated truthfully.** ADR-0014's revisit
+**Phase 4 — Live materialization, stated truthfully (not built).** ADR-0014's revisit
 criteria already name "lazy, on-access hydration (a real virtual filesystem
 handle)." Implement it in two truthful layers: the `reflink` provider already
 probes the destination filesystem and reports the actual clone or fallback
@@ -273,7 +276,7 @@ provider hydrates from chunk manifests and promises, reporting
 `execution: none` and never implying isolation. The capability report stays
 authoritative — which is the part Delta's documentation does not offer.
 
-**Phase 5 — The isolation Delta does not have.** This is the highest-leverage
+**Phase 5 — The isolation Delta does not have (not built).** This is the highest-leverage
 differentiator available right now, because it is a stated hole in a funded
 competitor's shipping product and Epoch's contracts for it are already
 accepted. Ship one genuinely isolated execution provider that consumes a Grant
@@ -281,7 +284,7 @@ and a Budget, emits a Receipt per turn, and refuses to execute
 repository-supplied configuration it was not granted. Delta's agentic-safety
 page is the specification for what to beat.
 
-**Phase 6 — Federated join instead of a vendor backend.** Spaces should be
+**Phase 6 — Federated join instead of a vendor backend (not built).** Spaces should be
 discoverable and joinable over gossip and ATProto per ADR-0020 and ADR-0022,
 with any hosted seed a convenience rather than an authority. A join link should
 resolve local → gossip → AT and keep working offline afterward. Delta cannot
@@ -289,8 +292,9 @@ match this without leaving Durable Objects.
 
 ## 6. Where Epoch Can Be Better, Specifically
 
-Claims Epoch would be entitled to make once the phases above land, each
-grounded in a documented Delta limitation rather than a guess.
+Claims grounded in a documented Delta limitation rather than a guess. Items
+1–4 and 7 are enforced by the shipped Space implementation; item 5 was already
+shipped; item 6 depends on Phase 4.
 
 1. **Signed participation.** Every message, edit, comment, and agent turn
    carries an Ed25519 signature and verifies offline. Delta records authorship

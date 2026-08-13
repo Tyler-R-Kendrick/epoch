@@ -16,6 +16,10 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "mirror.defined", "mirror.checkpoint", "mirror.run",
   "object.promise.recorded",
   "software-heritage.mapping", "software-heritage.archive-requested", "software-heritage.archive-status",
+  "space.created", "space.participant.joined", "space.participant.left",
+  "space.workspace.bound", "space.turn.recorded",
+  "space.capture.opened", "space.capture.closed", "space.capture.operation",
+  "space.anchor.recorded",
 ] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
@@ -108,6 +112,65 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
       required: ["repositoryId", "versionId", "requestId", "status"],
       ids: { repositoryId: "repo", versionId: "version" }, strings: ["requestId"],
       enums: { status: ["requested", "pending", "succeeded", "failed", "cancelled"] },
+    }); return;
+    case "space.created": validateFields(value, {
+      required: ["spaceId", "repositoryId", "ownerPrincipalId", "viewName", "title"],
+      ids: { spaceId: "space", repositoryId: "repo", ownerPrincipalId: "principal" },
+      strings: ["viewName", "title"],
+    }); return;
+    // Joining is receiving a grant, not an ACL row: the grant ID is required so
+    // membership and authority cannot drift apart (ADR-0034, ADR-0040).
+    case "space.participant.joined": validateFields(value, {
+      required: ["spaceId", "principalId", "grantId", "role"],
+      ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+      enums: { role: ["owner", "collaborator", "agent", "observer"] },
+    }); return;
+    case "space.participant.left": validateFields(value, {
+      required: ["spaceId", "principalId", "grantId"],
+      ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+    }); return;
+    // The Space reports nothing about materialization on a provider's behalf;
+    // it records what that provider truthfully declared (ADR-0032).
+    case "space.workspace.bound": validateFields(value, {
+      required: ["spaceId", "principalId", "workspaceId", "providerId", "storageMode", "residency", "materialization", "execution"],
+      ids: { spaceId: "space", principalId: "principal", workspaceId: "workspace" },
+      strings: ["providerId", "storageMode"],
+      enums: {
+        residency: ["resident", "partial", "virtual"],
+        materialization: ["materialized", "virtual"],
+        execution: ["disabled", "in-process", "isolated"],
+      },
+    }); return;
+    case "space.turn.recorded": validateFields(value, {
+      required: ["spaceId", "principalId", "grantId", "execution", "requestDigest"],
+      optional: ["sandboxId", "budgetId", "units"],
+      ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+      optionalIds: { sandboxId: "sandbox", budgetId: "budget" },
+      digests: ["requestDigest"],
+      enums: { execution: ["disabled", "in-process", "isolated"] },
+    }); return;
+    case "space.capture.opened": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["scope", "retention"],
+      enums: { redaction: ["none", "declared-secrets", "full"] },
+    }); return;
+    case "space.capture.closed": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "operationCount"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      nonnegativeIntegers: ["operationCount"],
+    }); return;
+    case "space.capture.operation": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "path", "contentDigest"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["path"], digests: ["contentDigest"],
+    }); return;
+    // Anchors bind to a structural path inside an exact Revision, so they
+    // re-resolve after reformatting rather than naming a byte offset.
+    case "space.anchor.recorded": validateFields(value, {
+      required: ["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"],
+      ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },
+      revisions: ["revisionId"], strings: ["path", "structuralPath"], digests: ["contentDigest"],
     }); return;
   }
 }
