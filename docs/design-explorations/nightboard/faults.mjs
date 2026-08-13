@@ -267,8 +267,15 @@ const CASES = [
     name: "an unauthorized private Entity remains absent from deterministic search",
     spec: { availability: "unavailable" },
     check: async (page, log) => {
-      const result = await page.evaluate(() => window.NB_QUERY.searchBoard("body:\"lockfile hash only\"", {
+      const result = await page.evaluate(() => window.NB_QUERY.searchBoard("body:DO_NOT_LEAK_PRIVATE_SEARCH", {
         viewer: { actorId: "principal-bob", readableDmIds: [] },
+        extra: [{
+          id: "secret-private-search",
+          dm: "maya",
+          who: "maya",
+          body: "DO_NOT_LEAK_PRIVATE_SEARCH",
+          participantIds: ["maya"],
+        }],
       }));
       log(JSON.stringify(result));
       return result.hits.length === 0;
