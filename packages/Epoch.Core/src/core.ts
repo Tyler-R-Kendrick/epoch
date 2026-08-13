@@ -35,8 +35,45 @@ import {
   VirtualCheckoutFormat,
   MaterializationMode,
   VirtualRecordStatus,
+  CompositionEventType,
+  SelectionFormat,
+  WorkspaceSelectionStateSchema,
+  normalizeMaterializationMode,
+  type CanonicalMaterializationMode,
+  type WorkspaceSelectionState,
 } from "./domain";
 import { formatUnifiedDiff } from "./patch";
+import {
+  SelectAll,
+  formatSelection,
+  normalizeSelection,
+  parseSelection,
+  resolveSelection,
+  type ResolvedSelection,
+  type Selection,
+  type SelectionProfile,
+} from "./selection";
+import {
+  buildNamespaceManifest,
+  buildSparseIndex,
+  namespaceResources,
+  type NamespaceLinkInput,
+  type NamespaceManifest,
+  type SparseIndex,
+} from "./namespace";
+import {
+  CompositionError,
+  RepositoryLinkSchema,
+  detectLinkRetargetConflicts,
+  planVendorize,
+  resolveComposition,
+  validateLink,
+  type LinkRetargetConflict,
+  type RepositoryLink,
+  type RepositoryLinkResolver,
+  type ResolvedComposition,
+  type VendorProvenance,
+} from "./composition";
 import { z } from "zod";
 
 export { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "./domain";
@@ -278,20 +315,27 @@ export interface MaterializeVersionResult {
   readonly virtualManifestPath?: string;
 }
 
-export type MaterializationSetting = "virtual" | "full";
+/** Any accepted spelling, including the deprecated `virtual`/`full` aliases. */
+export type MaterializationSetting = "eager" | "explicit" | "lazy" | "delta" | "virtual" | "full";
 
 export interface CheckoutOptions {
   readonly materialization?: MaterializationSetting;
   readonly base?: string;
   readonly hydrate?: readonly string[];
+  /** Workspace Selection. Defaults to the persisted workspace selection, then to everything. */
+  readonly selection?: Selection;
 }
 
 export interface CheckoutResult extends ViewState {
-  readonly materialization: MaterializationSetting;
+  readonly materialization: CanonicalMaterializationMode;
   readonly manifest: VirtualCheckout;
   readonly written: readonly string[];
   readonly virtualPaths: readonly string[];
   readonly patchPath?: string;
+  /** Paths present in the view but outside the Selection — excluded, not missing. */
+  readonly excludedPaths: readonly string[];
+  readonly selection: ResolvedSelection;
+  readonly namespaceRoot: string;
 }
 
 export interface PreviewOptions {
@@ -496,6 +540,7 @@ export class EpochRepository {
   readonly viewsPath: string;
   readonly checkoutPath: string;
   readonly patchesDir: string;
+  readonly selectionPath: string;
   private readonly hooks: EpochHook[];
   private readonly serializer: EpochSerializationProvider;
   private compactPrefixCache?: { readonly manifestHash: string; readonly events: Map<string, Event> };
@@ -511,6 +556,7 @@ export class EpochRepository {
     this.viewsPath = join(this.epochDir, StorageName.views);
     this.checkoutPath = join(this.epochDir, StorageName.checkout);
     this.patchesDir = join(this.epochDir, StorageName.patches);
+    this.selectionPath = join(this.epochDir, StorageName.selection);
     this.hooks = [...(options.hooks ?? [])];
     this.serializer = options.serializer ?? JsonSerializationProvider;
   }
@@ -683,34 +729,51 @@ export class EpochRepository {
     return this.localViewIndex().current ?? "main";
   }
 
+  /**
+   * Materializes a view under a Selection and a materialization mode.
+   *
+   * The two are independent (ADR-0041): the Selection decides *which resources are relevant*, the
+   * mode decides *how they are realized*. `delta` additionally narrows writes to what differs from
+   * a base, which is the behavior that shipped as `--virtual`.
+   */
   checkoutView(name: string, options: CheckoutOptions = {}): CheckoutResult {
     const state = this.computeViewState(name);
     const mode = this.materializationMode(options.materialization);
+    const selection = options.selection ?? this.workspaceSelection();
+    const namespace = this.namespaceManifest(state);
+    const resolved = resolveSelection(selection, namespaceResources(namespace), { profiles: this.selectionProfiles() });
+    const selected = new Set(resolved.paths);
 
     const trackedPaths = new Set<string>();
     for (const event of this.events()) {
       if (event.type === "record" && typeof event.payload.path === "string") trackedPaths.add(event.payload.path);
     }
     for (const path of trackedPaths) {
-      if (state.records[path] !== undefined) continue;
+      // A path that left the view, or that the Selection excludes, must not linger on disk.
+      if (state.records[path] !== undefined && selected.has(path)) continue;
       const target = resolveInside(this.root, path, "remove path", "repository root").absolute;
       if (existsAsFile(target)) unlinkSync(target);
     }
 
-    const baseName = mode === MaterializationMode.virtual ? options.base ?? this.viewParent(name) : undefined;
+    const baseName = mode === MaterializationMode.delta ? options.base ?? this.viewParent(name) : undefined;
     const hasBase = baseName !== undefined;
     const baseRecords = baseName === undefined ? {} : this.computeViewState(baseName).records;
     const hydrateSet = new Set(options.hydrate ?? []);
 
     const written: string[] = [];
     const virtualPaths: string[] = [];
+    const excludedPaths: string[] = [];
     const records: VirtualCheckoutRecord[] = [];
     for (const [path, record] of Object.entries(state.records).sort(([left], [right]) => left.localeCompare(right))) {
-      // Full mode writes everything. Virtual mode with a base writes only paths whose blob differs
-      // from that base; without a base every path stays virtual (nothing is pulled) until hydrated.
-      const materialize = mode === MaterializationMode.full
+      if (!selected.has(path)) {
+        excludedPaths.push(path);
+        continue;
+      }
+      // eager writes every selected path; explicit and lazy write nothing until hydrate; delta
+      // writes only paths whose blob differs from the base (no base => nothing is pulled yet).
+      const materialize = mode === MaterializationMode.eager
         || hydrateSet.has(path)
-        || (hasBase && baseRecords[path]?.blobSha256 !== record.blobSha256);
+        || (mode === MaterializationMode.delta && hasBase && baseRecords[path]?.blobSha256 !== record.blobSha256);
       if (materialize) {
         const target = resolveInside(this.root, path, "checkout path", "repository root").absolute;
         mkdirSync(dirname(target), { recursive: true });
@@ -730,20 +793,110 @@ export class EpochRepository {
 
     this.updateLocalViewIndex((index) => ({ ...index, current: name }));
 
-    const patchText = mode === MaterializationMode.virtual ? this.buildRollingPatch(baseRecords, state.records) : "";
+    const patchText = mode === MaterializationMode.delta ? this.buildRollingPatch(baseRecords, state.records) : "";
     const patchPath = patchText.length > 0 ? this.writeRollingPatch(name, patchText) : undefined;
     const manifest: VirtualCheckout = {
       format: VirtualCheckoutFormat,
       view: name,
       ...(baseName === undefined ? {} : { base: baseName }),
       materialization: mode,
+      selection: formatSelection(resolved.selection),
+      selectionDigest: resolved.digest,
+      namespaceRoot: namespace.root,
       frontier: this.heads(),
       ...(patchPath === undefined ? {} : { patch: patchPath }),
       records,
     };
     this.writeVirtualCheckout(manifest);
 
-    return { ...state, materialization: mode, manifest, written, virtualPaths, ...(patchPath === undefined ? {} : { patchPath }) };
+    return {
+      ...state,
+      materialization: mode,
+      manifest,
+      written,
+      virtualPaths,
+      excludedPaths,
+      selection: resolved,
+      namespaceRoot: namespace.root,
+      ...(patchPath === undefined ? {} : { patchPath }),
+    };
+  }
+
+  /** Builds the content-addressed namespace manifest for a view state, including any links. */
+  namespaceManifest(state: ViewState = this.computeViewState(this.currentView())): NamespaceManifest {
+    const files: Record<string, { blobSha256: string; size: number; entityType: string }> = {};
+    for (const [path, record] of Object.entries(state.records)) {
+      files[path] = { blobSha256: record.blobSha256, size: record.size, entityType: record.entityType };
+    }
+    const entities: Record<string, { entityType: string; snapshotDigest: string }> = {};
+    for (const [name, value] of Object.entries(state.crdt)) {
+      entities[name] = { entityType: EntityType.json, snapshotDigest: sha256(canonicalJson(value)) };
+    }
+    return buildNamespaceManifest({ files, entities, links: this.namespaceLinkInputs() });
+  }
+
+  /** The sparse local index: complete entries for selected paths, opaque digests elsewhere. */
+  sparseIndex(options: { readonly view?: string; readonly selection?: Selection } = {}): SparseIndex {
+    const state = this.computeViewState(options.view ?? this.currentView());
+    const namespace = this.namespaceManifest(state);
+    const resolved = resolveSelection(
+      options.selection ?? this.workspaceSelection(),
+      namespaceResources(namespace),
+      { profiles: this.selectionProfiles() },
+    );
+    return buildSparseIndex(namespace, resolved);
+  }
+
+  /** Reads the workspace-local Selection. Defaults to everything, never to history state. */
+  workspaceSelection(): Selection {
+    const state = this.workspaceSelectionState();
+    return state === undefined ? SelectAll : parseSelection(state.expression);
+  }
+
+  selectionProfiles(): readonly SelectionProfile[] {
+    const state = this.workspaceSelectionState();
+    return (state?.profiles ?? []).map((profile) => ({
+      profileId: profile.profileId,
+      selection: parseSelection(profile.expression),
+      ...(profile.description === undefined ? {} : { description: profile.description }),
+    }));
+  }
+
+  /** Replaces the workspace Selection. Workspace-local by design: this writes no signed history. */
+  setWorkspaceSelection(selection: Selection): Selection {
+    const normalized = normalizeSelection(selection);
+    const existing = this.workspaceSelectionState();
+    writeJson(this.selectionPath, {
+      format: SelectionFormat,
+      expression: formatSelection(normalized),
+      ...(existing?.profiles === undefined ? {} : { profiles: existing.profiles }),
+    } satisfies WorkspaceSelectionState);
+    return normalized;
+  }
+
+  defineSelectionProfile(profileId: string, selection: Selection, description?: string): readonly SelectionProfile[] {
+    const existing = this.workspaceSelectionState();
+    const profiles = (existing?.profiles ?? []).filter((profile) => profile.profileId !== profileId);
+    profiles.push({
+      profileId,
+      expression: formatSelection(normalizeSelection(selection)),
+      ...(description === undefined ? {} : { description }),
+    });
+    writeJson(this.selectionPath, {
+      format: SelectionFormat,
+      expression: existing?.expression ?? formatSelection(SelectAll),
+      profiles: profiles.sort((left, right) => left.profileId.localeCompare(right.profileId)),
+    } satisfies WorkspaceSelectionState);
+    return this.selectionProfiles();
+  }
+
+  private workspaceSelectionState(): WorkspaceSelectionState | undefined {
+    if (!existsAsFile(this.selectionPath)) return undefined;
+    try {
+      return readJson(this.selectionPath, WorkspaceSelectionStateSchema);
+    } catch {
+      return undefined;
+    }
   }
 
   /** Materializes still-virtual paths (or a subset) from the object store, updating the manifest. */
@@ -803,10 +956,148 @@ export class EpochRepository {
     return manifest.frontier.length !== frontier.length || manifest.frontier.some((id, index) => id !== frontier[index]);
   }
 
-  private materializationMode(explicit?: MaterializationSetting): MaterializationSetting {
-    if (explicit === MaterializationMode.virtual || explicit === MaterializationMode.full) return explicit;
+  private materializationMode(explicit?: MaterializationSetting): CanonicalMaterializationMode {
+    const requested = normalizeMaterializationMode(explicit);
+    if (requested !== undefined) return requested;
     const configured = this.isInitialized() ? this.repositoryConfig().working_tree?.materialization : undefined;
-    return configured === MaterializationMode.virtual ? MaterializationMode.virtual : MaterializationMode.full;
+    return normalizeMaterializationMode(configured) ?? MaterializationMode.eager;
+  }
+
+  /**
+   * Records a Repository Link: an exact, read-only mount of another repository's Version.
+   *
+   * The link is signed history; the resolver hints that help find the bytes are not authoritative
+   * and never grant access on their own (ADR-0040).
+   */
+  defineRepositoryLink(link: RepositoryLink, author?: string): Event {
+    const existing = this.repositoryLinks();
+    const validated = validateLink(link, existing, this.repositoryIdentityId());
+    return this.append(CompositionEventType.linkDefined, validated as unknown as EventPayload, author);
+  }
+
+  /** Moves a link to a different exact child Version. Retargeting is always a visible parent change. */
+  retargetRepositoryLink(linkId: string, versionId: string, namespaceRoot: string, author?: string): Event {
+    const current = this.repositoryLinks().find((link) => link.linkId === linkId);
+    if (current === undefined) throw new CompositionError(`unknown repository link: ${linkId}`, "unknown-link");
+    return this.append(CompositionEventType.linkRetargeted, {
+      linkId,
+      fromVersionId: current.target.versionId,
+      toVersionId: versionId,
+      namespaceRoot,
+    } satisfies EventPayload, author);
+  }
+
+  removeRepositoryLink(linkId: string, author?: string): Event {
+    if (!this.repositoryLinks().some((link) => link.linkId === linkId)) {
+      throw new CompositionError(`unknown repository link: ${linkId}`, "unknown-link");
+    }
+    return this.append(CompositionEventType.linkRemoved, { linkId } satisfies EventPayload, author);
+  }
+
+  /** Projects current links from signed events: defined, then retargeted, minus removed. */
+  repositoryLinks(): readonly RepositoryLink[] {
+    const links = new Map<string, RepositoryLink>();
+    for (const event of sortEvents(this.events())) {
+      if (event.type === CompositionEventType.linkDefined) {
+        const parsed = RepositoryLinkSchema.safeParse(event.payload);
+        if (parsed.success) links.set(parsed.data.linkId, parsed.data);
+      } else if (event.type === CompositionEventType.linkRetargeted) {
+        const linkId = String(event.payload.linkId ?? "");
+        const current = links.get(linkId);
+        if (current === undefined) continue;
+        links.set(linkId, {
+          ...current,
+          target: {
+            ...current.target,
+            versionId: String(event.payload.toVersionId ?? current.target.versionId),
+            namespaceRoot: String(event.payload.namespaceRoot ?? current.target.namespaceRoot),
+          },
+        });
+      } else if (event.type === CompositionEventType.linkRemoved) {
+        links.delete(String(event.payload.linkId ?? ""));
+      }
+    }
+    return [...links.values()].sort((left, right) => left.mountPath.localeCompare(right.mountPath));
+  }
+
+  /** Concurrent retargets of one link off the same base are a durable conflict, not a race winner. */
+  repositoryLinkConflicts(): readonly LinkRetargetConflict[] {
+    const events = this.events()
+      .filter((event) => event.type === CompositionEventType.linkRetargeted)
+      .map((event) => ({
+        eventId: event.id,
+        linkId: String(event.payload.linkId ?? ""),
+        fromVersionId: String(event.payload.fromVersionId ?? ""),
+        toVersionId: String(event.payload.toVersionId ?? ""),
+      }));
+    return detectLinkRetargetConflicts(events);
+  }
+
+  /** Composes this repository with its linked children into one namespace with explicit ownership. */
+  resolveComposition(resolver: RepositoryLinkResolver, options: { readonly view?: string } = {}): ResolvedComposition {
+    const state = this.computeViewState(options.view ?? this.currentView());
+    const files: Record<string, { blobSha256: string; size: number; entityType: string }> = {};
+    for (const [path, record] of Object.entries(state.records)) {
+      files[path] = { blobSha256: record.blobSha256, size: record.size, entityType: record.entityType };
+    }
+    return resolveComposition(
+      { repositoryId: this.repositoryIdentityId() ?? this.root, files, links: this.repositoryLinks() },
+      resolver,
+    );
+  }
+
+  /**
+   * Copies a linked child's files into ordinary parent-owned paths and records provenance.
+   *
+   * Vendorizing is a deliberate one-way ownership transfer: the link is removed, the files become
+   * this repository's, and the recorded provenance is what a later upstream update merges against.
+   */
+  vendorizeRepositoryLink(linkId: string, resolver: RepositoryLinkResolver, author?: string): VendorProvenance {
+    const link = this.repositoryLinks().find((candidate) => candidate.linkId === linkId);
+    if (link === undefined) throw new CompositionError(`unknown repository link: ${linkId}`, "unknown-link");
+    const child = resolver.resolve(link.target.repositoryId, link.target.versionId);
+    if (child === undefined) {
+      throw new CompositionError(`repository link target is unavailable: ${link.target.repositoryId}@${link.target.versionId}`, "unavailable");
+    }
+    const plan = planVendorize(link, child);
+    for (const [path, file] of Object.entries(plan.files)) {
+      this.append(EventType.record, {
+        path,
+        entity_type: file.entityType,
+        blob_sha256: file.blobSha256,
+        size: file.size,
+      } satisfies EventPayload, author);
+    }
+    this.append(CompositionEventType.vendorized, plan.provenance as unknown as EventPayload, author);
+    this.removeRepositoryLink(linkId, author);
+    return plan.provenance;
+  }
+
+  /** Provenance for every vendorized import, newest last. */
+  vendorProvenance(): readonly VendorProvenance[] {
+    return sortEvents(this.events())
+      .filter((event) => event.type === CompositionEventType.vendorized)
+      .map((event) => event.payload as unknown as VendorProvenance);
+  }
+
+  private namespaceLinkInputs(): readonly NamespaceLinkInput[] {
+    return this.repositoryLinks().map((link) => ({
+      linkId: link.linkId,
+      mountPath: link.mountPath,
+      repositoryId: link.target.repositoryId,
+      versionId: link.target.versionId,
+      namespaceRoot: link.target.namespaceRoot,
+      ...(link.target.sourcePath === undefined ? {} : { sourcePath: link.target.sourcePath }),
+    }));
+  }
+
+  private repositoryIdentityId(): string | undefined {
+    for (const event of sortEvents(this.events())) {
+      if (event.type === EventType.repositoryIdentity && typeof event.payload.repositoryId === "string") {
+        return event.payload.repositoryId;
+      }
+    }
+    return undefined;
   }
 
   private patchContextLines(): number {
@@ -1007,6 +1298,11 @@ export class EpochRepository {
 
   redactBlob(blobSha256: string, reason: string, author = this.identity()): Event {
     return this.append(EventType.redaction, { blob_sha256: blobSha256, reason }, author);
+  }
+
+  /** Whether an object's bytes are locally resident. Identity is known either way (ADR-0032). */
+  blobPresent(blobSha256: string): boolean {
+    return existsAsFile(join(this.blobsDir, blobSha256));
   }
 
   planRedaction(blobSha256: string): RedactionPlan {
