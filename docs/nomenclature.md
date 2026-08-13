@@ -18,6 +18,9 @@ Operations. These terms are contracts, not synonyms.
 | **Merge Plan** | A compare-and-swap proposal for a dependency-closed set with exact evidence and a resulting digest. | An auto-merge guess. |
 | **Conflict** | Durable signed state containing all known sides and resolution lineage. | An exception that may be discarded. |
 | **View** | A named logical selection over repository history. | A workspace, branch, or sandbox. |
+| **Space** | A signed, joinable object composing one View, per-machine Workspaces, conversation, participant Grants and Budgets, and per-turn Sandbox bindings. | A View, Workspace, Sandbox, or Change. It references them; it is none of them, and it confers no authority a Grant did not issue. |
+| **Capture Session** | A signed, scoped, time-bounded consent record under which Code Operations may be recorded continuously. | Permission to capture by default, or a claim that everything was captured. |
+| **Anchor** | A durable reference to a structural path inside an exact Revision. | A line number, byte offset, or operation position. |
 | **Projection** | A declared mapping to another representation. Always qualify it: Git projection, forge projection, social projection, or filesystem projection. | Epoch authority. |
 | **Operation** | Local command-history state used for recovery and undo. It is not shared unless explicitly published as evidence. | A Revision or a universal editor operation stream. |
 | **Code Operation** | An explicitly recorded signed CRDT edit. It may link to a Change, session, tool, and private conversation digest. | Continuous capture of editor or terminal activity. |
@@ -67,6 +70,8 @@ Native commands use nouns that match the model:
 - `epoch bundle ...` creates, inspects, and materializes a Review Bundle record.
 - `epoch merge-plan ...` plans, inspects, and applies a merge-plan record.
 - `epoch log --revisions 'graph(<id>)'` queries graph membership.
+- `epoch space ...` opens, joins, and operates a Space, including capture
+  sessions and anchors.
 - `epoch-community changes ...` creates and reviews Community Changes. It does not write `epoch change` IDs.
 
 New workflows do not add `stack`, `weave`, `frontier`, or `saved view` aliases.
@@ -99,9 +104,15 @@ nomenclature inconsistency; it is not used by the Change Graph workflows.
   by itself which bytes are resident or which files are written.
 - A DeltaDB delta resembles an Epoch Code Operation or Fragment in granularity,
   but DeltaDB continuously captures editor/worktree operations. Epoch records
-  explicit signed Code Operations with optional conversation digests; it does
-  not claim universal capture, a live arbitrary-tool CRDT mount, or durable
+  explicit signed Code Operations, and continuous recording is legal only inside
+  a signed Capture Session that declares scope, retention, and redaction. Epoch
+  does not claim universal capture, a live arbitrary-tool CRDT mount, or durable
   character-level permalinks.
+- A Delta thread resembles an Epoch Space: both make in-progress agent work
+  joinable. A Delta thread owns its worktrees; an Epoch Space only *references*
+  Workspaces, so residency, materialization, and execution isolation stay
+  separately reported facts. Membership in a Space is a Grant, so revocation and
+  budget limits are enforced rather than advisory.
 
 ## Commonly confused boundaries
 

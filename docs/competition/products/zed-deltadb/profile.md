@@ -31,7 +31,28 @@ Zed DeltaDB is Zed's operation-level version-control and synchronization layer. 
 - Epoch should preserve Git interop while explaining what operation-level events add beyond snapshots, generated commits, or PR comments.
 - The product must manage signal-to-noise deliberately; recording every operation is only valuable if users and agents can query intent without drowning in transient edits.
 
+## Product Layer
+
+DeltaDB now ships underneath a product, tracked separately as
+[Delta](../delta/profile.md), and the two should not be conflated: DeltaDB is
+the history and synchronization layer, Delta is the joinable multiplayer
+workspace built on it. The
+[workspace convergence analysis](../../delta-workspace-convergence.md) maps both
+onto Epoch primitives.
+
 ## Unknowns To Track
 
-- Public sources do not yet define a stable standalone storage/API contract, signature/authority model, self-hosting boundary, or migration format sufficient for a fidelity adapter.
-- The June 2026 announcement described a beta on a near-term horizon. That schedule is a dated product statement, not evidence of a generally available or independently deployable protocol.
+- A stable *external* storage/API contract, signature model, and migration
+  format sufficient for a fidelity adapter remain unpublished, so an Epoch
+  ingestion adapter still has nothing to bind to.
+- The self-hosting question is no longer open. Delta's documentation states the
+  backend "runs entirely on Cloudflare" (R2, Durable Objects with SQLite, KV,
+  D1) with no self-hosting boundary, and thread deletion does not reach
+  already-synced server copies.
+- The authority question is answered by its absence: no agent permission
+  framework, no agent sandbox, and no worktree-configuration trust boundary, all
+  described as roadmap items. Track whether they land, since Epoch's clearest
+  current differentiator depends on that gap persisting.
+- Zed's stated intent to open-source DeltaDB while offering a paid service
+  remains unfulfilled; an open client with a closed, single-vendor substrate is
+  a different portability story from an open protocol.

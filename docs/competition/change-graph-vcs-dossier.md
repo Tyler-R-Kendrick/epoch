@@ -3,7 +3,13 @@
 Labels are strict: **Official** is a linked primary-source claim;
 **Implemented** is executable Epoch behavior; **Difference** is a design
 boundary; **Missing** is not advertised as shipped. Sources were rechecked
-2026-08-12.
+2026-08-13.
+
+Delta's product documentation went live at `delta.dev/docs` and answers several
+questions this dossier previously carried as open. The detailed treatment —
+including the separation of the virtualized-worktree claim from any
+copy-on-write filesystem mechanism — is in
+[Delta Workspace Convergence Analysis](delta-workspace-convergence.md).
 
 ## Zed DeltaDB
 
@@ -38,10 +44,48 @@ work that produced it.
   mount a live CRDT worktree shared by arbitrary tools, or expose durable
   character-level code-to-conversation permalinks. Code Operations are explicit
   signed capture, not DeltaDB parity.
-- **Open DeltaDB questions:** the two primary pages, rechecked 2026-08-12, do
-  not define a stable external
-  storage/API contract, signature and authority model, self-hosting boundary, or
-  migration format sufficient for an Epoch fidelity adapter.
+- **Official (2026-08-13, product docs):** the object model is now public. A
+  **thread** is "one thread, one agent, and its own worktrees"; a **worktree**
+  lives in DeltaDB and is explicitly not a Git worktree; a **checkout** is the
+  per-machine folder realizing it, either Delta-managed or an adopted existing
+  project folder, with `.delta` metadata and two Git remotes (`origin` and
+  `local`). The agent runs on exactly one **machine** per turn.
+  [Worktrees & Machines](https://delta.dev/docs/concepts/worktrees-and-machines),
+  [Delta & Git](https://delta.dev/docs/concepts/delta-and-git)
+- **Official:** the storage boundary is answered and is a single vendor.
+  "Delta's backend runs entirely on Cloudflare" — R2 for file contents and Git
+  commits, Durable Objects with SQLite for thread/worktree deltas, KV and D1 for
+  metadata. No self-hosting boundary is published, and thread deletion "does not
+  yet remove already-synced copies from our servers."
+  [Data Storage](https://delta.dev/docs/privacy-and-security/data-storage)
+- **Official:** the authority question is answered by its absence. Zed documents
+  "no framework for agent permissions," "no agent sandbox capability," and no
+  mechanism preventing execution of shared worktree settings or configuration,
+  with agents holding unrestricted device access — roadmap items, early access
+  "at your own risk." Transport is TLS, storage is encrypted with
+  Cloudflare-managed keys, and secret redaction matches only exact values
+  already known from environment variables, dotenv, and Mise files.
+  [Agentic Safety](https://delta.dev/docs/privacy-and-security/agentic-safety),
+  [Security](https://delta.dev/docs/privacy-and-security/security)
+- **Difference (worktree virtualization):** the launch post's virtualized
+  worktree with near-free branching is a claim about the *data model* — a branch
+  is a position in the delta stream. The documentation describes real
+  per-machine checkouts and no kernel VFS, FUSE mount, or filesystem
+  copy-on-write. Epoch's cheap joining comes from residency
+  ([ADR-0014](../design-decisions/0014-virtual-working-tree-and-sparse-checkout.md),
+  [ADR-0032](../design-decisions/0032-residency-native-sync-and-workspace-providers.md))
+  and should be described as such rather than matched to an unstated mechanism.
+- **Difference (conflict semantics):** CRDT convergence guarantees replica
+  agreement, not semantic correctness, and it does not by itself produce an
+  artifact recording that two authors disagreed. Public Delta sources do not
+  state whether one is recorded. Epoch keeps durable conflicts with every side
+  and the resolution lineage, and
+  [ADR-0031](../design-decisions/0031-durable-conflicts-and-conservative-commutation.md)
+  refuses to treat unknown commutation as permission.
+- **Open DeltaDB questions:** a stable *external* storage/API contract,
+  signature model, and migration format sufficient for an Epoch fidelity adapter
+  remain unpublished. The self-hosting boundary is no longer open — it is
+  documented as absent.
 
 The practical opportunity is complementarity rather than a false feature tie:
 DeltaDB's reported design can provide high-resolution authoring history; Epoch
@@ -49,6 +93,16 @@ can verify and govern accepted logical work across editors, agents, forges, and
 archives. Epoch does not ship a speculative adapter: until Zed publishes a
 stable format, mapping DeltaDB operations to Evidence or Fragments would invent
 fidelity rather than prove it.
+
+The competitive read after the product launch is narrower than "catch up":
+Delta owns the *ergonomics* of the joinable shared agent workspace and has
+explicitly deferred its *governance*, while Epoch holds the governance
+primitives. [ADR-0043](../design-decisions/0043-spaces-shared-signed-workspaces.md)
+ships the assembly at the contract and CLI layer — a joinable Space with
+grant-bound turns, budget limits, consent-gated capture, and structural anchors.
+The browser and editor ergonomics that make Delta's thread feel effortless
+remain unbuilt, as do the mount provider, the isolated execution provider, and
+federated join.
 
 ## Jujutsu (jj)
 
