@@ -1,4 +1,5 @@
-import type { ExtensionManifest } from "./manifest";
+import { createPublicKey, verify as verifySignature } from "node:crypto";
+import { canonicalManifest, type ExtensionManifest } from "./manifest";
 
 /**
  * Extension trust policy (ADR-0037).
@@ -28,6 +29,8 @@ export type TrustReason =
   | "allowed-by-publisher"
   | "allowed-by-open-policy"
   | "blocked-by-name"
+  | "executable-mismatch"
+  | "invalid-signature"
   | "missing-manifest"
   | "not-allowed"
   | "publisher-not-allowed"
@@ -39,6 +42,54 @@ export interface TrustDecision {
   /** Operator-facing explanation; safe to print verbatim. */
   readonly detail: string;
 }
+
+/**
+ * Verifies a detached signature over the canonical manifest.
+ *
+ * Injected so the check is testable and so a host can substitute its own key
+ * handling. The default is Ed25519 over an SPKI public key, matching the
+ * signing scheme Epoch already uses for events.
+ */
+export type ManifestSignatureVerifier = (request: {
+  readonly payload: string;
+  readonly signature: string;
+  readonly publisher: string;
+}) => boolean;
+
+export interface TrustEvaluationOptions {
+  readonly verifySignature?: ManifestSignatureVerifier;
+  /** Actual SHA-256 of the on-disk executable, in lowercase hex. */
+  readonly executableSha256?: string;
+}
+
+/** The exact bytes a publisher signs. */
+export function manifestSigningPayload(manifest: ExtensionManifest): string {
+  return canonicalManifest(manifest);
+}
+
+/**
+ * Default Ed25519 verifier.
+ *
+ * The publisher identifier carries the base64url SPKI DER of the signing key,
+ * and the signature is `ed25519:<base64>`. Any malformed input is a failed
+ * verification, never a pass.
+ */
+export const ed25519ManifestVerifier: ManifestSignatureVerifier = ({ payload, signature, publisher }) => {
+  try {
+    const encodedKey = publisher.slice("epoch:principal:".length);
+    if (encodedKey.length === 0) return false;
+    const [algorithm, encodedSignature] = signature.split(":");
+    if (algorithm !== "ed25519" || encodedSignature === undefined || encodedSignature.length === 0) return false;
+    const key = createPublicKey({
+      key: Buffer.from(encodedKey, "base64url"),
+      format: "der",
+      type: "spki",
+    });
+    return verifySignature(null, Buffer.from(payload, "utf8"), key, Buffer.from(encodedSignature, "base64"));
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Read a trust policy out of the `[extensions]` table of repository config.
@@ -70,6 +121,7 @@ export function evaluateTrust(
   name: string,
   manifest: ExtensionManifest | undefined,
   policy: ExtensionTrustPolicy = DEFAULT_TRUST_POLICY,
+  options: TrustEvaluationOptions = {},
 ): TrustDecision {
   if (policy.block.includes(name)) {
     return { trusted: false, reason: "blocked-by-name", detail: `extension '${name}' is blocked by repository policy` };
@@ -91,11 +143,41 @@ export function evaluateTrust(
     if (manifest.signature === undefined) {
       return { trusted: false, reason: "unsigned", detail: `extension '${name}' has no manifest signature` };
     }
+    // `publisher` is manifest input and therefore attacker-controlled. It only
+    // narrows which key is allowed to have signed; it never establishes that
+    // anyone did. The cryptographic check below is what grants trust.
     if (manifest.publisher === undefined || !policy.allowPublishers.includes(manifest.publisher)) {
       return {
         trusted: false,
         reason: "publisher-not-allowed",
-        detail: `extension '${name}' is signed by a publisher that is not in allow_publishers`,
+        detail: `extension '${name}' names a publisher that is not in allow_publishers`,
+      };
+    }
+    if (manifest.executableSha256 === undefined) {
+      return {
+        trusted: false,
+        reason: "unsigned",
+        detail: `extension '${name}' has a signature that does not bind its executable`,
+      };
+    }
+    if (options.executableSha256 !== undefined && options.executableSha256 !== manifest.executableSha256) {
+      return {
+        trusted: false,
+        reason: "executable-mismatch",
+        detail: `extension '${name}' executable does not match the digest its manifest signs`,
+      };
+    }
+    const verifier = options.verifySignature ?? ed25519ManifestVerifier;
+    const verified = verifier({
+      payload: manifestSigningPayload(manifest),
+      signature: manifest.signature,
+      publisher: manifest.publisher,
+    });
+    if (!verified) {
+      return {
+        trusted: false,
+        reason: "invalid-signature",
+        detail: `extension '${name}' manifest signature did not verify against its declared publisher`,
       };
     }
     return { trusted: true, reason: "allowed-by-publisher", detail: `extension '${name}' is signed by an allowed publisher` };

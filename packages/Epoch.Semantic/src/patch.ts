@@ -49,13 +49,14 @@ function separatorFor(index: SyntaxIndex, parentPath: string): string {
   const declared = parent?.separator ?? "\n";
   if (parent === undefined || children.length === 0) return declared;
 
-  // With a single child there is no gap to observe, but the indentation before
-  // that child shows how the container lays its members out. Reusing it keeps
-  // an inserted member aligned with the one already there.
+  // With a single child there is no gap to observe, but the whitespace before
+  // that child shows how the container lays its members out. Combining the
+  // declared punctuation with that spacing keeps an inserted member aligned
+  // with the one already there, on one line or many.
   const prefix = index.tree.source.slice(parent.start, children[0].node.start);
   const trivia = /\s*$/u.exec(prefix)?.[0] ?? "";
-  if (!trivia.includes("\n")) return declared;
-  return `${declared.replace(/\s/gu, "")}${trivia}`;
+  const composed = `${declared.replace(/\s/gu, "")}${trivia}`;
+  return composed.length > 0 ? composed : declared;
 }
 
 /** Last path step, honouring escaped separators. */
@@ -134,6 +135,19 @@ function reorderSplice(index: SyntaxIndex, edit: SemanticEdit): Splice | undefin
   const children = index.childrenOf(parentPath);
   if (children.length === 0) return undefined;
   const separator = separatorFor(index, parentPath);
+  // The splice rewrites the container's whole child region, so an order that
+  // is not a permutation of the children would silently delete the ones it
+  // omits or duplicate the ones it repeats.
+  const expected = new Set(children.map((child) => child.path));
+  const listed = new Set(order);
+  if (order.length !== children.length || listed.size !== order.length
+    || [...listed].some((path) => !expected.has(path))) {
+    throw new SemanticPatchError(
+      "unsupported-edit",
+      edit.path,
+      `reorder of ${parentPath} must list each of its ${children.length} children exactly once`,
+    );
+  }
   const texts = order.map((path) => requireNode(index, path).node.text);
   return {
     start: children[0].node.start,

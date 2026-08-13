@@ -8,7 +8,16 @@
 
 export const EXTENSION_API_VERSION = 1;
 
-export const EXTENSION_MANIFEST_FILE = "epoch-extension.toml";
+/**
+ * Manifest file name for one extension.
+ *
+ * The manifest is per-executable, not per-directory: a manifest carries a
+ * single required `name`, so one shared file could only ever describe one of
+ * the `epoch-*` binaries sitting in a `$PATH` bin directory.
+ */
+export function extensionManifestFile(name: string): string {
+  return `epoch-${name}.toml`;
+}
 
 export const CAPABILITY_KINDS = [
   "command",
@@ -38,6 +47,15 @@ export interface ExtensionManifest {
   readonly publisher?: string;
   readonly capabilities: readonly CapabilityKind[];
   readonly determinism: DeterminismClass;
+  /**
+   * SHA-256 of the extension executable, in lowercase hex.
+   *
+   * Required whenever a signature is present. The signature covers the
+   * canonical manifest, and the canonical manifest covers this digest, so
+   * signing transitively binds the binary. Without it a valid signed manifest
+   * could be paired with a swapped executable.
+   */
+  readonly executableSha256?: string;
   readonly signature?: string;
 }
 
@@ -67,10 +85,26 @@ function parseValue(raw: string): unknown {
   throw new ExtensionManifestError("invalid-syntax", `unsupported manifest value: ${raw}`);
 }
 
+/** Strip a trailing comment, ignoring `#` inside quoted values. */
+function stripComment(line: string): string {
+  let quote: string | undefined;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (quote !== undefined) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === "\"" || character === "'") quote = character;
+    else if (character === "#") return line.slice(0, index);
+  }
+  return line;
+}
+
 function parseTable(text: string): Record<string, unknown> {
   const table: Record<string, unknown> = {};
   for (const rawLine of text.split(/\r?\n/u)) {
-    const line = rawLine.split("#")[0].trim();
+    const line = stripComment(rawLine).trim();
     if (line.length === 0) continue;
     if (/^\[[^\]]+\]$/u.test(line)) continue;
     const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u.exec(line);
@@ -134,6 +168,15 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
 
   const description = table.description;
   const signature = table.signature;
+  const executableSha256 = table.executable_sha256;
+  if (executableSha256 !== undefined && (typeof executableSha256 !== "string" || !/^[a-f0-9]{64}$/u.test(executableSha256))) {
+    throw new ExtensionManifestError("invalid-field", "manifest field 'executable_sha256' must be a lowercase hex SHA-256");
+  }
+  if (typeof signature === "string" && typeof executableSha256 !== "string") {
+    // A signature that does not cover the binary is worse than no signature,
+    // because it looks like a guarantee.
+    throw new ExtensionManifestError("invalid-field", "a signed manifest must declare 'executable_sha256'");
+  }
 
   return {
     name,
@@ -143,6 +186,7 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
     publisher: publisher as string | undefined,
     capabilities,
     determinism,
+    executableSha256: typeof executableSha256 === "string" ? executableSha256 : undefined,
     signature: typeof signature === "string" ? signature : undefined,
   };
 }
@@ -158,6 +202,7 @@ export function canonicalManifest(manifest: ExtensionManifest): string {
     api: manifest.api,
     capabilities: [...manifest.capabilities].sort(),
     determinism: manifest.determinism,
+    executableSha256: manifest.executableSha256 ?? null,
     name: manifest.name,
     publisher: manifest.publisher ?? null,
     version: manifest.version,

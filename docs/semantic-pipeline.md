@@ -38,7 +38,7 @@ A node's structural path is the sequence of `kind[:name]` steps from the root.
 Unnamed nodes fall back to `kind#index`, counting only unnamed same-kind
 siblings, so inserting a named sibling does not renumber unnamed ones.
 
-```
+```text
 object#0/member:version/string#0
 declaration:parseToml/declaration:visit
 ```
@@ -70,7 +70,7 @@ parser.
 `semanticDiff` returns edits over structural paths, with kinds `insert`,
 `delete`, `update`, `move`, `rename`, and `reorder`.
 
-```
+```console
 $ epoch semantic diff a.json b.json
 diff --epoch-semantic b.json
 level syntax provider epoch.syntax.json language json
@@ -91,7 +91,7 @@ identity and reusable resolutions normalize whitespace.
 Unlike difftastic, the result is a **patch, not a view**. Because it is keyed
 by path, it still applies after the target has been reformatted:
 
-```
+```console
 $ epoch semantic diff a.json b.json --json > p.json
 $ epoch semantic apply densely-formatted.json p.json
 {"name":"epoch","version":"0.2.0"}
@@ -120,7 +120,7 @@ Three-way merge runs over the tree:
 
 Conflicts are scoped to a structural path, not a line range:
 
-```
+```text
 conflict edit-edit at declaration:alpha signature=…
 ```
 
@@ -159,7 +159,7 @@ continues to re-hash whole content.
    patch against a base, so the stored delta is proportional to semantic change
    rather than formatting churn.
 
-```
+```console
 $ epoch semantic plan src/*.ts
 provider epoch.syntax.delimiter
 chunks 42

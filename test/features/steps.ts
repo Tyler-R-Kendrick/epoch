@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { After, Before, DataTable, Given, setDefaultTimeout, Then, When } from "@cucumber/cucumber";
@@ -116,6 +116,19 @@ When("I write raw workspace file {string} with content {string}", function (path
   const absolute = join(state.workspace, path);
   mkdirSync(dirname(absolute), { recursive: true });
   writeFileSync(absolute, content.replaceAll("\\n", "\n"), "utf8");
+});
+
+When("I install a workspace extension named {string}", function (name: string) {
+  const bin = join(state.workspace, ".epoch", "ext", "bin");
+  mkdirSync(bin, { recursive: true });
+  const executable = join(bin, `epoch-${name}`);
+  writeFileSync(executable, `#!/bin/sh\necho "${name} ran"\n`, "utf8");
+  chmodSync(executable, 0o755);
+  writeFileSync(
+    join(bin, `epoch-${name}.toml`),
+    [`name = "${name}"`, "api = 1", `version = "1.0.0"`, `capabilities = ["command"]`].join("\n"),
+    "utf8",
+  );
 });
 
 When("actor users concurrently record:", async function (table: DataTable) {

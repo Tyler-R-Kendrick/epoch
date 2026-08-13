@@ -225,7 +225,7 @@ export interface EpochRepositoryConfig {
   };
   /** Extension trust policy (ADR-0037). Read by `@epoch/extensions`. */
   readonly extensions?: {
-    readonly trust?: string;
+    readonly trust?: "explicit" | "signed" | "any";
     readonly allow?: readonly string[];
     readonly block?: readonly string[];
     readonly allow_publishers?: readonly string[];

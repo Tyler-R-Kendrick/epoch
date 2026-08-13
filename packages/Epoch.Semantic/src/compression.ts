@@ -42,6 +42,19 @@ export interface SemanticChunkOptions {
 const DEFAULT_NODES_PER_CHUNK = 1;
 const DEFAULT_MAX_BYTES = 65536;
 
+const ENCODER = new TextEncoder();
+
+/**
+ * UTF-8 byte length.
+ *
+ * `String.prototype.length` counts UTF-16 code units, so it understates the
+ * real size of non-ASCII content and would let chunks exceed their configured
+ * limit while reporting savings that do not exist.
+ */
+function byteLength(value: string): number {
+  return ENCODER.encode(value).length;
+}
+
 /**
  * Cut chunk boundaries at syntax node edges instead of at a rolling hash over
  * bytes.
@@ -76,12 +89,25 @@ export function chunkBySyntax(
     start = end;
   };
 
+  /** Largest cut at or before `limit` bytes, measured in UTF-8. */
+  const cutWithinBytes = (from: number, ceiling: number): number => {
+    let cut = from;
+    let used = 0;
+    while (cut < source.length) {
+      const next = byteLength(source[cut]);
+      if (used + next > ceiling) break;
+      used += next;
+      cut += 1;
+    }
+    return Math.max(cut, from + 1);
+  };
+
   for (let position = nodesPerChunk - 1; position < boundaries.length; position += nodesPerChunk) {
     const boundary = boundaries[position];
-    while (boundary.offset - start > maxBytes) emit(start + maxBytes, undefined);
+    while (byteLength(source.slice(start, boundary.offset)) > maxBytes) emit(cutWithinBytes(start, maxBytes), undefined);
     emit(boundary.offset, boundary.path);
   }
-  while (source.length - start > maxBytes) emit(start + maxBytes, undefined);
+  while (byteLength(source.slice(start)) > maxBytes) emit(cutWithinBytes(start, maxBytes), undefined);
   emit(source.length, undefined);
 
   return chunks;
@@ -131,13 +157,17 @@ export function dedupeSubtrees(
     // never both charged for the same bytes.
     for (const child of index.childrenOf("")) {
       const text = child.node.text;
-      if (text.length < minBytes) continue;
-      totalBytes += text.length;
+      const bytes = byteLength(text);
+      if (bytes < minBytes) continue;
+      totalBytes += bytes;
       const existing = table.get(child.digest);
       if (existing === undefined) {
         table.set(child.digest, { text, occurrences: 1, paths: [`${source.path}#${child.path}`] });
         continue;
       }
+      // The default digest is a non-cryptographic index hash, so equal digests
+      // are compared by text before their storage is shared.
+      if (existing.text !== text) continue;
       existing.occurrences += 1;
       existing.paths.push(`${source.path}#${child.path}`);
     }
@@ -147,7 +177,7 @@ export function dedupeSubtrees(
     .map(([entryDigest, value]) => ({
       digest: entryDigest,
       text: value.text,
-      bytes: value.text.length,
+      bytes: byteLength(value.text),
       occurrences: value.occurrences,
       paths: value.paths,
     }))
@@ -215,10 +245,10 @@ export function deriveDictionary(
   let content = "";
   let coveredBytes = 0;
   for (const [token, occurrences] of ranked) {
-    if (content.length + token.length + 1 > maxBytes) break;
+    if (byteLength(content) + byteLength(token) + 1 > maxBytes) break;
     content += `${token}\n`;
     entries.push({ token, occurrences });
-    coveredBytes += token.length * occurrences;
+    coveredBytes += byteLength(token) * occurrences;
   }
 
   return { content, digest: digest(content), entries, coveredBytes };
@@ -251,8 +281,8 @@ export function encodeSemanticDelta(
     kind: "semantic-delta",
     baseDigest: digest(base),
     patch,
-    encodedBytes: JSON.stringify(patch).length,
-    plainBytes: target.length,
+    encodedBytes: byteLength(JSON.stringify(patch)),
+    plainBytes: byteLength(target),
   };
 }
 
@@ -280,7 +310,7 @@ export function planCompression(
   const digest = options.digest ?? indexDigest;
   const dedup = dedupeSubtrees(sources, provider, { digest });
   const dictionary = deriveDictionary(sources.map((source) => source.text), { digest });
-  const plainBytes = sources.reduce((total, source) => total + source.text.length, 0);
+  const plainBytes = sources.reduce((total, source) => total + byteLength(source.text), 0);
   const chunks = sources.reduce((total, source) => total + chunkBySyntax(source.text, provider, { digest }).length, 0);
   return {
     providerId: provider.id,

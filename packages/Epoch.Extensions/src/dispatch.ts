@@ -1,7 +1,12 @@
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import type { DiscoveredExtension } from "./discovery";
 import { EXTENSION_API_VERSION } from "./manifest";
-import { evaluateTrust, type ExtensionTrustPolicy, type TrustDecision } from "./trust";
+import {
+  evaluateTrust,
+  type ExtensionTrustPolicy,
+  type ManifestSignatureVerifier,
+  type TrustDecision,
+} from "./trust";
 
 /**
  * External subcommand dispatch (ADR-0037).
@@ -21,6 +26,7 @@ export interface SubcommandResolutionOptions {
   readonly builtins: readonly string[];
   readonly extensions: readonly DiscoveredExtension[];
   readonly policy?: ExtensionTrustPolicy;
+  readonly verifySignature?: ManifestSignatureVerifier;
 }
 
 /**
@@ -37,7 +43,10 @@ export function resolveSubcommand(name: string, options: SubcommandResolutionOpt
   const extension = options.extensions.find((candidate) => candidate.name === name);
   if (extension === undefined) return { kind: "unknown", name };
 
-  const trust = evaluateTrust(name, extension.manifest, options.policy);
+  const trust = evaluateTrust(name, extension.manifest, options.policy, {
+    verifySignature: options.verifySignature,
+    executableSha256: extension.executableSha256,
+  });
   return trust.trusted
     ? { kind: "extension", name, extension, trust }
     : { kind: "untrusted", name, extension, trust };
@@ -65,11 +74,18 @@ export interface ExternalInvocation {
   readonly env: Record<string, string>;
 }
 
-/** Path from the repository root to the invocation directory, POSIX-style. */
+/**
+ * Path from the repository root to the invocation directory, POSIX-style.
+ *
+ * Uses real path resolution rather than a prefix test, so a sibling directory
+ * such as `/repo-other` or a traversal such as `/repo/../other` yields an empty
+ * prefix instead of a bogus one.
+ */
 function prefixOf(repositoryRoot: string, workingDirectory: string | undefined): string {
   if (workingDirectory === undefined || workingDirectory === repositoryRoot) return "";
-  if (!workingDirectory.startsWith(repositoryRoot)) return "";
-  return workingDirectory.slice(repositoryRoot.length).replace(/^[\\/]+/u, "").split(/[\\/]/u).join("/");
+  const within = relative(repositoryRoot, workingDirectory);
+  if (within.length === 0 || isAbsolute(within) || within === ".." || within.startsWith(`..${sep}`)) return "";
+  return within.split(/[\\/]/u).join("/");
 }
 
 /**

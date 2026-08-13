@@ -59,11 +59,22 @@ export const markdownSyntaxProvider: SyntaxProvider = {
       return nodes;
     };
 
+    // Content before the first heading belongs to no section. Without a node
+    // covering it, an edit there produces no structural edit at all and merge
+    // silently returns the base text.
+    const preambleEnd = headings.length === 0 ? source.length : headings[0].start;
+    const preamble = source.slice(0, preambleEnd).trim().length > 0
+      ? [node("preamble", source, 0, preambleEnd, { name: "preamble" })]
+      : [];
+
     return {
       providerId: "epoch.syntax.markdown",
       language: "markdown",
       source,
-      root: node("document", source, 0, source.length, { children: build(0, headings.length), separator: "\n\n" }),
+      root: node("document", source, 0, source.length, {
+        children: [...preamble, ...build(0, headings.length)],
+        separator: "\n\n",
+      }),
     };
   },
 };

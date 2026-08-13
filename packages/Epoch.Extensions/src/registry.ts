@@ -57,7 +57,21 @@ export interface CapabilityRequest {
   readonly forSignedState?: boolean;
 }
 
-export type RegistryErrorCode = "duplicate-provider" | "unknown-pin";
+export type RegistryErrorCode = "duplicate-provider" | "unknown-pin" | "pin-identity-mismatch";
+
+/**
+ * The immutable identity a pin binds to.
+ *
+ * Pinning by ID alone is not enough for reproducibility: a clone can resolve a
+ * provider with the same ID but a different version or configuration and
+ * produce different semantic output from the same pinned repository.
+ */
+export interface PinnedIdentity {
+  readonly providerId: string;
+  readonly version?: string;
+  readonly manifestDigest?: string;
+  readonly configDigest?: string;
+}
 
 export class CapabilityRegistryError extends Error {
   constructor(readonly code: RegistryErrorCode, message: string) {
@@ -83,7 +97,7 @@ function specificity(match: CapabilityMatch | undefined, request: CapabilityRequ
 
 export class CapabilityRegistry {
   private readonly providers = new Map<string, CapabilityProvider>();
-  private readonly pins = new Map<CapabilityKind, string>();
+  private readonly pins = new Map<CapabilityKind, PinnedIdentity>();
 
   /** Register a provider. Duplicate IDs fail rather than silently shadowing. */
   register<T>(provider: CapabilityProvider<T>): this {
@@ -101,11 +115,11 @@ export class CapabilityRegistry {
    * A repository that pins its providers gets byte-identical diffs and merges
    * across clones; one that does not still gets deterministic resolution.
    */
-  pin(capability: CapabilityKind, providerId: string): this {
+  pin(capability: CapabilityKind, providerId: string, identity: Omit<PinnedIdentity, "providerId"> = {}): this {
     if (!this.providers.has(`${capability}:${providerId}`)) {
       throw new CapabilityRegistryError("unknown-pin", `cannot pin unknown provider: ${capability}:${providerId}`);
     }
-    this.pins.set(capability, providerId);
+    this.pins.set(capability, { providerId, ...identity });
     return this;
   }
 
@@ -131,8 +145,23 @@ export class CapabilityRegistry {
 
     const pinned = this.pins.get(capability);
     if (pinned !== undefined) {
-      const match = candidates.find((provider) => provider.id === pinned);
-      if (match !== undefined) return match as CapabilityProvider<T>;
+      const match = candidates.find((provider) => provider.id === pinned.providerId);
+      if (match !== undefined) {
+        // A pin that silently resolved to a different build of the same ID
+        // would defeat the reproducibility the pin exists to provide.
+        const drifted = ([
+          ["version", pinned.version, match.version],
+          ["manifest digest", pinned.manifestDigest, match.manifestDigest],
+          ["configuration digest", pinned.configDigest, match.configDigest],
+        ] as const).find(([, expected, actual]) => expected !== undefined && expected !== actual);
+        if (drifted !== undefined) {
+          throw new CapabilityRegistryError(
+            "pin-identity-mismatch",
+            `pinned ${capability} provider ${pinned.providerId} has ${drifted[0]} ${String(drifted[2])}, expected ${String(drifted[1])}`,
+          );
+        }
+        return match as CapabilityProvider<T>;
+      }
     }
 
     const scored = candidates

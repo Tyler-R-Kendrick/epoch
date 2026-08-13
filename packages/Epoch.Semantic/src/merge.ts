@@ -58,12 +58,29 @@ function editText(source: string, path: string, provider: SyntaxProvider): strin
   }
 }
 
+/**
+ * The full payload identity of an edit.
+ *
+ * Every field an edit can carry must participate. A `reorder` carries its
+ * payload in `order` rather than `text`, so comparing only kind/path/text
+ * would treat two different permutations of the same container as agreement
+ * and silently pick one side — precisely the wrong merge ADR-0031 forbids.
+ */
+function editKey(edit: SemanticEdit): string {
+  return [
+    edit.kind,
+    edit.path,
+    edit.toPath ?? "",
+    edit.parentPath ?? "",
+    edit.anchorPath ?? "",
+    edit.text ?? "",
+    (edit.order ?? []).join(","),
+  ].join("\u0000");
+}
+
 /** Two edits agree when they would produce the same result at the same path. */
 function equivalent(left: SemanticEdit, right: SemanticEdit): boolean {
-  return left.kind === right.kind
-    && left.path === right.path
-    && left.toPath === right.toPath
-    && left.text === right.text;
+  return editKey(left) === editKey(right);
 }
 
 function patchOf(edits: readonly SemanticEdit[], template: SemanticPatch): SemanticPatch {
@@ -134,10 +151,8 @@ export function semanticMerge(
     [...conflicted].some((path) => isAncestorPath(path, edit.path));
 
   const applicableLeft = leftPatch.edits.filter((edit) => !blocked(edit));
-  const seen = new Set(applicableLeft.map((edit) => `${edit.kind} ${edit.path} ${edit.text ?? ""}`));
-  const applicableRight = rightPatch.edits.filter(
-    (edit) => !blocked(edit) && !seen.has(`${edit.kind} ${edit.path} ${edit.text ?? ""}`),
-  );
+  const seen = new Set(applicableLeft.map(editKey));
+  const applicableRight = rightPatch.edits.filter((edit) => !blocked(edit) && !seen.has(editKey(edit)));
 
   const canonical = { canonicalCommutativeOrder: true };
   let merged = applySemanticPatch(base, patchOf(applicableLeft, leftPatch), provider, canonical);
@@ -149,7 +164,9 @@ export function semanticMerge(
     try {
       merged = applySemanticPatch(merged, patchOf([edit], rightPatch), provider, canonical);
     } catch (error) {
-      if (!(error instanceof SemanticPatchError)) throw error;
+      // A provider that cannot reparse the intermediate text is a failed edit,
+      // not a reason to discard every conflict already collected.
+      if (!(error instanceof SemanticPatchError) && !(error instanceof SyntaxError)) throw error;
       recordConflict(edit.path, "unapplicable");
     }
   }

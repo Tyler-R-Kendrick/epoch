@@ -47,6 +47,9 @@ class JsonReader {
       if (this.source[this.offset] === ",") {
         this.offset += 1;
         this.skipTrivia();
+        if (this.source[this.offset] === "}") throw new SyntaxError(`trailing comma at offset ${this.offset}`);
+      } else if (this.source[this.offset] !== "}") {
+        throw new SyntaxError(`expected ',' or '}' at offset ${this.offset}`);
       }
     }
     this.offset += 1;
@@ -61,11 +64,17 @@ class JsonReader {
     while (this.source[this.offset] !== "]") {
       if (this.offset >= this.source.length) throw new SyntaxError("unterminated JSON array");
       const value = this.parseValue();
-      elements.push(node("element", this.source, value.start, value.end, { children: value.children }));
+      // Wrap the value node rather than splicing in its children: an object
+      // inside an array must keep its own `commutative` flag and separator, or
+      // inserting a member into it emits JSON without a comma.
+      elements.push(node("element", this.source, value.start, value.end, { children: [value] }));
       this.skipTrivia();
       if (this.source[this.offset] === ",") {
         this.offset += 1;
         this.skipTrivia();
+        if (this.source[this.offset] === "]") throw new SyntaxError(`trailing comma at offset ${this.offset}`);
+      } else if (this.source[this.offset] !== "]") {
+        throw new SyntaxError(`expected ',' or ']' at offset ${this.offset}`);
       }
     }
     this.offset += 1;

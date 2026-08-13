@@ -25,7 +25,7 @@ This is the deliberate departure from Git. Any executable named `git-foo` on
 declaration and no consent. In Epoch an extension is discovered, reported, and
 then run only if policy admits it.
 
-```
+```console
 $ epoch ext list
 name    state                     source      version  capabilities  executable
 greet   untrusted (not-allowed)   repository  1.0.0    command       .epoch/ext/bin/epoch-greet
@@ -75,13 +75,36 @@ allow_publishers = ["epoch:principal:<ed25519-public-key>"]
 | Mode | Admits |
 |---|---|
 | `explicit` (default) | Only names listed in `allow`. |
-| `signed` | Any extension whose manifest is signed by a principal in `allow_publishers`. |
+| `signed` | Any extension whose manifest carries a signature that **verifies** against a principal in `allow_publishers`. |
 | `any` | Any extension with a valid manifest. Reproduces Git's permissiveness; choose it deliberately. |
 
 `block` always wins, in every mode. A missing or invalid manifest is never
 trusted, including under `any` — the manifest is what declares which
 capabilities the extension is asking for, so there is nothing to consent to
 without one.
+
+### What `signed` actually checks
+
+`publisher` and `signature` are both manifest fields, and a manifest is
+attacker-controlled input. Naming an allowlisted publisher therefore proves
+nothing on its own; it only narrows *which key is permitted to have signed*.
+Trust is granted only after all of the following hold:
+
+1. `publisher` is present and listed in `allow_publishers`;
+2. the manifest declares `executable_sha256`, and it matches the SHA-256 of the
+   executable actually on disk;
+3. the Ed25519 signature verifies, using the key carried in the publisher
+   identifier, over the canonical manifest.
+
+Because the canonical manifest includes `executable_sha256`, signing the
+manifest transitively binds the binary: a valid signed manifest cannot be
+paired with a swapped executable. Any failure is reported with a specific
+reason (`publisher-not-allowed`, `executable-mismatch`, `invalid-signature`)
+and the extension does not run.
+
+Trust is local configuration, not synced state: `ext trust` writes the local
+`.epoch/config.toml` and records an audit operation. Consenting in one clone
+never grants execution in another.
 
 Extensions are principals. The grant an extension receives is attenuated from
 the invoking principal's authority under
@@ -146,13 +169,19 @@ this merge, and would I reproduce it?" from history alone.
 Builtins always win. Adding a native command shadows an installed extension of
 the same name, and `epoch ext list` reports that rather than hiding it:
 
-```
+```text
 note: builtin 'diff' shadows /usr/local/bin/epoch-diff
 ```
 
 This is the mitigation for Epoch's deliberately large native surface
 (ADR-0039): every native capability is implemented on the same registry, so an
 extension can displace it, and any preemption is visible.
+
+## Platform notes
+
+Executability is decided per platform. On POSIX systems discovery requires an
+execute bit; on Windows it accepts `.exe`, `.com`, `.cmd`, and `.bat`, because
+Windows carries no POSIX mode bits and decides launchability by extension.
 
 ## Boundaries
 

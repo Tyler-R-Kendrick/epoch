@@ -10,7 +10,7 @@ export {
   parseExtensionManifest,
   CAPABILITY_KINDS,
   EXTENSION_API_VERSION,
-  EXTENSION_MANIFEST_FILE,
+  extensionManifestFile,
   ExtensionManifestError,
   type CapabilityKind,
   type DeterminismClass,
@@ -20,10 +20,14 @@ export {
 
 export {
   DEFAULT_TRUST_POLICY,
+  ed25519ManifestVerifier,
   evaluateTrust,
+  manifestSigningPayload,
   readTrustPolicy,
   type ExtensionTrustPolicy,
+  type ManifestSignatureVerifier,
   type TrustDecision,
+  type TrustEvaluationOptions,
   type TrustMode,
   type TrustReason,
 } from "./trust";
@@ -34,6 +38,7 @@ export {
   type CapabilityMatch,
   type CapabilityProvider,
   type CapabilityRequest,
+  type PinnedIdentity,
   type ProviderDescriptor,
   type RegistryErrorCode,
 } from "./registry";

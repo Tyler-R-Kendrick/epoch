@@ -51,6 +51,12 @@ export function runSemanticPipelineTests(): void {
   insertedParentsCarryTheirChildren();
   patchApplicationRejectsAmbiguousEdits();
   mergeReportsUnapplicableAndNestedEdits();
+  rustLifetimesDoNotSwallowTheFile();
+  nestedObjectsInArraysKeepTheirSeparator();
+  markdownPreambleIsTracked();
+  tomlMultiLineValuesStayIntact();
+  conflictingReordersAreNotSilentlyMerged();
+  malformedJsonSeparatorsAreRejected();
 }
 
 const CODE = `function alpha() {\n  return 1;\n}\n\nfunction beta() {\n  return 2;\n}\n`;
@@ -492,4 +498,125 @@ function providersHandleNestedAndQuotedContent(): void {
   const tables = tomlSyntaxProvider.parse(toml).root.children;
   assert.deepEqual(tables.map((table) => table.name), ["deps", "build"]);
   assert.deepEqual(tables[0].children.map((entry) => entry.name), ["zod"]);
+}
+
+function rustLifetimesDoNotSwallowTheFile(): void {
+  // `.rs` is in the delimiter provider's extension list and lifetimes are
+  // everywhere in Rust. An unterminated single quote used to consume the rest
+  // of the file, hiding every later declaration from diff and merge.
+  const rust = [
+    `fn borrow<'a>(input: &'a str) -> &'a str {`,
+    `    input`,
+    `}`,
+    ``,
+    `fn second() -> char {`,
+    `    'x'`,
+    `}`,
+    ``,
+    `fn third() -> u8 {`,
+    `    3`,
+    `}`,
+    ``,
+  ].join("\n");
+
+  const names = delimiterSyntaxProvider.parse(rust).root.children.map((child) => child.name);
+  assert.deepEqual(names, ["borrow", "second", "third"], "a lifetime must not hide later declarations");
+
+  const edited = rust.replace("    3", "    33");
+  const patch = semanticDiff(delimiterSyntaxProvider.parse(rust), delimiterSyntaxProvider.parse(edited));
+  assert.equal(patch.edits.length, 1);
+  assert.ok(patch.edits[0].path.startsWith("declaration:third"));
+  assert.equal(applySemanticPatch(rust, patch, delimiterSyntaxProvider), edited);
+}
+
+function nestedObjectsInArraysKeepTheirSeparator(): void {
+  // An array element must keep the value node, or the nested object loses its
+  // declared separator and an inserted member is emitted without a comma.
+  const before = `{\n  "items": [\n    { "a": 1 }\n  ]\n}`;
+  const after = `{\n  "items": [\n    { "a": 1, "b": 2 }\n  ]\n}`;
+  const patch = semanticDiff(jsonSyntaxProvider.parse(before), jsonSyntaxProvider.parse(after));
+  const applied = applySemanticPatch(before, patch, jsonSyntaxProvider);
+
+  assert.equal(applied, after);
+  assert.doesNotThrow(() => jsonSyntaxProvider.parse(applied), "the merged result must still be valid JSON");
+  assert.deepEqual(JSON.parse(applied), { items: [{ a: 1, b: 2 }] });
+
+  // The nested object still merges commutatively through the element wrapper.
+  const left = `{\n  "items": [\n    { "a": 1, "b": 2 }\n  ]\n}`;
+  const right = `{\n  "items": [\n    { "a": 1, "c": 3 }\n  ]\n}`;
+  const merged = semanticMerge(before, left, right, jsonSyntaxProvider);
+  assert.ok(merged.clean);
+  assert.deepEqual(JSON.parse(merged.merged), { items: [{ a: 1, b: 2, c: 3 }] });
+}
+
+function markdownPreambleIsTracked(): void {
+  // Content before the first heading belongs to no section. Without a node for
+  // it, an edit there produced no edits at all and merge returned base text.
+  const before = `Intro paragraph.\n\n# Heading\n\nbody\n`;
+  const after = `Rewritten intro.\n\n# Heading\n\nbody\n`;
+  const patch = semanticDiff(markdownSyntaxProvider.parse(before), markdownSyntaxProvider.parse(after));
+
+  assert.ok(patch.edits.length > 0, "an edit before the first heading must be reported");
+  assert.equal(applySemanticPatch(before, patch, markdownSyntaxProvider), after);
+
+  const merged = semanticMerge(before, after, `Intro paragraph.\n\n# Heading\n\nchanged body\n`, markdownSyntaxProvider);
+  assert.ok(merged.clean);
+  assert.ok(merged.merged.includes("Rewritten intro."), "the preamble edit must survive the merge");
+  assert.ok(merged.merged.includes("changed body"));
+
+  // A document with no headings at all is still one addressable node.
+  const headless = markdownSyntaxProvider.parse(`just text\n`);
+  assert.equal(headless.root.children.length, 1);
+  assert.equal(headless.root.children[0].kind, "preamble");
+}
+
+function tomlMultiLineValuesStayIntact(): void {
+  // An entry node covering only its first line left the continuation lines
+  // behind on update and delete, producing invalid TOML.
+  const before = `[build]\ntargets = [\n  "es2022",\n]\nmode = "fast"\n`;
+  const after = `[build]\ntargets = [\n  "es2022",\n  "esnext",\n]\nmode = "fast"\n`;
+
+  const entries = tomlSyntaxProvider.parse(before).root.children[0].children;
+  assert.deepEqual(entries.map((entry) => entry.name), ["targets", "mode"]);
+  assert.ok(entries[0].text.includes("]"), "a multi-line value must be covered by its entry node");
+
+  const patch = semanticDiff(tomlSyntaxProvider.parse(before), tomlSyntaxProvider.parse(after));
+  assert.equal(applySemanticPatch(before, patch, tomlSyntaxProvider), after);
+
+  const removal = semanticDiff(tomlSyntaxProvider.parse(before), tomlSyntaxProvider.parse(`[build]\nmode = "fast"\n`));
+  const removed = applySemanticPatch(before, removal, tomlSyntaxProvider);
+  assert.ok(!removed.includes("es2022"), "deleting a multi-line entry must remove all of it");
+  assert.ok(!removed.includes("targets"), "no fragment of the deleted entry may survive");
+  assert.equal(removed, `[build]\nmode = "fast"\n`);
+
+  // Constructs the provider cannot model fail closed instead of corrupting.
+  assert.throws(() => tomlSyntaxProvider.parse(`[[products]]\nname = "a"\n`), SyntaxError);
+}
+
+function conflictingReordersAreNotSilentlyMerged(): void {
+  // A reorder carries its payload in `order`, not `text`. Comparing only
+  // kind/path/text treated two different permutations as agreement, deduped
+  // the right side away, and reported a clean merge — a silent wrong result.
+  const base = `function a() {\n  return 1;\n}\n\nfunction b() {\n  return 2;\n}\n\nfunction c() {\n  return 3;\n}\n`;
+  const left = `function b() {\n  return 2;\n}\n\nfunction a() {\n  return 1;\n}\n\nfunction c() {\n  return 3;\n}\n`;
+  const right = `function c() {\n  return 3;\n}\n\nfunction a() {\n  return 1;\n}\n\nfunction b() {\n  return 2;\n}\n`;
+
+  const result = semanticMerge(base, left, right, delimiterSyntaxProvider);
+  assert.equal(result.clean, false, "two different permutations of one container disagree");
+  assert.ok(result.conflicts.length >= 1);
+
+  // Identical permutations on both sides remain agreement, not a conflict.
+  const agreed = semanticMerge(base, left, left, delimiterSyntaxProvider);
+  assert.ok(agreed.clean);
+  assert.equal(agreed.merged, left);
+}
+
+function malformedJsonSeparatorsAreRejected(): void {
+  // The provider declares grammar fidelity, so it must not quietly accept
+  // input that is not JSON.
+  assert.throws(() => jsonSyntaxProvider.parse(`{"a":1 "b":2}`), SyntaxError);
+  assert.throws(() => jsonSyntaxProvider.parse(`{"a":1,}`), SyntaxError);
+  assert.throws(() => jsonSyntaxProvider.parse(`[1 2]`), SyntaxError);
+  assert.throws(() => jsonSyntaxProvider.parse(`[1,]`), SyntaxError);
+  assert.doesNotThrow(() => jsonSyntaxProvider.parse(`{"a":[],"b":{}}`));
 }

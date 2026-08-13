@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
+import { CapabilityRegistry } from "@epoch/extensions";
 import {
   applySemanticPatch,
+  BUILTIN_SYNTAX_PROVIDERS,
   formatSemanticPatch,
   planCompression,
   selectBuiltinProvider,
@@ -27,12 +29,55 @@ function readText(path: string): string {
   return readFileSync(path, "utf8");
 }
 
-function providerFor(path: string): SyntaxProvider {
-  const provider = selectBuiltinProvider({ path });
-  if (provider === undefined) {
+/**
+ * The registry of `syntax` providers available to the CLI.
+ *
+ * Builtins register here rather than being consulted directly, so a
+ * grammar-backed provider supplied by a trusted extension can displace one by
+ * registering against the same capability (ADR-0037).
+ */
+export function createSyntaxRegistry(
+  extensionProviders: readonly SyntaxProvider[] = [],
+): CapabilityRegistry {
+  const registry = new CapabilityRegistry();
+  for (const provider of BUILTIN_SYNTAX_PROVIDERS) {
+    registry.register({
+      id: provider.id,
+      capability: "syntax",
+      version: "0.1.0",
+      source: "builtin",
+      determinism: "deterministic",
+      match: { language: provider.language },
+      value: provider,
+    });
+  }
+  for (const provider of extensionProviders) {
+    registry.register({
+      id: provider.id,
+      capability: "syntax",
+      version: "0.1.0",
+      source: "extension",
+      determinism: "deterministic",
+      match: { language: provider.language },
+      value: provider,
+    });
+  }
+  return registry;
+}
+
+function providerFor(path: string, registry: CapabilityRegistry = createSyntaxRegistry()): SyntaxProvider {
+  // Builtin selection resolves the language from the path; the registry then
+  // decides which provider owns that language, so an extension can win.
+  const builtin = selectBuiltinProvider({ path });
+  if (builtin === undefined) {
     throw new Error(`no syntax provider matches '${path}'; semantic operations need a matching provider`);
   }
-  return provider;
+  const resolved = registry.resolve<SyntaxProvider>("syntax", {
+    language: builtin.language,
+    path,
+    forSignedState: true,
+  });
+  return resolved?.value ?? builtin;
 }
 
 function jsonRequested(args: readonly string[]): boolean {
@@ -97,6 +142,12 @@ export function runSemanticCommand(args: readonly string[], io: SemanticCliIO): 
   if (action === "plan") {
     if (files.length === 0) throw new Error(CliText.semanticUsage);
     const provider = providerFor(files[0]);
+    // Every input is parsed with one provider, so mixed languages would parse
+    // TOML as JSON and report a plan for content that was never understood.
+    const mismatched = files.find((path) => providerFor(path).id !== provider.id);
+    if (mismatched !== undefined) {
+      throw new Error(`semantic plan needs one syntax provider; '${mismatched}' does not use ${provider.id}`);
+    }
     const plan = planCompression(files.map((path) => ({ path, text: readText(path) })), provider);
     if (json) {
       io.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);

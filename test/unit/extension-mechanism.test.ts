@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,9 +7,11 @@ import {
   buildExternalInvocation,
   canonicalManifest,
   CAPABILITY_KINDS,
+  ed25519ManifestVerifier,
   EXTENSION_API_VERSION,
-  EXTENSION_MANIFEST_FILE,
+  extensionManifestFile,
   EXTENSION_PREFIX,
+  manifestSigningPayload,
   nodeExtensionFileSystem,
   CapabilityRegistry,
   CapabilityRegistryError,
@@ -54,12 +57,53 @@ const MANIFEST = [
   `determinism = "deterministic"`,
 ].join("\n");
 
+const EXECUTABLE_DIGEST = createHash("sha256").update("#!/bin/sh\nexit 0\n").digest("hex");
+
+/** A real Ed25519 publisher, so signature tests exercise actual verification. */
+function publisherFixture(): { publisher: string; signManifest: (text: string) => string } {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const der = publicKey.export({ type: "spki", format: "der" });
+  const publisher = `epoch:principal:${der.toString("base64url")}`;
+  return {
+    publisher,
+    signManifest: (text: string) => {
+      const manifest = parseExtensionManifest(text);
+      return `ed25519:${sign(null, Buffer.from(manifestSigningPayload(manifest), "utf8"), privateKey).toString("base64")}`;
+    },
+  };
+}
+
+/** Build a manifest body with the given overrides applied. */
+function manifestWith(overrides: Record<string, string>): string {
+  const base: Record<string, string> = {
+    name: `"difftastic"`,
+    api: "1",
+    version: `"0.65.0"`,
+    publisher: `"epoch:principal:abc123"`,
+    capabilities: `["syntax", "diff"]`,
+    determinism: `"deterministic"`,
+  };
+  return Object.entries({ ...base, ...overrides })
+    .filter(([, value]) => value.length > 0)
+    .map(([key, value]) => `${key} = ${value}`)
+    .join("\n");
+}
+
 function fakeFileSystem(tree: Record<string, readonly string[]>, files: Record<string, string>): ExtensionFileSystem {
   return {
     listDirectory: (directory) => tree[directory] ?? [],
     isExecutableFile: (path) => Object.keys(tree).some((directory) => path.startsWith(directory)),
     readTextFile: (path) => files[path],
+    fileDigest: () => EXECUTABLE_DIGEST,
   };
+}
+
+/** Manifest files for a set of extensions sharing one bin directory. */
+function manifestsFor(directory: string, names: readonly string[]): Record<string, string> {
+  return Object.fromEntries(names.map((name) => [
+    join(directory, extensionManifestFile(name)),
+    MANIFEST.replace(`"difftastic"`, `"${name}"`),
+  ]));
 }
 
 function manifestParsesAndValidates(): void {
@@ -111,9 +155,9 @@ function discoveryPrefersRepositoryOverUserOverPath(): void {
         [pathBin]: ["epoch-difftastic", "epoch-cliff", "unrelated-binary"],
       },
       {
-        [join(repositoryBin, "epoch-extension.toml")]: MANIFEST,
-        [join(userBin, "epoch-extension.toml")]: MANIFEST,
-        [join(pathBin, "epoch-extension.toml")]: MANIFEST,
+        ...manifestsFor(repositoryBin, ["difftastic"]),
+        ...manifestsFor(userBin, ["difftastic", "absorb"]),
+        ...manifestsFor(pathBin, ["difftastic", "cliff"]),
       },
     ),
   });
@@ -122,6 +166,9 @@ function discoveryPrefersRepositoryOverUserOverPath(): void {
   const difftastic = found.find((extension) => extension.name === "difftastic");
   assert.equal(difftastic?.source, "repository", "a repository-local extension overrides a global one");
   assert.ok(found.every((extension) => !extension.name.startsWith("unrelated")));
+  // Several extensions can share one bin directory; a single directory-level
+  // manifest could only ever name one of them.
+  assert.ok(found.every((extension) => extension.manifest !== undefined), "every extension resolves its own manifest");
 }
 
 function discoveryReportsExtensionsWithoutAValidManifest(): void {
@@ -134,7 +181,7 @@ function discoveryReportsExtensionsWithoutAValidManifest(): void {
   assert.equal(found.length, 1);
   assert.equal(found[0].manifest, undefined);
   // Reported, not silently dropped: the operator must be able to see it.
-  assert.ok(found[0].manifestError?.includes("epoch-extension.toml"));
+  assert.ok(found[0].manifestError?.includes("epoch-mystery.toml"));
 }
 
 function discoveredExtension(name: string, manifestText?: string) {
@@ -143,7 +190,7 @@ function discoveredExtension(name: string, manifestText?: string) {
     pathEntries: [pathBin],
     fileSystem: fakeFileSystem(
       { [pathBin]: [`epoch-${name}`] },
-      manifestText === undefined ? {} : { [join(pathBin, "epoch-extension.toml")]: manifestText },
+      manifestText === undefined ? {} : { [join(pathBin, extensionManifestFile(name))]: manifestText },
     ),
   })[0];
 }
@@ -169,25 +216,52 @@ function explicitAllowTrustsOneExtension(): void {
 }
 
 function signedPolicyRequiresSignatureAndKnownPublisher(): void {
-  const unsigned = parseExtensionManifest(MANIFEST);
-  const signed = parseExtensionManifest(`${MANIFEST}\nsignature = "ed25519:deadbeef"`);
-  const policy = readTrustPolicy({ trust: "signed", allow_publishers: ["epoch:principal:abc123"] });
+  const { publisher, signManifest } = publisherFixture();
+  const policy = readTrustPolicy({ trust: "signed", allow_publishers: [publisher] });
+  const body = manifestWith({ publisher: `"${publisher}"`, executable_sha256: `"${EXECUTABLE_DIGEST}"` });
+  const signed = parseExtensionManifest(`${body}\nsignature = ${JSON.stringify(signManifest(body))}`);
+  const bound = { executableSha256: EXECUTABLE_DIGEST };
 
-  assert.equal(evaluateTrust("difftastic", unsigned, policy).reason, "unsigned");
-  assert.equal(evaluateTrust("difftastic", signed, policy).trusted, true);
+  assert.equal(evaluateTrust("difftastic", parseExtensionManifest(body), policy, bound).reason, "unsigned");
+  assert.equal(evaluateTrust("difftastic", signed, policy, bound).trusted, true);
+
+  // A forged signature must not pass. This is the whole point of the mode:
+  // `publisher` and `signature` are both attacker-controlled manifest input,
+  // so only verification against the named key can grant trust.
+  const forged = parseExtensionManifest(`${body}\nsignature = "ed25519:deadbeef"`);
+  assert.equal(evaluateTrust("difftastic", forged, policy, bound).reason, "invalid-signature");
+
+  // A valid signature over different content must not transfer.
+  const tamperedBody = manifestWith({
+    publisher: `"${publisher}"`,
+    executable_sha256: `"${EXECUTABLE_DIGEST}"`,
+    version: `"9.9.9"`,
+  });
+  const tampered = parseExtensionManifest(`${tamperedBody}\nsignature = ${JSON.stringify(signManifest(body))}`);
+  assert.equal(evaluateTrust("difftastic", tampered, policy, bound).reason, "invalid-signature");
+
+  // A signed manifest paired with a different binary must not pass either.
+  const swapped = evaluateTrust("difftastic", signed, policy, { executableSha256: "b".repeat(64) });
+  assert.equal(swapped.reason, "executable-mismatch");
 
   const otherPublisher = readTrustPolicy({ trust: "signed", allow_publishers: ["epoch:principal:zzz"] });
-  assert.equal(evaluateTrust("difftastic", signed, otherPublisher).reason, "publisher-not-allowed");
+  assert.equal(evaluateTrust("difftastic", signed, otherPublisher, bound).reason, "publisher-not-allowed");
+
+  // The default verifier rejects malformed input rather than throwing.
+  assert.equal(ed25519ManifestVerifier({ payload: "x", signature: "nope", publisher }), false);
+  assert.equal(ed25519ManifestVerifier({ payload: "x", signature: "ed25519:AAAA", publisher: "epoch:principal:" }), false);
 }
 
 function blockAlwaysWins(): void {
-  const signed = parseExtensionManifest(`${MANIFEST}\nsignature = "ed25519:deadbeef"`);
+  const { publisher, signManifest } = publisherFixture();
+  const body = manifestWith({ publisher: `"${publisher}"`, executable_sha256: `"${EXECUTABLE_DIGEST}"` });
+  const signed = parseExtensionManifest(`${body}\nsignature = ${JSON.stringify(signManifest(body))}`);
   for (const trust of ["explicit", "signed", "any"] as const) {
     const policy = readTrustPolicy({
       trust,
       allow: ["difftastic"],
       block: ["difftastic"],
-      allow_publishers: ["epoch:principal:abc123"],
+      allow_publishers: [publisher],
     });
     const decision = evaluateTrust("difftastic", signed, policy);
     assert.equal(decision.trusted, false, `block must win under trust='${trust}'`);
@@ -340,7 +414,7 @@ function contractConstantsAreStable(): void {
   // installed extension, so they are asserted rather than assumed.
   assert.equal(EXTENSION_API_VERSION, 1);
   assert.equal(EXTENSION_PREFIX, "epoch-");
-  assert.equal(EXTENSION_MANIFEST_FILE, "epoch-extension.toml");
+  assert.equal(extensionManifestFile("greet"), "epoch-greet.toml");
   assert.deepEqual([...CAPABILITY_KINDS], [
     "command",
     "syntax",
@@ -366,7 +440,7 @@ function realFilesystemDiscoveryFindsExecutablesOnly(): void {
     writeFileSync(join(bin, "epoch-not-executable"), "not a program\n");
     chmodSync(join(bin, "epoch-not-executable"), 0o644);
     writeFileSync(join(bin, "unrelated"), "ignored\n");
-    writeFileSync(join(bin, EXTENSION_MANIFEST_FILE), MANIFEST.replace('"difftastic"', '"runnable"'));
+    writeFileSync(join(bin, extensionManifestFile("runnable")), MANIFEST.replace('"difftastic"', '"runnable"'));
 
     const found = discoverExtensions({
       repositoryRoot: root,
@@ -384,8 +458,14 @@ function realFilesystemDiscoveryFindsExecutablesOnly(): void {
     assert.equal(nodeExtensionFileSystem.isExecutableFile(bin), false, "a directory is not an executable file");
     assert.equal(nodeExtensionFileSystem.readTextFile(join(root, "absent.toml")), undefined);
 
+    // The digest of the real executable is captured for signature binding.
+    assert.equal(
+      found[0].executableSha256,
+      createHash("sha256").update("#!/bin/sh\nexit 0\n").digest("hex"),
+    );
+
     // A manifest naming a different extension is rejected, not adopted.
-    writeFileSync(join(bin, EXTENSION_MANIFEST_FILE), MANIFEST);
+    writeFileSync(join(bin, extensionManifestFile("runnable")), MANIFEST);
     const mismatched = discoverExtensions({
       repositoryRoot: root,
       pathEntries: [],

@@ -205,7 +205,7 @@ Feature: CLI and WASM integration surfaces
     And the CLI output contains "\"zod\": \"4\""
 
   @persona.github_open_source_contributor
-  Scenario: Contributor sees a diff name the changed value, not the surrounding lines
+  Scenario: Contributor sees a diff that names the changed value, not the surrounding lines
     Given a new workspace
     When I run the Epoch CLI with arguments:
       | init     |
@@ -231,8 +231,27 @@ Feature: CLI and WASM integration surfaces
       | --author |
       | alice    |
     Then the CLI exits with code 0
+    When I install a workspace extension named "greet"
+    And I run the Epoch CLI with arguments:
+      | ext  |
+      | list |
+    Then the CLI exits with code 0
+    And the CLI output contains "greet"
+    And the CLI output contains "untrusted"
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 1
+    And the CLI error contains "not trusted"
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
     When I run the Epoch CLI with arguments:
       | ext  |
       | list |
     Then the CLI exits with code 0
-    And the CLI output contains "no extensions discovered"
+    And the CLI output contains "trusted"
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0

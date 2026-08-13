@@ -35,6 +35,10 @@ function skipNonCode(source: string, index: number, limit: number): number {
     return Math.min(cursor + 2, limit);
   }
   if (character === "\"" || character === "'" || character === "`") {
+    // Only backticks span lines. A Rust lifetime (`&'a str`) or an unbalanced
+    // apostrophe would otherwise consume the rest of the file, hiding every
+    // brace after it and erasing all following declarations from the tree.
+    const multiline = character === "`";
     let cursor = index + 1;
     while (cursor < limit) {
       if (source[cursor] === "\\") {
@@ -42,9 +46,10 @@ function skipNonCode(source: string, index: number, limit: number): number {
         continue;
       }
       if (source[cursor] === character) return cursor + 1;
+      if (!multiline && source[cursor] === "\n") return index;
       cursor += 1;
     }
-    return limit;
+    return multiline ? limit : index;
   }
   return index;
 }

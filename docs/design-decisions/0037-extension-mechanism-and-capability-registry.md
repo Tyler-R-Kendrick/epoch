@@ -67,18 +67,23 @@ discovery runs only if the trust policy admits it.
 
 ### Trust policy
 
-An extension declares itself in `epoch-extension.toml`, colocated with the
-executable:
+An extension declares itself in a manifest colocated with the executable:
 
 ```toml
 name = "difftastic"
 api = 1
 version = "0.65.0"
 description = "Structural diff provider"
-publisher = "epoch:principal:<ed25519-public-key>"
+publisher = "epoch:principal:<base64url-spki-ed25519-key>"
 capabilities = ["syntax", "diff"]
 determinism = "deterministic"    # or "advisory"
+executable_sha256 = "<sha256 of the executable>"
+signature = "ed25519:<base64>"
 ```
+
+The manifest is named for its extension (`epoch-difftastic.toml` beside
+`epoch-difftastic`) rather than shared per directory, since one manifest
+declares one `name` and a bin directory holds many extensions.
 
 `.epoch/config.toml` carries the policy:
 
@@ -91,8 +96,11 @@ allow_publishers = ["epoch:principal:<ed25519-public-key>"]
 ```
 
 - `explicit` (default) admits only names in `allow`.
-- `signed` admits any extension whose manifest carries a valid signature from a
-  principal in `allow_publishers`.
+- `signed` admits an extension only when its Ed25519 signature verifies against
+  a principal in `allow_publishers`, over a canonical manifest that includes the
+  executable's SHA-256. `publisher` is manifest input, so naming an allowed key
+  narrows which key may have signed; only verification grants trust, and the
+  embedded digest binds the signature to the binary.
 - `any` reproduces Git's behavior and must be chosen deliberately.
 
 A discovered-but-untrusted extension is reported, never silently run and never

@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { delimiter, join } from "node:path";
+import { delimiter, extname, join } from "node:path";
 import {
-  EXTENSION_MANIFEST_FILE,
+  extensionManifestFile,
   parseExtensionManifest,
   type ExtensionManifest,
 } from "./manifest";
@@ -26,6 +27,8 @@ export interface DiscoveredExtension {
   readonly manifest?: ExtensionManifest;
   /** Why the manifest was rejected, when it was. Reported, never swallowed. */
   readonly manifestError?: string;
+  /** SHA-256 of the executable, used to bind a signature to the binary. */
+  readonly executableSha256?: string;
 }
 
 /** Filesystem seam, injected so discovery is testable without real binaries. */
@@ -33,7 +36,12 @@ export interface ExtensionFileSystem {
   listDirectory(directory: string): readonly string[];
   isExecutableFile(path: string): boolean;
   readTextFile(path: string): string | undefined;
+  /** SHA-256 of a file's bytes, lowercase hex, or undefined when unreadable. */
+  fileDigest?(path: string): string | undefined;
 }
+
+/** Extensions Windows treats as directly launchable. */
+const WINDOWS_EXECUTABLE_EXTENSIONS = new Set([".exe", ".com", ".cmd", ".bat"]);
 
 export const nodeExtensionFileSystem: ExtensionFileSystem = {
   listDirectory(directory: string): readonly string[] {
@@ -47,6 +55,11 @@ export const nodeExtensionFileSystem: ExtensionFileSystem = {
     try {
       const stats = statSync(path);
       if (!stats.isFile()) return false;
+      if (process.platform === "win32") {
+        // Windows does not carry POSIX execute bits; launchability comes from
+        // the file extension, so mode checking would reject every real .exe.
+        return WINDOWS_EXECUTABLE_EXTENSIONS.has(extname(path).toLowerCase());
+      }
       // Any execute bit is enough; Epoch does not run it without trust anyway.
       return (stats.mode & 0o111) !== 0;
     } catch {
@@ -56,6 +69,13 @@ export const nodeExtensionFileSystem: ExtensionFileSystem = {
   readTextFile(path: string): string | undefined {
     try {
       return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+    } catch {
+      return undefined;
+    }
+  },
+  fileDigest(path: string): string | undefined {
+    try {
+      return createHash("sha256").update(readFileSync(path)).digest("hex");
     } catch {
       return undefined;
     }
@@ -102,11 +122,14 @@ export function discoverExtensions(options: DiscoveryOptions = {}): readonly Dis
       const executable = join(directory, entry);
       if (!fileSystem.isExecutableFile(executable)) continue;
 
-      const manifestText = fileSystem.readTextFile(join(directory, EXTENSION_MANIFEST_FILE));
+      // The manifest is named for its extension, so several `epoch-*` binaries
+      // can coexist in one bin directory and each still declare itself.
+      const manifestName = extensionManifestFile(name);
+      const manifestText = fileSystem.readTextFile(join(directory, manifestName));
       let manifest: ExtensionManifest | undefined;
       let manifestError: string | undefined;
       if (manifestText === undefined) {
-        manifestError = `no ${EXTENSION_MANIFEST_FILE} beside ${executable}`;
+        manifestError = `no ${manifestName} beside ${executable}`;
       } else {
         try {
           const parsed = parseExtensionManifest(manifestText);
@@ -120,7 +143,15 @@ export function discoverExtensions(options: DiscoveryOptions = {}): readonly Dis
         }
       }
 
-      found.set(name, { name, executable, directory, source, manifest, manifestError });
+      found.set(name, {
+        name,
+        executable,
+        directory,
+        source,
+        manifest,
+        manifestError,
+        executableSha256: fileSystem.fileDigest?.(executable),
+      });
     }
   }
 

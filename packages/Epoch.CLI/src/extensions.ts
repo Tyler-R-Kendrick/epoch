@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { EpochRepository } from "@epoch/core";
 import {
   buildExternalInvocation,
@@ -129,17 +130,72 @@ export function runExtensionCommand(
   if (action === "trust" || action === "untrust") {
     const name = args[1];
     if (name === undefined) throw new Error(CliText.extUsage);
-    // Consent is recorded as a signed operation so the decision is auditable
-    // and syncable rather than a scratch local preference.
+    // The decision has to change dispatch, not merely be recorded: writing the
+    // allow list is what makes it effective. Trust stays local configuration
+    // rather than a synced event, so consenting in one clone never grants
+    // execution in another.
+    updateAllowList(resolve(root), name, action === "trust");
     const repository = new EpochRepository(resolve(root));
     repository.appendOperation(`ext-${action}`, "succeeded", { extension: name });
-    io.stdout.write(
-      `recorded ${action} for extension '${name}'; add it to [extensions] allow in .epoch/config.toml to take effect\n`,
-    );
+    io.stdout.write(`${action === "trust" ? "trusted" : "untrusted"} extension '${name}' in .epoch/config.toml\n`);
     return;
   }
 
   throw new Error(CliText.extUsage);
+}
+
+const ALLOW_PATTERN = /^(\s*allow\s*=\s*)\[(.*)\]\s*$/u;
+
+function renderAllowList(names: readonly string[]): string {
+  return `allow = [${names.map((name) => `"${name}"`).join(", ")}]`;
+}
+
+/**
+ * Add or remove an extension in the local `[extensions] allow` list.
+ *
+ * Written as a single-line array so the repository's own TOML config reader
+ * can parse it back.
+ */
+function updateAllowList(root: string, name: string, allow: boolean): void {
+  const configPath = join(root, ".epoch", "config.toml");
+  const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
+  const lines = existing.length === 0 ? [] : existing.split(/\r?\n/u);
+
+  const sectionIndex = lines.findIndex((line) => line.trim() === "[extensions]");
+  if (sectionIndex === -1) {
+    if (lines.length > 0 && lines[lines.length - 1].trim().length > 0) lines.push("");
+    lines.push("[extensions]", renderAllowList(allow ? [name] : []));
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
+    return;
+  }
+
+  let allowIndex = -1;
+  for (let index = sectionIndex + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
+    if (trimmed.startsWith("[")) break;
+    if (ALLOW_PATTERN.test(lines[index])) {
+      allowIndex = index;
+      break;
+    }
+  }
+
+  const current = allowIndex === -1
+    ? []
+    : (ALLOW_PATTERN.exec(lines[allowIndex])?.[2] ?? "")
+      .split(",")
+      .map((entry) => entry.trim().replace(/^"|"$/gu, ""))
+      .filter((entry) => entry.length > 0);
+
+  const next = allow
+    ? [...new Set([...current, name])].sort()
+    : current.filter((entry) => entry !== name);
+
+  if (allowIndex === -1) lines.splice(sectionIndex + 1, 0, renderAllowList(next));
+  else lines[allowIndex] = renderAllowList(next);
+
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
 }
 
 export interface ExternalDispatchResult {
