@@ -13,8 +13,8 @@ export function emptyDevFeedItem(title: string, action?: string): string {
 
 export function renderDevFeedItem(item: DevFeedItem): string {
   const objectHtml = item.object
-    ? item.object.type === "repo" || item.object.type === "issue" || item.object.type === "proposal"
-      ? `<button class="row-object" type="button" data-feed-open-repo="${escapeHtml(item.repoSlug ?? "")}" data-feed-channel="${escapeHtml(item.channelHint ?? "")}" data-feed-issue="${escapeHtml(item.object.type === "issue" ? item.object.hrefHint ?? "" : "")}" data-feed-change="${escapeHtml(item.object.type === "proposal" ? item.object.hrefHint ?? "" : "")}">${escapeHtml(item.object.label)}</button>`
+    ? item.object.type === "repo" || item.object.type === "issue" || item.object.type === "change"
+      ? `<button class="row-object" type="button" data-feed-open-repo="${escapeHtml(item.repoSlug ?? "")}" data-feed-channel="${escapeHtml(item.channelHint ?? "")}" data-feed-issue="${escapeHtml(item.object.type === "issue" ? item.object.hrefHint ?? "" : "")}" data-feed-change="${escapeHtml(item.object.type === "change" ? item.object.hrefHint ?? "" : "")}">${escapeHtml(item.object.label)}</button>`
       : `<span class="row-object-text">${escapeHtml(item.object.label)}</span>`
     : "";
   const openRepo = item.repoSlug

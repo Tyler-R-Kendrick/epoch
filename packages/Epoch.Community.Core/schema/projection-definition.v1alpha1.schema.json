@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.dev/schema/community/projection-definition-v1alpha1.json",
+  "title": "Epoch Community Projection Definition v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "projectionId", "version", "label", "visibility", "root", "order", "updateMode", "consistency"],
+  "properties": {
+    "apiVersion": { "const": "epoch.dev/v1alpha1" },
+    "projectionId": { "type": "string", "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._~-]{0,127}|builtin:[a-z][a-z0-9-]{0,63})$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "label": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "visibility": { "enum": ["private", "shared", "public"] },
+    "root": { "$ref": "#/$defs/projectionNode" },
+    "order": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/searchOrder" } },
+    "updateMode": { "enum": ["live", "queued", "snapshot"] },
+    "consistency": { "enum": ["current", "session-snapshot", "fixed-snapshot"] },
+    "limits": { "$ref": "#/$defs/limits" }
+  },
+  "$defs": {
+    "nodeId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$" },
+    "segment": { "type": "string", "minLength": 1, "maxLength": 120, "not": { "enum": [".", "..", ".epoch"] } },
+    "segmentTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template"],
+      "properties": { "template": { "type": "string", "minLength": 1, "maxLength": 256 } }
+    },
+    "searchOrder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "direction", "nulls"],
+      "properties": {
+        "field": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}$" },
+        "direction": { "enum": ["ascending", "descending"] },
+        "nulls": { "enum": ["first", "last"] }
+      }
+    },
+    "objectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objectId", "kind"],
+      "properties": {
+        "objectId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$" },
+        "kind": { "enum": ["message", "thread", "channel", "dm", "notification", "projection", "project", "issue", "change", "member", "agent", "artifact", "tombstone"] },
+        "atUri": { "type": "string", "pattern": "^at://[^/]+/[^/]+/[^/]+$" },
+        "revision": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "searchExpression": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": { "kind": { "enum": ["all", "and", "or", "not", "text", "compare", "range", "exists", "related"] } }
+    },
+    "projectionNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/literalNode" },
+        { "$ref": "#/$defs/selectNode" },
+        { "$ref": "#/$defs/groupNode" },
+        { "$ref": "#/$defs/traverseNode" },
+        { "$ref": "#/$defs/unionNode" },
+        { "$ref": "#/$defs/aliasNode" },
+        { "$ref": "#/$defs/leafNode" }
+      ],
+      "discriminator": {
+        "propertyName": "kind",
+        "mapping": {
+          "literal": "#/$defs/literalNode",
+          "select": "#/$defs/selectNode",
+          "group": "#/$defs/groupNode",
+          "traverse": "#/$defs/traverseNode",
+          "union": "#/$defs/unionNode",
+          "alias": "#/$defs/aliasNode",
+          "leaf": "#/$defs/leafNode"
+        }
+      }
+    },
+    "literalNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "segment", "children"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "literal" },
+        "segment": { "type": "string", "maxLength": 120 },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/projectionNode" } }
+      }
+    },
+    "selectNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "objectKinds", "children"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "select" },
+        "objectKinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/objectRef/properties/kind" } },
+        "where": { "$ref": "#/$defs/searchExpression" },
+        "order": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/searchOrder" } },
+        "limit": { "type": "integer", "minimum": 1 },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/projectionNode" } }
+      }
+    },
+    "groupNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "field", "segment", "missing", "order", "child"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "group" },
+        "field": { "$ref": "#/$defs/searchOrder/properties/field" },
+        "segment": { "$ref": "#/$defs/segmentTemplate" },
+        "missing": { "$ref": "#/$defs/segment" },
+        "order": { "enum": ["key-ascending", "key-descending", "count-ascending", "count-descending"] },
+        "child": { "$ref": "#/$defs/projectionNode" }
+      }
+    },
+    "traverseNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "relation", "direction", "maxDepth", "child"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "traverse" },
+        "relation": { "enum": ["reply", "quote", "mention", "provenance", "promotion", "replacement", "moderation", "attachment", "backlink"] },
+        "direction": { "enum": ["in", "out"] },
+        "maxDepth": { "type": "integer", "minimum": 1 },
+        "child": { "$ref": "#/$defs/projectionNode" }
+      }
+    },
+    "unionNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "children"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "union" },
+        "children": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/projectionNode" } }
+      }
+    },
+    "aliasNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "target", "segment", "children"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "alias" },
+        "target": { "$ref": "#/$defs/objectRef" },
+        "segment": { "$ref": "#/$defs/segmentTemplate" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/projectionNode" } }
+      }
+    },
+    "leafNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "kind", "segment", "representation"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "leaf" },
+        "segment": { "$ref": "#/$defs/segmentTemplate" },
+        "representation": { "enum": ["default", "body.md", "metadata.json"] }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxDepth": { "type": "integer", "minimum": 1 },
+        "maxEntriesPerDirectory": { "type": "integer", "minimum": 1 },
+        "maxTotalEntries": { "type": "integer", "minimum": 1 },
+        "maxRelationDepth": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

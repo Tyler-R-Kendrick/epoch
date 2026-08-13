@@ -1,14 +1,240 @@
 import assert from "node:assert/strict";
-import { createInMemoryCommunityApi, createCommunityApiFetchHandler } from "@epoch/community-api";
+import { createCommunityApiHost, createInMemoryCommunityApi, createCommunityApiFetchHandler } from "@epoch/community-api";
 import { main as communityCliMain } from "@epoch/community-cli";
-import { CommunityRepository, createCommunityClient, createHttpCommunityClient } from "@epoch/community-core";
+import { builtinDefaultProjection, CommunityRepository, createCommunityClient, createHttpCommunityClient } from "@epoch/community-core";
 
 export async function runCommunityCoverageTests(): Promise<void> {
   await apiFetchHandlerRoutesCommunityRequests();
   await apiRejectsInvalidAndUnknownRequests();
+  await defaultHostWiresSearchProjectionsAndNamespace();
+  await liveHostIsolatesMountsAndPrivateProjections();
   await cliCoversIssueAndChangeWorkflows();
   await cliReportsUsageAndValidationErrors();
   await httpClientReportsNonOkApiErrors();
+}
+
+async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
+  const host = createCommunityApiHost({
+    cursorKey: new Uint8Array(32).fill(19),
+    resolveAuthorization: () => ({ actorId: "alice" }),
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "canonical",
+      maintainers: ["alice"],
+      topics: ["dvcs"],
+    }],
+  });
+  await host.api.openIssue("epoch/epoch", { id: "ISSUE-1", title: "Needs review", author: "alice" });
+  const parsed = host.services.search.parseSearch("kind:issue", { authorization: { actorId: "alice" } });
+  assert.equal(parsed.error, undefined);
+  const searched = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10 }),
+  }));
+  assert.equal(searched.status, 200);
+  const page = await searched.json() as { hits: Array<{ target: { kind: string } }> };
+  assert.ok(page.hits.some((hit) => hit.target.kind === "issue"));
+  assert.equal((await host.handler(new Request("https://epoch.test/projections"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/mounts"))).status, 200);
+  const graphql = await host.handler(new Request("https://epoch.test/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "{ sourceCapabilities { sourceId } }" }),
+  }));
+  assert.equal(graphql.status, 200);
+  const body = await graphql.json() as { data: { sourceCapabilities: Array<{ sourceId: string }> } };
+  assert.deepEqual(body.data.sourceCapabilities.map((value) => value.sourceId), ["community-store"]);
+
+  const parsedSearch = await host.handler(new Request("https://epoch.test/search/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ expression: "kind:issue", timezone: "UTC", locale: "en-US" }),
+  }));
+  assert.equal(parsedSearch.status, 200);
+  const explained = await host.handler(new Request("https://epoch.test/search/explain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10 }),
+  }));
+  assert.equal(explained.status, 200);
+  const oversize = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 0 }),
+  }));
+  assert.equal(oversize.status, 413);
+  const malformed = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{",
+  }));
+  assert.equal(malformed.status, 400);
+  const missingQuery = await host.handler(new Request("https://epoch.test/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }));
+  assert.equal(missingQuery.status, 400);
+  const missingExpression = await host.handler(new Request("https://epoch.test/search/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }));
+  assert.equal(missingExpression.status, 400);
+
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/list?path=/&first=10"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/resolve?path=/"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/explain?path=/"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/list?first=0"))).status, 413);
+  const listedProjections = await host.handler(new Request("https://epoch.test/projections"));
+  assert.equal(listedProjections.status, 200);
+  const clone = { ...builtinDefaultProjection, projectionId: "coverage-clone", label: "Coverage clone", version: 1 };
+  const saved = await host.handler(new Request("https://epoch.test/projections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(clone),
+  }));
+  assert.equal(saved.status, 201);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/coverage-clone"))).status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/coverage-clone/explain?path=/"))).status, 200);
+  const previewed = await host.handler(new Request("https://epoch.test/projections/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ definition: { ...clone, projectionId: "coverage-preview" }, path: "/", first: 5 }),
+  }));
+  assert.equal(previewed.status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }))).status, 400);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/missing"))).status, 404);
+  const mounted = await host.handler(new Request("https://epoch.test/namespace/mounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mountId: "coverage-mount",
+      projectionId: "coverage-clone",
+      mountPath: "/coverage",
+      mode: "after",
+      scope: "user",
+      order: 10,
+      writable: false,
+    }),
+  }));
+  assert.equal(mounted.status, 201);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/mounts/coverage-mount", { method: "DELETE" }))).status, 200);
+  const reset = await host.handler(new Request("https://epoch.test/namespace/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scope: "user" }),
+  }));
+  assert.equal(reset.status, 200);
+  assert.equal((await host.handler(new Request("https://epoch.test/namespace/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scope: "recovery" }),
+  }))).status, 409);
+  assert.equal((await host.handler(new Request("https://epoch.test/projections/coverage-clone", { method: "DELETE" }))).status, 204);
+
+  await assert.rejects(
+    async () => createCommunityApiHost({ store: host.store, repositories: [{ slug: "x/y", displayName: "X", description: "x", maintainers: ["alice"] }] }),
+    /injected CommunityStateStore cannot be combined/,
+  );
+  const closed = createCommunityApiFetchHandler(host.api);
+  const unsupported = await closed(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, first: 10 }),
+  }));
+  assert.equal(unsupported.status, 422);
+  const unconfiguredGraphql = await closed(new Request("https://epoch.test/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "{ sourceCapabilities { sourceId } }" }),
+  }));
+  assert.equal(unconfiguredGraphql.status, 422);
+  const scoped = await host.handler(new Request("https://epoch.test/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10, scope: { sourceIds: ["other"] } }),
+  }));
+  assert.equal(scoped.status, 422);
+}
+
+async function liveHostIsolatesMountsAndPrivateProjections(): Promise<void> {
+  const alice = createCommunityApiHost({
+    cursorKey: new Uint8Array(32).fill(23),
+    resolveAuthorization: () => ({ actorId: "alice" }),
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "canonical",
+      maintainers: ["alice"],
+      topics: ["dvcs"],
+    }],
+  });
+  const bob = createCommunityApiHost({
+    store: alice.store,
+    cursorKey: new Uint8Array(32).fill(23),
+    resolveAuthorization: () => ({ actorId: "bob" }),
+  });
+
+  const privateDefinition = {
+    ...builtinDefaultProjection,
+    projectionId: "alice-private",
+    label: "Alice private",
+    visibility: "private" as const,
+    version: 1,
+  };
+  assert.equal((await alice.handler(new Request("https://epoch.test/projections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(privateDefinition),
+  }))).status, 201);
+
+  const aliceListed = await (await alice.handler(new Request("https://epoch.test/projections"))).json() as Array<{ projectionId: string }>;
+  const bobListed = await (await bob.handler(new Request("https://epoch.test/projections"))).json() as Array<{ projectionId: string }>;
+  assert.ok(aliceListed.some((item) => item.projectionId === "alice-private"));
+  assert.equal(bobListed.some((item) => item.projectionId === "alice-private"), false);
+  assert.equal((await bob.handler(new Request("https://epoch.test/projections/alice-private"))).status, 403);
+
+  const mounted = await alice.handler(new Request("https://epoch.test/namespace/mounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mountId: "alice-root",
+      projectionId: "alice-private",
+      mountPath: "/",
+      mode: "replace",
+      scope: "user",
+      order: 50,
+      writable: false,
+    }),
+  }));
+  assert.equal(mounted.status, 201);
+
+  const aliceMounts = await (await alice.handler(new Request("https://epoch.test/namespace/mounts"))).json() as Array<{ mountId: string }>;
+  const bobMounts = await (await bob.handler(new Request("https://epoch.test/namespace/mounts"))).json() as Array<{ mountId: string }>;
+  assert.ok(aliceMounts.some((mount) => mount.mountId === "alice-root"));
+  assert.equal(bobMounts.some((mount) => mount.mountId === "alice-root"), false);
+
+  const stolen = await bob.handler(new Request("https://epoch.test/namespace/mounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mountId: "bob-stolen",
+      projectionId: "alice-private",
+      mountPath: "/stolen",
+      mode: "after",
+      scope: "user",
+      order: 10,
+      writable: false,
+    }),
+  }));
+  assert.equal(stolen.status, 400);
 }
 
 async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
@@ -39,7 +265,7 @@ async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
   })));
   assert.equal(opened.status, 201);
 
-  const proposed = await jsonResponse<CommunityRepository>(handle(new Request("https://community.test/repositories/epoch%2Fepoch/changes", {
+  const changed = await jsonResponse<CommunityRepository>(handle(new Request("https://community.test/repositories/epoch%2Fepoch/changes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -49,7 +275,7 @@ async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
       targetView: "main",
     }),
   })));
-  assert.equal(proposed.status, 201);
+  assert.equal(changed.status, 201);
 
   const reviewed = await jsonResponse<CommunityRepository>(handle(new Request("https://community.test/repositories/epoch%2Fepoch/changes/CHANGE-1/reviews", {
     method: "POST",
@@ -57,7 +283,7 @@ async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {
     body: JSON.stringify({ reviewer: "alice", decision: "changes-requested", body: "Needs browser proof." }),
   })));
   assert.equal(reviewed.status, 201);
-  assert.equal(reviewed.body.changeProposals[0].status, "changes-requested");
+  assert.equal(reviewed.body.changes[0].status, "changes-requested");
 }
 
 async function apiRejectsInvalidAndUnknownRequests(): Promise<void> {
@@ -118,7 +344,7 @@ async function cliCoversIssueAndChangeWorkflows(): Promise<void> {
   assert.match((await runCli(["issues", "open", "epoch/epoch", "--title", "Coverage", "--author", "bob", "--label", "test"], context)).stdout, /ISSUE-/u);
   assert.match((await runCli([
     "changes",
-    "propose",
+    "create",
     "epoch/epoch",
     "--title",
     "Improve coverage",
@@ -145,12 +371,13 @@ async function cliReportsUsageAndValidationErrors(): Promise<void> {
   const context = { client: createCommunityClient(createInMemoryCommunityApi()) };
 
   assert.match((await runCli(["help"], context)).stdout, /Usage:/u);
-  assert.match((await runCli([], undefined)).stderr, /requires a Community Core client/u);
+  assert.match((await runCli([], undefined)).stdout, /Usage:/u);
+  assert.match((await runCli(["repositories"], undefined)).stderr, /EPOCH_COMMUNITY_API_URL/u);
   assert.match((await runCli(["issues", "open"], context)).stderr, /requires a repository slug/u);
   assert.match((await runCli(["issues", "open", "epoch/epoch", "oops"], context)).stderr, /Unexpected argument/u);
   assert.match((await runCli(["issues", "open", "epoch/epoch", "--title"], context)).stderr, /Missing value/u);
-  assert.match((await runCli(["changes", "propose", "epoch/epoch", "--title", "x"], context)).stderr, /Missing required option --author/u);
-  assert.match((await runCli(["changes", "review", "epoch/epoch"], context)).stderr, /requires a repository slug and proposal id/u);
+  assert.match((await runCli(["changes", "create", "epoch/epoch", "--title", "x"], context)).stderr, /Missing required option --author/u);
+  assert.match((await runCli(["changes", "review", "epoch/epoch"], context)).stderr, /requires a repository slug and change id/u);
   assert.match((await runCli([
     "changes",
     "review",

@@ -35,7 +35,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/platform_web.feature`](../features/platform_web.feature) | Browser-rendered Epoch.Platform web console behavior across mobile and desktop navigation. |
 | [`features/platform_web_conformance.feature`](../features/platform_web_conformance.feature) | Mobile task completion, role-aware home modules, admin governance sections, dense data, confirmations, and SDK-equivalent web copy. |
 | [`features/platform_projects.feature`](../features/platform_projects.feature) | Separation between the hosting control-plane web app and the Community API/Core/CLI/Web packages, including the browser-rendered Community design-system shell and Community Web dogfooding through scannable signed Epoch site history. |
-| [`features/community_web_experience.feature`](../features/community_web_experience.feature) | Canonical Nightboard plus Change Graph workbench journeys: atomic split, stable multi-head Revisions, Review Bundles, dependency-closed merge and squash provenance, stale review blocking, durable conflict resolution, partial hydration, interoperability fidelity, agent grants/budgets, public archival/privacy, accessible graph traversal, stable contextual links, projections, deterministic navigation, shared actions, and signed moderation evidence. |
+| [`features/community_web_experience.feature`](../features/community_web_experience.feature) | Canonical Nightboard plus Change Graph and deterministic discovery journeys: typed cross-source search with completeness/explain, Projection Definitions, repeated occurrence identity, scoped Namespace Mounts and recovery, keyset snapshots, browser fallback, GraphQL/text parity, atomic split, stable Revisions, Review Bundles, dependency-closed merge, durable conflicts, interoperability, authority, archival/privacy, and accessible keyboard navigation. |
 | [`features/identity_bridge.feature`](../features/identity_bridge.feature) | Nostr↔ATProto mutual identity binding ceremony, pure client-side verification, revocation rollback defense, mix-and-match rejection, and agent attestation policy. |
 | [`features/community_sandbox_workspaces.feature`](../features/community_sandbox_workspaces.feature) | Community Sandbox Workspace journeys where a contributor launches, resumes, checks, and submits a signed patch from a sandbox workspace, and a maintainer reviews the result. |
 | [`features/community_agent_sandboxes.feature`](../features/community_agent_sandboxes.feature) | Community Agent Sandbox journeys where a maintainer starts a policy-bound agent run from a signed intent, reviews completed output, and retries failures without losing evidence. |
@@ -57,6 +57,32 @@ The current registry is backed by these Cucumber feature files:
 
 See [ADR-0022](design-decisions/0022-gossip-event-plane-atproto-public-artifacts.md) and
 [docs/community-atproto.md](community-atproto.md).
+
+## F-037 - Deterministic Community Search And Mounted Projections
+
+Community Entities retain canonical identity while strict text and structured
+GraphQL Search Expressions query registered sources through authorization-bound
+Search Plans and snapshots. Results report completeness/freshness, use keyset
+cursors, and explain source pushdown, residual evaluation, ordering, and
+omissions without revealing unreadable Entities.
+
+Projection Definitions provide bounded literal/select/group/traverse/union/
+alias/leaf hierarchies. Projection Entries carry stable occurrence identity;
+the same target can appear at many paths or more than once in one definition.
+Scoped Namespace Mounts compose `replace`, `before`, and `after`, while
+`/.epoch/*` remains immutable recovery. Browser Orama and SQLite WASM indexes
+are rebuildable optional accelerators behind the Core reference semantics.
+
+Covered by:
+
+- `features/community_web_experience.feature`
+- focused Core parser/planner/projection/namespace tests
+- GraphQL schema/execution tests
+- backend/source conformance and browser persistence suites tracked under
+  `docs/evidence/community-search-projection/`
+
+See [Community Search And Projections](community-search-projections.md) and
+[ADR-0042](design-decisions/0042-deterministic-search-and-mounted-projections.md).
 
 ## F-001 - Signed Event Log
 

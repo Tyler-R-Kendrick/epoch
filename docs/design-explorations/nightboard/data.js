@@ -7,7 +7,8 @@
  * fixture, not a claim that anyone is out there posting.
  */
 window.NB_DATA = {
-  board: { name: "EPOCH CIVIC WORKSHOP", node: "node 1 of 1", epoch: 13, landed: 9, total: 12, ships: "FRI 17:00" },
+  board: { name: "EPOCH CIVIC WORKSHOP", node: "node 1 of 1", epoch: 13, landed: 9, total: 12,
+    ships: "FRI 17:00", observedAt: "2026-08-11T00:00:00.000Z" },
 
   /** Frozen compatibility aliases from the pre-object-ID namespace. */
   legacyPostAliases: {

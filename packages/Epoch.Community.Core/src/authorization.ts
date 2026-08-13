@@ -1,6 +1,6 @@
 import type { CommunityObjectKind } from "./identity";
 
-export type CommunityPermission = "object:state:write";
+export type CommunityPermission = "object:state:write" | "field:sensitive:read";
 
 export interface CommunityAuthorizationContext {
   readonly actorId?: string;

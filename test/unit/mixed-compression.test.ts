@@ -11,7 +11,7 @@ import {
 } from "@epoch/semantic";
 
 /**
- * Mixed-language compression planning (ADR-0045).
+ * Mixed-language compression planning (ADR-0046).
  *
  * A storage-planning tool that only accepts single-language input answers a
  * question nobody has: real repositories hold TypeScript, JSON, TOML, and

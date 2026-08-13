@@ -4,5 +4,13 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["test/**/*.ts"]
+  "include": [
+    "test/**/*.ts",
+    "packages/Epoch.Community.Core/src/**/*.ts",
+    "packages/Epoch.Community.API/src/**/*.ts",
+    "packages/Epoch.Community.CLI/src/**/*.ts",
+    "packages/Epoch.Community.Web/src/**/*.ts",
+    "packages/Epoch.Community.GraphQL/src/**/*.ts",
+    "packages/Epoch.Atproto/src/**/*.ts"
+  ]
 }

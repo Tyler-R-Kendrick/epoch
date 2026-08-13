@@ -1,6 +1,6 @@
 /**
  * A hand-assembled WebAssembly provider module, used to exercise the real
- * engine rather than a stub of it (ADR-0043).
+ * engine rather than a stub of it (ADR-0044).
  *
  * The tests that matter here are about what the host does with a module it did
  * not write — bounds, ABI mismatches, malformed trees — so the module under

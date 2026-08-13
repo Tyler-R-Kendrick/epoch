@@ -1,4 +1,4 @@
-# ADR-0043: Sandboxed Capability Providers
+# ADR-0044: Sandboxed Capability Providers
 
 Status: Accepted; implemented for `syntax`
 
@@ -172,4 +172,4 @@ provider genuinely requires I/O and cannot be advisory.
 - [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md)
 - [ADR-0037](0037-extension-mechanism-and-capability-registry.md)
 - [ADR-0038](0038-semantic-diff-merge-and-compression.md)
-- [ADR-0042](0042-verified-launch-and-platform-execution-contract.md)
+- [ADR-0043](0043-verified-launch-and-platform-execution-contract.md)

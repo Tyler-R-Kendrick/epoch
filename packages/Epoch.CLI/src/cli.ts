@@ -63,7 +63,7 @@ export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): nu
  * A file that will not parse contributes nothing, and the settings in it —
  * including an extension `block` list — are simply not in effect. Reported
  * before the command runs, because the alternative is a repository that
- * behaves as though the file were empty and never says so (ADR-0046).
+ * behaves as though the file were empty and never says so (ADR-0047).
  *
  * The `ext` command and external dispatch report their own, richer degradation
  * and are skipped here so the same line is not printed twice.
@@ -92,6 +92,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     writeLine(io, CliText.usage);
     writeLine(io, "Change graph commands: new, change, log --revisions, op, graph, split, bundle, review record, merge-plan, conflict, workspace, clone/fetch/hydrate/backfill, mirror, principal/agent, forge, swhid, archive, interop doctor.");
     writeLine(io, "Authoritative/destructive actions require an explicit configured adapter; unavailable adapters return unsupported-capability.");
+    writeLine(io, "Community product CLI is epoch-community (search, projections, namespace, community issues/changes).");
     return;
   }
   if (parsed.command === "interop" && parsed.args[0] === "doctor") {

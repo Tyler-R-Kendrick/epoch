@@ -1,4 +1,4 @@
-# ADR-0045: Mixed-Language Compression Planning
+# ADR-0046: Mixed-Language Compression Planning
 
 Status: Accepted; implemented
 

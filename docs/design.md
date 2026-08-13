@@ -430,6 +430,36 @@ execution mode is `in-process`. Details and escape paths are in
 [Change Graph And Operation History](change-graph.md). Canonical terms are in
 [Epoch Nomenclature](nomenclature.md).
 
+### Community search and mounted projections
+
+`@epoch/community-core` owns canonical Entities, the Field Registry, typed
+Search Expressions, planning/snapshot/cursor contracts, reference evaluation,
+Projection Definitions, lazy Projection Entries, and Namespace Mount
+composition. `@epoch/community-api` owns transactional canonical state,
+schema-1/schema-2 data migration, source orchestration, and authorization
+boundaries. `@epoch/community-graphql` is the browser/server-portable structured
+API; it imports neither persistence nor browser globals.
+
+Text and GraphQL are frontends to one semantic Search Expression. The Search
+Plan applies authorization, capability partitioning, residual evaluation,
+cost limits, deterministic total ordering, and source checkpoints before any
+observable. Keyset cursors bind the Search Snapshot, plan, authorization, and
+projection version. A source failure reports explicit completeness/freshness.
+
+Projection Definitions use bounded literal/select/group/traverse/union/alias/
+leaf JSON nodes. A Projection Entry is one occurrence whose target remains the
+canonical Entity. Namespace Mounts compose definitions by scoped
+`replace`/`before`/`after` precedence; `/.epoch/*` is immutable recovery. The
+built-in hierarchy is `builtin:default`, not a second procedural authority.
+
+The dependency-free reference backend defines results. Orama is the selected
+browser lexical candidate accelerator; SQLite WASM/FTS5 is the selected optional
+Worker read model with runtime OPFS capability detection. Neither index is
+canonical, and ordinary
+search/projection execution never invokes AI. See
+[Community Search And Projections](community-search-projections.md) and
+[ADR-0042](design-decisions/0042-deterministic-search-and-mounted-projections.md).
+
 ## Extensions And Capability Providers
 
 `@epoch/extensions` implements the two-tier extension model. External
@@ -460,12 +490,12 @@ delimiter provider recovers block structure and is not a grammar. That TOML
 subset is the *structural diffing* provider, and stays partial by design — it
 refuses constructs it cannot represent. Reading a configuration value is a
 different job, and uses the complete TOML 1.0 reader in `@epoch/core`
-([ADR-0046](design-decisions/0046-repository-configuration-parsing.md)).
+([ADR-0047](design-decisions/0047-repository-configuration-parsing.md)).
 
 Grammar-backed providers arrive as extensions through the capability registry,
 as WebAssembly modules instantiated with one import — memory the host owns and
 caps — so a provider that shapes signed evidence holds no ambient authority
-([ADR-0043](design-decisions/0043-sandboxed-capability-providers.md)). At equal
+([ADR-0044](design-decisions/0044-sandboxed-capability-providers.md)). At equal
 match specificity a shipped provider outranks the builtin it replaces, which is
 what "an extension can displace a builtin" means in practice.
 
@@ -480,16 +510,16 @@ content remains authoritative.
 
 `epoch semantic diff|apply|merge|plan` is the operator surface, and `plan`
 takes a mixed-language file set, grouping it by resolved provider
-([ADR-0045](design-decisions/0045-mixed-language-compression-planning.md)). See
+([ADR-0046](design-decisions/0046-mixed-language-compression-planning.md)). See
 [Semantic Content Pipeline](semantic-pipeline.md) and
 [ADR-0038](design-decisions/0038-semantic-diff-merge-and-compression.md).
 
 Extension *publisher* keys have a lifecycle: an expiry inside the signed
 manifest, succession signed by the key being retired, and revocation that
 outranks both and replicates as an ordinary event
-([ADR-0044](design-decisions/0044-publisher-key-lifecycle.md)). Launch executes
+([ADR-0045](design-decisions/0045-publisher-key-lifecycle.md)). Launch executes
 the descriptor whose bytes were digested where the platform can name one
-([ADR-0042](design-decisions/0042-verified-launch-and-platform-execution-contract.md)).
+([ADR-0043](design-decisions/0043-verified-launch-and-platform-execution-contract.md)).
 
 ## Non-Goals In The Current Prototype
 

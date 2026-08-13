@@ -1,7 +1,19 @@
-import { NAVIGATION_ACTION_IDS, type NavigationActionId, type NavigationState } from "./navigation";
+import { NAVIGATION_ACTION_IDS, type NavigationState } from "./navigation";
 
 export type InvocationOrigin = "keyboard" | "pointer" | "cli" | "slash" | "voice" | "mcp" | "macro";
-export type ActionContext = "global" | "navigator" | "feed" | "thread" | "detail" | "composer" | "completion";
+export type ActionContext = "global" | "navigator" | "feed" | "thread" | "detail" | "composer" | "completion" | "workbench";
+
+export const COMMUNITY_ACTION_IDS = [
+  ...NAVIGATION_ACTION_IDS,
+  "search.open", "search.run", "search.cancel", "search.explain", "search.saveAsProjection",
+  "search.history", "search.favorite", "search.localFilter",
+  "projection.list", "projection.open", "projection.create", "projection.clone", "projection.edit",
+  "projection.preview", "projection.diff", "projection.validate", "projection.save", "projection.delete", "projection.explain",
+  "namespace.mount", "namespace.unmount", "namespace.list", "namespace.reset", "namespace.use", "namespace.explain",
+  "snapshot.freeze", "snapshot.refresh", "snapshot.applyQueued",
+] as const;
+
+export type CommunityActionId = typeof COMMUNITY_ACTION_IDS[number];
 
 export interface KeyBinding {
   readonly key: string;
@@ -9,7 +21,7 @@ export interface KeyBinding {
 }
 
 export interface ActionDefinition {
-  readonly actionId: NavigationActionId;
+  readonly actionId: CommunityActionId;
   readonly label: string;
   readonly description: string;
   readonly contexts: readonly ActionContext[];
@@ -31,7 +43,7 @@ export interface ActionExecutionContext {
 }
 
 export interface ActionEvent {
-  readonly actionId: NavigationActionId;
+  readonly actionId: CommunityActionId;
   readonly origin: InvocationOrigin;
   readonly projectionId?: string;
   readonly objectId?: string;
@@ -39,7 +51,7 @@ export interface ActionEvent {
 }
 
 export type ActionExecutor = (input: unknown, context: ActionExecutionContext) => unknown | Promise<unknown>;
-export type ActionExecutors = Partial<Record<NavigationActionId, ActionExecutor>>;
+export type ActionExecutors = Partial<Record<CommunityActionId, ActionExecutor>>;
 
 export interface ActionDescriptor extends ActionDefinition {
   execute(input: unknown, context: ActionExecutionContext): Promise<unknown>;
@@ -52,35 +64,55 @@ export interface ActionRegistry {
   lastActionEvent(): ActionEvent | undefined;
 }
 
-const labels: Readonly<Record<NavigationActionId, string>> = {
+const labels: Readonly<Record<CommunityActionId, string>> = {
   "nav.next": "Next", "nav.previous": "Previous", "nav.first": "First", "nav.last": "Last",
   "nav.enter": "Enter", "nav.ascend": "Ascend", "nav.expand": "Expand", "nav.collapse": "Collapse",
   "thread.parent": "Reply parent", "thread.root": "Thread root", "thread.firstChild": "First reply",
   "thread.nextSibling": "Next sibling", "thread.previousSibling": "Previous sibling", "thread.nextUnread": "Next unread",
   "history.back": "Back", "history.forward": "Forward", "history.previousLocation": "Previous location",
-  "view.open": "Open view", "view.filter": "Filter view", "view.save": "Save view", "view.delete": "Delete view",
   "jump.best": "Jump", "jump.interactive": "Choose destination", "detail.open": "Open detail",
   "detail.close": "Close detail", "compose.open": "Compose", "cancel.topLayer": "Cancel top layer",
+  "search.open": "Open search", "search.run": "Run search", "search.cancel": "Cancel search",
+  "search.explain": "Explain search", "search.saveAsProjection": "Save search as projection",
+  "search.history": "Search history", "search.favorite": "Favorite search", "search.localFilter": "Filter current results",
+  "projection.list": "List projections", "projection.open": "Open projection", "projection.create": "Create projection",
+  "projection.clone": "Clone projection", "projection.edit": "Edit projection", "projection.preview": "Preview projection",
+  "projection.diff": "Compare projection", "projection.validate": "Validate projection", "projection.save": "Save projection",
+  "projection.delete": "Delete projection", "projection.explain": "Explain projection",
+  "namespace.mount": "Mount projection", "namespace.unmount": "Unmount projection", "namespace.list": "List namespace mounts",
+  "namespace.reset": "Reset namespace", "namespace.use": "Use namespace", "namespace.explain": "Explain namespace path",
+  "snapshot.freeze": "Freeze snapshot", "snapshot.refresh": "Refresh snapshot", "snapshot.applyQueued": "Apply queued updates",
 };
 
-export const BUILT_IN_ACTIONS: readonly ActionDefinition[] = NAVIGATION_ACTION_IDS.map((actionId): ActionDefinition => Object.freeze({
+const MUTATING_ACTIONS = new Set<CommunityActionId>([
+  "search.saveAsProjection", "projection.create", "projection.clone", "projection.save", "projection.delete",
+  "namespace.mount", "namespace.unmount", "namespace.reset",
+]);
+
+export const BUILT_IN_ACTIONS: readonly ActionDefinition[] = COMMUNITY_ACTION_IDS.map((actionId): ActionDefinition => Object.freeze({
   actionId,
   label: labels[actionId],
   description: labels[actionId],
-  contexts: ["global" as const],
-  sideEffect: actionId === "view.delete" ? "shared" : "local",
-  ...(actionId === "view.delete" ? { permission: "community.view.delete" } : {}),
+  contexts: actionId.startsWith("search.") || actionId.startsWith("projection.") ? ["workbench" as const] : ["global" as const],
+  sideEffect: MUTATING_ACTIONS.has(actionId) ? "shared" : "local",
+  ...(actionId.startsWith("projection.") && MUTATING_ACTIONS.has(actionId) ? { permission: "community.projection.write" } : {}),
+  ...(actionId.startsWith("namespace.") && MUTATING_ACTIONS.has(actionId) ? { permission: "community.namespace.write" } : {}),
   ...(actionId === "jump.best" ? { commandAliases: ["z"], slashAliases: ["/jump"] } : {}),
   ...(actionId === "jump.interactive"
     ? { commandAliases: ["zi"], mcp: { toolName: "board_jump", inputSchema: { type: "object" } } }
     : {}),
+  ...(actionId === "search.open" ? { commandAliases: ["search"], slashAliases: ["/search"], keyBindings: [{ key: "Ctrl+F", contexts: ["global"] as const }], voiceAliases: ["open search"] } : {}),
+  ...(actionId === "search.localFilter" ? { commandAliases: ["filter"], keyBindings: [{ key: "/", contexts: ["navigator", "feed", "workbench"] as const }] } : {}),
+  ...(actionId === "projection.list" ? { commandAliases: ["projections"] } : {}),
+  ...(actionId === "namespace.list" ? { commandAliases: ["mounts"] } : {}),
 }));
 
 export function createActionRegistry(definitions: readonly ActionDefinition[], executors: ActionExecutors): ActionRegistry {
   const definitionsById = new Map(definitions.map((definition) => [definition.actionId, definition]));
   if (definitionsById.size !== definitions.length) throw new Error("Action registry contains duplicate action IDs");
+  validateBindings(definitions);
   let lastEvent: ActionEvent | undefined;
-  const event = (actionId: NavigationActionId, context: ActionExecutionContext, outcome: ActionEvent["outcome"]): void => {
+  const event = (actionId: CommunityActionId, context: ActionExecutionContext, outcome: ActionEvent["outcome"]): void => {
     lastEvent = {
       actionId,
       origin: context.origin,
@@ -90,7 +122,7 @@ export function createActionRegistry(definitions: readonly ActionDefinition[], e
     };
   };
   const executeAction = async (actionId: string, input: unknown, context: ActionExecutionContext): Promise<unknown> => {
-      const definition = definitionsById.get(actionId as NavigationActionId);
+      const definition = definitionsById.get(actionId as CommunityActionId);
       if (definition === undefined) throw new Error(`Unknown community action: ${actionId}`);
       if (definition.permission !== undefined && !context.permissions.includes(definition.permission)) {
         event(definition.actionId, context, "denied");
@@ -117,8 +149,26 @@ export function createActionRegistry(definitions: readonly ActionDefinition[], e
   const actionsById = new Map(actions.map((action) => [action.actionId, action]));
   return {
     actions,
-    resolve: (actionId) => actionsById.get(actionId as NavigationActionId),
+    resolve: (actionId) => actionsById.get(actionId as CommunityActionId),
     execute: executeAction,
     lastActionEvent: () => lastEvent === undefined ? undefined : { ...lastEvent },
   };
+}
+
+function validateBindings(definitions: readonly ActionDefinition[]): void {
+  const bindings = new Map<string, CommunityActionId>();
+  for (const definition of definitions) {
+    for (const [surface, values] of [["command", definition.commandAliases], ["slash", definition.slashAliases], ["voice", definition.voiceAliases]] as const) {
+      for (const value of values ?? []) bind(`${surface}\0${value.normalize("NFC").toLocaleLowerCase("en-US")}`, definition.actionId);
+    }
+    if (definition.mcp !== undefined) bind(`mcp\0${definition.mcp.toolName}`, definition.actionId);
+    for (const binding of definition.keyBindings ?? []) {
+      for (const context of binding.contexts ?? definition.contexts) bind(`key\0${binding.key}\0${context}`, definition.actionId);
+    }
+  }
+  function bind(key: string, actionId: CommunityActionId): void {
+    const previous = bindings.get(key);
+    if (previous !== undefined && previous !== actionId) throw new Error(`Action registry binding collision: ${previous} and ${actionId}`);
+    bindings.set(key, actionId);
+  }
 }

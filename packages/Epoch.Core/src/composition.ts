@@ -10,7 +10,7 @@ import { buildNamespaceManifest, namespaceResources, type NamespaceManifest, typ
  *
  * A Link pins an exact child Version. It is read-only from the parent workspace, conveys no
  * authorization, and executes no child code. "Submodule", "subtree", and "subrepo" stay Git
- * interoperability terms and never become Epoch nouns. See ADR-0042.
+ * interoperability terms and never become Epoch nouns. See ADR-0043.
  */
 export const RepositoryLinkSchema = z.object({
   linkId: z.string().min(1),

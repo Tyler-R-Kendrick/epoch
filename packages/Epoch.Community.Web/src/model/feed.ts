@@ -30,13 +30,13 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
     })),
   );
   const changes = options.repositories.flatMap((repo) =>
-    repo.changeProposals.map((proposal) => ({
-      id: proposal.id,
-      title: proposal.title,
-      author: proposal.author,
-      status: proposal.status,
-      sourceView: proposal.sourceView,
-      targetView: proposal.targetView,
+    repo.changes.map((change) => ({
+      id: change.id,
+      title: change.title,
+      author: change.author,
+      status: change.status,
+      sourceView: change.sourceView,
+      targetView: change.targetView,
       repositorySlug: repo.slug,
     })),
   );
@@ -54,7 +54,7 @@ export function buildCommunityFeed(options: BuildCommunityFeedOptions): Communit
         ...communitySocialConversations(spaces, "snapshot"),
         ...agentMemberConversations(spaces, options.repositories[0]?.slug ?? "epoch/epoch", "snapshot"),
         ...apiIssueConversations(options.repositories),
-        ...apiProposalConversations(options.repositories),
+        ...apiChangeConversations(options.repositories),
       ]),
       issues,
       changes,
@@ -121,7 +121,6 @@ function agentMemberConversations(
       state: "needs review",
       reactions: ["tests passed"],
       linkedArtifact: "change://install-cache-hardening",
-      linkedProposalId: "CHANGE-install-cache",
       source,
       harness: "codex",
       managedBy: "maya",
@@ -179,28 +178,28 @@ function apiIssueConversations(
   );
 }
 
-function apiProposalConversations(
+function apiChangeConversations(
   repositories: readonly CommunityRepository[],
 ): readonly CommunityConversationView[] {
   const spaces = buildCommunitySpaces(repositories);
   return repositories.flatMap((repo) =>
-    repo.changeProposals.map((proposal) => ({
-      id: `change-${proposal.id}`,
+    repo.changes.map((change) => ({
+      id: `change-${change.id}`,
       channel: "previews" as const,
       communityId: defaultCommunityIdForRepo(spaces, repo.slug),
       repositorySlug: repo.slug,
-      author: proposal.author,
+      author: change.author,
       role: "contributor",
-      title: proposal.title,
-      body: proposal.body.length === 0 ? `${proposal.sourceView} -> ${proposal.targetView}` : proposal.body,
+      title: change.title,
+      body: change.body.length === 0 ? `${change.sourceView} -> ${change.targetView}` : change.body,
       time: "10:28",
-      anchor: `change:${proposal.id}`,
-      signature: `sig:${proposal.id.toLowerCase()}`,
+      anchor: `change:${change.id}`,
+      signature: `sig:${change.id.toLowerCase()}`,
       visibility: "community",
-      state: proposal.status,
+      state: change.status,
       reactions: ["review", "preview"],
-      linkedArtifact: proposal.sourceView,
-      linkedProposalId: proposal.id,
+      linkedArtifact: change.sourceView,
+      linkedChangeId: change.id,
       source: "api" as const,
     })),
   );

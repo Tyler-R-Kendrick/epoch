@@ -1,7 +1,7 @@
 import { createPublicKey, verify as verifySignature } from "node:crypto";
 
 /**
- * Signature verification for extension statements (ADR-0037, ADR-0044).
+ * Signature verification for extension statements (ADR-0037, ADR-0045).
  *
  * Its own module because three things now need it — manifests, succession
  * statements, and self-revocations — and the alternative was a cycle between

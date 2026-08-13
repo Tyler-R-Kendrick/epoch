@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "community-web-search-projections",
+  "title": "Deterministic search and user projections",
+  "experiences": [
+    "ux",
+    "dx",
+    "ax"
+  ],
+  "personas": [
+    "screen-reader-power-user",
+    "forge-community-power-user",
+    "github-power-user"
+  ],
+  "projects": [
+    "root"
+  ],
+  "scope": "global",
+  "interfaces": [
+    "web",
+    "docs",
+    "cli"
+  ],
+  "driver": "web",
+  "surfaces": [
+    "pnpm run dev:community-web"
+  ],
+  "tags": [
+    "@optimizexp",
+    "@ux",
+    "@dx",
+    "@ax"
+  ],
+  "generatedFromSeed": true,
+  "seedDigest": "d7e84c421f2c1781",
+  "personaResolution": "explicit --personas; config prefer/exclude (.optimizexp/config.json)",
+  "bindings": {
+    "steps": "steps/bindings.steps.ts",
+    "implementations": "steps/implementations.ts",
+    "tests": "test/community-web-search-projections.bindings.test.ts"
+  },
+  "implementationStatus": "wired",
+  "primaryCommand": "pnpm run dev:community-web"
+}

@@ -39,7 +39,7 @@ await api.openIssue("epoch/epoch", {
   body: "Support threads keep asking which region changed.",
   labels: ["idea"],
 });
-await api.proposeChange("epoch/epoch", {
+await api.createChange("epoch/epoch", {
   id: "CHANGE-12",
   title: "Keep preview cards attached to conversation state",
   author: "maya",

@@ -201,7 +201,7 @@ export function runSemanticCommand(args: readonly string[], io: SemanticCliIO, r
     // TOML, and Markdown in every directory, and subtree dedup and dictionary
     // derivation both improve with corpus size — so the old single-language
     // restriction suppressed the effect the command exists to measure
-    // (ADR-0045). Each group is still parsed only by the provider that
+    // (ADR-0046). Each group is still parsed only by the provider that
     // understands it.
     const registry = repositorySyntaxRegistry(root, io);
     const plan = planCompressionAcross(

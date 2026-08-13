@@ -10,7 +10,7 @@ import type { SyntaxProvider } from "@epoch/semantic";
 import { buildSyntaxProviderModule } from "./wasm-fixture";
 
 /**
- * Loading the providers an extension ships (ADR-0043).
+ * Loading the providers an extension ships (ADR-0044).
  *
  * `wasm.ts` could always run a module; that is not the same as an installed
  * extension displacing a builtin. These tests are about the wiring in between —

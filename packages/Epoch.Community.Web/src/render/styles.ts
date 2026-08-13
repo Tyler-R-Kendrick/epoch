@@ -795,7 +795,7 @@ export function communityStyles(): string {
     /* The anchor/signature line duplicated what the provenance disclosure and
        the action tray already show — three renderings of the same fields, and
        on the network plane the trust string was longer than the message. */
-    .message-footer span:not([data-change-meta]):not([data-proposal-link]) { display: none; }
+.message-footer span:not([data-change-meta]):not([data-change-link]) { display: none; }
     .message-footer .signature-mark { display: inline; }
     .message-footer {
       color: var(--epoch-color-muted);
@@ -808,7 +808,7 @@ export function communityStyles(): string {
       margin-inline-end: var(--epoch-space-xs);
       color: var(--epoch-color-ink-faint);
     }
-    [data-proposal-link] {
+[data-change-link] {
       color: var(--epoch-color-teal);
       font-weight: 700;
     }

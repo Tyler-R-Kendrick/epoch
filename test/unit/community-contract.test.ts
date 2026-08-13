@@ -15,7 +15,7 @@ export async function runCommunityContractTests(): Promise<void> {
   await coreHttpClientHonorsTheCommunityApiRepositoryContract();
   await coreHttpClientHonorsTheCommunityApiIssueContract();
   await coreHttpClientHonorsTheCommunityApiWorkflowsContract();
-  await coreHttpClientHonorsTheCommunityApiChangeProposalContract();
+  await coreHttpClientHonorsTheCommunityApiChangeContract();
   await coreHttpClientHonorsCanonicalObjectContract();
 }
 
@@ -62,7 +62,7 @@ const repositoryExample: CommunityRepository = {
   maintainers: ["alice"],
   topics: ["dvcs", "crdt"],
   issues: [],
-  changeProposals: [],
+  changes: [],
   discussions: [],
 };
 
@@ -174,11 +174,11 @@ async function coreHttpClientHonorsTheCommunityApiWorkflowsContract(): Promise<v
   });
 }
 
-async function coreHttpClientHonorsTheCommunityApiChangeProposalContract(): Promise<void> {
+async function coreHttpClientHonorsTheCommunityApiChangeContract(): Promise<void> {
   const provider = communityPact();
-  const withProposal: CommunityRepository = {
+  const withChange: CommunityRepository = {
     ...repositoryExample,
-    changeProposals: [{
+    changes: [{
       id: "CHANGE-1",
       title: "Ship pact gates",
       author: "alice",
@@ -192,7 +192,7 @@ async function coreHttpClientHonorsTheCommunityApiChangeProposalContract(): Prom
 
   provider
     .given("repository epoch/epoch exists")
-    .uponReceiving("a request to propose a community change")
+    .uponReceiving("a request to create a community Change")
     .withRequest({
       method: "POST",
       path: "/repositories/epoch%2Fepoch/changes",
@@ -211,19 +211,19 @@ async function coreHttpClientHonorsTheCommunityApiChangeProposalContract(): Prom
     .willRespondWith({
       status: 201,
       headers: { "Content-Type": "application/json" },
-      body: withProposal,
+      body: withChange,
     });
 
   await provider.executeTest(async (mockServer) => {
     const client = createHttpCommunityClient({ baseUrl: mockServer.url });
-    const repository = await client.proposeChange("epoch/epoch", {
+    const repository = await client.createChange("epoch/epoch", {
       title: "Ship pact gates",
       author: "alice",
       body: "wire provider verification",
       sourceView: "feature/pact",
       targetView: "main",
     });
-    assert.equal(repository.changeProposals[0]?.id, "CHANGE-1");
-    assert.equal(repository.changeProposals[0]?.status, "open");
+    assert.equal(repository.changes[0]?.id, "CHANGE-1");
+    assert.equal(repository.changes[0]?.status, "open");
   });
 }
