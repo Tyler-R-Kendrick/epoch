@@ -1,0 +1,17 @@
+{
+  "name": "@epoch/community-graphql",
+  "version": "0.1.0",
+  "description": "Portable typed GraphQL boundary for Epoch Community search and projections.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
+    "test": "npm run build && node test/graphql.test.mjs"
+  },
+  "dependencies": {
+    "@epoch/community-core": "0.1.0",
+    "graphql": "17.0.2"
+  },
+  "license": "MIT"
+}

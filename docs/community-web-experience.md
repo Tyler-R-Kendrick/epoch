@@ -5,7 +5,7 @@ built on the Epoch DVCS. It is the central place where people follow the work
 of others, maintainers manage the contributions to their own projects, and
 communities engage together — replacing the scatter of Discord, Slack, X,
 Reddit, and Stack Overflow around today's forges. Epoch's native primitives —
-signed intents, anchors, epochs, verified identity, and policy-bound agents —
+signed Changes, anchors, epochs, verified identity, and policy-bound agents —
 surface as first-class product concepts inside the flow of community
 conversation, the way Git's branches and merges became GitHub's branches and
 pull requests. Participants include professional developers, citizen builders
@@ -20,8 +20,7 @@ Community Web is a **community-first** social coding surface inspired by Discord
 Nightboard is the only Community Web runtime. The CanvasUI-powered creator
 landing is `/`; its Enter action opens the tmux-style, keyboard-first board at
 `/board.html`. `npm run dev:community-web` and the Vercel static build both serve
-these same files. The former Civic Workshop document renderer remains a library
-compatibility surface only and is not locally served or deployed.
+these same files. The unused Civic Workshop renderer is not a product surface.
 
 ## Three planes
 
@@ -47,7 +46,8 @@ Dev teams use Discord independent of GitHub because **culture and continuous con
 | Social | `#general`, `#showcase` | No |
 | Work | `#ideas`, `#bugs`, `#support`, `#agent-runs`, `#previews`, `#governance` | Optional; forge-backed messages may attach |
 
-Selecting a message on a work channel still opens the signed action tray (intent, agent, report, …).
+Selecting an Entity on a work channel opens the signed action tray (Change,
+agent, report, …).
 
 ### Power-user controls
 
@@ -57,8 +57,8 @@ the feed mouse-only. The prompt hands focus to one roving message article;
 and the current thread stay aligned.
 
 Community objects have opaque stable IDs. Channel feeds, explicit reply trees,
-DMs, Activity, search, saved queries, projects, and filesystem-like paths are
-mounted projections over the same objects. The canonical composition is a
+DMs, Activity, search, Projection Definitions, projects, and Namespace paths
+are mounted projections over the same Entities. The canonical composition is a
 **hierarchical navigator + detail blade**; namespace ancestry, reply ancestry,
 browser history, shell `cd -`, and Escape cancellation remain distinct actions.
 
@@ -69,10 +69,11 @@ completion is a manual-selection combobox: opening suggestions does not select
 one, arrows do, Escape preserves the draft, and default Tab remains focus
 traversal.
 
-`cd` resolves exact namespace paths and aliases only. `z` performs a ranked
-global jump and `zi`/`/jump` opens a grouped chooser. Named saved queries retain
-a stable view ID, normalized versioned query, visibility, and order. Mutations
-through them update the canonical object in every projection.
+`cd` resolves exact Namespace paths and aliases only. `z` performs a ranked
+global jump and `zi`/`/jump` opens a grouped chooser. Named Projection
+Definitions retain a stable projection ID, typed Search Expression, visibility,
+and total order. Mutations through them carry canonical Entity identity into
+every projection.
 
 Share distinguishes current-origin HTTPS canonical, contextual, and exact
 revision links. URLs, browser history, notifications, and action diagnostics
@@ -100,9 +101,28 @@ Following · Network · Contributions — verb-led ATProto/contribution cards wi
 
 ## Competitive wedge
 
-> Belong to a signed community → talk in community channels → promote work into linked-repo intents → agents + human review.
+> Belong to a signed community → talk in community channels → promote work into linked-repo Changes → agents + human review.
 
-Do not replace Discord with forge-only chrome. Do not abandon signed intents for pure chat.
+Do not replace Discord with forge-only chrome. Do not abandon signed Changes
+for pure chat.
+
+## Search And Projection Workbench
+
+Nightboard remains a hierarchical navigator plus detail blade. Search adds
+Query, Results, Explain, and History modes inside that composition; Projection
+editing adds Definition, Tree Preview, Namespace Diff, Explain, and Validation.
+The same action registry owns keyboard, prompt, slash, voice, GraphQL-host, and
+MCP entry points. Global search is distinct from current-list filtering, and
+explicit local fuzzy filtering never changes the Search Expression.
+
+Every result shows snapshot and source completeness. Saving creates a
+Projection Definition, not a copied result list. Mount preview shows scope,
+`replace`/`before`/`after` ordering, shadows, stable collisions, and recovery
+before mutation. `/.epoch/default` remains reachable when a definition is
+invalid. AI is absent from ordinary execution and can only propose a visible
+artifact through an explicit action.
+
+See [Community Search And Projections](community-search-projections.md).
 
 ## Persona bar (adversarial)
 

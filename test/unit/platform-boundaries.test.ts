@@ -16,6 +16,7 @@ export async function runPlatformBoundaryTests(): Promise<void> {
   await communityOwnsRepositoryCollaborationWorkflowsThroughCore();
   await communityCliUsesCoreClient();
   communityPackagesHaveTheExpectedDependencyDirection();
+  compiledTestsImportCommunityCoreFromThePackage();
 }
 
 async function webTreatsCommunityAsADeployableAppWithoutOwningCommunityWorkflows(): Promise<void> {
@@ -60,21 +61,21 @@ async function communityOwnsRepositoryCollaborationWorkflowsThroughCore(): Promi
     author: "bob",
     labels: ["architecture"],
   });
-  const proposed = await client.proposeChange("epoch/epoch", {
+  const created = await client.createChange("epoch/epoch", {
     title: "Separate Web and Community apps",
     author: "carol",
     sourceView: "carol/platform-split",
     targetView: "main",
   });
-  const repository = await client.reviewChange("epoch/epoch", proposed.changeProposals[0].id, {
+  const repository = await client.reviewChange("epoch/epoch", created.changes[0].id, {
     reviewer: "alice",
     decision: "approved",
     body: "The boundary is clear.",
   });
 
   assert.equal(repository.issues[0].status, "open");
-  assert.equal(repository.changeProposals[0].status, "approved");
-  assert.deepEqual(repository.changeProposals[0].reviews.map((review) => review.reviewer), ["alice"]);
+  assert.equal(repository.changes[0].status, "approved");
+  assert.deepEqual(repository.changes[0].reviews.map((review) => review.reviewer), ["alice"]);
 }
 
 async function communityCliUsesCoreClient(): Promise<void> {
@@ -97,6 +98,18 @@ async function communityCliUsesCoreClient(): Promise<void> {
   assert.equal(exitCode, 0);
   assert.deepEqual(stderr, []);
   assert.match(stdout.join("\n"), /epoch\/epoch/u);
+}
+
+function compiledTestsImportCommunityCoreFromThePackage(): void {
+  const relativeCore = /from\s+["'](?:\.\.\/)+packages\/Epoch\.Community\.(?:Core|CLI)\/src\//;
+  const offenders = files(join(process.cwd(), "test"))
+    .filter((filePath) => filePath.endsWith(".ts") || filePath.endsWith(".js") || filePath.endsWith(".mjs"))
+    .filter((filePath) => relativeCore.test(readFileSync(filePath, "utf8")));
+  assert.deepEqual(
+    offenders,
+    [],
+    "compiled tests must import Community Core/CLI packages; relative src emit is incomplete on CI: " + offenders.join(", "),
+  );
 }
 
 function communityPackagesHaveTheExpectedDependencyDirection(): void {

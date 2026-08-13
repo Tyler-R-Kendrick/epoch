@@ -29,7 +29,7 @@ export const defaultWorkChannels: readonly CommunityChannel[] = [
     id: "agent-runs",
     label: "agent-runs",
     kind: "work",
-    topic: "Agent proposals, human merge",
+    topic: "Agent-authored Changes, human merge",
     emptyTitle: "No agent runs in #agent-runs yet.",
     emptyAction: "Request an agent from a message to start one — you keep merge authority.",
   },

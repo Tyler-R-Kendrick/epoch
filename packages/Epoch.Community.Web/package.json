@@ -9,8 +9,10 @@
     "typecheck": "tsgo -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@epoch/core": "0.1.0",
     "@epoch/community-core": "0.1.0",
-    "@epoch/design-tokens": "0.1.0"
+    "@epoch/core": "0.1.0",
+    "@epoch/design-tokens": "0.1.0",
+    "@orama/orama": "3.1.18",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1"
   }
 }

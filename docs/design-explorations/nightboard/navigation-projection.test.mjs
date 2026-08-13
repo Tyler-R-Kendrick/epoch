@@ -34,18 +34,50 @@ const window = {
 load("community-core-runtime.js", window);
 load("data.js", window);
 load("query.js", window);
-load("saved-views.js", window);
 load("sitemap.js", window);
+load("workbench.js", window);
 load("graphql-engine.js", window);
+assert.equal(typeof window.CommunityGraphQL.createCommunityGraphQLSchema, "function",
+  "generated browser runtime exposes the portable Community GraphQL package");
+assert.match(window.CommunityGraphQL.COMMUNITY_GRAPHQL_SDL, /input SearchExpressionInput @oneOf/,
+  "generated GraphQL runtime retains typed oneOf search expressions");
+assert.doesNotMatch(readFileSync(join(root, "graph.js"), "utf8"), /GraphQLEngine|buildSchema\(/,
+  "Nightboard is a host adapter for the portable schema, not a second GraphQL implementation");
 load("graph.js", window);
 load("action-registry.js", window);
 load("actions.js", window);
 load("navigation.js", window);
 load("complete.js", window);
 
-const { NB_DATA: data, NB_MAP: map, NB_QUERY: query, NB_SAVED_VIEWS: views } = window;
+const { NB_DATA: data, NB_MAP: map, NB_QUERY: query } = window;
 
-views.setPrincipal("principal-alice");
+assert.equal(window.NB_ACTIONS.list().some((action) => action.actionId.startsWith("view.")), false,
+  "normalized action language exposes search/projection/namespace rather than view aliases");
+assert.ok(["search.open", "search.run", "projection.edit", "namespace.reset"]
+  .every((id) => window.NB_ACTIONS.get(id)), "normalized workbench actions share one registry");
+
+const workbenchState = {};
+window.NB_WORKBENCH.openSearch(workbenchState, "sttae:needs-review");
+await window.NB_WORKBENCH.runSearch(workbenchState);
+assert.equal(workbenchState.searchWorkbench.tab, "query");
+assert.equal(workbenchState.searchWorkbench.parsed.diagnostics[0].span.line, 1);
+assert.match(workbenchState.searchWorkbench.error, /sttae/);
+workbenchState.searchWorkbench.expression = "state:needs-review";
+await window.NB_WORKBENCH.runSearch(workbenchState);
+assert.equal(workbenchState.searchWorkbench.tab, "results");
+assert.equal(workbenchState.searchWorkbench.result.completeness.status, "complete");
+assert.ok(workbenchState.searchWorkbench.result.hits.length > 0);
+assert.deepEqual(window.NB_WORKBENCH.history().map((entry) => entry.canonical), ["state:needs-review"]);
+const searchProjection = window.NB_WORKBENCH.saveSearchProjection(workbenchState, "Needs review");
+assert.match(searchProjection.projectionId, /^projection-search-/);
+assert.equal(searchProjection.root.children[0].where.field, "state");
+assert.deepEqual(window.NB_WORKBENCH.definitions().map((definition) => definition.projectionId),
+  [searchProjection.projectionId], "saved searches persist canonical ProjectionDefinition JSON");
+window.NB_WORKBENCH.openProjection(workbenchState, window.NB_CORE.builtinDefaultProjection);
+window.NB_WORKBENCH.compileProjection(workbenchState);
+assert.equal(workbenchState.searchWorkbench.compiled.definition.projectionId, "builtin:default");
+assert.deepEqual(map.list("/.epoch").map((entry) => entry.name),
+  ["default", "canonical", "projections", "sources", "diagnostics"]);
 
 // NAV-ID-001/002/003: fixture identity is explicit and alias/order independent.
 const message = data.posts.find((post) => post.id === "p1");
@@ -103,38 +135,21 @@ assert.deepEqual(
   ["p2"],
 );
 
-// NAV-QUERY-001/002/004: validated, normalized, versioned saved projections.
+// NAV-QUERY-001/002/004: validated, normalized, versioned Projection Definitions.
 const invalid = query.parse("sttae:needs-review");
 assert.match(invalid.error, /unknown.*sttae/);
 assert.match(invalid.error, /state/);
-const saved = views.save({
-  label: "Review queue",
-  query: " (( channel:general ))   sort:new ",
-  visibility: "private",
-});
-assert.match(saved.projectionId, /^view-/);
-assert.equal(saved.queryLanguageVersion, query.VERSION);
-assert.equal(saved.query, "channel:general sort:new");
-assert.deepEqual(views.get(saved.projectionId).ast, saved.ast);
-assert.deepEqual(views.list({ includePrivate: false }), []);
-assert.equal(views.rename(saved.projectionId, "Needs review").projectionId, saved.projectionId);
-assert.equal(views.get(saved.projectionId).ownerId, "principal-alice");
-
-// NAV-QUERY-003: principal switches never list or open another owner's private view.
-views.setPrincipal("principal-bob");
-assert.equal(views.get(saved.projectionId), null);
-assert.equal(views.list().some((view) => view.projectionId === saved.projectionId), false);
-assert.match(views.open(saved.projectionId, data.posts).error, /unauthorized/);
-views.setPrincipal("principal-alice");
-assert.equal(views.get(saved.projectionId).projectionId, saved.projectionId);
-
-// NAV-QUERY-003: even a private saved view applies object authorization by default.
-const privateDmView = views.save({ label: "Readable DMs", query: "", visibility: "private" });
-assert.deepEqual(views.open(privateDmView.projectionId, data.dmMessages, {
-  viewer: { actorId: "principal-alice", readableDmIds: ["scout"] },
-}).posts.map((post) => post.dm).filter((dm, index, all) => all.indexOf(dm) === index), ["scout"]);
-assert.deepEqual(views.open(privateDmView.projectionId, data.dmMessages).posts, [],
-  "NAV-QUERY-003 private projection ownership does not imply access to every DM");
+window.NB_WORKBENCH.openSearch(workbenchState, " (( state:open ))   sort:new ");
+await window.NB_WORKBENCH.runSearch(workbenchState);
+const saved = window.NB_WORKBENCH.saveSearchProjection(workbenchState, "Review queue");
+assert.match(saved.projectionId, /^projection-search-/);
+assert.equal(saved.root.children[0].where.field, "state");
+assert.equal(window.NB_WORKBENCH.definitions().find((definition) =>
+  definition.projectionId === saved.projectionId).label, "Review queue");
+const sharedDefinition = { ...saved, projectionId: "projection-shared-review", label: "Shared review",
+  visibility: "shared", ownerId: "principal-alice" };
+window.NB_WORKBENCH.openProjection(workbenchState, sharedDefinition);
+window.NB_WORKBENCH.saveProjection(workbenchState);
 
 // NAV-PROJ-001/NAV-ID-003: mounted occurrences retain identity and context.
 const channelOccurrence = map.list("/projects/community/channels/general")
@@ -169,19 +184,8 @@ assert.equal(map.feedEntriesAt("/projects/community/channels/general")
 savedOccurrence.post.state = "open";
 
 // NAV-QUERY-003: public projections exclude private DM objects by default.
-const publicView = views.save({ label: "Public all", query: "", visibility: "public" });
-assert.equal(views.open(publicView.projectionId, data.dmMessages).posts.length, 0);
 assert.equal(map.projectionLocations("dm-s3").some((location) => location.projectionId === "search-global"), false,
   "NAV-QUERY-003 a private DM has no public-search projection location");
-const sharedSecretView = views.save({
-  label: "Shared without raw query", query: "body:PRIVATE_QUERY_SENTINEL", visibility: "shared",
-});
-views.setPrincipal("principal-bob");
-assert.equal(views.get(sharedSecretView.projectionId).query, undefined,
-  "non-owner saved-view metadata redacts the raw query");
-assert.equal(views.open(sharedSecretView.projectionId, data.posts).error, null,
-  "redaction does not prevent authorized projection evaluation");
-views.setPrincipal("principal-alice");
 
 // NAV-ID-004/NAV-QUERY-003: DM content is authorized before search/query evaluation.
 const privateNeedle = "Scoped to CI config only";
@@ -221,100 +225,76 @@ assert.deepEqual(
   ["orphan-child"],
 );
 
-// GraphQL/API surface is object/projection/graph based, not path identity.
-assert.match(window.NB_GRAPH.SDL, /type ObjectRef/);
-assert.match(window.NB_GRAPH.SDL, /inReplyTo: Message/);
-assert.match(window.NB_GRAPH.SDL, /threadRoot: Message!/);
-assert.match(window.NB_GRAPH.SDL, /type Projection/);
-assert.match(window.NB_GRAPH.SDL, /capabilities: EntryCapabilities!/);
-const createGraph = map.messageGraph;
-let graphBuilds = 0;
-map.messageGraph = (...args) => {
-  graphBuilds += 1;
-  return createGraph(...args);
-};
+// The browser host exposes the portable typed GraphQL contract, not a second schema.
+assert.equal(window.NB_GRAPH.SDL, window.CommunityGraphQL.COMMUNITY_GRAPHQL_SDL);
+assert.match(window.NB_GRAPH.SDL, /input SearchExpressionInput @oneOf/);
+assert.match(window.NB_GRAPH.SDL, /search\(where: SearchExpressionInput!/);
+assert.doesNotMatch(window.NB_GRAPH.SDL, /type Post\b/);
+assert.doesNotMatch(window.NB_GRAPH.SDL, /search\(text:/);
 const graphResult = await window.NB_GRAPH.query(`{
-  object(objectId: "p2") {
-    ref { objectId canonicalUrl }
-    context { objectId kind canonicalUrl }
-    inReplyTo { ref { objectId } }
-    threadRoot { ref { objectId } }
-    locations { projectionId aliasPath }
-  }
+  node(id: "p2") { id ref { objectId kind } fields visibility }
 }`);
-map.messageGraph = createGraph;
 assert.equal(graphResult.errors, undefined);
-assert.equal(graphBuilds, 1, "one GraphQL query builds one canonical message graph");
-assert.equal(graphResult.data.object.ref.objectId, "p2");
-assert.equal(graphResult.data.object.context.objectId, "channel-general");
-assert.equal(graphResult.data.object.context.kind, "channel");
-assert.equal(graphResult.data.object.inReplyTo.ref.objectId, "p1");
-assert.equal(graphResult.data.object.threadRoot.ref.objectId, "p1");
-assert.ok(graphResult.data.object.locations.length >= 2);
-const privateGraphSearch = await window.NB_GRAPH.query(`{
-  search(text: "${privateNeedle}") { id body dm }
+assert.equal(graphResult.data.node.ref.objectId, "p2");
+assert.equal(graphResult.data.node.ref.kind, "message");
+assert.equal(graphResult.data.node.fields.parentId, "p1");
+assert.equal(graphResult.data.node.visibility, "public");
+
+function textSearch() {
+  return `query($value: String!) {
+    search(where: { text: { fields: ["body"], value: $value, mode: PHRASE } }, first: 20) {
+      nodes { target { objectId kind } matchedFields }
+      completeness { status omittedSources }
+    }
+  }`;
+}
+const privateGraphSearch = await window.NB_GRAPH.query(textSearch(privateNeedle), { value: privateNeedle });
+assert.deepEqual(privateGraphSearch.data.search.nodes, [],
+  "NAV-ID-004 GraphQL search authorizes before deterministic matching");
+const livePrivateGraphSearch = await window.NB_GRAPH.query(textSearch(livePrivateNeedle), { value: livePrivateNeedle });
+assert.deepEqual(livePrivateGraphSearch.data.search.nodes, [],
+  "NAV-ID-004 live private DMs do not enter an anonymous search snapshot");
+const authorizedGraphSearch = await window.NB_GRAPH.query(textSearch(privateNeedle), { value: privateNeedle },
+  { actorId: "principal-alice", readableDmIds: ["scout"] });
+assert.deepEqual(authorizedGraphSearch.data.search.nodes.map((hit) => hit.target.objectId), ["dm-s3"]);
+assert.equal(authorizedGraphSearch.data.search.completeness.status, "complete");
+const unavailableScope = await window.NB_GRAPH.query(`{
+  search(where: { all: { enabled: true } }, scope: { sourceIds: ["unknown"] }, first: 1) {
+    nodes { target { objectId } }
+  }
 }`);
-assert.deepEqual(privateGraphSearch.data.search, [],
-  "NAV-ID-004 GraphQL search filters private DM corpus before resolver matching");
-const livePrivateGraphSearch = await window.NB_GRAPH.query(`{
-  search(text: "${livePrivateNeedle}") { id body dm }
-  posts { id body dm }
-}`);
-assert.deepEqual(livePrivateGraphSearch.data.search, [],
-  "NAV-ID-004 GraphQL search filters live private DMs before resolver matching");
-assert.equal(livePrivateGraphSearch.data.posts.some((post) => post.id === "live-dm-private"), false,
-  "NAV-ID-004 GraphQL posts cannot expose a live private DM through the public corpus");
-const authorizedGraphSearch = await window.NB_GRAPH.query(`{
-  search(text: "${privateNeedle}") { id body dm }
-}`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
-assert.deepEqual(authorizedGraphSearch.data.search.map((post) => post.id), ["dm-s3"]);
-const sharedProjectionGraph = await window.NB_GRAPH.query(`{
-  projection(projectionId: "${sharedSecretView.projectionId}") { projectionId query }
+assert.equal(unavailableScope.errors[0].extensions.code, "QUERY_UNSUPPORTED_SOURCE",
+  "structured source scopes fail closed when the host did not register that source");
+const hiddenSharedProjection = await window.NB_GRAPH.query(`{
+  projection(id: "${sharedDefinition.projectionId}") { id definition }
 }`, undefined, { actorId: "principal-bob" });
-assert.equal(sharedProjectionGraph.errors, undefined);
-assert.equal(sharedProjectionGraph.data.projection.projectionId, sharedSecretView.projectionId);
-assert.equal(sharedProjectionGraph.data.projection.query, null,
-  "GraphQL applies the same non-owner query redaction as the Community API");
-const originalList = map.list;
-const privateProjectionPost = data.dmMessages.find((post) => post.id === "dm-s3");
-map.list = (path, ...args) => path === `/views/${sharedSecretView.projectionId}`
-  ? [{ name: privateProjectionPost.id, post: privateProjectionPost }]
-  : originalList(path, ...args);
-const deniedProjectionEntries = await window.NB_GRAPH.query(`{
-  projection(projectionId: "${sharedSecretView.projectionId}") {
-    entries { edges { node { ref { objectId } } } }
-  }
-}`, undefined, { actorId: "principal-bob", readableDmIds: [] });
-assert.deepEqual(deniedProjectionEntries.data.projection.entries.edges, [],
-  "NAV-QUERY-003 projection entries filter private objects at the GraphQL boundary");
-const allowedProjectionEntries = await window.NB_GRAPH.query(`{
-  projection(projectionId: "${sharedSecretView.projectionId}") {
-    entries { edges { node { ref { objectId } } } }
-  }
+assert.equal(hiddenSharedProjection.errors, undefined);
+assert.equal(hiddenSharedProjection.data.projection, null,
+  "a shared definition's private query is not observable without owner authorization");
+const ownedSharedProjection = await window.NB_GRAPH.query(`{
+  projection(id: "${sharedDefinition.projectionId}") { id label definition }
 }`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
-assert.deepEqual(allowedProjectionEntries.data.projection.entries.edges
-  .map((edge) => edge.node.ref.objectId), ["dm-s3"]);
-map.list = originalList;
-const authorizedLiveGraphSearch = await window.NB_GRAPH.query(`{
-  search(text: "${livePrivateNeedle}") { id }
-}`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
-assert.deepEqual(authorizedLiveGraphSearch.data.search.map((post) => post.id), ["live-dm-private"]);
+assert.equal(ownedSharedProjection.data.projection.id, sharedDefinition.projectionId);
+assert.equal(ownedSharedProjection.data.projection.definition.root.children[0].where.field, "state");
+const authorizedLiveGraphSearch = await window.NB_GRAPH.query(textSearch(livePrivateNeedle),
+  { value: livePrivateNeedle }, { actorId: "principal-alice", readableDmIds: ["scout"] });
+assert.deepEqual(authorizedLiveGraphSearch.data.search.nodes.map((hit) => hit.target.objectId), ["live-dm-private"]);
 
 // NAV-ID-004/NAV-QUERY-003: namespace listings enforce the same DM boundary.
 const anonymousDmListing = await window.NB_GRAPH.query(`{
-  listPath(path: "/dms") { name path }
+  listPath(path: "/dms", first: 20) { nodes { name logicalPath } }
 }`);
-assert.deepEqual(anonymousDmListing.data.listPath, [],
+assert.deepEqual(anonymousDmListing.data.listPath.nodes, [],
   "NAV-ID-004 unauthenticated GraphQL listPath cannot enumerate DM threads");
 const foreignDmListing = await window.NB_GRAPH.query(`{
-  listPath(path: "/dms/scout") { name path }
+  listPath(path: "/dms/scout", first: 20) { nodes { name logicalPath } }
 }`, undefined, { actorId: "principal-bob", readableDmIds: [] });
-assert.deepEqual(foreignDmListing.data.listPath, [],
+assert.deepEqual(foreignDmListing.data.listPath.nodes, [],
   "NAV-QUERY-003 a foreign principal cannot enumerate another owner's messages");
 const ownerDmListing = await window.NB_GRAPH.query(`{
-  listPath(path: "/dms") { name path }
+  listPath(path: "/dms", first: 20) { nodes { name logicalPath target { objectId } } }
 }`, undefined, { actorId: "principal-alice", readableDmIds: ["scout"] });
-assert.deepEqual(ownerDmListing.data.listPath.map((entry) => entry.name), ["scout"],
+assert.deepEqual(ownerDmListing.data.listPath.nodes.map((entry) => entry.name), ["scout"],
   "NAV-QUERY-003 an authorized participant sees only their readable DM thread");
 
 // board_search uses the same pre-query authorization boundary as direct search.
@@ -356,15 +336,8 @@ boardSearchViewer = { actorId: "principal-alice", readableDmIds: ["scout"] };
 const ownerBoardList = await tools.board_list.execute({ path: "/dms" });
 assert.match(ownerBoardList.text, /scout/,
   "NAV-QUERY-003 board_list retains authorized DM navigation");
-const orphanResult = await window.NB_GRAPH.query(`{
-  object(objectId: "orphan-child") {
-    inReplyTo { ref { objectId } tombstone { reason } }
-    threadRoot { ref { objectId } }
-  }
-}`);
-assert.equal(orphanResult.data.object.inReplyTo.ref.objectId, "missing-parent");
-assert.equal(orphanResult.data.object.inReplyTo.tombstone.reason, "missing");
-assert.equal(orphanResult.data.object.threadRoot.ref.objectId, "missing-parent");
+const orphanResult = await window.NB_GRAPH.query(`{ node(id: "orphan-child") { fields } }`);
+assert.equal(orphanResult.data.node.fields.parentId, "missing-parent");
 
 // NAV-GRAPH-002/NAV-GRAPH-004: explicit ID operations survive ordering/alias changes.
 const branch = { ...data.posts.find((post) => post.id === "p2"), id: "p2-sibling", re: "p1" };
@@ -398,16 +371,11 @@ assert.deepEqual(
   "NAV-GRAPH-001 nested live reply namespaces remain traversable",
 );
 
-// NAV-JUMP-003: current saved projections feed completion and destinations de-duplicate across groups.
-const jumpSaved = views.save({ label: "Jump review", query: "state:open", visibility: "private" });
-const savedJumpCandidates = window.NB_COMPLETE.jumpCandidates("jump review", { cwd: "/" });
+// NAV-JUMP-003: Projection Definitions feed completion and destinations de-duplicate across groups.
+const jumpSaved = saved;
+const savedJumpCandidates = window.NB_COMPLETE.jumpCandidates("review queue", { cwd: "/" });
 assert.equal(savedJumpCandidates.some((candidate) => candidate.projectionId === jumpSaved.projectionId &&
-  candidate.group === "SAVED VIEWS"), true);
-const readsBeforeStatus = localStorage.readCount();
-views.status();
-views.status();
-assert.equal(localStorage.readCount(), readsBeforeStatus,
-  "saved-view status reuses the parsed state until a write or principal change");
+  candidate.group === "PROJECTIONS"), true);
 const generalJumpCandidates = window.NB_COMPLETE.jumpCandidates("general", {
   cwd: "/projects/community/channels",
 });
@@ -415,22 +383,21 @@ assert.equal(generalJumpCandidates.filter((candidate) =>
   candidate.path === "/projects/community/channels/general").length, 1,
 "NAV-JUMP-003 one destination is not duplicated across CURRENT and GLOBAL groups");
 
-// NAV-QUERY-004: previous query versions migrate once without reinterpretation.
-const legacyStorage = storage({
+// NAV-QUERY-004: persisted query schemas migrate once into Projection Definitions.
+const schemaInputStorage = storage({
   "nb-saved-views-v1": JSON.stringify({
     views: [{ id: "view-stable", label: "Old review", query: " state:needs-review  sort:new " }],
   }),
 });
-const legacyWindow = { localStorage: legacyStorage };
-load("community-core-runtime.js", legacyWindow);
-load("data.js", legacyWindow);
-load("query.js", legacyWindow);
-load("saved-views.js", legacyWindow);
-legacyWindow.NB_SAVED_VIEWS.setPrincipal("legacy-owner");
-assert.equal(legacyWindow.NB_SAVED_VIEWS.get("view-stable").query, "state:needs-review sort:new");
-const migratedOnce = legacyStorage.snapshot()["nb-saved-views-v2"];
-load("saved-views.js", legacyWindow);
-assert.equal(legacyStorage.snapshot()["nb-saved-views-v2"], migratedOnce);
+const schemaInputWindow = { localStorage: schemaInputStorage };
+load("community-core-runtime.js", schemaInputWindow);
+load("data.js", schemaInputWindow);
+load("query.js", schemaInputWindow);
+load("workbench.js", schemaInputWindow);
+assert.equal(schemaInputWindow.NB_WORKBENCH.definitions()[0].root.children[0].where.field, "state");
+const migratedOnce = schemaInputStorage.snapshot()["nb-projection-definitions-v1"];
+load("workbench.js", schemaInputWindow);
+assert.equal(schemaInputStorage.snapshot()["nb-projection-definitions-v1"], migratedOnce);
 
 // Schema-v2 queries migrate through Core, while malformed state remains exportable and write-blocked.
 const v2Storage = storage({
@@ -444,29 +411,8 @@ const v2Window = { localStorage: v2Storage };
 load("community-core-runtime.js", v2Window);
 load("data.js", v2Window);
 load("query.js", v2Window);
-load("saved-views.js", v2Window);
-v2Window.NB_SAVED_VIEWS.setPrincipal("owner");
-assert.equal(v2Window.NB_SAVED_VIEWS.get("view-v2").query, "state:open sort:new");
-assert.equal(v2Window.NB_SAVED_VIEWS.get("view-v2").queryLanguageVersion, query.VERSION);
-
-// Ownerless versioned views are not claimed by whichever principal initializes first.
-const ownerlessRaw = JSON.stringify({
-  schemaVersion: 2,
-  views: [{ projectionId: "view-ownerless", label: "Ownerless", visibility: "private",
-    query: "state:open", queryLanguageVersion: 0, order: "new", version: 1 }],
-});
-const ownerlessStorage = storage({ "nb-saved-views-v2": ownerlessRaw });
-const ownerlessWindow = { localStorage: ownerlessStorage };
-load("community-core-runtime.js", ownerlessWindow);
-load("data.js", ownerlessWindow);
-load("query.js", ownerlessWindow);
-load("saved-views.js", ownerlessWindow);
-ownerlessWindow.NB_SAVED_VIEWS.setPrincipal("first-principal");
-assert.equal(ownerlessWindow.NB_SAVED_VIEWS.get("view-ownerless"), null);
-assert.equal(ownerlessWindow.NB_SAVED_VIEWS.exportState(), ownerlessRaw);
-assert.match(ownerlessWindow.NB_SAVED_VIEWS.status().message, /owner|export.*reset/i);
-assert.throws(() => ownerlessWindow.NB_SAVED_VIEWS.save({ label: "must not claim", query: "" }),
-  /owner|export.*reset/i);
+load("workbench.js", v2Window);
+assert.equal(v2Window.NB_WORKBENCH.definitions()[0].root.children[0].where.field, "state");
 
 // Malformed legacy and unreadable storage enter the same explicit recovery/write-block state.
 const badLegacyRaw = JSON.stringify({ views: "not-an-array" });
@@ -475,12 +421,9 @@ const badLegacyWindow = { localStorage: badLegacyStorage };
 load("community-core-runtime.js", badLegacyWindow);
 load("data.js", badLegacyWindow);
 load("query.js", badLegacyWindow);
-load("saved-views.js", badLegacyWindow);
-badLegacyWindow.NB_SAVED_VIEWS.setPrincipal("owner");
-assert.equal(badLegacyWindow.NB_SAVED_VIEWS.exportState(), badLegacyRaw);
-assert.deepEqual(badLegacyWindow.NB_SAVED_VIEWS.status().actions, ["export", "reset"]);
-assert.throws(() => badLegacyWindow.NB_SAVED_VIEWS.save({ label: "blocked", query: "" }),
-  /export.*reset/i);
+load("workbench.js", badLegacyWindow);
+assert.equal(badLegacyWindow.NB_WORKBENCH.exportDefinitions(), badLegacyRaw);
+assert.match(badLegacyWindow.NB_WORKBENCH.definitionStatus().message, /recovery required/i);
 
 const unreadableWindow = { localStorage: {
   getItem() { throw new Error("storage denied"); },
@@ -490,11 +433,8 @@ const unreadableWindow = { localStorage: {
 load("community-core-runtime.js", unreadableWindow);
 load("data.js", unreadableWindow);
 load("query.js", unreadableWindow);
-load("saved-views.js", unreadableWindow);
-unreadableWindow.NB_SAVED_VIEWS.setPrincipal("owner");
-assert.match(unreadableWindow.NB_SAVED_VIEWS.status().message, /storage denied|export.*reset/i);
-assert.throws(() => unreadableWindow.NB_SAVED_VIEWS.save({ label: "blocked", query: "" }),
-  /storage denied|export.*reset/i);
+load("workbench.js", unreadableWindow);
+assert.match(unreadableWindow.NB_WORKBENCH.definitionStatus().message, /storage denied/i);
 
 const malformedRaw = "{broken-saved-views";
 const malformedStorage = storage({ "nb-saved-views-v2": malformedRaw });
@@ -502,14 +442,11 @@ const malformedWindow = { localStorage: malformedStorage };
 load("community-core-runtime.js", malformedWindow);
 load("data.js", malformedWindow);
 load("query.js", malformedWindow);
-load("saved-views.js", malformedWindow);
-malformedWindow.NB_SAVED_VIEWS.setPrincipal("owner");
-assert.equal(malformedWindow.NB_SAVED_VIEWS.exportState(), malformedRaw);
-assert.throws(() => malformedWindow.NB_SAVED_VIEWS.save({ label: "must not overwrite", query: "" }),
-  /export.*reset/i);
+load("workbench.js", malformedWindow);
+assert.equal(malformedWindow.NB_WORKBENCH.exportDefinitions(), malformedRaw);
 assert.equal(malformedStorage.snapshot()["nb-saved-views-v2"], malformedRaw);
-assert.equal(malformedWindow.NB_SAVED_VIEWS.resetState(), true);
-assert.equal(malformedWindow.NB_SAVED_VIEWS.exportState(), null);
+assert.equal(malformedWindow.NB_WORKBENCH.resetDefinitions(), true);
+assert.equal(malformedWindow.NB_WORKBENCH.exportDefinitions(), "[]");
 
 // Generated runtime checks resolve both source and output from the repository argument.
 const outsideCwd = mkdtempSync(join(tmpdir(), "epoch-nightboard-build-"));

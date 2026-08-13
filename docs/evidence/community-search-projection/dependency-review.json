@@ -1,0 +1,58 @@
+{
+  "schema": "epoch.community-search.dependency-review/v1",
+  "reviewedAt": "2026-08-12",
+  "baseline": "56207451d9cfcf08d8a2a373d796d0dad10d4092",
+  "productionAudit": {
+    "command": "npm audit --omit=dev --json",
+    "result": "passed",
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    }
+  },
+  "packages": [
+    {
+      "name": "graphql",
+      "version": "17.0.2",
+      "license": "MIT",
+      "releasedAt": "2026-07-03T06:28:49.985Z",
+      "source": "https://github.com/graphql/graphql-js",
+      "runtimeDependencies": 0,
+      "consumerInstallScript": false,
+      "nativeOrWasmAssets": false,
+      "installedKiB": 11824
+    },
+    {
+      "name": "@orama/orama",
+      "version": "3.1.18",
+      "license": "Apache-2.0",
+      "releasedAt": "2025-12-19T22:14:30.592Z",
+      "source": "https://github.com/oramasearch/orama",
+      "runtimeDependencies": 0,
+      "consumerInstallScript": false,
+      "nativeOrWasmAssets": false,
+      "installedKiB": 3780
+    },
+    {
+      "name": "@sqlite.org/sqlite-wasm",
+      "version": "3.53.0-build1",
+      "license": "Apache-2.0",
+      "releasedAt": "2026-04-21T20:34:42.631Z",
+      "source": "https://github.com/sqlite/sqlite-wasm",
+      "runtimeDependencies": 0,
+      "consumerInstallScript": false,
+      "nativeOrWasmAssets": true,
+      "wasmBytes": 864752,
+      "installedKiB": 2784
+    }
+  ],
+  "rejected": [
+    "Liqe runtime parser",
+    "Tantivy native or WASM backend",
+    "public arbitrary SQL"
+  ]
+}

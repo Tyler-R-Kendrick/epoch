@@ -22,6 +22,11 @@ work that produced it.
   alongside conversations, synchronized as conflict-free replicated worktrees,
   and remain interoperable with Git and CI.
   [Introducing DeltaDB](https://zed.dev/blog/introducing-deltadb)
+- **Official, early access:** Zed's dedicated DeltaDB page presents continuously
+  versioned worktrees, operation-level history, conversations attached to code,
+  and Git/CI interoperation as an early-access product experience. It is a
+  product claim, not a published interoperability protocol.
+  [DeltaDB](https://zed.dev/deltadb)
 - **Official:** Zed has described operation-level version control, CRDT sync,
   character-level permalinks, and Git interoperability as the direction behind
   DeltaDB. [Sequoia backs Zed](https://zed.dev/blog/sequoia-backs-zed),
@@ -83,15 +88,16 @@ work that produced it.
   documented as absent.
 
 The practical opportunity is complementarity rather than a false feature tie:
-DeltaDB can provide high-resolution authoring history; Epoch can verify and
-govern accepted logical work across editors, agents, forges, and archives. A
-future adapter should ingest declared DeltaDB operations as evidence or
-Fragments without making an editor database Epoch's authority.
+DeltaDB's reported design can provide high-resolution authoring history; Epoch
+can verify and govern accepted logical work across editors, agents, forges, and
+archives. Epoch does not ship a speculative adapter: until Zed publishes a
+stable format, mapping DeltaDB operations to Evidence or Fragments would invent
+fidelity rather than prove it.
 
 The competitive read after the product launch is narrower than "catch up":
 Delta owns the *ergonomics* of the joinable shared agent workspace and has
 explicitly deferred its *governance*, while Epoch holds the governance
-primitives. [ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md)
+primitives. [ADR-0043](../design-decisions/0043-spaces-shared-signed-workspaces.md)
 ships the assembly at the contract and CLI layer — a joinable Space with
 grant-bound turns, budget limits, consent-gated capture, and structural anchors.
 The browser and editor ergonomics that make Delta's thread feel effortless

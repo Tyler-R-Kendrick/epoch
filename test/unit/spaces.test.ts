@@ -8,7 +8,7 @@ import { assertProtocolEvent, createCanonicalId, parseCanonicalId } from "@epoch
 import { createHash } from "node:crypto";
 
 /**
- * Spaces (ADR-0042).
+ * Spaces (ADR-0043).
  *
  * These assert the *enforcement*, not the shape. A Space is only worth having
  * if a missing grant, a spent budget, and an unconsented capture each actually

@@ -1,0 +1,143 @@
+{
+  "featureId": "community-web-search-projections",
+  "seed": "A contributor searches registered sources, explains matches, saves and mounts a safe projection, and recovers through the immutable namespace\nnpm run dev:community-web",
+  "scannedAt": "2026-08-12T17:42:00.092Z",
+  "bindings": [
+    {
+      "kind": "package-script",
+      "id": "script:dev:community-web",
+      "scriptName": "dev:community-web",
+      "command": "pnpm run dev:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"dev:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:dev:community-web",
+      "scriptName": "dev:community-web",
+      "command": "pnpm run dev:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"dev:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:dev:community-web",
+      "scriptName": "dev:community-web",
+      "command": "pnpm run dev:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"dev:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:dev:community-web",
+      "scriptName": "dev:community-web",
+      "command": "pnpm run dev:community-web",
+      "confidence": "high",
+      "reason": "package.json scripts[\"dev:community-web\"] exists; mentioned in feature/seed",
+      "implementsSteps": [
+        "I exercise the surface as this persona would",
+        "I observe the failure as this persona"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:test:runtime",
+      "scriptName": "test:runtime",
+      "command": "pnpm run test:runtime",
+      "confidence": "medium",
+      "reason": "script \"test:runtime\" matched seed keywords (score 7)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:nightboard:parity",
+      "scriptName": "nightboard:parity",
+      "command": "pnpm run nightboard:parity",
+      "confidence": "medium",
+      "reason": "script \"nightboard:parity\" matched seed keywords (score 6)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:test:features:runtime",
+      "scriptName": "test:features:runtime",
+      "command": "pnpm run test:features:runtime",
+      "confidence": "medium",
+      "reason": "script \"test:features:runtime\" matched seed keywords (score 5)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    },
+    {
+      "kind": "package-script",
+      "id": "script:test:unit:runtime",
+      "scriptName": "test:unit:runtime",
+      "command": "pnpm run test:unit:runtime",
+      "confidence": "medium",
+      "reason": "script \"test:unit:runtime\" matched seed keywords (score 5)",
+      "implementsSteps": [
+        "I exercise the surface as this persona would"
+      ]
+    }
+  ],
+  "packageScripts": [
+    "build",
+    "typecheck",
+    "lint",
+    "design:lint",
+    "design:audit",
+    "tokens:generate",
+    "gate:fast",
+    "gate:push",
+    "konsistent",
+    "docs:check",
+    "prepare",
+    "dev:community-web",
+    "vercel:community-web",
+    "e2e:community-web",
+    "notebooks:build",
+    "features",
+    "test:features:runtime",
+    "test:unit:runtime",
+    "change-graph:packages",
+    "change-graph:conformance",
+    "change-graph:fuzz-smoke",
+    "change-graph:benchmark",
+    "change-graph:schemas:check",
+    "test:unit:nightboard-parity",
+    "test:pact:consumer",
+    "test:pact:provider",
+    "test:pact",
+    "test:runtime",
+    "coverage",
+    "test",
+    "a11y:community-web",
+    "a11y:nightboard",
+    "lint:nightboard-a11y",
+    "verify",
+    "nightboard:faults",
+    "nightboard:build",
+    "nightboard:build:check",
+    "nightboard:parity",
+    "nightboard:e2e"
+  ],
+  "notes": [
+    "Discovered 8 candidate binding(s); high-confidence ones are wired into implementations.ts."
+  ]
+}

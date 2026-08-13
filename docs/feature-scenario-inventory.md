@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 10 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 47 |
+| `features/community_web_experience.feature` | 62 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -67,6 +67,21 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor submits a repository patch without local setup | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resumes an interrupted sandbox workspace | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.maintainer` | Scenario | Maintainer approves a submitted sandbox workspace result | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor searches registered sources and sees completeness | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor corrects a precise search syntax error without AI | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer explains why an Entity matched | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor saves search semantics as a Projection Definition | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor clones and reorganizes the built-in namespace | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor replaces the root and recovers from an invalid projection | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer composes a projection and explains deterministic shadowing | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | One canonical Entity appears at multiple paths and occurrences | None | 0 |
+| `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Queued projection updates preserve the reader's position | None | 0 |
+| `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Private Entities cannot influence observable search or paths | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Browser falls back when persistent SQLite is unavailable | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Two browser tabs contend without corrupting the search index | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Projection state survives reload and deterministic migration | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | GraphQL and text frontends share one Search Expression | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | CLI user validates and previews a Projection Definition | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor splits a change graph atomically and reconstructs the exact snapshot | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor gets a safe failure when an atomic split is ambiguous | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer follows stable revisions across multiple heads and supersession | None | 0 |
@@ -91,7 +106,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator keeps model routing sticky within a workspace | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | App builder uses deterministic HoBo authoring and focused-panel controls | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor shares one message with stable context choices | None | 0 |
-| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reopens a durable saved query projection | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reopens a durable Projection Definition | None | 0 |
 | `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader power user traverses explicit reply ancestry | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user distinguishes namespace ascent thread ancestry and history | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user chooses global jump without weakening deterministic cd | None | 0 |

@@ -27,7 +27,7 @@ const SPACE_ROLES = ["owner", "collaborator", "agent", "observer"] as const;
 export type ChangeGraphCommandErrorCode =
   | "invalid-command" | "invalid-input" | "not-found" | "stale-revision"
   | "auth-denied" | "unsupported-capability" | "conflict" | "external-error"
-  // ADR-0042 Space governance refuses for reasons that are not the same fact:
+  // ADR-0043 Space governance refuses for reasons that are not the same fact:
   // a missing grant, a spent budget, and a missing consent record each need
   // their own code so the caller can tell them apart.
   | "grant-denied" | "budget-exceeded" | "policy-denied";
@@ -284,7 +284,7 @@ export async function executeChangeGraphCommand(root: string, argv: readonly str
 }
 
 /**
- * `epoch space ...` (ADR-0042).
+ * `epoch space ...` (ADR-0043).
  *
  * The Space store owns every refusal; this layer only shapes arguments, so the
  * CLI can never authorize something the store would have denied.

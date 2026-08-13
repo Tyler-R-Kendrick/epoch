@@ -14,7 +14,7 @@ public sources do not establish.
 Related: [Change Graph And Operation-History Dossier](change-graph-vcs-dossier.md),
 [Delta product dossier](products/delta/profile.md),
 [Zed DeltaDB product dossier](products/zed-deltadb/profile.md),
-[ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md).
+[ADR-0043](../design-decisions/0043-spaces-shared-signed-workspaces.md).
 
 ## 1. What Zed Shipped
 
@@ -166,7 +166,7 @@ Every Delta concept, against the Epoch primitive that already covers it.
 | Delta concept | Nearest Epoch primitive | State of play |
 |---|---|---|
 | Delta (one recorded operation) | **Code Operation** / **Fragment** | Epoch's are explicit and Ed25519-signed; Delta's are continuous and unsigned. Granularity comparable; capture posture opposite. |
-| Thread (conversation + worktrees + participants) | **Space** (`epoch.space/v1`, ADR-0042) | Shipped as a composition: one View, per-machine Workspaces, participants holding Grants and Budgets, per-turn Sandbox bindings. Delta's browser-native ergonomics are still absent. |
+| Thread (conversation + worktrees + participants) | **Space** (`epoch.space/v1`, ADR-0043) | Shipped as a composition: one View, per-machine Workspaces, participants holding Grants and Budgets, per-turn Sandbox bindings. Delta's browser-native ergonomics are still absent. |
 | Worktree (DeltaDB object, shared) | **View** plus **Workspace**, bound to a Space | A Space makes the binding addressable and joinable; the Workspace itself stays provider-owned and per-machine, and keeps reporting its own capability facts. |
 | Checkout (per-machine folder) | filesystem **Workspace** provider plus virtual working tree | Near parity, and Epoch is ahead: sparse materialization, chunk manifests, and promises give partial residency Delta does not advertise. |
 | Machine selection per turn | **Sandbox** (declared execution provider) | Epoch declares the boundary honestly but ships no isolated provider. Delta ships a cloud runner with no isolation model. |
@@ -216,11 +216,11 @@ ergonomics. The wedge is the assembly.
 
 The named gap from §3 was that Epoch had Views, Workspaces, Sandboxes, Changes,
 channels, and Code Operations, and no object binding them into something a
-second person could join. ADR-0042 closes that gap at the contract and CLI
+second person could join. ADR-0043 closes that gap at the contract and CLI
 layer; the remaining gaps are infrastructure and interface, listed as phases
 4–6 below.
 
-[ADR-0042](../design-decisions/0042-spaces-shared-signed-workspaces.md)
+[ADR-0043](../design-decisions/0043-spaces-shared-signed-workspaces.md)
 proposes `epoch.space/v1`: a **Space** is a signed, joinable object that
 composes — and deliberately does not replace — the existing primitives:
 
@@ -346,7 +346,7 @@ Recorded so the plan is not read as more favorable than it is.
   WebGL rendering. Epoch is a TypeScript prototype. No performance claim should
   be made against Delta on any surface.
 - **Nomenclature pressure.** Adding Space to a vocabulary that already carries
-  View, Workspace, Sandbox, Change, and Change Graph is a real cost. ADR-0042
+  View, Workspace, Sandbox, Change, and Change Graph is a real cost. ADR-0043
   must state what a Space is *not* as prominently as what it is.
 - **Delta's gaps are dated, not permanent.** Every safety limitation quoted
   here is described by Zed as a roadmap item. The differentiator in §5 Phase 5

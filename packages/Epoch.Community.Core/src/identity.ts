@@ -6,7 +6,7 @@ export type CommunityObjectKind =
   | "channel"
   | "dm"
   | "notification"
-  | "saved-view"
+  | "projection"
   | "project"
   | "issue"
   | "change"
@@ -35,7 +35,7 @@ export interface ParsedObjectUrl {
 }
 
 const kinds = new Set<CommunityObjectKind>([
-  "message", "thread", "channel", "dm", "notification", "saved-view", "project",
+  "message", "thread", "channel", "dm", "notification", "projection", "project",
   "issue", "change", "member", "agent", "artifact", "tombstone",
 ]);
 const opaqueId = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u;

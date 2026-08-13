@@ -1,5 +1,5 @@
 /**
- * Spaces — shared, signed, joinable workspaces (ADR-0042).
+ * Spaces — shared, signed, joinable workspaces (ADR-0043).
  *
  * A Space is the object a second person can join. It *composes* the primitives
  * Epoch already ships and replaces none of them: one View selects history,

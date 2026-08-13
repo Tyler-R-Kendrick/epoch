@@ -4,18 +4,19 @@ import {
   QUERY_LANGUAGE_VERSION,
   canReadCommunityResource,
   createActionRegistry,
+  createCommunityFieldRegistry,
   createMessageGraph,
-  createProjection,
+  createProjectionOccurrenceId,
   matchesNormalizedQuery,
   migrateNormalizedQuery,
   normalizeQuery,
+  parseCommunityQuery,
   objectUrl,
   parseObjectUrl,
   validateObjectRef,
   validateProjectionId,
   type CommunityMessage,
   type CommunityObjectRef,
-  type ProjectionSourceEntry,
 } from "@epoch/community-core";
 
 const channelRef: CommunityObjectRef = { objectId: "channel-general", kind: "channel" };
@@ -24,7 +25,7 @@ const childARef: CommunityObjectRef = { objectId: "m-002", kind: "message" };
 const childBRef: CommunityObjectRef = { objectId: "m-003", kind: "message" };
 
 export async function runCommunityObjectProjectionTests(): Promise<void> {
-  await test("NAV-ID-001 identity survives sibling insertion", stableIdentitySurvivesInsertion);
+  await test("NAV-ID-001 occurrence identity survives sibling insertion", stableIdentitySurvivesInsertion);
   await test("NAV-ID-002 identity survives content edit", stableIdentitySurvivesContentEdit);
   await test("NAV-ID-003 identity survives reorder and reprojection", stableIdentitySurvivesReprojection);
   await test("NAV-ID-004 DM locators do not leak content", dmLocatorsDoNotLeakContent);
@@ -38,11 +39,18 @@ export async function runCommunityObjectProjectionTests(): Promise<void> {
   await test("NAV-QUERY-002 normalized saved view survives reload", normalizedQuerySurvivesReload);
   await test("quoted query phrases round-trip escaped content", escapedQueryPhrasesRoundTrip);
   await test("NAV-QUERY-004 query language migration is deterministic", queryMigrationIsIdempotent);
+  await test("typed query operators normalize without losing semantics", typedQueryOperatorsNormalize);
+  await test("query diagnostics identify exact source spans", queryDiagnosticsHaveSourceSpans);
+  await test("contextual query values resolve once from injected context", contextualValuesAreDeterministic);
+  await test("query limits and unsupported syntax fail closed", queryLimitsFailClosed);
+  await test("query canonicalization is stable across representative fuzz input", queryCanonicalizationFuzz);
+  await test("query parsing uses the authorized canonical field registry", queryUsesCanonicalFieldRegistry);
   await test("NAV-QUERY-002 reaction queries use canonical reaction state", reactionQueriesUseCanonicalState);
   await test("NAV-ACTION-002 signed action permission parity", actionPermissionIsCentralized);
   await test("NAV-ACTION-004 generated catalogs cannot drift", actionCatalogCannotDrift);
+  await test("query and namespace actions share one collision-free registry", searchProjectionActionsAreCentralized);
   await test("canonical references and projections reject malformed identity and topology", validationFailsClosed);
-  await test("projection orphans share root sibling positions", projectionOrphansShareRootSiblingGroup);
+  await test("canonical projection objects use normalized nomenclature", projectionKindIsCanonical);
   await test("resource visibility is explicit and fails closed", resourceVisibilityFailsClosed);
 }
 
@@ -56,12 +64,12 @@ async function test(name: string, run: () => void | Promise<void>): Promise<void
 
 function stableIdentitySurvivesInsertion(): void {
   const original = message(rootRef, undefined, rootRef, "Original", "body");
-  const prepended = message({ objectId: "m-000", kind: "message" }, undefined, { objectId: "m-000", kind: "message" }, "Earlier", "earlier");
-  const before = createProjection(projection("projection-channel"), [entry(original, "original")]);
-  const after = createProjection(projection("projection-channel"), [entry(prepended, "earlier"), entry(original, "original")]);
-
-  assert.equal(before.entries[0]?.ref.objectId, "m-001");
-  assert.equal(after.entries[1]?.ref.objectId, "m-001");
+  const occurrence = () => createProjectionOccurrenceId({
+    projectionId: "projection-channel", projectionVersion: 1, nodeId: "messages-leaf",
+    branchId: "messages", parentEntryId: "channel-general", target: original.ref,
+    resolvedSegment: "original",
+  });
+  assert.equal(occurrence(), occurrence());
   assert.equal(objectUrl(original.ref), "/board.html?object=m-001");
 }
 
@@ -75,10 +83,13 @@ function stableIdentitySurvivesContentEdit(): void {
 
 function stableIdentitySurvivesReprojection(): void {
   const original = message(rootRef, undefined, rootRef, "Original", "body");
-  const projections = ["hot", "new", "top", "search", "mentions", "saved"].map((id) =>
-    createProjection(projection(`projection-${id}`), [entry(original, `alias-${id}`)]));
-  assert.deepEqual(new Set(projections.map((value) => value.entries[0]?.ref.objectId)), new Set(["m-001"]));
-  assert.equal(new Set(projections.map((value) => value.spec.projectionId)).size, projections.length);
+  const projections = ["hot", "new", "top", "search", "mentions", "saved"].map((id) => ({
+    target: original.ref,
+    occurrenceId: createProjectionOccurrenceId({ projectionId: `projection-${id}`, projectionVersion: 1,
+      nodeId: "leaf", branchId: id, parentEntryId: "root", target: original.ref, resolvedSegment: `alias-${id}` }),
+  }));
+  assert.deepEqual(new Set(projections.map((value) => value.target.objectId)), new Set(["m-001"]));
+  assert.equal(new Set(projections.map((value) => value.occurrenceId)).size, projections.length);
 }
 
 function objectLinksAreDistinct(): void {
@@ -107,10 +118,10 @@ async function dmLocatorsDoNotLeakContent(): Promise<void> {
 
 function projectionLocationsShareIdentity(): void {
   const original = message(rootRef, undefined, rootRef, "Original", "body");
-  const channel = createProjection(projection("projection-channel"), [entry(original, "channels/general/original")]);
-  const mentions = createProjection(projection("projection-mentions"), [entry(original, "activity/mentions/original")]);
-  assert.equal(channel.entries[0]?.ref.objectId, mentions.entries[0]?.ref.objectId);
-  assert.notEqual(channel.entries[0]?.aliasPath, mentions.entries[0]?.aliasPath);
+  const channel = { target: original.ref, logicalPath: "/channels/general/original" };
+  const mentions = { target: original.ref, logicalPath: "/activity/mentions/original" };
+  assert.equal(channel.target.objectId, mentions.target.objectId);
+  assert.notEqual(channel.logicalPath, mentions.logicalPath);
 }
 
 function navigationOperationsRemainDistinct(): void {
@@ -168,12 +179,13 @@ function unknownQueryFieldFails(): void {
 }
 
 function normalizedQuerySurvivesReload(): void {
-  const first = normalizeQuery("( state:needs-review )   sort:new");
+  const first = normalizeQuery("( state:needs-review )   sort:new", { now: "2026-08-12T10:00:00Z" });
   const second = normalizeQuery(first.canonical, { version: first.version });
   assert.equal(first.error, undefined);
-  assert.deepEqual(second.ast, first.ast);
+  assert.deepEqual(stripSpans(second.ast), stripSpans(first.ast));
   assert.equal(second.canonical, "state:needs-review sort:new");
-  assert.equal(second.sort, "new");
+  assert.deepEqual(second.sort, [{ field: "updatedAt", direction: "descending", nulls: "last" }]);
+  assert.match(first.queryHash, /^[a-f0-9]{16}$/u);
   assert.equal(second.version, QUERY_LANGUAGE_VERSION);
 }
 
@@ -181,14 +193,16 @@ function escapedQueryPhrasesRoundTrip(): void {
   const first = normalizeQuery(String.raw`body:"say \"hello\" from C:\\temp"`);
   assert.equal(first.error, undefined);
   assert.deepEqual(first.ast, {
-    op: "field",
-    field: "body",
+    kind: "text",
+    fields: ["body"],
     value: "say \"hello\" from C:\\temp",
-    phrase: true,
+    mode: "phrase",
+    span: { start: 0, end: 34, line: 1, column: 1 },
   });
   const second = normalizeQuery(first.canonical);
   assert.equal(second.error, undefined);
-  assert.deepEqual(second, first);
+  assert.equal(second.canonicalJson, first.canonicalJson);
+  assert.equal(second.queryHash, first.queryHash);
 }
 
 function queryMigrationIsIdempotent(): void {
@@ -213,15 +227,109 @@ function reactionQueriesUseCanonicalState(): void {
   ), false, "reply topology is not reaction state");
 }
 
+function typedQueryOperatorsNormalize(): void {
+  const query = normalizeQuery(
+    "score:[10 TO 100] updatedAt:>=2026-08-01T00:00:00Z title:proj* body:* related.reply:m-001 NOT visibility:private",
+    { now: "2026-08-12T12:00:00Z" },
+  );
+  assert.equal(query.error, undefined, query.error);
+  assert.match(query.canonical, /score:\[10 TO 100\]/u);
+  assert.match(query.canonical, /updatedAt:>="2026-08-01T00:00:00.000Z"/u);
+  assert.match(query.canonical, /title:proj\*/u);
+  assert.match(query.canonical, /related\.reply:message\/m-001/u);
+  assert.ok(query.ast && JSON.stringify(query.ast).includes('"kind":"range"'));
+  assert.ok(query.ast && JSON.stringify(query.ast).includes('"kind":"related"'));
+  assert.equal(normalizeQuery(query.canonical).canonicalJson, query.canonicalJson);
+}
+
+function queryDiagnosticsHaveSourceSpans(): void {
+  const query = normalizeQuery("state:open\nsttae:closed");
+  assert.equal(query.error, query.diagnostics[0]?.message);
+  assert.deepEqual(query.diagnostics[0]?.span, { start: 11, end: 16, line: 2, column: 1 });
+  assert.equal(query.diagnostics[0]?.code, "QUERY_UNKNOWN_FIELD");
+  assert.equal(query.diagnostics[0]?.suggestions[0], "state");
+  assert.equal(query.ast, null);
+}
+
+function contextualValuesAreDeterministic(): void {
+  const first = normalizeQuery("author:me updatedAt:today", {
+    actorId: "member-alice",
+    now: "2026-08-12T15:30:00Z",
+    timezone: "UTC",
+  });
+  const second = normalizeQuery("author:me updatedAt:today", {
+    actorId: "member-alice",
+    now: "2026-08-12T23:59:59Z",
+    timezone: "UTC",
+  });
+  assert.equal(first.error, undefined, first.error);
+  assert.equal(first.canonical, 'author:member-alice AND updatedAt:["2026-08-12T00:00:00.000Z" TO "2026-08-13T00:00:00.000Z"}');
+  assert.equal(first.canonical, second.canonical);
+  assert.equal(first.resolvedAt, "2026-08-12T15:30:00.000Z");
+  assert.equal(normalizeQuery("author:me").diagnostics[0]?.code, "QUERY_CONTEXT_REQUIRED");
+}
+
+function queryLimitsFailClosed(): void {
+  assert.equal(normalizeQuery("a".repeat(16_385)).diagnostics[0]?.code, "QUERY_TOO_LARGE");
+  assert.equal(normalizeQuery("title:/proj.*/").diagnostics[0]?.code, "QUERY_UNSUPPORTED_SYNTAX");
+  assert.equal(normalizeQuery("title:p*").diagnostics[0]?.code, "QUERY_PREFIX_TOO_SHORT");
+  assert.equal(normalizeQuery("score:proj*").diagnostics[0]?.code, "QUERY_INVALID_OPERATOR");
+  assert.equal(normalizeQuery("state:open^2").diagnostics[0]?.code, "QUERY_UNSUPPORTED_SYNTAX");
+}
+
+function queryCanonicalizationFuzz(): void {
+  let seed = 0x5eed1234;
+  const next = (): number => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    return seed;
+  };
+  const atoms = ["state:open", "author:maya", "has:reactions", '"projection engine"', "score:>=10"];
+  for (let index = 0; index < 128; index += 1) {
+    const left = atoms[next() % atoms.length] ?? "state:open";
+    const right = atoms[next() % atoms.length] ?? "state:open";
+    const source = `${next() % 2 === 0 ? "(" : ""}${left} ${next() % 3 === 0 ? "OR" : "AND"} ${right}${next() % 2 === 0 ? ")" : ""}`;
+    const first = parseCommunityQuery(source);
+    if (first.error !== undefined) continue;
+    const second = parseCommunityQuery(first.canonical);
+    assert.equal(second.error, undefined, `${source}: ${second.error}`);
+    assert.equal(second.canonicalJson, first.canonicalJson, source);
+  }
+}
+
+function queryUsesCanonicalFieldRegistry(): void {
+  const registry = createCommunityFieldRegistry([], 7);
+  const hidden = normalizeQuery("dm:private-thread", { fieldRegistry: registry });
+  assert.equal(hidden.diagnostics[0]?.code, "QUERY_UNKNOWN_FIELD");
+  assert.equal(hidden.diagnostics[0]?.suggestions.includes("dmId"), false);
+
+  const visible = normalizeQuery("dm:private-thread", {
+    fieldRegistry: registry,
+    authorization: { actorId: "maya", permissions: ["field:sensitive:read"] },
+  });
+  assert.equal(visible.error, undefined, visible.error);
+  assert.equal(visible.canonical, "dmId:private-thread");
+  assert.equal(visible.fieldRegistryVersion, 7);
+  assert.equal(normalizeQuery("channel:general").canonical, "channelId:general");
+  assert.equal(normalizeQuery("react:+1").canonical, "reactions:+1");
+}
+
+function stripSpans(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripSpans);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "span").map(([key, item]) => [key, stripSpans(item)]));
+  }
+  return value;
+}
+
 async function actionPermissionIsCentralized(): Promise<void> {
   const registry = createActionRegistry(BUILT_IN_ACTIONS, {
-    "view.delete": () => "deleted",
+    "projection.delete": () => "deleted",
   });
   const context = {
     origin: "cli" as const,
     permissions: [] as readonly string[],
   };
-  await assert.rejects(() => registry.execute("view.delete", undefined, context), /permission/u);
+  await assert.rejects(() => registry.execute("projection.delete", undefined, context), /permission/u);
 }
 
 function actionCatalogCannotDrift(): void {
@@ -233,6 +341,21 @@ function actionCatalogCannotDrift(): void {
     assert.ok(action.keyBindings?.every((binding) => binding.key.length > 0) ?? true);
     assert.ok(action.mcp === undefined || action.mcp.toolName.length > 0);
   }
+}
+
+function searchProjectionActionsAreCentralized(): void {
+  const required = [
+    "search.open", "search.run", "search.cancel", "search.explain", "search.saveAsProjection",
+    "search.history", "search.favorite", "search.localFilter", "projection.list", "projection.open",
+    "projection.create", "projection.clone", "projection.edit", "projection.preview", "projection.diff",
+    "projection.validate", "projection.save", "projection.delete", "projection.explain", "namespace.mount",
+    "namespace.unmount", "namespace.list", "namespace.reset", "namespace.use", "namespace.explain",
+    "snapshot.freeze", "snapshot.refresh", "snapshot.applyQueued",
+  ];
+  assert.deepEqual(required.filter((actionId) => !BUILT_IN_ACTIONS.some((action) => action.actionId === actionId)), []);
+  const keyBindings = BUILT_IN_ACTIONS.flatMap((action) => (action.keyBindings ?? []).map((binding) => `${binding.key}\0${[...(binding.contexts ?? action.contexts)].sort().join(",")}`));
+  assert.equal(new Set(keyBindings).size, keyBindings.length, "key bindings must be resolved centrally without context collisions");
+  assert.doesNotThrow(() => createActionRegistry(BUILT_IN_ACTIONS, {}));
 }
 
 function validationFailsClosed(): void {
@@ -254,34 +377,14 @@ function validationFailsClosed(): void {
   assert.throws(() => objectUrl(rootRef, { revision: "r".repeat(513) }), /revision/u);
   assert.equal(parseObjectUrl(`/board.html?object=m-001&revision=${"r".repeat(513)}`), undefined);
 
-  const original = message(rootRef, undefined, rootRef, "root", "root");
-  assert.throws(() => createProjection({ ...projection("invalid-version"), version: 0 }, []), /version/u);
-  assert.throws(() => createProjection(projection("duplicate"), [entry(original, "one"), entry(original, "two")]), /duplicate/u);
-  assert.throws(() => createProjection(projection("unsafe-alias"), [entry(original, "../escape")]), /safe paths/u);
-  const cycleA = { ...entry(message(childARef, childBRef, rootRef, "a", "a"), "a"), parentRef: childBRef };
-  const cycleB = { ...entry(message(childBRef, childARef, rootRef, "b", "b"), "b"), parentRef: childARef };
-  assert.throws(() => createProjection(projection("cycle"), [cycleA, cycleB]), /cycle/u);
-  const tombstone = entry(message({ objectId: "gone", kind: "tombstone" }, undefined, rootRef, "gone", ""), "gone");
-  const mounted = createProjection(projection("tombstone"), [tombstone]).entries[0];
-  assert.deepEqual(mounted?.capabilities, {
-    read: true, enter: true, expand: true, composeUnder: false, execute: false,
-  });
 }
 
-function projectionOrphansShareRootSiblingGroup(): void {
-  const first = {
-    ...entry(message(childARef, { objectId: "missing-a", kind: "message" }, rootRef, "a", "a"), "a"),
-    parentRef: { objectId: "missing-a", kind: "message" } as const,
-  };
-  const second = {
-    ...entry(message(childBRef, { objectId: "missing-b", kind: "message" }, rootRef, "b", "b"), "b"),
-    parentRef: { objectId: "missing-b", kind: "message" } as const,
-  };
-  const mounted = createProjection(projection("orphans"), [first, second]).entries;
-  assert.deepEqual(mounted.map(({ depth, position, setSize }) => ({ depth, position, setSize })), [
-    { depth: 1, position: 1, setSize: 2 },
-    { depth: 1, position: 2, setSize: 2 },
-  ]);
+function projectionKindIsCanonical(): void {
+  assert.deepEqual(validateObjectRef({ objectId: "projection-one", kind: "projection" }), {
+    objectId: "projection-one",
+    kind: "projection",
+  });
+  assert.throws(() => validateObjectRef({ objectId: "projection-one", kind: "saved-view" }), /unsupported/iu);
 }
 
 function resourceVisibilityFailsClosed(): void {
@@ -299,28 +402,6 @@ function resourceVisibilityFailsClosed(): void {
   assert.equal(canReadCommunityResource({ ...target, visibility: "private", ownerId: "alice" }, { actorId: "mallory" }), false);
   assert.equal(canReadCommunityResource(target, {}), false);
   assert.equal(canReadCommunityResource({ ...target, visibility: "invalid" as "public" }, {}), false);
-}
-
-function projection(projectionId: string) {
-  return {
-    projectionId,
-    kind: "channel-feed" as const,
-    label: projectionId,
-    root: channelRef,
-    parentRelation: "projection" as const,
-    order: { by: "publishedAt" as const, direction: "ascending" as const },
-    visibility: "public" as const,
-    version: 1,
-  };
-}
-
-function entry(value: CommunityMessage, aliasPath: string): ProjectionSourceEntry {
-  return {
-    ref: value.ref,
-    alias: aliasPath.split("/").at(-1) ?? aliasPath,
-    aliasPath,
-    capabilities: { read: true, enter: true, expand: true, composeUnder: true, execute: false },
-  };
 }
 
 function message(

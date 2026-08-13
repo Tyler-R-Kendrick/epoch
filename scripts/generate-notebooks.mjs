@@ -634,7 +634,7 @@ const legalHold = sdk.community.exportLegalHold({ communityProjectId: approved.i
 const client = createCommunityClient(createInMemoryCommunityApi());
 await client.createRepository({ slug: 'api-web', displayName: 'API Web', description: 'Self-hosted API platform', maintainers: ['alice'] });
 await client.openIssue('api-web', { title: 'Add release docs', author: 'bob' });
-await client.proposeChange('api-web', { title: 'Update docs', author: 'alice', sourceView: 'feature/docs', targetView: 'main' });
+await client.createChange('api-web', { title: 'Update docs', author: 'alice', sourceView: 'feature/docs', targetView: 'main' });
 await client.reviewChange('api-web', 'CHANGE-1', { reviewer: 'maintainer', decision: 'approved' });
 const appDefinition = await createCommunityWebApp({ client, basePath: '/community' });
 const communityDocument = renderCommunityWebDocument(appDefinition);
@@ -678,8 +678,8 @@ console.log(JSON.stringify({
   communityRepositorySummary: appDefinition.repositories.map((repo) => ({
     slug: repo.slug,
     issues: repo.issues.length,
-    proposals: repo.changeProposals.length,
-    proposalStatus: repo.changeProposals[0]?.status,
+    changes: repo.changes.length,
+    changeStatus: repo.changes[0]?.status,
   })),
   communityDocumentIncludesSlug: communityDocument.includes('api-web'),
 }, null, 2));`,

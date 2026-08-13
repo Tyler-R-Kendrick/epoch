@@ -119,7 +119,7 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
       strings: ["viewName", "title"],
     }); return;
     // Joining is receiving a grant, not an ACL row: the grant ID is required so
-    // membership and authority cannot drift apart (ADR-0034, ADR-0042).
+    // membership and authority cannot drift apart (ADR-0034, ADR-0043).
     case "space.participant.joined": validateFields(value, {
       required: ["spaceId", "principalId", "grantId", "role"],
       ids: { spaceId: "space", principalId: "principal", grantId: "grant" },

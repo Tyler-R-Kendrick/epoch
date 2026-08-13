@@ -60,7 +60,7 @@ metadata.
 
 - Epoch now has that object: a **Space** binds View, Workspaces, conversation,
   participants, and agent turns, with membership enforced as a Grant. See
-  [ADR-0042](../../../design-decisions/0042-spaces-shared-signed-workspaces.md).
+  [ADR-0043](../../../design-decisions/0043-spaces-shared-signed-workspaces.md).
   What remains unbuilt is the part Delta leads on: a browser-native surface, a
   mount provider, an isolated execution provider, and federated join.
 - Delta's comment interaction — pending until submit, delivered with the turn,
@@ -82,7 +82,7 @@ metadata.
 - Whether any self-hosting or export boundary appears; deletion currently does
   not reach already-synced server copies.
 - How far the stated roadmap for agent permissions, sandboxing, and worktree
-  trust progresses, since the differentiator in ADR-0042 depends on that gap
+  trust progresses, since the differentiator in ADR-0043 depends on that gap
   persisting.
 - Whether Jujutsu support beyond colocated repositories arrives, and what that
   implies about Delta's willingness to sit under a non-Git model.

@@ -1,0 +1,29 @@
+{
+  "schema": "epoch.community.search-benchmark-baseline.v1",
+  "measuredAt": "2026-08-12T20:00:00.000Z",
+  "integrationBase": "d9d1c2ec67efb638daa5a1a4c44e09dda9fb15a0",
+  "environment": {
+    "node": "v26.5.0",
+    "platform": "linux",
+    "architecture": "arm64",
+    "cpu": "unknown"
+  },
+  "measurements": [
+    { "operation": "parse-normalize", "entities": 0, "samples": 70, "p50Ms": 0.065, "p95Ms": 0.372 },
+    { "operation": "projection-compile", "entities": 0, "samples": 7, "p50Ms": 0.134, "p95Ms": 2.723 },
+    { "operation": "sqlite-fts-translation", "entities": 0, "samples": 70, "p50Ms": 0.008, "p95Ms": 0.028 },
+    { "operation": "reference-warm-search", "entities": 1000, "samples": 7, "p50Ms": 4.541, "p95Ms": 6.427, "logicalBytes": 645349 },
+    { "operation": "orama-cold-build", "entities": 1000, "samples": 3, "p50Ms": 17.39, "p95Ms": 23.787, "logicalBytes": 645349 },
+    { "operation": "orama-warm-search", "entities": 1000, "samples": 7, "p50Ms": 9.043, "p95Ms": 14.009, "logicalBytes": 645349 },
+    { "operation": "reference-warm-search", "entities": 10000, "samples": 7, "p50Ms": 3.251, "p95Ms": 5.338, "logicalBytes": 6473449 },
+    { "operation": "orama-cold-build", "entities": 10000, "samples": 3, "p50Ms": 91.108, "p95Ms": 114.163, "logicalBytes": 6473449 },
+    { "operation": "orama-warm-search", "entities": 10000, "samples": 7, "p50Ms": 53.027, "p95Ms": 56.61, "logicalBytes": 6473449 },
+    { "operation": "reference-warm-search", "entities": 100000, "samples": 7, "p50Ms": 3.266, "p95Ms": 6.25, "logicalBytes": 64934449 },
+    { "operation": "orama-cold-build", "entities": 100000, "samples": 3, "p50Ms": 1303.038, "p95Ms": 1330.216, "logicalBytes": 64934449 },
+    { "operation": "orama-warm-search", "entities": 100000, "samples": 7, "p50Ms": 833.949, "p95Ms": 895.439, "logicalBytes": 64934449 }
+  ],
+  "limitations": [
+    "Wall-clock values are evidence rather than portable CI thresholds.",
+    "SQLite WASM persistence, OPFS locking, Worker long tasks, and database size require the Chromium benchmark host."
+  ]
+}

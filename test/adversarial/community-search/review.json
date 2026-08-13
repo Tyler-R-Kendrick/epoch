@@ -1,0 +1,22 @@
+{
+  "schema": "epoch.community.search-adversarial-review.v1",
+  "reviewedIntegrationBase": "d9d1c2ec67efb638daa5a1a4c44e09dda9fb15a0",
+  "reviewedAt": "2026-08-12T20:00:00.000Z",
+  "dispositions": [
+    { "area": "identity-path-conflation", "status": "pass", "evidence": "projection occurrence IDs and canonical target IDs are asserted independently" },
+    { "area": "parser-ambiguity", "status": "pass", "evidence": "2000 seeded malformed and valid inputs preserve strict diagnostics and canonical reparsing" },
+    { "area": "backend-semantic-drift", "status": "pass", "evidence": "reference, Orama, and SQLite adapter observations match for the supported expression corpus" },
+    { "area": "ordering-cursor-snapshot", "status": "pass", "evidence": "insertion-order invariance, keyset continuation, tamper, plan, snapshot, and authorization rejection are asserted" },
+    { "area": "mount-shadow-occurrence-collision", "status": "pass", "evidence": "all mount insertion permutations and collision input permutations produce deterministic results" },
+    { "area": "migration-split-brain", "status": "pass", "evidence": "schema-1 migration is idempotent, invalid views quarantine, and failed persistence rolls back atomically" },
+    { "area": "authorization-dm-noninterference", "status": "pass", "evidence": "hidden-corpus variants have identical hits, facets, suggestions, explain output, paths, and source scans" },
+    { "area": "graphql-introspection", "status": "confirmed-fixed", "finding": "CommunityNode exposed participantIds without a sensitive-field authorization boundary", "disposition": "integration conductor removed the field from SDL and node resolver and added an introspection regression" },
+    { "area": "worker-opfs-locking", "status": "environment-blocked", "evidence": "cancellation, no-OPFS fallback, single-writer contention, quota, and stale-index contract faults pass", "limitation": "the real Chromium Worker test exists but Chromium terminates in the managed host sandbox before application execution; OPFS reopen and multi-tab behavior are not claimed" },
+    { "area": "fts-injection", "status": "pass", "evidence": "metacharacter corpus remains value-bound and never enters SQL statement text" },
+    { "area": "official-sqlite-runtime", "status": "confirmed-fixed", "finding": "the oo1 adapter passed empty bind arrays to statements without bind parameters", "disposition": "the adapter omits empty bind arguments; the official SQLite WASM runtime now passes schema, FTS5, hostile-value, and non-mutation checks" },
+    { "area": "source-authorization-order", "status": "confirmed-fixed", "finding": "duplicate detection and scan limits observed unauthorized entities before defense-in-depth filtering", "disposition": "authorization now precedes duplicate detection, accounting, and backend rebuild; hidden-corpus variants are non-interfering" },
+    { "area": "source-checkpoint-regression", "status": "confirmed-fixed", "finding": "a source page could regress observedAt while reporting current", "disposition": "regressing checkpoints fail the source generically without publishing partial entities" },
+    { "area": "generated-artifact-drift", "status": "confirmed-fixed", "finding": "nightboard:build:check reported community-core-runtime.js stale at the review base", "disposition": "Core, GraphQL, Orama, and SQLite Worker artifacts were regenerated and the freshness check passes" },
+    { "area": "ai-default-execution", "status": "pass", "evidence": "deterministic search modules contain no model, provider-call, or network execution path" }
+  ]
+}
