@@ -339,7 +339,7 @@
           return '<span data-search-source="' + esc(source.sourceId) + '">' + esc(source.sourceId) + ' · ' + esc(source.status) + '</span>';
         }).join("") + '</div><label>Filter these results<input data-search-local-filter value="' + esc(workbench.localFilter || "") + '"></label>' +
         '<ol class="cn-search-results">' + result.hits.map(function (hit) {
-          var target = hit.objectId || (hit.target && hit.target.objectId) || (hit.post && hit.post.id) || "unknown";
+          var target = hit.objectId || (hit.target && hit.target.objectId) || (hit.post && hit.post.id) || hit.where || hit.path || "unknown";
           return '<li data-search-target="' + esc(target) + '"><button type="button" data-search-open-target="' + esc(target) +
             '" data-goto="' + esc(hit.path || "/") + '"><b>' + esc(hit.label || target) + '</b><span>' + esc(hit.hint || hit.path || "") + '</span></button></li>';
         }).join("") + '</ol>';

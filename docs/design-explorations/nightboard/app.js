@@ -2135,8 +2135,14 @@
       var parsed = window.NB_QUERY.parse(query);
       state.feedQueryError = parsed.error || null;
       if (!parsed.error && parsed.sort) {
-        state.sort = window.NB_QUERY.legacySort ? window.NB_QUERY.legacySort(parsed.sort) : parsed.sort;
-        if (typeof state.sort !== "string") state.sort = state.feedView || "hot";
+        if (viewId && ["hot", "new", "top", "best"].indexOf(viewId) >= 0) {
+          state.sort = viewId;
+        } else {
+          state.sort = window.NB_QUERY.legacySort
+            ? window.NB_QUERY.legacySort(parsed.sort, parsed.canonical)
+            : parsed.sort;
+          if (typeof state.sort !== "string") state.sort = state.feedView || "hot";
+        }
       }
     } else {
       state.feedQueryError = null;
@@ -5541,14 +5547,19 @@
     }
     if (actionId === "search.open") {
       if (!window.NB_WORKBENCH) throw new Error("search workbench unavailable");
-      window.NB_WORKBENCH.openSearch(state, actionArg || input.query || "");
+      var openQuery = actionArg || input.query || input.arg || "";
+      window.NB_WORKBENCH.openSearch(state, openQuery);
+      if (openQuery) setFeedQuery(openQuery, "custom");
       state.detailOpen = true;
+      if ((context.origin === "cli" || context.origin === "slash") && openQuery) {
+        return finishSearch(openQuery);
+      }
       render(true);
       setTimeout(function () {
         var field = document.querySelector("[data-search-expression]");
         if (field) field.focus({ preventScroll: true });
       }, 0);
-      if (actionArg || input.query) return executeAction("search.run", { query: actionArg || input.query }, context);
+      if (openQuery) return executeAction("search.run", { query: openQuery }, context);
       return state.searchWorkbench;
     }
     if (actionId === "search.run") {
@@ -5561,7 +5572,13 @@
       return window.NB_WORKBENCH.runSearch(state, {
         expression: expression,
         actorId: identity && identity.principalId,
-        context: viewerContext(),
+        context: {
+          extra: state.merged,
+          votes: state.votes,
+          reactions: state.reactions,
+          members: (window.NB_DATA && window.NB_DATA.members) || [],
+          viewer: viewerContext(),
+        },
       }).then(function (result) { render(true); return result; });
     }
     if (actionId === "search.cancel") {
@@ -5600,7 +5617,7 @@
         return item.projectionId === projectionId || item.label === actionArg;
       });
       if (!openedDefinition) throw new Error("projection definition unavailable");
-      window.NB_WORKBENCH.openProjection(state, openedDefinition);
+      window.NB_WORKBENCH.close(state);
       navigate("/views/" + openedDefinition.projectionId, { keepCli: true });
       state.detailOpen = true;
       render(true);
@@ -8470,8 +8487,10 @@
     var avail = await window.NBResilient.availability();
 
     if (avail === "absent" || avail === "unavailable") {
-      state.ai = false;
-      render(true);
+      if (!state.searchWorkbench) {
+        state.ai = false;
+        render(true);
+      }
       return status("no on-device model here — cli mode, Alt+A to switch");
     }
 
@@ -8479,7 +8498,7 @@
       status("loading the on-device model…");
       await window.NB_AGENT.warm(function (m) { if (!state.busy) status(m); });
       var st = window.NBResilient.modelState();
-      if (st.state !== "ready") { state.ai = false; render(true); }
+      if (st.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       return status(st.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st.error));
@@ -8499,7 +8518,7 @@
       status("fetching the on-device model, once…");
       await window.NB_AGENT.warm(function (m) { if (!state.busy) status(m); });
       var st2 = window.NBResilient.modelState();
-      if (st2.state !== "ready") { state.ai = false; render(true); }
+      if (st2.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       status(st2.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st2.error));

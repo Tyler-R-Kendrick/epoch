@@ -126,7 +126,7 @@
     if (parsed.error) {
       return { posts: visible, sort: null, error: parsed.error, query: query };
     }
-    var sort = legacySort(parsed.sort);
+    var sort = legacySort(parsed.sort, parsed.canonical);
     var filtered = visible;
     if (parsed.ast) {
       filtered = visible.filter(function (post) {
@@ -180,7 +180,9 @@
     return found && found.kind === "agent" ? "agent" : "message";
   }
 
-  function legacySort(order) {
+  function legacySort(order, canonical) {
+    var named = String(canonical || "").match(/\bsort:(hot|new|top|best)\b/);
+    if (named) return named[1];
     if (!Array.isArray(order) || !order.length) return null;
     var primary = order[0];
     if (primary.field === "score") return "top";
