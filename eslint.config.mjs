@@ -10,6 +10,9 @@ export default [
       "**/dist/**",
       "node_modules/**",
       ".inspiration/**",
+      // Generated from packages/Epoch.Community.Runtime/src by
+      // scripts/build-community-runtime.mjs; the TypeScript source is linted.
+      "packages/Epoch.Community.Web/app/community-runtime.js",
       "packages/Epoch.Community.Web/app/openui-parser.js",
       "packages/Epoch.Community.Web/app/graphql-engine.js",
       "packages/Epoch.Community.Web/app/openui-library.js",
@@ -53,7 +56,7 @@ export default [
         navigator: "readonly", requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly", performance: "readonly",
         MediaStream: "readonly", BroadcastChannel: "readonly",
-        DOMException: "readonly", Promise: "readonly",
+        DOMException: "readonly", Promise: "readonly", CustomEvent: "readonly",
         getComputedStyle: "readonly", Date: "readonly",
         ResizeObserver: "readonly", MutationObserver: "readonly",
         devicePixelRatio: "readonly",

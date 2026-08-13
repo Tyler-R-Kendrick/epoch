@@ -399,3 +399,11 @@ Feature: Community Web community-first experience
     When I create the same proposal from the terminal and from an agent tool
     Then both report the same command identity and resulting view
     And an agent without permission is refused even though the tool is offered
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor gets their own workspace and project when they open the board
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then the board opens my own workspace with a project that owns my interface
+    And the interface it renders is a revision I can inspect and roll back

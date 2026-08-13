@@ -201,8 +201,8 @@
     "community-web:app:a11y-lint": "node scripts/lint-community-web-app-a11y.mjs",
     "verify": "npm run docs:check && npm run lint && npm run community-web:app:a11y-lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run change-graph:schemas:check && npm run community-web:app:build:check && npm run a11y:community-web && npm run community-web:app:a11y && npm run coverage && npm run test:pact && npm run community-web:app:parity && npm run community-web:app:faults && npm run community-web:app:e2e",
     "community-web:app:faults": "node packages/Epoch.Community.Web/test/faults.mjs",
-    "community-web:app:build": "node packages/Epoch.Community.Web/scripts/build-core-runtime.mjs && node packages/Epoch.Community.Web/scripts/build-openui.mjs && node packages/Epoch.Community.Web/scripts/build-graphql.mjs",
-    "community-web:app:build:check": "node packages/Epoch.Community.Web/scripts/build-core-runtime.mjs --check",
+    "community-web:app:build": "node packages/Epoch.Community.Web/scripts/build-core-runtime.mjs && node packages/Epoch.Community.Web/scripts/build-community-runtime.mjs && node packages/Epoch.Community.Web/scripts/build-openui.mjs && node packages/Epoch.Community.Web/scripts/build-graphql.mjs",
+    "community-web:app:build:check": "node packages/Epoch.Community.Web/scripts/build-core-runtime.mjs --check && node packages/Epoch.Community.Web/scripts/build-community-runtime.mjs --check",
     "community-web:app:parity": "npm run community-web:app:build:check && npm run test:unit:community-web-app-parity && node packages/Epoch.Community.Web/test/navigation-projection.test.mjs && node scripts/verify-community-web-app-parity.mjs && CW_E2E=NAV- node packages/Epoch.Community.Web/test/e2e.mjs",
     "community-web:app:e2e": "node packages/Epoch.Community.Web/test/e2e.mjs"
   },

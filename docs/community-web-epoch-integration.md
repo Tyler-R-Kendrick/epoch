@@ -64,10 +64,10 @@ Two claims from earlier framings needed correcting before anything else:
 | 5 | WebMCP registration was fire-and-forget | `webmcp.js` called `native.registerTool(descriptor)` without awaiting; unregister only deleted the local entry | **Fixed** — awaited registration, `AbortSignal` lifetime, accurate annotations |
 | 6 | The WebMCP availability comment was stale | Said no browser ships it; Chrome 149 runs a public origin trial and deprecated `navigator.modelContext` in 150 | **Fixed** |
 | 7 | Deployment builds the design exploration, not the package | `scripts/render-community-web.mjs` copies `packages/Epoch.Community.Web/app`; `serve-community-web-local.mjs` serves it | **Open** — workstream H |
-| 8 | Community Web does not instantiate a browser Epoch workspace | Its manifest depends on core/community-core/design-tokens only | **Open** — workstream H |
+| 8 | Community Web does not instantiate a browser Epoch workspace | Its manifest depends on core/community-core/design-tokens only | **Fixed** — the board opens a workspace on load and ensures the `.epoch` project that owns its interface |
 | 9 | Generated OpenUI and generated themes are not wired into the board | `board.html` loads `openui-parser.js` and `openui-library.js` but never `generate.js`; `theme.js` is loaded by no page | **Open** — workstream D |
 | 13 | Two applications both called Community Web | A TypeScript-rendered document in the package and a script-tag app in `docs/`, kept aligned by a parity script | **One app** — the board is the Community Web application; the rendered-document surface remains as a server-rendered projection until workstream H finishes converging them |
-| 10 | No signed static harness, ABI, or enforced safe mode in the board | Static markup exists; a release manifest, slot ABI, and recovery boundary did not | **Contract landed, board not yet migrated** — workstreams C and H |
+| 10 | No signed static harness, ABI, or enforced safe mode in the board | Static markup exists; a release manifest, slot ABI, and recovery boundary did not | **Fixed for the harness region** — the board installs a content-addressed release, renders slots from it, and boots recovery when the head fails validation. Signing the release is workstream C |
 | 11 | Community proposals do not resolve to native Epoch IDs | Social records model their own repositories and changes | **Open** — workstream F |
 | 12 | Browser storage defaults to `localStorage` | Synchronous, quota-bound, unsuited to a growing object graph | **Open** — workstream B |
 
@@ -111,6 +111,22 @@ Two rules are enforced rather than documented:
 - **The harness decides what a manifest may contain.** An invalid proposal is
   still recorded — you want to inspect the bad one — but it cannot be merged, and
   a head that stops validating is not rendered.
+
+### The default `.epoch` project
+
+A forge needs somewhere for a person's own configuration to live that is a real
+repository rather than a settings blob. GitHub answers this with a `.github`
+repository; Community Web answers it with `.epoch`, created once per workspace
+on first boot. It owns the dynamic interface the browser renders, and it has the
+same history, diff, merge, revert, and recovery as anything else in the
+workspace — `epoch ui log`, in the terminal, reads the interface you are looking
+at.
+
+The board's static harness region is markup the page ships: a status slot in the
+footer, a context panel, and a recovery region. The dynamic layer fills those
+slots and sets theme tokens; it cannot add, move, hide, or restyle the region
+itself, and the recovery controls live inside it precisely so a generated
+revision cannot reach them.
 
 ### The static harness and the dynamic layer
 

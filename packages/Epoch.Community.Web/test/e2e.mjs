@@ -8616,6 +8616,81 @@ const CASES = [
         restored.mark === before.mark) || log("focused panel did not restore: " + JSON.stringify(restored));
     },
   },
+  {
+    name: "WS-BOOT-001 the board opens its own Epoch workspace and .epoch project",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(() => ({
+        status: window.CW_WORKSPACE.status(),
+        project: window.CW_WORKSPACE.project(),
+        statusSlot: document.querySelector('[data-cw-slot="shell.workspace-status"]')?.textContent || "",
+        contextSlot: document.querySelector('[data-cw-slot="board.context-panel"]')?.textContent || "",
+      }));
+      if (probe.project?.slug !== ".epoch") return log("no default project: " + JSON.stringify(probe.project));
+      if (probe.project.uiView !== "main") return log("project owns no view: " + JSON.stringify(probe.project));
+      if (!probe.status.harnessVerified) return log("harness not verified: " + JSON.stringify(probe.status));
+      if (probe.status.events < 1) return log("workspace recorded nothing: " + JSON.stringify(probe.status));
+      if (!probe.statusSlot.includes("ws_")) return log("status slot empty: " + probe.statusSlot);
+      if (!probe.contextSlot.includes(".epoch")) return log("context slot empty: " + probe.contextSlot);
+      return true;
+    },
+  },
+  {
+    name: "WS-BOOT-002 the workspace survives a reload as history, not as a fresh start",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const first = await page.evaluate(() => ({
+        id: window.CW_WORKSPACE.status().workspaceId,
+        events: window.CW_WORKSPACE.status().events,
+      }));
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const second = await page.evaluate(() => ({
+        id: window.CW_WORKSPACE.status().workspaceId,
+        events: window.CW_WORKSPACE.status().events,
+        created: window.CW_WORKSPACE.project().created,
+      }));
+      if (first.id !== second.id) return log("workspace identity changed: " + JSON.stringify([first, second]));
+      if (second.created) return log("the default project was recreated on reload");
+      if (second.events < first.events) return log("history shrank: " + JSON.stringify([first, second]));
+      return true;
+    },
+  },
+  {
+    name: "WS-SAFE-001 an interface revision that fails validation boots recovery instead",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const broken = await page.evaluate(async () => {
+        await window.CW_WORKSPACE.execute("ui.propose", {
+          view: "main",
+          manifest: {
+            abiVersion: 1,
+            scope: "personal",
+            placements: [{ slot: "shell.nowhere", component: "WorkspaceStatus" }],
+            theme: { "--cw-accent": "url(https://example.invalid/x.png)" },
+          },
+        });
+        return {
+          safeMode: document.body.getAttribute("data-cw-safe-mode"),
+          notice: document.querySelector("[data-cw-harness-notice]")?.textContent || "",
+          recovery: document.querySelector('[data-cw-slot="board.recovery"]')?.textContent || "",
+        };
+      });
+      if (broken.safeMode !== "true") return log("did not enter safe mode: " + JSON.stringify(broken));
+      if (!/Safe mode/i.test(broken.notice)) return log("no notice: " + broken.notice);
+      if (!/Restore last working interface/.test(broken.recovery)) return log("no recovery control: " + broken.recovery);
+
+      const recovered = await page.evaluate(async () => {
+        const before = window.CW_WORKSPACE.status().events;
+        document.querySelector('[data-cw-command="ui.restoreLastKnownGood"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return { before, after: window.CW_WORKSPACE.status().events };
+      });
+      // Recovery appends: the rejected revision stays in the ledger.
+      if (recovered.after <= recovered.before) return log("recovery recorded nothing: " + JSON.stringify(recovered));
+      return true;
+    },
+  },
 ];
 
 async function path(page) {

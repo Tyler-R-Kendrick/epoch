@@ -48,6 +48,13 @@ safely self-modifying regardless of how the output is parsed.
 - Scope (`personal`, `project`, `session`) is a manifest field, so a personal
   preference change cannot become a community-wide publish implicitly. Prompts
   are stored as digests unless the caller opts into retaining the text.
+- Every workspace has a default `.epoch` project, created once on first boot and
+  never silently recreated. It owns the dynamic interface the browser renders and
+  carries the same history, diff, merge, revert, and recovery as any other
+  project. Community Web opens a workspace and this project on load.
+- The opening revision of a workspace is promoted to last-known-good when it
+  validates, so recovery exists before the first change rather than after the
+  first merge.
 - WebMCP registration awaits `registerTool`, carries an `AbortSignal` for
   lifetime, and sets `readOnlyHint`/`untrustedContentHint` from the command
   descriptor. Unannotated tools are treated as consequential.

@@ -9,6 +9,7 @@ import {
   type EpochValidationReceipt,
 } from "./receipts";
 import { verifyStaticHarnessRelease } from "./harness";
+import { DEFAULT_PROJECT_SLUG, ensureProject, listProjects } from "./projects";
 import type { DynamicUiManifest } from "./ui";
 import type { BrowserEpochWorkspace, WorkspaceMutation } from "./workspace";
 
@@ -201,6 +202,40 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     return {
       data: { view, valid: errors.length === 0, errors },
       validation: validationReceipt(view, errors),
+    };
+  });
+
+  register({
+    kind: "project.list",
+    summary: "List projects in this workspace, including the default .epoch project.",
+    capability: "workspace.read",
+    readOnly: true,
+    requiresConfirmation: false,
+    untrustedContent: false,
+    inputSchema: emptySchema(),
+  }, () => ({ data: listProjects(workspace.epoch) }));
+
+  register({
+    kind: "project.ensureDefault",
+    summary: "Open the default .epoch project, creating it on first boot. Idempotent.",
+    capability: "workspace.write",
+    readOnly: false,
+    requiresConfirmation: false,
+    untrustedContent: false,
+    inputSchema: schema({
+      slug: stringProperty(`Project slug; defaults to ${DEFAULT_PROJECT_SLUG}.`),
+      title: stringProperty("Human-readable project title."),
+    }),
+  }, (input) => {
+    const project = ensureProject(workspace.epoch, {
+      ...(optionalString(input, "slug") === undefined ? {} : { slug: requiredString(input, "slug") }),
+      ...(optionalString(input, "title") === undefined ? {} : { title: requiredString(input, "title") }),
+    });
+
+    return {
+      data: project,
+      ...(project.created ? { eventIds: [project.eventId], revisionIds: [project.revision] } : {}),
+      baseRef: workspace.getView(project.uiView).ref,
     };
   });
 
