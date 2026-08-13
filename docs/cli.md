@@ -147,28 +147,78 @@ Use views as deterministic logical workspaces over the shared event log.
 |---|---|
 | `view-create NAME --parent VIEW --rule JSON` | Create a named view. |
 | `views` | List views and mark the current view. |
-| `checkout [--virtual\|--full] [--base REF] NAME` | Switch the current view and materialize its files. |
+| `checkout [--materialization MODE] [--select EXPR] [--base REF] NAME` | Switch the current view and materialize its selected files. |
 | `view-delete NAME` | Delete a view. |
 | `view-diff LEFT RIGHT` | Show a JSON diff between views. |
 | `view-promote SOURCE TARGET` | Promote accepted content from one view into another. |
 
-## Virtual Working Tree Commands
+## Selection And Materialization Commands
 
-`epoch init` sets `[working_tree] materialization = "virtual"` in
-`.epoch/config.toml`, so `checkout` writes only the files a view changes relative
-to its base and leaves the rest virtual. The full tree is described in
-`.epoch/checkout.json`, and a rolling `base -> view` unified diff is written to
-`.epoch/patches/<hash>.patch`. These are regenerable caches and are not part of
-`verify`.
+Two independent questions, two independent flags. **Selection** (`--select`,
+or the persisted workspace selection) decides *which resources are relevant*.
+**Materialization** (`--materialization`) decides *how they are realized*.
+
+| Mode | Behavior |
+|---|---|
+| `eager` | Write every selected path. |
+| `explicit` | Describe the selection and its promises; write nothing until `hydrate`. |
+| `lazy` | Reserved for on-access hydration. No provider can do this yet, so it currently behaves like `explicit`. |
+| `delta` | Write only selected paths whose blob differs from `--base`. |
+
+`--virtual` and `--full` remain accepted as deprecated aliases for `delta` and
+`eager`. What shipped as `--virtual` selects by *difference from a base*, which
+is delta materialization, not sparse checkout (ADR-0041).
 
 | Command | Purpose |
 |---|---|
-| `checkout --virtual [--base REF] NAME` | Sparse checkout: write only files that differ from the base; leave unchanged files virtual. |
-| `checkout --full NAME` | Materialize the entire working tree (the previous default behavior). |
+| `checkout --materialization delta [--base REF] NAME` | Write only files that differ from the base; leave the rest virtual. |
+| `checkout --select 'apps/api + packages/contracts' NAME` | Check out one selection without persisting it. |
 | `preview [--view VIEW] [--base REF] [--context N]` | Print the rolling aggregate unified diff without materializing files. |
 | `hydrate [PATH...]` | Materialize still-virtual files (all, or the given paths) from the object store. |
 
 `status` reports still-virtual paths with a `V` marker rather than as deletions.
+
+### Workspace Selection
+
+Selection is workspace-local state in `.epoch/selection.json`. It is never signed
+history, so two people on one view can hold different selections.
+
+| Command | Purpose |
+|---|---|
+| `workspace select show` | Print the expression, its digest, and what it resolves to. |
+| `workspace select set EXPR` | Replace the workspace selection. |
+| `workspace select add PATH...` | Union paths into the current selection. |
+| `workspace select remove PATH...` | Subtract paths from the current selection. |
+| `workspace select clear` | Select everything again. |
+| `workspace select profile ID [EXPR]` | Define or print a named selection profile. |
+| `workspace select index` | Build the sparse index: selected entries plus opaque unselected subtrees. |
+| `workspace select explain PATH` | Say why a path is absent: excluded, promised, unauthorized, unavailable, or corrupt. |
+
+The expression language is order-independent set algebra, deliberately not
+gitignore syntax: `*` (all), `!` (none), `path` (recursive), `path::self` (one
+level), `@profile`, and the `+`, `-`, `&` operators.
+
+### Repository Composition
+
+A Repository Link mounts another repository's exact Version at a path. Links are
+read-only from the parent workspace and convey no authorization.
+
+| Command | Purpose |
+|---|---|
+| `component link MOUNT [LINK_ID] --repository-id ID --version-id ID --namespace-root DIGEST [--source-path PATH]` | Record a link to an exact child Version. |
+| `component list` / `component show LINK_ID` | Inspect current links. |
+| `component retarget LINK_ID --version-id ID --namespace-root DIGEST` | Move a link to a different exact child Version. |
+| `component remove LINK_ID` | Remove a link. |
+| `component conflicts` | List concurrent retargets of one link, both sides preserved. |
+| `component verify [--resolver PATH,...]` | Compose the namespace and report ownership plus unresolved links. |
+| `component vendorize LINK_ID [--resolver PATH,...]` | Copy the child's files into owned paths and record provenance. |
+| `component provenance` | List recorded vendorize provenance. |
+| `component update-plan LAST UPSTREAM LOCAL` | Three-way merge plan for a vendored tree (JSON path→digest maps). |
+
+Mounts may not collide or overlap, may not escape the namespace, may not collide
+under case folding, and may not form a cycle — every one of those fails closed at
+`component link` time rather than at checkout time. Links resolve through
+injected resolvers and local sibling repositories; Core performs no network I/O.
 
 ## Git Commands
 

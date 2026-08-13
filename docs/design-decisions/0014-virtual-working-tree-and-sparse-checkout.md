@@ -1,6 +1,18 @@
 # ADR-0014: Virtual Working Tree And Sparse Checkout
 
-Status: Accepted
+Status: Accepted; naming and scope amended by
+[ADR-0041](0041-workspace-selection-and-materialization-modes.md)
+
+## Naming Amendment (2026-08-13)
+
+The behavior this ADR shipped is **delta materialization**, not sparse
+checkout. It writes the files that differ from a base view; a sparse checkout
+writes the files a user selected, whether or not they changed. ADR-0041 keeps
+this behavior, renames the mode to `delta`, makes `--virtual` a deprecated
+alias, and adds a separate workspace-local Selection for "which resources are
+relevant to me". Both are implemented. The `checkout.json` whole-namespace
+enumeration recorded below is superseded by the Namespace Manifest and sparse
+index, and entity snapshots now participate in Selection.
 
 ## Context
 
@@ -97,3 +109,5 @@ Revisit this decision if:
 - [SDK Reference](../sdk.md)
 - [Current Design](../design.md)
 - [Feature Registry](../features.md)
+- [ADR-0041: Workspace Selection And Materialization Modes](0041-workspace-selection-and-materialization-modes.md)
+- [Repository Composition And Workspace Selection](../repository-composition-and-selection.md)
