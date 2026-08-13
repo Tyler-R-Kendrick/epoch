@@ -2,7 +2,7 @@
 
 Captured: 2026-08-11T02:25:00.000Z
 Driver: web
-Run: 20260810-ux-nightboard-power-controls
+Run: 20260810-ux-community-web-power-controls
 Primary SHA-256: bc0efc38a1c49276b456c79cc5f5040162c264a7c13bab0316b478092213fb38
 
 ## Playback

@@ -43,7 +43,7 @@ export { renderCommunityWebDocument } from "./render/document";
 export { renderConvergenceWorkbench } from "./view/convergence-workbench";
 export { renderServiceWorker, renderWebManifest } from "./render/pwa";
 export { materializeCommunityWebSiteWithEpoch } from "./epoch-site";
-export * from "./search/nightboard-source";
+export * from "./search/community-web-source";
 export * from "./search/browser-index";
 export * from "./search/orama-backend";
 export * from "./search/search-worker";

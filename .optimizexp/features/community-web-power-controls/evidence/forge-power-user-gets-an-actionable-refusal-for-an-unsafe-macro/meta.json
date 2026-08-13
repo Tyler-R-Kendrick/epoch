@@ -7,7 +7,7 @@
   "interface": "web",
   "driver": "web",
   "capturedAt": "2026-08-11T02:05:54.232Z",
-  "runId": "20260810-ux-nightboard-power-controls",
+  "runId": "20260810-ux-community-web-power-controls",
   "screen": {
     "widthPx": 1280,
     "heightPx": 720,
@@ -23,7 +23,7 @@
   "claims": [
     {
       "id": "claim-1",
-      "text": "Given I am using the Nightboard prompt"
+      "text": "Given I am using the Community Web prompt"
     },
     {
       "id": "claim-2",
@@ -46,6 +46,6 @@
   "exitCode": null,
   "degraded": false,
   "notes": [
-    "Nightboard refusal flow captured for the forge-community-power-user journey"
+    "Community Web refusal flow captured for the forge-community-power-user journey"
   ]
 }

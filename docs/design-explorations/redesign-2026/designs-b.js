@@ -1,7 +1,7 @@
 /**
  * Directions 6–10.
  *
- * Two of these (Signal Bench, Nightboard) are fused from catalog challengers
+ * Two of these (Signal Bench, Community Web) are fused from catalog challengers
  * dealt by the concept seed rather than derived from the grounded list. They
  * keep the challenger's system grammar and take every fact from the product.
  */
@@ -258,12 +258,12 @@
     },
   });
 
-  /* ── 10 · Nightboard ───────────────────────────────────────────────────
+  /* ── 10 · Community Web ───────────────────────────────────────────────────
      Fused from the dealt BBS challenger. Everything is a text screen on a
      character grid with numbered exits, and presence is scarce and precious —
      which is what a small community actually feels like at 2 a.m.           */
   add({
-    id: "night", name: "Nightboard", family: "medium-native (challenger)",
+    id: "night", name: "Community Web", family: "medium-native (challenger)",
     thesis: "Everything is a text screen on a character grid with numbered exits, and presence is scarce enough to be an event. Keyboard-complete by construction.",
     css: `
     .d-night{--bg:#000;--cy:#00a8a8;--cyb:#55ffff;--mg:#a800a8;--mgb:#ff55ff;--gy:#a8a8a8;--wh:#fff;--yl:#ffff55;--gn:#55ff55;--bl:#0000a8;

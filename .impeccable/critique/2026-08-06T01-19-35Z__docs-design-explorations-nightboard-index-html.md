@@ -5,15 +5,15 @@ p1: 2
 p2: 3
 mode: operate
 timestamp: 2026-08-06T01-19-35Z
-slug: docs-design-explorations-nightboard-index-html
+slug: docs-design-explorations-community-web-index-html
 ---
-# Nightboard critique (Impeccable)
+# Community Web critique (Impeccable)
 
 **Provenance:** Assessment A + B via isolated sub-agents. Live URL `http://127.0.0.1:8902/`.
 
 ## Verdict
 
-Nightboard is highly product-specific (filesystem board, signed promote, TUI chrome). Heuristics **28/40**. Detector CLI clean on static HTML; live inject reported 54 anti-patterns — most intentional Grid neon/density false positives. Real risks: `text-occlusion` on prompt/sigil, mobile blade squeeze (addressed this iteration).
+Community Web is highly product-specific (filesystem board, signed promote, TUI chrome). Heuristics **28/40**. Detector CLI clean on static HTML; live inject reported 54 anti-patterns — most intentional Grid neon/density false positives. Real risks: `text-occlusion` on prompt/sigil, mobile blade squeeze (addressed this iteration).
 
 ## Strengths
 

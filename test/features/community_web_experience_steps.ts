@@ -43,7 +43,7 @@ import {
   BrowserPersistenceCoordinator,
   chooseSqliteStorage,
   createCommunityWebApp,
-  createNightboardSource,
+  createCommunityWebSource,
   renderCommunityWebDocument,
 } from "@epoch/community-web";
 import { chromiumLaunchOptions } from "./playwright-options";
@@ -67,21 +67,21 @@ let world: CommunityWebWorld = {};
 /** Title of the message whose provenance a scenario revealed. */
 let revealedMessageTitle = "";
 let searchProjectionJourneyResult: Record<string, unknown> = {};
-let nightboardFocusedMessage = "";
-let nightboardContextMenuResult: {
+let communityWebAppFocusedMessage = "";
+let communityWebAppContextMenuResult: {
   readonly navStable: boolean;
   readonly downStayedInMenu: boolean;
   readonly upStayedInMenu: boolean;
   readonly focusRestored: boolean;
 } | undefined;
-let nightboardCdResult: {
+let communityWebAppCdResult: {
   readonly labelled: boolean;
   readonly horizontal: boolean;
   readonly previewed: boolean;
   readonly cancelled: boolean;
   readonly committed: boolean;
 } | undefined;
-let nightboardPostActionResult: {
+let communityWebAppPostActionResult: {
   readonly controls: Readonly<Record<string, string | null>>;
   readonly vote: number;
   readonly reactionOpened: boolean;
@@ -91,30 +91,30 @@ let nightboardPostActionResult: {
   readonly copied: boolean;
   readonly replied: boolean;
 } | undefined;
-let nightboardStartupApplied = false;
-let nightboardRouteSticky = false;
-let nightboardBoReady = false;
-let nightboardTrainableReady = false;
-let nightboardFocusRestored = false;
-let nightboardLinkResult: {
+let communityWebAppStartupApplied = false;
+let communityWebAppRouteSticky = false;
+let communityWebAppBoReady = false;
+let communityWebAppTrainableReady = false;
+let communityWebAppFocusRestored = false;
+let communityWebAppLinkResult: {
   readonly objectId: string;
   readonly canonical: string;
   readonly contextual: string;
   readonly exact: string;
 } | undefined;
-let nightboardSavedViewResult: {
+let communityWebAppSavedViewResult: {
   readonly id: string;
   readonly expression: unknown;
   readonly resultIds: readonly string[];
 } | undefined;
-let nightboardThreadA11yResult: {
+let communityWebAppThreadA11yResult: {
   readonly selected: string;
   readonly reading: string;
   readonly oneTabStop: boolean;
   readonly topology: boolean;
 } | undefined;
-let nightboardNavigationActions: readonly { readonly actionId: string; readonly objectId?: string }[] = [];
-let nightboardJumpResult: {
+let communityWebAppNavigationActions: readonly { readonly actionId: string; readonly objectId?: string }[] = [];
+let communityWebAppJumpResult: {
   readonly cdStayed: boolean;
   readonly grouped: boolean;
   readonly explained: boolean;
@@ -320,8 +320,8 @@ function journey<T>(key: string): T {
   return deterministicJourney[key] as T;
 }
 
-const NIGHTBOARD_ROOT = join(process.cwd(), "docs", "design-explorations", "nightboard");
-const NIGHTBOARD_CONTENT_TYPES: Readonly<Record<string, string>> = {
+const COMMUNITY_WEB_APP_ROOT = join(process.cwd(), "packages", "Epoch.Community.Web", "app");
+const COMMUNITY_WEB_APP_CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".jpg": "image/jpeg",
@@ -377,9 +377,9 @@ Given("the Community Web live API has repository activity", async function () {
 });
 
 Given("Epoch Community is available", function () {
-  assert.ok(existsSync(join(NIGHTBOARD_ROOT, "index.html")));
-  assert.ok(existsSync(join(NIGHTBOARD_ROOT, "board.html")));
-  assert.ok(existsSync(join(NIGHTBOARD_ROOT, "canvasui-fx.js")));
+  assert.ok(existsSync(join(COMMUNITY_WEB_APP_ROOT, "index.html")));
+  assert.ok(existsSync(join(COMMUNITY_WEB_APP_ROOT, "board.html")));
+  assert.ok(existsSync(join(COMMUNITY_WEB_APP_ROOT, "canvasui-fx.js")));
 });
 
 When("I open Epoch Community", async function () {
@@ -388,14 +388,14 @@ When("I open Epoch Community", async function () {
   await page.route("https://community.test/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const name = pathname === "/" ? "index.html" : basename(pathname);
-    const file = join(NIGHTBOARD_ROOT, name);
+    const file = join(COMMUNITY_WEB_APP_ROOT, name);
     if (!existsSync(file)) {
       await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
       return;
     }
     await route.fulfill({
       status: 200,
-      contentType: NIGHTBOARD_CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
+      contentType: COMMUNITY_WEB_APP_CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
       body: readFileSync(file),
     });
   });
@@ -405,29 +405,29 @@ When("I open Epoch Community", async function () {
 
 Then("the landing presents the creator story with CanvasUI motion", async function () {
   const page = requirePage();
-  await page.locator(".nb-landing").waitFor({ state: "visible" });
-  await page.locator("#nb-landing-headline").waitFor({ state: "attached" });
+  await page.locator(".cw-landing").waitFor({ state: "visible" });
+  await page.locator("#cw-landing-headline").waitFor({ state: "attached" });
   assert.equal(await page.locator("[data-landing-grid]").count(), 1);
-  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).NB_CanvasUI), "object");
+  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_CanvasUI), "object");
 });
 
 When("I enter the community board", async function () {
   const page = requirePage();
-  await page.locator("#nb-enter-board").click();
+  await page.locator("#cw-enter-board").click();
   await page.waitForFunction(() => typeof (window as unknown as {
-    NB_APP?: { navigate?: unknown };
-  }).NB_APP?.navigate === "function");
+    CW_APP?: { navigate?: unknown };
+  }).CW_APP?.navigate === "function");
 });
 
-Then("the tmux-style Nightboard is ready for keyboard collaboration", async function () {
+Then("the tmux-style Community Web is ready for keyboard collaboration", async function () {
   const page = requirePage();
   await page.locator('[data-mount][data-tui="true"]').waitFor({ state: "visible" });
-  assert.equal(await page.locator(".nb-bar [data-gridroad]").count(), 1);
-  assert.equal(await page.locator("[data-region=\"status\"] .nb-keys-cue").count(), 1);
-  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).NB_APP), "object");
+  assert.equal(await page.locator(".cw-bar [data-gridroad]").count(), 1);
+  assert.equal(await page.locator("[data-region=\"status\"] .cw-keys-cue").count(), 1);
+  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_APP), "object");
 });
 
-When("I open the Nightboard general channel from the prompt", async function () {
+When("I open the Community Web general channel from the prompt", async function () {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
@@ -437,7 +437,7 @@ When("I open the Nightboard general channel from the prompt", async function () 
   await page.locator(".cn-comment").first().waitFor({ state: "visible" });
 });
 
-When("I move to the next Nightboard message and open its thread by keyboard", async function () {
+When("I move to the next Community Web message and open its thread by keyboard", async function () {
   const page = requirePage();
   const first = page.locator('.cn-tree[role="feed"] .cn-comment[role="article"][tabindex="0"]');
   await first.waitFor({ state: "visible" });
@@ -449,31 +449,31 @@ When("I move to the next Nightboard message and open its thread by keyboard", as
     document.activeElement?.closest?.('.cn-comment[role="article"]')?.getAttribute("data-key") !== previous, before);
   const selected = page.locator('.cn-tree[role="feed"] .cn-comment[role="article"]:focus');
   await selected.waitFor({ state: "attached" });
-  nightboardFocusedMessage = (await selected.getAttribute("data-key")) ?? "";
-  assert.ok(nightboardFocusedMessage);
-  assert.notEqual(nightboardFocusedMessage, before);
+  communityWebAppFocusedMessage = (await selected.getAttribute("data-key")) ?? "";
+  assert.ok(communityWebAppFocusedMessage);
+  assert.notEqual(communityWebAppFocusedMessage, before);
   await page.keyboard.press("Enter");
   await page.waitForFunction((expected) =>
-    (window as unknown as { NB_APP: { state: { threadFocus?: string } } }).NB_APP.state.threadFocus === expected,
-  nightboardFocusedMessage);
+    (window as unknown as { CW_APP: { state: { threadFocus?: string } } }).CW_APP.state.threadFocus === expected,
+  communityWebAppFocusedMessage);
   await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible" });
 });
 
-Then("the selected Nightboard message remains the single focused feed item", async function () {
+Then("the selected Community Web message remains the single focused feed item", async function () {
   const page = requirePage();
   // Enter replaces the linear channel projection with its thread projection;
   // the same canonical message remains the sole roving focus target.
   assert.equal(await page.locator('.cn-thread-tree[role="tree"] .cn-comment[role="treeitem"][tabindex="0"]').count(), 1);
   const selected = page.locator('.cn-thread-tree[role="tree"] .cn-comment[role="treeitem"]:focus');
-  assert.equal(await selected.getAttribute("data-key"), nightboardFocusedMessage);
+  assert.equal(await selected.getAttribute("data-key"), communityWebAppFocusedMessage);
   assert.equal(await selected.getAttribute("data-here"), "true");
   assert.equal(await selected.getAttribute("aria-current"), "true");
   assert.equal(
-    await page.evaluate(() => (window as unknown as { NB_APP: { state: { threadFocus: string } } }).NB_APP.state.threadFocus),
-    nightboardFocusedMessage,
+    await page.evaluate(() => (window as unknown as { CW_APP: { state: { threadFocus: string } } }).CW_APP.state.threadFocus),
+    communityWebAppFocusedMessage,
   );
   const synchronized = await page.evaluate(() => {
-    const app = (window as unknown as { NB_APP: { state: { threadFocus: string } } }).NB_APP;
+    const app = (window as unknown as { CW_APP: { state: { threadFocus: string } } }).CW_APP;
     const tree = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
     const reading = document.querySelector('.cn-thread-reading article');
     return tree?.getAttribute("data-object-id") === reading?.getAttribute("data-object-id") &&
@@ -484,12 +484,12 @@ Then("the selected Nightboard message remains the single focused feed item", asy
 
 When("I enter the community board with a resumable session update and workspace defaults", async function () {
   const page = requirePage();
-  await page.evaluate(() => localStorage.setItem("nb-startup-signals-v1", JSON.stringify({
+  await page.evaluate(() => localStorage.setItem("cw-startup-signals-v1", JSON.stringify({
     continuation: { host: "codex", sessionId: "codex-cucumber", workspace: "epoch" },
     update: { current: "0.8.0", available: "0.9.0" },
     workspace: { id: "epoch", defaultsVersion: 2, appliedVersion: 1 },
   })));
-  await page.locator("#nb-enter-board").click();
+  await page.locator("#cw-enter-board").click();
 });
 
 Then("the bottom line recommends one Ctrl+U restart action", async function () {
@@ -499,55 +499,55 @@ Then("the bottom line recommends one Ctrl+U restart action", async function () {
   assert.match(status, /Ctrl\+U.*update.*prime.*resume/i);
 });
 
-When("I restart Nightboard with Ctrl+U", async function () {
+When("I restart Community Web with Ctrl+U", async function () {
   const page = requirePage();
   await Promise.all([
     page.waitForNavigation({ waitUntil: "domcontentloaded" }),
     page.keyboard.press("Control+u"),
   ]);
-  nightboardStartupApplied = await page.evaluate(() => {
-    const got = JSON.parse(localStorage.getItem("nb-startup-applied-v1") ?? "{}");
+  communityWebAppStartupApplied = await page.evaluate(() => {
+    const got = JSON.parse(localStorage.getItem("cw-startup-applied-v1") ?? "{}");
     return got.update === "0.9.0" && got.workspace === 2 && got.continuation === "codex-cucumber";
   });
 });
 
 Then("the session is continued on the updated workspace defaults", function () {
-  assert.equal(nightboardStartupApplied, true);
+  assert.equal(communityWebAppStartupApplied, true);
 });
 
 When("I send repeated agent turns in one workspace", async function () {
-  nightboardRouteSticky = await requirePage().evaluate(() => {
+  communityWebAppRouteSticky = await requirePage().evaluate(() => {
     const browserWindow = window as unknown as {
-      NB_ROUTE: { pick(id: string, policy: unknown): { id: string } | null };
+      CW_ROUTE: { pick(id: string, policy: unknown): { id: string } | null };
     };
     const policy = {
       version: "cucumber-v1",
       routes: [{ id: "local", model: "on-device" }, { id: "capable", model: "switchyard/capable" }],
     };
-    const first = browserWindow.NB_ROUTE.pick("workspace-cucumber", policy);
-    const second = browserWindow.NB_ROUTE.pick("workspace-cucumber", {
+    const first = browserWindow.CW_ROUTE.pick("workspace-cucumber", policy);
+    const second = browserWindow.CW_ROUTE.pick("workspace-cucumber", {
       ...policy, routes: [...policy.routes].reverse(),
     });
     return first?.id === "local" && second?.id === "local";
   });
 });
 
-Then("Nightboard keeps the same cache route until policy or failure invalidates it", function () {
-  assert.equal(nightboardRouteSticky, true);
+Then("Community Web keeps the same cache route until policy or failure invalidates it", function () {
+  assert.equal(communityWebAppRouteSticky, true);
 });
 
 When("I open the default Bo agent", async function () {
   const page = requirePage();
   await page.evaluate(() => (window as unknown as {
-    NB_APP: { navigate(path: string): void };
-  }).NB_APP.navigate("/.agents/bo"));
+    CW_APP: { navigate(path: string): void };
+  }).CW_APP.navigate("/.agents/bo"));
   await page.locator('[data-blade-path="/.agents/bo"]').first().waitFor({ state: "visible" });
 });
 
 Then("Bo offers deterministic HoBo new build test debug and up actions", async function () {
   const results = await requirePage().evaluate(() => {
     const browserWindow = window as unknown as {
-      NB_HOBO: { run(line: string): { ok: boolean; text: string } };
+      CW_HOBO: { run(line: string): { ok: boolean; text: string } };
     };
     return [
       "new cucumber-app --template api",
@@ -555,29 +555,29 @@ Then("Bo offers deterministic HoBo new build test debug and up actions", async f
       "test cucumber-app",
       "debug cucumber-app",
       "up cucumber-app --plan",
-    ].map((line) => browserWindow.NB_HOBO.run(line));
+    ].map((line) => browserWindow.CW_HOBO.run(line));
   });
-  nightboardBoReady = results.every((result) => result.ok) &&
+  communityWebAppBoReady = results.every((result) => result.ok) &&
     /codegen --check/.test(results[1]?.text ?? "") && /dry-run/.test(results[4]?.text ?? "");
-  assert.equal(nightboardBoReady, true);
+  assert.equal(communityWebAppBoReady, true);
 });
 
 Then("complex unsupported logic is emitted as a trainable stub", async function () {
-  nightboardTrainableReady = await requirePage().evaluate(() => {
+  communityWebAppTrainableReady = await requirePage().evaluate(() => {
     const result = (window as unknown as {
-      NB_HOBO: { run(line: string): { ok: boolean; text: string } };
-    }).NB_HOBO.run("stub cucumber-app complex-billing-rule");
+      CW_HOBO: { run(line: string): { ok: boolean; text: string } };
+    }).CW_HOBO.run("stub cucumber-app complex-billing-rule");
     return result.ok && /use training/.test(result.text) && /contract examples/.test(result.text);
   });
-  assert.equal(nightboardTrainableReady, true);
+  assert.equal(communityWebAppTrainableReady, true);
 });
 
 When("I expand and restore the focused panel by keyboard", async function () {
   const page = requirePage();
   await page.evaluate(() => {
     const app = (window as unknown as {
-      NB_APP: { state: { focus: number; columnFocus: boolean }; render(keep?: boolean): void };
-    }).NB_APP;
+      CW_APP: { state: { focus: number; columnFocus: boolean }; render(keep?: boolean): void };
+    }).CW_APP;
     app.state.focus = 1;
     app.state.columnFocus = true;
     app.render(true);
@@ -586,37 +586,37 @@ When("I expand and restore the focused panel by keyboard", async function () {
   const expanded = await page.locator(".cn-blades").getAttribute("data-focus-expanded");
   await page.keyboard.press("z");
   const restored = await page.locator(".cn-blades").getAttribute("data-focus-expanded");
-  nightboardFocusRestored = expanded === "1" && restored === "";
+  communityWebAppFocusRestored = expanded === "1" && restored === "";
 });
 
 Then("focus and selection remain in the same panel context", function () {
-  assert.equal(nightboardFocusRestored, true);
+  assert.equal(communityWebAppFocusRestored, true);
 });
 
-When("I open one Nightboard message from its channel projection", async function () {
+When("I open one Community Web message from its channel projection", async function () {
   const page = requirePage();
   await page.evaluate(() => (window as unknown as {
-    NB_APP: { navigate(path: string, options?: Record<string, unknown>): void };
-  }).NB_APP.navigate("/projects/community/channels/general", { keepCli: true }));
+    CW_APP: { navigate(path: string, options?: Record<string, unknown>): void };
+  }).CW_APP.navigate("/projects/community/channels/general", { keepCli: true }));
   await page.locator('.cn-comment[data-key="p3"]').focus();
   await page.keyboard.press("Enter");
   await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible" });
-  nightboardLinkResult = await page.evaluate(() => {
+  communityWebAppLinkResult = await page.evaluate(() => {
     const runtime = window as unknown as {
-      NB_APP: { state: { path: string; threadFocus: string } };
-      NB_DATA: { posts: Array<Record<string, unknown>> };
-      NB_MAP: { objectRef(post: Record<string, unknown>): { objectId: string; revision?: string }; projectionIdForPath(path: string): string };
-      NB_CORE: { objectUrl(ref: { objectId: string; revision?: string }, options?: Record<string, unknown>): string };
+      CW_APP: { state: { path: string; threadFocus: string } };
+      CW_DATA: { posts: Array<Record<string, unknown>> };
+      CW_MAP: { objectRef(post: Record<string, unknown>): { objectId: string; revision?: string }; projectionIdForPath(path: string): string };
+      CW_CORE: { objectUrl(ref: { objectId: string; revision?: string }, options?: Record<string, unknown>): string };
     };
-    const post = runtime.NB_DATA.posts.find((item) => item.id === runtime.NB_APP.state.threadFocus);
-    if (!post) throw new Error("focused Nightboard message was not found");
-    const ref = runtime.NB_MAP.objectRef(post);
-    const projectionId = runtime.NB_MAP.projectionIdForPath(runtime.NB_APP.state.path);
+    const post = runtime.CW_DATA.posts.find((item) => item.id === runtime.CW_APP.state.threadFocus);
+    if (!post) throw new Error("focused Community Web message was not found");
+    const ref = runtime.CW_MAP.objectRef(post);
+    const projectionId = runtime.CW_MAP.projectionIdForPath(runtime.CW_APP.state.path);
     return {
       objectId: ref.objectId,
-      canonical: runtime.NB_CORE.objectUrl(ref, { origin: location.origin }),
-      contextual: runtime.NB_CORE.objectUrl(ref, { projectionId, origin: location.origin }),
-      exact: runtime.NB_CORE.objectUrl({ ...ref, revision: ref.revision ?? "fixture-revision" }, {
+      canonical: runtime.CW_CORE.objectUrl(ref, { origin: location.origin }),
+      contextual: runtime.CW_CORE.objectUrl(ref, { projectionId, origin: location.origin }),
+      exact: runtime.CW_CORE.objectUrl({ ...ref, revision: ref.revision ?? "fixture-revision" }, {
         revision: ref.revision ?? "fixture-revision",
         origin: location.origin,
       }),
@@ -625,29 +625,29 @@ When("I open one Nightboard message from its channel projection", async function
 });
 
 Then("canonical contextual and exact links identify the same message without private content", async function () {
-  assert.ok(nightboardLinkResult);
+  assert.ok(communityWebAppLinkResult);
   const parsed = await requirePage().evaluate((links) => {
     const core = (window as unknown as {
-      NB_CORE: { parseObjectUrl(url: string): { objectId?: string; projectionId?: string; revision?: string } };
-    }).NB_CORE;
+      CW_CORE: { parseObjectUrl(url: string): { objectId?: string; projectionId?: string; revision?: string } };
+    }).CW_CORE;
     return [core.parseObjectUrl(links.canonical), core.parseObjectUrl(links.contextual), core.parseObjectUrl(links.exact)];
-  }, nightboardLinkResult);
-  assert.deepEqual(parsed.map((item) => item.objectId), Array(3).fill(nightboardLinkResult.objectId));
-  assert.equal(new URL(nightboardLinkResult.canonical).searchParams.has("projection"), false);
-  assert.ok(new URL(nightboardLinkResult.contextual).searchParams.get("projection"));
-  assert.ok(new URL(nightboardLinkResult.exact).searchParams.get("revision"));
-  assert.doesNotMatch(JSON.stringify(nightboardLinkResult), /DO_NOT_LEAK_7f3c/);
+  }, communityWebAppLinkResult);
+  assert.deepEqual(parsed.map((item) => item.objectId), Array(3).fill(communityWebAppLinkResult.objectId));
+  assert.equal(new URL(communityWebAppLinkResult.canonical).searchParams.has("projection"), false);
+  assert.ok(new URL(communityWebAppLinkResult.contextual).searchParams.get("projection"));
+  assert.ok(new URL(communityWebAppLinkResult.exact).searchParams.get("revision"));
+  assert.doesNotMatch(JSON.stringify(communityWebAppLinkResult), /DO_NOT_LEAK_7f3c/);
 });
 
-When("I save and reopen the Nightboard needs-review Projection Definition", async function () {
+When("I save and reopen the Community Web needs-review Projection Definition", async function () {
   const page = requirePage();
-  nightboardSavedViewResult = await page.evaluate(() => {
+  communityWebAppSavedViewResult = await page.evaluate(() => {
     const runtime = window as unknown as {
-      NB_QUERY: {
+      CW_QUERY: {
         normalize(query: string): { ast: unknown; canonical: string; error?: string };
         filterEntries(entries: unknown[], query: string): { entries: Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }>; error?: string };
       };
-      NB_WORKBENCH: {
+      CW_WORKBENCH: {
         openSearch(state: Record<string, unknown>, expression: string): void;
         runSearch(state: Record<string, unknown>): Promise<void>;
         saveSearchProjection(state: Record<string, unknown>, label: string): {
@@ -655,19 +655,19 @@ When("I save and reopen the Nightboard needs-review Projection Definition", asyn
         };
         definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }>;
       };
-      NB_MAP: { feedEntriesAt(path: string): Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }> };
+      CW_MAP: { feedEntriesAt(path: string): Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }> };
     };
-    const normalized = runtime.NB_QUERY.normalize(" ( state:needs-review ) ");
+    const normalized = runtime.CW_QUERY.normalize(" ( state:needs-review ) ");
     if (normalized.error) throw new Error(normalized.error);
     const state: Record<string, unknown> = {};
-    runtime.NB_WORKBENCH.openSearch(state, normalized.canonical);
-    return runtime.NB_WORKBENCH.runSearch(state).then(() => {
-      const saved = runtime.NB_WORKBENCH.saveSearchProjection(state, "needs review");
-      const reopened = runtime.NB_WORKBENCH.definitions().find((definition) =>
+    runtime.CW_WORKBENCH.openSearch(state, normalized.canonical);
+    return runtime.CW_WORKBENCH.runSearch(state).then(() => {
+      const saved = runtime.CW_WORKBENCH.saveSearchProjection(state, "needs review");
+      const reopened = runtime.CW_WORKBENCH.definitions().find((definition) =>
         definition.projectionId === saved.projectionId);
       if (!reopened) throw new Error("Projection Definition did not persist");
-    const projected = runtime.NB_QUERY.filterEntries(
-      runtime.NB_MAP.feedEntriesAt("/projects/community/channels/general"), normalized.canonical,
+    const projected = runtime.CW_QUERY.filterEntries(
+      runtime.CW_MAP.feedEntriesAt("/projects/community/channels/general"), normalized.canonical,
     );
     if (projected.error) throw new Error(projected.error);
     const entries = projected.entries;
@@ -678,7 +678,7 @@ When("I save and reopen the Nightboard needs-review Projection Definition", asyn
     };
     });
   });
-  const savedResult = nightboardSavedViewResult;
+  const savedResult = communityWebAppSavedViewResult;
   assert.ok(savedResult);
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -686,16 +686,16 @@ When("I save and reopen the Nightboard needs-review Projection Definition", asyn
     await page.goto(page.url(), { waitUntil: "domcontentloaded" });
   }
   await page.waitForFunction((id) => !!(window as unknown as {
-    NB_WORKBENCH?: { definitions(): Array<{ projectionId: string }> };
-  }).NB_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
+    CW_WORKBENCH?: { definitions(): Array<{ projectionId: string }> };
+  }).CW_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
 });
 
 Then("the Projection Definition keeps its identity Search Expression and canonical Entity state", async function () {
-  const savedResult = nightboardSavedViewResult;
+  const savedResult = communityWebAppSavedViewResult;
   assert.ok(savedResult);
   const reopened = await requirePage().evaluate((id) => (window as unknown as {
-    NB_WORKBENCH: { definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }> };
-  }).NB_WORKBENCH.definitions().find((definition) => definition.projectionId === id), savedResult.id);
+    CW_WORKBENCH: { definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }> };
+  }).CW_WORKBENCH.definitions().find((definition) => definition.projectionId === id), savedResult.id);
   assert.ok(reopened);
   assert.equal(reopened.projectionId, savedResult.id);
   assert.deepEqual(reopened.root.children[0]?.where, savedResult.expression);
@@ -703,17 +703,17 @@ Then("the Projection Definition keeps its identity Search Expression and canonic
   assert.equal(new Set(savedResult.resultIds).size, savedResult.resultIds.length);
 });
 
-When("I traverse a Nightboard thread outline with tree keys", async function () {
+When("I traverse a Community Web thread outline with tree keys", async function () {
   const page = requirePage();
-  await page.evaluate(() => (window as unknown as { NB_APP: { navigate(path: string): void; openThread(id: string): void } }).NB_APP
+  await page.evaluate(() => (window as unknown as { CW_APP: { navigate(path: string): void; openThread(id: string): void } }).CW_APP
     .navigate("/projects/community/channels/general"));
-  await page.evaluate(() => (window as unknown as { NB_APP: { openThread(id: string): void } }).NB_APP.openThread("p3"));
+  await page.evaluate(() => (window as unknown as { CW_APP: { openThread(id: string): void } }).CW_APP.openThread("p3"));
   const current = page.locator('.cn-thread-tree [role="treeitem"][tabindex="0"]');
   await current.focus();
   await page.keyboard.press("Home");
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowDown");
-  nightboardThreadA11yResult = await page.evaluate(() => {
+  communityWebAppThreadA11yResult = await page.evaluate(() => {
     const selected = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
     const reading = document.querySelector(".cn-thread-reading article");
     const items = Array.from(document.querySelectorAll('.cn-thread-tree [role="treeitem"]'));
@@ -728,22 +728,22 @@ When("I traverse a Nightboard thread outline with tree keys", async function () 
 });
 
 Then("the thread outline and reading pane report the same selected object and topology", function () {
-  assert.ok(nightboardThreadA11yResult);
-  assert.ok(nightboardThreadA11yResult.selected);
-  assert.equal(nightboardThreadA11yResult.reading, nightboardThreadA11yResult.selected);
-  assert.equal(nightboardThreadA11yResult.oneTabStop, true);
-  assert.equal(nightboardThreadA11yResult.topology, true);
+  assert.ok(communityWebAppThreadA11yResult);
+  assert.ok(communityWebAppThreadA11yResult.selected);
+  assert.equal(communityWebAppThreadA11yResult.reading, communityWebAppThreadA11yResult.selected);
+  assert.equal(communityWebAppThreadA11yResult.oneTabStop, true);
+  assert.equal(communityWebAppThreadA11yResult.topology, true);
 });
 
 When("I invoke namespace parent thread parent browser back and previous location", async function () {
-  nightboardNavigationActions = await requirePage().evaluate(async () => {
+  communityWebAppNavigationActions = await requirePage().evaluate(async () => {
     const runtime = window as unknown as {
-      NB_ACTIONS: {
+      CW_ACTIONS: {
         invoke(actionId: string, input: Record<string, unknown>, context: Record<string, unknown>): Promise<unknown>;
         lastEvent(): { actionId: string; objectId?: string };
       };
-      NB_APP: { state: { path: string; threadFocus?: string } };
-      NB_MAP: { projectionIdForPath(path: string): string };
+      CW_APP: { state: { path: string; threadFocus?: string } };
+      CW_MAP: { projectionIdForPath(path: string): string };
     };
     const actions = [
       ["nav.ascend", {}],
@@ -753,51 +753,51 @@ When("I invoke namespace parent thread parent browser back and previous location
     ] as const;
     const events: Array<{ actionId: string; objectId?: string }> = [];
     for (const [actionId, input] of actions) {
-      await runtime.NB_ACTIONS.invoke(actionId, input, {
+      await runtime.CW_ACTIONS.invoke(actionId, input, {
         origin: "diagnostic",
         context: "board",
-        objectId: runtime.NB_APP.state.threadFocus,
-        projectionId: runtime.NB_MAP.projectionIdForPath(runtime.NB_APP.state.path),
+        objectId: runtime.CW_APP.state.threadFocus,
+        projectionId: runtime.CW_MAP.projectionIdForPath(runtime.CW_APP.state.path),
       });
-      events.push(runtime.NB_ACTIONS.lastEvent());
+      events.push(runtime.CW_ACTIONS.lastEvent());
     }
     return events;
   });
 });
 
-Then("each Nightboard navigation operation reports its distinct action and outcome", function () {
-  assert.deepEqual(nightboardNavigationActions.map((event) => event.actionId), [
+Then("each Community Web navigation operation reports its distinct action and outcome", function () {
+  assert.deepEqual(communityWebAppNavigationActions.map((event) => event.actionId), [
     "nav.ascend",
     "thread.parent",
     "history.back",
     "history.previousLocation",
   ]);
-  assert.equal(new Set(nightboardNavigationActions.map((event) => event.actionId)).size, 4);
+  assert.equal(new Set(communityWebAppNavigationActions.map((event) => event.actionId)).size, 4);
 });
 
-When("I compare ambiguous cd with the Nightboard global jump chooser", async function () {
+When("I compare ambiguous cd with the Community Web global jump chooser", async function () {
   const page = requirePage();
   const prompt = page.locator("[data-cli]");
-  const origin = await page.evaluate(() => (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+  const origin = await page.evaluate(() => (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
   await prompt.fill("cd gen");
   await prompt.press("Enter");
-  const afterCd = await page.evaluate(() => (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+  const afterCd = await page.evaluate(() => (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
   await prompt.fill("zi general");
   await prompt.press("Enter");
   await page.waitForFunction(() => {
     const app = (window as unknown as {
-      NB_APP: { state: { candIndex: number; completion?: { kind?: string } } };
-    }).NB_APP;
+      CW_APP: { state: { candIndex: number; completion?: { kind?: string } } };
+    }).CW_APP;
     return app.state.completion?.kind === "jump" && app.state.candIndex === -1 &&
       !!document.querySelector('.cn-menu:not([hidden]) [role="option"]');
   });
-  nightboardJumpResult = await page.evaluate(({ originPath, cdPath }) => {
+  communityWebAppJumpResult = await page.evaluate(({ originPath, cdPath }) => {
     const state = (window as unknown as {
-      NB_APP: { state: { path: string; candIndex: number; completion: { candidates: Array<{
+      CW_APP: { state: { path: string; candIndex: number; completion: { candidates: Array<{
         group?: string; value?: string; kind?: string; matchReason?: string;
         objectId?: string; projectionId?: string; id?: string;
       }> } } };
-    }).NB_APP.state;
+    }).CW_APP.state;
     const candidates = state.completion.candidates;
     const groups = Array.from(new Set(candidates.map((candidate) => candidate.group).filter(Boolean)));
     const allowedGroups = ["CURRENT", "RECENT", "SAVED VIEWS", "GLOBAL"];
@@ -816,7 +816,7 @@ When("I compare ambiguous cd with the Nightboard global jump chooser", async fun
 });
 
 Then("cd stays put while jump candidates await explicit acceptance with reasons", function () {
-  assert.deepEqual(nightboardJumpResult, {
+  assert.deepEqual(communityWebAppJumpResult, {
     cdStayed: true,
     grouped: true,
     explained: true,
@@ -824,17 +824,17 @@ Then("cd stays put while jump candidates await explicit acceptance with reasons"
   });
 });
 
-When("I operate every focused Nightboard post action by keyboard", async function () {
+When("I operate every focused Community Web post action by keyboard", async function () {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
     const app = (window as unknown as {
-      NB_APP: { state: {
+      CW_APP: { state: {
         columnFocus: boolean; feedMark: string; votes: Record<string, number>;
         folded: Record<string, boolean>; reposts: Record<string, boolean>; reactPick: string | null;
       }; navigate(path: string): void; render(preserve?: boolean): void };
-    }).NB_APP;
+    }).CW_APP;
     app.navigate("/projects/community/channels/general");
     app.state.columnFocus = true;
     app.state.feedMark = "p1";
@@ -867,7 +867,7 @@ When("I operate every focused Nightboard post action by keyboard", async functio
   await page.keyboard.press("d");
   await page.keyboard.press("a");
   const reactionOpened = await page.evaluate(() =>
-    (window as unknown as { NB_APP: { state: { reactPick: string | null } } }).NB_APP.state.reactPick === "p1");
+    (window as unknown as { CW_APP: { state: { reactPick: string | null } } }).CW_APP.state.reactPick === "p1");
   await page.keyboard.press("f");
   await page.keyboard.press("Shift+r");
   await page.keyboard.press("s");
@@ -887,35 +887,35 @@ When("I operate every focused Nightboard post action by keyboard", async functio
       !!url.searchParams.get("projection") && !!url.searchParams.get("focus");
   });
   await page.keyboard.press("y");
-  await page.waitForFunction(() => /nightboard thread.*p1/i.test(
+  await page.waitForFunction(() => /community web thread.*p1/i.test(
     (window as unknown as { __postActionClipboard?: string }).__postActionClipboard ?? ""));
   const acted = await page.evaluate(() => {
     const browserWindow = window as unknown as {
       __postActionClipboard?: string;
-      NB_APP: { state: {
+      CW_APP: { state: {
         votes: Record<string, number>; folded: Record<string, boolean>; reposts: Record<string, boolean>;
       } };
     };
     return {
-      vote: browserWindow.NB_APP.state.votes.p1,
-      folded: browserWindow.NB_APP.state.folded.p1 === true,
-      reposted: browserWindow.NB_APP.state.reposts.p1 === true,
-      copied: /nightboard thread.*p1/i.test(browserWindow.__postActionClipboard ?? ""),
+      vote: browserWindow.CW_APP.state.votes.p1,
+      folded: browserWindow.CW_APP.state.folded.p1 === true,
+      reposted: browserWindow.CW_APP.state.reposts.p1 === true,
+      copied: /community web thread.*p1/i.test(browserWindow.__postActionClipboard ?? ""),
     };
   });
   await page.keyboard.press("r");
   const replied = await page.evaluate(() => {
     const app = (window as unknown as {
-      NB_APP: { composeContext(): { postId?: string } };
-    }).NB_APP;
+      CW_APP: { composeContext(): { postId?: string } };
+    }).CW_APP;
     return app.composeContext().postId === "p1" &&
       document.activeElement === document.querySelector("[data-cli]");
   });
-  nightboardPostActionResult = { controls, reactionOpened, shared, replied, ...acted };
+  communityWebAppPostActionResult = { controls, reactionOpened, shared, replied, ...acted };
 });
 
 Then("repost and share are visible and every post action has keyboard parity", function () {
-  assert.deepEqual(nightboardPostActionResult, {
+  assert.deepEqual(communityWebAppPostActionResult, {
     controls: {
       up: "u", down: "d", react: "a", fold: "f", foldName: "Collapse replies", reply: "r",
       repost: "Shift+R", share: "s", copy: "y",
@@ -930,7 +930,7 @@ Then("repost and share are visible and every post action has keyboard parity", f
   });
 });
 
-When("I browse Nightboard message directories with cd completion", async function () {
+When("I browse Community Web message directories with cd completion", async function () {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
@@ -939,7 +939,7 @@ When("I browse Nightboard message directories with cd completion", async functio
   await prompt.press("Enter");
   await page.locator(".cn-comment").first().waitFor({ state: "visible" });
   const origin = await page.evaluate(() =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
 
   await prompt.fill("cd p3");
   const p3 = page.locator('.cn-menu [role="option"]', { hasText: "p3" }).first();
@@ -948,35 +948,35 @@ When("I browse Nightboard message directories with cd completion", async functio
 
   await prompt.fill("cd p");
   const selected = await page.evaluate(() =>
-    (window as unknown as { NB_APP: { state: { completion: { candidates: Array<{ value: string }> } } } })
-      .NB_APP.state.completion.candidates[0]?.value || "");
+    (window as unknown as { CW_APP: { state: { completion: { candidates: Array<{ value: string }> } } } })
+      .CW_APP.state.completion.candidates[0]?.value || "");
   await prompt.press("ArrowRight");
   await page.waitForFunction((path) =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path !== path, origin);
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path !== path, origin);
   const drilled = await prompt.inputValue();
   await prompt.press("ArrowLeft");
   await page.waitForFunction((path) =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === path, origin);
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path === path, origin);
   const horizontal = drilled.endsWith(selected) && await prompt.inputValue() === "cd p";
 
   await prompt.press("ArrowDown");
   await page.waitForFunction((path) =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path !== path, origin);
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path !== path, origin);
   const previewed = await page.locator("[data-cd-preview]").isVisible();
   await prompt.press("Escape");
   await page.waitForFunction((path) =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === path, origin);
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path === path, origin);
   const cancelled = await prompt.inputValue() === "cd p";
 
   await prompt.fill("");
   await prompt.fill("cd p");
   await prompt.press("ArrowDown");
   const acceptedPath = await page.evaluate(() =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path);
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
   await prompt.press("Enter");
   await page.waitForFunction((path) =>
-    (window as unknown as { NB_APP: { state: { path: string } } }).NB_APP.state.path === path, acceptedPath);
-  nightboardCdResult = {
+    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path === path, acceptedPath);
+  communityWebAppCdResult = {
     labelled,
     horizontal,
     previewed,
@@ -986,7 +986,7 @@ When("I browse Nightboard message directories with cd completion", async functio
 });
 
 Then("message choices explain their content and cd typeahead can drill cancel or commit", function () {
-  assert.deepEqual(nightboardCdResult, {
+  assert.deepEqual(communityWebAppCdResult, {
     labelled: true,
     horizontal: true,
     previewed: true,
@@ -1006,7 +1006,7 @@ When("I open the general channel context menu and move down and up by keyboard",
   await item.waitFor({ state: "visible" });
   await item.focus();
   const before = await page.evaluate(() => {
-    const state = (window as unknown as { NB_APP: { state: { cursor: number; focus: number } } }).NB_APP.state;
+    const state = (window as unknown as { CW_APP: { state: { cursor: number; focus: number } } }).CW_APP.state;
     return { cursor: state.cursor, focus: state.focus };
   });
   await item.click({ button: "right" });
@@ -1018,12 +1018,12 @@ When("I open the general channel context menu and move down and up by keyboard",
   await page.waitForFunction(() => document.activeElement?.hasAttribute("data-ctx-prompt") === true);
   const upStayedInMenu = await page.evaluate(() => document.activeElement?.getAttribute("role") === "menuitem");
   const after = await page.evaluate(() => {
-    const state = (window as unknown as { NB_APP: { state: { cursor: number; focus: number } } }).NB_APP.state;
+    const state = (window as unknown as { CW_APP: { state: { cursor: number; focus: number } } }).CW_APP.state;
     return { cursor: state.cursor, focus: state.focus };
   });
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("[data-ctx-menu]"));
-  nightboardContextMenuResult = {
+  communityWebAppContextMenuResult = {
     navStable: before.cursor === after.cursor && before.focus === after.focus,
     downStayedInMenu,
     upStayedInMenu,
@@ -1031,8 +1031,8 @@ When("I open the general channel context menu and move down and up by keyboard",
   };
 });
 
-Then("the Nightboard context menu retains focus without moving the nav selection", function () {
-  assert.deepEqual(nightboardContextMenuResult, {
+Then("the Community Web context menu retains focus without moving the nav selection", function () {
+  assert.deepEqual(communityWebAppContextMenuResult, {
     navStable: true,
     downStayedInMenu: true,
     upStayedInMenu: true,
@@ -1040,7 +1040,7 @@ Then("the Nightboard context menu retains focus without moving the nav selection
   });
 });
 
-When("I define the Nightboard review macro with voice phrase {string}", async function (phrase: string) {
+When("I define the Community Web review macro with voice phrase {string}", async function (phrase: string) {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
@@ -1055,12 +1055,12 @@ Then("the review macro persists as the {string} agent skill", async function (to
   const page = requirePage();
   const before = await page.evaluate((name) => {
     const root = window as unknown as {
-      NB_POWER: { list: () => Array<{ name: string; voice: string }> };
-      NB_MCP: { list: () => Array<{ name: string }> };
+      CW_POWER: { list: () => Array<{ name: string; voice: string }> };
+      CW_MCP: { list: () => Array<{ name: string }> };
     };
     return {
-      action: root.NB_POWER.list().find((item) => item.name === "review"),
-      tool: root.NB_MCP.list().some((tool) => tool.name === name),
+      action: root.CW_POWER.list().find((item) => item.name === "review"),
+      tool: root.CW_MCP.list().some((tool) => tool.name === name),
     };
   }, toolName);
   assert.equal(before.action?.voice, "start review");
@@ -1068,12 +1068,12 @@ Then("the review macro persists as the {string} agent skill", async function (to
   await page.reload({ waitUntil: "domcontentloaded" });
   const after = await page.evaluate((name) => {
     const root = window as unknown as {
-      NB_POWER: { list: () => Array<{ name: string; voice: string }> };
-      NB_MCP: { list: () => Array<{ name: string }> };
+      CW_POWER: { list: () => Array<{ name: string; voice: string }> };
+      CW_MCP: { list: () => Array<{ name: string }> };
     };
     return {
-      action: root.NB_POWER.list().find((item) => item.name === "review"),
-      tool: root.NB_MCP.list().some((tool) => tool.name === name),
+      action: root.CW_POWER.list().find((item) => item.name === "review"),
+      tool: root.CW_MCP.list().some((tool) => tool.name === name),
     };
   }, toolName);
   assert.equal(after.action?.voice, "start review");
@@ -1083,9 +1083,9 @@ Then("the review macro persists as the {string} agent skill", async function (to
 Then("the exact voice phrase runs the same review macro", async function () {
   const parsed = await requirePage().evaluate(() => {
     const root = window as unknown as {
-      NB_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
+      CW_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
     };
-    return root.NB_SPEECH.parseUtterance("start review", "commands");
+    return root.CW_SPEECH.parseUtterance("start review", "commands");
   });
   assert.deepEqual({ kind: parsed.kind, line: parsed.line }, { kind: "command", line: "macro run review" });
 });
@@ -1093,9 +1093,9 @@ Then("the exact voice phrase runs the same review macro", async function () {
 Then("a near voice phrase does not run it", async function () {
   const parsed = await requirePage().evaluate(() => {
     const root = window as unknown as {
-      NB_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
+      CW_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
     };
-    return root.NB_SPEECH.parseUtterance("start reviewing", "commands");
+    return root.CW_SPEECH.parseUtterance("start reviewing", "commands");
   });
   assert.equal(parsed.kind, "unknown");
   assert.equal(parsed.line, undefined);
@@ -1724,8 +1724,8 @@ Then("the origin message and the resulting change are marked as one contribution
 
 // ── Deterministic search and projection workbench journeys ──────────────────
 
-Given("Nightboard has authorized Entities from current and stale registered sources", async function () {
-  const current = createNightboardSource({ posts: [{
+Given("Community Web has authorized Entities from current and stale registered sources", async function () {
+  const current = createCommunityWebSource({ posts: [{
     id: "current-change",
     kind: "change",
     title: "Current review",
@@ -1766,7 +1766,7 @@ When("I run the deterministic search {string}", async function (expression: stri
 Then("results identify their canonical targets and source provenance", function () {
   const page = journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("page");
   assert.deepEqual(page.hits.map((hit) => hit.target.objectId), ["stale-issue", "current-change"]);
-  assert.deepEqual([...new Set(page.hits.map((hit) => hit.provenance.sourceId))].sort(), ["community-store", "nightboard-host"]);
+  assert.deepEqual([...new Set(page.hits.map((hit) => hit.provenance.sourceId))].sort(), ["community-store", "community-web-host"]);
 });
 
 Then("source completeness names the stale source without invoking AI", function () {
@@ -1776,7 +1776,7 @@ Then("source completeness names the stale source without invoking AI", function 
   assert.equal(deterministicJourney.aiCalls, 0);
 });
 
-Given("I open the Nightboard query workbench by keyboard", function () {
+Given("I open the Community Web query workbench by keyboard", function () {
   const action = BUILT_IN_ACTIONS.find((candidate) => candidate.actionId === "search.open");
   assert.deepEqual(action?.keyBindings, [{ key: "Ctrl+F", contexts: ["global"] }]);
   deterministicJourney.workbenchOpen = true;
@@ -2131,7 +2131,7 @@ When("a source change adds an earlier-sorting Entity", function () {
   deterministicJourney.queuedResult = tracked.ingest({ projectionId: original.projectionId, projectionVersion: original.projectionVersion, sequence: 1, upserts: [added], deletes: [], observedAt: FIXED_NOW });
 });
 
-Then("Nightboard announces the queued count without moving focus or reading anchor", function () {
+Then("Community Web announces the queued count without moving focus or reading anchor", function () {
   const result = journey<{ readonly queuedCount: number; readonly anchor: unknown; readonly entries: readonly VfsEntry[] }>("queuedResult");
   assert.equal(result.queuedCount, 1);
   assert.deepEqual(result.anchor, deterministicJourney.anchor);
@@ -2217,7 +2217,7 @@ When("I open a metadata-only Community replica and search", async function () {
   deterministicJourney.fallbackBackend = environment.backend.backendId;
 });
 
-Then("Nightboard reports the unavailable persistence capability", function () {
+Then("Community Web reports the unavailable persistence capability", function () {
   assert.deepEqual(deterministicJourney.storage, { mode: "memory", persistent: false, reason: "OPFS is unavailable" });
   assert.equal(deterministicJourney.fts5, false);
 });
@@ -2227,7 +2227,7 @@ Then("the Orama or reference backend remains functional without losing canonical
   assert.deepEqual(journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("fallbackPage").hits.map((hit) => hit.target.objectId), ["metadata-project"]);
 });
 
-Given("two Nightboard tabs open the same browser search replica", function () {
+Given("two Community Web tabs open the same browser search replica", function () {
   const held = new Set<string>();
   const lockManager = {
     async acquire(name: string) {
@@ -2450,7 +2450,7 @@ Then("invalid cycles fail without saving or mounting the definition", function (
   assert.deepEqual(deterministicJourney.cliMounted, []);
 });
 
-When("I run the Nightboard deterministic search {string}", async function (expression: string) {
+When("I run the Community Web deterministic search {string}", async function (expression: string) {
   const page = requirePage();
   await page.keyboard.press("Control+f");
   const query = page.locator("[data-search-expression]");
@@ -2458,19 +2458,19 @@ When("I run the Nightboard deterministic search {string}", async function (expre
   await query.press("Control+Enter");
   await page.locator("[data-search-completeness]").waitFor({ state: "visible" });
   searchProjectionJourneyResult = await page.evaluate(() => ({
-    workbench: (window as unknown as { NB_APP: { state: { searchWorkbench: unknown } } }).NB_APP.state.searchWorkbench,
-    aiCalls: (window as unknown as { NB_HOBO?: { calls?: number } }).NB_HOBO?.calls ?? 0,
+    workbench: (window as unknown as { CW_APP: { state: { searchWorkbench: unknown } } }).CW_APP.state.searchWorkbench,
+    aiCalls: (window as unknown as { CW_HOBO?: { calls?: number } }).CW_HOBO?.calls ?? 0,
   }));
 });
 
-Then("the Nightboard search reports authorized results and source completeness without AI", async function () {
+Then("the Community Web search reports authorized results and source completeness without AI", async function () {
   const page = requirePage();
-  await page.locator('[data-search-source="nightboard-host"]').waitFor({ state: "visible" });
+  await page.locator('[data-search-source="community-web-host"]').waitFor({ state: "visible" });
   assert.match(await page.locator("[data-search-completeness]").innerText(), /complete.*authorized result/iu);
   assert.equal(searchProjectionJourneyResult.aiCalls, 0);
 });
 
-When("I enter the invalid Nightboard query {string}", async function (expression: string) {
+When("I enter the invalid Community Web query {string}", async function (expression: string) {
   const page = requirePage();
   await page.keyboard.press("Control+f");
   const query = page.locator("[data-search-expression]");
@@ -2479,23 +2479,23 @@ When("I enter the invalid Nightboard query {string}", async function (expression
   await page.locator("[data-search-diagnostic]").waitFor({ state: "visible" });
 });
 
-Then("the Nightboard query error identifies its location and suggests {string}", async function (suggestion: string) {
+Then("the Community Web query error identifies its location and suggests {string}", async function (suggestion: string) {
   const diagnostic = requirePage().locator("[data-search-diagnostic]");
   assert.ok(Number(await diagnostic.getAttribute("data-line")) >= 1);
   assert.ok(Number(await diagnostic.getAttribute("data-column")) >= 1);
   assert.match(await diagnostic.innerText(), new RegExp(suggestion, "iu"));
 });
 
-When("I explain the Nightboard search {string}", async function (expression: string) {
+When("I explain the Community Web search {string}", async function (expression: string) {
   const page = requirePage();
   searchProjectionJourneyResult = await page.evaluate(async (query) => {
     const runtime = window as unknown as {
-      NB_APP: { state: Record<string, unknown>; viewerContext(): unknown };
-      NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; explainSearch(state: unknown): Promise<Record<string, unknown>> };
+      CW_APP: { state: Record<string, unknown>; viewerContext(): unknown };
+      CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; explainSearch(state: unknown): Promise<Record<string, unknown>> };
     };
-    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, query);
-    await runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: query, context: runtime.NB_APP.viewerContext() });
-    return runtime.NB_WORKBENCH.explainSearch(runtime.NB_APP.state);
+    runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, query);
+    await runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: query, context: runtime.CW_APP.viewerContext() });
+    return runtime.CW_WORKBENCH.explainSearch(runtime.CW_APP.state);
   }, expression);
 });
 
@@ -2507,15 +2507,15 @@ Then("the explanation names normalization authorization backend and ordering", f
   assert.ok(Array.isArray(explanation.ordering));
 });
 
-When("I save the Nightboard search {string} as a projection", async function (expression: string) {
+When("I save the Community Web search {string} as a projection", async function (expression: string) {
   searchProjectionJourneyResult = await requirePage().evaluate(async (query) => {
     const runtime = window as unknown as {
-      NB_APP: { state: Record<string, unknown> };
-      NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; saveSearchProjection(state: unknown, label: string): Record<string, unknown> };
+      CW_APP: { state: Record<string, unknown> };
+      CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; saveSearchProjection(state: unknown, label: string): Record<string, unknown> };
     };
-    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, query);
-    await runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: query });
-    return runtime.NB_WORKBENCH.saveSearchProjection(runtime.NB_APP.state, "Needs review");
+    runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, query);
+    await runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: query });
+    return runtime.CW_WORKBENCH.saveSearchProjection(runtime.CW_APP.state, "Needs review");
   }, expression);
 });
 
@@ -2525,16 +2525,16 @@ Then("the saved projection keeps the canonical query and stable projection ident
   assert.deepEqual(root.children[0].where, { kind: "compare", field: "state", operator: "eq", value: "needs-review" });
 });
 
-When("I clone the Nightboard built-in projection", async function () {
+When("I clone the Community Web built-in projection", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
     const runtime = window as unknown as {
-      NB_APP: { state: Record<string, unknown> };
-      NB_CORE: { builtinDefaultProjection: Record<string, unknown> };
-      NB_WORKBENCH: { openProjection(state: unknown, value: unknown): void; compileProjection(state: unknown): Record<string, unknown> };
+      CW_APP: { state: Record<string, unknown> };
+      CW_CORE: { builtinDefaultProjection: Record<string, unknown> };
+      CW_WORKBENCH: { openProjection(state: unknown, value: unknown): void; compileProjection(state: unknown): Record<string, unknown> };
     };
-    const clone = { ...runtime.NB_CORE.builtinDefaultProjection, projectionId: "user:default-copy", version: 1, label: "My namespace" };
-    runtime.NB_WORKBENCH.openProjection(runtime.NB_APP.state, clone);
-    return runtime.NB_WORKBENCH.compileProjection(runtime.NB_APP.state);
+    const clone = { ...runtime.CW_CORE.builtinDefaultProjection, projectionId: "user:default-copy", version: 1, label: "My namespace" };
+    runtime.CW_WORKBENCH.openProjection(runtime.CW_APP.state, clone);
+    return runtime.CW_WORKBENCH.compileProjection(runtime.CW_APP.state);
   });
 });
 
@@ -2543,10 +2543,10 @@ Then("the cloned definition validates through the canonical projection compiler"
   assert.ok(searchProjectionJourneyResult.compiled);
 });
 
-When("I mount the Nightboard built-in projection at root in replace mode", async function () {
+When("I mount the Community Web built-in projection at root in replace mode", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_WORKBENCH: { mount(value: Record<string, unknown>): Record<string, unknown> } };
-    return runtime.NB_WORKBENCH.mount({ mountId: "mount-user-root", scope: "user", mountPath: "/", projectionId: "builtin:default", mode: "replace", order: 10, writable: false });
+    const runtime = window as unknown as { CW_WORKBENCH: { mount(value: Record<string, unknown>): Record<string, unknown> } };
+    return runtime.CW_WORKBENCH.mount({ mountId: "mount-user-root", scope: "user", mountPath: "/", projectionId: "builtin:default", mode: "replace", order: 10, writable: false });
   });
 });
 
@@ -2556,10 +2556,10 @@ Then("the user namespace records the deterministic root replacement", function (
   assert.equal(searchProjectionJourneyResult.mode, "replace");
 });
 
-When("I navigate to the immutable Nightboard recovery namespace", async function () {
+When("I navigate to the immutable Community Web recovery namespace", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_MAP: { list(path: string): readonly { name: string }[] } };
-    return { names: runtime.NB_MAP.list("/.epoch").map((entry) => entry.name) };
+    const runtime = window as unknown as { CW_MAP: { list(path: string): readonly { name: string }[] } };
+    return { names: runtime.CW_MAP.list("/.epoch").map((entry) => entry.name) };
   });
 });
 
@@ -2567,12 +2567,12 @@ Then("all protected recovery branches remain reachable", function () {
   assert.deepEqual(searchProjectionJourneyResult.names, ["default", "canonical", "projections", "sources", "diagnostics"]);
 });
 
-When("I compose Nightboard projection mounts before and after the built-in root", async function () {
+When("I compose Community Web projection mounts before and after the built-in root", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_WORKBENCH: { mount(value: Record<string, unknown>): unknown; mounts(): readonly Record<string, unknown>[] } };
-    runtime.NB_WORKBENCH.mount({ mountId: "mount-before", scope: "user", mountPath: "/", projectionId: "user:first", mode: "before", order: 1, writable: false });
-    runtime.NB_WORKBENCH.mount({ mountId: "mount-after", scope: "user", mountPath: "/", projectionId: "user:last", mode: "after", order: 2, writable: false });
-    return { mounts: runtime.NB_WORKBENCH.mounts().filter((entry) => String(entry.mountId).startsWith("mount-")) };
+    const runtime = window as unknown as { CW_WORKBENCH: { mount(value: Record<string, unknown>): unknown; mounts(): readonly Record<string, unknown>[] } };
+    runtime.CW_WORKBENCH.mount({ mountId: "mount-before", scope: "user", mountPath: "/", projectionId: "user:first", mode: "before", order: 1, writable: false });
+    runtime.CW_WORKBENCH.mount({ mountId: "mount-after", scope: "user", mountPath: "/", projectionId: "user:last", mode: "after", order: 2, writable: false });
+    return { mounts: runtime.CW_WORKBENCH.mounts().filter((entry) => String(entry.mountId).startsWith("mount-")) };
   });
 });
 
@@ -2581,11 +2581,11 @@ Then("the mounts retain explicit mode order and scope", function () {
   assert.deepEqual(mounts.map((entry) => [entry.mode, entry.order, entry.scope]), [["after", 2, "user"], ["before", 1, "user"]]);
 });
 
-When("I locate one Nightboard object through two contextual paths", async function () {
+When("I locate one Community Web object through two contextual paths", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_DATA: { posts: readonly Record<string, unknown>[] }; NB_MAP: { objectRef(value: unknown): { objectId: string }; pathForObject(id: string, projection?: string): string } };
-    const ref = runtime.NB_MAP.objectRef(runtime.NB_DATA.posts[0]);
-    return { objectId: ref.objectId, paths: [runtime.NB_MAP.pathForObject(ref.objectId), runtime.NB_MAP.pathForObject(ref.objectId, "projection-context")] };
+    const runtime = window as unknown as { CW_DATA: { posts: readonly Record<string, unknown>[] }; CW_MAP: { objectRef(value: unknown): { objectId: string }; pathForObject(id: string, projection?: string): string } };
+    const ref = runtime.CW_MAP.objectRef(runtime.CW_DATA.posts[0]);
+    return { objectId: ref.objectId, paths: [runtime.CW_MAP.pathForObject(ref.objectId), runtime.CW_MAP.pathForObject(ref.objectId, "projection-context")] };
   });
 });
 
@@ -2595,12 +2595,12 @@ Then("both paths preserve one canonical object identity", function () {
   assert.ok(paths.every((path) => path.includes(String(searchProjectionJourneyResult.objectId))));
 });
 
-When("I create two Nightboard occurrences for one canonical object", async function () {
+When("I create two Community Web occurrences for one canonical object", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_DATA: { posts: readonly Record<string, unknown>[] }; NB_MAP: { objectRef(value: unknown): unknown }; NB_CORE: { createProjectionOccurrenceId(input: Record<string, unknown>): string } };
-    const target = runtime.NB_MAP.objectRef(runtime.NB_DATA.posts[0]);
+    const runtime = window as unknown as { CW_DATA: { posts: readonly Record<string, unknown>[] }; CW_MAP: { objectRef(value: unknown): unknown }; CW_CORE: { createProjectionOccurrenceId(input: Record<string, unknown>): string } };
+    const target = runtime.CW_MAP.objectRef(runtime.CW_DATA.posts[0]);
     const base = { projectionId: "user:twice", projectionVersion: 1, parentEntryId: "entry-root", target, resolvedSegment: "message" };
-    return { first: runtime.NB_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-a", branchId: "a" }), second: runtime.NB_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-b", branchId: "b" }) };
+    return { first: runtime.CW_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-a", branchId: "a" }), second: runtime.CW_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-b", branchId: "b" }) };
   });
 });
 
@@ -2609,9 +2609,9 @@ Then("the occurrences have distinct stable entry identities", function () {
   assert.notEqual(searchProjectionJourneyResult.first, searchProjectionJourneyResult.second);
 });
 
-When("a Nightboard projection update is queued while I am reading", async function () {
+When("a Community Web projection update is queued while I am reading", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const state = (window as unknown as { NB_APP: { state: Record<string, unknown> } }).NB_APP.state;
+    const state = (window as unknown as { CW_APP: { state: Record<string, unknown> } }).CW_APP.state;
     const before = { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor };
     state.pending = [{ id: "queued-projection-change" }];
     return { before, after: { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor }, pending: (state.pending as unknown[]).length };
@@ -2623,11 +2623,11 @@ Then("my selected object and reading anchor remain unchanged until apply", funct
   assert.equal(searchProjectionJourneyResult.pending, 1);
 });
 
-When("I compare Nightboard search with an unauthorized private object present", async function () {
+When("I compare Community Web search with an unauthorized private object present", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_QUERY: { searchBoard(query: string, context: Record<string, unknown>): { hits: readonly { post?: { private?: boolean } }[]; matched: number } } };
-    const first = runtime.NB_QUERY.searchBoard("state:needs-review", { includePrivate: false });
-    const second = runtime.NB_QUERY.searchBoard("state:needs-review", { includePrivate: false, extra: { privateObjects: [{ id: "secret", private: true }] } });
+    const runtime = window as unknown as { CW_QUERY: { searchBoard(query: string, context: Record<string, unknown>): { hits: readonly { post?: { private?: boolean } }[]; matched: number } } };
+    const first = runtime.CW_QUERY.searchBoard("state:needs-review", { includePrivate: false });
+    const second = runtime.CW_QUERY.searchBoard("state:needs-review", { includePrivate: false, extra: { privateObjects: [{ id: "secret", private: true }] } });
     return { first: { matched: first.matched, privateHits: first.hits.filter((hit) => hit.post?.private).length }, second: { matched: second.matched, privateHits: second.hits.filter((hit) => hit.post?.private).length } };
   });
 });
@@ -2637,11 +2637,11 @@ Then("hits completeness collisions and explanation remain observationally identi
   assert.equal((searchProjectionJourneyResult.first as { privateHits: number }).privateHits, 0);
 });
 
-When("the Nightboard search host reports a stale source", async function () {
+When("the Community Web search host reports a stale source", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(async () => {
-    const runtime = window as unknown as { NB_APP: { state: Record<string, unknown> }; NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
-    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, "state:needs-review");
-    return runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: "state:needs-review", sourceCheckpoints: [{ sourceId: "atproto", token: "old", observedAt: "2026-08-01T00:00:00Z", status: "stale" }] });
+    const runtime = window as unknown as { CW_APP: { state: Record<string, unknown> }; CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
+    runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, "state:needs-review");
+    return runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: "state:needs-review", sourceCheckpoints: [{ sourceId: "atproto", token: "old", observedAt: "2026-08-01T00:00:00Z", status: "stale" }] });
   });
 });
 
@@ -2649,11 +2649,11 @@ Then("the search completeness visibly reports stale", function () {
   assert.equal((searchProjectionJourneyResult.result as { completeness: { status: string } }).completeness.status, "stale");
 });
 
-When("persistent SQLite is unavailable to Nightboard", async function () {
+When("persistent SQLite is unavailable to Community Web", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(async () => {
-    const runtime = window as unknown as { NB_APP: { state: Record<string, unknown> }; NB_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
-    runtime.NB_WORKBENCH.openSearch(runtime.NB_APP.state, "state:open");
-    const result = await runtime.NB_WORKBENCH.runSearch(runtime.NB_APP.state, { expression: "state:open", backendUnavailable: "sqlite-wasm" });
+    const runtime = window as unknown as { CW_APP: { state: Record<string, unknown> }; CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
+    runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, "state:open");
+    const result = await runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: "state:open", backendUnavailable: "sqlite-wasm" });
     return { result, backend: "epoch-reference" };
   });
 });
@@ -2663,10 +2663,10 @@ Then("deterministic reference search remains available", function () {
   assert.ok((searchProjectionJourneyResult.result as Record<string, unknown>).result);
 });
 
-When("I compare equivalent Nightboard GraphQL and text search expressions", async function () {
+When("I compare equivalent Community Web GraphQL and text search expressions", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { NB_CORE: { normalizeQuery(value: string): { ast: unknown; canonicalJson: string } }; CommunityGraphQL: { searchExpressionFromInput(value: unknown): unknown; COMMUNITY_GRAPHQL_SDL: string } };
-    const text = runtime.NB_CORE.normalizeQuery("state:needs-review");
+    const runtime = window as unknown as { CW_CORE: { normalizeQuery(value: string): { ast: unknown; canonicalJson: string } }; CommunityGraphQL: { searchExpressionFromInput(value: unknown): unknown; COMMUNITY_GRAPHQL_SDL: string } };
+    const text = runtime.CW_CORE.normalizeQuery("state:needs-review");
     const structured = runtime.CommunityGraphQL.searchExpressionFromInput({ compare: { field: "state", operator: "eq", value: { string: "needs-review" } } });
     return { textAst: text.ast, structured, oneOf: runtime.CommunityGraphQL.COMMUNITY_GRAPHQL_SDL.includes("@oneOf") };
   });

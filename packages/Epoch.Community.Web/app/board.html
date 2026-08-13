@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Epoch</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* Page chrome outside the board mount (masthead, status, dialogs). */
+</style>
+</head>
+<body data-theme="Grid">
+
+<a class="cw-skip" href="#cw-main">Skip to board</a>
+
+<div class="cw-bar" role="banner">
+  <!-- Tron grid-road: idle shimmer; click empty chrome to drive. -->
+  <canvas class="cw-gridroad" data-gridroad width="800" height="48"></canvas>
+  <!-- Epoch FIGlet wordmark: power-on ignite + energy wave (letterforms fixed). -->
+  <button type="button" class="cw-brand" data-brand data-phase="boot" data-boot="true"
+    data-goto-landing
+    title="Epoch — marketing home"
+    aria-label="Epoch — go to marketing home">
+    <div class="cw-brand-scan" aria-hidden="true"></div>
+    <pre class="cw-brand-art" data-brand-art></pre>
+  </button>
+  <span class="cw-bar-spacer" aria-hidden="true"></span>
+  <button type="button" class="cw-activity-bell" data-activity-bell data-unread="false"
+    data-browser-perm="unsupported"
+    title="Activity — mentions and subscriptions" aria-label="Activity notifications">
+    Activity<span class="cw-activity-badge" data-activity-badge hidden>0</span>
+  </button>
+  <button type="button" class="cw-activity-perm" data-activity-perm hidden
+    title="Enable browser notifications for mentions and subscriptions"
+    aria-label="Enable browser notifications">
+    Enable alerts
+  </button>
+  <span class="cw-identity" data-identity-host aria-live="polite"></span>
+</div>
+
+<!-- Slack-style profile menu (painted by app; host lives outside morph mount). -->
+<div class="cw-profile-menu" data-profile-menu data-open="false" hidden role="menu" aria-label="Profile and spaces"></div>
+
+<div data-cw-fx-host><main id="cw-main" class="cw-mount" data-mount data-exp="graph" aria-label="Board" tabindex="-1"></main></div>
+<footer data-region="status" role="contentinfo">
+  <span data-status-line></span>
+  <span class="cw-status-trail">
+    <button type="button" class="cw-restart-cue" data-restart-cue hidden
+      title="Apply compatible startup actions and restart (Ctrl+U)"
+      aria-label="Apply compatible startup actions and restart (Control+U)">
+      <kbd>Ctrl+U</kbd> restart
+    </button>
+    <button type="button" class="cw-model-fetch" data-model-fetch hidden
+      title="Download on-device AI model"
+      aria-label="Download on-device AI model">fetch AI</button>
+    <button type="button" class="cw-keys-cue" data-keys-open data-open="false"
+      aria-pressed="false"
+      title="Context hotkeys for this workspace (Ctrl+Space)"
+      aria-label="Show context hotkeys (Control+Space)">
+      <kbd>Ctrl+Space</kbd> keys
+    </button>
+  </span>
+</footer>
+
+<!-- Sign in to a space + claim / portable handle (host only; app paints). -->
+<div class="cw-auth" data-auth-dialog data-open="false" role="dialog" aria-modal="true" aria-labelledby="cw-auth-title" hidden>
+  <div class="cw-auth-card">
+    <h2 id="cw-auth-title" data-auth-title>Sign in to a space</h2>
+    <p data-auth-lead>Pick a space and a handle. Anonymous guests can browse guest-friendly spaces; signing in claims your identity in that space.</p>
+    <p class="cw-auth-err" data-auth-err hidden></p>
+    <label for="cw-auth-space">Space</label>
+    <select id="cw-auth-space" data-auth-space aria-label="Space"></select>
+    <label for="cw-auth-handle">Handle</label>
+    <input id="cw-auth-handle" data-auth-handle type="text" autocomplete="username" spellcheck="false"
+      placeholder="maya" aria-describedby="cw-auth-meta">
+    <div class="cw-auth-row">
+      <button type="button" class="cw-auth-esc" data-auth-cancel data-esc-dismiss title="Esc — cancel">esc</button>
+      <button type="button" data-auth-claim>Sign in to space</button>
+      <button type="button" class="primary" data-auth-atproto>Sign in with handle</button>
+    </div>
+    <p class="cw-auth-meta" id="cw-auth-meta" data-auth-meta>
+      Spaces are shared boards you can join. Enter a handle to sign in.
+    </p>
+  </div>
+</div>
+
+<script src="graphql-engine.js"></script>
+<script src="morph.js"></script>
+<script src="syntax.js"></script>
+<script src="ascii.js"></script>
+<script src="editor.js"></script>
+<script src="community-core-runtime.js"></script>
+<script src="data.js"></script>
+<script src="query.js"></script>
+<script src="sitemap.js"></script>
+<script src="workbench.js"></script>
+<script src="session.js"></script>
+<script src="navigation.js"></script>
+<script src="action-registry.js"></script>
+<script src="actions.js"></script>
+<script src="speech.js"></script>
+<script src="voice.js"></script>
+<script src="icons.js"></script>
+<script src="attach.js"></script>
+<script src="notify.js"></script>
+<script src="hooks.js"></script>
+<script src="complete.js"></script>
+<script src="resilient.js"></script>
+<script src="agent.js"></script>
+<script src="graph.js"></script>
+<script src="webmcp.js"></script>
+<script src="power.js"></script>
+<script src="asciify.js"></script>
+<script src="fx.js"></script>
+<script src="gridroad.js"></script>
+<script src="tools.js"></script>
+<script src="console.js"></script>
+<script src="context-menu.js"></script>
+<script src="copy-format.js"></script>
+<script src="themes.js"></script>
+<script src="app.js"></script>
+<script src="openui-parser.js"></script>
+<script src="openui-library.js"></script>
+</body>
+</html>

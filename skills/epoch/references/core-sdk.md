@@ -94,7 +94,7 @@ canonical store with search, projection, namespace, and GraphQL routes.
 SDK callers send structured Search Expressions
 rather than generating query text. Browser Orama and SQLite WASM/FTS5 indexes
 are rebuildable accelerators and must conform to the Core reference evaluator.
-The shipped browser app is Nightboard (`/` creator
+The shipped browser app is Community Web (`/` creator
 landing and `/board.html` tmux-style board), served locally with
 `npm run dev:community-web`; the historical document renderer is not an app
 entrypoint. `@epoch/community-web` still exposes

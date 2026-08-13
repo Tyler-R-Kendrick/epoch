@@ -29,6 +29,7 @@
     "packages/Epoch.Community.API",
     "packages/Epoch.Community.GraphQL",
     "packages/Epoch.Community.Web",
+    "packages/Epoch.Community.Runtime",
     "packages/Epoch.Community.Operations.Web",
     "packages/Epoch.Community.CLI",
     "packages/Epoch.Git.Proxy",
@@ -116,6 +117,10 @@
       "types": "./packages/Epoch.DesignTokens/src/index.ts",
       "default": "./packages/Epoch.DesignTokens/dist/index.js"
     },
+    "./Epoch.Community.Runtime": {
+      "types": "./packages/Epoch.Community.Runtime/src/index.ts",
+      "default": "./packages/Epoch.Community.Runtime/dist/index.js"
+    },
     "./Epoch.Community.Core": {
       "types": "./packages/Epoch.Community.Core/src/index.ts",
       "default": "./packages/Epoch.Community.Core/dist/index.js"
@@ -166,8 +171,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "build": "npm run build -w @epoch/protocol && npm run build -w @epoch/core && npm run build -w @epoch/semantic && npm run build -w @epoch/extensions && npm run build -w @epoch/git-proxy && npm run build -w @epoch/forge && npm run build -w @epoch/software-heritage && npm run build -w @epoch/atproto && npm run build -w @epoch/identity-bridge && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/live && npm run build -w @epoch/live-react && npm run build -w @epoch/live-redux && npm run build -w @epoch/live-yjs && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/design-tokens && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-graphql && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && npm run build -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json",
-    "typecheck": "npm run typecheck -w @epoch/protocol && npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/semantic && npm run typecheck -w @epoch/extensions && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/forge && npm run typecheck -w @epoch/software-heritage && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/design-tokens && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-graphql && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
+    "build": "npm run build -w @epoch/protocol && npm run build -w @epoch/core && npm run build -w @epoch/semantic && npm run build -w @epoch/extensions && npm run build -w @epoch/git-proxy && npm run build -w @epoch/forge && npm run build -w @epoch/software-heritage && npm run build -w @epoch/atproto && npm run build -w @epoch/identity-bridge && npm run build -w @epoch/cli && npm run build -w @epoch/wasm && npm run build -w @epoch/wasm-react && npm run build -w @epoch/integration-core && npm run build -w @epoch/live && npm run build -w @epoch/live-react && npm run build -w @epoch/live-redux && npm run build -w @epoch/live-yjs && npm run build -w @epoch/react && npm run build -w @epoch/gen-ui && npm run build -w @epoch/redux && npm run build -w @epoch/xstate && npm run build -w @epoch/platform-core && npm run build -w @epoch/platform-sdk && npm run build -w @epoch/platform-web && npm run build -w @epoch/design-tokens && npm run build -w @epoch/community-runtime && npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && npm run build -w @epoch/community-graphql && npm run build -w @epoch/community-web && npm run build -w @epoch/community-operations-web && npm run build -w @epoch/community-cli && npm run build -w @epoch/sample-hello-world-cli && npm run build -w @epoch/sample-self-evolving-canvas && npm run build -w @epoch/sample-self-evolving-dashboard && npm run build -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json",
+    "typecheck": "npm run typecheck -w @epoch/protocol && npm run typecheck -w @epoch/core && npm run typecheck -w @epoch/semantic && npm run typecheck -w @epoch/extensions && npm run typecheck -w @epoch/git-proxy && npm run typecheck -w @epoch/forge && npm run typecheck -w @epoch/software-heritage && npm run typecheck -w @epoch/atproto && npm run typecheck -w @epoch/identity-bridge && npm run typecheck -w @epoch/cli && npm run typecheck -w @epoch/wasm && npm run typecheck -w @epoch/wasm-react && npm run typecheck -w @epoch/integration-core && npm run typecheck -w @epoch/live && npm run typecheck -w @epoch/live-react && npm run typecheck -w @epoch/live-redux && npm run typecheck -w @epoch/live-yjs && npm run typecheck -w @epoch/react && npm run typecheck -w @epoch/gen-ui && npm run typecheck -w @epoch/redux && npm run typecheck -w @epoch/xstate && npm run typecheck -w @epoch/platform-core && npm run typecheck -w @epoch/platform-sdk && npm run typecheck -w @epoch/platform-web && npm run typecheck -w @epoch/design-tokens && npm run typecheck -w @epoch/community-runtime && npm run typecheck -w @epoch/community-core && npm run typecheck -w @epoch/community-api && npm run typecheck -w @epoch/community-graphql && npm run typecheck -w @epoch/community-web && npm run typecheck -w @epoch/community-operations-web && npm run typecheck -w @epoch/community-cli && npm run typecheck -w @epoch/sample-hello-world-cli && npm run typecheck -w @epoch/sample-self-evolving-canvas && npm run typecheck -w @epoch/sample-self-evolving-dashboard && npm run typecheck -w @epoch/sample-epoch-live-collab && tsgo -p tsconfig.test.json --noEmit",
     "lint": "eslint .",
     "design:lint": "designmd lint DESIGN.md",
     "design:audit": "node scripts/audit-design-tokens.mjs --enforce-structural",
@@ -194,10 +199,10 @@
     "community-search:fuzz-smoke": "npm run build -- --pretty false && node dist/test/adversarial/community-search/security.test.js",
     "community-search:migration-recovery": "npm run build -- --pretty false && node dist/test/adversarial/community-search/security.test.js",
     "community-search:sqlite-runtime": "npm run build -- --pretty false && node dist/test/adversarial/community-search/sqlite-official-runtime.test.js",
-    "community-search:browser": "npm run nightboard:build && node test/browser/community-search/sqlite-worker-browser.mjs",
+    "community-search:browser": "npm run community-web:app:build && node test/browser/community-search/sqlite-worker-browser.mjs",
     "community-search:benchmark": "npm run build -- --pretty false && node dist/test/performance/community-search/benchmark.js",
     "community-graphql:check": "npm test -w @epoch/community-graphql",
-    "test:unit:nightboard-parity": "npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && tsgo -p tsconfig.test.json && node dist/test/run-nightboard-parity-tests.js",
+    "test:unit:community-web-app-parity": "npm run build -w @epoch/community-core && npm run build -w @epoch/community-api && tsgo -p tsconfig.test.json && node dist/test/run-community-web-app-parity-tests.js",
     "test:pact:consumer": "npm run build -- --pretty false && node dist/test/pact/run-pact-consumer.js",
     "test:pact:provider": "npm run build -- --pretty false && node dist/test/pact/run-pact-provider.js",
     "test:pact": "npm run build -- --pretty false && node dist/test/pact/run-pact-tests.js",
@@ -205,14 +210,14 @@
     "coverage": "npm run build -- --pretty false && c8 npm run test:runtime",
     "test": "npm run build -- --pretty false && npm run test:runtime",
     "a11y:community-web": "node scripts/run-community-web-axe.mjs",
-    "a11y:nightboard": "node scripts/run-nightboard-axe.mjs",
-    "lint:nightboard-a11y": "node scripts/lint-nightboard-a11y.mjs",
-    "verify": "npm run docs:check && npm run lint && npm run lint:nightboard-a11y && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run change-graph:schemas:check && npm run nightboard:build:check && npm run a11y:community-web && npm run a11y:nightboard && npm run coverage && npm run test:pact && npm run nightboard:parity && npm run nightboard:faults && npm run nightboard:e2e",
-    "nightboard:faults": "node docs/design-explorations/nightboard/faults.mjs",
-    "nightboard:build": "node docs/design-explorations/nightboard/build-core-runtime.mjs && node docs/design-explorations/nightboard/build-openui.mjs && node docs/design-explorations/nightboard/build-graphql.mjs && node docs/design-explorations/nightboard/build-search-runtime.mjs",
-    "nightboard:build:check": "node docs/design-explorations/nightboard/build-core-runtime.mjs --check && node docs/design-explorations/nightboard/build-graphql.mjs --check && node docs/design-explorations/nightboard/build-search-runtime.mjs --check",
-    "nightboard:parity": "npm run nightboard:build:check && npm run test:unit:nightboard-parity && node docs/design-explorations/nightboard/navigation-projection.test.mjs && node scripts/verify-nightboard-parity.mjs && NB_E2E=NAV- node docs/design-explorations/nightboard/e2e.mjs",
-    "nightboard:e2e": "node docs/design-explorations/nightboard/e2e.mjs"
+    "community-web:app:a11y": "node scripts/run-community-web-app-axe.mjs",
+    "community-web:app:a11y-lint": "node scripts/lint-community-web-app-a11y.mjs",
+    "verify": "npm run docs:check && npm run lint && npm run community-web:app:a11y-lint && npm run design:lint && npm run design:audit && npm run typecheck && npm run konsistent && npm test && npm run change-graph:schemas:check && npm run community-web:app:build:check && npm run a11y:community-web && npm run community-web:app:a11y && npm run coverage && npm run test:pact && npm run community-web:app:parity && npm run community-web:app:faults && npm run community-web:app:e2e",
+    "community-web:app:faults": "node packages/Epoch.Community.Web/test/faults.mjs",
+    "community-web:app:build": "node packages/Epoch.Community.Web/scripts/build-core-runtime.mjs && node packages/Epoch.Community.Web/scripts/build-openui.mjs && node packages/Epoch.Community.Web/scripts/build-graphql.mjs && node packages/Epoch.Community.Web/scripts/build-search-runtime.mjs",
+    "community-web:app:build:check": "node packages/Epoch.Community.Web/scripts/build-core-runtime.mjs --check && node packages/Epoch.Community.Web/scripts/build-graphql.mjs --check && node packages/Epoch.Community.Web/scripts/build-search-runtime.mjs --check",
+    "community-web:app:parity": "npm run community-web:app:build:check && npm run test:unit:community-web-app-parity && node packages/Epoch.Community.Web/test/navigation-projection.test.mjs && node scripts/verify-community-web-app-parity.mjs && CW_E2E=NAV- node packages/Epoch.Community.Web/test/e2e.mjs",
+    "community-web:app:e2e": "node packages/Epoch.Community.Web/test/e2e.mjs"
   },
   "keywords": [
     "dvcs",

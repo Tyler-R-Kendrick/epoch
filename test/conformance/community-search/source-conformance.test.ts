@@ -5,7 +5,7 @@ import {
   type CommunitySourceAdapter,
 } from "@epoch/community-core";
 import { createCanonicalStoreSource } from "../../../packages/Epoch.Community.API/src/community-source";
-import { createNightboardSource } from "../../../packages/Epoch.Community.Web/src/search/nightboard-source";
+import { createCommunityWebSource } from "../../../packages/Epoch.Community.Web/src/search/community-web-source";
 import { conformanceCorpus, FIXED_NOW } from "./fixture";
 
 export interface SourceConformanceObservation {
@@ -57,7 +57,7 @@ export async function runCommunitySourceConformance(): Promise<void> {
   const anonymous = await assertCommunitySourceConformance(canonical, {});
   assert.deepEqual(anonymous.objectIds, visible.objectIds);
 
-  const nightboard = createNightboardSource({
+  const nightboard = createCommunityWebSource({
     posts: corpus.slice(0, 2).map((entity) => ({ id: entity.ref.objectId, title: String(entity.fields.title), body: String(entity.fields.body), author: entity.ownerId, createdAt: entity.createdAt })),
     dmMessages: [{ id: "dm-hidden", body: "DO_NOT_OBSERVE", author: "mallory", ownerId: "mallory", participantIds: ["mallory"], createdAt: FIXED_NOW }],
   }, FIXED_NOW);

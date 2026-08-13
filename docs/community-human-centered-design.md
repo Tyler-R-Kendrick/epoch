@@ -15,7 +15,7 @@ Community packages are still small, so this document is the product-design
 constraint for future Community Web, API, Core, and CLI work: start from people,
 prove the problem, then choose the smallest trustworthy workflow.
 
-Nightboard is the canonical Community Web runtime, not an optional exploration:
+Community Web is the canonical Community Web runtime, not an optional exploration:
 the CanvasUI creator landing at `/` leads into the tmux-style, keyboard-first
 board at `/board.html`. Local and deployed entrypoints must serve that same
 journey and must not expose the superseded Civic Workshop renderer.

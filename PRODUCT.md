@@ -94,19 +94,19 @@ Confirmed and shipping:
   with receipts, moderation queue, unread watermarks, deep links.
 - Issues and change proposals for a linked repository; approve-change flow.
 - Network feed tabs (following / all / contributions).
-- Canonical Nightboard browser app with a CanvasUI creator landing and a
+- Canonical Community Web browser app with a CanvasUI creator landing and a
   tmux-style, keyboard-first collaboration board.
 
 Technical constraints that bind design:
 
-- The canonical app is a static multi-file Nightboard runtime. The local server
+- The canonical app is a static multi-file Community Web runtime. The local server
   and Vercel build copy the same source files; a second rendered shell is not an
   allowed entrypoint.
 - Accessibility is gated: axe-core must be clean at 1440×960 and 390×844.
 - Behavior is specified in executable Gherkin; scenarios are the contract.
 
-Undecided on purpose: theming beyond Nightboard Grid, i18n execution.
-Dark product UI is allowed for Nightboard under ADR-0027 (amends ADR-0024).
+Undecided on purpose: theming beyond Community Web Grid, i18n execution.
+Dark product UI is allowed for Community Web under ADR-0027 (amends ADR-0024).
 
 ## Brand Commitments
 
@@ -118,18 +118,18 @@ Dark product UI is allowed for Nightboard under ADR-0027 (amends ADR-0024).
   content as live activity, never imply an identity link it does not have, and
   never claim review that did not happen. This constrains visual design: state
   must be legible, not decorative.
-- **Visual world is Nightboard (Grid)** — Tron-inspired keyboard-first TUI.
-  Living reference: `docs/design-explorations/nightboard/`. Contract:
-  [ADR-0027](docs/design-decisions/0027-community-visual-world-nightboard.md).
-  Course Line (ADR-0026) is superseded and archived. Nightboard is the shipped
+- **Visual world is Community Web (Grid)** — Tron-inspired keyboard-first TUI.
+  Living reference: `packages/Epoch.Community.Web/app/`. Contract:
+  [ADR-0027](docs/design-decisions/0027-community-visual-world.md).
+  Course Line (ADR-0026) is superseded and archived. Community Web is the shipped
   Community Web runtime; Impeccable iterates directly on those files.
 
 ## Evidence on Hand
 
-- **Committed visual reference:** `docs/design-explorations/nightboard/`
+- **Committed visual reference:** `packages/Epoch.Community.Web/app/`
   (keyboard-first Tron/TUI board). Older explorations under
   `docs/design-explorations/` remain historical.
-- Design contract and named rules: `DESIGN.md` (Nightboard / ADR-0027).
+- Design contract and named rules: `DESIGN.md` (Community Web / ADR-0027).
 - Persona records: `docs/persona-feature-matrix.md`, `.optimizexp/personas/`.
 - Human-centered design method and critique protocol:
   `docs/community-human-centered-design.md`.

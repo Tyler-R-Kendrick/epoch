@@ -67,72 +67,72 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 - Checks: CodeRabbit SUCCESS, Vercel SUCCESS. `npm run verify` green — 143 scenarios,
   1336 steps, axe clean at 1440x960 and 390x844, pact green, lint clean.
 
-## 2026-08-05 — nightboard-garden `/sdlc finish`
+## 2026-08-05 — community-web-garden `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`nightboard-garden`](nightboard-garden/sdlc-state.md) |
+| Initiative | [`community-web-garden`](community-web-garden/sdlc-state.md) |
 | Backend | Sequential; coordinator inline (finish of existing branch) |
 | PR | [#100](https://github.com/Tyler-R-Kendrick/epoch/pull/100) — squash-merged `5ed8447d` |
 | Result | **success** |
-| Failure class | None material. CodeRabbit stayed PENDING on the large exploration diff with zero inline threads; Vercel SUCCESS; GitHub Actions quality CI disabled (runner minutes). Local `gate:push` + `nightboard:faults` + `nightboard:e2e` green. |
+| Failure class | None material. CodeRabbit stayed PENDING on the large exploration diff with zero inline threads; Vercel SUCCESS; GitHub Actions quality CI disabled (runner minutes). Local `gate:push` + `community-web:app:faults` + `community-web:app:e2e` green. |
 | Notes | Finish repairs: notify harness typecheck; Esc ladder idempotent with column mode; keyboard e2e two-Esc for default-open detail; arrive-fault budget excludes Epoch brand idle motion. |
 
-## 2026-08-05 — nightboard UX follow-up `/sdlc finish`
+## 2026-08-05 — Community Web UX follow-up `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`nightboard-garden`](nightboard-garden/sdlc-state.md) |
+| Initiative | [`community-web-garden`](community-web-garden/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
-| Branch | `feat/nightboard-ux-members-editor` |
+| Branch | `feat/community-web-ux-members-editor` |
 | PR | [#102](https://github.com/Tyler-R-Kendrick/epoch/pull/102) — squash-merged `f2c41630` |
 | Result | **success** |
-| Failure class | CodeRabbit + Vercel PENDING at merge; Actions CI disabled. Local `gate:push` + `nightboard:e2e` green. Merged with `--admin`. |
+| Failure class | CodeRabbit + Vercel PENDING at merge; Actions CI disabled. Local `gate:push` + `community-web:app:e2e` green. Merged with `--admin`. |
 | Notes | Nav stays open on open; → activates editor on text leaves; Eve agents as scoped members/DMs; brand plaque removed; pixel mic icon. Agent-browser Chromium install was machine-local only (ARM64 Playwright symlink). |
 
-## 2026-08-05 — impeccable Community + Nightboard `/sdlc finish`
+## 2026-08-05 — impeccable Community + Community Web `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`impeccable-community-nightboard`](impeccable-community-nightboard/sdlc-state.md) |
+| Initiative | [`impeccable-community-web`](impeccable-community-web/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
-| Branch | `feat/impeccable-community-nightboard-session` |
+| Branch | `feat/impeccable-community-community-web-session` |
 | PR | [#104](https://github.com/Tyler-R-Kendrick/epoch/pull/104) — squash-merged `6a4abfc5` |
 | Result | **success** |
 | Failure class | CodeRabbit + Vercel PENDING at merge after review push; Actions CI disabled. Local `gate:push` green. Merged with `--admin`. |
-| Notes | Community Web impeccable remediation + Nightboard STT/voice/syntax/a11y. Review fix commit addressed speech reject handling, homeCursor thaw, `/act voice` offsets, aria-pressed on tabs, space corpus paths, Opus via setCodecPreferences, VAD/signaling/axe hardening. |
+| Notes | Community Web impeccable remediation + Community Web STT/voice/syntax/a11y. Review fix commit addressed speech reject handling, homeCursor thaw, `/act voice` offsets, aria-pressed on tabs, space corpus paths, Opus via setCodecPreferences, VAD/signaling/axe hardening. |
 
-## 2026-08-05 — Nightboard authority + preview/dismiss `/sdlc finish`
+## 2026-08-05 — Community Web authority + preview/dismiss `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`nightboard-authority-preview`](nightboard-authority-preview/sdlc-state.md) |
+| Initiative | [`community-web-authority-preview`](community-web-authority-preview/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
-| Branch | `feat/nightboard-authority-preview-dismiss` |
+| Branch | `feat/community-web-authority-preview-dismiss` |
 | PR | [#106](https://github.com/Tyler-R-Kendrick/epoch/pull/106) — squash-merged `f3dfb89` |
 | Result | **success** |
-| Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + `nightboard:e2e` green. |
-| Notes | ADR-0027 Nightboard authority; Course Line archived; select→preview / Enter→activate; shared `d` dismiss; following stacks; palette burn-down for web CSS port. |
+| Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + `community-web:app:e2e` green. |
+| Notes | ADR-0027 Community Web authority; Course Line archived; select→preview / Enter→activate; shared `d` dismiss; following stacks; palette burn-down for web CSS port. |
 
-## 2026-08-07 — Nightboard Persuade + Operate `/sdlc finish`
+## 2026-08-07 — Community Web Persuade + Operate `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`nightboard-persuade-operate`](nightboard-persuade-operate/sdlc-state.md) |
+| Initiative | [`community-web-persuade-operate`](community-web-persuade-operate/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
-| Branch | `feat/nightboard-persuade-operate-session` |
+| Branch | `feat/community-web-persuade-operate-session` |
 | PR | [#108](https://github.com/Tyler-R-Kendrick/epoch/pull/108) — squash-merged `5ae0db1e` |
 | Result | **success** |
 | Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + landing e2e green. Merged with `--admin`. |
 | Notes | Persuade `/` vs Operate `board.html`; terminal channels keep navbar siblings; Canvas UI glitch + E01 decrypt/reveal; landing typewriter. Excluded local WIP gauntlet-loop + impeccable mocks. |
 
-## 2026-08-11 — Nightboard startup + HoBo workbench `/sdlc finish`
+## 2026-08-11 — Community Web startup + HoBo workbench `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`nightboard-startup-hobo`](nightboard-startup-hobo/sdlc-state.md) |
+| Initiative | [`community-web-startup-hobo`](community-web-startup-hobo/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
-| Branch | `agent/nightboard-startup-hobo` |
+| Branch | `agent/community-web-startup-hobo` |
 | PR | [#113](https://github.com/Tyler-R-Kendrick/epoch/pull/113) — squash-merged `043d9244` |
 | Result | **success** |
 | Failure class | Two shared page-readiness races failed authoritative CI and were fixed at the common board-entry step; ignored primary browser evidence was force-included before review. |
@@ -153,7 +153,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | PR | [#116](https://github.com/Tyler-R-Kendrick/epoch/pull/116) — squash-merged `0d560488` |
 | Result | **success** |
 | Failure class | An initial browser cleanup race stopped coverage before frontier tests, and closeout CI exposed redundant Gossip Pact execution inside the unit runner; sequential teardown/cleared timers and a single dedicated Pact execution boundary fixed both root causes. |
-| Notes | All GitHub quality jobs, Vercel, local `npm run verify`, clean Node 22 coverage, conformance, fuzz, compatibility, security, Pact, accessibility, and Nightboard parity/fault/e2e gates passed. CodeRabbit skipped the 155-file diff because its plan limit is 100 files; independent review found and resolved eight trust/fidelity defects. Existing unrelated untracked work was preserved. |
+| Notes | All GitHub quality jobs, Vercel, local `npm run verify`, clean Node 22 coverage, conformance, fuzz, compatibility, security, Pact, accessibility, and Community Web parity/fault/e2e gates passed. CodeRabbit skipped the 155-file diff because its plan limit is 100 files; independent review found and resolved eight trust/fidelity defects. Existing unrelated untracked work was preserved. |
 
 ## 2026-08-12 — Change Graph signed event store
 
@@ -164,7 +164,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Branch | `sdlc/change-graph-signed-store-01` |
 | Result | **success** |
 | PR | [#119](https://github.com/Tyler-R-Kendrick/epoch/pull/119) — squash-merged `f9b00f50` |
-| Notes | Close the #116/#118 honesty gap: CLI persists signed protocol events; leftover JSON host is ignored; local replica/hydrate/mirror/budget/SWHID mapping are implemented; named remotes and live archival stay fail-closed. Quality Gates, Nightboard, Pact, Coverage, and Vercel passed. CodeRabbit stayed PENDING; independent closeout review found no blockers. |
+| Notes | Close the #116/#118 honesty gap: CLI persists signed protocol events; leftover JSON host is ignored; local replica/hydrate/mirror/budget/SWHID mapping are implemented; named remotes and live archival stay fail-closed. Quality Gates, Community Web, Pact, Coverage, and Vercel passed. CodeRabbit stayed PENDING; independent closeout review found no blockers. |
 
 ## 2026-08-12 — Change Graph remotes, archive, and split
 
@@ -175,7 +175,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Branch | `sdlc/change-graph-close-failclosed` |
 | Result | **success** |
 | PR | [#122](https://github.com/Tyler-R-Kendrick/epoch/pull/122) — squash-merged `a809586f` |
-| Notes | Implement remaining fail-closed surfaces: HTTP gossip + Git ingest for clone/fetch, Save Code Now HTTP with `EPOCH_SWH_SAVE_URL`, deterministic untrusted AI proposals with accept/reject, and `split.accepted`. Quality Gates, Nightboard, Pact, Coverage, and Vercel passed. CodeRabbit stayed rate-limited. |
+| Notes | Implement remaining fail-closed surfaces: HTTP gossip + Git ingest for clone/fetch, Save Code Now HTTP with `EPOCH_SWH_SAVE_URL`, deterministic untrusted AI proposals with accept/reject, and `split.accepted`. Quality Gates, Community Web, Pact, Coverage, and Vercel passed. CodeRabbit stayed rate-limited. |
 
 ## 2026-08-13 — Community search and mounted projections
 
@@ -187,4 +187,4 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | PR | [#134](https://github.com/Tyler-R-Kendrick/epoch/pull/134) — squash-merged `1ab821c` |
 | Result | **success** |
 | Failure class | None at merge. Earlier Test red was a flaky last-character cursor tamper; Coverage was 77.86% branches vs 78% until host routes and browser-only Web search/workbench dist were accounted for. |
-| Notes | Landed one Core Search Expression, planner, snapshot, and AES-GCM keyset cursor; Projection Definitions and scoped Namespace Mounts; `createCommunityApiHost`; CLI/GraphQL/Nightboard workbenches; ADR-0042 (0040/0041 already used on trunk). Independent review blocked on live-namespace tenancy; Alice/Bob isolation and REST scope reject landed in `2cbefd4` before merge. Quality Gates (Test, Coverage, Nightboard, Pact, A11y, Vercel) green. CodeRabbit skipped the large diff. Unrelated PRs #125–#133 and #135–#136 were left open. |
+| Notes | Landed one Core Search Expression, planner, snapshot, and AES-GCM keyset cursor; Projection Definitions and scoped Namespace Mounts; `createCommunityApiHost`; CLI/GraphQL/Community Web workbenches; ADR-0042 (0040/0041 already used on trunk). Independent review blocked on live-namespace tenancy; Alice/Bob isolation and REST scope reject landed in `2cbefd4` before merge. Quality Gates (Test, Coverage, Community Web, Pact, A11y, Vercel) green. CodeRabbit skipped the large diff. Unrelated PRs #125–#133 and #135–#136 were left open. |

@@ -41,7 +41,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Durable multi-user community/channel store beyond in-memory seed",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
@@ -73,7 +73,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Real AT-observed feed or stricter sample labels + open-to-community drill-in",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
@@ -103,7 +103,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "AT OAuth authenticated path; api-session honesty shipped",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
@@ -134,7 +134,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Network-visible ship event from Share a ship",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
@@ -286,7 +286,7 @@
         ".optimizexp/features/community-web-power-controls/evidence/forge-power-user-operates-every-focused-post-action-by-keyboard/",
         ".optimizexp/features/community-web-power-controls/evidence/screen-reader-power-user-discovers-every-post-action-shortcut/",
         ".optimizexp/features/community-web-power-controls/evidence/app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback/",
-        ".optimizexp/runs/20260811-uxax-nightboard-startup-hobo/artifacts/focus-panel-narrow/"
+        ".optimizexp/runs/20260811-uxax-community-web-startup-hobo/artifacts/focus-panel-narrow/"
       ],
       "metricFloor": {
         "harms": 1,
@@ -295,7 +295,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Craft moments are covered by scenarios; next pass is motion and iconography specification",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
@@ -328,7 +328,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Multi-node HA next; file-backed API shipped",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     },
     {
@@ -359,7 +359,7 @@
       },
       "implementableNow": true,
       "smallestExperiment": "Moderator decision actions (resolve, hold) recorded from the ops queue itself",
-      "lastRunId": "nightboard-object-projections-20260811",
+      "lastRunId": "community-web-object-projections-20260811",
       "lastScoredAt": "2026-08-11T22:30:00.000Z"
     }
   ]

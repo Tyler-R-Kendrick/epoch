@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type { CommunityAuthorizationContext, CommunityEntity, CommunitySearchChangeSet } from "@epoch/community-core";
 import { validateCommunityEntity } from "@epoch/community-core";
 import { createCanonicalStoreSource } from "../../packages/Epoch.Community.API/src/community-source";
-import { createNightboardSource } from "../../packages/Epoch.Community.Web/src/search/nightboard-source";
+import { createCommunityWebSource } from "../../packages/Epoch.Community.Web/src/search/community-web-source";
 import {
   atprotoDeletionChangeSet,
   createAtprotoCommunitySource,
@@ -21,7 +21,7 @@ const MAYA: CommunityAuthorizationContext = { actorId: "maya", readableDmIds: ["
 
 export async function runCommunitySourceAdapterTests(): Promise<void> {
   await canonicalStoreSourceConforms();
-  await nightboardSourceConformsAndProtectsPrivateRecords();
+  await communityWebSourceConformsAndProtectsPrivateRecords();
   await atprotoSourceConformsAndPreservesProvenance();
   await atprotoDeletionIsAStableTombstoneChange();
   await failedPageDoesNotAdvanceCheckpoint();
@@ -42,15 +42,15 @@ async function canonicalStoreSourceConforms(): Promise<void> {
   assert.deepEqual((await source.get?.([{ objectId: "issue-secret", kind: "issue" }], MAYA)) ?? [], []);
 }
 
-async function nightboardSourceConformsAndProtectsPrivateRecords(): Promise<void> {
-  const source = createNightboardSource({
+async function communityWebSourceConformsAndProtectsPrivateRecords(): Promise<void> {
+  const source = createCommunityWebSource({
     posts: [{ id: "post-a", title: "Public", body: "Visible", author: "maya", createdAt: NOW }],
     dmMessages: [{ id: "dm-secret", body: "DO_NOT_LEAK", author: "other", ownerId: "other", participantIds: ["other"], createdAt: NOW }],
   }, NOW);
   await assertSourceConformance(source, MAYA, ["post-a"]);
   assert.equal(JSON.stringify(await source.scan({ limit: 10, authorization: MAYA })).includes("DO_NOT_LEAK"), false);
-  assert.throws(() => createNightboardSource({ posts: [{ id: "missing-time" }] }, NOW), /timestamp/u);
-  assert.throws(() => createNightboardSource({ posts: [{ id: "duplicate", createdAt: NOW }, { objectId: "duplicate", createdAt: NOW }] }, NOW), /duplicate/u);
+  assert.throws(() => createCommunityWebSource({ posts: [{ id: "missing-time" }] }, NOW), /timestamp/u);
+  assert.throws(() => createCommunityWebSource({ posts: [{ id: "duplicate", createdAt: NOW }, { objectId: "duplicate", createdAt: NOW }] }, NOW), /duplicate/u);
 }
 
 async function atprotoSourceConformsAndPreservesProvenance(): Promise<void> {

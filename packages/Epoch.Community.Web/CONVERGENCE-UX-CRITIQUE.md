@@ -11,7 +11,7 @@ does not replace the repository architecture or feature registries.
 
 Conditional pass after the changes below. The feature is deliberately a compact
 Grid-native hierarchical navigator plus detail blade. It does not add a generic
-SaaS dashboard to Nightboard, and no AI proposal is presented as accepted work.
+SaaS dashboard to Community Web, and no AI proposal is presented as accepted work.
 
 ## GitHub open-source contributor
 

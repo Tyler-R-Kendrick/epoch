@@ -226,12 +226,12 @@ Acceptance criteria:
   without importing Community packages.
 - Community Web is covered by a Gherkin feature driven through Playwright.
 - Community Web has one runtime: the CanvasUI creator landing at `/` and the
-  tmux-style, keyboard-first Nightboard at `/board.html`; local and Vercel
+  tmux-style, keyboard-first Community Web at `/board.html`; local and Vercel
   entrypoints serve those same files.
 - Community objects keep stable opaque IDs while channel, thread, DM, Activity,
   search, saved-query, project, and filesystem-like projections provide
   contextual locations over one explicit relation graph.
-- Nightboard uses a hierarchical navigator + detail blade; exact namespace,
+- Community Web uses a hierarchical navigator + detail blade; exact namespace,
   reply ancestry, browser history, previous shell location, and top-layer
   cancellation remain separately invokable and testable.
 - Canonical, contextual, and exact HTTPS links contain stable references rather

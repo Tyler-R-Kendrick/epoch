@@ -9,7 +9,7 @@
 // (undefined-token, var-fallback, var-fallback-mismatch, design-json-drift) everywhere,
 // plus every rule listed for a package in PACKAGE_ENFORCED_RULES.
 //
-// ADR-0027: DESIGN.md is Nightboard while Community / Ops / Platform Web still
+// ADR-0027: DESIGN.md is Community Web while Community / Ops / Platform Web still
 // emit Course Line hex — palette rules are report-only until those surfaces port.
 // Structural rules stay enforced for every package.
 //
@@ -40,11 +40,11 @@ const STRUCTURAL_RULES = new Set([
   "designmd-prose-drift",
 ]);
 
-// Palette rule ids — re-attach via PACKAGE_ENFORCED_RULES when Nightboard CSS ports land.
+// Palette rule ids — re-attach via PACKAGE_ENFORCED_RULES when Community Web CSS ports land.
 const PALETTE_RULES = ["near-miss-palette", "off-palette-hex", "ops-token-not-aliased"];
 
 // Rules that fail --enforce-structural per package, in addition to STRUCTURAL_RULES.
-// Empty lists = ADR-0027 burn-down (DESIGN.md is Nightboard; web CSS still Course Line).
+// Empty lists = ADR-0027 burn-down (DESIGN.md is Community Web; web CSS still Course Line).
 // When a surface ports, set its entry back to PALETTE_RULES.
 const PACKAGE_ENFORCED_RULES = new Map([
   ["community-web", []],

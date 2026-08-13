@@ -1,11 +1,11 @@
-# A keyboard-first Nightboard power user navigates messages and defines one safe reusable action
+# A keyboard-first Community Web power user navigates messages and defines one safe reusable action
 
 Feature id: `community-web-power-controls`
 Scope: `global` (`.optimizexp`)
 
 ## Seed
 
-A keyboard-first Nightboard power user navigates messages and defines one safe reusable action exposed to the prompt, agent tools, and exact voice phrases
+A keyboard-first Community Web power user navigates messages and defines one safe reusable action exposed to the prompt, agent tools, and exact voice phrases
 
 ## Personas
 

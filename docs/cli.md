@@ -367,6 +367,32 @@ trusted is reported and refused, never run silently.
 | `archive` | `archive software-heritage map` records a local SWHID mapping. `request` submits through Save Code Now HTTP (`EPOCH_SWH_SAVE_URL` overrides the endpoint) and records the signed status. Private origins are denied. |
 | `interop doctor` | Probe Git/protocol, optional jj/hg/Rift commands, CoW support, adapter manifests, and SWHID support without printing credentials. |
 
+## Community And Interface Commands
+
+`epoch` is the canonical binary for Community work. `epoch community …`
+delegates to the Community CLI implementation; `epoch ui …` and `epoch view …`
+route into the `@epoch/community-runtime` command bus. `epoch-community` remains
+as a compatibility binary over the same code.
+
+| Command | Behavior |
+|---|---|
+| `community …` | Repositories, issues, change proposals, reviews, graph, bundle, and merge preview against a Community remote. The remote comes from `--remote URL`, then `EPOCH_COMMUNITY_URL`; `help` works before either is set. |
+| `ui status` / `ui verify` | Workspace identity, active view, proposal count, recovery state, and harness release verification. |
+| `view create NAME` / `view list` / `view switch VIEW` | Named views. `view create` records the base view and revision it was taken from, and accepts `--scope personal\|project\|session`. |
+| `ui log [VIEW]` / `ui show VIEW REVISION` | Revision ledger and one revision with its provenance. |
+| `ui propose VIEW --manifest JSON` | Record a dynamic UI manifest as a new revision. `--prompt` is stored as a digest unless `--retain-prompt` is passed; `--model` records the generator. |
+| `ui preview [VIEW]` / `ui diff FROM [--into VIEW]` / `ui validate VIEW` | What the harness would render, the semantic diff, and harness validation errors. |
+| `ui merge FROM [--into VIEW]` | Promote a validated view and advance last-known-good. Requires `--confirm`. |
+| `ui rollback VIEW --revision N` / `ui restore` | Append a revision restoring an earlier manifest, or the last known good one. History is never rewritten. Requires `--confirm`. |
+| `ui safe-mode on\|off` | Boot the installed harness only, ignoring the dynamic head. Leaving safe mode requires `--confirm`. |
+
+The workspace persists under `<repo>/.epoch/ui-workspace.json`. `--json` prints
+the command receipt verbatim — the same record the browser UI and a WebMCP tool
+receive, including `commandId`, policy decision, validation state, and event ids.
+A consequential command without `--confirm` returns a `confirm` receipt, changes
+nothing, and exits non-zero. See
+[Community Web As An Epoch Participant](community-web-epoch-integration.md).
+
 `--json` output is deterministic. Stable error codes are `invalid-command`,
 `invalid-input`, `not-found`, `stale-revision`, `auth-denied`,
 `unsupported-capability`, `conflict`, and `external-error`. Authoritative or
@@ -412,6 +438,7 @@ error telemetry unless the user explicitly copies it.
 ## Related Docs
 
 - [Core SDK Reference](sdk.md)
+- [Community Web As An Epoch Participant](community-web-epoch-integration.md)
 - [Feature Registry](features.md)
 - [Current Design](design.md)
 - [Epoch Nomenclature](nomenclature.md)

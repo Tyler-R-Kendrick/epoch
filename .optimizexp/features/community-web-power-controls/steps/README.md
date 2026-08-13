@@ -10,8 +10,8 @@
 
 ## Primary binding
 
-- **package-script** `npm run nightboard:e2e` (high)
-- package.json scripts["nightboard:e2e"] exists; mentioned in feature/seed
+- **package-script** `npm run community-web:app:e2e` (high)
+- package.json scripts["community-web:app:e2e"] exists; mentioned in feature/seed
 
 ## Run
 

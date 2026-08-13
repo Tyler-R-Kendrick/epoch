@@ -17,7 +17,7 @@ Community Web is a **community-first** social coding surface inspired by Discord
 
 ## Canonical app shell
 
-Nightboard is the only Community Web runtime. The CanvasUI-powered creator
+Community Web is the only Community Web runtime. The CanvasUI-powered creator
 landing is `/`; its Enter action opens the tmux-style, keyboard-first board at
 `/board.html`. `npm run dev:community-web` and the Vercel static build both serve
 these same files. The unused Civic Workshop renderer is not a product surface.
@@ -51,7 +51,7 @@ agent, report, …).
 
 ### Power-user controls
 
-Nightboard treats the channel as a terminal-style work surface without making
+Community Web treats the channel as a terminal-style work surface without making
 the feed mouse-only. The prompt hands focus to one roving message article;
 `j`/`k`, arrows, Home/End, and Enter move or open it while focus, selection,
 and the current thread stay aligned.
@@ -84,7 +84,7 @@ Users can save a deterministic action with
 spoken phrase with `macro voice <name> = <phrase>`, and run it with
 `macro run <name>`. Each saved action automatically registers as a
 `user_<name>` WebMCP tool, so prompt, agent, and voice use one definition.
-Actions may compose only Nightboard's registered commands; arbitrary script or
+Actions may compose only Community Web's registered commands; arbitrary script or
 shell execution is rejected.
 
 ## Network Feed tabs
@@ -146,7 +146,7 @@ See:
 Features: [`features/community_web_experience.feature`](../features/community_web_experience.feature).  
 Browser evidence notes: [`docs/evidence/community-web/README.md`](evidence/community-web/README.md).  
 Screenshots: [`docs/evidence/design-screenshots/`](evidence/design-screenshots/README.md).
-Navigation/projection parity: [`docs/evidence/nightboard-navigation-projection-parity/`](evidence/nightboard-navigation-projection-parity/README.md).
+Navigation/projection parity: [`docs/evidence/community-web-app-navigation-projection-parity/`](evidence/community-web-app-navigation-projection-parity/README.md).
 
 ## AI-native rooms (Block Buzz)
 

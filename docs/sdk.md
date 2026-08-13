@@ -18,7 +18,7 @@ Epoch.Platform headless management and web console APIs.
 - Platform SDK package: `@epoch/platform-sdk`
 - Platform Web package: `@epoch/platform-web`
 - Community packages: `@epoch/community-api`, `@epoch/community-core`,
-  `@epoch/community-cli`, and `@epoch/community-web`
+  `@epoch/community-runtime`, `@epoch/community-cli`, and `@epoch/community-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 - Browser integration root exports: `epoch/Epoch.Integration.Core`,
@@ -27,7 +27,8 @@ Epoch.Platform headless management and web console APIs.
 - Platform and Community root exports: `epoch/Epoch.Platform.Core`,
   `epoch/Epoch.Platform.Sdk`, `epoch/Epoch.Platform.Web`,
   `epoch/Epoch.Community.API`, `epoch/Epoch.Community.Core`,
-  `epoch/Epoch.Community.CLI`, and `epoch/Epoch.Community.Web`
+  `epoch/Epoch.Community.Runtime`, `epoch/Epoch.Community.CLI`, and
+  `epoch/Epoch.Community.Web`
 
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`,
 CRDT helpers, lifecycle hook types, backup/compact helpers, seed-node helpers,

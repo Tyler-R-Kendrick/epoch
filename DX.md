@@ -9,7 +9,7 @@ TS DVCS SDK/CLI/WASM monorepo — 20 workspaces. npm (engines-only, **not pinned
 `&&` chains. **Native git hooks** under `.githooks/` (`prepare` → `core.hooksPath`): both `pre-commit` and `pre-push` run `gate:fast` as a
 fast local pre-flight.
 **GitHub Actions Quality Gates run on every `pull_request` and push to `main`** (`.github/workflows/quality.yml`) — docs, lint, konsistent,
-design, typecheck, test, coverage, Pact, and the Nightboard/a11y suites, each its own job, behind a fail-closed guard that only runs on this
+design, typecheck, test, coverage, Pact, and the Community Web/a11y suites, each its own job, behind a fail-closed guard that only runs on this
 public repository's standard `ubuntu-latest` runners (see `docs/ai-automation-strategy.md` Finding 1 — those are free and unmetered for public
 repos; the guard exists so a visibility flip or an org transfer fails loud instead of silently incurring billing). Vercel **direct** git
 auto-deploy.

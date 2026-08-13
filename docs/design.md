@@ -316,11 +316,11 @@ object store, sync seed, and any explicitly registered Epoch app. Its
 `communityWorkflows` surface is intentionally empty.
 
 `Epoch.Community.Web` is a separate deployable Epoch community product. Its
-canonical browser runtime is Nightboard: a CanvasUI creator landing at `/` and
+canonical browser runtime is Community Web: a CanvasUI creator landing at `/` and
 a tmux-style, keyboard-first board at `/board.html`, both sourced from
-`docs/design-explorations/nightboard`. The local server and Vercel static build
+`packages/Epoch.Community.Web/app`. The local server and Vercel static build
 use that same source tree, so no second visual shell can drift into production.
-Nightboard renders a hierarchical navigator + detail blade over Community
+Community Web renders a hierarchical navigator + detail blade over Community
 Core's stable objects, explicit relations, projections, navigation operations,
 normalized saved queries, and action descriptors. Filesystem-like paths are a
 namespace adapter rather than object identity; reply ancestry and tombstones
@@ -354,9 +354,9 @@ See [Epoch Platform Packages](platforms.md) and
 Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
 Community Web dogfooding history and
-[ADR-0027](design-decisions/0027-community-visual-world-nightboard.md) for the
+[ADR-0027](design-decisions/0027-community-visual-world.md) for the
 canonical runtime decision, and
-[ADR-0028](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md)
+[ADR-0028](design-decisions/0028-community-web-startup-routing-and-hobo-authoring.md)
 for recoverable startup, workspace-sticky model routing, and deterministic HoBo
 authoring through the default Bo agent.
 
@@ -390,6 +390,43 @@ jobs, runners, secrets, AI plans, policy, and audit.
 See [Epoch Platform Packages](platforms.md),
 [ADR-0008](design-decisions/0008-separate-platform-web-and-community.md), and
 [ADR-0013](design-decisions/0013-community-operations-extension-package.md).
+
+## Community Runtime And Browser Interface Workspace
+
+`@epoch/community-runtime` is the shared application layer between Epoch and
+every Community surface. It depends only on `@epoch/integration-core`, carries no
+DOM or React code, and injects its clock so receipts stay reproducible.
+
+- **One command bus.** UI, prompt, WebMCP, CLI, and SDK are adapters over the
+  same commands. Capability and confirmation checks live in the bus, not in a
+  tool description or a disabled button, so tool visibility is never
+  authorization.
+- **One receipt.** Every command returns `commandId`, kind, source, actor,
+  workspace, base/proposal refs, revision and event ids, policy and validation
+  receipts, and confirmation state. Identifiers are content digests of their
+  inputs, so the same command from two interfaces produces the same
+  `commandId`. The digest is drift detection, not a signature.
+- **A browser workspace.** `createBrowserEpochWorkspace` adds named views,
+  proposals with a recorded base, semantic diff, validated merge, append-only
+  revert, last-known-good promotion, safe mode, and materialization on top of
+  `BrowserEpoch`'s tracked-change ledger.
+- **A static harness.** A content-addressed `StaticHarnessRelease` declares the
+  slot ABI, the component and action allowlist, permitted theme tokens, and the
+  safe-mode manifest. Dynamic revisions are declarative placements plus a theme
+  patch — never code — validated against the installed release. An invalid
+  revision is recorded and stays inspectable, cannot be merged, and is not
+  rendered: the harness boots recovery instead.
+
+Rollback appends a revision restoring an earlier manifest; it never rewrites or
+deletes events. Scope (`personal`, `project`, `session`) is a manifest field so a
+personal preference change cannot implicitly become a community-wide publish, and
+prompts are stored as digests unless the caller retains the text.
+
+Community Web itself is not yet built from this runtime — deployment still ships
+the Community Web design exploration. See
+[Community Web As An Epoch Participant](community-web-epoch-integration.md) for
+the verified gap ledger and the remaining workstreams, and
+[ADR-0049](design-decisions/0049-community-runtime-command-layer.md).
 
 ## Change Graph And Operation History
 

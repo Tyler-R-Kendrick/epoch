@@ -4,14 +4,14 @@ Feature: Community Web community-first experience
 
   @persona.github_open_source_contributor
   Scenario: Contributor searches registered sources and sees completeness
-    Given Nightboard has authorized Entities from current and stale registered sources
+    Given Community Web has authorized Entities from current and stale registered sources
     When I run the deterministic search "state:needs-review"
     Then results identify their canonical targets and source provenance
     And source completeness names the stale source without invoking AI
 
   @persona.github_open_source_contributor
   Scenario: Contributor corrects a precise search syntax error without AI
-    Given I open the Nightboard query workbench by keyboard
+    Given I open the Community Web query workbench by keyboard
     When I enter an unsupported field and operator
     Then the diagnostic identifies line column span code and field suggestions
     And no partial search or AI translation runs
@@ -62,7 +62,7 @@ Feature: Community Web community-first experience
   Scenario: Queued projection updates preserve the reader's position
     Given I am reading one Projection Entry in queued update mode
     When a source change adds an earlier-sorting Entity
-    Then Nightboard announces the queued count without moving focus or reading anchor
+    Then Community Web announces the queued count without moving focus or reading anchor
     When I apply queued updates
     Then focus remains attached to the prior occurrence or canonical target
 
@@ -77,12 +77,12 @@ Feature: Community Web community-first experience
   Scenario: Browser falls back when persistent SQLite is unavailable
     Given my browser cannot provide the required OPFS and FTS5 capabilities
     When I open a metadata-only Community replica and search
-    Then Nightboard reports the unavailable persistence capability
+    Then Community Web reports the unavailable persistence capability
     And the Orama or reference backend remains functional without losing canonical data
 
   @persona.github_open_source_contributor
   Scenario: Two browser tabs contend without corrupting the search index
-    Given two Nightboard tabs open the same browser search replica
+    Given two Community Web tabs open the same browser search replica
     When both attempt a local index update
     Then one writer coordinates the update and the other waits or falls back explicitly
     And reopening the replica returns the same authorized Entities and checkpoint
@@ -201,28 +201,28 @@ Feature: Community Web community-first experience
     And at 200 percent zoom the workbench has no horizontal page overflow
 
   @persona.github_open_source_contributor
-  Scenario: Contributor enters the Nightboard community from the Epoch landing
+  Scenario: Contributor enters the Community Web community from the Epoch landing
     Given Epoch Community is available
     When I open Epoch Community
     Then the landing presents the creator story with CanvasUI motion
     When I enter the community board
-    Then the tmux-style Nightboard is ready for keyboard collaboration
+    Then the tmux-style Community Web is ready for keyboard collaboration
 
   @persona.slack_power_user
-  Scenario: Power user traverses Nightboard messages without a pointer
+  Scenario: Power user traverses Community Web messages without a pointer
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I open the Nightboard general channel from the prompt
-    And I move to the next Nightboard message and open its thread by keyboard
-    Then the selected Nightboard message remains the single focused feed item
+    And I open the Community Web general channel from the prompt
+    And I move to the next Community Web message and open its thread by keyboard
+    Then the selected Community Web message remains the single focused feed item
 
   @persona.slack_power_user
-  Scenario: Power user operates every Nightboard post action without a pointer
+  Scenario: Power user operates every Community Web post action without a pointer
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I operate every focused Nightboard post action by keyboard
+    And I operate every focused Community Web post action by keyboard
     Then repost and share are visible and every post action has keyboard parity
 
   @persona.slack_power_user
@@ -230,23 +230,23 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I browse Nightboard message directories with cd completion
+    And I browse Community Web message directories with cd completion
     Then message choices explain their content and cd typeahead can drill cancel or commit
 
   @persona.slack_power_user
-  Scenario: Power user navigates a Nightboard context menu without losing focus
+  Scenario: Power user navigates a Community Web context menu without losing focus
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
     And I open the general channel context menu and move down and up by keyboard
-    Then the Nightboard context menu retains focus without moving the nav selection
+    Then the Community Web context menu retains focus without moving the nav selection
 
   @persona.maintainer
   Scenario: Maintainer defines one action for prompt agent and voice control
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I define the Nightboard review macro with voice phrase "start review"
+    And I define the Community Web review macro with voice phrase "start review"
     Then the review macro persists as the "user_review" agent skill
     And the exact voice phrase runs the same review macro
     But a near voice phrase does not run it
@@ -257,7 +257,7 @@ Feature: Community Web community-first experience
     When I open Epoch Community
     And I enter the community board with a resumable session update and workspace defaults
     Then the bottom line recommends one Ctrl+U restart action
-    When I restart Nightboard with Ctrl+U
+    When I restart Community Web with Ctrl+U
     Then the session is continued on the updated workspace defaults
 
   @persona.platform_operator
@@ -266,7 +266,7 @@ Feature: Community Web community-first experience
     When I open Epoch Community
     And I enter the community board
     And I send repeated agent turns in one workspace
-    Then Nightboard keeps the same cache route until policy or failure invalidates it
+    Then Community Web keeps the same cache route until policy or failure invalidates it
 
   @persona.github_open_source_contributor
   Scenario: App builder uses deterministic HoBo authoring and focused-panel controls
@@ -284,7 +284,7 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I open one Nightboard message from its channel projection
+    And I open one Community Web message from its channel projection
     Then canonical contextual and exact links identify the same message without private content
 
   @persona.maintainer
@@ -292,7 +292,7 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I save and reopen the Nightboard needs-review Projection Definition
+    And I save and reopen the Community Web needs-review Projection Definition
     Then the Projection Definition keeps its identity Search Expression and canonical Entity state
 
   @persona.screen_reader_power_user
@@ -300,7 +300,7 @@ Feature: Community Web community-first experience
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I traverse a Nightboard thread outline with tree keys
+    And I traverse a Community Web thread outline with tree keys
     Then the thread outline and reading pane report the same selected object and topology
 
   @persona.slack_power_user
@@ -309,14 +309,14 @@ Feature: Community Web community-first experience
     When I open Epoch Community
     And I enter the community board
     And I invoke namespace parent thread parent browser back and previous location
-    Then each Nightboard navigation operation reports its distinct action and outcome
+    Then each Community Web navigation operation reports its distinct action and outcome
 
   @persona.slack_power_user
   Scenario: Power user chooses global jump without weakening deterministic cd
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I compare ambiguous cd with the Nightboard global jump chooser
+    And I compare ambiguous cd with the Community Web global jump chooser
     Then cd stays put while jump candidates await explicit acceptance with reasons
 
   @persona.github_open_source_contributor
@@ -483,3 +483,25 @@ Feature: Community Web community-first experience
     And I promote the selected message to a Change candidate
     When I view the lineage of the promoted message
     Then the origin message and the resulting change are marked as one contribution
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor sees what a generated interface change does before accepting it
+    Given a personal Community interface workspace on the installed harness
+    When I propose a denser feed that puts verification status beside each change
+    Then I see which widgets layout and theme tokens the proposal changes
+    And the proposal is not applied until I confirm it
+    And accepting it records the prompt as a digest rather than the text I typed
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor recovers from an interface change that no longer renders
+    Given a personal Community interface workspace whose current interface no longer validates
+    When I open the board
+    Then the installed harness renders its recovery interface instead of the broken one
+    And restoring the last working interface leaves the rejected proposal inspectable
+
+  @persona.maintainer
+  Scenario: Maintainer confirms the terminal and an agent performed the same action
+    Given a personal Community interface workspace on the installed harness
+    When I create the same proposal from the terminal and from an agent tool
+    Then both report the same command identity and resulting view
+    And an agent without permission is refused even though the tool is offered

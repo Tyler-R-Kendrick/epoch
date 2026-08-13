@@ -31,11 +31,11 @@ and when the decision should be revisited.
 | [ADR-0021](0021-git-projection-and-live-migration.md) | Accepted (design) | Treat Git as a rebuildable projection and live-migration boundary (serve, import-live, export-live, dual-run) with signed mapping events; Epoch Core remains the system of record. |
 | [ADR-0022](0022-gossip-event-plane-atproto-public-artifacts.md) | Accepted | Gossip is the authoritative network event plane; ATProto dual-writes public artifacts only; hybrid resolve is local → gossip → AT. |
 | [ADR-0023](0023-three-plane-identity-binding.md) | Accepted | Link Epoch Ed25519, Nostr BIP-340, and AT DIDs via mutual dual-signed hash-chained bindings; client-side verify; witness index non-authoritative. |
-| [ADR-0024](0024-community-theming-deferral.md) | Accepted (amended by 0027) | Originally light-only; Nightboard product UI may be dark under ADR-0027. Token layer stays role-named. |
+| [ADR-0024](0024-community-theming-deferral.md) | Accepted (amended by 0027) | Originally light-only; Community Web product UI may be dark under ADR-0027. Token layer stays role-named. |
 | [ADR-0025](0025-community-unread-model.md) | Accepted | Unread is a local watermark over real receipts; a channel with no watermark is never unread; count is text, not colour-only; server push out of scope. |
 | [ADR-0026](0026-community-visual-world-course-line.md) | Superseded by 0027 | Course Line (ISOM / light civic workshop) — archived; not the product visual world. |
-| [ADR-0027](0027-community-visual-world-nightboard.md) | Accepted | Community Web ships Nightboard (Grid): CanvasUI landing, Tron/tmux-style TUI, keyboard-first board; the former renderer is not a runtime entrypoint. |
-| [ADR-0028](0028-nightboard-startup-routing-and-hobo-authoring.md) | Accepted | Combine resumable startup work behind Ctrl+U, keep model routes workspace-sticky for cache locality, and make Bo use deterministic HoBo templates/docs/trainable stubs. |
+| [ADR-0027](0027-community-visual-world.md) | Accepted | Community Web ships Community Web (Grid): CanvasUI landing, Tron/tmux-style TUI, keyboard-first board; the former renderer is not a runtime entrypoint. |
+| [ADR-0028](0028-community-web-startup-routing-and-hobo-authoring.md) | Accepted | Combine resumable startup work behind Ctrl+U, keep model routes workspace-sticky for cache locality, and make Bo use deterministic HoBo templates/docs/trainable stubs. |
 | [ADR-0029](0029-community-canonical-objects-and-projections.md) | Accepted | Give Community objects stable identity, mount navigable projections over one explicit graph, separate exact navigation from fuzzy jump, and generate every action surface from one registry. |
 | [ADR-0030](0030-stable-changes-revisions-stacks-reviews-merges.md) | Accepted | Separate stable Changes from immutable Revisions and bind Change Graphs, Review Bundles, and Merge Plans to exact graph state. |
 | [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md) | Accepted | Preserve conflicts as durable state and record commutation only after deterministic equivalence proof. |
@@ -44,6 +44,7 @@ and when the decision should be revisited.
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted | Authorize agents through distinct principals, attenuated grants, and reserved durable budgets. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted | Treat forge protocols and mirrors as loss-declared adapters with explicit authority. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted | Compute standards-conformant SWHIDs locally and guard public archival with policy and verified status. |
+| [ADR-0049](0049-community-runtime-command-layer.md) | Accepted | Serve web, WebMCP, CLI, and SDK from one command bus, one receipt schema, and one browser UI workspace behind a content-addressed harness ABI. |
 | [ADR-0030](0030-stable-changes-revisions-stacks-reviews-merges.md) | Accepted and implemented | Model stable Change lineages, immutable Revisions, dependency graphs, exact review evidence, and stale-safe Merge Plans. |
 | [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md) | Accepted and implemented | Preserve conflicts as durable objects, commute only when independence is proven, and keep provider proposals untrusted until explicit acceptance. |
 | [ADR-0032](0032-residency-native-sync-and-workspace-providers.md) | Accepted and implemented | Separate object residency, materialization, storage, and execution; add verified chunk manifests, promises, native sync, and truthful workspace providers. |
@@ -63,6 +64,7 @@ and when the decision should be revisited.
 | [ADR-0046](0046-publisher-key-lifecycle.md) | Accepted; implemented | Give publisher keys expiry, offline rotation by successor statement, and revocation as a replicating signed event — grants stay local, revocations propagate. |
 | [ADR-0047](0047-mixed-language-compression-planning.md) | Accepted; implemented | Group compression planning by resolved syntax provider and derive one dictionary across every group, so `semantic plan` works on a real repository. |
 | [ADR-0048](0048-repository-configuration-parsing.md) | Accepted; implemented | Read complete TOML 1.0 for repository configuration and report parse failures to the operator instead of silently resolving to defaults. |
+| [ADR-0049](0049-community-runtime-command-layer.md) | Accepted; runtime, adapters, and browser UI workspace implemented | Route UI, WebMCP, CLI, and SDK through `@epoch/community-runtime`; validate declarative dynamic UI against a content-addressed static harness; keep rollback append-only. |
 
 ## Supporting Decision Records
 
