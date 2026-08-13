@@ -25,21 +25,21 @@ function bootLandingFx() {
   var CSS = [
     "[data-fx]{position:relative;isolation:isolate}",
     "[data-fx][data-fx-on]{min-height:0}",
-    "[data-fx][data-fx-on] .nb-fx-source{display:block;width:100%;height:100%;max-width:100%}",
-    "[data-fx][data-fx-on] .nb-fx-output{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}",
+    "[data-fx][data-fx-on] .cw-fx-source{display:block;width:100%;height:100%;max-width:100%}",
+    "[data-fx][data-fx-on] .cw-fx-output{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}",
     "[data-term-slot]{min-height:1.15em}",
-    ".nb-term-cursor{display:inline-block;width:.55ch;margin-left:.08ch;height:1em;background:var(--nb-agent,#40f0ff);animation:nb-term-blink 1.05s steps(1) infinite;vertical-align:-.05em}",
-    "[data-term-flash]{animation:nb-term-flash .42s steps(2) both}",
-    "@keyframes nb-term-blink{50%{opacity:0}}",
-    "@keyframes nb-term-flash{0%{opacity:.35;filter:brightness(1.4)}100%{opacity:1;filter:none}}",
-    "@media (prefers-reduced-motion:reduce){.nb-term-cursor{animation:none;opacity:.65}[data-term-flash]{animation:none}}",
+    ".cw-term-cursor{display:inline-block;width:.55ch;margin-left:.08ch;height:1em;background:var(--cw-agent,#40f0ff);animation:cw-term-blink 1.05s steps(1) infinite;vertical-align:-.05em}",
+    "[data-term-flash]{animation:cw-term-flash .42s steps(2) both}",
+    "@keyframes cw-term-blink{50%{opacity:0}}",
+    "@keyframes cw-term-flash{0%{opacity:.35;filter:brightness(1.4)}100%{opacity:1;filter:none}}",
+    "@media (prefers-reduced-motion:reduce){.cw-term-cursor{animation:none;opacity:.65}[data-term-flash]{animation:none}}",
     "body[data-canvasui='fallback'] [data-fx]{/* native DOM stays readable */}",
   ].join("");
 
   function injectCss() {
-    if (document.getElementById("nb-landing-fx-css")) return;
+    if (document.getElementById("cw-landing-fx-css")) return;
     var el = document.createElement("style");
-    el.id = "nb-landing-fx-css";
+    el.id = "cw-landing-fx-css";
     el.textContent = CSS;
     document.head.appendChild(el);
   }
@@ -59,16 +59,16 @@ function bootLandingFx() {
     if (host.getAttribute("data-fx-on") === "1") {
       return {
         host: host,
-        source: host.querySelector(".nb-fx-source"),
+        source: host.querySelector(".cw-fx-source"),
         content: content,
-        output: host.querySelector(".nb-fx-output"),
+        output: host.querySelector(".cw-fx-output"),
       };
     }
     var source = document.createElement("canvas");
     source.setAttribute("layoutsubtree", "");
-    source.className = "nb-fx-source";
+    source.className = "cw-fx-source";
     var output = document.createElement("canvas");
-    output.className = "nb-fx-output";
+    output.className = "cw-fx-output";
     output.setAttribute("aria-hidden", "true");
     host.insertBefore(source, content);
     source.appendChild(content);
@@ -108,7 +108,7 @@ function bootLandingFx() {
     el.textContent = "";
     var i = 0;
     var cursor = document.createElement("span");
-    cursor.className = "nb-term-cursor";
+    cursor.className = "cw-term-cursor";
     cursor.setAttribute("aria-hidden", "true");
     el.appendChild(cursor);
     var speed = cps || 48;
@@ -140,10 +140,10 @@ function bootLandingFx() {
       lines.forEach(function (line) {
         line.textContent = line.getAttribute("data-type-line") || "";
       });
-      var old = h1.querySelector(".nb-headline-cursor");
+      var old = h1.querySelector(".cw-headline-cursor");
       if (old) old.remove();
       var cursor = document.createElement("span");
-      cursor.className = "nb-headline-cursor";
+      cursor.className = "cw-headline-cursor";
       cursor.setAttribute("aria-hidden", "true");
       cursor.textContent = "_";
       if (lines.length) lines[lines.length - 1].appendChild(cursor);
@@ -159,7 +159,7 @@ function bootLandingFx() {
     lines.forEach(function (line) { line.textContent = ""; });
 
     var cursor = document.createElement("span");
-    cursor.className = "nb-headline-cursor";
+    cursor.className = "cw-headline-cursor";
     cursor.setAttribute("aria-hidden", "true");
     cursor.textContent = "_";
 
@@ -225,7 +225,7 @@ function bootLandingFx() {
   }
 
   function retypeActiveChapter() {
-    var panel = document.querySelector(".nb-ride-chapter[data-active='1']");
+    var panel = document.querySelector(".cw-ride-chapter[data-active='1']");
     if (!panel) return;
     panel.querySelectorAll("[data-term-replay]").forEach(function (el) {
       /* Skip rich markup titles (case codes); flash instead of flattening HTML. */
@@ -450,8 +450,8 @@ function bootLandingFx() {
         }
       });
       document.querySelectorAll("[data-fx][data-fx-on]").forEach(function (host) {
-        var source = host.querySelector(".nb-fx-source");
-        var output = host.querySelector(".nb-fx-output");
+        var source = host.querySelector(".cw-fx-source");
+        var output = host.querySelector(".cw-fx-output");
         if (source && output) sizeTrio({ host: host, source: source, output: output });
       });
     });

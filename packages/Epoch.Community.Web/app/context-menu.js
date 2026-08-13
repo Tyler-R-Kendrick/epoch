@@ -8,8 +8,8 @@
 (function () {
   "use strict";
 
-  var LEDGER_KEY = "nb-ctx-ledger";
-  var ACTIONS_KEY = "nb-ctx-actions";
+  var LEDGER_KEY = "cw-ctx-ledger";
+  var ACTIONS_KEY = "cw-ctx-actions";
   var MAX_LEDGER = 200;
   var MAX_ACTIONS = 3;
   var SYNTH_IDLE_MS = 10000;

@@ -25,18 +25,18 @@
    * clicks — the DOM underneath stays the thing you interact with.
    */
   var CSS = [
-    "[data-nb-fx-host]{position:relative}",
-    "[data-nb-fx-host][data-fx] .nb-fx-source{display:block;width:100%;height:100%}",
-    "[data-nb-fx-host][data-fx] .nb-fx-source>*{width:100%;height:100%}",
-    "[data-nb-fx-host][data-fx] .nb-fx-output{position:absolute;inset:0;width:100%;height:100%;" +
+    "[data-cw-fx-host]{position:relative}",
+    "[data-cw-fx-host][data-fx] .cw-fx-source{display:block;width:100%;height:100%}",
+    "[data-cw-fx-host][data-fx] .cw-fx-source>*{width:100%;height:100%}",
+    "[data-cw-fx-host][data-fx] .cw-fx-output{position:absolute;inset:0;width:100%;height:100%;" +
     "pointer-events:none}",
   ].join("");
 
   function styles() {
-    var el = document.getElementById("nb-fx-css");
+    var el = document.getElementById("cw-fx-css");
     if (!el) {
       el = document.createElement("style");
-      el.id = "nb-fx-css";
+      el.id = "cw-fx-css";
       el.textContent = CSS;
       document.head.appendChild(el);
     }
@@ -79,15 +79,15 @@
     if (instance) return { ok: true, already: true };
     if (!supported()) return { ok: false, reason: reason() };
 
-    var host = document.querySelector("[data-nb-fx-host]");
+    var host = document.querySelector("[data-cw-fx-host]");
     if (!host) return { ok: false, reason: "no mount point on the page" };
     styles();
 
     var source = document.createElement("canvas");
     source.setAttribute("layoutsubtree", "");
-    source.className = "nb-fx-source";
+    source.className = "cw-fx-source";
     var output = document.createElement("canvas");
-    output.className = "nb-fx-output";
+    output.className = "cw-fx-output";
     output.setAttribute("aria-hidden", "true");
 
     var content = host.firstElementChild;

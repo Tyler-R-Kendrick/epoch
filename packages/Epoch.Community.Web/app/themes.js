@@ -13,13 +13,13 @@ window.CW_THEMES = [
     name: "Grid",
     note: "Tron grid on terminal black — magenta chrome, cyan agents, CRT scan.",
     css: `:root{
-      --nb-bg:#03050a;--nb-surface:#070b12;--nb-ink:#c8d0d8;--nb-ink-dim:#7a8896;--nb-ink-faint:#7a8896;--nb-rule:#1a2836;
-      --nb-accent:#ff2cf0;--nb-accent-ink:#000;--nb-signed:#7dff9a;--nb-live:#3dff6a;--nb-warn:#ffaa00;
-      --nb-danger:#ff3355;--nb-agent:#40f0ff;
-      --nb-glow:0 0 8px rgba(64,240,255,.18);
-      --nb-scan:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,240,255,.03) 3px);
-      --nb-cell:.62rem;--nb-radius:0;}
-      body{text-shadow:var(--nb-glow)}
-      .nb-bar{border-block-end-color:color-mix(in srgb,var(--nb-agent) 40%,var(--nb-rule))}`,
+      --cw-bg:#03050a;--cw-surface:#070b12;--cw-ink:#c8d0d8;--cw-ink-dim:#7a8896;--cw-ink-faint:#7a8896;--cw-rule:#1a2836;
+      --cw-accent:#ff2cf0;--cw-accent-ink:#000;--cw-signed:#7dff9a;--cw-live:#3dff6a;--cw-warn:#ffaa00;
+      --cw-danger:#ff3355;--cw-agent:#40f0ff;
+      --cw-glow:0 0 8px rgba(64,240,255,.18);
+      --cw-scan:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,240,255,.03) 3px);
+      --cw-cell:.62rem;--cw-radius:0;}
+      body{text-shadow:var(--cw-glow)}
+      .cw-bar{border-block-end-color:color-mix(in srgb,var(--cw-agent) 40%,var(--cw-rule))}`,
   },
 ];

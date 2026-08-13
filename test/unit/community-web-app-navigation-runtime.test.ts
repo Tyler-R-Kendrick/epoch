@@ -267,7 +267,7 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
     "NAV-MIGRATE-004 malformed persisted state fails safely with recovery guidance");
   assert.deepEqual((malformed.recovery as Record<string, unknown>).actions, ["export", "reset"],
     "NAV-MIGRATE-004 recovery exposes explicit export and reset actions");
-  storage.set("nb-board-state", "{broken-json");
+  storage.set("cw-board-state", "{broken-json");
   assert.equal((session.loadBoardState()?.recovery as Record<string, unknown>).reason, "malformed");
   assert.equal(session.exportBoardState(), "{broken-json",
     "NAV-MIGRATE-004 malformed state remains exportable until explicit reset");

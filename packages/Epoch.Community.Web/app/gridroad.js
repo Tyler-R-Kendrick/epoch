@@ -116,8 +116,8 @@
     }
     shimmer = (shimmer + dt * (moving ? 0.28 : 0.42)) % 1;
 
-    var cyan = themeColor("--nb-agent", "#00e5ff");
-    var mag = themeColor("--nb-accent", "#ff2bd6");
+    var cyan = themeColor("--cw-agent", "#00e5ff");
+    var mag = themeColor("--cw-accent", "#ff2bd6");
     var horizonY = Math.max(4, h * 0.34);
     var cx = w * 0.52;
 

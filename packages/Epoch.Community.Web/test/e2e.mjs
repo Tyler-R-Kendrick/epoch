@@ -40,9 +40,9 @@ const CASES = [
         landing: document.body?.getAttribute("data-landing"),
         cta: document.querySelector("[data-enter-board]")?.getAttribute("href"),
         brand: !!document.querySelector("[data-landing-brand]"),
-        headline: document.querySelector(".nb-landing-headline")?.getAttribute("aria-label")?.trim()
-          || document.querySelector(".nb-landing-headline")?.textContent?.trim(),
-        lines: Array.from(document.querySelectorAll(".nb-landing-headline [data-type-line]"))
+        headline: document.querySelector(".cw-landing-headline")?.getAttribute("aria-label")?.trim()
+          || document.querySelector(".cw-landing-headline")?.textContent?.trim(),
+        lines: Array.from(document.querySelectorAll(".cw-landing-headline [data-type-line]"))
           .map((el) => el.getAttribute("data-type-line")),
       }));
       if (probe.landing !== "true") return log("not landing: " + JSON.stringify(probe));
@@ -64,12 +64,12 @@ const CASES = [
       ).catch(() => null);
       const story = await page.evaluate(() => {
         const body = document.body?.innerText || "";
-        const headline = document.querySelector(".nb-landing-headline");
+        const headline = document.querySelector(".cw-landing-headline");
         const headlineLabel = headline?.getAttribute("aria-label") || "";
         const typed = Array.from(headline?.querySelectorAll("[data-type-line]") || [])
           .map((el) => {
             const copy = el.cloneNode(true);
-            copy.querySelectorAll(".nb-headline-cursor").forEach((c) => c.remove());
+            copy.querySelectorAll(".cw-headline-cursor").forEach((c) => c.remove());
             return copy.textContent.trim();
           });
         const brand = document.querySelector("[data-landing-brand]");
@@ -84,11 +84,11 @@ const CASES = [
           hasSkip: !!document.querySelector("[data-skip-intro]"),
           hasGrid: !!document.querySelector("[data-landing-grid]"),
           hasCrt: !!document.querySelector("[data-landing-crt]"),
-          hasCrtMass: !!document.querySelector(".nb-crt-grain") && !!document.querySelector(".nb-crt-barrel"),
+          hasCrtMass: !!document.querySelector(".cw-crt-grain") && !!document.querySelector(".cw-crt-barrel"),
           hasRail: !!document.querySelector("[data-scroll-rail]"),
           hasRide: !!document.querySelector("[data-ride-track]") && !!document.querySelector("[data-ride-stage]"),
-          hasCrtTube: !!document.querySelector("[data-crt-tube]") && !!document.getElementById("nb-crt-barrel-filter"),
-          hasCaseRail: document.querySelectorAll(".nb-scroll-rail-item .nb-case-code").length >= 5,
+          hasCrtTube: !!document.querySelector("[data-crt-tube]") && !!document.getElementById("cw-crt-barrel-filter"),
+          hasCaseRail: document.querySelectorAll(".cw-scroll-rail-item .cw-case-code").length >= 5,
           hasPlaneCatalog: !!document.querySelector("[data-plane-catalog]") &&
             document.querySelectorAll("[data-plane]").length >= 3,
           hasScrub: !!document.querySelector("[data-theater-scrub]"),
@@ -105,7 +105,7 @@ const CASES = [
           landingFxReady: document.body.getAttribute("data-landing-fx-ready") === "1",
           headlineLabel,
           typed,
-          hasCursor: !!headline?.querySelector(".nb-headline-cursor"),
+          hasCursor: !!headline?.querySelector(".cw-headline-cursor"),
           mentionsCollaborate: /collaborat/i.test(body) || /collaborat/i.test(headlineLabel),
           mentionsPromoteWork: /promote your work|promote work|showcase/i.test(body)
             || /promote your work/i.test(headlineLabel),
@@ -161,7 +161,7 @@ const CASES = [
       const rideAfter = await page.evaluate(() => ({
         chapter: document.body.getAttribute("data-chapter"),
         active: document.querySelector('[data-ride-chapter][data-active="1"]')?.getAttribute("data-ride-chapter"),
-        progress: document.body.style.getPropertyValue("--nb-scroll"),
+        progress: document.body.style.getPropertyValue("--cw-scroll"),
         bodyOverflow: getComputedStyle(document.body).overflow,
       }));
       if (!ride.ok || rideAfter.bodyOverflow.indexOf("hidden") === -1) {
@@ -248,7 +248,7 @@ const CASES = [
         chapter: document.body.getAttribute("data-chapter"),
         snap: document.body.getAttribute("data-ride-snap"),
         settle: document.body.getAttribute("data-scene-settle"),
-        scroll: document.body.style.getPropertyValue("--nb-scroll"),
+        scroll: document.body.style.getPropertyValue("--cw-scroll"),
       }));
       if (burst.chapter === "board" || burst.chapter === "who" || burst.chapter === "how") {
         return log("wheel burst skipped scenes: " + JSON.stringify(burst));
@@ -684,7 +684,7 @@ const CASES = [
   {
     name: "NAV-ACTION-003 NAV-REG-003 power: one saved macro powers prompt, agent tool, and exact voice phrase",
     run: async (page, log) => {
-      await page.evaluate(() => localStorage.removeItem("nb-power-actions-v1"));
+      await page.evaluate(() => localStorage.removeItem("cw-power-actions-v1"));
       await page.reload();
       await page.waitForSelector("[data-cli]");
       const prompt = page.locator("[data-cli]");
@@ -747,7 +747,7 @@ const CASES = [
         return log("agent tool did not run saved macro: " + JSON.stringify(called));
       }
 
-      await page.evaluate(() => localStorage.setItem("nb-power-actions-v1", JSON.stringify({
+      await page.evaluate(() => localStorage.setItem("cw-power-actions-v1", JSON.stringify({
         review: { commands: ["cd /projects/community/channels/general", "view state:open"], voice: "start review" },
         "foo-bar": { commands: ["cd /projects/community/channels/general"], voice: "" },
         foo_bar: { commands: ["cd /projects/community/channels/general"], voice: "" },
@@ -1420,8 +1420,8 @@ const CASES = [
     run: async (page, log) => {
       await page.evaluate(() => {
         try {
-          localStorage.removeItem("nb-home-feed-read");
-          localStorage.removeItem("nb-home-feed-dismissed");
+          localStorage.removeItem("cw-home-feed-read");
+          localStorage.removeItem("cw-home-feed-dismissed");
         } catch { /* fine */ }
         window.CW_APP.state.homeFeedRead = {};
         window.CW_APP.state.homeFeedDismissed = {};
@@ -1553,7 +1553,7 @@ const CASES = [
     name: "home: feed toggles following / announcements / featured / creators with unread",
     run: async (page, log) => {
       await page.evaluate(() => {
-        try { localStorage.removeItem("nb-home-feed-read"); } catch { /* fine */ }
+        try { localStorage.removeItem("cw-home-feed-read"); } catch { /* fine */ }
         window.CW_APP.state.homeFeedRead = {};
         window.CW_APP.state.homeFeed = "following";
         window.CW_APP.state.homeAnnCollapsed = {};
@@ -2927,7 +2927,7 @@ const CASES = [
     run: async (page, log) => {
       // Home feed / non-DM path — @maya must not publish a DM.
       await page.evaluate(() => {
-        try { localStorage.removeItem("nb-home-feed-read"); } catch { /* fine */ }
+        try { localStorage.removeItem("cw-home-feed-read"); } catch { /* fine */ }
         window.CW_APP.state.homeFeedRead = {};
         window.CW_APP.state.homeFeed = "creators";
         window.CW_APP.state.sessionOutFocus = false;
@@ -3537,7 +3537,7 @@ const CASES = [
     name: "power: slash menu stays closed until / is typed (mouse nav + reload)",
     run: async (page, log) => {
       await page.evaluate(() => {
-        try { localStorage.setItem("nb-keys-onboarded", "1"); } catch { /* fine */ }
+        try { localStorage.setItem("cw-keys-onboarded", "1"); } catch { /* fine */ }
         window.CW_APP.state.ai = true;
         window.CW_APP.state.intelOpen = false;
         window.CW_APP.state.helpOpen = false;
@@ -3604,7 +3604,7 @@ const CASES = [
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForTimeout(200);
       const afterReload = await page.evaluate(() => {
-        try { localStorage.setItem("nb-keys-onboarded", "1"); } catch { /* fine */ }
+        try { localStorage.setItem("cw-keys-onboarded", "1"); } catch { /* fine */ }
         window.CW_APP.state.ai = true;
         window.CW_APP.state.intelOpen = false;
         window.CW_APP.state.helpOpen = false;
@@ -4357,9 +4357,9 @@ const CASES = [
       const ui = await page.evaluate(() => {
         const mirror = document.querySelector("[data-cli-mirror], .cn-cli-mirror, [data-ghost]");
         const ghost = document.querySelector(".cn-ghost-rest, [data-ghost-rest]");
-        const kw = document.querySelector(".cn-input-wrap .nb-tok-kw, .cn-cli-mirror .nb-tok-kw, [data-cli-mirror] .nb-tok-kw");
+        const kw = document.querySelector(".cn-input-wrap .cw-tok-kw, .cn-cli-mirror .cw-tok-kw, [data-cli-mirror] .cw-tok-kw");
         const pathTok = document.querySelector(
-          ".cn-input-wrap .nb-tok-path, .cn-input-wrap .nb-tok-str, .cn-cli-mirror .nb-tok-path, .cn-cli-mirror .nb-tok-str",
+          ".cn-input-wrap .cw-tok-path, .cn-input-wrap .cw-tok-str, .cn-cli-mirror .cw-tok-path, .cn-cli-mirror .cw-tok-str",
         );
         const ghostText = (ghost?.textContent || mirror?.textContent || "");
         const candOpen = document.querySelector(".cn-tui-foot")?.dataset.open === "true";
@@ -4398,7 +4398,7 @@ const CASES = [
           value: document.querySelector("[data-cli]")?.value || "",
           ghost: rest?.textContent || "",
           mirror: mirror?.textContent || "",
-          hasKw: !!document.querySelector(".cn-input-wrap .nb-tok-kw, [data-cli-mirror] .nb-tok-kw"),
+          hasKw: !!document.querySelector(".cn-input-wrap .cw-tok-kw, [data-cli-mirror] .cw-tok-kw"),
         };
       });
       if (ui.value !== "hel") return log("value " + ui.value);
@@ -4630,14 +4630,14 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(150);
       const got = await page.evaluate(() => {
-        const cards = Array.from(document.querySelectorAll(".nb-link-preview"));
+        const cards = Array.from(document.querySelectorAll(".cw-link-preview"));
         const kinds = cards.map((c) => c.getAttribute("data-kind"));
-        const ascii = cards.map((c) => c.querySelector(".nb-link-preview-ascii")?.textContent || "");
+        const ascii = cards.map((c) => c.querySelector(".cw-link-preview-ascii")?.textContent || "");
         const hasBox = ascii.some((t) => t.includes("┌") && t.includes("│"));
         const hasRepo = kinds.includes("repo");
         const hasDocs = kinds.includes("docs");
         const hasBoard = kinds.includes("board");
-        const inline = document.querySelectorAll(".cn-comment-body .nb-md-a").length;
+        const inline = document.querySelectorAll(".cn-comment-body .cw-md-a").length;
         // Standalone API still works.
         const api = window.CW_ASCII && window.CW_ASCII.linkPreview
           ? window.CW_ASCII.linkPreview("https://github.com/webmachinelearning/webmcp")
@@ -4650,7 +4650,7 @@ const CASES = [
           hasDocs,
           hasBoard,
           inline,
-          apiOk: api.includes("nb-link-preview") && /WebMCP|GitHub/i.test(api),
+          apiOk: api.includes("cw-link-preview") && /WebMCP|GitHub/i.test(api),
         };
       });
       if (got.n < 2) return log("expected preview cards: " + JSON.stringify(got));
@@ -4662,7 +4662,7 @@ const CASES = [
       if (got.hasBoard) {
         const nav = await page.evaluate(() => {
           const hit = document.querySelector(
-            '.nb-link-preview[data-kind="board"] .nb-link-preview-hit[data-goto]',
+            '.cw-link-preview[data-kind="board"] .cw-link-preview-hit[data-goto]',
           );
           if (!hit) return { err: "no board hit" };
           const dest = hit.getAttribute("data-goto");
@@ -4758,17 +4758,17 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(150);
       const inThread = await page.evaluate(() => {
-        const tables = document.querySelectorAll(".nb-md-atable");
-        const th = document.querySelector(".nb-md-th");
-        const body = Array.from(document.querySelectorAll(".cn-comment-body .nb-md"))
+        const tables = document.querySelectorAll(".cw-md-atable");
+        const th = document.querySelector(".cw-md-th");
+        const body = Array.from(document.querySelectorAll(".cn-comment-body .cw-md"))
           .map((el) => el.textContent).join("\n");
         return {
           tables: tables.length,
           hasHeader: !!th,
           hasBox: Array.from(tables).some((t) => /[┌│]/.test(t.textContent || "")),
           hasCold: /3m52s|cold/i.test(body),
-          hasMention: !!document.querySelector(".nb-md-mention"),
-          hasTopic: !!document.querySelector(".nb-md-topic"),
+          hasMention: !!document.querySelector(".cw-md-mention"),
+          hasTopic: !!document.querySelector(".cw-md-topic"),
         };
       });
       if (!(inThread.tables >= 1 && inThread.hasHeader && inThread.hasBox && inThread.hasCold)) {
@@ -4777,9 +4777,9 @@ const CASES = [
       // Discord-flavoured marks on Scout's plan (underline, spoiler, quote).
       const discord = await page.evaluate(() => {
         const c = document.querySelector('.cn-comment[data-key="p3"]');
-        const u = c?.querySelector(".nb-md-u");
+        const u = c?.querySelector(".cw-md-u");
         const spoiler = c?.querySelector("[data-spoiler]");
-        const quote = c?.querySelector(".nb-md-quote");
+        const quote = c?.querySelector(".cw-md-quote");
         return {
           underline: u?.textContent || "",
           spoiler: spoiler?.textContent || "",
@@ -4801,10 +4801,10 @@ const CASES = [
 
       // Syntax-highlighted fence on Scout's plan post.
       const syn = await page.evaluate(() => {
-        const pre = document.querySelector('.cn-comment-body .nb-md-pre[data-lang="typescript"]');
-        const toks = pre ? pre.querySelectorAll(".nb-tok").length : 0;
-        const kw = pre ? pre.querySelectorAll(".nb-tok-kw").length : 0;
-        const com = pre ? pre.querySelectorAll(".nb-tok-com").length : 0;
+        const pre = document.querySelector('.cn-comment-body .cw-md-pre[data-lang="typescript"]');
+        const toks = pre ? pre.querySelectorAll(".cw-tok").length : 0;
+        const kw = pre ? pre.querySelectorAll(".cw-tok-kw").length : 0;
+        const com = pre ? pre.querySelectorAll(".cw-tok-com").length : 0;
         return {
           pre: !!pre,
           toks,
@@ -4833,10 +4833,10 @@ const CASES = [
         const div = document.createElement("div");
         div.innerHTML = html;
         return {
-          toks: div.querySelectorAll(".nb-ed-line .nb-tok-kw").length,
-          fn: div.querySelectorAll(".nb-ed-line .nb-tok-fn").length,
-          str: div.querySelectorAll(".nb-ed-line .nb-tok-str").length,
-          lang: div.querySelector(".nb-ed-chrome-lang")?.textContent || "",
+          toks: div.querySelectorAll(".cw-ed-line .cw-tok-kw").length,
+          fn: div.querySelectorAll(".cw-ed-line .cw-tok-fn").length,
+          str: div.querySelectorAll(".cw-ed-line .cw-tok-str").length,
+          lang: div.querySelector(".cw-ed-chrome-lang")?.textContent || "",
         };
       });
       if (!(ed.lang === "typescript" && ed.toks >= 2 && (ed.fn >= 1 || ed.str >= 1))) {
@@ -4913,8 +4913,8 @@ const CASES = [
         return {
           kind: btn?.dataset.kind,
           anonymous: btn?.dataset.anonymous,
-          name: btn?.querySelector(".nb-profile-name")?.textContent,
-          initials: btn?.querySelector(".nb-profile-avatar")?.textContent,
+          name: btn?.querySelector(".cw-profile-name")?.textContent,
+          initials: btn?.querySelector(".cw-profile-avatar")?.textContent,
           principalId: ident?.principalId,
           canParticipate: ident?.canParticipate,
           claimable: ident?.claimable,
@@ -4990,7 +4990,7 @@ const CASES = [
   {
     name: "NAV-ID-004 unattributed board state cannot claim the private DM inbox",
     storage: {
-      "nb-board-state": JSON.stringify({
+      "cw-board-state": JSON.stringify({
         v: 2,
         path: "/projects/community/channels/general",
         sessions: [],
@@ -5022,7 +5022,7 @@ const CASES = [
           principalId: id?.principalId,
           spaceId: id?.spaceId,
           btnKind: btn?.dataset.kind,
-          btnName: btn?.querySelector(".nb-profile-name")?.textContent,
+          btnName: btn?.querySelector(".cw-profile-name")?.textContent,
         };
       });
       if (after.kind !== "claimed" || after.handle !== "garden-guest") {
@@ -5098,7 +5098,7 @@ const CASES = [
         return {
           kind: id?.kind,
           principalId: id?.principalId,
-          name: btn?.querySelector(".nb-profile-name")?.textContent,
+          name: btn?.querySelector(".cw-profile-name")?.textContent,
           anonymous: btn?.dataset.anonymous,
         };
       });
@@ -5144,7 +5144,7 @@ const CASES = [
           did: i?.did,
           spaceId: i?.spaceId,
           dialog: document.querySelector("[data-auth-dialog]")?.dataset.open,
-          name: document.querySelector(".nb-profile-name")?.textContent,
+          name: document.querySelector(".cw-profile-name")?.textContent,
         };
       });
       return (id.kind === "atproto" && id.handle === "epoch.dev" &&
@@ -5158,7 +5158,7 @@ const CASES = [
     run: async (page, log) => {
       // Clear any prior read state from earlier tests in this browser context.
       await page.evaluate(() => {
-        localStorage.removeItem("nb-notif-read");
+        localStorage.removeItem("cw-notif-read");
         window.CW_APP.state.notifRead = {};
         window.CW_APP.paintActivityBell();
         window.CW_APP.render(true);
@@ -5240,7 +5240,7 @@ const CASES = [
 
       // Shared dismiss verb `d` clears Activity unread without opening.
       const dismissProbe = await page.evaluate(() => {
-        localStorage.removeItem("nb-notif-read");
+        localStorage.removeItem("cw-notif-read");
         window.CW_APP.state.notifRead = {};
         window.CW_APP.openActivity("all");
         window.CW_APP.state.columnFocus = true;
@@ -5271,7 +5271,7 @@ const CASES = [
       if (!afterD.stored) {
         // Keyboard may miss if focus left columns — prove shared dismissCurrent.
         afterD = await page.evaluate(() => {
-          localStorage.removeItem("nb-notif-read");
+          localStorage.removeItem("cw-notif-read");
           window.CW_APP.state.notifRead = {};
           window.CW_APP.openActivity("all");
           window.CW_APP.state.columnFocus = true;
@@ -5336,8 +5336,8 @@ const CASES = [
           close() {}
         }
         window.Notification = MockNotification;
-        localStorage.removeItem("nb-notif-pushed");
-        localStorage.removeItem("nb-hooks-fired");
+        localStorage.removeItem("cw-notif-pushed");
+        localStorage.removeItem("cw-hooks-fired");
         if (window.CW_HOOKS) window.CW_HOOKS.clearFired();
 
         // Ensure a bugs post hook is on.
@@ -5417,8 +5417,8 @@ const CASES = [
         }
         window.Notification = MockNotification;
         // Clear pushed set so deliverUnread can fire.
-        localStorage.removeItem("nb-notif-pushed");
-        localStorage.removeItem("nb-notif-read");
+        localStorage.removeItem("cw-notif-pushed");
+        localStorage.removeItem("cw-notif-read");
         window.CW_APP.state.notifRead = {};
 
         const before = window.CW_APP.browserNotifyPermission();
@@ -5468,7 +5468,7 @@ const CASES = [
           close() {}
         }
         window.Notification = MockNotification;
-        localStorage.removeItem("nb-notif-pushed");
+        localStorage.removeItem("cw-notif-pushed");
         // Pick a known unread mention with a stable where path.
         const item = (window.CW_DATA.notifications || []).find((n) => n.id === "n1") ||
           (window.CW_DATA.notifications || [])[0];
@@ -5641,12 +5641,12 @@ const CASES = [
       await page.waitForTimeout(150);
       const ui = await page.evaluate(() => {
         const ed = document.querySelector("[data-editor]");
-        const status = document.querySelector(".nb-ed-status-mode")?.textContent || "";
+        const status = document.querySelector(".cw-ed-status-mode")?.textContent || "";
         const body = document.querySelector("[data-editor-body]");
         return {
           hasEditor: !!ed,
           status,
-          lines: body ? body.querySelectorAll(".nb-ed-row").length : 0,
+          lines: body ? body.querySelectorAll(".cw-ed-row").length : 0,
           mode: ed?.getAttribute("data-mode"),
           path: window.CW_APP.getEditor && window.CW_APP.getEditor()?.path,
         };
@@ -5659,7 +5659,7 @@ const CASES = [
       await page.waitForTimeout(80);
       const insert = await page.evaluate(() => ({
         mode: window.CW_APP.getEditor()?.mode,
-        status: document.querySelector(".nb-ed-status-mode")?.textContent,
+        status: document.querySelector(".cw-ed-status-mode")?.textContent,
       }));
       if (insert.mode !== "insert") return log("i did not enter insert: " + JSON.stringify(insert));
       await page.keyboard.type(">>");
@@ -5671,7 +5671,7 @@ const CASES = [
           mode: ed?.mode,
           dirty: ed?.dirty,
           text: ed ? window.CW_EDITOR.text(ed).slice(0, 40) : "",
-          caret: !!document.querySelector(".nb-ed-caret"),
+          caret: !!document.querySelector(".cw-ed-caret"),
         };
       });
       if (after.mode !== "normal") return log("Esc did not restore normal: " + JSON.stringify(after));
@@ -5680,7 +5680,7 @@ const CASES = [
       }
       // Click a character to move caret.
       const clicked = await page.evaluate(() => {
-        const ch = document.querySelector('.nb-ed-ch[data-line="0"][data-col="0"]');
+        const ch = document.querySelector('.cw-ed-ch[data-line="0"][data-col="0"]');
         if (!ch) return { err: "no cell" };
         ch.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         // pointerdown path used by app
@@ -6492,7 +6492,7 @@ const CASES = [
         onboard: !!window.CW_APP.state.keysOnboard,
         lead: document.querySelector(".cn-help-lead")?.textContent || "",
         scope: document.querySelector(".cn-help-scope")?.textContent || "",
-        stored: localStorage.getItem("nb-keys-onboarded"),
+        stored: localStorage.getItem("cw-keys-onboarded"),
       }));
       if (open.help !== "true" || !open.intel || !open.onboard) {
         return log("first visit did not open keys sheet: " + JSON.stringify(open));
@@ -6506,7 +6506,7 @@ const CASES = [
       const after = await page.evaluate(() => ({
         help: document.querySelector(".cn-help")?.dataset.open,
         onboard: !!window.CW_APP.state.keysOnboard,
-        stored: localStorage.getItem("nb-keys-onboarded"),
+        stored: localStorage.getItem("cw-keys-onboarded"),
       }));
       if (after.help === "true" || after.onboard) {
         return log("Esc did not close onboard sheet: " + JSON.stringify(after));
@@ -7220,7 +7220,7 @@ const CASES = [
           state: "open", body: "restored arrival", sig: "sig:restored-live-1",
         }];
         snapshot.pendingByFeed = {};
-        localStorage.setItem("nb-board-state", JSON.stringify(snapshot));
+        localStorage.setItem("cw-board-state", JSON.stringify(snapshot));
       });
       await page.reload({ waitUntil: "networkidle" });
       const restored = await page.evaluate(() => {
@@ -7632,9 +7632,9 @@ const CASES = [
     name: "a11y: skip link, landmarks, workspace tabs, and combobox wiring",
     run: async (page, log) => {
       const chrome = await page.evaluate(() => {
-        const skip = document.querySelector("a.nb-skip");
+        const skip = document.querySelector("a.cw-skip");
         const banner = document.querySelector('[role="banner"]');
-        const main = document.querySelector("#nb-main, main[data-mount]");
+        const main = document.querySelector("#cw-main, main[data-mount]");
         const tablist = document.querySelector('.cn-workspace-tablist[role="tablist"]');
         const tabs = Array.from(document.querySelectorAll('.cn-workspace-tablist [role="tab"]'));
         const plus = document.querySelector("[data-session-new]");
@@ -7656,12 +7656,12 @@ const CASES = [
           label: input?.getAttribute("aria-label"),
           // Theme chrome is agent-only — not in the user-facing status footer.
           themeFooter: !!document.querySelector(
-            "[data-region='status'] .nb-status-theme, [data-region='status'] [data-theme-name], [data-region='status'] [data-theme-note]",
+            "[data-region='status'] .cw-status-theme, [data-region='status'] [data-theme-name], [data-region='status'] [data-theme-note]",
           ),
           keysCue: !!document.querySelector("[data-region='status'] [data-keys-open]"),
         };
       });
-      if (chrome.skipHref !== "#nb-main" || !chrome.skipText) {
+      if (chrome.skipHref !== "#cw-main" || !chrome.skipText) {
         return log("skip link: " + JSON.stringify(chrome));
       }
       if (!chrome.banner || !chrome.main) return log("landmarks: " + JSON.stringify(chrome));
@@ -7703,7 +7703,7 @@ const CASES = [
       }
 
       // Keyboard path to masthead chrome (skip → activity). Grid has no theme dropdown.
-      await page.evaluate(() => document.querySelector("a.nb-skip")?.focus());
+      await page.evaluate(() => document.querySelector("a.cw-skip")?.focus());
       await page.keyboard.press("Tab");
       await page.waitForTimeout(40);
       const hit = { activity: false, seen: [] };
@@ -7768,7 +7768,7 @@ const CASES = [
       });
       await page.waitForTimeout(80);
       const check = await page.evaluate(() => {
-        const pre = document.querySelector(".nb-md-pre");
+        const pre = document.querySelector(".cw-md-pre");
         const footOut = document.querySelector(".cn-tui-foot .cn-out, .cn-panel-out");
         return {
           preTab: pre ? pre.getAttribute("tabindex") : null,
@@ -8037,8 +8037,8 @@ const CASES = [
         const CTX = window.CW_CTX;
         if (!CTX) return { ok: false, why: "CW_CTX missing" };
         try {
-          localStorage.removeItem("nb-ctx-ledger");
-          localStorage.removeItem("nb-ctx-actions");
+          localStorage.removeItem("cw-ctx-ledger");
+          localStorage.removeItem("cw-ctx-actions");
         } catch { /* fine */ }
         CTX.resetLearning();
         const key = "nav-item:/projects/community/channels/general";
@@ -8130,7 +8130,7 @@ const CASES = [
     name: "startup: Ctrl+U applies update defaults and continuation in one restart",
     run: async (page, log) => {
       await page.evaluate(() => {
-        localStorage.setItem("nb-startup-signals-v1", JSON.stringify({
+        localStorage.setItem("cw-startup-signals-v1", JSON.stringify({
           continuation: { host: "codex", sessionId: "codex-42", workspace: "epoch" },
           update: { current: "0.8.0", available: "0.9.0" },
           workspace: { id: "epoch", defaultsVersion: 2, appliedVersion: 1 },
@@ -8153,12 +8153,12 @@ const CASES = [
       ]);
       await page.waitForTimeout(120);
       await page.waitForFunction(() => {
-        const applied = JSON.parse(localStorage.getItem("nb-startup-applied-v1") || "{}");
+        const applied = JSON.parse(localStorage.getItem("cw-startup-applied-v1") || "{}");
         return applied.update === "0.9.0" && applied.workspace === 2 &&
           applied.continuation === "codex-42";
       });
       const applied = await page.evaluate(() => ({
-        value: JSON.parse(localStorage.getItem("nb-startup-applied-v1") || "{}"),
+        value: JSON.parse(localStorage.getItem("cw-startup-applied-v1") || "{}"),
         pending: window.CW_STARTUP?.pending?.().length,
         next: document.querySelector("[data-status-line]")?.textContent || "",
       }));
@@ -8189,7 +8189,7 @@ const CASES = [
           second: second?.id,
           fallback: fallback?.id,
           reason: fallback?.reason,
-          stored: JSON.parse(localStorage.getItem("nb-route-affinity-v1") || "{}"),
+          stored: JSON.parse(localStorage.getItem("cw-route-affinity-v1") || "{}"),
         };
       });
       if (routed.first !== "local" || routed.second !== "local") {
@@ -8382,7 +8382,7 @@ const CASES = [
     name: "NAV-MIGRATE-004 recovery exposes export and reset without destroying state",
     firstVisit: true,
     storage: {
-      "nb-board-state": JSON.stringify({
+      "cw-board-state": JSON.stringify({
         v: 2, schemaVersion: 999, principalId: "guest_local", sessions: [{ id: "future-work" }],
       }),
     },
@@ -8392,7 +8392,7 @@ const CASES = [
         text: document.querySelector("[data-session-recovery]")?.textContent,
         exportAction: !!document.querySelector("[data-session-recovery-export]"),
         resetAction: !!document.querySelector("[data-session-recovery-reset]"),
-        preserved: !!localStorage.getItem("nb-board-state"),
+        preserved: !!localStorage.getItem("cw-board-state"),
         state: window.CW_APP.state.sessionRecovery,
       }));
       if (!recovery.exportAction || !recovery.resetAction) {
@@ -8400,7 +8400,7 @@ const CASES = [
       }
       await page.evaluate(() => document.querySelector("[data-session-recovery-reset]").click());
       await page.waitForFunction(() => !document.querySelector("[data-session-recovery]") &&
-        !localStorage.getItem("nb-board-state"));
+        !localStorage.getItem("cw-board-state"));
       return (recovery.exportAction && recovery.resetAction && recovery.preserved &&
         /newer|update|export|reset/i.test(recovery.text || "")) ||
         log("migration recovery is not actionable: " + JSON.stringify(recovery));
@@ -8410,7 +8410,7 @@ const CASES = [
     name: "NAV-MIGRATE-004 saved-view recovery reuses the actionable recovery surface",
     firstVisit: true,
     storage: {
-      "nb-saved-views-v2": "{malformed saved view state",
+      "cw-saved-views-v2": "{malformed saved view state",
     },
     run: async (page, log) => {
       await page.waitForTimeout(100);
@@ -8419,7 +8419,7 @@ const CASES = [
         exportAction: !!document.querySelector("[data-session-recovery-export]"),
         resetAction: !!document.querySelector("[data-session-recovery-reset]"),
         surfaces: document.querySelectorAll("[data-session-recovery]").length,
-        preserved: localStorage.getItem("nb-saved-views-v2"),
+        preserved: localStorage.getItem("cw-saved-views-v2"),
         status: window.CW_SAVED_VIEWS.status(),
       }));
       if (!recovery.exportAction || !recovery.resetAction) {
@@ -8429,7 +8429,7 @@ const CASES = [
       await page.waitForTimeout(100);
       const reset = await page.evaluate(() => ({
         surface: !!document.querySelector("[data-session-recovery]"),
-        stored: localStorage.getItem("nb-saved-views-v2"),
+        stored: localStorage.getItem("cw-saved-views-v2"),
         status: window.CW_SAVED_VIEWS.status(),
       }));
       return recovery.surfaces === 1 && !!recovery.preserved &&
@@ -8666,7 +8666,7 @@ for (const testCase of selected) {
   // by the dedicated `firstVisit` case (empty localStorage).
   if (!testCase.firstVisit) {
     await context.addInitScript(() => {
-      try { localStorage.setItem("nb-keys-onboarded", "1"); } catch { /* fine */ }
+      try { localStorage.setItem("cw-keys-onboarded", "1"); } catch { /* fine */ }
     });
   }
   if (testCase.storage) {

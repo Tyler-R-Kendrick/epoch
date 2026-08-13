@@ -170,41 +170,41 @@ theme that sets only a handful still renders coherently.
 ### Surface and ink
 
 ```
---nb-bg            page ground
---nb-surface       panel ground, one step from --nb-bg
---nb-ink           default text
---nb-ink-dim       secondary text
---nb-ink-faint     quietest text (must still meet WCAG AA ≥ 4.5:1 on --nb-bg)
---nb-rule          hairlines and box drawing
+--cw-bg            page ground
+--cw-surface       panel ground, one step from --cw-bg
+--cw-ink           default text
+--cw-ink-dim       secondary text
+--cw-ink-faint     quietest text (must still meet WCAG AA ≥ 4.5:1 on --cw-bg)
+--cw-rule          hairlines and box drawing
 ```
 
 ### Signal
 
 ```
---nb-accent        the reserved ink: the path from talk to signed work
---nb-accent-ink    text on --nb-accent
---nb-signed        verification and trust marks
---nb-live          healthy, connected
---nb-warn          snapshot, stale, degraded
---nb-danger        destructive and moderation
---nb-agent         agent participation
+--cw-accent        the reserved ink: the path from talk to signed work
+--cw-accent-ink    text on --cw-accent
+--cw-signed        verification and trust marks
+--cw-live          healthy, connected
+--cw-warn          snapshot, stale, degraded
+--cw-danger        destructive and moderation
+--cw-agent         agent participation
 ```
 
 ### Form
 
 ```
---nb-font          the type stack
---nb-cell          character cell width, the grid this world is built on
---nb-line          line height
---nb-radius        corner radius (0 keeps the terminal square)
---nb-glow          text-shadow for phosphor themes; `none` for flat ones
---nb-scan          background-image for scanlines; `none` for flat ones
---nb-pad           base padding step
+--cw-font          the type stack
+--cw-cell          character cell width, the grid this world is built on
+--cw-line          line height
+--cw-radius        corner radius (0 keeps the terminal square)
+--cw-glow          text-shadow for phosphor themes; `none` for flat ones
+--cw-scan          background-image for scanlines; `none` for flat ones
+--cw-pad           base padding step
 ```
 
 Controls (sort chips, Activity filters, masthead actions, reactions) use
 TTY chrome: `[label]` brackets and reverse-video selection — not rounded
-filled web pills — even when themes keep `--nb-radius` at zero.
+filled web pills — even when themes keep `--cw-radius` at zero.
 
 ## What a theme cannot do
 

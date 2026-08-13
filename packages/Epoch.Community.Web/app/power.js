@@ -2,12 +2,12 @@
 (function () {
   "use strict";
 
-  var KEY = "nb-power-actions-v1";
+  var KEY = "cw-power-actions-v1";
   var actions = {};
   var runtime = null;
   var unregister = {};
   var hoboToolUnregister = null;
-  var HOBO_KEY = "nb-hobo-projects-v1";
+  var HOBO_KEY = "cw-hobo-projects-v1";
   var HOBO_TEMPLATES = ["todo", "api", "agent", "fullstack"];
 
   function normalPhrase(value) {

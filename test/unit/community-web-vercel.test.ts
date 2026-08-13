@@ -366,10 +366,10 @@ function renderScriptProducesDeployableCommunityHtml(): void {
 
   const html = readFileSync(join(outputDirectory, "index.html"), "utf8");
   const board = readFileSync(join(outputDirectory, "board.html"), "utf8");
-  assert.match(html, /<body class="nb-landing"/u);
+  assert.match(html, /<body class="cw-landing"/u);
   assert.match(html, /Collaborate\. Promote your work\. Get paid\./u);
   assert.match(html, /href="board\.html"/u);
-  assert.match(board, /class="nb-bar" role="banner"/u);
+  assert.match(board, /class="cw-bar" role="banner"/u);
   assert.match(board, /data-gridroad/u);
   assert.match(board, /data-mount data-exp="graph"/u);
   assert.ok(existsSync(join(outputDirectory, "canvasui-fx.js")));

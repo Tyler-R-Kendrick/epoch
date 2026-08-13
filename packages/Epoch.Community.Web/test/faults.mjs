@@ -207,7 +207,7 @@ const CASES = [
         // board-arrival motion. Count only non-brand animations.
         const total = document.getAnimations().filter((a) => {
           const t = a.effect && a.effect.target;
-          return t && !t.closest(".nb-brand, .nb-brand-fig, .nb-brand-tag, .nb-brand-scan");
+          return t && !t.closest(".cw-brand, .cw-brand-fig, .cw-brand-tag, .cw-brand-scan");
         }).length;
         return { names, total };
       });
@@ -319,7 +319,7 @@ let failed = 0;
 for (const testCase of CASES) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(() => {
-    try { localStorage.setItem("nb-keys-onboarded", "1"); } catch { /* fine */ }
+    try { localStorage.setItem("cw-keys-onboarded", "1"); } catch { /* fine */ }
   });
   await context.addInitScript(mockScript(testCase.spec));
   const page = await context.newPage();

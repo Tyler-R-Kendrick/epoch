@@ -20,8 +20,8 @@
 (function () {
   "use strict";
 
-  var KEY_HOOKS = "nb-hooks";
-  var KEY_FIRED = "nb-hooks-fired";
+  var KEY_HOOKS = "cw-hooks";
+  var KEY_FIRED = "cw-hooks-fired";
   var MAX_FIRED = 80;
 
   var EVENTS = [

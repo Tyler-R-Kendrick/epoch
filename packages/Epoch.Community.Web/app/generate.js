@@ -39,7 +39,7 @@
       case "Panel":
         return (
           '<section data-c="panel"' + partial + ">" +
-          '<div class="nb-group-label">' + esc(p.title || "…") + "</div>" +
+          '<div class="cw-group-label">' + esc(p.title || "…") + "</div>" +
           (Array.isArray(p.children) ? p.children.map(renderNode).join("") : "") +
           "</section>"
         );
@@ -48,7 +48,7 @@
           '<article data-c="post" data-kind="' + esc(p.kind || "person") + '"' +
           ' data-state="' + esc(node.partial ? "pending" : p.state || "open") + '">' +
           '<span data-c="control"><span data-c="key">··</span></span>' +
-          '<div class="nb-post-body">' +
+          '<div class="cw-post-body">' +
           '<span data-c="actor"><b data-c="handle">' + esc(p.who || "…") + "</b>" +
           '<span data-c="role">' + esc(p.role || "") + "</span></span> " +
           '<span data-c="meta"><time data-c="time">' + esc(p.at || "") + "</time>" +

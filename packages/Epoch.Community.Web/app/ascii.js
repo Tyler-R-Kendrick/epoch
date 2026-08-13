@@ -119,10 +119,10 @@
       return escapeHtml(line);
     }).join("\n");
     var tag = opts.tag
-      ? '\n<span class="nb-brand-tag" aria-hidden="true">' + escapeHtml(String(opts.tag)) + "</span>"
+      ? '\n<span class="cw-brand-tag" aria-hidden="true">' + escapeHtml(String(opts.tag)) + "</span>"
       : "";
-    return '<span class="nb-brand-mark" data-phase="' + escapeHtml(phase) + '">' +
-      '<span class="nb-brand-fig">' + mark + "</span>" +
+    return '<span class="cw-brand-mark" data-phase="' + escapeHtml(phase) + '">' +
+      '<span class="cw-brand-fig">' + mark + "</span>" +
       tag +
       "</span>";
   }
@@ -195,16 +195,16 @@
     function cell(val, i, head) {
       var t = pad(String(val == null ? "" : val), widths[i]);
       if (!asHtml) return t;
-      return '<span class="nb-md-td' + (head ? " nb-md-th" : "") + '">' + escapeHtml(t) + "</span>";
+      return '<span class="cw-md-td' + (head ? " cw-md-th" : "") + '">' + escapeHtml(t) + "</span>";
     }
     function rowLine(r, head) {
       var cells = [];
       for (var i = 0; i < cols; i++) cells.push(cell(r[i], i, head));
-      var joined = cells.join(asHtml ? '<span class="nb-md-tsep"> │ </span>' : " │ ");
+      var joined = cells.join(asHtml ? '<span class="cw-md-tsep"> │ </span>' : " │ ");
       if (!asHtml) return "│ " + joined + " │";
-      return '<span class="nb-md-trow' + (head ? " nb-md-thead" : "") + '">' +
-        '<span class="nb-md-tedge">│ </span>' + joined +
-        '<span class="nb-md-tedge"> │</span></span>';
+      return '<span class="cw-md-trow' + (head ? " cw-md-thead" : "") + '">' +
+        '<span class="cw-md-tedge">│ </span>' + joined +
+        '<span class="cw-md-tedge"> │</span></span>';
     }
     function ruleLine(kind) {
       // kind: top | mid | bot
@@ -214,14 +214,14 @@
         : ["├", "┼", "┤"];
       var line = corners[0] + parts.join(corners[1]) + corners[2];
       if (!asHtml) return line;
-      return '<span class="nb-md-trule">' + escapeHtml(line) + "</span>";
+      return '<span class="cw-md-trule">' + escapeHtml(line) + "</span>";
     }
     var out = [ruleLine("top"), rowLine(rows[0], true)];
     if (rows.length > 1) out.push(ruleLine("mid"));
     for (var r = 1; r < rows.length; r++) out.push(rowLine(rows[r], false));
     out.push(ruleLine("bot"));
     if (!asHtml) return out.join("\n");
-    return '<pre class="nb-md-atable" data-c="ascii-table">' + out.join("\n") + "</pre>";
+    return '<pre class="cw-md-atable" data-c="ascii-table">' + out.join("\n") + "</pre>";
   }
 
   /**
@@ -239,10 +239,10 @@
     var h = String(href).trim();
     var lab = label == null ? h : label;
     if (!isSafeHref(h)) {
-      return '<span class="nb-md-linkish">' + escapeHtml(lab) + "</span>";
+      return '<span class="cw-md-linkish">' + escapeHtml(lab) + "</span>";
     }
     var external = /^https?:\/\//i.test(h);
-    return '<a class="nb-md-a" href="' + escapeHtml(h) + '"' +
+    return '<a class="cw-md-a" href="' + escapeHtml(h) + '"' +
       (external ? ' target="_blank" rel="noopener noreferrer"' : "") +
       ">" + escapeHtml(lab) + "</a>";
   }
@@ -251,7 +251,7 @@
   function inlineMarkdown(text) {
     var s = escapeHtml(text);
     // Code first so markup inside code is inert (already escaped).
-    s = s.replace(/`([^`]+)`/g, '<code class="nb-md-code">$1</code>');
+    s = s.replace(/`([^`]+)`/g, '<code class="cw-md-code">$1</code>');
     // Spoilers before bold/underline so | does not fight other marks.
     s = s.replace(/\|\|([^|]+)\|\|/g, function (_, inner) {
       var open;
@@ -261,17 +261,17 @@
       } catch {
         open = false;
       }
-      return '<button type="button" class="nb-md-spoiler" data-spoiler="' + inner + '"' +
+      return '<button type="button" class="cw-md-spoiler" data-spoiler="' + inner + '"' +
         ' aria-expanded="' + (open ? "true" : "false") + '"' +
         (open ? ' data-open="true"' : "") +
         ' title="' + (open ? "Hide spoiler" : "Reveal spoiler") + '">' + inner + "</button>";
     });
-    s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong class="nb-md-strong"><em class="nb-md-em">$1</em></strong>');
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="nb-md-strong">$1</strong>');
-    s = s.replace(/__([^_]+)__/g, '<u class="nb-md-u">$1</u>');
-    s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em class="nb-md-em">$2</em>');
-    s = s.replace(/(^|[^_])_([^_]+)_(?!_)/g, '$1<em class="nb-md-em">$2</em>');
-    s = s.replace(/~~([^~]+)~~/g, '<del class="nb-md-del">$1</del>');
+    s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong class="cw-md-strong"><em class="cw-md-em">$1</em></strong>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="cw-md-strong">$1</strong>');
+    s = s.replace(/__([^_]+)__/g, '<u class="cw-md-u">$1</u>');
+    s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em class="cw-md-em">$2</em>');
+    s = s.replace(/(^|[^_])_([^_]+)_(?!_)/g, '$1<em class="cw-md-em">$2</em>');
+    s = s.replace(/~~([^~]+)~~/g, '<del class="cw-md-del">$1</del>');
     // Markdown links — labels/hrefs are already HTML-escaped in `s`.
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, label, href) {
       var h = String(href).trim()
@@ -295,9 +295,9 @@
     });
     // Mentions / topics keep the board vocabulary colourable.
     s = s.replace(/(^|[\s(])@([a-zA-Z0-9._-]{1,32})\b/g,
-      '$1<span class="nb-md-mention">@$2</span>');
+      '$1<span class="cw-md-mention">@$2</span>');
     s = s.replace(/(^|[\s(])#([a-zA-Z0-9._/-]{1,48})\b/g,
-      '$1<span class="nb-md-topic">#$2</span>');
+      '$1<span class="cw-md-topic">#$2</span>');
     return s;
   }
 
@@ -530,7 +530,7 @@
 
   /**
    * Reusable link preview component: generated summary card, ASCII/terminal
-   * rendered, colourable via `.nb-link-preview-*` theme classes.
+   * rendered, colourable via `.cw-link-preview-*` theme classes.
    *
    *   CW_ASCII.linkPreview("https://github.com/ag-ui-protocol")
    *   CW_ASCII.linkPreview(url, { label, title, description, width, asHtml: false })
@@ -560,29 +560,29 @@
     var lines = ascii.split("\n");
     var colored = lines.map(function (ln, i) {
       if (i === 0 || i === lines.length - 1) {
-        return '<span class="nb-link-preview-rule">' + escapeHtml(ln) + "</span>";
+        return '<span class="cw-link-preview-rule">' + escapeHtml(ln) + "</span>";
       }
       if (i === 1) {
-        return '<span class="nb-link-preview-title">' + escapeHtml(ln) + "</span>";
+        return '<span class="cw-link-preview-title">' + escapeHtml(ln) + "</span>";
       }
       if (i === 2) {
-        return '<span class="nb-link-preview-desc">' + escapeHtml(ln) + "</span>";
+        return '<span class="cw-link-preview-desc">' + escapeHtml(ln) + "</span>";
       }
-      return '<span class="nb-link-preview-url">' + escapeHtml(ln) + "</span>";
+      return '<span class="cw-link-preview-url">' + escapeHtml(ln) + "</span>";
     }).join("\n");
 
-    var pre = '<pre class="nb-link-preview-ascii" aria-label="Link preview: ' +
+    var pre = '<pre class="cw-link-preview-ascii" aria-label="Link preview: ' +
       escapeHtml(summary.title) + '">' + colored + "</pre>";
     var titleAttr = ' title="' + escapeHtml(summary.title + " — " + summary.displayUrl) + '"';
     // Board paths use a button + data-goto (SPA). External URLs use a real anchor.
     var hit = goto
-      ? '<button type="button" class="nb-link-preview-hit" data-goto="' +
+      ? '<button type="button" class="cw-link-preview-hit" data-goto="' +
         escapeHtml(goto) + '"' + titleAttr + ">" + pre + "</button>"
-      : '<a class="nb-link-preview-hit" href="' + escapeHtml(summary.href) + '"' +
+      : '<a class="cw-link-preview-hit" href="' + escapeHtml(summary.href) + '"' +
         (external ? ' target="_blank" rel="noopener noreferrer"' : "") +
         titleAttr + ">" + pre + "</a>";
 
-    return '<article class="nb-link-preview" data-c="link-preview"' +
+    return '<article class="cw-link-preview" data-c="link-preview"' +
       ' data-kind="' + escapeHtml(summary.kind) + '"' +
       ' data-host="' + escapeHtml(summary.host || "") + '"' +
       ' data-href="' + escapeHtml(summary.href) + '">' +
@@ -603,8 +603,8 @@
   function withLinkPreviews(bodyHtml, rawText, opts) {
     var cards = linkPreviewsFor(rawText, opts);
     if (!cards) return bodyHtml;
-    return '<div class="nb-md-with-previews">' + bodyHtml +
-      '<div class="nb-link-previews" data-c="link-previews" role="group" aria-label="Link previews">' +
+    return '<div class="cw-md-with-previews">' + bodyHtml +
+      '<div class="cw-link-previews" data-c="link-previews" role="group" aria-label="Link previews">' +
       cards + "</div></div>";
   }
 
@@ -624,7 +624,7 @@
    *
    * Subset: fenced code, pipe tables (rendered as box-drawn ASCII tables),
    * headings, lists, blockquotes, hr, paragraphs, and inline marks.
-   * No raw HTML. Themes style via `.nb-md-*` classes on theme tokens.
+   * No raw HTML. Themes style via `.cw-md-*` classes on theme tokens.
    */
   function markdown(src) {
     var text = String(src == null ? "" : src).replace(/\r\n/g, "\n");
@@ -654,12 +654,12 @@
           ? window.CW_SYNTAX.highlight(codeText, langNorm)
           : escapeHtml(codeText);
         html.push(
-          '<pre class="nb-md-pre" tabindex="0" data-lang="' + escapeHtml(langNorm) + '"' +
+          '<pre class="cw-md-pre" tabindex="0" data-lang="' + escapeHtml(langNorm) + '"' +
           ' aria-label="' + (langNorm && langNorm !== "text"
             ? escapeHtml(langNorm) + " code block"
             : "Code block") + '"' +
           (langNorm && langNorm !== "text" ? ' data-highlighted="true"' : "") + ">" +
-          '<code class="nb-md-codeblock">' + highlighted + "</code></pre>"
+          '<code class="cw-md-codeblock">' + highlighted + "</code></pre>"
         );
         continue;
       }
@@ -678,7 +678,7 @@
 
       // Horizontal rule
       if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
-        html.push('<div class="nb-md-hr">' + escapeHtml(rule("", 40)) + "</div>");
+        html.push('<div class="cw-md-hr">' + escapeHtml(rule("", 40)) + "</div>");
         i += 1;
         continue;
       }
@@ -687,7 +687,7 @@
       var hm = /^(#{1,4})\s+(.+)$/.exec(line);
       if (hm) {
         var level = hm[1].length;
-        html.push('<div class="nb-md-h nb-md-h' + level + '">' + inlineMarkdown(hm[2]) + "</div>");
+        html.push('<div class="cw-md-h cw-md-h' + level + '">' + inlineMarkdown(hm[2]) + "</div>");
         i += 1;
         continue;
       }
@@ -709,7 +709,7 @@
             i += 1;
           }
         }
-        html.push('<blockquote class="nb-md-quote">' +
+        html.push('<blockquote class="cw-md-quote">' +
           q.map(function (ql) { return inlineMarkdown(ql); }).join("<br>") +
           "</blockquote>");
         continue;
@@ -722,7 +722,7 @@
           items.push("<li>" + inlineMarkdown(lines[i].replace(/^\s*[-*+]\s+/, "")) + "</li>");
           i += 1;
         }
-        html.push('<ul class="nb-md-ul">' + items.join("") + "</ul>");
+        html.push('<ul class="cw-md-ul">' + items.join("") + "</ul>");
         continue;
       }
 
@@ -733,7 +733,7 @@
           oitems.push("<li>" + inlineMarkdown(lines[i].replace(/^\s*\d+\.\s+/, "")) + "</li>");
           i += 1;
         }
-        html.push('<ol class="nb-md-ol">' + oitems.join("") + "</ol>");
+        html.push('<ol class="cw-md-ol">' + oitems.join("") + "</ol>");
         continue;
       }
 
@@ -758,9 +758,9 @@
         para.push(L);
         i += 1;
       }
-      html.push('<p class="nb-md-p">' + inlineMarkdown(para.join(" ")) + "</p>");
+      html.push('<p class="cw-md-p">' + inlineMarkdown(para.join(" ")) + "</p>");
     }
-    return '<div class="nb-md">' + html.join("") + "</div>";
+    return '<div class="cw-md">' + html.join("") + "</div>";
   }
 
   /** True when text likely wants markdown rendering (tables, fences, marks, links). */
@@ -785,12 +785,12 @@
     var s = escapeHtml(text);
     // Box-drawing and rules
     s = s.replace(/([┌┐└┘├┤┬┴┼─│╭╮╯╰═║╔╗╚╝╠╣╦╩╬]+)/g,
-      '<span class="nb-md-box">$1</span>');
+      '<span class="cw-md-box">$1</span>');
     // Block gauges / sparklines
-    s = s.replace(/([▁▂▃▄▅▆▇█░▒▓]+)/g, '<span class="nb-md-block">$1</span>');
+    s = s.replace(/([▁▂▃▄▅▆▇█░▒▓]+)/g, '<span class="cw-md-block">$1</span>');
     // Braille sigils
-    s = s.replace(/([\u2800-\u28FF]+)/g, '<span class="nb-md-sigil">$1</span>');
-    return '<span class="nb-md-ascii">' + s + "</span>";
+    s = s.replace(/([\u2800-\u28FF]+)/g, '<span class="cw-md-sigil">$1</span>');
+    return '<span class="cw-md-ascii">' + s + "</span>";
   }
 
   /**
@@ -802,12 +802,12 @@
     var body;
     if (looksLikeMarkdown(raw)) body = markdown(raw);
     else if (window.CW_SYNTAX && window.CW_SYNTAX.looksLikeJson(raw)) {
-      body = '<pre class="nb-md-pre" tabindex="0" data-lang="json" data-highlighted="true"' +
+      body = '<pre class="cw-md-pre" tabindex="0" data-lang="json" data-highlighted="true"' +
         ' aria-label="json code block">' +
-        '<code class="nb-md-codeblock">' + window.CW_SYNTAX.highlight(raw, "json") +
+        '<code class="cw-md-codeblock">' + window.CW_SYNTAX.highlight(raw, "json") +
         "</code></pre>";
     } else if (raw.indexOf("\n") !== -1) {
-      body = '<pre class="nb-md-plain">' + colorizeAscii(raw) + "</pre>";
+      body = '<pre class="cw-md-plain">' + colorizeAscii(raw) + "</pre>";
     } else {
       body = colorizeAscii(raw);
     }

@@ -2,8 +2,8 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "nb-saved-views-v2";
-  var LEGACY_KEY = "nb-saved-views-v1";
+  var STORAGE_KEY = "cw-saved-views-v2";
+  var LEGACY_KEY = "cw-saved-views-v1";
   var SCHEMA_VERSION = 3;
   var principalId = null;
   var recoveryRaw = null;

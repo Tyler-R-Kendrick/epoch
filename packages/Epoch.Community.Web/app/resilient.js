@@ -198,7 +198,7 @@
    * would trade one bug for a worse one.
    */
   var shared = { session: null, promise: null, prompt: null, state: "cold", error: null };
-  var READY_KEY = "nb-model-ready";
+  var READY_KEY = "cw-model-ready";
 
   function wasReadyBefore() {
     try { return window.localStorage.getItem(READY_KEY) === "1"; } catch { return false; }
@@ -262,7 +262,7 @@
   }
 
   /* One route per workspace. Re-pick only after policy change or failure. */
-  var ROUTE_KEY = "nb-route-affinity-v1";
+  var ROUTE_KEY = "cw-route-affinity-v1";
   var DEFAULT_POLICY = {
     version: "community-web-local-v1",
     affinity: "workspace-session",

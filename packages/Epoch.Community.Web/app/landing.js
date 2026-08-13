@@ -16,10 +16,10 @@
   var PHASE = { build: 0, showcase: 2200, "earn…": 4200, earn: 6400 };
   var CHAPTERS = [
     { id: "hero", jump: "hero", start: 0, end: 0.18 },
-    { id: "what", jump: "nb-what", start: 0.18, end: 0.38 },
-    { id: "how", jump: "nb-how", start: 0.38, end: 0.58 },
-    { id: "who", jump: "nb-who", start: 0.58, end: 0.78 },
-    { id: "board", jump: "nb-board", start: 0.78, end: 1.01 },
+    { id: "what", jump: "cw-what", start: 0.18, end: 0.38 },
+    { id: "how", jump: "cw-how", start: 0.38, end: 0.58 },
+    { id: "who", jump: "cw-who", start: 0.58, end: 0.78 },
+    { id: "board", jump: "cw-board", start: 0.78, end: 1.01 },
   ];
   /*
    * Motion thesis (Persuade ride):
@@ -94,10 +94,10 @@
 
   function resolveChapterId(id) {
     if (!id || id === "hero") return "hero";
-    if (id === "nb-what" || id === "what") return "what";
-    if (id === "nb-how" || id === "how") return "how";
-    if (id === "nb-who" || id === "who") return "who";
-    if (id === "nb-board" || id === "board") return "board";
+    if (id === "cw-what" || id === "what") return "what";
+    if (id === "cw-how" || id === "how") return "how";
+    if (id === "cw-who" || id === "who") return "who";
+    if (id === "cw-board" || id === "board") return "board";
     return id;
   }
 
@@ -348,10 +348,10 @@
       var id = dot.getAttribute("data-jump");
       var on =
         (best === "hero" && id === "hero") ||
-        (best === "what" && id === "nb-what") ||
-        (best === "how" && id === "nb-how") ||
-        (best === "who" && id === "nb-who") ||
-        (best === "board" && id === "nb-board");
+        (best === "what" && id === "cw-what") ||
+        (best === "how" && id === "cw-how") ||
+        (best === "who" && id === "cw-who") ||
+        (best === "board" && id === "cw-board");
       dot.setAttribute("aria-current", on ? "true" : "false");
     });
     if (best === "how") {
@@ -377,7 +377,7 @@
       if (on && w > 0.55) w = Math.max(w, 0.92);
       panel.setAttribute("data-active", on ? "1" : "0");
       panel.setAttribute("data-weight", w > 0.04 ? "1" : "0");
-      panel.style.setProperty("--nb-chapter-w", String(Math.max(0, Math.min(1, w))));
+      panel.style.setProperty("--cw-chapter-w", String(Math.max(0, Math.min(1, w))));
       if (on) panel.setAttribute("data-inview", "1");
       else panel.removeAttribute("data-inview");
     });
@@ -418,18 +418,18 @@
     var fill = document.querySelector("[data-scroll-fill]");
     var hint = document.querySelector("[data-scroll-hint]");
     var p = smooth;
-    body.style.setProperty("--nb-scroll", String(raw));
-    body.style.setProperty("--nb-scroll-smooth", String(smooth));
+    body.style.setProperty("--cw-scroll", String(raw));
+    body.style.setProperty("--cw-scroll-smooth", String(smooth));
     if (fill) fill.style.transform = "scaleY(" + raw + ")";
     if (hint) hint.setAttribute("data-gone", raw > 0.04 ? "1" : "0");
     /* Lens strength rides CSS vars — WebGL CRT reads them; no SVG attr thrash. */
-    body.style.setProperty("--nb-crt-distort", String((0.24 + p * 0.14).toFixed(4)));
-    body.style.setProperty("--nb-crt-chroma", String((1.2 + p * 1.0).toFixed(3)));
-    body.style.setProperty("--nb-crt-scan", String(0.55 + p * 0.45));
-    body.style.setProperty("--nb-crt-bloom", String(0.48 + p * 0.5));
-    body.style.setProperty("--nb-crt-roll", String((6.8 - p * 3.2).toFixed(2)) + "s");
-    body.style.setProperty("--nb-world-y", String((-1.2 * p).toFixed(3)) + "vh");
-    body.style.setProperty("--nb-world-scale", String((1 + p * 0.02).toFixed(4)));
+    body.style.setProperty("--cw-crt-distort", String((0.24 + p * 0.14).toFixed(4)));
+    body.style.setProperty("--cw-crt-chroma", String((1.2 + p * 1.0).toFixed(3)));
+    body.style.setProperty("--cw-crt-scan", String(0.55 + p * 0.45));
+    body.style.setProperty("--cw-crt-bloom", String(0.48 + p * 0.5));
+    body.style.setProperty("--cw-crt-roll", String((6.8 - p * 3.2).toFixed(2)) + "s");
+    body.style.setProperty("--cw-world-y", String((-1.2 * p).toFixed(3)) + "vh");
+    body.style.setProperty("--cw-world-scale", String((1 + p * 0.02).toFixed(4)));
     /* Chapters follow raw scrub for rail; weights blend on smooth progress. */
     syncRideChapter(chapterFromProgress(raw), smooth);
   }
@@ -465,7 +465,7 @@
     function paintChrome(raw) {
       var fill = document.querySelector("[data-scroll-fill]");
       var hint = document.querySelector("[data-scroll-hint]");
-      body.style.setProperty("--nb-scroll", String(raw));
+      body.style.setProperty("--cw-scroll", String(raw));
       if (fill) fill.style.transform = "scaleY(" + raw + ")";
       if (hint) hint.setAttribute("data-gone", raw > 0.04 ? "1" : "0");
     }
@@ -594,11 +594,11 @@
         if (
           ev.target &&
           ev.target.closest &&
-          ev.target.closest("input, textarea, select, .nb-theater-scrub, .nb-theater-btn")
+          ev.target.closest("input, textarea, select, .cw-theater-scrub, .cw-theater-btn")
         ) {
           return;
         }
-        var panel = ev.target && ev.target.closest && ev.target.closest(".nb-ride-chapter[data-active='1']");
+        var panel = ev.target && ev.target.closest && ev.target.closest(".cw-ride-chapter[data-active='1']");
         if (panel && panel.scrollHeight > panel.clientHeight + 4) {
           var atTop = panel.scrollTop <= 0 && ev.deltaY < 0;
           var atBot = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 2 && ev.deltaY > 0;
@@ -732,7 +732,7 @@
     document.querySelectorAll("[data-seek-phase]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         seekPhase(btn.getAttribute("data-seek-phase"));
-        var how = document.getElementById("nb-how");
+        var how = document.getElementById("cw-how");
         if (how) {
           var steps = document.querySelector("[data-landing-steps]");
           if (steps) steps.setAttribute("data-lit", "1");
@@ -1054,9 +1054,9 @@
     }
 
     function paintScene(ctx, w, h) {
-      var agent = themeColor("--nb-agent", "#40f0ff");
-      var accent = themeColor("--nb-accent", "#ff2cf0");
-      var signed = themeColor("--nb-signed", "#7dff9a");
+      var agent = themeColor("--cw-agent", "#40f0ff");
+      var accent = themeColor("--cw-accent", "#ff2cf0");
+      var signed = themeColor("--cw-signed", "#7dff9a");
       var horizon = h * (0.4 + state.scrollSmooth * 0.16);
       var cx = w * (0.5 + (state.pointerX - 0.5) * (0.08 + state.scrollSmooth * 0.04));
 
@@ -1189,8 +1189,8 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, scene);
       gl.uniform1i(crt.uTex, 0);
       gl.uniform2f(crt.uRes, canvas.width, canvas.height);
-      var distort = parseFloat(body.style.getPropertyValue("--nb-crt-distort")) || 0.16;
-      var chroma = parseFloat(body.style.getPropertyValue("--nb-crt-chroma")) || 1.0;
+      var distort = parseFloat(body.style.getPropertyValue("--cw-crt-distort")) || 0.16;
+      var chroma = parseFloat(body.style.getPropertyValue("--cw-crt-chroma")) || 1.0;
       gl.uniform1f(crt.uDistort, state.reduce ? 0.04 : distort);
       gl.uniform1f(crt.uBorders, 1.0);
       gl.uniform1f(crt.uChroma, state.reduce ? 0.2 : chroma);
@@ -1244,7 +1244,7 @@
         canvas.setAttribute("data-canvas-failed", "1");
         canvas.setAttribute("aria-label", "Creator loop demo unavailable");
       }
-      var cap = document.querySelector(".nb-landing-theater-cap");
+      var cap = document.querySelector(".cw-landing-theater-cap");
       if (cap) {
         cap.textContent =
           "Demo canvas unavailable in this browser — fixtures below still explain the loop.";
@@ -1280,12 +1280,12 @@
     function drawFrame(ms) {
       var w = canvas._lw || 520;
       var h = canvas._lh || 280;
-      var agent = themeColor("--nb-agent", "#40f0ff");
-      var accent = themeColor("--nb-accent", "#ff2cf0");
-      var ink = themeColor("--nb-ink", "#c8c8c8");
-      var dim = themeColor("--nb-ink-dim", "#8a8a8a");
-      var signed = themeColor("--nb-signed", "#7dff9a");
-      var surface = themeColor("--nb-surface", "#0a0a0a");
+      var agent = themeColor("--cw-agent", "#40f0ff");
+      var accent = themeColor("--cw-accent", "#ff2cf0");
+      var ink = themeColor("--cw-ink", "#c8c8c8");
+      var dim = themeColor("--cw-ink-dim", "#8a8a8a");
+      var signed = themeColor("--cw-signed", "#7dff9a");
+      var surface = themeColor("--cw-surface", "#0a0a0a");
       var phase = phaseAt(ms);
 
       ctx.clearRect(0, 0, w, h);
@@ -1301,7 +1301,7 @@
       ctx.fillStyle = vig;
       ctx.fillRect(0, 0, w, h);
 
-      ctx.font = "12px " + (themeColor("--nb-font", "ui-monospace") || "monospace");
+      ctx.font = "12px " + (themeColor("--cw-font", "ui-monospace") || "monospace");
       ctx.textBaseline = "top";
 
       var lines = [

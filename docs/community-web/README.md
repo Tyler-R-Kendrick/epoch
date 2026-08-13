@@ -285,7 +285,7 @@ Optional `match` filter: empty (all), `field:value` (`channel:bugs`, `who:scout`
 
 Defaults ship in `CW_DATA.hooks` (e.g. new posts in `#bugs`, mentions, `+1`
 reactions, cache talk). Config and fired items persist in `localStorage`
-(`nb-hooks`, `nb-hooks-fired`). Private mode fails soft.
+(`cw-hooks`, `cw-hooks-fired`). Private mode fails soft.
 
 #### Browser Notification API
 
@@ -301,7 +301,7 @@ alerts:
 - `/notifications test` sends a sample alert when permission is granted
 - `/hooks test` exercises the hook → Activity → browser path end to end
 
-Pushed ids are remembered in `localStorage` (`nb-notif-pushed`) so the tray is
+Pushed ids are remembered in `localStorage` (`cw-notif-pushed`) so the tray is
 not spammed on every reload.
 
 ### Navigation
@@ -701,14 +701,14 @@ Transcript and post bodies go through `CW_ASCII.formatBody`:
 - **Syntax highlighting** — fenced blocks are token-coloured via `CW_SYNTAX`
   (js/ts, json, graphql, shell, css, html, markdown, diff, lucene, …). Bare
   JSON blobs in the transcript get the same treatment. The terminal file editor
-  highlights `.ts` / `.js` / `.md` / … lines in place. Classes are `.nb-tok-*`
+  highlights `.ts` / `.js` / `.md` / … lines in place. Classes are `.cw-tok-*`
   on theme tokens — no Prism/Shiki dependency.
 - **Tables** render as **box-drawn ASCII** (`┌─┬─┐`) with colour classes:
   header ink uses accent, rules are faint, cells follow body/dim tokens
 - **Plain multi-line ASCII** still colourises box edges, block gauges, and
   braille sigils so banners and gauges stay readable without full markdown
 
-Themes style via `.nb-md-*` / `.nb-tok-*` classes (no hard-coded colours). `/space`
+Themes style via `.cw-md-*` / `.cw-tok-*` classes (no hard-coded colours). `/space`
 opens the spaces catalogue so you can pick one from the list.
 
 ### Attachments (file upload for chat context)
@@ -758,7 +758,7 @@ API (`CW_ASCII`):
 
 | Call | Result |
 |---|---|
-| `linkPreview(url)` | HTML `<article class="nb-link-preview">` card |
+| `linkPreview(url)` | HTML `<article class="cw-link-preview">` card |
 | `linkPreview(url, { asHtml: false })` | Plain ASCII frame |
 | `summarizeLink(url)` | `{ title, description, site, kind, … }` |
 | `extractLinks(text)` | Unique safe links from markdown + bare URLs |
@@ -943,7 +943,7 @@ Open a hub (`/spaces/agent-lab`) for **feed / channels / projects / about**.
 Profile menu joins a space. `/space agent-lab` joins by id; members-only spaces
 open sign-in.
 
-Board furniture is snapshotted under `nb-board-state` for the same principal.
+Board furniture is snapshotted under `cw-board-state` for the same principal.
 Slash surface also includes `/whoami`, `/logout`.
 
 ## The furniture

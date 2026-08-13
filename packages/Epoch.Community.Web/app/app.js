@@ -244,7 +244,7 @@
 
   function loadNotifRead() {
     try {
-      var raw = window.localStorage.getItem("nb-notif-read");
+      var raw = window.localStorage.getItem("cw-notif-read");
       if (!raw) return {};
       var got = JSON.parse(raw);
       return got && typeof got === "object" ? got : {};
@@ -254,12 +254,12 @@
   }
 
   function saveNotifRead() {
-    try { window.localStorage.setItem("nb-notif-read", JSON.stringify(state.notifRead || {})); } catch { /* private */ }
+    try { window.localStorage.setItem("cw-notif-read", JSON.stringify(state.notifRead || {})); } catch { /* private */ }
   }
 
   function loadHomeFeedRead() {
     try {
-      var raw = window.localStorage.getItem("nb-home-feed-read");
+      var raw = window.localStorage.getItem("cw-home-feed-read");
       if (!raw) return {};
       var got = JSON.parse(raw);
       return got && typeof got === "object" ? got : {};
@@ -270,13 +270,13 @@
 
   function saveHomeFeedRead() {
     try {
-      window.localStorage.setItem("nb-home-feed-read", JSON.stringify(state.homeFeedRead || {}));
+      window.localStorage.setItem("cw-home-feed-read", JSON.stringify(state.homeFeedRead || {}));
     } catch { /* private */ }
   }
 
   function loadHomeFeedDismissed() {
     try {
-      var raw = window.localStorage.getItem("nb-home-feed-dismissed");
+      var raw = window.localStorage.getItem("cw-home-feed-dismissed");
       if (!raw) return {};
       var got = JSON.parse(raw);
       return got && typeof got === "object" ? got : {};
@@ -288,7 +288,7 @@
   function saveHomeFeedDismissed() {
     try {
       window.localStorage.setItem(
-        "nb-home-feed-dismissed",
+        "cw-home-feed-dismissed",
         JSON.stringify(state.homeFeedDismissed || {}),
       );
     } catch { /* private */ }
@@ -1553,15 +1553,15 @@
     var initials = profileInitials();
     var space = identity.spaceName || identity.spaceShort || policy.name || "space";
     host.innerHTML =
-      '<button type="button" class="nb-profile-btn" data-profile-btn data-kind="' +
+      '<button type="button" class="cw-profile-btn" data-profile-btn data-kind="' +
       escAttr(identity.kind) + '" data-anonymous="' + (identity.anonymous || identity.kind === "guest" ? "true" : "false") + '"' +
       ' title="' + escAttr(detail) + '" aria-haspopup="menu" aria-expanded="' +
       (profileMenuOpen ? "true" : "false") + '" aria-label="Profile: ' +
       escAttr(label) + " · " + escAttr(space) + '">' +
-      '<span class="nb-profile-avatar" aria-hidden="true">' + escHtml(initials) + "</span>" +
-      '<span class="nb-profile-meta">' +
-      '<span class="nb-profile-name">' + escHtml(label) + "</span>" +
-      '<span class="nb-profile-space">' + escHtml(note) + "</span>" +
+      '<span class="cw-profile-avatar" aria-hidden="true">' + escHtml(initials) + "</span>" +
+      '<span class="cw-profile-meta">' +
+      '<span class="cw-profile-name">' + escHtml(label) + "</span>" +
+      '<span class="cw-profile-space">' + escHtml(note) + "</span>" +
       "</span></button>";
     if (profileMenuOpen) paintProfileMenu();
   }
@@ -1576,42 +1576,42 @@
     var spaceRows = spaces.map(function (s) {
       var current = identity.spaceId === s.id;
       var lock = s.guestsAllowed === false ? "members" : "open";
-      return '<button type="button" class="nb-profile-item" role="menuitem" data-space-join="' +
+      return '<button type="button" class="cw-profile-item" role="menuitem" data-space-join="' +
         escAttr(s.id) + '"' + (current ? ' aria-current="true"' : "") +
         ' title="' + escAttr((s.slug || s.id) + " · " + (s.description || "")) + '">' +
-        '<span class="nb-space-short">' + escHtml(s.short || s.id.slice(0, 4).toUpperCase()) + "</span>" +
+        '<span class="cw-space-short">' + escHtml(s.short || s.id.slice(0, 4).toUpperCase()) + "</span>" +
         "<span>" + escHtml(s.name) +
-        '<span class="nb-profile-item-sub">' + escHtml(s.slug || s.id) +
+        '<span class="cw-profile-item-sub">' + escHtml(s.slug || s.id) +
         " · " + (s.subscribers || 0) + " members</span></span>" +
-        '<span class="nb-profile-item-desc">' + (current ? "current" : lock) + "</span>" +
+        '<span class="cw-profile-item-desc">' + (current ? "current" : lock) + "</span>" +
         "</button>";
     }).join("");
     var signedIn = identity.kind === "claimed" || identity.kind === "atproto";
     menu.innerHTML =
-      '<div class="nb-profile-head">' +
-      '<div class="nb-profile-head-name">' + escHtml(label) + "</div>" +
-      '<div class="nb-profile-head-note">' + escHtml(note) + "</div>" +
-      '<div class="nb-profile-head-space">' + escHtml(detail) + "</div>" +
+      '<div class="cw-profile-head">' +
+      '<div class="cw-profile-head-name">' + escHtml(label) + "</div>" +
+      '<div class="cw-profile-head-note">' + escHtml(note) + "</div>" +
+      '<div class="cw-profile-head-space">' + escHtml(detail) + "</div>" +
       "</div>" +
-      '<div class="nb-profile-section">' +
-      '<div class="nb-profile-section-title">Spaces</div>' +
+      '<div class="cw-profile-section">' +
+      '<div class="cw-profile-section-title">Spaces</div>' +
       spaceRows +
-      '<button type="button" class="nb-profile-item" role="menuitem" data-goto="/spaces">' +
+      '<button type="button" class="cw-profile-item" role="menuitem" data-goto="/spaces">' +
       "Browse all spaces…</button>" +
       "</div>" +
-      '<div class="nb-profile-section">' +
-      '<div class="nb-profile-section-title">Account</div>' +
-      '<button type="button" class="nb-profile-item" role="menuitem" data-profile-signin>' +
+      '<div class="cw-profile-section">' +
+      '<div class="cw-profile-section-title">Account</div>' +
+      '<button type="button" class="cw-profile-item" role="menuitem" data-profile-signin>' +
       (signedIn ? "Switch space with sign-in…" : "Sign in to a space…") + "</button>" +
       (identity.claimable
-        ? '<button type="button" class="nb-profile-item" role="menuitem" data-profile-claim>Claim anonymous identity…</button>'
+        ? '<button type="button" class="cw-profile-item" role="menuitem" data-profile-claim>Claim anonymous identity…</button>'
         : "") +
       (identity.kind !== "atproto"
-        ? '<button type="button" class="nb-profile-item" role="menuitem" data-profile-bluesky>Sign in with handle…</button>'
+        ? '<button type="button" class="cw-profile-item" role="menuitem" data-profile-bluesky>Sign in with handle…</button>'
         : "") +
       (signedIn
-        ? '<button type="button" class="nb-profile-item danger" role="menuitem" data-profile-signout>Sign out · go anonymous</button>'
-        : '<button type="button" class="nb-profile-item" role="menuitem" data-profile-signout>Reset anonymous session</button>') +
+        ? '<button type="button" class="cw-profile-item danger" role="menuitem" data-profile-signout>Sign out · go anonymous</button>'
+        : '<button type="button" class="cw-profile-item" role="menuitem" data-profile-signout>Reset anonymous session</button>') +
       "</div>";
   }
 
@@ -1935,7 +1935,7 @@
     host.setAttribute("role", "status");
     host.setAttribute("aria-live", "polite");
     host.setAttribute("data-recovery-source", recovery.source);
-    host.className = "nb-session-recovery";
+    host.className = "cw-session-recovery";
     host.replaceChildren();
     var message = document.createElement("span");
     message.textContent = recovery.message || "Saved board state needs recovery.";
@@ -2313,7 +2313,7 @@
       focusMax: null,
     };
     try {
-      var raw = window.localStorage.getItem("nb-panes");
+      var raw = window.localStorage.getItem("cw-panes");
       if (!raw) return fallback;
       var got = JSON.parse(raw);
       return {
@@ -2332,7 +2332,7 @@
   }
 
   function savePanes() {
-    try { window.localStorage.setItem("nb-panes", JSON.stringify(state.panes)); } catch { /* private mode */ }
+    try { window.localStorage.setItem("cw-panes", JSON.stringify(state.panes)); } catch { /* private mode */ }
   }
 
   /**
@@ -2478,10 +2478,10 @@
   document.head.appendChild(themeStyle);
 
   var TOKEN_OF = {
-    bg: "--nb-bg", surface: "--nb-surface", ink: "--nb-ink", inkDim: "--nb-ink-dim",
-    inkFaint: "--nb-ink-faint", rule: "--nb-rule", accent: "--nb-accent",
-    accentInk: "--nb-accent-ink", signed: "--nb-signed", live: "--nb-live",
-    warn: "--nb-warn", danger: "--nb-danger", agent: "--nb-agent",
+    bg: "--cw-bg", surface: "--cw-surface", ink: "--cw-ink", inkDim: "--cw-ink-dim",
+    inkFaint: "--cw-ink-faint", rule: "--cw-rule", accent: "--cw-accent",
+    accentInk: "--cw-accent-ink", signed: "--cw-signed", live: "--cw-live",
+    warn: "--cw-warn", danger: "--cw-danger", agent: "--cw-agent",
   };
 
   function setTheme(i) {
@@ -5055,7 +5055,7 @@
     return true;
   }
 
-  var KEYS_ONBOARD_KEY = "nb-keys-onboarded";
+  var KEYS_ONBOARD_KEY = "cw-keys-onboarded";
 
   function keysOnboarded() {
     try { return window.localStorage.getItem(KEYS_ONBOARD_KEY) === "1"; }
@@ -6832,7 +6832,7 @@
       if (!window.CW_CTX) return;
       var inBoard = ev.target.closest && (
         ev.target.closest("[data-mount]") ||
-        ev.target.closest(".nb-bar") ||
+        ev.target.closest(".cw-bar") ||
         ev.target.closest("[data-region='status']")
       );
       if (!inBoard) return;
@@ -7374,10 +7374,10 @@
           state.panes.outMax = false;
           if (side) {
             state.panes.outW = Math.max(14, Math.min(48, startSize + d));
-            if (panel) panel.style.setProperty("--nb-out-w", state.panes.outW + "rem");
+            if (panel) panel.style.setProperty("--cw-out-w", state.panes.outW + "rem");
           } else {
             state.panes.outH = Math.max(6, Math.min(40, startSize + d));
-            if (panel) panel.style.setProperty("--nb-out-h", state.panes.outH + "rem");
+            if (panel) panel.style.setProperty("--cw-out-h", state.panes.outH + "rem");
           }
         };
         var onUpOut = function (e) {
@@ -7403,9 +7403,9 @@
         state.panes[key] = w;
         state.panes[minKey] = false;
         state.panes.zoom = false;
-        cols.style.setProperty("--nb-" + key, w + "rem");
+        cols.style.setProperty("--cw-" + key, w + "rem");
         var other = key === "c0" ? "c1" : "c0";
-        cols.style.setProperty("--nb-" + other,
+        cols.style.setProperty("--cw-" + other,
           (state.panes[other === "c0" ? "mc0" : "mc1"] ? 0 : state.panes[other]) + "rem");
       };
       var onUp = function (e) {
@@ -7734,8 +7734,8 @@
       }
       if (ev.target.closest("[data-model-fetch]")) {
         ev.preventDefault();
-        if (typeof window.__nbModelFetchStart === "function") {
-          window.__nbModelFetchStart();
+        if (typeof window.__cwModelFetchStart === "function") {
+          window.__cwModelFetchStart();
         } else {
           status("on-device AI — press any key to download, or Alt+A for CLI");
         }
@@ -8380,7 +8380,7 @@
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st2.error));
     };
-    window.__nbModelFetchStart = start;
+    window.__cwModelFetchStart = start;
     window.addEventListener("keydown", start, true);
     window.addEventListener("pointerdown", start, true);
   }

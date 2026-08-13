@@ -164,15 +164,15 @@ When("I open Epoch Community", async function () {
 
 Then("the landing presents the creator story with CanvasUI motion", async function () {
   const page = requirePage();
-  await page.locator(".nb-landing").waitFor({ state: "visible" });
-  await page.locator("#nb-landing-headline").waitFor({ state: "attached" });
+  await page.locator(".cw-landing").waitFor({ state: "visible" });
+  await page.locator("#cw-landing-headline").waitFor({ state: "attached" });
   assert.equal(await page.locator("[data-landing-grid]").count(), 1);
   assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_CanvasUI), "object");
 });
 
 When("I enter the community board", async function () {
   const page = requirePage();
-  await page.locator("#nb-enter-board").click();
+  await page.locator("#cw-enter-board").click();
   await page.waitForFunction(() => typeof (window as unknown as {
     CW_APP?: { navigate?: unknown };
   }).CW_APP?.navigate === "function");
@@ -181,8 +181,8 @@ When("I enter the community board", async function () {
 Then("the tmux-style Community Web is ready for keyboard collaboration", async function () {
   const page = requirePage();
   await page.locator('[data-mount][data-tui="true"]').waitFor({ state: "visible" });
-  assert.equal(await page.locator(".nb-bar [data-gridroad]").count(), 1);
-  assert.equal(await page.locator("[data-region=\"status\"] .nb-keys-cue").count(), 1);
+  assert.equal(await page.locator(".cw-bar [data-gridroad]").count(), 1);
+  assert.equal(await page.locator("[data-region=\"status\"] .cw-keys-cue").count(), 1);
   assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_APP), "object");
 });
 
@@ -243,12 +243,12 @@ Then("the selected Community Web message remains the single focused feed item", 
 
 When("I enter the community board with a resumable session update and workspace defaults", async function () {
   const page = requirePage();
-  await page.evaluate(() => localStorage.setItem("nb-startup-signals-v1", JSON.stringify({
+  await page.evaluate(() => localStorage.setItem("cw-startup-signals-v1", JSON.stringify({
     continuation: { host: "codex", sessionId: "codex-cucumber", workspace: "epoch" },
     update: { current: "0.8.0", available: "0.9.0" },
     workspace: { id: "epoch", defaultsVersion: 2, appliedVersion: 1 },
   })));
-  await page.locator("#nb-enter-board").click();
+  await page.locator("#cw-enter-board").click();
 });
 
 Then("the bottom line recommends one Ctrl+U restart action", async function () {
@@ -265,7 +265,7 @@ When("I restart Community Web with Ctrl+U", async function () {
     page.keyboard.press("Control+u"),
   ]);
   communityWebAppStartupApplied = await page.evaluate(() => {
-    const got = JSON.parse(localStorage.getItem("nb-startup-applied-v1") ?? "{}");
+    const got = JSON.parse(localStorage.getItem("cw-startup-applied-v1") ?? "{}");
     return got.update === "0.9.0" && got.workspace === 2 && got.continuation === "codex-cucumber";
   });
 });

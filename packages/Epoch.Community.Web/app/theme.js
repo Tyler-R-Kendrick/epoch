@@ -23,9 +23,9 @@
 
   /* Token names a theme may set. Anything else is discarded. */
   var TOKENS = [
-    "--nb-bg", "--nb-surface", "--nb-ink", "--nb-ink-dim", "--nb-ink-faint", "--nb-rule",
-    "--nb-accent", "--nb-accent-ink", "--nb-signed", "--nb-live", "--nb-warn", "--nb-danger",
-    "--nb-agent", "--nb-glow", "--nb-scan", "--nb-cell", "--nb-line", "--nb-radius", "--nb-pad",
+    "--cw-bg", "--cw-surface", "--cw-ink", "--cw-ink-dim", "--cw-ink-faint", "--cw-rule",
+    "--cw-accent", "--cw-accent-ink", "--cw-signed", "--cw-live", "--cw-warn", "--cw-danger",
+    "--cw-agent", "--cw-glow", "--cw-scan", "--cw-cell", "--cw-line", "--cw-radius", "--cw-pad",
   ];
   var COLOR_TOKENS = TOKENS.slice(0, 13);
 
@@ -63,7 +63,7 @@
         return;
       }
       if (COLOR_TOKENS.indexOf(key) !== -1 && !HEX.test(v)) { rejected.push(k + " (not a hex colour)"); return; }
-      if ((key === "--nb-cell" || key === "--nb-line" || key === "--nb-radius" || key === "--nb-pad") && !LENGTH.test(v)) {
+      if ((key === "--cw-cell" || key === "--cw-line" || key === "--cw-radius" || key === "--cw-pad") && !LENGTH.test(v)) {
         rejected.push(k + " (not a length)");
         return;
       }
@@ -96,11 +96,11 @@
   /* ── Generation ────────────────────────────────────────────────────────── */
 
   var TOKEN_OF = {
-    bg: "--nb-bg", surface: "--nb-surface", ink: "--nb-ink", inkDim: "--nb-ink-dim",
-    inkFaint: "--nb-ink-faint", rule: "--nb-rule", accent: "--nb-accent",
-    accentInk: "--nb-accent-ink", signed: "--nb-signed", live: "--nb-live",
-    warn: "--nb-warn", danger: "--nb-danger", agent: "--nb-agent",
-    glow: "--nb-glow", scan: "--nb-scan",
+    bg: "--cw-bg", surface: "--cw-surface", ink: "--cw-ink", inkDim: "--cw-ink-dim",
+    inkFaint: "--cw-ink-faint", rule: "--cw-rule", accent: "--cw-accent",
+    accentInk: "--cw-accent-ink", signed: "--cw-signed", live: "--cw-live",
+    warn: "--cw-warn", danger: "--cw-danger", agent: "--cw-agent",
+    glow: "--cw-glow", scan: "--cw-scan",
   };
 
   /** Current computed value, so a partial theme layers on what is already there. */
@@ -204,8 +204,8 @@
 
       // Contrast is checked against what is actually on screen, because a
       // partial theme inherits the rest from the theme underneath it.
-      var bg = applied["--nb-bg"] || currentToken("--nb-bg");
-      var ink = applied["--nb-ink"] || currentToken("--nb-ink");
+      var bg = applied["--cw-bg"] || currentToken("--cw-bg");
+      var ink = applied["--cw-ink"] || currentToken("--cw-ink");
       var notes = [];
       if (HEX.test(bg) && HEX.test(ink)) {
         var ratio = contrast(ink, bg);
@@ -242,7 +242,7 @@
     var names = Object.keys(TOKEN_OF).map(function (k) { return TOKEN_OF[k]; });
     var lines = names.map(function (n) {
       var v = currentToken(n);
-      return "  " + n.replace("--nb-", "") + ': "' + v + '"';
+      return "  " + n.replace("--cw-", "") + ': "' + v + '"';
     });
     return [
       "---",
@@ -298,7 +298,7 @@
       });
       var result = sanitize(tokens);
       if (Object.keys(result.tokens).length === 0) {
-        report("Nothing applied. Use `--nb-bg: #001100;` per line.", "rejected");
+        report("Nothing applied. Use `--cw-bg: #001100;` per line.", "rejected");
         return;
       }
       applyTokens(result.tokens, "custom");
@@ -308,8 +308,8 @@
       // A hand-edited one is warned about, because someone did — but silently
       // applying an unreadable theme would still be a trap.
       var warn = [];
-      var bg = result.tokens["--nb-bg"] || getComputedStyle(document.body).getPropertyValue("--nb-bg").trim();
-      var ink = result.tokens["--nb-ink"];
+      var bg = result.tokens["--cw-bg"] || getComputedStyle(document.body).getPropertyValue("--cw-bg").trim();
+      var ink = result.tokens["--cw-ink"];
       if (ink && HEX.test(bg)) {
         var ratio = contrast(ink, bg);
         if (ratio < 4.5) warn.push("ink on bg is " + ratio.toFixed(1) + ":1, below the 4.5:1 floor — this is hard to read");

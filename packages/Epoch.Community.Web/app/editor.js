@@ -478,7 +478,7 @@
   function render(buf, opts) {
     opts = opts || {};
     if (!buf) {
-      return '<div class="nb-ed" data-c="editor"><p class="cn-empty">No file open.</p></div>';
+      return '<div class="cw-ed" data-c="editor"><p class="cn-empty">No file open.</p></div>';
     }
     clampCursor(buf);
     var viewRows = opts.viewRows || 28;
@@ -510,35 +510,35 @@
         var sel = inSelection(buf, i, c);
         // If empty line caret
         if (!raw.length && c === 0 && isCaret) {
-          cells.push('<span class="nb-ed-ch nb-ed-caret" data-line="' + i +
+          cells.push('<span class="cw-ed-ch cw-ed-caret" data-line="' + i +
             '" data-col="0"> </span>');
           break;
         }
-        var cls = "nb-ed-ch";
-        if (isCaret) cls += " nb-ed-caret";
-        if (sel) cls += " nb-ed-sel";
+        var cls = "cw-ed-ch";
+        if (isCaret) cls += " cw-ed-caret";
+        if (sel) cls += " cw-ed-sel";
         var ty = types && types[c] && types[c] !== "text" ? types[c] : "";
-        if (ty) cls += " nb-tok nb-tok-" + ty;
+        if (ty) cls += " cw-tok cw-tok-" + ty;
         cells.push('<span class="' + cls + '" data-line="' + i + '" data-col="' + c + '">' +
           (ch === " " ? " " : esc(ch)) + "</span>");
       }
       // Caret past end of line
       if (focused && buf.mode !== "visual" && i === buf.cursor.line &&
           buf.cursor.col >= raw.length && raw.length > 0) {
-        cells.push('<span class="nb-ed-ch nb-ed-caret" data-line="' + i +
+        cells.push('<span class="cw-ed-ch cw-ed-caret" data-line="' + i +
           '" data-col="' + raw.length + '"> </span>');
       }
       // Empty line without caret already handled; empty unfocused
       if (!raw.length && !(focused && i === buf.cursor.line)) {
-        cells.push('<span class="nb-ed-ch" data-line="' + i + '" data-col="0"> </span>');
+        cells.push('<span class="cw-ed-ch" data-line="' + i + '" data-col="0"> </span>');
       }
       var g = String(i + 1).padStart(gutterW, " ");
-      var rowCls = "nb-ed-row";
-      if (i === buf.cursor.line) rowCls += " nb-ed-row-cur";
+      var rowCls = "cw-ed-row";
+      if (i === buf.cursor.line) rowCls += " cw-ed-row-cur";
       rows.push(
         '<div class="' + rowCls + '" data-line="' + i + '">' +
-        '<span class="nb-ed-gutter" aria-hidden="true">' + esc(g) + "</span>" +
-        '<span class="nb-ed-line" data-line="' + i + '">' + cells.join("") + "</span>" +
+        '<span class="cw-ed-gutter" aria-hidden="true">' + esc(g) + "</span>" +
+        '<span class="cw-ed-line" data-line="' + i + '">' + cells.join("") + "</span>" +
         "</div>"
       );
     }
@@ -550,27 +550,27 @@
     var msg = buf.message || (buf.mode === "insert" ? "-- INSERT --" :
       buf.mode === "visual" ? "-- VISUAL --" : "");
 
-    return '<div class="nb-ed" data-c="editor" data-editor="true"' +
+    return '<div class="cw-ed" data-c="editor" data-editor="true"' +
       ' data-path="' + esc(buf.path) + '"' +
       ' data-mode="' + esc(buf.mode) + '"' +
       ' data-focused="' + (focused ? "true" : "false") + '"' +
       ' tabindex="0" role="textbox" aria-multiline="true"' +
       ' aria-label="Terminal editor ' + esc(buf.name) + '">' +
-      '<div class="nb-ed-chrome">' +
-      '<span class="nb-ed-chrome-name">' + esc(buf.name) + "</span>" +
-      '<span class="nb-ed-chrome-lang">' + esc(buf.language) + "</span>" +
-      '<span class="nb-ed-chrome-hint">i insert · Esc normal · v visual · click/tap caret</span>' +
+      '<div class="cw-ed-chrome">' +
+      '<span class="cw-ed-chrome-name">' + esc(buf.name) + "</span>" +
+      '<span class="cw-ed-chrome-lang">' + esc(buf.language) + "</span>" +
+      '<span class="cw-ed-chrome-hint">i insert · Esc normal · v visual · click/tap caret</span>' +
       "</div>" +
-      '<div class="nb-ed-body" data-editor-body>' +
+      '<div class="cw-ed-body" data-editor-body>' +
       rows.join("") +
       "</div>" +
-      '<div class="nb-ed-status" data-mode="' + esc(buf.mode) + '">' +
-      '<span class="nb-ed-status-mode">' + esc(statusLeft) + "</span>" +
-      '<span class="nb-ed-status-file">' + esc(statusMid) + "</span>" +
-      '<span class="nb-ed-status-pos">' + esc(statusRight) + "</span>" +
+      '<div class="cw-ed-status" data-mode="' + esc(buf.mode) + '">' +
+      '<span class="cw-ed-status-mode">' + esc(statusLeft) + "</span>" +
+      '<span class="cw-ed-status-file">' + esc(statusMid) + "</span>" +
+      '<span class="cw-ed-status-pos">' + esc(statusRight) + "</span>" +
       "</div>" +
       (msg
-        ? '<div class="nb-ed-msg" data-mode="' + esc(buf.mode) + '">' + esc(msg) + "</div>"
+        ? '<div class="cw-ed-msg" data-mode="' + esc(buf.mode) + '">' + esc(msg) + "</div>"
         : "") +
       "</div>";
   }

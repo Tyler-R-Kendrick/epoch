@@ -65,8 +65,8 @@ if (/cn-cand[^\n]+aria-current/.test(consoleSrc)) {
 }
 
 const indexHtml = readFileSync(join(ROOT, "index.html"), "utf8");
-if (!/class="nb-skip"/.test(indexHtml)) {
-  errors.push("index.html: missing skip link (.nb-skip)");
+if (!/class="cw-skip"/.test(indexHtml)) {
+  errors.push("index.html: missing skip link (.cw-skip)");
 }
 if (!/\blang="en"/.test(indexHtml)) {
   errors.push("index.html: missing lang attribute");

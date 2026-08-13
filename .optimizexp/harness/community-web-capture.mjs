@@ -104,7 +104,7 @@ try {
       run(["scrollintoview", '[data-key="hg-thread"]']); pause(); frame("04-action-shortcuts"); break;
     case "agentic-coding-power-user-consumes-compatible-startup-conditions-with-one-restart":
       press("Escape"); pause();
-      evaluate(`localStorage.setItem("nb-startup-signals-v1",JSON.stringify({continuation:{host:"codex",sessionId:"visual-codex",workspace:"epoch"},update:{current:"0.8.0",available:"0.9.0"},workspace:{id:"epoch",defaultsVersion:2,appliedVersion:1}}));location.reload();true`);
+      evaluate(`localStorage.setItem("cw-startup-signals-v1",JSON.stringify({continuation:{host:"codex",sessionId:"visual-codex",workspace:"epoch"},update:{current:"0.8.0",available:"0.9.0"},workspace:{id:"epoch",defaultsVersion:2,appliedVersion:1}}));location.reload();true`);
       run(["wait", "900"]); frame("02-restart-offer");
       press("Control+u"); run(["wait", "900"]); frame("03-restarted"); break;
     case "app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback-narrow":

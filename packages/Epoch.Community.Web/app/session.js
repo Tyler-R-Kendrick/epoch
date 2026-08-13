@@ -20,9 +20,9 @@
   "use strict";
 
   var KEYS = {
-    identity: "nb-identity",
-    board: "nb-board-state",
-    policy: "nb-community-policy",
+    identity: "cw-identity",
+    board: "cw-board-state",
+    policy: "cw-community-policy",
   };
   var BOARD_SCHEMA_VERSION = 2;
 
@@ -386,7 +386,7 @@
     var resolved = resolveHandle(handle);
     var space = findSpace(spaceId) || homeSpace();
     var token = {
-      accessToken: "nb-at-" + resolved.did.slice(-12) + "-" + Date.now().toString(36),
+      accessToken: "cw-at-" + resolved.did.slice(-12) + "-" + Date.now().toString(36),
       scope: "atproto transition:generic",
       // Design exploration: we do not request rotation keys; scope is honest.
       expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
@@ -582,8 +582,8 @@
 
   /* ── One restart lane for local startup conditions ───────────────────── */
 
-  var STARTUP_SIGNALS_KEY = "nb-startup-signals-v1";
-  var STARTUP_APPLIED_KEY = "nb-startup-applied-v1";
+  var STARTUP_SIGNALS_KEY = "cw-startup-signals-v1";
+  var STARTUP_APPLIED_KEY = "cw-startup-applied-v1";
 
   function readJson(key) {
     try {

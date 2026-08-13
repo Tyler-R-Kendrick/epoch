@@ -1034,7 +1034,7 @@
         return c.name.indexOf(verb.toLowerCase()) === 0;
       }) ? "kw" : "text";
     }
-    html += '<span class="nb-tok nb-tok-' + verbClass + '">' + esc(verb) + "</span>";
+    html += '<span class="cw-tok cw-tok-' + verbClass + '">' + esc(verb) + "</span>";
 
     // Colour arguments: paths, sorts, bare words.
     var sorts = { hot: 1, new: 1, top: 1, best: 1 };
@@ -1052,7 +1052,7 @@
       else if (/^(who|state|body|kind|tag|in|path|sig):/i.test(arg)) cls = "field";
       else if (completion.kind === "path" || completion.kind === "slash-arg") cls = "path";
       else cls = "str";
-      html += '<span class="nb-tok nb-tok-' + cls + '">' + esc(arg) + "</span>";
+      html += '<span class="cw-tok cw-tok-' + cls + '">' + esc(arg) + "</span>";
       last = am.index + am[0].length;
     }
     if (last < after.length) html += esc(after.slice(last));

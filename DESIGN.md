@@ -204,7 +204,7 @@ wears `[label]` TTY brackets (sort chips, masthead actions, filters).
   terminal panel.
 - **Regions** (Community Web contract): masthead, rail, stream, notice, detail,
   composer, status.
-- **Density:** character-grid rhythm (`--nb-cell`); hairline rules; reverse
+- **Density:** character-grid rhythm (`--cw-cell`); hairline rules; reverse
   video for selection.
 - **Composer / CLI** sticky in the foot; status line always exposes key help.
 

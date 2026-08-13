@@ -1,7 +1,7 @@
 /**
  * Terminal-honest syntax highlighting for Community Web.
  *
- * No Prism/Shiki dependency — a small lexer that emits themeable `.nb-tok-*`
+ * No Prism/Shiki dependency — a small lexer that emits themeable `.cw-tok-*`
  * spans. Used wherever code shows up: markdown fences, JSON tool/transcript
  * blobs, and the vim-style file editor.
  *
@@ -417,7 +417,7 @@
     var toks = tokenize(code, L);
     return toks.map(function (t) {
       if (t.type === "text") return escapeHtml(t.text);
-      return '<span class="nb-tok nb-tok-' + t.type + '">' + escapeHtml(t.text) + "</span>";
+      return '<span class="cw-tok cw-tok-' + t.type + '">' + escapeHtml(t.text) + "</span>";
     }).join("");
   }
 

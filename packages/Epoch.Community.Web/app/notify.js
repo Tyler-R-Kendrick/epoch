@@ -13,8 +13,8 @@
 (function () {
   "use strict";
 
-  var KEY_PUSHED = "nb-notif-pushed";
-  var TAG_PREFIX = "nb-activity-";
+  var KEY_PUSHED = "cw-notif-pushed";
+  var TAG_PREFIX = "cw-activity-";
 
   function isSupported() {
     return typeof window !== "undefined" && typeof window.Notification === "function";

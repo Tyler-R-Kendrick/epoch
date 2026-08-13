@@ -418,7 +418,7 @@ assert.equal(generalJumpCandidates.filter((candidate) =>
 
 // NAV-QUERY-004: previous query versions migrate once without reinterpretation.
 const legacyStorage = storage({
-  "nb-saved-views-v1": JSON.stringify({
+  "cw-saved-views-v1": JSON.stringify({
     views: [{ id: "view-stable", label: "Old review", query: " state:needs-review  sort:new " }],
   }),
 });
@@ -429,13 +429,13 @@ load("query.js", legacyWindow);
 load("saved-views.js", legacyWindow);
 legacyWindow.CW_SAVED_VIEWS.setPrincipal("legacy-owner");
 assert.equal(legacyWindow.CW_SAVED_VIEWS.get("view-stable").query, "state:needs-review sort:new");
-const migratedOnce = legacyStorage.snapshot()["nb-saved-views-v2"];
+const migratedOnce = legacyStorage.snapshot()["cw-saved-views-v2"];
 load("saved-views.js", legacyWindow);
-assert.equal(legacyStorage.snapshot()["nb-saved-views-v2"], migratedOnce);
+assert.equal(legacyStorage.snapshot()["cw-saved-views-v2"], migratedOnce);
 
 // Schema-v2 queries migrate through Core, while malformed state remains exportable and write-blocked.
 const v2Storage = storage({
-  "nb-saved-views-v2": JSON.stringify({
+  "cw-saved-views-v2": JSON.stringify({
     schemaVersion: 2,
     views: [{ projectionId: "view-v2", label: "V2", visibility: "private", ownerId: "owner",
       query: " state:open  sort:new ", queryLanguageVersion: 0, order: "new", version: 1 }],
@@ -456,7 +456,7 @@ const ownerlessRaw = JSON.stringify({
   views: [{ projectionId: "view-ownerless", label: "Ownerless", visibility: "private",
     query: "state:open", queryLanguageVersion: 0, order: "new", version: 1 }],
 });
-const ownerlessStorage = storage({ "nb-saved-views-v2": ownerlessRaw });
+const ownerlessStorage = storage({ "cw-saved-views-v2": ownerlessRaw });
 const ownerlessWindow = { localStorage: ownerlessStorage };
 load("community-core-runtime.js", ownerlessWindow);
 load("data.js", ownerlessWindow);
@@ -471,7 +471,7 @@ assert.throws(() => ownerlessWindow.CW_SAVED_VIEWS.save({ label: "must not claim
 
 // Malformed legacy and unreadable storage enter the same explicit recovery/write-block state.
 const badLegacyRaw = JSON.stringify({ views: "not-an-array" });
-const badLegacyStorage = storage({ "nb-saved-views-v1": badLegacyRaw });
+const badLegacyStorage = storage({ "cw-saved-views-v1": badLegacyRaw });
 const badLegacyWindow = { localStorage: badLegacyStorage };
 load("community-core-runtime.js", badLegacyWindow);
 load("data.js", badLegacyWindow);
@@ -498,7 +498,7 @@ assert.throws(() => unreadableWindow.CW_SAVED_VIEWS.save({ label: "blocked", que
   /storage denied|export.*reset/i);
 
 const malformedRaw = "{broken-saved-views";
-const malformedStorage = storage({ "nb-saved-views-v2": malformedRaw });
+const malformedStorage = storage({ "cw-saved-views-v2": malformedRaw });
 const malformedWindow = { localStorage: malformedStorage };
 load("community-core-runtime.js", malformedWindow);
 load("data.js", malformedWindow);
@@ -508,7 +508,7 @@ malformedWindow.CW_SAVED_VIEWS.setPrincipal("owner");
 assert.equal(malformedWindow.CW_SAVED_VIEWS.exportState(), malformedRaw);
 assert.throws(() => malformedWindow.CW_SAVED_VIEWS.save({ label: "must not overwrite", query: "" }),
   /export.*reset/i);
-assert.equal(malformedStorage.snapshot()["nb-saved-views-v2"], malformedRaw);
+assert.equal(malformedStorage.snapshot()["cw-saved-views-v2"], malformedRaw);
 assert.equal(malformedWindow.CW_SAVED_VIEWS.resetState(), true);
 assert.equal(malformedWindow.CW_SAVED_VIEWS.exportState(), null);
 

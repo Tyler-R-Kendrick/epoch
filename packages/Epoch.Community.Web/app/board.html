@@ -11,49 +11,49 @@
 </head>
 <body data-theme="Grid">
 
-<a class="nb-skip" href="#nb-main">Skip to board</a>
+<a class="cw-skip" href="#cw-main">Skip to board</a>
 
-<div class="nb-bar" role="banner">
+<div class="cw-bar" role="banner">
   <!-- Tron grid-road: idle shimmer; click empty chrome to drive. -->
-  <canvas class="nb-gridroad" data-gridroad width="800" height="48"></canvas>
+  <canvas class="cw-gridroad" data-gridroad width="800" height="48"></canvas>
   <!-- Epoch FIGlet wordmark: power-on ignite + energy wave (letterforms fixed). -->
-  <button type="button" class="nb-brand" data-brand data-phase="boot" data-boot="true"
+  <button type="button" class="cw-brand" data-brand data-phase="boot" data-boot="true"
     data-goto-landing
     title="Epoch — marketing home"
     aria-label="Epoch — go to marketing home">
-    <div class="nb-brand-scan" aria-hidden="true"></div>
-    <pre class="nb-brand-art" data-brand-art></pre>
+    <div class="cw-brand-scan" aria-hidden="true"></div>
+    <pre class="cw-brand-art" data-brand-art></pre>
   </button>
-  <span class="nb-bar-spacer" aria-hidden="true"></span>
-  <button type="button" class="nb-activity-bell" data-activity-bell data-unread="false"
+  <span class="cw-bar-spacer" aria-hidden="true"></span>
+  <button type="button" class="cw-activity-bell" data-activity-bell data-unread="false"
     data-browser-perm="unsupported"
     title="Activity — mentions and subscriptions" aria-label="Activity notifications">
-    Activity<span class="nb-activity-badge" data-activity-badge hidden>0</span>
+    Activity<span class="cw-activity-badge" data-activity-badge hidden>0</span>
   </button>
-  <button type="button" class="nb-activity-perm" data-activity-perm hidden
+  <button type="button" class="cw-activity-perm" data-activity-perm hidden
     title="Enable browser notifications for mentions and subscriptions"
     aria-label="Enable browser notifications">
     Enable alerts
   </button>
-  <span class="nb-identity" data-identity-host aria-live="polite"></span>
+  <span class="cw-identity" data-identity-host aria-live="polite"></span>
 </div>
 
 <!-- Slack-style profile menu (painted by app; host lives outside morph mount). -->
-<div class="nb-profile-menu" data-profile-menu data-open="false" hidden role="menu" aria-label="Profile and spaces"></div>
+<div class="cw-profile-menu" data-profile-menu data-open="false" hidden role="menu" aria-label="Profile and spaces"></div>
 
-<div data-nb-fx-host><main id="nb-main" class="nb-mount" data-mount data-exp="graph" aria-label="Board" tabindex="-1"></main></div>
+<div data-cw-fx-host><main id="cw-main" class="cw-mount" data-mount data-exp="graph" aria-label="Board" tabindex="-1"></main></div>
 <footer data-region="status" role="contentinfo">
   <span data-status-line></span>
-  <span class="nb-status-trail">
-    <button type="button" class="nb-restart-cue" data-restart-cue hidden
+  <span class="cw-status-trail">
+    <button type="button" class="cw-restart-cue" data-restart-cue hidden
       title="Apply compatible startup actions and restart (Ctrl+U)"
       aria-label="Apply compatible startup actions and restart (Control+U)">
       <kbd>Ctrl+U</kbd> restart
     </button>
-    <button type="button" class="nb-model-fetch" data-model-fetch hidden
+    <button type="button" class="cw-model-fetch" data-model-fetch hidden
       title="Download on-device AI model"
       aria-label="Download on-device AI model">fetch AI</button>
-    <button type="button" class="nb-keys-cue" data-keys-open data-open="false"
+    <button type="button" class="cw-keys-cue" data-keys-open data-open="false"
       aria-pressed="false"
       title="Context hotkeys for this workspace (Ctrl+Space)"
       aria-label="Show context hotkeys (Control+Space)">
@@ -63,22 +63,22 @@
 </footer>
 
 <!-- Sign in to a space + claim / portable handle (host only; app paints). -->
-<div class="nb-auth" data-auth-dialog data-open="false" role="dialog" aria-modal="true" aria-labelledby="nb-auth-title" hidden>
-  <div class="nb-auth-card">
-    <h2 id="nb-auth-title" data-auth-title>Sign in to a space</h2>
+<div class="cw-auth" data-auth-dialog data-open="false" role="dialog" aria-modal="true" aria-labelledby="cw-auth-title" hidden>
+  <div class="cw-auth-card">
+    <h2 id="cw-auth-title" data-auth-title>Sign in to a space</h2>
     <p data-auth-lead>Pick a space and a handle. Anonymous guests can browse guest-friendly spaces; signing in claims your identity in that space.</p>
-    <p class="nb-auth-err" data-auth-err hidden></p>
-    <label for="nb-auth-space">Space</label>
-    <select id="nb-auth-space" data-auth-space aria-label="Space"></select>
-    <label for="nb-auth-handle">Handle</label>
-    <input id="nb-auth-handle" data-auth-handle type="text" autocomplete="username" spellcheck="false"
-      placeholder="maya" aria-describedby="nb-auth-meta">
-    <div class="nb-auth-row">
-      <button type="button" class="nb-auth-esc" data-auth-cancel data-esc-dismiss title="Esc — cancel">esc</button>
+    <p class="cw-auth-err" data-auth-err hidden></p>
+    <label for="cw-auth-space">Space</label>
+    <select id="cw-auth-space" data-auth-space aria-label="Space"></select>
+    <label for="cw-auth-handle">Handle</label>
+    <input id="cw-auth-handle" data-auth-handle type="text" autocomplete="username" spellcheck="false"
+      placeholder="maya" aria-describedby="cw-auth-meta">
+    <div class="cw-auth-row">
+      <button type="button" class="cw-auth-esc" data-auth-cancel data-esc-dismiss title="Esc — cancel">esc</button>
       <button type="button" data-auth-claim>Sign in to space</button>
       <button type="button" class="primary" data-auth-atproto>Sign in with handle</button>
     </div>
-    <p class="nb-auth-meta" id="nb-auth-meta" data-auth-meta>
+    <p class="cw-auth-meta" id="cw-auth-meta" data-auth-meta>
       Spaces are shared boards you can join. Enter a handle to sign in.
     </p>
   </div>

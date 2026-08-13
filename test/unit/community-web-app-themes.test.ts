@@ -106,10 +106,10 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       `${theme.id} must not load external resources`);
 
     const tokens = tokensOf(theme.css);
-    const bg = tokens.get("--nb-bg");
-    const ink = tokens.get("--nb-ink");
-    const dim = tokens.get("--nb-ink-dim");
-    assert.ok(bg && ink && dim, `${theme.id} must set --nb-bg, --nb-ink and --nb-ink-dim`);
+    const bg = tokens.get("--cw-bg");
+    const ink = tokens.get("--cw-ink");
+    const dim = tokens.get("--cw-ink-dim");
+    assert.ok(bg && ink && dim, `${theme.id} must set --cw-bg, --cw-ink and --cw-ink-dim`);
 
     const inkRatio = contrast(ink as string, bg as string);
     const dimRatio = contrast(dim as string, bg as string);
@@ -117,7 +117,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       `${theme.id}: body ink is ${inkRatio.toFixed(1)}:1 on its ground, below the 7:1 floor`);
     assert.ok(dimRatio >= 4.5,
       `${theme.id}: dim ink is ${dimRatio.toFixed(1)}:1 on its ground, below the 4.5:1 floor`);
-    const faint = tokens.get("--nb-ink-faint");
+    const faint = tokens.get("--cw-ink-faint");
     if (faint !== undefined) {
       const faintRatio = contrast(faint as string, bg as string);
       assert.ok(faintRatio >= 4.5,
@@ -125,9 +125,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     }
 
     // The reserved ink must be tellable from the state inks, or the legend lies.
-    const accent = tokens.get("--nb-accent");
+    const accent = tokens.get("--cw-accent");
     if (accent !== undefined) {
-      for (const role of ["--nb-live", "--nb-warn", "--nb-danger"]) {
+      for (const role of ["--cw-live", "--cw-warn", "--cw-danger"]) {
         const other = tokens.get(role);
         if (other !== undefined) {
           assert.notEqual(accent.toLowerCase(), other.toLowerCase(),
@@ -335,9 +335,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(Ed.handleKey(buf, { key: "Escape" }));
   assert.equal(buf.mode, "normal");
   const html = Ed.render(buf, { focused: true });
-  assert.ok(html.includes("nb-ed") && html.includes("nb-ed-status") && html.includes("nb-ed-gutter"),
+  assert.ok(html.includes("cw-ed") && html.includes("cw-ed-status") && html.includes("cw-ed-gutter"),
     "editor renders terminal chrome, status, gutter");
-  assert.ok(html.includes("nb-ed-caret"), "focused editor shows caret");
+  assert.ok(html.includes("cw-ed-caret"), "focused editor shows caret");
   Ed.clickAt(buf, 1, 0);
   assert.equal(buf.cursor.line, 1);
   const fromEntry = Ed.contentFromEntry({
@@ -347,7 +347,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(fromEntry.text.includes("Be kind"));
   assert.ok(appSrc.includes("openFileInEditor") && appSrc.includes("editorHandleKey"),
     "app wires editor open and keys");
-  assert.ok(consoleSrc2.includes("viewFileEditor") || consoleSrc2.includes("nb-ed"),
+  assert.ok(consoleSrc2.includes("viewFileEditor") || consoleSrc2.includes("cw-ed"),
     "console renders the terminal editor in the detail pane");
 
   // .agents (Vercel Eve) at board + project levels.
@@ -547,7 +547,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
 
   // The contract is the thing themes are written against; it has to exist.
   const contract = readFileSync(join(DOCS, "CONTRACT.md"), "utf8");
-  for (const hook of ["data-region", "data-c", "data-state", "data-kind", "--nb-accent"]) {
+  for (const hook of ["data-region", "data-c", "data-state", "data-kind", "--cw-accent"]) {
     assert.ok(contract.includes(hook), `CONTRACT.md must document ${hook}`);
   }
 
@@ -588,7 +588,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(A.looksLikeMarkdown!("| a | b |\n| --- | --- |\n| 1 | 2 |"),
     "pipe tables are detected as markdown");
   const mdTable = A.markdown!("| who | role |\n| --- | --- |\n| maya | maintainer |\n| scout | agent |");
-  assert.ok(mdTable.includes("nb-md-atable") && mdTable.includes("nb-md-th"),
+  assert.ok(mdTable.includes("cw-md-atable") && mdTable.includes("cw-md-th"),
     "markdown tables become colourable ASCII table markup");
   assert.ok(mdTable.includes("maya") && mdTable.includes("│"),
     "table keeps cell text and box-drawing");
@@ -596,15 +596,15 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(plainTable.includes("┌") && plainTable.includes("│"),
     "asciiTable plain mode is pure box-drawing text");
   const bold = A.markdown!("hello **world** and `code`");
-  assert.ok(bold.includes("nb-md-strong") && bold.includes("nb-md-code"),
+  assert.ok(bold.includes("cw-md-strong") && bold.includes("cw-md-code"),
     "inline markdown marks are classed for themes");
   const colored = A.colorizeAscii!("┌─█─┐\n│ ⣿ │");
-  assert.ok(colored.includes("nb-md-box") && colored.includes("nb-md-block"),
+  assert.ok(colored.includes("cw-md-box") && colored.includes("cw-md-block"),
     "plain ASCII colourises box edges and block gauges");
-  assert.ok(A.formatBody!("| x | y |\n| --- | --- |\n| 1 | 2 |").includes("nb-md-atable"),
+  assert.ok(A.formatBody!("| x | y |\n| --- | --- |\n| 1 | 2 |").includes("cw-md-atable"),
     "formatBody routes tables through markdown");
   const consoleMd = readFileSync(join(ROOT, "console.js"), "utf8");
-  assert.ok(consoleMd.includes("formatBody") && consoleMd.includes("nb-md-atable"),
+  assert.ok(consoleMd.includes("formatBody") && consoleMd.includes("cw-md-atable"),
     "console must apply formatBody and style markdown tables");
 
   // Link preview cards — generated summary, ASCII/terminal reusable component.
@@ -629,9 +629,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(plainCard.includes("AG-UI") || plainCard.includes("GitHub"),
     "ASCII card carries title/site");
   const htmlCard = A2.linkPreview!("https://github.com/ag-ui-protocol");
-  assert.ok(htmlCard.includes("nb-link-preview") && htmlCard.includes('data-c="link-preview"'),
+  assert.ok(htmlCard.includes("cw-link-preview") && htmlCard.includes('data-c="link-preview"'),
     "HTML card uses reusable component classes");
-  assert.ok(htmlCard.includes("nb-link-preview-title") && htmlCard.includes("nb-link-preview-ascii"),
+  assert.ok(htmlCard.includes("cw-link-preview-title") && htmlCard.includes("cw-link-preview-ascii"),
     "card has title + ascii pre");
   assert.ok(htmlCard.includes('data-kind="repo"'), "kind is data attribute for themes");
   const extracted = A2.extractLinks!(
@@ -641,15 +641,15 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   const bodyWithLinks = A.formatBody!(
     "Spec: [AG-UI Protocol](https://github.com/ag-ui-protocol)\n\nhttps://docs.epoch.local/install-cache",
   );
-  assert.ok(bodyWithLinks.includes("nb-md-a") && bodyWithLinks.includes("nb-link-preview"),
+  assert.ok(bodyWithLinks.includes("cw-md-a") && bodyWithLinks.includes("cw-link-preview"),
     "formatBody inline-links and appends preview cards");
-  assert.ok((bodyWithLinks.match(/nb-link-preview/g) || []).length >= 2,
+  assert.ok((bodyWithLinks.match(/cw-link-preview/g) || []).length >= 2,
     "one card per unique link");
   const boardCard = A2.linkPreview!("/projects/community/channels/bugs");
   assert.ok(boardCard.includes('data-kind="board"') && boardCard.includes("data-goto") &&
     boardCard.includes("button"),
     "board paths get in-app button + data-goto previews");
-  assert.ok(consoleMd.includes("nb-link-preview") && consoleMd.includes("nb-link-preview-ascii"),
+  assert.ok(consoleMd.includes("cw-link-preview") && consoleMd.includes("cw-link-preview-ascii"),
     "console styles the link preview component");
   const dataSrcLinks = readFileSync(join(ROOT, "data.js"), "utf8");
   assert.ok(dataSrcLinks.includes("github.com/ag-ui-protocol") ||
@@ -887,7 +887,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "tool use must be collapsible");
   // Top chrome: Epoch animated ASCII brand — no NIGHTBOARD / console select / pause / thesis prose.
   const boardHtmlBrand = readFileSync(join(ROOT, "board.html"), "utf8");
-  assert.ok(boardHtmlBrand.includes("nb-skip") && boardHtmlBrand.includes("role=\"banner\""),
+  assert.ok(boardHtmlBrand.includes("cw-skip") && boardHtmlBrand.includes("role=\"banner\""),
     "skip link and banner landmark must exist for keyboard a11y");
   assert.ok(boardHtmlBrand.includes('data-brand') && boardHtmlBrand.includes("data-brand-art"),
     "top bar must host the Epoch ASCII brand mark");
@@ -905,7 +905,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "index.html must be the marketing landing surface");
   assert.ok(/href=["']board\.html["']/.test(landingHtml),
     "landing CTA must enter the Operate board");
-  assert.ok(landingHtml.includes("nb-landing") || landingHtml.includes("data-landing-hero"),
+  assert.ok(landingHtml.includes("cw-landing") || landingHtml.includes("data-landing-hero"),
     "landing must expose a Persuade hero composition");
   assert.ok(
     landingHtml.includes("data-landing-what") &&
@@ -920,14 +920,14 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "landing must include the Grid cyclorama canvas");
   assert.ok(landingHtml.includes("data-landing-crt"),
     "landing must include CRT monitor shell");
-  assert.ok(landingHtml.includes("nb-crt-grain") && landingHtml.includes("nb-crt-barrel"),
+  assert.ok(landingHtml.includes("cw-crt-grain") && landingHtml.includes("cw-crt-barrel"),
     "landing CRT must include grain + barrel tube mass");
   assert.ok(
     landingHtml.includes("data-ride-track") && landingHtml.includes("data-ride-stage"),
     "landing must use a scroll-scrub ride track + fixed stage (not stacked-doc scroll alone)");
   assert.ok(
     landingHtml.includes("data-crt-tube") &&
-      (landingHtml.includes("nb-crt-barrel-filter") || landingHtml.includes("feDisplacementMap")),
+      (landingHtml.includes("cw-crt-barrel-filter") || landingHtml.includes("feDisplacementMap")),
     "landing CRT must include tube immersion warp filter like shader.se");
   assert.ok(
     /chapterFromProgress|CHAPTERS|rideProgress|scrollSmooth/.test(
@@ -943,14 +943,14 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "landing.js must recover when theater canvas context is missing");
   assert.ok(landingHtml.includes("data-scroll-rail"),
     "landing must include scroll-to-explore chapter rail");
-  assert.ok(landingHtml.includes("nb-scroll-rail-item") && landingHtml.includes("nb-case-code"),
+  assert.ok(landingHtml.includes("cw-scroll-rail-item") && landingHtml.includes("cw-case-code"),
     "landing chapter rail must use coded case index items (Aino → Grid)");
   assert.ok(landingHtml.includes("data-plane-catalog") && landingHtml.includes('data-plane="channels"'),
     "landing board section must expose an interactive plane catalog");
   assert.ok(/clip-path:\s*inset\(0\s+0\s+0\s+0\)/.test(landingCss) ||
     landingCss.includes("clip-path: inset(0 0 0 0)"),
     "landing day state must keep FIGlet brand unclipped");
-  assert.ok(landingCss.includes("nb-landing-cta-rise"),
+  assert.ok(landingCss.includes("cw-landing-cta-rise"),
     "landing CTA rise must not use opacity gating");
   assert.ok(landingHtml.includes("data-theater-scrub") && landingHtml.includes("data-seek-phase"),
     "landing theater must be scrubbable and seekable from How steps");
@@ -962,24 +962,24 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "landing must not reuse the old promote-message thesis");
   assert.ok(!/font:\s*inherit/.test(landingCss),
     "landing must not inherit UA serif onto the FIGlet brand");
-  assert.ok(/font-family:\s*var\(--nb-font\)/.test(landingCss),
+  assert.ok(/font-family:\s*var\(--cw-font\)/.test(landingCss),
     "landing must use the Community Web monospace stack");
   assert.ok(appSrc.includes("goLanding") || appSrc.includes("data-goto-landing"),
     "board brand click must route to marketing landing");
   assert.ok(asciiSrc.includes("brandHtml") && asciiSrc.includes("EPOCH_MARK"),
     "ascii.js must provide a FIGlet Epoch brand wordmark");
-  assert.ok(asciiSrc.includes("███████") && asciiSrc.includes("nb-brand-fig"),
+  assert.ok(asciiSrc.includes("███████") && asciiSrc.includes("cw-brand-fig"),
     "brand is continuous ANSI Shadow letterforms (not per-glyph spans)");
   assert.ok(!/EPOCH_TAG\s*=\s*"CIVIC WORKSHOP"/.test(asciiSrc),
     "brand title must not carry Civic Workshop wording");
   assert.ok(!/brandHtml[\s\S]*?CIVIC WORKSHOP/.test(asciiSrc),
     "brandHtml must not render Civic Workshop by default");
-  assert.ok(/\.nb-brand\s*\{[^}]*border:\s*0/.test(baseCss),
+  assert.ok(/\.cw-brand\s*\{[^}]*border:\s*0/.test(baseCss),
     "brand title must not wear a border plaque");
   assert.ok(appSrc.includes("startBrandAnimation") && appSrc.includes("brandHtml"),
     "app must mount brand HTML and run power-on → idle");
-  assert.ok(baseCss.includes("nb-brand") && baseCss.includes("nb-brand-sheen") &&
-    baseCss.includes("nb-brand-wipe") && baseCss.includes("background-clip"),
+  assert.ok(baseCss.includes("cw-brand") && baseCss.includes("cw-brand-sheen") &&
+    baseCss.includes("cw-brand-wipe") && baseCss.includes("background-clip"),
     "base CSS must sheen continuous letterforms and power-on wipe");
 
   assert.ok(appSrc.includes("makeSession") && appSrc.includes("newSession"),
@@ -993,7 +993,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "newSession must not copy the active tab path");
   assert.ok(appSrc.includes("sess.attachments") && appSrc.includes("sess.editorPath"),
     "freeze/thaw isolates attachments and editor focus per workspace");
-  assert.ok(appSrc.includes('"nb-panes"'), "pane layout must persist across sessions");
+  assert.ok(appSrc.includes('"cw-panes"'), "pane layout must persist across sessions");
   assert.ok(appSrc.includes("outH") && appSrc.includes("outW") && appSrc.includes("dock"),
     "terminal furniture state (height, width, dock) must persist");
   assert.ok(appSrc.includes("setPointerCapture"),
@@ -1229,7 +1229,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "Esc must dismiss the profile menu");
   assert.ok(appSrc.includes("openIntel") && appSrc.includes("ctrlKey"),
     "Ctrl+Space must open intellisense");
-  assert.ok(appSrc.includes("maybeOpenKeysOnboard") && appSrc.includes("nb-keys-onboarded") &&
+  assert.ok(appSrc.includes("maybeOpenKeysOnboard") && appSrc.includes("cw-keys-onboarded") &&
     appSrc.includes("keysOnboard"),
     "first visit must open the hotkey sheet and remember dismiss");
   assert.ok(appSrc.includes("intelOpen") && appSrc.includes("helpOpen") && appSrc.includes("helpCtx"),
@@ -1310,10 +1310,10 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "onboard verb count stays small: " + onboardVerbKeys.length);
   assert.ok(!/Allow alerts/.test(appSrc) || /permBtn\.hidden\s*=\s*true/.test(appSrc),
     "masthead must not host Allow alerts — Activity owns enable");
-  assert.ok(/--nb-signed:\s*#7dff9a/.test(readFileSync(join(ROOT, "base.css"), "utf8")),
+  assert.ok(/--cw-signed:\s*#7dff9a/.test(readFileSync(join(ROOT, "base.css"), "utf8")),
     "signed mint must sit far from warn amber");
-  assert.ok(consoleSrc2.includes("cn-search-state[data-state=signed]{color:var(--nb-signed)}"),
-    "search signed state uses --nb-signed, not live green");
+  assert.ok(consoleSrc2.includes("cn-search-state[data-state=signed]{color:var(--cw-signed)}"),
+    "search signed state uses --cw-signed, not live green");
   assert.ok(consoleSrc2.includes('title="Unread"') && /cn-badge[\s\S]{0,80}new/.test(consoleSrc2),
     "nav unread badge must say new/count — never stringify boolean true");
   assert.ok(consoleSrc2.includes('? "first keys"') || consoleSrc2.includes('"first keys"'),
@@ -1487,7 +1487,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(readFileSync(join(ROOT, "icons.js"), "utf8").includes("CW_ICONS") &&
     readFileSync(join(ROOT, "icons.js"), "utf8").includes("pixelarticons"),
     "16-bit iconography pack (pixelarticons) must expose CW_ICONS");
-  assert.ok(consoleSrc2.includes("CW_ICONS") && consoleSrc2.includes("nb-ico"),
+  assert.ok(consoleSrc2.includes("CW_ICONS") && consoleSrc2.includes("cw-ico"),
     "mic button must use the 16-bit pack glyph, not the word mic");
   assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("icons.js"),
     "index must load icons.js");
@@ -1774,7 +1774,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
 
   // ── Durable page state + Anonymous profile + spaces + portable auth ────
   const sessionSrc = readFileSync(join(ROOT, "session.js"), "utf8");
-  assert.ok(sessionSrc.includes("CW_SESSION") && sessionSrc.includes("nb-identity"),
+  assert.ok(sessionSrc.includes("CW_SESSION") && sessionSrc.includes("cw-identity"),
     "session module must expose durable identity storage");
   assert.ok(sessionSrc.includes("authorizeAtproto") && sessionSrc.includes("did:plc:"),
     "portable-handle mock must mint durable sessions from handles");
@@ -1802,7 +1802,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "profile defaults to Anonymous initials");
   assert.ok(sessionSrc.includes("guestsAllowed") && sessionSrc.includes("canParticipate"),
     "community policy must gate guest participation");
-  assert.ok(sessionSrc.includes("saveBoardState") && sessionSrc.includes("nb-board-state"),
+  assert.ok(sessionSrc.includes("saveBoardState") && sessionSrc.includes("cw-board-state"),
     "page state (path, workspaces, furniture) must be durable");
 
   // In-memory localStorage stand-in so the browser script runs under node.
@@ -1976,8 +1976,8 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(openAuthFn.length > 0, "openAuth helper must exist");
   assert.ok(!/Bluesky|bsky\.social/.test(authDialog + openAuthFn + profileLogin + loginHelp),
     "login UI must not mention Bluesky");
-  assert.ok(baseCss.includes(".nb-profile-btn") && baseCss.includes(".nb-profile-menu") &&
-    baseCss.includes(".nb-auth"),
+  assert.ok(baseCss.includes(".cw-profile-btn") && baseCss.includes(".cw-profile-menu") &&
+    baseCss.includes(".cw-auth"),
     "profile button, menu, and auth dialog styles must exist");
   assert.ok(dataSrc.includes("spaces:") || dataSrc.includes("spaces :"),
     "fixture spaces power space sign-in");

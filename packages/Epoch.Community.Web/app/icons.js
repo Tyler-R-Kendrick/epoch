@@ -12,7 +12,7 @@
   function svg(path, opts) {
     opts = opts || {};
     var label = opts.label || "";
-    return '<svg class="nb-ico" xmlns="http://www.w3.org/2000/svg" width="16" height="16"' +
+    return '<svg class="cw-ico" xmlns="http://www.w3.org/2000/svg" width="16" height="16"' +
       ' viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"' +
       (label ? ' role="img" aria-label="' + label + '"' : "") + ">" +
       path +
