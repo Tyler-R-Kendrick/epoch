@@ -19,7 +19,7 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "space.created", "space.participant.joined", "space.participant.left",
   "space.workspace.bound", "space.turn.recorded", "space.budget.allocated",
   "space.capture.opened", "space.capture.closed", "space.capture.operation",
-  "space.anchor.recorded",
+  "space.anchor.recorded", "space.turn.receipt",
 ] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
@@ -175,6 +175,20 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
     }); return;
     // Anchors bind to a structural path inside an exact Revision, so they
     // re-resolve after reformatting rather than naming a byte offset.
+    // A receipt is the evidence half of a turn: what actually ran, under which
+    // proven confinement, and what it cost (ADR-0034, ADR-0043 phase 5).
+    case "space.turn.receipt": validateFields(value, {
+      required: ["spaceId", "principalId", "turnRevisionId", "sandboxId", "isolation", "network", "outcome"],
+      optional: ["exitCode", "durationMs"],
+      ids: { spaceId: "space", principalId: "principal", sandboxId: "sandbox" },
+      revisions: ["turnRevisionId"],
+      optionalNonnegativeIntegers: ["durationMs"],
+      enums: {
+        isolation: ["none", "process", "namespace"],
+        network: ["inherited", "denied"],
+        outcome: ["succeeded", "failed", "timed-out", "refused"],
+      },
+    }); return;
     case "space.anchor.recorded": validateFields(value, {
       required: ["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"],
       ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },

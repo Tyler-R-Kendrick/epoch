@@ -25,6 +25,7 @@ import {
   type RandomSource,
 } from "@epoch/protocol";
 import { createWorkspaceStateManifest } from "./workspace-providers";
+import type { SandboxCapabilities, SandboxProvider, SandboxRunResult } from "./sandbox";
 import type { WorkspaceProvider } from "./workspace";
 
 export type SpaceRole = "owner" | "collaborator" | "agent" | "observer";
@@ -172,6 +173,29 @@ export class SignedSpaceStore {
     return [...byPrincipal.values()];
   }
 
+  /**
+   * Pull Spaces from another replica, then join one (ADR-0043 phase 6).
+   *
+   * Discovery rides the transports Epoch already ships rather than a hosted
+   * directory: events arrive over `syncFrom`/gossip, are verified locally, and
+   * only then is the Space joinable. A join link is therefore a repository
+   * locator plus a Space ID, and it keeps working offline once synced — which
+   * a Durable-Object-backed thread cannot.
+   */
+  syncSpacesFrom(peerPath: string): { readonly eventsCopied: number; readonly blobsCopied: number; readonly spaces: readonly string[] } {
+    const before = new Set(this.#repository.events().map((event) => event.id));
+    const result = this.#repository.syncFrom(peerPath);
+    // Verification decides trust, not the transport (ADR-0003).
+    const failures = this.#repository.verify();
+    if (failures.length > 0) {
+      fail("policy-denied", `synced state failed verification: ${failures.length} object(s)`, { failures: failures.slice(0, 5) });
+    }
+    const spaces = this.#repository.events()
+      .filter((event) => event.type === "space.created" && !before.has(event.id))
+      .map((event) => String(event.payload.spaceId));
+    return { eventsCopied: result.eventsCopied, blobsCopied: result.blobsCopied, spaces };
+  }
+
   // --------------------------------------------------------------- workspaces
 
   /**
@@ -270,6 +294,87 @@ export class SignedSpaceStore {
         remaining: budget === undefined ? 0 : Math.max(0, budget.remaining - units),
       },
     };
+  }
+
+  /**
+   * Record a turn *and run it* inside a sandbox (ADR-0043 phase 5).
+   *
+   * This is where the per-turn Sandbox binding stops being descriptive. The
+   * turn records the isolation the provider actually proved, not the isolation
+   * the caller wanted: `requireIsolation` refuses rather than silently running
+   * unconfined, and the receipt afterwards is signed evidence of what ran.
+   */
+  async runTurn(spaceId: string, input: {
+    readonly request: string;
+    readonly sandbox: SandboxProvider;
+    readonly command: string;
+    readonly args?: readonly string[];
+    readonly principal?: string;
+    readonly units?: number;
+    readonly cwd?: string;
+    readonly timeoutMs?: number;
+    readonly env?: Readonly<Record<string, string>>;
+    /** When true, a provider that cannot prove namespace isolation is refused. */
+    readonly requireIsolation?: boolean;
+  }): Promise<{ readonly turn: SpaceRecord; readonly receipt: SpaceRecord; readonly result?: SandboxRunResult }> {
+    this.requireSpace(spaceId);
+    const capabilities = input.sandbox.capabilities();
+    const sandboxId = createCanonicalId("sandbox", this.#random);
+    if (input.requireIsolation === true && capabilities.isolation !== "namespace") {
+      // Refused *before* the grant is spent, and the refusal is itself recorded.
+      const turn = this.recordTurn(spaceId, {
+        request: input.request, principal: input.principal, execution: "disabled", units: 0, sandboxId,
+      });
+      const receipt = this.appendReceipt(spaceId, turn, sandboxId, capabilities, "refused", undefined, undefined);
+      throw new SpaceError("policy-denied",
+        `sandbox cannot prove isolation: ${capabilities.unavailableReason ?? capabilities.isolation}`,
+        { sandbox: input.sandbox.id, isolation: capabilities.isolation, receipt: receipt.id });
+    }
+    const execution: SpaceExecution = capabilities.isolation === "namespace" ? "isolated"
+      : capabilities.isolation === "process" ? "in-process" : "disabled";
+    const turn = this.recordTurn(spaceId, {
+      request: input.request, principal: input.principal, execution, units: input.units, sandboxId,
+    });
+    const result = await input.sandbox.run({
+      command: input.command,
+      args: input.args ?? [],
+      ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
+      ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+      ...(input.env === undefined ? {} : { env: input.env }),
+    });
+    const outcome = result.timedOut ? "timed-out" : result.exitCode === 0 ? "succeeded" : "failed";
+    const receipt = this.appendReceipt(spaceId, turn, sandboxId, capabilities, outcome, result.exitCode, result.durationMs);
+    return { turn, receipt, result };
+  }
+
+  receipts(spaceId: string): readonly SpaceRecord[] {
+    this.requireSpace(spaceId);
+    return this.#repository.events()
+      .filter((event) => event.type === "space.turn.receipt" && event.payload.spaceId === spaceId)
+      .map((event) => ({ id: event.id, kind: "space-turn-receipt", revision: 1, data: { ...event.payload } }));
+  }
+
+  private appendReceipt(
+    spaceId: string,
+    turn: SpaceRecord,
+    sandboxId: string,
+    capabilities: SandboxCapabilities,
+    outcome: "succeeded" | "failed" | "timed-out" | "refused",
+    exitCode: number | null | undefined,
+    durationMs: number | undefined,
+  ): SpaceRecord {
+    const event = this.append("space.turn.receipt", {
+      spaceId,
+      principalId: String(turn.data.principalId),
+      turnRevisionId: turn.id,
+      sandboxId,
+      isolation: capabilities.isolation,
+      network: capabilities.network,
+      outcome,
+      ...(typeof exitCode === "number" ? { exitCode } : {}),
+      ...(durationMs === undefined ? {} : { durationMs: Math.max(0, Math.round(durationMs)) }),
+    });
+    return { id: event.id, kind: "space-turn-receipt", revision: 1, data: { spaceId, sandboxId, outcome, ...capabilities } };
   }
 
   turns(spaceId: string): readonly SpaceRecord[] {

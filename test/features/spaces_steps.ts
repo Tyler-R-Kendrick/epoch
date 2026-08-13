@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { HydratingWorkspaceProvider, MemoryObjectStore, NamespaceSandboxProvider, ProcessSandboxProvider, objectIdFor } from "@epoch/core";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +22,16 @@ interface SpaceWorld {
   anchorId?: string;
   resolution?: SpaceAnchorResolution;
   createdDirs: string[];
+  // ADR-0043 phases 4 to 6.
+  hydrating?: HydratingWorkspaceProvider;
+  boardBytes?: string;
+  virtualBefore?: string[];
+  run?: { turn: SpaceRecord; receipt: SpaceRecord; result?: { stdout: string } };
+  error?: Error;
+  root?: string;
+  peer?: SignedSpaceStore;
+  peerRoot?: string;
+  synced?: { spaces: readonly string[] };
 }
 
 let world: SpaceWorld = { createdDirs: [] };
@@ -63,6 +74,7 @@ Given("a maintainer has opened a space called {string} over the main view", func
   const workspace = mkdtempSync(join(tmpdir(), "epoch-space-feature-"));
   world.createdDirs.push(workspace);
   world.workspace = workspace;
+  world.root = workspace;
   world.store = SignedSpaceStore.open(workspace, { author: "maintainer" });
   world.spaceId = store().createSpace({ title, view: "main" }).id;
 });
@@ -189,4 +201,98 @@ Then("the comment reports itself unresolved once the {string} setting is deleted
   const resolved = store().resolveAnchor(world.anchorId!, { content: WITHOUT_RAIL });
   assert.equal(resolved.status, "unresolved");
   assert.equal(resolved.structuralPath, `object#0/member:${setting}`);
+});
+
+
+// --- phases 4 to 6 --------------------------------------------------------
+
+Given("an agent has joined the space", function () {
+  store().join(spaceId(), { principal: "member-agent", role: "agent" });
+});
+
+Given("the space describes a board configuration and a readme", async function () {
+  const objects = new MemoryObjectStore();
+  const board = Buffer.from('{"rail":{"width":24}}');
+  const readme = Buffer.from("# readme\n");
+  await objects.put(objectIdFor(board), board);
+  await objects.put(objectIdFor(readme), readme);
+  world.hydrating = new HydratingWorkspaceProvider(join(world.workspace!, "joined"), objects, [
+    { path: "board.json", objectId: objectIdFor(board), size: board.byteLength },
+    { path: "docs/readme.md", objectId: objectIdFor(readme), size: readme.byteLength },
+  ]);
+  world.boardBytes = board.toString();
+});
+
+When("the agent runs a command in the space through a sandbox", async function () {
+  world.run = await store().runTurn(spaceId(), {
+    request: "print a line", sandbox: new ProcessSandboxProvider(),
+    command: "sh", args: ["-c", "echo ran"], principal: "member-agent",
+  });
+});
+
+When("the agent demands isolation from a sandbox that cannot prove it", async function () {
+  const sandbox = new NamespaceSandboxProvider({
+    probe: { available: false, networkDenied: false, pidIsolated: false, reason: "namespaces unavailable in this scenario" },
+  });
+  try {
+    await store().runTurn(spaceId(), {
+      request: "needs isolation", sandbox, command: "sh", args: ["-c", "true"],
+      principal: "member-agent", requireIsolation: true,
+    });
+  } catch (error) { world.error = error as Error; }
+});
+
+When("the contributor opens the space without materializing it", function () {
+  world.virtualBefore = [...world.hydrating!.virtualPaths()];
+});
+
+When("a teammate on another replica syncs the space from that machine", function () {
+  world.peerRoot = mkdtempSync(join(tmpdir(), "epoch-space-peer-"));
+  world.peer = SignedSpaceStore.open(world.peerRoot, { author: "teammate" });
+  world.synced = world.peer.syncSpacesFrom(world.root!);
+});
+
+Then("the turn records the isolation the sandbox actually proved", function () {
+  assert.equal(world.run!.turn.data.execution, "in-process");
+  assert.equal(world.run!.result?.stdout.trim(), "ran");
+});
+
+Then("a signed receipt reports the outcome and the network posture", function () {
+  const receipts = store().receipts(spaceId());
+  assert.equal(receipts.length, 1);
+  assert.equal(receipts[0]!.data.outcome, "succeeded");
+  assert.equal(receipts[0]!.data.isolation, "process");
+  assert.equal(receipts[0]!.data.network, "inherited");
+});
+
+Then("the run is refused because the sandbox cannot prove isolation", function () {
+  assert.match(String(world.error?.message), /cannot prove isolation/u);
+});
+
+Then("the refusal is recorded as a receipt so the denied attempt leaves evidence", function () {
+  const receipts = store().receipts(spaceId());
+  assert.equal(receipts.at(-1)!.data.outcome, "refused");
+});
+
+Then("every path is described while its bytes stay virtual", function () {
+  assert.equal(world.hydrating!.manifest().length, 2);
+  assert.deepEqual(world.virtualBefore, ["board.json", "docs/readme.md"]);
+});
+
+Then("reading the board configuration materializes only that file", async function () {
+  const bytes = await world.hydrating!.read("board.json");
+  assert.equal(bytes.toString(), world.boardBytes);
+  assert.equal(world.hydrating!.status("board.json"), "materialized");
+  assert.deepEqual([...world.hydrating!.virtualPaths()], ["docs/readme.md"]);
+});
+
+Then("the teammate can join the synced space", function () {
+  assert.ok(world.synced!.spaces.includes(spaceId()));
+  world.peer!.join(spaceId(), { principal: "teammate-two", role: "collaborator" });
+  assert.equal(world.peer!.participants(spaceId()).filter((item) => item.active).length, 2);
+});
+
+Then("the teammate's replica verifies the space history offline", function () {
+  assert.deepEqual(world.peer!.repository.verify(), []);
+  rmSync(world.peerRoot!, { recursive: true, force: true });
 });

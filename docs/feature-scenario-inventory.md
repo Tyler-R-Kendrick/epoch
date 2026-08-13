@@ -19,7 +19,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/ha_dr.feature` | 7 |
 | `features/merge.feature` | 7 |
 | `features/named_views.feature` | 4 |
-| `features/spaces.feature` | 6 |
+| `features/spaces.feature` | 10 |
 | `features/platform_ai_operations_ha.feature` | 4 |
 | `features/platform_community_conformance.feature` | 3 |
 | `features/platform_core.feature` | 4 |
@@ -245,3 +245,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder confirms continuous capture requires recorded consent | None | 0 |
 | `features/spaces.feature` | `@persona.platform_operator` | Scenario | Operator sees a workspace report only what its provider declared | None | 0 |
 | `features/spaces.feature` | `@persona.github_open_source_contributor` | Scenario | A review comment survives the file being reformatted | None | 0 |
+| `features/spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder confirms an agent turn ran inside a proven boundary | None | 0 |
+| `features/spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder sees an unprovable sandbox refused rather than trusted | None | 0 |
+| `features/spaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor joins a space and pays for content only where they look | None | 0 |
+| `features/spaces.feature` | `@persona.maintainer` | Scenario | Maintainer joins a space synced from another machine | None | 0 |

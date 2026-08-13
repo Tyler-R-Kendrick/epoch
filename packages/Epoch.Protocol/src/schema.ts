@@ -98,6 +98,13 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
     spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
     path: repositoryPath, contentDigest: digest,
   }),
+  spaceTurnReceiptBody: object(["spaceId", "principalId", "turnRevisionId", "sandboxId", "isolation", "network", "outcome"], {
+    spaceId: id("space"), principalId: id("principal"), turnRevisionId: revisionId, sandboxId: id("sandbox"),
+    isolation: { enum: ["none", "process", "namespace"] },
+    network: { enum: ["inherited", "denied"] },
+    outcome: { enum: ["succeeded", "failed", "timed-out", "refused"] },
+    exitCode: { type: "integer" }, durationMs: nonnegativeInteger,
+  }),
   spaceAnchorRecordedBody: object(["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"], {
     spaceId: id("space"), anchorId: id("anchor"), principalId: id("principal"), revisionId,
     path: repositoryPath, structuralPath: nonemptyString, contentDigest: digest,
@@ -167,7 +174,7 @@ const bodyDefinitionByType: Readonly<Record<ProtocolEventType, string>> = {
   "space.participant.left": "spaceParticipantLeftBody", "space.workspace.bound": "spaceWorkspaceBoundBody",
   "space.turn.recorded": "spaceTurnRecordedBody", "space.budget.allocated": "spaceBudgetAllocatedBody", "space.capture.opened": "spaceCaptureOpenedBody",
   "space.capture.closed": "spaceCaptureClosedBody", "space.capture.operation": "spaceCaptureOperationBody",
-  "space.anchor.recorded": "spaceAnchorRecordedBody",
+  "space.anchor.recorded": "spaceAnchorRecordedBody", "space.turn.receipt": "spaceTurnReceiptBody",
 };
 
 /** Deterministic, dependency-free JSON Schema emitted by the authoritative runtime contract. */
