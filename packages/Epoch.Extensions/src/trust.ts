@@ -160,11 +160,16 @@ export function evaluateTrust(
         detail: `extension '${name}' has a signature that does not bind its executable`,
       };
     }
-    if (options.executableSha256 !== undefined && options.executableSha256 !== manifest.executableSha256) {
+    // An unreadable or unsupplied digest is not "no objection": the binding
+    // between manifest and binary is the whole point of the signature, so an
+    // unverifiable binding fails closed rather than being skipped.
+    if (options.executableSha256 === undefined || options.executableSha256 !== manifest.executableSha256) {
       return {
         trusted: false,
         reason: "executable-mismatch",
-        detail: `extension '${name}' executable does not match the digest its manifest signs`,
+        detail: options.executableSha256 === undefined
+          ? `extension '${name}' executable could not be digested, so its signature cannot be bound to the binary`
+          : `extension '${name}' executable does not match the digest its manifest signs`,
       };
     }
     const verifier = options.verifySignature ?? ed25519ManifestVerifier;

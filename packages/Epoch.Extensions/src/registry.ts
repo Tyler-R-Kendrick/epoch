@@ -162,6 +162,15 @@ export class CapabilityRegistry {
         }
         return match as CapabilityProvider<T>;
       }
+      // Falling through to specificity here would silently answer a pinned
+      // request with a different provider, which is precisely the divergence
+      // the pin exists to prevent. `register`-time pinning already rejects an
+      // unknown ID, so reaching this means the pinned provider was excluded —
+      // typically as advisory on a request for signed state.
+      throw new CapabilityRegistryError(
+        "unknown-pin",
+        `pinned ${capability} provider ${pinned.providerId} is not available for this request`,
+      );
     }
 
     const scored = candidates

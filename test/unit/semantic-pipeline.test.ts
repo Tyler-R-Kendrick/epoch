@@ -327,6 +327,18 @@ function malformedContentFailsClosed(): void {
   const rendered = formatSemanticPatch(patch);
   assert.ok(rendered.startsWith("diff --epoch-semantic"));
   assert.ok(rendered.includes("level syntax"));
+
+  // A reorder is validated before any early return. Applying one against a
+  // target whose container is empty must be rejected, not quietly dropped —
+  // dropping it would report success while producing unreordered output.
+  const reorder = {
+    ...patch,
+    edits: [{ kind: "reorder" as const, path: "object#0", parentPath: "object#0", order: ["object#0/member:a"] }],
+  };
+  assert.throws(
+    () => applySemanticPatch(`{}`, reorder, jsonSyntaxProvider),
+    (error: unknown) => error instanceof SemanticPatchError && error.code === "unsupported-edit",
+  );
 }
 
 function structuralPathHelpersRoundTrip(): void {
@@ -591,6 +603,20 @@ function tomlMultiLineValuesStayIntact(): void {
 
   // Constructs the provider cannot model fail closed instead of corrupting.
   assert.throws(() => tomlSyntaxProvider.parse(`[[products]]\nname = "a"\n`), SyntaxError);
+
+  // Multi-line strings are the other unmodelled construct. `openDepth` tracks
+  // brackets, not string state, so a `"""` block containing `[` or `#` would be
+  // split across nodes and every later patch would corrupt the file.
+  assert.throws(() => tomlSyntaxProvider.parse(`text = """\nline [one]\n"""\n`), SyntaxError);
+  assert.throws(() => tomlSyntaxProvider.parse(`text = '''\nline # two\n'''\n`), SyntaxError);
+
+  // A declared whitespace separator is the layout the provider asked for.
+  // Substituting observed spacing would collapse the blank line between tables
+  // and join them into one.
+  const tables = `[alpha]\nx = 1\n\n[gamma]\nz = 3\n`;
+  const withBeta = `[alpha]\nx = 1\n\n[beta]\ny = 2\n\n[gamma]\nz = 3\n`;
+  const insertion = semanticDiff(tomlSyntaxProvider.parse(tables), tomlSyntaxProvider.parse(withBeta));
+  assert.equal(applySemanticPatch(tables, insertion, tomlSyntaxProvider), withBeta);
 }
 
 function conflictingReordersAreNotSilentlyMerged(): void {

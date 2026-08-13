@@ -247,11 +247,46 @@ Feature: CLI and WASM integration surfaces
       | trust |
       | greet |
     Then the CLI exits with code 0
+    # "trusted" is a substring of "untrusted", so `ext list` cannot witness the
+    # grant. `ext show` names the resolution unambiguously.
     When I run the Epoch CLI with arguments:
-      | ext  |
-      | list |
+      | ext   |
+      | show  |
+      | greet |
     Then the CLI exits with code 0
-    And the CLI output contains "trusted"
+    And the CLI output contains "\"resolution\": \"extension\""
+    And the CLI output contains "allowed-by-name"
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+
+  @persona.maintainer
+  Scenario: Untrusting an extension revokes it even under an open trust policy
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I install a workspace extension named "greet"
+    And I set the workspace extension trust mode to "any"
+    And I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | ext     |
+      | untrust |
+      | greet   |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 1
+    And the CLI error contains "blocked by repository policy"
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
     When I run the Epoch CLI with arguments:
       | greet |
     Then the CLI exits with code 0

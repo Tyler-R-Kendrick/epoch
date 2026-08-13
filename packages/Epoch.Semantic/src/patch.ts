@@ -49,14 +49,19 @@ function separatorFor(index: SyntaxIndex, parentPath: string): string {
   const declared = parent?.separator ?? "\n";
   if (parent === undefined || children.length === 0) return declared;
 
+  // A separator that is only whitespace already *is* the layout the provider
+  // asked for, so substituting observed spacing would shrink it — a declared
+  // "\n\n" between TOML tables would collapse to "\n" and join them.
+  const punctuation = declared.replace(/\s/gu, "");
+  if (punctuation.length === 0) return declared;
+
   // With a single child there is no gap to observe, but the whitespace before
   // that child shows how the container lays its members out. Combining the
   // declared punctuation with that spacing keeps an inserted member aligned
   // with the one already there, on one line or many.
   const prefix = index.tree.source.slice(parent.start, children[0].node.start);
   const trivia = /\s*$/u.exec(prefix)?.[0] ?? "";
-  const composed = `${declared.replace(/\s/gu, "")}${trivia}`;
-  return composed.length > 0 ? composed : declared;
+  return `${punctuation}${trivia}`;
 }
 
 /** Last path step, honouring escaped separators. */
@@ -133,11 +138,11 @@ function reorderSplice(index: SyntaxIndex, edit: SemanticEdit): Splice | undefin
   if (order.length === 0) return undefined;
   const parentPath = edit.parentPath ?? edit.path;
   const children = index.childrenOf(parentPath);
-  if (children.length === 0) return undefined;
-  const separator = separatorFor(index, parentPath);
   // The splice rewrites the container's whole child region, so an order that
   // is not a permutation of the children would silently delete the ones it
-  // omits or duplicate the ones it repeats.
+  // omits or duplicate the ones it repeats. Validate before any early return,
+  // or a reorder naming children the target does not have would be dropped
+  // instead of rejected.
   const expected = new Set(children.map((child) => child.path));
   const listed = new Set(order);
   if (order.length !== children.length || listed.size !== order.length
@@ -148,6 +153,7 @@ function reorderSplice(index: SyntaxIndex, edit: SemanticEdit): Splice | undefin
       `reorder of ${parentPath} must list each of its ${children.length} children exactly once`,
     );
   }
+  const separator = separatorFor(index, parentPath);
   const texts = order.map((path) => requireNode(index, path).node.text);
   return {
     start: children[0].node.start,

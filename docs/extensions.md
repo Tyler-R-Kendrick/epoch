@@ -18,6 +18,16 @@ capabilities that actually shape repository behavior: `command`, `syntax`,
 extensions implement the same interfaces, so a grammar-backed syntax provider
 can displace a builtin without a fork.
 
+**Implementation status.** Tier 1 is implemented end to end: discovery, trust,
+and dispatch. Tier 2 is implemented as far as the registry and its resolution
+order; the builtins already register through it rather than being consulted
+directly, and `createSyntaxRegistry` accepts extension-supplied providers. What
+does not exist yet is the loader that turns a trusted `syntax`-capable
+extension into an in-process provider, so today no shipped extension can
+actually displace a builtin. The seam is deliberate — displacement is a change
+of behavior in signed evidence, and it should not land before provenance
+recording does.
+
 ## Discovery is not execution
 
 This is the deliberate departure from Git. Any executable named `git-foo` on
@@ -39,17 +49,27 @@ silently ignored.
 
 ## Manifest
 
-Every extension ships `epoch-extension.toml` beside its executable:
+Every extension ships a manifest named for itself beside its executable —
+`epoch-difftastic.toml` next to `epoch-difftastic`. The manifest is
+per-executable rather than per-directory because it declares a single `name`,
+and one bin directory holds many `epoch-*` binaries:
 
 ```toml
 name = "difftastic"
 api = 1
 version = "0.65.0"
 description = "Structural diff provider"
-publisher = "epoch:principal:<ed25519-public-key>"
+publisher = "epoch:principal:<base64url-spki-ed25519-key>"
 capabilities = ["syntax", "diff"]
 determinism = "deterministic"    # or "advisory"
+executable_sha256 = "<sha256 of the executable>"
+signature = "ed25519:<base64>"
 ```
+
+`executable_sha256` and `signature` are optional under `explicit` trust and
+required under `signed`. A manifest carrying a signature without a digest is
+rejected outright: a signature that does not cover the binary is worse than no
+signature, because it looks like a guarantee.
 
 Parsing is fail-closed. An unparsable manifest, an unknown capability, a
 mismatched name, or an unsupported `api` yields no extension rather than a
@@ -104,7 +124,16 @@ and the extension does not run.
 
 Trust is local configuration, not synced state: `ext trust` writes the local
 `.epoch/config.toml` and records an audit operation. Consenting in one clone
-never grants execution in another.
+never grants execution in another, where `epoch-foo` on `$PATH` is a different
+file.
+
+`ext untrust` revokes rather than merely un-listing. It adds the name to
+`block`, because `signed` and `any` admit extensions that were never in `allow`
+and removing an absent entry would revoke nothing while reporting success;
+`ext trust` removes the name from `block` again. Both commands edit only a
+single-line `allow`/`block` array under one `[extensions]` table, and refuse to
+edit anything else rather than risk corrupting the file that decides whether an
+external process runs.
 
 Extensions are principals. The grant an extension receives is attenuated from
 the invoking principal's authority under

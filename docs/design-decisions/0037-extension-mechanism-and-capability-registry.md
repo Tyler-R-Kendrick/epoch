@@ -104,8 +104,16 @@ allow_publishers = ["epoch:principal:<ed25519-public-key>"]
 - `any` reproduces Git's behavior and must be chosen deliberately.
 
 A discovered-but-untrusted extension is reported, never silently run and never
-silently ignored. `epoch ext trust <name>` records consent as a signed
-operation so the decision is auditable and syncable, not a scratch preference.
+silently ignored. `epoch ext trust <name>` records consent as a signed operation
+so the decision is auditable, and writes the local `.epoch/config.toml` so it is
+effective. The record is auditable but the grant is deliberately *not* syncable:
+consenting to run a binary in one clone must never grant execution in another,
+where the binary on `$PATH` is a different file.
+
+`epoch ext untrust <name>` is the inverse and must actually revoke. Removing the
+name from `allow` is not enough, because `signed` and `any` admit extensions
+that were never in `allow`; `untrust` therefore adds the name to `block`, which
+wins in every mode, and `trust` removes it again.
 
 Extensions are principals. A capability an extension did not declare is a
 capability it does not get, and the grant it receives is attenuated from the

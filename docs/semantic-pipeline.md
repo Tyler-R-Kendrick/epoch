@@ -65,6 +65,16 @@ that gives declaration-level granularity, and it is expected to be displaced by
 grammar-backed providers shipped as extensions. It must not be described as a
 parser.
 
+Displacement is a design contract with the seam in place, not a shipped
+capability: `createSyntaxRegistry` accepts extension providers, but nothing
+loads one yet, so every `epoch semantic` invocation today resolves to a
+builtin. See the [implementation status](extensions.md#the-two-tiers) note.
+
+The TOML provider covers the subset Epoch's own config uses. It refuses
+`[[array.of.tables]]` headers and multi-line `"""`/`'''` strings outright
+rather than mis-modelling them, because a wrong tree here becomes a patch that
+silently corrupts the file.
+
 ## Semantic diff and structural patch
 
 `semanticDiff` returns edits over structural paths, with kinds `insert`,

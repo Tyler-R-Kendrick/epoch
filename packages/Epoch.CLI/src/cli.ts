@@ -713,3 +713,4 @@ if (require.main === module) {
 
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";
+export { dispatchExternalSubcommand, runExtensionCommand } from "./extensions";

@@ -130,13 +130,18 @@ export function runExtensionCommand(
   if (action === "trust" || action === "untrust") {
     const name = args[1];
     if (name === undefined) throw new Error(CliText.extUsage);
-    // The decision has to change dispatch, not merely be recorded: writing the
-    // allow list is what makes it effective. Trust stays local configuration
-    // rather than a synced event, so consenting in one clone never grants
-    // execution in another.
-    updateAllowList(resolve(root), name, action === "trust");
+    // Record the decision before it takes effect. A write that fails after an
+    // audit entry leaves a claim with no grant; an audit entry that fails after
+    // a write would leave a grant with no claim, which is the dangerous order.
     const repository = new EpochRepository(resolve(root));
     repository.appendOperation(`ext-${action}`, "succeeded", { extension: name });
+    // The decision has to change dispatch, not merely be recorded. `untrust`
+    // therefore writes `block` as well as clearing `allow`: `block` wins in
+    // every mode, so revocation holds under `trust = "any"` and under a signed
+    // publisher, which removal from `allow` alone would not. Trust stays local
+    // configuration rather than synced state, so consenting in one clone never
+    // grants execution in another.
+    updateTrustLists(resolve(root), name, action === "trust");
     io.stdout.write(`${action === "trust" ? "trusted" : "untrusted"} extension '${name}' in .epoch/config.toml\n`);
     return;
   }
@@ -144,58 +149,128 @@ export function runExtensionCommand(
   throw new Error(CliText.extUsage);
 }
 
-const ALLOW_PATTERN = /^(\s*allow\s*=\s*)\[(.*)\]\s*$/u;
+/** Strip a trailing `#` comment, ignoring `#` inside quoted values. */
+function withoutComment(line: string): string {
+  let quote: string | undefined;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (quote !== undefined) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === "\"" || character === "'") quote = character;
+    else if (character === "#") return line.slice(0, index);
+  }
+  return line;
+}
 
-function renderAllowList(names: readonly string[]): string {
-  return `allow = [${names.map((name) => `"${name}"`).join(", ")}]`;
+function renderList(key: string, names: readonly string[]): string {
+  return `${key} = [${names.map((name) => `"${name}"`).join(", ")}]`;
+}
+
+/** A single-line flat array of double-quoted strings, or `undefined`. */
+function parseSimpleList(value: string): readonly string[] | undefined {
+  const body = /^\[([^[\]]*)\]$/u.exec(value.trim())?.[1];
+  if (body === undefined) return undefined;
+  const entries = body.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+  const names: string[] = [];
+  for (const entry of entries) {
+    const quoted = /^"([^"\\]*)"$/u.exec(entry);
+    if (quoted === null) return undefined;
+    names.push(quoted[1]);
+  }
+  return names;
+}
+
+class ConfigEditError extends Error {
+  constructor(detail: string) {
+    super(`refusing to edit .epoch/config.toml: ${detail}; edit the [extensions] table by hand`);
+    this.name = "ConfigEditError";
+  }
 }
 
 /**
- * Add or remove an extension in the local `[extensions] allow` list.
+ * Add or remove an extension in the local `[extensions]` `allow` and `block`
+ * lists.
  *
- * Written as a single-line array so the repository's own TOML config reader
- * can parse it back.
+ * This is a line editor, not a TOML writer, so it recognizes exactly the shape
+ * it can rewrite safely — one `[extensions]` table holding single-line arrays
+ * of quoted names — and refuses anything else. The alternative is worse than
+ * refusing: appending a second `[extensions]` header or a duplicate key
+ * corrupts the very file that decides whether an external process runs.
  */
-function updateAllowList(root: string, name: string, allow: boolean): void {
+function updateTrustLists(root: string, name: string, trusted: boolean): void {
   const configPath = join(root, ".epoch", "config.toml");
   const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
   const lines = existing.length === 0 ? [] : existing.split(/\r?\n/u);
 
-  const sectionIndex = lines.findIndex((line) => line.trim() === "[extensions]");
-  if (sectionIndex === -1) {
-    if (lines.length > 0 && lines[lines.length - 1].trim().length > 0) lines.push("");
-    lines.push("[extensions]", renderAllowList(allow ? [name] : []));
+  // A header carrying a trailing comment is still the same table. Matching on
+  // the raw line would miss it and append a duplicate section.
+  const headers: number[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (/^\[\s*extensions\s*\]$/u.test(withoutComment(lines[index]).trim())) headers.push(index);
+  }
+  if (headers.length > 1) throw new ConfigEditError("it declares [extensions] more than once");
+
+  const persist = (): void => {
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
+  };
+
+  if (headers.length === 0) {
+    if (lines.length > 0 && lines[lines.length - 1].trim().length > 0) lines.push("");
+    lines.push("[extensions]", renderList("allow", trusted ? [name] : []), renderList("block", trusted ? [] : [name]));
+    persist();
     return;
   }
 
-  let allowIndex = -1;
+  const sectionIndex = headers[0];
+  let sectionEnd = lines.length;
   for (let index = sectionIndex + 1; index < lines.length; index += 1) {
-    const trimmed = lines[index].trim();
-    if (trimmed.startsWith("[")) break;
-    if (ALLOW_PATTERN.test(lines[index])) {
-      allowIndex = index;
+    if (withoutComment(lines[index]).trim().startsWith("[")) {
+      sectionEnd = index;
       break;
     }
   }
 
-  const current = allowIndex === -1
-    ? []
-    : (ALLOW_PATTERN.exec(lines[allowIndex])?.[2] ?? "")
-      .split(",")
-      .map((entry) => entry.trim().replace(/^"|"$/gu, ""))
-      .filter((entry) => entry.length > 0);
+  const found = new Map<string, { readonly line: number; readonly names: readonly string[]; readonly comment: string }>();
+  for (let index = sectionIndex + 1; index < sectionEnd; index += 1) {
+    const code = withoutComment(lines[index]);
+    const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/u.exec(code.trim());
+    if (assignment === null) continue;
+    const key = assignment[1];
+    if (key !== "allow" && key !== "block") continue;
+    if (found.has(key)) throw new ConfigEditError(`[extensions] declares '${key}' more than once`);
+    const names = parseSimpleList(assignment[2]);
+    if (names === undefined) {
+      throw new ConfigEditError(`[extensions] '${key}' is not a single-line array of quoted names`);
+    }
+    // A trailing comment on the line is the operator's note about their own
+    // policy; rewriting the array must not silently delete it. The gap before
+    // it is carried too, so the line comes back looking the way it was written.
+    found.set(key, { line: index, names, comment: lines[index].slice(code.replace(/\s+$/u, "").length) });
+  }
 
-  const next = allow
-    ? [...new Set([...current, name])].sort()
-    : current.filter((entry) => entry !== name);
+  const update = (key: "allow" | "block", include: boolean): void => {
+    const entry = found.get(key);
+    const current = entry?.names ?? [];
+    const next = include ? [...new Set([...current, name])].sort() : current.filter((value) => value !== name);
+    if (entry === undefined) {
+      if (!include) return;
+      lines.splice(sectionIndex + 1, 0, renderList(key, next));
+      for (const [otherKey, other] of found) {
+        if (other.line >= sectionIndex + 1) found.set(otherKey, { ...other, line: other.line + 1 });
+      }
+      return;
+    }
+    const indent = /^\s*/u.exec(lines[entry.line])?.[0] ?? "";
+    lines[entry.line] = `${indent}${renderList(key, next)}${entry.comment}`;
+  };
 
-  if (allowIndex === -1) lines.splice(sectionIndex + 1, 0, renderAllowList(next));
-  else lines[allowIndex] = renderAllowList(next);
-
-  mkdirSync(dirname(configPath), { recursive: true });
-  writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
+  update("allow", trusted);
+  update("block", !trusted);
+  persist();
 }
 
 export interface ExternalDispatchResult {

@@ -131,6 +131,15 @@ When("I install a workspace extension named {string}", function (name: string) {
   );
 });
 
+When("I set the workspace extension trust mode to {string}", function (mode: string) {
+  // Written by hand rather than through `ext trust`, so the scenario exercises
+  // an operator-authored policy the CLI then has to honour.
+  const configPath = join(state.workspace, ".epoch", "config.toml");
+  const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
+  const separator = existing.length === 0 || existing.endsWith("\n") ? "" : "\n";
+  writeFileSync(configPath, `${existing}${separator}\n[extensions]\ntrust = "${mode}"\n`, "utf8");
+});
+
 When("actor users concurrently record:", async function (table: DataTable) {
   assert.ok(state.actorRepo);
   const actorRepo = state.actorRepo;

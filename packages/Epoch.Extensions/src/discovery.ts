@@ -117,7 +117,10 @@ export function discoverExtensions(options: DiscoveryOptions = {}): readonly Dis
   for (const { directory, source } of searchDirectories(options)) {
     for (const entry of fileSystem.listDirectory(directory)) {
       if (!entry.startsWith(EXTENSION_PREFIX)) continue;
-      const name = entry.slice(EXTENSION_PREFIX.length).replace(/\.(exe|cmd|bat)$/iu, "");
+      // Every extension `isExecutableFile` accepts on Windows must be strippable
+      // here, or `epoch-foo.com` would be discovered under the name `foo.com`
+      // and never match the subcommand `foo`.
+      const name = entry.slice(EXTENSION_PREFIX.length).replace(/\.(exe|com|cmd|bat)$/iu, "");
       if (name.length === 0 || found.has(name)) continue;
       const executable = join(directory, entry);
       if (!fileSystem.isExecutableFile(executable)) continue;

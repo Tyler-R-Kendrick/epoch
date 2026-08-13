@@ -182,6 +182,19 @@ function discoveryReportsExtensionsWithoutAValidManifest(): void {
   assert.equal(found[0].manifest, undefined);
   // Reported, not silently dropped: the operator must be able to see it.
   assert.ok(found[0].manifestError?.includes("epoch-mystery.toml"));
+
+  // Every extension Windows treats as launchable must also be strippable, or
+  // `epoch-cliff.com` would be discovered as `cliff.com` and never match the
+  // subcommand `cliff`.
+  const windowsBin = "C:\\tools";
+  const windowsNames = discoverExtensions({
+    pathEntries: [windowsBin],
+    fileSystem: fakeFileSystem(
+      { [windowsBin]: ["epoch-alpha.EXE", "epoch-beta.com", "epoch-gamma.cmd", "epoch-delta.bat"] },
+      {},
+    ),
+  }).map((extension) => extension.name);
+  assert.deepEqual(windowsNames, ["alpha", "beta", "delta", "gamma"]);
 }
 
 function discoveredExtension(name: string, manifestText?: string) {
@@ -243,6 +256,14 @@ function signedPolicyRequiresSignatureAndKnownPublisher(): void {
   // A signed manifest paired with a different binary must not pass either.
   const swapped = evaluateTrust("difftastic", signed, policy, { executableSha256: "b".repeat(64) });
   assert.equal(swapped.reason, "executable-mismatch");
+
+  // An absent digest — an unreadable executable, or a filesystem seam that does
+  // not implement `fileDigest` — is not "no objection". Skipping the check would
+  // let a signed manifest be paired with any binary at all, which is exactly the
+  // guarantee the mode sells.
+  const undigested = evaluateTrust("difftastic", signed, policy, {});
+  assert.equal(undigested.trusted, false);
+  assert.equal(undigested.reason, "executable-mismatch");
 
   const otherPublisher = readTrustPolicy({ trust: "signed", allow_publishers: ["epoch:principal:zzz"] });
   assert.equal(evaluateTrust("difftastic", signed, otherPublisher, bound).reason, "publisher-not-allowed");
@@ -364,6 +385,19 @@ function registryHonoursPins(): void {
 
   assert.throws(
     () => registry.pin("syntax", "not.installed"),
+    (error: unknown) => error instanceof CapabilityRegistryError && error.code === "unknown-pin",
+  );
+
+  // A pin that cannot be honoured must fail loudly. Falling through to the
+  // next-best provider would answer a pinned request with a different engine,
+  // producing exactly the cross-clone divergence the pin exists to prevent.
+  const advisory = new CapabilityRegistry();
+  advisory.register(builtinProvider("ai.grammar", { match: { wildcard: true }, determinism: "advisory" }));
+  advisory.register(builtinProvider("builtin.lines", { match: { wildcard: true } }));
+  advisory.pin("syntax", "ai.grammar");
+  assert.equal(advisory.resolve("syntax", {})?.id, "ai.grammar");
+  assert.throws(
+    () => advisory.resolve("syntax", { forSignedState: true }),
     (error: unknown) => error instanceof CapabilityRegistryError && error.code === "unknown-pin",
   );
 }

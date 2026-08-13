@@ -109,6 +109,13 @@ export const tomlSyntaxProvider: SyntaxProvider = {
         currentEnd = line.end;
         continue;
       }
+      if (content.includes("\"\"\"") || content.includes("'''")) {
+        // Multi-line basic and literal strings are not modelled. `openDepth`
+        // tracks brackets, not string state, so a `"""` block containing a `#`
+        // or a `[` would split one entry into several nodes and corrupt every
+        // later patch. The provider refuses the document instead.
+        throw new SyntaxError("epoch.syntax.toml does not support multi-line strings");
+      }
       const entry = ENTRY_PATTERN.exec(content);
       if (entry !== null) {
         // Extend the entry across continuation lines. A node covering only the
