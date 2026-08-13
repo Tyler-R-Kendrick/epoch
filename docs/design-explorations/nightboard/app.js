@@ -5552,7 +5552,20 @@
       if (openQuery) setFeedQuery(openQuery, "custom");
       state.detailOpen = true;
       if ((context.origin === "cli" || context.origin === "slash") && openQuery) {
-        return finishSearch(openQuery);
+        return window.NB_WORKBENCH.runSearch(state, {
+          expression: openQuery,
+          actorId: identity && identity.principalId,
+          context: {
+            extra: state.merged,
+            votes: state.votes,
+            reactions: state.reactions,
+            members: (window.NB_DATA && window.NB_DATA.members) || [],
+            viewer: viewerContext(),
+          },
+        }).then(function () {
+          render(true);
+          return finishSearch(openQuery);
+        });
       }
       render(true);
       setTimeout(function () {

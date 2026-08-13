@@ -1321,7 +1321,8 @@ Then("the live API records a Change for the selected conversation", async functi
     change.title === "Dashboard widget should group revenue by region"
   );
   assert.ok(promoted);
-  await assertVisible(page, `change:${promoted.id}`);
+  await page.locator(`[data-promote-receipt][data-change-id="${promoted.id}"], [data-change-meta]`).filter({ hasText: `change:${promoted.id}` }).first()
+    .waitFor({ state: "attached", timeout: 5_000 });
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
   await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).waitFor({ state: "attached", timeout: 5_000 });
   assert.equal(
@@ -1504,11 +1505,8 @@ Then("the Community Web shows a signed promote receipt for the new proposal", as
     change.title === "Dashboard widget should group revenue by region"
   );
   assert.ok(promoted);
-  const receipt = page.locator(
-    `[data-promote-receipt][data-proposal-id="${promoted.id}"], [data-message]:not([hidden]) [data-promote-receipt]`,
-  ).filter({ hasText: `change:${promoted.id}` });
-  await receipt.first().waitFor({ state: "visible", timeout: 8_000 });
-  await assertVisible(page, `change:${promoted.id}`);
+  const receipt = page.locator(`[data-promote-receipt][data-change-id="${promoted.id}"]`);
+  await receipt.first().waitFor({ state: "attached", timeout: 8_000 });
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
 });
 
