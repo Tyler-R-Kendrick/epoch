@@ -696,3 +696,40 @@ body {
   border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
 .cw-ws-action:hover, .cw-ws-action:focus-visible { background: var(--cw-warn); color: var(--cw-bg); }
+
+/* ── Compose panel ──────────────────────────────────────────────────────────
+ * The prompt-to-proposal surface, and the theme garden inside it. Static
+ * chrome: a generated revision fills slots, it never authors this.
+ */
+.cw-compose {
+  position: fixed; inset-block-start: 3rem; inset-inline-end: 1rem; z-index: 40;
+  inline-size: min(38rem, calc(100vw - 2rem)); max-block-size: calc(100vh - 6rem);
+  overflow: auto; border: 1px solid var(--cw-rule); background: var(--cw-bg);
+  color: var(--cw-ink);
+}
+.cw-compose-card { display: flex; flex-direction: column; gap: .45rem; padding: .8rem; }
+.cw-compose h2 { margin: 0; font-size: 1em; letter-spacing: .06em; }
+.cw-compose h3 { margin: .6rem 0 0; font-size: .95em; color: var(--cw-ink-dim); }
+.cw-compose-lead, .cw-compose-note { margin: 0; color: var(--cw-ink-dim); }
+.cw-compose-availability { margin: 0; color: var(--cw-ink-faint); }
+.cw-compose-availability[data-state="live"] { color: var(--cw-live); }
+.cw-compose-status { margin: 0; white-space: pre-wrap; }
+.cw-compose-status[data-state="rejected"] { color: var(--cw-danger); }
+.cw-compose-status[data-state="ok"] { color: var(--cw-signed); }
+.cw-compose textarea {
+  inline-size: 100%; border: 1px solid var(--cw-rule); border-radius: 0;
+  background: var(--cw-surface); color: var(--cw-ink); font: inherit; padding: .35rem;
+}
+.cw-compose-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.cw-compose button {
+  min-height: 2.75rem; padding: .3rem .6rem; border: 1px solid var(--cw-rule);
+  border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.cw-compose button:hover, .cw-compose button:focus-visible {
+  background: var(--cw-accent); color: var(--cw-accent-ink);
+}
+.cw-compose-preview { border: 1px dashed var(--cw-rule); padding: .4rem; min-block-size: 2rem; }
+.cw-compose-diff h3 { margin: .3rem 0 0; }
+.cw-compose-diff ul { margin: 0; padding-inline-start: 1.1rem; }
+.cw-compose-receipt { margin: 0; color: var(--cw-ink-faint); overflow-wrap: anywhere; }
+.cw-ws-generated { flex-direction: column; align-items: stretch; }

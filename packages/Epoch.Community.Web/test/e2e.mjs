@@ -8741,6 +8741,103 @@ const CASES = [
       return true;
     },
   },
+  {
+    name: "GEN-001 composing an interface change proposes it, diffs it, and applies it on accept",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const composed = await page.evaluate(async () => {
+        document.querySelector("[data-compose-open]").click();
+        document.querySelector("[data-gen-ui-input]").value = "show my review queue";
+        document.querySelector("[data-gen-ui-source]").value =
+          'root = Panel("Review queue", [Fact("open", "3"), Fact("mine", "1")])';
+        document.querySelector("[data-token-editor]").value = "--cw-cell: 0.58rem;";
+        const proposed = await window.CW_COMPOSE.propose();
+        return {
+          open: document.querySelector("[data-compose]").getAttribute("data-open"),
+          validation: proposed?.validation.state,
+          proposalRef: proposed?.proposalRef,
+          diff: document.querySelector("[data-compose-diff]").textContent,
+          applied: getComputedStyle(document.documentElement).getPropertyValue("--cw-cell").trim(),
+          slot: document.querySelector('[data-cw-slot="board.context-panel"]').textContent,
+        };
+      });
+      if (composed.open !== "true") return log("compose panel did not open");
+      if (composed.validation !== "valid") return log("proposal invalid: " + JSON.stringify(composed));
+      if (!composed.proposalRef?.includes("proposals/compose")) return log("no proposal ref: " + composed.proposalRef);
+      if (!/GeneratedPanel/.test(composed.diff) || !/--cw-cell/.test(composed.diff)) {
+        return log("diff does not explain the change: " + composed.diff);
+      }
+      // Nothing applies before accepting: the diff is a decision, not a preview of a fait accompli.
+      if (composed.applied === "0.58rem") return log("theme applied before the change was accepted");
+      if (/Review queue/.test(composed.slot)) return log("generated panel rendered before acceptance");
+
+      const accepted = await page.evaluate(async () => {
+        await window.CW_COMPOSE.accept();
+        return {
+          applied: getComputedStyle(document.documentElement).getPropertyValue("--cw-cell").trim(),
+          generated: document.querySelector('[data-c="generated-panel"]')?.textContent || "",
+          provenance: window.CW_WORKSPACE.runtime().workspace.head("compose").provenance,
+        };
+      });
+      if (accepted.applied !== "0.58rem") return log("theme not applied after accept: " + accepted.applied);
+      if (!/Review queue/.test(accepted.generated)) return log("generated panel missing: " + accepted.generated);
+      if (!accepted.provenance.promptDigest) return log("prompt provenance not recorded");
+      if (accepted.provenance.prompt) return log("the prompt text was stored; only its digest should be");
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const persisted = await page.evaluate(() => ({
+        generated: document.querySelector('[data-c="generated-panel"]')?.textContent || "",
+        cell: getComputedStyle(document.documentElement).getPropertyValue("--cw-cell").trim(),
+      }));
+      if (!/Review queue/.test(persisted.generated)) return log("did not survive reload: " + persisted.generated);
+      if (persisted.cell !== "0.58rem") return log("theme did not survive reload: " + persisted.cell);
+      return true;
+    },
+  },
+  {
+    name: "GEN-002 a document the pinned library does not recognise never becomes a proposal",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(async () => {
+        document.querySelector("[data-compose-open]").click();
+        document.querySelector("[data-gen-ui-source]").value = "root = Exfiltrate(\"/etc/passwd\")";
+        const before = window.CW_WORKSPACE.status().events;
+        const proposed = await window.CW_COMPOSE.propose();
+        return {
+          proposed,
+          before,
+          after: window.CW_WORKSPACE.status().events,
+          status: document.querySelector("[data-gen-ui-status]").textContent,
+        };
+      });
+      if (probe.proposed !== null) return log("an unknown component was proposed anyway");
+      if (probe.after !== probe.before) return log("it recorded something: " + JSON.stringify(probe));
+      if (!/pinned library/.test(probe.status)) return log("unhelpful refusal: " + probe.status);
+      return true;
+    },
+  },
+  {
+    name: "GEN-003 a theme value that could escape a declaration is dropped before it is proposed",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(async () => {
+        document.querySelector("[data-compose-open]").click();
+        document.querySelector("[data-gen-ui-source]").value = "";
+        document.querySelector("[data-token-editor]").value =
+          "--cw-accent: url(https://example.invalid/pixel.png);\n--cw-ink: #ffffff;";
+        const proposed = await window.CW_COMPOSE.propose();
+        return {
+          theme: proposed ? window.CW_WORKSPACE.runtime().workspace.head("compose").manifest.theme : null,
+          validation: proposed?.validation.state,
+        };
+      });
+      if (probe.validation !== "valid") return log("the safe half was rejected too: " + JSON.stringify(probe));
+      if (probe.theme["--cw-accent"]) return log("an unsafe value survived: " + JSON.stringify(probe.theme));
+      if (probe.theme["--cw-ink"] !== "#ffffff") return log("the safe value was lost: " + JSON.stringify(probe.theme));
+      return true;
+    },
+  },
 ];
 
 async function path(page) {

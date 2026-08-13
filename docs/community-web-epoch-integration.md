@@ -65,7 +65,7 @@ Two claims from earlier framings needed correcting before anything else:
 | 6 | The WebMCP availability comment was stale | Said no browser ships it; Chrome 149 runs a public origin trial and deprecated `navigator.modelContext` in 150 | **Fixed** |
 | 7 | Deployment builds the design exploration, not the package | `scripts/render-community-web.mjs` copies `packages/Epoch.Community.Web/app`; `serve-community-web-local.mjs` serves it | **Open** — workstream H |
 | 8 | Community Web does not instantiate a browser Epoch workspace | Its manifest depends on core/community-core/design-tokens only | **Fixed** — the board opens a workspace on load and ensures the `.epoch` project that owns its interface |
-| 9 | Generated OpenUI and generated themes are not wired into the board | `board.html` loads `openui-parser.js` and `openui-library.js` but never `generate.js`; `theme.js` is loaded by no page | **Open** — workstream D |
+| 9 | Generated OpenUI and generated themes were not wired into the board | `board.html` loaded `openui-parser.js` and `openui-library.js` but never `generate.js`; `theme.js` was loaded by no page at all | **Fixed** — both load, and generation flows through propose → diff → accept as revisions of the `.epoch` project |
 | 13 | Two applications both called Community Web | A TypeScript-rendered document in the package and a script-tag app in `docs/`, kept aligned by a parity script | **One app** — the board is the Community Web application; the rendered-document surface remains as a server-rendered projection until workstream H finishes converging them |
 | 10 | No signed static harness, ABI, or enforced safe mode in the board | Static markup exists; a release manifest, slot ABI, and recovery boundary did not | **Fixed for the harness region** — the board installs a content-addressed release, renders slots from it, and boots recovery when the head fails validation. Signing the release is workstream C |
 | 11 | Community proposals do not resolve to native Epoch IDs | Social records model their own repositories and changes | **Open** — workstream F |
@@ -111,6 +111,24 @@ Two rules are enforced rather than documented:
 - **The harness decides what a manifest may contain.** An invalid proposal is
   still recorded — you want to inspect the bad one — but it cannot be merged, and
   a head that stops validating is not rendered.
+
+### Composing an interface change
+
+The compose panel is where a prompt becomes a change. Whatever is generated —
+an OpenUI document, a theme token patch, or both — becomes a revision on a
+proposal view of the `.epoch` project, carrying the prompt's digest, the model
+that wrote it, and the parse result. The semantic diff names what appears, what
+moves, and which tokens change, and nothing applies until the person clicks
+accept. That click is the confirmation an agent asking for the same command
+cannot supply.
+
+The generated document stays data. It is parsed against the pinned component
+library, travels as the props of one allowlisted component, and is rendered by
+the harness into the same semantic hooks every theme styles. A document the
+library does not recognise is refused before it becomes a proposal; a theme
+value that could escape a declaration is dropped by the same sanitiser the
+manual editor uses. One sanitiser, or the strict one is the one that gets
+bypassed.
 
 ### The default `.epoch` project
 
@@ -196,7 +214,7 @@ These are independently ownable; the ordering below is dependency, not calendar.
 | **A. Runtime and command contracts** | Command/query/receipt layer, policy hooks, contract tests | — (**landed**) |
 | **B. Browser workspace and durable storage** | IndexedDB/OPFS storage, real identity and signing, export/import, migration | A |
 | **C. Static harness release and safe mode** | Signed release install, boot verification, CSP/origin policy, recovery shell | A |
-| **D. OpenUI dynamic workspace** | Model gateway, `@openuidev/lang-core` parser, renderer, generated themes as versioned entities | A, C |
+| **D. OpenUI dynamic workspace** | Streaming preview inside the proposal flow; migrate the vendored parser bundle to the maintained packages | A, C |
 | **E. WebMCP Epoch tool family in the board** | The runtime's tool catalog registered by the board, tool inspector, evals | A, H |
 | **F. Community remote as an Epoch forge** | Capability discovery, ref negotiation, object transfer, native IDs on social records | B |
 | **G. CLI unification completion** | Config file, session import, browser bundle export/import and pairing | A |

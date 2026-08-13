@@ -8499,7 +8499,7 @@
    */
   async function warmModel() {
     if (!window.CW_AGENT || !window.CW_AGENT.warm) return;
-    var avail = await window.NBResilient.availability();
+    var avail = await window.CWResilient.availability();
 
     if (avail === "absent" || avail === "unavailable") {
       if (!state.searchWorkbench) {
@@ -8512,7 +8512,7 @@
     if (avail === "available") {
       status("loading the on-device model…");
       await window.CW_AGENT.warm(function (m) { if (!state.busy) status(m); });
-      var st = window.NBResilient.modelState();
+      var st = window.CWResilient.modelState();
       if (st.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       return status(st.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
@@ -8532,7 +8532,7 @@
       window.removeEventListener("pointerdown", start, true);
       status("fetching the on-device model, once…");
       await window.CW_AGENT.warm(function (m) { if (!state.busy) status(m); });
-      var st2 = window.NBResilient.modelState();
+      var st2 = window.CWResilient.modelState();
       if (st2.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       status(st2.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."

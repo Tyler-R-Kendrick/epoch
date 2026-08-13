@@ -79,6 +79,16 @@ register a tool, or run code: the vocabulary it is parsed into cannot express
 any of that. When the head revision fails validation the harness renders itself,
 says why, and keeps the recovery controls exactly where they always are.
 
+### Composing
+
+`Compose interface` in the workspace region opens the compose panel: a prompt
+box, a streaming OpenUI preview, the openui-lang source, and the theme garden —
+generation, manual token editing, contrast checking, and DESIGN.md export.
+`Propose to my interface` records what is there as a revision on the `compose`
+proposal view and shows the semantic diff; `Accept this change` merges it.
+Discarding leaves the proposal in the ledger, because deciding against something
+is part of an interface's history.
+
 `window.CW_WORKSPACE` exposes `start`, `execute`, `status`, `project`, and
 `harness` for the console and the page's own agent. Every mutation goes through
 the shared command bus, so the receipt the board shows is the receipt
