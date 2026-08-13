@@ -1,0 +1,11 @@
+{
+  "name": "@epoch/extensions",
+  "version": "0.1.0",
+  "description": "Epoch extension mechanism: manifests, trust policy, external subcommand dispatch, and the typed capability provider registry.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsgo -p tsconfig.json",
+    "typecheck": "tsgo -p tsconfig.json --noEmit"
+  }
+}

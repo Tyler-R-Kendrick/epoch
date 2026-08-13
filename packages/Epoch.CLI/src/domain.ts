@@ -46,6 +46,8 @@ export const CliCommand = {
   drPlan: "dr-plan",
   preview: "preview",
   hydrate: "hydrate",
+  ext: "ext",
+  semantic: "semantic",
 } as const;
 
 export const CliOption = {
@@ -98,8 +100,10 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
+  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|ext|semantic|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
+  extUsage: "usage: epoch ext <list|show NAME|trust NAME|untrust NAME>",
+  semanticUsage: "usage: epoch semantic <diff BEFORE AFTER|apply FILE PATCH.json|merge BASE LEFT RIGHT|plan FILE...> [--json]",
   pushUsage: "usage: epoch push [--author NAME] [--version NAME] [--message TEXT] [--no-version] [PATH...]",
   trackUsage: "usage: epoch track [--author NAME] [--type MIME] [--include-ignored] PATH",
   forgetUsage: "usage: epoch forget [--author NAME] PATH",
@@ -141,3 +145,37 @@ export const ParsedArgsSchema = z.object({
   command: z.string().optional(),
   args: z.array(z.string()),
 });
+
+/**
+ * Every subcommand name Epoch owns natively.
+ *
+ * External `epoch-*` extensions are consulted only for names absent from this
+ * list, so adding a builtin shadows an installed extension of the same name.
+ * `epoch ext list` reports that shadowing rather than hiding it (ADR-0039).
+ */
+export const BUILTIN_COMMANDS: readonly string[] = [
+  ...Object.values(CliCommand),
+  "help",
+  "interop",
+  "review",
+  // Change Graph commands, dispatched by `executeChangeGraphCommand`.
+  "new",
+  "change",
+  "log",
+  "op",
+  "graph",
+  "split",
+  "bundle",
+  "merge-plan",
+  "conflict",
+  "workspace",
+  "clone",
+  "fetch",
+  "backfill",
+  "mirror",
+  "principal",
+  "agent",
+  "forge",
+  "swhid",
+  "archive",
+];

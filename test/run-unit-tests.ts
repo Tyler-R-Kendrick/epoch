@@ -41,6 +41,9 @@ import { runProtocolRequiredEventTests } from "./unit/protocol-required-events.t
 import { runChangeGraphBrowserWrapperTests } from "./unit/change-graph-browser-wrappers.test";
 import { runChangeGraphCliTests } from "./unit/change-graph-cli.test";
 import { runNomenclatureContractTests } from "./unit/nomenclature-contract.test";
+import { runSemanticPipelineTests } from "./unit/semantic-pipeline.test";
+import { runExtensionMechanismTests } from "./unit/extension-mechanism.test";
+import { runExtensionCliTests } from "./unit/extension-cli.test";
 import { runCodeOperationContextTests } from "./unit/code-operation-context.test";
 
 async function main(): Promise<void> {
@@ -85,6 +88,9 @@ async function main(): Promise<void> {
   runChangeGraphBrowserWrapperTests();
   await runChangeGraphCliTests();
   await runNomenclatureContractTests();
+  runSemanticPipelineTests();
+  runExtensionMechanismTests();
+  runExtensionCliTests();
   runCodeOperationContextTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();

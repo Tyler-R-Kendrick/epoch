@@ -1,4 +1,4 @@
-# ADR-0037: Repository Composition And Repository Links
+# ADR-0040: Repository Composition And Repository Links
 
 Status: Accepted (design). Not implemented.
 
@@ -125,7 +125,7 @@ Revisit this decision if:
 ## Related Documents
 
 - [Repository Composition And Workspace Selection](../repository-composition-and-selection.md)
-- [ADR-0038: Workspace Selection And Materialization Modes](0038-workspace-selection-and-materialization-modes.md)
+- [ADR-0041: Workspace Selection And Materialization Modes](0041-workspace-selection-and-materialization-modes.md)
 - [ADR-0030: Stable Changes, Revisions, Change Graphs, Reviews, And Merges](0030-stable-changes-revisions-stacks-reviews-merges.md)
 - [ADR-0032: Residency, Native Sync, And Workspace Providers](0032-residency-native-sync-and-workspace-providers.md)
 - [ADR-0033: Git v2, Quarantine, And Projection Fidelity](0033-git-v2-quarantine-and-projection-fidelity.md)

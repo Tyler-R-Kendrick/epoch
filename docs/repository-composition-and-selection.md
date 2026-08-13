@@ -4,8 +4,8 @@ Status: design. Nothing in this document is implemented yet. It records the
 model Epoch should adopt for nested repositories, vendored source, monorepo
 scale, and partial workspaces, and the order in which that model should be
 built. The normative decisions are
-[ADR-0037](design-decisions/0037-repository-composition-and-links.md) and
-[ADR-0038](design-decisions/0038-workspace-selection-and-materialization-modes.md).
+[ADR-0040](design-decisions/0040-repository-composition-and-links.md) and
+[ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md).
 
 ## Why This Document Exists
 
@@ -545,8 +545,8 @@ ADR-0014/0030/0031/0032/0033/0034/0035/0036.
 
 ## Related Documents
 
-- [ADR-0037: Repository Composition And Links](design-decisions/0037-repository-composition-and-links.md)
-- [ADR-0038: Workspace Selection And Materialization Modes](design-decisions/0038-workspace-selection-and-materialization-modes.md)
+- [ADR-0040: Repository Composition And Links](design-decisions/0040-repository-composition-and-links.md)
+- [ADR-0041: Workspace Selection And Materialization Modes](design-decisions/0041-workspace-selection-and-materialization-modes.md)
 - [ADR-0014: Virtual Working Tree And Sparse Checkout](design-decisions/0014-virtual-working-tree-and-sparse-checkout.md)
 - [ADR-0032: Residency, Native Sync, And Workspace Providers](design-decisions/0032-residency-native-sync-and-workspace-providers.md)
 - [Epoch Nomenclature](nomenclature.md)
