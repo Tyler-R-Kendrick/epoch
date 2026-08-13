@@ -20,18 +20,39 @@ export {
 } from "./manifest";
 
 export {
-  DEFAULT_TRUST_POLICY,
   ed25519ManifestVerifier,
+  type ManifestSignatureVerifier,
+} from "./signing";
+
+export {
+  DEFAULT_SUCCESSION_DEPTH,
+  EMPTY_PUBLISHER_LIFECYCLE,
+  evaluatePublisher,
+  isExpired,
+  revocationSigningPayload,
+  successorSigningPayload,
+  type PublisherEvaluationOptions,
+  type PublisherLifecycle,
+  type PublisherRevocation,
+  type PublisherStatus,
+  type SuccessorStatement,
+} from "./publisher";
+
+export {
+  DEFAULT_TRUST_POLICY,
   evaluateTrust,
   manifestSigningPayload,
   readTrustPolicy,
+  readTrustPolicyReport,
+  withPublisherStatements,
   withRecordedConsent,
   type ExtensionTrustPolicy,
-  type ManifestSignatureVerifier,
   type TrustDecision,
   type TrustEvaluationOptions,
   type TrustGrant,
   type TrustMode,
+  type TrustPolicyDiagnostic,
+  type TrustPolicyRead,
   type TrustReason,
 } from "./trust";
 
@@ -66,6 +87,38 @@ export {
   type ExtensionFileSystem,
   type ExtensionSource,
 } from "./discovery";
+
+export {
+  DEFAULT_WASM_LIMITS,
+  instantiateWasmSyntaxModule,
+  limitBytes,
+  wasmSyntaxProvider,
+  WASM_PROVIDER_ABI_VERSION,
+  WasmProviderError,
+  type WasmProviderDeclaration,
+  type WasmProviderErrorCode,
+  type WasmProviderLimits,
+  type WasmSyntaxModule,
+} from "./wasm";
+
+export {
+  loadSyntaxProviders,
+  type LoadedProvider,
+  type LoadProvidersOptions,
+  type ProviderLoadFailure,
+  type ProviderLoadResult,
+  type ProviderModuleReader,
+} from "./providers";
+
+export {
+  descriptorPath,
+  LAUNCH_DESCRIPTOR_SLOT,
+  launchVerificationFor,
+  planLaunch,
+  type LaunchOptions,
+  type LaunchPlan,
+  type LaunchVerification,
+} from "./launch";
 
 export {
   buildExternalInvocation,

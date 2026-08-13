@@ -55,6 +55,12 @@ import { runNomenclatureContractTests } from "./unit/nomenclature-contract.test"
 import { runSemanticPipelineTests } from "./unit/semantic-pipeline.test";
 import { runExtensionMechanismTests } from "./unit/extension-mechanism.test";
 import { runExtensionCliTests } from "./unit/extension-cli.test";
+import { runWasmProviderTests } from "./unit/wasm-providers.test";
+import { runTomlParserTests } from "./unit/toml-parser.test";
+import { runVerifiedLaunchTests } from "./unit/verified-launch.test";
+import { runPublisherLifecycleTests } from "./unit/publisher-lifecycle.test";
+import { runMixedCompressionTests } from "./unit/mixed-compression.test";
+import { runProviderLoadingTests } from "./unit/provider-loading.test";
 import { runCodeOperationContextTests } from "./unit/code-operation-context.test";
 
 async function main(): Promise<void> {
@@ -114,6 +120,12 @@ async function main(): Promise<void> {
   runSemanticPipelineTests();
   runExtensionMechanismTests();
   runExtensionCliTests();
+  runWasmProviderTests();
+  runTomlParserTests();
+  runVerifiedLaunchTests();
+  runPublisherLifecycleTests();
+  runMixedCompressionTests();
+  runProviderLoadingTests();
   runCodeOperationContextTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();

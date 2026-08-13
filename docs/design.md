@@ -549,21 +549,40 @@ is reformatted, and a conflict still names the same construct after a rebase.
 
 Builtin syntax providers cover JSON, a TOML subset, Markdown heading trees, and
 a generic balanced-delimiter provider for brace-delimited languages. The
-delimiter provider recovers block structure and is not a grammar;
-grammar-backed providers are expected to arrive as extensions through the
-capability registry.
+delimiter provider recovers block structure and is not a grammar. That TOML
+subset is the *structural diffing* provider, and stays partial by design — it
+refuses constructs it cannot represent. Reading a configuration value is a
+different job, and uses the complete TOML 1.0 reader in `@epoch/core`
+([ADR-0048](design-decisions/0048-repository-configuration-parsing.md)).
+
+Grammar-backed providers arrive as extensions through the capability registry,
+as WebAssembly modules instantiated with one import — memory the host owns and
+caps — so a provider that shapes signed evidence holds no ambient authority
+([ADR-0045](design-decisions/0045-sandboxed-capability-providers.md)). At equal
+match specificity a shipped provider outranks the builtin it replaces, which is
+what "an extension can displace a builtin" means in practice.
 
 Merge resolves disjoint subtrees independently, merges independent insertions
 into declared commutative containers, and leaves genuine disagreement as a
 path-scoped conflict carrying a formatting-insensitive signature for reusable
 resolutions. Compression planning provides syntax-guided chunking grouped by
-node count, subtree dedup, deterministic dictionary derivation, and semantic
+node count, subtree dedup keyed by the provider that produced each subtree,
+deterministic dictionary derivation across a mixed-language corpus, and semantic
 deltas; object identity and `verify()` are unchanged, since SHA-256 over whole
 content remains authoritative.
 
-`epoch semantic diff|apply|merge|plan` is the operator surface. See
+`epoch semantic diff|apply|merge|plan` is the operator surface, and `plan`
+takes a mixed-language file set, grouping it by resolved provider
+([ADR-0047](design-decisions/0047-mixed-language-compression-planning.md)). See
 [Semantic Content Pipeline](semantic-pipeline.md) and
 [ADR-0038](design-decisions/0038-semantic-diff-merge-and-compression.md).
+
+Extension *publisher* keys have a lifecycle: an expiry inside the signed
+manifest, succession signed by the key being retired, and revocation that
+outranks both and replicates as an ordinary event
+([ADR-0046](design-decisions/0046-publisher-key-lifecycle.md)). Launch executes
+the descriptor whose bytes were digested where the platform can name one
+([ADR-0044](design-decisions/0044-verified-launch-and-platform-execution-contract.md)).
 
 ## Non-Goals In The Current Prototype
 
@@ -571,7 +590,6 @@ The current implementation does not provide:
 
 - network peer discovery
 - repository access control
-- key rotation
 - signed tags
 - remote publishing for `push`
 - shallow clones

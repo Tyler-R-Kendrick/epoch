@@ -83,7 +83,7 @@ Covered by:
   `docs/evidence/community-search-projection/`
 
 See [Community Search And Projections](community-search-projections.md) and
-[ADR-0043](design-decisions/0042-deterministic-search-and-mounted-projections.md).
+[ADR-0042](design-decisions/0042-deterministic-search-and-mounted-projections.md).
 
 ## F-001 - Signed Event Log
 

@@ -57,10 +57,35 @@ export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): nu
   }
 }
 
+/**
+ * Tell the operator when a configuration file could not be read.
+ *
+ * A file that will not parse contributes nothing, and the settings in it —
+ * including an extension `block` list — are simply not in effect. Reported
+ * before the command runs, because the alternative is a repository that
+ * behaves as though the file were empty and never says so (ADR-0048).
+ *
+ * The `ext` command and external dispatch report their own, richer degradation
+ * and are skipped here so the same line is not printed twice.
+ */
+function reportConfigProblems(root: string, io: CliIO): void {
+  try {
+    for (const problem of new EpochRepository(root).readRepositoryConfig().problems) {
+      io.stderr.write(`warning: ${problem.path}:${problem.line}:${problem.column}: ${problem.reason}\n`);
+      io.stderr.write("warning: this file is ignored in full until it parses\n");
+    }
+  } catch {
+    // Reporting must never be the reason a command fails.
+  }
+}
+
 function run(argv: string[], io: CliIO): void | Promise<void> {
   const parsed = parseGlobalArgs(argv);
   if (parsed.command === undefined) {
     throw new Error(CliText.usage);
+  }
+  if (parsed.command !== CliCommand.ext && BUILTIN_COMMANDS.includes(parsed.command)) {
+    reportConfigProblems(parsed.repo, io);
   }
 
   if (parsed.command === "help") {
@@ -89,7 +114,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     return;
   }
   if (parsed.command === CliCommand.semantic) {
-    runSemanticCommand(parsed.args, io);
+    runSemanticCommand(parsed.args, io, parsed.repo);
     return;
   }
 
@@ -725,4 +750,5 @@ if (require.main === module) {
 
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";
-export { dispatchExternalSubcommand, runExtensionCommand } from "./extensions";
+export { dispatchExternalSubcommand, runExtensionCommand, trustedExtensionProviders } from "./extensions";
+export { createSyntaxRegistry, nodeProviderModuleReader, repositorySyntaxRegistry, runSemanticCommand } from "./semantic";

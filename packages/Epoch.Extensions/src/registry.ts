@@ -95,6 +95,11 @@ function specificity(match: CapabilityMatch | undefined, request: CapabilityRequ
   return undefined;
 }
 
+/** Higher wins. An extension outranks a builtin at equal specificity. */
+function sourceRank(source: "builtin" | "extension"): number {
+  return source === "extension" ? 1 : 0;
+}
+
 export class CapabilityRegistry {
   private readonly providers = new Map<string, CapabilityProvider>();
   private readonly pins = new Map<CapabilityKind, PinnedIdentity>();
@@ -173,10 +178,24 @@ export class CapabilityRegistry {
       );
     }
 
+    // Specificity first, then an extension over a builtin, then the ID so the
+    // order is total.
+    //
+    // The middle rule is what "an extension can displace a builtin" means: at
+    // equal specificity a shipped grammar-backed provider is the more capable
+    // answer, and the operator consented to it by name and digest. Ranking by
+    // ID alone made the winner depend on how the two happened to be spelled.
+    // This is the opposite of subcommand resolution, deliberately — a builtin
+    // shadows an extension *command* because a native capability must not be
+    // silently replaced, while a provider is the thing extensions exist to
+    // improve (ADR-0037).
     const scored = candidates
       .map((provider) => ({ provider, score: specificity(provider.match, request) }))
       .filter((entry): entry is { provider: CapabilityProvider; score: number } => entry.score !== undefined)
-      .sort((left, right) => right.score - left.score || left.provider.id.localeCompare(right.provider.id));
+      .sort((left, right) =>
+        right.score - left.score
+        || sourceRank(right.provider.source) - sourceRank(left.provider.source)
+        || left.provider.id.localeCompare(right.provider.id));
 
     return scored[0]?.provider as CapabilityProvider<T> | undefined;
   }

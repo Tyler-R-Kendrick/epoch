@@ -68,7 +68,8 @@ parser.
 Displacement is a design contract with the seam in place, not a shipped
 capability: `createSyntaxRegistry` accepts extension providers, but nothing
 loads one yet, so every `epoch semantic` invocation today resolves to a
-builtin. See the [implementation status](extensions.md#the-two-tiers) note.
+builtin. See the [implementation status](extensions.md#the-two-tiers) note and
+[ADR-0045](design-decisions/0045-sandboxed-capability-providers.md).
 
 The TOML provider covers the subset Epoch's own config uses. It refuses
 `[[array.of.tables]]` headers and multi-line `"""`/`'''` strings outright
@@ -169,14 +170,28 @@ continues to re-hash whole content.
    patch against a base, so the stored delta is proportional to semantic change
    rather than formatting churn.
 
+`semantic plan` takes a mixed set and groups it by resolved provider, so it can
+be pointed at a repository rather than at one language (ADR-0047):
+
 ```console
-$ epoch semantic plan src/*.ts
-provider epoch.syntax.delimiter
-chunks 42
-plain 118430 bytes
-after subtree dedup 96204 bytes (saved 22226)
-dictionary 512 entries digest a1b2c3…
+$ epoch semantic plan src/*.ts package.json tsconfig.json docs/*.md pnpm-lock.yaml
+provider epoch.syntax.delimiter  files 42  chunks 310  saved 21102
+provider epoch.syntax.json  files 2  chunks 18  saved 224
+provider epoch.syntax.markdown  files 11  chunks 74  saved 900
+unplanned pnpm-lock.yaml  (no syntax provider matches 'pnpm-lock.yaml')
+dictionary 512 entries digest a1b2c3… (derived across all 56 files)
+plain 118430 bytes  after subtree dedup 96204 bytes (saved 22226)
 ```
+
+Three properties make that more than a loop over providers. Dedup keys are
+scoped by the provider that produced them, so identical text parsed under two
+grammars is two entries rather than a false share — cross-language storage
+sharing is real, but it belongs to the byte layer, not to a table keyed by
+structural identity. The dictionary spans every group, including files no
+provider claimed, because cross-language repetition is precisely the redundancy
+it exists to capture. And files no provider matches are reported as `unplanned`
+rather than dropped, since a storage estimate that quietly ignores the lockfile
+is the estimate that misleads someone.
 
 `@epoch/semantic` is browser-safe and performs no byte-level entropy coding. It
 produces the boundaries, dedup table, dictionary, and delta that a host codec
