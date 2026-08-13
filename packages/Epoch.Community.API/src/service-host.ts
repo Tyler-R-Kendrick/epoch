@@ -10,6 +10,7 @@ import {
   type CommunityEntity,
   type CommunityFieldRegistry,
   type CommunityRuntimeContext,
+  type NamespaceMount,
   type ProjectionDefinition,
   type ProjectionRuntime,
   type SearchPlan,
@@ -122,7 +123,11 @@ export function createCommunityServiceApis(input: CreateCommunityServiceApisOpti
       resolve: async (path, authorization, snapshot) => (await liveNamespace(authorization)).resolve(path, authorization, snapshot),
       locate: async (target, authorization, snapshot) => (await liveNamespace(authorization)).locate(target, authorization, snapshot),
       explain: async (path, authorization, snapshot) => (await liveNamespace(authorization)).explain(path, authorization, snapshot),
-      watch: (path, authorization, signal, snapshot) => persistNamespace.watch(path, authorization, signal, snapshot),
+      watch: (path, authorization, signal, snapshot) => ({
+        async *[Symbol.asyncIterator]() {
+          yield* (await liveNamespace(authorization)).watch(path, authorization, signal, snapshot);
+        },
+      }),
       mounts: async (authorization) => (await liveNamespace(authorization)).mounts(authorization),
       mount: async (value, authorization) => (await liveNamespace(authorization)).mount(value, authorization),
       unmount: async (mountId, authorization) => (await liveNamespace(authorization)).unmount(mountId, authorization),
@@ -150,8 +155,10 @@ export function createCommunityServiceApis(input: CreateCommunityServiceApisOpti
     const entities = snapshot.entities.filter((entity) => readable(entity, authorization));
     const definitions = [
       builtinDefaultProjection,
-      ...snapshot.projectionDefinitions.map((record) => record.definition),
-      ...extra,
+      ...snapshot.projectionDefinitions
+        .map((record) => record.definition)
+        .filter((definition) => readableProjection(definition, authorization)),
+      ...extra.filter((definition) => readableProjection(definition, authorization)),
     ];
     const unique = [...new Map(definitions.map((definition) => [definition.projectionId, definition])).values()];
     return new EntityProjectionRuntime({
@@ -168,7 +175,7 @@ export function createCommunityServiceApis(input: CreateCommunityServiceApisOpti
   }
 
   async function liveNamespace(authorization: CommunityAuthorizationContext) {
-    const mounts = await input.store.read((state) => state.namespaceMounts);
+    const mounts = await input.store.read((state) => state.namespaceMounts.filter((mount) => visibleMount(mount, authorization)));
     return createCommunityNamespaceApi({
       store: input.store,
       runtime: input.runtime,
@@ -185,6 +192,16 @@ function readable(entity: CommunityEntity, authorization: CommunityAuthorization
     ownerId: entity.ownerId,
     participantIds: entity.participantIds,
   }, authorization);
+}
+
+function readableProjection(definition: ProjectionDefinition, authorization: CommunityAuthorizationContext): boolean {
+  if (definition.visibility === "public") return true;
+  if (authorization.actorId === undefined) return false;
+  return definition.ownerId === authorization.actorId || definition.visibility === "shared";
+}
+
+function visibleMount(mount: NamespaceMount, authorization: CommunityAuthorizationContext): boolean {
+  return mount.scope === "builtin" || mount.scope === "community" || mount.ownerId === authorization.actorId;
 }
 
 function compileContext(registry: CommunityFieldRegistry, authorization: CommunityAuthorizationContext) {

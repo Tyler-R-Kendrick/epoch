@@ -7,6 +7,7 @@ export async function runCommunityCoverageTests(): Promise<void> {
   await apiFetchHandlerRoutesCommunityRequests();
   await apiRejectsInvalidAndUnknownRequests();
   await defaultHostWiresSearchProjectionsAndNamespace();
+  await liveHostIsolatesMountsAndPrivateProjections();
   await cliCoversIssueAndChangeWorkflows();
   await cliReportsUsageAndValidationErrors();
   await httpClientReportsNonOkApiErrors();
@@ -158,9 +159,82 @@ async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
   const scoped = await host.handler(new Request("https://epoch.test/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ where: parsed.ast, first: 10, scope: { sourceIds: ["other"] } }),
+    body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10, scope: { sourceIds: ["other"] } }),
   }));
-  assert.ok(scoped.status >= 400, `scoped search must fail closed, got ${scoped.status}`);
+  assert.equal(scoped.status, 422);
+}
+
+async function liveHostIsolatesMountsAndPrivateProjections(): Promise<void> {
+  const alice = createCommunityApiHost({
+    cursorKey: new Uint8Array(32).fill(23),
+    resolveAuthorization: () => ({ actorId: "alice" }),
+    repositories: [{
+      slug: "epoch/epoch",
+      displayName: "Epoch",
+      description: "canonical",
+      maintainers: ["alice"],
+      topics: ["dvcs"],
+    }],
+  });
+  const bob = createCommunityApiHost({
+    store: alice.store,
+    cursorKey: new Uint8Array(32).fill(23),
+    resolveAuthorization: () => ({ actorId: "bob" }),
+  });
+
+  const privateDefinition = {
+    ...builtinDefaultProjection,
+    projectionId: "alice-private",
+    label: "Alice private",
+    visibility: "private" as const,
+    version: 1,
+  };
+  assert.equal((await alice.handler(new Request("https://epoch.test/projections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(privateDefinition),
+  }))).status, 201);
+
+  const aliceListed = await (await alice.handler(new Request("https://epoch.test/projections"))).json() as Array<{ projectionId: string }>;
+  const bobListed = await (await bob.handler(new Request("https://epoch.test/projections"))).json() as Array<{ projectionId: string }>;
+  assert.ok(aliceListed.some((item) => item.projectionId === "alice-private"));
+  assert.equal(bobListed.some((item) => item.projectionId === "alice-private"), false);
+  assert.equal((await bob.handler(new Request("https://epoch.test/projections/alice-private"))).status, 403);
+
+  const mounted = await alice.handler(new Request("https://epoch.test/namespace/mounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mountId: "alice-root",
+      projectionId: "alice-private",
+      mountPath: "/",
+      mode: "replace",
+      scope: "user",
+      order: 50,
+      writable: false,
+    }),
+  }));
+  assert.equal(mounted.status, 201);
+
+  const aliceMounts = await (await alice.handler(new Request("https://epoch.test/namespace/mounts"))).json() as Array<{ mountId: string }>;
+  const bobMounts = await (await bob.handler(new Request("https://epoch.test/namespace/mounts"))).json() as Array<{ mountId: string }>;
+  assert.ok(aliceMounts.some((mount) => mount.mountId === "alice-root"));
+  assert.equal(bobMounts.some((mount) => mount.mountId === "alice-root"), false);
+
+  const stolen = await bob.handler(new Request("https://epoch.test/namespace/mounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mountId: "bob-stolen",
+      projectionId: "alice-private",
+      mountPath: "/stolen",
+      mode: "after",
+      scope: "user",
+      order: 10,
+      writable: false,
+    }),
+  }));
+  assert.equal(stolen.status, 400);
 }
 
 async function apiFetchHandlerRoutesCommunityRequests(): Promise<void> {

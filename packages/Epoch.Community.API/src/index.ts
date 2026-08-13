@@ -292,7 +292,8 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
       }
       if (request.method === "POST" && url.pathname === "/search") {
         const services = requiredServices(options.services);
-        const body = await boundedJson(request) as CommunitySearchRequest;
+        const body = await boundedJson(request) as CommunitySearchRequest & { readonly scope?: unknown };
+        rejectUnsupportedSearchScope(body.scope);
         return json(await services.search.search(body, authorization, request.signal));
       }
       if (request.method === "POST" && url.pathname === "/search/parse") {
@@ -303,7 +304,9 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
       }
       if (request.method === "POST" && url.pathname === "/search/explain") {
         const services = requiredServices(options.services);
-        return json(await services.search.explain(await boundedJson(request) as Omit<CommunitySearchRequest, "after" | "snapshot">, authorization));
+        const body = await boundedJson(request) as Omit<CommunitySearchRequest, "after" | "snapshot"> & { readonly scope?: unknown };
+        rejectUnsupportedSearchScope(body.scope);
+        return json(await services.search.explain(body, authorization));
       }
       if (request.method === "GET" && url.pathname === "/namespace/list") {
         const services = requiredServices(options.services);
@@ -431,6 +434,9 @@ function notFound(message: string): never { throw new CommunityError("INVALID_EN
 function denied(message: string): never { throw new CommunityError("AUTHORIZATION_DENIED", message); }
 function normalizeApiError(error: unknown): CommunityError { return isCommunityError(error) ? error : new CommunityError("INTERNAL", "Internal Community API failure", undefined, { cause: error }); }
 function requiredServices(value: CommunityServiceApis | undefined): CommunityServiceApis { if (value === undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Community search and namespace services are not configured"); return value; }
+function rejectUnsupportedSearchScope(scope: unknown): void {
+  if (scope !== undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Scoped search requires a source-aware planner");
+}
 function boundedFirst(value: string | null): number { if (value === null) return 100; const parsed = Number(value); if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1000) throw new CommunityError("QUERY_COST_LIMIT", "first must be between 1 and 1000"); return parsed; }
 async function boundedJson(request: Request): Promise<unknown> { const text = await request.text(); if (text.length > 1_000_000) throw new CommunityError("QUERY_COST_LIMIT", "Request body exceeds its size limit"); try { return JSON.parse(text); } catch (error) { throw new CommunityError("QUERY_SYNTAX", "Request body must be valid JSON", undefined, { cause: error }); } }
 function json(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } }); }
