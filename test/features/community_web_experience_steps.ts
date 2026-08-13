@@ -1110,8 +1110,15 @@ Then("the active conversation remains reachable without an oversized navigation 
   // The rail is a sheet on narrow screens: it must not occupy the content
   // column at rest. Four stacked horizontal scrollers used to eat 83% of the
   // first screen before the first message.
-  // The sheet slides on a 180ms transition; settle before measuring.
-  await page.waitForTimeout(300);
+  // The sheet slides on a 180ms transition after the viewport change lands.
+  // Waiting for it to settle beats sleeping a magic number: a loaded runner
+  // can miss a fixed 300ms, and a real regression still fails below — the wait
+  // times out and the assertion reports where the rail actually is.
+  const offCanvas = () => {
+    const element = document.querySelector("[data-community-channel-rail]");
+    return element !== null && Math.round(element.getBoundingClientRect().right) <= 1;
+  };
+  await page.waitForFunction(offCanvas, undefined, { timeout: 5_000 }).catch(() => undefined);
   const rail = await page.evaluate(() => {
     const element = document.querySelector("[data-community-channel-rail]");
     if (element === null) return null;
