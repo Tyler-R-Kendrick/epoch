@@ -13,10 +13,85 @@ export type { GossipServer } from "./gossip";
 export { EpochActorSystem, EpochUserActor } from "./actors";
 export { CRDTEventLog, CRDTRegistry, CsvTableCRDT, EntityRegistry, JsonMapCRDT, TextWeaveCRDT, diffLines, dumpEntity, loadEntity, threeWayMerge, validateCodeOperation } from "./crdt";
 export type { CodeOperation, CodeOperationContext, CodeOperationFilter, CodeOperationRecord, EntityAdapter, TextHunk } from "./crdt";
+export {
+  SelectAll,
+  SelectNone,
+  SelectionError,
+  canonicalSelectionPath,
+  formatSelection,
+  normalizeSelection,
+  parseSelection,
+  resolveSelection,
+  selectDifference,
+  selectIntersection,
+  selectPath,
+  selectProfile,
+  selectUnion,
+  selectionDigest,
+} from "./selection";
+export type { ResolveSelectionOptions, ResolvedSelection, SelectableResource, Selection, SelectionDepth, SelectionProfile } from "./selection";
+export {
+  buildNamespaceManifest,
+  buildSparseIndex,
+  lookupNamespaceEntry,
+  namespaceResources,
+  nodeDigest,
+} from "./namespace";
+export type {
+  NamespaceDirectoryEntry,
+  NamespaceEntityEntry,
+  NamespaceEntry,
+  NamespaceFileEntry,
+  NamespaceInput,
+  NamespaceLinkEntry,
+  NamespaceLinkInput,
+  NamespaceManifest,
+  NamespaceNode,
+  SparseIndex,
+  SparseIndexEntry,
+  SparseOpaqueSubtree,
+} from "./namespace";
+export {
+  CompositionError,
+  CompositionEventTypes,
+  ExternalRevisionDependencySchema,
+  RepositoryLinkSchema,
+  assertCanonicalMount,
+  compositionResources,
+  createStaticLinkResolver,
+  detectLinkRetargetConflicts,
+  diagnoseAbsentPath,
+  planCrossRepositoryPublication,
+  planVendorUpdate,
+  planVendorize,
+  resolveComposition,
+  translateSelectionForLink,
+  validateExternalDependency,
+  validateLink,
+} from "./composition";
+export type {
+  CompositionOwnership,
+  CrossRepositoryPublication,
+  ExternalRevisionDependency,
+  LinkRetargetConflict,
+  LinkRetargetEvent,
+  RepositoryLink,
+  RepositoryLinkResolver,
+  ResolveCompositionInput,
+  ResolvedChildRepository,
+  ResolvedComposition,
+  ResolvedCompositionLink,
+  ResolverHint,
+  UnresolvedLink,
+  VendorPlan,
+  VendorProvenance,
+  VendorUpdate,
+} from "./composition";
 export { applyUnifiedDiff, formatUnifiedDiff, isTextBlob } from "./patch";
 export type { UnifiedDiffInput } from "./patch";
 export { canonicalJson } from "./json";
-export { ActorCommand, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, MaterializationMode, Schemas, StorageName, Symbols, VirtualCheckoutFormat, VirtualCheckoutSchema, VirtualRecordStatus } from "./domain";
+export { ActorCommand, CompositionEventType, CompositionFormat, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, LinkAvailability, MaterializationMode, MaterializationModeAlias, NamespaceFormat, NamespaceShardThreshold, Schemas, SelectionFormat, SelectionSyntax, SparseIndexFormat, StorageName, Symbols, VirtualCheckoutFormat, VirtualCheckoutSchema, VirtualRecordStatus, WorkspaceSelectionStateSchema, normalizeMaterializationMode } from "./domain";
+export type { CanonicalMaterializationMode, WorkspaceSelectionState } from "./domain";
 export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath, VersionEntity, VersionFile, VersionPayload, VirtualCheckout, VirtualCheckoutRecord } from "./domain";
 export { createCompact, pruneEventLogBeforeCompact, restoreFromCompact, latestCompact, verifyCompact } from "./ha/compact";
 export type { Compact, CompactManifest, CompactManifestEntry } from "./ha/compact";
