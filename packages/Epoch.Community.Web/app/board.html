@@ -47,9 +47,71 @@
      controls inside board.recovery. -->
 <aside class="cw-harness" data-cw-harness data-safe-mode="false" aria-label="Epoch workspace">
   <p class="cw-harness-notice" data-cw-harness-notice hidden></p>
+  <button type="button" class="cw-ws-action" data-compose-open
+    title="Propose a change to your own interface">Compose interface</button>
   <div class="cw-harness-slot" data-cw-slot="board.context-panel" aria-label="Context panel" hidden></div>
   <div class="cw-harness-slot" data-cw-slot="board.recovery" aria-label="Workspace recovery" hidden></div>
 </aside>
+
+<!-- Compose: prompt an interface change, see what it does, then decide.
+     Static markup — the dynamic layer fills slots, it never authors chrome. -->
+<div class="cw-compose" data-compose data-garden data-open="false" role="dialog" aria-modal="false"
+  aria-labelledby="cw-compose-title" hidden>
+  <div class="cw-compose-card">
+    <h2 id="cw-compose-title">Compose your interface</h2>
+    <p class="cw-compose-lead">
+      Describe a change. It becomes a proposal on your <code>.epoch</code> project — you see what it
+      does before anything applies, and you can roll it back afterwards.
+    </p>
+    <p class="cw-compose-availability" data-gen-ui-availability data-state=""></p>
+
+    <label for="cw-compose-input">What should change?</label>
+    <textarea id="cw-compose-input" data-gen-ui-input rows="2"
+      placeholder="A panel showing the three most recent proposals and who is reviewing them"></textarea>
+    <div class="cw-compose-row">
+      <button type="button" data-gen-ui-run>Generate</button>
+      <button type="button" data-gen-ui-render>Render pasted source</button>
+      <button type="button" data-gen-ui-prompt>Copy system prompt</button>
+      <button type="button" data-gen-cancel hidden>Cancel</button>
+    </div>
+    <p class="cw-compose-status" data-gen-ui-status role="status" aria-live="polite"></p>
+
+    <div class="cw-compose-preview" data-gen-ui-out aria-label="Preview"></div>
+
+    <label for="cw-compose-source">openui-lang source</label>
+    <textarea id="cw-compose-source" data-gen-ui-source rows="4" spellcheck="false"
+      placeholder="Paste openui-lang here to render it without an on-device model"></textarea>
+
+    <h3>Theme</h3>
+    <p class="cw-compose-availability" data-gen-availability data-state=""></p>
+    <label for="cw-compose-theme-input">Describe a theme</label>
+    <textarea id="cw-compose-theme-input" data-gen-input rows="2"
+      placeholder="Denser rows, cooler accent"></textarea>
+    <div class="cw-compose-row">
+      <button type="button" data-gen-run>Generate theme</button>
+      <button type="button" data-token-load>Load current tokens</button>
+      <button type="button" data-token-apply>Apply tokens</button>
+      <button type="button" data-export-prompt>Copy theme prompt</button>
+      <button type="button" data-export-design>Export to DESIGN.md</button>
+    </div>
+    <p class="cw-compose-status" data-gen-status role="status" aria-live="polite"></p>
+
+    <label for="cw-compose-tokens">Theme tokens</label>
+    <textarea id="cw-compose-tokens" data-token-editor rows="3" spellcheck="false"
+      placeholder="--cw-cell: .58rem;"></textarea>
+    <p class="cw-compose-note" data-theme-note></p>
+    <span data-theme-name hidden></span>
+
+    <div class="cw-compose-row">
+      <button type="button" data-compose-propose>Propose to my interface</button>
+      <button type="button" data-compose-accept hidden>Accept this change</button>
+      <button type="button" data-compose-discard hidden>Discard</button>
+      <button type="button" data-compose-close data-garden-close data-esc-dismiss>esc</button>
+    </div>
+    <div class="cw-compose-diff" data-compose-diff aria-live="polite" hidden></div>
+    <p class="cw-compose-receipt" data-compose-receipt hidden></p>
+  </div>
+</div>
 
 <footer data-region="status" role="contentinfo">
   <span data-status-line></span>
@@ -131,7 +193,10 @@
 <script src="themes.js"></script>
 <script src="community-runtime.js"></script>
 <script src="app.js"></script>
+<script src="generate.js"></script>
+<script src="theme.js"></script>
 <script src="workspace.js"></script>
+<script src="compose.js"></script>
 <script src="openui-parser.js"></script>
 <script src="openui-library.js"></script>
 </body>

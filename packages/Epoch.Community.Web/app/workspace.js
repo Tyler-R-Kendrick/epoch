@@ -40,11 +40,19 @@
     { id: "ProjectSummary", category: "panel", actions: ["project.list"] },
     { id: "ChangeLedger", category: "panel", actions: ["history.list", "change.show"] },
     { id: "LiveActivity", category: "panel", actions: [] },
+    // The one component whose props carry a generated document. The document is
+    // parsed against the pinned OpenUI library before it renders, so "the model
+    // wrote this" never means "the page will run this".
+    { id: "GeneratedPanel", category: "panel", actions: [] },
     { id: "RecoveryControls", category: "recovery", actions: ["ui.restoreLastKnownGood", "ui.enterSafeMode"] },
   ];
 
-  /* Tokens a revision may set. Every one is a real token base.css reads. */
-  var THEME_TOKENS = ["--cw-cell", "--cw-accent", "--cw-surface", "--cw-ink", "--cw-rule"];
+  /* Tokens a revision may set: the theme contract, and nothing else. */
+  var THEME_TOKENS = [
+    "--cw-bg", "--cw-surface", "--cw-ink", "--cw-ink-dim", "--cw-ink-faint", "--cw-rule",
+    "--cw-accent", "--cw-accent-ink", "--cw-signed", "--cw-live", "--cw-warn", "--cw-danger",
+    "--cw-agent", "--cw-glow", "--cw-scan", "--cw-cell", "--cw-line", "--cw-radius", "--cw-pad",
+  ];
 
   var SAFE_MODE_MANIFEST = {
     abiVersion: 1,
@@ -193,6 +201,24 @@
         if (window.CW_APP && typeof window.CW_APP.unreadCount === "function") unread = window.CW_APP.unreadCount();
       } catch { unread = 0; }
       node.appendChild(line("activity", unread ? unread + " unread" : "nothing new"));
+      return node;
+    },
+    GeneratedPanel: function (placement) {
+      var node = element("div", "cw-ws-card cw-ws-generated");
+      node.setAttribute("data-c", "generated-panel");
+      var source = (placement.props && placement.props.source) || "";
+      var parsed = window.CW_GENERATE && typeof window.CW_GENERATE.parse === "function"
+        ? window.CW_GENERATE.parse(source)
+        : null;
+      if (!parsed) {
+        // A revision whose document no longer parses is shown as that, not as
+        // a blank space that looks like nothing was ever there.
+        node.appendChild(line("generated", "does not parse against the installed component library"));
+        return node;
+      }
+      // Rendered by the library's own renderer, into the same semantic hooks
+      // every theme styles — a generated panel is a panel, not a special case.
+      node.innerHTML = window.CW_GENERATE.render(parsed.root);
       return node;
     },
     RecoveryControls: function () {

@@ -93,6 +93,7 @@
 
   function paint(result) {
     var out = $("[data-gen-ui-out]");
+    if (!out) return;
     out.innerHTML = result && result.root ? renderNode(result.root) : "";
   }
 
@@ -100,6 +101,7 @@
 
   function status(msg, kind) {
     var el = $("[data-gen-ui-status]");
+    if (!el) return;
     el.textContent = msg;
     el.dataset.state = kind || "";
   }
@@ -119,7 +121,7 @@
       return;
     }
 
-    var R = window.NBResilient;
+    var R = window.CWResilient;
     var session;
     var controller = new AbortController();
     var signal = controller.signal;
@@ -134,7 +136,7 @@
         });
       }, { tries: 3, report: status, signal: signal });
 
-      var raw = await window.NBResilient.streamPrompt(session, description, {
+      var raw = await window.CWResilient.streamPrompt(session, description, {
         report: status,
         signal: signal,
         onChunk: function (_acc, delta) {
@@ -143,7 +145,8 @@
           try { paint(parser.push(delta)); } catch { /* mid-token, wait */ }
         },
       });
-      $("[data-gen-ui-source]").value = raw;
+      var sourceHost = $("[data-gen-ui-source]");
+      if (sourceHost) sourceHost.value = raw;
       status("Composed. The source is below; it renders through the same hooks every theme styles.", "ok");
     } catch (err) {
       status("Generation failed: " + (err && err.message ? err.message : String(err)), "rejected");
@@ -168,7 +171,22 @@
     }
   }
 
+  /** Parse openui-lang against the pinned library. Null means "not this library". */
+  function parse(source) {
+    if (!ready()) return null;
+    try {
+      var parser = window.OpenUILang.createStreamingParser(window.CW_OPENUI.schema, "Panel");
+      var result = parser.push(String(source || ""));
+      return result && result.root ? result : null;
+    } catch {
+      return null;
+    }
+  }
+
   function wire() {
+    // The panel is optional chrome: a page that does not host it still gets the
+    // generation API, which is what the harness renderer and the console use.
+    if (!$("[data-gen-ui-run]")) return;
     $("[data-gen-ui-run]").addEventListener("click", function () {
       var v = $("[data-gen-ui-input]").value.trim();
       if (!v) { status("Describe the view you want.", "rejected"); return; }
@@ -195,6 +213,14 @@
       note.dataset.state = "live";
     }
   }
+
+  window.CW_GENERATE = {
+    run: run,
+    parse: parse,
+    render: renderNode,
+    ready: ready,
+    prompt: function () { return ready() ? window.CW_OPENUI.systemPrompt : ""; },
+  };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();

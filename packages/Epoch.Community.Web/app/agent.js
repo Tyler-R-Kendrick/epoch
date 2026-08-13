@@ -113,7 +113,7 @@
    * layer exists to remove.
    */
   async function run(input, ctx, emit) {
-    var R = window.NBResilient;
+    var R = window.CWResilient;
     var runId = "run-" + Date.now();
     var workspaceId = (ctx && (ctx.workspaceId || ctx.cwd)) || "default";
     var route = window.CW_ROUTE
@@ -264,7 +264,7 @@
 
   /** Start acquiring the model now, so the first message is not the one that waits. */
   function warm(report) {
-    return window.NBResilient.warm({ initialPrompt: baseSystemPrompt(), report: report })
+    return window.CWResilient.warm({ initialPrompt: baseSystemPrompt(), report: report })
       .catch(function () { /* reported through modelState; CLI mode is unaffected */ });
   }
 

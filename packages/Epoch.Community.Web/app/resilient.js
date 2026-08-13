@@ -329,7 +329,7 @@
     STORAGE_KEY: ROUTE_KEY,
   };
 
-  window.NBResilient = {
+  window.CWResilient = {
     warm: warm,
     session: session,
     invalidate: invalidate,
