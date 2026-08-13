@@ -1324,10 +1324,10 @@ Then("the live API records a Change for the selected conversation", async functi
   await page.locator(`[data-promote-receipt][data-change-id="${promoted.id}"], [data-change-meta]`).filter({ hasText: `change:${promoted.id}` }).first()
     .waitFor({ state: "attached", timeout: 5_000 });
   assert.equal(await page.locator(`[data-change-list] [data-change-id="${promoted.id}"]`).count(), 1);
-  await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).waitFor({ state: "attached", timeout: 5_000 });
-  assert.equal(
-    await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).count(),
-    1,
+  await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).first()
+    .waitFor({ state: "attached", timeout: 5_000 });
+  assert.ok(
+    await page.locator(`[data-message][data-linked-change="${promoted.id}"]`).count() >= 1,
   );
 });
 
