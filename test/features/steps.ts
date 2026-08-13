@@ -131,6 +131,12 @@ When("I install a workspace extension named {string}", function (name: string) {
   );
 });
 
+When("I replace the workspace extension named {string}", function (name: string) {
+  const executable = join(state.workspace, ".epoch", "ext", "bin", `epoch-${name}`);
+  writeFileSync(executable, `#!/bin/sh\necho "${name} replaced"\n`, "utf8");
+  chmodSync(executable, 0o755);
+});
+
 When("I set the workspace extension trust mode to {string}", function (mode: string) {
   // Written by hand rather than through `ext trust`, so the scenario exercises
   // an operator-authored policy the CLI then has to honour. Appending a second

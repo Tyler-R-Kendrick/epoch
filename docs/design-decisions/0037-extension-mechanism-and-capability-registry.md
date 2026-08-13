@@ -105,15 +105,54 @@ allow_publishers = ["epoch:principal:<ed25519-public-key>"]
 
 A discovered-but-untrusted extension is reported, never silently run and never
 silently ignored. `epoch ext trust <name>` records consent as a signed operation
-so the decision is auditable, and writes the local `.epoch/config.toml` so it is
-effective. The record is auditable but the grant is deliberately *not* syncable:
-consenting to run a binary in one clone must never grant execution in another,
-where the binary on `$PATH` is a different file.
+so the decision is auditable. The record is auditable but the grant is
+deliberately *not* syncable: consenting to run a binary in one clone must never
+grant execution in another, where the binary on `$PATH` is a different file.
 
 `epoch ext untrust <name>` is the inverse and must actually revoke. Removing the
 name from `allow` is not enough, because `signed` and `any` admit extensions
-that were never in `allow`; `untrust` therefore adds the name to `block`, which
-wins in every mode, and `trust` removes it again.
+that were never in `allow`; `untrust` therefore records the name in `block`,
+which wins in every mode, and `trust` clears it again.
+
+#### Configuration is read; consent is stored separately
+
+Hand-authored policy and recorded consent are different kinds of data, so they
+live in different files. `.epoch/config.toml` is operator-owned and Epoch only
+reads it. `.epoch/ext/trust.json` is machine-owned: Epoch rewrites it whole and
+atomically, and no human is expected to edit it.
+
+This is a correction, and the reason is worth recording. The first
+implementation wrote consent back into the `[extensions]` table by editing TOML
+lines in place. That required deciding which spellings name the same table and
+escaping every value written back, and it produced four separate defects in
+review — a duplicate `allow` key against multi-line arrays, a duplicate table
+against comment-suffixed headers, an injection through unescaped names, and two
+further table spellings (quoted, then `\u`-escaped) that the check did not
+recognize. Each fix addressed the spelling that had been found; the next one
+always existed. The mechanism was wrong, not its parameters: a component that
+gates process execution should not contain a partial TOML writer.
+
+A store that cannot be parsed is an error rather than an empty store. Reading
+corruption as "no entries" would silently drop `block`, so damage to the file
+would widen the policy; an unreadable store instead trusts nothing.
+
+#### Consent binds to the executable
+
+`ext trust` records the SHA-256 of the binary it consented to, and a changed
+binary does not inherit that grant — it is refused with an instruction to
+re-consent. A name-only allow list trusts whatever later occupies the path, and
+an upgrade is indistinguishable from a substitution. Epoch cannot tell them
+apart either, so it asks the operator, on the model of SSH's `known_hosts`.
+
+An `allow` entry written by hand in configuration stays name-only: an operator
+listing a name there is deliberately choosing the looser guarantee, and the two
+are distinguishable in the trust decision (`allowed-by-consent` versus
+`allowed-by-name`).
+
+The digest is read during discovery and re-read immediately before launch. That
+narrows, but does not close, the window in which a binary could be swapped after
+the check — closing it entirely needs execution by file descriptor, which Node
+does not expose. A swap that loses the race is refused.
 
 Extensions are principals. A capability an extension did not declare is a
 capability it does not get, and the grant it receives is attenuated from the

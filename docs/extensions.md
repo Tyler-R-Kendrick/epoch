@@ -82,7 +82,7 @@ boundary around AI conflict proposals, generalized to every provider.
 
 ## Trust policy
 
-Policy lives in the `[extensions]` table of `.epoch/config.toml`:
+Operator policy lives in the `[extensions]` table of `.epoch/config.toml`:
 
 ```toml
 [extensions]
@@ -122,18 +122,65 @@ paired with a swapped executable. Any failure is reported with a specific
 reason (`publisher-not-allowed`, `executable-mismatch`, `invalid-signature`)
 and the extension does not run.
 
-Trust is local configuration, not synced state: `ext trust` writes the local
-`.epoch/config.toml` and records an audit operation. Consenting in one clone
-never grants execution in another, where `epoch-foo` on `$PATH` is a different
-file.
+### Configuration is read, consent is recorded
 
-`ext untrust` revokes rather than merely un-listing. It adds the name to
-`block`, because `signed` and `any` admit extensions that were never in `allow`
-and removing an absent entry would revoke nothing while reporting success;
-`ext trust` removes the name from `block` again. Both commands edit only a
-single-line `allow`/`block` array under one `[extensions]` table, and refuse to
-edit anything else rather than risk corrupting the file that decides whether an
-external process runs.
+These are different kinds of data and they live in different files.
+
+`.epoch/config.toml` is **hand-authored and read-only to Epoch**. Humans choose
+the trust mode, pin publishers, and block names there; no Epoch command rewrites
+it.
+
+`.epoch/ext/trust.json` is **machine-owned**. `ext trust` and `ext untrust`
+write it, whole, atomically, and no human is expected to edit it:
+
+```json
+{
+  "allow": [{ "executableSha256": "9f2c…", "name": "greet" }],
+  "block": [],
+  "version": 1
+}
+```
+
+Splitting them removes a class of defect rather than another instance of one.
+Editing TOML in place means re-deriving which spellings name the same table —
+`[extensions]`, `["extensions"]`, `["extensions"]` — and escaping every
+value written back; getting any of it wrong corrupts the file that decides
+whether an external process runs. A whole-file JSON document is parsed and
+serialized by the platform and has no such surface.
+
+A store that cannot be parsed is an error, never an empty store: reading
+corruption as "no entries" would drop the `block` list, so damage would widen
+the policy instead of narrowing it. An unreadable store trusts nothing, whatever
+the configured mode.
+
+### Consent binds to the binary
+
+`ext trust greet` records the SHA-256 of the executable it consented to. If that
+binary is later replaced, the grant does **not** transfer:
+
+```console
+$ epoch greet
+extension 'greet' has changed since you trusted it; re-run 'epoch ext trust greet' to consent to the new binary
+```
+
+This is the substantive departure from Git, and from a plain allow list. A
+name-only grant trusts whatever later occupies the path — an upgrade and a
+substitution look identical to it. Epoch cannot tell those apart either, so it
+asks the one party who can. The model is SSH's `known_hosts`, not `$PATH`.
+
+An `allow` entry written by hand in `.epoch/config.toml` is deliberately *not*
+digest-bound: an operator who lists a name there is choosing the looser
+guarantee, and the two sources are distinguishable in `ext show`
+(`allowed-by-consent` versus `allowed-by-name`).
+
+`ext untrust` revokes rather than merely un-listing. It records the name in
+`block`, because `signed` and `any` admit extensions that were never allowed by
+name and removing an absent entry would revoke nothing while reporting success.
+`block` is the union of both files, and it is checked before every allow, so
+neither file can override the other's revocation.
+
+Trust never syncs. Consenting in one clone grants nothing in another, where
+`epoch-foo` on `$PATH` is a different file.
 
 Extensions are principals. The grant an extension receives is attenuated from
 the invoking principal's authority under

@@ -253,7 +253,38 @@ Feature: CLI and WASM integration surfaces
       | greet |
     Then the CLI exits with code 0
     And the CLI output contains "\"resolution\": \"extension\""
-    And the CLI output contains "allowed-by-name"
+    And the CLI output contains "allowed-by-consent"
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+
+  @persona.maintainer
+  Scenario: A trusted extension loses its grant when its binary is replaced
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I install a workspace extension named "greet"
+    And I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 0
+    When I replace the workspace extension named "greet"
+    And I run the Epoch CLI with arguments:
+      | greet |
+    Then the CLI exits with code 1
+    And the CLI error contains "has changed since you trusted it"
+    When I run the Epoch CLI with arguments:
+      | ext   |
+      | trust |
+      | greet |
+    Then the CLI exits with code 0
     When I run the Epoch CLI with arguments:
       | greet |
     Then the CLI exits with code 0

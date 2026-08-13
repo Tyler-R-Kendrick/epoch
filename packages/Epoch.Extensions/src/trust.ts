@@ -10,9 +10,25 @@ import { canonicalManifest, type ExtensionManifest } from "./manifest";
  */
 export type TrustMode = "explicit" | "signed" | "any";
 
+/**
+ * Consent recorded for one extension.
+ *
+ * The digest is what the operator actually consented to. A grant naming only
+ * the extension trusts whatever binary happens to sit at that path later, which
+ * is Git's model and the thing this mechanism exists to improve on.
+ */
+export interface TrustGrant {
+  readonly name: string;
+  /** SHA-256 of the executable at the moment consent was given. */
+  readonly executableSha256?: string;
+}
+
 export interface ExtensionTrustPolicy {
   readonly trust: TrustMode;
+  /** Names allowed by hand-authored configuration, without a digest binding. */
   readonly allow: readonly string[];
+  /** Consent recorded by `epoch ext trust`, bound to the binary consented to. */
+  readonly grants: readonly TrustGrant[];
   readonly block: readonly string[];
   readonly allowPublishers: readonly string[];
 }
@@ -20,15 +36,18 @@ export interface ExtensionTrustPolicy {
 export const DEFAULT_TRUST_POLICY: ExtensionTrustPolicy = {
   trust: "explicit",
   allow: [],
+  grants: [],
   block: [],
   allowPublishers: [],
 };
 
 export type TrustReason =
+  | "allowed-by-consent"
   | "allowed-by-name"
   | "allowed-by-publisher"
   | "allowed-by-open-policy"
   | "blocked-by-name"
+  | "executable-changed"
   | "executable-mismatch"
   | "invalid-signature"
   | "missing-manifest"
@@ -105,8 +124,27 @@ export function readTrustPolicy(table: Record<string, unknown> | undefined): Ext
   return {
     trust,
     allow: strings(table.allow),
+    grants: [],
     block: strings(table.block),
     allowPublishers: strings(table.allow_publishers),
+  };
+}
+
+/**
+ * Combine hand-authored policy with recorded consent.
+ *
+ * `block` is a union because a denial from either source must hold, and it is
+ * checked before every allow, so neither file can be used to override the
+ * other's revocation.
+ */
+export function withRecordedConsent(
+  policy: ExtensionTrustPolicy,
+  recorded: { readonly allow: readonly TrustGrant[]; readonly block: readonly string[] },
+): ExtensionTrustPolicy {
+  return {
+    ...policy,
+    grants: recorded.allow,
+    block: [...new Set([...policy.block, ...recorded.block])],
   };
 }
 
@@ -131,6 +169,31 @@ export function evaluateTrust(
       trusted: false,
       reason: "missing-manifest",
       detail: `extension '${name}' has no valid epoch-extension.toml and cannot declare its capabilities`,
+    };
+  }
+  // Recorded consent is checked before the configuration allow list because it
+  // is the stronger statement: it names a specific binary, not just a command.
+  const grant = policy.grants.find((candidate) => candidate.name === name);
+  if (grant !== undefined) {
+    if (grant.executableSha256 === undefined) {
+      return { trusted: true, reason: "allowed-by-consent", detail: `extension '${name}' was trusted by this operator` };
+    }
+    if (options.executableSha256 === grant.executableSha256) {
+      return {
+        trusted: true,
+        reason: "allowed-by-consent",
+        detail: `extension '${name}' matches the binary this operator trusted`,
+      };
+    }
+    // Consent was given to a specific binary. A different one at the same path
+    // has not been consented to, whether it is an upgrade or a substitution —
+    // Epoch cannot tell those apart, and only the operator can.
+    return {
+      trusted: false,
+      reason: "executable-changed",
+      detail: options.executableSha256 === undefined
+        ? `extension '${name}' could not be digested, so it cannot be matched against the binary you trusted`
+        : `extension '${name}' has changed since you trusted it; re-run 'epoch ext trust ${name}' to consent to the new binary`,
     };
   }
   if (policy.allow.includes(name)) {

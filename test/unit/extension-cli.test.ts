@@ -1,21 +1,23 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EpochRepository } from "@epoch/core";
-import { isExtensionName } from "@epoch/extensions";
+import { isExtensionName, parseTrustStore, type ExtensionFileSystem } from "@epoch/extensions";
 import { dispatchExternalSubcommand, runExtensionCommand } from "@epoch/cli";
 
 /**
- * `epoch ext trust|untrust` writes the file that decides whether an external
- * process runs, so both what it writes and what it refuses to write are
- * security behavior rather than convenience.
+ * `epoch ext trust|untrust` decides whether an external process runs, so what
+ * it records — and what it refuses to record — is security behavior rather
+ * than convenience.
  */
 export function runExtensionCliTests(): void {
   trustGrantsAndUntrustRevokesUnderEveryMode();
-  trustEditPreservesSurroundingConfiguration();
-  configEditRefusesShapesItCannotRewriteSafely();
-  trustRefusesNamesThatWouldInjectPolicy();
+  consentDoesNotTransferToADifferentBinary();
+  operatorConfigurationIsReadNeverRewritten();
+  aCorruptStoreTrustsNothing();
+  trustRefusesNamesOutsideTheGrammar();
+  dispatchRefusesABinarySwappedAfterTheCheck();
 }
 
 interface Captured {
@@ -34,31 +36,40 @@ function capture(): Captured {
   };
 }
 
-function workspace(): string {
+function workspace(body = "#!/bin/sh\nexit 0\n"): string {
   const root = mkdtempSync(join(tmpdir(), "epoch-ext-cli-"));
   new EpochRepository(root).init("alice");
+  installGreet(root, body);
+  return root;
+}
+
+function installGreet(root: string, body: string): void {
   const bin = join(root, ".epoch", "ext", "bin");
   mkdirSync(bin, { recursive: true });
   const executable = join(bin, "epoch-greet");
-  writeFileSync(executable, "#!/bin/sh\nexit 0\n", "utf8");
+  writeFileSync(executable, body, "utf8");
   chmodSync(executable, 0o755);
   writeFileSync(
     join(bin, "epoch-greet.toml"),
     [`name = "greet"`, "api = 1", `version = "1.0.0"`, `capabilities = ["command"]`].join("\n"),
     "utf8",
   );
-  return root;
 }
 
-function configOf(root: string): string {
-  return readFileSync(join(root, ".epoch", "config.toml"), "utf8");
+function configPath(root: string): string {
+  return join(root, ".epoch", "config.toml");
 }
+
+function storePath(root: string): string {
+  return join(root, ".epoch", "ext", "trust.json");
+}
+
+const isolated = { pathEntries: [] as readonly string[] };
 
 /** Dispatch `greet` without launching anything, reporting whether it would run. */
 function wouldRun(root: string): boolean {
-  const captured = capture();
   let spawned = false;
-  const result = dispatchExternalSubcommand(root, "greet", [], captured.io, {
+  const result = dispatchExternalSubcommand(root, "greet", [], capture().io, {
     pathEntries: [],
     homeDirectory: join(root, "absent-home"),
     spawn: () => {
@@ -70,35 +81,39 @@ function wouldRun(root: string): boolean {
   return spawned;
 }
 
+function operationsOf(root: string): readonly (string | undefined)[] {
+  return new EpochRepository(root).events()
+    .filter((event) => event.type === "operation")
+    .map((event) => (event.payload as { command?: string }).command);
+}
+
 function trustGrantsAndUntrustRevokesUnderEveryMode(): void {
   const root = workspace();
   try {
     assert.equal(wouldRun(root), false, "the default policy admits nothing");
 
-    runExtensionCommand(root, ["trust", "greet"], capture().io, { pathEntries: [] });
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
     assert.equal(wouldRun(root), true);
 
-    runExtensionCommand(root, ["untrust", "greet"], capture().io, { pathEntries: [] });
+    // Consent is recorded against the binary, not merely the name.
+    const store = parseTrustStore(readFileSync(storePath(root), "utf8"));
+    assert.equal(store.allow.length, 1);
+    assert.equal(store.allow[0].name, "greet");
+    assert.match(store.allow[0].executableSha256 ?? "", /^[a-f0-9]{64}$/u);
+
+    runExtensionCommand(root, ["untrust", "greet"], capture().io, isolated);
     assert.equal(wouldRun(root), false);
 
-    // The revocation has to survive a policy that admits extensions the allow
-    // list never named. Removing `greet` from `allow` alone would leave it
-    // running here while the CLI reported it untrusted.
-    writeFileSync(
-      join(root, ".epoch", "config.toml"),
-      configOf(root).replace("[extensions]", `[extensions]\ntrust = "any"`),
-      "utf8",
-    );
-    assert.equal(wouldRun(root), false, "block wins over an open trust mode");
+    // Revocation has to hold under a policy that admits extensions the allow
+    // list never named, or `untrust` would report success and change nothing.
+    writeFileSync(configPath(root), `${readFileSync(configPath(root), "utf8")}\n[extensions]\ntrust = "any"\n`, "utf8");
+    assert.equal(wouldRun(root), false, "a recorded revocation outranks an open trust mode");
 
-    runExtensionCommand(root, ["trust", "greet"], capture().io, { pathEntries: [] });
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
     assert.equal(wouldRun(root), true, "trust must clear the block it set");
-    assert.match(configOf(root), /block = \[\]/u);
+    assert.deepEqual(parseTrustStore(readFileSync(storePath(root), "utf8")).block, []);
 
-    // Both decisions are auditable from history alone.
-    const operations = new EpochRepository(root).events()
-      .filter((event) => event.type === "operation")
-      .map((event) => (event.payload as { command?: string }).command);
+    const operations = operationsOf(root);
     assert.ok(operations.includes("ext-trust"));
     assert.ok(operations.includes("ext-untrust"));
   } finally {
@@ -106,126 +121,64 @@ function trustGrantsAndUntrustRevokesUnderEveryMode(): void {
   }
 }
 
-function trustEditPreservesSurroundingConfiguration(): void {
+/**
+ * The defect this design removes: a grant that survives the binary it was
+ * given for. Under a name-only allow list, replacing the executable inherits
+ * the previous consent silently.
+ */
+function consentDoesNotTransferToADifferentBinary(): void {
   const root = workspace();
   try {
-    writeFileSync(
-      join(root, ".epoch", "config.toml"),
-      [
-        "[core]",
-        `default_branch = "main"`,
-        "",
-        "[extensions]  # policy for community extensions",
-        `trust = "explicit"`,
-        `allow = ["mergiraf"]   # structural merge`,
-        "",
-        "[remote]",
-        `url = "https://example.invalid"`,
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+    assert.equal(wouldRun(root), true);
 
-    runExtensionCommand(root, ["trust", "greet"], capture().io, { pathEntries: [] });
-    const config = configOf(root);
+    installGreet(root, "#!/bin/sh\necho different\n");
+    assert.equal(wouldRun(root), false, "a replaced binary has not been consented to");
 
-    // A header carrying a trailing comment is still the same table; appending a
-    // second `[extensions]` would corrupt the file.
-    assert.equal(config.match(/\[extensions\]/gu)?.length, 1);
-    assert.match(config, /\[extensions\] {2}# policy for community extensions/u);
-    assert.match(config, /allow = \["greet", "mergiraf"\]\s+# structural merge/u);
-    assert.match(config, /\[core\]/u);
-    assert.match(config, /url = "https:\/\/example\.invalid"/u);
-    assert.match(config, /trust = "explicit"/u);
+    const captured = capture();
+    dispatchExternalSubcommand(root, "greet", [], captured.io, {
+      pathEntries: [],
+      homeDirectory: join(root, "absent-home"),
+      spawn: () => 0,
+    });
+    assert.match(captured.err(), /has changed since you trusted it/u);
 
-    // The result must still be readable by the repository's own config reader.
-    const parsed = new EpochRepository(root).repositoryConfig();
-    assert.deepEqual((parsed.extensions as { allow?: unknown }).allow, ["greet", "mergiraf"]);
+    // Re-consenting adopts the new binary rather than accumulating grants.
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+    assert.equal(wouldRun(root), true);
+    assert.equal(parseTrustStore(readFileSync(storePath(root), "utf8")).allow.length, 1);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 }
 
-function configEditRefusesShapesItCannotRewriteSafely(): void {
-  const unsupported: readonly { readonly label: string; readonly config: string }[] = [
-    {
-      label: "a second [extensions] table",
-      config: `[extensions]\nallow = []\n\n[core]\nx = 1\n\n[extensions]\nblock = []\n`,
-    },
-    {
-      label: "a multi-line allow array",
-      config: `[extensions]\nallow = [\n  "mergiraf",\n]\n`,
-    },
-    {
-      label: "a duplicate allow key",
-      config: `[extensions]\nallow = ["a"]\nallow = ["b"]\n`,
-    },
-    {
-      label: "an allow entry that is not a quoted name",
-      config: `[extensions]\nallow = [mergiraf]\n`,
-    },
-    {
-      // TOML forbids a regular table at a path already used as an array of
-      // tables, so appending `[extensions]` here would write a file no reader
-      // accepts — and an unreadable policy is an unenforced one.
-      label: "[extensions] declared as an array of tables",
-      config: `[[extensions]]  # array of tables\nname = "a"\n`,
-    },
-    {
-      // A TOML table header is a key, and keys may be quoted, so this names the
-      // same table as `[extensions]`. Appending the bare form would define it
-      // twice.
-      label: "[extensions] declared with a quoted key",
-      config: `["extensions"]\nallow = ["mergiraf"]\n`,
-    },
-    {
-      label: "[extensions] declared with a literal-quoted key",
-      config: `[ 'extensions' ]  # literal key\nallow = []\n`,
-    },
-    {
-      label: "[extensions] declared as a quoted array of tables",
-      config: `[["extensions"]]\nname = "a"\n`,
-    },
-    {
-      // TOML basic strings decode `\uXXXX`, so this key IS `extensions` — a
-      // spelling a raw text comparison does not recognize.
-      label: "[extensions] declared with an escaped basic-string key",
-      config: `["\\u0065xtensions"]\nallow = ["mergiraf"]\n`,
-    },
-    {
-      label: "[extensions] declared as an escaped array of tables",
-      config: `[[ "\\u0065xtensions" ]]\nname = "a"\n`,
-    },
-    {
-      // Literal strings do NOT decode escapes, so this names a *different*
-      // table than `[extensions]`. It is refused anyway: the editor recognizes
-      // one header spelling and declines the rest rather than adjudicating
-      // which quoted forms collide.
-      label: "an unrelated quoted table header",
-      config: `["other"]\nx = 1\n`,
-    },
+/**
+ * Hand-authored configuration is input, not storage. Epoch parses no TOML it
+ * did not write and rewrites none of it, which is what removes the class of
+ * defect that repeated line-editing of this file kept producing.
+ */
+function operatorConfigurationIsReadNeverRewritten(): void {
+  const shapes: readonly string[] = [
+    `[extensions]\nallow = ["mergiraf"]\n`,
+    `[extensions]  # policy\nallow = [\n  "mergiraf",\n]\n`,
+    `["extensions"]\nallow = ["mergiraf"]\n`,
+    `[["extensions"]]\nname = "a"\n`,
+    `["\\u0065xtensions"]\nallow = ["mergiraf"]\n`,
+    `[extensions]\nallow = ["a"]\nallow = ["b"]\n`,
   ];
 
-  for (const { label, config } of unsupported) {
+  for (const shape of shapes) {
     const root = workspace();
     try {
-      writeFileSync(join(root, ".epoch", "config.toml"), config, "utf8");
-      assert.throws(
-        () => runExtensionCommand(root, ["trust", "greet"], capture().io, { pathEntries: [] }),
-        /refusing to edit/u,
-        `${label} must be refused, not rewritten`,
-      );
-      // Refusing means leaving the operator's file exactly as it was. A partial
-      // rewrite of a trust policy is worse than no rewrite at all.
-      assert.equal(configOf(root), config, `${label} must leave the file untouched`);
+      const before = `[core]\ndefault_branch = "main"\n\n${shape}`;
+      writeFileSync(configPath(root), before, "utf8");
 
-      // A refusal must not be recorded as a completed grant. `succeeded` has to
-      // mean the policy actually changed, or the audit log describes decisions
-      // the repository never made.
-      const operations = new EpochRepository(root).events()
-        .filter((event) => event.type === "operation")
-        .map((event) => (event.payload as { command?: string }).command);
-      assert.ok(!operations.includes("ext-trust"), `${label} must record no operation`);
+      runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+
+      // Whatever the operator wrote, Epoch leaves it exactly as found.
+      assert.equal(readFileSync(configPath(root), "utf8"), before, `must not rewrite: ${shape}`);
+      assert.ok(existsSync(storePath(root)), "consent is recorded beside the config, not inside it");
+      assert.equal(wouldRun(root), true, `consent must take effect despite: ${shape}`);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
@@ -233,47 +186,103 @@ function configEditRefusesShapesItCannotRewriteSafely(): void {
 }
 
 /**
- * The name reaches a TOML string unescaped, so the grammar check is the only
- * thing standing between an argument and a forged policy entry.
+ * A damaged store must not read as "no entries": that would drop its `block`
+ * list, turning corruption into a widened policy.
  */
-function trustRefusesNamesThatWouldInjectPolicy(): void {
-  const injections: readonly string[] = [
-    `greet", "evil`,
-    `greet"]\ntrust = "any"\n#`,
-    `greet\nblock = []`,
-    `greet # comment`,
-    `greet"`,
-    `Greet`,
-    `-greet`,
-    ``,
-  ];
+function aCorruptStoreTrustsNothing(): void {
+  const root = workspace();
+  try {
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+    assert.equal(wouldRun(root), true);
 
-  for (const name of injections) {
+    writeFileSync(configPath(root), `${readFileSync(configPath(root), "utf8")}\n[extensions]\ntrust = "any"\n`, "utf8");
+    writeFileSync(storePath(root), `{"version":1,"allow":[{"name":`, "utf8");
+
+    assert.equal(wouldRun(root), false, "a corrupt store closes the policy, even under trust = 'any'");
+
+    const damaged = readFileSync(storePath(root), "utf8");
+    const before = operationsOf(root).length;
+    assert.throws(
+      () => runExtensionCommand(root, ["trust", "greet"], capture().io, isolated),
+      /not a readable trust store/u,
+      "and it is never silently overwritten",
+    );
+    assert.equal(readFileSync(storePath(root), "utf8"), damaged, "the operator's file is left as found");
+    assert.equal(operationsOf(root).length, before, "a refused grant records no operation");
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+}
+
+function trustRefusesNamesOutsideTheGrammar(): void {
+  const rejected: readonly string[] = [`greet", "evil`, `greet\nblock = []`, `greet # c`, `../../etc/passwd`, `Greet`, ``];
+
+  for (const name of rejected) {
     const root = workspace();
     try {
-      const before = configOf(root);
       assert.throws(
-        () => runExtensionCommand(root, ["trust", name], capture().io, { pathEntries: [] }),
+        () => runExtensionCommand(root, ["trust", name], capture().io, isolated),
         /invalid extension name/u,
         `'${name}' must be refused`,
       );
-      assert.equal(configOf(root), before, `'${name}' must not reach the policy file`);
-
-      // Refused before the audit append, so a rejected name leaves no operation
-      // claiming a grant that was never made.
-      const operations = new EpochRepository(root).events()
-        .filter((event) => event.type === "operation")
-        .map((event) => (event.payload as { command?: string }).command);
-      assert.ok(!operations.includes("ext-trust"), `'${name}' must not record an operation`);
+      assert.ok(!existsSync(storePath(root)), `'${name}' must not reach the store`);
+      assert.ok(!operationsOf(root).includes("ext-trust"), `'${name}' must record no operation`);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
   }
 
-  // The grammar the manifest parser enforces and the one the CLI enforces must
-  // be the same, or a name could be trustable but never loadable.
-  assert.equal(isExtensionName("greet"), true);
+  // The CLI and the manifest parser share one grammar, so a name cannot be
+  // trustable but unloadable.
   assert.equal(isExtensionName("git-town"), true);
-  assert.equal(isExtensionName("a1"), true);
   assert.equal(isExtensionName(`a", "b`), false);
+}
+
+/**
+ * Trust is decided against a digest read moments before launch. Re-reading it
+ * at the spawn boundary does not close that window, but it narrows it, and a
+ * swap that loses the race is refused rather than run.
+ */
+function dispatchRefusesABinarySwappedAfterTheCheck(): void {
+  const root = workspace();
+  try {
+    const bin = join(root, ".epoch", "ext", "bin");
+    const executable = join(bin, "epoch-greet");
+    // A filesystem whose digest answers are scripted, so the swap lands in the
+    // window between the trust decision and the launch rather than before it.
+    const scripted = (digests: readonly string[]): ExtensionFileSystem => {
+      let calls = 0;
+      return {
+        listDirectory: (directory) => (directory === bin ? ["epoch-greet", "epoch-greet.toml"] : []),
+        isExecutableFile: (path) => path === executable,
+        readTextFile: (path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined),
+        fileDigest: () => digests[Math.min(calls++, digests.length - 1)],
+      };
+    };
+
+    const consented = "a".repeat(64);
+    runExtensionCommand(root, ["trust", "greet"], capture().io, {
+      pathEntries: [],
+      fileSystem: scripted([consented]),
+    });
+
+    const captured = capture();
+    let spawned = false;
+    const result = dispatchExternalSubcommand(root, "greet", [], captured.io, {
+      pathEntries: [],
+      homeDirectory: join(root, "absent-home"),
+      // Matches the grant at discovery, differs at the spawn boundary.
+      fileSystem: scripted([consented, "b".repeat(64)]),
+      spawn: () => {
+        spawned = true;
+        return 0;
+      },
+    });
+
+    assert.equal(spawned, false, "a binary that changed mid-command must not be launched");
+    assert.equal(result.exitCode, 1);
+    assert.match(captured.err(), /changed on disk while it was being checked/u);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 }

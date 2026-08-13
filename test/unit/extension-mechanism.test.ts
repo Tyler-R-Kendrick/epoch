@@ -23,6 +23,13 @@ import {
   readTrustPolicy,
   resolveSubcommand,
   shadowedExtensions,
+  withRecordedConsent,
+  EMPTY_TRUST_STORE,
+  grantTrust,
+  parseTrustStore,
+  revokeTrust,
+  serializeTrustStore,
+  TrustStoreError,
   type ExtensionFileSystem,
 } from "@epoch/extensions";
 
@@ -45,6 +52,78 @@ export function runExtensionMechanismTests(): void {
   descriptorCarriesProvenance();
   contractConstantsAreStable();
   realFilesystemDiscoveryFindsExecutablesOnly();
+  consentBindsToTheBinaryItWasGivenFor();
+  trustStoreRoundTripsAndFailsClosed();
+}
+
+/**
+ * Consent to a name alone is Git's model: it trusts whatever binary later
+ * occupies the path. Binding it to a digest is the improvement this mechanism
+ * exists to make, so it is asserted directly rather than implied by the CLI.
+ */
+function consentBindsToTheBinaryItWasGivenFor(): void {
+  const manifest = parseExtensionManifest(MANIFEST.replace(`"difftastic"`, `"greet"`));
+  const consented = "a".repeat(64);
+  const policy = withRecordedConsent(DEFAULT_TRUST_POLICY, {
+    allow: [{ name: "greet", executableSha256: consented }],
+    block: [],
+  });
+
+  const same = evaluateTrust("greet", manifest, policy, { executableSha256: consented });
+  assert.equal(same.trusted, true);
+  assert.equal(same.reason, "allowed-by-consent");
+
+  // A different binary at the same path was never consented to. Epoch cannot
+  // tell an upgrade from a substitution, so it asks rather than assumes.
+  const swapped = evaluateTrust("greet", manifest, policy, { executableSha256: "b".repeat(64) });
+  assert.equal(swapped.trusted, false);
+  assert.equal(swapped.reason, "executable-changed");
+  assert.match(swapped.detail, /re-run 'epoch ext trust greet'/u);
+
+  // An undigestible binary cannot be matched against the grant either.
+  assert.equal(evaluateTrust("greet", manifest, policy, {}).reason, "executable-changed");
+
+  // A revocation recorded in the store outranks consent and open policy alike.
+  const revoked = withRecordedConsent(readTrustPolicy({ trust: "any" }), {
+    allow: [{ name: "greet", executableSha256: consented }],
+    block: ["greet"],
+  });
+  assert.equal(evaluateTrust("greet", manifest, revoked, { executableSha256: consented }).reason, "blocked-by-name");
+}
+
+function trustStoreRoundTripsAndFailsClosed(): void {
+  const granted = grantTrust(EMPTY_TRUST_STORE, "greet", "c".repeat(64));
+  assert.deepEqual(parseTrustStore(serializeTrustStore(granted)), granted);
+
+  // Trusting is a true inverse of untrusting: it clears the block rather than
+  // leaving the name denied while reporting success.
+  const revoked = revokeTrust(granted, "greet");
+  assert.deepEqual(revoked.allow, []);
+  assert.deepEqual(revoked.block, ["greet"]);
+  assert.deepEqual(grantTrust(revoked, "greet", "d".repeat(64)).block, []);
+
+  // Re-trusting replaces the grant rather than accumulating duplicates.
+  assert.deepEqual(grantTrust(granted, "greet", "d".repeat(64)).allow, [{ name: "greet", executableSha256: "d".repeat(64) }]);
+
+  // Serialization is deterministic, so two clones consenting to the same set
+  // produce byte-identical files.
+  const forward = grantTrust(grantTrust(EMPTY_TRUST_STORE, "alpha", undefined), "beta", undefined);
+  const backward = grantTrust(grantTrust(EMPTY_TRUST_STORE, "beta", undefined), "alpha", undefined);
+  assert.equal(serializeTrustStore(forward), serializeTrustStore(backward));
+
+  // Every malformed shape is an error, never a silently empty store: reading
+  // corruption as "no entries" would drop `block` and widen the policy.
+  for (const malformed of [
+    "not json",
+    "[]",
+    `{"version":2,"allow":[],"block":[]}`,
+    `{"version":1,"allow":"nope","block":[]}`,
+    `{"version":1,"allow":[{"name":""}],"block":[]}`,
+    `{"version":1,"allow":[{"name":"a","executableSha256":"short"}],"block":[]}`,
+    `{"version":1,"allow":[],"block":[1]}`,
+  ]) {
+    assert.throws(() => parseTrustStore(malformed), TrustStoreError, `must reject: ${malformed}`);
+  }
 }
 
 const MANIFEST = [
@@ -473,7 +552,7 @@ function contractConstantsAreStable(): void {
     "codec",
     "hook",
   ]);
-  assert.deepEqual(DEFAULT_TRUST_POLICY, { trust: "explicit", allow: [], block: [], allowPublishers: [] });
+  assert.deepEqual(DEFAULT_TRUST_POLICY, { trust: "explicit", allow: [], grants: [], block: [], allowPublishers: [] });
 }
 
 function realFilesystemDiscoveryFindsExecutablesOnly(): void {

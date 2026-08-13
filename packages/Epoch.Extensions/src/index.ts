@@ -25,13 +25,26 @@ export {
   evaluateTrust,
   manifestSigningPayload,
   readTrustPolicy,
+  withRecordedConsent,
   type ExtensionTrustPolicy,
   type ManifestSignatureVerifier,
   type TrustDecision,
   type TrustEvaluationOptions,
+  type TrustGrant,
   type TrustMode,
   type TrustReason,
 } from "./trust";
+
+export {
+  EMPTY_TRUST_STORE,
+  grantTrust,
+  parseTrustStore,
+  revokeTrust,
+  serializeTrustStore,
+  TRUST_STORE_VERSION,
+  TrustStoreError,
+  type TrustStore,
+} from "./store";
 
 export {
   CapabilityRegistry,

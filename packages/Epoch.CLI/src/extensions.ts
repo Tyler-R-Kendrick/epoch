@@ -1,19 +1,27 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { EpochRepository } from "@epoch/core";
 import {
   buildExternalInvocation,
   discoverExtensions,
+  EMPTY_TRUST_STORE,
+  grantTrust,
+  nodeExtensionFileSystem,
+  parseTrustStore,
   readTrustPolicy,
   resolveSubcommand,
+  revokeTrust,
+  serializeTrustStore,
   shadowedExtensions,
+  withRecordedConsent,
   type DiscoveredExtension,
   type ExtensionFileSystem,
   type ExternalInvocation,
   isExtensionName,
   type ExtensionTrustPolicy,
+  type TrustStore,
 } from "@epoch/extensions";
 import { BUILTIN_COMMANDS, CliText } from "./domain";
 
@@ -49,15 +57,51 @@ export interface ExtensionCliDependencies {
   readonly fileSystem?: ExtensionFileSystem;
 }
 
+/** Where recorded consent lives. Machine-owned, never hand-edited. */
+function trustStorePath(root: string): string {
+  return join(root, ".epoch", "ext", "trust.json");
+}
+
+/** Read recorded consent, or `undefined` when the store cannot be trusted. */
+function readTrustStore(root: string): TrustStore | undefined {
+  const path = trustStorePath(root);
+  if (!existsSync(path)) return EMPTY_TRUST_STORE;
+  try {
+    return parseTrustStore(readFileSync(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve the effective policy: hand-authored configuration plus recorded
+ * consent.
+ *
+ * Every failure path here yields the closed default rather than an open one. A
+ * corrupt store in particular must not degrade to "no entries", because that
+ * would silently drop its `block` list — damage to the file would widen the
+ * policy instead of narrowing it.
+ */
 function policyFor(root: string): ExtensionTrustPolicy {
+  const store = readTrustStore(root);
+  if (store === undefined) return readTrustPolicy(undefined);
   try {
     const config = new EpochRepository(root).repositoryConfig();
-    return readTrustPolicy(config.extensions as Record<string, unknown> | undefined);
+    return withRecordedConsent(readTrustPolicy(config.extensions as Record<string, unknown> | undefined), store);
   } catch {
-    // A repository that cannot be read yields the closed default rather than
-    // an open one.
-    return readTrustPolicy(undefined);
+    // A repository whose configuration cannot be read still honours consent
+    // already recorded, but adopts no hand-authored policy.
+    return withRecordedConsent(readTrustPolicy(undefined), store);
   }
+}
+
+/** Replace the store atomically, so a crash cannot leave it half-written. */
+function writeTrustStore(root: string, store: TrustStore): void {
+  const path = trustStorePath(root);
+  mkdirSync(dirname(path), { recursive: true });
+  const temporary = `${path}.${process.pid}.tmp`;
+  writeFileSync(temporary, serializeTrustStore(store), "utf8");
+  renameSync(temporary, path);
 }
 
 function discover(root: string, dependencies: ExtensionCliDependencies): readonly DiscoveredExtension[] {
@@ -131,202 +175,39 @@ export function runExtensionCommand(
   if (action === "trust" || action === "untrust") {
     const name = args[1];
     if (name === undefined) throw new Error(CliText.extUsage);
-    // The name is written verbatim into a TOML string in the policy file, so an
-    // unchecked one could close that string and open another key: `greet", "evil`
-    // would allow two extensions, and one carrying a newline could append a whole
-    // `trust = "any"` line. The extension-name grammar admits no quote, newline,
-    // `#`, or bracket, which is what makes `renderList` safe rather than lucky.
+    // The name reaches a file path and an audit record, so it is validated
+    // before either. The store itself is JSON and needs no escaping, but a name
+    // outside the grammar could never match a discovered extension anyway.
     if (!isExtensionName(name)) {
       throw new Error(`invalid extension name '${name}'; names are lowercase letters, digits, and hyphens`);
     }
-    // The decision has to change dispatch, not merely be recorded. `untrust`
-    // therefore writes `block` as well as clearing `allow`: `block` wins in
-    // every mode, so revocation holds under `trust = "any"` and under a signed
-    // publisher, which removal from `allow` alone would not. Trust stays local
-    // configuration rather than synced state, so consenting in one clone never
-    // grants execution in another.
-    updateTrustLists(resolve(root), name, action === "trust");
-    // Recorded only once the edit has landed. `succeeded` has to mean it
-    // succeeded: an editor that refuses a config shape it cannot rewrite is a
-    // routine outcome, not a crash, so recording first would stamp a refusal as
-    // a completed grant on every such refusal.
-    const repository = new EpochRepository(resolve(root));
-    repository.appendOperation(`ext-${action}`, "succeeded", { extension: name });
-    io.stdout.write(`${action === "trust" ? "trusted" : "untrusted"} extension '${name}' in .epoch/config.toml\n`);
+    const absolute = resolve(root);
+    const store = readTrustStore(absolute);
+    if (store === undefined) {
+      throw new Error(
+        `refusing to edit ${trustStorePath(absolute)}: it is not a readable trust store; remove it to start over`,
+      );
+    }
+
+    // Consent binds to the binary, not just the name. Trusting `greet` grants
+    // *this* `epoch-greet`; a different one at the same path has not been
+    // consented to and is refused until the operator says so again.
+    const digest = action === "trust"
+      ? discover(absolute, dependencies).find((extension) => extension.name === name)?.executableSha256
+      : undefined;
+    writeTrustStore(absolute, action === "trust" ? grantTrust(store, name, digest) : revokeTrust(store, name));
+
+    // Recorded only once the write has landed. `succeeded` has to mean it
+    // succeeded, or a refusal is stamped into history as a completed grant.
+    new EpochRepository(absolute).appendOperation(`ext-${action}`, "succeeded", { extension: name });
+    const bound = action === "trust" && digest !== undefined ? ` (${digest.slice(0, 12)}…)` : "";
+    io.stdout.write(`${action === "trust" ? "trusted" : "untrusted"} extension '${name}'${bound}\n`);
     return;
   }
 
   throw new Error(CliText.extUsage);
 }
 
-/** Strip a trailing `#` comment, ignoring `#` inside quoted values. */
-function withoutComment(line: string): string {
-  let quote: string | undefined;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (quote !== undefined) {
-      if (character === "\\") index += 1;
-      else if (character === quote) quote = undefined;
-      continue;
-    }
-    if (character === "\"" || character === "'") quote = character;
-    else if (character === "#") return line.slice(0, index);
-  }
-  return line;
-}
-
-/** A TOML bare key, the only header spelling this editor interprets. */
-const BARE_KEY = /^[A-Za-z0-9_.-]+$/u;
-
-/**
- * Classify a line as a TOML table header.
- *
- * A header is a key, and keys may be bare, quoted, or escaped — `[extensions]`,
- * `["extensions"]`, and `["extensions"]` all name one table, while
- * `['extensions']` names a different one because literal strings do not
- * decode escapes. Rather than reimplement those rules and keep discovering
- * spellings it got wrong, this recognizes the one form it can rewrite and
- * classifies everything else as uninterpretable.
- *
- * Refusing the rest costs nothing real: Epoch's own reader accepts bare-key
- * headers only and throws on the others, so a config containing one is already
- * unreadable, already resolving to the closed default policy, and cannot be
- * fixed by appending to it.
- */
-function tomlHeaderKind(
-  content: string,
-): "extensions-table" | "extensions-array" | "other" | "uninterpretable" | undefined {
-  const array = /^\[\[(.*)\]\]$/u.exec(content);
-  const table = array === null ? /^\[(.*)\]$/u.exec(content) : null;
-  const inner = (array?.[1] ?? table?.[1])?.trim();
-  if (inner === undefined) return undefined;
-
-  if (!BARE_KEY.test(inner)) return "uninterpretable";
-  if (inner !== "extensions") return "other";
-  return array === null ? "extensions-table" : "extensions-array";
-}
-
-function renderList(key: string, names: readonly string[]): string {
-  return `${key} = [${names.map((name) => `"${name}"`).join(", ")}]`;
-}
-
-/** A single-line flat array of double-quoted strings, or `undefined`. */
-function parseSimpleList(value: string): readonly string[] | undefined {
-  const body = /^\[([^[\]]*)\]$/u.exec(value.trim())?.[1];
-  if (body === undefined) return undefined;
-  const entries = body.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
-  const names: string[] = [];
-  for (const entry of entries) {
-    const quoted = /^"([^"\\]*)"$/u.exec(entry);
-    if (quoted === null) return undefined;
-    names.push(quoted[1]);
-  }
-  return names;
-}
-
-class ConfigEditError extends Error {
-  constructor(detail: string) {
-    super(`refusing to edit .epoch/config.toml: ${detail}; edit the [extensions] table by hand`);
-    this.name = "ConfigEditError";
-  }
-}
-
-/**
- * Add or remove an extension in the local `[extensions]` `allow` and `block`
- * lists.
- *
- * This is a line editor, not a TOML writer, so it recognizes exactly the shape
- * it can rewrite safely — one `[extensions]` table holding single-line arrays
- * of quoted names — and refuses anything else. The alternative is worse than
- * refusing: appending a second `[extensions]` header or a duplicate key
- * corrupts the very file that decides whether an external process runs.
- */
-function updateTrustLists(root: string, name: string, trusted: boolean): void {
-  const configPath = join(root, ".epoch", "config.toml");
-  const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
-  const lines = existing.length === 0 ? [] : existing.split(/\r?\n/u);
-
-  // A header carrying a trailing comment is still the same table. Matching on
-  // the raw line would miss it and append a duplicate section.
-  const headers: number[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const kind = tomlHeaderKind(withoutComment(lines[index]).trim());
-    if (kind === "extensions-array") {
-      // TOML forbids a regular table at a path already used as an array of
-      // tables, so appending `[extensions]` below this would produce a file no
-      // reader accepts — and an unreadable policy is an unenforced one.
-      throw new ConfigEditError("it declares [extensions] as an array of tables");
-    }
-    if (kind === "uninterpretable") {
-      // A quoted or escaped header may name `extensions` in a spelling this
-      // editor cannot recognize, in which case appending the bare form would
-      // define the same table twice. Refusing every such header is what keeps
-      // that from depending on which escape sequences this file understands.
-      throw new ConfigEditError(`it has a table header that is not a bare key: ${lines[index].trim()}`);
-    }
-    if (kind === "extensions-table") headers.push(index);
-  }
-  if (headers.length > 1) throw new ConfigEditError("it declares [extensions] more than once");
-
-  const persist = (): void => {
-    mkdirSync(dirname(configPath), { recursive: true });
-    writeFileSync(configPath, `${lines.join("\n").replace(/\n*$/u, "")}\n`, "utf8");
-  };
-
-  if (headers.length === 0) {
-    if (lines.length > 0 && lines[lines.length - 1].trim().length > 0) lines.push("");
-    lines.push("[extensions]", renderList("allow", trusted ? [name] : []), renderList("block", trusted ? [] : [name]));
-    persist();
-    return;
-  }
-
-  const sectionIndex = headers[0];
-  let sectionEnd = lines.length;
-  for (let index = sectionIndex + 1; index < lines.length; index += 1) {
-    if (withoutComment(lines[index]).trim().startsWith("[")) {
-      sectionEnd = index;
-      break;
-    }
-  }
-
-  const found = new Map<string, { readonly line: number; readonly names: readonly string[]; readonly comment: string }>();
-  for (let index = sectionIndex + 1; index < sectionEnd; index += 1) {
-    const code = withoutComment(lines[index]);
-    const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/u.exec(code.trim());
-    if (assignment === null) continue;
-    const key = assignment[1];
-    if (key !== "allow" && key !== "block") continue;
-    if (found.has(key)) throw new ConfigEditError(`[extensions] declares '${key}' more than once`);
-    const names = parseSimpleList(assignment[2]);
-    if (names === undefined) {
-      throw new ConfigEditError(`[extensions] '${key}' is not a single-line array of quoted names`);
-    }
-    // A trailing comment on the line is the operator's note about their own
-    // policy; rewriting the array must not silently delete it. The gap before
-    // it is carried too, so the line comes back looking the way it was written.
-    found.set(key, { line: index, names, comment: lines[index].slice(code.replace(/\s+$/u, "").length) });
-  }
-
-  const update = (key: "allow" | "block", include: boolean): void => {
-    const entry = found.get(key);
-    const current = entry?.names ?? [];
-    const next = include ? [...new Set([...current, name])].sort() : current.filter((value) => value !== name);
-    if (entry === undefined) {
-      if (!include) return;
-      lines.splice(sectionIndex + 1, 0, renderList(key, next));
-      for (const [otherKey, other] of found) {
-        if (other.line >= sectionIndex + 1) found.set(otherKey, { ...other, line: other.line + 1 });
-      }
-      return;
-    }
-    const indent = /^\s*/u.exec(lines[entry.line])?.[0] ?? "";
-    lines[entry.line] = `${indent}${renderList(key, next)}${entry.comment}`;
-  };
-
-  update("allow", trusted);
-  update("block", !trusted);
-  persist();
-}
 
 export interface ExternalDispatchResult {
   readonly handled: boolean;
@@ -357,6 +238,17 @@ export function dispatchExternalSubcommand(
   if (resolution.kind === "untrusted") {
     io.stderr.write(`${resolution.trust.detail}\n`);
     io.stderr.write(`extension executable: ${resolution.extension.executable}\n`);
+    return { handled: true, exitCode: 1 };
+  }
+
+  // The digest that earned trust was read during discovery, and the binary is
+  // launched some milliseconds later. Re-reading it here does not close that
+  // window — only exec-by-descriptor would, which Node does not offer — but it
+  // shrinks the race to the syscall boundary instead of the whole command, and
+  // a swap that loses the race is refused rather than run.
+  const digest = (dependencies.fileSystem ?? nodeExtensionFileSystem).fileDigest?.(resolution.extension.executable);
+  if (digest !== resolution.extension.executableSha256) {
+    io.stderr.write(`extension '${command}' changed on disk while it was being checked; refusing to run it\n`);
     return { handled: true, exitCode: 1 };
   }
 
