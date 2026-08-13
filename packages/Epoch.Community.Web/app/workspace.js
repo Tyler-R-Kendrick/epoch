@@ -371,6 +371,10 @@
         source: (options && options.source) || "web",
         confirmed: !!(options && options.confirmed),
       });
+      // A command is not done until it is on disk. Returning a receipt for a
+      // write still sitting in a queue would make "it merged" a claim about
+      // memory, and a reload a moment later would quietly disagree.
+      if (storage) await storage.flush();
       render();
       emit("cw:workspace-changed", { receipt: receipt });
       return receipt;
@@ -488,6 +492,12 @@
     flush: function () { return storage ? storage.flush() : Promise.resolve(); },
     export: function () { return storage ? storage.snapshot() : {}; },
   };
+
+  // Backstop for anything that wrote outside a command: a page being torn down
+  // is the last chance to get the queue out.
+  window.addEventListener("pagehide", function () {
+    if (storage) void storage.flush();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () { void start(); });
