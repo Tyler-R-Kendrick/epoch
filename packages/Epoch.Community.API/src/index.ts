@@ -44,6 +44,7 @@ import { migrateCommunityState } from "./migrations";
 import { createCommunityServiceApis, type CommunityServiceApis } from "./service-host";
 import { createMemoryCommunityStateStore, type CommunityStateSnapshot, type CommunityStateStore } from "./store";
 import type { CommunityStateV3 } from "./state-schema";
+import type { CommunityNamespaceApi } from "./namespace-api";
 import type { CommunitySearchRequest } from "./search-api";
 
 export * from "./community-source";
