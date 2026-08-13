@@ -2,6 +2,7 @@ import type { EpochIntegrationStorage } from "@epoch/integration-core";
 import { createCommunityCommandBus, type CommunityCommandBus, type EpochPolicySet } from "./commands";
 import { createStaticHarnessRelease, type StaticHarnessRelease } from "./harness";
 import type { EpochCommandReceipt, EpochCommandSource } from "./receipts";
+import type { DynamicUiManifest } from "./ui";
 import { createBrowserEpochWorkspace, type BrowserEpochWorkspace } from "./workspace";
 
 /**
@@ -20,6 +21,8 @@ export interface CreateCommunityRuntimeOptions {
   readonly storage?: EpochIntegrationStorage;
   readonly policies?: EpochPolicySet;
   readonly defaultSource?: EpochCommandSource;
+  /** Opening interface for a fresh workspace. Defaults to the harness safe-mode manifest. */
+  readonly initialManifest?: DynamicUiManifest;
   /** Injected so receipts stay reproducible in tests and deterministic replays. */
   readonly now?: () => string;
 }
@@ -42,6 +45,7 @@ export function createCommunityRuntime(options: CreateCommunityRuntimeOptions): 
     author: options.actor,
     harness,
     ...(options.storage === undefined ? {} : { storage: options.storage }),
+    ...(options.initialManifest === undefined ? {} : { initialManifest: options.initialManifest }),
   });
 
   const listeners = new Set<(receipt: EpochCommandReceipt) => void>();

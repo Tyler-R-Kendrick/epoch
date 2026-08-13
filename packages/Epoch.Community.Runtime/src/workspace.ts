@@ -179,12 +179,29 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
 
   function ensureTrunk(): void {
     if (epoch.readOptionalTrackedEntity(viewEntity(TRUNK_VIEW)) !== undefined) return;
-    appendRevision(TRUNK_VIEW, {
+    const created = appendRevision(TRUNK_VIEW, {
       manifest: initialManifest,
       provenance: { kind: "created" },
       kind: "trunk",
     }, `created view ${TRUNK_VIEW}`);
     setActive(TRUNK_VIEW);
+
+    // A workspace with no last-known-good has no way back the first time
+    // someone breaks their interface. The opening revision came from the
+    // installed harness, so if it validates it is a known-good one.
+    if (validate(initialManifest).length === 0) {
+      promoteLastKnownGood(TRUNK_VIEW, created.revisionIds[0] ?? 1);
+    }
+  }
+
+  function promoteLastKnownGood(view: string, revision: number): string {
+    return epoch.trackChange<{ view: string; revision: number }>({
+      entity: LAST_KNOWN_GOOD_ENTITY,
+      surface: "gen-ui",
+      source: "community-runtime",
+      summary: `promoted ${view}@${revision} to last-known-good`,
+      payload: { view, revision },
+    }).event.id;
   }
 
   function viewEntity(name: string): string {
@@ -391,17 +408,11 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
       },
     }, `merged ${input.from}@${sourceRevision} into ${into}`);
 
-    // Last-known-good only advances behind a validated merge, so recovery never
-    // restores something that was never renderable.
-    const promotion = epoch.trackChange<{ view: string; revision: number }>({
-      entity: LAST_KNOWN_GOOD_ENTITY,
-      surface: "gen-ui",
-      source: "community-runtime",
-      summary: `promoted ${into}@${mutation.revisionIds[0] ?? 1} to last-known-good`,
-      payload: { view: into, revision: mutation.revisionIds[0] ?? 1 },
-    });
+    // Last-known-good otherwise only advances behind a validated merge, so
+    // recovery never restores something that was never renderable.
+    const promotion = promoteLastKnownGood(into, mutation.revisionIds[0] ?? 1);
 
-    return { ...mutation, eventIds: [...mutation.eventIds, promotion.event.id] };
+    return { ...mutation, eventIds: [...mutation.eventIds, promotion] };
   }
 
   function revert(input: RevertViewInput): WorkspaceMutation<EpochViewSummary> {

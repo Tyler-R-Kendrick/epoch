@@ -42,8 +42,19 @@
 <div class="cw-profile-menu" data-profile-menu data-open="false" hidden role="menu" aria-label="Profile and spaces"></div>
 
 <div data-cw-fx-host><main id="cw-main" class="cw-mount" data-mount data-exp="graph" aria-label="Board" tabindex="-1"></main></div>
+<!-- Static harness: the workspace's own region. The dynamic layer fills these
+     slots; it cannot add, move, or remove them, and cannot reach the recovery
+     controls inside board.recovery. -->
+<aside class="cw-harness" data-cw-harness data-safe-mode="false" aria-label="Epoch workspace">
+  <p class="cw-harness-notice" data-cw-harness-notice hidden></p>
+  <div class="cw-harness-slot" data-cw-slot="board.context-panel" aria-label="Context panel" hidden></div>
+  <div class="cw-harness-slot" data-cw-slot="board.recovery" aria-label="Workspace recovery" hidden></div>
+</aside>
+
 <footer data-region="status" role="contentinfo">
   <span data-status-line></span>
+  <span class="cw-harness-slot cw-harness-status" data-cw-slot="shell.workspace-status"
+    aria-label="Workspace status" hidden></span>
   <span class="cw-status-trail">
     <button type="button" class="cw-restart-cue" data-restart-cue hidden
       title="Apply compatible startup actions and restart (Ctrl+U)"
@@ -118,7 +129,9 @@
 <script src="context-menu.js"></script>
 <script src="copy-format.js"></script>
 <script src="themes.js"></script>
+<script src="community-runtime.js"></script>
 <script src="app.js"></script>
+<script src="workspace.js"></script>
 <script src="openui-parser.js"></script>
 <script src="openui-library.js"></script>
 </body>

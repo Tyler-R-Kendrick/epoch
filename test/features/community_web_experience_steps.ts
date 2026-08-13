@@ -2676,3 +2676,69 @@ Then("both frontends expose the same canonical expression semantics", function (
   assert.deepEqual(searchProjectionJourneyResult.textAst, searchProjectionJourneyResult.structured);
   assert.equal(searchProjectionJourneyResult.oneOf, true);
 });
+
+/**
+ * The board is an Epoch participant, so opening it is opening a workspace. The
+ * assertions below are about what the person gets — their own project, an
+ * interface with a revision behind it — not about how it is stored.
+ */
+interface BoardWorkspaceProbe {
+  readonly workspaceId: string;
+  readonly harnessVerified: boolean;
+  readonly events: number;
+  readonly projectSlug: string;
+  readonly uiView: string;
+  readonly statusSlot: string;
+}
+
+async function boardWorkspace(): Promise<BoardWorkspaceProbe> {
+  const page = requirePage();
+  await page.waitForFunction(() => {
+    const workspace = (globalThis as unknown as { CW_WORKSPACE?: { project(): unknown } }).CW_WORKSPACE;
+    return workspace !== undefined && workspace.project() !== null;
+  }, undefined, { timeout: 10_000 });
+
+  return page.evaluate(() => {
+    const workspace = (globalThis as unknown as {
+      CW_WORKSPACE: {
+        status(): { workspaceId: string; harnessVerified: boolean; events: number };
+        project(): { slug: string; uiView: string };
+      };
+    }).CW_WORKSPACE;
+    const status = workspace.status();
+    const project = workspace.project();
+    return {
+      workspaceId: status.workspaceId,
+      harnessVerified: status.harnessVerified,
+      events: status.events,
+      projectSlug: project.slug,
+      uiView: project.uiView,
+      statusSlot: document.querySelector('[data-cw-slot="shell.workspace-status"]')?.textContent ?? "",
+    };
+  });
+}
+
+Then("the board opens my own workspace with a project that owns my interface", async function () {
+  const probe = await boardWorkspace();
+  assert.ok(probe.workspaceId.startsWith("ws_"), "the board must open a workspace of its own");
+  assert.equal(probe.projectSlug, ".epoch", "a default project holds this browser's interface");
+  assert.ok(probe.harnessVerified, "the installed interface harness must verify before it renders");
+  assert.ok(probe.events > 0, "opening the workspace records history");
+  assert.match(probe.statusSlot, /ws_/u, "the workspace tells me it is there");
+});
+
+Then("the interface it renders is a revision I can inspect and roll back", async function () {
+  const page = requirePage();
+  const probe = await boardWorkspace();
+  const ledger = await page.evaluate((view: string) => {
+    const workspace = (globalThis as unknown as {
+      CW_WORKSPACE: { runtime(): { workspace: { history(view: string): readonly { revision: number; summary: string }[] } } };
+    }).CW_WORKSPACE;
+    return workspace.runtime().workspace.history(view).map((entry) => ({ revision: entry.revision, summary: entry.summary }));
+  }, probe.uiView);
+
+  assert.ok(ledger.length > 0, "the rendered interface must have a revision behind it");
+  assert.equal(ledger[0].revision, 1);
+  assert.equal(await page.locator('[data-cw-command="ui.restoreLastKnownGood"]').count(), 1,
+    "the way back is part of the page, not part of what a revision may change");
+});
