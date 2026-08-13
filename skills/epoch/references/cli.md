@@ -125,3 +125,33 @@ Change Graph commands persist signed protocol events. A leftover
 JSON failures use stable codes including `invalid-input`, `stale-revision`,
 `auth-denied`, `unsupported-capability`, and `conflict`. See the
 [public CLI reference](../../../docs/cli.md) for exact subcommands and limits.
+
+## Community search and namespace commands
+
+`epoch-community` is a separate binary. It uses the same Core Search
+Expression, planner, snapshot, Projection Definition compiler, and Namespace
+runtime as GraphQL and Nightboard. Mutating and search commands need
+`EPOCH_COMMUNITY_API_URL`; `help` works without it. An optional
+`EPOCH_COMMUNITY_API_TOKEN` is sent only as an authorization header.
+
+| Command | Purpose |
+|---|---|
+| `search --query QUERY [--json] [--first N] [--after CURSOR]` | Run deterministic cross-source search and report snapshot/completeness. |
+| `search --graphql FILE [--variables FILE]` | Execute the portable structured GraphQL boundary. |
+| `search explain --query QUERY` | Show normalization, source pushdown, residual evaluation, authorization, order, and omissions. |
+| `projections list\|show ID` | Inspect Projection Definitions. |
+| `projections validate FILE` | Compile versioned JSON with pointer diagnostics and cost/fanout limits. |
+| `projections preview FILE [--path PATH]` | Lazily preview authorized Projection Entries. |
+| `projections save FILE` / `delete ID` | Persist or remove a definition; saving invalid JSON fails closed. |
+| `projections clone builtin:default NEW_ID` | Create an editable definition from the built-in hierarchy. |
+| `namespace mounts` | List scoped Namespace Mounts in effective order. |
+| `namespace mount PROJECTION PATH --mode MODE --scope SCOPE` | Compose a definition by explicit `replace`, `before`, or `after`. |
+| `namespace unmount MOUNT_ID` / `reset --scope SCOPE` | Remove a mount or restore the built-in root while preserving quarantined definitions. |
+| `namespace ls PATH [--first N] [--after CURSOR]` | List one lazy keyset page. |
+| `namespace explain PATH` | Show mount precedence, winning entry, shadows, collisions, and freshness. |
+
+Exit codes distinguish invalid query, authorization denial, partial source,
+stale cursor, unavailable backend, and internal failure. JSON envelopes use
+stable typed codes such as `QUERY_SYNTAX`, `CURSOR_STALE`, `PROJECTION_INVALID`,
+and `NAMESPACE_RECOVERY_PROTECTED`. Query content is excluded from error
+telemetry unless the user explicitly copies it.

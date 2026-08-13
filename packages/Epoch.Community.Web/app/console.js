@@ -365,7 +365,7 @@
       var emptyMsg = "Nothing here yet.";
       if (queryInfo && queryInfo.error) emptyMsg = "Query error: " + queryInfo.error;
       else if (feedQuery && queryInfo && queryInfo.matched === 0) {
-        emptyMsg = "No posts match this view.";
+        emptyMsg = "No posts match this projection.";
       }
       return '<p class="cn-empty">' + esc(emptyMsg) + "</p>";
     }
@@ -3953,6 +3953,30 @@
     [data-exp="console"] .cn-search-mark{
       color:var(--cw-accent-ink, var(--cw-ink));background:var(--cw-accent);
       padding:0 .12em;font-weight:700;border-radius:0}
+    [data-exp="console"] .cn-workbench{display:grid;gap:.65rem;max-width:88ch;padding:.7rem;
+      border:1px solid var(--cw-rule);background:var(--cw-surface);color:var(--cw-ink)}
+    [data-exp="console"] .cn-workbench>header{display:flex;align-items:start;justify-content:space-between;gap:1rem}
+    [data-exp="console"] .cn-workbench>header>div{display:grid;gap:.15rem}
+    [data-exp="console"] .cn-workbench>header span{color:var(--cw-ink-faint);font-size:.82em}
+    [data-exp="console"] .cn-workbench button{min-height:2rem;border:1px solid var(--cw-rule);background:transparent;
+      color:var(--cw-ink);font:inherit;padding:.25rem .55rem;cursor:pointer}
+    [data-exp="console"] .cn-workbench button:hover,[data-exp="console"] .cn-workbench button:focus-visible{
+      border-color:var(--cw-accent);outline:2px solid transparent;color:var(--cw-accent)}
+    [data-exp="console"] .cn-workbench-tabs{display:flex;flex-wrap:wrap;border-block-end:1px solid var(--cw-rule)}
+    [data-exp="console"] .cn-workbench-tabs [role=tab]{border:0;border-block-end:2px solid transparent}
+    [data-exp="console"] .cn-workbench-tabs [aria-selected=true]{border-block-end-color:var(--cw-accent);color:var(--cw-accent)}
+    [data-exp="console"] .cn-workbench-field{display:grid;gap:.35rem;color:var(--cw-ink-dim)}
+    [data-exp="console"] .cn-workbench textarea,[data-exp="console"] .cn-workbench input{box-sizing:border-box;width:100%;
+      border:1px solid var(--cw-rule);background:var(--cw-bg);color:var(--cw-ink);font:inherit;padding:.5rem}
+    [data-exp="console"] .cn-workbench textarea:focus-visible,[data-exp="console"] .cn-workbench input:focus-visible{
+      outline:2px solid var(--cw-accent);outline-offset:1px}
+    [data-exp="console"] .cn-workbench-actions,[data-exp="console"] .cn-source-badges{display:flex;flex-wrap:wrap;gap:.4rem}
+    [data-exp="console"] .cn-workbench-error{color:var(--cw-danger);border-inline-start:3px solid var(--cw-danger);padding:.35rem .55rem}
+    [data-exp="console"] .cn-search-completeness{color:var(--cw-live);font-weight:700}
+    [data-exp="console"] .cn-source-badges span{border:1px solid var(--cw-rule);padding:.1rem .35rem;color:var(--cw-ink-dim)}
+    [data-exp="console"] .cn-workbench pre{max-width:100%;max-height:30rem;overflow:auto;white-space:pre-wrap}
+    [data-exp="console"] .cn-workbench ol{display:grid;gap:.3rem;margin:0;padding-inline-start:1.4rem}
+    [data-exp="console"] .cn-workbench li button{display:flex;justify-content:space-between;width:100%;gap:1rem;text-align:start}
     [data-exp="console"] .cn-mode-tag{display:inline-block;font-size:.75em;color:var(--cw-ink-faint);
       border:1px solid var(--cw-rule);padding:0 .3rem;margin-inline-end:.25rem;border-radius:var(--cw-radius);
       vertical-align:baseline;text-transform:lowercase}
@@ -4037,7 +4061,9 @@
       var activityFilter = null;
       var showingFollow = state.detailOpen === false;
       // Closed selection detail → Following timeline (nav stays a sidebar).
-      if (showingFollow) {
+      if (state.searchWorkbench && window.CW_WORKBENCH) {
+        preview = window.CW_WORKBENCH.render(state);
+      } else if (showingFollow) {
         preview = viewFollowingFeed(state);
       } else if (parts[0] === "notifications" && parts[1] &&
           (parts[1] === "all" || parts[1] === "mentions" || parts[1] === "subscribed" ||

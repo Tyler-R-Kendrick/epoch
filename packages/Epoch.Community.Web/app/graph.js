@@ -1,269 +1,43 @@
-/**
- * The board's GraphQL API.
- *
- * Everything queryable lives behind one schema — channels, posts, members,
- * projects, dms, members — so the agent asks the data what exists instead of
- * being told in a prompt that can drift from it. Introspection is the point: a
- * schema that describes itself cannot go stale the way a hand-written tool list
- * does.
- *
- * The engine is graphql-js, so queries are validated with real error positions
- * rather than pattern-matched. A resolver that answers whatever it is asked is
- * not an API.
- */
+/** Community Web host adapter for the portable @epoch/community-graphql runtime. */
 (function () {
   "use strict";
 
   var D = window.CW_DATA;
   var MAP = window.CW_MAP;
-
-  var SDL = `
-    type ObjectRef {
-      objectId: ID!
-      kind: String!
-      atUri: String
-      revision: String
-      canonicalUrl: String!
-    }
-
-    type Tombstone {
-      formerKind: String!
-      reason: String!
-      deletedAt: String
-      replacement: ObjectRef
-    }
-
-    type Relation {
-      type: String!
-      source: ObjectRef!
-      target: ObjectRef!
-    }
-
-    type ProjectionLocation {
-      projectionId: ID!
-      aliasPath: String!
-      parentObjectId: ID
-    }
-
-    type EntryCapabilities {
-      read: Boolean!
-      enter: Boolean!
-      expand: Boolean!
-      composeUnder: Boolean!
-      execute: Boolean!
-    }
-
-    "A person or an agent on the roll."
-    type Member {
-      handle: String!
-      role: String!
-      "person or agent"
-      kind: String!
-      "Presence, where known."
-      state: String
-      "Harness and supervisor for an agent — accountability is queryable."
-      detail: String
-      "Everything this member has posted, newest last."
-      posts: [Post!]!
-    }
-
-    "One thing that happened: a message, an agent run, a promotion, or a DM."
-    type Post {
-      id: ID!
-      ref: ObjectRef!
-      context: ObjectRef!
-      "Channel id when this is a room post; null for direct messages."
-      channel: String
-      "DM thread id when this is a direct message; null for channel posts."
-      dm: String
-      author: Member
-      at: String!
-      "open, needs-review, promoted or signed"
-      state: String!
-      subject: String
-      body: String!
-      "What it points at: a file, an agent run, an intent."
-      anchor: String
-      "The signature it carries."
-      sig: String!
-      "Where this sits in the tree."
-      path: String!
-      aliases: [String!]!
-      inReplyTo: Message
-      threadRoot: Message!
-      replies(first: Int = 50, after: String, order: String): MessageConnection!
-      relations(type: String): [Relation!]!
-      tombstone: Tombstone
-      locations: [ProjectionLocation!]!
-    }
-
-    "Canonical message graph object; Post remains a compatibility feed shape."
-    type Message {
-      id: ID!
-      ref: ObjectRef!
-      context: ObjectRef!
-      author: Member
-      at: String!
-      state: String!
-      subject: String
-      body: String!
-      path: String!
-      aliases: [String!]!
-      inReplyTo: Message
-      threadRoot: Message!
-      replies(first: Int = 50, after: String, order: String): MessageConnection!
-      relations(type: String): [Relation!]!
-      tombstone: Tombstone
-      locations: [ProjectionLocation!]!
-    }
-
-    type MessageEdge { cursor: String!, node: Message! }
-    type PageInfo { endCursor: String, hasNextPage: Boolean! }
-    type MessageConnection { edges: [MessageEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
-
-    type ProjectionEntry {
-      ref: ObjectRef!
-      alias: String!
-      aliasPath: String!
-      parentObjectId: ID
-      depth: Int!
-      position: Int!
-      setSize: Int!
-      capabilities: EntryCapabilities!
-    }
-
-    type ProjectionEntryEdge { cursor: String!, node: ProjectionEntry! }
-    type ProjectionEntryConnection {
-      edges: [ProjectionEntryEdge!]!
-      pageInfo: PageInfo!
-      totalCount: Int!
-    }
-
-    type Projection {
-      projectionId: ID!
-      kind: String!
-      label: String!
-      visibility: String!
-      query: String
-      queryLanguageVersion: Int
-      entries(first: Int = 50, after: String): ProjectionEntryConnection!
-    }
-
-    "A room. Social channels are where people are; work channels are where work is."
-    type Channel {
-      id: ID!
-      label: String!
-      "social or work"
-      kind: String!
-      unread: Int
-      posts: [Post!]!
-      postCount: Int!
-      path: String!
-    }
-
-    "A linked repository, which owns channels of its own."
-    type Project {
-      slug: ID!
-      open: Int!
-      channels: [ProjectChannel!]!
-      path: String!
-    }
-
-    type ProjectChannel {
-      name: String!
-      posts: [Post!]!
-      path: String!
-    }
-
-    "A 1:1 direct message thread with a person or agent — sibling of projects."
-    type DirectMessage {
-      id: ID!
-      peer: String!
-      "person or agent"
-      kind: String!
-      unread: Int
-      preview: String
-      member: Member
-      messages: [Post!]!
-      messageCount: Int!
-      path: String!
-    }
-
-    "A point-in-time materialisation of what the community built."
-    type Epoch {
-      number: Int!
-      landed: Int!
-      total: Int!
-      ships: String!
-    }
-
-    type Board {
-      name: String!
-      epoch: Epoch!
-    }
-
-    type Query {
-      board: Board!
-      channels(kind: String): [Channel!]!
-      channel(label: String!): Channel
-      members(kind: String): [Member!]!
-      member(handle: String!): Member
-      projects: [Project!]!
-      project(slug: String!): Project
-      "Direct message threads with people and agents."
-      dms(kind: String): [DirectMessage!]!
-      dm(peer: String!): DirectMessage
-      "Full-text over subjects and bodies (channels and DMs)."
-      search(text: String!, limit: Int = 10): [Post!]!
-      "Posts in a given state, e.g. needs-review."
-      posts(state: String, channel: String, limit: Int = 50): [Post!]!
-      object(objectId: ID!): Message
-      projections: [Projection!]!
-      projection(projectionId: ID!): Projection
-      "What a path in the tree contains — the sitemap, queryable."
-      listPath(path: String!): [PathEntry!]!
-    }
-
-    type PathEntry {
-      name: String!
-      "dir, file or agent"
-      kind: String!
-      hint: String
-      path: String!
-      ref: ObjectRef
-      capabilities: EntryCapabilities!
-    }
-  `;
+  var CORE = window.CW_CORE;
+  var PORTABLE = window.CommunityGraphQL;
+  var COMPLETE = Object.freeze({ status: "complete", sources: [], omittedSources: [], unsupportedPredicates: [] });
+  var CURSOR_KEY = new Uint8Array(32).fill(37);
+  var FIELD_REGISTRY = CORE.createCommunityFieldRegistry([], CORE.QUERY_FIELD_REGISTRY_VERSION);
+  var COMPILE_CONTEXT = {
+    fields: CORE.CORE_COMMUNITY_FIELDS.map(function (field) { return field.name; }),
+    sortableFields: CORE.CORE_COMMUNITY_FIELDS.filter(function (field) { return field.sortable; })
+      .map(function (field) { return field.name; }),
+    limits: { maxDepth: 24, maxNodes: 512, maxFanout: 1000, maxTemplateLength: 256,
+      maxSegmentLength: 120, maxRelationDepth: 8 },
+  };
+  var states = new Map();
+  var projectionStates = new Map();
+  var snapshots = new Map();
+  var schema;
 
   function allPosts() {
-    var live = (window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged) || [];
-    // Live DMs share the merged queue with channel traffic, but they must never
-    // enter the public post corpus. They are admitted only by
-    // visibleDmMessages(viewer), after the caller's authorization is known.
-    return D.posts.concat(live.filter(function (post) { return !post.dm; }));
+    var live = window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged || [];
+    return (D.posts || []).concat(D.projectPosts || [], live.filter(function (post) { return !post.dm; }));
   }
 
   function allDmMessages() {
-    var live = (window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged) || [];
-    return (D.dmMessages || []).concat(live.filter(function (m) { return m.dm; }));
-  }
-
-  function canViewPost(post, viewer) {
-    return window.CW_CORE.canReadCommunityResource({
-      kind: post && post.dm ? "dm" : "message",
-      resourceId: post && post.dm ? post.dm : String(post && post.id || "unknown"),
-      visibility: post && post.dm ? "private" : "public",
-      participantIds: post && Array.isArray(post.participantIds) ? post.participantIds : [],
-    }, viewer || {});
-  }
-
-  function visibleDmMessages(viewer) {
-    return allDmMessages().filter(function (post) { return canViewPost(post, viewer); });
+    var live = window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged || [];
+    return (D.dmMessages || []).concat(live.filter(function (post) { return !!post.dm; }));
   }
 
   function readableDmIds(viewer) {
-    if (!viewer || !viewer.actorId) return new Set();
-    return new Set(viewer.readableDmIds || []);
+    return new Set(viewer && viewer.actorId ? viewer.readableDmIds || [] : []);
+  }
+
+  function canViewPost(post, viewer) {
+    if (!post || !post.dm) return true;
+    return readableDmIds(viewer).has(post.dm);
   }
 
   function dmIdFromNotification(notification) {
@@ -271,20 +45,15 @@
     return match ? decodeURIComponent(match[1]) : null;
   }
 
-  /** Filter raw namespace entries before any hint, body, or metadata is exposed. */
+  /** Filter before hints, counts, collision names, or content become observable. */
   function filterNamespaceEntries(path, entries, viewer) {
     var parts = MAP.split(path);
     var readable = readableDmIds(viewer);
     if (parts[0] === "dms" && parts[1] && !readable.has(parts[1])) return [];
     return (entries || []).filter(function (entry) {
-      var dmId = null;
-      if (parts[0] === "dms" && parts.length === 1) {
-        dmId = entry.dm && entry.dm.id || entry.name;
-      } else if (entry.post && entry.post.dm) {
-        dmId = entry.post.dm;
-      } else if (entry.notification) {
-        dmId = dmIdFromNotification(entry.notification);
-      }
+      var dmId = parts[0] === "dms" && parts.length === 1
+        ? entry.dm && entry.dm.id || entry.name
+        : entry.post && entry.post.dm || dmIdFromNotification(entry.notification);
       return !dmId || readable.has(dmId);
     }).map(function (entry) {
       if (parts.length !== 0 || entry.name !== "dms") return entry;
@@ -296,446 +65,346 @@
     });
   }
 
-  function defaultCapabilities(kind) {
-    return {
-      read: true, enter: kind !== "file", expand: false,
-      composeUnder: false, execute: false,
-    };
-  }
-
+  /** UI-facing namespace listing stays a thin presentation adapter over the canonical map. */
   function listPath(path, viewer) {
-    var live = (window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged) || [];
+    var live = window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged || [];
     var entries = MAP.list(path, live);
-    if (!entries) return null;
-    return filterNamespaceEntries(path, entries, viewer).map(function (e) {
-      return {
-        name: e.name, kind: e.kind, hint: e.hint || e.meta || "",
-        path: MAP.resolve(path, e.name),
-        ref: e.ref ? Object.assign({}, e.ref, { canonicalUrl: canonicalUrl(e.ref) }) : null,
-        capabilities: e.capabilities || defaultCapabilities(e.kind),
-      };
+    return entries && filterNamespaceEntries(path, entries, viewer || {});
+  }
+
+  function visibleDefinitions(authorization) {
+    var definitions = [CORE.builtinDefaultProjection].concat(window.CW_WORKBENCH ? window.CW_WORKBENCH.definitions() : []);
+    return definitions.filter(function (definition, index, values) {
+      if (values.findIndex(function (item) { return item.projectionId === definition.projectionId; }) !== index) return false;
+      return definition.visibility === "public" || definition.ownerId === authorization.actorId;
     });
   }
 
-  function memberOf(handle, viewer) {
-    if (handle === "you") return null;
-    var m = D.members.filter(function (x) { return x.handle === handle; })[0];
-    return m ? decorateMember(m, viewer) : null;
-  }
-
-  function objectRef(post) {
-    return MAP.objectRef(post);
-  }
-
-  function canonicalUrl(ref) {
-    var origin = window.location && window.location.origin || "";
-    return window.CW_CORE.objectUrl(ref, origin ? { origin: origin } : {});
-  }
-
-  function allMessages(viewer) {
-    return allPosts().concat(visibleDmMessages(viewer), D.projectPosts || []);
-  }
-
-  function messageGraphFor(viewer) {
-    return viewer && viewer.messageGraph || MAP.messageGraph(allMessages(viewer));
-  }
-
-  function buildPostIndexes() {
-    var channelCounts = new Map();
-    var dmCounts = new Map();
-    var indexes = { channels: new Map(), dms: new Map() };
-    allPosts().forEach(function (post) {
-      var index = channelCounts.get(post.channel) || 0;
-      indexes.channels.set(objectRef(post).objectId, index);
-      channelCounts.set(post.channel, index + 1);
+  function visibleMounts(authorization, definitions) {
+    var ids = new Set(definitions.map(function (definition) { return definition.projectionId; }));
+    return (window.CW_WORKBENCH ? window.CW_WORKBENCH.mounts() : []).filter(function (mount) {
+      return ids.has(mount.projectionId) && (!mount.ownerId || mount.ownerId === authorization.actorId);
+    }).map(function (mount) {
+      return Object.assign({
+        createdAt: D.board.observedAt,
+        updatedAt: D.board.observedAt,
+        order: 0,
+        writable: false,
+      }, mount);
     });
-    allDmMessages().forEach(function (post) {
-      var index = dmCounts.get(post.dm) || 0;
-      indexes.dms.set(objectRef(post).objectId, index);
-      dmCounts.set(post.dm, index + 1);
+  }
+
+  function authorizationKey(authorization) {
+    return JSON.stringify({
+      actorId: authorization.actorId || null,
+      permissions: (authorization.permissions || []).slice().sort(),
+      readableDmIds: (authorization.readableDmIds || []).slice().sort(),
     });
-    return indexes;
   }
 
-  function findMessage(objectId, viewer) {
-    var message = messageGraphFor(viewer).messageOf(objectId);
-    return message ? MAP.postFromMessage(message) : null;
+  function corpusKey(authorization) {
+    return JSON.stringify({
+      authorization: authorizationKey(authorization),
+      corpus: allPosts().concat(allDmMessages().filter(function (post) { return canViewPost(post, authorization); }))
+        .map(function (post) { return [post.id, post.state, post.updatedAt || post.at, post.subject || "", post.body || ""]; }),
+      definitions: visibleDefinitions(authorization),
+      mounts: window.CW_WORKBENCH ? window.CW_WORKBENCH.mounts() : [],
+    });
   }
 
-  function parentMessage(post, viewer) {
-    var graph = messageGraphFor(viewer);
-    var parent = graph.parentOf(objectRef(post));
-    return parent ? MAP.postFromMessage(graph.messageOf(parent)) : null;
+  async function stateFor(authorization) {
+    var key = corpusKey(authorization);
+    var cached = states.get(key);
+    if (cached) return cached;
+    var promise = createState(authorization);
+    states.set(key, promise);
+    if (states.size > 8) states.delete(states.keys().next().value);
+    try { return await promise; }
+    catch (error) { states.delete(key); throw error; }
   }
 
-  function rootMessage(post, viewer) {
-    var graph = messageGraphFor(viewer);
-    return MAP.postFromMessage(graph.messageOf(graph.rootOf(objectRef(post))));
-  }
-
-  function connection(items, args, decorate) {
-    args = args || {};
-    var start = args.after ? Number(args.after) + 1 : 0;
-    var limit = args.first == null ? 50 : Math.max(0, args.first);
-    var page = items.slice(start, start + limit);
-    return {
-      edges: page.map(function (item, index) {
-        return { cursor: String(start + index), node: decorate ? decorate(item) : item };
-      }),
-      pageInfo: { endCursor: page.length ? String(start + page.length - 1) : null,
-        hasNextPage: start + page.length < items.length },
-      totalCount: items.length,
+  async function createState(authorization) {
+    var entities = entitiesFor(authorization);
+    var backend = new CORE.ReferenceSearchBackend({ registry: FIELD_REGISTRY, cursorKey: CURSOR_KEY });
+    await backend.rebuild(entities);
+    var checkpoint = {
+      sourceId: "community-web-host",
+      token: "entities-" + CORE.stableQueryHash(JSON.stringify(entities.map(function (entity) {
+        return [entity.ref.objectId, entity.updatedAt, entity.fields, entity.searchableText];
+      }))),
+      observedAt: D.board.observedAt,
+      status: "current",
     };
-  }
-
-  function locationsFor(post, viewer) {
-    var ref = objectRef(post);
-    var locations = MAP.projectionLocations(ref.objectId);
-    var primary = MAP.pathForObject(ref.objectId);
-    if (primary) locations.push({ projectionId: "thread-" + objectRef(rootMessage(post, viewer)).objectId,
-      aliasPath: primary });
-    return locations;
-  }
-
-  function decorateMember(m, viewer) {
-    return Object.assign({}, m, {
-      posts: function () {
-        return allPosts().filter(function (p) { return p.who === m.handle; })
-          .map(function (post) { return decoratePost(post, viewer); });
-      },
+    var fields = Object.fromEntries(FIELD_REGISTRY.list(authorization).map(function (field) {
+      return [field.name, { operators: field.operators, sortable: field.sortable, facetable: field.facetable }];
+    }));
+    var fingerprint = await CORE.authorizationFingerprint(authorization);
+    var nextId = 0;
+    var runtimeContext = CORE.createCommunityRuntimeContext({
+      clock: { now: function () { return new Date(D.board.observedAt); } },
+      idGenerator: { generate: function (namespace) {
+        nextId += 1;
+        return namespace + "-" + fingerprint.slice(7, 19) + "-" + nextId;
+      } },
+      timezone: "UTC",
+      locale: "en-US",
     });
+    var search = new CORE.SearchService({
+      backend: backend,
+      registry: FIELD_REGISTRY,
+      context: runtimeContext,
+      sources: [{ sourceId: "community-web-host", fields: fields, fullText: "lexical",
+        supportsRelations: true, checkpoint: checkpoint }],
+    });
+    var definitions = visibleDefinitions(authorization);
+    var projection = new CORE.EntityProjectionRuntime({
+      entities: entities,
+      completeness: Object.freeze(Object.assign({}, COMPLETE, { sources: [checkpoint] })),
+      cursorKey: CURSOR_KEY,
+      compileContext: COMPILE_CONTEXT,
+    }, definitions);
+    var namespace = CORE.createNamespaceRuntime(projection, visibleMounts(authorization, definitions));
+    return { entities: entities, byId: new Map(entities.map(function (entity) { return [entity.ref.objectId, entity]; })),
+      backend: backend, search: search, projection: projection, namespace: namespace, checkpoint: checkpoint,
+      authorizationFingerprint: fingerprint };
   }
 
-  function channelPath(channelId) {
-    var c = D.channels.filter(function (x) { return x.id === channelId; })[0];
-    return c ? MAP.channelPath(c.label) : "/projects/community/channels";
-  }
-
-  function decoratePost(p, viewer) {
-    var ref = objectRef(p);
-    var indexes = viewer && viewer.postIndexes || buildPostIndexes();
-    var common = {
-      ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
-      context: function () {
-        var context = MAP.toCommunityMessage(p).context;
-        return Object.assign({}, context, { canonicalUrl: canonicalUrl(context) });
-      },
-      aliases: [ref.objectId, (D.legacyPostAliases || {})[p.id]].filter(Boolean),
-      inReplyTo: function () { var parent = parentMessage(p, viewer); return parent ? decoratePost(parent, viewer) : null; },
-      threadRoot: function () { return decoratePost(rootMessage(p, viewer), viewer); },
-      replies: function (args) {
-        var graph = messageGraphFor(viewer);
-        var children = graph.childrenOf(ref).map(function (child) {
-          return MAP.postFromMessage(graph.messageOf(child));
-        });
-        return connection(children, args, function (child) { return decoratePost(child, viewer); });
-      },
-      relations: function (args) {
-        var relations = (p.relations || []).slice();
-        var parent = parentMessage(p, viewer);
-        if (parent) relations.unshift({ type: "reply", source: ref, target: objectRef(parent) });
-        return relations.filter(function (relation) { return !args.type || relation.type === args.type; })
-          .map(function (relation) {
-            return Object.assign({}, relation, {
-              source: Object.assign({}, relation.source, { canonicalUrl: canonicalUrl(relation.source) }),
-              target: Object.assign({}, relation.target, { canonicalUrl: canonicalUrl(relation.target) }),
-            });
-          });
-      },
-      tombstone: p.tombstone || null,
-      locations: function () { return locationsFor(p, viewer); },
-    };
-    if (p.dm) {
-      var dmIdx = indexes.dms.get(ref.objectId);
-      return Object.assign({}, p, common, {
-        channel: p.channel || null,
-        dm: p.dm,
-        author: function () { return memberOf(p.who, viewer); },
-        path: MAP.dmPath(p.dm) + "/" + MAP.postName(p, Math.max(0, dmIdx)),
+  function entitiesFor(authorization) {
+    var byId = new Map();
+    function add(entity) { if (!byId.has(entity.ref.objectId)) byId.set(entity.ref.objectId, entity); }
+    allPosts().forEach(function (post) { add(messageEntity(post, false, authorization)); });
+    allDmMessages().filter(function (post) { return canViewPost(post, authorization); })
+      .forEach(function (post) { add(messageEntity(post, true, authorization)); });
+    (D.projects || []).forEach(function (project) {
+      add(genericEntity({ objectId: "project-" + MAP.slug(project.slug), kind: "project" }, project.slug,
+        { state: "open" }, "public"));
+    });
+    (D.channels || []).filter(function (channel) { return !channel.voice && channel.kind !== "voice"; })
+      .forEach(function (channel) {
+        add(genericEntity({ objectId: "channel-" + channel.id, kind: "channel" }, channel.label,
+          { state: channel.kind || "open" }, "public"));
       });
-    }
-    var idx = indexes.channels.get(ref.objectId);
-    return Object.assign({}, p, common, {
-      channel: p.channel || null,
-      dm: null,
-      author: function () { return memberOf(p.who, viewer); },
-      path: channelPath(p.channel) + "/" + MAP.postName(p, Math.max(0, idx)),
+    var readable = readableDmIds(authorization);
+    (D.dms || []).filter(function (dm) { return readable.has(dm.id); }).forEach(function (dm) {
+      add(genericEntity({ objectId: dm.objectId || "dm-" + dm.id, kind: "dm" }, dm.peer,
+        { state: dm.unread ? "unread" : "read", dmId: dm.id }, "private", authorization.actorId));
+    });
+    (D.members || []).forEach(function (member) {
+      add(genericEntity({ objectId: member.objectId || "member-" + member.handle, kind: member.kind === "agent" ? "agent" : "member" },
+        member.handle, { state: member.state || member.role || "member", author: member.handle }, "public"));
+    });
+    ((D.agents && D.agents.board) || []).forEach(function (agent) {
+      add(genericEntity({ objectId: agent.objectId || "agent-" + agent.id, kind: "agent" }, agent.name || agent.id,
+        { state: agent.status || "agent", author: agent.id }, "public"));
+    });
+    (D.notifications || []).filter(function (notification) {
+      var dmId = dmIdFromNotification(notification);
+      return !dmId || readable.has(dmId);
+    }).forEach(function (notification) {
+      add(genericEntity(notification.ref || { objectId: "notification-" + notification.id, kind: "notification" },
+        notification.title || notification.body || notification.id, { state: notification.read ? "read" : "unread" }, "public"));
+    });
+    visibleDefinitions(authorization).forEach(function (definition) {
+      if (definition.projectionId === "builtin:default") return;
+      add(genericEntity({ objectId: definition.projectionId, kind: "projection" }, definition.label,
+        { state: definition.updateMode }, definition.visibility === "public" ? "public" : "private", definition.ownerId));
+    });
+    return Object.freeze(Array.from(byId.values()));
+  }
+
+  function messageEntity(post, isDm, authorization) {
+    var message = MAP.toCommunityMessage(post);
+    return CORE.communityMessageToEntity(message, {
+      provenance: { sourceId: "community-web-host", nativeId: message.ref.objectId, observedAt: message.updatedAt || message.publishedAt },
+      visibility: isDm ? "private" : "public",
+      ...(isDm ? { ownerId: authorization.actorId, participantIds: [authorization.actorId] } : {}),
     });
   }
 
-  function decorateDm(d, viewer) {
-    return Object.assign({}, d, {
-      member: function () { return memberOf(d.peer, viewer); },
-      messages: function () {
-        return visibleDmMessages(viewer).filter(function (m) { return m.dm === d.id; })
-          .map(function (post) { return decoratePost(post, viewer); });
-      },
-      messageCount: function () {
-        return visibleDmMessages(viewer).filter(function (m) { return m.dm === d.id; }).length;
-      },
-      path: MAP.dmPath(d.id),
+  function genericEntity(ref, title, extraFields, visibility, ownerId) {
+    ref = CORE.validateObjectRef(ref);
+    var fields = Object.assign({ objectId: ref.objectId, kind: ref.kind, title: String(title || ref.objectId),
+      createdAt: D.board.observedAt, updatedAt: D.board.observedAt, visibility: visibility }, extraFields || {});
+    return CORE.validateCommunityEntity({
+      ref: ref,
+      fields: fields,
+      searchableText: { title: fields.title },
+      relations: [],
+      visibility: visibility,
+      ...(ownerId ? { ownerId: ownerId, participantIds: [ownerId] } : { participantIds: [] }),
+      createdAt: D.board.observedAt,
+      updatedAt: D.board.observedAt,
+      provenance: { sourceId: "community-web-host", nativeId: ref.objectId, observedAt: D.board.observedAt },
     });
   }
 
-  function decorateChannel(c, viewer) {
-    return Object.assign({}, c, {
-      posts: function () {
-        return allPosts().filter(function (p) { return p.channel === c.id; })
-          .map(function (post) { return decoratePost(post, viewer); });
-      },
-      postCount: function () {
-        return allPosts().filter(function (p) { return p.channel === c.id; }).length;
-      },
-      path: MAP.channelPath(c.label),
-    });
+  function canSeeDefinition(definition, authorization) {
+    return definition.visibility === "public" || definition.ownerId === authorization.actorId;
   }
 
-  function decorateProject(p) {
-    var slug = MAP.slug(p.slug);
-    return {
-      slug: p.slug,
-      open: p.open,
-      path: "/projects/" + slug,
-      channels: (p.channels || []).map(function (name) {
-        return {
-          name: name,
-          path: "/projects/" + slug + "/channels/" + name,
-          posts: function () {
-            return (D.projectPosts || [])
-              .filter(function (q) { return q.project === slug && q.channel === name; })
-              .map(function (q) {
-                return Object.assign({}, q, {
-                  author: function () { return memberOf(q.who); },
-                  path: "/projects/" + slug + "/channels/" + name,
-                });
-              });
-          },
-        };
-      }),
-    };
+  function requireActor(authorization) {
+    if (!authorization.actorId) throw new CORE.CommunityError("AUTHORIZATION_DENIED", "An authenticated principal is required");
+    return authorization.actorId;
   }
 
-  function projectionSpecs(viewer) {
-    var specs = (D.channels || []).filter(function (channel) {
-      return !channel.voice && channel.kind !== "voice";
-    }).map(function (channel) {
-      var path = MAP.channelPath(channel.label);
-      return Object.assign({}, MAP.projectionForPath(path), { path: path });
-    });
-    if (window.CW_SAVED_VIEWS) {
-      specs = specs.concat(window.CW_SAVED_VIEWS.list({
-        includePrivate: true,
-        principalId: viewer && viewer.actorId,
-      }).map(function (view) {
-        var path = "/views/" + view.projectionId;
-        return Object.assign({}, MAP.projectionForPath(path), {
-          path: path,
-          // Override MAP's normalized query object. GraphQL exposes a string to
-          // the owner and null to other viewers, matching the Community API.
-          query: view.query,
-          queryLanguageVersion: view.queryLanguageVersion,
-        });
+  var services = {
+    node: async function (id, authorization) { return (await stateFor(authorization)).byId.get(id); },
+    observableFields: function (entity, authorization) {
+      var allowed = new Set(FIELD_REGISTRY.list(authorization).map(function (field) { return field.name; }));
+      return Object.fromEntries(Object.entries(entity.fields).filter(function (pair) { return allowed.has(pair[0]); }));
+    },
+    search: async function (input) {
+      var state = await stateFor(input.authorization);
+      var expression = scopedExpression(input.where, input.scope);
+      var snapshot;
+      if (input.snapshot) {
+        snapshot = snapshots.get(input.snapshot);
+        if (!snapshot) throw new CORE.CommunityError("CURSOR_STALE", "Search snapshot is unavailable or stale");
+      }
+      var page = await state.search.search({ expression: expression, order: input.orderBy,
+        authorization: input.authorization, first: input.first,
+        ...(input.after ? { after: input.after } : {}), ...(snapshot ? { snapshot: snapshot } : {}),
+        ...(input.signal ? { signal: input.signal } : {}) });
+      snapshots.set(page.snapshot.snapshotId, page.snapshot);
+      if (snapshots.size > 64) snapshots.delete(snapshots.keys().next().value);
+      return page;
+    },
+    parseSearch: function (expression, input) {
+      return CORE.normalizeQuery(expression, { actorId: input.authorization.actorId, authorization: input.authorization,
+        timezone: input.timezone || "UTC", locale: input.locale || "en-US", now: D.board.observedAt,
+        fieldRegistry: FIELD_REGISTRY, fieldRegistryVersion: FIELD_REGISTRY.version });
+    },
+    explainSearch: async function (input) {
+      var state = await stateFor(input.authorization);
+      return state.backend.explain(await state.search.plan({ expression: scopedExpression(input.where, input.scope), order: input.orderBy,
+        authorization: input.authorization, limit: 100 }));
+    },
+    projections: async function (authorization) { return visibleDefinitions(authorization); },
+    projection: async function (id, authorization) {
+      return visibleDefinitions(authorization).find(function (definition) { return definition.projectionId === id; });
+    },
+    saveProjection: async function (definition, authorization) {
+      var actor = requireActor(authorization);
+      if (definition.ownerId && definition.ownerId !== actor) throw new CORE.CommunityError("AUTHORIZATION_DENIED", "Projection owner does not match the authenticated principal");
+      var state = {};
+      window.CW_WORKBENCH.openProjection(state, Object.assign({}, definition, { ownerId: actor }));
+      var saved = window.CW_WORKBENCH.saveProjection(state);
+      clearStateCaches();
+      return saved;
+    },
+    deleteProjection: async function (id, authorization) {
+      var definition = visibleDefinitions(authorization).find(function (item) { return item.projectionId === id; });
+      if (!definition || definition.ownerId !== requireActor(authorization)) throw new CORE.CommunityError("AUTHORIZATION_DENIED", "Only the projection owner may delete it");
+      var deleted = window.CW_WORKBENCH.deleteProjection(id);
+      clearStateCaches();
+      return deleted;
+    },
+    projectionContext: async function (authorization, snapshot) {
+      var state = await stateFor(authorization);
+      projectionStates.set(state.authorizationFingerprint, state);
+      return { authorizationFingerprint: state.authorizationFingerprint,
+        snapshotId: snapshot || "community-web-" + D.board.observedAt.replace(/[^0-9]/g, "") };
+    },
+    listPath: async function (input) {
+      var state = stateForAuthorization(input.context);
+      var page = { first: input.first, ...(input.after ? { after: input.after } : {}) };
+      return input.namespace ? state.projection.list(input.namespace, input.path, page, input.context)
+        : state.namespace.list(input.path, page, input.context);
+    },
+    resolvePath: async function (input) {
+      var state = stateForAuthorization(input.context);
+      return input.namespace ? state.projection.resolve(input.namespace, input.path, input.context)
+        : state.namespace.resolve(input.path, input.context);
+    },
+    locate: async function (input) {
+      var state = stateForAuthorization(input.context);
+      var entity = state.byId.get(input.objectId);
+      if (!entity) return [];
+      return input.namespace ? state.projection.locate(input.namespace, entity.ref, input.context)
+        : state.namespace.locate(entity.ref, input.context);
+    },
+    explainPath: async function (input) {
+      var state = stateForAuthorization(input.context);
+      return input.namespace ? state.projection.explain(input.namespace, input.path, input.context)
+        : state.namespace.explain(input.path, input.context);
+    },
+    sourceCapabilities: async function (authorization) {
+      var fields = Object.fromEntries(FIELD_REGISTRY.list(authorization).map(function (field) {
+        return [field.name, { type: field.type, operators: field.operators, sortable: field.sortable, facetable: field.facetable }];
       }));
-    }
-    return specs;
-  }
-
-  function decorateProjection(spec, viewer) {
-    return Object.assign({}, spec, {
-      entries: function (args) {
-        var entries = filterNamespaceEntries(spec.path, MAP.list(spec.path) || [], viewer);
-        return connection(entries, args, function (entry) {
-          var post = entry.post;
-          var ref = post ? objectRef(post) : entry.ref || {
-            objectId: entry.objectId || spec.projectionId + ":" + entry.name,
-            kind: entry.kind === "message" ? "message" : "artifact",
-          };
-          return {
-            ref: Object.assign({}, ref, { canonicalUrl: canonicalUrl(ref) }),
-            alias: entry.alias || entry.name,
-            aliasPath: entry.aliasPath || MAP.resolve(spec.path, entry.name),
-            parentObjectId: entry.parentRef && entry.parentRef.objectId || null,
-            depth: entry.depth == null ? MAP.split(spec.path).length + 1 : entry.depth,
-            position: entry.position || 1,
-            setSize: entry.setSize || entries.length,
-            capabilities: entry.capabilities || defaultCapabilities(entry.kind),
-          };
-        });
-      },
-    });
-  }
-
-  var root = {
-    board: function () {
-      return {
-        name: D.board.name,
-        epoch: {
-          number: D.board.epoch, landed: D.board.landed,
-          total: D.board.total, ships: D.board.ships,
-        },
-      };
+      return [{ sourceId: "community-web-host", fields: fields, fullText: "lexical", pagination: "keyset",
+        supportsWatch: false, supportsPointLookup: true, supportsRelations: true, maxPageSize: 1000 }];
     },
-    channels: function (args) {
-      return D.channels
-        .filter(function (c) { return !args.kind || c.kind === args.kind; })
-        .map(decorateChannel);
+    namespaceMounts: async function (authorization) { return (await stateFor(authorization)).namespace.mounts(); },
+    mountProjection: async function (input, authorization) {
+      var actor = requireActor(authorization);
+      var definition = visibleDefinitions(authorization).find(function (item) { return item.projectionId === input.projectionId; });
+      if (!definition || !canSeeDefinition(definition, authorization)) throw new CORE.CommunityError("AUTHORIZATION_DENIED", "Projection is unavailable");
+      var now = D.board.observedAt;
+      var mount = Object.assign({}, input, { ownerId: actor, createdAt: now, updatedAt: now });
+      window.CW_WORKBENCH.mount(mount);
+      clearStateCaches();
+      return mount;
     },
-    channel: function (args) {
-      var c = D.channels.filter(function (x) { return x.label === args.label || x.id === args.label; })[0];
-      return c ? decorateChannel(c) : null;
+    unmountProjection: async function (id, authorization) {
+      var actor = requireActor(authorization);
+      var mount = window.CW_WORKBENCH.mounts().find(function (item) { return item.mountId === id; });
+      if (!mount || mount.ownerId && mount.ownerId !== actor) throw new CORE.CommunityError("AUTHORIZATION_DENIED", "Only the mount owner may remove it");
+      var removed = window.CW_WORKBENCH.unmount(id);
+      clearStateCaches();
+      return removed;
     },
-    members: function (args) {
-      return D.members
-        .filter(function (m) { return !args.kind || m.kind === args.kind; })
-        .map(decorateMember);
+    resetNamespace: async function (scope, authorization) {
+      requireActor(authorization);
+      var before = window.CW_WORKBENCH.mounts().filter(function (mount) { return mount.scope === scope; });
+      window.CW_WORKBENCH.resetNamespace(scope);
+      clearStateCaches();
+      return { scope: scope, removedMountIds: before.map(function (mount) { return mount.mountId; }).sort(),
+        preservedProjectionIds: visibleDefinitions(authorization).map(function (definition) { return definition.projectionId; }).sort() };
     },
-    member: function (args) { return memberOf(args.handle); },
-    projects: function () { return D.projects.map(decorateProject); },
-    project: function (args) {
-      var p = D.projects.filter(function (x) {
-        return x.slug === args.slug || MAP.slug(x.slug) === args.slug;
-      })[0];
-      return p ? decorateProject(p) : null;
-    },
-    dms: function (args) {
-      return (D.dms || [])
-        .filter(function (d) { return !args.kind || d.kind === args.kind; })
-        .map(decorateDm);
-    },
-    dm: function (args) {
-      var key = String(args.peer || "").replace(/^@/, "");
-      var d = (D.dms || []).filter(function (x) {
-        return x.id === key || x.peer === key;
-      })[0];
-      return d ? decorateDm(d) : null;
-    },
-    search: function (args) {
-      var q = String(args.text || "").toLowerCase();
-      var pool = allPosts().concat(allDmMessages());
-      return pool
-        .filter(function (p) {
-          return ((p.subject || "") + " " + p.body).toLowerCase().indexOf(q) !== -1;
-        })
-        .slice(0, args.limit || 10)
-        .map(decoratePost);
-    },
-    posts: function (args) {
-      return allPosts()
-        .filter(function (p) { return !args.state || p.state === args.state; })
-        .filter(function (p) { return !args.channel || p.channel === args.channel; })
-        .slice(0, args.limit || 50)
-        .map(decoratePost);
-    },
-    object: function (args) {
-      var post = findMessage(args.objectId);
-      return post ? decoratePost(post) : null;
-    },
-    projections: function () { return projectionSpecs().map(decorateProjection); },
-    projection: function (args) {
-      var spec = projectionSpecs().filter(function (item) {
-        return item.projectionId === args.projectionId;
-      })[0];
-      return spec ? decorateProjection(spec) : null;
-    },
-    listPath: function (args) {
-      return listPath(args.path, {}) || [];
-    },
+    projectionDeltas: async function* () {},
   };
 
-  function rootForViewer(viewer) {
-    viewer = viewer || {};
-    return Object.assign({}, root, {
-      channels: function (args) {
-        return D.channels
-          .filter(function (channel) { return !args.kind || channel.kind === args.kind; })
-          .map(function (channel) { return decorateChannel(channel, viewer); });
-      },
-      channel: function (args) {
-        var channel = D.channels.filter(function (item) {
-          return item.label === args.label || item.id === args.label;
-        })[0];
-        return channel ? decorateChannel(channel, viewer) : null;
-      },
-      members: function (args) {
-        return D.members
-          .filter(function (member) { return !args.kind || member.kind === args.kind; })
-          .map(function (member) { return decorateMember(member, viewer); });
-      },
-      member: function (args) { return memberOf(args.handle, viewer); },
-      posts: function (args) {
-        return allPosts()
-          .filter(function (post) { return !args.state || post.state === args.state; })
-          .filter(function (post) { return !args.channel || post.channel === args.channel; })
-          .slice(0, args.limit || 50)
-          .map(function (post) { return decoratePost(post, viewer); });
-      },
-      dms: function (args) {
-        if (!viewer.actorId) return [];
-        var readable = new Set(viewer.readableDmIds || []);
-        return (D.dms || [])
-          .filter(function (d) { return readable.has(d.id) && (!args.kind || d.kind === args.kind); })
-          .map(function (d) { return decorateDm(d, viewer); });
-      },
-      dm: function (args) {
-        if (!viewer.actorId) return null;
-        var key = String(args.peer || "").replace(/^@/, "");
-        if ((viewer.readableDmIds || []).indexOf(key) === -1) return null;
-        var d = (D.dms || []).filter(function (item) {
-          return item.id === key || item.peer === key;
-        })[0];
-        return d ? decorateDm(d, viewer) : null;
-      },
-      search: function (args) {
-        var q = String(args.text || "").toLowerCase();
-        return allPosts().concat(visibleDmMessages(viewer))
-          .filter(function (post) {
-            return ((post.subject || "") + " " + post.body).toLowerCase().indexOf(q) !== -1;
-          })
-          .slice(0, args.limit || 10)
-          .map(function (post) { return decoratePost(post, viewer); });
-      },
-      object: function (args) {
-        var post = findMessage(args.objectId, viewer);
-        return post ? decoratePost(post, viewer) : null;
-      },
-      projections: function () {
-        return projectionSpecs(viewer).map(function (spec) { return decorateProjection(spec, viewer); });
-      },
-      projection: function (args) {
-        var spec = projectionSpecs(viewer).filter(function (item) {
-          return item.projectionId === args.projectionId;
-        })[0];
-        return spec ? decorateProjection(spec, viewer) : null;
-      },
-      listPath: function (args) { return listPath(args.path, viewer) || []; },
-    });
+  function scopedExpression(expression, scope) {
+    if (!scope) return expression;
+    if (scope.sourceIds && scope.sourceIds.some(function (sourceId) { return sourceId !== "community-web-host"; })) {
+      throw new CORE.CommunityError("QUERY_UNSUPPORTED_SOURCE", "Search scope names an unavailable source");
+    }
+    if (!scope.objectKinds || scope.objectKinds.length === 0) return expression;
+    return { kind: "and", terms: [expression,
+      { kind: "compare", field: "kind", operator: "in", value: scope.objectKinds }] };
   }
 
-  var schema = null;
+  function clearStateCaches() {
+    states.clear();
+    projectionStates.clear();
+  }
+
+  /* Projection contexts carry only a fingerprint; recover the matching authorized state. */
+  function stateForAuthorization(context) {
+    var state = projectionStates.get(context.authorizationFingerprint);
+    if (state) return state;
+    throw new CORE.CommunityError("AUTHORIZATION_DENIED", "Projection authorization context is stale");
+  }
+
   function ready() {
-    if (!window.GraphQLEngine) return false;
-    if (!schema) schema = window.GraphQLEngine.buildSchema(SDL);
+    if (!PORTABLE || typeof PORTABLE.createCommunityGraphQLSchema !== "function") return false;
+    if (!schema) schema = PORTABLE.createCommunityGraphQLSchema(services);
     return true;
   }
 
-  /** Run a query. Errors come back as GraphQL errors, not exceptions. */
   async function query(source, variables, viewer) {
-    if (!ready()) {
-      return { errors: [{ message: "GraphQL engine not loaded — run build-graphql.mjs" }] };
-    }
-    var queryViewer = Object.assign({}, viewer || {});
-    queryViewer.messageGraph = MAP.messageGraph(allMessages(queryViewer));
-    queryViewer.postIndexes = buildPostIndexes();
-    return window.GraphQLEngine.graphql({
-      schema: schema,
-      source: source,
-      rootValue: rootForViewer(queryViewer),
-      variableValues: variables || undefined,
-    });
+    if (!ready()) return { errors: [{ message: "Portable Community GraphQL runtime is unavailable",
+      extensions: { code: "SOURCE_UNAVAILABLE" } }] };
+    var authorization = Object.assign({}, viewer || {});
+    var key = await CORE.authorizationFingerprint(authorization);
+    var context = { authorization: authorization, hostStateKey: key };
+    return PORTABLE.executeCommunityGraphQL({ schema: schema, source: source,
+      variableValues: variables || undefined, context: context });
   }
 
-  function introspect() {
-    return query(window.GraphQLEngine.getIntrospectionQuery({ descriptions: true }));
+  function introspect(viewer) {
+    return query("{ __schema { queryType { fields { name } } mutationType { fields { name } } } }", undefined, viewer);
   }
 
   window.CW_GRAPH = {
@@ -743,6 +412,6 @@
     introspect: introspect,
     listPath: listPath,
     filterNamespaceEntries: filterNamespaceEntries,
-    SDL: SDL,
+    SDL: PORTABLE && PORTABLE.COMMUNITY_GRAPHQL_SDL || "",
   };
 })();

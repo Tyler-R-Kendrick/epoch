@@ -126,8 +126,8 @@
 
 1. Real multi-user persistence (drop demo-as-product).  
    **Status (2026-07-31):** Live feed is API-primary when `apiBaseUrl` + repository activity exist; hard-coded demos no longer mix into product feed. Snapshot demos remain only as labeled fallback. Multi-user durable backend persistence is still Community API in-memory for the prototype.  
-2. Complete promote path: message → intent → review → merge evidence in UI.  
-   **Status:** Promote records a live change proposal, links `proposal:<id>` on the message, updates message state, and upserts the Changes list. Full review → merge evidence UI still open.  
+2. Complete promote path: message → Change → review → merge evidence in UI.
+   **Status:** Promote records a live Change, links `change:<id>` on the message, updates message state, and upserts the Changes list. The convergence workbench exposes exact Revision, Review Bundle, gate, conflict, and Merge Plan state without reverting to pre-release intent terminology.
 3. Familiar secondary surfaces (issue/change lists) linked from channels.  
    **Status:** Issues + Changes secondary rail surfaces ship; channel home remains default.  
 4. Live vs snapshot honesty on every degraded dependency.  

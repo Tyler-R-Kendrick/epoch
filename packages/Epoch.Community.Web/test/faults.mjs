@@ -264,15 +264,21 @@ const CASES = [
     },
   },
   {
-    name: "an unauthorized private saved projection fails closed",
+    name: "an unauthorized private Entity remains absent from deterministic search",
     spec: { availability: "unavailable" },
     check: async (page, log) => {
-      const result = await page.evaluate(() => {
-        const view = window.CW_SAVED_VIEWS.save({ label: "Private fault", query: "", visibility: "private" });
-        return window.CW_SAVED_VIEWS.open(view.projectionId, window.CW_DATA.posts, { includePrivate: false });
-      });
+      const result = await page.evaluate(() => window.CW_QUERY.searchBoard("body:DO_NOT_LEAK_PRIVATE_SEARCH", {
+        viewer: { actorId: "principal-bob", readableDmIds: [] },
+        extra: [{
+          id: "secret-private-search",
+          dm: "maya",
+          who: "maya",
+          body: "DO_NOT_LEAK_PRIVATE_SEARCH",
+          participantIds: ["maya"],
+        }],
+      }));
       log(JSON.stringify(result));
-      return result.view === null && /unauthorized/.test(result.error || "");
+      return result.hits.length === 0;
     },
   },
   {

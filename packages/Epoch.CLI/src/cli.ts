@@ -68,6 +68,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     writeLine(io, CliText.usage);
     writeLine(io, "Change graph commands: new, change, log --revisions, op, graph, split, bundle, review record, merge-plan, conflict, workspace, clone/fetch/hydrate/backfill, mirror, principal/agent, forge, swhid, archive, interop doctor.");
     writeLine(io, "Authoritative/destructive actions require an explicit configured adapter; unavailable adapters return unsupported-capability.");
+    writeLine(io, "Community product CLI is epoch-community (search, projections, namespace, community issues/changes).");
     return;
   }
   if (isCommunityCliInvocation(parsed.command, parsed.args)) {

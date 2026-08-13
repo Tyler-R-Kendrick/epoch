@@ -67,6 +67,7 @@
       homeCursor: 0,
       threadFocus: null,
       feedMark: null,
+      searchWorkbench: null,
       attachments: [],
       editorPath: null,
       editorFocused: false,
@@ -77,7 +78,7 @@
     "path", "cursor", "focus", "sort", "filter", "feedQuery", "feedView", "feedPinnedViews", "prev",
     "folded", "votes", "reactions", "reposts", "treeOpen",
     "history", "histIndex", "lines", "openTools", "busy",
-    "detailOpen", "homeFeed", "homeCursor", "threadFocus", "feedMark",
+    "detailOpen", "homeFeed", "homeCursor", "threadFocus", "feedMark", "searchWorkbench",
   ];
 
   var state = {
@@ -94,6 +95,7 @@
     // Lucene query row is a power fold — closed until toggled or a query is active.
     feedQueryOpen: false,
     feedQueryError: null,
+    searchWorkbench: null,
     merged: [],
     // Live queue keyed by channel/space feed; `pending` mirrors the open feed.
     pendingByFeed: {},
@@ -1459,12 +1461,6 @@
     ? window.CW_SESSION.loadIdentity(policy)
     : { kind: "guest", principalId: "guest_local", displayName: "guest", canParticipate: true, claimable: true };
 
-  function syncSavedViewPrincipal() {
-    if (window.CW_SAVED_VIEWS && window.CW_SAVED_VIEWS.setPrincipal) {
-      window.CW_SAVED_VIEWS.setPrincipal(identity && identity.principalId);
-    }
-  }
-
   function viewerContext() {
     var actorId = identity && identity.principalId || undefined;
     var readable = actorId ? ((window.CW_DATA && window.CW_DATA.dms) || []).filter(function (dm) {
@@ -1505,11 +1501,8 @@
     return viewerContext().readableDmIds.indexOf(parts[1]) >= 0;
   }
 
-  syncSavedViewPrincipal();
-
   function persistIdentity() {
     if (window.CW_SESSION) window.CW_SESSION.saveIdentity(identity);
-    syncSavedViewPrincipal();
     paintIdentity();
   }
 
@@ -1878,16 +1871,16 @@
     if (state.sessionRecovery) {
       return Object.assign({ source: "session" }, state.sessionRecovery);
     }
-    if (!window.CW_SAVED_VIEWS || typeof window.CW_SAVED_VIEWS.status !== "function") return null;
-    var saved = window.CW_SAVED_VIEWS.status();
-    return saved ? Object.assign({ source: "saved-views" }, saved) : null;
+    if (!window.CW_WORKBENCH || typeof window.CW_WORKBENCH.definitionStatus !== "function") return null;
+    var definitions = window.CW_WORKBENCH.definitionStatus();
+    return definitions ? Object.assign({ source: "projection-definitions" }, definitions) : null;
   }
 
   function exportSessionRecovery() {
     var recovery = activeRecovery();
-    var savedViews = recovery && recovery.source === "saved-views";
-    var raw = savedViews && window.CW_SAVED_VIEWS.exportState
-      ? window.CW_SAVED_VIEWS.exportState()
+    var definitions = recovery && recovery.source === "projection-definitions";
+    var raw = definitions && window.CW_WORKBENCH.exportDefinitions
+      ? window.CW_WORKBENCH.exportDefinitions()
       : window.CW_SESSION && window.CW_SESSION.exportBoardState
         ? window.CW_SESSION.exportBoardState()
         : null;
@@ -1897,7 +1890,7 @@
       var href = URL.createObjectURL(blob);
       var link = document.createElement("a");
       link.href = href;
-      link.download = savedViews ? "community-web-saved-views-recovery.json" : "community-web-session-recovery.json";
+      link.download = definitions ? "community-web-projection-definitions-recovery.json" : "community-web-session-recovery.json";
       link.hidden = true;
       document.body.appendChild(link);
       link.click();
@@ -1911,9 +1904,9 @@
 
   function resetSessionRecovery() {
     var recovery = activeRecovery();
-    if (recovery && recovery.source === "saved-views") {
-      if (!window.CW_SAVED_VIEWS.resetState()) {
-        return status("saved-view recovery · reset unavailable; saved state was not changed");
+    if (recovery && recovery.source === "projection-definitions") {
+      if (!window.CW_WORKBENCH.resetDefinitions()) {
+        return status("Projection Definition recovery · reset unavailable; saved state was not changed");
       }
     } else {
       if (window.CW_SESSION) window.CW_SESSION.clearBoardState();
@@ -2078,6 +2071,7 @@
     state.homeCursor = sess.homeCursor != null ? sess.homeCursor : 0;
     state.threadFocus = sess.threadFocus || null;
     state.feedMark = sess.feedMark || null;
+    state.searchWorkbench = sess.searchWorkbench ? JSON.parse(JSON.stringify(sess.searchWorkbench)) : null;
     state.histIndex = sess.histIndex != null ? sess.histIndex : -1;
     state.busy = !!sess.busy;
     // Deep-enough copies so mutating folds/tools/lines does not cross tabs.
@@ -2140,7 +2134,16 @@
     if (window.CW_QUERY && query) {
       var parsed = window.CW_QUERY.parse(query);
       state.feedQueryError = parsed.error || null;
-      if (!parsed.error && parsed.sort) state.sort = parsed.sort;
+      if (!parsed.error && parsed.sort) {
+        if (viewId && ["hot", "new", "top", "best"].indexOf(viewId) >= 0) {
+          state.sort = viewId;
+        } else {
+          state.sort = window.CW_QUERY.legacySort
+            ? window.CW_QUERY.legacySort(parsed.sort, parsed.canonical)
+            : parsed.sort;
+          if (typeof state.sort !== "string") state.sort = state.feedView || "hot";
+        }
+      }
     } else {
       state.feedQueryError = null;
       if (!query && state.feedView === "hot") state.sort = "hot";
@@ -5339,6 +5342,9 @@
       objectId: focused || (current && (current.objectId || (current.post && current.post.id))) || undefined,
       projectionId: state.projectionId || undefined,
       authorize: function (permission, descriptor) {
+        if (permission === "community.projection.write" || permission === "community.namespace.write") {
+          return !!identity;
+        }
         if (permission !== "community.participate") return false;
         return requireParticipation(descriptor && descriptor.label ? descriptor.label.toLowerCase() : "that action");
       },
@@ -5541,27 +5547,140 @@
       }
       return { path: state.path };
     }
-    if (actionId === "view.save") {
-      if (!window.CW_SAVED_VIEWS) throw new Error("saved views unavailable");
-      return window.CW_SAVED_VIEWS.save({
-        label: actionArg || "Saved view",
-        query: state.feedQuery || "",
-        sort: state.sort,
-        visibility: "private",
-      });
-    }
-    if (actionId === "view.open") {
-      var saved = window.CW_SAVED_VIEWS && (window.CW_SAVED_VIEWS.get(actionArg || input.view || input.projectionId) ||
-        window.CW_SAVED_VIEWS.list().find(function (view) { return view.label === actionArg; }));
-      if (!saved) throw new Error("saved view unavailable");
-      navigate("/views/" + saved.projectionId, { keepCli: true });
-      return saved;
-    }
-    if (actionId === "view.delete") {
-      if (!window.CW_SAVED_VIEWS || !window.CW_SAVED_VIEWS.delete(actionArg || input.view || input.projectionId)) {
-        throw new Error("saved view unavailable");
+    if (actionId === "search.open") {
+      if (!window.CW_WORKBENCH) throw new Error("search workbench unavailable");
+      var openQuery = actionArg || input.query || input.arg || "";
+      window.CW_WORKBENCH.openSearch(state, openQuery);
+      if (openQuery) setFeedQuery(openQuery, "custom");
+      state.detailOpen = true;
+      if ((context.origin === "cli" || context.origin === "slash") && openQuery) {
+        return window.CW_WORKBENCH.runSearch(state, {
+          expression: openQuery,
+          actorId: identity && identity.principalId,
+          context: {
+            extra: state.merged,
+            votes: state.votes,
+            reactions: state.reactions,
+            members: (window.CW_DATA && window.CW_DATA.members) || [],
+            viewer: viewerContext(),
+          },
+        }).then(function () {
+          render(true);
+          return finishSearch(openQuery);
+        });
       }
-      return { deleted: actionArg || input.view || input.projectionId };
+      render(true);
+      setTimeout(function () {
+        var field = document.querySelector("[data-search-expression]");
+        if (field) field.focus({ preventScroll: true });
+      }, 0);
+      if (openQuery) return executeAction("search.run", { query: openQuery }, context);
+      return state.searchWorkbench;
+    }
+    if (actionId === "search.run") {
+      if (!window.CW_WORKBENCH) throw new Error("search workbench unavailable");
+      if (!state.searchWorkbench || state.searchWorkbench.kind !== "search") {
+        window.CW_WORKBENCH.openSearch(state, input.query || actionArg || "");
+      }
+      var searchField = document.querySelector("[data-search-expression]");
+      var expression = input.query != null ? input.query : searchField ? searchField.value : state.searchWorkbench.expression;
+      return window.CW_WORKBENCH.runSearch(state, {
+        expression: expression,
+        actorId: identity && identity.principalId,
+        context: {
+          extra: state.merged,
+          votes: state.votes,
+          reactions: state.reactions,
+          members: (window.CW_DATA && window.CW_DATA.members) || [],
+          viewer: viewerContext(),
+        },
+      }).then(function (result) { render(true); return result; });
+    }
+    if (actionId === "search.cancel") {
+      if (state.searchWorkbench) {
+        state.searchWorkbench.running = false;
+        state.searchWorkbench.error = "Search cancelled";
+      }
+      render(true);
+      return state.searchWorkbench;
+    }
+    if (actionId === "search.explain") {
+      return window.CW_WORKBENCH.explainSearch(state).then(function (result) { render(true); return result; });
+    }
+    if (actionId === "search.history") {
+      if (!state.searchWorkbench) window.CW_WORKBENCH.openSearch(state, "");
+      window.CW_WORKBENCH.selectTab(state, "history");
+      render(true);
+      return state.searchWorkbench;
+    }
+    if (actionId === "search.localFilter") {
+      if (!state.searchWorkbench) throw new Error("search workbench is closed");
+      state.searchWorkbench.localFilter = String(input.filter || actionArg || "");
+      render(true);
+      return state.searchWorkbench;
+    }
+    if (actionId === "search.saveAsProjection") {
+      return window.CW_WORKBENCH.saveSearchProjection(state, actionArg || input.label || "Saved projection");
+    }
+    if (actionId === "projection.list") {
+      navigate("/views", { keepCli: true });
+      return window.CW_WORKBENCH.definitions();
+    }
+    if (actionId === "projection.open") {
+      var projectionId = actionArg || input.projectionId;
+      var openedDefinition = window.CW_WORKBENCH.definitions().find(function (item) {
+        return item.projectionId === projectionId || item.label === actionArg;
+      });
+      if (!openedDefinition) throw new Error("projection definition unavailable");
+      window.CW_WORKBENCH.close(state);
+      navigate("/views/" + openedDefinition.projectionId, { keepCli: true });
+      state.detailOpen = true;
+      render(true);
+      return openedDefinition;
+    }
+    if (actionId === "projection.delete") {
+      if (!window.CW_WORKBENCH.deleteProjection(actionArg || input.projectionId)) {
+        throw new Error("projection unavailable");
+      }
+      return { deleted: actionArg || input.projectionId };
+    }
+    if (["projection.create", "projection.clone", "projection.edit"].indexOf(actionId) >= 0) {
+      window.CW_WORKBENCH.openProjection(state, input.definition || window.CW_CORE.builtinDefaultProjection);
+      state.detailOpen = true;
+      render(true);
+      return state.searchWorkbench;
+    }
+    if (["projection.preview", "projection.diff", "projection.validate", "projection.explain"].indexOf(actionId) >= 0) {
+      if (!state.searchWorkbench || state.searchWorkbench.kind !== "projection") throw new Error("projection workbench is closed");
+      var projectionSource = document.querySelector("[data-projection-definition]");
+      if (projectionSource) state.searchWorkbench.source = projectionSource.value;
+      if (actionId === "projection.validate") window.CW_WORKBENCH.compileProjection(state);
+      else if (actionId === "projection.preview") window.CW_WORKBENCH.previewProjection(state);
+      else window.CW_WORKBENCH.selectTab(state, actionId.split(".")[1]);
+      render(true);
+      return state.searchWorkbench;
+    }
+    if (actionId === "projection.save") {
+      var definition = window.CW_WORKBENCH.saveProjection(state);
+      render(true);
+      return definition;
+    }
+    if (actionId === "namespace.list") return window.CW_WORKBENCH.mounts();
+    if (actionId === "namespace.mount") return window.CW_WORKBENCH.mount(input);
+    if (actionId === "namespace.unmount") return window.CW_WORKBENCH.unmount(input.mountId || actionArg);
+    if (actionId === "namespace.reset") return window.CW_WORKBENCH.resetNamespace(input.scope || actionArg || "user");
+    if (actionId === "namespace.use") return navigate(input.path || actionArg || "/.epoch/default", { keepCli: true });
+    if (actionId === "namespace.explain") return {
+      path: input.path || state.path,
+      mounts: window.CW_WORKBENCH.mounts(),
+      recovery: "/.epoch/default",
+    };
+    if (actionId === "snapshot.freeze" || actionId === "snapshot.refresh" || actionId === "snapshot.applyQueued") {
+      if (!state.searchWorkbench) throw new Error("workbench is closed");
+      state.searchWorkbench.snapshotMode = actionId === "snapshot.freeze" ? "snapshot"
+        : actionId === "snapshot.refresh" ? "current" : "queued-applied";
+      render(true);
+      return state.searchWorkbench;
     }
     if (actionId === "jump.best") return jumpBest(input.terms || input.arg || "");
     if (actionId === "jump.interactive") {
@@ -7223,6 +7342,30 @@
         }
         return navigate(go.dataset.goto);
       }
+      var workbenchClose = ev.target.closest("[data-workbench-close]");
+      if (workbenchClose && window.CW_WORKBENCH) {
+        window.CW_WORKBENCH.close(state);
+        render(true);
+        return;
+      }
+      var workbenchTab = ev.target.closest("[data-workbench-tab]");
+      if (workbenchTab && window.CW_WORKBENCH) {
+        window.CW_WORKBENCH.selectTab(state, workbenchTab.dataset.workbenchTab);
+        render(true);
+        return;
+      }
+      if (ev.target.closest("[data-search-run]")) return invokeUiAction("search.run", {}, "pointer");
+      if (ev.target.closest("[data-search-cancel]")) return invokeUiAction("search.cancel", {}, "pointer");
+      if (ev.target.closest("[data-search-explain]")) return invokeUiAction("search.explain", {}, "pointer");
+      if (ev.target.closest("[data-projection-validate]")) return invokeUiAction("projection.validate", {}, "pointer");
+      if (ev.target.closest("[data-projection-preview]")) return invokeUiAction("projection.preview", {}, "pointer");
+      var historyQuery = ev.target.closest("[data-search-history-query]");
+      if (historyQuery) {
+        state.searchWorkbench.expression = historyQuery.dataset.searchHistoryQuery || "";
+        state.searchWorkbench.tab = "query";
+        render(true);
+        return;
+      }
       var candEl = ev.target.closest("[data-cand]");
       if (candEl) {
         state.candIndex = Number(candEl.dataset.cand);
@@ -7494,6 +7637,19 @@
     });
 
     mount.addEventListener("keydown", function (ev) {
+      if (ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-search-expression")) {
+        if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+          ev.preventDefault();
+          return invokeUiAction("search.run", {}, "keyboard");
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          window.CW_WORKBENCH.close(state);
+          render(true);
+          return;
+        }
+        return;
+      }
       // Feed query input — Enter runs the Lucene projection.
       if (ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-feed-query")) {
         if (ev.key === "Enter") {
@@ -8346,8 +8502,10 @@
     var avail = await window.NBResilient.availability();
 
     if (avail === "absent" || avail === "unavailable") {
-      state.ai = false;
-      render(true);
+      if (!state.searchWorkbench) {
+        state.ai = false;
+        render(true);
+      }
       return status("no on-device model here — cli mode, Alt+A to switch");
     }
 
@@ -8355,7 +8513,7 @@
       status("loading the on-device model…");
       await window.CW_AGENT.warm(function (m) { if (!state.busy) status(m); });
       var st = window.NBResilient.modelState();
-      if (st.state !== "ready") { state.ai = false; render(true); }
+      if (st.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       return status(st.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st.error));
@@ -8375,7 +8533,7 @@
       status("fetching the on-device model, once…");
       await window.CW_AGENT.warm(function (m) { if (!state.busy) status(m); });
       var st2 = window.NBResilient.modelState();
-      if (st2.state !== "ready") { state.ai = false; render(true); }
+      if (st2.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       status(st2.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st2.error));

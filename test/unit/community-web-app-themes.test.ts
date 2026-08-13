@@ -244,13 +244,22 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(mcp.includes("document.modelContext"), "must register natively when available");
   assert.ok(mcp.includes("local"), "must keep a local registry when it is not");
 
-  // The schema is the contract the agent introspects; these types must exist.
+  // The browser host exposes the portable Community GraphQL contract, not a
+  // second Nightboard schema. The agent introspects these types.
   const graph = readFileSync(join(ROOT, "graph.js"), "utf8");
-  for (const type of ["type Member", "type Post", "type Channel", "type Project",
-    "type DirectMessage", "type Epoch", "type Query"]) {
-    assert.ok(graph.includes(type), `the GraphQL schema must define ${type}`);
+  assert.ok(graph.includes("COMMUNITY_GRAPHQL_SDL"), "graph.js must bind the portable SDL");
+  const sdl = readFileSync(join(ROOT, "graphql-engine.js"), "utf8");
+  for (const type of [
+    "type CommunityNode",
+    "type SearchConnection",
+    "type Query",
+    "input SearchExpressionInput @oneOf",
+  ]) {
+    assert.ok(sdl.includes(type), `the portable GraphQL schema must define ${type}`);
   }
-  assert.ok(graph.includes("dms(") || graph.includes("dms:"), "schema must expose dms query");
+  assert.ok(!sdl.includes("type Post"), "portable schema must not reintroduce type Post");
+  assert.ok(graph.includes("dms(") || graph.includes("/dms") || readFileSync(join(ROOT, "sitemap.js"), "utf8").includes("/dms"),
+    "board still exposes dms as a navigable surface");
 
   // Completion is the difference between a shell and a prompt that echoes.
   const complete = readFileSync(join(ROOT, "complete.js"), "utf8");

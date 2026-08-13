@@ -13,8 +13,8 @@ Feature: Epoch platform project separation
   @persona.github_open_source_contributor
   Scenario: Community owns repository collaboration workflows
     Given a Community repository named "epoch/epoch"
-    When a contributor uses Epoch Community Core to open an issue and propose a change
-    Then the Community project tracks the issue and proposal
+    When a contributor uses Epoch Community Core to open an issue and create a Change
+    Then the Community project tracks the issue and Change
     And the Community project can record a maintainer review
 
   @persona.github_open_source_contributor

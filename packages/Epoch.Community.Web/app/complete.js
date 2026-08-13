@@ -280,12 +280,12 @@
         hint: entry.hint || entry.meta || "current namespace", kind: entry.kind, group: "CURRENT",
         objectId: entry.objectId || (entry.post && entry.post.id) || null };
     });
-    var saved = window.CW_SAVED_VIEWS && window.CW_SAVED_VIEWS.list
-      ? window.CW_SAVED_VIEWS.list().map(function (view) {
-        var path = "/views/" + (view.id || view.projectionId);
-        return { id: view.id || view.projectionId, value: path, path: path, label: view.label,
-          hint: view.query || "saved query", kind: "saved-view", group: "SAVED VIEWS",
-          projectionId: view.projectionId || view.id };
+    var saved = window.CW_WORKBENCH && window.CW_WORKBENCH.definitions
+      ? window.CW_WORKBENCH.definitions().map(function (definition) {
+        var path = "/views/" + definition.projectionId;
+        return { id: definition.projectionId, value: path, path: path, label: definition.label,
+          hint: "Projection Definition v" + definition.version, kind: "projection", group: "PROJECTIONS",
+          projectionId: definition.projectionId };
       }) : [];
     var global = globalDirs(ctx.extra).map(function (entry) {
       return { id: entry.objectId || entry.value, value: entry.value, path: entry.value,

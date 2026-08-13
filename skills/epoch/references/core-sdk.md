@@ -12,7 +12,7 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 - Platform SDK package: `@epoch/platform-sdk`
 - Platform Web package: `@epoch/platform-web`
 - Community packages: `@epoch/community-api`, `@epoch/community-core`,
-  `@epoch/community-cli`, `@epoch/community-web`
+  `@epoch/community-graphql`, `@epoch/community-cli`, `@epoch/community-web`
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 - Browser integration root exports: `epoch/Epoch.Integration.Core`,
@@ -84,7 +84,17 @@ Use `@epoch/platform-core` for the platform domain service,
 `@epoch/platform-sdk` for headless automation,
 `@epoch/platform-web` for the browser-rendered hosting console foundation, and
 the `@epoch/community-*` packages for the separate Community API, Core client,
-CLI, and web contracts. The shipped browser app is Community Web (`/` creator
+portable GraphQL boundary, CLI, and web contracts. `@epoch/community-core`
+owns the Search Expression, planner, reference backend, Projection Definition
+compiler, and Namespace runtime. `@epoch/community-graphql` exports
+`COMMUNITY_GRAPHQL_SDL`, `createCommunityGraphQLSchema`,
+`executeCommunityGraphQL`, and `subscribeCommunityGraphQL`; hosts inject
+authorization and services, or call `createCommunityApiHost` to wire the
+canonical store with search, projection, namespace, and GraphQL routes.
+SDK callers send structured Search Expressions
+rather than generating query text. Browser Orama and SQLite WASM/FTS5 indexes
+are rebuildable accelerators and must conform to the Core reference evaluator.
+The shipped browser app is Community Web (`/` creator
 landing and `/board.html` tmux-style board), served locally with
 `npm run dev:community-web`; the historical document renderer is not an app
 entrypoint. `@epoch/community-web` still exposes

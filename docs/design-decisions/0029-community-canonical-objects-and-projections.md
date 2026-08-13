@@ -31,10 +31,10 @@ that implementation.
   content-derived aliases never enter routes, history, notifications, or action
   events. Legacy paths and `community:`/`nightboard:` locators remain
   compatibility aliases.
-- Channels, threads, DMs, Activity, following, search, saved queries, projects,
-  and filesystem paths are projections over one object graph. A projection
-  occurrence has an alias, contextual parent, order, and capabilities without
-  changing the object.
+- Channels, threads, DMs, Activity, following, search, Projection Definitions,
+  projects, and Namespace paths are projections over one object graph. A
+  Projection Entry has an alias, contextual parent, order, and capabilities
+  without changing its target Entity.
 - Reply ancestry uses explicit IDs. Missing, deleted, moderated, unavailable,
   and unauthorized ancestors remain typed tombstones; children are never
   silently reparented.
@@ -49,9 +49,10 @@ that implementation.
 - One action registry generates commands, slash aliases, key/help hints, exact
   voice phrases, and WebMCP tools. Availability, permission, validation,
   execution, and privacy-safe diagnostics occur once.
-- Saved queries persist a normalized versioned AST, stable saved-view ID,
-  order, label, visibility, and metadata. Authorization is applied before
-  query results or shared projection metadata leave the boundary.
+- Projection Definitions persist a typed Search Expression, stable projection
+  ID, order, label, visibility, and declarative hierarchy. Authorization is
+  applied before results, counts, paths, collisions, or shared definition
+  metadata leave the boundary.
 - The channel list follows the APG feed pattern, thread topology follows the APG
   tree-view pattern with an adjacent reading article, and prompt completion
   follows manual-selection combobox behavior. The visual composition is a
@@ -74,8 +75,9 @@ that implementation.
 Stable identity survives movement, editing, federation, and projection. The
 filesystem metaphor becomes an honest namespace adapter, graph operations stay
 coherent through moderation or missing data, and every invocation surface has
-one permission boundary. Compatibility migrations and generated-artifact
-freshness checks become required release gates.
+one permission boundary. Persisted schema migrations and generated-artifact
+freshness checks become required release gates. Migrations do not preserve
+duplicate pre-release APIs.
 
 The model adds explicit references and projection metadata, but avoids a new
 public URI scheme and new runtime dependency. Static/offline Community Web remains
@@ -102,3 +104,4 @@ deployable.
 - [Community Web parity evidence](../evidence/community-web-app-navigation-projection-parity/README.md)
 - [Community Web experience](../community-web-experience.md)
 - [ADR-0027: Community Web visual world](0027-community-visual-world.md)
+- [ADR-0042: deterministic search and mounted projections](0042-deterministic-search-and-mounted-projections.md)

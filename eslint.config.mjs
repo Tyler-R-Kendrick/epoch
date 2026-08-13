@@ -13,6 +13,11 @@ export default [
       "packages/Epoch.Community.Web/app/openui-parser.js",
       "packages/Epoch.Community.Web/app/graphql-engine.js",
       "packages/Epoch.Community.Web/app/openui-library.js",
+      // Reproducible browser bundles are linted at their TypeScript sources and
+      // guarded by community-web:app:build:check, like graphql-engine.js above.
+      "packages/Epoch.Community.Web/app/community-core-runtime.js",
+      "packages/Epoch.Community.Web/app/community-search-worker.js",
+      "packages/Epoch.Community.Web/app/community-sqlite-worker.js",
       // Vendored from CanvasUI and bundled; see its header for how to rebuild.
       "packages/Epoch.Community.Web/app/asciify.js",
       "packages/Epoch.Community.Web/app/canvasui-fx.js",

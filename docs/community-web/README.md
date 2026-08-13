@@ -3,7 +3,8 @@
 **Canonical Epoch Community Web app** ([ADR-0027](../design-decisions/0027-community-visual-world.md)).
 Stable object/projection/navigation semantics are defined by
 [ADR-0029](../design-decisions/0029-community-canonical-objects-and-projections.md)
-and the [semantic contract](CONTRACT.md).
+and [ADR-0042](../design-decisions/0042-deterministic-search-and-mounted-projections.md),
+with the [semantic contract](CONTRACT.md).
 Root [`DESIGN.md`](../../DESIGN.md) is derived from this source tree. Impeccable
 iterates on these shipped files; there is no separate legacy UI or parity target.
 Surface brief: [`.impeccable-surface.md`](../../packages/Epoch.Community.Web/.impeccable-surface.md) (Operate board).
@@ -54,7 +55,7 @@ numbered exits, presence is scarce enough to be an event, and the whole surface
 is operable from the keyboard.
 
 It is a **dev community default**. The vocabulary — channels, receipts, signed
-intents, agent runs under a named supervisor — is the product's, and the form is
+Changes, agent runs under a named supervisor — is the product's, and the form is
 the one that community already reads fluently.
 
 ## Live, in the way that matters

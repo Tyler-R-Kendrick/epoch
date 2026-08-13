@@ -10,7 +10,7 @@ Object, projection, navigation, and action semantics are defined by Community
 Core and its generated browser artifact. Theme stability does not make this
 markup the source of object identity.
 
-## Object identity
+## Entity identity
 
 - `objectId` is opaque, immutable, and independent of display path, order,
   author, title, body, excerpt, or mutable channel name.
@@ -22,12 +22,13 @@ markup the source of object identity.
   graph position. It carries no unauthorized reply, reaction, or promotion
   capability.
 
-## Mounted projections and namespace
+## Projection Definitions, Entries, And Namespace Mounts
 
-Channels, threads, DMs, Activity, following, search, saved views, projects, and
-filesystem paths are mounted projections over the same objects. Each occurrence
-retains its object ID while projection ID, alias path, contextual parent, order,
-depth, and capabilities may differ.
+Channels, threads, DMs, Activity, following, search, Projection Definitions,
+projects, and Namespace paths organize the same canonical Entities. Each
+Projection Entry retains its target object ID while occurrence ID, projection,
+alias path, contextual parent, order, depth, and capabilities may differ. One
+Entity may have multiple entries, including twice in one definition.
 
 The filesystem is a namespace adapter. A message is an enterable capability
 object: `cat <message>` reads its body, `ls <message>` exposes virtual
@@ -70,7 +71,7 @@ paths resolve as aliases and modernize
 the URL. URLs, history, notification targets, share locators, and action events
 never contain private body/title text or content-derived DM aliases.
 
-## Actions and saved views
+## Actions, Search Expressions, And Projection Definitions
 
 One Community Core action descriptor owns action ID, label, contexts, effects,
 permission, aliases, keys, exact voice phrases, MCP schema, validation, and
@@ -79,10 +80,16 @@ their privacy-safe diagnostic events differ only by invocation origin. Macro
 migration resolves stored commands to action IDs and stays fail-closed for
 unknown, recursive, unsafe, ambiguous, or unauthorized commands.
 
-Saved views have immutable IDs and persist normalized query AST, canonical
-query, query-language version, order, label, visibility, and timestamps.
-Authorization runs before evaluation or exposure. Mutating an item in a saved
-view mutates the canonical object visible in every projection.
+Projection Definitions have stable IDs and persist typed Search Expressions,
+canonical query/JSON, query-language and Field Registry versions, total order,
+label, visibility, update mode, consistency, and timestamps. Authorization
+runs before hits, counts, facets, suggestions, paths, collisions, or exposure.
+Mutating through a Projection Entry carries canonical target identity.
+
+Search Query, Results, Explain, and History plus Projection Definition, Tree
+Preview, Namespace Diff, Explain, and Validation are interaction layers inside
+the existing detail blade. They do not replace the navigator. Ordinary search
+and projection execution never invokes AI.
 
 ## Accessibility interaction contract
 

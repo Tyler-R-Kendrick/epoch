@@ -152,7 +152,7 @@ async function communityWebHtmlIncludesReceiptSearchPromoteAndIdentity(): Promis
     body: "Region breakdown idea",
     labels: ["idea"],
   });
-  await api.proposeChange("epoch/epoch", {
+  await api.createChange("epoch/epoch", {
     id: "CHANGE-12",
     title: "Keep preview cards attached to conversation state",
     author: "maya",
@@ -198,7 +198,7 @@ function communityDevFeedBuildsVerbLedNetworkTimeline(): void {
       status: "open" as const,
       comments: [],
     }],
-    changeProposals: [],
+    changes: [],
     discussions: [],
   }];
   const spaces = buildCommunitySpaces(repos);
@@ -240,7 +240,7 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
       maintainers: ["maya"],
       topics: [],
       issues: [],
-      changeProposals: [],
+      changes: [],
       discussions: [],
     }],
     apiConnected: true,
@@ -275,7 +275,7 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
         status: "open",
         comments: [],
       }],
-      changeProposals: [{
+      changes: [{
         id: "CHANGE-12",
         title: "Keep preview cards attached to conversation state",
         author: "maya",
@@ -305,7 +305,7 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
   );
   assert.ok(liveFeed.conversations.some((item) => item.channel === "ideas" && item.id === "issue-IDEA-3"));
   assert.ok(liveFeed.conversations.some((item) => item.channel === "bugs" && item.id === "issue-BUG-17"));
-  assert.ok(liveFeed.conversations.some((item) => item.channel === "previews" && item.linkedProposalId === "CHANGE-12"));
+  assert.ok(liveFeed.conversations.some((item) => item.channel === "previews" && item.linkedChangeId === "CHANGE-12"));
   // Member-agent samples are intentional on the live path (Buzz agents-as-members),
   // but they are samples, so they carry source=snapshot rather than posing as API activity.
   assert.ok(
@@ -333,7 +333,7 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
         maintainers: ["maya"],
         topics: [],
         issues: [],
-        changeProposals: [],
+        changes: [],
         discussions: [],
       }]
       : [],
@@ -417,7 +417,7 @@ async function communityWebHtmlIncludesLiveChannelExperience(): Promise<void> {
     body: "Tab order bug",
     labels: ["bug"],
   });
-  await api.proposeChange("epoch/epoch", {
+  await api.createChange("epoch/epoch", {
     id: "CHANGE-12",
     title: "Keep preview cards attached to conversation state",
     author: "maya",

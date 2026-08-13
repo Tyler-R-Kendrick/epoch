@@ -40,9 +40,9 @@ Git compatibility classes, and Community Web site materialization helpers.
    create one with `openOrCreate(root, options)`, or construct
    `EpochRepository` and call `init(author?)`.
 2. Record data with `recordFile(path, mimeType)`, push existing assets with
-   `push(paths, options)`, track working-tree lifecycle with `track`,
-   `movePath`, `copyPath`, `deletePath`, and `forgetPath`, or create review flow events
-   with `intentFile`, `mergeIntent`, `rejectIntent`, and `comment`.
+   `push(paths, options)`, or track working-tree lifecycle with `track`,
+   `movePath`, `copyPath`, `deletePath`, and `forgetPath`. Use the Change Graph
+   service for stable Changes, Revisions, Review Bundles, gates, and merges.
 3. Create deployable versions with `createVersion()` and materialize them with
    `materializeVersion()`.
 4. Verify integrity with `verify()` before trusting or distributing state.
@@ -186,21 +186,10 @@ enough.
 
 ## Collaboration, Gates, And Operations
 
-Signed collaboration objects are stored in the same event log as repository
-history.
-
-```ts
-const issue = repository.createIssue("Track gate pipeline", "Use signed gates");
-const intent = repository.intentFile("policy.txt", "text/plain");
-
-repository.reviewIntent(intent.id, "approved", "Looks deterministic", "bob");
-repository.recordCI("unit", "passed", intent.id, "ci-bot");
-
-const gate = repository.gateStatus(intent.id, {
-  requiredReviewState: "approved",
-  requiredCi: ["unit"],
-});
-```
+Signed issues and comments share the event log with repository history.
+Stable work uses the Protocol/Core Change, Revision, Change Graph, Review
+Bundle, gate-evidence, and Merge Plan contracts described below. Pre-release
+Intent APIs are not a compatibility surface.
 
 Use `appendOperation(command, status, detail?)` when command history should be
 represented in the signed event log rather than in local-only metadata.
@@ -684,6 +673,58 @@ renderPlatformConsole(document.getElementById("root"), {
 });
 ```
 
+## Community Search, GraphQL, And Projections
+
+`@epoch/community-core` exports the dependency-free semantic contracts and
+reference behavior:
+
+- `CommunityEntity`, `CommunityFieldRegistry`, and message/Entity adapters;
+- `SearchExpression`, `normalizeQuery`, `SearchPlan`, `SearchSnapshot`, and
+  snapshot-bound keyset cursors;
+- `SearchService`, `SearchBackend`, and `ReferenceSearchBackend`;
+- `CommunitySourceAdapter` and checkpoint/change-set contracts;
+- `ProjectionDefinition`, compiler/runtime, Projection Entry/delta types, and
+  `createNamespaceRuntime`.
+
+Use structured Search Expressions in SDK code rather than generating text:
+
+```ts
+const where = {
+  kind: "and",
+  terms: [
+    { kind: "compare", field: "state", operator: "eq", value: "needs-review" },
+    { kind: "exists", field: "reactions" },
+  ],
+} as const;
+
+const page = await services.search({
+  where,
+  orderBy: [{ field: "updatedAt", direction: "descending", nulls: "last" }],
+  first: 50,
+  authorization,
+  signal,
+});
+```
+
+`@epoch/community-graphql` exports `COMMUNITY_GRAPHQL_SDL`,
+`createCommunityGraphQLSchema`, `executeCommunityGraphQL`, and
+`subscribeCommunityGraphQL`. Its host supplies authorization and service
+implementations; it imports no Node persistence or browser globals. Structured
+expression inputs use `@oneOf`, and list/search connections use keyset cursors.
+
+`@epoch/community-api` supplies the transactional `CommunityStateStore` and
+canonical persistence/migration boundary. Schema 1 and schema 2 are accepted
+data inputs, then normalized to one current model; they are not old SDKs kept
+alive. Invalid Projection Definitions are quarantined for export.
+`createCommunityApiHost` wires the store, search, projection, namespace, and
+GraphQL fetch handler. `createCommunityApiFetchHandler` without services still
+fails closed on those routes.
+
+Browser hosts may select the Orama lexical Worker or optional SQLite WASM/FTS5
+Worker. Optimized backends are rebuildable accelerators and must conform to the
+reference evaluator. Node-only/browser-only adapters return typed unsupported
+or capability errors rather than leaking imports into portable packages.
+
 ## Related Docs
 
 - [Current Design](design.md)
@@ -694,3 +735,4 @@ renderPlatformConsole(document.getElementById("root"), {
 - [Object Resolver And Native Sync](resolver-sync.md)
 - [Workspace Providers](workspace-providers.md)
 - [Forge Adapters](forge-adapters.md)
+- [Community Search And Projections](community-search-projections.md)

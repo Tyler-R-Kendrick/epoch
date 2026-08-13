@@ -3,6 +3,112 @@ Feature: Community Web community-first experience
   with Network Feed discovery and linked repository projects as secondary planes.
 
   @persona.github_open_source_contributor
+  Scenario: Contributor searches registered sources and sees completeness
+    Given Community Web has authorized Entities from current and stale registered sources
+    When I run the deterministic search "state:needs-review"
+    Then results identify their canonical targets and source provenance
+    And source completeness names the stale source without invoking AI
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor corrects a precise search syntax error without AI
+    Given I open the Community Web query workbench by keyboard
+    When I enter an unsupported field and operator
+    Then the diagnostic identifies line column span code and field suggestions
+    And no partial search or AI translation runs
+
+  @persona.maintainer
+  Scenario: Maintainer explains why an Entity matched
+    Given a deterministic search returned an authorized Entity
+    When I open Search Explain
+    Then I can inspect normalization source pushdown residual evaluation authorization ordering and omissions
+    And the explanation does not reveal unreadable Entities
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor saves search semantics as a Projection Definition
+    Given I preview an authorized deterministic search
+    When I save it as the "needs-review" projection
+    Then the Projection Definition stores the typed Search Expression and total order
+    And reopening it preserves canonical Entity identity rather than a copied result tree
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor clones and reorganizes the built-in namespace
+    Given I clone "builtin:default" into my own Projection Definition
+    When I group project Entities by state and preview the tree
+    Then the preview uses authorized real data and deterministic collision names
+    And the namespace diff explains changes before I mount them
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor replaces the root and recovers from an invalid projection
+    Given I mount my valid Projection Definition at root with user replace precedence
+    When a later edit makes that Projection Definition invalid
+    Then the invalid definition is quarantined and exportable
+    And I can open "/.epoch/default" and reset my user namespace entirely by keyboard
+
+  @persona.maintainer
+  Scenario: Maintainer composes a projection and explains deterministic shadowing
+    Given the built-in root and a community Projection Definition contain the same child name
+    When I mount the community definition before the built-in root
+    Then first-match lookup selects the higher-precedence Projection Entry
+    And Namespace Explain identifies the ordered components and shadowed entry
+
+  @persona.github_open_source_contributor
+  Scenario: One canonical Entity appears at multiple paths and occurrences
+    Given one Entity is selected by two branches of one Projection Definition
+    When I locate that Entity in the mounted namespace
+    Then both Projection Entries have distinct stable occurrence IDs and paths
+    And both entries target the same canonical object ID
+
+  @persona.screen_reader_power_user
+  Scenario: Queued projection updates preserve the reader's position
+    Given I am reading one Projection Entry in queued update mode
+    When a source change adds an earlier-sorting Entity
+    Then Community Web announces the queued count without moving focus or reading anchor
+    When I apply queued updates
+    Then focus remains attached to the prior occurrence or canonical target
+
+  @persona.security_compliance_responder
+  Scenario: Private Entities cannot influence observable search or paths
+    Given two corpora differ only by Entities I am not authorized to read
+    When I compare search hits counts facets suggestions completions paths collisions and explanations
+    Then every observable authorized result is equivalent
+    And source status reveals at most a generic unauthorized omission
+
+  @persona.github_open_source_contributor
+  Scenario: Browser falls back when persistent SQLite is unavailable
+    Given my browser cannot provide the required OPFS and FTS5 capabilities
+    When I open a metadata-only Community replica and search
+    Then Community Web reports the unavailable persistence capability
+    And the Orama or reference backend remains functional without losing canonical data
+
+  @persona.github_open_source_contributor
+  Scenario: Two browser tabs contend without corrupting the search index
+    Given two Community Web tabs open the same browser search replica
+    When both attempt a local index update
+    Then one writer coordinates the update and the other waits or falls back explicitly
+    And reopening the replica returns the same authorized Entities and checkpoint
+
+  @persona.maintainer
+  Scenario: Projection state survives reload and deterministic migration
+    Given persisted schema 2 contains stable Entity IDs and a saved query record
+    When Community migrates and reloads the state
+    Then one current Projection Definition preserves the IDs timestamps query semantics and aliases
+    And rerunning migration produces the same state without a compatibility API
+
+  @persona.github_open_source_contributor
+  Scenario: GraphQL and text frontends share one Search Expression
+    Given a structured GraphQL search and text search express the same authorized predicate
+    When I execute both against one Search Snapshot
+    Then both return the same canonical targets in the same total order
+    And GraphQL uses keyset cursors rather than array offsets
+
+  @persona.github_open_source_contributor
+  Scenario: CLI user validates and previews a Projection Definition
+    Given I have a Projection Definition JSON file
+    When I validate and preview it with epoch-community
+    Then the CLI reports deterministic JSON diagnostics and Projection Entries
+    And invalid cycles fail without saving or mounting the definition
+
+  @persona.github_open_source_contributor
   Scenario: Contributor splits a change graph atomically and reconstructs the exact snapshot
     Given a convergence workbench with changes "base,api,ui" and dependencies "api>base,ui>api"
     When I split "api" into "api-schema,api-runtime" at unambiguous file boundaries
@@ -182,12 +288,12 @@ Feature: Community Web community-first experience
     Then canonical contextual and exact links identify the same message without private content
 
   @persona.maintainer
-  Scenario: Maintainer reopens a durable saved query projection
+  Scenario: Maintainer reopens a durable Projection Definition
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I save and reopen the Community Web needs-review view
-    Then the saved view keeps its identity normalized query and canonical message state
+    And I save and reopen the Community Web needs-review Projection Definition
+    Then the Projection Definition keeps its identity Search Expression and canonical Entity state
 
   @persona.screen_reader_power_user
   Scenario: Screen-reader power user traverses explicit reply ancestry
@@ -242,7 +348,7 @@ Feature: Community Web community-first experience
     And I open the ideas channel in the active community
     When I select the "Dashboard widget should group revenue by region" community message
     And I promote the selected message to a Change candidate
-    Then the live API records a change proposal for the selected conversation
+    Then the live API records a Change for the selected conversation
 
   @persona.maintainer
   Scenario: Maintainer requests an agent from a selected conversation

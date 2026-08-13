@@ -86,7 +86,7 @@
       authorId: post.authorId || post.who || "unavailable",
       title: post.title || post.subject,
       body: post.body || "",
-      publishedAt: post.publishedAt || post.at || "unknown",
+      publishedAt: post.publishedAt || D.board.observedAt,
       ...(post.updatedAt ? { updatedAt: post.updatedAt } : {}),
       ...(parentId ? { inReplyTo: core().validateObjectRef({ objectId: parentId, kind: "message" }) } : {}),
       threadRoot: core().validateObjectRef({ objectId: rootId, kind: "message" }),
@@ -206,28 +206,44 @@
         paths.push(spacePath(space.id) + "/channels/" + channel);
       });
     });
-    if (window.CW_SAVED_VIEWS) {
-      window.CW_SAVED_VIEWS.list().forEach(function (view) { paths.push("/views/" + view.projectionId); });
-    }
+    if (window.CW_WORKBENCH) window.CW_WORKBENCH.definitions()
+      .forEach(function (definition) { paths.push("/views/" + definition.projectionId); });
     return paths;
   }
 
   function projectionEntries(entries, path) {
     var list = entries || [];
-    var spec = projectionForPath(path);
-    var source = list.map(function (entry) {
+    var projection = projectionForPath(path);
+    var source = list.map(function (entry, index) {
       var ref = entry.ref;
       if (!ref || entry.kind === "representation" || entry.kind === "relation") {
         ref = {
-          objectId: (entry.objectId ? entry.objectId + "." : spec.projectionId + ".") + slug(entry.name),
+          objectId: (entry.objectId ? entry.objectId + "." : projection.projectionId + ".") + slug(entry.name),
           kind: "artifact",
         };
       }
+      ref = core().validateObjectRef(ref);
+      var candidateName = entry.alias || entry.name;
+      var name = path === "/" && candidateName === ".epoch"
+        ? candidateName
+        : core().normalizeProjectionSegment(candidateName);
       return {
-        ref: core().validateObjectRef(ref),
-        alias: entry.alias || entry.name,
+        ref: ref,
+        entryId: path === "/" && name === ".epoch" ? "builtin-recovery-root" : core().createProjectionOccurrenceId({
+          projectionId: projection.projectionId,
+          projectionVersion: projection.version,
+          nodeId: "community-web-entry",
+          branchId: path + ":" + name,
+          parentEntryId: "root:" + projection.projectionId,
+          target: ref,
+          resolvedSegment: name,
+        }),
+        alias: name,
         aliasPath: resolve(path, entry.name),
         ...(entry.parentRef ? { parentRef: entry.parentRef } : {}),
+        depth: 1,
+        position: index + 1,
+        setSize: list.length,
         capabilities: entry.capabilities || {
           read: true,
           enter: entry.kind !== "file" && entry.kind !== "representation",
@@ -237,9 +253,8 @@
         },
       };
     });
-    var projected = core().createProjection(spec, source).entries;
-    return projected.map(function (entry, index) {
-      return Object.assign({}, list[index], entry, { projectionId: spec.projectionId });
+    return source.map(function (entry, index) {
+      return Object.assign({}, list[index], entry, { projectionId: projection.projectionId });
     });
   }
 
@@ -247,37 +262,21 @@
     var canonical = canonicalize(path);
     var parts = split(canonical);
     var projectionId = projectionIdForPath(canonical);
-    var kind = "namespace";
     var label = parts[parts.length - 1] || "Board";
     var visibility = "public";
-    var saved = parts[0] === "views" && parts[1] && window.CW_SAVED_VIEWS
-      ? window.CW_SAVED_VIEWS.get(parts[1]) : null;
-    if (saved) {
-      kind = "saved-query";
-      label = saved.label;
-      visibility = saved.visibility;
+    var definition = parts[0] === "views" && parts[1] && window.CW_WORKBENCH
+      ? window.CW_WORKBENCH.definitions().find(function (item) { return item.projectionId === parts[1]; }) : null;
+    if (definition) {
+      label = definition.label;
+      visibility = definition.visibility;
     } else if (parts[0] === "dms") {
-      kind = "dm";
       visibility = "private";
-    } else if (parts[0] === "notifications") {
-      kind = "notifications";
-      visibility = "private";
-    } else if (parts[0] === "search") {
-      kind = "search";
-    } else if ((parts[0] === "projects" || parts[0] === "spaces") && parts.indexOf("channels") >= 0) {
-      kind = "channel-feed";
     }
     return {
       projectionId: projectionId,
-      kind: kind,
       label: label,
-      root: core().validateObjectRef({ objectId: projectionId + ".root", kind: kind === "dm" ? "dm" : "artifact" }),
-      parentRelation: "projection",
-      order: { by: "manual", direction: "ascending" },
       visibility: visibility,
-      ...(saved ? { query: window.CW_QUERY.normalize(saved.query),
-        queryLanguageVersion: saved.queryLanguageVersion } : {}),
-      version: saved && saved.version || 1,
+      version: definition && definition.version || 1,
     };
   }
 
@@ -331,10 +330,10 @@
       var base = channelFeedPath(primary);
       locations.push({ projectionId: projectionIdForPath(base), aliasPath: primary });
     }
-    if (window.CW_SAVED_VIEWS) {
-      window.CW_SAVED_VIEWS.list().forEach(function (saved) {
-        var path = pathForObject(objectId, saved.projectionId, extra);
-        if (path) locations.push({ projectionId: saved.projectionId, aliasPath: path });
+    if (window.CW_WORKBENCH) {
+      window.CW_WORKBENCH.definitions().forEach(function (definition) {
+        var path = pathForObject(objectId, definition.projectionId, extra);
+        if (path) locations.push({ projectionId: definition.projectionId, aliasPath: path });
       });
     }
     (D.notifications || []).filter(function (notification) {
@@ -1287,7 +1286,7 @@
       var unreadAct = unreadNotificationCount(readSet);
       var nSpaces = allSpaces().length;
       var nBoardAgents = boardAgents().length;
-      return [
+      var builtins = [
         { name: "projects", kind: "dir", hint: allProjects().length + " projects" },
         { name: "spaces", kind: "dir", meta: "spaces",
           hint: nSpaces + " spaces · join or switch" },
@@ -1298,37 +1297,63 @@
             (unreadAct ? " · " + unreadAct + " new" : ""),
           unread: unreadAct },
         { name: "members", kind: "dir", hint: membersForBoard().length + " on the roll" },
-        { name: "views", kind: "dir", meta: "saved queries",
-          hint: (window.CW_SAVED_VIEWS ? window.CW_SAVED_VIEWS.list().length : 0) + " saved views" },
+        { name: "views", kind: "dir", meta: "projections",
+          hint: (window.CW_WORKBENCH ? window.CW_WORKBENCH.definitions().length : 0) + " Projection Definitions" },
+        { name: "search", kind: "dir", meta: "deterministic search",
+          hint: "query · results · explain · history" },
         {
           name: ".agents", kind: "dir", meta: "eve",
           hint: nBoardAgents + " space agent" + (nBoardAgents === 1 ? "" : "s") +
             " · vercel/eve",
         },
       ];
+      var rootDefinition = core().builtinDefaultProjection && core().builtinDefaultProjection.root;
+      var branchNames = rootDefinition && rootDefinition.kind === "literal"
+        ? rootDefinition.children.filter(function (node) { return node.kind === "literal"; }).map(function (node) { return node.segment; })
+        : [];
+      return [{ name: ".epoch", kind: "dir", meta: "recovery", hint: "immutable namespace recovery" }].concat(branchNames.map(function (name) {
+        return builtins.find(function (entry) { return entry.name === name; });
+      }).filter(Boolean));
+    }
+
+    if (parts[0] === ".epoch") {
+      var recovery = ["default", "canonical", "projections", "sources", "diagnostics"];
+      if (parts.length === 1) return recovery.map(function (name) {
+        return { name: name, kind: "dir", meta: "recovery", hint: "protected " + name + " view" };
+      });
+      if (parts.length === 2 && parts[1] === "default") return list("/", extra).filter(function (entry) { return entry.name !== ".epoch"; });
+      if (parts.length === 2 && parts[1] === "projections") return (window.CW_WORKBENCH ? window.CW_WORKBENCH.definitions() : []).map(function (definition) {
+        return { name: definition.projectionId, kind: "file", meta: "projection definition", hint: definition.label };
+      });
+      if (parts.length === 2 && parts[1] === "sources") return [{ name: "community-web-host", kind: "file", meta: "current", hint: "resident fixture/live source" }];
+      if (parts.length === 2 && parts[1] === "diagnostics") return [{ name: "namespace.json", kind: "file", meta: "diagnostics", hint: "mount and recovery health" }];
+      if (parts.length === 2 && parts[1] === "canonical") return [];
+      return null;
     }
 
     if (parts[0] === "views") {
-      if (!window.CW_SAVED_VIEWS) return parts.length === 1 ? [] : null;
+      if (!window.CW_WORKBENCH) return parts.length === 1 ? [] : null;
       if (parts.length === 1) {
-        return window.CW_SAVED_VIEWS.list().map(function (view) {
+        return window.CW_WORKBENCH.definitions().map(function (definition) {
           return {
-            name: view.projectionId,
-            label: view.label,
-            kind: "saved-view",
-            ref: entityRef(view, "saved-view", "saved-view-", view.projectionId),
-            projectionId: view.projectionId,
-            meta: view.visibility,
-            hint: view.query,
+            name: definition.projectionId,
+            label: definition.label,
+            kind: "projection",
+            ref: entityRef(definition, "artifact", "projection-", definition.projectionId),
+            projectionId: definition.projectionId,
+            meta: definition.visibility,
+            hint: "v" + definition.version + " · " + definition.updateMode,
             capabilities: { read: true, enter: true, expand: true, composeUnder: false, execute: false },
           };
         });
       }
       if (parts.length === 2) {
-        var savedView = window.CW_SAVED_VIEWS.get(parts[1]);
-        if (!savedView || !window.CW_QUERY) return null;
-        var result = window.CW_SAVED_VIEWS.open(savedView.projectionId, allMessages(extra));
-        return result.error ? null : postEntries(result.posts);
+        var selected = window.CW_WORKBENCH.definitions().find(function (definition) { return definition.projectionId === parts[1]; });
+        if (!selected || !window.CW_QUERY) return null;
+        var expression = projectionSelection(selected.root);
+        return postEntries(allMessages(extra).filter(function (post) {
+          return !expression || core().matchesNormalizedQuery(window.CW_MAP.toCommunityMessage(post), { ast: expression });
+        }));
       }
       return null;
     }
@@ -1646,6 +1671,17 @@
       return null;
     }
 
+    return null;
+  }
+
+  function projectionSelection(node) {
+    if (!node) return null;
+    if (node.kind === "select" && node.where) return node.where;
+    var children = node.children || (node.child ? [node.child] : []);
+    for (var index = 0; index < children.length; index += 1) {
+      var expression = projectionSelection(children[index]);
+      if (expression) return expression;
+    }
     return null;
   }
 

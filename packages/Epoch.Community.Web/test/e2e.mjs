@@ -688,7 +688,7 @@ const CASES = [
       await page.reload();
       await page.waitForSelector("[data-cli]");
       const prompt = page.locator("[data-cli]");
-      await prompt.fill("macro set review = cd /projects/community/channels/general; view state:open");
+      await prompt.fill("macro set review = cd /projects/community/channels/general; search state:open");
       await prompt.press("Enter");
       await prompt.fill("macro voice review = start review");
       await prompt.press("Enter");
@@ -702,7 +702,7 @@ const CASES = [
       if (defined.actions.length !== 1 || defined.actions[0].name !== "review") {
         return log("macro not saved: " + JSON.stringify(defined));
       }
-      if (defined.actions[0].actionIds.join(",") !== "nav.enter,view.filter") {
+      if (defined.actions[0].actionIds.join(",") !== "nav.enter,search.open") {
         return log("macro did not migrate to action IDs: " + JSON.stringify(defined.actions[0]));
       }
       if (!defined.tools.includes("user_review")) return log("custom agent tool missing");
@@ -717,11 +717,11 @@ const CASES = [
       await prompt.press("Enter");
       const prompted = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
-        query: window.CW_APP.state.feedQuery,
+        query: window.CW_APP.state.searchWorkbench?.expression,
         action: window.CW_ACTIONS.lastEvent(),
       }));
       if (prompted.path !== "/projects/community/channels/general" || prompted.query !== "state:open" ||
-          prompted.action?.actionId !== "view.filter" || prompted.action?.origin !== "macro") {
+          prompted.action?.actionId !== "search.open" || prompted.action?.origin !== "macro") {
         return log("prompt did not run saved macro: " + JSON.stringify(prompted));
       }
 
@@ -4410,6 +4410,52 @@ const CASES = [
     },
   },
   {
+    name: "SEARCH-PROJECTION-WORKBENCH deterministic keyboard search exposes completeness without AI",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const beforeAi = await page.evaluate(() => window.CW_APP.state.ai);
+      await page.keyboard.press("Control+F");
+      await page.waitForTimeout(100);
+      const opened = await page.evaluate(() => ({
+        action: window.CW_ACTIONS.lastEvent()?.actionId,
+        oldActions: window.CW_ACTIONS.list().filter((action) => action.actionId.startsWith("view.")).length,
+        region: document.querySelector("[data-search-workbench]")?.getAttribute("aria-label"),
+        tabs: Array.from(document.querySelectorAll("[data-search-workbench] [role=tab]")).map((tab) => tab.textContent?.trim()),
+        focused: document.activeElement?.getAttribute("data-search-expression"),
+      }));
+      if (opened.action !== "search.open" || opened.oldActions !== 0 || opened.region !== "Search workbench" ||
+          opened.tabs.join("|") !== "Query|Results|Explain|History" || opened.focused !== "true") {
+        return log("normalized keyboard workbench missing: " + JSON.stringify(opened));
+      }
+
+      await page.fill("[data-search-expression]", "sttae:needs-review");
+      await page.click("[data-search-run]");
+      await page.waitForTimeout(80);
+      const invalid = await page.evaluate(() => ({
+        alert: document.querySelector("[data-search-diagnostic][role=alert]")?.textContent || "",
+        line: document.querySelector("[data-search-diagnostic]")?.getAttribute("data-line"),
+        column: document.querySelector("[data-search-diagnostic]")?.getAttribute("data-column"),
+      }));
+      if (!/unknown.*sttae.*state/i.test(invalid.alert) || invalid.line !== "1" || !invalid.column) {
+        return log("structured diagnostic missing: " + JSON.stringify(invalid));
+      }
+
+      await page.fill("[data-search-expression]", "state:needs-review");
+      await page.click("[data-search-run]");
+      await page.waitForFunction(() => document.querySelector("[data-search-completeness]")?.textContent?.includes("complete"));
+      const result = await page.evaluate(() => ({
+        selected: document.querySelector("[data-search-workbench] [role=tab][aria-selected=true]")?.textContent?.trim(),
+        completeness: document.querySelector("[data-search-completeness]")?.textContent || "",
+        sources: document.querySelectorAll("[data-search-source]").length,
+        targets: Array.from(document.querySelectorAll("[data-search-target]")).map((row) => row.getAttribute("data-search-target")),
+        ai: window.CW_APP.state.ai,
+      }));
+      return result.selected === "Results" && /complete/i.test(result.completeness) && result.sources >= 1 &&
+        result.targets.length >= 1 && new Set(result.targets).size === result.targets.length && result.ai === beforeAi ||
+        log("deterministic result surface missing: " + JSON.stringify(result));
+    },
+  },
+  {
     name: "feed query: Lucene view filters posts; named chip and free-form",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
@@ -4458,17 +4504,17 @@ const CASES = [
       });
       if (!scout.hasScout) return log("who:scout missed scout: " + JSON.stringify(scout));
 
-      // /view from prompt
-      await page.keyboard.type("/view has:anchor");
+      // /search from the centralized action registry
+      await page.keyboard.type("/search state:open");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(200);
       const anch = await page.evaluate(() => ({
-        q: window.CW_APP.state.feedQuery,
-        n: document.querySelectorAll(".cn-comment").length,
-        hasAnchor: document.querySelectorAll('[data-c="anchor"]').length,
+        q: window.CW_APP.state.searchWorkbench?.expression,
+        n: document.querySelectorAll("[data-search-target]").length,
+        hasAnchor: false,
       }));
-      if (anch.q !== "has:anchor") return log("/view failed: " + JSON.stringify(anch));
-      return anch.hasAnchor >= 1 || log("no anchors after has:anchor: " + anch.n);
+      if (anch.q !== "state:open") return log("/search failed: " + JSON.stringify(anch));
+      return anch.n >= 1 || log("no results after state:open: " + anch.n);
     },
   },
   {
@@ -6718,11 +6764,11 @@ const CASES = [
         Object.defineProperty(navigator, "clipboard", {
           configurable: true,
           value: { writeText(value) {
-            window.__nbCopiedLinks = (window.__nbCopiedLinks || []).concat(String(value));
+            window.__cwCopiedLinks = (window.__cwCopiedLinks || []).concat(String(value));
             return Promise.resolve();
           } },
         });
-        window.__nbCopiedLinks = [];
+        window.__cwCopiedLinks = [];
         window.CW_APP.navigate("/dms/scout", { keepCli: true });
         window.CW_APP.openThread("dm-s4");
         window.CW_APP.commitNavigation(true);
@@ -6750,13 +6796,13 @@ const CASES = [
           " path=" + diagnostic.path);
       }
       for (const kind of ["canonical", "contextual", "exact"]) {
-        const before = await page.evaluate(() => window.__nbCopiedLinks.length);
+        const before = await page.evaluate(() => window.__cwCopiedLinks.length);
         await page.evaluate((shareKind) => {
           document.querySelector(
             `[data-share-post="dm-s4"][data-share-kind="${shareKind}"]`,
           )?.click();
         }, kind);
-        await page.waitForFunction((count) => window.__nbCopiedLinks.length === count + 1, before);
+        await page.waitForFunction((count) => window.__cwCopiedLinks.length === count + 1, before);
       }
       await page.evaluate(async () => {
         await window.CW_ACTIONS.invoke("share.contextual", { line: "/share" }, {
@@ -6766,11 +6812,11 @@ const CASES = [
           projectionId: "dm-scout",
         });
       });
-      await page.waitForFunction(() => window.__nbCopiedLinks.length === 4);
+      await page.waitForFunction(() => window.__cwCopiedLinks.length === 4);
       const proof = await page.evaluate((notificationTarget) => ({
         href: window.location.href,
         history: JSON.stringify(window.history.state),
-        links: window.__nbCopiedLinks.slice(),
+        links: window.__cwCopiedLinks.slice(),
         notificationTarget,
         action: JSON.stringify(window.CW_ACTIONS.lastEvent()),
         status: document.querySelector("[data-status-line]")?.textContent || "",
@@ -6900,15 +6946,16 @@ const CASES = [
   {
     name: "NAV-PROJ-004 removed saved projection falls back to its canonical object",
     run: async (page, log) => {
-      const prepared = await page.evaluate(() => {
-        const saved = window.CW_SAVED_VIEWS.save({
-          label: "Temporary projection", query: "channel:general", visibility: "private",
-        });
+      const prepared = await page.evaluate(async () => {
+        const state = {};
+        window.CW_WORKBENCH.openSearch(state, "channel:general");
+        await window.CW_WORKBENCH.runSearch(state);
+        const saved = window.CW_WORKBENCH.saveSearchProjection(state, "Temporary projection");
         const ref = window.CW_MAP.objectRef(window.CW_DATA.posts.find((post) => post.id === "p1"));
         const url = window.CW_CORE.objectUrl(ref, {
           origin: window.location.origin, projectionId: saved.projectionId,
         });
-        const deleted = window.CW_SAVED_VIEWS.delete(saved.projectionId);
+        const deleted = window.CW_WORKBENCH.deleteProjection(saved.projectionId);
         return { url, projectionId: saved.projectionId, objectId: ref.objectId, deleted };
       });
       if (!prepared.deleted) return log("saved projection was not deleted");
@@ -7122,8 +7169,10 @@ const CASES = [
       await page.evaluate(async () => {
         window.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
         window.CW_APP.openThread("p1");
-        const saved = window.CW_SAVED_VIEWS.save({ label: "Route view", query: "state:open", visibility: "private" });
-        await window.CW_ACTIONS.invoke("view.open", { view: saved.projectionId }, { origin: "diagnostic", context: "board" });
+        window.CW_WORKBENCH.openSearch(window.CW_APP.state, "state:open");
+        await window.CW_WORKBENCH.runSearch(window.CW_APP.state);
+        const saved = window.CW_WORKBENCH.saveSearchProjection(window.CW_APP.state, "Route projection");
+        await window.CW_ACTIONS.invoke("projection.open", { projectionId: saved.projectionId }, { origin: "diagnostic", context: "board" });
         window.CW_APP.navigate("/dms/scout", { keepCli: true });
       });
       const states = [];
@@ -7145,10 +7194,10 @@ const CASES = [
     name: "NAV-QUERY-002 NAV-ROUTE-002 saved contextual view and reading anchor survive reload",
     run: async (page, log) => {
       const before = await page.evaluate(async () => {
-        const saved = window.CW_SAVED_VIEWS.save({
-          label: "Reload review", query: " (( state:open )) sort:new ", visibility: "private",
-        });
-        await window.CW_ACTIONS.invoke("view.open", { view: saved.projectionId }, {
+        window.CW_WORKBENCH.openSearch(window.CW_APP.state, " (( state:open )) sort:new ");
+        await window.CW_WORKBENCH.runSearch(window.CW_APP.state);
+        const saved = window.CW_WORKBENCH.saveSearchProjection(window.CW_APP.state, "Reload review");
+        await window.CW_ACTIONS.invoke("projection.open", { projectionId: saved.projectionId }, {
           origin: "diagnostic", context: "board",
         });
         window.CW_APP.openThread("p1");
@@ -7159,7 +7208,7 @@ const CASES = [
         window.CW_APP.commitNavigation(true);
         return {
           projectionId: saved.projectionId,
-          query: saved.query,
+          expression: saved.root.children[0].where,
           order: saved.order,
           top: target?.getBoundingClientRect().top || 0,
           href: window.location.href,
@@ -7171,19 +7220,21 @@ const CASES = [
         window.CW_APP.state.threadFocus === "p1" && window.CW_APP.state.feedMark === "p2",
       before.projectionId);
       const after = await page.evaluate((projectionId) => {
-        const saved = window.CW_SAVED_VIEWS.get(projectionId);
+        const saved = window.CW_WORKBENCH.definitions().find((definition) =>
+          definition.projectionId === projectionId);
         return {
           projectionId: window.CW_APP.navigationLocation().projectionId,
           thread: window.CW_APP.state.threadFocus,
           focused: window.CW_APP.state.feedMark,
-          query: saved?.query,
+          expression: saved?.root?.children?.[0]?.where,
           order: saved?.order,
           top: document.querySelector('[data-object-id="p2"]')?.getBoundingClientRect().top || 0,
           href: window.location.href,
         };
       }, before.projectionId);
       return after.projectionId === before.projectionId && after.thread === "p1" && after.focused === "p2" &&
-        after.query === before.query && after.order === before.order && Math.abs(after.top - before.top) <= 8 &&
+        JSON.stringify(after.expression) === JSON.stringify(before.expression) &&
+        JSON.stringify(after.order) === JSON.stringify(before.order) && Math.abs(after.top - before.top) <= 8 &&
         after.href === before.href || log("contextual reload drift: " + JSON.stringify({ before, after }));
     },
   },
@@ -7848,9 +7899,9 @@ const CASES = [
 
       // UI: copy button on a post copies something fenced.
       await page.evaluate(() => {
-        window.__nbCopied = null;
+        window.__cwCopied = null;
         window.CW_COPY.copyText = (t) => {
-          window.__nbCopied = t;
+          window.__cwCopied = t;
           return Promise.resolve(true);
         };
       });
@@ -7858,7 +7909,7 @@ const CASES = [
       if (!(await copyBtn.count())) return log("no copy button on posts");
       await copyBtn.click();
       await page.waitForTimeout(60);
-      const clipped = await page.evaluate(() => window.__nbCopied);
+      const clipped = await page.evaluate(() => window.__cwCopied);
       if (!clipped || !/--- community web thread/.test(clipped)) {
         return log("post copy button: " + String(clipped).slice(0, 160));
       }
@@ -7875,7 +7926,7 @@ const CASES = [
       if (!hasCopy) return log("context menu missing Copy");
       await page.click('[data-ctx-verb="copy"]');
       await page.waitForTimeout(60);
-      const feedClip = await page.evaluate(() => window.__nbCopied);
+      const feedClip = await page.evaluate(() => window.__cwCopied);
       if (!feedClip || !/--- community web feed/.test(feedClip)) {
         return log("channel copy: " + String(feedClip).slice(0, 160));
       }
@@ -8407,7 +8458,7 @@ const CASES = [
     },
   },
   {
-    name: "NAV-MIGRATE-004 saved-view recovery reuses the actionable recovery surface",
+    name: "NAV-MIGRATE-004 Projection Definition recovery reuses the actionable recovery surface",
     firstVisit: true,
     storage: {
       "cw-saved-views-v2": "{malformed saved view state",
@@ -8420,22 +8471,21 @@ const CASES = [
         resetAction: !!document.querySelector("[data-session-recovery-reset]"),
         surfaces: document.querySelectorAll("[data-session-recovery]").length,
         preserved: localStorage.getItem("cw-saved-views-v2"),
-        status: window.CW_SAVED_VIEWS.status(),
+        status: window.CW_WORKBENCH.definitionStatus(),
       }));
       if (!recovery.exportAction || !recovery.resetAction) {
-        return log("saved-view recovery: " + JSON.stringify(recovery));
+        return log("Projection Definition recovery: " + JSON.stringify(recovery));
       }
       await page.evaluate(() => document.querySelector("[data-session-recovery-reset]").click());
       await page.waitForTimeout(100);
       const reset = await page.evaluate(() => ({
         surface: !!document.querySelector("[data-session-recovery]"),
         stored: localStorage.getItem("cw-saved-views-v2"),
-        status: window.CW_SAVED_VIEWS.status(),
+        status: window.CW_WORKBENCH.definitionStatus(),
       }));
       return recovery.surfaces === 1 && !!recovery.preserved &&
-        recovery.status?.actions?.includes("export") && recovery.status?.actions?.includes("reset") &&
-        /saved.view|malformed|export|reset/i.test(recovery.text || "") && !reset.surface && !reset.stored && !reset.status ||
-        log("saved-view recovery is not actionable: " + JSON.stringify({ recovery, reset }));
+        /Projection Definition|malformed|export|reset/i.test(recovery.text || "") && !reset.surface && !reset.stored && !reset.status ||
+        log("Projection Definition recovery is not actionable: " + JSON.stringify({ recovery, reset }));
     },
   },
   {
