@@ -5707,6 +5707,7 @@
       }
       var published = publishCompose(body, compose);
       if (!published) throw new Error("could not publish");
+      recordSocialRevision(published, body, compose);
       return context.origin === "mcp" && window.CW_MCP
         ? window.CW_MCP.text("posted " + published.id + (published.re ? " re:" + published.re : "") +
           (published.channel ? " #" + published.channel : "") + (published.dm ? " dm:" + published.dm : ""))
@@ -9009,6 +9010,30 @@
     blurEditor: blurEditor,
     getEditor: function () { return ensureEditorState().active; },
   };
+
+  /**
+   * Bind a published message to a native change feed.
+   *
+   * A post is editable, so it needs a lineage rather than a mutable body: the
+   * workspace records it as a change with an append-only line of revisions,
+   * and the message carries the resulting change id. Recording is best-effort
+   * on purpose — a workspace that is unavailable must not stop someone posting,
+   * it just means this message is not bound to a change yet.
+   */
+  function recordSocialRevision(published, body, compose) {
+    if (!published || !window.CW_WORKSPACE || !window.CW_WORKSPACE.runtime()) return;
+    var feed = (compose && (compose.channel || compose.dm)) || "general";
+    window.CW_WORKSPACE.execute("feed.append", {
+      feed: String(feed),
+      kind: "post",
+      body: String(body),
+      ...(published.changeId ? { changeId: published.changeId } : {}),
+    }).then(function (receipt) {
+      published.changeId = receipt.data.changeId;
+      published.revisionIds = receipt.data.revisionIds;
+      published.edited = receipt.data.edited;
+    }, function () { /* the board keeps working; the binding is not there yet */ });
+  }
 
   // Tools are registered once the app exists, because they call into it.
   if (window.CW_TOOLS) {

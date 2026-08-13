@@ -71,6 +71,23 @@ export interface CommunityRepository {
   readonly discussions: readonly CommunityDiscussion[];
 }
 
+/**
+ * Native identity for a social record.
+ *
+ * A forge that only stores its own ids can describe repository truth but never
+ * point at it. These fields carry the Epoch change and revision a record *is*:
+ * `changeId` is the record's stable lineage, `revisionIds` its append-only
+ * edits, and `baseRef` the ref the record was authored against. They are
+ * optional because projections built before a record was bound predate them —
+ * an absent binding must read as "not bound yet", never as "no history".
+ */
+export interface CommunityNativeBinding {
+  readonly changeId?: string;
+  readonly revisionIds?: readonly string[];
+  readonly baseRef?: string;
+  readonly edited?: boolean;
+}
+
 export interface OpenCommunityIssueInput {
   readonly id?: string;
   readonly title: string;
@@ -79,7 +96,7 @@ export interface OpenCommunityIssueInput {
   readonly labels?: readonly string[];
 }
 
-export interface CommunityIssue {
+export interface CommunityIssue extends CommunityNativeBinding {
   readonly id: string;
   readonly ref?: CommunityObjectRef;
   readonly title: string;
@@ -99,7 +116,7 @@ export interface CreateCommunityChangeInput {
   readonly targetView: string;
 }
 
-export interface CommunityChange {
+export interface CommunityChange extends CommunityNativeBinding {
   readonly id: string;
   readonly ref?: CommunityObjectRef;
   readonly title: string;
@@ -117,7 +134,7 @@ export interface CommunityReviewInput {
   readonly body?: string;
 }
 
-export interface CommunityReview {
+export interface CommunityReview extends CommunityNativeBinding {
   readonly reviewer: string;
   readonly decision: CommunityReviewDecision;
   readonly body: string;
@@ -131,7 +148,7 @@ export interface CommunityDiscussion {
   readonly comments: readonly CommunityComment[];
 }
 
-export interface CommunityComment {
+export interface CommunityComment extends CommunityNativeBinding {
   readonly id?: string;
   readonly ref?: CommunityObjectRef;
   readonly author: string;

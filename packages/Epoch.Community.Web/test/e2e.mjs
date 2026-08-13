@@ -8892,6 +8892,81 @@ const CASES = [
       return true;
     },
   },
+  {
+    name: "FEED-001 a published message becomes a change with an append-only line of revisions",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(async () => {
+        // The page's own action context, so this exercises the real permission
+        // path rather than a bypass invented for the test.
+        const posted = await window.CW_ACTIONS.invoke("compose.publish",
+          { body: "cold install fails on a fresh clone", channel: "general" },
+          window.CW_APP.actionContext("test"));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const records = await window.CW_WORKSPACE.execute("feed.read", { feed: "general" });
+        const record = records.data[records.data.length - 1];
+        const edited = await window.CW_WORKSPACE.execute("feed.append", {
+          feed: "general",
+          kind: "post",
+          body: "cold install fails on a fresh clone — it is the lockfile",
+          changeId: record.changeId,
+        });
+        const history = await window.CW_WORKSPACE.execute("feed.history",
+          { feed: "general", changeId: record.changeId });
+        return {
+          bound: posted && typeof posted.changeId === "string",
+          changeId: record.changeId,
+          sameChange: edited.data.changeId === record.changeId,
+          newRevision: edited.data.revisionId !== record.revisionId,
+          edited: edited.data.edited,
+          bodies: history.data.map((entry) => entry.body),
+        };
+      });
+
+      if (!probe.bound) return log("the published message was not bound to a change");
+      if (!probe.changeId?.startsWith("chg_")) return log("no native change id: " + probe.changeId);
+      if (!probe.sameChange) return log("editing changed the record's identity");
+      if (!probe.newRevision || !probe.edited) return log("an edit did not append a revision");
+      if (probe.bodies.length !== 2) return log("history is not append-only: " + JSON.stringify(probe.bodies));
+      // The earlier wording is readable, so "edited" is evidence rather than a claim.
+      if (!/fresh clone$/.test(probe.bodies[0])) return log("the original wording is gone: " + probe.bodies[0]);
+      return true;
+    },
+  },
+  {
+    name: "STORE-001 the workspace is durable and the device keeps one identity",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const first = await page.evaluate(async () => {
+        await window.CW_WORKSPACE.execute("view.create", { name: "durable" });
+        await window.CW_WORKSPACE.flush();
+        return {
+          storage: window.CW_WORKSPACE.storage(),
+          identity: window.CW_WORKSPACE.identity(),
+          actor: window.CW_WORKSPACE.status().actor,
+        };
+      });
+
+      if (first.storage.kind !== "indexeddb") return log("not durable: " + JSON.stringify(first.storage));
+      if (first.storage.pendingWrites !== 0) return log("writes did not settle: " + JSON.stringify(first.storage));
+      if (first.storage.lastError) return log("storage reported: " + first.storage.lastError);
+      if (!/^did:epoch:/.test(first.actor)) return log("no device identity: " + first.actor);
+      if (first.identity?.publicKey?.d) return log("private key material was stored");
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const second = await page.evaluate(() => ({
+        actor: window.CW_WORKSPACE.status().actor,
+        views: window.CW_WORKSPACE.runtime().workspace.listViews().map((view) => view.name),
+        created: window.CW_WORKSPACE.identity()?.created,
+      }));
+
+      if (second.actor !== first.actor) return log("identity changed on reload: " + JSON.stringify([first.actor, second.actor]));
+      if (second.created !== false) return log("a new identity was minted on reload");
+      if (!second.views.includes("durable")) return log("the workspace did not survive: " + JSON.stringify(second.views));
+      return true;
+    },
+  },
 ];
 
 async function path(page) {

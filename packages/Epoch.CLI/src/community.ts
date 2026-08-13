@@ -4,6 +4,7 @@ import {
   createCommunityRuntime,
   executeCommunityRuntimeCommand,
   isCommunityRuntimeInvocation,
+  setCliBundleReader,
   type CommunityRuntime,
   type EpochIntegrationStorage,
 } from "@epoch/community-runtime";
@@ -35,7 +36,16 @@ export async function executeCommunityCli(
     return await communityForgeMain([...args], io) === 0;
   }
 
+  // The runtime stays browser-safe, so the host supplies file access.
+  setCliBundleReader((path) => JSON.parse(readFileSync(resolve(path), "utf8")) as unknown);
   const result = await executeCommunityRuntimeCommand(openWorkspaceRuntime(repoRoot), [command, ...args]);
+  const target = outputPath(args);
+  if (target !== undefined && result.ok && result.receipt !== undefined) {
+    writeFileSync(resolve(target), `${JSON.stringify(result.receipt.data, undefined, 2)}\n`);
+    io.stdout(`wrote ${target}\n`);
+    return true;
+  }
+
   (result.ok ? io.stdout : io.stderr)(`${result.output}\n`);
   return result.ok;
 }
@@ -45,6 +55,14 @@ export async function executeCommunityCli(
  * terminal and the same command in a browser tab are describing comparable
  * state rather than each inventing their own.
  */
+function outputPath(args: readonly string[]): string | undefined {
+  const index = args.indexOf("--out");
+  if (index === -1) return undefined;
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith("--")) throw new Error("--out requires a file path");
+  return value;
+}
+
 export function openWorkspaceRuntime(repoRoot: string): CommunityRuntime {
   const root = resolve(repoRoot);
   return createCommunityRuntime({

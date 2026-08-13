@@ -6,6 +6,8 @@ import { executeCommunityCli, isCommunityCliInvocation } from "@epoch/cli";
 import { createMemoryEpochIntegrationStorage } from "@epoch/integration-core";
 import {
   createCommunityRuntime,
+  openDurableStorage,
+  resolveBrowserIdentity,
   DEFAULT_PROJECT_SLUG,
   createWebMcpTools,
   defaultCommunityHarness,
@@ -54,6 +56,10 @@ export async function runCommunityRuntimeTests(): Promise<void> {
   await everyAdapterReturnsTheSameReceipt();
   await theEpochBinaryOwnsBothCommandGroups();
   await theDefaultProjectOwnsTheInterface();
+  await socialRecordsAreChangeFeeds();
+  await durableStorageCarriesAWorkspaceForward();
+  await identityIsStablePerDevice();
+  await twoParticipantsConvergeThroughBundles();
   harnessDigestDetectsTampering();
   console.log("community runtime tests passed");
 }
@@ -338,6 +344,184 @@ async function theDefaultProjectOwnsTheInterface(): Promise<void> {
   assert.equal(reloaded.workspace.materialize().safeMode, false);
   assert.equal(reloaded.workspace.revision(TRUNK_VIEW, 2).manifest.placements[0]?.slot, "board.thread-list",
     "the revision that broke the interface stays readable");
+}
+
+async function socialRecordsAreChangeFeeds(): Promise<void> {
+  const storage = createMemoryEpochIntegrationStorage();
+  const runtime = runtimeWith(storage);
+
+  const opened = await runtime.commands.execute<{ changeId: string; revisionId: string; edited: boolean }>({
+    kind: "feed.append",
+    input: { feed: "general", kind: "post", body: "cold install fails on a fresh clone", subject: "cold install" },
+  });
+  assert.equal(opened.policy.decision, "allow");
+  assert.ok(opened.changeId?.startsWith("chg_"), "a social record has a native change identity");
+  assert.equal(opened.data.edited, false);
+  assert.equal(opened.eventIds.length, 1);
+
+  const edited = await runtime.commands.execute<{ changeId: string; revisionId: string; edited: boolean; revision: number }>({
+    kind: "feed.append",
+    input: {
+      feed: "general",
+      kind: "post",
+      body: "cold install fails on a fresh clone — it is the lockfile",
+      changeId: opened.data.changeId,
+    },
+  });
+  assert.equal(edited.data.changeId, opened.data.changeId, "an edit keeps the record's identity");
+  assert.notEqual(edited.data.revisionId, opened.data.revisionId, "an edit is a new revision");
+  assert.equal(edited.data.revision, 2);
+  assert.equal(edited.data.edited, true);
+
+  // "Edited" is readable rather than assertable: the earlier wording is there.
+  const history = await runtime.commands.execute<readonly { body: string; revisionId: string }[]>({
+    kind: "feed.history",
+    input: { feed: "general", changeId: opened.data.changeId },
+  });
+  assert.equal(history.data.length, 2);
+  assert.match(history.data[0].body, /cold install fails on a fresh clone$/u);
+  assert.equal(history.readOnly, true);
+
+  const records = await runtime.commands.execute<readonly { changeId: string; body: string }[]>({
+    kind: "feed.read",
+    input: { feed: "general" },
+  });
+  assert.equal(records.data.length, 1, "a feed shows one current record per change, not one per edit");
+  assert.match(records.data[0].body, /it is the lockfile/u);
+
+  // Editing something that was never opened is refused rather than inventing it.
+  await assert.rejects(
+    runtime.commands.execute({
+      kind: "feed.append",
+      input: { feed: "general", kind: "post", body: "ghost", changeId: "chg_deadbeef" },
+    }),
+    /No social record/u,
+  );
+
+  const reloaded = runtimeWith(storage);
+  const afterReload = await reloaded.commands.execute<readonly { revisionIds: readonly string[] }[]>({
+    kind: "feed.read",
+    input: { feed: "general" },
+  });
+  assert.deepEqual(afterReload.data[0].revisionIds, [opened.data.revisionId, edited.data.revisionId]);
+}
+
+async function durableStorageCarriesAWorkspaceForward(): Promise<void> {
+  // The IndexedDB path is exercised by the browser suite; this covers the
+  // decisions that matter when it is unavailable, which is when a silent
+  // failure would cost someone their workspace.
+  const legacy = createMemoryEpochIntegrationStorage({
+    "epoch:community-web:/.epoch-live/events/e1.json": "{}",
+    "epoch:community-web:identity": "{}",
+    "unrelated:key": "leave me alone",
+  });
+
+  const storage = await openDurableStorage({ namespace: "epoch:community-web", indexedDB: undefined, migrateFrom: legacy });
+  assert.equal(storage.kind, "memory", "no IndexedDB means an honest in-memory workspace");
+  assert.equal(storage.migrated, 2, "the existing workspace is carried over, not abandoned");
+  assert.equal(storage.getItem("unrelated:key"), null, "another product's keys are not adopted");
+  assert.equal(storage.pendingWrites(), 0);
+  assert.equal(storage.lastError(), undefined);
+
+  storage.setItem("epoch:community-web:/.epoch-live/events/e2.json", "{\"id\":2}");
+  await storage.flush();
+  const exported = storage.snapshot();
+  assert.equal(Object.keys(exported).length, 3);
+
+  const target = await openDurableStorage({ namespace: "epoch:community-web", indexedDB: undefined });
+  assert.equal(target.length, 0);
+  await target.restore(exported);
+  assert.deepEqual(target.snapshot(), exported, "an exported workspace can be imported whole");
+
+  // A migrated workspace opens as itself: same id, same history.
+  const runtime = createCommunityRuntime({
+    namespace: "migrated", actor: "did:epoch:tester", policies: fullAccess, now: clock, storage: target,
+  });
+  assert.ok(runtime.workspace.status().events >= 1);
+}
+
+async function identityIsStablePerDevice(): Promise<void> {
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value); },
+  };
+
+  const first = await resolveBrowserIdentity({ namespace: "epoch:community-web", storage });
+  assert.equal(first.kind, "device");
+  assert.match(first.actor, /^did:epoch:/u);
+  assert.equal(first.created, true);
+  assert.ok(first.publicKey, "a device identity carries a public key to bind a claim to later");
+
+  const second = await resolveBrowserIdentity({ namespace: "epoch:community-web", storage });
+  assert.equal(second.actor, first.actor, "the same device keeps the same actor");
+  assert.equal(second.created, false);
+
+  // The private half never leaves: what is stored is the public key only.
+  const stored = JSON.parse(store.get("epoch:community-web:identity") ?? "{}") as Record<string, unknown>;
+  assert.deepEqual(Object.keys(stored).sort(), ["actor", "publicKey", "version"]);
+  assert.equal((stored.publicKey as { d?: string }).d, undefined, "no private key material is stored");
+
+  // Without WebCrypto, say so rather than fake a durable identity.
+  const withoutCrypto = await resolveBrowserIdentity({
+    namespace: "epoch:community-web",
+    storage: { getItem: () => null, setItem: () => {} },
+    crypto: {} as Crypto,
+  });
+  assert.equal(withoutCrypto.kind, "ephemeral");
+  assert.equal(withoutCrypto.actor, "did:epoch:anonymous");
+}
+
+async function twoParticipantsConvergeThroughBundles(): Promise<void> {
+  const laptop = runtimeWith();
+  const desktop = runtimeWith();
+
+  await laptop.commands.execute({ kind: "view.create", input: { name: "denser-feed" } });
+  await laptop.commands.execute({ kind: "ui.propose", input: { view: "denser-feed", manifest: denserFeed } });
+  await laptop.commands.execute({ kind: "change.merge", input: { from: "denser-feed" }, confirmed: true });
+
+  const bundle = await laptop.commands.execute<{ events: readonly unknown[]; digest: string }>({
+    kind: "workspace.export",
+  });
+  assert.equal(bundle.readOnly, true);
+  assert.ok(bundle.data.events.length > 0);
+
+  // Importing is consequential, so it waits for a confirmation like any merge.
+  const held = await desktop.commands.execute({ kind: "workspace.import", input: { bundle: bundle.data } });
+  assert.equal(held.policy.decision, "confirm");
+
+  const imported = await desktop.commands.execute<{ applied: number; skipped: number }>({
+    kind: "workspace.import",
+    input: { bundle: bundle.data },
+    confirmed: true,
+  });
+  assert.ok(imported.data.applied > 0);
+  // Both workspaces opened identically, so their opening events are the same
+  // events — content-addressed ids converge instead of duplicating.
+  assert.ok(imported.data.skipped > 0, "identical opening history is recognised, not duplicated");
+  assert.equal(desktop.workspace.materialize().manifest.theme["--density-row"], "32px",
+    "the desktop now renders what the laptop merged");
+
+  const again = await desktop.commands.execute<{ applied: number }>({
+    kind: "workspace.import",
+    input: { bundle: bundle.data },
+    confirmed: true,
+  });
+  assert.equal(again.data.applied, 0, "importing the same bundle twice changes nothing");
+
+  // A bundle is something someone else made: importing one is when to be suspicious.
+  await assert.rejects(
+    desktop.commands.execute({
+      kind: "workspace.import",
+      input: { bundle: { ...bundle.data, digest: "cafebabe" } },
+      confirmed: true,
+    }),
+    /digest does not match/u,
+  );
+  await assert.rejects(
+    desktop.commands.execute({ kind: "workspace.import", input: { bundle: { hello: "world" } }, confirmed: true }),
+    /not an Epoch workspace bundle/u,
+  );
 }
 
 function harnessDigestDetectsTampering(): void {
