@@ -6,6 +6,7 @@ import { executeCommunityCli, isCommunityCliInvocation } from "@epoch/cli";
 import { createMemoryEpochIntegrationStorage } from "@epoch/integration-core";
 import {
   createCommunityRuntime,
+  DEFAULT_PROJECT_SLUG,
   createWebMcpTools,
   defaultCommunityHarness,
   executeCommunityRuntimeCommand,
@@ -52,6 +53,7 @@ export async function runCommunityRuntimeTests(): Promise<void> {
   await capabilitiesAreEnforcedBelowTheToolLayer();
   await everyAdapterReturnsTheSameReceipt();
   await theEpochBinaryOwnsBothCommandGroups();
+  await theDefaultProjectOwnsTheInterface();
   harnessDigestDetectsTampering();
   console.log("community runtime tests passed");
 }
@@ -293,6 +295,49 @@ async function theEpochBinaryOwnsBothCommandGroups(): Promise<void> {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+async function theDefaultProjectOwnsTheInterface(): Promise<void> {
+  const storage = createMemoryEpochIntegrationStorage();
+  const runtime = runtimeWith(storage);
+
+  // A fresh workspace can already recover: its opening revision came from the
+  // installed harness and validated, so it is a known-good one.
+  assert.deepEqual(runtime.workspace.status().lastKnownGood, { view: TRUNK_VIEW, revision: 1 });
+
+  const first = await runtime.commands.execute<{ slug: string; uiView: string; created: boolean }>({
+    kind: "project.ensureDefault",
+  });
+  assert.equal(first.data.slug, DEFAULT_PROJECT_SLUG);
+  assert.equal(first.data.uiView, TRUNK_VIEW, "the default project owns the interface the browser renders");
+  assert.equal(first.data.created, true);
+  assert.equal(first.eventIds.length, 1);
+
+  // Opening it again is not creating it again.
+  const second = await runtime.commands.execute<{ created: boolean }>({ kind: "project.ensureDefault" });
+  assert.equal(second.data.created, false);
+  assert.deepEqual(second.eventIds, []);
+
+  // A reload sees the same project rather than a new one.
+  const reloaded = runtimeWith(storage);
+  const afterReload = await reloaded.commands.execute<{ created: boolean; revision: number }>({
+    kind: "project.ensureDefault",
+  });
+  assert.equal(afterReload.data.created, false);
+  assert.equal(afterReload.data.revision, 1);
+
+  const listed = await reloaded.commands.execute<readonly { slug: string }[]>({ kind: "project.list" });
+  assert.deepEqual(listed.data.map((project) => project.slug), [DEFAULT_PROJECT_SLUG]);
+  assert.equal(listed.readOnly, true);
+
+  // Breaking the interface still leaves a way back, without erasing the break.
+  await reloaded.commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: forbidden } });
+  assert.equal(reloaded.workspace.materialize().safeMode, true);
+  const restored = await reloaded.commands.execute({ kind: "ui.restoreLastKnownGood", confirmed: true });
+  assert.equal(restored.policy.decision, "allow");
+  assert.equal(reloaded.workspace.materialize().safeMode, false);
+  assert.equal(reloaded.workspace.revision(TRUNK_VIEW, 2).manifest.placements[0]?.slot, "board.thread-list",
+    "the revision that broke the interface stays readable");
 }
 
 function harnessDigestDetectsTampering(): void {

@@ -23,7 +23,7 @@ if (sourceFromOutput === "" ||
 }
 
 // Guard first, then generate: a bad --output must fail before anything writes.
-for (const generator of ["build-core-runtime.mjs", "build-openui.mjs", "build-graphql.mjs"]) {
+for (const generator of ["build-core-runtime.mjs", "build-community-runtime.mjs", "build-openui.mjs", "build-graphql.mjs"]) {
   execFileSync(process.execPath, [join("packages", "Epoch.Community.Web", "scripts", generator)], { stdio: "inherit" });
 }
 

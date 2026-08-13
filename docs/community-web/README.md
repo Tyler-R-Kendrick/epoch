@@ -58,6 +58,33 @@ It is a **dev community default**. The vocabulary — channels, receipts, signed
 Changes, agent runs under a named supervisor — is the product's, and the form is
 the one that community already reads fluently.
 
+## The workspace region
+
+The board is an Epoch participant. On load `workspace.js` opens a local Epoch
+workspace, ensures the default `.epoch` project — the project that owns the
+interface this browser renders — and fills the static harness region from that
+project's head revision.
+
+The region is markup this page ships:
+
+| Slot | Where | Accepts |
+|---|---|---|
+| `shell.workspace-status` | status footer | status components (max 3) |
+| `board.context-panel` | harness region | panel or status components (max 4) |
+| `board.recovery` | harness region | the recovery controls (max 1) |
+
+A dynamic revision may place allowlisted components into those slots and set
+allowlisted theme tokens. It cannot add a slot, move the region, restyle it,
+register a tool, or run code: the vocabulary it is parsed into cannot express
+any of that. When the head revision fails validation the harness renders itself,
+says why, and keeps the recovery controls exactly where they always are.
+
+`window.CW_WORKSPACE` exposes `start`, `execute`, `status`, `project`, and
+`harness` for the console and the page's own agent. Every mutation goes through
+the shared command bus, so the receipt the board shows is the receipt
+`epoch ui …` prints.
+
+
 ## Live, in the way that matters
 
 New posts arrive but never move the ground under you. They queue for the

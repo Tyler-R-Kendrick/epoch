@@ -664,3 +664,35 @@ body {
 .cw-empty { color: var(--cw-ink-faint); padding: var(--cw-pad) calc(var(--cw-pad) * 2); }
 .cw-only-narrow { display: none; }
 @media (max-width: 860px) { .cw-only-narrow { display: inline-block; } }
+
+/* ── Static harness region ──────────────────────────────────────────────────
+ * The workspace's own surface. It is markup this page ships, not markup a
+ * generated revision produced: the dynamic layer fills the slots inside it and
+ * can neither restyle nor hide the region itself. Safe mode makes it prominent
+ * rather than moving it, so recovery is always in the same place.
+ */
+.cw-harness {
+  display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: flex-start;
+  padding: .35rem .7rem; border-block-start: 1px solid var(--cw-rule);
+  color: var(--cw-ink-dim); font-size: .92em;
+}
+.cw-harness[data-safe-mode="true"] {
+  border-block-start-color: var(--cw-warn); color: var(--cw-warn);
+}
+.cw-harness:not([data-safe-mode="true"]):has(.cw-harness-slot[hidden]:only-child) { display: none; }
+.cw-harness-notice { flex: 1 1 100%; margin: 0; color: var(--cw-warn); }
+.cw-harness-slot { display: flex; flex-wrap: wrap; gap: .4rem .8rem; }
+.cw-harness-status { margin-inline-start: .8rem; }
+.cw-ws-card {
+  display: flex; flex-wrap: wrap; gap: 0 .7rem; align-items: baseline;
+  padding: .2rem .45rem; border: 1px solid var(--cw-rule); background: var(--cw-surface);
+}
+.cw-ws-line { display: inline-flex; gap: .35rem; align-items: baseline; }
+.cw-ws-key { color: var(--cw-ink-faint); }
+.cw-ws-value { color: var(--cw-ink); }
+.cw-ws-recovery { border-color: var(--cw-warn); }
+.cw-ws-action {
+  min-height: 2.75rem; padding: .25rem .6rem; border: 1px solid currentColor;
+  border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.cw-ws-action:hover, .cw-ws-action:focus-visible { background: var(--cw-warn); color: var(--cw-bg); }
