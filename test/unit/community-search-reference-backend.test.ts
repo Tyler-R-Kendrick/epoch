@@ -1,20 +1,22 @@
 import assert from "node:assert/strict";
-import type { CommunityAuthorizationContext } from "../../packages/Epoch.Community.Core/src/authorization";
-import { validateCommunityEntity, type CommunityEntity } from "../../packages/Epoch.Community.Core/src/entity";
-import { CommunityError } from "../../packages/Epoch.Community.Core/src/errors";
-import { createCommunityFieldRegistry } from "../../packages/Epoch.Community.Core/src/fields";
-import type { SearchExpression } from "../../packages/Epoch.Community.Core/src/search-expression";
-import { evaluateSearchExpression } from "../../packages/Epoch.Community.Core/src/query-evaluator";
-import { createSearchPlan, type SearchPlanningSource } from "../../packages/Epoch.Community.Core/src/search-plan";
 import {
+  CommunityError,
   ReferenceSearchBackend,
+  SearchService,
+  createCommunityFieldRegistry,
+  createKeysetCursorCodec,
+  createSearchPlan,
+  createSearchServiceFromSources,
+  createSearchSnapshot,
+  evaluateSearchExpression,
+  validateCommunityEntity,
+  type CommunityAuthorizationContext,
+  type CommunityEntity,
   type CommunitySearchChangeSet,
-} from "../../packages/Epoch.Community.Core/src/search-backend";
-import { SearchService } from "../../packages/Epoch.Community.Core/src/search-service";
-import { createSearchServiceFromSources } from "../../packages/Epoch.Community.Core/src/search-service";
-import type { CommunitySourceAdapter } from "../../packages/Epoch.Community.Core/src/source";
-import { createSearchSnapshot } from "../../packages/Epoch.Community.Core/src/snapshot";
-import { createKeysetCursorCodec } from "../../packages/Epoch.Community.Core/src/cursor";
+  type CommunitySourceAdapter,
+  type SearchExpression,
+  type SearchPlanningSource,
+} from "@epoch/community-core";
 
 const NOW = "2026-08-12T18:00:00.000Z";
 const CHECKPOINT = {

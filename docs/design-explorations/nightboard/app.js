@@ -2134,7 +2134,10 @@
     if (window.NB_QUERY && query) {
       var parsed = window.NB_QUERY.parse(query);
       state.feedQueryError = parsed.error || null;
-      if (!parsed.error && parsed.sort) state.sort = parsed.sort;
+      if (!parsed.error && parsed.sort) {
+        state.sort = window.NB_QUERY.legacySort ? window.NB_QUERY.legacySort(parsed.sort) : parsed.sort;
+        if (typeof state.sort !== "string") state.sort = state.feedView || "hot";
+      }
     } else {
       state.feedQueryError = null;
       if (!query && state.feedView === "hot") state.sort = "hot";

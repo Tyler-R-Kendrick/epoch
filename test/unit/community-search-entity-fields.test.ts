@@ -1,24 +1,18 @@
 import assert from "node:assert/strict";
-import type { CommunityAuthorizationContext } from "../../packages/Epoch.Community.Core/src/authorization";
-import type { CommunityMessage } from "../../packages/Epoch.Community.Core/src/graph";
-import {
-  communityEntityToMessage,
-  communityMessageToEntity,
-  validateCommunityEntity,
-} from "../../packages/Epoch.Community.Core/src/entity";
 import {
   CORE_COMMUNITY_FIELDS,
-  createCommunityFieldRegistry,
-} from "../../packages/Epoch.Community.Core/src/fields";
-import {
   CommunityError,
-  communityErrorHttpStatus,
-  isCommunityError,
-} from "../../packages/Epoch.Community.Core/src/errors";
-import {
   authorizationFingerprint,
+  communityEntityToMessage,
+  communityErrorHttpStatus,
+  communityMessageToEntity,
+  createCommunityFieldRegistry,
   createCommunityRuntimeContext,
-} from "../../packages/Epoch.Community.Core/src/runtime-context";
+  isCommunityError,
+  validateCommunityEntity,
+  type CommunityAuthorizationContext,
+  type CommunityMessage,
+} from "@epoch/community-core";
 
 const message: CommunityMessage = {
   ref: { objectId: "message-01", kind: "message", revision: "rev-7" },

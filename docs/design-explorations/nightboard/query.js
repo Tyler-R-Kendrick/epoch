@@ -725,6 +725,7 @@
     availableViews: availableViews,
     helpText: helpText,
     searchBoard: searchBoard,
+    legacySort: legacySort,
     formatSearchResults: formatSearchResults,
     collectCorpus: collectCorpus,
     whereForPost: whereForPost,

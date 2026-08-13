@@ -29,6 +29,7 @@
     { actionId: "nav.read", label: "Read", description: "Read an object's default representation", commandAliases: ["cat"], commandArg: "path", run: "cat" },
     { actionId: "jump.best", label: "Jump", description: "Rank and open a unique global destination", commandAliases: ["z"], commandArg: "terms", run: "jump-best" },
     { actionId: "jump.interactive", label: "Jump chooser", description: "Open the grouped global destination chooser", commandAliases: ["zi"], commandArg: "terms", slashAliases: ["/jump"], slashArg: "terms", keyBindings: [{ key: "Ctrl+J", contexts: ["board"] }], voiceAliases: ["open global jump"], run: "jump-interactive", mcp: { toolName: "board_jump", inputSchema: { type: "object", properties: { terms: { type: "string" }, interactive: { type: "boolean" } }, required: ["terms"] } } },
+    { actionId: "view.sort", label: "Sort view", description: "Set hot, new, top, or best order", commandAliases: ["sort"], commandArg: "sort", slashAliases: ["/sort"], slashArg: "sort", run: "sort" },
     { actionId: "search.open", label: "Open search", description: "Open deterministic cross-source search", commandAliases: ["search", "q"], commandArg: "query", slashAliases: ["/search", "/q", "/view"], slashArg: "query", keyBindings: [{ key: "Ctrl+F", contexts: ["board"] }], voiceAliases: ["open search"], run: "search" },
     { actionId: "search.run", label: "Run search", description: "Run the exact typed query shown in the workbench" },
     { actionId: "search.cancel", label: "Cancel search", description: "Cancel the active deterministic search" },

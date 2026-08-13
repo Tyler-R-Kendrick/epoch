@@ -14,7 +14,7 @@ import {
   applyCommunityChangeSetAtomically,
   type AtomicCommunityChangeTarget,
   type CommunitySourceAdapter,
-} from "../../packages/Epoch.Community.Core/src/source";
+} from "@epoch/community-core";
 
 const NOW = "2026-08-12T19:00:00.000Z";
 const MAYA: CommunityAuthorizationContext = { actorId: "maya", readableDmIds: ["dm-team"] };
