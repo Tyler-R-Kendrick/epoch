@@ -104,32 +104,54 @@ export function instantiateWasmSyntaxModule(
   moduleBytes: Uint8Array | ArrayBuffer,
   limits: WasmProviderLimits = DEFAULT_WASM_LIMITS,
 ): WasmSyntaxModule {
-  // The host owns the memory so the ceiling is enforced by the engine rather
-  // than by asking the module to behave. This is the module's only import.
-  const memory = new WebAssembly.Memory({ initial: 1, maximum: limits.maximumPages });
-
-  let instance: WebAssembly.Instance;
+  let compiled: WebAssembly.Module;
   try {
     // `BufferSource` is the engine's own parameter type; it stays inside this
     // module so the exported signature does not drag a DOM type into callers.
-    instance = new WebAssembly.Instance(
-      new WebAssembly.Module(moduleBytes as BufferSource),
-      { env: { memory } },
-    );
+    compiled = new WebAssembly.Module(moduleBytes as BufferSource);
   } catch (error) {
     throw new WasmProviderError(
       "instantiation-failed",
-      `provider module could not be instantiated: ${error instanceof Error ? error.message : String(error)}`,
+      `provider module could not be compiled: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 
-  const guest: GuestExports = {
-    epoch_abi_version: requireFunction(instance.exports, "epoch_abi_version"),
-    alloc: requireFunction(instance.exports, "alloc") as (length: number) => number,
-    parse: requireFunction(instance.exports, "parse") as (pointer: number, length: number) => number,
+  /**
+   * A fresh instance, with memory the host owns so the ceiling is enforced by
+   * the engine rather than by asking the module to behave.
+   *
+   * Compilation is the expensive step and happens once; instantiation happens
+   * per parse. Reusing one instance would let a module keep state in its linear
+   * memory between calls and return a different tree for the same source —
+   * which would defeat the reproducibility the content-addressed provider
+   * digest is supposed to buy, since that output is recorded as evidence
+   * (ADR-0041). Validating the output does not restore determinism; only
+   * starting from the same state does.
+   */
+  const fresh = (): { guest: GuestExports; memory: WebAssembly.Memory } => {
+    const memory = new WebAssembly.Memory({ initial: 1, maximum: limits.maximumPages });
+    let instance: WebAssembly.Instance;
+    try {
+      instance = new WebAssembly.Instance(compiled, { env: { memory } });
+    } catch (error) {
+      throw new WasmProviderError(
+        "instantiation-failed",
+        `provider module could not be instantiated: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return {
+      memory,
+      guest: {
+        epoch_abi_version: requireFunction(instance.exports, "epoch_abi_version"),
+        alloc: requireFunction(instance.exports, "alloc") as (length: number) => number,
+        parse: requireFunction(instance.exports, "parse") as (pointer: number, length: number) => number,
+      },
+    };
   };
 
-  const abiVersion = guest.epoch_abi_version();
+  // One instance up front, so a module that does not speak this ABI is refused
+  // when it is loaded rather than at the first parse.
+  const abiVersion = fresh().guest.epoch_abi_version();
   if (abiVersion !== WASM_PROVIDER_ABI_VERSION) {
     throw new WasmProviderError(
       "abi-mismatch",
@@ -137,13 +159,14 @@ export function instantiateWasmSyntaxModule(
     );
   }
 
-  const view = (): DataView => new DataView(memory.buffer);
-  const bytes = (): Uint8Array => new Uint8Array(memory.buffer);
-
   return {
     abiVersion,
     limits,
     parse(source: string) {
+      const { guest, memory } = fresh();
+      const view = (): DataView => new DataView(memory.buffer);
+      const bytes = (): Uint8Array => new Uint8Array(memory.buffer);
+
       const encoded = new TextEncoder().encode(source);
       const inputPointer = guest.alloc(encoded.byteLength);
       if (inputPointer <= 0 && encoded.byteLength > 0) {

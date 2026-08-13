@@ -223,6 +223,48 @@ $ epoch ext list
 warning: [extensions] trust "eny" is not a trust mode; using "explicit"
 ```
 
+### Shipping a capability provider
+
+An extension can supply a `syntax` provider as a WebAssembly module, declared
+beside its manifest:
+
+```toml
+name = "grammar"
+api = 1
+version = "1.0.0"
+capabilities = ["syntax"]
+
+[[provides]]
+capability = "syntax"
+module = "grammar-json.wasm"
+language = "json"
+module_sha256 = "9f2c…"
+extensions = [".json"]
+```
+
+The module is instantiated with exactly one import — memory Epoch owns and caps
+— so it has no clock, no entropy, no filesystem, and no network, because nothing
+in its environment offers them. It reports spans; the host reconstructs the text
+from its own source, so a module cannot claim a span and a text that disagree.
+
+Three rules decide whether it loads. The extension must be trusted, by the same
+policy that decides whether its subcommand may run — a provider shapes signed
+evidence, so consent is not optional. The module's bytes must match
+`module_sha256`, so a module swapped after installation is refused and the
+builtin takes the language back. And `command` may not be declared here at all:
+a subcommand's job is to have effects, and a sandbox that permits that is not
+one.
+
+A provider that fails any of these is reported rather than skipped:
+
+```console
+$ epoch semantic diff before.json after.json
+warning: provider grammar-json.wasm from 'grammar' was not loaded: module digest 4b1e… does not match the 9f2c… its manifest declares
+```
+
+Silence would be worse than the warning: the builtin would quietly take over and
+produce a different diff on this machine than on one where the module loaded.
+
 ### The bytes that were verified are the bytes that run
 
 Where the platform can name an open file descriptor as a path — `/proc/self/fd`
@@ -365,12 +407,14 @@ Executability is decided per platform. On POSIX systems discovery requires an
 execute bit; on Windows it accepts `.exe`, `.com`, `.cmd`, and `.bat`, because
 Windows carries no POSIX mode bits and decides launchability by extension.
 
-Discovery and execution do not yet agree on Windows: Node refuses to spawn
-`.cmd` and `.bat` without a shell, so an extension shipped as a `.cmd` shim is
-discovered, trusted, and then fails at launch.
+Discovery and execution agree on Windows. Node refuses to spawn `.cmd` and
+`.bat` without a shell, so Epoch launches them through `cmd.exe /d /s /c` with a
+command line it quotes itself, refusing the arguments CMD cannot deliver
+faithfully. Where a platform can name an open descriptor as a path, the
+descriptor whose bytes were digested is the one executed, which closes the
+check-to-exec race.
 [ADR-0040](design-decisions/0040-verified-launch-and-platform-execution-contract.md)
-is the design that reconciles them, and also closes the check-to-exec race by
-executing the descriptor whose bytes were digested.
+records the reasoning.
 
 ## Boundaries
 

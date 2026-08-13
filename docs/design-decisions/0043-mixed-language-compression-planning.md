@@ -42,14 +42,17 @@ with the provider that understands it, and returns a plan whose parts are
 addressable:
 
 ```console
-$ epoch semantic plan src/*.ts package.json docs/*.md
-provider epoch.syntax.delimiter  files 42  chunks 310
-provider epoch.syntax.json       files  3  chunks  18
-provider epoch.syntax.markdown   files 11  chunks  74
-unplanned                        files  2  (no provider matches .lock)
-dictionary 512 entries digest a1b2c3…  (derived across all 58 files)
+$ epoch semantic plan src/*.ts package.json tsconfig.json docs/*.md pnpm-lock.yaml
+provider epoch.syntax.delimiter  files 42  chunks 310  saved 21102
+provider epoch.syntax.json  files 2  chunks 18  saved 224
+provider epoch.syntax.markdown  files 11  chunks 74  saved 900
+unplanned pnpm-lock.yaml  (no syntax provider matches 'pnpm-lock.yaml')
+dictionary 512 entries digest a1b2c3… (derived across all 56 files)
 plain 118430 bytes  after subtree dedup 96204 bytes (saved 22226)
 ```
+
+Each unmatched file gets its own line and its own reason, rather than a count:
+the useful question is *which* file the estimate does not cover.
 
 Three properties make this more than a loop:
 

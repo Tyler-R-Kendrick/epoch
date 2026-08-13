@@ -6,6 +6,8 @@
  * that discovery and execution can be separate decisions.
  */
 
+import { parseTomlDocument, TomlError } from "@epoch/core";
+
 export const EXTENSION_API_VERSION = 1;
 
 /**
@@ -39,6 +41,25 @@ export type CapabilityKind = (typeof CAPABILITY_KINDS)[number];
  */
 export type DeterminismClass = "deterministic" | "advisory";
 
+/**
+ * One capability provider an extension ships as a WebAssembly module.
+ *
+ * The module is an artifact beside the manifest, so it inherits the trust
+ * mechanism already built: `module_sha256` binds it the way
+ * `executable_sha256` binds the subcommand, and the canonical manifest covers
+ * both, so signing the manifest transitively binds every module (ADR-0041).
+ */
+export interface ProviderDeclaration {
+  readonly capability: CapabilityKind;
+  /** Module file name, resolved beside the manifest. Never a path. */
+  readonly module: string;
+  readonly language: string;
+  /** SHA-256 of the module, lowercase hex. Required: an unbound module is untrusted. */
+  readonly moduleSha256: string;
+  readonly extensions?: readonly string[];
+  readonly mimeTypes?: readonly string[];
+}
+
 export interface ExtensionManifest {
   readonly name: string;
   readonly api: number;
@@ -64,6 +85,8 @@ export interface ExtensionManifest {
    * before, which is why adding this breaks no existing signature (ADR-0042).
    */
   readonly notAfter?: string;
+  /** Capability providers this extension supplies, from `[[provides]]`. */
+  readonly provides?: readonly ProviderDeclaration[];
   readonly signature?: string;
 }
 
@@ -77,6 +100,10 @@ export class ExtensionManifestError extends Error {
 }
 
 const PRINCIPAL_PATTERN = /^epoch:principal:[A-Za-z0-9_-]+$/u;
+const RFC3339_PATTERN = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/u;
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/u;
+/** A bare file name: no separators, no traversal, no absolute path. */
+const MODULE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/u;
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 
 /**
@@ -92,47 +119,26 @@ export function isExtensionName(value: string): boolean {
   return NAME_PATTERN.test(value);
 }
 
-function parseValue(raw: string): unknown {
-  const value = raw.trim();
-  if (value.startsWith("\"") && value.endsWith("\"") && value.length >= 2) return value.slice(1, -1);
-  if (value === "true") return true;
-  if (value === "false") return false;
-  if (/^-?\d+$/u.test(value)) return Number.parseInt(value, 10);
-  if (value.startsWith("[") && value.endsWith("]")) {
-    const body = value.slice(1, -1).trim();
-    if (body.length === 0) return [];
-    return body.split(",").map((item) => parseValue(item));
-  }
-  throw new ExtensionManifestError("invalid-syntax", `unsupported manifest value: ${raw}`);
-}
-
-/** Strip a trailing comment, ignoring `#` inside quoted values. */
-function stripComment(line: string): string {
-  let quote: string | undefined;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (quote !== undefined) {
-      if (character === "\\") index += 1;
-      else if (character === quote) quote = undefined;
-      continue;
-    }
-    if (character === "\"" || character === "'") quote = character;
-    else if (character === "#") return line.slice(0, index);
-  }
-  return line;
-}
-
+/**
+ * Read a manifest with the complete TOML reader (ADR-0044).
+ *
+ * This file used to carry a second partial parser, and the shortcut it took was
+ * not a small one: it skipped every `[table]` header and flattened the keys
+ * beneath it into the top level. `[[provides]]` therefore produced nothing at
+ * all, and a `name` inside any section silently became the extension's name.
+ * That is a security-relevant surface — this table decides `publisher`,
+ * `executable_sha256`, and which modules an extension may load — so it reads
+ * the same TOML everything else does rather than a subset of its own.
+ */
 function parseTable(text: string): Record<string, unknown> {
-  const table: Record<string, unknown> = {};
-  for (const rawLine of text.split(/\r?\n/u)) {
-    const line = stripComment(rawLine).trim();
-    if (line.length === 0) continue;
-    if (/^\[[^\]]+\]$/u.test(line)) continue;
-    const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u.exec(line);
-    if (assignment === null) throw new ExtensionManifestError("invalid-syntax", `invalid manifest line: ${rawLine}`);
-    table[assignment[1]] = parseValue(assignment[2]);
+  try {
+    return parseTomlDocument(text);
+  } catch (error) {
+    if (error instanceof TomlError) {
+      throw new ExtensionManifestError("invalid-syntax", `invalid manifest at line ${error.line}: ${error.reason}`);
+    }
+    throw error;
   }
-  return table;
 }
 
 function requireString(table: Record<string, unknown>, field: string): string {
@@ -188,8 +194,14 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
   }
 
   const description = table.description;
+  const provides = parseProvides(table.provides);
   const notAfter = table.not_after;
-  if (notAfter !== undefined && (typeof notAfter !== "string" || Number.isNaN(Date.parse(notAfter)))) {
+  // The shape is checked before the instant. `Date.parse` accepts inputs whose
+  // meaning is implementation-defined — `"2026"`, `"Mar 1 2026"` — and this
+  // field sits inside the signed payload, so a lenient format is a way for two
+  // verifiers to disagree about whether the same signature has expired.
+  if (notAfter !== undefined
+    && (typeof notAfter !== "string" || !RFC3339_PATTERN.test(notAfter) || Number.isNaN(Date.parse(notAfter)))) {
     throw new ExtensionManifestError("invalid-field", "manifest field 'not_after' must be an RFC 3339 timestamp");
   }
   const signature = table.signature;
@@ -213,8 +225,71 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
     determinism,
     executableSha256: typeof executableSha256 === "string" ? executableSha256 : undefined,
     notAfter: typeof notAfter === "string" ? notAfter : undefined,
+    provides: provides.length === 0 ? undefined : provides,
     signature: typeof signature === "string" ? signature : undefined,
   };
+}
+
+/**
+ * Read the `[[provides]]` table.
+ *
+ * A module is named, never pathed: it is resolved beside the manifest, so a
+ * declaration cannot reach outside the extension's own directory. Every field
+ * is required, including the digest — a provider whose bytes are not bound is
+ * a provider nobody consented to, and shaping signed evidence is exactly what
+ * it would be doing (ADR-0041).
+ */
+function parseProvides(value: unknown): readonly ProviderDeclaration[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new ExtensionManifestError("invalid-field", "manifest field 'provides' must be an array of tables");
+  }
+  return value.map((entry) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new ExtensionManifestError("invalid-field", "each 'provides' entry must be a table");
+    }
+    const record = entry as Record<string, unknown>;
+    const capability = record.capability;
+    if (typeof capability !== "string" || !(CAPABILITY_KINDS as readonly string[]).includes(capability)) {
+      throw new ExtensionManifestError("invalid-field", `unknown provided capability: ${String(capability)}`);
+    }
+    if (capability === "command") {
+      // Tier 1 and Tier 2 are separated on exactly this line: a subcommand's
+      // job is to have effects, and a sandbox that permits that is not one.
+      throw new ExtensionManifestError("invalid-field", "'command' is a Tier 1 capability and cannot be provided as a module");
+    }
+    const module = record.module;
+    if (typeof module !== "string" || !MODULE_NAME_PATTERN.test(module)) {
+      throw new ExtensionManifestError("invalid-field", "a 'provides' entry needs a 'module' file name beside the manifest");
+    }
+    const language = record.language;
+    if (typeof language !== "string" || language.length === 0) {
+      throw new ExtensionManifestError("invalid-field", `provider '${module}' must declare the 'language' it parses`);
+    }
+    const moduleSha256 = record.module_sha256;
+    if (typeof moduleSha256 !== "string" || !DIGEST_PATTERN.test(moduleSha256)) {
+      throw new ExtensionManifestError(
+        "invalid-field",
+        `provider '${module}' must declare 'module_sha256'; an unbound module cannot be trusted`,
+      );
+    }
+    const strings = (key: string): readonly string[] | undefined => {
+      const raw = record[key];
+      if (raw === undefined) return undefined;
+      if (!Array.isArray(raw) || raw.some((item) => typeof item !== "string")) {
+        throw new ExtensionManifestError("invalid-field", `provider '${module}' field '${key}' must be an array of strings`);
+      }
+      return raw as readonly string[];
+    };
+    return {
+      capability: capability as CapabilityKind,
+      module,
+      language,
+      moduleSha256,
+      extensions: strings("extensions"),
+      mimeTypes: strings("mime_types"),
+    };
+  });
 }
 
 /**
@@ -231,9 +306,24 @@ export function canonicalManifest(manifest: ExtensionManifest): string {
     executableSha256: manifest.executableSha256 ?? null,
     name: manifest.name,
     // Omitted entirely when absent rather than serialized as null, so a
-    // manifest that declares no expiry produces the bytes it produced before
-    // expiry existed and its signature keeps verifying (ADR-0042).
+    // manifest that declares neither expiry nor providers produces the bytes it
+    // produced before either existed, and its signature keeps verifying
+    // (ADR-0041, ADR-0042).
     ...(manifest.notAfter === undefined ? {} : { notAfter: manifest.notAfter }),
+    ...(manifest.provides === undefined ? {} : {
+      // Sorted so declaration order in the file cannot change the signed bytes,
+      // and complete so a signature binds every module the extension ships.
+      provides: [...manifest.provides]
+        .map((provider) => ({
+          capability: provider.capability,
+          extensions: provider.extensions === undefined ? null : [...provider.extensions],
+          language: provider.language,
+          mimeTypes: provider.mimeTypes === undefined ? null : [...provider.mimeTypes],
+          module: provider.module,
+          moduleSha256: provider.moduleSha256,
+        }))
+        .sort((left, right) => left.module.localeCompare(right.module)),
+    }),
     publisher: manifest.publisher ?? null,
     version: manifest.version,
   });

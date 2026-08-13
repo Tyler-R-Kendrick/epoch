@@ -26,6 +26,7 @@ export function runMixedCompressionTests(): void {
   theDictionarySpansEveryGroup();
   theSingleProviderFormIsTheDegenerateCase();
   planningIsDeterministicRegardlessOfInputOrder();
+  aDigestCollisionStoresBothDeclarations();
 }
 
 const resolver = (source: { readonly path: string }): SyntaxProvider | undefined =>
@@ -72,7 +73,9 @@ function sourcesNoProviderMatchesAreReportedNotDropped(): void {
     resolver,
   );
 
-  assert.deepEqual(plan.unplanned.map((source) => source.path), ["pnpm-lock.yaml", "logo.bin"]);
+  // Sorted by path, like the groups, so a shell's glob order cannot change what
+  // the plan reports.
+  assert.deepEqual(plan.unplanned.map((source) => source.path), ["logo.bin", "pnpm-lock.yaml"]);
   assert.match(plan.unplanned[0].reason, /no syntax provider matches/u);
   // Their bytes still count toward the total. A plan that omitted them would
   // overstate its own coverage.
@@ -149,6 +152,10 @@ function planningIsDeterministicRegardlessOfInputOrder(): void {
     { path: "z.ts", text: typescript("z") },
     { path: "a.json", text: `{\n  "name": "@epoch/core"\n}\n` },
     { path: "m.md", text: `# Title\n\nBody text here.\n` },
+    // Unsupported sources are part of the reported plan, so they are part of
+    // what has to be order-independent.
+    { path: "q.lock", text: "opaque\n" },
+    { path: "b.lock", text: "also opaque\n" },
   ];
   const forward = planCompressionAcross(sources, resolver);
   const reversed = planCompressionAcross([...sources].reverse(), resolver);
@@ -160,5 +167,46 @@ function planningIsDeterministicRegardlessOfInputOrder(): void {
     JSON.stringify(reversed.groups),
     "a shell's argument order cannot change the plan",
   );
+  assert.deepEqual(forward.unplanned, reversed.unplanned, "unplanned sources are ordered too");
+  assert.deepEqual(forward.unplanned.map((source) => source.path), ["b.lock", "q.lock"]);
   assert.equal(forward.dictionary.digest, reversed.dictionary.digest);
+}
+
+/**
+ * A digest is not an identity.
+ *
+ * When two different declarations hashed to the same value, the second was
+ * dropped: its bytes stayed in `totalBytes` and never reached `storedBytes`, so
+ * the plan reported a saving for content that was never shared. Storage sized
+ * from that number would come up short.
+ */
+function aDigestCollisionStoresBothDeclarations(): void {
+  const one = `function alpha() {\n  return "a body long enough to clear the minimum dedup size";\n}\n`;
+  const two = `function beta() {\n  return "a different body, also long enough to be counted";\n}\n`;
+  // Every subtree hashes the same, which is the case the text comparison exists
+  // to catch and the case the drop used to mishandle.
+  const collide = () => "collision";
+
+  const result = dedupeSubtrees(
+    [{ path: "a.ts", text: one }, { path: "b.ts", text: two }],
+    delimiterSyntaxProvider,
+    { digest: collide },
+  );
+
+  assert.equal(result.entries.length, 2, "distinct text is kept, not dropped");
+  assert.equal(new Set(result.entries.map((entry) => entry.key)).size, 2, "and gets distinct storage keys");
+  assert.equal(result.savedBytes, 0, "nothing was shared, so nothing is claimed as saved");
+  assert.equal(result.storedBytes, result.totalBytes);
+
+  // The keys a collision produces do not depend on the order the sources came
+  // in, or two clones would name the same declaration differently.
+  const reversed = dedupeSubtrees(
+    [{ path: "b.ts", text: two }, { path: "a.ts", text: one }],
+    delimiterSyntaxProvider,
+    { digest: collide },
+  );
+  assert.deepEqual(
+    result.entries.map((entry) => [entry.key, entry.text]).sort(),
+    reversed.entries.map((entry) => [entry.key, entry.text]).sort(),
+  );
 }

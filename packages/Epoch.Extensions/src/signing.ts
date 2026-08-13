@@ -30,7 +30,13 @@ export type ManifestSignatureVerifier = (request: {
  */
 export const ed25519ManifestVerifier: ManifestSignatureVerifier = ({ payload, signature, publisher }) => {
   try {
-    const encodedKey = publisher.slice("epoch:principal:".length);
+    // The prefix is checked rather than assumed: `slice` would remove 16
+    // characters from any string, so an identifier in the wrong shape would
+    // lose key material and be reported as a bad signature rather than as the
+    // malformed publisher it is.
+    const prefix = "epoch:principal:";
+    if (!publisher.startsWith(prefix)) return false;
+    const encodedKey = publisher.slice(prefix.length);
     if (encodedKey.length === 0) return false;
     const [algorithm, encodedSignature] = signature.split(":");
     if (algorithm !== "ed25519" || encodedSignature === undefined || encodedSignature.length === 0) return false;

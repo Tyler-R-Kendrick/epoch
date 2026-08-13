@@ -157,7 +157,11 @@ export function dedupeSubtrees(
 ): SubtreeDedupResult {
   const digest = options.digest ?? indexDigest;
   const minBytes = options.minBytes ?? 64;
-  const table = new Map<string, { digest: string; text: string; occurrences: number; paths: string[] }>();
+  // Two levels, because a digest is not an identity. The outer key is the
+  // provider-scoped digest; the inner map holds the distinct texts that share
+  // it, so a collision produces two stored entries rather than one entry and a
+  // silently overstated saving.
+  const table = new Map<string, Map<string, { occurrences: number; paths: string[] }>>();
   let totalBytes = 0;
 
   for (const source of sources) {
@@ -169,29 +173,40 @@ export function dedupeSubtrees(
       const bytes = byteLength(text);
       if (bytes < minBytes) continue;
       totalBytes += bytes;
-      const key = `${provider.id}:${child.digest}`;
-      const existing = table.get(key);
-      if (existing === undefined) {
-        table.set(key, { digest: child.digest, text, occurrences: 1, paths: [`${source.path}#${child.path}`] });
-        continue;
-      }
+      const scoped = `${provider.id}:${child.digest}`;
+      const variants = table.get(scoped) ?? new Map();
+      table.set(scoped, variants);
       // The default digest is a non-cryptographic index hash, so equal digests
-      // are compared by text before their storage is shared.
-      if (existing.text !== text) continue;
-      existing.occurrences += 1;
-      existing.paths.push(`${source.path}#${child.path}`);
+      // are compared by text before their storage is shared. Text that differs
+      // is a different declaration and is kept, not dropped: dropping it left
+      // its bytes in `totalBytes` and out of `storedBytes`, which reported a
+      // saving for content that was never shared (ADR-0038).
+      const existing = variants.get(text);
+      if (existing === undefined) variants.set(text, { occurrences: 1, paths: [`${source.path}#${child.path}`] });
+      else {
+        existing.occurrences += 1;
+        existing.paths.push(`${source.path}#${child.path}`);
+      }
     }
   }
 
   const entries = [...table.entries()]
-    .map(([key, value]) => ({
-      key,
-      digest: value.digest,
-      text: value.text,
-      bytes: byteLength(value.text),
-      occurrences: value.occurrences,
-      paths: value.paths,
-    }))
+    .flatMap(([scoped, variants]) => {
+      // Collision keys are ordered by text so the suffix a variant receives is
+      // the same on every machine, whatever order the sources arrived in.
+      const texts = [...variants.keys()].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+      return texts.map((text, index) => {
+        const value = variants.get(text)!;
+        return {
+          key: texts.length === 1 ? scoped : `${scoped}#${index}`,
+          digest: scoped.slice(provider.id.length + 1),
+          text,
+          bytes: byteLength(text),
+          occurrences: value.occurrences,
+          paths: value.paths,
+        };
+      });
+    })
     .sort((left, right) => right.bytes * right.occurrences - left.bytes * left.occurrences || left.key.localeCompare(right.key));
 
   const storedBytes = entries.reduce((total, entry) => total + entry.bytes, 0);
@@ -437,6 +452,10 @@ export function planCompressionAcross(
   const dictionary = deriveDictionary(sources.map((source) => source.text), { digest });
   const plainBytes = sources.reduce((total, source) => total + byteLength(source.text), 0);
   const saved = groups.reduce((total, group) => total + group.dedup.savedBytes, 0);
+  // Sorted for the same reason the groups are: the plan must not depend on the
+  // order a shell happened to expand a glob in.
+  const ordered = [...unplanned].sort((left, right) =>
+    left.path.localeCompare(right.path) || left.reason.localeCompare(right.reason));
 
-  return { groups, unplanned, dictionary, plainBytes, plannedBytes: plainBytes - saved };
+  return { groups, unplanned: ordered, dictionary, plainBytes, plannedBytes: plainBytes - saved };
 }

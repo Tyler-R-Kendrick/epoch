@@ -81,10 +81,18 @@ function isBatchFile(executable: string): boolean {
  * enable without this process knowing. Newlines and NUL end the command line
  * outright. There is no sequence that reliably passes any of them through, so
  * each is refused by name instead of quoted and hoped for.
+ *
+ * `"` belongs on the same list. Doubling is the only convention CMD has, and it
+ * does not undo it: a batch file receiving `say ""hi""` in `%1` sees the
+ * doubled form, and undoubling is left to a `set` substitution the extension
+ * would have to know to perform. Delivering an argument that arrives altered is
+ * the failure this refusal exists to prevent, so a quote is refused rather than
+ * quoted and hoped for.
  */
 function batchRefusal(argument: string): string | undefined {
   if (argument.includes("%")) return "'%' is expanded by the batch parser and cannot be escaped";
   if (argument.includes("!")) return "'!' is expanded when delayed expansion is enabled and cannot be escaped";
+  if (argument.includes("\"")) return "'\"' reaches a batch file doubled and cannot be delivered literally";
   if (/[\n\r]/u.test(argument)) return "a line break would end the command line";
   if (argument.includes("\0")) return "a NUL would truncate the command line";
   return undefined;
@@ -96,11 +104,15 @@ function batchRefusal(argument: string): string | undefined {
  * Every token is quoted unconditionally, including ones that need no quoting.
  * Inside quotes CMD treats `&`, `|`, `<`, `>`, `(`, and `)` as ordinary
  * characters, so blanket quoting removes the escaping question rather than
- * answering it per character — and the two characters quotes do *not* protect
- * are refused above rather than escaped here.
+ * answering it per character — and every character quotes do *not* protect is
+ * refused above rather than escaped here.
+ *
+ * The executable path is quoted the same way. It comes from discovery rather
+ * than from the operator's command line, and a path containing a quote is not
+ * something this can deliver either, so `planLaunch` refuses it too.
  */
 function quoteForCmd(token: string): string {
-  return `"${token.replaceAll("\"", "\"\"")}"`;
+  return `"${token}"`;
 }
 
 /**
@@ -114,6 +126,10 @@ export function planLaunch(invocation: ExternalInvocation, options: LaunchOption
   const slot = options.descriptorSlot ?? LAUNCH_DESCRIPTOR_SLOT;
 
   if (options.platform === "win32" && isBatchFile(invocation.executable)) {
+    const pathRefusal = batchRefusal(invocation.executable);
+    if (pathRefusal !== undefined) {
+      return { kind: "refused", reason: `cannot launch '${invocation.executable}' through cmd.exe: ${pathRefusal}` };
+    }
     for (const argument of invocation.args) {
       const refusal = batchRefusal(argument);
       if (refusal !== undefined) {

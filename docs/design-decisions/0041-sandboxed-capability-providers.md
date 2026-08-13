@@ -48,7 +48,22 @@ determinism = "deterministic"
 capability = "syntax"
 module = "difftastic-syntax.wasm"
 language = "typescript"
+module_sha256 = "9f2c…"
+extensions = [".ts", ".tsx"]
 ```
+
+`module` is a file name resolved beside the manifest, never a path, and
+`module_sha256` is required: a module whose bytes are not bound is a module
+nobody consented to, and shaping signed evidence is exactly what it would be
+doing. The canonical manifest covers every declaration, so signing the manifest
+transitively binds every module — the rule that already binds the executable.
+
+At equal match specificity a shipped provider outranks the builtin for the same
+language. That ordering *is* the displacement ADR-0037 promised; without it the
+winner was decided by whichever ID sorted first, which is not a decision anyone
+made. It is deliberately the opposite of subcommand resolution, where a builtin
+shadows an extension: a native command must not be silently replaced, while a
+provider is the thing extensions exist to improve.
 
 The module is instantiated with **one import: memory the host owns**. It cannot
 open a file, read a clock, obtain entropy, or reach the network, because nothing
@@ -76,6 +91,12 @@ rather than rounding it into a wrong span. The result is
 the canonical JSON encoding of the same `SyntaxNode` shape builtin providers
 produce, so a WASM provider and a builtin are interchangeable to `semanticDiff`,
 `semanticMerge`, and `planCompression` without either knowing which it got.
+
+Each parse gets a fresh instance. Compilation happens once, because it is the
+expensive step, but a module that kept state in its linear memory between calls
+could answer differently the second time it is asked the same question — which
+would defeat the reproducibility the recorded digest exists to buy. Validating
+the output does not restore determinism; only starting from the same state does.
 
 ### Determinism is structural, and its exceptions are named
 

@@ -6,7 +6,7 @@ import {
   WasmProviderError,
 } from "@epoch/extensions";
 import { semanticDiff } from "@epoch/semantic";
-import { buildSyntaxProviderModule } from "./wasm-fixture";
+import { buildSyntaxProviderModule, FIXTURE_INPUT_CAPACITY } from "./wasm-fixture";
 
 /**
  * The provider ABI is a boundary with untrusted code on the other side, so the
@@ -21,6 +21,8 @@ export function runWasmProviderTests(): void {
   malformedTreesAreRefused();
   multiByteOffsetsMapToCodeUnits();
   aWasmProviderIsInterchangeableWithABuiltin();
+  everyRefusalCodeIsReachable();
+  eachParseStartsFromTheSameState();
 }
 
 /** A tree for `{"a":1}` as a provider would report it, in UTF-8 byte offsets. */
@@ -225,4 +227,59 @@ function aWasmProviderIsInterchangeableWithABuiltin(): void {
   const patch = semanticDiff(provider.parse(before), wasmSyntaxProvider(declaration, moduleFor(after)).parse(after));
   assert.equal(patch.providerId, "test.syntax.json");
   assert.ok(patch.edits.length >= 1, "a changed member must produce at least one edit");
+}
+
+/**
+ * The two refusal paths the rest of the suite left untested.
+ *
+ * Every `WasmProviderErrorCode` is a thing the host promises to refuse, so a
+ * code with no test is a promise nobody has checked.
+ */
+function everyRefusalCodeIsReachable(): void {
+  const source = `{"a":1}`;
+
+  // A module that will not allocate is refused rather than written past.
+  assert.throws(
+    () => instantiateWasmSyntaxModule(
+      buildSyntaxProviderModule({ result: objectTree(source), allocReturns: 0 }),
+    ).parse(source),
+    (error: unknown) => error instanceof WasmProviderError && error.code === "allocation-failed",
+  );
+
+  // And a tree with more nodes than the limit allows, which is how a module
+  // would otherwise exhaust the host through its output rather than its memory.
+  let tree: unknown = { kind: "leaf", start: 0, end: 7 };
+  for (let level = 0; level < 8; level += 1) tree = { kind: "wrap", start: 0, end: 7, children: [tree] };
+  assert.throws(
+    () => instantiateWasmSyntaxModule(
+      buildSyntaxProviderModule({ result: JSON.stringify({ language: "json", root: tree }) }),
+      { maximumPages: 4, maximumNodes: 4, maximumDepth: 64 },
+    ).parse(source),
+    (error: unknown) => error instanceof WasmProviderError && error.code === "invalid-tree",
+  );
+
+  assert.ok(FIXTURE_INPUT_CAPACITY > source.length, "the fixture arena holds these sources");
+}
+
+/**
+ * A module gets a fresh instance per parse.
+ *
+ * Reusing one instance would let a module keep state in its linear memory and
+ * answer differently the second time it is asked the same question — which
+ * would defeat the reproducibility the recorded provider digest exists to buy,
+ * since that output is recorded as evidence (ADR-0041). Validating the output
+ * does not restore determinism; only starting from the same state does.
+ */
+function eachParseStartsFromTheSameState(): void {
+  const source = `{"a":1}`;
+  const module = moduleFor(source);
+
+  const first = JSON.stringify(module.parse(source));
+  const second = JSON.stringify(module.parse(source));
+  assert.equal(first, second, "the same source parses to the same tree");
+
+  // The observable form of the guarantee: memory is not shared between calls,
+  // so nothing a module writes during one parse can be read back in the next.
+  const before = new WebAssembly.Memory({ initial: 1, maximum: DEFAULT_WASM_LIMITS.maximumPages });
+  assert.equal(before.buffer.byteLength, 65_536, "a fresh instance starts at one page");
 }

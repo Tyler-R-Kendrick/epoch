@@ -111,7 +111,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     return;
   }
   if (parsed.command === CliCommand.semantic) {
-    runSemanticCommand(parsed.args, io);
+    runSemanticCommand(parsed.args, io, parsed.repo);
     return;
   }
 
@@ -738,4 +738,5 @@ if (require.main === module) {
 
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";
-export { dispatchExternalSubcommand, runExtensionCommand } from "./extensions";
+export { dispatchExternalSubcommand, runExtensionCommand, trustedExtensionProviders } from "./extensions";
+export { createSyntaxRegistry, nodeProviderModuleReader, repositorySyntaxRegistry, runSemanticCommand } from "./semantic";

@@ -16,6 +16,7 @@ export function runExtensionCliTests(): void {
   consentDoesNotTransferToADifferentBinary();
   operatorConfigurationIsReadNeverRewritten();
   anUnreadableConfigurationIsReportedAndNotRunThrough();
+  anUnknownPolicyKeyWarnsWithoutRefusing();
   aCorruptStoreTrustsNothing();
   trustRefusesNamesOutsideTheGrammar();
   trustRefusesWhatItCannotBindToABinary();
@@ -190,7 +191,10 @@ function operatorConfigurationIsReadNeverRewritten(): void {
     { toml: `[extensions]\nallow = ["mergiraf"]  # trailing "]" and # inside a comment\n`, runs: true },
     { toml: `[[extensions]]\nname = "a"\n`, runs: false },
     { toml: `[extensions]\nallow = ["a"]\nallow = ["b"]\n`, runs: false },
-    { toml: `[extensions]\ntrust = "eny"\n`, runs: false },
+    // A typo in `trust` narrows the policy and loses no denial, so it is a
+    // warning rather than a reason to refuse everything.
+    { toml: `[extensions]\ntrust = "eny"\n`, runs: true },
+    { toml: `[extensions]\nallow = ["mergiraf"]\nunknown_key = 1\n`, runs: true },
   ];
 
   for (const shape of shapes) {
@@ -208,6 +212,43 @@ function operatorConfigurationIsReadNeverRewritten(): void {
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
+  }
+}
+
+/**
+ * A key Epoch does not recognise is worth saying out loud, and nothing more.
+ *
+ * The distinction that matters: a policy that could not be *read in full*
+ * cannot be relied on to deny anything, so it refuses every launch. A policy
+ * that was read in full but contains a key with no meaning has lost no part of
+ * its `block` list, so refusing everything would turn a typo into a
+ * repository-wide outage.
+ */
+function anUnknownPolicyKeyWarnsWithoutRefusing(): void {
+  const root = workspace();
+  try {
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+    writeFileSync(
+      configPath(root),
+      `[extensions]\nallow = []\nfuture_key = "from a newer Epoch"\n\n[extensions.subtable]\nx = 1\n`,
+      "utf8",
+    );
+
+    const listed = capture();
+    runExtensionCommand(root, ["list"], listed.io, isolated);
+    assert.match(listed.err(), /future_key/u, "the operator is told the key has no effect");
+    assert.equal(wouldRun(root), true, "recorded consent still applies");
+
+    // And a block in the same file is still obeyed, which is the property that
+    // makes warning rather than refusing safe.
+    writeFileSync(
+      configPath(root),
+      `[extensions]\nblock = ["greet"]\nfuture_key = "from a newer Epoch"\n`,
+      "utf8",
+    );
+    assert.equal(wouldRun(root), false, "the block list survives an unknown key beside it");
+  } finally {
+    rmSync(root, { force: true, recursive: true });
   }
 }
 

@@ -19,10 +19,26 @@ export function runTomlParserTests(): void {
   dottedAndQuotedKeys();
   redefinitionIsRefused();
   malformedDocumentsReportWhereTheyStopped();
+  prototypeNamedKeysAreOrdinaryKeys();
+  nestingIsBoundedRatherThanOverflowing();
 }
 
+/**
+ * Parse, then re-root the result on `Object.prototype` for comparison.
+ *
+ * Tables are deliberately prototype-less and `assert.deepEqual` compares
+ * prototypes, so the shape assertions normalize. The prototype itself is
+ * asserted directly in `prototypeNamedKeysAreOrdinaryKeys`, against the
+ * unnormalized document.
+ */
 function parse(text: string): Record<string, unknown> {
-  return parseTomlDocument(text);
+  return plain(parseTomlDocument(text)) as Record<string, unknown>;
+}
+
+function plain(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(plain);
+  if (typeof value !== "object" || value === null || value instanceof TomlDateTime) return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, plain(entry)]));
 }
 
 function refuse(text: string, why: string): TomlError {
@@ -216,4 +232,51 @@ function malformedDocumentsReportWhereTheyStopped(): void {
   refuse("t = { a = 1, }", "a trailing comma in an inline table");
   refuse("t = { a = 1,\n b = 2 }", "an inline table spanning lines");
   refuse("a = [1, 2", "an unclosed array");
+}
+
+/**
+ * `toString`, `constructor`, and `valueOf` are ordinary TOML keys.
+ *
+ * An ordinary object claims all of them — `"toString" in {}` is true — so every
+ * document defining one was refused as a duplicate, and `__proto__` was worse:
+ * assigning it would have set the prototype rather than a key. Tables have no
+ * prototype, which removes the class rather than blocklisting the names anyone
+ * has thought of so far.
+ */
+function prototypeNamedKeysAreOrdinaryKeys(): void {
+  const document = parseTomlDocument([
+    "toString = 1",
+    "valueOf = 2",
+    `hasOwnProperty = "three"`,
+    "[constructor]",
+    "x = 1",
+  ].join("\n"));
+
+  assert.equal(document.toString, 1);
+  assert.equal(document.valueOf, 2);
+  assert.equal(document.hasOwnProperty, "three");
+  assert.deepEqual(plain(document.constructor), { x: 1 });
+  assert.equal(Object.getPrototypeOf(document), null, "tables carry no prototype");
+  assert.equal(Object.getPrototypeOf(document.constructor as object), null, "nor do nested tables");
+
+  // `__proto__` is a key like any other, not an instruction.
+  const proto = parseTomlDocument(`__proto__ = "ordinary"`);
+  assert.equal(Object.prototype.hasOwnProperty.call(proto, "__proto__"), true);
+  assert.equal(proto.__proto__, "ordinary");
+
+  // A genuine duplicate is still refused, whatever it is named.
+  refuse("toString = 1\ntoString = 2", "a duplicate prototype-named key");
+}
+
+/**
+ * Values are parsed by mutual recursion, so an unbounded document would
+ * overflow the stack. `RangeError` is not a `TomlError`, so it escapes the
+ * reporting path entirely and reaches the operator as nothing at all.
+ */
+function nestingIsBoundedRatherThanOverflowing(): void {
+  assert.deepEqual(parse(`a = ${"[".repeat(8)}1${"]".repeat(8)}`).a, [[[[[[[[1]]]]]]]]);
+
+  const error = refuse(`a = ${"[".repeat(5000)}${"]".repeat(5000)}`, "a document nested past the limit");
+  assert.match(error.reason, /nested more than/u);
+  refuse(`a = ${"{ b = ".repeat(200)}1${" }".repeat(200)}`, "inline tables nested past the limit");
 }

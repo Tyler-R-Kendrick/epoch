@@ -60,7 +60,7 @@ function descriptorExecutionIsPlatformSpecificAndSaysSo(): void {
  */
 function batchExtensionsLaunchThroughAQuotedInterpreter(): void {
   const plan = planLaunch(
-    invocation("C:\\Program Files\\ext\\epoch-greet.cmd", ["a b", "x&y", "say \"hi\"", "(paren)", "a|b"]),
+    invocation("C:\\Program Files\\ext\\epoch-greet.cmd", ["a b", "x&y", "(paren)", "a|b", "c>d"]),
     { platform: "win32" },
   );
   assert.ok(plan.kind === "launch");
@@ -68,9 +68,12 @@ function batchExtensionsLaunchThroughAQuotedInterpreter(): void {
   assert.equal(plan.verbatimArguments, true);
   assert.equal(plan.verification, "path", "Windows has no descriptor exec, and the plan says so");
   assert.deepEqual(plan.args.slice(0, 3), ["/d", "/s", "/c"]);
+  // Every token is quoted, including ones that need no quoting: inside quotes
+  // CMD treats these metacharacters literally, so one rule with no exceptions
+  // beats a per-character judgement that can be applied inconsistently.
   assert.equal(
     plan.args[3],
-    '""C:\\Program Files\\ext\\epoch-greet.cmd" "a b" "x&y" "say ""hi""" "(paren)" "a|b""',
+    '""C:\\Program Files\\ext\\epoch-greet.cmd" "a b" "x&y" "(paren)" "a|b" "c>d""',
   );
 
   // A `.bat` is the same case, and the match is case-insensitive because
@@ -89,7 +92,10 @@ function batchExtensionsLaunchThroughAQuotedInterpreter(): void {
  * written.
  */
 function argumentsThatCannotSurviveAreRefused(): void {
-  for (const argument of ["%PATH%", "50%", "a!b", "line\nbreak", "nul\0byte"]) {
+  // `"` is on this list for the same reason as `%`: CMD's only convention for
+  // an interior quote is doubling, and it does not undo the doubling, so the
+  // batch file receives an argument that is not the one the operator typed.
+  for (const argument of ["%PATH%", "50%", "a!b", 'say "hi"', "line\nbreak", "nul\0byte"]) {
     const plan = planLaunch(invocation("C:\\x\\epoch-greet.cmd", [argument]), { platform: "win32" });
     assert.equal(plan.kind, "refused", `'${argument}' must be refused rather than quoted`);
     assert.match(plan.kind === "refused" ? plan.reason : "", /cannot pass argument/u);
@@ -97,8 +103,13 @@ function argumentsThatCannotSurviveAreRefused(): void {
 
   // The same arguments are ordinary everywhere else: this is a CMD limitation
   // being reported, not a rule Epoch invents.
-  const posix = planLaunch(invocation("/x/epoch-greet", ["%PATH%", "a!b"]), { platform: "linux" });
-  assert.deepEqual(posix.kind === "launch" && posix.args, ["%PATH%", "a!b"]);
+  const posix = planLaunch(invocation("/x/epoch-greet", ["%PATH%", "a!b", 'say "hi"']), { platform: "linux" });
+  assert.deepEqual(posix.kind === "launch" && posix.args, ["%PATH%", "a!b", 'say "hi"']);
+
+  // An executable path that cannot be quoted is refused too, rather than
+  // producing a command line that means something else.
+  const badPath = planLaunch(invocation('C:\\od"d\\epoch-greet.cmd', []), { platform: "win32" });
+  assert.equal(badPath.kind, "refused");
 }
 
 /**
@@ -124,7 +135,12 @@ function aRealExtensionRunsFromTheDescriptorItWasHashedThrough(): void {
     );
 
     const io = { stdout: { write: () => true }, stderr: { write: () => true } };
-    runExtensionCommand(root, ["trust", "greet"], io, { pathEntries: [] });
+    // The same fixture home as the dispatch below, so discovery cannot reach
+    // the developer's real `~/.epoch/ext/bin` and the test stays hermetic.
+    runExtensionCommand(root, ["trust", "greet"], io, {
+      pathEntries: [],
+      homeDirectory: join(root, "absent-home"),
+    });
 
     const result = dispatchExternalSubcommand(root, "greet", [], io, {
       pathEntries: [],

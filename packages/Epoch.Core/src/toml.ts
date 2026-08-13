@@ -62,6 +62,20 @@ export class TomlDateTime {
 
 type Table = Record<string, unknown>;
 
+/**
+ * A table with no prototype.
+ *
+ * `toString`, `constructor`, and `valueOf` are ordinary TOML keys, and an
+ * ordinary object claims all of them: `"toString" in {}` is true, so a document
+ * defining one was refused as a duplicate. `__proto__` was worse — assigning it
+ * would have set the prototype rather than a key. Removing the prototype
+ * removes the whole class, rather than blocklisting the names anyone has
+ * thought of so far.
+ */
+function emptyTable(): Table {
+  return Object.create(null) as Table;
+}
+
 interface TableMeta {
   /** Given a `[header]` of its own, so a second header is a redefinition. */
   explicit: boolean;
@@ -73,6 +87,16 @@ interface TableMeta {
 
 /** Largest integer JavaScript represents exactly; beyond it, parsing refuses. */
 const SAFE_INTEGER = BigInt(Number.MAX_SAFE_INTEGER);
+
+/**
+ * How deeply arrays and inline tables may nest.
+ *
+ * Values are parsed by mutual recursion, so without a bound a document of
+ * `a = [[[[…]]]]` overflows the stack and raises `RangeError` — which callers
+ * do not treat as a parse failure, so the diagnostic never reaches the
+ * operator. The limit turns it into an ordinary located refusal.
+ */
+const MAXIMUM_NESTING = 64;
 
 const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:[Tt ](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|[+-]\d{2}:\d{2})?)?/u;
 const TIME_ONLY = /^(\d{2}):(\d{2}):(\d{2})(\.\d+)?/u;
@@ -97,6 +121,7 @@ class TomlReader {
   private index = 0;
   private line = 1;
   private lineStart = 0;
+  private nesting = 0;
   private readonly meta = new WeakMap<object, TableMeta>();
   /** Arrays a `[[header]]` created, and so may append to. Static arrays are closed. */
   private readonly arrayTables = new WeakSet<unknown[]>();
@@ -104,7 +129,7 @@ class TomlReader {
   constructor(private readonly text: string, private readonly source?: string) {}
 
   document(): Table {
-    const root: Table = {};
+    const root: Table = emptyTable();
     this.meta.set(root, { explicit: false, closed: false, dotted: false });
     let target = root;
 
@@ -239,7 +264,7 @@ class TomlReader {
     for (const key of path.slice(0, -1)) {
       const existing = current[key];
       if (existing === undefined) {
-        const created: Table = {};
+        const created: Table = emptyTable();
         this.meta.set(created, { explicit: false, closed: false, dotted: false });
         current[key] = created;
         current = created;
@@ -269,7 +294,7 @@ class TomlReader {
     const existing = parent[key];
 
     if (existing === undefined) {
-      const created: Table = {};
+      const created: Table = emptyTable();
       this.meta.set(created, { explicit: true, closed: false, dotted: false });
       parent[key] = created;
       return created;
@@ -299,7 +324,7 @@ class TomlReader {
       this.fail(`'${path.join(".")}' is not an array of tables`, line, column);
     }
 
-    const entry: Table = {};
+    const entry: Table = emptyTable();
     this.meta.set(entry, { explicit: true, closed: false, dotted: false });
     array.push(entry);
     return entry;
@@ -342,7 +367,7 @@ class TomlReader {
     for (const key of path.slice(0, -1)) {
       const existing = current[key];
       if (existing === undefined) {
-        const created: Table = {};
+        const created: Table = emptyTable();
         this.meta.set(created, { explicit: false, closed: inline, dotted: true });
         current[key] = created;
         current = created;
@@ -387,11 +412,13 @@ class TomlReader {
 
   private array(): readonly unknown[] {
     this.expect("[", "'[' opening an array");
+    this.enter();
     const values: unknown[] = [];
     for (;;) {
       this.skipTrivia();
       if (this.peek() === "]") {
         this.take();
+        this.leave();
         return values;
       }
       if (this.atEnd()) this.fail("an array is never closed");
@@ -403,6 +430,7 @@ class TomlReader {
       }
       if (this.peek() === "]") {
         this.take();
+        this.leave();
         return values;
       }
       this.fail(`expected ',' or ']' in an array but found ${this.describeHere()}`);
@@ -419,11 +447,13 @@ class TomlReader {
    */
   private inlineTable(): Table {
     this.expect("{", "'{' opening an inline table");
-    const table: Table = {};
+    this.enter();
+    const table: Table = emptyTable();
     this.meta.set(table, { explicit: true, closed: true, dotted: false });
     this.skipSpaces();
     if (this.peek() === "}") {
       this.take();
+      this.leave();
       return table;
     }
     for (;;) {
@@ -438,6 +468,7 @@ class TomlReader {
       }
       if (this.peek() === "}") {
         this.take();
+        this.leave();
         return table;
       }
       this.fail(`expected ',' or '}' in an inline table but found ${this.describeHere()}`);
@@ -541,6 +572,17 @@ class TomlReader {
       }
       value += character;
     }
+  }
+
+  private enter(): void {
+    this.nesting += 1;
+    if (this.nesting > MAXIMUM_NESTING) {
+      this.fail(`values are nested more than ${MAXIMUM_NESTING} deep`);
+    }
+  }
+
+  private leave(): void {
+    this.nesting -= 1;
   }
 
   private quoteRun(quote: string): number {

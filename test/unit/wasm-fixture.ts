@@ -54,7 +54,24 @@ export interface FixtureOptions {
   readonly omit?: "epoch_abi_version" | "alloc" | "parse";
   /** Report a result length longer than the data, to exercise bounds checks. */
   readonly overstateLength?: number;
+  /** Return this from `alloc` instead of the arena, to exercise refusals. */
+  readonly allocReturns?: number;
+  /** Number of `wrap` nodes to bury the tree under, to exercise node limits. */
+  readonly wrapDepth?: number;
 }
+
+/**
+ * Input arena, and the space before the result record.
+ *
+ * `alloc` always hands back the same address, so a source longer than this
+ * would overwrite the result the fixture is about to return. Asserted rather
+ * than commented, so a later test that outgrows the arena fails saying so
+ * instead of producing a confusing bounds error.
+ */
+const INPUT_AT = 64;
+const RECORD_AT = 1016;
+const RESULT_AT = 1024;
+const INPUT_CAPACITY = RECORD_AT - INPUT_AT;
 
 /**
  * Build a provider module that returns a fixed tree.
@@ -65,9 +82,10 @@ export interface FixtureOptions {
  * boundary, not the parsing.
  */
 export function buildSyntaxProviderModule(options: FixtureOptions): Uint8Array {
+  if (byteLengthOf(options.result) > 65_536 - RESULT_AT) {
+    throw new Error("fixture result does not fit in the module's first page");
+  }
   const resultBytes = [...new TextEncoder().encode(options.result)];
-  const RESULT_AT = 1024;
-  const RECORD_AT = 1016;
   const declaredLength = options.overstateLength ?? resultBytes.length;
 
   // () -> i32   and   (i32) -> i32   and   (i32, i32) -> i32
@@ -95,7 +113,7 @@ export function buildSyntaxProviderModule(options: FixtureOptions): Uint8Array {
   // epoch_abi_version() -> i32
   const abiBody = [...uleb(0), ...i32const(options.abiVersion ?? 1), end];
   // alloc(len) -> i32: a bump allocator that always hands back the input arena.
-  const allocBody = [...uleb(0), ...i32const(64), end];
+  const allocBody = [...uleb(0), ...i32const(options.allocReturns ?? INPUT_AT), end];
   // parse(ptr, len) -> i32: write the record, return its address.
   const parseBody = [
     ...uleb(0),
@@ -139,3 +157,11 @@ function sleb(value: number): number[] {
     out.push(byte | 0x80);
   }
 }
+
+/** Bytes a string occupies, for the arena assertions above. */
+function byteLengthOf(text: string): number {
+  return new TextEncoder().encode(text).length;
+}
+
+/** The largest source a fixture module can be given before it self-overwrites. */
+export const FIXTURE_INPUT_CAPACITY = INPUT_CAPACITY;

@@ -102,6 +102,15 @@ export {
 } from "./wasm";
 
 export {
+  loadSyntaxProviders,
+  type LoadedProvider,
+  type LoadProvidersOptions,
+  type ProviderLoadFailure,
+  type ProviderLoadResult,
+  type ProviderModuleReader,
+} from "./providers";
+
+export {
   descriptorPath,
   LAUNCH_DESCRIPTOR_SLOT,
   launchVerificationFor,

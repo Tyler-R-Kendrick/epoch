@@ -174,12 +174,12 @@ continues to re-hash whole content.
 be pointed at a repository rather than at one language (ADR-0043):
 
 ```console
-$ epoch semantic plan src/*.ts package.json docs/*.md pnpm-lock.yaml
-provider epoch.syntax.delimiter  files 42  chunks 310  saved 22226
-provider epoch.syntax.json       files  3  chunks  18  saved 1204
-provider epoch.syntax.markdown   files 11  chunks  74  saved 890
+$ epoch semantic plan src/*.ts package.json tsconfig.json docs/*.md pnpm-lock.yaml
+provider epoch.syntax.delimiter  files 42  chunks 310  saved 21102
+provider epoch.syntax.json  files 2  chunks 18  saved 224
+provider epoch.syntax.markdown  files 11  chunks 74  saved 900
 unplanned pnpm-lock.yaml  (no syntax provider matches 'pnpm-lock.yaml')
-dictionary 512 entries digest a1b2c3… (derived across all 57 files)
+dictionary 512 entries digest a1b2c3… (derived across all 56 files)
 plain 118430 bytes  after subtree dedup 96204 bytes (saved 22226)
 ```
 

@@ -25,12 +25,15 @@ import {
   type ExternalInvocation,
   evaluatePublisher,
   isExtensionName,
+  loadSyntaxProviders,
   launchVerificationFor,
   planLaunch,
   revocationSigningPayload,
   successorSigningPayload,
   withPublisherStatements,
   type ExtensionTrustPolicy,
+  type ProviderLoadResult,
+  type ProviderModuleReader,
   type PublisherRevocation,
   type SuccessorStatement,
   type TrustStore,
@@ -138,11 +141,20 @@ function readTrustStore(root: string): { readonly store: TrustStore } | { readon
 interface EffectivePolicy {
   readonly policy: ExtensionTrustPolicy;
   /**
-   * Empty when the policy is exactly what the operator wrote. A non-empty list
-   * means part of their intent could not be read, so this policy is not
-   * evidence of what they wanted.
+   * Reasons the policy could not be read *in full*, so it cannot be relied on
+   * to deny anything: a config that will not parse, an `[extensions]` value
+   * that is not a table, an unreadable consent store. Any entry here refuses
+   * every launch.
    */
   readonly degraded: readonly string[];
+  /**
+   * Things worth telling the operator that do not weaken a denial: an
+   * unrecognised key, a `trust` value that fell back to `explicit`. The policy
+   * was still read in full, and the `block` list in it is intact, so these are
+   * reported and then obeyed rather than treated as a reason to refuse
+   * everything.
+   */
+  readonly warnings: readonly string[];
 }
 
 /**
@@ -164,7 +176,11 @@ function policyFor(root: string): EffectivePolicy {
   const degraded: string[] = [];
   const read = readTrustStore(root);
   if (!("store" in read)) {
-    return { policy: readTrustPolicy(undefined), degraded: [`recorded consent could not be read: ${read.error}`] };
+    return {
+      policy: readTrustPolicy(undefined),
+      degraded: [`recorded consent could not be read: ${read.error}`],
+      warnings: [],
+    };
   }
 
   let table: Record<string, unknown> | undefined;
@@ -184,11 +200,13 @@ function policyFor(root: string): EffectivePolicy {
   }
 
   const policy = readTrustPolicyReport(table);
-  for (const diagnostic of policy.diagnostics) {
-    degraded.push(`[extensions] ${diagnostic.key} ${diagnostic.message}`);
-  }
+  // Per-key diagnostics are warnings, not degradation. An unknown key inside
+  // `[extensions]` — a typo, a subtable, a key from a newer Epoch — loses no
+  // part of the operator's `block` list, so treating it as a reason to refuse
+  // every launch would turn a harmless typo into a repository-wide outage.
+  const warnings = policy.diagnostics.map((diagnostic) => `[extensions] ${diagnostic.key} ${diagnostic.message}`);
   const withStatements = withPublisherStatements(policy.policy, replicatedStatements(root));
-  return { policy: withRecordedConsent(withStatements, read.store), degraded };
+  return { policy: withRecordedConsent(withStatements, read.store), degraded, warnings };
 }
 
 /** Command names the publisher statements are recorded under. */
@@ -284,8 +302,8 @@ function readPublisherStatement(action: "succeed" | "revoke", path: string): Rec
   return { ...record };
 }
 
-function reportDegradation(degraded: readonly string[], io: ExtensionCliIO): void {
-  for (const note of degraded) io.stderr.write(`warning: ${note}\n`);
+function reportNotes(notes: readonly string[], io: ExtensionCliIO): void {
+  for (const note of notes) io.stderr.write(`warning: ${note}\n`);
 }
 
 /**
@@ -342,7 +360,7 @@ export function runExtensionCommand(
   const effective = policyFor(root);
   const policy = effective.policy;
   const extensions = discover(root, dependencies);
-  reportDegradation(effective.degraded, io);
+  reportNotes([...effective.degraded, ...effective.warnings], io);
 
   if (action === "list") {
     if (extensions.length === 0) {
@@ -391,6 +409,7 @@ export function runExtensionCommand(
       // Named rather than omitted: an empty policy shown as though it were the
       // operator's intent is the failure ADR-0044 exists to end.
       policyDegraded: effective.degraded,
+      policyWarnings: effective.warnings,
     }, null, 2)}\n`);
     return;
   }
@@ -461,6 +480,38 @@ export function runExtensionCommand(
 }
 
 
+/**
+ * Providers shipped by extensions this repository trusts (ADR-0041).
+ *
+ * Trust is the same decision Tier 1 dispatch makes, taken by the same policy:
+ * a provider runs inside an operation that produces signed evidence, so an
+ * extension the operator has not consented to must not supply one. A degraded
+ * policy loads nothing, for the reason it refuses to launch anything — the
+ * half that survives an unreadable config is the half that permits.
+ */
+export function trustedExtensionProviders(
+  root: string,
+  options: { readonly reader: ProviderModuleReader } & ExtensionCliDependencies,
+): ProviderLoadResult {
+  const effective = policyFor(root);
+  if (effective.degraded.length > 0) {
+    return {
+      providers: [],
+      failures: effective.degraded.map((reason) => ({ extension: "-", module: "-", reason })),
+    };
+  }
+  const extensions = discover(root, options);
+  return loadSyntaxProviders(extensions, {
+    reader: options.reader,
+    isTrusted: (extension) =>
+      resolveSubcommand(extension.name, {
+        builtins: [],
+        extensions: [extension],
+        policy: effective.policy,
+      }).kind === "extension",
+  });
+}
+
 export interface ExternalDispatchResult {
   readonly handled: boolean;
   readonly exitCode: number;
@@ -496,8 +547,9 @@ export function dispatchExternalSubcommand(
   // grants — while the `block` list the operator hand-wrote is exactly what
   // went missing, so proceeding would run code on the strength of an incomplete
   // denial (ADR-0044).
+  reportNotes(effective.warnings, io);
   if (effective.degraded.length > 0) {
-    reportDegradation(effective.degraded, io);
+    reportNotes(effective.degraded, io);
     io.stderr.write(
       `refusing to run extension '${command}': the trust policy could not be read in full, `
       + "so it cannot be relied on to deny anything\n",

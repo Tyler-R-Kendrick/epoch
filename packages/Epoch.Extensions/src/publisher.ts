@@ -127,6 +127,32 @@ export function evaluatePublisher(
     return { kind: "allowed", via: "direct", root: publisher, depth: 0 };
   }
 
+  // Each statement is verified exactly once, before any traversal.
+  //
+  // Signature verification is the expensive part of this function, and the
+  // statements arrive from a replicated event log, so a peer decides how many
+  // there are. Verifying inside the walk would repeat the same check for every
+  // allowed root, every depth, and every frontier key, and trust is evaluated
+  // once per extension — so the cost multiplies again across `ext list`.
+  //
+  // A chain is also not followed *through* a revoked key: revoking a key has to
+  // take everything it went on to name with it, or rotation would be a way to
+  // outlive revocation.
+  const named = new Map<string, string[]>();
+  for (const statement of lifecycle.successors) {
+    if (revoked.has(statement.successor)) continue;
+    if (!verify({
+      payload: successorSigningPayload(statement),
+      signature: statement.signature,
+      publisher: statement.predecessor,
+    })) {
+      continue;
+    }
+    const successors = named.get(statement.predecessor);
+    if (successors === undefined) named.set(statement.predecessor, [statement.successor]);
+    else successors.push(statement.successor);
+  }
+
   // Breadth-first from every allowed root, so the shortest chain wins and the
   // depth reported is the real number of rotations rather than an accident of
   // statement order.
@@ -138,24 +164,11 @@ export function evaluatePublisher(
     for (let depth = 1; depth <= depthLimit; depth += 1) {
       const next: string[] = [];
       for (const key of frontier) {
-        for (const statement of lifecycle.successors) {
-          if (statement.predecessor !== key || seen.has(statement.successor)) continue;
-          if (!verify({
-            payload: successorSigningPayload(statement),
-            signature: statement.signature,
-            publisher: statement.predecessor,
-          })) {
-            continue;
-          }
-          // A chain may not be followed *through* a revoked key: revoking a key
-          // has to take everything it went on to name with it, or rotation
-          // would be a way to outlive revocation.
-          if (revoked.has(statement.successor)) continue;
-          if (statement.successor === publisher) {
-            return { kind: "allowed", via: "succession", root, depth };
-          }
-          seen.add(statement.successor);
-          next.push(statement.successor);
+        for (const successor of named.get(key) ?? []) {
+          if (seen.has(successor)) continue;
+          if (successor === publisher) return { kind: "allowed", via: "succession", root, depth };
+          seen.add(successor);
+          next.push(successor);
         }
       }
       if (next.length === 0) break;

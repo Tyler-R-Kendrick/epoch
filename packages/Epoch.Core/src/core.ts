@@ -2289,13 +2289,28 @@ function readConfigFile(path: string): { readonly config: EpochRepositoryConfig 
   }
 }
 
+/**
+ * Merge shared and local configuration, one known table at a time.
+ *
+ * A value that is not a table is carried through unchanged rather than spread.
+ * Spreading turned `[[extensions]]` — an array of tables, and not a policy at
+ * all — into an object with a `0` key, which read downstream as an
+ * `[extensions]` table that merely had an odd key in it. Preserving the shape
+ * lets the caller see that what the operator wrote was never a policy table and
+ * say so.
+ */
+function mergeConfigTable<T>(left: T | undefined, right: T | undefined): T | undefined {
+  if (!isRecord(left) || !isRecord(right)) return right ?? left;
+  return { ...left, ...right } as T;
+}
+
 function deepMergeConfig(left: EpochRepositoryConfig, right: EpochRepositoryConfig): EpochRepositoryConfig {
   return {
     ...left,
     ...right,
-    working_tree: { ...(left.working_tree ?? {}), ...(right.working_tree ?? {}) },
-    ignore: { ...(left.ignore ?? {}), ...(right.ignore ?? {}) },
-    extensions: { ...(left.extensions ?? {}), ...(right.extensions ?? {}) },
+    working_tree: mergeConfigTable(left.working_tree, right.working_tree),
+    ignore: mergeConfigTable(left.ignore, right.ignore),
+    extensions: mergeConfigTable(left.extensions, right.extensions),
   };
 }
 
