@@ -1,5 +1,13 @@
-import { createPublicKey, verify as verifySignature } from "node:crypto";
 import { canonicalManifest, type ExtensionManifest } from "./manifest";
+import {
+  EMPTY_PUBLISHER_LIFECYCLE,
+  evaluatePublisher,
+  isExpired,
+  type PublisherLifecycle,
+  type PublisherRevocation,
+  type SuccessorStatement,
+} from "./publisher";
+import { ed25519ManifestVerifier, type ManifestSignatureVerifier } from "./signing";
 
 /**
  * Extension trust policy (ADR-0037).
@@ -33,6 +41,14 @@ export interface ExtensionTrustPolicy {
   readonly grants: readonly TrustGrant[];
   readonly block: readonly string[];
   readonly allowPublishers: readonly string[];
+  /**
+   * Expiry, succession, and revocation statements in force here (ADR-0046).
+   *
+   * Optional so a caller that does not care about publisher lifecycle gets
+   * today's behaviour; absent means no successions and no revocations, never
+   * "revocations do not apply".
+   */
+  readonly lifecycle?: PublisherLifecycle;
 }
 
 export const DEFAULT_TRUST_POLICY: ExtensionTrustPolicy = {
@@ -55,6 +71,8 @@ export type TrustReason =
   | "missing-manifest"
   | "not-allowed"
   | "publisher-not-allowed"
+  | "publisher-revoked"
+  | "signature-expired"
   | "unsigned";
 
 export interface TrustDecision {
@@ -64,23 +82,12 @@ export interface TrustDecision {
   readonly detail: string;
 }
 
-/**
- * Verifies a detached signature over the canonical manifest.
- *
- * Injected so the check is testable and so a host can substitute its own key
- * handling. The default is Ed25519 over an SPKI public key, matching the
- * signing scheme Epoch already uses for events.
- */
-export type ManifestSignatureVerifier = (request: {
-  readonly payload: string;
-  readonly signature: string;
-  readonly publisher: string;
-}) => boolean;
-
 export interface TrustEvaluationOptions {
   readonly verifySignature?: ManifestSignatureVerifier;
   /** Actual SHA-256 of the on-disk executable, in lowercase hex. */
   readonly executableSha256?: string;
+  /** Injected so expiry and revocation windows are testable without waiting. */
+  readonly now?: Date;
 }
 
 /** The exact bytes a publisher signs. */
@@ -88,48 +95,90 @@ export function manifestSigningPayload(manifest: ExtensionManifest): string {
   return canonicalManifest(manifest);
 }
 
+/** One thing wrong with an `[extensions]` table, named by key (ADR-0048). */
+export interface TrustPolicyDiagnostic {
+  readonly key: string;
+  readonly message: string;
+}
+
+export interface TrustPolicyRead {
+  readonly policy: ExtensionTrustPolicy;
+  /** Empty when the table said exactly what the operator meant. */
+  readonly diagnostics: readonly TrustPolicyDiagnostic[];
+}
+
+const POLICY_KEYS = new Set(["trust", "allow", "block", "allow_publishers", "revoked_publishers"]);
+
 /**
- * Default Ed25519 verifier.
+ * Read a trust policy, reporting what it had to ignore.
  *
- * The publisher identifier carries the base64url SPKI DER of the signing key,
- * and the signature is `ed25519:<base64>`. Any malformed input is a failed
- * verification, never a pass.
+ * Coercion still fails closed — an unrecognised `trust` narrows to `explicit`,
+ * a non-string entry is dropped — but it is no longer silent. `trust = "eny"`
+ * is a typo whose consequence is a *narrower* policy than intended, which the
+ * operator only discovers when something they expected to run does not; and
+ * `block = [1]` is a denial that quietly does not exist. Reporting is per key
+ * so one bad entry does not discard a whole table, which is the same failure
+ * at smaller scale.
  */
-export const ed25519ManifestVerifier: ManifestSignatureVerifier = ({ payload, signature, publisher }) => {
-  try {
-    const encodedKey = publisher.slice("epoch:principal:".length);
-    if (encodedKey.length === 0) return false;
-    const [algorithm, encodedSignature] = signature.split(":");
-    if (algorithm !== "ed25519" || encodedSignature === undefined || encodedSignature.length === 0) return false;
-    const key = createPublicKey({
-      key: Buffer.from(encodedKey, "base64url"),
-      format: "der",
-      type: "spki",
-    });
-    return verifySignature(null, Buffer.from(payload, "utf8"), key, Buffer.from(encodedSignature, "base64"));
-  } catch {
-    return false;
+export function readTrustPolicyReport(table: Record<string, unknown> | undefined): TrustPolicyRead {
+  if (table === undefined) return { policy: DEFAULT_TRUST_POLICY, diagnostics: [] };
+  const diagnostics: TrustPolicyDiagnostic[] = [];
+
+  const strings = (key: string): readonly string[] => {
+    const value = table[key];
+    if (value === undefined) return [];
+    if (!Array.isArray(value)) {
+      diagnostics.push({ key, message: `expected an array of extension names, ignoring ${describe(value)}` });
+      return [];
+    }
+    const kept = value.filter((entry): entry is string => typeof entry === "string");
+    if (kept.length !== value.length) {
+      diagnostics.push({ key, message: `ignored ${value.length - kept.length} entry that is not a name` });
+    }
+    return kept;
+  };
+
+  const requested = table.trust;
+  const trust: TrustMode = requested === "signed" || requested === "any" ? requested : "explicit";
+  if (requested !== undefined && requested !== "explicit" && trust === "explicit") {
+    diagnostics.push({ key: "trust", message: `${describe(requested)} is not a trust mode; using "explicit"` });
   }
-};
+  for (const key of Object.keys(table)) {
+    if (!POLICY_KEYS.has(key)) diagnostics.push({ key, message: "is not an extension policy key and has no effect" });
+  }
+
+  return {
+    policy: {
+      trust,
+      allow: strings("allow"),
+      grants: [],
+      block: strings("block"),
+      allowPublishers: strings("allow_publishers"),
+      lifecycle: {
+        successors: [],
+        revocations: [],
+        // Local, immediate, and unsigned: the operator's own file is the
+        // authority, which is what makes this the answer when the key holder
+        // is exactly who they are defending against (ADR-0046).
+        revokedPublishers: strings("revoked_publishers"),
+      },
+    },
+    diagnostics,
+  };
+}
 
 /**
  * Read a trust policy out of the `[extensions]` table of repository config.
  *
- * Unknown values fail closed to `explicit` rather than widening trust.
+ * Unknown values fail closed to `explicit` rather than widening trust. Callers
+ * that can show the operator a diagnostic should prefer `readTrustPolicyReport`.
  */
 export function readTrustPolicy(table: Record<string, unknown> | undefined): ExtensionTrustPolicy {
-  if (table === undefined) return DEFAULT_TRUST_POLICY;
-  const strings = (value: unknown): readonly string[] =>
-    Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
-  const requested = table.trust;
-  const trust: TrustMode = requested === "signed" || requested === "any" ? requested : "explicit";
-  return {
-    trust,
-    allow: strings(table.allow),
-    grants: [],
-    block: strings(table.block),
-    allowPublishers: strings(table.allow_publishers),
-  };
+  return readTrustPolicyReport(table).policy;
+}
+
+function describe(value: unknown): string {
+  return typeof value === "string" ? `"${value}"` : Array.isArray(value) ? "an array" : `a ${typeof value}`;
 }
 
 /**
@@ -147,6 +196,33 @@ export function withRecordedConsent(
     ...policy,
     grants: recorded.allow,
     block: [...new Set([...policy.block, ...recorded.block])],
+  };
+}
+
+/**
+ * Add replicated publisher statements to a policy.
+ *
+ * Consent does not replicate and revocation does, which sounds contradictory
+ * until the direction of authority is named: a grant only ever adds authority,
+ * so it must stay where it was given; a revocation only ever removes it, so
+ * spreading it can only ever be safe. Statements arriving this way carry their
+ * own proof and are verified where they are used, not where they arrived.
+ */
+export function withPublisherStatements(
+  policy: ExtensionTrustPolicy,
+  statements: {
+    readonly successors: readonly SuccessorStatement[];
+    readonly revocations: readonly PublisherRevocation[];
+  },
+): ExtensionTrustPolicy {
+  const lifecycle = policy.lifecycle ?? EMPTY_PUBLISHER_LIFECYCLE;
+  return {
+    ...policy,
+    lifecycle: {
+      ...lifecycle,
+      successors: [...lifecycle.successors, ...statements.successors],
+      revocations: [...lifecycle.revocations, ...statements.revocations],
+    },
   };
 }
 
@@ -208,11 +284,45 @@ export function evaluateTrust(
     // `publisher` is manifest input and therefore attacker-controlled. It only
     // narrows which key is allowed to have signed; it never establishes that
     // anyone did. The cryptographic check below is what grants trust.
-    if (manifest.publisher === undefined || !policy.allowPublishers.includes(manifest.publisher)) {
+    if (manifest.publisher === undefined) {
       return {
         trusted: false,
         reason: "publisher-not-allowed",
         detail: `extension '${name}' names a publisher that is not in allow_publishers`,
+      };
+    }
+    // Revocation and succession are resolved before the allow list is
+    // consulted, so a revoked key cannot be trusted by being listed and a
+    // rotated key does not have to be pasted into every clone (ADR-0046).
+    const status = evaluatePublisher(
+      manifest.publisher,
+      policy.allowPublishers,
+      policy.lifecycle ?? EMPTY_PUBLISHER_LIFECYCLE,
+      { now: options.now, verifySignature: options.verifySignature },
+    );
+    if (status.kind === "revoked") {
+      return {
+        trusted: false,
+        reason: "publisher-revoked",
+        detail: `extension '${name}' is signed by a publisher revoked by ${status.origin === "self" ? "its own key" : "this repository"}`
+          + `${status.reason === undefined ? "" : `: ${status.reason}`}`,
+      };
+    }
+    if (status.kind !== "allowed") {
+      return {
+        trusted: false,
+        reason: "publisher-not-allowed",
+        detail: `extension '${name}' names a publisher that is not in allow_publishers`,
+      };
+    }
+    // Expiry is checked after the publisher because "this key is revoked" and
+    // "this signature is stale" have different remedies, and the operator
+    // should be told the more serious one.
+    if (isExpired(manifest.notAfter, options.now)) {
+      return {
+        trusted: false,
+        reason: "signature-expired",
+        detail: `extension '${name}' has a signature that expired at ${manifest.notAfter}`,
       };
     }
     if (manifest.executableSha256 === undefined) {
@@ -247,7 +357,13 @@ export function evaluateTrust(
         detail: `extension '${name}' manifest signature did not verify against its declared publisher`,
       };
     }
-    return { trusted: true, reason: "allowed-by-publisher", detail: `extension '${name}' is signed by an allowed publisher` };
+    return {
+      trusted: true,
+      reason: "allowed-by-publisher",
+      detail: status.via === "direct"
+        ? `extension '${name}' is signed by an allowed publisher`
+        : `extension '${name}' is signed by a key ${status.depth} rotation(s) from an allowed publisher`,
+    };
   }
   return {
     trusted: false,

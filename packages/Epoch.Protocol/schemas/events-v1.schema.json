@@ -61,7 +61,8 @@
         "space.capture.opened",
         "space.capture.closed",
         "space.capture.operation",
-        "space.anchor.recorded"
+        "space.anchor.recorded",
+        "space.turn.receipt"
       ]
     },
     "eventId": {
@@ -700,6 +701,20 @@
         },
         "body": {
           "$ref": "#/$defs/spaceAnchorRecordedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.turn.receipt"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceTurnReceiptBody"
         }
       },
       "required": [
@@ -1978,6 +1993,65 @@
         "contentDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "spaceTurnReceiptBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "principalId",
+        "turnRevisionId",
+        "sandboxId",
+        "isolation",
+        "network",
+        "outcome"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "turnRevisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "sandboxId": {
+          "type": "string",
+          "pattern": "^epoch:sandbox:[a-z2-7]{52}$"
+        },
+        "isolation": {
+          "enum": [
+            "none",
+            "process",
+            "namespace"
+          ]
+        },
+        "network": {
+          "enum": [
+            "inherited",
+            "denied"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "timed-out",
+            "refused"
+          ]
+        },
+        "exitCode": {
+          "type": "integer"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

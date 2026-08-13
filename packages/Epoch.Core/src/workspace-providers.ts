@@ -3,6 +3,7 @@ import { constants, lstatSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { WorkspaceCapability, WorkspaceCapabilityName, WorkspaceProvider } from "./workspace";
 import { requireWorkspaceCapability } from "./workspace";
+import { probeReflink, type ReflinkProbe } from "./hydration";
 
 const unsupported = (reason: string): WorkspaceCapability => ({ status: "unsupported", reason });
 const supported = (mode: string): WorkspaceCapability => ({ status: "supported", mode });
@@ -32,15 +33,36 @@ export class FileSystemWorkspaceProvider implements WorkspaceProvider {
   readonly root: string;
   readonly capabilities: Readonly<Record<WorkspaceCapabilityName, WorkspaceCapability>>;
 
-  constructor(root: string, options: { readonly id?: string; readonly reflink?: boolean } = {}) {
+  constructor(root: string, options: { readonly id?: string; readonly reflink?: boolean | ReflinkProbe } = {}) {
     this.root = resolve(root);
     this.id = options.id ?? "filesystem";
+    // A boolean is a caller assertion, not evidence. Only a ReflinkProbe -- the
+    // result of actually cloning a file on this filesystem -- reports as
+    // probed. `create()` below is the path that produces one (ADR-0043 phase 4).
+    const probe = options.reflink;
+    const reflink = typeof probe === "object"
+      ? probe.supported
+        ? supported(probe.mode)
+        : unsupported(probe.reason ?? "filesystem refused a reflink clone")
+      : probe === true
+        ? supported("copyfile-ficlone (asserted by caller, not probed)")
+        : unsupported("reflink support was not positively probed");
     this.capabilities = Object.freeze({
       read: supported("filesystem"), write: supported("filesystem"), remove: supported("filesystem"),
       watch: unsupported("filesystem watch is not implemented by this provider"),
-      reflink: options.reflink === true ? supported("copyfile-ficlone") : unsupported("reflink support was not positively probed"),
+      reflink,
       execute: unsupported("filesystem provider does not execute workspace code"), persistent: supported("filesystem"),
     });
+  }
+
+  /**
+   * Build a provider whose reflink capability was measured against this exact
+   * directory, since copy-on-write is a property of the filesystem the
+   * workspace lives on, not of the platform.
+   */
+  static async create(root: string, options: { readonly id?: string } = {}): Promise<FileSystemWorkspaceProvider> {
+    await mkdir(resolve(root), { recursive: true });
+    return new FileSystemWorkspaceProvider(root, { ...options, reflink: await probeReflink(root) });
   }
 
   async read(path: string): Promise<Buffer> { return readFile(child(this.root, path)); }

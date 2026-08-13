@@ -51,6 +51,8 @@ export {
   deriveDictionary,
   encodeSemanticDelta,
   planCompression,
+  planCompressionAcross,
+  type CompressionGroup,
   type CompressionPlan,
   type DerivedDictionary,
   type DictionaryOptions,
@@ -59,7 +61,10 @@ export {
   type SemanticDelta,
   type SubtreeDedupOptions,
   type SubtreeDedupResult,
+  type MixedCompressionPlan,
   type SubtreeEntry,
+  type SyntaxProviderResolver,
+  type UnplannedSource,
 } from "./compression";
 
 export { jsonSyntaxProvider } from "./providers/json";

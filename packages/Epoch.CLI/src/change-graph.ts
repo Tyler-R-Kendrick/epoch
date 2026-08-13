@@ -5,6 +5,10 @@ import { join, resolve } from "node:path";
 import {
   EpochRepository,
   FileSystemWorkspaceProvider,
+  NamespaceSandboxProvider,
+  ProcessSandboxProvider,
+  probeNamespaceSandbox,
+  selectSandboxProvider,
   parseSnapshot,
   SignedChangeGraphStore,
   SignedSpaceStore,
@@ -289,7 +293,7 @@ export async function executeChangeGraphCommand(root: string, argv: readonly str
  * The Space store owns every refusal; this layer only shapes arguments, so the
  * CLI can never authorize something the store would have denied.
  */
-function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): unknown {
+async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): Promise<unknown> {
   const store = SignedSpaceStore.open(resolve(root), { random: dependencies.random });
   const action = parsed.positionals[0];
   const spaceArgument = (index = 1): string => required(parsed.positionals[index], "space ID");
@@ -333,6 +337,39 @@ function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeG
         sandboxId: stringOption(parsed, "sandbox"),
       });
     case "turns": return { turns: store.turns(spaceArgument()) };
+    // Runs the turn under a sandbox that must prove what it confines.
+    case "run": {
+      const sandbox = parsed.options["isolated"] === true || stringOption(parsed, "sandbox") === "namespace"
+        ? new NamespaceSandboxProvider()
+        : stringOption(parsed, "sandbox") === "process"
+          ? new ProcessSandboxProvider()
+          : selectSandboxProvider();
+      const [, , command, ...args] = parsed.positionals;
+      return await store.runTurn(spaceArgument(), {
+        request: stringOption(parsed, "request") ?? required(command, "command"),
+        sandbox,
+        command: required(command, "command"),
+        args,
+        principal,
+        requireIsolation: parsed.options["isolated"] === true,
+        units: stringOption(parsed, "units") === undefined ? undefined : Number(stringOption(parsed, "units")),
+        timeoutMs: stringOption(parsed, "timeout") === undefined ? undefined : Number(stringOption(parsed, "timeout")),
+        ...(stringOption(parsed, "cwd") === undefined ? {} : { cwd: resolve(stringOption(parsed, "cwd")!) }),
+      });
+    }
+    case "receipts": return { receipts: store.receipts(spaceArgument()) };
+    // Reports what the runtime actually proved, never what the platform implies.
+    case "sandbox": return {
+      probe: probeNamespaceSandbox(),
+      namespace: new NamespaceSandboxProvider().capabilities(),
+      process: new ProcessSandboxProvider().capabilities(),
+      selected: selectSandboxProvider().id,
+    };
+    // Phase 6: pull a Space from another replica, verify, then join.
+    case "sync": {
+      const peer = required(stringOption(parsed, "from") ?? parsed.positionals[1], "peer repository path");
+      return store.syncSpacesFrom(resolve(peer));
+    }
     case "capture": {
       const subAction = parsed.positionals[1];
       if (subAction === "open") {
@@ -384,7 +421,7 @@ async function execute(root: string, command: string, args: readonly string[], n
     }
   };
 
-  if (command === "space") return executeSpaceCommand(root, parsed, dependencies);
+  if (command === "space") return await executeSpaceCommand(root, parsed, dependencies);
   if (command === "new") return store.createRevision({ parentRevisionIds: parsed.positionals, message: stringOption(parsed, "message") ?? "" });
   if (command === "log") {
     const revisions = store.listRevisions(); const expression = stringOption(parsed, "revisions") ?? "heads()";

@@ -1,16 +1,20 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { EpochRepository } from "@epoch/core";
 import {
   buildExternalInvocation,
+  descriptorPath,
   discoverExtensions,
+  ed25519ManifestVerifier,
   EMPTY_TRUST_STORE,
   grantTrust,
   nodeExtensionFileSystem,
   parseTrustStore,
   readTrustPolicy,
+  readTrustPolicyReport,
   resolveSubcommand,
   revokeTrust,
   serializeTrustStore,
@@ -19,8 +23,19 @@ import {
   type DiscoveredExtension,
   type ExtensionFileSystem,
   type ExternalInvocation,
+  evaluatePublisher,
   isExtensionName,
+  loadSyntaxProviders,
+  launchVerificationFor,
+  planLaunch,
+  revocationSigningPayload,
+  successorSigningPayload,
+  withPublisherStatements,
   type ExtensionTrustPolicy,
+  type ProviderLoadResult,
+  type ProviderModuleReader,
+  type PublisherRevocation,
+  type SuccessorStatement,
   type TrustStore,
 } from "@epoch/extensions";
 import { BUILTIN_COMMANDS, CliText } from "./domain";
@@ -39,16 +54,59 @@ export interface ExtensionCliIO {
 }
 
 /** Process launch, injected so dispatch is testable without real binaries. */
-export type ExtensionSpawn = (invocation: ExternalInvocation) => number;
+export type ExtensionSpawn = (invocation: ExternalInvocation, expectedSha256?: string) => number;
 
-const defaultSpawn: ExtensionSpawn = (invocation) => {
-  const result = spawnSync(invocation.executable, [...invocation.args], {
-    env: invocation.env,
-    stdio: "inherit",
-  });
-  if (result.error !== undefined) throw result.error;
-  return result.status ?? 1;
-};
+/**
+ * Launch the bytes that were verified (ADR-0044).
+ *
+ * Where the platform can name an open descriptor as a path, the executable is
+ * opened once, hashed through that descriptor, and executed through the same
+ * descriptor — so the file that runs is the file that was hashed by
+ * construction rather than by timing. The descriptor is handed to the child in
+ * the `stdio` array so it survives into the child's file table, and `#!`
+ * scripts work because the kernel resolves the interpreter from it too.
+ *
+ * Everywhere else the pre-launch re-read stands and the residual is reported
+ * rather than hidden.
+ */
+function spawnVerified(invocation: ExternalInvocation, expectedSha256: string | undefined): number {
+  let descriptor: number | undefined;
+  try {
+    if (descriptorPath(process.platform) !== undefined) {
+      descriptor = openSync(invocation.executable, "r");
+      // Hashing through the descriptor, not the path: this is the read whose
+      // result the exec is bound to.
+      const digest = createHash("sha256").update(readFileSync(descriptor)).digest("hex");
+      if (expectedSha256 !== undefined && digest !== expectedSha256) {
+        throw new Error(
+          `extension '${invocation.env.EPOCH_EXTENSION_NAME}' changed between the trust check and launch; refusing to run it`,
+        );
+      }
+    }
+
+    const plan = planLaunch(invocation, { platform: process.platform, descriptorAvailable: descriptor !== undefined });
+    if (plan.kind === "refused") throw new Error(plan.reason);
+
+    const stdio: ("inherit" | number)[] = ["inherit", "inherit", "inherit"];
+    if (plan.descriptorSlot !== undefined && descriptor !== undefined) {
+      // Slots below the requested one must already be filled, which `stdio`
+      // guarantees: index 3 of this array is the child's fd 3.
+      stdio[plan.descriptorSlot] = descriptor;
+    }
+
+    const result = spawnSync(plan.executable, [...plan.args], {
+      env: invocation.env,
+      stdio,
+      windowsVerbatimArguments: plan.verbatimArguments === true,
+    });
+    if (result.error !== undefined) throw result.error;
+    return result.status ?? 1;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+const defaultSpawn: ExtensionSpawn = (invocation, expectedSha256) => spawnVerified(invocation, expectedSha256);
 
 export interface ExtensionCliDependencies {
   readonly homeDirectory?: string;
@@ -79,6 +137,26 @@ function readTrustStore(root: string): { readonly store: TrustStore } | { readon
   }
 }
 
+/** The effective policy, and everything that stopped it from being complete. */
+interface EffectivePolicy {
+  readonly policy: ExtensionTrustPolicy;
+  /**
+   * Reasons the policy could not be read *in full*, so it cannot be relied on
+   * to deny anything: a config that will not parse, an `[extensions]` value
+   * that is not a table, an unreadable consent store. Any entry here refuses
+   * every launch.
+   */
+  readonly degraded: readonly string[];
+  /**
+   * Things worth telling the operator that do not weaken a denial: an
+   * unrecognised key, a `trust` value that fell back to `explicit`. The policy
+   * was still read in full, and the `block` list in it is intact, so these are
+   * reported and then obeyed rather than treated as a reason to refuse
+   * everything.
+   */
+  readonly warnings: readonly string[];
+}
+
 /**
  * Resolve the effective policy: hand-authored configuration plus recorded
  * consent.
@@ -87,18 +165,145 @@ function readTrustStore(root: string): { readonly store: TrustStore } | { readon
  * corrupt store in particular must not degrade to "no entries", because that
  * would silently drop its `block` list — damage to the file would widen the
  * policy instead of narrowing it.
+ *
+ * Degradation is carried rather than swallowed. Falling back to the closed
+ * default is safe for the *configured* half of the policy but not for the
+ * recorded half: a config that will not parse takes its `block` list with it
+ * while stored grants keep working, which is a net loss of protection unless
+ * someone is told (ADR-0048).
  */
-function policyFor(root: string): ExtensionTrustPolicy {
+function policyFor(root: string): EffectivePolicy {
+  const degraded: string[] = [];
   const read = readTrustStore(root);
-  if (!("store" in read)) return readTrustPolicy(undefined);
-  try {
-    const config = new EpochRepository(root).repositoryConfig();
-    return withRecordedConsent(readTrustPolicy(config.extensions as Record<string, unknown> | undefined), read.store);
-  } catch {
-    // A repository whose configuration cannot be read still honours consent
-    // already recorded, but adopts no hand-authored policy.
-    return withRecordedConsent(readTrustPolicy(undefined), read.store);
+  if (!("store" in read)) {
+    return {
+      policy: readTrustPolicy(undefined),
+      degraded: [`recorded consent could not be read: ${read.error}`],
+      warnings: [],
+    };
   }
+
+  let table: Record<string, unknown> | undefined;
+  try {
+    const config = new EpochRepository(root).readRepositoryConfig();
+    for (const problem of config.problems) {
+      degraded.push(`${problem.path}:${problem.line}:${problem.column}: ${problem.reason}`);
+    }
+    const extensions: unknown = config.config.extensions;
+    if (extensions !== undefined && (typeof extensions !== "object" || extensions === null || Array.isArray(extensions))) {
+      degraded.push("[extensions] is not a table, so no trust policy could be read from it");
+    } else {
+      table = extensions as Record<string, unknown> | undefined;
+    }
+  } catch (error) {
+    degraded.push(`configuration could not be read: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const policy = readTrustPolicyReport(table);
+  // Per-key diagnostics are warnings, not degradation. An unknown key inside
+  // `[extensions]` — a typo, a subtable, a key from a newer Epoch — loses no
+  // part of the operator's `block` list, so treating it as a reason to refuse
+  // every launch would turn a harmless typo into a repository-wide outage.
+  const warnings = policy.diagnostics.map((diagnostic) => `[extensions] ${diagnostic.key} ${diagnostic.message}`);
+  const withStatements = withPublisherStatements(policy.policy, replicatedStatements(root));
+  return { policy: withRecordedConsent(withStatements, read.store), degraded, warnings };
+}
+
+/** Command names the publisher statements are recorded under. */
+const SUCCESSOR_COMMAND = "ext-publisher-succeed";
+const REVOCATION_COMMAND = "ext-publisher-revoke";
+
+/**
+ * Publisher statements this repository has seen, from its own event log.
+ *
+ * They arrive by ordinary sync, which is exactly the asymmetry ADR-0046 is
+ * built on: consent must not travel, because it only adds authority, while a
+ * revocation should, because it only removes it. Every statement carries its
+ * own signature and is verified where it is used, so replication moves
+ * evidence rather than trust.
+ */
+function replicatedStatements(root: string): {
+  readonly successors: readonly SuccessorStatement[];
+  readonly revocations: readonly PublisherRevocation[];
+} {
+  const successors: SuccessorStatement[] = [];
+  const revocations: PublisherRevocation[] = [];
+  try {
+    for (const operation of new EpochRepository(root).operations()) {
+      const detail = operation.detail;
+      if (typeof detail !== "object" || detail === null) continue;
+      if (operation.command === SUCCESSOR_COMMAND) successors.push(detail as unknown as SuccessorStatement);
+      if (operation.command === REVOCATION_COMMAND) revocations.push(detail as unknown as PublisherRevocation);
+    }
+  } catch {
+    // A repository with no event log yet has seen no statements. That is not
+    // the same as "no statements apply": the operator's own `revoked_publishers`
+    // is read separately and is unaffected.
+  }
+  return { successors, revocations };
+}
+
+/**
+ * Read a publisher statement from a file and check it before recording it.
+ *
+ * Verification happens again at every use, so this check is not what makes the
+ * statement safe — it is what keeps the event log from accumulating statements
+ * that will never do anything, which an operator would otherwise read as
+ * having taken effect.
+ */
+function readPublisherStatement(action: "succeed" | "revoke", path: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `cannot read publisher statement ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`publisher statement ${path} must be a JSON object`);
+  }
+  const record = parsed as Record<string, unknown>;
+
+  if (action === "succeed") {
+    const statement = record as unknown as SuccessorStatement;
+    for (const field of ["predecessor", "successor", "issuedAt", "signature"] as const) {
+      if (typeof statement[field] !== "string") throw new Error(`successor statement needs a string '${field}'`);
+    }
+    const verified = ed25519ManifestVerifier({
+      payload: successorSigningPayload(statement),
+      signature: statement.signature,
+      publisher: statement.predecessor,
+    });
+    if (!verified) {
+      // The retiring key is the only thing that can name a successor. A
+      // statement it did not sign is an assertion by a stranger.
+      throw new Error("successor statement is not signed by the key it retires; refusing to record it");
+    }
+    return { ...record };
+  }
+
+  const revocation = record as unknown as PublisherRevocation;
+  for (const field of ["publisher", "effectiveAt", "signature"] as const) {
+    if (typeof revocation[field] !== "string") throw new Error(`revocation statement needs a string '${field}'`);
+  }
+  const verified = ed25519ManifestVerifier({
+    payload: revocationSigningPayload(revocation),
+    signature: revocation.signature ?? "",
+    publisher: revocation.publisher,
+  });
+  if (!verified) {
+    throw new Error(
+      "revocation is not signed by the key it revokes; to revoke a key out of band, "
+      + "add it to revoked_publishers in .epoch/config.toml",
+    );
+  }
+  return { ...record };
+}
+
+function reportNotes(notes: readonly string[], io: ExtensionCliIO): void {
+  for (const note of notes) io.stderr.write(`warning: ${note}\n`);
 }
 
 /**
@@ -152,8 +357,10 @@ export function runExtensionCommand(
   dependencies: ExtensionCliDependencies = {},
 ): void {
   const action = args[0] ?? "list";
-  const policy = policyFor(root);
+  const effective = policyFor(root);
+  const policy = effective.policy;
   const extensions = discover(root, dependencies);
+  reportNotes([...effective.degraded, ...effective.warnings], io);
 
   if (action === "list") {
     if (extensions.length === 0) {
@@ -186,8 +393,39 @@ export function runExtensionCommand(
       manifest: extension.manifest ?? null,
       manifestError: extension.manifestError ?? null,
       resolution: resolution.kind,
+      // The guarantee is named, not assumed: `descriptor` means the executed
+      // bytes are the hashed bytes by construction, `path` means by timing
+      // (ADR-0044).
+      launchVerification: launchVerificationFor(process.platform),
+      // Which key verified this, whether it was reached directly or through a
+      // rotation, and whether a revocation is on file. A trust decision an
+      // operator cannot inspect is one they cannot audit (ADR-0046).
+      publisher: extension.manifest?.publisher === undefined ? null : {
+        key: extension.manifest.publisher,
+        notAfter: extension.manifest.notAfter ?? null,
+        status: evaluatePublisher(extension.manifest.publisher, policy.allowPublishers, policy.lifecycle),
+      },
       trust: resolution.kind === "extension" || resolution.kind === "untrusted" ? resolution.trust : null,
+      // Named rather than omitted: an empty policy shown as though it were the
+      // operator's intent is the failure ADR-0048 exists to end.
+      policyDegraded: effective.degraded,
+      policyWarnings: effective.warnings,
     }, null, 2)}\n`);
+    return;
+  }
+
+  if (action === "publisher") {
+    const verb = args[1];
+    const path = args[2];
+    if ((verb !== "succeed" && verb !== "revoke") || path === undefined) throw new Error(CliText.extUsage);
+    const statement = readPublisherStatement(verb, path);
+    const command = verb === "succeed" ? SUCCESSOR_COMMAND : REVOCATION_COMMAND;
+    new EpochRepository(resolve(root)).appendOperation(command, "succeeded", statement);
+    io.stdout.write(
+      verb === "succeed"
+        ? `recorded succession ${String(statement.predecessor)} -> ${String(statement.successor)}\n`
+        : `recorded revocation of ${String(statement.publisher)}\n`,
+    );
     return;
   }
 
@@ -242,6 +480,38 @@ export function runExtensionCommand(
 }
 
 
+/**
+ * Providers shipped by extensions this repository trusts (ADR-0045).
+ *
+ * Trust is the same decision Tier 1 dispatch makes, taken by the same policy:
+ * a provider runs inside an operation that produces signed evidence, so an
+ * extension the operator has not consented to must not supply one. A degraded
+ * policy loads nothing, for the reason it refuses to launch anything — the
+ * half that survives an unreadable config is the half that permits.
+ */
+export function trustedExtensionProviders(
+  root: string,
+  options: { readonly reader: ProviderModuleReader } & ExtensionCliDependencies,
+): ProviderLoadResult {
+  const effective = policyFor(root);
+  if (effective.degraded.length > 0) {
+    return {
+      providers: [],
+      failures: effective.degraded.map((reason) => ({ extension: "-", module: "-", reason })),
+    };
+  }
+  const extensions = discover(root, options);
+  return loadSyntaxProviders(extensions, {
+    reader: options.reader,
+    isTrusted: (extension) =>
+      resolveSubcommand(extension.name, {
+        builtins: [],
+        extensions: [extension],
+        policy: effective.policy,
+      }).kind === "extension",
+  });
+}
+
 export interface ExternalDispatchResult {
   readonly handled: boolean;
   readonly exitCode: number;
@@ -260,12 +530,31 @@ export function dispatchExternalSubcommand(
   io: ExtensionCliIO,
   dependencies: ExtensionCliDependencies = {},
 ): ExternalDispatchResult {
-  const policy = policyFor(root);
+  const effective = policyFor(root);
   const extensions = discover(root, dependencies);
-  const resolution = resolveSubcommand(command, { builtins: BUILTIN_COMMANDS, extensions, policy });
+  const resolution = resolveSubcommand(command, {
+    builtins: BUILTIN_COMMANDS,
+    extensions,
+    policy: effective.policy,
+  });
 
   if (resolution.kind === "unknown" || resolution.kind === "builtin") {
     return { handled: false, exitCode: 1 };
+  }
+
+  // Launching is the one thing a degraded policy must not do. The half of the
+  // policy that survives a broken config is the half that *permits* — recorded
+  // grants — while the `block` list the operator hand-wrote is exactly what
+  // went missing, so proceeding would run code on the strength of an incomplete
+  // denial (ADR-0048).
+  reportNotes(effective.warnings, io);
+  if (effective.degraded.length > 0) {
+    reportNotes(effective.degraded, io);
+    io.stderr.write(
+      `refusing to run extension '${command}': the trust policy could not be read in full, `
+      + "so it cannot be relied on to deny anything\n",
+    );
+    return { handled: true, exitCode: 1 };
   }
 
   if (resolution.kind === "untrusted") {
@@ -297,5 +586,5 @@ export function dispatchExternalSubcommand(
     workingDirectory: process.cwd(),
   });
   const spawn = dependencies.spawn ?? defaultSpawn;
-  return { handled: true, exitCode: spawn(invocation) };
+  return { handled: true, exitCode: spawn(invocation, resolution.extension.executableSha256) };
 }

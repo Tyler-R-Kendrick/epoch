@@ -426,7 +426,7 @@ Community Web itself is not yet built from this runtime — deployment still shi
 the Community Web design exploration. See
 [Community Web As An Epoch Participant](community-web-epoch-integration.md) for
 the verified gap ledger and the remaining workstreams, and
-[ADR-0044](design-decisions/0044-community-runtime-command-layer.md).
+[ADR-0049](design-decisions/0049-community-runtime-command-layer.md).
 
 ## Change Graph And Operation History
 
@@ -544,11 +544,37 @@ The governance is enforced rather than described:
   reordering (`moved`) and reports honestly when the construct is deleted
   (`unresolved`) instead of pointing at the wrong place.
 
-`epoch space ...` is the operator surface. Phases that remain unbuilt are named
-in [ADR-0043](design-decisions/0043-spaces-shared-signed-workspaces.md): there
-is no mount provider, no isolated execution provider, and no federated join, so
-a per-turn Sandbox binding currently records a fact rather than enforcing a
-boundary.
+- **Execution is proven, not declared.** `SandboxProvider` reports only what a
+  probe demonstrated. `NamespaceSandboxProvider` runs a turn under Linux user,
+  PID, mount, and network namespaces and claims `network: "denied"` only after
+  observing a failed lookup inside the namespace; where the kernel refuses the
+  namespaces it reports `unavailable` and refuses to run rather than silently
+  degrading to an unconfined child process. `runTurn()` records the isolation
+  actually obtained and appends a signed `space.turn.receipt`, including for a
+  refusal, so a denied attempt still leaves evidence.
+- **Hydration is on access.** `HydratingWorkspaceProvider` describes the whole
+  tree from a manifest and materializes a path's bytes on first read, verifying
+  them against the manifest's object ID. Joining is therefore cheap by
+  *residency*: a participant receives the full shape immediately and pays for
+  content only where they look. This is a provider-level seam, not a kernel
+  VFS — a tool that opens the path outside the provider sees nothing until
+  hydration runs, and the docs say so rather than implying a mount.
+- **Reflink is measured.** `FileSystemWorkspaceProvider.create()` performs a
+  real `FICLONE` copy in the target directory and reports the result. The
+  boolean constructor flag remains for compatibility but labels itself as a
+  caller assertion, because copy-on-write is a property of the filesystem the
+  workspace lives on rather than of the platform.
+- **Joining crosses machines.** `syncSpacesFrom()` pulls Spaces from another
+  replica over the shipped transports, verifies the result locally, and only
+  then makes the Space joinable. A join link is a repository locator plus a
+  Space ID, and it keeps working offline once synced.
+
+`epoch space ...` is the operator surface, including `run`, `receipts`,
+`sandbox`, and `sync`. What remains unbuilt is named in
+[ADR-0043](design-decisions/0043-spaces-shared-signed-workspaces.md): there is
+no kernel VFS/FUSE mount, no container or microVM sandbox beyond Linux
+namespaces, and no gossip/ATProto Space *discovery* — sync is by explicit
+locator rather than by lookup.
 
 ## Semantic Content Pipeline
 
@@ -560,21 +586,40 @@ is reformatted, and a conflict still names the same construct after a rebase.
 
 Builtin syntax providers cover JSON, a TOML subset, Markdown heading trees, and
 a generic balanced-delimiter provider for brace-delimited languages. The
-delimiter provider recovers block structure and is not a grammar;
-grammar-backed providers are expected to arrive as extensions through the
-capability registry.
+delimiter provider recovers block structure and is not a grammar. That TOML
+subset is the *structural diffing* provider, and stays partial by design — it
+refuses constructs it cannot represent. Reading a configuration value is a
+different job, and uses the complete TOML 1.0 reader in `@epoch/core`
+([ADR-0048](design-decisions/0048-repository-configuration-parsing.md)).
+
+Grammar-backed providers arrive as extensions through the capability registry,
+as WebAssembly modules instantiated with one import — memory the host owns and
+caps — so a provider that shapes signed evidence holds no ambient authority
+([ADR-0045](design-decisions/0045-sandboxed-capability-providers.md)). At equal
+match specificity a shipped provider outranks the builtin it replaces, which is
+what "an extension can displace a builtin" means in practice.
 
 Merge resolves disjoint subtrees independently, merges independent insertions
 into declared commutative containers, and leaves genuine disagreement as a
 path-scoped conflict carrying a formatting-insensitive signature for reusable
 resolutions. Compression planning provides syntax-guided chunking grouped by
-node count, subtree dedup, deterministic dictionary derivation, and semantic
+node count, subtree dedup keyed by the provider that produced each subtree,
+deterministic dictionary derivation across a mixed-language corpus, and semantic
 deltas; object identity and `verify()` are unchanged, since SHA-256 over whole
 content remains authoritative.
 
-`epoch semantic diff|apply|merge|plan` is the operator surface. See
+`epoch semantic diff|apply|merge|plan` is the operator surface, and `plan`
+takes a mixed-language file set, grouping it by resolved provider
+([ADR-0047](design-decisions/0047-mixed-language-compression-planning.md)). See
 [Semantic Content Pipeline](semantic-pipeline.md) and
 [ADR-0038](design-decisions/0038-semantic-diff-merge-and-compression.md).
+
+Extension *publisher* keys have a lifecycle: an expiry inside the signed
+manifest, succession signed by the key being retired, and revocation that
+outranks both and replicates as an ordinary event
+([ADR-0046](design-decisions/0046-publisher-key-lifecycle.md)). Launch executes
+the descriptor whose bytes were digested where the platform can name one
+([ADR-0044](design-decisions/0044-verified-launch-and-platform-execution-contract.md)).
 
 ## Non-Goals In The Current Prototype
 
@@ -582,7 +627,6 @@ The current implementation does not provide:
 
 - network peer discovery
 - repository access control
-- key rotation
 - signed tags
 - remote publishing for `push`
 - shallow clones
@@ -596,8 +640,13 @@ The current implementation does not provide:
 - process, filesystem, or network sandboxing of external extensions
 - grammar-backed syntax providers for general-purpose languages
 - byte-level entropy coding or a packfile format for semantic compression
-- a kernel VFS/FUSE mount provider, an isolated execution provider, or
-  federated Space discovery (ADR-0043 phases 4 through 6)
+- a kernel VFS/FUSE mount provider for Spaces; hydration is a provider seam,
+  so tools outside the provider do not see virtual paths (ADR-0043 phase 4)
+- container or microVM sandboxing; isolated execution is Linux user namespaces
+  only, and non-Linux hosts get the process provider with its weaker, declared
+  guarantees (ADR-0043 phase 5)
+- Space *discovery* over gossip or ATProto; `space sync` requires an explicit
+  peer locator (ADR-0043 phase 6)
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
 - writable nested Repository Links, overlapping mount roots, and transparent
   lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`

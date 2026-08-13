@@ -26,7 +26,10 @@ does not exist yet is the loader that turns a trusted `syntax`-capable
 extension into an in-process provider, so today no shipped extension can
 actually displace a builtin. The seam is deliberate — displacement is a change
 of behavior in signed evidence, and it should not land before provenance
-recording does.
+recording does. The design that fills it is
+[ADR-0045](design-decisions/0045-sandboxed-capability-providers.md): providers
+arrive as import-free WebAssembly modules, so code that shapes signed evidence
+is deterministic and holds no ambient authority.
 
 ## Discovery is not execution
 
@@ -90,6 +93,7 @@ trust = "explicit"               # "explicit" | "signed" | "any"
 allow = ["difftastic", "mergiraf"]
 block = []
 allow_publishers = ["epoch:principal:<ed25519-public-key>"]
+revoked_publishers = []          # keys this repository refuses, whatever else says
 ```
 
 | Mode | Admits |
@@ -118,9 +122,51 @@ Trust is granted only after all of the following hold:
 
 Because the canonical manifest includes `executable_sha256`, signing the
 manifest transitively binds the binary: a valid signed manifest cannot be
-paired with a swapped executable. Any failure is reported with a specific
-reason (`publisher-not-allowed`, `executable-mismatch`, `invalid-signature`)
-and the extension does not run.
+paired with a swapped executable.
+
+Any failure is reported with a specific reason (`publisher-not-allowed`,
+`executable-mismatch`, `invalid-signature`) and the extension does not run.
+
+### Publisher keys have a lifecycle
+
+The key *is* the identity, which is what makes verification offline and
+unspoofable — and what would otherwise leave a signature valid forever with no
+way to take it back. Three statements give it a lifecycle
+([ADR-0046](design-decisions/0046-publisher-key-lifecycle.md)):
+
+**Expiry.** A manifest may declare `not_after`, inside the signed payload. Past
+that instant the signature is treated as absent, with its own reason
+(`signature-expired`) because the remedy differs from a bad signature. A
+manifest without one behaves exactly as before, and produces the same signed
+bytes it did before expiry existed, so no earlier signature stops verifying.
+
+**Rotation.** A publisher retires a key by signing a successor statement *with
+the key being retired*. Any repository already holding the old key can check it
+offline and follow the chain forward, bounded to four rotations by default, so
+`allow_publishers` does not have to be hand-edited in every clone. Rotation is
+not recovery: a compromised key can name an attacker as its successor, which is
+what revocation is for.
+
+**Revocation**, which outranks both. `epoch ext publisher revoke <file>` records
+a self-revocation signed by the key itself; `revoked_publishers` in
+configuration records one the operator decided out of band. Revoking a key takes
+with it every key it went on to name, so rotation cannot be used to outlive it.
+
+Consent does not replicate and revocation does. That sounds contradictory until
+the direction of authority is named:
+
+> A grant must not propagate, because it only ever adds authority.
+> A revocation should propagate, because it only ever removes it.
+
+So revocations and successions travel as ordinary Epoch events, and each carries
+its own signature — replication moves evidence, not trust. An unsigned
+revocation arriving over sync is ignored, because honouring it would let any
+peer revoke any publisher for everyone downstream; the operator's own
+`revoked_publishers` needs no signature, because the file is the authority.
+
+A repository that never syncs never learns of a revocation. That is inherent to
+an offline-first design rather than an oversight, and `revoked_publishers` is
+the answer for operators who need certainty without waiting for replication.
 
 ### Configuration is read, consent is recorded
 
@@ -152,6 +198,97 @@ A store that cannot be parsed is an error, never an empty store: reading
 corruption as "no entries" would drop the `block` list, so damage would widen
 the policy instead of narrowing it. An unreadable store trusts nothing, whatever
 the configured mode.
+
+The same rule holds for the configuration file, and for the same reason. A
+`.epoch/config.toml` Epoch cannot parse contributes nothing — including the
+`block` list an operator wrote by hand — while recorded grants in the store
+keep parsing and keep permitting. So a config that fails to read is reported
+with the file, line, and column that stopped it, and an extension launch is
+**refused** while it stands:
+
+```console
+$ epoch greet
+warning: .epoch/config.toml:5:31: a string is never closed
+refusing to run extension 'greet': the trust policy could not be read in full, so it cannot be relied on to deny anything
+```
+
+Configuration is read as complete TOML 1.0, so ordinary constructs — a URL with
+a `#` fragment, a float, an inline table, an array of tables — parse as written
+rather than becoming the parse error that disarms the policy (ADR-0048). Keys
+inside `[extensions]` that Epoch does not recognise, and values of the wrong
+shape, are reported per key instead of silently coerced:
+
+```console
+$ epoch ext list
+warning: [extensions] trust "eny" is not a trust mode; using "explicit"
+```
+
+### Shipping a capability provider
+
+An extension can supply a `syntax` provider as a WebAssembly module, declared
+beside its manifest:
+
+```toml
+name = "grammar"
+api = 1
+version = "1.0.0"
+capabilities = ["syntax"]
+
+[[provides]]
+capability = "syntax"
+module = "grammar-json.wasm"
+language = "json"
+module_sha256 = "9f2c…"
+extensions = [".json"]
+```
+
+The module is instantiated with exactly one import — memory Epoch owns and caps
+— so it has no clock, no entropy, no filesystem, and no network, because nothing
+in its environment offers them. It reports spans; the host reconstructs the text
+from its own source, so a module cannot claim a span and a text that disagree.
+
+Three rules decide whether it loads. The extension must be trusted, by the same
+policy that decides whether its subcommand may run — a provider shapes signed
+evidence, so consent is not optional. The module's bytes must match
+`module_sha256`, so a module swapped after installation is refused and the
+builtin takes the language back. And `command` may not be declared here at all:
+a subcommand's job is to have effects, and a sandbox that permits that is not
+one.
+
+A provider that fails any of these is reported rather than skipped:
+
+```console
+$ epoch semantic diff before.json after.json
+warning: provider grammar-json.wasm from 'grammar' was not loaded: module digest 4b1e… does not match the 9f2c… its manifest declares
+```
+
+Silence would be worse than the warning: the builtin would quietly take over and
+produce a different diff on this machine than on one where the module loaded.
+
+### The bytes that were verified are the bytes that run
+
+Where the platform can name an open file descriptor as a path — `/proc/self/fd`
+on Linux, `/dev/fd` on macOS and the BSDs — Epoch opens the executable once,
+hashes it *through that descriptor*, and executes the descriptor rather than the
+path. The file that runs is then the file that was hashed by construction rather
+than by timing, `#!` scripts included: the kernel resolves the interpreter from
+the same descriptor. The child inherits it at fd 3, so an extension must not
+assume that slot is free.
+
+Windows has no descriptor-addressable exec path, so its launches keep the
+narrower guarantee — re-read the digest immediately before spawning, refuse on
+mismatch — and `epoch ext show` reports which of the two applies rather than
+implying the stronger one everywhere:
+
+```json
+{ "launchVerification": "descriptor" }
+```
+
+On Windows, `.cmd` and `.bat` extensions launch through `cmd.exe /d /s /c` with
+a command line Epoch quotes itself, rather than through `shell: true`. Arguments
+containing `%` or `!` — expanded by the batch parser after every escaping
+mechanism the caller has — and arguments containing a line break or NUL are
+refused by name rather than quoted and hoped for (ADR-0044).
 
 ### Consent binds to the binary
 
@@ -269,6 +406,15 @@ extension can displace it, and any preemption is visible.
 Executability is decided per platform. On POSIX systems discovery requires an
 execute bit; on Windows it accepts `.exe`, `.com`, `.cmd`, and `.bat`, because
 Windows carries no POSIX mode bits and decides launchability by extension.
+
+Discovery and execution agree on Windows. Node refuses to spawn `.cmd` and
+`.bat` without a shell, so Epoch launches them through `cmd.exe /d /s /c` with a
+command line it quotes itself, refusing the arguments CMD cannot deliver
+faithfully. Where a platform can name an open descriptor as a path, the
+descriptor whose bytes were digested is the one executed, which closes the
+check-to-exec race.
+[ADR-0044](design-decisions/0044-verified-launch-and-platform-execution-contract.md)
+records the reasoning.
 
 ## Boundaries
 

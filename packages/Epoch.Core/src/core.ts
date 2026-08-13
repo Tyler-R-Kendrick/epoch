@@ -43,6 +43,7 @@ import {
   type WorkspaceSelectionState,
 } from "./domain";
 import { formatUnifiedDiff } from "./patch";
+import { parseTomlDocument, TomlError } from "./toml";
 import {
   SelectAll,
   formatSelection,
@@ -248,6 +249,21 @@ export interface EpochIgnoreMatch {
   readonly source: string;
   readonly line: number;
   readonly pattern: string;
+}
+
+/** A configuration file that could not be read, and where reading stopped. */
+export interface EpochConfigProblem {
+  readonly path: string;
+  /** 1-based; 0 when the file could not be opened at all. */
+  readonly line: number;
+  readonly column: number;
+  readonly reason: string;
+}
+
+export interface EpochConfigRead {
+  readonly config: EpochRepositoryConfig;
+  /** Empty on success. A non-empty list means the config below is incomplete. */
+  readonly problems: readonly EpochConfigProblem[];
 }
 
 export interface EpochRepositoryConfig {
@@ -1437,10 +1453,40 @@ export class EpochRepository {
     return scope === "local" ? join(this.epochDir, EPOCH_LOCAL_CONFIG_FILE) : join(this.root, EPOCH_SHARED_CONFIG_FILE);
   }
 
+  /**
+   * Read configuration, reporting rather than throwing.
+   *
+   * A file that cannot be parsed contributes nothing and is named in
+   * `problems`, so a caller can decide between continuing with defaults and
+   * refusing — and, crucially, can tell the operator. The silent version of
+   * this is what let a stray float disarm an extension `block` list
+   * (ADR-0048).
+   */
+  readRepositoryConfig(): EpochConfigRead {
+    const problems: EpochConfigProblem[] = [];
+    const read = (scope: "shared" | "local"): EpochRepositoryConfig => {
+      const path = this.configPath(scope);
+      if (!existsAsFile(path)) return {};
+      const result = readConfigFile(path);
+      if ("error" in result) {
+        problems.push(result.error);
+        return {};
+      }
+      return result.config;
+    };
+    // Shared first, then local, so a local file still overrides on success.
+    const shared = read("shared");
+    const local = read("local");
+    return { config: deepMergeConfig(shared, local), problems };
+  }
+
   repositoryConfig(): EpochRepositoryConfig {
-    const shared = existsAsFile(this.configPath("shared")) ? parseToml(readFileSync(this.configPath("shared"), JsonEncoding)) : {};
-    const local = existsAsFile(this.configPath("local")) ? parseToml(readFileSync(this.configPath("local"), JsonEncoding)) : {};
-    return deepMergeConfig(shared, local);
+    const read = this.readRepositoryConfig();
+    const problem = read.problems[0];
+    if (problem !== undefined) {
+      throw new Error(`${problem.path}:${problem.line}:${problem.column}: ${problem.reason}`);
+    }
+    return read.config;
   }
 
   configValue(key: string): unknown {
@@ -2515,49 +2561,52 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
-function parseToml(text: string): EpochRepositoryConfig {
-  const root: Record<string, unknown> = {};
-  let current: Record<string, unknown> = root;
-  for (const rawLine of text.split(/\r?\n/u)) {
-    const line = rawLine.split("#")[0].trim();
-    if (line.length === 0) continue;
-    const section = /^\[([A-Za-z0-9_.-]+)\]$/u.exec(line);
-    if (section !== null) {
-      current = root;
-      for (const part of section[1].split(TextToken.dot)) {
-        const existing = current[part];
-        if (!isRecord(existing)) current[part] = {};
-        current = current[part] as Record<string, unknown>;
-      }
-      continue;
-    }
-    const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u.exec(line);
-    if (assignment === null) throw new Error(`invalid Epoch TOML config line: ${rawLine}`);
-    current[assignment[1]] = parseTomlValue(assignment[2].trim());
+/**
+ * Read one configuration file, carrying a parse failure rather than throwing.
+ *
+ * The caller decides what a broken file means. Collapsing it here to an empty
+ * table is what allowed an unrelated syntax error to silently discard a
+ * hand-written extension `block` list (ADR-0048).
+ */
+function readConfigFile(path: string): { readonly config: EpochRepositoryConfig } | { readonly error: EpochConfigProblem } {
+  let text: string;
+  try {
+    text = readFileSync(path, JsonEncoding);
+  } catch (error) {
+    return { error: { path, line: 0, column: 0, reason: error instanceof Error ? error.message : String(error) } };
   }
-  return root as EpochRepositoryConfig;
+  try {
+    return { config: parseTomlDocument(text, path) as EpochRepositoryConfig };
+  } catch (error) {
+    if (error instanceof TomlError) {
+      return { error: { path, line: error.line, column: error.column, reason: error.reason } };
+    }
+    throw error;
+  }
 }
 
-function parseTomlValue(value: string): unknown {
-  if (value.startsWith("\"") && value.endsWith("\"")) return value.slice(1, -1);
-  if (value === "true") return true;
-  if (value === "false") return false;
-  if (/^-?\d+$/u.test(value)) return Number.parseInt(value, 10);
-  if (value.startsWith("[") && value.endsWith("]")) {
-    const body = value.slice(1, -1).trim();
-    if (body.length === 0) return [];
-    return body.split(TextToken.comma).map((item) => parseTomlValue(item.trim()));
-  }
-  throw new Error(`unsupported Epoch TOML config value: ${value}`);
+/**
+ * Merge shared and local configuration, one known table at a time.
+ *
+ * A value that is not a table is carried through unchanged rather than spread.
+ * Spreading turned `[[extensions]]` — an array of tables, and not a policy at
+ * all — into an object with a `0` key, which read downstream as an
+ * `[extensions]` table that merely had an odd key in it. Preserving the shape
+ * lets the caller see that what the operator wrote was never a policy table and
+ * say so.
+ */
+function mergeConfigTable<T>(left: T | undefined, right: T | undefined): T | undefined {
+  if (!isRecord(left) || !isRecord(right)) return right ?? left;
+  return { ...left, ...right } as T;
 }
 
 function deepMergeConfig(left: EpochRepositoryConfig, right: EpochRepositoryConfig): EpochRepositoryConfig {
   return {
     ...left,
     ...right,
-    working_tree: { ...(left.working_tree ?? {}), ...(right.working_tree ?? {}) },
-    ignore: { ...(left.ignore ?? {}), ...(right.ignore ?? {}) },
-    extensions: { ...(left.extensions ?? {}), ...(right.extensions ?? {}) },
+    working_tree: mergeConfigTable(left.working_tree, right.working_tree),
+    ignore: mergeConfigTable(left.ignore, right.ignore),
+    extensions: mergeConfigTable(left.extensions, right.extensions),
   };
 }
 

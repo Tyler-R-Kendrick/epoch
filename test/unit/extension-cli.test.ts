@@ -15,6 +15,8 @@ export function runExtensionCliTests(): void {
   trustGrantsAndUntrustRevokesUnderEveryMode();
   consentDoesNotTransferToADifferentBinary();
   operatorConfigurationIsReadNeverRewritten();
+  anUnreadableConfigurationIsReportedAndNotRunThrough();
+  anUnknownPolicyKeyWarnsWithoutRefusing();
   aCorruptStoreTrustsNothing();
   trustRefusesNamesOutsideTheGrammar();
   trustRefusesWhatItCannotBindToABinary();
@@ -173,30 +175,115 @@ function consentDoesNotTransferToADifferentBinary(): void {
  * defect that repeated line-editing of this file kept producing.
  */
 function operatorConfigurationIsReadNeverRewritten(): void {
-  const shapes: readonly string[] = [
-    `[extensions]\nallow = ["mergiraf"]\n`,
-    `[extensions]  # policy\nallow = [\n  "mergiraf",\n]\n`,
-    `["extensions"]\nallow = ["mergiraf"]\n`,
-    `[["extensions"]]\nname = "a"\n`,
-    `["\\u0065xtensions"]\nallow = ["mergiraf"]\n`,
-    `[extensions]\nallow = ["a"]\nallow = ["b"]\n`,
+  /**
+   * `runs: false` is not a lesser outcome. A policy that could not be read in
+   * full cannot be relied on to deny anything, and the half that survives is
+   * the half that permits — so the launch is refused with a reason rather than
+   * allowed on an incomplete denial (ADR-0048).
+   */
+  const shapes: readonly { readonly toml: string; readonly runs: boolean }[] = [
+    { toml: `[extensions]\nallow = ["mergiraf"]\n`, runs: true },
+    { toml: `[extensions]  # policy\nallow = [\n  "mergiraf",\n]\n`, runs: true },
+    { toml: `["extensions"]\nallow = ["mergiraf"]\n`, runs: true },
+    { toml: `["\\u0065xtensions"]\nallow = ["mergiraf"]\n`, runs: true },
+    // Every spelling of `[extensions]` reaches the same table, including the
+    // ones an earlier line-editing implementation could be walked past.
+    { toml: `[extensions]\nallow = ["mergiraf"]  # trailing "]" and # inside a comment\n`, runs: true },
+    { toml: `[[extensions]]\nname = "a"\n`, runs: false },
+    { toml: `[extensions]\nallow = ["a"]\nallow = ["b"]\n`, runs: false },
+    // A typo in `trust` narrows the policy and loses no denial, so it is a
+    // warning rather than a reason to refuse everything.
+    { toml: `[extensions]\ntrust = "eny"\n`, runs: true },
+    { toml: `[extensions]\nallow = ["mergiraf"]\nunknown_key = 1\n`, runs: true },
   ];
 
   for (const shape of shapes) {
     const root = workspace();
     try {
-      const before = `[core]\ndefault_branch = "main"\n\n${shape}`;
+      const before = `[core]\ndefault_branch = "main"\n\n${shape.toml}`;
       writeFileSync(configPath(root), before, "utf8");
 
       runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
 
       // Whatever the operator wrote, Epoch leaves it exactly as found.
-      assert.equal(readFileSync(configPath(root), "utf8"), before, `must not rewrite: ${shape}`);
+      assert.equal(readFileSync(configPath(root), "utf8"), before, `must not rewrite: ${shape.toml}`);
       assert.ok(existsSync(storePath(root)), "consent is recorded beside the config, not inside it");
-      assert.equal(wouldRun(root), true, `consent must take effect despite: ${shape}`);
+      assert.equal(wouldRun(root), shape.runs, `wrong outcome for: ${shape.toml}`);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
+  }
+}
+
+/**
+ * A key Epoch does not recognise is worth saying out loud, and nothing more.
+ *
+ * The distinction that matters: a policy that could not be *read in full*
+ * cannot be relied on to deny anything, so it refuses every launch. A policy
+ * that was read in full but contains a key with no meaning has lost no part of
+ * its `block` list, so refusing everything would turn a typo into a
+ * repository-wide outage.
+ */
+function anUnknownPolicyKeyWarnsWithoutRefusing(): void {
+  const root = workspace();
+  try {
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+    writeFileSync(
+      configPath(root),
+      `[extensions]\nallow = []\nfuture_key = "from a newer Epoch"\n\n[extensions.subtable]\nx = 1\n`,
+      "utf8",
+    );
+
+    const listed = capture();
+    runExtensionCommand(root, ["list"], listed.io, isolated);
+    assert.match(listed.err(), /future_key/u, "the operator is told the key has no effect");
+    assert.equal(wouldRun(root), true, "recorded consent still applies");
+
+    // And a block in the same file is still obeyed, which is the property that
+    // makes warning rather than refusing safe.
+    writeFileSync(
+      configPath(root),
+      `[extensions]\nblock = ["greet"]\nfuture_key = "from a newer Epoch"\n`,
+      "utf8",
+    );
+    assert.equal(wouldRun(root), false, "the block list survives an unknown key beside it");
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+}
+
+/**
+ * A configuration Epoch cannot read is an error the operator sees.
+ *
+ * The composition this closes: a hand-written `block` list plus an unrelated
+ * syntax error elsewhere used to mean the block silently disappeared while
+ * recorded consent kept running the extension (ADR-0048).
+ */
+function anUnreadableConfigurationIsReportedAndNotRunThrough(): void {
+  const root = workspace();
+  try {
+    runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
+    assert.equal(wouldRun(root), true, "consent alone runs the extension");
+
+    writeFileSync(
+      configPath(root),
+      `[extensions]\nblock = ["greet"]\n\n[docs]\nhome = "https://example.com/#top\n`,
+      "utf8",
+    );
+
+    const listed = capture();
+    runExtensionCommand(root, ["list"], listed.io, isolated);
+    assert.match(listed.err(), /config\.toml:5:\d+/u, "the operator is told which line stopped the read");
+
+    const dispatched = capture();
+    const result = dispatchExternalSubcommand(root, "greet", [], dispatched.io, {
+      ...isolated,
+      spawn: () => { throw new Error("must not launch under an unreadable policy"); },
+    });
+    assert.equal(result.exitCode, 1);
+    assert.match(dispatched.err(), /refusing to run extension 'greet'/u);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
   }
 }
 
