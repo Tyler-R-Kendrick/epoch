@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
-import type { CommunityAuthorizationContext } from "../../../packages/Epoch.Community.Core/src/authorization";
-import { validateCommunityEntity, type CommunityEntity } from "../../../packages/Epoch.Community.Core/src/entity";
-import { CommunityError } from "../../../packages/Epoch.Community.Core/src/errors";
-import { createCommunityFieldRegistry } from "../../../packages/Epoch.Community.Core/src/fields";
-import { createCommunityRuntimeContext } from "../../../packages/Epoch.Community.Core/src/runtime-context";
-import { ReferenceSearchBackend } from "../../../packages/Epoch.Community.Core/src/search-backend";
-import { createSearchServiceFromSources } from "../../../packages/Epoch.Community.Core/src/search-service";
-import type { CommunitySourceAdapter, CommunitySourceCapabilities, SourceSearchPage } from "../../../packages/Epoch.Community.Core/src/source";
-import type { CommunitySourceCheckpoint } from "../../../packages/Epoch.Community.Core/src/snapshot";
+import {
+  CommunityError,
+  ReferenceSearchBackend,
+  createCommunityFieldRegistry,
+  createCommunityRuntimeContext,
+  createSearchServiceFromSources,
+  validateCommunityEntity,
+  type CommunityAuthorizationContext,
+  type CommunityEntity,
+  type CommunitySourceAdapter,
+  type CommunitySourceCapabilities,
+  type CommunitySourceCheckpoint,
+  type SourceSearchPage,
+} from "@epoch/community-core";
 
 const NOW = "2026-08-12T20:00:00.000Z";
 const OLDER = "2026-08-12T19:00:00.000Z";

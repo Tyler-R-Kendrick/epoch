@@ -16,6 +16,7 @@ export async function runPlatformBoundaryTests(): Promise<void> {
   await communityOwnsRepositoryCollaborationWorkflowsThroughCore();
   await communityCliUsesCoreClient();
   communityPackagesHaveTheExpectedDependencyDirection();
+  compiledTestsImportCommunityCoreFromThePackage();
 }
 
 async function webTreatsCommunityAsADeployableAppWithoutOwningCommunityWorkflows(): Promise<void> {
@@ -97,6 +98,18 @@ async function communityCliUsesCoreClient(): Promise<void> {
   assert.equal(exitCode, 0);
   assert.deepEqual(stderr, []);
   assert.match(stdout.join("\n"), /epoch\/epoch/u);
+}
+
+function compiledTestsImportCommunityCoreFromThePackage(): void {
+  const relativeCore = /from\s+["'](?:\.\.\/)+packages\/Epoch\.Community\.Core\/src\//;
+  const offenders = files(join(process.cwd(), "test"))
+    .filter((filePath) => filePath.endsWith(".ts") || filePath.endsWith(".js") || filePath.endsWith(".mjs"))
+    .filter((filePath) => relativeCore.test(readFileSync(filePath, "utf8")));
+  assert.deepEqual(
+    offenders,
+    [],
+    "compiled tests must import @epoch/community-core; relative Core src emit is incomplete on CI: " + offenders.join(", "),
+  );
 }
 
 function communityPackagesHaveTheExpectedDependencyDirection(): void {
