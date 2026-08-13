@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { EpochRepository } from "@epoch/core";
 import {
   buildExternalInvocation,
+  descriptorPath,
   discoverExtensions,
   EMPTY_TRUST_STORE,
   grantTrust,
@@ -21,6 +23,8 @@ import {
   type ExtensionFileSystem,
   type ExternalInvocation,
   isExtensionName,
+  launchVerificationFor,
+  planLaunch,
   type ExtensionTrustPolicy,
   type TrustStore,
 } from "@epoch/extensions";
@@ -40,16 +44,59 @@ export interface ExtensionCliIO {
 }
 
 /** Process launch, injected so dispatch is testable without real binaries. */
-export type ExtensionSpawn = (invocation: ExternalInvocation) => number;
+export type ExtensionSpawn = (invocation: ExternalInvocation, expectedSha256?: string) => number;
 
-const defaultSpawn: ExtensionSpawn = (invocation) => {
-  const result = spawnSync(invocation.executable, [...invocation.args], {
-    env: invocation.env,
-    stdio: "inherit",
-  });
-  if (result.error !== undefined) throw result.error;
-  return result.status ?? 1;
-};
+/**
+ * Launch the bytes that were verified (ADR-0040).
+ *
+ * Where the platform can name an open descriptor as a path, the executable is
+ * opened once, hashed through that descriptor, and executed through the same
+ * descriptor — so the file that runs is the file that was hashed by
+ * construction rather than by timing. The descriptor is handed to the child in
+ * the `stdio` array so it survives into the child's file table, and `#!`
+ * scripts work because the kernel resolves the interpreter from it too.
+ *
+ * Everywhere else the pre-launch re-read stands and the residual is reported
+ * rather than hidden.
+ */
+function spawnVerified(invocation: ExternalInvocation, expectedSha256: string | undefined): number {
+  let descriptor: number | undefined;
+  try {
+    if (descriptorPath(process.platform) !== undefined) {
+      descriptor = openSync(invocation.executable, "r");
+      // Hashing through the descriptor, not the path: this is the read whose
+      // result the exec is bound to.
+      const digest = createHash("sha256").update(readFileSync(descriptor)).digest("hex");
+      if (expectedSha256 !== undefined && digest !== expectedSha256) {
+        throw new Error(
+          `extension '${invocation.env.EPOCH_EXTENSION_NAME}' changed between the trust check and launch; refusing to run it`,
+        );
+      }
+    }
+
+    const plan = planLaunch(invocation, { platform: process.platform, descriptorAvailable: descriptor !== undefined });
+    if (plan.kind === "refused") throw new Error(plan.reason);
+
+    const stdio: ("inherit" | number)[] = ["inherit", "inherit", "inherit"];
+    if (plan.descriptorSlot !== undefined && descriptor !== undefined) {
+      // Slots below the requested one must already be filled, which `stdio`
+      // guarantees: index 3 of this array is the child's fd 3.
+      stdio[plan.descriptorSlot] = descriptor;
+    }
+
+    const result = spawnSync(plan.executable, [...plan.args], {
+      env: invocation.env,
+      stdio,
+      windowsVerbatimArguments: plan.verbatimArguments === true,
+    });
+    if (result.error !== undefined) throw result.error;
+    return result.status ?? 1;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+const defaultSpawn: ExtensionSpawn = (invocation, expectedSha256) => spawnVerified(invocation, expectedSha256);
 
 export interface ExtensionCliDependencies {
   readonly homeDirectory?: string;
@@ -227,6 +274,10 @@ export function runExtensionCommand(
       manifest: extension.manifest ?? null,
       manifestError: extension.manifestError ?? null,
       resolution: resolution.kind,
+      // The guarantee is named, not assumed: `descriptor` means the executed
+      // bytes are the hashed bytes by construction, `path` means by timing
+      // (ADR-0040).
+      launchVerification: launchVerificationFor(process.platform),
       trust: resolution.kind === "extension" || resolution.kind === "untrusted" ? resolution.trust : null,
       // Named rather than omitted: an empty policy shown as though it were the
       // operator's intent is the failure ADR-0044 exists to end.
@@ -359,5 +410,5 @@ export function dispatchExternalSubcommand(
     workingDirectory: process.cwd(),
   });
   const spawn = dependencies.spawn ?? defaultSpawn;
-  return { handled: true, exitCode: spawn(invocation) };
+  return { handled: true, exitCode: spawn(invocation, resolution.extension.executableSha256) };
 }

@@ -1,6 +1,6 @@
 # ADR-0040: Verified Launch And Platform Execution Contract
 
-Status: Proposed
+Status: Accepted; implemented
 
 ## Context
 
@@ -63,17 +63,23 @@ programs. On Windows a `.cmd` or `.bat` extension is launched as
 `cmd.exe /d /s /c` with a command line Epoch builds itself, rather than by
 delegating to `shell: true`:
 
-- each argument is wrapped in `"`, with embedded `"` doubled;
-- CMD metacharacters outside quotes are escaped with `^`;
+- every token is wrapped in `"`, unconditionally, with embedded `"` doubled;
 - `/d` skips `AutoRun`, and `/s` fixes the outer-quote stripping rule so the
   quoting above is the one CMD actually applies.
 
-Two argument shapes are **refused rather than escaped**: any argument
-containing `%`, and any containing a newline or NUL. Percent expansion happens
-while the batch file is parsed, after every escaping mechanism available to the
-caller has been consumed; there is no sequence that reliably passes a literal
-`%` through. Refusing with a specific message is honest. Quoting it and hoping
-is how argument-injection bugs are written.
+Quoting is blanket rather than per-character. Inside quotes CMD already treats
+`&`, `|`, `<`, `>`, `(`, and `)` as ordinary characters, so quoting everything
+removes the escaping question instead of answering it once per metacharacter —
+and a rule with no exceptions is a rule that cannot be applied inconsistently.
+
+The characters quotes do *not* protect are **refused rather than escaped**: any
+argument containing `%` or `!`, and any containing a newline or NUL. Percent
+expansion happens while the batch file is parsed, after every escaping
+mechanism available to the caller has been consumed; `!` expands the same way
+when delayed expansion is on, which a machine-wide setting can enable without
+this process knowing. There is no sequence that reliably passes either through.
+Refusing with a specific message is honest. Quoting it and hoping is how
+argument-injection bugs are written.
 
 The refusal names the argument and says why, so an operator hitting it can
 route around it rather than guess.
@@ -99,7 +105,8 @@ over an argument vector with its own tests, rather than a flag passed to
 
 Passing a descriptor through `stdio` consumes a child file descriptor slot and
 makes the extension's inherited environment marginally larger. Extensions must
-not assume fd 3 is free.
+not assume fd 3 is free, and they inherit a read handle to their own
+executable.
 
 ## Revisit Criteria
 

@@ -185,6 +185,31 @@ $ epoch ext list
 warning: [extensions] trust "eny" is not a trust mode; using "explicit"
 ```
 
+### The bytes that were verified are the bytes that run
+
+Where the platform can name an open file descriptor as a path — `/proc/self/fd`
+on Linux, `/dev/fd` on macOS and the BSDs — Epoch opens the executable once,
+hashes it *through that descriptor*, and executes the descriptor rather than the
+path. The file that runs is then the file that was hashed by construction rather
+than by timing, `#!` scripts included: the kernel resolves the interpreter from
+the same descriptor. The child inherits it at fd 3, so an extension must not
+assume that slot is free.
+
+Windows has no descriptor-addressable exec path, so its launches keep the
+narrower guarantee — re-read the digest immediately before spawning, refuse on
+mismatch — and `epoch ext show` reports which of the two applies rather than
+implying the stronger one everywhere:
+
+```json
+{ "launchVerification": "descriptor" }
+```
+
+On Windows, `.cmd` and `.bat` extensions launch through `cmd.exe /d /s /c` with
+a command line Epoch quotes itself, rather than through `shell: true`. Arguments
+containing `%` or `!` — expanded by the batch parser after every escaping
+mechanism the caller has — and arguments containing a line break or NUL are
+refused by name rather than quoted and hoped for (ADR-0040).
+
 ### Consent binds to the binary
 
 `ext trust greet` records the SHA-256 of the executable it consented to. If that

@@ -84,6 +84,16 @@ export {
 } from "./wasm";
 
 export {
+  descriptorPath,
+  LAUNCH_DESCRIPTOR_SLOT,
+  launchVerificationFor,
+  planLaunch,
+  type LaunchOptions,
+  type LaunchPlan,
+  type LaunchVerification,
+} from "./launch";
+
+export {
   buildExternalInvocation,
   resolveSubcommand,
   shadowedExtensions,
