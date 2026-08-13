@@ -10,6 +10,7 @@ import {
 } from "./receipts";
 import { verifyStaticHarnessRelease } from "./harness";
 import { DEFAULT_PROJECT_SLUG, ensureProject, listProjects } from "./projects";
+import { appendSocialRevision, historyOf, listFeeds, recordsOf, type SocialRecordKind } from "./feeds";
 import type { DynamicUiManifest } from "./ui";
 import type { BrowserEpochWorkspace, WorkspaceMutation } from "./workspace";
 
@@ -236,6 +237,75 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       data: project,
       ...(project.created ? { eventIds: [project.eventId], revisionIds: [project.revision] } : {}),
       baseRef: workspace.getView(project.uiView).ref,
+    };
+  });
+
+  register({
+    kind: "feed.list",
+    summary: "List social feeds in this workspace.",
+    capability: "workspace.read",
+    readOnly: true,
+    requiresConfirmation: false,
+    untrustedContent: false,
+    inputSchema: emptySchema(),
+  }, () => ({ data: listFeeds(workspace.epoch) }));
+
+  register({
+    kind: "feed.read",
+    summary: "Read the current state of every record in a feed, with its native change and revision ids.",
+    capability: "workspace.read",
+    readOnly: true,
+    requiresConfirmation: false,
+    untrustedContent: true,
+    inputSchema: schema({ feed: stringProperty("Feed name.") }, ["feed"]),
+  }, (input) => ({ data: recordsOf(workspace.epoch, requiredString(input, "feed")) }));
+
+  register({
+    kind: "feed.history",
+    summary: "Read every revision of one social record, oldest first.",
+    capability: "workspace.read",
+    readOnly: true,
+    requiresConfirmation: false,
+    untrustedContent: true,
+    inputSchema: schema(
+      { feed: stringProperty("Feed name."), changeId: stringProperty("Native change id.") },
+      ["feed", "changeId"],
+    ),
+  }, (input) => ({
+    data: historyOf(workspace.epoch, requiredString(input, "feed"), requiredString(input, "changeId")),
+    changeId: requiredString(input, "changeId"),
+  }));
+
+  register({
+    kind: "feed.append",
+    summary: "Open a social record, or revise one. Editing appends a revision; nothing is overwritten.",
+    capability: "workspace.write",
+    readOnly: false,
+    requiresConfirmation: false,
+    untrustedContent: false,
+    inputSchema: schema({
+      feed: stringProperty("Feed name."),
+      kind: enumProperty("Record kind.", ["post", "issue", "review", "comment", "proposal"]),
+      body: stringProperty("Record body."),
+      subject: stringProperty("Optional subject."),
+      author: stringProperty("Author; defaults to the workspace actor."),
+      changeId: stringProperty("Native change id to revise. Omit to open a new record."),
+    }, ["feed", "kind", "body"]),
+  }, (input) => {
+    const record = appendSocialRevision(workspace.epoch, {
+      feed: requiredString(input, "feed"),
+      kind: requiredString(input, "kind") as SocialRecordKind,
+      body: requiredString(input, "body"),
+      ...(optionalString(input, "subject") === undefined ? {} : { subject: requiredString(input, "subject") }),
+      ...(optionalString(input, "author") === undefined ? {} : { author: requiredString(input, "author") }),
+      ...(optionalString(input, "changeId") === undefined ? {} : { changeId: requiredString(input, "changeId") }),
+    });
+
+    return {
+      data: record,
+      eventIds: [record.eventId],
+      revisionIds: [record.revision],
+      changeId: record.changeId,
     };
   });
 

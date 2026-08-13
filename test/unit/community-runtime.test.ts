@@ -54,6 +54,7 @@ export async function runCommunityRuntimeTests(): Promise<void> {
   await everyAdapterReturnsTheSameReceipt();
   await theEpochBinaryOwnsBothCommandGroups();
   await theDefaultProjectOwnsTheInterface();
+  await socialRecordsAreChangeFeeds();
   harnessDigestDetectsTampering();
   console.log("community runtime tests passed");
 }
@@ -338,6 +339,66 @@ async function theDefaultProjectOwnsTheInterface(): Promise<void> {
   assert.equal(reloaded.workspace.materialize().safeMode, false);
   assert.equal(reloaded.workspace.revision(TRUNK_VIEW, 2).manifest.placements[0]?.slot, "board.thread-list",
     "the revision that broke the interface stays readable");
+}
+
+async function socialRecordsAreChangeFeeds(): Promise<void> {
+  const storage = createMemoryEpochIntegrationStorage();
+  const runtime = runtimeWith(storage);
+
+  const opened = await runtime.commands.execute<{ changeId: string; revisionId: string; edited: boolean }>({
+    kind: "feed.append",
+    input: { feed: "general", kind: "post", body: "cold install fails on a fresh clone", subject: "cold install" },
+  });
+  assert.equal(opened.policy.decision, "allow");
+  assert.ok(opened.changeId?.startsWith("chg_"), "a social record has a native change identity");
+  assert.equal(opened.data.edited, false);
+  assert.equal(opened.eventIds.length, 1);
+
+  const edited = await runtime.commands.execute<{ changeId: string; revisionId: string; edited: boolean; revision: number }>({
+    kind: "feed.append",
+    input: {
+      feed: "general",
+      kind: "post",
+      body: "cold install fails on a fresh clone — it is the lockfile",
+      changeId: opened.data.changeId,
+    },
+  });
+  assert.equal(edited.data.changeId, opened.data.changeId, "an edit keeps the record's identity");
+  assert.notEqual(edited.data.revisionId, opened.data.revisionId, "an edit is a new revision");
+  assert.equal(edited.data.revision, 2);
+  assert.equal(edited.data.edited, true);
+
+  // "Edited" is readable rather than assertable: the earlier wording is there.
+  const history = await runtime.commands.execute<readonly { body: string; revisionId: string }[]>({
+    kind: "feed.history",
+    input: { feed: "general", changeId: opened.data.changeId },
+  });
+  assert.equal(history.data.length, 2);
+  assert.match(history.data[0].body, /cold install fails on a fresh clone$/u);
+  assert.equal(history.readOnly, true);
+
+  const records = await runtime.commands.execute<readonly { changeId: string; body: string }[]>({
+    kind: "feed.read",
+    input: { feed: "general" },
+  });
+  assert.equal(records.data.length, 1, "a feed shows one current record per change, not one per edit");
+  assert.match(records.data[0].body, /it is the lockfile/u);
+
+  // Editing something that was never opened is refused rather than inventing it.
+  await assert.rejects(
+    runtime.commands.execute({
+      kind: "feed.append",
+      input: { feed: "general", kind: "post", body: "ghost", changeId: "chg_deadbeef" },
+    }),
+    /No social record/u,
+  );
+
+  const reloaded = runtimeWith(storage);
+  const afterReload = await reloaded.commands.execute<readonly { revisionIds: readonly string[] }[]>({
+    kind: "feed.read",
+    input: { feed: "general" },
+  });
+  assert.deepEqual(afterReload.data[0].revisionIds, [opened.data.revisionId, edited.data.revisionId]);
 }
 
 function harnessDigestDetectsTampering(): void {

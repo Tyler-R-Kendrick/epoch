@@ -68,7 +68,7 @@ Two claims from earlier framings needed correcting before anything else:
 | 9 | Generated OpenUI and generated themes were not wired into the board | `board.html` loaded `openui-parser.js` and `openui-library.js` but never `generate.js`; `theme.js` was loaded by no page at all | **Fixed** — both load, and generation flows through propose → diff → accept as revisions of the `.epoch` project |
 | 13 | Two applications both called Community Web | A TypeScript-rendered document in the package and a script-tag app in `docs/`, kept aligned by a parity script | **One app** — the board is the Community Web application; the rendered-document surface remains as a server-rendered projection until workstream H finishes converging them |
 | 10 | No signed static harness, ABI, or enforced safe mode in the board | Static markup exists; a release manifest, slot ABI, and recovery boundary did not | **Fixed for the harness region** — the board installs a content-addressed release, renders slots from it, and boots recovery when the head fails validation. Signing the release is workstream C |
-| 11 | Community proposals do not resolve to native Epoch IDs | Social records model their own repositories and changes | **Open** — workstream F |
+| 11 | Community proposals do not resolve to native Epoch IDs | Social records model their own repositories and changes | **Fixed in the browser** — social records are change feeds with native change and revision ids, and the Community domain types carry the binding. Remote-side binding is workstream F |
 | 12 | Browser storage defaults to `localStorage` | Synchronous, quota-bound, unsuited to a growing object graph | **Open** — workstream B |
 
 ## What this change implements
@@ -129,6 +129,23 @@ library does not recognise is refused before it becomes a proposal; a theme
 value that could escape a declaration is dropped by the same sanitiser the
 manual editor uses. One sanitiser, or the strict one is the one that gets
 bypassed.
+
+### Social records are change feeds
+
+A post, an issue, a review, a comment: every one of them is editable, and an
+editable record with a single mutable body is a record whose past is a matter of
+trust. Each is a feed instead — a stable change identity with an append-only
+line of revisions. Editing appends; nothing overwrites. "Edited" stops being a
+badge that asks you to take someone's word for it and becomes a revision you can
+read.
+
+Identity is native and content-derived: a `changeId` from the record's opening
+content and a `revisionId` per revision, so two participants that saw the same
+edit agree on what to call it. `CommunityIssue`, `CommunityChangeProposal`,
+`CommunityReview`, and `CommunityComment` carry that binding, which is what lets
+a social record point at repository truth instead of describing it. The fields
+are optional because a projection built before a record was bound predates them
+— an absent binding must read as "not bound yet", never as "no history".
 
 ### The default `.epoch` project
 
@@ -223,7 +240,7 @@ These are independently ownable; the ordering below is dependency, not calendar.
 | **C. Static harness release and safe mode** | Signed release install, boot verification, CSP/origin policy, recovery shell | A |
 | **D. OpenUI dynamic workspace** | Streaming preview inside the proposal flow; migrate the vendored parser bundle to the maintained packages | A, C |
 | **E. WebMCP Epoch tool family in the board** | ~~Registration~~ done; WebMCP evals and an in-page tool inspector remain | A, H |
-| **F. Community remote as an Epoch forge** | Capability discovery, ref negotiation, object transfer, native IDs on social records | B |
+| **F. Community remote as an Epoch forge** | Capability discovery, ref negotiation, object transfer; carrying the native binding across the remote | B |
 | **G. CLI unification completion** | Config file, session import, browser bundle export/import and pairing | A |
 | **H. Community Web migration** | Port Community Web into the package, build and deploy from the package | A, C |
 | **I. Vertical demonstration and hardening** | The end-to-end walkthrough as the primary test and demo | B–H |

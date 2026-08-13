@@ -1036,7 +1036,7 @@ var CW_RUNTIME = (() => {
       exports.useEpochEntity = useEpochEntity;
       exports.useEpochView = useEpochView;
       exports.stableJson = stableJson2;
-      exports.isRecord = isRecord4;
+      exports.isRecord = isRecord5;
       var react_1 = require_react();
       function createMemoryEpochReactStorage(initial = {}) {
         const values = new Map(Object.entries(initial));
@@ -1317,7 +1317,7 @@ var CW_RUNTIME = (() => {
         if (raw === void 0)
           return void 0;
         const parsed = JSON.parse(raw);
-        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord4(parsed.payload)) {
+        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord5(parsed.payload)) {
           throw new Error("invalid Epoch live repository event");
         }
         return {
@@ -1365,7 +1365,7 @@ var CW_RUNTIME = (() => {
         return typeof globalThis.localStorage === "undefined" ? void 0 : globalThis.localStorage;
       }
       function normalizeState(value) {
-        if (!isRecord4(value))
+        if (!isRecord5(value))
           throw new TypeError("Epoch React state must be a JSON object");
         return JSON.parse(JSON.stringify(value));
       }
@@ -1377,7 +1377,7 @@ var CW_RUNTIME = (() => {
           return "null";
         if (Array.isArray(value))
           return `[${value.map((item) => stableJson2(item)).join(",")}]`;
-        if (isRecord4(value))
+        if (isRecord5(value))
           return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson2(value[key])}`).join(",")}}`;
         return JSON.stringify(value);
       }
@@ -1405,20 +1405,20 @@ var CW_RUNTIME = (() => {
         return value;
       }
       function requireRecord(value, label) {
-        if (!isRecord4(value))
+        if (!isRecord5(value))
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
       function asRecord(value) {
-        if (!isRecord4(value))
+        if (!isRecord5(value))
           throw new TypeError("Epoch React state must be a JSON object");
         return value;
       }
-      function isRecord4(value) {
+      function isRecord5(value) {
         return typeof value === "object" && value !== null && !Array.isArray(value);
       }
       function isReactOperation(value) {
-        if (!isRecord4(value) || typeof value.entity !== "string" || typeof value.key !== "string")
+        if (!isRecord5(value) || typeof value.entity !== "string" || typeof value.key !== "string")
           return false;
         return value.kind === "map-delete" || value.kind === "map-set";
       }
@@ -1598,6 +1598,7 @@ var CW_RUNTIME = (() => {
     DEFAULT_PROJECT_SLUG: () => DEFAULT_PROJECT_SLUG,
     EpochCommandError: () => EpochCommandError,
     TRUNK_VIEW: () => TRUNK_VIEW,
+    appendSocialRevision: () => appendSocialRevision,
     communityRuntimeUsage: () => communityRuntimeUsage,
     createBrowserEpochWorkspace: () => createBrowserEpochWorkspace,
     createCommandReceipt: () => createCommandReceipt,
@@ -1611,16 +1612,21 @@ var CW_RUNTIME = (() => {
     digestOf: () => digestOf,
     ensureProject: () => ensureProject,
     executeCommunityRuntimeCommand: () => executeCommunityRuntimeCommand,
+    feedEntity: () => feedEntity,
     findComponent: () => findComponent,
     findSlot: () => findSlot,
+    historyOf: () => historyOf,
     identifier: () => identifier,
     isCommunityRuntimeInvocation: () => isCommunityRuntimeInvocation,
     isDynamicUiManifest: () => isDynamicUiManifest,
+    listFeeds: () => listFeeds,
     listProjects: () => listProjects,
     policyReceipt: () => policyReceipt,
     projectEntity: () => projectEntity,
     readProject: () => readProject,
+    recordsOf: () => recordsOf,
     registerWebMcpTools: () => registerWebMcpTools,
+    revisionsOf: () => revisionsOf,
     skippedValidation: () => skippedValidation,
     summarizeReceipt: () => summarizeReceipt,
     toolName: () => toolName,
@@ -2214,6 +2220,95 @@ var CW_RUNTIME = (() => {
     return (0, import_integration_core4.isRecord)(value) && typeof value.slug === "string" && typeof value.title === "string" && typeof value.uiView === "string" && (value.kind === "default" || value.kind === "project");
   }
 
+  // packages/Epoch.Community.Runtime/src/feeds.ts
+  var import_integration_core5 = __toESM(require_dist2());
+  var FEED_PREFIX = "feeds/";
+  function feedEntity(feed) {
+    return `${FEED_PREFIX}${feed}`;
+  }
+  function appendSocialRevision(epoch, input) {
+    const feed = requireText(input.feed, "feed");
+    const body = requireText(input.body, "body");
+    const author = input.author ?? epoch.author;
+    const existing = input.changeId === void 0 ? void 0 : revisionsOf(epoch, feed).filter((entry) => entry.changeId === input.changeId);
+    if (input.changeId !== void 0 && (existing === void 0 || existing.length === 0)) {
+      throw new Error(`No social record ${input.changeId} in feed '${feed}'.`);
+    }
+    const previous = existing?.at(-1);
+    const changeId = previous?.changeId ?? identifier("chg", { feed, kind: input.kind, body, author, opened: true });
+    const revision = (previous?.revision ?? 0) + 1;
+    const record = {
+      changeId,
+      revisionId: identifier("rev", { changeId, revision, body, author }),
+      feed,
+      kind: input.kind,
+      body,
+      author,
+      revision,
+      ...input.subject === void 0 ? {} : { subject: input.subject },
+      ...previous === void 0 ? {} : { editOf: previous.revisionId },
+      ...input.links === void 0 ? {} : { links: input.links }
+    };
+    const result = epoch.trackChange({
+      entity: feedEntity(feed),
+      surface: "social",
+      source: "community-runtime",
+      summary: previous === void 0 ? `opened ${input.kind} ${changeId} in ${feed}` : `revised ${input.kind} ${changeId} in ${feed}`,
+      payload: record,
+      metadata: {
+        feed,
+        changeId,
+        revisionId: record.revisionId,
+        bodyDigest: digestOf(body)
+      }
+    });
+    const revisionIds = [...(existing ?? []).map((entry) => entry.revisionId), record.revisionId];
+    return {
+      ...record,
+      eventId: result.event.id,
+      revisionIds,
+      edited: revisionIds.length > 1
+    };
+  }
+  function revisionsOf(epoch, feed) {
+    return epoch.repository.history().filter((event) => event.entity === feedEntity(feed)).map((event) => event.payload.payload).filter(isSocialRevision);
+  }
+  function recordsOf(epoch, feed) {
+    const byChange = /* @__PURE__ */ new Map();
+    for (const revision of revisionsOf(epoch, feed)) {
+      const line = byChange.get(revision.changeId) ?? [];
+      line.push(revision);
+      byChange.set(revision.changeId, line);
+    }
+    return [...byChange.values()].map((line) => {
+      const head = line[line.length - 1];
+      return {
+        ...head,
+        eventId: "",
+        revisionIds: line.map((entry) => entry.revisionId),
+        edited: line.length > 1
+      };
+    });
+  }
+  function historyOf(epoch, feed, changeId) {
+    return revisionsOf(epoch, feed).filter((revision) => revision.changeId === changeId);
+  }
+  function listFeeds(epoch) {
+    const feeds = /* @__PURE__ */ new Set();
+    for (const event of epoch.repository.history()) {
+      if (event.entity.startsWith(FEED_PREFIX)) feeds.add(event.entity.slice(FEED_PREFIX.length));
+    }
+    return [...feeds].sort();
+  }
+  function isSocialRevision(value) {
+    return (0, import_integration_core5.isRecord)(value) && typeof value.changeId === "string" && typeof value.revisionId === "string" && typeof value.feed === "string" && typeof value.body === "string" && typeof value.revision === "number";
+  }
+  function requireText(value, label) {
+    const trimmed = String(value ?? "").trim();
+    if (trimmed.length === 0) throw new Error(`A social record ${label} is required.`);
+    return trimmed;
+  }
+
   // packages/Epoch.Community.Runtime/src/commands.ts
   function createCommunityCommandBus(options) {
     const workspace = options.workspace;
@@ -2353,6 +2448,70 @@ var CW_RUNTIME = (() => {
         data: project,
         ...project.created ? { eventIds: [project.eventId], revisionIds: [project.revision] } : {},
         baseRef: workspace.getView(project.uiView).ref
+      };
+    });
+    register({
+      kind: "feed.list",
+      summary: "List social feeds in this workspace.",
+      capability: "workspace.read",
+      readOnly: true,
+      requiresConfirmation: false,
+      untrustedContent: false,
+      inputSchema: emptySchema()
+    }, () => ({ data: listFeeds(workspace.epoch) }));
+    register({
+      kind: "feed.read",
+      summary: "Read the current state of every record in a feed, with its native change and revision ids.",
+      capability: "workspace.read",
+      readOnly: true,
+      requiresConfirmation: false,
+      untrustedContent: true,
+      inputSchema: schema({ feed: stringProperty("Feed name.") }, ["feed"])
+    }, (input) => ({ data: recordsOf(workspace.epoch, requiredString(input, "feed")) }));
+    register({
+      kind: "feed.history",
+      summary: "Read every revision of one social record, oldest first.",
+      capability: "workspace.read",
+      readOnly: true,
+      requiresConfirmation: false,
+      untrustedContent: true,
+      inputSchema: schema(
+        { feed: stringProperty("Feed name."), changeId: stringProperty("Native change id.") },
+        ["feed", "changeId"]
+      )
+    }, (input) => ({
+      data: historyOf(workspace.epoch, requiredString(input, "feed"), requiredString(input, "changeId")),
+      changeId: requiredString(input, "changeId")
+    }));
+    register({
+      kind: "feed.append",
+      summary: "Open a social record, or revise one. Editing appends a revision; nothing is overwritten.",
+      capability: "workspace.write",
+      readOnly: false,
+      requiresConfirmation: false,
+      untrustedContent: false,
+      inputSchema: schema({
+        feed: stringProperty("Feed name."),
+        kind: enumProperty("Record kind.", ["post", "issue", "review", "comment", "proposal"]),
+        body: stringProperty("Record body."),
+        subject: stringProperty("Optional subject."),
+        author: stringProperty("Author; defaults to the workspace actor."),
+        changeId: stringProperty("Native change id to revise. Omit to open a new record.")
+      }, ["feed", "kind", "body"])
+    }, (input) => {
+      const record = appendSocialRevision(workspace.epoch, {
+        feed: requiredString(input, "feed"),
+        kind: requiredString(input, "kind"),
+        body: requiredString(input, "body"),
+        ...optionalString(input, "subject") === void 0 ? {} : { subject: requiredString(input, "subject") },
+        ...optionalString(input, "author") === void 0 ? {} : { author: requiredString(input, "author") },
+        ...optionalString(input, "changeId") === void 0 ? {} : { changeId: requiredString(input, "changeId") }
+      });
+      return {
+        data: record,
+        eventIds: [record.eventId],
+        revisionIds: [record.revision],
+        changeId: record.changeId
       };
     });
     register({
