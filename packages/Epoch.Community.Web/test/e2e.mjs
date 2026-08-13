@@ -8788,6 +8788,60 @@ const CASES = [
       return true;
     },
   },
+  {
+    name: "MCP-EPOCH-001 the workspace commands are agent-callable with honest annotations",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(async () => {
+        const tools = window.CW_MCP.list().filter((tool) => tool.name.startsWith("epoch_"));
+        const annotationOf = (name) => tools.find((tool) => tool.name === name)?.annotations;
+        const before = window.CW_WORKSPACE.status().events;
+        const status = await window.CW_MCP.call("epoch_workspace_status", {});
+        const merge = await window.CW_MCP.call("epoch_change_merge", { from: "main" });
+        return {
+          names: tools.map((tool) => tool.name),
+          status: JSON.parse(status.content[0].text),
+          merge: JSON.parse(merge.content[0].text),
+          readOnly: annotationOf("epoch_workspace_status"),
+          consequential: annotationOf("epoch_change_merge"),
+          untrusted: annotationOf("epoch_change_show"),
+          before,
+          after: window.CW_WORKSPACE.status().events,
+        };
+      });
+
+      if (probe.names.length < 15) return log("tool family missing: " + probe.names.length);
+      if (!probe.names.includes("epoch_ui_propose")) return log("no propose tool");
+      if (probe.status.decision !== "allow") return log("read command refused: " + JSON.stringify(probe.status));
+      // Visibility is not authorisation: the agent can see merge and still cannot do it.
+      if (probe.merge.decision !== "confirm") return log("merge was not held for confirmation: " + JSON.stringify(probe.merge));
+      if (probe.after !== probe.before) return log("a held command changed state anyway");
+      if (probe.readOnly?.readOnlyHint !== true) return log("status is not marked read-only");
+      if (probe.consequential?.readOnlyHint !== false) return log("merge is marked read-only");
+      if (probe.untrusted?.untrustedContentHint !== true) return log("revision content is not marked untrusted");
+      return true;
+    },
+  },
+  {
+    name: "MCP-EPOCH-002 an agent and the page read the same workspace, not two copies",
+    run: async (page, log) => {
+      await page.waitForFunction(() => window.CW_WORKSPACE && window.CW_WORKSPACE.project() !== null);
+      const probe = await page.evaluate(async () => {
+        const viaTool = JSON.parse((await window.CW_MCP.call("epoch_workspace_status", {})).content[0].text);
+        const viaPage = window.CW_WORKSPACE.status();
+        const created = JSON.parse((await window.CW_MCP.call("epoch_view_create", { name: "agent-view" })).content[0].text);
+        return { viaTool, viaPage, created, views: window.CW_WORKSPACE.runtime().workspace.listViews().map((v) => v.name) };
+      });
+
+      if (probe.viaTool.data.workspaceId !== probe.viaPage.workspaceId) {
+        return log("agent and page disagree about the workspace: " + JSON.stringify(probe));
+      }
+      if (probe.created.decision !== "allow") return log("view.create refused: " + JSON.stringify(probe.created));
+      if (!probe.views.includes("agent-view")) return log("the agent's view is not in the page's workspace");
+      if (!probe.created.eventIds?.length) return log("no event recorded for the agent's change");
+      return true;
+    },
+  },
 ];
 
 async function path(page) {

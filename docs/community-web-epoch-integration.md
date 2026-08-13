@@ -166,6 +166,13 @@ same merge by accident.
 
 ### WebMCP
 
+The board registers the whole workspace command catalogue as tools — eighteen of
+them, from `epoch_workspace_status` to `epoch_change_merge` — through the same
+registry its own buttons use. An agent can do exactly what a person can do and
+nothing more: nothing is registered as pre-confirmed, so a merge, a revert, or
+leaving safe mode comes back as a `confirm` receipt that only a real click can
+satisfy.
+
 Tools are a projection of the command catalog. The adapter awaits
 `registerTool`, passes an `AbortSignal` for lifetime because WebMCP has no
 `unregisterTool`, sets `readOnlyHint` and `untrustedContentHint` from the command
@@ -215,7 +222,7 @@ These are independently ownable; the ordering below is dependency, not calendar.
 | **B. Browser workspace and durable storage** | IndexedDB/OPFS storage, real identity and signing, export/import, migration | A |
 | **C. Static harness release and safe mode** | Signed release install, boot verification, CSP/origin policy, recovery shell | A |
 | **D. OpenUI dynamic workspace** | Streaming preview inside the proposal flow; migrate the vendored parser bundle to the maintained packages | A, C |
-| **E. WebMCP Epoch tool family in the board** | The runtime's tool catalog registered by the board, tool inspector, evals | A, H |
+| **E. WebMCP Epoch tool family in the board** | ~~Registration~~ done; WebMCP evals and an in-page tool inspector remain | A, H |
 | **F. Community remote as an Epoch forge** | Capability discovery, ref negotiation, object transfer, native IDs on social records | B |
 | **G. CLI unification completion** | Config file, session import, browser bundle export/import and pairing | A |
 | **H. Community Web migration** | Port Community Web into the package, build and deploy from the package | A, C |

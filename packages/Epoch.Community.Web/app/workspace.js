@@ -342,6 +342,40 @@
     } catch { /* an old browser losing an event must not stop the board */ }
   }
 
+  /**
+   * Expose the workspace commands as WebMCP tools.
+   *
+   * These are the same commands the buttons and the CLI use, so an agent can do
+   * exactly what a person can do and nothing more. Two properties are load
+   * bearing: nothing is registered as confirmed, so a merge or a rollback comes
+   * back as a `confirm` receipt an agent cannot satisfy on its own; and results
+   * are the compact receipt summary rather than page content, so a tool call
+   * returns identifiers to follow rather than text to be steered by.
+   */
+  function registerTools() {
+    if (!runtime || !window.CW_MCP || !window.CW_RUNTIME) return [];
+    if (typeof window.CW_RUNTIME.createWebMcpTools !== "function") return [];
+
+    var registered = [];
+    window.CW_RUNTIME.createWebMcpTools(runtime).forEach(function (tool) {
+      window.CW_MCP.registerTool({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        readOnly: tool.annotations.readOnlyHint,
+        untrusted: tool.annotations.untrustedContentHint,
+        sideEffect: tool.annotations.readOnlyHint ? "read" : "local",
+        execute: async function (args) {
+          var summary = await tool.execute(args || {});
+          render();
+          return window.CW_MCP.text(summary);
+        },
+      });
+      registered.push(tool.name);
+    });
+    return registered;
+  }
+
   async function start() {
     if (!boot()) {
       var notice = $("[data-cw-harness-notice]");
@@ -355,10 +389,12 @@
 
     await ensureProject();
     render();
+    var tools = registerTools();
     emit("cw:workspace-ready", {
       workspaceId: runtime.workspaceId,
       project: project,
       harnessRelease: runtime.harness.releaseId,
+      tools: tools,
     });
     return runtime;
   }
@@ -371,6 +407,11 @@
     project: function () { return project; },
     status: function () { return runtime ? runtime.workspace.status() : { error: lastError || "not booted" }; },
     harness: function () { return runtime ? runtime.harness : null; },
+    tools: function () {
+      return runtime && window.CW_RUNTIME ? window.CW_RUNTIME.createWebMcpTools(runtime).map(function (tool) {
+        return { name: tool.name, annotations: tool.annotations };
+      }) : [];
+    },
     error: function () { return lastError; },
   };
 

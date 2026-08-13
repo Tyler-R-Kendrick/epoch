@@ -8863,6 +8863,11 @@
     // browser agent cannot see them.
     window.CW_APP.toolCount = registered;
     window.CW_APP.toolHost = native ? "document.modelContext" : "in-page registry";
+    // What the browser actually accepted, not what the page hoped for. The
+    // workspace tools register after this, so read the status lazily.
+    window.CW_APP.toolStatus = function () {
+      return typeof window.CW_MCP.status === "function" ? window.CW_MCP.status() : null;
+    };
     // No Epoch terminal banner — the masthead carries brand. Tools register
     // silently; counts are available on CW_APP for debugging.
     state.lines = (state.sessions[0].lines || []).slice();
