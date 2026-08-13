@@ -27,7 +27,7 @@ extension into an in-process provider, so today no shipped extension can
 actually displace a builtin. The seam is deliberate — displacement is a change
 of behavior in signed evidence, and it should not land before provenance
 recording does. The design that fills it is
-[ADR-0041](design-decisions/0041-sandboxed-capability-providers.md): providers
+[ADR-0043](design-decisions/0043-sandboxed-capability-providers.md): providers
 arrive as import-free WebAssembly modules, so code that shapes signed evidence
 is deterministic and holds no ambient authority.
 
@@ -132,7 +132,7 @@ Any failure is reported with a specific reason (`publisher-not-allowed`,
 The key *is* the identity, which is what makes verification offline and
 unspoofable — and what would otherwise leave a signature valid forever with no
 way to take it back. Three statements give it a lifecycle
-([ADR-0042](design-decisions/0042-publisher-key-lifecycle.md)):
+([ADR-0044](design-decisions/0044-publisher-key-lifecycle.md)):
 
 **Expiry.** A manifest may declare `not_after`, inside the signed payload. Past
 that instant the signature is treated as absent, with its own reason
@@ -214,7 +214,7 @@ refusing to run extension 'greet': the trust policy could not be read in full, s
 
 Configuration is read as complete TOML 1.0, so ordinary constructs — a URL with
 a `#` fragment, a float, an inline table, an array of tables — parse as written
-rather than becoming the parse error that disarms the policy (ADR-0044). Keys
+rather than becoming the parse error that disarms the policy (ADR-0046). Keys
 inside `[extensions]` that Epoch does not recognise, and values of the wrong
 shape, are reported per key instead of silently coerced:
 
@@ -288,7 +288,7 @@ On Windows, `.cmd` and `.bat` extensions launch through `cmd.exe /d /s /c` with
 a command line Epoch quotes itself, rather than through `shell: true`. Arguments
 containing `%` or `!` — expanded by the batch parser after every escaping
 mechanism the caller has — and arguments containing a line break or NUL are
-refused by name rather than quoted and hoped for (ADR-0040).
+refused by name rather than quoted and hoped for (ADR-0042).
 
 ### Consent binds to the binary
 
@@ -413,7 +413,7 @@ command line it quotes itself, refusing the arguments CMD cannot deliver
 faithfully. Where a platform can name an open descriptor as a path, the
 descriptor whose bytes were digested is the one executed, which closes the
 check-to-exec race.
-[ADR-0040](design-decisions/0040-verified-launch-and-platform-execution-contract.md)
+[ADR-0042](design-decisions/0042-verified-launch-and-platform-execution-contract.md)
 records the reasoning.
 
 ## Boundaries

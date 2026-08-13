@@ -42,7 +42,7 @@ export interface ExtensionTrustPolicy {
   readonly block: readonly string[];
   readonly allowPublishers: readonly string[];
   /**
-   * Expiry, succession, and revocation statements in force here (ADR-0042).
+   * Expiry, succession, and revocation statements in force here (ADR-0044).
    *
    * Optional so a caller that does not care about publisher lifecycle gets
    * today's behaviour; absent means no successions and no revocations, never
@@ -95,7 +95,7 @@ export function manifestSigningPayload(manifest: ExtensionManifest): string {
   return canonicalManifest(manifest);
 }
 
-/** One thing wrong with an `[extensions]` table, named by key (ADR-0044). */
+/** One thing wrong with an `[extensions]` table, named by key (ADR-0046). */
 export interface TrustPolicyDiagnostic {
   readonly key: string;
   readonly message: string;
@@ -159,7 +159,7 @@ export function readTrustPolicyReport(table: Record<string, unknown> | undefined
         revocations: [],
         // Local, immediate, and unsigned: the operator's own file is the
         // authority, which is what makes this the answer when the key holder
-        // is exactly who they are defending against (ADR-0042).
+        // is exactly who they are defending against (ADR-0044).
         revokedPublishers: strings("revoked_publishers"),
       },
     },
@@ -293,7 +293,7 @@ export function evaluateTrust(
     }
     // Revocation and succession are resolved before the allow list is
     // consulted, so a revoked key cannot be trusted by being listed and a
-    // rotated key does not have to be pasted into every clone (ADR-0042).
+    // rotated key does not have to be pasted into every clone (ADR-0044).
     const status = evaluatePublisher(
       manifest.publisher,
       policy.allowPublishers,

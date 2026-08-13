@@ -1,7 +1,7 @@
 import { node, type SyntaxNode, type SyntaxProvider, type SyntaxTree } from "@epoch/semantic";
 
 /**
- * WebAssembly capability providers (ADR-0041).
+ * WebAssembly capability providers (ADR-0043).
  *
  * A provider is a module instantiated with one import: memory the host owns and
  * caps. It has no clock, no entropy, no filesystem, and no network, because
@@ -125,7 +125,7 @@ export function instantiateWasmSyntaxModule(
    * memory between calls and return a different tree for the same source —
    * which would defeat the reproducibility the content-addressed provider
    * digest is supposed to buy, since that output is recorded as evidence
-   * (ADR-0041). Validating the output does not restore determinism; only
+   * (ADR-0043). Validating the output does not restore determinism; only
    * starting from the same state does.
    */
   const fresh = (): { guest: GuestExports; memory: WebAssembly.Memory } => {

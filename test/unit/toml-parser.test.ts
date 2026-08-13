@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { parseTomlDocument, TomlDateTime, TomlError } from "@epoch/core";
 
 /**
- * A conformance corpus for the TOML 1.0.0 reader (ADR-0044).
+ * A conformance corpus for the TOML 1.0.0 reader (ADR-0046).
  *
  * The reader this replaced was tested against the handful of constructs Epoch's
  * own config files happened to use, which is exactly why it passed while

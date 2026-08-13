@@ -81,6 +81,8 @@ export const CliOption = {
   noVersion: "no-version",
   virtual: "virtual",
   full: "full",
+  materialization: "materialization",
+  select: "select",
   base: "base",
   context: "context",
   peer: "peer",
@@ -100,7 +102,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|ext|semantic|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
+  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|ext|semantic|component|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
   extUsage: "usage: epoch ext <list|show NAME|trust NAME|untrust NAME|publisher <succeed|revoke> FILE>",
   semanticUsage: "usage: epoch semantic <diff BEFORE AFTER|apply FILE PATCH.json|merge BASE LEFT RIGHT|plan FILE...> [--json]",
@@ -128,7 +130,7 @@ export const CliText = {
   resolveUsage: "usage: epoch resolve --type MIME [--path ENTITY_PATH] [--record-resolution RESOLVED] BASE LEFT RIGHT",
   rollbackUsage: "usage: epoch rollback EVENT_ID",
   viewCreateUsage: "usage: epoch view-create [--rule JSON] [--parent VIEW] NAME",
-  checkoutUsage: "usage: epoch checkout [--virtual|--full] [--base REF] VIEW",
+  checkoutUsage: "usage: epoch checkout [--materialization eager|explicit|lazy|delta] [--select EXPR] [--base REF] VIEW (--virtual/--full are deprecated aliases for delta/eager)",
   viewDeleteUsage: "usage: epoch view-delete VIEW",
   viewDiffUsage: "usage: epoch view-diff FROM TO",
   viewPromoteUsage: "usage: epoch view-promote SOURCE TARGET",
@@ -178,4 +180,6 @@ export const BUILTIN_COMMANDS: readonly string[] = [
   "forge",
   "swhid",
   "archive",
+  // Repository composition (ADR-0040).
+  "component",
 ];

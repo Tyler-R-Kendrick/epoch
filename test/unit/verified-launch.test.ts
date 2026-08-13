@@ -7,7 +7,7 @@ import { descriptorPath, launchVerificationFor, planLaunch, type ExternalInvocat
 import { dispatchExternalSubcommand, runExtensionCommand } from "@epoch/cli";
 
 /**
- * The launch contract (ADR-0040).
+ * The launch contract (ADR-0042).
  *
  * The plan is a pure function of the platform precisely so the Windows half is
  * covered by the Linux CI this repository runs. A quoting routine that only

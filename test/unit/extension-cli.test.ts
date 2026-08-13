@@ -179,7 +179,7 @@ function operatorConfigurationIsReadNeverRewritten(): void {
    * `runs: false` is not a lesser outcome. A policy that could not be read in
    * full cannot be relied on to deny anything, and the half that survives is
    * the half that permits — so the launch is refused with a reason rather than
-   * allowed on an incomplete denial (ADR-0044).
+   * allowed on an incomplete denial (ADR-0046).
    */
   const shapes: readonly { readonly toml: string; readonly runs: boolean }[] = [
     { toml: `[extensions]\nallow = ["mergiraf"]\n`, runs: true },
@@ -257,7 +257,7 @@ function anUnknownPolicyKeyWarnsWithoutRefusing(): void {
  *
  * The composition this closes: a hand-written `block` list plus an unrelated
  * syntax error elsewhere used to mean the block silently disappeared while
- * recorded consent kept running the extension (ADR-0044).
+ * recorded consent kept running the extension (ADR-0046).
  */
 function anUnreadableConfigurationIsReportedAndNotRunThrough(): void {
   const root = workspace();

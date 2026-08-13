@@ -120,7 +120,7 @@ export interface SubtreeEntry {
    * Two identical byte sequences parsed under different grammars are different
    * declarations, so they get different keys and are never falsely shared.
    * Sharing them is a real opportunity, but it belongs to the byte layer, not
-   * to a table keyed by structural identity (ADR-0043).
+   * to a table keyed by structural identity (ADR-0045).
    */
   readonly key: string;
   readonly digest: string;
@@ -385,7 +385,7 @@ export type SyntaxProviderResolver = (
 ) => SyntaxProvider | undefined;
 
 /**
- * Plan compression across a mixed-language corpus (ADR-0043).
+ * Plan compression across a mixed-language corpus (ADR-0045).
  *
  * The single-provider `planCompression` is the degenerate case of one group.
  * The restriction was never in the operations — chunking is per source, dedup

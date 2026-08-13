@@ -1,7 +1,7 @@
 import type { ExternalInvocation } from "./dispatch";
 
 /**
- * Verified launch and the platform execution contract (ADR-0040).
+ * Verified launch and the platform execution contract (ADR-0042).
  *
  * Two gaps sit between "this digest was consented to" and "this process
  * started": the file can change between the check and the exec, and Windows

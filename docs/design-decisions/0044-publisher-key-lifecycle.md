@@ -1,4 +1,4 @@
-# ADR-0042: Publisher Key Lifecycle
+# ADR-0044: Publisher Key Lifecycle
 
 Status: Accepted; implemented
 

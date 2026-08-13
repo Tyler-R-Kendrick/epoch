@@ -10,9 +10,11 @@ import {
   gossipWithUrl,
   JsonEncoding,
   loadEntity,
+  normalizeMaterializationMode,
+  parseSelection,
   startGossipServer,
 } from "@epoch/core";
-import type { EventMetadata } from "@epoch/core";
+import type { EventMetadata, MaterializationSetting } from "@epoch/core";
 import { FederatedCommunity, MockPds } from "@epoch/atproto";
 import { BUILTIN_COMMANDS, CliCommand, CliOption, CliSyntax, CliText, ParsedArgsSchema } from "./domain";
 import { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphInvocation } from "./change-graph";
@@ -61,7 +63,7 @@ export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): nu
  * A file that will not parse contributes nothing, and the settings in it —
  * including an extension `block` list — are simply not in effect. Reported
  * before the command runs, because the alternative is a repository that
- * behaves as though the file were empty and never says so (ADR-0044).
+ * behaves as though the file were empty and never says so (ADR-0046).
  *
  * The `ext` command and external dispatch report their own, richer degradation
  * and are skipped here so the same line is not printed twice.
@@ -520,17 +522,26 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
       }
       return;
     case CliCommand.checkout: {
-      const options = parseOptions(parsed.args, { base: "" }, [CliOption.virtual, CliOption.full]);
+      const options = parseOptions(parsed.args, { base: "", materialization: "", select: "" }, [CliOption.virtual, CliOption.full]);
       if (options.positionals.length !== 1) throw new Error(CliText.checkoutUsage);
       const virtual = isFlagEnabled(options, CliOption.virtual);
       const full = isFlagEnabled(options, CliOption.full);
       if (virtual && full) throw new Error(CliText.checkoutUsage);
+      if (options.materialization !== "" && (virtual || full)) throw new Error(CliText.checkoutUsage);
+      // --virtual/--full remain accepted spellings for --materialization delta/eager (ADR-0041).
+      const requested = options.materialization !== ""
+        ? options.materialization
+        : full ? "full" : virtual ? "virtual" : undefined;
+      if (requested !== undefined && normalizeMaterializationMode(requested) === undefined) {
+        throw new Error(CliText.checkoutUsage);
+      }
       const state = repo.checkoutView(options.positionals[0], {
-        materialization: full ? "full" : virtual ? "virtual" : undefined,
+        materialization: requested as MaterializationSetting | undefined,
         base: options.base === "" ? undefined : options.base,
+        ...(options.select === "" ? {} : { selection: parseSelection(options.select) }),
       });
-      const suffix = state.materialization === "virtual" ? ` [virtual: written=${state.written.length} virtual=${state.virtualPaths.length}]` : "";
-      writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)${suffix}`);
+      const detail = ` [${state.materialization}: written=${state.written.length} virtual=${state.virtualPaths.length} excluded=${state.excludedPaths.length}]`;
+      writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)${detail}`);
       recordCliOperation(repo, "checkout", { view: options.positionals[0], intentIds: state.intentIds });
       return;
     }

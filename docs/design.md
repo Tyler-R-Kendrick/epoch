@@ -46,6 +46,12 @@ and `compacts/`: they are not signed and are excluded from `verify()`, which
 still re-hashes whole-content blobs. `checkoutView()` with `materialization:
 "full"` restores whole-tree materialization.
 
+This mode selects files by *difference from a base*, not by user interest, so it
+is delta materialization rather than sparse checkout.
+[ADR-0038](design-decisions/0041-workspace-selection-and-materialization-modes.md)
+keeps the behavior, renames the mode to `delta`, and adds a separate
+workspace-local Selection; neither the rename nor Selection is implemented yet.
+
 ## Event Model
 
 Every event includes:
@@ -454,12 +460,12 @@ delimiter provider recovers block structure and is not a grammar. That TOML
 subset is the *structural diffing* provider, and stays partial by design — it
 refuses constructs it cannot represent. Reading a configuration value is a
 different job, and uses the complete TOML 1.0 reader in `@epoch/core`
-([ADR-0044](design-decisions/0044-repository-configuration-parsing.md)).
+([ADR-0046](design-decisions/0046-repository-configuration-parsing.md)).
 
 Grammar-backed providers arrive as extensions through the capability registry,
 as WebAssembly modules instantiated with one import — memory the host owns and
 caps — so a provider that shapes signed evidence holds no ambient authority
-([ADR-0041](design-decisions/0041-sandboxed-capability-providers.md)). At equal
+([ADR-0043](design-decisions/0043-sandboxed-capability-providers.md)). At equal
 match specificity a shipped provider outranks the builtin it replaces, which is
 what "an extension can displace a builtin" means in practice.
 
@@ -474,16 +480,16 @@ content remains authoritative.
 
 `epoch semantic diff|apply|merge|plan` is the operator surface, and `plan`
 takes a mixed-language file set, grouping it by resolved provider
-([ADR-0043](design-decisions/0043-mixed-language-compression-planning.md)). See
+([ADR-0045](design-decisions/0045-mixed-language-compression-planning.md)). See
 [Semantic Content Pipeline](semantic-pipeline.md) and
 [ADR-0038](design-decisions/0038-semantic-diff-merge-and-compression.md).
 
 Extension *publisher* keys have a lifecycle: an expiry inside the signed
 manifest, succession signed by the key being retired, and revocation that
 outranks both and replicates as an ordinary event
-([ADR-0042](design-decisions/0042-publisher-key-lifecycle.md)). Launch executes
+([ADR-0044](design-decisions/0044-publisher-key-lifecycle.md)). Launch executes
 the descriptor whose bytes were digested where the platform can name one
-([ADR-0040](design-decisions/0040-verified-launch-and-platform-execution-contract.md)).
+([ADR-0042](design-decisions/0042-verified-launch-and-platform-execution-contract.md)).
 
 ## Non-Goals In The Current Prototype
 
@@ -505,3 +511,9 @@ The current implementation does not provide:
 - grammar-backed syntax providers for general-purpose languages
 - byte-level entropy coding or a packfile format for semantic compression
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
+- writable nested Repository Links, overlapping mount roots, and transparent
+  lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`
+  ([ADR-0040](design-decisions/0040-repository-composition-and-links.md),
+  [ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md))
+- Repository Link resolution over the network: links resolve through injected
+  resolvers and local sibling repositories only

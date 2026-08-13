@@ -18,6 +18,8 @@ export const StorageName = {
   views: "views.json",
   checkout: "checkout.json",
   patches: "patches",
+  selection: "selection.json",
+  links: "links.json",
 } as const;
 
 export const EntityType = {
@@ -335,10 +337,78 @@ export type VersionPayload = z.infer<typeof Schemas.versionPayload>;
 
 export const VirtualCheckoutFormat = "epoch-virtual-checkout-v1" as const;
 
+export const SelectionFormat = "epoch-resolved-selection-v1" as const;
+export const NamespaceFormat = "epoch-namespace-manifest-v1" as const;
+export const SparseIndexFormat = "epoch-sparse-index-v1" as const;
+export const CompositionFormat = "epoch-composition-v1" as const;
+
+/** A directory larger than this is split into name-bucketed shard nodes. */
+export const NamespaceShardThreshold = 1024;
+
+export const SelectionSyntax = {
+  all: "*",
+  none: "!",
+  union: "+",
+  difference: "-",
+  intersection: "&",
+  profilePrefix: "@",
+  selfSuffix: "::self",
+} as const;
+
+export const LinkAvailability = {
+  resolved: "resolved",
+  unavailable: "unavailable",
+  corrupt: "corrupt",
+} as const;
+
+export const CompositionEventType = {
+  linkDefined: "repository.link.defined",
+  linkRetargeted: "repository.link.retargeted",
+  linkRemoved: "repository.link.removed",
+  vendorized: "repository.vendorized",
+} as const;
+
+/**
+ * How a workspace realizes its Selection.
+ *
+ * `virtual` and `full` are the pre-ADR-0041 spellings kept as deprecated aliases: what shipped as
+ * `virtual` selects files by *difference from a base*, which is delta materialization, not sparse
+ * checkout. `normalizeMaterializationMode` maps the old names onto the new ones.
+ */
 export const MaterializationMode = {
+  eager: "eager",
+  explicit: "explicit",
+  lazy: "lazy",
+  delta: "delta",
+  /** @deprecated Alias for `delta`. */
   virtual: "virtual",
+  /** @deprecated Alias for `eager`. */
   full: "full",
 } as const;
+
+export const MaterializationModeAlias = {
+  virtual: MaterializationMode.delta,
+  full: MaterializationMode.eager,
+} as const;
+
+export type CanonicalMaterializationMode = "eager" | "explicit" | "lazy" | "delta";
+
+/** Resolves any accepted spelling to its canonical mode, or `undefined` when unrecognized. */
+export function normalizeMaterializationMode(mode: string | undefined): CanonicalMaterializationMode | undefined {
+  switch (mode) {
+    case MaterializationMode.eager:
+    case MaterializationMode.explicit:
+    case MaterializationMode.lazy:
+    case MaterializationMode.delta:
+      return mode;
+    case MaterializationMode.virtual:
+      return MaterializationModeAlias.virtual;
+    case MaterializationMode.full:
+      return MaterializationModeAlias.full;
+    default:
+      return undefined;
+  }
+}
 
 export const VirtualRecordStatus = {
   virtual: "virtual",
@@ -353,11 +423,34 @@ export const VirtualCheckoutSchema = z.object({
   format: z.literal(VirtualCheckoutFormat),
   view: z.string().min(1),
   base: z.string().min(1).optional(),
-  materialization: z.enum([MaterializationMode.virtual, MaterializationMode.full]),
+  // Deprecated spellings stay readable so an existing on-disk cache is never rejected as corrupt.
+  materialization: z.enum([
+    MaterializationMode.eager,
+    MaterializationMode.explicit,
+    MaterializationMode.lazy,
+    MaterializationMode.delta,
+    MaterializationMode.virtual,
+    MaterializationMode.full,
+  ]),
+  selection: z.string().min(1).optional(),
+  selectionDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  namespaceRoot: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   frontier: z.array(z.string().min(1)),
   patch: z.string().min(1).optional(),
   records: z.array(VirtualCheckoutRecordSchema),
 });
+
+export const WorkspaceSelectionStateSchema = z.object({
+  format: z.literal(SelectionFormat),
+  expression: z.string().min(1),
+  profiles: z.array(z.object({
+    profileId: z.string().min(1),
+    expression: z.string().min(1),
+    description: z.string().optional(),
+  })).optional(),
+});
+
+export type WorkspaceSelectionState = z.infer<typeof WorkspaceSelectionStateSchema>;
 
 export type VirtualCheckoutRecord = z.infer<typeof VirtualCheckoutRecordSchema>;
 export type VirtualCheckout = z.infer<typeof VirtualCheckoutSchema>;

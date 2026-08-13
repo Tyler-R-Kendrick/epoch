@@ -69,7 +69,7 @@ Displacement is a design contract with the seam in place, not a shipped
 capability: `createSyntaxRegistry` accepts extension providers, but nothing
 loads one yet, so every `epoch semantic` invocation today resolves to a
 builtin. See the [implementation status](extensions.md#the-two-tiers) note and
-[ADR-0041](design-decisions/0041-sandboxed-capability-providers.md).
+[ADR-0043](design-decisions/0043-sandboxed-capability-providers.md).
 
 The TOML provider covers the subset Epoch's own config uses. It refuses
 `[[array.of.tables]]` headers and multi-line `"""`/`'''` strings outright
@@ -171,7 +171,7 @@ continues to re-hash whole content.
    rather than formatting churn.
 
 `semantic plan` takes a mixed set and groups it by resolved provider, so it can
-be pointed at a repository rather than at one language (ADR-0043):
+be pointed at a repository rather than at one language (ADR-0045):
 
 ```console
 $ epoch semantic plan src/*.ts package.json tsconfig.json docs/*.md pnpm-lock.yaml

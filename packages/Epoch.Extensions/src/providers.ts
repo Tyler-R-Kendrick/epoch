@@ -4,7 +4,7 @@ import type { ProviderDeclaration } from "./manifest";
 import { instantiateWasmSyntaxModule, wasmSyntaxProvider, WasmProviderError, type WasmProviderLimits } from "./wasm";
 
 /**
- * Loading capability providers an extension ships (ADR-0041).
+ * Loading capability providers an extension ships (ADR-0043).
  *
  * This is the wiring that makes the Tier 2 claim true rather than available:
  * `wasm.ts` can run a module, but until a declared module is found beside its

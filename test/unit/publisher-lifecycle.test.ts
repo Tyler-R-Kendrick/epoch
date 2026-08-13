@@ -16,7 +16,7 @@ import {
 } from "@epoch/extensions";
 
 /**
- * Publisher key lifecycle (ADR-0042).
+ * Publisher key lifecycle (ADR-0044).
  *
  * `signed` trust previously meant "some key signed this, forever, with no way
  * to take it back". These tests are about the three statements that give the

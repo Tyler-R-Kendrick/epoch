@@ -16,6 +16,7 @@ The current registry is backed by these Cucumber feature files:
 | Feature spec | Coverage focus |
 |---|---|
 | [`features/repository.feature`](../features/repository.feature) | Repository creation, asset push, native working-tree lifecycle commands, ignore/config behavior, signed versions, materialization, verification, sync, hooks, and Git import/export. |
+| [`features/repository_composition.feature`](../features/repository_composition.feature) | Workspace Selection (set/show/explain/index), materialization modes, Repository Links, mount validation, and link availability reporting. |
 | [`features/actors.feature`](../features/actors.feature) | Async actor facade and per-user authorship. |
 | [`features/crdt_log.feature`](../features/crdt_log.feature) | Operation CRDT events and materialized map/text state. |
 | [`features/merge.feature`](../features/merge.feature) | Intent policy and entity merge behavior. |
@@ -79,4 +80,5 @@ Implemented behavior:
 Covered by:
 
 - `features/repository.feature`
+- `features/repository_composition.feature`
 - `features/actors.feature`
