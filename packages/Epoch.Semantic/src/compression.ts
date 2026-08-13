@@ -114,6 +114,15 @@ export function chunkBySyntax(
 }
 
 export interface SubtreeEntry {
+  /**
+   * Storage key: the content digest scoped by the provider that produced it.
+   *
+   * Two identical byte sequences parsed under different grammars are different
+   * declarations, so they get different keys and are never falsely shared.
+   * Sharing them is a real opportunity, but it belongs to the byte layer, not
+   * to a table keyed by structural identity (ADR-0043).
+   */
+  readonly key: string;
   readonly digest: string;
   readonly text: string;
   readonly bytes: number;
@@ -148,7 +157,7 @@ export function dedupeSubtrees(
 ): SubtreeDedupResult {
   const digest = options.digest ?? indexDigest;
   const minBytes = options.minBytes ?? 64;
-  const table = new Map<string, { text: string; occurrences: number; paths: string[] }>();
+  const table = new Map<string, { digest: string; text: string; occurrences: number; paths: string[] }>();
   let totalBytes = 0;
 
   for (const source of sources) {
@@ -160,9 +169,10 @@ export function dedupeSubtrees(
       const bytes = byteLength(text);
       if (bytes < minBytes) continue;
       totalBytes += bytes;
-      const existing = table.get(child.digest);
+      const key = `${provider.id}:${child.digest}`;
+      const existing = table.get(key);
       if (existing === undefined) {
-        table.set(child.digest, { text, occurrences: 1, paths: [`${source.path}#${child.path}`] });
+        table.set(key, { digest: child.digest, text, occurrences: 1, paths: [`${source.path}#${child.path}`] });
         continue;
       }
       // The default digest is a non-cryptographic index hash, so equal digests
@@ -174,14 +184,15 @@ export function dedupeSubtrees(
   }
 
   const entries = [...table.entries()]
-    .map(([entryDigest, value]) => ({
-      digest: entryDigest,
+    .map(([key, value]) => ({
+      key,
+      digest: value.digest,
       text: value.text,
       bytes: byteLength(value.text),
       occurrences: value.occurrences,
       paths: value.paths,
     }))
-    .sort((left, right) => right.bytes * right.occurrences - left.bytes * left.occurrences || left.digest.localeCompare(right.digest));
+    .sort((left, right) => right.bytes * right.occurrences - left.bytes * left.occurrences || left.key.localeCompare(right.key));
 
   const storedBytes = entries.reduce((total, entry) => total + entry.bytes, 0);
   return { entries, totalBytes, storedBytes, savedBytes: totalBytes - storedBytes };
@@ -320,4 +331,112 @@ export function planCompression(
     plainBytes,
     plannedBytes: plainBytes - dedup.savedBytes,
   };
+}
+
+export interface CompressionGroup {
+  readonly providerId: string;
+  readonly files: number;
+  readonly chunks: number;
+  readonly dedup: SubtreeDedupResult;
+  readonly plainBytes: number;
+  readonly plannedBytes: number;
+}
+
+/** A source no provider claimed, kept in the report rather than dropped. */
+export interface UnplannedSource {
+  readonly path: string;
+  readonly reason: string;
+}
+
+export interface MixedCompressionPlan {
+  /** Ordered by provider ID, so the plan is identical across clones. */
+  readonly groups: readonly CompressionGroup[];
+  readonly unplanned: readonly UnplannedSource[];
+  /** Derived across every planned *and* unplanned source; see below. */
+  readonly dictionary: DerivedDictionary;
+  readonly plainBytes: number;
+  readonly plannedBytes: number;
+}
+
+/**
+ * Resolve the provider that understands a source, or nothing.
+ *
+ * Returning `undefined` is a first-class answer: a repository contains
+ * lockfiles and images, and a plan that pretends otherwise is a plan that
+ * overstates its own coverage.
+ */
+export type SyntaxProviderResolver = (
+  source: { readonly path: string; readonly text: string },
+) => SyntaxProvider | undefined;
+
+/**
+ * Plan compression across a mixed-language corpus (ADR-0043).
+ *
+ * The single-provider `planCompression` is the degenerate case of one group.
+ * The restriction was never in the operations — chunking is per source, dedup
+ * content-addresses declarations, and dictionary derivation runs over raw text
+ * — only in a signature written when there was one language to plan.
+ *
+ * Three properties make this more than a loop over providers:
+ *
+ * - dedup keys are scoped by provider, so identical text under two grammars is
+ *   two entries rather than a false share;
+ * - the dictionary spans every group, including sources no provider claimed,
+ *   because cross-language repetition — an import path, a licence header, a URL
+ *   — is exactly the redundancy a derived dictionary exists to capture, and
+ *   deriving per group would discard it;
+ * - sources no provider matches are reported, not dropped.
+ */
+export function planCompressionAcross(
+  sources: readonly { readonly path: string; readonly text: string }[],
+  resolve: SyntaxProviderResolver,
+  options: { readonly digest?: DigestFunction } = {},
+): MixedCompressionPlan {
+  const digest = options.digest ?? indexDigest;
+  const byProvider = new Map<string, { provider: SyntaxProvider; sources: { path: string; text: string }[] }>();
+  const unplanned: UnplannedSource[] = [];
+
+  for (const source of sources) {
+    const provider = resolve(source);
+    if (provider === undefined) {
+      unplanned.push({ path: source.path, reason: `no syntax provider matches '${source.path}'` });
+      continue;
+    }
+    const group = byProvider.get(provider.id);
+    if (group === undefined) {
+      byProvider.set(provider.id, { provider, sources: [{ ...source }] });
+      continue;
+    }
+    group.sources.push({ ...source });
+  }
+
+  const groups = [...byProvider.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([providerId, group]) => {
+      // Sorted within the group too, so a shell's glob order cannot change the
+      // plan two clones produce from the same corpus.
+      const ordered = [...group.sources].sort((left, right) => left.path.localeCompare(right.path));
+      const dedup = dedupeSubtrees(ordered, group.provider, { digest });
+      const plainBytes = ordered.reduce((total, source) => total + byteLength(source.text), 0);
+      return {
+        providerId,
+        files: ordered.length,
+        chunks: ordered.reduce(
+          (total, source) => total + chunkBySyntax(source.text, group.provider, { digest }).length,
+          0,
+        ),
+        dedup,
+        plainBytes,
+        plannedBytes: plainBytes - dedup.savedBytes,
+      };
+    });
+
+  // Unplanned sources contribute to the dictionary and to `plainBytes` but not
+  // to savings: their bytes are real, and a total that omitted them would
+  // overstate how much of the corpus the plan covers.
+  const dictionary = deriveDictionary(sources.map((source) => source.text), { digest });
+  const plainBytes = sources.reduce((total, source) => total + byteLength(source.text), 0);
+  const saved = groups.reduce((total, group) => total + group.dedup.savedBytes, 0);
+
+  return { groups, unplanned, dictionary, plainBytes, plannedBytes: plainBytes - saved };
 }

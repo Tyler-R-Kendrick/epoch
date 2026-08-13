@@ -48,6 +48,7 @@ import { runWasmProviderTests } from "./unit/wasm-providers.test";
 import { runTomlParserTests } from "./unit/toml-parser.test";
 import { runVerifiedLaunchTests } from "./unit/verified-launch.test";
 import { runPublisherLifecycleTests } from "./unit/publisher-lifecycle.test";
+import { runMixedCompressionTests } from "./unit/mixed-compression.test";
 import { runCodeOperationContextTests } from "./unit/code-operation-context.test";
 
 async function main(): Promise<void> {
@@ -99,6 +100,7 @@ async function main(): Promise<void> {
   runTomlParserTests();
   runVerifiedLaunchTests();
   runPublisherLifecycleTests();
+  runMixedCompressionTests();
   runCodeOperationContextTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();

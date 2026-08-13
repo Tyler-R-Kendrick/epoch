@@ -4,7 +4,7 @@ import {
   applySemanticPatch,
   BUILTIN_SYNTAX_PROVIDERS,
   formatSemanticPatch,
-  planCompression,
+  planCompressionAcross,
   selectBuiltinProvider,
   semanticDiff,
   semanticMerge,
@@ -65,19 +65,32 @@ export function createSyntaxRegistry(
   return registry;
 }
 
-function providerFor(path: string, registry: CapabilityRegistry = createSyntaxRegistry()): SyntaxProvider {
+/**
+ * Resolve the provider for a path, or nothing.
+ *
+ * `undefined` is a real answer for a lockfile or an image, and planning treats
+ * it as one. Commands that must parse a specific file use `providerFor`, which
+ * turns the same absence into an error.
+ */
+function resolveProvider(path: string, registry: CapabilityRegistry): SyntaxProvider | undefined {
   // Builtin selection resolves the language from the path; the registry then
   // decides which provider owns that language, so an extension can win.
   const builtin = selectBuiltinProvider({ path });
-  if (builtin === undefined) {
-    throw new Error(`no syntax provider matches '${path}'; semantic operations need a matching provider`);
-  }
+  if (builtin === undefined) return undefined;
   const resolved = registry.resolve<SyntaxProvider>("syntax", {
     language: builtin.language,
     path,
     forSignedState: true,
   });
   return resolved?.value ?? builtin;
+}
+
+function providerFor(path: string, registry: CapabilityRegistry = createSyntaxRegistry()): SyntaxProvider {
+  const provider = resolveProvider(path, registry);
+  if (provider === undefined) {
+    throw new Error(`no syntax provider matches '${path}'; semantic operations need a matching provider`);
+  }
+  return provider;
 }
 
 function jsonRequested(args: readonly string[]): boolean {
@@ -141,25 +154,35 @@ export function runSemanticCommand(args: readonly string[], io: SemanticCliIO): 
 
   if (action === "plan") {
     if (files.length === 0) throw new Error(CliText.semanticUsage);
-    const provider = providerFor(files[0]);
-    // Every input is parsed with one provider, so mixed languages would parse
-    // TOML as JSON and report a plan for content that was never understood.
-    const mismatched = files.find((path) => providerFor(path).id !== provider.id);
-    if (mismatched !== undefined) {
-      throw new Error(`semantic plan needs one syntax provider; '${mismatched}' does not use ${provider.id}`);
-    }
-    const plan = planCompression(files.map((path) => ({ path, text: readText(path) })), provider);
+    // Mixed input is the normal case: real repositories hold TypeScript, JSON,
+    // TOML, and Markdown in every directory, and subtree dedup and dictionary
+    // derivation both improve with corpus size — so the old single-language
+    // restriction suppressed the effect the command exists to measure
+    // (ADR-0043). Each group is still parsed only by the provider that
+    // understands it.
+    const registry = createSyntaxRegistry();
+    const plan = planCompressionAcross(
+      files.map((path) => ({ path, text: readText(path) })),
+      (source) => resolveProvider(source.path, registry),
+    );
     if (json) {
       io.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
       return;
     }
-    io.stdout.write([
-      `provider ${plan.providerId}`,
-      `chunks ${plan.chunks}`,
-      `plain ${plan.plainBytes} bytes`,
-      `after subtree dedup ${plan.plannedBytes} bytes (saved ${plan.dedup.savedBytes})`,
-      `dictionary ${plan.dictionary.entries.length} entries digest ${plan.dictionary.digest}`,
-    ].join("\n") + "\n");
+    const lines = plan.groups.map((group) =>
+      `provider ${group.providerId}  files ${group.files}  chunks ${group.chunks}  saved ${group.dedup.savedBytes}`);
+    for (const source of plan.unplanned) {
+      // Reported rather than dropped: a storage estimate that quietly ignores
+      // the lockfile is the estimate that misleads someone.
+      lines.push(`unplanned ${source.path}  (${source.reason})`);
+    }
+    lines.push(
+      `dictionary ${plan.dictionary.entries.length} entries digest ${plan.dictionary.digest}`
+      + ` (derived across all ${files.length} files)`,
+      `plain ${plan.plainBytes} bytes  after subtree dedup ${plan.plannedBytes} bytes`
+      + ` (saved ${plan.plainBytes - plan.plannedBytes})`,
+    );
+    io.stdout.write(`${lines.join("\n")}\n`);
     return;
   }
 

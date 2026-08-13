@@ -1,6 +1,6 @@
 # ADR-0043: Mixed-Language Compression Planning
 
-Status: Proposed
+Status: Accepted; implemented
 
 ## Context
 

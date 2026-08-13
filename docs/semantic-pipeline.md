@@ -170,23 +170,32 @@ continues to re-hash whole content.
    patch against a base, so the stored delta is proportional to semantic change
    rather than formatting churn.
 
+`semantic plan` takes a mixed set and groups it by resolved provider, so it can
+be pointed at a repository rather than at one language (ADR-0043):
+
 ```console
-$ epoch semantic plan src/*.ts
-provider epoch.syntax.delimiter
-chunks 42
-plain 118430 bytes
-after subtree dedup 96204 bytes (saved 22226)
-dictionary 512 entries digest a1b2c3…
+$ epoch semantic plan src/*.ts package.json docs/*.md pnpm-lock.yaml
+provider epoch.syntax.delimiter  files 42  chunks 310  saved 22226
+provider epoch.syntax.json       files  3  chunks  18  saved 1204
+provider epoch.syntax.markdown   files 11  chunks  74  saved 890
+unplanned pnpm-lock.yaml  (no syntax provider matches 'pnpm-lock.yaml')
+dictionary 512 entries digest a1b2c3… (derived across all 57 files)
+plain 118430 bytes  after subtree dedup 96204 bytes (saved 22226)
 ```
+
+Three properties make that more than a loop over providers. Dedup keys are
+scoped by the provider that produced them, so identical text parsed under two
+grammars is two entries rather than a false share — cross-language storage
+sharing is real, but it belongs to the byte layer, not to a table keyed by
+structural identity. The dictionary spans every group, including files no
+provider claimed, because cross-language repetition is precisely the redundancy
+it exists to capture. And files no provider matches are reported as `unplanned`
+rather than dropped, since a storage estimate that quietly ignores the lockfile
+is the estimate that misleads someone.
 
 `@epoch/semantic` is browser-safe and performs no byte-level entropy coding. It
 produces the boundaries, dedup table, dictionary, and delta that a host codec
 then encodes.
-
-`semantic plan` currently requires every input to resolve to one provider and
-refuses a mixed set, which means it cannot be pointed at a repository.
-[ADR-0043](design-decisions/0043-mixed-language-compression-planning.md) is the
-design for per-provider groups with a dictionary derived across all of them.
 
 ## Boundaries
 
