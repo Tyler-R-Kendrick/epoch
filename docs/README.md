@@ -17,6 +17,7 @@ decisions, operations, or contribution workflow.
 | [Epoch Nomenclature](nomenclature.md) | Normative vocabulary and boundaries used across Protocol, Core, CLI, SDK, Community, and Operations. |
 | [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
+| [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | Design-only model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
 | [Forge And Mirror Adapters](forge-adapters.md) | Authority, fidelity, loss, mirror safety, and federation codec boundaries. |
 | [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
 | [Design Critique Record](evidence/design-critique/README.md) | Both adversarial critique rounds against Community Web, the findings worked, measured before/after, and the residual list. |
@@ -105,6 +106,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0034: Agent Principals, Grants, And Budgets](design-decisions/0034-agent-principals-grants-and-budgets.md) | Defines attenuated agent authority, transactional budgets, receipts, and injected persistence boundaries. |
 | [ADR-0035: Forge Adapters And Mirror Authority](design-decisions/0035-forge-adapters-and-mirror-authority.md) | Defines public-only forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause behavior. |
 | [ADR-0036: SWHIDs And Software Heritage Archival](design-decisions/0036-swhids-and-software-heritage-archival.md) | Defines browser-safe SWHIDs and injected, verified public archival requests. |
+| [ADR-0037: Repository Composition And Repository Links](design-decisions/0037-repository-composition-and-links.md) | Defines one exact read-only Repository Link, vendorize-plus-provenance instead of a native subtree type, and repository-qualified Change dependencies. |
+| [ADR-0038: Workspace Selection And Materialization Modes](design-decisions/0038-workspace-selection-and-materialization-modes.md) | Defines workspace-local Selection, the `eager`/`explicit`/`lazy`/`delta` materialization modes, and the content-addressed Namespace Manifest. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

@@ -46,6 +46,12 @@ and `compacts/`: they are not signed and are excluded from `verify()`, which
 still re-hashes whole-content blobs. `checkoutView()` with `materialization:
 "full"` restores whole-tree materialization.
 
+This mode selects files by *difference from a base*, not by user interest, so it
+is delta materialization rather than sparse checkout.
+[ADR-0038](design-decisions/0038-workspace-selection-and-materialization-modes.md)
+keeps the behavior, renames the mode to `delta`, and adds a separate
+workspace-local Selection; neither the rename nor Selection is implemented yet.
+
 ## Event Model
 
 Every event includes:
@@ -441,3 +447,9 @@ The current implementation does not provide:
 - persisted Epoch.Platform control-plane storage
 - real Epoch.Platform runners or infrastructure adapters
 - production container orchestration for the platform service descriptors
+- nested repository composition (Repository Links, vendorize with provenance,
+  repository-qualified Change dependencies) — designed in
+  [ADR-0037](design-decisions/0037-repository-composition-and-links.md)
+- workspace Selection, named materialization modes, and a content-addressed
+  Namespace Manifest — designed in
+  [ADR-0038](design-decisions/0038-workspace-selection-and-materialization-modes.md)

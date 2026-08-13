@@ -21,7 +21,7 @@ and when the decision should be revisited.
 | [ADR-0011](0011-community-web-dogfoods-epoch.md) | Accepted | Build Community Web releases through Epoch site history so the project dogfoods branch, merge, version, and rollback evidence. |
 | [ADR-0012](0012-community-human-centered-design.md) | Accepted | Use design thinking, user-centric design, human-centered design, and the GitHub open-source contributor persona to drive Epoch Community design. |
 | [ADR-0013](0013-community-operations-extension-package.md) | Accepted | Add Community Operations as a separate deployable extension over Platform SDK/Core state. |
-| [ADR-0014](0014-virtual-working-tree-and-sparse-checkout.md) | Accepted | Add a virtual working tree with sparse checkout, rolling patch aggregates, and virtual-by-default init, keeping the object store fully verifiable. |
+| [ADR-0014](0014-virtual-working-tree-and-sparse-checkout.md) | Accepted; naming amended by 0038 | Add a virtual working tree with rolling patch aggregates and virtual-by-default init, keeping the object store fully verifiable. ADR-0038 renames this mode to `delta` because it is not sparse checkout. |
 | [ADR-0015](0015-large-file-and-blob-handling-options.md) | Accepted | Evaluate large-file/blob strategies and choose content-defined chunking with signed Merkle manifests behind a storage-descriptor seam, plus chunk-range transport and entity-aware streaming, keeping blobs fully verifiable. |
 | [ADR-0016](0016-entity-aware-streaming-and-targeted-checkout.md) | Accepted | Extend the virtual working tree to chunk-granular partial residency with entity-aware streaming adapters, chunk-level live editing via signed manifest deltas, and signed exclusive locks, so contributors make targeted edits without holding every file or byte. |
 | [ADR-0017](0017-konsistent-structural-conventions.md) | Accepted | Adopt konsistent as an npm-managed structural-convention gate for workspace layout, using wildcard globs because dot-delimited package names defeat placeholder capture. |
@@ -51,6 +51,8 @@ and when the decision should be revisited.
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted and implemented with injected durability | Give human and agent principals attenuated grants, transactional budgets, receipts, and non-authoritative provider boundaries. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted and implemented as codecs plus an injected coordinator | Provide public-only loss-aware forge codecs and explicit mirror authority, drift, SSRF, idempotency, and pause contracts. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted and implemented with injected transport; CLI default HTTP adapter | Compute and inspect SWHIDs locally and request public archival through Save Code Now. The library client stays injected; the CLI ships HTTP with `EPOCH_SWH_SAVE_URL` override. |
+| [ADR-0037](0037-repository-composition-and-links.md) | Accepted (design); not implemented | Embed independently owned repositories through one exact, read-only Repository Link; treat subtree/subrepo as owned files plus provenance and a Projection; make cross-repository work dependency-linked rather than falsely atomic. |
+| [ADR-0038](0038-workspace-selection-and-materialization-modes.md) | Accepted (design); not implemented | Add workspace-local Selection, name the four materialization modes (`eager`, `explicit`, `lazy`, `delta`), and replace whole-namespace metadata with a content-addressed Namespace Manifest. |
 
 ## Supporting Decision Records
 

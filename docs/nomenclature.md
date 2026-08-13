@@ -22,6 +22,11 @@ Operations. These terms are contracts, not synonyms.
 | **Code Operation** | An explicitly recorded signed CRDT edit. It may link to a Change, session, tool, and private conversation digest. | Continuous capture of editor or terminal activity. |
 | **Residency** | Which verified objects are locally present. | Materialization or copy-on-write. |
 | **Workspace** | Materialized files owned by a provider and bound to repository state. | Execution isolation. |
+| **Repository Link** | An exact, read-only mount of another Repository's Version at a path in this Repository's namespace. Design-only ([ADR-0037](design-decisions/0037-repository-composition-and-links.md)). | A submodule, subtree, subrepo, or package dependency. |
+| **Composition** | The acyclic namespace graph produced by resolving a Repository's Links at an exact state. | A checkout, a manifest of remotes, or a package lock. |
+| **Selection** | Which resources in the composed namespace are relevant to one Workspace. Workspace-local by default. Design-only ([ADR-0038](design-decisions/0038-workspace-selection-and-materialization-modes.md)). | A View, a sparse-checkout pattern file, or Residency. |
+| **Materialization Mode** | How a Workspace realizes its Selection: `eager`, `explicit`, `lazy`, or `delta`. | Sparse checkout. `delta` is the mode formerly spelled `--virtual`. |
+| **Namespace Manifest** | The content-addressed directory DAG describing a Repository's namespace, bound by a Version or compact. Derived, never authoritative. Design-only. | A second history, or a signed working-tree cache. |
 | **Sandbox** | An execution provider with declared process, filesystem, network, secret, and cleanup capabilities. | A View or Workspace. |
 | **Principal** | A human, agent, service, device, or organization identity. | A display name or author string. |
 | **Grant** | An attenuated authorization from an issuer to a subject. | Membership or identity. |
@@ -52,6 +57,16 @@ has not shipped a compatibility contract for those pre-release spellings.
   Graph is a DAG; `orders-after` does not become a hard dependency.
 - A GitButler virtual branch resembles a materialized lane. Epoch keeps
   Workspace storage, object Residency, and Sandbox isolation as separate facts.
+- A Git submodule resembles a Repository Link because both pin an exact external
+  state, but Epoch stores link identity, target, and namespace root in one signed
+  record and keeps composition, Selection, Residency, and Materialization as
+  separately answerable facts rather than independent state machines.
+- A Git subtree or `git-subrepo` directory resembles vendored Epoch source, but
+  Epoch records signed provenance and an optional synchronization Projection
+  instead of reconstructing synthetic history on every split.
+- A Git sparse checkout resembles a Selection, but Epoch's Selection is
+  order-independent set algebra scoped to one Workspace, and it does not decide
+  by itself which bytes are resident or which files are written.
 - A DeltaDB delta resembles an Epoch Code Operation or Fragment in granularity,
   but DeltaDB continuously captures editor/worktree operations. Epoch records
   explicit signed Code Operations with optional conversation digests; it does
