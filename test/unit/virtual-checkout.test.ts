@@ -80,8 +80,10 @@ function virtualCheckoutLeavesUnchangedFilesVirtual(): void {
     rmSync(join(workspace, "keep.txt"), { force: true });
     rmSync(join(workspace, "change.txt"), { force: true });
 
+    // `virtual` is a deprecated alias: the mode it always described is delta materialization,
+    // which writes what differs from a base rather than what the user selected (ADR-0041).
     const result = repo.checkoutView("feature", { materialization: "virtual" });
-    assert.equal(result.materialization, "virtual");
+    assert.equal(result.materialization, "delta");
     assert.deepEqual([...result.written], ["change.txt"]);
     assert.deepEqual([...result.virtualPaths], ["keep.txt"]);
     assert.equal(existsSync(join(workspace, "change.txt")), true);

@@ -30,6 +30,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/platform_web.feature` | 3 |
 | `features/platform_web_conformance.feature` | 3 |
 | `features/repository.feature` | 31 |
+| `features/repository_composition.feature` | 6 |
 | `features/wasm_react.feature` | 2 |
 
 ## Scenario Records
@@ -188,6 +189,12 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/platform_web_conformance.feature` | `@persona.platform_operator` | Scenario | Mobile console exposes scoped task actions and compact navigation | None | 0 |
 | `features/platform_web_conformance.feature` | `@persona.platform_operator` | Scenario | Desktop console exposes role-aware home modules and admin governance sections | None | 0 |
 | `features/platform_web_conformance.feature` | `@persona.platform_operator` | Scenario | Desktop console exposes accessible dense data, confirmations, and SDK equivalents | None | 0 |
+| `features/repository_composition.feature` | `@persona.github_open_source_contributor` | Scenario | A contributor narrows their workspace to the component they work on | None | 0 |
+| `features/repository_composition.feature` | `@persona.github_open_source_contributor` | Scenario | A contributor asks why a file is not in their working tree | None | 0 |
+| `features/repository_composition.feature` | `@persona.github_open_source_contributor` | Scenario | A contributor sees how much of the repository their selection covers | None | 0 |
+| `features/repository_composition.feature` | `@persona.maintainer` | Scenario | A maintainer embeds a component another team owns | None | 0 |
+| `features/repository_composition.feature` | `@persona.maintainer` | Scenario | A maintainer is stopped from mounting a component inside another one | None | 0 |
+| `features/repository_composition.feature` | `@persona.maintainer` | Scenario | A maintainer sees that a linked component's content is not available locally | None | 0 |
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Initialize and record a file | None | 0 |
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Create an empty repository with one command | None | 0 |
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Push assets to create a repository and first version | None | 0 |

@@ -13,6 +13,7 @@ import {
   type RevsetNode,
 } from "@epoch/protocol";
 import { parseSwhid, swhidForGitObject, swhKindForGitType } from "@epoch/software-heritage";
+import { executeComponentCommand, executeSelectionCommand, localLinkResolver } from "./composition";
 
 export type ChangeGraphCommandErrorCode =
   | "invalid-command" | "invalid-input" | "not-found" | "stale-revision"
@@ -34,7 +35,7 @@ export interface ChangeGraphCommandDependencies {
 
 const CHANGE_GRAPH_COMMANDS = new Set(["new", "change", "log", "op", "graph", "split", "bundle", "merge-plan",
   "conflict", "workspace", "clone", "fetch", "backfill", "mirror", "principal", "agent", "forge",
-  "swhid", "archive", "interop"]);
+  "swhid", "archive", "interop", "component"]);
 
 export function isChangeGraphCommand(command: string | undefined): boolean { return command !== undefined && CHANGE_GRAPH_COMMANDS.has(command); }
 export function isChangeGraphInvocation(command: string | undefined, args: readonly string[]): boolean {
@@ -201,6 +202,13 @@ function parse(args: readonly string[]): Parsed {
 function stringOption(parsed: Parsed, name: string): string | undefined {
   const value = parsed.options[name]; return typeof value === "string" ? value : undefined;
 }
+
+/** Local sibling repositories a link may resolve against. Core never reaches the network itself. */
+function resolveLinkRoots(root: string, parsed: Parsed): readonly string[] {
+  const configured = stringOption(parsed, "resolver");
+  const roots = configured === undefined ? [] : configured.split(",").map((value) => resolve(value.trim()));
+  return [...roots, ...Object.values(readRemotes(root)).map((value) => resolve(value))].filter((value) => value.length > 0);
+}
 function required(value: string | undefined, label: string): string { if (!value) throw commandError("invalid-input", `${label} is required`); return value; }
 function jsonOption(parsed: Parsed, name: string): unknown {
   const raw = required(stringOption(parsed, name), `--${name}`);
@@ -327,7 +335,24 @@ async function execute(root: string, command: string, args: readonly string[], n
     if (action === "resolve" || action === "accept") return store.decideConflict(required(parsed.positionals[1], "conflict ID"), "accepted");
     if (action === "reject") return store.decideConflict(required(parsed.positionals[1], "conflict ID"), "rejected");
   }
+  if (command === "component") {
+    return executeComponentCommand(store.repository, action, parsed.positionals.slice(1), {
+      repositoryId: stringOption(parsed, "repository-id"),
+      versionId: stringOption(parsed, "version-id"),
+      namespaceRoot: stringOption(parsed, "namespace-root"),
+      sourcePath: stringOption(parsed, "source-path"),
+      hint: stringOption(parsed, "hint"),
+    }, localLinkResolver(resolveLinkRoots(root, parsed)));
+  }
   if (command === "workspace") {
+    // Selection is workspace-local state, so it is read and written through the repository rather
+    // than the signed change-graph store.
+    if (action === "select") {
+      return executeSelectionCommand(store.repository, parsed.positionals[1], parsed.positionals.slice(2), {
+        view: stringOption(parsed, "view"),
+        description: stringOption(parsed, "description"),
+      });
+    }
     if (action === "create") {
       return store.rememberDraft("workspace", createCanonicalId("workspace", dependencies.random), {
         name: required(parsed.positionals[1], "workspace name"), provider: stringOption(parsed, "provider") ?? "filesystem", path: stringOption(parsed, "path") ?? "",
