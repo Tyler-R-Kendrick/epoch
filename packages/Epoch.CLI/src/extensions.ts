@@ -57,7 +57,7 @@ export interface ExtensionCliIO {
 export type ExtensionSpawn = (invocation: ExternalInvocation, expectedSha256?: string) => number;
 
 /**
- * Launch the bytes that were verified (ADR-0043).
+ * Launch the bytes that were verified (ADR-0044).
  *
  * Where the platform can name an open descriptor as a path, the executable is
  * opened once, hashed through that descriptor, and executed through the same
@@ -170,7 +170,7 @@ interface EffectivePolicy {
  * default is safe for the *configured* half of the policy but not for the
  * recorded half: a config that will not parse takes its `block` list with it
  * while stored grants keep working, which is a net loss of protection unless
- * someone is told (ADR-0047).
+ * someone is told (ADR-0048).
  */
 function policyFor(root: string): EffectivePolicy {
   const degraded: string[] = [];
@@ -216,7 +216,7 @@ const REVOCATION_COMMAND = "ext-publisher-revoke";
 /**
  * Publisher statements this repository has seen, from its own event log.
  *
- * They arrive by ordinary sync, which is exactly the asymmetry ADR-0045 is
+ * They arrive by ordinary sync, which is exactly the asymmetry ADR-0046 is
  * built on: consent must not travel, because it only adds authority, while a
  * revocation should, because it only removes it. Every statement carries its
  * own signature and is verified where it is used, so replication moves
@@ -395,11 +395,11 @@ export function runExtensionCommand(
       resolution: resolution.kind,
       // The guarantee is named, not assumed: `descriptor` means the executed
       // bytes are the hashed bytes by construction, `path` means by timing
-      // (ADR-0043).
+      // (ADR-0044).
       launchVerification: launchVerificationFor(process.platform),
       // Which key verified this, whether it was reached directly or through a
       // rotation, and whether a revocation is on file. A trust decision an
-      // operator cannot inspect is one they cannot audit (ADR-0045).
+      // operator cannot inspect is one they cannot audit (ADR-0046).
       publisher: extension.manifest?.publisher === undefined ? null : {
         key: extension.manifest.publisher,
         notAfter: extension.manifest.notAfter ?? null,
@@ -407,7 +407,7 @@ export function runExtensionCommand(
       },
       trust: resolution.kind === "extension" || resolution.kind === "untrusted" ? resolution.trust : null,
       // Named rather than omitted: an empty policy shown as though it were the
-      // operator's intent is the failure ADR-0047 exists to end.
+      // operator's intent is the failure ADR-0048 exists to end.
       policyDegraded: effective.degraded,
       policyWarnings: effective.warnings,
     }, null, 2)}\n`);
@@ -481,7 +481,7 @@ export function runExtensionCommand(
 
 
 /**
- * Providers shipped by extensions this repository trusts (ADR-0044).
+ * Providers shipped by extensions this repository trusts (ADR-0045).
  *
  * Trust is the same decision Tier 1 dispatch makes, taken by the same policy:
  * a provider runs inside an operation that produces signed evidence, so an
@@ -546,7 +546,7 @@ export function dispatchExternalSubcommand(
   // policy that survives a broken config is the half that *permits* — recorded
   // grants — while the `block` list the operator hand-wrote is exactly what
   // went missing, so proceeding would run code on the strength of an incomplete
-  // denial (ADR-0047).
+  // denial (ADR-0048).
   reportNotes(effective.warnings, io);
   if (effective.degraded.length > 0) {
     reportNotes(effective.degraded, io);

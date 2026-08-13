@@ -1,7 +1,7 @@
 import { ed25519ManifestVerifier, type ManifestSignatureVerifier } from "./signing";
 
 /**
- * Publisher key lifecycle (ADR-0045).
+ * Publisher key lifecycle (ADR-0046).
  *
  * A publisher identifier *is* an Ed25519 key, which is what makes verification
  * offline and unspoofable — and what left the identity with no lifecycle. This

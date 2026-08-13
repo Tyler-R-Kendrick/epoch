@@ -476,6 +476,43 @@ produces the provider descriptor recorded alongside signed state.
 [Extensions And Capability Providers](extensions.md) and
 [ADR-0037](design-decisions/0037-extension-mechanism-and-capability-registry.md).
 
+## Spaces
+
+`@epoch/core` ships `SignedSpaceStore`, the object a second person can join. A
+Space composes existing primitives and replaces none of them: one View selects
+history, Workspaces materialize it per machine and keep reporting their own
+capability facts, Principals hold Grants and Budgets, and each turn records the
+declared execution mode it ran under. `epoch.space/v1` events —
+`space.created`, `space.participant.joined/left`, `space.workspace.bound`,
+`space.turn.recorded`, `space.capture.opened/closed/operation`, and
+`space.anchor.recorded` — are signed protocol events on the ordinary event log,
+so `verify()` covers them and sync carries them without a new transport.
+
+The governance is enforced rather than described:
+
+- **Joining is receiving a grant.** Membership and authority are one fact, so
+  leaving revokes in the same signed event and a departed participant's turns
+  are refused immediately.
+- **Turns are bounded.** A turn without a live grant is `grant-denied`, a turn
+  past its allocation is `budget-exceeded`, and an `observer` grant never
+  authorizes one.
+- **Capture requires recorded consent.** Continuous Code Operation capture is
+  refused outside an open Capture Session, whose declared scope, retention, and
+  redaction policy is itself signed history.
+- **Workspaces stay truthful.** Binding routes through
+  `createWorkspaceStateManifest()`, so a Space cannot claim isolated execution,
+  copy-on-write, or residency the provider did not positively declare.
+- **Anchors are structural.** A comment binds to `(RevisionId, structural
+  path)` resolved through `@epoch/semantic`, so it survives reformatting and
+  reordering (`moved`) and reports honestly when the construct is deleted
+  (`unresolved`) instead of pointing at the wrong place.
+
+`epoch space ...` is the operator surface. Phases that remain unbuilt are named
+in [ADR-0043](design-decisions/0043-spaces-shared-signed-workspaces.md): there
+is no mount provider, no isolated execution provider, and no federated join, so
+a per-turn Sandbox binding currently records a fact rather than enforcing a
+boundary.
+
 ## Semantic Content Pipeline
 
 `@epoch/semantic` is a browser-safe engine for structural diff, patch, merge,
@@ -490,12 +527,12 @@ delimiter provider recovers block structure and is not a grammar. That TOML
 subset is the *structural diffing* provider, and stays partial by design — it
 refuses constructs it cannot represent. Reading a configuration value is a
 different job, and uses the complete TOML 1.0 reader in `@epoch/core`
-([ADR-0047](design-decisions/0047-repository-configuration-parsing.md)).
+([ADR-0048](design-decisions/0048-repository-configuration-parsing.md)).
 
 Grammar-backed providers arrive as extensions through the capability registry,
 as WebAssembly modules instantiated with one import — memory the host owns and
 caps — so a provider that shapes signed evidence holds no ambient authority
-([ADR-0044](design-decisions/0044-sandboxed-capability-providers.md)). At equal
+([ADR-0045](design-decisions/0045-sandboxed-capability-providers.md)). At equal
 match specificity a shipped provider outranks the builtin it replaces, which is
 what "an extension can displace a builtin" means in practice.
 
@@ -510,16 +547,16 @@ content remains authoritative.
 
 `epoch semantic diff|apply|merge|plan` is the operator surface, and `plan`
 takes a mixed-language file set, grouping it by resolved provider
-([ADR-0046](design-decisions/0046-mixed-language-compression-planning.md)). See
+([ADR-0047](design-decisions/0047-mixed-language-compression-planning.md)). See
 [Semantic Content Pipeline](semantic-pipeline.md) and
 [ADR-0038](design-decisions/0038-semantic-diff-merge-and-compression.md).
 
 Extension *publisher* keys have a lifecycle: an expiry inside the signed
 manifest, succession signed by the key being retired, and revocation that
 outranks both and replicates as an ordinary event
-([ADR-0045](design-decisions/0045-publisher-key-lifecycle.md)). Launch executes
+([ADR-0046](design-decisions/0046-publisher-key-lifecycle.md)). Launch executes
 the descriptor whose bytes were digested where the platform can name one
-([ADR-0043](design-decisions/0043-verified-launch-and-platform-execution-contract.md)).
+([ADR-0044](design-decisions/0044-verified-launch-and-platform-execution-contract.md)).
 
 ## Non-Goals In The Current Prototype
 
@@ -540,6 +577,8 @@ The current implementation does not provide:
 - process, filesystem, or network sandboxing of external extensions
 - grammar-backed syntax providers for general-purpose languages
 - byte-level entropy coding or a packfile format for semantic compression
+- a kernel VFS/FUSE mount provider, an isolated execution provider, or
+  federated Space discovery (ADR-0043 phases 4 through 6)
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
 - writable nested Repository Links, overlapping mount roots, and transparent
   lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`

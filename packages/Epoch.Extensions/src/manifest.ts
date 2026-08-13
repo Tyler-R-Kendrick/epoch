@@ -47,7 +47,7 @@ export type DeterminismClass = "deterministic" | "advisory";
  * The module is an artifact beside the manifest, so it inherits the trust
  * mechanism already built: `module_sha256` binds it the way
  * `executable_sha256` binds the subcommand, and the canonical manifest covers
- * both, so signing the manifest transitively binds every module (ADR-0044).
+ * both, so signing the manifest transitively binds every module (ADR-0045).
  */
 export interface ProviderDeclaration {
   readonly capability: CapabilityKind;
@@ -82,7 +82,7 @@ export interface ExtensionManifest {
    *
    * Inside the signed payload, so it cannot be added, moved, or removed by
    * anyone but the signer. Optional: a manifest without one behaves exactly as
-   * before, which is why adding this breaks no existing signature (ADR-0045).
+   * before, which is why adding this breaks no existing signature (ADR-0046).
    */
   readonly notAfter?: string;
   /** Capability providers this extension supplies, from `[[provides]]`. */
@@ -120,7 +120,7 @@ export function isExtensionName(value: string): boolean {
 }
 
 /**
- * Read a manifest with the complete TOML reader (ADR-0047).
+ * Read a manifest with the complete TOML reader (ADR-0048).
  *
  * This file used to carry a second partial parser, and the shortcut it took was
  * not a small one: it skipped every `[table]` header and flattened the keys
@@ -237,7 +237,7 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
  * declaration cannot reach outside the extension's own directory. Every field
  * is required, including the digest — a provider whose bytes are not bound is
  * a provider nobody consented to, and shaping signed evidence is exactly what
- * it would be doing (ADR-0044).
+ * it would be doing (ADR-0045).
  */
 function parseProvides(value: unknown): readonly ProviderDeclaration[] {
   if (value === undefined) return [];
@@ -308,7 +308,7 @@ export function canonicalManifest(manifest: ExtensionManifest): string {
     // Omitted entirely when absent rather than serialized as null, so a
     // manifest that declares neither expiry nor providers produces the bytes it
     // produced before either existed, and its signature keeps verifying
-    // (ADR-0044, ADR-0045).
+    // (ADR-0045, ADR-0046).
     ...(manifest.notAfter === undefined ? {} : { notAfter: manifest.notAfter }),
     ...(manifest.provides === undefined ? {} : {
       // Sorted so declaration order in the file cannot change the signed bytes,

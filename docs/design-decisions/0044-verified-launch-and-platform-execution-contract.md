@@ -1,4 +1,4 @@
-# ADR-0043: Verified Launch And Platform Execution Contract
+# ADR-0044: Verified Launch And Platform Execution Contract
 
 Status: Accepted; implemented
 
@@ -112,11 +112,11 @@ executable.
 
 Revisit when Node exposes `fexecve` or an equivalent, which would remove the
 `/proc` and `/dev/fd` dependency; when Windows gains a descriptor-addressable
-exec path; or if a sandboxed provider contract (ADR-0044) displaces enough
+exec path; or if a sandboxed provider contract (ADR-0045) displaces enough
 extension surface that Tier 1 launch stops being the sharp edge.
 
 ## Related
 
 - [ADR-0037](0037-extension-mechanism-and-capability-registry.md)
-- [ADR-0044](0044-sandboxed-capability-providers.md)
+- [ADR-0045](0045-sandboxed-capability-providers.md)
 - [Extensions And Capability Providers](../extensions.md)

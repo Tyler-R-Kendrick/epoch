@@ -1460,7 +1460,7 @@ export class EpochRepository {
    * `problems`, so a caller can decide between continuing with defaults and
    * refusing — and, crucially, can tell the operator. The silent version of
    * this is what let a stray float disarm an extension `block` list
-   * (ADR-0047).
+   * (ADR-0048).
    */
   readRepositoryConfig(): EpochConfigRead {
     const problems: EpochConfigProblem[] = [];
@@ -2566,7 +2566,7 @@ function escapeRegExp(value: string): string {
  *
  * The caller decides what a broken file means. Collapsing it here to an empty
  * table is what allowed an unrelated syntax error to silently discard a
- * hand-written extension `block` list (ADR-0047).
+ * hand-written extension `block` list (ADR-0048).
  */
 function readConfigFile(path: string): { readonly config: EpochRepositoryConfig } | { readonly error: EpochConfigProblem } {
   let text: string;

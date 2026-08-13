@@ -1,4 +1,4 @@
-# ADR-0047: Repository Configuration Parsing
+# ADR-0048: Repository Configuration Parsing
 
 Status: Accepted; implemented
 

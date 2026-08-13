@@ -63,7 +63,7 @@ export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): nu
  * A file that will not parse contributes nothing, and the settings in it —
  * including an extension `block` list — are simply not in effect. Reported
  * before the command runs, because the alternative is a repository that
- * behaves as though the file were empty and never says so (ADR-0047).
+ * behaves as though the file were empty and never says so (ADR-0048).
  *
  * The `ext` command and external dispatch report their own, richer degradation
  * and are skipped here so the same line is not printed twice.

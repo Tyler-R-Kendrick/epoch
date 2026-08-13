@@ -1,5 +1,5 @@
 /**
- * A complete TOML 1.0.0 reader (ADR-0047).
+ * A complete TOML 1.0.0 reader (ADR-0048).
  *
  * Configuration carries the extension trust policy, so a reader that
  * understands a quarter of the language is not a convenience shortcut — it is a

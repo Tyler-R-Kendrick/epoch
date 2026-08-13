@@ -11,7 +11,7 @@ import { buildSyntaxProviderModule, FIXTURE_INPUT_CAPACITY } from "./wasm-fixtur
 /**
  * The provider ABI is a boundary with untrusted code on the other side, so the
  * tests are about what the host refuses, not about what a cooperative module
- * returns (ADR-0044).
+ * returns (ADR-0045).
  */
 export function runWasmProviderTests(): void {
   aWellFormedModuleParses();
@@ -267,7 +267,7 @@ function everyRefusalCodeIsReachable(): void {
  * Reusing one instance would let a module keep state in its linear memory and
  * answer differently the second time it is asked the same question — which
  * would defeat the reproducibility the recorded provider digest exists to buy,
- * since that output is recorded as evidence (ADR-0044). Validating the output
+ * since that output is recorded as evidence (ADR-0045). Validating the output
  * does not restore determinism; only starting from the same state does.
  */
 function eachParseStartsFromTheSameState(): void {

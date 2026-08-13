@@ -4,6 +4,10 @@ export const CANONICAL_ID_KINDS = [
   "repo", "principal", "key", "change", "change-graph", "fragment", "review-bundle", "merge-plan",
   "conflict", "workspace", "operation", "grant", "budget", "projection", "mirror",
   "version", "session", "promise",
+  // ADR-0043. A Space composes the kinds above; it never replaces one. Sandbox
+  // and anchor get their own kinds so a turn can name where it ran and a
+  // comment can name what it points at without either borrowing `workspace`.
+  "space", "sandbox", "anchor",
 ] as const;
 
 export type CanonicalIdKind = typeof CANONICAL_ID_KINDS[number];
