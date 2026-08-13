@@ -58,7 +58,7 @@ and when the decision should be revisited.
 | [ADR-0041](0041-sandboxed-capability-providers.md) | Accepted; implemented for `syntax` | Ship Tier 2 capability providers as import-free WebAssembly modules, so a provider that shapes signed evidence is deterministic and holds no ambient authority. |
 | [ADR-0042](0042-publisher-key-lifecycle.md) | Proposed | Give publisher keys expiry, offline rotation by successor statement, and revocation as a replicating signed event — grants stay local, revocations propagate. |
 | [ADR-0043](0043-mixed-language-compression-planning.md) | Proposed | Group compression planning by resolved syntax provider and derive one dictionary across every group, so `semantic plan` works on a real repository. |
-| [ADR-0044](0044-repository-configuration-parsing.md) | Proposed | Read complete TOML 1.0 for repository configuration and report parse failures to the operator instead of silently resolving to defaults. |
+| [ADR-0044](0044-repository-configuration-parsing.md) | Accepted; implemented | Read complete TOML 1.0 for repository configuration and report parse failures to the operator instead of silently resolving to defaults. |
 
 ## Supporting Decision Records
 

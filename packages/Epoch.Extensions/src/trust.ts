@@ -112,24 +112,82 @@ export const ed25519ManifestVerifier: ManifestSignatureVerifier = ({ payload, si
   }
 };
 
+/** One thing wrong with an `[extensions]` table, named by key (ADR-0044). */
+export interface TrustPolicyDiagnostic {
+  readonly key: string;
+  readonly message: string;
+}
+
+export interface TrustPolicyRead {
+  readonly policy: ExtensionTrustPolicy;
+  /** Empty when the table said exactly what the operator meant. */
+  readonly diagnostics: readonly TrustPolicyDiagnostic[];
+}
+
+const POLICY_KEYS = new Set(["trust", "allow", "block", "allow_publishers"]);
+
+/**
+ * Read a trust policy, reporting what it had to ignore.
+ *
+ * Coercion still fails closed — an unrecognised `trust` narrows to `explicit`,
+ * a non-string entry is dropped — but it is no longer silent. `trust = "eny"`
+ * is a typo whose consequence is a *narrower* policy than intended, which the
+ * operator only discovers when something they expected to run does not; and
+ * `block = [1]` is a denial that quietly does not exist. Reporting is per key
+ * so one bad entry does not discard a whole table, which is the same failure
+ * at smaller scale.
+ */
+export function readTrustPolicyReport(table: Record<string, unknown> | undefined): TrustPolicyRead {
+  if (table === undefined) return { policy: DEFAULT_TRUST_POLICY, diagnostics: [] };
+  const diagnostics: TrustPolicyDiagnostic[] = [];
+
+  const strings = (key: string): readonly string[] => {
+    const value = table[key];
+    if (value === undefined) return [];
+    if (!Array.isArray(value)) {
+      diagnostics.push({ key, message: `expected an array of extension names, ignoring ${describe(value)}` });
+      return [];
+    }
+    const kept = value.filter((entry): entry is string => typeof entry === "string");
+    if (kept.length !== value.length) {
+      diagnostics.push({ key, message: `ignored ${value.length - kept.length} entry that is not a name` });
+    }
+    return kept;
+  };
+
+  const requested = table.trust;
+  const trust: TrustMode = requested === "signed" || requested === "any" ? requested : "explicit";
+  if (requested !== undefined && requested !== "explicit" && trust === "explicit") {
+    diagnostics.push({ key: "trust", message: `${describe(requested)} is not a trust mode; using "explicit"` });
+  }
+  for (const key of Object.keys(table)) {
+    if (!POLICY_KEYS.has(key)) diagnostics.push({ key, message: "is not an extension policy key and has no effect" });
+  }
+
+  return {
+    policy: {
+      trust,
+      allow: strings("allow"),
+      grants: [],
+      block: strings("block"),
+      allowPublishers: strings("allow_publishers"),
+    },
+    diagnostics,
+  };
+}
+
 /**
  * Read a trust policy out of the `[extensions]` table of repository config.
  *
- * Unknown values fail closed to `explicit` rather than widening trust.
+ * Unknown values fail closed to `explicit` rather than widening trust. Callers
+ * that can show the operator a diagnostic should prefer `readTrustPolicyReport`.
  */
 export function readTrustPolicy(table: Record<string, unknown> | undefined): ExtensionTrustPolicy {
-  if (table === undefined) return DEFAULT_TRUST_POLICY;
-  const strings = (value: unknown): readonly string[] =>
-    Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
-  const requested = table.trust;
-  const trust: TrustMode = requested === "signed" || requested === "any" ? requested : "explicit";
-  return {
-    trust,
-    allow: strings(table.allow),
-    grants: [],
-    block: strings(table.block),
-    allowPublishers: strings(table.allow_publishers),
-  };
+  return readTrustPolicyReport(table).policy;
+}
+
+function describe(value: unknown): string {
+  return typeof value === "string" ? `"${value}"` : Array.isArray(value) ? "an array" : `a ${typeof value}`;
 }
 
 /**

@@ -25,6 +25,7 @@ export {
   evaluateTrust,
   manifestSigningPayload,
   readTrustPolicy,
+  readTrustPolicyReport,
   withRecordedConsent,
   type ExtensionTrustPolicy,
   type ManifestSignatureVerifier,
@@ -32,6 +33,8 @@ export {
   type TrustEvaluationOptions,
   type TrustGrant,
   type TrustMode,
+  type TrustPolicyDiagnostic,
+  type TrustPolicyRead,
   type TrustReason,
 } from "./trust";
 

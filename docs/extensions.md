@@ -161,6 +161,30 @@ corruption as "no entries" would drop the `block` list, so damage would widen
 the policy instead of narrowing it. An unreadable store trusts nothing, whatever
 the configured mode.
 
+The same rule holds for the configuration file, and for the same reason. A
+`.epoch/config.toml` Epoch cannot parse contributes nothing — including the
+`block` list an operator wrote by hand — while recorded grants in the store
+keep parsing and keep permitting. So a config that fails to read is reported
+with the file, line, and column that stopped it, and an extension launch is
+**refused** while it stands:
+
+```console
+$ epoch greet
+warning: .epoch/config.toml:5:31: a string is never closed
+refusing to run extension 'greet': the trust policy could not be read in full, so it cannot be relied on to deny anything
+```
+
+Configuration is read as complete TOML 1.0, so ordinary constructs — a URL with
+a `#` fragment, a float, an inline table, an array of tables — parse as written
+rather than becoming the parse error that disarms the policy (ADR-0044). Keys
+inside `[extensions]` that Epoch does not recognise, and values of the wrong
+shape, are reported per key instead of silently coerced:
+
+```console
+$ epoch ext list
+warning: [extensions] trust "eny" is not a trust mode; using "explicit"
+```
+
 ### Consent binds to the binary
 
 `ext trust greet` records the SHA-256 of the executable it consented to. If that

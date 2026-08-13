@@ -11,6 +11,7 @@ import {
   nodeExtensionFileSystem,
   parseTrustStore,
   readTrustPolicy,
+  readTrustPolicyReport,
   resolveSubcommand,
   revokeTrust,
   serializeTrustStore,
@@ -79,6 +80,17 @@ function readTrustStore(root: string): { readonly store: TrustStore } | { readon
   }
 }
 
+/** The effective policy, and everything that stopped it from being complete. */
+interface EffectivePolicy {
+  readonly policy: ExtensionTrustPolicy;
+  /**
+   * Empty when the policy is exactly what the operator wrote. A non-empty list
+   * means part of their intent could not be read, so this policy is not
+   * evidence of what they wanted.
+   */
+  readonly degraded: readonly string[];
+}
+
 /**
  * Resolve the effective policy: hand-authored configuration plus recorded
  * consent.
@@ -87,18 +99,45 @@ function readTrustStore(root: string): { readonly store: TrustStore } | { readon
  * corrupt store in particular must not degrade to "no entries", because that
  * would silently drop its `block` list — damage to the file would widen the
  * policy instead of narrowing it.
+ *
+ * Degradation is carried rather than swallowed. Falling back to the closed
+ * default is safe for the *configured* half of the policy but not for the
+ * recorded half: a config that will not parse takes its `block` list with it
+ * while stored grants keep working, which is a net loss of protection unless
+ * someone is told (ADR-0044).
  */
-function policyFor(root: string): ExtensionTrustPolicy {
+function policyFor(root: string): EffectivePolicy {
+  const degraded: string[] = [];
   const read = readTrustStore(root);
-  if (!("store" in read)) return readTrustPolicy(undefined);
-  try {
-    const config = new EpochRepository(root).repositoryConfig();
-    return withRecordedConsent(readTrustPolicy(config.extensions as Record<string, unknown> | undefined), read.store);
-  } catch {
-    // A repository whose configuration cannot be read still honours consent
-    // already recorded, but adopts no hand-authored policy.
-    return withRecordedConsent(readTrustPolicy(undefined), read.store);
+  if (!("store" in read)) {
+    return { policy: readTrustPolicy(undefined), degraded: [`recorded consent could not be read: ${read.error}`] };
   }
+
+  let table: Record<string, unknown> | undefined;
+  try {
+    const config = new EpochRepository(root).readRepositoryConfig();
+    for (const problem of config.problems) {
+      degraded.push(`${problem.path}:${problem.line}:${problem.column}: ${problem.reason}`);
+    }
+    const extensions: unknown = config.config.extensions;
+    if (extensions !== undefined && (typeof extensions !== "object" || extensions === null || Array.isArray(extensions))) {
+      degraded.push("[extensions] is not a table, so no trust policy could be read from it");
+    } else {
+      table = extensions as Record<string, unknown> | undefined;
+    }
+  } catch (error) {
+    degraded.push(`configuration could not be read: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const policy = readTrustPolicyReport(table);
+  for (const diagnostic of policy.diagnostics) {
+    degraded.push(`[extensions] ${diagnostic.key} ${diagnostic.message}`);
+  }
+  return { policy: withRecordedConsent(policy.policy, read.store), degraded };
+}
+
+function reportDegradation(degraded: readonly string[], io: ExtensionCliIO): void {
+  for (const note of degraded) io.stderr.write(`warning: ${note}\n`);
 }
 
 /**
@@ -152,8 +191,10 @@ export function runExtensionCommand(
   dependencies: ExtensionCliDependencies = {},
 ): void {
   const action = args[0] ?? "list";
-  const policy = policyFor(root);
+  const effective = policyFor(root);
+  const policy = effective.policy;
   const extensions = discover(root, dependencies);
+  reportDegradation(effective.degraded, io);
 
   if (action === "list") {
     if (extensions.length === 0) {
@@ -187,6 +228,9 @@ export function runExtensionCommand(
       manifestError: extension.manifestError ?? null,
       resolution: resolution.kind,
       trust: resolution.kind === "extension" || resolution.kind === "untrusted" ? resolution.trust : null,
+      // Named rather than omitted: an empty policy shown as though it were the
+      // operator's intent is the failure ADR-0044 exists to end.
+      policyDegraded: effective.degraded,
     }, null, 2)}\n`);
     return;
   }
@@ -260,12 +304,30 @@ export function dispatchExternalSubcommand(
   io: ExtensionCliIO,
   dependencies: ExtensionCliDependencies = {},
 ): ExternalDispatchResult {
-  const policy = policyFor(root);
+  const effective = policyFor(root);
   const extensions = discover(root, dependencies);
-  const resolution = resolveSubcommand(command, { builtins: BUILTIN_COMMANDS, extensions, policy });
+  const resolution = resolveSubcommand(command, {
+    builtins: BUILTIN_COMMANDS,
+    extensions,
+    policy: effective.policy,
+  });
 
   if (resolution.kind === "unknown" || resolution.kind === "builtin") {
     return { handled: false, exitCode: 1 };
+  }
+
+  // Launching is the one thing a degraded policy must not do. The half of the
+  // policy that survives a broken config is the half that *permits* — recorded
+  // grants — while the `block` list the operator hand-wrote is exactly what
+  // went missing, so proceeding would run code on the strength of an incomplete
+  // denial (ADR-0044).
+  if (effective.degraded.length > 0) {
+    reportDegradation(effective.degraded, io);
+    io.stderr.write(
+      `refusing to run extension '${command}': the trust policy could not be read in full, `
+      + "so it cannot be relied on to deny anything\n",
+    );
+    return { handled: true, exitCode: 1 };
   }
 
   if (resolution.kind === "untrusted") {

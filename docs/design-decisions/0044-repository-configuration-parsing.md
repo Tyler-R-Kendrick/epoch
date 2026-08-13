@@ -1,6 +1,6 @@
 # ADR-0044: Repository Configuration Parsing
 
-Status: Proposed
+Status: Accepted; implemented
 
 ## Context
 
@@ -57,7 +57,18 @@ The reader is replaced by a complete TOML 1.0 implementation: bare, quoted, and
 dotted keys; basic, literal, and multi-line strings with escape handling;
 integers, floats, booleans, offset and local date-times; arrays, inline tables,
 tables, and arrays of tables; comments recognised by a scanner that knows what a
-string is.
+string is. Redefinition in every form — a duplicate key, a second `[header]`, a
+header reopening a dotted key, an extension of an inline table — is an error
+rather than a last-writer-wins merge, because a document with two meanings has
+no meaning worth acting on.
+
+One deliberate departure from the specification: TOML integers are 64-bit and
+JavaScript numbers are not, so a value that cannot be represented exactly is
+**refused rather than rounded**. A byte limit that quietly became a different
+number reads as correct at every later use, which is the worse of the two
+failures. Date-times are their own type rather than `Date`, since three of the
+four TOML forms carry no offset and converting them would invent one from
+whichever zone the reader happens to run in.
 
 This is a bounded grammar, and correctness here is worth more than brevity. The
 alternative — a vetted dependency — is acceptable under
@@ -83,7 +94,11 @@ it:
 - `epoch ext list` and `ext show` mark the policy as degraded rather than
   displaying an empty one as though it were the operator's intent;
 - commands that only read configuration for convenience continue with defaults;
-  commands whose safety depends on it refuse.
+  commands whose safety depends on it refuse. Dispatching an extension is the
+  clearest case: the half of the policy that survives an unreadable config is
+  the half that *permits* — recorded grants — while the hand-written `block`
+  list is exactly what went missing, so a launch on that basis rests on a
+  denial nobody could read.
 
 ### Config values are validated, not just parsed
 

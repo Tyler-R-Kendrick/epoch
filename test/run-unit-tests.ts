@@ -45,6 +45,7 @@ import { runSemanticPipelineTests } from "./unit/semantic-pipeline.test";
 import { runExtensionMechanismTests } from "./unit/extension-mechanism.test";
 import { runExtensionCliTests } from "./unit/extension-cli.test";
 import { runWasmProviderTests } from "./unit/wasm-providers.test";
+import { runTomlParserTests } from "./unit/toml-parser.test";
 import { runCodeOperationContextTests } from "./unit/code-operation-context.test";
 
 async function main(): Promise<void> {
@@ -93,6 +94,7 @@ async function main(): Promise<void> {
   runExtensionMechanismTests();
   runExtensionCliTests();
   runWasmProviderTests();
+  runTomlParserTests();
   runCodeOperationContextTests();
   await runWasmReactShadowDomTests();
   await runEpochLiveReactTests();
