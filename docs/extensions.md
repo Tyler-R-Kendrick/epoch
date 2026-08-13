@@ -26,7 +26,10 @@ does not exist yet is the loader that turns a trusted `syntax`-capable
 extension into an in-process provider, so today no shipped extension can
 actually displace a builtin. The seam is deliberate — displacement is a change
 of behavior in signed evidence, and it should not land before provenance
-recording does.
+recording does. The design that fills it is
+[ADR-0041](design-decisions/0041-sandboxed-capability-providers.md): providers
+arrive as import-free WebAssembly modules, so code that shapes signed evidence
+is deterministic and holds no ambient authority.
 
 ## Discovery is not execution
 
@@ -118,7 +121,12 @@ Trust is granted only after all of the following hold:
 
 Because the canonical manifest includes `executable_sha256`, signing the
 manifest transitively binds the binary: a valid signed manifest cannot be
-paired with a swapped executable. Any failure is reported with a specific
+paired with a swapped executable.
+
+A publisher key currently has no lifecycle — the key *is* the identity, so a
+signature never expires and a compromised key cannot be withdrawn.
+[ADR-0042](design-decisions/0042-publisher-key-lifecycle.md) is the design for
+expiry, offline rotation, and revocation. Any failure is reported with a specific
 reason (`publisher-not-allowed`, `executable-mismatch`, `invalid-signature`)
 and the extension does not run.
 
@@ -269,6 +277,13 @@ extension can displace it, and any preemption is visible.
 Executability is decided per platform. On POSIX systems discovery requires an
 execute bit; on Windows it accepts `.exe`, `.com`, `.cmd`, and `.bat`, because
 Windows carries no POSIX mode bits and decides launchability by extension.
+
+Discovery and execution do not yet agree on Windows: Node refuses to spawn
+`.cmd` and `.bat` without a shell, so an extension shipped as a `.cmd` shim is
+discovered, trusted, and then fails at launch.
+[ADR-0040](design-decisions/0040-verified-launch-and-platform-execution-contract.md)
+is the design that reconciles them, and also closes the check-to-exec race by
+executing the descriptor whose bytes were digested.
 
 ## Boundaries
 

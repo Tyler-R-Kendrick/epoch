@@ -68,7 +68,8 @@ parser.
 Displacement is a design contract with the seam in place, not a shipped
 capability: `createSyntaxRegistry` accepts extension providers, but nothing
 loads one yet, so every `epoch semantic` invocation today resolves to a
-builtin. See the [implementation status](extensions.md#the-two-tiers) note.
+builtin. See the [implementation status](extensions.md#the-two-tiers) note and
+[ADR-0041](design-decisions/0041-sandboxed-capability-providers.md).
 
 The TOML provider covers the subset Epoch's own config uses. It refuses
 `[[array.of.tables]]` headers and multi-line `"""`/`'''` strings outright
@@ -181,6 +182,11 @@ dictionary 512 entries digest a1b2c3…
 `@epoch/semantic` is browser-safe and performs no byte-level entropy coding. It
 produces the boundaries, dedup table, dictionary, and delta that a host codec
 then encodes.
+
+`semantic plan` currently requires every input to resolve to one provider and
+refuses a mixed set, which means it cannot be pointed at a repository.
+[ADR-0043](design-decisions/0043-mixed-language-compression-planning.md) is the
+design for per-provider groups with a dictionary derived across all of them.
 
 ## Boundaries
 
