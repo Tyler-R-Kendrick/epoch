@@ -68,6 +68,19 @@ export {
 } from "./discovery";
 
 export {
+  DEFAULT_WASM_LIMITS,
+  instantiateWasmSyntaxModule,
+  limitBytes,
+  wasmSyntaxProvider,
+  WASM_PROVIDER_ABI_VERSION,
+  WasmProviderError,
+  type WasmProviderDeclaration,
+  type WasmProviderErrorCode,
+  type WasmProviderLimits,
+  type WasmSyntaxModule,
+} from "./wasm";
+
+export {
   buildExternalInvocation,
   resolveSubcommand,
   shadowedExtensions,

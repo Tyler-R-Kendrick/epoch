@@ -1,6 +1,6 @@
 # ADR-0041: Sandboxed Capability Providers
 
-Status: Proposed
+Status: Accepted; implemented for `syntax`
 
 ## Context
 
@@ -50,10 +50,15 @@ module = "difftastic-syntax.wasm"
 language = "typescript"
 ```
 
-The module is instantiated with **no imports**. It cannot open a file, read a
-clock, obtain entropy, or reach the network, because nothing in its environment
-offers those. This is not a policy that must be enforced; it is the absence of a
-capability, which is the only kind of sandbox that does not eventually leak.
+The module is instantiated with **one import: memory the host owns**. It cannot
+open a file, read a clock, obtain entropy, or reach the network, because nothing
+in its environment offers those. This is not a policy that must be enforced; it
+is the absence of a capability, which is the only kind of sandbox that does not
+eventually leak.
+
+Memory is imported rather than module-defined so the ceiling belongs to the
+host: `WebAssembly.Memory` with a `maximum` is enforced by the engine, where a
+module declaring its own limits would only be asked to behave.
 
 The ABI is deliberately small:
 
@@ -63,20 +68,33 @@ The ABI is deliberately small:
 | `alloc(len: i32) -> i32` | Host allocates guest memory for the input. |
 | `parse(ptr: i32, len: i32) -> i32` | Source text in, canonical JSON syntax tree out. |
 
-Input and output cross the boundary as UTF-8 in linear memory. The result is
+`parse` returns a pointer to an 8-byte `{pointer, length}` record addressing
+UTF-8 JSON. Input and output cross the boundary as UTF-8 in linear memory, and
+node offsets are **UTF-8 byte offsets**, which the host maps to the UTF-16 code
+units `SyntaxNode` uses — refusing a boundary that falls inside a character
+rather than rounding it into a wrong span. The result is
 the canonical JSON encoding of the same `SyntaxNode` shape builtin providers
 produce, so a WASM provider and a builtin are interchangeable to `semanticDiff`,
 `semanticMerge`, and `planCompression` without either knowing which it got.
 
 ### Determinism is structural, and its exceptions are named
 
-A WASM module with no imports is deterministic by construction, with three
-exceptions worth stating rather than discovering: NaN bit patterns may vary
-between engines, `memory.grow` may fail differently under different limits, and
-a module may not terminate. Epoch answers the third with a fuel limit and the
-second with a fixed memory ceiling, both recorded in the provider descriptor. A
-provider that exceeds either is a failed parse, which falls to the next level of
-the ADR-0038 ladder — not a crash, and not a silently degraded result.
+A WASM module with no ambient imports is deterministic by construction, with
+three exceptions worth stating rather than discovering: NaN bit patterns may
+vary between engines, `memory.grow` may fail differently under different limits,
+and a module may not terminate.
+
+Epoch answers the second with a fixed memory ceiling, recorded in the provider
+descriptor, and bounds the decoded result by node count and tree depth so a
+module cannot exhaust the host through its output.
+
+**It does not answer the third, and says so.** Terminating a running module
+needs instruction-level fuel accounting that the platform's `WebAssembly` API
+does not expose; a hostile module can therefore hang the process. That is the
+same exposure a Tier 1 subcommand already carries, and it is bounded by the same
+thing: the operator consented to this specific module by digest. The sandbox
+removes *authority*, not the ability to waste time. Claiming otherwise would be
+the more dangerous error.
 
 Because the module is content-addressed, `manifestDigest` in the
 `ProviderDescriptor` gains real force: two clones resolving the same provider
@@ -123,9 +141,10 @@ provider run in the Community Web surface.
 ## Revisit Criteria
 
 Revisit when the Component Model and WASI Preview 2 are stable enough to replace
-the hand-rolled ABI with typed interfaces; when a capability appears whose
-provider genuinely requires I/O and cannot be advisory; or if fuel accounting
-proves too coarse to distinguish a slow grammar from a hostile one.
+the hand-rolled ABI with typed interfaces; when a runtime with instruction-level
+fuel accounting is available, which would let a non-terminating module be
+stopped rather than merely bounded in memory; or when a capability appears whose
+provider genuinely requires I/O and cannot be advisory.
 
 ## Related
 
