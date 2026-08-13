@@ -22,11 +22,11 @@ Operations. These terms are contracts, not synonyms.
 | **Code Operation** | An explicitly recorded signed CRDT edit. It may link to a Change, session, tool, and private conversation digest. | Continuous capture of editor or terminal activity. |
 | **Residency** | Which verified objects are locally present. | Materialization or copy-on-write. |
 | **Workspace** | Materialized files owned by a provider and bound to repository state. | Execution isolation. |
-| **Repository Link** | An exact, read-only mount of another Repository's Version at a path in this Repository's namespace. Design-only ([ADR-0040](design-decisions/0040-repository-composition-and-links.md)). | A submodule, subtree, subrepo, or package dependency. |
+| **Repository Link** | An exact, read-only mount of another Repository's Version at a path in this Repository's namespace. ([ADR-0040](design-decisions/0040-repository-composition-and-links.md)). | A submodule, subtree, subrepo, or package dependency. |
 | **Composition** | The acyclic namespace graph produced by resolving a Repository's Links at an exact state. | A checkout, a manifest of remotes, or a package lock. |
-| **Selection** | Which resources in the composed namespace are relevant to one Workspace. Workspace-local by default. Design-only ([ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md)). | A View, a sparse-checkout pattern file, or Residency. |
+| **Selection** | Which resources in the composed namespace are relevant to one Workspace. Workspace-local by default. ([ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md)). | A View, a sparse-checkout pattern file, or Residency. |
 | **Materialization Mode** | How a Workspace realizes its Selection: `eager`, `explicit`, `lazy`, or `delta`. | Sparse checkout. `delta` is the mode formerly spelled `--virtual`. |
-| **Namespace Manifest** | The content-addressed directory DAG describing a Repository's namespace, bound by a Version or compact. Derived, never authoritative. Design-only. | A second history, or a signed working-tree cache. |
+| **Namespace Manifest** | The content-addressed directory DAG describing a Repository's namespace, bound by a Version or compact. Derived, never authoritative. | A second history, or a signed working-tree cache. |
 | **Sandbox** | An execution provider with declared process, filesystem, network, secret, and cleanup capabilities. | A View or Workspace. |
 | **Principal** | A human, agent, service, device, or organization identity. | A display name or author string. |
 | **Grant** | An attenuated authorization from an issuer to a subject. | Membership or identity. |

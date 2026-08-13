@@ -494,6 +494,8 @@ The current implementation does not provide:
 - byte-level entropy coding or a packfile format for semantic compression
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
 - writable nested Repository Links, overlapping mount roots, and transparent
-  lazy (VFS/FUSE) materialization — see
-  [ADR-0040](design-decisions/0040-repository-composition-and-links.md) and
-  [ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md)
+  lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`
+  ([ADR-0040](design-decisions/0040-repository-composition-and-links.md),
+  [ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md))
+- Repository Link resolution over the network: links resolve through injected
+  resolvers and local sibling repositories only

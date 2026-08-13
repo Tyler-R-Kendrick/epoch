@@ -1,6 +1,8 @@
 # ADR-0040: Repository Composition And Repository Links
 
-Status: Accepted (design). Not implemented.
+Status: Accepted and implemented for exact read-only links, vendorize with
+provenance, and repository-qualified dependency planning. Writable links and
+overlapping mounts remain out of scope.
 
 ## Context
 

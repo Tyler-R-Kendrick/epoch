@@ -9,9 +9,11 @@ Workspace selection is independent from object residency and execution isolation
 
 Metadata records resident objects, materialized paths or ranges, actual storage mode, and any separate sandbox identifier. Two logical workspaces in one process are not execution-isolated. The filesystem provider rejects traversal and existing symlink targets before writes or removal.
 
-The manifest provider's "selected paths" are the paths it materialized, not a
-declared user interest. A first-class Workspace Selection, named materialization
-modes, and composition across Repository Links are designed but not implemented;
-see [Repository Composition And Workspace Selection](repository-composition-and-selection.md).
+The manifest provider's "selected paths" are the paths it materialized. The
+declared user interest is a separate fact: the workspace-local **Selection**
+(`epoch workspace select`), which resolves against the composed namespace and
+drives what a checkout writes. Materialization is one of `eager`, `explicit`,
+`lazy`, or `delta`. See
+[Repository Composition And Workspace Selection](repository-composition-and-selection.md).
 
 See [ADR-0032](design-decisions/0032-residency-native-sync-and-workspace-providers.md).

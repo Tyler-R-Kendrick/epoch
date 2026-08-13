@@ -17,7 +17,7 @@ decisions, operations, or contribution workflow.
 | [Epoch Nomenclature](nomenclature.md) | Normative vocabulary and boundaries used across Protocol, Core, CLI, SDK, Community, and Operations. |
 | [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
-| [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | Design-only model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
+| [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | The model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
 | [Forge And Mirror Adapters](forge-adapters.md) | Authority, fidelity, loss, mirror safety, and federation codec boundaries. |
 | [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
 | [Design Critique Record](evidence/design-critique/README.md) | Both adversarial critique rounds against Community Web, the findings worked, measured before/after, and the residual list. |

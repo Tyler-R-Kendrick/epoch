@@ -1,6 +1,8 @@
 # ADR-0041: Workspace Selection, Materialization Modes, And The Namespace Manifest
 
-Status: Accepted (design). Not implemented.
+Status: Accepted and implemented. `lazy` materialization currently behaves like
+`explicit` because no provider can hydrate on access yet; that gap is stated
+below rather than hidden.
 
 ## Context
 

@@ -10,10 +10,9 @@ checkout. It writes the files that differ from a base view; a sparse checkout
 writes the files a user selected, whether or not they changed. ADR-0041 keeps
 this behavior, renames the mode to `delta`, makes `--virtual` a deprecated
 alias, and adds a separate workspace-local Selection for "which resources are
-relevant to me". The two remaining gaps recorded below — `checkout.json`
-enumerating every path, and entity snapshots never participating in sparse
-selection — are addressed there by the Namespace Manifest and by extending
-Selection to entity snapshots.
+relevant to me". Both are implemented. The `checkout.json` whole-namespace
+enumeration recorded below is superseded by the Namespace Manifest and sparse
+index, and entity snapshots now participate in Selection.
 
 ## Context
 

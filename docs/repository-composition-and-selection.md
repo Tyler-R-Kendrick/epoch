@@ -1,9 +1,9 @@
 # Repository Composition And Workspace Selection
 
-Status: design. Nothing in this document is implemented yet. It records the
-model Epoch should adopt for nested repositories, vendored source, monorepo
-scale, and partial workspaces, and the order in which that model should be
-built. The normative decisions are
+Status: implemented through step 3 of the order below; steps 4-6 remain
+outstanding and are marked as such. This document records the model Epoch uses
+for nested repositories, vendored source, monorepo scale, and partial
+workspaces. The normative decisions are
 [ADR-0040](design-decisions/0040-repository-composition-and-links.md) and
 [ADR-0041](design-decisions/0041-workspace-selection-and-materialization-modes.md).
 
@@ -503,33 +503,35 @@ explicit layered-composition rule with deterministic precedence, ownership,
 conflict, and rollback semantics — which is exactly why overlapping mount roots
 are excluded from v1 rather than smuggled in.
 
-## Implementation Order
+## Implementation Order And Current State
 
-1. **Correct and expose the existing separation.** Rename virtual checkout
-   semantics to `delta`; add workspace-local Selection with exact path cones and
-   set algebra; wire Selection into workspace manifests, hydrate, status,
-   browser providers, and sync filters; keep `--virtual` as a deprecated alias.
-2. **Remove `O(total paths)` metadata.** Add the Namespace Manifest DAG, bind
-   its root into Version/compact evidence, replace full-path `checkout.json`
-   requirements with selected entries plus opaque subtree references, and extend
-   Selection to CRDT entity snapshots (the gap ADR-0014 already records).
-3. **Add exact read-only Repository Links.** Stable link identity, exact
-   target, one source prefix per mount path, recursive Selection propagation,
-   resolver policy and promise routing, and closed-form validation for cycles,
-   collisions, symlinks, authorization, and availability.
-4. **Complete interoperability.** Submodule import/export, Repo manifest
-   import/export, vendorize with signed provenance, monorepo subset projection,
-   and projection fidelity reports.
-5. **Add cross-repository collaboration.** Repository-qualified Change
-   dependencies, multi-repository Review Bundles, parent-pin update automation,
-   publication receipts and recovery, and transactional publication only where a
-   provider can prove it.
-6. **Last: transparent lazy filesystems and writable composition.** Epoch has no
-   kernel VFS/FUSE or read-hook hydration today, and explicit `hydrate` plus
-   full checkout remain the truthful escape paths. Transparent hydration follows
-   only after Selection, promise routing, namespace indexing, and failure
-   semantics are stable; writable nested Links follow only after cross-repository
-   ownership and publication behavior is proven.
+1. **Correct and expose the existing separation.** *Done.* Virtual checkout
+   semantics are renamed to `delta` with `--virtual` kept as a deprecated alias;
+   workspace-local Selection ships with exact path cones and set algebra, wired
+   into checkout, the checkout manifest, hydrate, and the CLI.
+2. **Remove `O(total paths)` metadata.** *Done.* The Namespace Manifest DAG is
+   content-addressed and shards very large directories; `workspace select index`
+   emits selected entries plus opaque subtree references; entity snapshots
+   participate in Selection, closing the gap ADR-0014 recorded.
+3. **Add exact read-only Repository Links.** *Done.* Stable link identity, exact
+   target, one source prefix per mount, Selection translation across a mount, and
+   closed-form validation for cycles, mount collisions and overlaps, case-folding
+   collisions, namespace escape, and availability versus integrity.
+4. **Complete interoperability.** *Outstanding.* Submodule import/export, Repo
+   manifest import/export, monorepo subset projection, and projection fidelity
+   reports. Vendorize with signed provenance and its three-way update plan are
+   done; the Git-side adapters are not.
+5. **Add cross-repository collaboration.** *Partial.* Repository-qualified
+   dependencies validate and plan publication honestly, including refusing to
+   claim atomicity without a shared transaction authority. Multi-repository
+   Review Bundles, parent-pin update automation, and publication receipts are
+   outstanding.
+6. **Last: transparent lazy filesystems and writable composition.**
+   *Outstanding, deliberately.* There is no kernel VFS/FUSE or read-hook
+   hydration, so `lazy` currently behaves like `explicit` and explicit `hydrate`
+   plus full checkout remain the truthful escape paths. Writable nested Links and
+   overlapping mount roots stay out of scope until cross-repository ownership and
+   publication behavior are proven.
 
 ## Source Grounding
 
