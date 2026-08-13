@@ -181,3 +181,58 @@ Feature: CLI and WASM integration surfaces
     Then WASM Git fails with "native Git repository access is unavailable"
     When I run unsupported WASM Git clone for "https://example.invalid/repo.git"
     Then WASM Git fails with "native Git clone is unavailable"
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor merges concurrent dependency additions without a false conflict
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I write raw workspace file "base.json" with content "{\n  \"zod\": \"4\"\n}\n"
+    And I write raw workspace file "mine.json" with content "{\n  \"zod\": \"4\",\n  \"xstate\": \"5\"\n}\n"
+    And I write raw workspace file "theirs.json" with content "{\n  \"zod\": \"4\",\n  \"playwright\": \"1\"\n}\n"
+    And I run the Epoch CLI with arguments:
+      | semantic    |
+      | merge       |
+      | base.json   |
+      | mine.json   |
+      | theirs.json |
+    Then the CLI exits with code 0
+    And the CLI output contains "\"xstate\": \"5\""
+    And the CLI output contains "\"playwright\": \"1\""
+    And the CLI output contains "\"zod\": \"4\""
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor sees a diff name the changed value, not the surrounding lines
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I write raw workspace file "before.json" with content "{\n  \"name\": \"epoch\",\n  \"version\": \"0.1.0\"\n}\n"
+    And I write raw workspace file "after.json" with content "{\n  \"name\": \"epoch\",\n  \"version\": \"0.2.0\"\n}\n"
+    And I run the Epoch CLI with arguments:
+      | semantic     |
+      | diff         |
+      | before.json  |
+      | after.json   |
+    Then the CLI exits with code 0
+    And the CLI output contains "update object#0/member:version"
+    And the CLI output does not contain "member:name"
+
+  @persona.maintainer
+  Scenario: Maintainer is told when a discovered extension is not trusted
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | ext  |
+      | list |
+    Then the CLI exits with code 0
+    And the CLI output contains "no extensions discovered"

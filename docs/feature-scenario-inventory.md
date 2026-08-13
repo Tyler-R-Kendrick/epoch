@@ -10,7 +10,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 |---|---:|
 | `features/actors.feature` | 4 |
 | `features/advanced_collaboration.feature` | 9 |
-| `features/cli_wasm.feature` | 5 |
+| `features/cli_wasm.feature` | 8 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
 | `features/community_web_experience.feature` | 47 |
@@ -54,6 +54,9 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI policy, view, sync, Git import/export, and DR commands are covered | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI errors and Git compatibility command wrapper return failures | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | WASM exports support CRDT helpers and reject native Git operations | None | 0 |
+| `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor merges concurrent dependency additions without a false conflict | None | 0 |
+| `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor sees a diff name the changed value, not the surrounding lines | None | 0 |
+| `features/cli_wasm.feature` | `@persona.maintainer` | Scenario | Maintainer is told when a discovered extension is not trusted | None | 0 |
 | `features/community_agent_sandboxes.feature` | `@persona.maintainer` | Scenario | Maintainer starts a policy-bound agent sandbox from a signed intent | None | 0 |
 | `features/community_agent_sandboxes.feature` | `@persona.maintainer` | Scenario | Maintainer reviews a completed agent sandbox result | None | 0 |
 | `features/community_agent_sandboxes.feature` | `@persona.maintainer` | Scenario | Maintainer retries a failed agent sandbox without losing failure evidence | None | 0 |

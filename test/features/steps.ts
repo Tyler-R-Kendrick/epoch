@@ -725,6 +725,10 @@ Then("the CLI output contains {string}", function (expected: string) {
   assert.match(state.cliStdout ?? "", new RegExp(escapeForRegExp(expected)));
 });
 
+Then("the CLI output does not contain {string}", function (unexpected: string) {
+  assert.doesNotMatch(state.cliStdout ?? "", new RegExp(escapeForRegExp(unexpected)));
+});
+
 Then("the CLI error contains {string}", function (expected: string) {
   assert.match(state.cliStderr ?? "", new RegExp(escapeForRegExp(expected)));
 });
