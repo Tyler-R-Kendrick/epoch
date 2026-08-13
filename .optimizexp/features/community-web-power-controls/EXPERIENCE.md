@@ -2,7 +2,7 @@
 
 - experienceId: community-web-power-controls
 - personaId: forge-community-power-user
-- entryCommand: open `http://127.0.0.1:8787/`, enter Nightboard, and use the message list or `macro` command
+- entryCommand: open `http://127.0.0.1:8787/`, enter Community Web, and use the message list or `macro` command
 - driver: web
 - intent: A keyboard-first power user must navigate dense conversations, recover or prime a workspace with one restart action, keep model routing cache-sticky, build HoBo apps through deterministic templates, and expand the focused panel without losing context.
 
@@ -11,7 +11,7 @@
 1. Who is the persona and what are they trying to finish in the next 2 minutes?
    - An agentic coding power user resumes or primes the current workspace, then uses Bo's deterministic HoBo app loop without relearning model, template, or deployment controls.
 2. What exact command / UI path do they take from a clean machine?
-   - Open the local Epoch landing page, enter Nightboard, press `Ctrl+U` when the bottom line offers continuation/update/workspace priming, open `/.agents/bo`, run the deterministic `hobo new`/`build`/`test`/`debug`/`up` actions, and expand the focused panel with `z` or `Alt+Z`.
+   - Open the local Epoch landing page, enter Community Web, press `Ctrl+U` when the bottom line offers continuation/update/workspace priming, open `/.agents/bo`, run the deterministic `hobo new`/`build`/`test`/`debug`/`up` actions, and expand the focused panel with `z` or `Alt+Z`.
 3. What do they see first? (quote expected chrome, not vibes)
    - The board shows the terminal-style channel rail, dense message rows, sticky prompt, and a bottom line naming one recommended next action plus its hotkey.
 4. What would make them think they opened the wrong product?
@@ -21,7 +21,7 @@
 6. Failure path: how do they break it, what must the product say?
    - Ctrl+U inside the editor with no startup action must remain page-up; invalid continuation/update/workspace metadata must fail closed; a route may change only after explicit invalidation; an unknown HoBo template or deploy target must produce an actionable refusal rather than guessed code or fake success.
 7. What evidence will prove a human/agent actually ran this? (driver + command)
-   - The Nightboard Playwright flow records startup detection and Ctrl+U, sticky routing, Bo/HoBo deterministic output, bottom-line guidance, focus-panel expansion, editor shortcut preservation, and axe results against `http://127.0.0.1:8787/`.
+   - The Community Web Playwright flow records startup detection and Ctrl+U, sticky routing, Bo/HoBo deterministic output, bottom-line guidance, focus-panel expansion, editor shortcut preservation, and axe results against `http://127.0.0.1:8787/`.
 8. What is deliberately out of scope for this feature folder?
    - Arbitrary shell execution, package installation, live provider credentials, a bundled gateway process, self-updating binaries, and cross-device session synchronization.
 
@@ -40,7 +40,7 @@
 ## Verdict
 
 - accept
-- primaryCommand: `npm run nightboard:e2e`
+- primaryCommand: `npm run community-web:app:e2e`
 - driver: web
 - scenarios:
   - Screen-reader power user traverses messages with one roving tab stop

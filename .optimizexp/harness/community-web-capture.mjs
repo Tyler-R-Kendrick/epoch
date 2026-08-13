@@ -91,38 +91,38 @@ try {
       click('[data-message-id="idea-region-revenue"] [data-action="intent"]'); frame("03-offline-outcome"); break;
     case "forge-power-user-operates-every-focused-post-action-by-keyboard":
       press("Escape"); pause();
-      evaluate("NB_APP.navigate('/projects/community/channels/general');NB_APP.state.columnFocus=true;NB_APP.state.feedMark='p1';NB_APP.render(true);document.querySelector('.cn-comment[data-key=\\\"p1\\\"]')?.focus();true");
+      evaluate("CW_APP.navigate('/projects/community/channels/general');CW_APP.state.columnFocus=true;CW_APP.state.feedMark='p1';CW_APP.render(true);document.querySelector('.cn-comment[data-key=\\\"p1\\\"]')?.focus();true");
       frame("02-focused-actions");
       press("u"); press("d"); press("a"); frame("03-reaction-picker");
       press("f"); press("Shift+r"); frame("04-folded-reposted");
       press("s"); press("y"); press("r"); frame("05-reply-armed"); break;
     case "screen-reader-power-user-discovers-every-post-action-shortcut":
       press("Escape"); pause();
-      evaluate("NB_APP.navigate('/projects/community/channels/general');NB_APP.state.columnFocus=true;NB_APP.state.feedMark='p1';NB_APP.render(true);document.querySelector('.cn-comment[data-key=\\\"p1\\\"]')?.focus();true");
+      evaluate("CW_APP.navigate('/projects/community/channels/general');CW_APP.state.columnFocus=true;CW_APP.state.feedMark='p1';CW_APP.render(true);document.querySelector('.cn-comment[data-key=\\\"p1\\\"]')?.focus();true");
       frame("02-focused-actions");
       press("Control+Space"); pause(); frame("03-focused-shortcut-sheet");
       run(["scrollintoview", '[data-key="hg-thread"]']); pause(); frame("04-action-shortcuts"); break;
     case "agentic-coding-power-user-consumes-compatible-startup-conditions-with-one-restart":
       press("Escape"); pause();
-      evaluate(`localStorage.setItem("nb-startup-signals-v1",JSON.stringify({continuation:{host:"codex",sessionId:"visual-codex",workspace:"epoch"},update:{current:"0.8.0",available:"0.9.0"},workspace:{id:"epoch",defaultsVersion:2,appliedVersion:1}}));location.reload();true`);
+      evaluate(`localStorage.setItem("cw-startup-signals-v1",JSON.stringify({continuation:{host:"codex",sessionId:"visual-codex",workspace:"epoch"},update:{current:"0.8.0",available:"0.9.0"},workspace:{id:"epoch",defaultsVersion:2,appliedVersion:1}}));location.reload();true`);
       run(["wait", "900"]); frame("02-restart-offer");
       press("Control+u"); run(["wait", "900"]); frame("03-restarted"); break;
     case "app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback-narrow":
     case "app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback":
       press("Escape"); pause();
-      evaluate("NB_APP.navigate('/.agents/bo');true"); pause(); frame("02-bo-agent");
+      evaluate("CW_APP.navigate('/.agents/bo');true"); pause(); frame("02-bo-agent");
       run(["fill", "[data-cli]", "hobo new visual-app --template api"]); press("Enter"); pause();
       frame("03-hobo-new"); break;
     case "forge-power-user-expands-and-restores-the-focused-panel-narrow":
     case "forge-power-user-expands-and-restores-the-focused-panel":
       press("Escape"); pause();
-      evaluate("NB_APP.navigate('/projects/community/channels/general');NB_APP.state.columnFocus=true;NB_APP.state.focus=1;NB_APP.render(true);true");
+      evaluate("CW_APP.navigate('/projects/community/channels/general');CW_APP.state.columnFocus=true;CW_APP.state.focus=1;CW_APP.render(true);true");
       press("z"); pause(); frame("02-focused-panel-expanded");
       press("z"); pause(); frame("03-focused-panel-restored"); break;
   }
 
   const observationExpression = nightboard
-    ? `JSON.stringify((()=>{const post=document.querySelector('.cn-comment[data-key="p1"]');return{title:document.title,path:NB_APP.state.path,viewport:{width:innerWidth,height:innerHeight},horizontalOverflow:document.documentElement.scrollWidth>innerWidth,focused:document.activeElement?.getAttribute('data-key')||document.activeElement?.getAttribute('aria-label'),actions:[...post?.querySelectorAll('[aria-keyshortcuts]')||[]].map(x=>({label:x.getAttribute('aria-label')||x.textContent?.trim(),key:x.getAttribute('aria-keyshortcuts'),pressed:x.getAttribute('aria-pressed')})),reposted:NB_APP.state.reposts.p1===true,reply:NB_APP.composeContext?.()}})())`
+    ? `JSON.stringify((()=>{const post=document.querySelector('.cn-comment[data-key="p1"]');return{title:document.title,path:CW_APP.state.path,viewport:{width:innerWidth,height:innerHeight},horizontalOverflow:document.documentElement.scrollWidth>innerWidth,focused:document.activeElement?.getAttribute('data-key')||document.activeElement?.getAttribute('aria-label'),actions:[...post?.querySelectorAll('[aria-keyshortcuts]')||[]].map(x=>({label:x.getAttribute('aria-label')||x.textContent?.trim(),key:x.getAttribute('aria-keyshortcuts'),pressed:x.getAttribute('aria-pressed')})),reposted:CW_APP.state.reposts.p1===true,reply:CW_APP.composeContext?.()}})())`
     : `JSON.stringify((()=>{const buttons=[...document.querySelectorAll('button')].filter(x=>x.getClientRects().length);const rail=document.querySelector('.channel-rail')?.getBoundingClientRect();return{title:document.title,heading:document.querySelector('h1')?.textContent?.trim(),activeLabels:[...document.querySelectorAll('[aria-pressed="true"]')].map(x=>x.textContent?.trim()),viewport:{width:innerWidth,height:innerHeight},document:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},horizontalOverflow:document.documentElement.scrollWidth>innerWidth,railHeight:rail?.height,railViewportRatio:rail?rail.height/innerHeight:null,minVisibleButtonHeight:Math.min(...buttons.map(x=>x.getBoundingClientRect().height)),status:document.querySelector('[data-action-status]:not([hidden])')?.textContent?.trim()||null,focused:document.activeElement?.getAttribute('aria-label')||document.activeElement?.textContent?.trim()||null}})())`;
   const payload = evaluate(observationExpression);
   const observations = typeof payload === "string" ? JSON.parse(payload) : payload;

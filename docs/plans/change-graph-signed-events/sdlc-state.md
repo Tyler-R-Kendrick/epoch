@@ -24,7 +24,7 @@ Save Code Now archival (`EPOCH_SWH_SAVE_URL`) are implemented.
 - Full `npm run test:unit:runtime` passed
 - `npm run gate:fast` passed
 - Workspace typecheck passed
-- Quality Gates, Coverage, Pact, Nightboard, A11y, and Vercel passed on #122
+- Quality Gates, Coverage, Pact, Community Web, A11y, and Vercel passed on #122
 - CodeRabbit stayed rate-limited / non-blocking
 
 ## Authority decisions

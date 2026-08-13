@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: Epoch Nightboard
+name: Epoch Community Web
 description: Tron-inspired terminal community board — keyboard-first TUI chrome, Grid theme, signed conversation becoming work.
 colors:
   primary: "#03050a"
@@ -41,7 +41,7 @@ colors:
   avatar: "#0c121c"
   avatar-ink: "#c8d0d8"
   # Compatibility aliases for non-canonical package renderers and sibling apps.
-  # Do not use these in Nightboard UI; prefer accent / agent / signed / live / warn / danger.
+  # Do not use these in Community Web UI; prefer accent / agent / signed / live / warn / danger.
   runnable: "#0c121c"
   rough: "#1a2836"
   rough-strong: "#2a3c50"
@@ -142,10 +142,10 @@ components:
     backgroundColor: "{colors.agent}"
 ---
 
-# Epoch Nightboard Design
+# Epoch Community Web Design
 
-Living reference implementation: [`docs/design-explorations/nightboard/`](docs/design-explorations/nightboard/).
-Authority: [ADR-0027](docs/design-decisions/0027-community-visual-world-nightboard.md).
+Living reference implementation: [`packages/Epoch.Community.Web/app/`](packages/Epoch.Community.Web/app/).
+Authority: [ADR-0027](docs/design-decisions/0027-community-visual-world.md).
 Course Line archive: [`docs/design-explorations/redesign-2026/DESIGN-course-line-archived.md`](docs/design-explorations/redesign-2026/DESIGN-course-line-archived.md).
 
 ## Overview
@@ -202,9 +202,9 @@ wears `[label]` TTY brackets (sort chips, masthead actions, filters).
 
 - **Whole page is the TUI** — workspace tabs, blades, prompt foot; no side
   terminal panel.
-- **Regions** (Nightboard contract): masthead, rail, stream, notice, detail,
+- **Regions** (Community Web contract): masthead, rail, stream, notice, detail,
   composer, status.
-- **Density:** character-grid rhythm (`--nb-cell`); hairline rules; reverse
+- **Density:** character-grid rhythm (`--cw-cell`); hairline rules; reverse
   video for selection.
 - **Composer / CLI** sticky in the foot; status line always exposes key help.
 
@@ -243,7 +243,7 @@ All radii `0`. Square avatars / leads. No pills, no bubbles, no soft cards.
 
 ### Do
 
-- **Do** treat `docs/design-explorations/nightboard/` as the highest-fidelity
+- **Do** treat `packages/Epoch.Community.Web/app/` as the highest-fidelity
   reference until Community Web reaches parity.
 - **Do** keep hotkeys documented in the status line and `?` help.
 - **Do** preserve AA contrast under glow/scan.

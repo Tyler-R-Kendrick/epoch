@@ -5,7 +5,7 @@
 - Observed research baseline: `698e54e31dd185438f3fc9591d75352f621e67a4`
 - Actual starting commit: `a0c427c2e731dd26cdb933c1a08785f9e4c743ee`
 - Working branch: `feat/frontier-vcs-convergence`
-- Newer compatible work preserved: Nightboard canonical object/projection/navigation convergence from PR 115.
+- Newer compatible work preserved: Community Web canonical object/projection/navigation convergence from PR 115.
 - Dirty-state policy: preserve all pre-existing untracked Cursor, Impeccable, OptimizeXP, Serena, CanvasUI, and focused storage/sync test artifacts. No reset or cleanup is authorized.
 
 ## Phase
@@ -45,9 +45,9 @@ local and authoritative CI gates completed successfully.
 
 - Independent review findings were repaired at the shared trust boundaries: server-derived merge authority, grant ancestry on budget use, authoritative dependency closure and review evidence, canonical CLI/revision IDs, verified NIP-34/Radicle codec evidence, truthful atomic capabilities, one SWHID parser, and event-specific JSON Schemas.
 - `npm run verify` and the clean Node 22 `npm run coverage` reproduction exit 0 after those repairs.
-- GitHub Actions run [`31608720542`](https://github.com/Tyler-R-Kendrick/epoch/actions/runs/31608720542) passed Build, Docs, Lint, Konsistent, Design, Typecheck, Test, Coverage, Pact, Community accessibility, and Nightboard accessibility/fault/e2e jobs; Vercel also passed.
+- GitHub Actions run [`31608720542`](https://github.com/Tyler-R-Kendrick/epoch/actions/runs/31608720542) passed Build, Docs, Lint, Konsistent, Design, Typecheck, Test, Coverage, Pact, Community accessibility, and Community Web accessibility/fault/e2e jobs; Vercel also passed.
 - Coverage remained above the existing thresholds: 80.06% lines/statements, 86.63% functions, and 78.02% branches.
-- Generated Protocol schemas and the Nightboard Core browser runtime both pass freshness checks.
+- Generated Protocol schemas and the Community Web Core browser runtime both pass freshness checks.
 - Existing unrelated untracked Cursor, Impeccable, OptimizeXP, Serena, and CanvasUI work remains untouched.
 
 ## Closeout

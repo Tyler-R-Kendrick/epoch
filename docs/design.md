@@ -316,11 +316,11 @@ object store, sync seed, and any explicitly registered Epoch app. Its
 `communityWorkflows` surface is intentionally empty.
 
 `Epoch.Community.Web` is a separate deployable Epoch community product. Its
-canonical browser runtime is Nightboard: a CanvasUI creator landing at `/` and
+canonical browser runtime is Community Web: a CanvasUI creator landing at `/` and
 a tmux-style, keyboard-first board at `/board.html`, both sourced from
-`docs/design-explorations/nightboard`. The local server and Vercel static build
+`packages/Epoch.Community.Web/app`. The local server and Vercel static build
 use that same source tree, so no second visual shell can drift into production.
-Nightboard renders a hierarchical navigator + detail blade over Community
+Community Web renders a hierarchical navigator + detail blade over Community
 Core's stable objects, explicit relations, projections, navigation operations,
 normalized saved queries, and action descriptors. Filesystem-like paths are a
 namespace adapter rather than object identity; reply ancestry and tombstones
@@ -354,9 +354,9 @@ See [Epoch Platform Packages](platforms.md) and
 Community design-system decision and
 [ADR-0011](design-decisions/0011-community-web-dogfoods-epoch.md) for the
 Community Web dogfooding history and
-[ADR-0027](design-decisions/0027-community-visual-world-nightboard.md) for the
+[ADR-0027](design-decisions/0027-community-visual-world.md) for the
 canonical runtime decision, and
-[ADR-0028](design-decisions/0028-nightboard-startup-routing-and-hobo-authoring.md)
+[ADR-0028](design-decisions/0028-community-web-startup-routing-and-hobo-authoring.md)
 for recoverable startup, workspace-sticky model routing, and deterministic HoBo
 authoring through the default Bo agent.
 
@@ -423,7 +423,7 @@ personal preference change cannot implicitly become a community-wide publish, an
 prompts are stored as digests unless the caller retains the text.
 
 Community Web itself is not yet built from this runtime — deployment still ships
-the Nightboard design exploration. See
+the Community Web design exploration. See
 [Community Web As An Epoch Participant](community-web-epoch-integration.md) for
 the verified gap ledger and the remaining workstreams, and
 [ADR-0042](design-decisions/0042-community-runtime-command-layer.md).

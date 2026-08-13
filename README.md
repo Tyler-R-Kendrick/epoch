@@ -26,8 +26,9 @@ Core SDK, Node CLI, WASM-safe exports, browser integration adapters, an
 plane domain and SDK surfaces. `Epoch.Platform.Web` is the PWA hosting control
 plane for deploying Epoch-related services. `Epoch.Community.Web` is the
 GitHub-like community app that Platform Web can deploy and manage as a
-separate service. Its canonical UI is Nightboard: the CanvasUI-powered creator
-landing at `/` and the tmux-style, keyboard-first board at `/board.html`.
+separate service: the CanvasUI-powered creator landing at `/` and the
+tmux-style, keyboard-first board at `/board.html`, both built and deployed from
+that one package.
 Community behavior is split through
 `Epoch.Community.API`, `Epoch.Community.Core`, `Epoch.Community.Runtime`,
 `Epoch.Community.CLI`, and `Epoch.Community.Web`. `Epoch.Community.Runtime` is
@@ -194,7 +195,7 @@ High-value entry points:
 | Core SDK, actor API, and React integration | [docs/sdk.md](docs/sdk.md) |
 | Platform web apps | [docs/platforms.md](docs/platforms.md) |
 | Community Web experience | [docs/community-web-experience.md](docs/community-web-experience.md) |
-| Nightboard navigation/projection parity | [docs/evidence/nightboard-navigation-projection-parity/README.md](docs/evidence/nightboard-navigation-projection-parity/README.md) |
+| Community Web navigation/projection parity | [docs/evidence/community-web-app-navigation-projection-parity/README.md](docs/evidence/community-web-app-navigation-projection-parity/README.md) |
 | Community Operations extension | [docs/community-operations.md](docs/community-operations.md) |
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |

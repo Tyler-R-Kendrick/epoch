@@ -366,10 +366,10 @@ function renderScriptProducesDeployableCommunityHtml(): void {
 
   const html = readFileSync(join(outputDirectory, "index.html"), "utf8");
   const board = readFileSync(join(outputDirectory, "board.html"), "utf8");
-  assert.match(html, /<body class="nb-landing"/u);
+  assert.match(html, /<body class="cw-landing"/u);
   assert.match(html, /Collaborate\. Promote your work\. Get paid\./u);
   assert.match(html, /href="board\.html"/u);
-  assert.match(board, /class="nb-bar" role="banner"/u);
+  assert.match(board, /class="cw-bar" role="banner"/u);
   assert.match(board, /data-gridroad/u);
   assert.match(board, /data-mount data-exp="graph"/u);
   assert.ok(existsSync(join(outputDirectory, "canvasui-fx.js")));
@@ -381,7 +381,7 @@ function renderScriptProducesDeployableCommunityHtml(): void {
 
 function renderScriptRejectsAnOutputContainingItsSource(): void {
   const workspace = mkdtempSync(join(tmpdir(), "epoch-community-render-guard-"));
-  const source = join(workspace, "docs", "design-explorations", "nightboard");
+  const source = join(workspace, "packages", "Epoch.Community.Web", "app");
   const marker = join(source, "index.html");
   mkdirSync(source, { recursive: true });
   writeFileSync(marker, "keep\n");
@@ -389,7 +389,7 @@ function renderScriptRejectsAnOutputContainingItsSource(): void {
   assert.throws(() => execFileSync(process.execPath, [
     join(process.cwd(), "scripts", "render-community-web.mjs"),
     "--output",
-    join(workspace, "docs", "design-explorations"),
+    join(workspace, "packages", "Epoch.Community.Web"),
   ], { cwd: workspace, stdio: "pipe" }));
   assert.equal(readFileSync(marker, "utf8"), "keep\n");
 }

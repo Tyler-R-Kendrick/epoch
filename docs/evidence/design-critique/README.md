@@ -74,10 +74,10 @@ Trust theater (provenance behind one disclosure).
   and one or two actions.
 - Repo-plane h1 is still the repo slug; the breadcrumb carries the community.
 
-## Canonical Nightboard promotion — PASS (2026-08-10)
+## Canonical Community Web promotion — PASS (2026-08-10)
 
-The reviewed change does not redesign Nightboard; it removes the superseded
-Civic Workshop local/deployment entrypoints so the already-approved Nightboard
+The reviewed change does not redesign Community Web; it removes the superseded
+Civic Workshop local/deployment entrypoints so the already-approved Community Web
 landing and board are the product users actually receive.
 
 Persona: `@persona.github_open_source_contributor` / GitHub open-source contributor
@@ -104,6 +104,6 @@ Evidence: `.optimizexp/audits/token-conformance.json` (0 findings),
 `.optimizexp/defects.json` (no open defects),
 `features/community_web_experience.feature`,
 `test/features/community_web_experience_steps.ts`, and
-`docs/evidence/nightboard/`. The deterministic Impeccable detector returned no
-findings for `docs/design-explorations/nightboard/index.html`; rendered DOM and
+`docs/evidence/community-web-app/`. The deterministic Impeccable detector returned no
+findings for `packages/Epoch.Community.Web/app/index.html`; rendered DOM and
 desktop/mobile screenshots were inspected from the local canonical server.

@@ -1941,10 +1941,10 @@
       },
       {
         "description": "",
-        "id": "community-web-community-first-experience;contributor-enters-the-nightboard-community-from-the-epoch-landing",
+        "id": "community-web-community-first-experience;contributor-enters-the-community-web-community-from-the-epoch-landing",
         "keyword": "Scenario",
         "line": 98,
-        "name": "Contributor enters the Nightboard community from the Epoch landing",
+        "name": "Contributor enters the Community Web community from the Epoch landing",
         "steps": [
           {
             "keyword": "Before",
@@ -2026,7 +2026,7 @@
             "arguments": [],
             "keyword": "Then ",
             "line": 103,
-            "name": "the tmux-style Nightboard is ready for keyboard collaboration",
+            "name": "the tmux-style Community Web is ready for keyboard collaboration",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:122"
             },
@@ -2102,10 +2102,10 @@
       },
       {
         "description": "",
-        "id": "community-web-community-first-experience;power-user-traverses-nightboard-messages-without-a-pointer",
+        "id": "community-web-community-first-experience;power-user-traverses-community-web-messages-without-a-pointer",
         "keyword": "Scenario",
         "line": 106,
-        "name": "Power user traverses Nightboard messages without a pointer",
+        "name": "Power user traverses Community Web messages without a pointer",
         "steps": [
           {
             "keyword": "Before",
@@ -2174,7 +2174,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 110,
-            "name": "I open the Nightboard general channel from the prompt",
+            "name": "I open the Community Web general channel from the prompt",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:129"
             },
@@ -2187,7 +2187,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 111,
-            "name": "I move to the next Nightboard message and open its thread by keyboard",
+            "name": "I move to the next Community Web message and open its thread by keyboard",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:139"
             },
@@ -2200,7 +2200,7 @@
             "arguments": [],
             "keyword": "Then ",
             "line": 112,
-            "name": "the selected Nightboard message remains the single focused feed item",
+            "name": "the selected Community Web message remains the single focused feed item",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:157"
             },
@@ -2276,10 +2276,10 @@
       },
       {
         "description": "",
-        "id": "community-web-community-first-experience;power-user-operates-every-nightboard-post-action-without-a-pointer",
+        "id": "community-web-community-first-experience;power-user-operates-every-community-web-post-action-without-a-pointer",
         "keyword": "Scenario",
         "line": 115,
-        "name": "Power user operates every Nightboard post action without a pointer",
+        "name": "Power user operates every Community Web post action without a pointer",
         "steps": [
           {
             "keyword": "Before",
@@ -2348,7 +2348,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 119,
-            "name": "I operate every focused Nightboard post action by keyboard",
+            "name": "I operate every focused Community Web post action by keyboard",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:433"
             },
@@ -2509,7 +2509,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 127,
-            "name": "I browse Nightboard message directories with cd completion",
+            "name": "I browse Community Web message directories with cd completion",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:525"
             },
@@ -2598,10 +2598,10 @@
       },
       {
         "description": "",
-        "id": "community-web-community-first-experience;power-user-navigates-a-nightboard-context-menu-without-losing-focus",
+        "id": "community-web-community-first-experience;power-user-navigates-a-community-web-context-menu-without-losing-focus",
         "keyword": "Scenario",
         "line": 131,
-        "name": "Power user navigates a Nightboard context menu without losing focus",
+        "name": "Power user navigates a Community Web context menu without losing focus",
         "steps": [
           {
             "keyword": "Before",
@@ -2683,7 +2683,7 @@
             "arguments": [],
             "keyword": "Then ",
             "line": 136,
-            "name": "the Nightboard context menu retains focus without moving the nav selection",
+            "name": "the Community Web context menu retains focus without moving the nav selection",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:613"
             },
@@ -2831,7 +2831,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 143,
-            "name": "I define the Nightboard review macro with voice phrase \"start review\"",
+            "name": "I define the Community Web review macro with voice phrase \"start review\"",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:621"
             },
@@ -3031,7 +3031,7 @@
             "arguments": [],
             "keyword": "When ",
             "line": 154,
-            "name": "I restart Nightboard with Ctrl+U",
+            "name": "I restart Community Web with Ctrl+U",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:191"
             },
@@ -3205,7 +3205,7 @@
             "arguments": [],
             "keyword": "Then ",
             "line": 163,
-            "name": "Nightboard keeps the same cache route until policy or failure invalidates it",
+            "name": "Community Web keeps the same cache route until policy or failure invalidates it",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:219"
             },
@@ -3553,7 +3553,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 181,
-            "name": "I open one Nightboard message from its channel projection",
+            "name": "I open one Community Web message from its channel projection",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:267"
             },
@@ -3714,7 +3714,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 189,
-            "name": "I save and reopen the Nightboard needs-review view",
+            "name": "I save and reopen the Community Web needs-review view",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:303"
             },
@@ -3875,7 +3875,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 197,
-            "name": "I traverse a Nightboard thread outline with tree keys",
+            "name": "I traverse a Community Web thread outline with tree keys",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:333"
             },
@@ -4049,7 +4049,7 @@
             "arguments": [],
             "keyword": "Then ",
             "line": 206,
-            "name": "each Nightboard navigation operation reports its distinct action and outcome",
+            "name": "each Community Web navigation operation reports its distinct action and outcome",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:385"
             },
@@ -4197,7 +4197,7 @@
             "arguments": [],
             "keyword": "And ",
             "line": 213,
-            "name": "I compare ambiguous cd with the Nightboard global jump chooser",
+            "name": "I compare ambiguous cd with the Community Web global jump chooser",
             "match": {
               "location": "dist/test/features/community_web_experience_steps.js:394"
             },

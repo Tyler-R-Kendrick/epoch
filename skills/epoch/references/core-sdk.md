@@ -84,7 +84,7 @@ Use `@epoch/platform-core` for the platform domain service,
 `@epoch/platform-sdk` for headless automation,
 `@epoch/platform-web` for the browser-rendered hosting console foundation, and
 the `@epoch/community-*` packages for the separate Community API, Core client,
-CLI, and web contracts. The shipped browser app is Nightboard (`/` creator
+CLI, and web contracts. The shipped browser app is Community Web (`/` creator
 landing and `/board.html` tmux-style board), served locally with
 `npm run dev:community-web`; the historical document renderer is not an app
 entrypoint. `@epoch/community-web` still exposes
