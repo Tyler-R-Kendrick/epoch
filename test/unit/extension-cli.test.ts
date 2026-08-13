@@ -186,6 +186,24 @@ function configEditRefusesShapesItCannotRewriteSafely(): void {
       label: "[extensions] declared as a quoted array of tables",
       config: `[["extensions"]]\nname = "a"\n`,
     },
+    {
+      // TOML basic strings decode `\uXXXX`, so this key IS `extensions` — a
+      // spelling a raw text comparison does not recognize.
+      label: "[extensions] declared with an escaped basic-string key",
+      config: `["\\u0065xtensions"]\nallow = ["mergiraf"]\n`,
+    },
+    {
+      label: "[extensions] declared as an escaped array of tables",
+      config: `[[ "\\u0065xtensions" ]]\nname = "a"\n`,
+    },
+    {
+      // Literal strings do NOT decode escapes, so this names a *different*
+      // table than `[extensions]`. It is refused anyway: the editor recognizes
+      // one header spelling and declines the rest rather than adjudicating
+      // which quoted forms collide.
+      label: "an unrelated quoted table header",
+      config: `["other"]\nx = 1\n`,
+    },
   ];
 
   for (const { label, config } of unsupported) {

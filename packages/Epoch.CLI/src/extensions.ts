@@ -175,25 +175,35 @@ function withoutComment(line: string): string {
   return line;
 }
 
-/**
- * Classify a line as a header for the `extensions` table.
- *
- * A TOML table header is a key, and keys may be bare or quoted, so
- * `[extensions]`, `["extensions"]`, and `['extensions']` all name one table.
- * Only the bare form is rewritable here; the others are recognized precisely so
- * they can be refused rather than mistaken for an absent table.
- */
-function extensionsHeaderKind(content: string): "table" | "array" | "quoted" | undefined {
-  const array = /^\[\[\s*(.+?)\s*\]\]$/u.exec(content);
-  const table = array === null ? /^\[\s*(.+?)\s*\]$/u.exec(content) : null;
-  const raw = array?.[1] ?? table?.[1];
-  if (raw === undefined) return undefined;
+/** A TOML bare key, the only header spelling this editor interprets. */
+const BARE_KEY = /^[A-Za-z0-9_.-]+$/u;
 
-  const quoted = /^(?:"([^"]*)"|'([^']*)')$/u.exec(raw);
-  const key = quoted === null ? raw : quoted[1] ?? quoted[2];
-  if (key !== "extensions") return undefined;
-  if (array !== null) return "array";
-  return quoted === null ? "table" : "quoted";
+/**
+ * Classify a line as a TOML table header.
+ *
+ * A header is a key, and keys may be bare, quoted, or escaped — `[extensions]`,
+ * `["extensions"]`, and `["extensions"]` all name one table, while
+ * `['extensions']` names a different one because literal strings do not
+ * decode escapes. Rather than reimplement those rules and keep discovering
+ * spellings it got wrong, this recognizes the one form it can rewrite and
+ * classifies everything else as uninterpretable.
+ *
+ * Refusing the rest costs nothing real: Epoch's own reader accepts bare-key
+ * headers only and throws on the others, so a config containing one is already
+ * unreadable, already resolving to the closed default policy, and cannot be
+ * fixed by appending to it.
+ */
+function tomlHeaderKind(
+  content: string,
+): "extensions-table" | "extensions-array" | "other" | "uninterpretable" | undefined {
+  const array = /^\[\[(.*)\]\]$/u.exec(content);
+  const table = array === null ? /^\[(.*)\]$/u.exec(content) : null;
+  const inner = (array?.[1] ?? table?.[1])?.trim();
+  if (inner === undefined) return undefined;
+
+  if (!BARE_KEY.test(inner)) return "uninterpretable";
+  if (inner !== "extensions") return "other";
+  return array === null ? "extensions-table" : "extensions-array";
 }
 
 function renderList(key: string, names: readonly string[]): string {
@@ -240,21 +250,21 @@ function updateTrustLists(root: string, name: string, trusted: boolean): void {
   // the raw line would miss it and append a duplicate section.
   const headers: number[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const kind = extensionsHeaderKind(withoutComment(lines[index]).trim());
-    if (kind === "array") {
+    const kind = tomlHeaderKind(withoutComment(lines[index]).trim());
+    if (kind === "extensions-array") {
       // TOML forbids a regular table at a path already used as an array of
       // tables, so appending `[extensions]` below this would produce a file no
       // reader accepts — and an unreadable policy is an unenforced one.
       throw new ConfigEditError("it declares [extensions] as an array of tables");
     }
-    if (kind === "quoted") {
-      // TOML table headers are keys, and keys may be quoted, so `["extensions"]`
-      // names the same table as `[extensions]`. Appending the bare form would
-      // define it twice. Epoch's own reader accepts neither, so the edit would
-      // otherwise report success while changing nothing that takes effect.
-      throw new ConfigEditError("it declares [extensions] with a quoted key");
+    if (kind === "uninterpretable") {
+      // A quoted or escaped header may name `extensions` in a spelling this
+      // editor cannot recognize, in which case appending the bare form would
+      // define the same table twice. Refusing every such header is what keeps
+      // that from depending on which escape sequences this file understands.
+      throw new ConfigEditError(`it has a table header that is not a bare key: ${lines[index].trim()}`);
     }
-    if (kind === "table") headers.push(index);
+    if (kind === "extensions-table") headers.push(index);
   }
   if (headers.length > 1) throw new ConfigEditError("it declares [extensions] more than once");
 
