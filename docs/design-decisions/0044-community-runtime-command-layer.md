@@ -1,4 +1,4 @@
-# ADR-0043: One Community Command Layer For Web, WebMCP, CLI, And SDK
+# ADR-0044: One Community Command Layer For Web, WebMCP, CLI, And SDK
 
 Status: Accepted; runtime, adapters, and browser UI workspace implemented
 

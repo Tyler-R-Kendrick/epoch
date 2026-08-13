@@ -16,6 +16,10 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "mirror.defined", "mirror.checkpoint", "mirror.run",
   "object.promise.recorded",
   "software-heritage.mapping", "software-heritage.archive-requested", "software-heritage.archive-status",
+  "space.created", "space.participant.joined", "space.participant.left",
+  "space.workspace.bound", "space.turn.recorded", "space.budget.allocated",
+  "space.capture.opened", "space.capture.closed", "space.capture.operation",
+  "space.anchor.recorded",
 ] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
@@ -108,6 +112,73 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
       required: ["repositoryId", "versionId", "requestId", "status"],
       ids: { repositoryId: "repo", versionId: "version" }, strings: ["requestId"],
       enums: { status: ["requested", "pending", "succeeded", "failed", "cancelled"] },
+    }); return;
+    case "space.created": validateFields(value, {
+      required: ["spaceId", "repositoryId", "ownerPrincipalId", "viewName", "title"],
+      ids: { spaceId: "space", repositoryId: "repo", ownerPrincipalId: "principal" },
+      strings: ["viewName", "title"],
+    }); return;
+    // Joining is receiving a grant, not an ACL row: the grant ID is required so
+    // membership and authority cannot drift apart (ADR-0034, ADR-0043).
+    case "space.participant.joined": validateFields(value, {
+      required: ["spaceId", "principalId", "grantId", "role"],
+      ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+      enums: { role: ["owner", "collaborator", "agent", "observer"] },
+    }); return;
+    case "space.participant.left": validateFields(value, {
+      required: ["spaceId", "principalId", "grantId"],
+      ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+    }); return;
+    // The Space reports nothing about materialization on a provider's behalf;
+    // it records what that provider truthfully declared (ADR-0032).
+    case "space.workspace.bound": validateFields(value, {
+      required: ["spaceId", "principalId", "workspaceId", "providerId", "storageMode", "residency", "materialization", "execution"],
+      ids: { spaceId: "space", principalId: "principal", workspaceId: "workspace" },
+      strings: ["providerId", "storageMode"],
+      enums: {
+        residency: ["resident", "partial", "virtual"],
+        materialization: ["materialized", "virtual"],
+        execution: ["disabled", "in-process", "isolated"],
+      },
+    }); return;
+    case "space.turn.recorded": validateFields(value, {
+      required: ["spaceId", "principalId", "grantId", "execution", "requestDigest"],
+      optional: ["sandboxId", "budgetId", "units"],
+      ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+      optionalIds: { sandboxId: "sandbox", budgetId: "budget" },
+      digests: ["requestDigest"],
+      optionalNonnegativeIntegers: ["units"],
+      enums: { execution: ["disabled", "in-process", "isolated"] },
+    }); return;
+    // Budgets bind to the Space that allocated them. Without the spaceId an
+    // allocation made in one Space would be spendable in another.
+    case "space.budget.allocated": validateFields(value, {
+      required: ["spaceId", "budgetId", "principalId", "units"],
+      ids: { spaceId: "space", budgetId: "budget", principalId: "principal" },
+      nonnegativeIntegers: ["units"],
+    }); return;
+    case "space.capture.opened": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["scope", "retention"],
+      enums: { redaction: ["none", "declared-secrets", "full"] },
+    }); return;
+    case "space.capture.closed": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "operationCount"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      nonnegativeIntegers: ["operationCount"],
+    }); return;
+    case "space.capture.operation": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "path", "contentDigest"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      paths: ["path"], digests: ["contentDigest"],
+    }); return;
+    // Anchors bind to a structural path inside an exact Revision, so they
+    // re-resolve after reformatting rather than naming a byte offset.
+    case "space.anchor.recorded": validateFields(value, {
+      required: ["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"],
+      ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },
+      revisions: ["revisionId"], paths: ["path"], strings: ["structuralPath"], digests: ["contentDigest"],
     }); return;
   }
 }
@@ -232,7 +303,11 @@ interface FieldRules {
   readonly revisionArrays?: readonly string[];
   readonly digests?: readonly string[];
   readonly strings?: readonly string[];
+  /** Normalized repository-relative paths: no absolute, traversal, or NUL segments. */
+  readonly paths?: readonly string[];
   readonly nonnegativeIntegers?: readonly string[];
+  /** Validated when present, permitted to be absent. */
+  readonly optionalNonnegativeIntegers?: readonly string[];
   readonly enums?: Readonly<Record<string, readonly string[]>>;
 }
 
@@ -246,7 +321,13 @@ function validateFields(value: unknown, rules: FieldRules): void {
   for (const field of rules.revisionArrays ?? []) revisions(body[field], field);
   for (const field of rules.digests ?? []) digest(body[field], field);
   for (const field of rules.strings ?? []) if (typeof body[field] !== "string" || body[field] === "") fail("invalid-schema", `${field} must be non-empty string`);
+  for (const field of rules.paths ?? []) path(body[field]);
   for (const field of rules.nonnegativeIntegers ?? []) if (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0) fail("invalid-schema", `${field} must be nonnegative integer`);
+  for (const field of rules.optionalNonnegativeIntegers ?? []) {
+    if (body[field] !== undefined && (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0)) {
+      fail("invalid-schema", `${field} must be nonnegative integer`);
+    }
+  }
   for (const [field, allowed] of Object.entries(rules.enums ?? {})) if (!allowed.includes(String(body[field]))) fail("invalid-schema", `Unknown ${field} variant`);
 }
 

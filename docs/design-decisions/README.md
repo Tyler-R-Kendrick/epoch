@@ -44,7 +44,7 @@ and when the decision should be revisited.
 | [ADR-0034](0034-agent-principals-grants-and-budgets.md) | Accepted | Authorize agents through distinct principals, attenuated grants, and reserved durable budgets. |
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted | Treat forge protocols and mirrors as loss-declared adapters with explicit authority. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted | Compute standards-conformant SWHIDs locally and guard public archival with policy and verified status. |
-| [ADR-0043](0043-community-runtime-command-layer.md) | Accepted | Serve web, WebMCP, CLI, and SDK from one command bus, one receipt schema, and one browser UI workspace behind a content-addressed harness ABI. |
+| [ADR-0044](0044-community-runtime-command-layer.md) | Accepted | Serve web, WebMCP, CLI, and SDK from one command bus, one receipt schema, and one browser UI workspace behind a content-addressed harness ABI. |
 | [ADR-0030](0030-stable-changes-revisions-stacks-reviews-merges.md) | Accepted and implemented | Model stable Change lineages, immutable Revisions, dependency graphs, exact review evidence, and stale-safe Merge Plans. |
 | [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md) | Accepted and implemented | Preserve conflicts as durable objects, commute only when independence is proven, and keep provider proposals untrusted until explicit acceptance. |
 | [ADR-0032](0032-residency-native-sync-and-workspace-providers.md) | Accepted and implemented | Separate object residency, materialization, storage, and execution; add verified chunk manifests, promises, native sync, and truthful workspace providers. |
@@ -58,7 +58,8 @@ and when the decision should be revisited.
 | [ADR-0040](0040-repository-composition-and-links.md) | Accepted and implemented for exact read-only links | Embed independently owned repositories through one exact, read-only Repository Link; treat subtree/subrepo as owned files plus provenance and a Projection; make cross-repository work dependency-linked rather than falsely atomic. |
 | [ADR-0041](0041-workspace-selection-and-materialization-modes.md) | Accepted and implemented; `lazy` behaves like `explicit` | Add workspace-local Selection, name the four materialization modes (`eager`, `explicit`, `lazy`, `delta`), replace whole-namespace metadata with a content-addressed Namespace Manifest, and compose Selection across Repository Links. |
 | [ADR-0042](0042-deterministic-search-and-mounted-projections.md) | Accepted | Compile text and GraphQL into one authorized Search Expression, execute against explicit snapshots, and compose declarative Projection Definitions through scoped Namespace Mounts. |
-| [ADR-0043](0043-community-runtime-command-layer.md) | Accepted; runtime, adapters, and browser UI workspace implemented | Route UI, WebMCP, CLI, and SDK through `@epoch/community-runtime`; validate declarative dynamic UI against a content-addressed static harness; keep rollback append-only. |
+| [ADR-0043](0043-spaces-shared-signed-workspaces.md) | Accepted; phases 1–3 implemented | Add `epoch.space/v1`, a signed joinable object composing View, Workspaces, conversation, Principals/Grants/Budgets, and per-turn Sandbox bindings, with consent-gated capture sessions and structural anchors. |
+| [ADR-0044](0044-community-runtime-command-layer.md) | Accepted; runtime, adapters, and browser UI workspace implemented | Route UI, WebMCP, CLI, and SDK through `@epoch/community-runtime`; validate declarative dynamic UI against a content-addressed static harness; keep rollback append-only. |
 
 ## Supporting Decision Records
 

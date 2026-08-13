@@ -51,7 +51,17 @@
         "object.promise.recorded",
         "software-heritage.mapping",
         "software-heritage.archive-requested",
-        "software-heritage.archive-status"
+        "software-heritage.archive-status",
+        "space.created",
+        "space.participant.joined",
+        "space.participant.left",
+        "space.workspace.bound",
+        "space.turn.recorded",
+        "space.budget.allocated",
+        "space.capture.opened",
+        "space.capture.closed",
+        "space.capture.operation",
+        "space.anchor.recorded"
       ]
     },
     "eventId": {
@@ -556,12 +566,152 @@
         "type",
         "body"
       ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.created"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceCreatedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.participant.joined"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceParticipantJoinedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.participant.left"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceParticipantLeftBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.workspace.bound"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceWorkspaceBoundBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.turn.recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceTurnRecordedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.budget.allocated"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceBudgetAllocatedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.capture.opened"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceCaptureOpenedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.capture.closed"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceCaptureClosedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.capture.operation"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceCaptureOperationBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "space.anchor.recorded"
+        },
+        "body": {
+          "$ref": "#/$defs/spaceAnchorRecordedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
     }
   ],
   "$defs": {
     "canonicalId": {
       "type": "string",
-      "pattern": "^epoch:(repo|principal|key|change|change-graph|fragment|review-bundle|merge-plan|conflict|workspace|operation|grant|budget|projection|mirror|version|session|promise):[a-z2-7]{52}$"
+      "pattern": "^epoch:(repo|principal|key|change|change-graph|fragment|review-bundle|merge-plan|conflict|workspace|operation|grant|budget|projection|mirror|version|session|promise|space|sandbox|anchor):[a-z2-7]{52}$"
     },
     "revisionId": {
       "type": "string",
@@ -1504,6 +1654,375 @@
             "failed",
             "cancelled"
           ]
+        }
+      }
+    },
+    "spaceCreatedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "repositoryId",
+        "ownerPrincipalId",
+        "viewName",
+        "title"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^epoch:repo:[a-z2-7]{52}$"
+        },
+        "ownerPrincipalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "viewName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "spaceParticipantJoinedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "principalId",
+        "grantId",
+        "role"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "grantId": {
+          "type": "string",
+          "pattern": "^epoch:grant:[a-z2-7]{52}$"
+        },
+        "role": {
+          "enum": [
+            "owner",
+            "collaborator",
+            "agent",
+            "observer"
+          ]
+        }
+      }
+    },
+    "spaceParticipantLeftBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "principalId",
+        "grantId"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "grantId": {
+          "type": "string",
+          "pattern": "^epoch:grant:[a-z2-7]{52}$"
+        }
+      }
+    },
+    "spaceWorkspaceBoundBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "principalId",
+        "workspaceId",
+        "providerId",
+        "storageMode",
+        "residency",
+        "materialization",
+        "execution"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "pattern": "^epoch:workspace:[a-z2-7]{52}$"
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storageMode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "residency": {
+          "enum": [
+            "resident",
+            "partial",
+            "virtual"
+          ]
+        },
+        "materialization": {
+          "enum": [
+            "materialized",
+            "virtual"
+          ]
+        },
+        "execution": {
+          "enum": [
+            "disabled",
+            "in-process",
+            "isolated"
+          ]
+        }
+      }
+    },
+    "spaceTurnRecordedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "principalId",
+        "grantId",
+        "execution",
+        "requestDigest"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "grantId": {
+          "type": "string",
+          "pattern": "^epoch:grant:[a-z2-7]{52}$"
+        },
+        "execution": {
+          "enum": [
+            "disabled",
+            "in-process",
+            "isolated"
+          ]
+        },
+        "requestDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sandboxId": {
+          "type": "string",
+          "pattern": "^epoch:sandbox:[a-z2-7]{52}$"
+        },
+        "budgetId": {
+          "type": "string",
+          "pattern": "^epoch:budget:[a-z2-7]{52}$"
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "spaceBudgetAllocatedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "budgetId",
+        "principalId",
+        "units"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "budgetId": {
+          "type": "string",
+          "pattern": "^epoch:budget:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "spaceCaptureOpenedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "scope",
+        "retention",
+        "redaction"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "redaction": {
+          "enum": [
+            "none",
+            "declared-secrets",
+            "full"
+          ]
+        }
+      }
+    },
+    "spaceCaptureClosedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "operationCount"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "operationCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "spaceCaptureOperationBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "path",
+        "contentDigest"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
+        },
+        "contentDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "spaceAnchorRecordedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "anchorId",
+        "principalId",
+        "revisionId",
+        "path",
+        "structuralPath",
+        "contentDigest"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "anchorId": {
+          "type": "string",
+          "pattern": "^epoch:anchor:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "revisionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$"
+        },
+        "structuralPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contentDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     }

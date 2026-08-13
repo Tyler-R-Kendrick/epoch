@@ -28,6 +28,11 @@ Pijul/Darcs, Graphite, GitButler, Git, forge adapters, and Software Heritage:
 AI-native room concepts (Block Buzz):
 [ai-native-room-concepts.md](ai-native-room-concepts.md).
 
+Delta / DeltaDB workspace convergence — what Zed actually shipped, the
+copy-on-write claim separated from the mechanism, concept mapping onto Epoch
+primitives, and the sequenced response:
+[delta-workspace-convergence.md](delta-workspace-convergence.md).
+
 Living Community Web **experience gap scorecard** (dimensions scored every optimizexp):
 [community-web-experience-gap-scorecard.md](../community-web-experience-gap-scorecard.md).
 
@@ -66,6 +71,7 @@ gossip-path: <product-path>/gossip.md
 | Codeberg | Nonprofit Forgejo hosting for open source communities | [Profile](products/codeberg/profile.md) | [Design](products/codeberg/design/design.md) | [Feature](products/codeberg/features/community-forge-hosting.feature) | [Marketing](products/codeberg/marketing.md) | [Gossip](products/codeberg/gossip.md) |
 | Tangled | ATProto social coding forge with PDS metadata, Git knots, spindles, and AppView/Bobbin aggregation | [Profile](products/tangled/profile.md) | [Design](products/tangled/design/design.md) | [Feature](products/tangled/features/atproto-social-coding.feature) | [Marketing](products/tangled/marketing.md) | [Gossip](products/tangled/gossip.md) |
 | Zed DeltaDB | CRDT-backed operation-level version control | [Profile](products/zed-deltadb/profile.md) | [Design](products/zed-deltadb/design/design.md) | [Feature](products/zed-deltadb/features/operation-level-collaboration.feature) | [Marketing](products/zed-deltadb/marketing.md) | [Gossip](products/zed-deltadb/gossip.md) |
+| Delta | Joinable multiplayer agent workspace over DeltaDB | [Profile](products/delta/profile.md) | [Design](products/delta/design/design.md) | [Feature](products/delta/features/joinable-agent-workspace.feature) | [Marketing](products/delta/marketing.md) | [Gossip](products/delta/gossip.md) |
 | Automerge | Local-first CRDT repository and sync engine | [Profile](products/automerge/profile.md) | [Design](products/automerge/design/design.md) | [Feature](products/automerge/features/local-first-repository.feature) | [Marketing](products/automerge/marketing.md) | [Gossip](products/automerge/gossip.md) |
 | Yjs | Modular collaborative shared types | [Profile](products/yjs/profile.md) | [Design](products/yjs/design/design.md) | [Feature](products/yjs/features/collaborative-shared-types.feature) | [Marketing](products/yjs/marketing.md) | [Gossip](products/yjs/gossip.md) |
 | Redux | Predictable state container with time-travel debugging | [Profile](products/redux/profile.md) | [Design](products/redux/design/design.md) | [Feature](products/redux/features/predictable-state-and-time-travel.feature) | [Marketing](products/redux/marketing.md) | [Gossip](products/redux/gossip.md) |

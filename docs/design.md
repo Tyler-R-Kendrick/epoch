@@ -426,7 +426,7 @@ Community Web itself is not yet built from this runtime — deployment still shi
 the Community Web design exploration. See
 [Community Web As An Epoch Participant](community-web-epoch-integration.md) for
 the verified gap ledger and the remaining workstreams, and
-[ADR-0043](design-decisions/0043-community-runtime-command-layer.md).
+[ADR-0044](design-decisions/0044-community-runtime-command-layer.md).
 
 ## Change Graph And Operation History
 
@@ -513,6 +513,43 @@ produces the provider descriptor recorded alongside signed state.
 [Extensions And Capability Providers](extensions.md) and
 [ADR-0037](design-decisions/0037-extension-mechanism-and-capability-registry.md).
 
+## Spaces
+
+`@epoch/core` ships `SignedSpaceStore`, the object a second person can join. A
+Space composes existing primitives and replaces none of them: one View selects
+history, Workspaces materialize it per machine and keep reporting their own
+capability facts, Principals hold Grants and Budgets, and each turn records the
+declared execution mode it ran under. `epoch.space/v1` events —
+`space.created`, `space.participant.joined/left`, `space.workspace.bound`,
+`space.turn.recorded`, `space.capture.opened/closed/operation`, and
+`space.anchor.recorded` — are signed protocol events on the ordinary event log,
+so `verify()` covers them and sync carries them without a new transport.
+
+The governance is enforced rather than described:
+
+- **Joining is receiving a grant.** Membership and authority are one fact, so
+  leaving revokes in the same signed event and a departed participant's turns
+  are refused immediately.
+- **Turns are bounded.** A turn without a live grant is `grant-denied`, a turn
+  past its allocation is `budget-exceeded`, and an `observer` grant never
+  authorizes one.
+- **Capture requires recorded consent.** Continuous Code Operation capture is
+  refused outside an open Capture Session, whose declared scope, retention, and
+  redaction policy is itself signed history.
+- **Workspaces stay truthful.** Binding routes through
+  `createWorkspaceStateManifest()`, so a Space cannot claim isolated execution,
+  copy-on-write, or residency the provider did not positively declare.
+- **Anchors are structural.** A comment binds to `(RevisionId, structural
+  path)` resolved through `@epoch/semantic`, so it survives reformatting and
+  reordering (`moved`) and reports honestly when the construct is deleted
+  (`unresolved`) instead of pointing at the wrong place.
+
+`epoch space ...` is the operator surface. Phases that remain unbuilt are named
+in [ADR-0043](design-decisions/0043-spaces-shared-signed-workspaces.md): there
+is no mount provider, no isolated execution provider, and no federated join, so
+a per-turn Sandbox binding currently records a fact rather than enforcing a
+boundary.
+
 ## Semantic Content Pipeline
 
 `@epoch/semantic` is a browser-safe engine for structural diff, patch, merge,
@@ -559,6 +596,8 @@ The current implementation does not provide:
 - process, filesystem, or network sandboxing of external extensions
 - grammar-backed syntax providers for general-purpose languages
 - byte-level entropy coding or a packfile format for semantic compression
+- a kernel VFS/FUSE mount provider, an isolated execution provider, or
+  federated Space discovery (ADR-0043 phases 4 through 6)
 - the ADR-0039 native capabilities that have no code yet (`absorb`, `log --smart`, `undo`, `graph restack`, `changelog`, `rewrite`, `pick`, `compose`)
 - writable nested Repository Links, overlapping mount roots, and transparent
   lazy (VFS/FUSE) materialization; `lazy` currently behaves like `explicit`

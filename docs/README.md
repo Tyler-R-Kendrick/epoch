@@ -35,6 +35,7 @@ decisions, operations, or contribution workflow.
 | [Notebooks](../notebooks/README.md) | Executable Node.js notebook examples for Epoch usage scenarios with stored results and output explanations. |
 | [Competition Research](competition/README.md) | Parseable competitor dossiers across design, features, marketing, and public sentiment. |
 | [Change Graph And Operation-History Dossier](competition/change-graph-vcs-dossier.md) | Primary-source comparison led by direct competitor Zed DeltaDB, then jj, Pijul/Darcs, Graphite, GitButler, Git, forge adapters, and Software Heritage. |
+| [Delta Workspace Convergence Analysis](competition/delta-workspace-convergence.md) | What Zed shipped in Delta and DeltaDB, the virtualized-worktree claim separated from any copy-on-write mechanism, every Delta concept mapped onto a named Epoch primitive, and the sequenced response. |
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
 | [Community Web App Reference](community-web/README.md) | The one Community Web application ([ADR-0027](design-decisions/0027-community-visual-world.md)), built from `packages/Epoch.Community.Web`: CanvasUI creator landing at `/`, Tron/tmux-style keyboard-first board at `board.html`. Evidence under [`evidence/community-web-app/`](evidence/community-web-app/README.md). |
 | [Community Web Navigation/Projection Parity](evidence/community-web-app-navigation-projection-parity/README.md) | Executable evidence for stable object identity, mounted projections, explicit graph navigation, route restoration, shared actions, and APG feed/tree/combobox behavior. |
@@ -47,6 +48,7 @@ decisions, operations, or contribution workflow.
 
 | Product | Profile | Design | Feature | Marketing | Gossip |
 |---|---|---|---|---|---|
+| Delta | [Profile](competition/products/delta/profile.md) | [Design](competition/products/delta/design/design.md) | [Feature](competition/products/delta/features/joinable-agent-workspace.feature) | [Marketing](competition/products/delta/marketing.md) | [Gossip](competition/products/delta/gossip.md) |
 | Tangled | [Profile](competition/products/tangled/profile.md) | [Design](competition/products/tangled/design/design.md) | [Feature](competition/products/tangled/features/atproto-social-coding.feature) | [Marketing](competition/products/tangled/marketing.md) | [Gossip](competition/products/tangled/gossip.md) |
 | Rork | [Profile](competition/products/rork/profile.md) | [Design](competition/products/rork/design/design.md) | [Feature](competition/products/rork/features/mobile-app-store-launch.feature) | [Marketing](competition/products/rork/marketing.md) | [Gossip](competition/products/rork/gossip.md) |
 | Magic Patterns | [Profile](competition/products/magic-patterns/profile.md) | [Design](competition/products/magic-patterns/design/design.md) | [Feature](competition/products/magic-patterns/features/design-system-prototype.feature) | [Marketing](competition/products/magic-patterns/marketing.md) | [Gossip](competition/products/magic-patterns/gossip.md) |
@@ -117,7 +119,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0040: Repository Composition And Repository Links](design-decisions/0040-repository-composition-and-links.md) | Defines one exact read-only Repository Link, vendorize-plus-provenance instead of a native subtree type, and repository-qualified Change dependencies. |
 | [ADR-0041: Workspace Selection And Materialization Modes](design-decisions/0041-workspace-selection-and-materialization-modes.md) | Defines workspace-local Selection, the `eager`/`explicit`/`lazy`/`delta` materialization modes, and the content-addressed Namespace Manifest. |
 | [ADR-0042: Deterministic Search And Mounted Projections](design-decisions/0042-deterministic-search-and-mounted-projections.md) | Makes Core search semantics authoritative, composes declarative Projection Definitions through scoped Namespace Mounts, and selects optional browser accelerators. |
-| [ADR-0043: One Community Command Layer](design-decisions/0043-community-runtime-command-layer.md) | Makes one command bus, receipt schema, browser UI workspace, and static harness ABI serve web, WebMCP, CLI, and SDK. |
+| [ADR-0043: Spaces — Shared, Signed, Joinable Workspaces](design-decisions/0043-spaces-shared-signed-workspaces.md) | `epoch.space/v1`: a joinable object composing View, Workspaces, conversation, authority, and per-turn Sandbox bindings; what a Space is not; and which phases shipped. |
+| [ADR-0044: One Community Command Layer](design-decisions/0044-community-runtime-command-layer.md) | Makes one command bus, receipt schema, browser UI workspace, and static harness ABI serve web, WebMCP, CLI, and SDK. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
