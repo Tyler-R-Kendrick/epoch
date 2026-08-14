@@ -236,3 +236,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | None on the merge push; Quality Gates green on `main` after squash-merge. |
 | Notes | History model now commands the ADR fail-closed/idempotence/merge-block properties and always runs snapshot+tail, git ingest subset, and workspace path escape. Parser properties reject unknown event types and escape-shaped queries. c8 excludes Playwright-only `dist/client/**` and raises line/statement/function floors. Production Vercel `epoch-vcs` deployed `371cdd1`. Nightboard/.impeccable leftover remains deferred and was not committed. |
+
+## 2026-08-14 — Raise real coverage: protocol bodies, convergence API, CLI git
+
+| Field | Value |
+|---|---|
+| Initiative | Change Graph fuzz lanes (ADR-0052) + coverage honesty |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `test/coverage-ratchet` |
+| PR | this delivery |
+| Result | **in flight** |
+| Failure class | None yet |
+| Notes | Orphaned Community API/Core package tests now run under `test:runtime` so they count. Unit tests accept every protocol event type and fail closed on escapes; CLI git and Community Web state/PWA helpers are exercised on Node. Fast-check covers identity, promise, and space-join events. |

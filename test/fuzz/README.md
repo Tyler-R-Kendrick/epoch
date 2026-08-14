@@ -51,3 +51,9 @@ report `seed`, `case`, and `caseSeed` for exact local reproduction.
 The history suite always runs, in addition to shrinking command lists:
 snapshot then tail replay, missing-revision fail-closed, rejected conflicts
 blocking merge, git ingest of a declared subset, and workspace path escape.
+
+Short fast-check also shrinks `repository.identity`, `object.promise.recorded`,
+and `space.participant.joined` events, not only budget allocations. Path
+queries stay fail-closed. Every declared protocol event type is accepted by
+`test/unit/protocol-event-bodies.test.ts` with escape and unknown-field
+rejections.

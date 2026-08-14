@@ -51,6 +51,9 @@ import { runConvergenceCoreTransactionTests } from "./unit/convergence-core-tran
 import { runCoreStorageSyncV2Tests } from "./unit/core-storage-sync-v2.test";
 import { runGitConvergenceFoundationTests } from "./unit/git-convergence-foundation.test";
 import { runProtocolRequiredEventTests } from "./unit/protocol-required-events.test";
+import { runProtocolEventBodyTests } from "./unit/protocol-event-bodies.test";
+import { runCliGitTests } from "./unit/cli-git.test";
+import { runCommunityWebStatesPwaTests } from "./unit/community-web-states-pwa.test";
 import { runSpaceCliTests, runSpaceTests } from "./unit/spaces.test";
 import { runSpaceRuntimeTests } from "./unit/spaces-runtime.test";
 import { runChangeGraphBrowserWrapperTests } from "./unit/change-graph-browser-wrappers.test";
@@ -119,6 +122,9 @@ async function main(): Promise<void> {
   await runCoreStorageSyncV2Tests();
   await runGitConvergenceFoundationTests();
   runProtocolRequiredEventTests();
+  runProtocolEventBodyTests();
+  runCliGitTests();
+  await runCommunityWebStatesPwaTests();
   runChangeGraphBrowserWrapperTests();
   await runChangeGraphCliTests();
   await runSpaceTests();
