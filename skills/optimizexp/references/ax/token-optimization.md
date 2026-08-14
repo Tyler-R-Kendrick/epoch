@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — token optimization"
 description: "Context and output token reduction: progressive disclosure, caveman, headroom, RTK, skill size."
-tags: [hobo, optimizexp, ax, tokens, headroom, rtk, caveman]
+tags: [epoch, optimizexp, ax, tokens, headroom, rtk, caveman]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -11,7 +11,7 @@ timestamp: 2026-07-31T00:00:00Z
 Token waste is friction (slow, expensive loops) and sometimes uncertainty (lost signal in noise).
 Audit **input** (context fed to the model) and **output** (agent verbosity) separately.
 
-## Layers (HoBo)
+## Layers
 
 | Layer | Tool / pattern | What it compresses |
 |---|---|---|

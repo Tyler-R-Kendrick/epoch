@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP DX — testing systems"
 description: "Test lane design that keeps agent and human loops fast while preserving confidence."
-tags: [hobo, optimizexp, dx, testing]
+tags: [epoch, optimizexp, dx, testing]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -17,7 +17,7 @@ timestamp: 2026-07-30T00:00:00Z
 5. Contract / schema / behavior
 6. Final/all validation
 
-## HoBo anchors
+## Epoch anchors
 
 - `pnpm run test:smoke|test:file|test:name`
 - `pnpm run test:unit|test:schema|test:contract:*|test:behavior`

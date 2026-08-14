@@ -51,16 +51,13 @@ export function extractCommandHints(text: string): string[] {
 	)) {
 		hints.add(`pnpm run ${m[1]}`);
 	}
-	// Match product CLI only — not feature ids like hobo-code-default-entry
+	// Match product CLI only — not feature ids like epoch-default-entry
 	for (const m of text.matchAll(
-		/\bhobo-code(?![a-z0-9-])(?:\s+[a-z][a-z0-9:./_-]*)*/gi,
+		/\bepoch(?![a-z0-9-])(?:\s+[a-z][a-z0-9:./_-]*)*/gi,
 	)) {
 		hints.add(m[0]!.trim());
 	}
-	for (const m of text.matchAll(/\bhobo\s+[a-z][a-z0-9:-]*/gi)) {
-		hints.add(m[0]!);
-	}
-	return [...hints];
+		return [...hints];
 }
 
 /** Live / egress package scripts must never be default feature primary for offline AX/DX. */
@@ -159,7 +156,7 @@ export function discoverCode(input: {
 		collectFeatureText(input.featureDir),
 	].join("\n");
 	const hints = extractCommandHints(text);
-	// Also pull hobo-code / product bin verbs from EXPERIENCE.md
+	// Also pull epoch / product bin verbs from EXPERIENCE.md
 	const expPath = path.join(input.featureDir, "EXPERIENCE.md");
 	if (existsSync(expPath)) {
 		hints.push(...extractCommandHints(readFileSync(expPath, "utf8")));
@@ -171,8 +168,8 @@ export function discoverCode(input: {
 	const allowLive =
 		/\blive\b/i.test(input.seed) && !/without live|no live|offline|no cloud/i.test(input.seed);
 
-	// Product binary commands (hobo-code …) beat monorepo scripts.
-	// Reject feature ids (hobo-code-default-entry) and English prose false matches.
+	// Product binary commands (epoch …) beat monorepo scripts.
+	// Reject feature ids (epoch-default-entry) and English prose false matches.
 	const glue = new Set([
 		"or",
 		"and",
@@ -193,12 +190,12 @@ export function discoverCode(input: {
 	]);
 	const isPlausibleProductCli = (raw: string): string | null => {
 		const cmd = raw.split("\n")[0]!.trim().slice(0, 120);
-		if (!/^hobo-code(?![\w-])/i.test(cmd) && !/^hobo(?![\w-])\s+[a-z]/i.test(cmd)) {
+		if (!/^epoch(?![\w-])/i.test(cmd) ) {
 			return null;
 		}
 		const parts = cmd.split(/\s+/);
 		const bin = parts[0]!.toLowerCase();
-		if (bin !== "hobo-code" && bin !== "hobo") return null;
+		if (bin !== "epoch") return null;
 		for (const p of parts.slice(1)) {
 			const t = p.toLowerCase();
 			if (glue.has(t)) return null;
@@ -341,7 +338,7 @@ export function discoverCode(input: {
 		}
 	}
 
-	// Known HoBo agent-check surface
+	// Known agent-check surface
 	if (
 		/agent.?check|staged check|staged gate/i.test(text) &&
 		scripts["agent:check"]
@@ -420,12 +417,12 @@ export function pickPrimaryCommand(
 		Boolean(b.command) &&
 		!(b.scriptName && isLiveEgressScript(b.scriptName));
 	const high = report.bindings.filter((b) => b.confidence === "high" && runnable(b));
-	// Product CLI (hobo-code …) always beats monorepo keyword scripts
+	// Product CLI (epoch …) always beats monorepo keyword scripts
 	const productCli = high.find(
 		(b) =>
 			b.kind === "shell-command" &&
 			b.command &&
-			/^(hobo-code|hobo)\b/i.test(b.command),
+			/^epoch\b/i.test(b.command),
 	);
 	if (productCli) return productCli;
 	// Prefer journey-specific offline surfaces when present
@@ -462,7 +459,7 @@ export function pickPrimaryCommand(
 	if (high[0]) return high[0]!;
 	const med = report.bindings.filter((b) => b.confidence === "medium" && runnable(b));
 	const medProduct = med.find(
-		(b) => b.command && /^(hobo-code|hobo)\b/i.test(b.command),
+		(b) => b.command && /^epoch\b/i.test(b.command),
 	);
 	return medProduct ?? med[0] ?? null;
 }

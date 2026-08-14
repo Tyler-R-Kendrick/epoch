@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC --finish session land"
 description: "Session finish protocol: commit local work, rebase on latest trunk, open/update PRs, bottom-up closeout, squash-merge every session PR."
-tags: [hobo, sdlc, finish, pr, squash-merge, closeout]
+tags: [epoch, sdlc, finish, pr, squash-merge, closeout]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

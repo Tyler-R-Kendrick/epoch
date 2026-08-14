@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC planning over the draft cascade"
 description: "Plan-mode guidance that maps work onto the four-layer draft-proof cascade."
-tags: [hobo, sdlc, planning]
+tags: [epoch, sdlc, planning]
 timestamp: 2026-07-02T00:00:00Z
 ---
 

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP persona KYC models"
 description: "Formal demographic and psychographic persona models, market segments, and cognitive thresholds for multi-segment delight measurement."
-tags: [hobo, optimizexp, personas, kyc, psychographics, segmentation, jtbd]
+tags: [epoch, optimizexp, personas, kyc, psychographics, segmentation, jtbd]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -83,7 +83,7 @@ Structured, **category-level** only:
 - roleFamily: application-developer | platform | design | end-user | agent-operator | finops | sre | other
 - seniority: junior | mid | senior | principal | student | hobbyist
 - orgArchetype: solo | startup | smb | enterprise | oss-community | agency
-- domainFamiliarity: new-to-hobo | migrating | power-user
+- domainFamiliarity: new-to-epoch | migrating | power-user
 - localeContext: en-primary | i18n-sensitive | rtl-sensitive   # not a real address
 - deviceContext: desktop-first | mobile-first | mixed
 - timeBudget: minutes | hours | multi-day

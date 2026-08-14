@@ -6,9 +6,6 @@
   var actions = {};
   var runtime = null;
   var unregister = {};
-  var hoboToolUnregister = null;
-  var HOBO_KEY = "cw-hobo-projects-v1";
-  var HOBO_TEMPLATES = ["todo", "api", "agent", "fullstack"];
 
   function normalPhrase(value) {
     return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -174,96 +171,12 @@
     return item ? item.name : null;
   }
 
-  function readHoboProjects() {
-    try {
-      var got = JSON.parse(window.localStorage.getItem(HOBO_KEY) || "{}");
-      return got && typeof got === "object" && !Array.isArray(got) ? got : {};
-    } catch { return {}; }
-  }
-
-  function writeHoboProjects(projects) {
-    try { window.localStorage.setItem(HOBO_KEY, JSON.stringify(projects)); } catch { /* session only */ }
-  }
-
-  function hoboSuggestions(fragment) {
-    var values = ["new", "build", "test", "debug", "up", "stub"];
-    var q = String(fragment || "").trim().toLowerCase();
-    return values.filter(function (value) { return !q || value.indexOf(q) === 0; }).map(function (value) {
-      return { value: value, hint: value === "stub" ? "contract-backed use training fallback" : "deterministic HoBo " + value };
-    });
-  }
-
-  function runHobo(line) {
-    var parts = String(line || "").trim().split(/\s+/).filter(Boolean);
-    var verb = parts.shift() || "help";
-    var projects = readHoboProjects();
-    if (verb === "help" || verb === "list") {
-      return { ok: true, text: "hobo new <name> --template <todo|api|agent|fullstack> · build · test · debug · up --plan · stub" };
-    }
-    if (verb === "new") {
-      var name = String(parts.shift() || "").toLowerCase();
-      var ti = parts.indexOf("--template");
-      var template = ti >= 0 ? parts[ti + 1] : (parts[0] || "api");
-      if (!/^[a-z][a-z0-9-]{0,31}$/.test(name)) return { ok: false, text: "hobo new: use a lowercase project name" };
-      if (HOBO_TEMPLATES.indexOf(template) < 0) return { ok: false, text: "hobo new: template must be " + HOBO_TEMPLATES.join(" | ") };
-      projects[name] = { name: name, template: template, createdAt: Date.now() };
-      writeHoboProjects(projects);
-      if (runtime && runtime.createProject) runtime.createProject(name);
-      return {
-        ok: true,
-        text: "hobo new " + name + " --template " + template +
-          " · offline scaffold · generated docs pinned · next: hobo build " + name,
-      };
-    }
-    var project = String(parts.shift() || "").toLowerCase();
-    if (!projects[project]) return { ok: false, text: "hobo " + verb + ": unknown project " + project + " · run hobo new first" };
-    if (verb === "build") {
-      return { ok: true, text: "hobo build " + project + " · codegen --check · componentize · manifest recorded" };
-    }
-    if (verb === "test") {
-      return { ok: true, text: "hobo test " + project + " · contract-backed sandbox · pass" };
-    }
-    if (verb === "debug") {
-      return { ok: true, text: "hobo debug " + project + " · hobo dev --inspect · local replay ready" };
-    }
-    if (verb === "up") {
-      if (parts.indexOf("--plan") < 0) return { ok: false, text: "hobo up: preview first with hobo up " + project + " --plan" };
-      return { ok: true, text: "hobo up " + project + " --plan · dry-run only · verify then remove --plan" };
-    }
-    if (verb === "stub") {
-      var fn = String(parts.shift() || "complexLogic").replace(/[^a-z0-9]+(.)/gi, function (_, c) {
-        return c ? c.toUpperCase() : "";
-      });
-      return {
-        ok: true,
-        text: "export async function " + fn + "(input) {\n  \"use training\";\n" +
-          "  throw new Error(\"trainable stub: add contract examples\");\n}",
-      };
-    }
-    return { ok: false, text: "hobo: unknown action " + verb + " · try hobo help" };
-  }
-
   function install(api) {
     runtime = api;
     list().forEach(function (item) { register(item.name); });
-    if (!hoboToolUnregister && window.CW_MCP) {
-      hoboToolUnregister = window.CW_MCP.registerTool({
-        name: "hobo_workbench",
-        description: "Run deterministic HoBo new, build, test, debug, up --plan, or trainable stub actions.",
-        inputSchema: {
-          type: "object", additionalProperties: false,
-          properties: { command: { type: "string" } }, required: ["command"],
-        },
-        execute: async function (args) {
-          var result = runHobo(args && args.command);
-          return result.ok ? window.CW_MCP.text(result.text) : window.CW_MCP.fail(result.text);
-        },
-      });
-    }
     return list().length;
   }
 
   read();
   window.CW_POWER = { install: install, list: list, command: command, run: run, resolveVoice: resolveVoice };
-  window.CW_HOBO = { run: runHobo, suggestions: hoboSuggestions, templates: HOBO_TEMPLATES.slice() };
 })();

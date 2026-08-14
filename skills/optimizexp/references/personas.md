@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP personas"
 description: "Repo-local persona.md schema, review prompts, and generation from --persona seed strings."
-tags: [hobo, optimizexp, personas, hcd, persona-seed]
+tags: [epoch, optimizexp, personas, hcd, persona-seed]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

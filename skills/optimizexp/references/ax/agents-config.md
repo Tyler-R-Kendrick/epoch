@@ -2,13 +2,13 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — host agents and config"
 description: "Configuring coding agents, subagents, and host-specific CLIs consistently."
-tags: [hobo, optimizexp, ax, agents, cli, subagents]
+tags: [epoch, optimizexp, ax, agents, cli, subagents]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
 # AX — host agents & config
 
-## Host matrix (HoBo)
+## Host matrix
 
 | Host | Skills tree | MCP config | Plugins | Subagents |
 |---|---|---|---|---|

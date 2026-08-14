@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP UX — design systems"
 description: "Audit patterns for design systems, tokens, components, and inclusive visual language."
-tags: [hobo, optimizexp, ux, design-systems]
+tags: [epoch, optimizexp, ux, design-systems]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -19,7 +19,7 @@ timestamp: 2026-07-30T00:00:00Z
 | Theming | Light/dark or high-contrast coherent? |
 | Content patterns | Error, empty, loading, success copy templates? |
 
-## HoBo anchors
+## Epoch anchors
 
 - `site/DESIGN.md` — agent-facing design contract
 - `site/src/styles/global.css` — runtime tokens
@@ -43,8 +43,8 @@ timestamp: 2026-07-30T00:00:00Z
 ## Probe commands
 
 ```bash
-pnpm --filter hobo-site run design:lint
-pnpm --filter hobo-site run design:spec
+npm run design:lint
+npm run design:audit
 ```
 
 ## Bus expectation sketch

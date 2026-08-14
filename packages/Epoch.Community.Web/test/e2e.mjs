@@ -8554,38 +8554,6 @@ const CASES = [
     },
   },
   {
-    name: "hobo: Bo exposes deterministic app loop and trainable fallback",
-    run: async (page, log) => {
-      await go(page, "/.agents/bo");
-      const bo = await page.evaluate(() => {
-        const agent = window.CW_DATA.agents.board.find((item) => item.id === "bo");
-        const commands = [
-          "new demo --template api",
-          "build demo",
-          "test demo",
-          "debug demo",
-          "up demo --plan",
-          "stub demo complex-billing-rule",
-        ].map((line) => window.CW_HOBO?.run(line));
-        return {
-          agent,
-          commands,
-          card: document.querySelector(".cn-agent-card")?.textContent || "",
-        };
-      });
-      if (!bo.agent || !/generated docs|docs manifest/i.test(bo.agent.instructions || "")) {
-        return log("Bo lacks docs contract: " + JSON.stringify(bo.agent));
-      }
-      if (bo.commands.some((result) => !result?.ok)) {
-        return log("HoBo loop failed: " + JSON.stringify(bo.commands));
-      }
-      const stub = bo.commands[5]?.text || "";
-      return (/use training/i.test(stub) && /hobo (build|test|up)/i.test(
-        bo.commands.map((result) => result.text).join(" "),
-      )) || log("HoBo loop not deterministic: " + JSON.stringify(bo.commands));
-    },
-  },
-  {
     name: "NAV-A11Y-003 registry dispatch preserves thread tree expansion and ancestry",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");

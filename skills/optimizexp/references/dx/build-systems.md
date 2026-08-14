@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP DX — build systems"
 description: "Patterns for monorepo builds, incremental graphs, and developer-facing build feedback."
-tags: [hobo, optimizexp, dx, build]
+tags: [epoch, optimizexp, dx, build]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -24,7 +24,7 @@ timestamp: 2026-07-30T00:00:00Z
 | Codegen | `pnpm run codegen`, generated-file guards |
 | CI parity | `.github/workflows` vs local `agent:check` |
 
-## HoBo anchors
+## Epoch anchors
 
 - `pnpm exec turbo run test --filter ./path`
 - `scripts/relevant-check-policy.ts` — impact-scoped gates

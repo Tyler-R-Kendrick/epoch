@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP workflow generation"
 description: "How to generate and maintain per-agent review workflows that drive the optimizexp loop."
-tags: [hobo, optimizexp, workflows, generation]
+tags: [epoch, optimizexp, workflows, generation]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

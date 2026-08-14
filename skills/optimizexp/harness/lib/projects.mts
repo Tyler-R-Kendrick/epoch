@@ -16,7 +16,7 @@ export type ProjectKind =
 	| "app";
 
 export type ProjectRef = {
-	/** Stable slug used in flags: site, hobo, hello-bindle, root, … */
+	/** Stable slug used in flags: site, hello-bindle, root, … */
 	id: string;
 	/** Path relative to repo root ("" for root) */
 	path: string;
@@ -106,8 +106,8 @@ export function listProjects(root = repoRoot()): ProjectRef[] {
 		}
 	}
 
-	// Product-ish packages (code = hobo-code / @hobo/code harness)
-	const productPkgs = ["cli", "hobo", "mcp", "broker", "cloud", "code"];
+	// Product-ish packages (code = epoch / @epoch/cli harness)
+	const productPkgs = ["cli", "Epoch.CLI", "mcp", "broker", "cloud", "code"];
 	for (const name of productPkgs) {
 		const rel = path.join("packages", name);
 		if (existsSync(path.join(root, rel, "package.json"))) {

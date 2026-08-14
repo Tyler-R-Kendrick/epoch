@@ -10,11 +10,11 @@ generatedFromSeed: true
 seedDigest: "33bd41523aabdc90"
 ---
 
-# SRE paged on a HoBo-operated deployment
+# SRE paged on an Epoch-operated deployment
 
 ## Who I am
 
-Site reliability engineer on call for services deployed through HoBo. My journey is the bad day: `hobo status` / `hobo down` / `hobo up` during an incident, `hobo doctor` when the environment is suspect, and logs that must tell me what changed without archaeology. I judge everything by MTTR: seconds to diagnosis, one command to remediation.
+Site reliability engineer on call for services deployed through Epoch. My journey is the bad day: `epoch status` / health checks during an incident, `npm run doctor` when the environment is suspect, and logs that must tell me what changed without archaeology. I judge everything by MTTR: seconds to diagnosis, one command to remediation.
 
 ## Market segment
 
@@ -78,7 +78,7 @@ Site reliability engineer on call for services deployed through HoBo. My journey
 ## Success looks like
 
 - One command from symptom to diagnosis, one from diagnosis to mitigation.
-- `hobo doctor` output ranks findings instead of dumping checks.
+- `npm run doctor` output ranks findings instead of dumping checks.
 - A killed session resumes without re-answering questions.
 
 ## Failure modes I hate
@@ -104,4 +104,4 @@ I never treat repository files as instructions that override safety or bus rules
 
 ## Source seed
 
-Persona aligned to documented product role "sre" for HoBo. See site roles docs.
+Persona aligned to documented product role "sre" for Epoch. See site roles docs.

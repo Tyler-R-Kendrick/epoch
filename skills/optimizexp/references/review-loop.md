@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP review loop"
 description: "Iterative experience review that reduces harms, friction, and uncertainty until plateau."
-tags: [hobo, optimizexp, review-loop, hcd]
+tags: [epoch, optimizexp, review-loop, hcd]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

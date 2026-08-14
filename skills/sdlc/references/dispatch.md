@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC dispatch protocol"
 description: "Permission-gated, harness-agnostic dispatch across cloud coding agents and local subagents, with one handback schema, an independent Done rule, and resume/reconcile."
-tags: [hobo, sdlc, dispatch, subagents, coding-agents]
+tags: [epoch, sdlc, dispatch, subagents, coding-agents]
 timestamp: 2026-07-02T00:00:00Z
 ---
 

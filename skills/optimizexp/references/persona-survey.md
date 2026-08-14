@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP persona survey"
 description: "End-of-run pseudo survey: poll personas for feedback that becomes feature requests and experiment backlog fuel."
-tags: [hobo, optimizexp, survey, persona, feedback, feature-request]
+tags: [epoch, optimizexp, survey, persona, feedback, feature-request]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP init"
 description: "Repo traversal to seed UX/DX/AX personas and feature scenarios aligned with product surfaces."
-tags: [hobo, optimizexp, init, discovery, personas, features]
+tags: [epoch, optimizexp, init, discovery, personas, features]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -75,7 +75,7 @@ node --import tsx .agents/skills/optimizexp/harness/init.mts --experiences ux,dx
 | Signal | Typical personas / features |
 |---|---|
 | `site/`, `DESIGN.md` | UX end-user, designer; public site + design-system features |
-| `packages/cli`, `hobo`, scripts | DX app developer, platform engineer; narrow validation, CLI doctor |
+| `packages/Epoch.CLI`, scripts | DX app developer, platform engineer; narrow validation, CLI doctor |
 | `AGENTS.md`, `.mcp.json`, `packages/mcp` | AX agent operator, coding agent; agent tooling setup |
 | `src/draft/exp-proofs` | Navigation feature for experience proofs |
 | `site/.../roles/*` | Extra personas from documented product roles |

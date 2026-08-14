@@ -9,7 +9,7 @@ const outDir = process.env.OUT_DIR && resolve(process.env.OUT_DIR);
 if (!scenario || !outDir) throw new Error("usage: community-web-capture.mjs <scenario>; OUT_DIR is required");
 
 const nightboard = scenario.includes("focused-post-action") || scenario.includes("post-action-shortcut") ||
-  scenario.includes("startup-condition") || scenario.includes("hobo-template") ||
+  scenario.includes("startup-condition") ||
   scenario.includes("focused-panel");
 const narrow = scenario.includes("narrow") || scenario.includes("screen-reader-power-user-discovers");
 const zoom = scenario.includes("zoom-focus");
@@ -107,12 +107,6 @@ try {
       evaluate(`localStorage.setItem("cw-startup-signals-v1",JSON.stringify({continuation:{host:"codex",sessionId:"visual-codex",workspace:"epoch"},update:{current:"0.8.0",available:"0.9.0"},workspace:{id:"epoch",defaultsVersion:2,appliedVersion:1}}));location.reload();true`);
       run(["wait", "900"]); frame("02-restart-offer");
       press("Control+u"); run(["wait", "900"]); frame("03-restarted"); break;
-    case "app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback-narrow":
-    case "app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback":
-      press("Escape"); pause();
-      evaluate("CW_APP.navigate('/.agents/bo');true"); pause(); frame("02-bo-agent");
-      run(["fill", "[data-cli]", "hobo new visual-app --template api"]); press("Enter"); pause();
-      frame("03-hobo-new"); break;
     case "forge-power-user-expands-and-restores-the-focused-panel-narrow":
     case "forge-power-user-expands-and-restores-the-focused-panel":
       press("Escape"); pause();

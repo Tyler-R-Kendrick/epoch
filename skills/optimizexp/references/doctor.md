@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP doctor"
 description: "Audit and safe repair of optimizexp structure, snapshots, feature quality, and persona formalization."
-tags: [hobo, optimizexp, doctor, repair, snapshot, quality]
+tags: [epoch, optimizexp, doctor, repair, snapshot, quality]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

@@ -789,7 +789,7 @@ function repairFeatureExperienceSkeleton(dir: string, featureId: string): void {
 		: featureId;
 	const body = `# EXPERIENCE: ${featureId}
 
-- entryCommand: \`${featureId.includes("hobo") ? "hobo-code help" : "TODO"}\`
+- entryCommand: \`${featureId.includes("epoch") ? "epoch help" : "TODO"}\`
 - driver: cli
 - intent: ${seed.replace(/\n/g, " ").slice(0, 160)}
 

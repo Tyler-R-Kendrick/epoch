@@ -1,36 +1,34 @@
 ---
 type: Reference
-title: "Community Web startup and HoBo workbench session state"
-description: "SDLC state for resumable startup, sticky local routing, deterministic HoBo authoring, bottom-line actions, and focus expansion."
-tags: [epoch, plans, sdlc, community-web, hobo, routing]
+title: "Community Web startup and routing session state"
+description: "SDLC state for resumable startup, sticky local routing, bottom-line actions, and focus expansion."
+tags: [epoch, plans, sdlc, community-web, routing]
 ---
 
-# Initiative: Community Web startup and HoBo workbench
+# Initiative: Community Web startup and routing
 
 - **Phase:** closed
-- **Slug:** `community-web-startup-hobo`
+- **Slug:** `community-web-startup-routing`
 - **Opened:** 2026-08-11
 - **Host:** Codex
 - **Pull request:** [#113](https://github.com/Tyler-R-Kendrick/epoch/pull/113)
-- **Branch:** `agent/community-web-startup-hobo`
+- **Branch:** `agent/community-web-startup-routing`
 
 ## Goal
 
-Give power users one recoverable startup/restart action, a cache-friendly model route, a deterministic HoBo app loop, contextual bottom-line guidance, and a focus panel that can expand without losing context.
+Give power users one recoverable startup/restart action, a cache-friendly model route, contextual bottom-line guidance, and a focus panel that can expand without losing context.
 
 ## Accepted plan
 
 1. Detect compatible local continuation, update, and workspace-prime conditions and apply them together with `Ctrl+U`; preserve editor `Ctrl+U` when no restart is pending.
 2. Keep one route sticky per workspace/session and only fail over on policy change or a recoverable backend failure. Use a Switchyard-compatible local policy shape without adding a proxy dependency.
-3. Reuse HoBo's offline scaffold, generated agent-doc, build/test/debug/up, and trainable-stub contracts in the default `bo` agent and workbench commands.
-4. Turn the status footer into a live bottom line with the recommended next action and hotkey.
-5. Generalize the existing nav-collapse control into focused-panel expand/collapse.
+3. Turn the status footer into a live bottom line with the recommended next action and hotkey.
+4. Generalize the existing nav-collapse control into focused-panel expand/collapse.
 
 ## Rejected alternatives
 
 - Per-turn semantic routing: rejected because it breaks conversation affinity and provider prompt-cache reuse.
 - Bundling LiteLLM, Portkey, Vercel AI Gateway, or Switchyard into the static Community Web prototype: rejected because the existing on-device session only needs policy and affinity; transport belongs behind the existing model seam.
-- Free-form LLM HoBo code generation: rejected because HoBo already defines contract-backed templates, generated docs, freshness gates, and trainable stubs.
 
 ## Validation
 

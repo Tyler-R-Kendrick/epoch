@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC stacked PRs"
 description: "Parent-owned GitHub stacked PRs via gh stack: layer planning, subagent incremental checkins, sync, bottom-up rubber-duck/adversarial review, comment and check repair, squash-merge per PR."
-tags: [hobo, sdlc, stacked-prs, gh-stack, review, merge]
+tags: [epoch, sdlc, stacked-prs, gh-stack, review, merge]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

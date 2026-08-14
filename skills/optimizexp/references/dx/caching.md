@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP DX — artifact caching"
 description: "Local and remote caches for builds, tests, and codegen artifacts."
-tags: [hobo, optimizexp, dx, cache]
+tags: [epoch, optimizexp, dx, cache]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -25,7 +25,7 @@ timestamp: 2026-07-30T00:00:00Z
 3. Agents must know how to **bust** a bad cache (`--force`, clean targets).
 4. Never cache secrets.
 
-## HoBo notes
+## Epoch notes
 
 - Turbo task caching when configured
 - Generated protobuf/WIT outputs checked in with drift gates

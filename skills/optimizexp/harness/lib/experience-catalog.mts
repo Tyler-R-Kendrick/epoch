@@ -112,7 +112,7 @@ export function buildExperienceCatalog(input: {
 				entryCommand: bin,
 				driver: interactive ? "tui" : "cli",
 				observableSuccess: interactive
-					? "Discoverability strip / HoBo branding; slash commands or help path visible"
+					? "Discoverability strip / Epoch branding; slash commands or help path visible"
 					: "Helpful default or usage without silent hang",
 				observableFailure: "Hang, empty chrome, or wrong-product branding only",
 				confusionRisks: [
@@ -287,7 +287,7 @@ function inferPersonaSurfaces(
 	if (/cursor/i.test(personaId + body)) {
 		out.push({
 			experienceId: "guide-cursor-map",
-			intent: "Map Cursor features to hobo-code verbs",
+			intent: "Map Cursor features to epoch verbs",
 			entryCommand: `${bin} guide --cursor`,
 			driver: "cli",
 			observableSuccess: "Cursor map with honest residual",

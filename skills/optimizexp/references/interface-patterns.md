@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP interface standards and patterns"
 description: "Formal, harness-neutral quality standards for APIs, TUIs, and web, mobile, and desktop GUIs."
-tags: [hobo, optimizexp, api, tui, gui, accessibility, design-patterns]
+tags: [epoch, optimizexp, api, tui, gui, accessibility, design-patterns]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

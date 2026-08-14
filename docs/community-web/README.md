@@ -166,7 +166,6 @@ count instead of interrupting.
 | `Ctrl+Shift+M` | Mute / unmute while in a voice channel |
 | `/voice` | Join / leave / mute / deafen / PTT·VAD for channel voice |
 | `macro` / `skill` | Define, list, run, voice-bind, or delete a safe reusable action |
-| `hobo` | Deterministic `new`, `build`, `test`, `debug`, `up --plan`, and trainable `stub` workbench used by Bo |
 
 Everything is clickable too: channels, members, projects, posts, and the signed
 actions on each post. **Right-click** any control for a Grid-themed menu:
@@ -432,7 +431,7 @@ control clears the 32px floor wherever the pointer is coarse.
 One box, two readings. **AI is the default**; `Alt+A` or the chip at the prompt
 switches.
 
-### Startup, routing, and Bo
+### Startup and routing
 
 The status footer is the **bottom line**: it always ends with one recommended
 next action and its hotkey. A host adapter can publish validated local signals
@@ -445,13 +444,7 @@ code does not scan arbitrary host files, and malformed signals are ignored.
 route until an explicit recoverable failure or policy-version change. This is a
 Switchyard-compatible policy seam with native provider `format` preserved for
 prompt caching; no remote route runs without a host adapter and user-scoped
-authorization. See [ADR-0028](../design-decisions/0028-community-web-startup-routing-and-hobo-authoring.md).
-
-`/.agents/bo` is the default HoBo app builder. Bo retrieves the generated HoBo
-agent-doc contract and calls `hobo_workbench`; it never invents lifecycle verbs
-or templates. The checked loop is `new --template` → `build` → `test` → `debug`
-→ `up --plan`. Logic outside the selected model's declared capability becomes a
-signature-preserving `"use training"` stub with a request for contract examples.
+authorization. See [ADR-0028](../design-decisions/0028-community-web-startup-and-routing.md).
 
 **Slash commands** — in ai (chat) mode, type `/` for intellisense. The catalogue
 is **static**: `/go`, `/search`, `/sort`, `/mode`, `/dm`, `/help`, `/attach`,

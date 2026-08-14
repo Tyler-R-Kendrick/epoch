@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP app exploration (surface map)"
 description: "Cold-start probes, surface-map.json schema, and how exploration feeds the experience catalog."
-tags: [hobo, optimizexp, explore, surface-map, discovery]
+tags: [epoch, optimizexp, explore, surface-map, discovery]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -10,11 +10,11 @@ timestamp: 2026-07-31T00:00:00Z
 
 ## Product binaries vs source (critical)
 
-When the project ships a **compiled CLI** (e.g. `@hobo/code` → `hobo-code` → `dist/`):
+When the project ships a **compiled CLI** (e.g. `@epoch/cli` → `epoch` → `dist/`):
 
-1. **Build before capture** — `pnpm --filter @hobo/code build` (or the package's `pnpm run build`).
-2. **Exercise the installed binary** — `hobo-code help`, not only `node --import tsx packages/code/src/bin/…`.
-3. **Link the package bin launcher** — `@hobo/code` uses `bin/hobo-code.mjs`, which auto-rebuilds when `src/` is newer than `dist/`. Prefer that over a symlink straight at `dist/bin/*.js`.
+1. **Build before capture** — `npm run build -w @epoch/cli` (or the package's `pnpm run build`).
+2. **Exercise the installed binary** — `epoch help`, not only `node --import tsx packages/code/src/bin/…`.
+3. **Link the package bin launcher** — `@epoch/cli` uses `bin/epoch.mjs`, which auto-rebuilds when `src/` is newer than `dist/`. Prefer that over a symlink straight at `dist/bin/*.js`.
 
 Scoring `tsx src` while the user runs stale `dist` is a false green. Evidence commands should match the persona's real entrypoint.
 

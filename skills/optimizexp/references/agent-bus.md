@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP write-ahead agent bus"
 description: "Append-only agent bus for expect, act, and outcome entries with formal metric scorecards, feelings, and evidence links."
-tags: [hobo, optimizexp, agent-bus, gherkin, write-ahead, scorecard]
+tags: [epoch, optimizexp, agent-bus, gherkin, write-ahead, scorecard]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

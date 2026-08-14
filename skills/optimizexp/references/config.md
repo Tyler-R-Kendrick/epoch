@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP config.json"
 description: "Formal global and project config for OptimizeXP-owned folders — defaults, surfaces, safety, persona/feature prefer lists."
-tags: [hobo, optimizexp, config, monorepo, projects]
+tags: [epoch, optimizexp, config, monorepo, projects]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -63,7 +63,7 @@ Multi-project / all-projects reviews use **global** config for defaults; each pr
   "kind": "global",
   "label": "Repository-wide OptimizeXP",
   "product": {
-    "name": "HoBo",
+    "name": "Epoch",
     "summary": "Optional short product blurb for init seeds"
   },
   "defaults": {

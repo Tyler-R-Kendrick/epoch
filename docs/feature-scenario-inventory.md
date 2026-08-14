@@ -115,7 +115,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer defines one action for prompt agent and voice control | None | 0 |
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator consumes compatible startup conditions with one restart | None | 0 |
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator keeps model routing sticky within a workspace | None | 0 |
-| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | App builder uses deterministic HoBo authoring and focused-panel controls | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor expands and restores the focused panel by keyboard | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor shares one message with stable context choices | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reopens a durable Projection Definition | None | 0 |
 | `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader power user traverses explicit reply ancestry | None | 0 |

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP evidence harness"
 description: "Auto-implemented test harnesses that drive Gherkin scenarios and capture persona-visible evidence."
-tags: [hobo, optimizexp, harness, playwright, tui, cucumber]
+tags: [epoch, optimizexp, harness, playwright, tui, cucumber]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP experiment backlog"
 description: "Rank persona feature-requests and positive-metric gaps into a prioritized experiment backlog for auto improvement."
-tags: [hobo, optimizexp, backlog, experiments, prioritization]
+tags: [epoch, optimizexp, backlog, experiments, prioritization]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

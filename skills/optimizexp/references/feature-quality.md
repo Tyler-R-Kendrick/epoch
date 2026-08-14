@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP feature quality (critical path)"
 description: "Experience catalog, rubber-duck + adversarial EXPERIENCE.md, high-quality Gherkin bars, and bans on template-only features."
-tags: [hobo, optimizexp, features, rubber-duck, adversarial, quality]
+tags: [epoch, optimizexp, features, rubber-duck, adversarial, quality]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — MCP"
 description: "MCP server wiring, shared fail-closed launchers, and agent ergonomics for tool use."
-tags: [hobo, optimizexp, ax, mcp]
+tags: [epoch, optimizexp, ax, mcp]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -15,7 +15,7 @@ timestamp: 2026-07-31T00:00:00Z
 - Fail closed on missing binary/key with remediation — no bare “command not found”
 - Zero-key default; optional key tools opt-in with AUTH
 
-## HoBo anchors
+## Epoch anchors
 
 | Config | Host |
 |---|---|

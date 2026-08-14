@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP features"
 description: "Persona-driven Gherkin feature folders, --feature seed generation, and evidence layout."
-tags: [hobo, optimizexp, features, gherkin, personas, feature-seed]
+tags: [epoch, optimizexp, features, gherkin, personas, feature-seed]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

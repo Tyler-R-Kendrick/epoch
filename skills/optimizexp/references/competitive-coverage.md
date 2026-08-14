@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP competitive coverage"
 description: "How Community Web (and similar surfaces) capture competitor experience gaps every run via scorecards, persona panels, survey extensions, and closeout gates."
-tags: [hobo, optimizexp, competitive, scorecard, personas, community]
+tags: [epoch, optimizexp, competitive, scorecard, personas, community]
 timestamp: 2026-08-03T00:00:00Z
 ---
 

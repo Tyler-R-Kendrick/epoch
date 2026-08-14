@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — model routing"
 description: "Routing tasks to appropriate models/backends for cost, latency, quality, and safety."
-tags: [hobo, optimizexp, ax, model-routing, cost]
+tags: [epoch, optimizexp, ax, model-routing, cost]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -17,7 +17,7 @@ experience defect: slow loops, surprise cost, or weak models on hard design task
 - Stronger models for design, adversarial review, hard diagnosis
 - Explicit opt-in for cloud backends that send code/prompts off-box
 
-## HoBo anchors
+## Epoch anchors
 
 | Path | Routing note |
 |---|---|
