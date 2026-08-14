@@ -1059,10 +1059,14 @@ When("I expand and restore the focused panel by keyboard", async function () {
     app.render(true);
   });
   await page.keyboard.press("z");
-  const expanded = await page.locator(".cn-blades").getAttribute("data-focus-expanded");
+  await page.waitForFunction(() => (
+    document.querySelector(".cn-blades")?.getAttribute("data-focus-expanded") === "1"
+  ));
   await page.keyboard.press("z");
-  const restored = await page.locator(".cn-blades").getAttribute("data-focus-expanded");
-  communityWebAppFocusRestored = expanded === "1" && restored === "";
+  await page.waitForFunction(() => (
+    document.querySelector(".cn-blades")?.getAttribute("data-focus-expanded") !== "1"
+  ));
+  communityWebAppFocusRestored = true;
 });
 
 Then("focus and selection remain in the same panel context", function () {
