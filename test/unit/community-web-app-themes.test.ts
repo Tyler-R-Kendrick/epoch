@@ -1247,6 +1247,8 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "Esc must dismiss the suggestion combobox without clearing the draft");
   assert.ok(consoleSrc2.includes("menuShouldOpen"),
     "console render must use app.menuShouldOpen (includes menuDismissed) for the combobox");
+  assert.ok(appSrc.includes("jumpChooserShouldOpen"),
+    "jump chooser must stay visible after Enter clears the prompt");
   assert.ok(appSrc.includes("feedNoticeOpen") && appSrc.includes("pendingByFeed") &&
     consoleSrc2.includes("cn-feed-notice"),
     "new-posts notice is feed-scoped overlay, not page chrome");

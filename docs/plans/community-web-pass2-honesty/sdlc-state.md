@@ -19,7 +19,7 @@
 
 ## Gap pass
 
-Receipt blade paints actor/evidence; Jump no longer types `zi`; fixture agents stay idle without a heartbeat; mute/report sit on the post tray and muted objects drop hook Activity; `ScopedOAuthClient` refuses minted `epoch-oauth-*` tokens; `tick()` never invents `live-*` posts.
+Receipt blade paints actor/evidence; Jump no longer types `zi`; the jump chooser stays open as a layer after Enter clears the prompt; fixture agents stay idle without a heartbeat; mute/report sit on the post tray and muted objects drop hook Activity; `ScopedOAuthClient` refuses minted `epoch-oauth-*` tokens; `tick()` never invents `live-*` posts.
 
 ## Layer 01 notes
 

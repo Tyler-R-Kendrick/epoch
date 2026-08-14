@@ -1635,6 +1635,7 @@ var CW_RUNTIME = (() => {
     isHandleHashStub: () => isHandleHashStub,
     isProtectedStreamTarget: () => isProtectedStreamTarget,
     isSpectatorViewPreference: () => isSpectatorViewPreference,
+    jumpChooserShouldOpen: () => jumpChooserShouldOpen,
     letterSteersBoard: () => letterSteersBoard,
     listFeeds: () => listFeeds,
     listProjects: () => listProjects,
@@ -3532,6 +3533,12 @@ ${source ?? ""}`.split("\n");
   }
   function preservedSearchAfterJump(searchQuery) {
     return String(searchQuery ?? "");
+  }
+  function jumpChooserShouldOpen(input) {
+    if (input.kind !== "jump") return false;
+    if (input.candidateCount < 1) return false;
+    if (input.menuDismissed && !input.intelOpen) return false;
+    return true;
   }
   function composerOwnsLetter(input) {
     if (!input.composerFocused) return false;

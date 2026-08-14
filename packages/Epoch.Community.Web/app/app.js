@@ -5162,6 +5162,15 @@
     // on an empty prompt). Ordinary typing only opens when there is text and a
     // real choice — otherwise Enter-then-clear would leave every command listed.
     if (state.intelOpen) return true;
+    if (window.CW_RUNTIME && typeof window.CW_RUNTIME.jumpChooserShouldOpen === "function" &&
+        window.CW_RUNTIME.jumpChooserShouldOpen({
+          kind: c.kind,
+          candidateCount: c.candidates.length,
+          menuDismissed: !!state.menuDismissed,
+          intelOpen: !!state.intelOpen,
+        })) {
+      return true;
+    }
     var typed = String(cliValue || "");
     // Slash catalogue opens as soon as `/` is typed (even a single candidate).
     if (typed.charAt(0) === "/" && c.candidates.length >= 1) return true;

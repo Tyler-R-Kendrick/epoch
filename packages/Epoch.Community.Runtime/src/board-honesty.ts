@@ -58,6 +58,22 @@ export function preservedSearchAfterJump(searchQuery: string | undefined): strin
   return String(searchQuery ?? "");
 }
 
+/**
+ * Jump chooser is a layer. Enter clears the prompt so leftover `zi` never
+ * lands in the composer; the palette stays open until Esc or accept.
+ */
+export function jumpChooserShouldOpen(input: {
+  readonly kind?: string;
+  readonly candidateCount: number;
+  readonly menuDismissed: boolean;
+  readonly intelOpen: boolean;
+}): boolean {
+  if (input.kind !== "jump") return false;
+  if (input.candidateCount < 1) return false;
+  if (input.menuDismissed && !input.intelOpen) return false;
+  return true;
+}
+
 export function composerOwnsLetter(input: {
   readonly composerFocused: boolean;
   readonly composerValue: string;

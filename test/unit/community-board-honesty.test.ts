@@ -7,6 +7,7 @@ import {
   finishAtprotoAuthorization,
   honestAgentStatus,
   isHandleHashStub,
+  jumpChooserShouldOpen,
   letterSteersBoard,
   openBoardReceipt,
   parseBoardReceiptLocator,
@@ -17,6 +18,7 @@ import {
 export async function runCommunityBoardHonestyTests(): Promise<void> {
   receiptsAreInspectableObjects();
   jumpPreservesSearchQuery();
+  jumpChooserStaysOpenAfterPromptClears();
   composerKeepsLetters();
   muteReportHookRequireTarget();
   sampleBoardDoesNotInventTickActivity();
@@ -38,6 +40,24 @@ function receiptsAreInspectableObjects(): void {
 function jumpPreservesSearchQuery(): void {
   assert.equal(preservedSearchAfterJump("state:needs-review"), "state:needs-review");
   assert.equal(preservedSearchAfterJump(undefined), "");
+}
+
+function jumpChooserStaysOpenAfterPromptClears(): void {
+  assert.equal(jumpChooserShouldOpen({
+    kind: "jump", candidateCount: 3, menuDismissed: false, intelOpen: false,
+  }), true);
+  assert.equal(jumpChooserShouldOpen({
+    kind: "command", candidateCount: 3, menuDismissed: false, intelOpen: false,
+  }), false);
+  assert.equal(jumpChooserShouldOpen({
+    kind: "jump", candidateCount: 0, menuDismissed: false, intelOpen: false,
+  }), false);
+  assert.equal(jumpChooserShouldOpen({
+    kind: "jump", candidateCount: 2, menuDismissed: true, intelOpen: false,
+  }), false);
+  assert.equal(jumpChooserShouldOpen({
+    kind: "jump", candidateCount: 2, menuDismissed: true, intelOpen: true,
+  }), true);
 }
 
 function composerKeepsLetters(): void {
