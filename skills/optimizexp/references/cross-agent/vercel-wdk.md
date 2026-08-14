@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP — Vercel Workflow DevKit notes"
 description: "Optional durable local workflows via Workflow DevKit Local World for cross-agent review loops."
-tags: [hobo, optimizexp, vercel, workflow-devkit]
+tags: [epoch, optimizexp, vercel, workflow-devkit]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

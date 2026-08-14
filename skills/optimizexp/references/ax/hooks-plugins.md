@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — hooks and plugins"
 description: "Session hooks, plugins, and always-on rules that shape agent behavior."
-tags: [hobo, optimizexp, ax, hooks, plugins]
+tags: [epoch, optimizexp, ax, hooks, plugins]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -24,7 +24,7 @@ timestamp: 2026-07-31T00:00:00Z
 - **Composition**: two always-on systems fighting (tone + verbosity)
 - **Safety**: hooks that block `git push --force` without blocking normal work
 
-## HoBo anchors
+## Epoch anchors
 
 - `.claude/settings.json` marketplaces + plugins
 - RTK `rtk init -g` per agent (setup script agent layer)

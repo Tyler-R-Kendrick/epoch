@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP cognitive thresholds"
 description: "Formal cognitive-load channels and per-persona thresholds that constrain delight experiments and feed harm metrics."
-tags: [hobo, optimizexp, cognitive-load, clutter, feature-sprawl, hick, sweller, coga]
+tags: [epoch, optimizexp, cognitive-load, clutter, feature-sprawl, hick, sweller, coga]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

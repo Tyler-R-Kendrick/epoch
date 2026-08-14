@@ -115,7 +115,7 @@ export function parsePersonaModels(text: string): { models: PersonaModels | null
 	allowed("roleFamily", ["application-developer", "platform", "design", "end-user", "agent-operator", "finops", "sre", "other"]);
 	allowed("seniority", ["junior", "mid", "senior", "principal", "student", "hobbyist"]);
 	allowed("orgArchetype", ["solo", "startup", "smb", "enterprise", "oss-community", "agency"]);
-	allowed("domainFamiliarity", ["new-to-hobo", "migrating", "power-user"]);
+	allowed("domainFamiliarity", ["new-to-epoch", "migrating", "power-user"]);
 	allowed("timeBudget", ["minutes", "hours", "multi-day"]);
 	const level = (key: string) => ["low", "medium", "high"].includes(field(psycho, key));
 	for (const key of ["riskTolerance", "noveltySeeking", "trustInAutomation", "socialProofNeed", "aestheticSensitivity", "controlNeed"]) if (!level(key)) problems.push(`${key} must be low, medium, or high`);

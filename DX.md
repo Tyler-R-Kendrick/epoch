@@ -1,7 +1,6 @@
 # DX — epoch
 
-Standard: the **Monorepo DX Playbook** (canonical in the `HoBo` repo → `docs/standards/monorepo-dx-playbook.md`,
-`https://github.com/Tyler-R-Kendrick/HoBo/blob/main/docs/standards/monorepo-dx-playbook.md`).
+Standard: Epoch's local quality gates and the root `AGENTS.md` workflow.
 
 ## Current state
 TS DVCS SDK/CLI/WASM monorepo — 20 workspaces. npm (engines-only, **not pinned**), ESLint 10, `tsgo` per-package

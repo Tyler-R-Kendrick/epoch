@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC requirement cascade"
 description: "How inner/outer-loop discoveries ripple through plans, proofs, ADRs, and Linear - mechanically, single-writer."
-tags: [hobo, sdlc, cascade]
+tags: [epoch, sdlc, cascade]
 timestamp: 2026-07-02T00:00:00Z
 ---
 

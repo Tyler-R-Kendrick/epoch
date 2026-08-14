@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC Linear capture"
 description: "Turn an approved plan into Linear initiative/projects/milestones/issues with one-shot contracts."
-tags: [hobo, sdlc, linear]
+tags: [epoch, sdlc, linear]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
@@ -10,7 +10,7 @@ timestamp: 2026-07-02T00:00:00Z
 
 Structure: **initiative** per major scope → **projects** for stage/epic-sized chunks →
 **milestones** for subsystem groupings → **issues** for independently-implementable slices.
-Reuse workspace conventions (team HoBo; labels `slice`/`spike`/`hardening`/`security`/
+Reuse workspace conventions (the Epoch team; labels `slice`/`spike`/`hardening`/`security`/
 `adversarial`/`user-story`; severity→priority).
 
 ## The one-shot contract (every issue body)

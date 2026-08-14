@@ -6169,11 +6169,6 @@
         ? window.CW_POWER.command(arg)
         : { ok: false, text: "macro: unavailable" };
       reply = macroResult.text;
-    } else if (cmd === "hobo") {
-      var hoboResult = window.CW_HOBO
-        ? window.CW_HOBO.run(arg)
-        : { ok: false, text: "hobo: workbench unavailable" };
-      reply = hoboResult.text;
     } else if (cmd === "stat") {
       reply = "epoch " + D.board.epoch + " · " + D.board.landed + "/" + D.board.total +
         " landed · ships " + D.board.ships;

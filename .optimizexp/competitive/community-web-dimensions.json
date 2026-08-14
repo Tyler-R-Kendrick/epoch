@@ -285,8 +285,8 @@
         ".optimizexp/features/community-web-power-controls/evidence/screen-reader-power-user-traverses-messages-with-one-roving-tab-stop/",
         ".optimizexp/features/community-web-power-controls/evidence/forge-power-user-operates-every-focused-post-action-by-keyboard/",
         ".optimizexp/features/community-web-power-controls/evidence/screen-reader-power-user-discovers-every-post-action-shortcut/",
-        ".optimizexp/features/community-web-power-controls/evidence/app-builder-uses-bo-s-deterministic-hobo-template-and-trainable-fallback/",
-        ".optimizexp/runs/20260811-uxax-community-web-startup-hobo/artifacts/focus-panel-narrow/"
+        ".optimizexp/features/community-web-power-controls/evidence/contributor-expands-and-restores-the-focused-panel-by-keyboard/",
+        ".optimizexp/runs/20260811-uxax-community-web-startup-routing/artifacts/focus-panel-narrow/"
       ],
       "metricFloor": {
         "harms": 1,

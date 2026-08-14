@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP DX — git tools and hooks"
 description: "Githooks, git extensions, and staged checks that protect the main branch without blocking flow."
-tags: [hobo, optimizexp, dx, git, hooks]
+tags: [epoch, optimizexp, dx, git, hooks]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -18,7 +18,7 @@ timestamp: 2026-07-30T00:00:00Z
 | PR checks | Branch confidence |
 | Agent git guardrails | Block destructive commands |
 
-## HoBo anchors
+## Epoch anchors
 
 - `.githooks/pre-commit` → `check:relevant:staged` / `agent:check -- --staged`
 - `pnpm run prepare-hooks`

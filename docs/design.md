@@ -356,9 +356,8 @@ Community design-system decision and
 Community Web dogfooding history and
 [ADR-0027](design-decisions/0027-community-visual-world.md) for the
 canonical runtime decision, and
-[ADR-0028](design-decisions/0028-community-web-startup-routing-and-hobo-authoring.md)
-for recoverable startup, workspace-sticky model routing, and deterministic HoBo
-authoring through the default Bo agent.
+[ADR-0028](design-decisions/0028-community-web-startup-and-routing.md)
+for recoverable startup and workspace-sticky model routing.
 
 ### Federated Community and gossip (shipped MVP)
 

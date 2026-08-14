@@ -63,7 +63,6 @@
     { actionId: "stream.load", label: "Load queued posts", description: "Merge queued arrivals without stealing the reader anchor", commandAliases: ["tail"], run: "tail" },
     { actionId: "stream.watch", label: "Resume stream", description: "Resume live arrivals", commandAliases: ["watch"], run: "watch" },
     { actionId: "macro.manage", label: "Manage macros", description: "Define and invoke safe reusable registered actions", commandAliases: ["macro", "skill"], commandArg: "macro", run: "macro" },
-    { actionId: "hobo.workbench", label: "HoBo workbench", description: "Run deterministic HoBo lifecycle commands", commandAliases: ["hobo"], commandArg: "hobo", run: "hobo" },
     { actionId: "board.status", label: "Status", description: "Show Epoch board status", commandAliases: ["stat"], run: "stat" },
     { actionId: "stream.protect", label: "Mute stream inputs", description: "Stop livestreaming input events and protected fields", keyBindings: [{ key: "Ctrl+Shift+.", contexts: ["board"] }, { key: "Ctrl+Shift+>", contexts: ["board"] }], run: "stream-protect" },
     { actionId: "help.open", label: "Help", description: "Show generated action help", commandAliases: ["help"], slashAliases: ["/help"], run: "slash-help" },

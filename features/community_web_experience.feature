@@ -353,13 +353,10 @@ Feature: Community Web community-first experience
     Then Community Web keeps the same cache route until policy or failure invalidates it
 
   @persona.github_open_source_contributor
-  Scenario: App builder uses deterministic HoBo authoring and focused-panel controls
+  Scenario: Contributor expands and restores the focused panel by keyboard
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I open the default Bo agent
-    Then Bo offers deterministic HoBo new build test debug and up actions
-    And complex unsupported logic is emitted as a trainable stub
     When I expand and restore the focused panel by keyboard
     Then focus and selection remain in the same panel context
 

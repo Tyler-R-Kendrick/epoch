@@ -178,7 +178,7 @@ function groundedProfile(seed: string, experiences: string[]) {
 	const roleFamily = /\b(design|designer|visual|brand|a11y|accessibility|user|customer)\b/.test(s) ? "design" : /\b(agent|mcp|copilot|cursor|claude|codex)\b/.test(s) ? "agent-operator" : /\b(ops|sre|platform|infrastructure)\b/.test(s) ? "platform" : "application-developer";
 	const seniority = /\b(junior|new|beginner|student|learning)\b/.test(s) ? "junior" : /\b(principal|staff|lead|expert|senior)\b/.test(s) ? "senior" : "mid";
 	const orgArchetype = /\b(enterprise|large|regulated)\b/.test(s) ? "enterprise" : /\b(open.?source|oss|community)\b/.test(s) ? "oss-community" : /\b(solo|indie|freelance)\b/.test(s) ? "solo" : "startup";
-	const domainFamiliarity = /\b(existing|migration|migrating|legacy)\b/.test(s) ? "migrating" : /\b(power|expert|maintainer)\b/.test(s) ? "power-user" : "new-to-hobo";
+	const domainFamiliarity = /\b(existing|migration|migrating|legacy)\b/.test(s) ? "migrating" : /\b(power|expert|maintainer)\b/.test(s) ? "power-user" : "new-to-epoch";
 	const timeBudget = /\b(quick|urgent|minutes|interactive|immediate)\b/.test(s) ? "minutes" : /\b(long|deep|research|multi.?day)\b/.test(s) ? "multi-day" : "hours";
 	const accessibilityProfile = /\b(screen.?reader|non.?visual|blind)\b/.test(s) ? "screen-reader-possible" : /\b(reduced.?motion|motion)\b/.test(s) ? "prefers-reduced-motion" : /\b(accessib|cognitive|overwhelm|simple|clarity)\b/.test(s) ? "cognitive-load-sensitive" : "none-declared";
 	const values = [...new Set(["clarity", /\b(speed|fast|quick)\b/.test(s) ? "speed" : "safety", /\b(cost|budget|cheap)\b/.test(s) ? "cost-control" : "autonomy", roleFamily === "design" ? "craft" : "safety"])];

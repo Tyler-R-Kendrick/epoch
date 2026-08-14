@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP flags"
 description: "Grammar for experiences, persona seeds, feature seeds, and run scope resolution."
-tags: [hobo, optimizexp, flags, ux, dx, ax, persona, feature]
+tags: [epoch, optimizexp, flags, ux, dx, ax, persona, feature]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -45,7 +45,7 @@ Optional. Default: **all projects** in the workspace.
 --projects all
 --all-projects
 --project site
---projects site,cli,hobo
+--projects site,cli,epoch
 --projects hello-bindle
 ```
 
@@ -63,7 +63,7 @@ An evaluable product unit discovered from the tree, for example:
 |---|---|
 | `root` | Repo root (always) |
 | `site` | `site/` public app |
-| `cli`, `hobo`, `mcp` | Product packages under `packages/` |
+| `cli`, `epoch`, `mcp` | Product packages under `packages/` |
 | `hello-bindle`, … | `examples/*` |
 | draft MVP slugs | `src/draft/projects/*` |
 

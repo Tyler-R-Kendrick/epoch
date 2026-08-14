@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP multi-objective equilibrium"
 description: "Infinite optimizexp loop: harm reduce then delight maximize under non-regression and cognitive-threshold constraints until Pareto equilibrium."
-tags: [hobo, optimizexp, equilibrium, pareto, multi-objective, yerkes-dodson, kano]
+tags: [epoch, optimizexp, equilibrium, pareto, multi-objective, yerkes-dodson, kano]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — section map"
 description: "Progressive-disclosure map of agent-experience audit surfaces for optimizexp --ax runs."
-tags: [hobo, optimizexp, ax, index]
+tags: [epoch, optimizexp, ax, index]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -37,7 +37,7 @@ offline probes (`pnpm run doctor`, setup `--help`, skill mirrors, local MCP laun
 4. [token-optimization.md](token-optimization.md) + [model-routing.md](model-routing.md)
 5. [agents-config.md](agents-config.md) + [hooks-plugins.md](hooks-plugins.md) + [agents-md.md](agents-md.md) as needed
 
-## HoBo product anchors (quick)
+## Epoch product anchors
 
 | Concern | Where |
 |---|---|

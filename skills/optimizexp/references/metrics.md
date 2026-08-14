@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP metrics"
 description: "Score harms, friction, and uncertainty for human-centered experience review."
-tags: [hobo, optimizexp, metrics, hcd, harms, friction, uncertainty]
+tags: [epoch, optimizexp, metrics, hcd, harms, friction, uncertainty]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

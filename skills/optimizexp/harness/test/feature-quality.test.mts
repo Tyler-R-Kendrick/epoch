@@ -25,14 +25,14 @@ describe("feature-quality rubberduck", () => {
 	it("accepts filled EXPERIENCE with checked boxes and accept", () => {
 		const md = `# EXPERIENCE: x
 
-entryCommand: \`hobo-code help\`
+entryCommand: \`epoch help\`
 
 ## Rubber-duck (explain to a new teammate)
 
 1. Who — developer finishing help discoverability in two minutes.
-2. Path — \`hobo-code help\` from clean shell.
+2. Path — \`epoch help\` from clean shell.
 3. First see — verb list and First run section.
-4. Wrong product — control-plane \`hobo\` alone.
+4. Wrong product — control-plane scripts alone.
 5. Happy — run help, see verbs.
 6. Failure — unknown verb gives remediation.
 7. Evidence — cli capture of help stdout.
@@ -53,7 +53,7 @@ entryCommand: \`hobo-code help\`
 ## Verdict
 
 - accept
-- primaryCommand: \`hobo-code help\`
+- primaryCommand: \`epoch help\`
 `;
 		const r = checkRubberduckDoc(md);
 		assert.equal(r.ok, true, r.problems.join("; "));
@@ -84,16 +84,16 @@ Feature: x
 		const dir = mkdtempSync(path.join(tmpdir(), "oxp-gq2-"));
 		const body = gherkinTemplate({
 			kind: "help-discoverability",
-			featureId: "hobo-code-help",
+			featureId: "epoch-help",
 			title: "help",
 			personaId: "developer",
 			personaName: "developer",
 			iface: "cli",
 			experiences: ["dx"],
-			bin: "hobo-code",
-			entryCommand: "hobo-code help",
+			bin: "epoch",
+			entryCommand: "epoch help",
 		});
-		writeFileSync(path.join(dir, "hobo-code-help-developer.feature"), body);
+		writeFileSync(path.join(dir, "epoch-help-developer.feature"), body);
 		const r = checkGherkinQuality(dir);
 		assert.equal(r.ok, true, r.problems.join("; "));
 	});
@@ -107,8 +107,8 @@ Feature: x
 			personaName: "p",
 			iface: "cli",
 			experiences: ["dx"],
-			bin: "hobo-code",
-			entryCommand: "hobo-code help",
+			bin: "epoch",
+			entryCommand: "epoch help",
 		};
 		const developer = gherkinTemplate({ ...base, personaRole: "application-developer" });
 		const operator = gherkinTemplate({ ...base, personaRole: "agent-operator" });
@@ -119,9 +119,9 @@ Feature: x
 });
 
 describe("pickPrimaryCommand preference", () => {
-	it("prefers hobo-code shell over agent:check script", () => {
+	it("prefers epoch shell over agent:check script", () => {
 		const report: DiscoveryReport = {
-			featureId: "hobo-code-agent",
+			featureId: "epoch-agent",
 			seed: "agent inventory for coding agent",
 			scannedAt: new Date().toISOString(),
 			packageScripts: ["agent:check", "eval:agent:mock"],
@@ -138,8 +138,8 @@ describe("pickPrimaryCommand preference", () => {
 				},
 				{
 					kind: "shell-command",
-					id: "shell:hobo-code agent",
-					command: "hobo-code agent",
+					id: "shell:epoch agent",
+					command: "epoch agent",
 					confidence: "high",
 					reason: "product CLI",
 					implementsSteps: [],
@@ -148,7 +148,7 @@ describe("pickPrimaryCommand preference", () => {
 		};
 		const p = pickPrimaryCommand(report);
 		assert.ok(p);
-		assert.match(p!.command ?? "", /hobo-code agent/);
+		assert.match(p!.command ?? "", /epoch agent/);
 	});
 });
 
@@ -158,16 +158,16 @@ describe("experience catalog", () => {
 			schemaVersion: 1,
 			projectId: "code",
 			scannedAt: new Date().toISOString(),
-			productName: "hobo-code",
+			productName: "epoch",
 			packageDir: "packages/code",
-			binaries: [{ name: "hobo-code", binPath: "/tmp/hobo-code.js" }],
+			binaries: [{ name: "epoch", binPath: "/tmp/epoch.js" }],
 			defaultEntry: {
-				command: "hobo-code",
+				command: "epoch",
 				interactive: true,
 				driver: "tui",
 				notes: "test",
 			},
-			nonInteractiveHelp: { command: "hobo-code help", driver: "cli" },
+			nonInteractiveHelp: { command: "epoch help", driver: "cli" },
 			commands: [
 				{ id: "help", argv: ["help"], kind: "discoverability" },
 				{ id: "agent", argv: ["agent"], kind: "verb" },

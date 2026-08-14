@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP UX — DESIGN.md"
 description: "Using DESIGN.md as the agent-facing design contract and keeping CSS in sync."
-tags: [hobo, optimizexp, ux, design-md]
+tags: [epoch, optimizexp, ux, design-md]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -14,13 +14,13 @@ timestamp: 2026-07-30T00:00:00Z
 
 Format reference: [google-labs-code/design.md](https://github.com/google-labs-code/design.md).
 
-## HoBo layout
+## Epoch layout
 
 | Path | Role |
 |---|---|
 | `site/DESIGN.md` | Source of truth for public site aesthetic |
 | `site/src/styles/global.css` | Implementation |
-| `pnpm --filter hobo-site run design:lint` | Structural + WCAG gate |
+| `npm run design:lint` | Structural + WCAG gate |
 | `.agents/skills/design-md/SKILL.md` | Agent procedure |
 
 ## Optimization checklist

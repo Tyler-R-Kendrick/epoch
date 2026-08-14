@@ -10,7 +10,7 @@ const body = (thresholds = "featureSprawl: 1\nvisualClutter: 2\ninteractiveClutt
 - roleFamily: design
 - seniority: junior
 - orgArchetype: enterprise
-- domainFamiliarity: new-to-hobo
+- domainFamiliarity: new-to-epoch
 - localeContext: en-primary
 - deviceContext: desktop-first
 - timeBudget: hours

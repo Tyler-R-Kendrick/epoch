@@ -124,7 +124,7 @@ const canonicalEntries = [
   map.list("/projects/community/channels").find((item) => item.name === "general"),
   map.list("/members").find((item) => item.name === "maya"),
   map.list("/dms").find((item) => item.name === "scout"),
-  map.list("/.agents").find((item) => item.name === "bo"),
+  map.list("/.agents").find((item) => item.name === "space-steward"),
 ];
 assert.deepEqual(canonicalEntries.map((item) => item.ref.kind),
   ["project", "channel", "member", "dm", "agent"]);

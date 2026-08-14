@@ -126,17 +126,17 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Failure class | CodeRabbit PENDING at merge; Actions quality CI disabled. Vercel SUCCESS. Local `gate:push` + landing e2e green. Merged with `--admin`. |
 | Notes | Persuade `/` vs Operate `board.html`; terminal channels keep navbar siblings; Canvas UI glitch + E01 decrypt/reveal; landing typewriter. Excluded local WIP gauntlet-loop + impeccable mocks. |
 
-## 2026-08-11 — Community Web startup + HoBo workbench `/sdlc finish`
+## 2026-08-11 — Community Web startup and routing `/sdlc finish`
 
 | Field | Value |
 |---|---|
-| Initiative | [`community-web-startup-hobo`](community-web-startup-hobo/sdlc-state.md) |
+| Initiative | [`community-web-startup-routing`](community-web-startup-routing/sdlc-state.md) |
 | Backend | Sequential; coordinator inline |
-| Branch | `agent/community-web-startup-hobo` |
+| Branch | `agent/community-web-startup-routing` |
 | PR | [#113](https://github.com/Tyler-R-Kendrick/epoch/pull/113) — squash-merged `043d9244` |
 | Result | **success** |
 | Failure class | Two shared page-readiness races failed authoritative CI and were fixed at the common board-entry step; ignored primary browser evidence was force-included before review. |
-| Notes | Contextual tuicr/hunk-style bottom line; `Ctrl+U` startup recovery; sticky local routing; deterministic Bo/HoBo workflow; focus expansion; message-directory/typeahead synchronization; keyboard post actions. Quality Gates, CodeRabbit, and Vercel green; 152 scenarios / 1388 steps. |
+| Notes | Contextual tuicr/hunk-style bottom line; `Ctrl+U` startup recovery; sticky local routing; focus expansion; message-directory/typeahead synchronization; keyboard post actions. Quality Gates, CodeRabbit, and Vercel green; 152 scenarios / 1388 steps. |
 # 2026-08-11 — Frontier version-control convergence
 
 - Starting commit: `a0c427c2e731dd26cdb933c1a08785f9e4c743ee`.
@@ -198,5 +198,5 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Branch | `feat/community-web-honesty-gerrit` |
 | PR | [#140](https://github.com/Tyler-R-Kendrick/epoch/pull/140) — squash-merged [`f72df08`](https://github.com/Tyler-R-Kendrick/epoch/commit/f72df08b513440a782e8767b382da7208eac2a75) |
 | Result | **success** |
-| Failure class | Real CI red before merge: jump chooser hid after Enter cleared the prompt; Coverage/Test Chromium crashes on reload and a hidden Bo blade timeout. Fixed on the same PR. |
+| Failure class | Real CI red before merge: jump chooser hid after Enter cleared the prompt; Coverage/Test Chromium crashes on reload and an agent-blade visibility timeout. Fixed on the same PR. |
 | Notes | Honest sample board (no fake tick, unsigned guests, receipts as objects, jump/search isolation, scoped mute/report, PAR/PKCE/DPoP AT OAuth). Command-replay livestream with fail-closed `.epochstreamignore` / rewrite / protect. Native Change publish uses Gerrit-shaped Change-Id + `refs/for/<target>` (ADR-0050/0051). Production Vercel `epoch-vcs` deployed `f72df08`. Local junk (`.impeccable`, `.serena`, leftover nightboard canvasui) was not committed. |

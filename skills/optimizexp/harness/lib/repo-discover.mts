@@ -183,9 +183,9 @@ export function discoverProduct(
 	const designMd = designMdCandidates.find((p) => existsSync(p));
 	const hasDesignMd = Boolean(designMd) && (includes("site") || includes("root"));
 	const hasCli =
-		includes("cli", "hobo", "root") &&
+		includes("cli", "epoch", "root") &&
 		(packages.includes("cli") ||
-			packages.includes("hobo") ||
+			packages.includes("Epoch.CLI") ||
 			existsSync(path.join(root, "packages/cli")) ||
 			/\bcli\b/i.test(readme));
 	const hasMcp =
@@ -247,10 +247,10 @@ export function discoverProduct(
 		notes.push("No site/DESIGN.md in selected projects — skipped default UX personas.");
 	}
 
-	if ((hasCli || scriptNames.length > 0 || packages.length > 0) && includes("root", "cli", "hobo")) {
+	if ((hasCli || scriptNames.length > 0 || packages.length > 0) && includes("root", "cli", "epoch")) {
 		const dxProjects = ["root"];
 		if (selectedIds.has("cli") || selection.allProjects) dxProjects.push("cli");
-		if (selectedIds.has("hobo") || selection.allProjects) dxProjects.push("hobo");
+		if (selectedIds.has("epoch") || selection.allProjects) dxProjects.push("epoch");
 		personaPlans.push({
 			id: "product-app-developer",
 			experiences: ["dx", "ax"],
@@ -405,10 +405,10 @@ export function discoverProduct(
 			driver: "cli",
 			surfaces: scripts["doctor"]
 				? ["pnpm run doctor"]
-				: ["pnpm exec hobo --help", "pnpm run doctor"].filter(Boolean),
-			source: ["packages/cli", "packages/hobo", "package.json"],
+				: ["npx epoch --help", "pnpm run doctor"].filter(Boolean),
+			source: ["packages/cli", "packages/Epoch.CLI", "package.json"],
 			personaExperiences: ["dx", "ax"],
-			projects: ["cli", "hobo", "root"].filter(
+			projects: ["cli", "epoch", "root"].filter(
 				(id) => selection.allProjects || selectedIds.has(id) || id === "root",
 			),
 		});

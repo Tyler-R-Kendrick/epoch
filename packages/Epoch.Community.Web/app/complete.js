@@ -913,16 +913,6 @@
       return { kind: "text", query: fragment, candidates: [], ghost: "", replaceFrom: fragStart, insert: fragment };
     }
 
-    if (spec.arg === "hobo" && tokens.length <= 2 && window.CW_HOBO) {
-      var hc = window.CW_HOBO.suggestions(fragment);
-      return {
-        kind: "hobo", query: fragment, candidates: hc, replaceFrom: fragStart,
-        insert: hc[0] ? hc[0].value : fragment,
-        ghost: hc[0] && hc[0].value.indexOf(fragment) === 0
-          ? hc[0].value.slice(fragment.length) : "",
-      };
-    }
-
     if (spec.arg === "sort" || spec.arg === "view") {
       var rv = sortCandidates(fragment);
       return {

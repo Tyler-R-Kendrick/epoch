@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC loops and gates"
 description: "Red/green inner loop and narrow-then-wide outer loop with required perf/contract/feature lanes."
-tags: [hobo, sdlc, tdd, gates]
+tags: [epoch, sdlc, tdd, gates]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
@@ -28,7 +28,7 @@ Strict red/green (compose with the `tdd` skill / Superpowers test-driven-develop
   cascade, mirror, docs, and workspace lanes for the change).
 - **Incremental checkins:** implementers commit after each red→green step, not once at the end.
 - After committing: no-arg `pnpm agent:check` validates the latest commit.
-- Whole-branch confidence (`--base=origin/main`) only at PR time; CI (docs.yml + hobo-ci pr-gate)
+- Whole-branch confidence (`--base=origin/main`) only at PR time; CI (Quality Gates)
   is the arbiter the coordinator queries for the Done rule.
 - Multi-layer work: parent keeps the stack in sync (`gh stack sync` / `rebase --upstack`) after
   lower-layer commits so upper-layer gates run on realistic bases.

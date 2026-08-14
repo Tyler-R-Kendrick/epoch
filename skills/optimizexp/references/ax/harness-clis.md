@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — agent harness CLIs"
 description: "Host agent CLIs, setup script, doctor, agent:check, and session land (sdlc --finish)."
-tags: [hobo, optimizexp, ax, cli, harness, doctor, agent-check]
+tags: [epoch, optimizexp, ax, cli, harness, doctor, agent-check]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

@@ -263,7 +263,7 @@ function main() {
 			const experiences =
 				p.kind === "site" || p.id === "site"
 					? (["ux"] as const)
-					: p.kind === "package" && (p.id === "cli" || p.id === "hobo")
+					: p.kind === "package" && (p.id === "cli" || p.id === "epoch" || p.id === "Epoch.CLI")
 						? (["dx", "ax"] as const)
 						: undefined;
 			const driver =
@@ -401,7 +401,7 @@ function main() {
 		const experiences =
 			p.kind === "site" || p.id === "site"
 				? (["ux"] as ("ux" | "dx" | "ax")[])
-				: p.id === "cli" || p.id === "hobo" || p.id === "mcp"
+				: p.id === "cli" || p.id === "epoch" || p.id === "Epoch.CLI" || p.id === "mcp"
 					? (["dx", "ax"] as ("ux" | "dx" | "ax")[])
 					: undefined;
 		ensureProjectConfig(p, root, {

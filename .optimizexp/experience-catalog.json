@@ -9,7 +9,7 @@
       "intent": "Cold-start the product TTY/chat and recognize it is not a stock third-party agent UI",
       "entryCommand": "epoch",
       "driver": "tui",
-      "observableSuccess": "Discoverability strip / HoBo branding; slash commands or help path visible",
+      "observableSuccess": "Discoverability strip / Epoch branding; slash commands or help path visible",
       "observableFailure": "Hang, empty chrome, or wrong-product branding only",
       "confusionRisks": [
         "stock Pi / third-party agent UI",
@@ -81,7 +81,7 @@
       "intent": "Cold-start the product TTY/chat and recognize it is not a stock third-party agent UI",
       "entryCommand": "epoch",
       "driver": "tui",
-      "observableSuccess": "Discoverability strip / HoBo branding; slash commands or help path visible",
+      "observableSuccess": "Discoverability strip / Epoch branding; slash commands or help path visible",
       "observableFailure": "Hang, empty chrome, or wrong-product branding only",
       "confusionRisks": [
         "stock Pi / third-party agent UI",
@@ -153,7 +153,7 @@
       "intent": "Cold-start the product TTY/chat and recognize it is not a stock third-party agent UI",
       "entryCommand": "epoch",
       "driver": "tui",
-      "observableSuccess": "Discoverability strip / HoBo branding; slash commands or help path visible",
+      "observableSuccess": "Discoverability strip / Epoch branding; slash commands or help path visible",
       "observableFailure": "Hang, empty chrome, or wrong-product branding only",
       "confusionRisks": [
         "stock Pi / third-party agent UI",
@@ -225,7 +225,7 @@
       "intent": "Cold-start the product TTY/chat and recognize it is not a stock third-party agent UI",
       "entryCommand": "epoch",
       "driver": "tui",
-      "observableSuccess": "Discoverability strip / HoBo branding; slash commands or help path visible",
+      "observableSuccess": "Discoverability strip / Epoch branding; slash commands or help path visible",
       "observableFailure": "Hang, empty chrome, or wrong-product branding only",
       "confusionRisks": [
         "stock Pi / third-party agent UI",

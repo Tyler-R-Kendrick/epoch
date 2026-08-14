@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP DX — lint and typecheck"
 description: "Fast feedback loops for linting and typechecking without drowning agents in noise."
-tags: [hobo, optimizexp, dx, lint, typecheck]
+tags: [epoch, optimizexp, dx, lint, typecheck]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -21,7 +21,7 @@ timestamp: 2026-07-30T00:00:00Z
 - Architecture guards (`architecture:guard`, `konsistent`)
 - Doc linters (`docs:design-lint`, `docs:cli-lint`)
 
-## HoBo anchors
+## Epoch anchors
 
 - `pnpm run lint`, package-boundary lints
 - `pnpm run standards:check`

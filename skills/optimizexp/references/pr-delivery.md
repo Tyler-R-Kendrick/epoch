@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP PR delivery"
 description: "Incremental commits, stacked PRs per iteration, and posting evidence to pull requests."
-tags: [hobo, optimizexp, pr, stacked-prs, evidence, gh]
+tags: [epoch, optimizexp, pr, stacked-prs, evidence, gh]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

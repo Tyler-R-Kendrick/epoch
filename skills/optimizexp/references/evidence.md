@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP evidence capture"
 description: "What personas see: capture, store, overwrite policy, and media preference for feature scenarios."
-tags: [hobo, optimizexp, evidence, screenshot, video, tui, web]
+tags: [epoch, optimizexp, evidence, screenshot, video, tui, web]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

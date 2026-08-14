@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — agent skills"
 description: "Skill authoring, progressive disclosure, dual-tree mirrors, and offline feature bindings."
-tags: [hobo, optimizexp, ax, skills]
+tags: [epoch, optimizexp, ax, skills]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -17,7 +17,7 @@ workflows/               # optional host workflows
 scripts/ / harness/      # deterministic helpers
 ```
 
-## HoBo rules
+## Epoch rules
 
 - Mirror `.agents/skills/<name>` ↔ `.claude/skills/<name>` (byte-identical)
 - `pnpm run skills:mirror-check`

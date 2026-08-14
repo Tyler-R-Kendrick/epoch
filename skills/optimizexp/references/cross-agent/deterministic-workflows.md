@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP cross-agent deterministic workflows"
 description: "Template for hosts without native workflows: call deterministic local code for the review loop."
-tags: [hobo, optimizexp, cross-agent, workflows]
+tags: [epoch, optimizexp, cross-agent, workflows]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

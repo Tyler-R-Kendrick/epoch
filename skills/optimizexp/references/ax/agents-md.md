@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — AGENTS.md instruction files"
 description: "Instruction files agents load at session start: structure, token cost, and conflict control."
-tags: [hobo, optimizexp, ax, agents-md]
+tags: [epoch, optimizexp, ax, agents-md]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -24,7 +24,7 @@ competes with task context.
 5. No secrets; keys only as env var **names** (AUTH.md for tables).
 6. Agent tooling table stays current with `docs/agent-tooling.md` and doctor.
 
-## HoBo anchors
+## Epoch anchors
 
 - Root `AGENTS.md` — architecture rules, agent tooling table, performance ladder
 - `CLAUDE.md` — may compose `@` includes

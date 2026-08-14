@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP DX — repo and package hierarchy"
 description: "Repository layout, package boundaries, and navigation ergonomics for humans and agents."
-tags: [hobo, optimizexp, dx, monorepo, packages]
+tags: [epoch, optimizexp, dx, monorepo, packages]
 timestamp: 2026-07-30T00:00:00Z
 ---
 
@@ -19,7 +19,7 @@ scripts/                    # repo automation
 .agents/skills + .claude/skills  # mirrored agent skills
 ```
 
-## HoBo rules that reduce friction
+## Epoch rules that reduce friction
 
 - Parallel work: edit one package/feature folder
 - Avoid shared global files unless task requires

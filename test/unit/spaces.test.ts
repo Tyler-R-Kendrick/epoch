@@ -64,24 +64,24 @@ export async function runSpaceTests(): Promise<void> {
       (error: unknown) => error instanceof SpaceError && error.code === "grant-denied");
 
     // --- budgets: authority is bounded, not just present --------------------
-    store.join(space.id, { principal: "agent-bo", role: "agent" });
-    assert.throws(() => store.recordTurn(space.id, { request: "index", principal: "agent-bo", units: 1 }),
+    store.join(space.id, { principal: "agent-steward", role: "agent" });
+    assert.throws(() => store.recordTurn(space.id, { request: "index", principal: "agent-steward", units: 1 }),
       (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
-    store.allocateTurnBudget(space.id, { principal: "agent-bo", units: 3 });
-    assert.equal(store.recordTurn(space.id, { request: "index the board", principal: "agent-bo", units: 2 }).data.remaining, 1);
-    assert.throws(() => store.recordTurn(space.id, { request: "index again", principal: "agent-bo", units: 2 }),
+    store.allocateTurnBudget(space.id, { principal: "agent-steward", units: 3 });
+    assert.equal(store.recordTurn(space.id, { request: "index the board", principal: "agent-steward", units: 2 }).data.remaining, 1);
+    assert.throws(() => store.recordTurn(space.id, { request: "index again", principal: "agent-steward", units: 2 }),
       (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
-    assert.equal(store.recordTurn(space.id, { request: "finish", principal: "agent-bo", units: 1 }).data.remaining, 0);
+    assert.equal(store.recordTurn(space.id, { request: "finish", principal: "agent-steward", units: 1 }).data.remaining, 0);
 
     // A budget belongs to the Space that allocated it. Units granted here must
     // not become spendable in a different Space.
     const otherSpace = store.createSpace({ title: "Unrelated space", view: "main" });
-    store.join(otherSpace.id, { principal: "agent-bo", role: "agent" });
-    assert.throws(() => store.recordTurn(otherSpace.id, { request: "spend elsewhere", principal: "agent-bo", units: 1 }),
+    store.join(otherSpace.id, { principal: "agent-steward", role: "agent" });
+    assert.throws(() => store.recordTurn(otherSpace.id, { request: "spend elsewhere", principal: "agent-steward", units: 1 }),
       (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
     // ...and consumption in one Space does not silently drain another.
-    store.allocateTurnBudget(otherSpace.id, { principal: "agent-bo", units: 1 });
-    assert.equal(store.recordTurn(otherSpace.id, { request: "spend here", principal: "agent-bo", units: 1 }).data.remaining, 0);
+    store.allocateTurnBudget(otherSpace.id, { principal: "agent-steward", units: 1 });
+    assert.equal(store.recordTurn(otherSpace.id, { request: "spend here", principal: "agent-steward", units: 1 }).data.remaining, 0);
 
     // A principal is always key-backed: the ID hashes real signing material, so
     // a grant can never name a principal that holds no key.
@@ -91,27 +91,27 @@ export async function runSpaceTests(): Promise<void> {
 
     // --- workspaces: the provider reports, the Space only records -----------
     const provider = new FileSystemWorkspaceProvider(root);
-    const bound = store.bindWorkspace(space.id, { provider, principal: "agent-bo", residency: "virtual", materialization: "virtual" });
+    const bound = store.bindWorkspace(space.id, { provider, principal: "agent-steward", residency: "virtual", materialization: "virtual" });
     assert.equal(bound.data.execution, "disabled");
     assert.equal(bound.data.providerId, "filesystem");
     assert.equal(store.workspaces(space.id).length, 1);
     // A Space cannot launder an isolation claim the provider never made.
-    assert.throws(() => store.bindWorkspace(space.id, { provider, principal: "agent-bo", execution: "isolated" }),
+    assert.throws(() => store.bindWorkspace(space.id, { provider, principal: "agent-steward", execution: "isolated" }),
       /cannot claim isolated execution/u);
 
     // --- capture: continuous recording requires signed consent --------------
-    assert.throws(() => store.recordCapturedOperation(space.id, { path: "rail.json", content: "{}", principal: "agent-bo" }),
+    assert.throws(() => store.recordCapturedOperation(space.id, { path: "rail.json", content: "{}", principal: "agent-steward" }),
       (error: unknown) => error instanceof SpaceError && error.code === "policy-denied");
     const session = store.openCapture(space.id, {
-      scope: "packages/Epoch.Community.Web", retention: "30d", redaction: "declared-secrets", principal: "agent-bo",
+      scope: "packages/Epoch.Community.Web", retention: "30d", redaction: "declared-secrets", principal: "agent-steward",
     });
     parseCanonicalId(session.id, "session");
-    assert.throws(() => store.openCapture(space.id, { scope: "again", retention: "30d", principal: "agent-bo" }),
+    assert.throws(() => store.openCapture(space.id, { scope: "again", retention: "30d", principal: "agent-steward" }),
       (error: unknown) => error instanceof SpaceError && error.code === "conflict");
-    store.recordCapturedOperation(space.id, { path: "rail.json", content: '{"a":1}', principal: "agent-bo" });
-    assert.equal(store.closeCapture(space.id, { principal: "agent-bo" }).data.operationCount, 1);
+    store.recordCapturedOperation(space.id, { path: "rail.json", content: '{"a":1}', principal: "agent-steward" });
+    assert.equal(store.closeCapture(space.id, { principal: "agent-steward" }).data.operationCount, 1);
     // Consent ends with the session; capture is refused again once it is sealed.
-    assert.throws(() => store.recordCapturedOperation(space.id, { path: "rail.json", content: "{}", principal: "agent-bo" }),
+    assert.throws(() => store.recordCapturedOperation(space.id, { path: "rail.json", content: "{}", principal: "agent-steward" }),
       (error: unknown) => error instanceof SpaceError && error.code === "policy-denied");
     assert.equal(store.captureSessions(space.id).every((item) => item.data.open === false), true);
 
@@ -119,11 +119,11 @@ export async function runSpaceTests(): Promise<void> {
     const revisionId = repository.events()[0]!.id;
     const original = '{"rail":{"width":24},"stream":{"rows":40}}';
     assert.throws(() => store.recordAnchor(space.id, {
-      revisionId, path: "board.json", structuralPath: "object#0/member:absent", content: original, principal: "agent-bo",
+      revisionId, path: "board.json", structuralPath: "object#0/member:absent", content: original, principal: "agent-steward",
     }), (error: unknown) => error instanceof SpaceError && error.code === "not-found");
 
     const anchor = store.recordAnchor(space.id, {
-      revisionId, path: "board.json", structuralPath: "object#0/member:rail", content: original, principal: "agent-bo",
+      revisionId, path: "board.json", structuralPath: "object#0/member:rail", content: original, principal: "agent-steward",
     });
     parseCanonicalId(anchor.id, "anchor");
     assert.equal(store.resolveAnchor(anchor.id, { content: original }).status, "resolved");
@@ -138,14 +138,14 @@ export async function runSpaceTests(): Promise<void> {
     // capture or anchor can never record an absolute or traversing path.
     for (const badPath of ["/etc/passwd", "../../secrets.env", "a/../../b"]) {
       assert.throws(() => store.recordAnchor(space.id, {
-        revisionId, path: badPath, structuralPath: "object#0/member:rail", content: original, principal: "agent-bo",
+        revisionId, path: badPath, structuralPath: "object#0/member:rail", content: original, principal: "agent-steward",
       }), /path/iu, `anchor accepted unsafe path: ${badPath}`);
     }
-    store.openCapture(space.id, { scope: "src", retention: "7d", principal: "agent-bo" });
+    store.openCapture(space.id, { scope: "src", retention: "7d", principal: "agent-steward" });
     assert.throws(() => store.recordCapturedOperation(space.id, {
-      path: "../escape.json", content: "{}", principal: "agent-bo",
+      path: "../escape.json", content: "{}", principal: "agent-steward",
     }), /path/iu);
-    store.closeCapture(space.id, { principal: "agent-bo" });
+    store.closeCapture(space.id, { principal: "agent-steward" });
 
     // --- rejections stay typed ----------------------------------------------
     assert.throws(() => store.showSpace("epoch:space:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),

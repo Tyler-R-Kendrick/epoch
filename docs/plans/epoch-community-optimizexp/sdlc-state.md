@@ -23,8 +23,8 @@ OptimizeXP competitive review, and production-hardened local delivery on `main`.
 
 | PR | Title | Merged |
 |---|---|---|
-| [#84](https://github.com/Tyler-R-Kendrick/epoch/pull/84) | Sync sdlc + optimizexp skills from HoBo | yes |
-| [#85](https://github.com/Tyler-R-Kendrick/epoch/pull/85) | Designer personas from HoBo | yes |
+| [#84](https://github.com/Tyler-R-Kendrick/epoch/pull/84) | Sync sdlc + optimizexp skills | yes |
+| [#85](https://github.com/Tyler-R-Kendrick/epoch/pull/85) | Designer personas | yes |
 | [#86](https://github.com/Tyler-R-Kendrick/epoch/pull/86) | Competitor power users + share path / drafts / identity | yes |
 | [#87](https://github.com/Tyler-R-Kendrick/epoch/pull/87) | Block Buzz dossier + agents-as-members | yes |
 | [#88](https://github.com/Tyler-R-Kendrick/epoch/pull/88) | Competitive gap scorecard + Community Web panels | yes |

@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "SDLC brainstorm & hardening"
 description: "Idea generation with adversarial and rubber-duck hardening before any planning."
-tags: [hobo, sdlc, brainstorming]
+tags: [epoch, sdlc, brainstorming]
 timestamp: 2026-07-02T00:00:00Z
 ---
 

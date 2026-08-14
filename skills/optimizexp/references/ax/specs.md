@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP AX — specs and standing contracts"
 description: "Standing contract files agents must discover: WorkOS AUTH.md/auth.md, AGENTS.md, DESIGN.md, llms.txt, env examples."
-tags: [hobo, optimizexp, ax, specs, agents-md, auth, design-md, workos]
+tags: [epoch, optimizexp, ax, specs, agents-md, auth, design-md, workos]
 timestamp: 2026-07-31T00:00:00Z
 ---
 
@@ -16,7 +16,7 @@ names** (WorkOS auth.md, DESIGN.md, llms.txt) — do not invent house brands for
 
 | Spec | Standard / role | Offline probe |
 |---|---|---|
-| `AUTH.md` / `auth.md` | **WorkOS open protocol** for agent registration (flows, scopes, credentials) — not a HoBo invention | file present; product origins should publish per https://workos.com/auth-md |
+| `AUTH.md` / `auth.md` | **WorkOS open protocol** for agent registration (flows, scopes, credentials) — not an Epoch invention | file present; product origins should publish per https://workos.com/auth-md |
 | `AGENTS.md` | Standing agent instruction brief (ecosystem convention) | file exists; linked from CLAUDE.md |
 | `CLAUDE.md` | Claude-oriented include / summary | points at AGENTS / skills |
 | `.env.example` | Env var **names** only (local residual) | no secrets committed |
@@ -45,7 +45,7 @@ Detail: [agents-md.md](agents-md.md) · [auth.md](auth.md) (WorkOS auth.md) · U
 
 ## Uncertainty smells
 
-- Docs call AUTH.md a “HoBo repo pattern” or “our AUTH surface” (wrong — WorkOS open protocol)
+- Docs call AUTH.md a “Epoch repo pattern” or “our AUTH surface” (wrong — WorkOS open protocol)
 - “Secretless” claimed while `.env` examples demand plaintext keys without residual framing
 - llms.txt claims ship status that the trail map contradicts
 - Folder AGENTS overrides root without saying so

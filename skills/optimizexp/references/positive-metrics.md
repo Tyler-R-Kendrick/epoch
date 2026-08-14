@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP positive metrics"
 description: "Delight metrics (excitement, ease-of-use, perceived optimality) maximized under harm non-regression and cognitive thresholds until Pareto equilibrium."
-tags: [hobo, optimizexp, metrics, delight, excitement, ease-of-use, optimality, pareto, kano]
+tags: [epoch, optimizexp, metrics, delight, excitement, ease-of-use, optimality, pareto, kano]
 timestamp: 2026-07-31T00:00:00Z
 ---
 

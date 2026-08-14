@@ -2,7 +2,7 @@
 type: Agent Skill Reference
 title: "OptimizeXP metric scorecard"
 description: "Formal scorecard output on every expect, act, and outcome bus entry for harms, friction, uncertainty, and HCD deficits."
-tags: [hobo, optimizexp, scorecard, metrics, bus]
+tags: [epoch, optimizexp, scorecard, metrics, bus]
 timestamp: 2026-07-30T00:00:00Z
 ---
 

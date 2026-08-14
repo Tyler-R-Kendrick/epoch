@@ -74,10 +74,10 @@ export async function runSpaceRuntimeTests(): Promise<void> {
     // --- phase 5: a turn runs, and the receipt is signed evidence -----------
     const store = SignedSpaceStore.open(root, { author: "alice" });
     const space = store.createSpace({ title: "Runtime space", view: "main" });
-    store.join(space.id, { principal: "agent-bo", role: "agent" });
+    store.join(space.id, { principal: "agent-steward", role: "agent" });
 
     const run = await store.runTurn(space.id, {
-      request: "print a line", sandbox: processProvider, command: "sh", args: ["-c", "echo ran"], principal: "agent-bo",
+      request: "print a line", sandbox: processProvider, command: "sh", args: ["-c", "echo ran"], principal: "agent-steward",
     });
     assert.equal(run.result?.stdout.trim(), "ran");
     assert.equal(run.receipt.data.outcome, "succeeded");
@@ -86,7 +86,7 @@ export async function runSpaceRuntimeTests(): Promise<void> {
 
     // A failing command is recorded as failed rather than swallowed.
     const failed = await store.runTurn(space.id, {
-      request: "exit nonzero", sandbox: processProvider, command: "sh", args: ["-c", "exit 3"], principal: "agent-bo",
+      request: "exit nonzero", sandbox: processProvider, command: "sh", args: ["-c", "exit 3"], principal: "agent-steward",
     });
     assert.equal(failed.receipt.data.outcome, "failed");
 
@@ -95,7 +95,7 @@ export async function runSpaceRuntimeTests(): Promise<void> {
     const before = store.receipts(space.id).length;
     await assert.rejects(() => store.runTurn(space.id, {
       request: "needs isolation", sandbox: unavailable, command: "sh", args: ["-c", "true"],
-      principal: "agent-bo", requireIsolation: true,
+      principal: "agent-steward", requireIsolation: true,
     }), (error: unknown) => error instanceof SpaceError && error.code === "policy-denied");
     assert.equal(store.receipts(space.id).length, before + 1);
     assert.equal(store.receipts(space.id).at(-1)!.data.outcome, "refused");

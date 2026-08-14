@@ -114,7 +114,7 @@ function probeCommand(
 			...process.env,
 			// Force non-interactive for explore probes
 			CI: process.env.CI ?? "1",
-			HOBO_CODE_AGENT: "1",
+			EPOCH_CODE_AGENT: "1",
 		},
 		maxBuffer: 2 * 1024 * 1024,
 	});
@@ -128,7 +128,7 @@ function probeCommand(
 	};
 }
 
-/** Parse HOBO_*_VERBS = [ "a", "b" ] arrays from package sources. */
+/** Parse EPOCH_*_VERBS = [ "a", "b" ] arrays from package sources. */
 function parseVerbEnumFromSources(packageDir: string): string[] {
 	const found: string[] = [];
 	const dirs = [
@@ -166,7 +166,7 @@ function parseVerbEnumFromSources(packageDir: string): string[] {
 					continue;
 				}
 				const m = text.match(
-					/HOBO_[A-Z0-9_]*VERBS\s*=\s*\[([\s\S]*?)\]\s*as\s*const/,
+					/EPOCH_[A-Z0-9_]*VERBS\s*=\s*\[([\s\S]*?)\]\s*as\s*const/,
 				);
 				if (!m) continue;
 				for (const q of m[1]!.matchAll(/"([a-z][a-z0-9-]*)"/g)) {
@@ -286,7 +286,7 @@ export function buildSurfaceMap(input: {
 			cwd: packageDir,
 			encoding: "utf8",
 			timeout: 20_000,
-			env: { ...process.env, CI: "1", HOBO_CODE_AGENT: "1" },
+			env: { ...process.env, CI: "1", EPOCH_CODE_AGENT: "1" },
 			maxBuffer: 2 * 1024 * 1024,
 		});
 		const helpText = `${r.stdout ?? ""}\n${r.stderr ?? ""}`;
