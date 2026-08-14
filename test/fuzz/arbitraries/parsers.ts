@@ -57,6 +57,22 @@ export const arbBudgetEvent = fc.tuple(
 export const arbRemoteVerbosity = fc.integer({ min: 0, max: 3 }).map(String);
 export const arbProposalName = fc.stringMatching(/^proposal-[a-z0-9-]{1,24}$/u);
 
+export const arbEscapePath = fc.constantFrom(
+  "../etc/passwd",
+  "..\\windows\\system32",
+  "/etc/passwd",
+  "foo/../../etc/shadow",
+  "status:open AND ../escape",
+);
+
+export const arbUnknownEventType = fc.constantFrom(
+  "not.a.protocol.event",
+  "change.deleted",
+  "agent.budget.forged",
+  "",
+  "CHANGE.CREATED",
+);
+
 /** PR-time short budget. Campaigns override via env. */
 export function shortFcParams(): { numRuns: number; seed: number; endOnFailure: boolean } {
   const numRuns = Number(process.env.EPOCH_FUZZ_RUNS ?? "96");

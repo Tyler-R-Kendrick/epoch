@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import fc from "fast-check";
 import { SignedChangeGraphStore } from "@epoch/core";
 import {
@@ -202,6 +203,138 @@ class IdempotentShowCommand implements Cmd {
   toString = (): string => `IdempotentShow(${this.changeIndex})`;
 }
 
+class MissingRevisionFailClosedCommand implements Cmd {
+  check = (): boolean => true;
+  run(model: HistoryModel, real: HistoryReal): void {
+    const fake = "a".repeat(64);
+    assert.throws(
+      () => real.store.createChange({ title: "orphan", parentRevisionIds: [fake] }),
+      /not found|RevisionId|existing signed/u,
+    );
+    assert.throws(
+      () => real.store.createGraph({ name: "missing-member", memberRevisionIds: [fake] }),
+      /not found|RevisionId|existing signed/u,
+    );
+    assert.throws(() => real.store.showChange("epoch:change:not-a-real-change-id"), /not found|canonical/u);
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => "MissingRevisionFailClosed()";
+}
+
+class RejectConflictCommand implements Cmd {
+  constructor(readonly suffix: string) {}
+  check = (): boolean => true;
+  run(model: HistoryModel, real: HistoryReal): void {
+    const proposal = real.store.proposeAiConflict(`reject-${this.suffix}`);
+    assert.equal(proposal.data.trusted, false);
+    const decided = real.store.decideConflict(proposal.id, "rejected");
+    assert.equal(decided.data.status, "rejected");
+    const listed = real.store.listConflicts().find((item) => item.id === proposal.id);
+    assert.ok(listed);
+    assert.equal(listed.data.status, "rejected");
+    model.conflicts.push({ id: proposal.id, status: "rejected" });
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => `RejectConflict(${this.suffix})`;
+}
+
+class UnresolvedConflictBlocksMergeCommand implements Cmd {
+  constructor(readonly revisionIndex: number) {}
+  check(model: HistoryModel): boolean {
+    return allRevisionIds(model).length > 0
+      && model.conflicts.some((conflict) => conflict.status !== "accepted");
+  }
+  run(model: HistoryModel, real: HistoryReal): void {
+    const revisions = allRevisionIds(model);
+    const target = revisions[this.revisionIndex % revisions.length]!;
+    const plan = real.store.createMergePlan({
+      targetRevisionId: target,
+      selectedRevisionIds: [target],
+    });
+    assert.throws(() => real.store.applyMergePlan(plan.id), /unresolved conflict/u);
+    assert.equal(real.store.showMergePlan(plan.id).data.status, "planned");
+    model.mergePlans.push({ id: plan.id, applied: false });
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => `UnresolvedConflictBlocksMerge(${this.revisionIndex})`;
+}
+
+class PathTraversalFailClosedCommand implements Cmd {
+  check = (): boolean => true;
+  run(model: HistoryModel, real: HistoryReal): void {
+    const outside = join(real.store.repository.root, "..", `escape-${real.tick}`);
+    assert.throws(() => real.store.syncFromLocal(outside), /not found/u);
+    const hydrated = real.store.hydratePaths(["../etc/passwd", "..\\windows", "/etc/passwd"]);
+    assert.deepEqual(hydrated.hydrated, []);
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => "PathTraversalFailClosed()";
+}
+
+class InvalidBudgetAndAuthCommand implements Cmd {
+  constructor(readonly units: number) {}
+  check = (): boolean => true;
+  run(model: HistoryModel, real: HistoryReal): void {
+    assert.throws(() => real.store.allocateBudget({ units: this.units }), /nonnegative/u);
+    assert.throws(() => real.store.authExplain({ action: "forge.admin" }), /no grant authorizes/u);
+    assert.throws(() => real.store.assertPublicArchive("private"), /cannot be archived/u);
+    real.store.assertPublicArchive("public");
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => `InvalidBudgetAndAuth(${this.units})`;
+}
+
+class DuplicateSnapshotApplyCommand implements Cmd {
+  check = (): boolean => true;
+  run(model: HistoryModel, real: HistoryReal): void {
+    const snapshot = real.store.exportSnapshot();
+    const expected = storeCanonicalDigest(real.store);
+    const peer = real.openPeer();
+    const first = peer.applySnapshot(snapshot);
+    const second = peer.applySnapshot(snapshot);
+    assert.equal(second.eventsCopied, 0);
+    assert.ok(first.eventsCopied >= 0);
+    assert.equal(storeCanonicalDigest(peer), expected);
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => "DuplicateSnapshotApply()";
+}
+
+class RestoreLatestOperationCommand implements Cmd {
+  check(model: HistoryModel): boolean {
+    return model.eventCount > 1;
+  }
+  run(model: HistoryModel, real: HistoryReal): void {
+    const ops = real.store.operations();
+    if (ops.length === 0) return;
+    const last = ops[ops.length - 1]!;
+    const restored = real.store.restoreOperation(last.operationId);
+    assert.equal(restored.restores, last.operationId);
+    assert.ok(real.store.operations().some((item) => item.restores === last.operationId));
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => "RestoreLatestOperation()";
+}
+
+class RecordReviewCommand implements Cmd {
+  constructor(readonly changeIndex: number) {}
+  check(model: HistoryModel): boolean {
+    return model.changes.length > 0;
+  }
+  run(model: HistoryModel, real: HistoryReal): void {
+    const change = model.changes[this.changeIndex % model.changes.length]!;
+    const recorded = real.store.recordReview({
+      targetId: change.id,
+      state: "approved",
+      body: "fuzz-review",
+    });
+    assert.equal(recorded.data.state, "approved");
+    assert.equal(recorded.data.targetId, change.id);
+    syncModelCounts(model, real.store);
+  }
+  toString = (): string => `RecordReview(${this.changeIndex})`;
+}
+
 export function historyCommands(maxCommands = 24): fc.Arbitrary<Iterable<Cmd>> {
   return fc.commands([
     fc.stringMatching(/^change-[a-z0-9-]{1,16}$/u).map((title) => new CreateChangeCommand(title)),
@@ -214,7 +347,15 @@ export function historyCommands(maxCommands = 24): fc.Arbitrary<Iterable<Cmd>> {
       .map(([name, index]) => new CreateGraphCommand(name, index)),
     fc.nat({ max: 32 }).map((index) => new MergePlanApplyCommand(index)),
     fc.stringMatching(/^[a-z0-9]{1,8}$/u).map((suffix) => new ConflictDecideCommand(suffix)),
+    fc.stringMatching(/^[a-z0-9]{1,8}$/u).map((suffix) => new RejectConflictCommand(suffix)),
+    fc.nat({ max: 32 }).map((index) => new UnresolvedConflictBlocksMergeCommand(index)),
     fc.constant(new SnapshotRoundtripCommand()),
+    fc.constant(new DuplicateSnapshotApplyCommand()),
+    fc.constant(new MissingRevisionFailClosedCommand()),
+    fc.constant(new PathTraversalFailClosedCommand()),
+    fc.constant(new RestoreLatestOperationCommand()),
+    fc.integer({ min: -8, max: -1 }).map((units) => new InvalidBudgetAndAuthCommand(units)),
+    fc.nat({ max: 32 }).map((index) => new RecordReviewCommand(index)),
     fc.stringMatching(/^peer-[a-z0-9-]{1,12}$/u).map((title) => new SyncFromPeerCommand(title)),
     fc.nat({ max: 32 }).map((index) => new IdempotentShowCommand(index)),
   ], { maxCommands, size: "+1" });

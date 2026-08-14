@@ -6,10 +6,12 @@ import {
   arbChunkBytes,
   arbForgeObject,
   arbPktPayload,
+  arbEscapePath,
   arbProposalName,
   arbRemoteVerbosity,
   arbRevsetExpression,
   arbSwhidValue,
+  arbUnknownEventType,
   shortFcParams,
 } from "../arbitraries/parsers";
 import {
@@ -17,8 +19,10 @@ import {
   assertChunkManifestRoundtrip,
   assertForgeCodecSubset,
   assertPathQueryFailClosed,
+  assertPathQueryNeverEscapesRoot,
   assertPktLineRoundtrip,
   assertProtocolEventClosed,
+  assertProtocolEventUnknownTypeFails,
   assertRemoteHelperClosed,
   assertRevsetDeterministic,
   assertSwhidRoundtrip,
@@ -62,6 +66,15 @@ async function main(): Promise<void> {
   await fc.assert(fc.asyncProperty(fc.string({ maxLength: 128 }), async (query) => {
     assertPathQueryFailClosed(query);
   }), { ...params, numRuns: Math.min(params.numRuns, 64) });
+
+  await fc.assert(fc.asyncProperty(arbEscapePath, async (query) => {
+    assertPathQueryNeverEscapesRoot(query);
+    assertPathQueryFailClosed(query);
+  }), params);
+
+  await fc.assert(fc.asyncProperty(arbUnknownEventType, async (type) => {
+    assertProtocolEventUnknownTypeFails(type);
+  }), params);
 
   process.stdout.write(JSON.stringify({
     suite: "parser-roundtrip-fast-check",

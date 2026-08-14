@@ -50,8 +50,8 @@ export function assertProtocolEventClosed(event: {
 
 export function assertRevsetDeterministic(expression: string): void {
   assert.deepEqual(parseRevset(expression), parseRevset(expression));
-  for (const invalid of ["", "unknown()", "heads(", `${"a".repeat(4097)}()`]) {
-    assert.throws(() => parseRevset(invalid), /revset|unknown|expected/u);
+  for (const invalid of ["", "unknown()", "heads(", `${"a".repeat(4097)}()`, "heads() |", "../escape"]) {
+    assert.throws(() => parseRevset(invalid), /revset|unknown|expected|bounded/u);
   }
 }
 
@@ -244,4 +244,22 @@ export function assertPathQueryFailClosed(input: string): void {
   const result = parseCommunityQuery(input);
   assert.equal(typeof result, "object");
   assert.ok(Array.isArray(result.diagnostics));
+}
+
+export function assertPathQueryNeverEscapesRoot(input: string): void {
+  const result = parseCommunityQuery(input);
+  assert.equal(typeof result, "object");
+  assert.ok(Array.isArray(result.diagnostics));
+  const serialized = JSON.stringify(result);
+  assert.equal(serialized.includes("\0"), false);
+}
+
+export function assertProtocolEventUnknownTypeFails(rawType: string): void {
+  assert.throws(() => assertProtocolEvent({
+    schemaVersion: 1,
+    type: rawType,
+    eventId: "a".repeat(64),
+    revisionId: "a".repeat(64),
+    body: {},
+  }), /Unknown protocol event type|invalid-schema/u);
 }

@@ -1,16 +1,17 @@
 {
-  "_coverageThresholdRationale": "Floors were recalibrated after the Community Web client extraction: the old 85/85 line and statement floors were set when the web surfaces were single emitted template-literal modules, so their giant style/markup strings counted as covered lines and inflated the totals. The suite now measures real code, including the vite-compiled client entry (Epoch.Community.Web/dist/client/runtime.js), which executes only inside Playwright browser pages and is invisible to c8, so it reports 0% despite being exercised by the community_web_experience scenarios. Browser-only Community Web workbench views and worker entry files are excluded for the same reason. Measured actuals at recalibration: lines/statements 80.0, branches 79.4, functions 86.5 — floors sit 1-2 points below those actuals (functions and branches ratchet UP from 79/75). New behavior must preserve or improve these floors; if client-entry instrumentation lands, raise lines/statements back toward 85.",
+  "_coverageThresholdRationale": "Floors were recalibrated after the Community Web client extraction: the old 85/85 line and statement floors were set when the web surfaces were single emitted template-literal modules, so their giant style/markup strings counted as covered lines and inflated the totals. The vite-compiled client entry (Epoch.Community.Web/dist/client/*) executes only inside Playwright and is invisible to c8, so it is excluded with the workbench/search bundles. Remaining Node-visible actuals after that exclude sit near 89/86/78 for lines/functions/branches. Floors sit 1-2 points below those actuals (lines/statements ratchet 78→87). Function coverage stays at 85 until history/fuzz work covers more store methods.",
   "all": true,
   "check-coverage": true,
-  "lines": 78,
+  "lines": 87,
   "branches": 78,
   "functions": 85,
-  "statements": 78,
+  "statements": 87,
   "reporter": ["text", "lcov"],
   "include": ["packages/*/dist/**/*.js"],
   "exclude": [
     "dist/test/**",
     "packages/Epoch.Community.Web/dist/workbench/**",
-    "packages/Epoch.Community.Web/dist/search/**"
+    "packages/Epoch.Community.Web/dist/search/**",
+    "packages/Epoch.Community.Web/dist/client/**"
   ]
 }
