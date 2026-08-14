@@ -220,7 +220,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | Change Graph fuzz lanes (ADR-0052) |
 | Backend | Sequential fallback; coordinator inline |
 | Branch | `test/fuzz-lanes-0052` |
-| PR | this delivery |
+| PR | [#144](https://github.com/Tyler-R-Kendrick/epoch/pull/144) |
 | Result | **in flight** |
 | Failure class | None yet |
 | Notes | Three lanes: deterministic smoke, fast-check history/properties with shrinking, Jazzer.js parser campaigns with versioned corpora. PR `test:runtime` runs smoke + short fast-check + corpus/Jazzer regression. Long campaigns are scheduled only. |
