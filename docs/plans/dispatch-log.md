@@ -220,7 +220,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | Change Graph fuzz lanes (ADR-0052) |
 | Backend | Sequential fallback; coordinator inline |
 | Branch | `test/fuzz-lanes-0052` |
-| PR | [#144](https://github.com/Tyler-R-Kendrick/epoch/pull/144) |
-| Result | **in flight** |
-| Failure class | None yet |
-| Notes | Three lanes: deterministic smoke, fast-check history/properties with shrinking, Jazzer.js parser campaigns with versioned corpora. PR `test:runtime` runs smoke + short fast-check + corpus/Jazzer regression. Long campaigns are scheduled only. |
+| PR | [#144](https://github.com/Tyler-R-Kendrick/epoch/pull/144) — squash-merged [`8bea093`](https://github.com/Tyler-R-Kendrick/epoch/commit/8bea093b71d675e09286834df422cae150e70ba2) |
+| Result | **success** |
+| Failure class | Real CI red before merge: Jazzer under `c8` rewrote package coverage maps (75%/62% vs 78%/85%). Fixed by keeping Jazzer off `test:runtime`; PR replay is corpus + explicit minimized tests. One Community Web keyboard-panel flake on an earlier push; rerun green. |
+| Notes | Three lanes: deterministic smoke, fast-check history/properties with shrinking, scheduled Jazzer.js parser campaigns with versioned corpora. Production Vercel deployed `8bea093`. Nightboard/.impeccable leftover was not committed. |
