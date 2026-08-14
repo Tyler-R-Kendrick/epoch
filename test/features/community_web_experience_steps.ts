@@ -1052,10 +1052,19 @@ Then("Community Web keeps the same cache route until policy or failure invalidat
 
 When("I open the default Bo agent", async function () {
   const page = requirePage();
-  await page.evaluate(() => (window as unknown as {
-    CW_APP: { navigate(path: string): void };
-  }).CW_APP.navigate("/.agents/bo"));
-  await page.locator('[data-blade-path="/.agents/bo"]').first().waitFor({ state: "visible" });
+  const moved = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { navigate(path: string): boolean; state: { path: string } };
+    }).CW_APP;
+    return { ok: app.navigate("/.agents/bo"), path: app.state.path };
+  });
+  assert.equal(moved.ok, true);
+  assert.match(moved.path, /\/\.agents\/bo/u);
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP?: { state?: { path?: string } } }).CW_APP;
+    return /\/\.agents\/bo/.test(app?.state?.path || "") &&
+      !!document.querySelector("[data-blade-path*='.agents']");
+  });
 });
 
 Then("Bo offers deterministic HoBo new build test debug and up actions", async function () {
