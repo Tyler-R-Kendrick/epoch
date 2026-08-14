@@ -62,6 +62,39 @@ Feature: CLI and WASM integration surfaces
     And the CLI output contains "ok"
 
   @persona.github_open_source_contributor
+  Scenario: Contributor publishes a Change for review without a pull-request branch
+    Given a new workspace
+    When I run the Epoch CLI with arguments:
+      | init     |
+      | --author |
+      | alice    |
+    Then the CLI exits with code 0
+    When I run the Epoch CLI with arguments:
+      | change |
+      | create |
+      | Parser |
+    Then the CLI exits with code 0
+    And the CLI output contains "changeIdTrailer"
+    And I remember the created Change id as "change"
+    When I run the Epoch CLI with remembered argument "change":
+      | change       |
+      | submit       |
+      | __REMEMBERED__ |
+      | --target     |
+      | main         |
+      | --topic      |
+      | parser       |
+      | --hashtag    |
+      | cli          |
+      | --wip        |
+    Then the CLI exits with code 0
+    And the CLI output contains "refs/for/main"
+    And the CLI output contains "topic=parser"
+    And the CLI output contains "hashtag=cli"
+    And the CLI output contains "wip"
+    And the CLI output does not contain "refs/heads/parser"
+
+  @persona.github_open_source_contributor
   Scenario: CLI policy, view, sync, Git import/export, and DR commands are covered
     Given a new workspace
     When I run the Epoch CLI with arguments:

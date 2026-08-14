@@ -529,6 +529,35 @@ body {
 .cw-model-fetch::after { content: "]"; color: var(--cw-ink-faint); }
 .cw-model-fetch:hover { color: var(--cw-ink); }
 .cw-model-fetch[hidden] { display: none; }
+[data-sample-stream] {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: .55rem;
+  padding: .05rem .4rem;
+  border: 1px solid var(--cw-line);
+  color: var(--cw-ink-faint);
+  font: 700 .68rem/1.2 ui-monospace, monospace;
+  letter-spacing: .06em;
+}
+[data-sample-stream][hidden] { display: none; }
+[data-stream-protect-state] {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: .55rem;
+  padding: .05rem .4rem;
+  border: 1px solid var(--cw-line);
+  color: var(--cw-ink-faint);
+  font: 700 .68rem/1.2 ui-monospace, monospace;
+  letter-spacing: .06em;
+}
+[data-stream-protect-state][hidden] { display: none; }
+.cw-stream-slab {
+  display: inline;
+  font-family: ui-monospace, monospace;
+  letter-spacing: .04em;
+  color: var(--cw-ink-faint);
+  user-select: none;
+}
 .cw-keys-cue {
   font: inherit; font-size: inherit; color: var(--cw-ink-faint);
   background: none; border: 0; border-radius: 0;

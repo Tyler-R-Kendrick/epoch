@@ -118,7 +118,7 @@ export const defaultCommunityAgents: readonly CommunityAgentMember[] = [
     harness: "goose",
     managedBy: "lea",
     scope: "read history + draft plans",
-    status: "working",
+    status: "idle",
     sessionKind: "sample",
     communityIds: ["epoch-civic", "agent-guild"],
   },

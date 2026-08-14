@@ -10,6 +10,7 @@ import {
   gitCommit,
   gitTree,
   createProjectionManifest,
+  projectChangeForReview,
   projectGitGraph,
   analyzeGitIngestLoss,
 } from "@epoch/git-proxy";
@@ -63,6 +64,28 @@ function deterministicObjectsAndProjectionManifest(): void {
   assert.deepEqual(analyzeGitIngestLoss({ hasSubmodules: true, hasReplaceRefs: false, hasSignedCommits: true }), {
     lossless: false, unsupported: ["signed-commit-attestation", "submodule-link"],
   });
+
+  const identity = {
+    name: "Epoch", email: "epoch@example.invalid", timestamp: 1_700_000_000, timezone: "+0000" as const,
+  };
+  const changeId = "epoch:change:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const reviewed = projectChangeForReview({
+    tree: tree.oid,
+    parents: [],
+    author: identity,
+    committer: identity,
+    message: "parser",
+    changeId,
+    revisionId: "a".repeat(64),
+    target: "main",
+    topic: "parser",
+    wip: true,
+  });
+  assert.equal(reviewed.reviewRef, "refs/for/main");
+  assert.match(reviewed.changeIdTrailer, /^I[0-9a-f]{40}$/u);
+  assert.match(reviewed.commit.bytes.toString("utf8"), /Change-Id: I[0-9a-f]{40}/u);
+  assert.doesNotMatch(reviewed.commit.bytes.toString("utf8"), /refs\/heads\/main/u);
+  assert.equal(reviewed.pushSpec, "refs/for/main%topic=parser,wip");
 }
 
 function protocolV2IsBoundedAndFilterIsHonest(): void {
@@ -125,4 +148,6 @@ async function remoteHelperAndCompatibilityProfilesAreExplicit(): Promise<void> 
   assert.deepEqual(gitButlerParallelBranches(["left", "right"]).map((item) => item.parent), ["main", "main"]);
   assert.equal(COMPATIBILITY_PROFILES.mercurial.status, "subset");
   assert.equal(COMPATIBILITY_PROFILES.sapling.mode, "git-profile");
+  assert.equal(COMPATIBILITY_PROFILES.gerrit.status, "native");
+  assert.equal(COMPATIBILITY_PROFILES.gerrit.mode, "change-review");
 }

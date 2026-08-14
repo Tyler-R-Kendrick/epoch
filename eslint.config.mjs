@@ -27,6 +27,8 @@ export default [
       "packages/Epoch.Community.Web/app/canvasui-object.js",
       // Installed Canvas UI vanilla sources (shadcn registry); lint upstream, not here.
       "components/canvasui/**",
+      // Local leftover copy of a vendored Canvas UI bundle; not product source.
+      "docs/design-explorations/nightboard/canvasui-object.js",
       ".agents/**",
       // Vendored agent-skill trees installed by `npx impeccable install`.
       // Third-party source, reproducible from the devDependency, not ours to lint.
@@ -119,6 +121,7 @@ export default [
         Event: "readonly",
         setTimeout: "readonly",
         navigator: "readonly",
+        Response: "readonly",
       },
     },
   },

@@ -22,6 +22,28 @@ landing is `/`; its Enter action opens the tmux-style, keyboard-first board at
 `/board.html`. `npm run dev:community-web` and the Vercel static build both serve
 these same files. The unused Civic Workshop renderer is not a product surface.
 
+A fixture board is labeled **SAMPLE STREAM** in the status chrome. It does not
+replay canned posts as live traffic, does not grow Activity or unread counts
+while idle, and does not present fixture subscriber numbers as live member
+counts. Receipt locators (`sig:`, `intent://`, `agent-run://`) open as
+inspectable objects. Jump leaves the active search query in place. Composer
+letters including `j`/`k`/`R` stay in the prompt. Mute, report, and hook test
+require a selected object. AT sign-in is PAR/PKCE/DPoP against an injected host
+and never hashes a handle into a DID. Activity grows only from Community-store
+participant events. Spaces on that board read as `sample space`. Entering from the landing
+opens `#general` unless the URL names a projection or object. Live Activity from
+other participants is a separate capability and is not simulated.
+
+Livestreams are command logs, not screen-share. Spectators replay `nav.enter`,
+`feed.sort`, and other action ids in their own theme. Email, legal names, private
+DMs, `.env` and login fields are dropped or replaced with a fixed-width cipher
+slab. Protected inputs emit no keystrokes and no character counts. Streamers can
+mute input streaming (`Ctrl+Shift+.`); `.epochstreamignore` and
+`.epochstreamrewrite` fail closed to those defaults. Spectators render hidden
+fields as fixed-width cipher slabs (CanvasUI decrypt-reveal at passthrough `0`)
+and never apply the streamer's theme. See
+[ADR-0050](design-decisions/0050-command-livestream-privacy.md).
+
 ## Three planes
 
 | Plane | Default? | What it is | Competitor analogy |

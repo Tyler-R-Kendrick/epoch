@@ -427,6 +427,495 @@ Then("the tmux-style Community Web is ready for keyboard collaboration", async f
   assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_APP), "object");
 });
 
+Then("the board names itself a sample stream", async function () {
+  const page = requirePage();
+  await page.locator("[data-sample-stream]").waitFor({ state: "visible" });
+  const label = (await page.locator("[data-sample-stream]").innerText()).trim();
+  assert.match(label, /SAMPLE STREAM/i);
+});
+
+Then("idle Activity unread does not grow on the sample board", async function () {
+  const page = requirePage();
+  const before = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { unreadActivityCount(): number; state: { live: boolean } };
+    }).CW_APP;
+    return { unread: app.unreadActivityCount(), live: app.state.live };
+  });
+  assert.equal(before.live, false);
+  await page.waitForTimeout(1100);
+  const after = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { unreadActivityCount(): number; state: { merged: Array<{ id?: string }> } };
+    }).CW_APP;
+    return {
+      unread: app.unreadActivityCount(),
+      liveIds: app.state.merged.filter((post) => String(post.id || "").startsWith("live-")).length,
+    };
+  });
+  assert.equal(after.unread, before.unread);
+  assert.equal(after.liveIds, 0);
+});
+
+Then("spaces do not present fixture subscriber counts as live members", async function () {
+  const page = requirePage();
+  const copy = await page.evaluate(() => document.body?.innerText || "");
+  assert.doesNotMatch(copy, /\b142 members\b/u);
+  assert.doesNotMatch(copy, /\b38 members\b/u);
+  assert.doesNotMatch(copy, /\b12 members\b/u);
+});
+
+Then("a livestream command that names an email is rewritten to a fixed-width cipher", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const runtime = window as unknown as {
+      CW_RUNTIME?: {
+        sanitizeStreamCommand(input: unknown): { kind: string; envelope?: { args: { body?: string } } };
+        cipherToken(salt: string, field: string, value: string): string;
+      };
+    };
+    const result = runtime.CW_RUNTIME?.sanitizeStreamCommand({
+      envelope: {
+        t: 1,
+        actorId: "maya",
+        actionId: "compose.publish",
+        args: { body: "write maya@epoch.dev" },
+        path: "projects/community/channels/general",
+      },
+      sessionSalt: "walk",
+    });
+    const token = runtime.CW_RUNTIME?.cipherToken("walk", "email", "maya@epoch.dev") ?? "";
+    return {
+      kind: result?.kind,
+      body: result?.envelope?.args.body ?? "",
+      token,
+    };
+  });
+  assert.equal(probe.kind, "emit");
+  assert.doesNotMatch(probe.body, /maya@epoch\.dev/u);
+  assert.equal(probe.token.length, 12);
+  assert.match(probe.body, new RegExp(probe.token.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+});
+
+Then("a protected login field emits no livestream input events", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const runtime = window as unknown as {
+      CW_RUNTIME?: { sanitizeStreamCommand(input: unknown): { kind: string } };
+    };
+    const result = runtime.CW_RUNTIME?.sanitizeStreamCommand({
+      envelope: {
+        t: 2,
+        actorId: "maya",
+        actionId: "compose.publish",
+        args: { body: "hunter2" },
+        path: "projects/community/channels/general",
+      },
+      protectedInput: true,
+    });
+    return result?.kind;
+  });
+  assert.equal(probe, "drop");
+});
+
+Then("a DM path is omitted from the livestream command log", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const runtime = window as unknown as {
+      CW_RUNTIME?: { sanitizeStreamCommand(input: unknown): { kind: string } };
+    };
+    const result = runtime.CW_RUNTIME?.sanitizeStreamCommand({
+      envelope: { t: 3, actorId: "maya", actionId: "nav.enter", args: {}, path: "dms/maya" },
+    });
+    return result?.kind;
+  });
+  assert.equal(probe, "drop");
+});
+
+Then("a livestream rewrite rule ciphers a legal name", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const stream = (window as unknown as {
+      CW_STREAM: {
+        reset(): void;
+        configure(input: { rewrite: string }): void;
+        emit(actionId: string, args: { body: string }, path: string): { kind: string; envelope?: { args?: { body?: string } } };
+      };
+    }).CW_STREAM;
+    stream.reset();
+    stream.configure({ rewrite: "legal_name = /Maya Chen/g → cipher" });
+    return stream.emit("compose.publish", { body: "credit Maya Chen" }, "projects/community/channels/general");
+  });
+  assert.equal(probe.kind, "emit");
+  assert.doesNotMatch(String(probe.envelope?.args?.body || ""), /Maya Chen/u);
+});
+
+Then("a livestream ignore file drops a private organization path", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const stream = (window as unknown as {
+      CW_STREAM: {
+        reset(): void;
+        configure(input: { ignore: string }): void;
+        emit(actionId: string, args: Record<string, unknown>, path: string): { kind: string };
+      };
+    }).CW_STREAM;
+    stream.reset();
+    stream.configure({ ignore: "orgs/acme-private/**" });
+    return stream.emit("nav.enter", {}, "orgs/acme-private/repos/ledger");
+  });
+  assert.equal(probe.kind, "drop");
+});
+
+When("I mute livestream inputs", async function () {
+  const page = requirePage();
+  const muted = await page.evaluate(() => {
+    const win = window as unknown as {
+      CW_ACTIONS?: { invoke(actionId: string, input: object, context: object): Promise<unknown> };
+      CW_STREAM?: { isMuted(): boolean };
+    };
+    return win.CW_ACTIONS!.invoke("stream.protect", {}, { origin: "keyboard" }).then(() => win.CW_STREAM!.isMuted());
+  });
+  assert.equal(muted, true);
+});
+
+Then("composing a secret does not appear on the livestream command log", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const stream = (window as unknown as {
+      CW_STREAM: {
+        emit(actionId: string, args: { body: string }, path: string): { kind: string };
+        log(): Array<{ args?: { body?: string } }>;
+        isMuted(): boolean;
+      };
+    }).CW_STREAM;
+    const result = stream.emit("compose.publish", { body: "hunter2" }, "projects/community/channels/general");
+    return {
+      kind: result.kind,
+      muted: stream.isMuted(),
+      leaked: stream.log().some((entry) => String(entry.args?.body || "").includes("hunter2")),
+    };
+  });
+  assert.equal(probe.muted, true);
+  assert.equal(probe.kind, "drop");
+  assert.equal(probe.leaked, false);
+});
+
+Then("replaying a streamer theme command leaves my theme unchanged", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const win = window as unknown as {
+      CW_STREAM: {
+        enterSpectator(): string;
+        replay(envelopes: Array<{ t: number; actorId: string; actionId: string; args: Record<string, unknown> }>): Promise<{ skipped: Array<{ reason: string }> }>;
+      };
+    };
+    const before = document.body.dataset.theme || "";
+    win.CW_STREAM.enterSpectator();
+    return win.CW_STREAM.replay([
+      { t: 1, actorId: "maya", actionId: "theme.use", args: { theme: "crt" } },
+    ]).then((result) => ({
+      before,
+      after: document.body.dataset.theme || "",
+      skipped: result.skipped.map((item) => item.reason),
+    }));
+  });
+  assert.equal(probe.after, probe.before);
+  assert.ok(probe.skipped.includes("view-preference"));
+});
+
+Then("replaying a public navigation command uses my view", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const win = window as unknown as {
+      CW_STREAM: {
+        enterSpectator(): string;
+        replay(envelopes: Array<{ t: number; actorId: string; actionId: string; args: Record<string, unknown>; path?: string }>): Promise<{ applied: number }>;
+      };
+      CW_APP: { state: { path: string } };
+    };
+    const theme = document.body.dataset.theme || "";
+    win.CW_STREAM.enterSpectator();
+    return win.CW_STREAM.replay([
+      {
+        t: 2,
+        actorId: "maya",
+        actionId: "nav.enter",
+        args: { path: "/projects/community/channels/general" },
+        path: "/projects/community/channels/general",
+      },
+    ]).then((result) => ({
+      applied: result.applied,
+      path: win.CW_APP.state.path,
+      theme,
+      themeAfter: document.body.dataset.theme || "",
+    }));
+  });
+  assert.equal(probe.applied, 1);
+  assert.match(probe.path, /channels\/general/u);
+  assert.equal(probe.themeAfter, probe.theme);
+});
+
+When("I keep a search query while jumping", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: {
+        state: { searchWorkbench?: { expression?: string }; feedQuery?: string };
+        jumpBest?(terms: string): boolean;
+        executeAction(actionId: string, input: object, context: object): unknown;
+      };
+    }).CW_APP;
+    app.state.searchWorkbench = { expression: "state:needs-review" };
+    app.state.feedQuery = "state:needs-review";
+    if (typeof app.jumpBest === "function") app.jumpBest("general");
+    else app.executeAction("jump.best", { terms: "general" }, { origin: "cli" });
+    return {
+      search: app.state.searchWorkbench?.expression || "",
+      feed: app.state.feedQuery || "",
+    };
+  });
+  (this as { jumpSearch?: { search: string; feed: string } }).jumpSearch = probe;
+});
+
+Then("the search query remains after jump", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: { searchWorkbench?: { expression?: string }; feedQuery?: string } };
+    }).CW_APP;
+    return {
+      search: app.state.searchWorkbench?.expression || "",
+      feed: app.state.feedQuery || "",
+    };
+  });
+  assert.equal(probe.search, "state:needs-review");
+  assert.equal(probe.feed, "state:needs-review");
+});
+
+Then("a signature locator opens as an inspectable receipt", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { openReceiptLocator(raw: string): { inspectable?: boolean; kind?: string } | null };
+    }).CW_APP;
+    const receipt = app.openReceiptLocator("sig:lea-install");
+    return {
+      receipt,
+      blade: document.querySelector("[data-receipt-blade]")?.textContent || "",
+    };
+  });
+  assert.equal(probe.receipt?.inspectable, true);
+  assert.equal(probe.receipt?.kind, "sig");
+  assert.match(probe.blade, /sig:lea-install/u);
+  assert.match(probe.blade, /actor/u);
+});
+
+Then("composer letters stay in the prompt", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const runtime = (window as unknown as {
+      CW_RUNTIME: {
+        composerOwnsLetter(input: object): boolean;
+        letterSteersBoard(input: object): boolean;
+      };
+    }).CW_RUNTIME;
+    return {
+      ownsJ: runtime.composerOwnsLetter({ composerFocused: true, composerValue: "draft", key: "j" }),
+      ownsR: runtime.composerOwnsLetter({ composerFocused: true, composerValue: "draft", key: "R" }),
+      steers: runtime.letterSteersBoard({
+        composerFocused: true, composerValue: "draft", key: "j", columnFocus: true,
+      }),
+    };
+  });
+  assert.equal(probe.ownsJ, true);
+  assert.equal(probe.ownsR, true);
+  assert.equal(probe.steers, false);
+});
+
+Then("Escape from Following returns along the documented path", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: {
+        state: { homeFeed: string; prev: string; path: string; detailOpen: boolean };
+        cancelTopLayer(): boolean;
+        navigate(path: string, opts?: object): boolean;
+      };
+    }).CW_APP;
+    app.state.homeFeed = "following";
+    app.state.prev = "/projects/community/channels/general";
+    app.state.detailOpen = false;
+    const returned = app.cancelTopLayer();
+    return { returned, path: app.state.path };
+  });
+  assert.equal(probe.returned, true);
+  assert.match(probe.path, /channels\/general/u);
+});
+
+Then("mute report and hook refuse an unscoped target", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const runtime = (window as unknown as {
+      CW_RUNTIME: { requireScopedTarget(actionId: string, objectId?: string): { ok: boolean } };
+    }).CW_RUNTIME;
+    return {
+      mute: runtime.requireScopedTarget("post.mute", undefined).ok,
+      report: runtime.requireScopedTarget("post.report", "").ok,
+      hook: runtime.requireScopedTarget("hooks.test", undefined).ok,
+    };
+  });
+  assert.equal(probe.mute, false);
+  assert.equal(probe.report, false);
+  assert.equal(probe.hook, false);
+});
+
+Then("mute report and hook apply only to the selected object", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: {
+        executeAction(actionId: string, input: object, context: object): { objectId?: string };
+        state: { mutedObjects?: Record<string, boolean>; reportedObjects?: Record<string, unknown> };
+      };
+    }).CW_APP;
+    const muted = app.executeAction("post.mute", { objectId: "p1" }, { origin: "test" });
+    const reported = app.executeAction("post.report", { objectId: "p1" }, { origin: "test" });
+    return {
+      mutedId: muted.objectId,
+      reportedId: reported.objectId,
+      mutedOnly: Object.keys(app.state.mutedObjects || {}),
+      reportedOnly: Object.keys(app.state.reportedObjects || {}),
+    };
+  });
+  assert.equal(probe.mutedId, "p1");
+  assert.equal(probe.reportedId, "p1");
+  assert.deepEqual(probe.mutedOnly, ["p1"]);
+  assert.deepEqual(probe.reportedOnly, ["p1"]);
+});
+
+Then("AT sign-in without an OAuth host stays unlinked", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const win = window as unknown as {
+      CW_ATPROTO_OAUTH?: unknown;
+      CW_SESSION: { authorizeAtproto(handle: string, principalId: string, spaceId: string): unknown };
+    };
+    win.CW_ATPROTO_OAUTH = undefined;
+    try {
+      win.CW_SESSION.authorizeAtproto("maya", "guest-1", "tuner-crew");
+      return { threw: false };
+    } catch (error) {
+      return { threw: true, message: error instanceof Error ? error.message : String(error) };
+    }
+  });
+  assert.equal(probe.threw, true);
+  assert.match(String(probe.message || ""), /PAR\/PKCE\/DPoP/u);
+});
+
+Then("AT OAuth completes through PAR PKCE and DPoP without a stub DID", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(async () => {
+    const runtime = (window as unknown as {
+      CW_RUNTIME: {
+        beginAtprotoAuthorization(handle: string, host: unknown): Promise<{ state: string; codeVerifier: string; loginHint: string }>;
+        finishAtprotoAuthorization(input: unknown): Promise<{ did: string; source: string }>;
+        isHandleHashStub(did: string, handle: string): boolean;
+      };
+    }).CW_RUNTIME;
+    const host = {
+      authorizationServer: "https://auth.test",
+      clientId: "https://epoch.test/client-metadata.json",
+      redirectUri: "https://epoch.test/oauth/callback",
+      fetch: async (url: string) => {
+        if (String(url).endsWith("/oauth/par")) {
+          return new Response(JSON.stringify({ request_uri: "urn:ietf:params:oauth:request_uri:par-1" }), { status: 201 });
+        }
+        return new Response(JSON.stringify({
+          access_token: "dpop-access",
+          sub: "did:plc:fromtokennotahash",
+          handle: "maya.bsky.social",
+        }), { status: 200 });
+      },
+    };
+    const start = await runtime.beginAtprotoAuthorization("maya", host);
+    const finished = await runtime.finishAtprotoAuthorization({
+      code: "auth-code",
+      state: start.state,
+      expectedState: start.state,
+      codeVerifier: start.codeVerifier,
+      loginHint: start.loginHint,
+      host,
+    });
+    return {
+      did: finished.did,
+      source: finished.source,
+      stub: runtime.isHandleHashStub(finished.did, "maya.bsky.social"),
+    };
+  });
+  assert.equal(probe.did, "did:plc:fromtokennotahash");
+  assert.equal(probe.source, "par-pkce-dpop");
+  assert.equal(probe.stub, false);
+});
+
+Then("the sample board does not invent idle Activity", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: {
+        unreadActivityCount(): number;
+        ingestStoreActivity(events: object[]): unknown[];
+        tick(): void;
+        state: { live: boolean; merged: Array<{ id?: string }> };
+      };
+    }).CW_APP;
+    const before = app.unreadActivityCount();
+    app.tick();
+    const invented = app.ingestStoreActivity([{ id: "tick-1", actorId: "fixture", kind: "tick" }]);
+    return {
+      before,
+      after: app.unreadActivityCount(),
+      live: app.state.live,
+      invented: invented.length,
+      liveIds: (app.state.merged || []).filter((post) => String(post.id || "").startsWith("live-")).length,
+    };
+  });
+  assert.equal(probe.live, false);
+  assert.equal(probe.after, probe.before);
+  assert.equal(probe.invented, 0);
+  assert.equal(probe.liveIds, 0);
+});
+
+Then("store participant events can add Activity when the board is live", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const runtime = (window as unknown as {
+      CW_RUNTIME: {
+        activityFromParticipantEvents(events: object[], input: { sampleBoard: boolean }): object[];
+      };
+    }).CW_RUNTIME;
+    const accepted = runtime.activityFromParticipantEvents(
+      [{ id: "e1", actorId: "maya", kind: "mention" }],
+      { sampleBoard: false },
+    );
+    return accepted.length;
+  });
+  assert.equal(probe, 1);
+});
+
+Then("the sample board opens the general channel without a restored showcase filter", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: { path: string; feedQuery: string; filter: string } };
+    }).CW_APP;
+    return { path: app.state.path, feedQuery: app.state.feedQuery, filter: app.state.filter };
+  });
+  assert.match(probe.path, /channels\/general/u);
+  assert.doesNotMatch(probe.path, /showcase/u);
+  assert.doesNotMatch(String(probe.feedQuery || ""), /needs-review/u);
+});
+
 When("I open the Community Web general channel from the prompt", async function () {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
@@ -576,10 +1065,10 @@ When("I expand and restore the focused panel by keyboard", async function () {
   const page = requirePage();
   await page.evaluate(() => {
     const app = (window as unknown as {
-      CW_APP: { state: { focus: number; columnFocus: boolean }; render(keep?: boolean): void };
+      CW_APP: { state: { focus: number }; focusColumns(): void; render(keep?: boolean): void };
     }).CW_APP;
     app.state.focus = 1;
-    app.state.columnFocus = true;
+    app.focusColumns();
     app.render(true);
   });
   await page.keyboard.press("z");

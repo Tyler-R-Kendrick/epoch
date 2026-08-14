@@ -45,6 +45,8 @@ and when the decision should be revisited.
 | [ADR-0035](0035-forge-adapters-and-mirror-authority.md) | Accepted | Treat forge protocols and mirrors as loss-declared adapters with explicit authority. |
 | [ADR-0036](0036-swhids-and-software-heritage-archival.md) | Accepted | Compute standards-conformant SWHIDs locally and guard public archival with policy and verified status. |
 | [ADR-0049](0049-community-runtime-command-layer.md) | Accepted | Serve web, WebMCP, CLI, and SDK from one command bus, one receipt schema, and one browser UI workspace behind a content-addressed harness ABI. |
+| [ADR-0050](0050-command-livestream-privacy.md) | Accepted | Livestreams carry sanitized command envelopes; spectators replay them in their own view; protected inputs and ignore/rewrite files fail closed. |
+| [ADR-0051](0051-change-based-review-publish.md) | Accepted | Change-based review publish is the default: `Change-Id` trailer, `refs/for/<target>`, topic/hashtag/WIP — not a Gerrit mode flag. |
 | [ADR-0030](0030-stable-changes-revisions-stacks-reviews-merges.md) | Accepted and implemented | Model stable Change lineages, immutable Revisions, dependency graphs, exact review evidence, and stale-safe Merge Plans. |
 | [ADR-0031](0031-durable-conflicts-and-conservative-commutation.md) | Accepted and implemented | Preserve conflicts as durable objects, commute only when independence is proven, and keep provider proposals untrusted until explicit acceptance. |
 | [ADR-0032](0032-residency-native-sync-and-workspace-providers.md) | Accepted and implemented | Separate object residency, materialization, storage, and execution; add verified chunk manifests, promises, native sync, and truthful workspace providers. |
@@ -65,6 +67,8 @@ and when the decision should be revisited.
 | [ADR-0047](0047-mixed-language-compression-planning.md) | Accepted; implemented | Group compression planning by resolved syntax provider and derive one dictionary across every group, so `semantic plan` works on a real repository. |
 | [ADR-0048](0048-repository-configuration-parsing.md) | Accepted; implemented | Read complete TOML 1.0 for repository configuration and report parse failures to the operator instead of silently resolving to defaults. |
 | [ADR-0049](0049-community-runtime-command-layer.md) | Accepted; runtime, adapters, and browser UI workspace implemented | Route UI, WebMCP, CLI, and SDK through `@epoch/community-runtime`; validate declarative dynamic UI against a content-addressed static harness; keep rollback append-only. |
+| [ADR-0050](0050-command-livestream-privacy.md) | Accepted; policy engine and board adapter implemented | Livestreams carry sanitized command envelopes; spectators replay them in their own view; protected inputs and ignore/rewrite files fail closed. |
+| [ADR-0051](0051-change-based-review-publish.md) | Accepted; protocol, store, CLI, and Git projection implemented | Change-based review publish is the default native capability; Git speaks Gerrit dialect without a mode flag. |
 
 ## Supporting Decision Records
 

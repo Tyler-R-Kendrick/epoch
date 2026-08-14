@@ -428,14 +428,24 @@ the Community Web design exploration. See
 the verified gap ledger and the remaining workstreams, and
 [ADR-0049](design-decisions/0049-community-runtime-command-layer.md).
 
+Livestreams are command envelopes, not screen-share. The same runtime sanitizes
+each envelope before it can leave the streamer: ignored paths, private identity,
+and protected inputs are dropped; emails and configured rewrite rules become a
+fixed-width cipher; spectators replay public actions in their own theme.
+`.epochstreamignore` and `.epochstreamrewrite` are creator-authored overlays on
+those defaults. See
+[ADR-0050](design-decisions/0050-command-livestream-privacy.md).
+
 ## Change Graph And Operation History
 
 The current implementation separates browser-safe contracts from host
 adapters:
 
 - `@epoch/protocol` defines `epoch.protocol/v1`, typed stable IDs and errors,
-  Revision/Change/Change Graph/Review Bundle/Merge Plan schemas, the revset parser/evaluator, and
-  browser-safe graph, filter, sync, and SWHID inspection.
+  Revision/Change/Change Graph/Review Bundle/Merge Plan schemas, the revset parser/evaluator,
+  change-based review publish (`Change-Id` trailer, `refs/for/<target>`), and
+  browser-safe graph, filter, sync, and SWHID inspection. See
+  [ADR-0051](design-decisions/0051-change-based-review-publish.md).
 - `@epoch/core` implements explicit-parent atomic transactions, Change Graphs,
   exact split/review/merge validation, durable conflicts,
   conservative commutation, object/chunk/promise verification,

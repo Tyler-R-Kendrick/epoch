@@ -12,7 +12,7 @@ export function renderIdentityChip(session: CommunitySessionIdentity): string {
   const detail = resolveSessionAuthDetail(session.authState);
   return `<span class="identity-chip" data-identity-chip data-auth-state="${escapeHtml(session.authState)}" title="Portable ATProto identity — ${escapeHtml(detail)}">
             <span class="identity-handle">@${escapeHtml(session.handle.replace(/^@/, ""))}</span>
-            <span class="identity-did">${escapeHtml(session.did)}</span>
+            <span class="identity-did">${escapeHtml(session.did || "AT not linked")}</span>
             <span class="identity-auth-note" data-auth-note>${escapeHtml(note)}</span>
           </span>`;
 }

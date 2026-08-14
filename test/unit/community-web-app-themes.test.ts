@@ -1785,8 +1785,8 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   const sessionSrc = readFileSync(join(ROOT, "session.js"), "utf8");
   assert.ok(sessionSrc.includes("CW_SESSION") && sessionSrc.includes("cw-identity"),
     "session module must expose durable identity storage");
-  assert.ok(sessionSrc.includes("authorizeAtproto") && sessionSrc.includes("did:plc:"),
-    "portable-handle mock must mint durable sessions from handles");
+  assert.ok(sessionSrc.includes("authorizeAtproto") && sessionSrc.includes("PAR/PKCE/DPoP"),
+    "AT sign-in requires PAR/PKCE/DPoP and must not mint a stub DID");
   assert.ok(sessionSrc.includes("claimIdentity") && sessionSrc.includes("principalId"),
     "claim must preserve the anonymous principal id");
   assert.ok(sessionSrc.includes("joinSpace") && sessionSrc.includes("listSpaces"),
@@ -1836,7 +1836,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     claimIdentity: (cur: { principalId: string; kind: string }, handle: string, spaceId?: string) => {
       kind: string; principalId: string; handle: string; claimable: boolean; spaceId?: string;
     };
-    authorizeAtproto: (handle: string, principalId?: string, spaceId?: string) => {
+    authorizeAtproto: (handle: string, principalId?: string, spaceId?: string, oauth?: { did: string; handle?: string; accessToken: string; source: string; pdsEndpoint?: string }) => {
       kind: string; did: string; handle: string; principalId: string; atproto: { did: string };
       spaceId?: string;
     };
@@ -1910,11 +1910,17 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.equal(claimed.handle, "maya");
   assert.equal(claimed.spaceId, "agent-lab");
   assert.equal(claimed.claimable, false);
-  // ATProto mock: short handle expands to .bsky.social and gets a did:plc.
-  const at = S.authorizeAtproto("maya", guest.principalId!, "tuner-crew");
+  assert.throws(() => S.authorizeAtproto("maya", guest.principalId!, "tuner-crew"), /PAR\/PKCE\/DPoP/u);
+  const at = S.authorizeAtproto("maya", guest.principalId!, "tuner-crew", {
+    did: "did:plc:fromtokennotahash",
+    handle: "maya.bsky.social",
+    accessToken: "dpop-access",
+    source: "par-pkce-dpop",
+    pdsEndpoint: "https://auth.test",
+  });
   assert.equal(at.kind, "atproto");
   assert.equal(at.handle, "maya.bsky.social");
-  assert.match(at.did, /^did:plc:/);
+  assert.equal(at.did, "did:plc:fromtokennotahash");
   assert.equal(at.principalId, guest.principalId, "AT login may keep guest principal");
   assert.equal(at.spaceId, "tuner-crew");
   assert.ok(at.atproto && at.atproto.did === at.did);

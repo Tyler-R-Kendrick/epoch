@@ -62,7 +62,7 @@ export type CommunityAuthState = "authenticated" | "api-session" | "sample-sessi
 
 export interface CommunitySessionIdentity {
   readonly handle: string;
-  readonly did: string;
+  readonly did?: string;
   readonly authState: CommunityAuthState;
 }
 

@@ -101,7 +101,7 @@
     pendingByFeed: {},
     pending: [],
     nextId: 1,
-    live: true,
+    live: false,
     cliOpen: false,
     intelOpen: false,
     helpOpen: false,
@@ -712,9 +712,12 @@
       return offRes.ok ? "hook off: " + offId : "hooks off: " + (offRes.error || "failed");
     }
     if (cmd === "test" || cmd === "fire" || cmd === "emit") {
-      var tev = rest[0] || "post.created";
+      var hookTarget = rest[0] || state.threadFocus || state.feedMark;
+      var hookScope = scopedObjectAction("hooks.test", hookTarget);
+      if (!hookScope.ok) return "hooks test: needs a selected object or declared hook target";
+      var tev = rest[1] || "post.created";
       var samplePayload = {
-        id: "hook-test-" + Date.now(),
+        id: hookScope.objectId,
         who: (identity && identity.handle) || "you",
         channel: "bugs",
         subject: "Hook test",
@@ -1575,7 +1578,7 @@
         '<span class="cw-space-short">' + escHtml(s.short || s.id.slice(0, 4).toUpperCase()) + "</span>" +
         "<span>" + escHtml(s.name) +
         '<span class="cw-profile-item-sub">' + escHtml(s.slug || s.id) +
-        " · " + (s.subscribers || 0) + " members</span></span>" +
+        " · " + sampleSpaceLabel(s) + "</span></span>" +
         '<span class="cw-profile-item-desc">' + (current ? "current" : lock) + "</span>" +
         "</button>";
     }).join("");
@@ -1767,15 +1770,37 @@
 
   function doAtprotoLogin(handle) {
     if (!window.CW_SESSION) return authError("session module missing");
-    try {
-      var spaceId = selectedAuthSpaceId();
-      var next = window.CW_SESSION.authorizeAtproto(handle, identity.principalId, spaceId);
+    var runtime = window.CW_RUNTIME || {};
+    if (typeof runtime.beginAtprotoAuthorization !== "function") {
+      return authError("AT OAuth is not linked — PAR/PKCE/DPoP required");
+    }
+    var host = window.CW_ATPROTO_OAUTH;
+    if (!host || typeof host.fetch !== "function") {
+      return authError("AT OAuth is not linked — PAR/PKCE/DPoP required");
+    }
+    var spaceId = selectedAuthSpaceId();
+    return runtime.beginAtprotoAuthorization(handle, host).then(function (start) {
+      if (host.completeAuthorization) return host.completeAuthorization(start);
+      if (host.authorizationCode) {
+        return runtime.finishAtprotoAuthorization({
+          code: host.authorizationCode,
+          state: start.state,
+          expectedState: start.state,
+          codeVerifier: start.codeVerifier,
+          loginHint: start.loginHint,
+          host: host,
+        });
+      }
+      throw new Error("AT OAuth waiting for authorization code");
+    }).then(function (oauth) {
+      var next = window.CW_SESSION.authorizeAtproto(handle, identity.principalId, spaceId, oauth);
       if (identity.createdAt) next.createdAt = identity.createdAt;
       applyIdentity(next, "signed in to " + next.spaceName + " as @" + next.handle + " · " + next.did,
         "identity.changed");
-    } catch (e) {
+      return next;
+    }).catch(function (e) {
       authError(e && e.message ? e.message : String(e));
-    }
+    });
   }
 
   function doJoinSpace(spaceId, opts) {
@@ -1948,6 +1973,46 @@
       if (mount && mount.parentNode) mount.parentNode.insertBefore(host, mount);
       else document.body.appendChild(host);
     }
+  }
+
+  function sampleBoard() {
+    return true;
+  }
+
+  function sampleSpaceLabel() {
+    return "sample space";
+  }
+
+  function locationNamesProjection() {
+    if (!window.CW_NAV || typeof window.CW_NAV.parseLocation !== "function") return false;
+    try {
+      var loc = window.CW_NAV.parseLocation(window.location.href);
+      return !!(loc && (loc.projectionId || loc.objectId));
+    } catch {
+      return false;
+    }
+  }
+
+  function applySampleEntryPath() {
+    if (!sampleBoard() || locationNamesProjection()) return;
+    state.path = "/projects/community/channels/general";
+    state.feedQuery = "";
+    state.filter = "";
+    state.feedView = state.sort || "hot";
+    if (state.sessions && state.sessions[state.activeSession]) {
+      state.sessions[state.activeSession].path = state.path;
+      state.sessions[state.activeSession].feedQuery = "";
+      state.sessions[state.activeSession].filter = "";
+    }
+  }
+
+  function paintSampleStream() {
+    var el = $("[data-sample-stream]");
+    if (!el) return;
+    var on = sampleBoard();
+    el.hidden = !on;
+    el.textContent = on ? "SAMPLE STREAM" : "";
+    if (window.CW_STREAM && typeof window.CW_STREAM.paint === "function") window.CW_STREAM.paint();
   }
 
   function restoreBoardState() {
@@ -2596,6 +2661,7 @@
   var lastScrolled = null;
 
   function render(keepCli) {
+    paintSampleStream();
     if (!state.feedMark && !state.threadFocus) {
       var initialFeed = feedEntries();
       var initialMessage = initialFeed.find(function (entry) { return entry && entry.post; });
@@ -2636,8 +2702,10 @@
     // pane. scrollIntoView walks every scrollable ancestor — during load, when
     // layout is still settling, that includes the page itself, which it then
     // leaves permanently mis-scrolled with the header off-screen.
+    // While restoring a committed reading anchor, skip opportunistic scroll —
+    // smooth scrollIntoView races the anchor correction and leaves ~9px drift.
     var cur = mount.querySelector('.cn-blade[data-focus="true"] .cn-item[aria-current="true"], .cn-col[data-focus="true"] .cn-item[aria-current="true"]');
-    if (cur && cur !== lastScrolled) {
+    if (!restoringHistory && cur && cur !== lastScrolled) {
       var pane = cur.closest(".cn-blade-body, .cn-col-body");
       if (pane) {
         var top = cur.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
@@ -2652,15 +2720,18 @@
         try { blade.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" }); } catch { /* ok */ }
       }
     }
-    lastScrolled = cur;
+    if (!restoringHistory) lastScrolled = cur;
+    if (window.CW_STREAM && typeof window.CW_STREAM.attachCipherSlabs === "function") {
+      window.CW_STREAM.attachCipherSlabs(mount);
+    }
     paintActivityBell();
     paintKeysCue();
     paintRestartCue();
     paintSessionRecovery();
     syncVisibleInteractionLayers();
     // Narrow ranger: keep the focused blade in view (Enter/→ must reveal feed).
-    revealFocusedBlade();
-    schedulePersist();
+    if (!restoringHistory) revealFocusedBlade();
+    if (!restoringHistory) schedulePersist();
   }
 
   /** Horizontal snap: bring the focused blade into the viewport on narrow widths. */
@@ -2823,7 +2894,7 @@
 
   function readingAnchorTarget(objectId, focusRegion) {
     var selector = focusRegion === "detail"
-      ? ".cn-thread-reading [data-object-id]"
+      ? ".cn-thread-reading article[data-object-id], .cn-thread-reading [data-object-id]"
       : focusRegion === "thread-outline"
         ? '.cn-thread-tree [role="treeitem"][data-object-id]'
         : focusRegion === "feed"
@@ -2959,17 +3030,46 @@
                 : '.cn-tree[role="feed"] [role="article"][data-key="' + focusedId + '"]';
         var focusTarget = document.querySelector(selector);
         if (focusTarget) try { focusTarget.focus({ preventScroll: true }); } catch { /* fine */ }
+        // Restore scroll after focus so layout/focus side-effects cannot drift
+        // the reading anchor past the committed pixel offset.
+        if (location.readingAnchor) {
+          requestAnimationFrame(function () {
+            var passes = 0;
+            function applyAnchor() {
+              passes += 1;
+              var current = currentReadingAnchor(location.readingAnchor.objectId, location.focusRegion);
+              var anchorTarget = readingAnchorTarget(location.readingAnchor.objectId, location.focusRegion);
+              var container = readingScrollContainer(anchorTarget);
+              if (current && container) {
+                container.scrollTop += current.pixelOffset - location.readingAnchor.pixelOffset;
+              }
+              var after = currentReadingAnchor(location.readingAnchor.objectId, location.focusRegion);
+              var drift = after ? Math.abs(after.pixelOffset - location.readingAnchor.pixelOffset) : 99;
+              if (passes < 5 && drift > 1) {
+                requestAnimationFrame(applyAnchor);
+                return;
+              }
+              restoringHistory = false;
+            }
+            applyAnchor();
+          });
+        } else {
+          restoringHistory = false;
+        }
       });
+    } else if (location.readingAnchor && restored) {
+      requestAnimationFrame(function () {
+        var current = currentReadingAnchor(location.readingAnchor.objectId, location.focusRegion);
+        var anchorTarget = readingAnchorTarget(location.readingAnchor.objectId, location.focusRegion);
+        var container = readingScrollContainer(anchorTarget);
+        if (current && container) {
+          container.scrollTop += current.pixelOffset - location.readingAnchor.pixelOffset;
+        }
+        restoringHistory = false;
+      });
+    } else {
+      restoringHistory = false;
     }
-    restoringHistory = false;
-    if (location.readingAnchor && restored) requestAnimationFrame(function () {
-      var current = currentReadingAnchor(location.readingAnchor.objectId, location.focusRegion);
-      var anchorTarget = readingAnchorTarget(location.readingAnchor.objectId, location.focusRegion);
-      var container = readingScrollContainer(anchorTarget);
-      if (current && container) {
-        container.scrollTop += current.pixelOffset - location.readingAnchor.pixelOffset;
-      }
-    });
     if (fallback && restored) {
       navigationRestoreNotice = "projection unavailable · opened canonical object";
       status(navigationRestoreNotice);
@@ -2990,7 +3090,18 @@
       : window.CW_NAV.parseLocation(window.location.href);
     if (route.objectId || route.projectionId) {
       restoreNavigation(route);
-      requestAnimationFrame(function () { requestAnimationFrame(function () { commitNavigation(true); }); });
+      // Wait until reading-anchor settle finishes (up to ~5 rAF correction passes).
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                requestAnimationFrame(function () { commitNavigation(true); });
+              });
+            });
+          });
+        });
+      });
     } else {
       commitNavigation(true);
     }
@@ -3030,6 +3141,13 @@
     }
     var top = layers().top();
     if (!top) {
+      // Bare Escape must not close detail or rewrite ancestry — explicit close /
+      // cancel layers own those exits (NAV-LAYER / detail close contract).
+      if (state.homeFeed === "following" && state.prev && state.prev !== state.path && !state.detailOpen) {
+        navigate(state.prev, { keepCli: true });
+        status("return");
+        return true;
+      }
       status("Esc: no action · use cd .. for namespace parent or browser Back for history");
       return false;
     }
@@ -3083,6 +3201,8 @@
       if (ev.isComposing || ev.keyCode === 229 || state.editor && state.editor.focused) return;
       var cancellable = state.speech && state.speech.listening || cdPreview || layers().top();
       if (!cancellable) {
+        // Bare Escape must bubble and report "no action" without mutating
+        // detail, ancestry, or history (NAV-LAYER-002 / detail close contract).
         cancelTopLayer();
         return;
       }
@@ -4286,6 +4406,8 @@
   /** Live traffic → legacy Activity + custom hooks → browser notifications. */
   function notifyFromLivePost(post) {
     if (!post) return;
+    var muted = state.mutedObjects || {};
+    if ((post.id && muted[post.id]) || (post.who && muted[post.who])) return;
     var body = String(post.body || "") + " " + String(post.subject || "");
     var mentionsYou = /@you\b/i.test(body) ||
       (identity && identity.handle && new RegExp("@" + identity.handle + "\\b", "i").test(body));
@@ -4463,14 +4585,15 @@
       return null;
     }
     var who = authorHandle();
+    var guest = !identity || identity.kind === "guest" || identity.anonymous === true;
     var post = {
       id: "live-" + state.nextId,
       at: clock(),
       who: who,
       body: body,
       state: "open",
-      sig: "sig:" + who + "-" + state.nextId,
     };
+    if (!guest) post.sig = "sig:" + who + "-" + state.nextId;
     state.nextId += 1;
     if (ctx.kind === "reply") {
       post.re = ctx.postId;
@@ -4493,6 +4616,9 @@
         : ("#" + (ctx.channelLabel || ctx.channel)));
     pushLine({ kind: "out", text: "posted · " + where });
     notifyFromLivePost(post);
+    if (!ctx.fromAction && window.CW_STREAM && typeof window.CW_STREAM.emit === "function") {
+      window.CW_STREAM.emit("compose.publish", { body: body }, state.path);
+    }
     render(true);
     status("posted · " + where);
     return post;
@@ -4742,29 +4868,91 @@
   }
 
   function tick() {
-    if (!state.live) return;
-    var seed = D.incoming[(state.nextId - 1) % D.incoming.length];
-    var post = Object.assign({}, seed, {
-      id: "live-" + state.nextId, at: clock(), sig: seed.sig + "-" + state.nextId,
+    // Live Activity is store/API ingest only. Replaying fixture incoming[]
+    // as live-* posts is the old costume and is never a tick.
+    return;
+  }
+
+  function ingestStoreActivity(events) {
+    var runtime = window.CW_RUNTIME || {};
+    var mutedIds = Object.keys(state.mutedObjects || {}).filter(function (id) {
+      return state.mutedObjects[id];
     });
-    state.nextId += 1;
-    // Watching a community channel: /projects/community/channels/<label>
-    var segs = MAP.split(state.path);
-    var watching = segs[0] === "projects" && segs[1] === "community" &&
-      segs[2] === "channels" && segs[3];
-    var chan = D.channels.filter(function (c) { return c.id === post.channel; })[0];
-    if (chan && watching === chan.label) {
-      var feedKey = "chan:" + segs[1] + "/" + watching;
-      ensurePendingBucket(feedKey).push(post);
-      retargetPendingMirror();
-      renderNotice();
-    } else {
-      if (chan) chan.unread = (chan.unread || 0) + 1;
-      state.merged = mergeUniquePosts(state.merged, [post]);
-      render(true);
+    var accepted = typeof runtime.activityFromParticipantEvents === "function"
+      ? runtime.activityFromParticipantEvents(events || [], {
+        sampleBoard: sampleBoard(),
+        mutedObjectIds: mutedIds,
+      })
+      : (sampleBoard() ? [] : (events || []));
+    if (!accepted.length) return [];
+    accepted.forEach(function (event) {
+      var id = "store-" + event.id;
+      if ((window.CW_DATA.notifications || []).some(function (item) { return item.id === id; })) return;
+      (window.CW_DATA.notifications || []).unshift({
+        id: id,
+        kind: event.kind || "subscription",
+        unread: true,
+        at: event.at || clock(),
+        who: event.actorId,
+        where: state.path,
+        subject: event.kind || "activity",
+        body: "store event",
+      });
+    });
+    paintActivityBell();
+    return accepted;
+  }
+
+  function openReceiptLocator(raw) {
+    var runtime = window.CW_RUNTIME || {};
+    var opened = typeof runtime.openBoardReceipt === "function"
+      ? runtime.openBoardReceipt(raw)
+      : { kind: "unknown" };
+    if (opened.kind !== "open") {
+      status("not a receipt");
+      return null;
     }
-    // Browser Notification API + custom hooks.
-    notifyFromLivePost(post);
+    var source = null;
+    var posts = (D.posts || []).concat(state.merged || []);
+    for (var i = 0; i < posts.length; i++) {
+      var post = posts[i];
+      if (post && (post.sig === opened.receipt.locator || post.anchor === opened.receipt.locator)) {
+        source = post;
+        break;
+      }
+    }
+    var blade = typeof runtime.describeReceiptBlade === "function"
+      ? runtime.describeReceiptBlade(opened.receipt, {
+        who: source && source.who,
+        body: source && source.body,
+        path: state.path,
+      })
+      : Object.assign({}, opened.receipt, {
+        actor: source && source.who || "unknown",
+        evidence: source && source.body || opened.receipt.locator,
+      });
+    state.receiptFocus = blade;
+    if (!hasLayer("receipt-blade")) {
+      pushLayer("receipt-blade", "receipt", "close receipt", function () {
+        state.receiptFocus = null;
+        render(true);
+      }, document.activeElement);
+    }
+    status(blade.title + " · " + blade.locator);
+    render(true);
+    return blade;
+  }
+
+  function scopedObjectAction(actionId, objectId) {
+    var runtime = window.CW_RUNTIME || {};
+    var scoped = typeof runtime.requireScopedTarget === "function"
+      ? runtime.requireScopedTarget(actionId, objectId)
+      : (objectId ? { ok: true, actionId: actionId, objectId: objectId } : { ok: false, reason: "unscoped" });
+    if (!scoped.ok) {
+      status(actionId + " needs a selected object");
+      return scoped;
+    }
+    return scoped;
   }
 
   function mergePending() {
@@ -5368,7 +5556,8 @@
     if (ev.altKey) parts.push("Alt");
     if (ev.shiftKey) parts.push("Shift");
     var key = ev.key;
-    if (key && key.length === 1) {
+    if (ev.code === "Period") key = ".";
+    else if (key && key.length === 1) {
       key = ev.shiftKey || ev.ctrlKey || ev.metaKey || ev.altKey ? key.toUpperCase() : key.toLowerCase();
     }
     if (!key || /^(Control|Meta|Alt|Shift)$/.test(key)) return "";
@@ -5408,7 +5597,7 @@
   function openJumpChooser(terms) {
     terms = String(terms || "").trim();
     var returnFocus = document.activeElement;
-    cliValue = "zi " + terms;
+    // Jump is a namespace picker. Never type `zi` into the composer.
     state.cliOpen = true;
     state.intelOpen = false;
     state.helpOpen = false;
@@ -5443,6 +5632,11 @@
   }
 
   function jumpBest(terms) {
+    var keptSearch = state.searchWorkbench && state.searchWorkbench.expression;
+    var keptFeed = state.feedQuery;
+    var preserve = window.CW_RUNTIME && typeof window.CW_RUNTIME.preservedSearchAfterJump === "function"
+      ? window.CW_RUNTIME.preservedSearchAfterJump
+      : function (query) { return String(query || ""); };
     var candidates = window.CW_COMPLETE.jumpCandidates(terms, { cwd: state.path, extra: state.merged });
     if (!candidates.length) {
       status("z: no destination for " + terms);
@@ -5456,6 +5650,8 @@
       status("z: destination unavailable: " + first.value);
       return false;
     }
+    if (state.searchWorkbench) state.searchWorkbench.expression = preserve(keptSearch);
+    state.feedQuery = preserve(keptFeed);
     recordNavigationVisit(first);
     status("z · " + first.value + " · " + first.matchReason);
     return true;
@@ -5705,7 +5901,7 @@
       if (compose.kind !== "reply" && compose.kind !== "post" && compose.kind !== "dm") {
         throw new Error("not in a channel/dm/reply scope — navigate first or pass channel");
       }
-      var published = publishCompose(body, compose);
+      var published = publishCompose(body, Object.assign({}, compose, { fromAction: true }));
       if (!published) throw new Error("could not publish");
       recordSocialRevision(published, body, compose);
       return context.origin === "mcp" && window.CW_MCP
@@ -5785,6 +5981,32 @@
     if (actionId === "history.forward") return window.history.forward();
     if (actionId === "history.previousLocation") return navigate(state.prev || "/", { keepCli: true });
     if (actionId === "cancel.topLayer") return cancelTopLayer();
+    if (actionId === "post.mute" || actionId === "post.report" || actionId === "hooks.test") {
+      var targetId = input.objectId || context.objectId || state.threadFocus || state.feedMark;
+      var scoped = scopedObjectAction(actionId === "hooks.test" ? "hooks.test" : actionId, targetId);
+      if (!scoped.ok) throw new Error(actionId + " is unscoped");
+      if (actionId === "post.mute") {
+        state.mutedObjects = state.mutedObjects || {};
+        state.mutedObjects[scoped.objectId] = !state.mutedObjects[scoped.objectId];
+        status((state.mutedObjects[scoped.objectId] ? "muted " : "unmuted ") + scoped.objectId);
+        render(true);
+        return { objectId: scoped.objectId, muted: !!state.mutedObjects[scoped.objectId] };
+      }
+      if (actionId === "post.report") {
+        state.reportedObjects = state.reportedObjects || {};
+        state.reportedObjects[scoped.objectId] = { hold: "legal-hold", at: clock() };
+        status("reported " + scoped.objectId + " · legal-hold");
+        render(true);
+        return { objectId: scoped.objectId, hold: "legal-hold" };
+      }
+      return runHooksCommand("test " + scoped.objectId);
+    }
+    if (actionId === "stream.protect") {
+      if (!window.CW_STREAM || typeof window.CW_STREAM.toggleMute !== "function") {
+        throw new Error("stream policy unavailable");
+      }
+      return { muted: window.CW_STREAM.toggleMute() };
+    }
     if (actionId.indexOf("thread.") === 0) return threadAction(actionId);
     throw new Error("action has no runtime: " + actionId);
   }
@@ -5931,7 +6153,8 @@
       var n = state.pending.length; mergePending();
       reply = n ? "loaded " + n : "nothing queued";
     } else if (cmd === "watch") {
-      state.live = true; reply = "stream resumed";
+      state.live = false;
+      reply = "no live source — sample board";
     } else if (cmd === "macro" || cmd === "skill") {
       var macroResult = window.CW_POWER
         ? window.CW_POWER.command(arg)
@@ -6364,6 +6587,22 @@
       }).join("\n"));
     }
 
+    if (verb === "promote") {
+      var hereP = feedEntries();
+      var selP = entries()[state.cursor];
+      var promo = selP && selP.post ? selP.post : null;
+      if (!promo && (state.threadFocus || state.feedMark)) {
+        var want = state.threadFocus || state.feedMark;
+        for (var pi = 0; pi < hereP.length; pi++) {
+          if (hereP[pi].post && hereP[pi].post.id === want) { promo = hereP[pi].post; break; }
+        }
+      }
+      if (!promo) return finishAct("promote · select a post first");
+      promo.state = "promoted";
+      promo.samplePromote = true;
+      return finishAct("promoted as sample/read-only — sign in to attach a Change receipt");
+    }
+
     if (verb === "share") {
       var link = shareLink("contextual", state.threadFocus || state.feedMark);
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -6565,6 +6804,14 @@
           return c.name + (c.arg ? " <" + c.arg + ">" : "") + "  " + c.help;
         }).join("\n");
       reply += "\n\n/act is context-dependent — type /act for actions here.";
+    } else if (run === "stream-protect") {
+      var stream = window.CW_STREAM;
+      if (!stream || typeof stream.toggleMute !== "function") {
+        status("stream policy unavailable");
+        return true;
+      }
+      stream.toggleMute();
+      return true;
     } else if (run === "act") {
       return runActCommand(arg);
     } else if (run === "keys") {
@@ -6930,7 +7177,19 @@
     if (k === "Enter" || k === "Backspace" || k === "Home" || k === "End") return true;
     if (k === " " || k === "Spacebar" || k === "PageUp" || k === "PageDown") return true;
     if (k === "[" || k === "]") return true;
-    if (k.length === 1 && /^[hjklzyvre]$/i.test(k)) return true;
+    if (k.length === 1 && /^[hjklzyvre]$/i.test(k)) {
+      var composerFocused = !!(ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-cli"));
+      if (window.CW_RUNTIME && typeof window.CW_RUNTIME.letterSteersBoard === "function") {
+        return window.CW_RUNTIME.letterSteersBoard({
+          composerFocused: composerFocused,
+          composerValue: composerFocused ? String(ev.target.value || "") : "",
+          key: k,
+          columnFocus: !!state.columnFocus,
+        });
+      }
+      if (composerFocused) return false;
+      return true;
+    }
     return false;
   }
 
@@ -6970,6 +7229,11 @@
     });
 
     mount.addEventListener("click", function (ev) {
+      var receiptBtn = ev.target.closest("[data-receipt-locator]");
+      if (receiptBtn) {
+        ev.preventDefault();
+        return openReceiptLocator(receiptBtn.getAttribute("data-receipt-locator"));
+      }
       var ctxPrompt = ev.target.closest("[data-ctx-prompt]");
       if (ctxPrompt) {
         try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
@@ -7093,6 +7357,16 @@
       if (replyBtn) {
         var rid = replyBtn.dataset.reply;
         return invokeUiAction("compose.reply", { objectId: rid }, "pointer", rid);
+      }
+      var mutePostBtn = ev.target.closest("[data-mute-post]");
+      if (mutePostBtn) {
+        var muteId = mutePostBtn.getAttribute("data-mute-post");
+        return invokeUiAction("post.mute", { objectId: muteId }, "pointer", muteId);
+      }
+      var reportPostBtn = ev.target.closest("[data-report-post]");
+      if (reportPostBtn) {
+        var reportId = reportPostBtn.getAttribute("data-report-post");
+        return invokeUiAction("post.report", { objectId: reportId }, "pointer", reportId);
       }
       var copyPostBtn = ev.target.closest("[data-copy-post]");
       if (copyPostBtn) {
@@ -7288,8 +7562,8 @@
         var bi = Number(bladeGoto.getAttribute("data-blade-goto"));
         if (!isNaN(bi)) {
           state.focus = bi;
-          state.columnFocus = true;
           if (bi === detailBladeIndex()) state.detailOpen = true;
+          focusColumns();
           render(true);
           revealFocusedBlade();
           return status("pane · " + (bi === 0 ? "nav" : (bi === 1 ? "feed" : "session")));
@@ -7982,8 +8256,8 @@
         return;
       }
       if (ev.target.closest("[data-live-toggle]")) {
-        state.live = !state.live;
-        status(state.live ? "stream resumed" : "stream paused");
+        state.live = false;
+        status("no live source — sample board");
       }
       // Profile button + Slack-style spaces menu (outside morph mount).
       if (ev.target.closest("[data-profile-btn]")) {
@@ -8596,6 +8870,7 @@
     // Restore durable page state before first paint so path, workspaces,
     // furniture and theme match the last authorized session.
     restoreBoardState();
+    applySampleEntryPath();
     setTheme(themeIndex);
     warmModel();
     // Theme is Grid only — no chrome dropdown. theme_use / legacy /theme resolve CW_THEMES.
@@ -8654,7 +8929,7 @@
     status(recovery ? recovery.message : (navigationRestoreNotice || bootNote));
     // First visit: open keys after the boot status so the onboard cue wins.
     maybeOpenKeysOnboard();
-    setInterval(tick, 9000);
+    paintSampleStream();
   }
 
   /**
@@ -8911,6 +9186,19 @@
     openIntel: openIntel,
     // Profile + spaces (tests and WebMCP honesty).
     getIdentity: function () { return identity; },
+    readWorkspaceText: function (path) {
+      path = String(path || "").replace(/^\/+/u, "");
+      var buffers = state.editor && state.editor.buffers;
+      if (!buffers) return "";
+      var candidates = [path, "/" + path];
+      for (var i = 0; i < candidates.length; i++) {
+        var buf = buffers[candidates[i]];
+        if (!buf) continue;
+        if (typeof buf.text === "function") return String(buf.text() || "");
+        if (typeof buf === "string") return buf;
+      }
+      return "";
+    },
     getPolicy: function () { return policy; },
     openAuth: openAuth,
     openProfileMenu: openProfileMenu,
@@ -8949,6 +9237,9 @@
     openMemberDm: openMemberDm,
     markNotificationRead: markNotificationRead,
     unreadActivityCount: unreadActivityCount,
+    ingestStoreActivity: ingestStoreActivity,
+    openReceiptLocator: openReceiptLocator,
+    jumpBest: jumpBest,
     paintActivityBell: paintActivityBell,
     browserNotifySupported: browserNotifySupported,
     browserNotifyPermission: browserNotifyPermission,

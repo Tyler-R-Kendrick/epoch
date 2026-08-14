@@ -126,6 +126,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0047: Mixed-Language Compression Planning](design-decisions/0047-mixed-language-compression-planning.md) | Replaces the single-provider restriction in `semantic plan` with per-provider groups, a cross-language dictionary, provider-scoped dedup keys, and reported unplanned files. |
 | [ADR-0048: Repository Configuration Parsing](design-decisions/0048-repository-configuration-parsing.md) | Replaces the subset config reader that rejects valid TOML and silently mis-parses multi-line strings, and stops a config parse failure from quietly dropping a hand-written extension `block`. |
 | [ADR-0049: One Community Command Layer](design-decisions/0049-community-runtime-command-layer.md) | Makes one command bus, receipt schema, browser UI workspace, and static harness ABI serve web, WebMCP, CLI, and SDK. |
+| [ADR-0050: Command Livestream Privacy](design-decisions/0050-command-livestream-privacy.md) | Livestreams are sanitized command logs, not pixels; spectators replay them in their own theme; ignore/rewrite files and protected inputs fail closed. |
+| [ADR-0051: Change-Based Review Publish](design-decisions/0051-change-based-review-publish.md) | Review publish is change-based by default: `Change-Id` trailer, `refs/for/<target>`, topic/hashtag/WIP — not a pull-request branch and not a mode. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References
@@ -136,7 +138,8 @@ decisions, operations, or contribution workflow.
 | [AGENTS.md](../AGENTS.md) | Repository-specific agent instructions and quality gate requirements. |
 | [Change Graph Convergence State](plans/change-graph-convergence/sdlc-state.md) | Historical implementation record for stable Changes, projections, synchronization, interoperability, authority, and validation. |
 | [Change Graph Signed Events State](plans/change-graph-signed-events/sdlc-state.md) | Follow-up record for persisting Change Graph CLI commands as signed protocol events. |
-| [Community Search And Projection State](plans/community-search-projection/sdlc-state.md) | Active implementation record for deterministic cross-source search, user-defined projections, and namespace recovery. |
+| [Community Search And Projection State](plans/community-search-projection/sdlc-state.md) | Closed implementation record for deterministic cross-source search, user-defined projections, and namespace recovery. |
+| [Community Web Pass-2 Honesty State](plans/community-web-pass2-honesty/sdlc-state.md) | Active record for sample/live honesty, receipt verbs, AT OAuth, and live multi-user Activity after competitor pass 2. |
 | [Community Web Startup And HoBo Workbench Plan](plans/community-web-startup-hobo/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, deterministic HoBo authoring, next-action guidance, and focus expansion. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |

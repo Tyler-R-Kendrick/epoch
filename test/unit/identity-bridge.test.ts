@@ -459,7 +459,21 @@ async function s4OauthAndRecordWriter(): Promise<void> {
     () => oauth.authorize({ did: "did:plc:x", scope: "transition:generic" }),
     /rotation|transition/u,
   );
-  const token = await oauth.authorize({ did: "did:plc:x", scope: BINDING_RECORD_SCOPE });
+  await assert.rejects(
+    () => oauth.authorize({ did: "did:plc:x", scope: BINDING_RECORD_SCOPE }),
+    /PAR\/PKCE\/DPoP/u,
+  );
+  await assert.rejects(
+    () => oauth.authorize({ did: "did:plc:x", scope: BINDING_RECORD_SCOPE, accessToken: "epoch-oauth-did:plc:x" }),
+    /stub token/u,
+  );
+  const token = await oauth.authorize({
+    did: "did:plc:x",
+    scope: BINDING_RECORD_SCOPE,
+    accessToken: "dpop-access",
+  });
+  assert.equal(token.accessToken, "dpop-access");
+  assert.doesNotMatch(token.accessToken, /^epoch-oauth-/u);
   oauth.assertScope(token, BINDING_RECORD_SCOPE);
 
   const store = new InMemoryBindingRecordStore();
