@@ -2,6 +2,9 @@ import fc from "fast-check";
 import type { ForgeObject } from "@epoch/forge";
 import {
   arbBudgetEvent,
+  arbIdentityEvent,
+  arbPromiseEvent,
+  arbSpaceJoinEvent,
   arbCanonicalBytes,
   arbChunkBytes,
   arbForgeObject,
@@ -22,6 +25,7 @@ import {
   assertPathQueryNeverEscapesRoot,
   assertPktLineRoundtrip,
   assertProtocolEventClosed,
+  assertProtocolEventIdentityClosed,
   assertProtocolEventUnknownTypeFails,
   assertRemoteHelperClosed,
   assertRevsetDeterministic,
@@ -36,6 +40,18 @@ async function main(): Promise<void> {
   }), params);
 
   await fc.assert(fc.asyncProperty(arbBudgetEvent, async (event) => {
+    assertProtocolEventClosed(event);
+  }), params);
+
+  await fc.assert(fc.asyncProperty(arbIdentityEvent, async (event) => {
+    assertProtocolEventIdentityClosed(event);
+  }), params);
+
+  await fc.assert(fc.asyncProperty(arbPromiseEvent, async (event) => {
+    assertProtocolEventClosed(event);
+  }), params);
+
+  await fc.assert(fc.asyncProperty(arbSpaceJoinEvent, async (event) => {
     assertProtocolEventClosed(event);
   }), params);
 

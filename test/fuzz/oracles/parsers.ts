@@ -41,11 +41,33 @@ export function assertProtocolEventClosed(event: {
 }): void {
   assert.equal(assertProtocolEvent(JSON.parse(JSON.stringify(event))).eventId, event.eventId);
   assert.throws(() => assertProtocolEvent({ ...event, unknown: true }), /Unknown event field/u);
+  assert.throws(() => assertProtocolEvent({ ...event, revisionId: `other-${event.eventId}` }), /must equal/u);
+  if ("units" in event.body) {
+    assert.throws(() => assertProtocolEvent({
+      ...event,
+      body: { ...event.body, units: -1 },
+    }), /nonnegative/u);
+  }
+  if ("path" in event.body) {
+    assert.throws(() => assertProtocolEvent({
+      ...event,
+      body: { ...event.body, path: "../etc/passwd" },
+    }), /repository-relative path|invalid-path/u);
+  }
+}
+
+export function assertProtocolEventIdentityClosed(event: {
+  schemaVersion: number;
+  type: string;
+  eventId: string;
+  revisionId: string;
+  body: Record<string, unknown>;
+}): void {
+  assertProtocolEventClosed(event);
   assert.throws(() => assertProtocolEvent({
     ...event,
-    body: { ...event.body, units: -1 },
-  }), /nonnegative/u);
-  assert.throws(() => assertProtocolEvent({ ...event, revisionId: `other-${event.eventId}` }), /must equal/u);
+    body: { ...event.body, unexpected: true },
+  }), /Unknown event body field/u);
 }
 
 export function assertRevsetDeterministic(expression: string): void {

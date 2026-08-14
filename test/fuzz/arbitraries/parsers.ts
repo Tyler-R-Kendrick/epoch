@@ -38,6 +38,15 @@ export const arbForgeObject = fc.tuple(fc.nat({ max: 200 }), fc.integer({ min: 0
   revision: `revision-${index}`,
 }));
 
+const CANONICAL = {
+  budget: `epoch:budget:${"a".repeat(52)}`,
+  principal: `epoch:principal:${"b".repeat(52)}`,
+  repo: `epoch:repo:${"c".repeat(52)}`,
+  promise: `epoch:promise:${"d".repeat(52)}`,
+  space: `epoch:space:${"e".repeat(52)}`,
+  grant: `epoch:grant:${"f".repeat(52)}`,
+} as const;
+
 export const arbBudgetEvent = fc.tuple(
   fc.nat({ max: 500 }),
   fc.constantFrom("agent.budget.allocated", "agent.budget.consumed"),
@@ -48,9 +57,51 @@ export const arbBudgetEvent = fc.tuple(
   eventId: `event-${index}`,
   revisionId: `event-${index}`,
   body: {
-    budgetId: `epoch:budget:${"a".repeat(52)}`,
-    principalId: `epoch:principal:${"b".repeat(52)}`,
+    budgetId: CANONICAL.budget,
+    principalId: CANONICAL.principal,
     units,
+  },
+}));
+
+export const arbIdentityEvent = fc.nat({ max: 500 }).map((index) => ({
+  schemaVersion: 1 as const,
+  type: "repository.identity" as const,
+  eventId: `identity-${index}`,
+  revisionId: `identity-${index}`,
+  body: {
+    repositoryId: CANONICAL.repo,
+    principalId: CANONICAL.principal,
+  },
+}));
+
+export const arbPromiseEvent = fc.tuple(
+  fc.nat({ max: 500 }),
+  fc.constantFrom("pending", "fulfilled", "rejected"),
+).map(([index, status]) => ({
+  schemaVersion: 1 as const,
+  type: "object.promise.recorded" as const,
+  eventId: `promise-${index}`,
+  revisionId: `promise-${index}`,
+  body: {
+    promiseId: CANONICAL.promise,
+    contentDigest: "a".repeat(64),
+    status,
+  },
+}));
+
+export const arbSpaceJoinEvent = fc.tuple(
+  fc.nat({ max: 500 }),
+  fc.constantFrom("owner", "collaborator", "agent", "observer"),
+).map(([index, role]) => ({
+  schemaVersion: 1 as const,
+  type: "space.participant.joined" as const,
+  eventId: `space-join-${index}`,
+  revisionId: `space-join-${index}`,
+  body: {
+    spaceId: CANONICAL.space,
+    principalId: CANONICAL.principal,
+    grantId: CANONICAL.grant,
+    role,
   },
 }));
 

@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
-import { createCommunityApiHost, createInMemoryCommunityApi, createCommunityApiFetchHandler } from "@epoch/community-api";
+import {
+  createCommunityApiHost,
+  createCommunityApiFetchHandler,
+  createCommunityConvergenceFetchHandler,
+  createInMemoryCommunityApi,
+  createInMemoryCommunityConvergenceApi,
+} from "@epoch/community-api";
 import { main as communityCliMain } from "@epoch/community-cli";
-import { builtinDefaultProjection, CommunityRepository, createCommunityClient, createHttpCommunityClient } from "@epoch/community-core";
+import {
+  builtinDefaultProjection,
+  CommunityRepository,
+  createCommunityClient,
+  createConvergenceFixture,
+  createHttpCommunityClient,
+} from "@epoch/community-core";
 
 export async function runCommunityCoverageTests(): Promise<void> {
   await apiFetchHandlerRoutesCommunityRequests();
@@ -11,6 +23,7 @@ export async function runCommunityCoverageTests(): Promise<void> {
   await cliCoversIssueAndChangeWorkflows();
   await cliReportsUsageAndValidationErrors();
   await httpClientReportsNonOkApiErrors();
+  await convergenceApiEnforcesTrustedAuthority();
 }
 
 async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
@@ -393,6 +406,83 @@ async function cliReportsUsageAndValidationErrors(): Promise<void> {
     "maybe",
   ], context)).stderr, /Unsupported review decision/u);
   assert.match((await runCli(["unknown"], context)).stderr, /Usage:/u);
+}
+
+async function convergenceApiEnforcesTrustedAuthority(): Promise<void> {
+  const api = createInMemoryCommunityConvergenceApi(createConvergenceFixture({
+    changes: "base,api,ui",
+    dependencies: "api>base,ui>api",
+  }));
+  const snapshot = api.getSnapshot();
+  assert.equal(snapshot.selectedChangeId, "base");
+  assert.deepEqual(api.planPartialMerge("api").included, ["base", "api"]);
+
+  const unauthenticated = createCommunityConvergenceFetchHandler(api);
+  assert.equal((await unauthenticated(new Request("https://epoch.test/convergence"))).status, 200);
+  assert.equal((await unauthenticated(new Request("https://epoch.test/missing"))).status, 404);
+
+  const preview = await unauthenticated(new Request("https://epoch.test/convergence/merge-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ changeId: "api" }),
+  }));
+  assert.equal(preview.status, 200);
+  assert.deepEqual((await preview.json() as { included: string[] }).included, ["base", "api"]);
+
+  const selfAsserted = await unauthenticated(new Request("https://epoch.test/convergence/squash", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ changeId: "api", authority: "maintainer.merge", confirmed: true }),
+  }));
+  assert.equal(selfAsserted.status, 403);
+  assert.match(await selfAsserted.text(), /trusted request context/u);
+
+  const unauthorized = createCommunityConvergenceFetchHandler(api, {
+    resolveAuthorization: () => ({ principalId: "contributor-1", authorities: [] }),
+  });
+  const denied = await unauthorized(new Request("https://epoch.test/convergence/squash", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ changeId: "api", confirmed: true }),
+  }));
+  assert.equal(denied.status, 403);
+  assert.match(await denied.text(), /contributor-1.*maintainer\.merge/u);
+
+  const authorized = createCommunityConvergenceFetchHandler(api, {
+    resolveAuthorization: () => ({ principalId: "maintainer-1", authorities: ["maintainer.merge"] }),
+  });
+  await assert.rejects(
+    () => authorized(new Request("https://epoch.test/convergence/squash", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ changeId: "api", confirmed: false }),
+    })),
+    /confirmation/iu,
+  );
+  const accepted = await authorized(new Request("https://epoch.test/convergence/squash", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ changeId: "api", confirmed: true }),
+  }));
+  assert.equal(accepted.status, 200);
+  assert.deepEqual((await accepted.json() as { sourceChanges: string[] }).sourceChanges, ["base", "api"]);
+
+  await assert.rejects(
+    () => authorized(new Request("https://epoch.test/convergence/merge-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ changeId: "" }),
+    })),
+    /changeId must be a non-empty string/u,
+  );
+  await assert.rejects(
+    () => authorized(new Request("https://epoch.test/convergence/squash", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "[]",
+    })),
+    /Request body must be an object/u,
+  );
 }
 
 async function httpClientReportsNonOkApiErrors(): Promise<void> {

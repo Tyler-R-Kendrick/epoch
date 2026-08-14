@@ -99,8 +99,9 @@ different oracles.
 ## Coverage
 
 - `test/fuzz/change-graph-parser.fuzz.test.ts` — deterministic smoke
-- `test/fuzz/properties/parser-roundtrip.fast-check.test.ts` — short fast-check
+- `test/fuzz/properties/parser-roundtrip.fast-check.test.ts` — short fast-check over budget, identity, promise, and space-join events plus path-escape queries
 - `test/fuzz/history/history.fast-check.test.ts` — history command model plus always-on invariants (snapshot+tail, missing revision, rejected conflict blocks merge, git ingest subset, workspace path escape)
+- `test/unit/protocol-event-bodies.test.ts` — every declared protocol event type plus fail-closed fragments, graphs, and path escapes
 - `test/fuzz/jazzer/*` — coverage-guided parser targets
 - `test/fuzz/regressions/*` — promoted minimized failures
 - `.github/workflows/fuzz-campaign.yml` — scheduled campaign
