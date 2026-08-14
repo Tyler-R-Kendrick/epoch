@@ -1,0 +1,105 @@
+name: Fuzz Campaign
+
+on:
+  schedule:
+    # Nightly — not a required PR check (see ADR-0052).
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Guard — public repo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify repository is public
+        run: |
+          if [ "${{ github.event.repository.private }}" = "true" ]; then
+            echo "::error::Repository is private -- the standard-runner free-CI assumption this workflow relies on no longer holds. Failing closed. See docs/ai-automation-strategy.md Finding 1 before re-enabling." >&2
+            exit 1
+          fi
+
+  history-long:
+    name: History command model (long)
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Long history model run
+        env:
+          EPOCH_FUZZ_HISTORY_LONG: "1"
+          EPOCH_FUZZ_RUNS: "400"
+        run: npm run fuzz:history:long
+
+      - name: Upload history corpus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus-history
+          path: test/fuzz/corpus/v1/history/
+          if-no-files-found: ignore
+
+  jazzer:
+    name: Jazzer.js parsers
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - revset
+          - canonical-id
+          - pkt-line
+          - remote-helper
+          - chunk-manifest
+          - swhid
+          - forge-codecs
+          - protocol-event
+          - path-query
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build -- --pretty false
+
+      - name: Jazzer campaign
+        env:
+          EPOCH_JAZZER_SECONDS: "300"
+        run: node test/fuzz/jazzer/run-campaign.mjs --only=${{ matrix.target }}
+
+      - name: Upload target corpus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus-${{ matrix.target }}
+          path: test/fuzz/corpus/v1/${{ matrix.target }}/
+          if-no-files-found: ignore

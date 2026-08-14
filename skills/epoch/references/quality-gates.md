@@ -17,6 +17,11 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 | `npm test` | Every behavior change | Unit/component runtime tests plus Cucumber features against compiled TypeScript output. |
 | `npm run coverage` | Every behavior change | c8 coverage over unit/component tests and Cucumber features with enforced thresholds. |
 | `npm run verify` | Before review | Docs check, lint, typecheck, konsistent, tests, and coverage in sequence. |
+| `npm run change-graph:fuzz-smoke` | Change Graph / protocol parser changes | Deterministic seeded smoke (not coverage-guided). |
+| `npm run fuzz:fast-check` | Change Graph / parser property changes | Short fast-check + history command model with shrinking. |
+| `npm run fuzz:regression` | Corpus or oracle changes | Replay versioned `test/fuzz/corpus/v1` entries. |
+| `npm run fuzz:jazzer:regression` | Parser oracle / Jazzer target changes | Jazzer.js corpus regression mode (PR-safe). |
+| `npm run fuzz:history:long` / `npm run fuzz:jazzer` | Scheduled campaign only | Long history model and coverage-guided parser campaigns ([ADR-0052](../../../docs/design-decisions/0052-model-based-and-coverage-guided-fuzzing.md)). |
 
 Community package and experience changes must keep the Community validation
 layers healthy: design-thinking and user-centric docs, persona-tagged Gherkin
@@ -49,4 +54,4 @@ scenario inventory.
 
 ## CI expectations
 
-The GitHub Actions quality workflow installs dependencies with `npm ci` and runs docs check, lint, typecheck, konsistent, test, and coverage as independent required gates.
+The GitHub Actions quality workflow installs dependencies with `npm ci` and runs docs check, lint, typecheck, konsistent, test, and coverage as independent required gates. Scheduled fuzz campaigns live in `.github/workflows/fuzz-campaign.yml` and are not required PR checks.

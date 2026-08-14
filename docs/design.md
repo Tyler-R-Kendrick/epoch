@@ -464,6 +464,13 @@ adapters:
   CLI ships a default HTTP adapter (`EPOCH_SWH_SAVE_URL` overrides the
   endpoint) and still denies private or non-HTTPS origins.
 
+Change Graph parsers and `SignedChangeGraphStore` histories are exercised
+through three fuzz lanes: deterministic smoke on every PR, fast-check
+properties with shrinking, and scheduled Jazzer.js parser campaigns with
+versioned corpora. See
+[ADR-0052](design-decisions/0052-model-based-and-coverage-guided-fuzzing.md)
+and [`test/fuzz/README.md`](../test/fuzz/README.md).
+
 Pre-release compatibility identifiers and aliases are not supported. Change
 Graph CLI commands persist signed protocol events. A leftover
 `.epoch/change-graph-v1.json` file is ignored and is not authoritative.
