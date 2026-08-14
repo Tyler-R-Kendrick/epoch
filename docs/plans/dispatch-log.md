@@ -188,3 +188,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | None at merge. Earlier Test red was a flaky last-character cursor tamper; Coverage was 77.86% branches vs 78% until host routes and browser-only Web search/workbench dist were accounted for. |
 | Notes | Landed one Core Search Expression, planner, snapshot, and AES-GCM keyset cursor; Projection Definitions and scoped Namespace Mounts; `createCommunityApiHost`; CLI/GraphQL/Community Web workbenches; ADR-0042 (0040/0041 already used on trunk). Independent review blocked on live-namespace tenancy; Alice/Bob isolation and REST scope reject landed in `2cbefd4` before merge. Quality Gates (Test, Coverage, Community Web, Pact, A11y, Vercel) green. CodeRabbit skipped the large diff. Unrelated PRs #125–#133 and #135–#136 were left open. |
+
+## 2026-08-14 — Community Web honesty, livestream, Gerrit-shaped submit
+
+| Field | Value |
+|---|---|
+| Initiative | [`community-web-pass2-honesty`](community-web-pass2-honesty/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `feat/community-web-honesty-gerrit` |
+| PR | [#140](https://github.com/Tyler-R-Kendrick/epoch/pull/140) — squash-merged [`f72df08`](https://github.com/Tyler-R-Kendrick/epoch/commit/f72df08b513440a782e8767b382da7208eac2a75) |
+| Result | **success** |
+| Failure class | Real CI red before merge: jump chooser hid after Enter cleared the prompt; Coverage/Test Chromium crashes on reload and a hidden Bo blade timeout. Fixed on the same PR. |
+| Notes | Honest sample board (no fake tick, unsigned guests, receipts as objects, jump/search isolation, scoped mute/report, PAR/PKCE/DPoP AT OAuth). Command-replay livestream with fail-closed `.epochstreamignore` / rewrite / protect. Native Change publish uses Gerrit-shaped Change-Id + `refs/for/<target>` (ADR-0050/0051). Production Vercel `epoch-vcs` deployed `f72df08`. Local junk (`.impeccable`, `.serena`, leftover nightboard canvasui) was not committed. |
