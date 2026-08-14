@@ -232,7 +232,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | Change Graph fuzz lanes (ADR-0052) |
 | Backend | Sequential fallback; coordinator inline |
 | Branch | `test/fuzz-lanes-deeper` |
-| PR | this delivery |
-| Result | **in flight** |
-| Failure class | None yet |
-| Notes | History model now commands the ADR fail-closed/idempotence/merge-block properties and always runs snapshot+tail, git ingest subset, and workspace path escape. Parser properties reject unknown event types and escape-shaped queries. c8 excludes Playwright-only `dist/client/**` and raises line/statement/function floors. |
+| PR | [#146](https://github.com/Tyler-R-Kendrick/epoch/pull/146) — squash-merged [`371cdd1`](https://github.com/Tyler-R-Kendrick/epoch/commit/371cdd152364bc676eeb444931a0aba1e7adb706) |
+| Result | **success** |
+| Failure class | None on the merge push; Quality Gates green on `main` after squash-merge. |
+| Notes | History model now commands the ADR fail-closed/idempotence/merge-block properties and always runs snapshot+tail, git ingest subset, and workspace path escape. Parser properties reject unknown event types and escape-shaped queries. c8 excludes Playwright-only `dist/client/**` and raises line/statement/function floors. Production Vercel `epoch-vcs` deployed `371cdd1`. Nightboard/.impeccable leftover remains deferred and was not committed. |
