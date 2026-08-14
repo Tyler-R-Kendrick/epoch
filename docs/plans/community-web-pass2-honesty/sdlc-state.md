@@ -1,6 +1,6 @@
 # Community Web pass-2 honesty SDLC state
 
-- Phase: implemented
+- Phase: closed
 - Initiative: board honesty of verbs, sample/live, receipts, AT OAuth, live Activity
 - Source: competitor pass-2 aggregate (2026-08-13) on `epoch-vcs.vercel.app`
 
@@ -16,6 +16,10 @@
 8. Live multi-user Activity — implemented (store events only; sample board never ticks)
 9. Targeting leftovers — implemented
 10. Secure command livestream — implemented
+
+## Closeout
+
+Squash-merged as [#140](https://github.com/Tyler-R-Kendrick/epoch/pull/140) `f72df08`. Production Vercel deployed the same SHA.
 
 ## Gap pass
 
