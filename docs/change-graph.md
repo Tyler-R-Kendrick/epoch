@@ -22,6 +22,12 @@ Review publish is change-based by default ([ADR-0051](design-decisions/0051-chan
 `refs/for/<target>` with a stable `Change-Id` trailer. It does not open a
 pull-request branch.
 
+Change Graph correctness is exercised through three fuzz lanes
+([ADR-0052](design-decisions/0052-model-based-and-coverage-guided-fuzzing.md)):
+deterministic smoke on every PR, fast-check history/property runs with
+shrinking, and scheduled Jazzer.js parser campaigns with versioned corpora
+([`test/fuzz/README.md`](../test/fuzz/README.md)).
+
 The CLI persists Change, Change Graph, Review Bundle, review, and Merge Plan
 facts as signed events through `SignedChangeGraphStore` and
 `appendWithParents()`. Local operation undo/restore stays in

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 
-/** Small deterministic generator for bounded conformance fuzzing. Not a CSPRNG. */
+/**
+ * Small deterministic generator for bounded conformance fuzzing (smoke lane).
+ * Not a CSPRNG. Not coverage-guided. Prefer fast-check for new shrinking properties.
+ * @see docs/design-decisions/0052-model-based-and-coverage-guided-fuzzing.md
+ */
 export class SeededGenerator {
   #state: number;
 

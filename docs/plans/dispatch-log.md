@@ -212,3 +212,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Real CI red before merge: Community Web axe `aria-prohibited-attr` on unlabeled generic harness slots. Fixed on the same PR by giving those slots explicit roles. |
 | Notes | Removed the Bo fixture agent, `hobo` command/action/MCP tool, and `CW_HOBO` workbench. ADR-0028 is startup/routing only. Skill tags and OptimizeXP copy no longer name HoBo. Production Vercel deployed `ef1abaf`; `data.js` has no Bo/HoBo. Historical untracked OptimizeXP run folders with `hobo` in the name were deleted locally and were never in git. |
+
+## 2026-08-14 — Model-based and coverage-guided fuzz lanes
+
+| Field | Value |
+|---|---|
+| Initiative | Change Graph fuzz lanes (ADR-0052) |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `test/fuzz-lanes-0052` |
+| PR | [#144](https://github.com/Tyler-R-Kendrick/epoch/pull/144) |
+| Result | **in flight** |
+| Failure class | None yet |
+| Notes | Three lanes: deterministic smoke, fast-check history/properties with shrinking, Jazzer.js parser campaigns with versioned corpora. PR `test:runtime` runs smoke + short fast-check + corpus/Jazzer regression. Long campaigns are scheduled only. |

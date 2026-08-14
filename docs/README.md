@@ -128,6 +128,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0049: One Community Command Layer](design-decisions/0049-community-runtime-command-layer.md) | Makes one command bus, receipt schema, browser UI workspace, and static harness ABI serve web, WebMCP, CLI, and SDK. |
 | [ADR-0050: Command Livestream Privacy](design-decisions/0050-command-livestream-privacy.md) | Livestreams are sanitized command logs, not pixels; spectators replay them in their own theme; ignore/rewrite files and protected inputs fail closed. |
 | [ADR-0051: Change-Based Review Publish](design-decisions/0051-change-based-review-publish.md) | Review publish is change-based by default: `Change-Id` trailer, `refs/for/<target>`, topic/hashtag/WIP — not a pull-request branch and not a mode. |
+| [ADR-0052: Model-Based And Coverage-Guided Fuzzing](design-decisions/0052-model-based-and-coverage-guided-fuzzing.md) | Deterministic smoke (PR), fast-check history command model with shrinking, Jazzer.js parser campaigns with versioned corpora; scheduled CI, not every PR. |
+| [Fuzz Lanes And Corpora](../test/fuzz/README.md) | How smoke, fast-check, Jazzer.js, corpora, and regression promotion relate. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
 ## Contribution, Safety, And Agent References

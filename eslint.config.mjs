@@ -91,6 +91,7 @@ export default [
     files: [
       "scripts/**/*.mjs",
       "packages/**/scripts/**/*.mjs",
+      "test/fuzz/**/*.mjs",
       // Node tooling for the Community Web app. faults.mjs and e2e.mjs are Node
       // scripts whose page.evaluate callbacks are browser code, so both apply.
       "packages/Epoch.Community.Web/scripts/**/*.mjs",

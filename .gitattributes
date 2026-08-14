@@ -1,0 +1,3 @@
+# Fuzz corpora are raw parser inputs, including whitespace-only and
+# trailing-space cases. Treat them as binary so hooks do not "fix" them.
+test/fuzz/corpus/** binary
