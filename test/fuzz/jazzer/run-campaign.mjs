@@ -66,7 +66,13 @@ for (const target of selected) {
     `-max_total_time=${Number.isFinite(seconds) ? seconds : 60}`,
   ];
   console.log(`jazzer ${target} mode=${mode}`);
-  const result = spawnSync("npx", args, { cwd: root, stdio: "inherit", env: process.env });
+  // Drop c8/V8 coverage hooks. Jazzer is a child isolate; if it inherits
+  // NODE_OPTIONS/--require c8 it rewrites package coverage maps to its
+  // short-run hits and the parent `coverage` job fails the floors.
+  const env = { ...process.env };
+  delete env.NODE_OPTIONS;
+  delete env.NODE_V8_COVERAGE;
+  const result = spawnSync("npx", args, { cwd: root, stdio: "inherit", env });
   if (result.status !== 0) {
     failed += 1;
     console.error(`jazzer target failed: ${target}`);

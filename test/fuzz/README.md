@@ -12,6 +12,9 @@ Do not call the smoke suite "coverage-guided fuzzing."
 | Jazzer.js campaigns | `npm run fuzz:jazzer` | Scheduled campaign |
 | Jazzer regression | `npm run fuzz:jazzer:regression` | PR + schedule |
 
+Jazzer children drop `NODE_OPTIONS` / `NODE_V8_COVERAGE` so a `c8`-wrapped
+`test:runtime` does not let libFuzzer rewrite package coverage maps.
+
 ## Layout
 
 ```
