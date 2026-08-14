@@ -8,7 +8,7 @@ Operations. These terms are contracts, not synonyms.
 | **Repository** | The signed event graph, verified objects, and policy state for one body of work. | A Git repository when referring to native Epoch state. |
 | **Event** | One immutable signed fact. Its event ID is also the exact `RevisionId` when the event records a change revision. | A mutable record or branch. |
 | **Frontier** | The precise graph term for the current set of event heads. Use it only in causality and sync APIs. | The product, CLI family, or change model. |
-| **Change** | A stable logical unit of work with an opaque `ChangeId`. Created with `epoch change`. | An intent, branch, commit, patch, pull request, or Community Change. |
+| **Change** | A stable logical unit of work with an opaque `ChangeId`. Created with `epoch change`. Review identity stays on the Change across Revisions; Git projection writes a `Change-Id` trailer and publishes to `refs/for/<target>`. | An intent, branch, commit, patch, pull request, or Community Change. |
 | **Community Change** | A Community collaboration object with source/target Views, status, and Community reviews. Created with `epoch-community changes create` and shown in Community Web. | An Epoch Change, Review Bundle, or Git pull request. |
 | **Revision** | An immutable signed state of one Change. A Change can have multiple current heads. | A mutable version number or `epoch:revision:*` ID. |
 | **Fragment** | An ordered, preconditioned content operation inside a Revision. | A claim of independent mergeability. |
@@ -65,7 +65,7 @@ inside the same Projection Definition.
 
 Native commands use nouns that match the model:
 
-- `epoch change ...` creates and revises protocol Changes on the local Change Graph reference host.
+- `epoch change ...` creates, revises, and submits protocol Changes on the local Change Graph reference host. Submit is change-based review publish, not a pull-request branch.
 - `epoch graph ...` manages a Change Graph on that same host.
 - `epoch bundle ...` creates, inspects, and materializes a Review Bundle record.
 - `epoch merge-plan ...` plans, inspects, and applies a merge-plan record.

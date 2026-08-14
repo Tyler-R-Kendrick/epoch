@@ -500,6 +500,7 @@ export function readMirrorState<T>(path: string): T | undefined {
 
 export * from "./compatibility";
 export * from "./deterministic-projection";
+export * from "./gerrit-projection";
 export * from "./protocol-v2";
 export * from "./quarantine";
 export * from "./remote-helper";

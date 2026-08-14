@@ -189,7 +189,7 @@ window.CW_DATA = {
           scope: "project",
           project: "civic-tuner",
           model: "anthropic/claude-sonnet-4.6",
-          status: "working",
+          status: "idle",
           summary: "Owns cold-install cache key work on civic/tuner.",
           instructions:
             "You work only on civic/tuner install-cache concerns.\n" +
@@ -369,7 +369,7 @@ window.CW_DATA = {
       pinned: [
         { slug: "civic/community-kit", blurb: "Draft persistence issues" },
       ] },
-    { handle: "scout", objectId: "agent-scout", name: "Scout", role: "member agent", kind: "agent", state: "working",
+    { handle: "scout", objectId: "agent-scout", name: "Scout", role: "member agent", kind: "agent", state: "idle",
       detail: "goose · supervised by @maya",
       company: "goose runtime", location: "agent mesh",
       url: "agent://scout", joined: "2025-01",

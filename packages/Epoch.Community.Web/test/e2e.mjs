@@ -55,6 +55,259 @@ const CASES = [
     },
   },
   {
+    name: "HONEST-001 sample board names SAMPLE STREAM and does not mint live posts",
+    run: async (page, log) => {
+      const first = await page.evaluate(() => {
+        const banner = document.querySelector("[data-sample-stream]");
+        const app = window.CW_APP;
+        return {
+          label: banner?.textContent?.trim() || "",
+          hidden: banner?.hidden === true,
+          live: app?.state?.live,
+          unread: app?.unreadActivityCount?.(),
+          path: app?.state?.path,
+        };
+      });
+      if (!/SAMPLE STREAM/i.test(first.label) || first.hidden) {
+        return log("sample stream missing: " + JSON.stringify(first));
+      }
+      if (first.live !== false) return log("sample board started live: " + JSON.stringify(first));
+      if (!/channels\/general/.test(first.path || "")) {
+        return log("sample entry is not general: " + first.path);
+      }
+      await page.waitForTimeout(1100);
+      const later = await page.evaluate(() => {
+        const app = window.CW_APP;
+        const body = document.body?.innerText || "";
+        return {
+          unread: app.unreadActivityCount(),
+          liveIds: (app.state.merged || []).filter((post) => String(post.id || "").startsWith("live-")).length,
+          liveMembers: /\b142 members\b/.test(body) || /\b38 members\b/.test(body),
+        };
+      });
+      if (later.unread !== first.unread || later.liveIds !== 0) {
+        return log("idle sample stream grew: " + JSON.stringify({ first, later }));
+      }
+      if (later.liveMembers) return log("fixture subscriber counts shown as live members");
+      return true;
+    },
+  },
+  {
+    name: "STREAM-001 spectator command log ciphers email and drops protected input",
+    run: async (page, log) => {
+      const probe = await page.evaluate(() => {
+        const stream = window.CW_STREAM;
+        stream.reset();
+        const email = stream.emit("compose.publish", { body: "hi maya@epoch.dev" }, "projects/community/channels/general");
+        const secret = stream.emit("compose.publish", { body: "hunter2" }, "apps/.env");
+        return {
+          emailKind: email.kind,
+          emailBody: email.envelope?.args?.body || "",
+          secretKind: secret.kind,
+          runtime: typeof window.CW_RUNTIME?.sanitizeStreamCommand,
+        };
+      });
+      if (probe.runtime !== "function") return log("runtime policy missing: " + JSON.stringify(probe));
+      if (probe.emailKind !== "emit" || /maya@epoch\.dev/.test(probe.emailBody)) {
+        return log("email not ciphered: " + JSON.stringify(probe));
+      }
+      if (probe.secretKind !== "drop") return log("env path leaked: " + JSON.stringify(probe));
+      return true;
+    },
+  },
+  {
+    name: "STREAM-002 mute hotkey drops input commands and ignore/rewrite apply",
+    run: async (page, log) => {
+      const probe = await page.evaluate(async () => {
+        const stream = window.CW_STREAM;
+        stream.reset();
+        stream.configure({
+          ignore: "orgs/acme-private/**",
+          rewrite: "legal_name = /Maya Chen/g → cipher",
+        });
+        await window.CW_ACTIONS.invoke("stream.protect", {}, { origin: "keyboard" });
+        const secret = stream.emit("compose.publish", { body: "hunter2" }, "projects/community/channels/general");
+        stream.toggleMute();
+        const named = stream.emit("compose.publish", { body: "credit Maya Chen" }, "projects/community/channels/general");
+        const org = stream.emit("nav.enter", {}, "orgs/acme-private/repos/ledger");
+        const chrome = document.querySelector("[data-stream-protect-state]");
+        return {
+          mutedDropped: secret.kind,
+          nameBody: named.envelope?.args?.body || "",
+          orgKind: org.kind,
+          muted: stream.isMuted(),
+          chrome: chrome ? chrome.textContent : "",
+        };
+      });
+      if (probe.mutedDropped !== "drop") return log("mute leaked input: " + JSON.stringify(probe));
+      if (/Maya Chen/.test(probe.nameBody)) return log("legal name not ciphered: " + JSON.stringify(probe));
+      if (probe.orgKind !== "drop") return log("private org leaked: " + JSON.stringify(probe));
+      return true;
+    },
+  },
+  {
+    name: "STREAM-003 spectator replay keeps local theme and applies public nav",
+    run: async (page, log) => {
+      const probe = await page.evaluate(async () => {
+        const stream = window.CW_STREAM;
+        stream.reset();
+        const before = document.body.dataset.theme || "";
+        stream.enterSpectator();
+        const skipped = await stream.replay([
+          { t: 1, actorId: "maya", actionId: "theme.use", args: { theme: "crt" } },
+        ]);
+        const applied = await stream.replay([
+          {
+            t: 2,
+            actorId: "maya",
+            actionId: "nav.enter",
+            args: { path: "/projects/community/channels/general" },
+            path: "/projects/community/channels/general",
+          },
+        ]);
+        return {
+          before,
+          after: document.body.dataset.theme || "",
+          skipped: skipped.skipped.map((item) => item.reason),
+          applied: applied.applied,
+          path: window.CW_APP.state.path,
+          role: stream.role(),
+        };
+      });
+      if (probe.after !== probe.before) return log("spectator theme overwritten: " + JSON.stringify(probe));
+      if (probe.skipped.indexOf("view-preference") < 0) return log("theme command not skipped: " + JSON.stringify(probe));
+      if (probe.applied !== 1 || !/channels\/general/.test(probe.path)) {
+        return log("public nav not replayed locally: " + JSON.stringify(probe));
+      }
+      if (probe.role !== "spectator") return log("spectator role missing: " + JSON.stringify(probe));
+      return true;
+    },
+  },
+  {
+    name: "HONEST-002 guest compose stays unsigned and /act lists promote",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const published = await page.evaluate(() => {
+        const post = window.CW_APP.publishCompose("guest note", {
+          kind: "post", channel: "general", project: "community",
+        });
+        return {
+          id: post?.id,
+          sig: post?.sig,
+          state: post?.state,
+          identity: window.CW_APP.getIdentity?.()?.kind,
+        };
+      });
+      if (published.sig) return log("guest minted a receipt id: " + JSON.stringify(published));
+      const acts = await page.evaluate(() => {
+        const caps = window.CW_COMPLETE.actCapabilities({ cwd: window.CW_APP.state.path, extra: window.CW_APP.state.merged });
+        return caps.map((item) => item.value);
+      });
+      if (acts.indexOf("promote") < 0) return log("promote missing from /act: " + JSON.stringify(acts));
+      const promo = await page.evaluate(() => {
+        window.CW_APP.state.feedMark = "p1";
+        window.CW_APP.state.threadFocus = "p1";
+        return window.CW_ACTIONS.invoke("context.act", { arg: "promote", line: "/act promote" }, { origin: "slash" }).then(() => {
+          const post = (window.CW_DATA.posts || []).concat(window.CW_APP.state.merged || [])
+            .find((item) => item.id === "p1");
+          return { state: post?.state, sample: post?.samplePromote === true };
+        });
+      });
+      if (promo.state !== "promoted" || !promo.sample) {
+        return log("sample promote did not stamp read-only: " + JSON.stringify(promo));
+      }
+      return true;
+    },
+  },
+  {
+    name: "HONEST-003 receipts jump keyboard scope oauth and store activity",
+    run: async (page, log) => {
+      const probe = await page.evaluate(async () => {
+        const app = window.CW_APP;
+        const runtime = window.CW_RUNTIME;
+        app.state.searchWorkbench = { expression: "state:needs-review" };
+        app.state.feedQuery = "state:needs-review";
+        app.jumpBest("general");
+        const receipt = app.openReceiptLocator("sig:lea-install");
+        const blade = document.querySelector("[data-receipt-blade]")?.textContent || "";
+        const letters = runtime.letterSteersBoard({
+          composerFocused: true, composerValue: "draft", key: "j", columnFocus: true,
+        });
+        app.state.feedMark = null;
+        app.state.threadFocus = null;
+        let unscoped = false;
+        try {
+          app.executeAction("post.mute", {}, { origin: "test" });
+        } catch (error) {
+          unscoped = /unscoped/.test(error && error.message || "");
+        }
+        const muted = app.executeAction("post.mute", { objectId: "p1" }, { origin: "test" });
+        let oauthThrew = false;
+        try {
+          window.CW_SESSION.authorizeAtproto("maya", "guest-1", "tuner-crew");
+        } catch (error) {
+          oauthThrew = /PAR\/PKCE\/DPoP/.test(error && error.message || "");
+        }
+        const host = {
+          authorizationServer: "https://auth.test",
+          clientId: "https://epoch.test/client-metadata.json",
+          redirectUri: "https://epoch.test/oauth/callback",
+          fetch: async (url) => {
+            if (String(url).endsWith("/oauth/par")) {
+              return new Response(JSON.stringify({ request_uri: "urn:ietf:params:oauth:request_uri:par-1" }), { status: 201 });
+            }
+            return new Response(JSON.stringify({
+              access_token: "dpop-access",
+              sub: "did:plc:fromtokennotahash",
+              handle: "maya.bsky.social",
+            }), { status: 200 });
+          },
+        };
+        const start = await runtime.beginAtprotoAuthorization("maya", host);
+        const finished = await runtime.finishAtprotoAuthorization({
+          code: "auth-code",
+          state: start.state,
+          expectedState: start.state,
+          codeVerifier: start.codeVerifier,
+          loginHint: start.loginHint,
+          host,
+        });
+        const unread = app.unreadActivityCount();
+        app.tick();
+        app.state.live = true;
+        app.tick();
+        const liveAfterForced = (app.state.merged || []).filter((post) => String(post.id || "").startsWith("live-")).length;
+        app.state.live = false;
+        const invented = app.ingestStoreActivity([{ id: "tick-1", actorId: "fixture", kind: "tick" }]);
+        return {
+          search: app.state.searchWorkbench?.expression,
+          receipt: receipt?.inspectable === true && /sig:lea-install/.test(blade),
+          lettersSteer: letters,
+          unscoped,
+          mutedId: muted.objectId,
+          oauthThrew,
+          did: finished.did,
+          stub: runtime.isHandleHashStub(finished.did, "maya.bsky.social"),
+          unreadSame: app.unreadActivityCount() === unread,
+          invented: invented.length,
+          liveAfterForced,
+          live: app.state.live,
+        };
+      });
+      if (probe.search !== "state:needs-review") return log("jump clobbered search: " + JSON.stringify(probe));
+      if (!probe.receipt) return log("receipt not inspectable: " + JSON.stringify(probe));
+      if (probe.lettersSteer) return log("composer letters stolen: " + JSON.stringify(probe));
+      if (!probe.unscoped || probe.mutedId !== "p1") return log("scope failed: " + JSON.stringify(probe));
+      if (!probe.oauthThrew || probe.did !== "did:plc:fromtokennotahash" || probe.stub) {
+        return log("oauth honesty failed: " + JSON.stringify(probe));
+      }
+      if (!probe.unreadSame || probe.invented !== 0 || probe.liveAfterForced !== 0 || probe.live !== false) {
+        return log("idle activity invented: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
     name: "landing: product story is collaborate, promote work, get paid",
     landing: true,
     run: async (page, log) => {
@@ -3630,12 +3883,26 @@ const CASES = [
         window.CW_APP.render(true);
       });
       await page.waitForTimeout(80);
-      // Drive a live tick while watching #bugs.
+      // Drive a live queue while watching #bugs. Sample boards never mint via
+      // tick() — enqueue the pending bucket directly so the overlay contract
+      // still has a real feed notice to exercise.
       const queued = await page.evaluate(() => {
-        const before = (window.CW_APP.state.pending || []).length;
-        for (let i = 0; i < 12 && (window.CW_APP.state.pending || []).length === before; i++) {
-          window.CW_APP.tick();
-        }
+        const key = window.CW_APP.currentFeedKey?.() || "chan:community/bugs";
+        const seed = (window.CW_DATA.incoming || [])[0] || {
+          channel: "bugs", who: "e2e", body: "queued notice", sig: "e2e",
+        };
+        const post = Object.assign({}, seed, {
+          id: "live-e2e-1",
+          at: "now",
+          channel: "bugs",
+          sig: "e2e-1",
+        });
+        window.CW_APP.state.pendingByFeed = window.CW_APP.state.pendingByFeed || {};
+        const bucket = window.CW_APP.state.pendingByFeed[key] || [];
+        bucket.push(post);
+        window.CW_APP.state.pendingByFeed[key] = bucket;
+        window.CW_APP.state.pending = bucket;
+        window.CW_APP.render(true);
         return {
           n: (window.CW_APP.state.pending || []).length,
           key: window.CW_APP.currentFeedKey?.(),
@@ -5092,6 +5359,24 @@ const CASES = [
     name: "profile: /login ATProto + /logout → Anonymous; spaces switch",
     run: async (page, log) => {
       const guestBefore = await page.evaluate(() => window.CW_APP.getIdentity()?.principalId);
+      await page.evaluate(() => {
+        window.CW_ATPROTO_OAUTH = {
+          authorizationServer: "https://auth.test",
+          clientId: "https://epoch.test/client-metadata.json",
+          redirectUri: "https://epoch.test/oauth/callback",
+          authorizationCode: "auth-code",
+          fetch: async (url) => {
+            if (String(url).endsWith("/oauth/par")) {
+              return new Response(JSON.stringify({ request_uri: "urn:ietf:params:oauth:request_uri:par-1" }), { status: 201 });
+            }
+            return new Response(JSON.stringify({
+              access_token: "dpop-access",
+              sub: "did:plc:fromtokennotahash",
+              handle: "maya.bsky.social",
+            }), { status: 200 });
+          },
+        };
+      });
       await page.keyboard.type("/login maya.bsky.social");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(250);
@@ -5110,8 +5395,8 @@ const CASES = [
         return log("login failed: " + JSON.stringify(linked));
       }
       if (linked.handle !== "maya.bsky.social") return log("handle: " + linked.handle);
-      if (!linked.did || !String(linked.did).startsWith("did:plc:")) {
-        return log("missing did: " + linked.did);
+      if (linked.did !== "did:plc:fromtokennotahash") {
+        return log("missing oauth did: " + linked.did);
       }
       if (linked.principalId !== guestBefore) {
         return log("principal not kept: " + linked.principalId + " vs " + guestBefore);
@@ -5179,6 +5464,24 @@ const CASES = [
       }));
       if (forced.dialog !== "true") return log("expected sign-in dialog: " + JSON.stringify(forced));
       if (forced.space !== "tuner-crew") return log("space not preselected: " + forced.space);
+      await page.evaluate(() => {
+        window.CW_ATPROTO_OAUTH = {
+          authorizationServer: "https://auth.test",
+          clientId: "https://epoch.test/client-metadata.json",
+          redirectUri: "https://epoch.test/oauth/callback",
+          authorizationCode: "auth-code",
+          fetch: async (url) => {
+            if (String(url).endsWith("/oauth/par")) {
+              return new Response(JSON.stringify({ request_uri: "urn:ietf:params:oauth:request_uri:par-1" }), { status: 201 });
+            }
+            return new Response(JSON.stringify({
+              access_token: "dpop-access",
+              sub: "did:plc:fromtokennotahash",
+              handle: "epoch.dev",
+            }), { status: 200 });
+          },
+        };
+      });
       await page.fill("[data-auth-handle]", "epoch.dev");
       await page.click("[data-auth-atproto]");
       await page.waitForTimeout(200);
@@ -8549,7 +8852,14 @@ const CASES = [
       }
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
-      await page.evaluate(() => new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
+      const wantedOffset = before.state?.readingAnchor?.pixelOffset;
+      await page.waitForFunction((wanted) => {
+        const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
+        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        if (!pane || !target || wanted == null) return false;
+        const offset = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
+        return Math.abs(offset - wanted) <= 8;
+      }, wantedOffset, { timeout: 2000 });
       const after = await page.evaluate(() => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
         const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
@@ -8635,7 +8945,7 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.evaluate(() => {
         window.CW_APP.state.focus = 1;
-        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.focusColumns();
         window.CW_APP.render(true);
       });
       const before = await page.evaluate(() => ({

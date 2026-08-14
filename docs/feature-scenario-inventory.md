@@ -10,10 +10,10 @@ Personas remain user context for real product behavior. Do not add persona-only 
 |---|---:|
 | `features/actors.feature` | 4 |
 | `features/advanced_collaboration.feature` | 9 |
-| `features/cli_wasm.feature` | 10 |
+| `features/cli_wasm.feature` | 11 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 68 |
+| `features/community_web_experience.feature` | 78 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -53,6 +53,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/advanced_collaboration.feature` | `@persona.github_open_source_contributor` | Scenario | CLI exposes collaboration, gate, operation, and redaction workflows | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI records, verifies, lists, and resolves repository content | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor creates a stable Change as a signed revision | None | 0 |
+| `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor publishes a Change for review without a pull-request branch | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI policy, view, sync, Git import/export, and DR commands are covered | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | CLI errors and Git compatibility command wrapper return failures | None | 0 |
 | `features/cli_wasm.feature` | `@persona.github_open_source_contributor` | Scenario | WASM exports support CRDT helpers and reject native Git operations | None | 0 |
@@ -67,6 +68,14 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor submits a repository patch without local setup | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resumes an interrupted sandbox workspace | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.maintainer` | Scenario | Maintainer approves a submitted sandbox workspace result | None | 0 |
+| `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Spectator replay hides private identity and protected input | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Streamer silences input so spectators cannot watch a secret | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Spectator replays a stream in their own theme | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor follows a receipt without losing search | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user types in the composer without j k R stealing focus | None | 0 |
+| `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Moderator scopes mute report and hook to the selected object | None | 0 |
+| `features/community_web_experience.feature` | `@persona.bluesky_power_user` | Scenario | Contributor cannot mint a stub AT session without OAuth | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user sees Activity grow only from store participants | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor searches registered sources and sees completeness | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor corrects a precise search syntax error without AI | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer explains why an Entity matched | None | 0 |
@@ -97,6 +106,8 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader maintainer traverses the change graph at mobile width and 200 percent zoom | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor opens a community and sees community-owned channels first | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor enters the Community Web community from the Epoch landing | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user sees the sample board named as a sample stream | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor enters a clean sample channel from the landing | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user traverses Community Web messages without a pointer | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user operates every Community Web post action without a pointer | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user previews and enters message directories from the prompt | None | 0 |

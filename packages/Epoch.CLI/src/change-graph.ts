@@ -440,6 +440,15 @@ async function execute(root: string, command: string, args: readonly string[], n
       return store.reviseChange(current.id, { parentRevisionIds: parsed.positionals.slice(2), message: stringOption(parsed, "message") ?? "" });
     }
     if (action === "show") return store.showChange(required(parsed.positionals[1], "change ID"));
+    if (action === "submit") {
+      const hashtag = stringOption(parsed, "hashtag");
+      return store.publishChange(required(parsed.positionals[1], "change ID"), {
+        target: stringOption(parsed, "target") ?? "main",
+        topic: stringOption(parsed, "topic"),
+        hashtags: hashtag === undefined ? [] : hashtag.split(",").filter((tag) => tag.length > 0),
+        wip: parsed.options.wip === true || parsed.options.wip === "true",
+      });
+    }
     if (action === "diff") return store.diffChanges(required(parsed.positionals[1], "from change"), required(parsed.positionals[2], "to change"));
   }
   if (command === "op") {

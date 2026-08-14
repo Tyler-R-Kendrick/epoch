@@ -902,7 +902,7 @@ function sessionIdentity(): CommunitySessionIdentity {
   return {
     authState: session.authState ?? (live() ? "api-session" : "sample-session"),
     handle: (session.handle ?? `${actor}.epoch.community`).replace(/^@/, ""),
-    did: session.did ?? `did:plc:${actor}`,
+    did: session.did,
   };
 }
 

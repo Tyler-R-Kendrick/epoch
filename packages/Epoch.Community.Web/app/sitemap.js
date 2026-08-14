@@ -1378,7 +1378,7 @@
             name: s.id,
             kind: "dir",
             meta: s.kind || "community",
-            hint: (s.slug || s.id) + " · " + (s.subscribers || 0) + " members" +
+            hint: (s.slug || s.id) + " · sample space" +
               (s.guestsAllowed === false ? " · members only" : " · open"),
             space: s,
             unread: 0,
@@ -1399,7 +1399,7 @@
           { name: "projects", kind: "dir", meta: "projects",
             hint: prCount + " linked" },
           { name: "about", kind: "file", meta: spaceNode.kind || "space",
-            hint: (spaceNode.subscribers || 0) + " members · " +
+            hint: "sample space · " +
               (spaceNode.guestsAllowed === false ? "members only" : "guests ok"),
             space: spaceNode },
         ];

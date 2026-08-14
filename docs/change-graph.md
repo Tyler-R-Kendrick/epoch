@@ -17,6 +17,11 @@ Canonical IDs use `epoch:change-graph:*` and `epoch:review-bundle:*`.
 `RevisionId` is the signed event ID. Pre-release `stack`, `review`,
 `epoch:change:legacy:*`, and `epoch:revision:*` identifiers fail closed.
 
+Review publish is change-based by default ([ADR-0051](design-decisions/0051-change-based-review-publish.md)).
+`epoch change submit` records the current Revision for review at
+`refs/for/<target>` with a stable `Change-Id` trailer. It does not open a
+pull-request branch.
+
 The CLI persists Change, Change Graph, Review Bundle, review, and Merge Plan
 facts as signed events through `SignedChangeGraphStore` and
 `appendWithParents()`. Local operation undo/restore stays in

@@ -10,6 +10,8 @@ import { runCommunitySourceAdapterTests } from "./unit/community-source-adapters
 import { runCommunityStateStoreTests } from "./unit/community-state-store.test";
 import { runCommunityCoverageTests } from "./unit/community-coverage.test";
 import { runCommunityRuntimeTests } from "./unit/community-runtime.test";
+import { runCommunityStreamPolicyTests } from "./unit/community-stream-policy.test";
+import { runCommunityBoardHonestyTests } from "./unit/community-board-honesty.test";
 import { runCommunityOperationsWebTests } from "./unit/community-operations-web.test";
 import { runCommunityOramaBackendTests } from "./unit/community-orama-backend.test";
 import { runCommunitySqliteSearchTests } from "./unit/community-sqlite-search.test";
@@ -83,6 +85,8 @@ async function main(): Promise<void> {
   await runCommunityApiProjectionTests();
   await runCommunityCoverageTests();
   await runCommunityRuntimeTests();
+  runCommunityStreamPolicyTests();
+  await runCommunityBoardHonestyTests();
   await runCommunityOperationsWebTests();
   await runCommunityWebVercelTests();
   await runCommunityWebRenderParityTests();

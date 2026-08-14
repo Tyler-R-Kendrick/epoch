@@ -32,9 +32,46 @@
     });
   };
   /** Markdown + colourised ASCII for bodies (tables, code, marks). */
+  function honestAgentStatus(status, heartbeatAt) {
+    if (window.CW_RUNTIME && typeof window.CW_RUNTIME.honestAgentStatus === "function") {
+      return window.CW_RUNTIME.honestAgentStatus(status, heartbeatAt);
+    }
+    if (status === "working" && !(typeof heartbeatAt === "number")) return "idle";
+    return status || "idle";
+  }
+
+  function receiptBladeHtml(blade) {
+    if (!blade) return "";
+    return '<article class="cn-receipt-blade" data-receipt-blade role="region" aria-label="' +
+      esc(blade.title || "Receipt") + '">' +
+      "<header><strong>" + esc(blade.title || "Receipt") + "</strong></header>" +
+      "<p data-receipt-kind>" + esc(blade.kind || "") + "</p>" +
+      "<p data-receipt-locator-line>" + esc(blade.locator || "") + "</p>" +
+      "<p data-receipt-actor>actor " + esc(blade.actor || "unknown") + "</p>" +
+      "<p data-receipt-evidence>" + esc(blade.evidence || "") + "</p>" +
+      "</article>";
+  }
+
+  function receiptLocatorHtml(raw) {
+    var text = String(raw == null ? "" : raw);
+    var opened = window.CW_RUNTIME && typeof window.CW_RUNTIME.parseBoardReceiptLocator === "function"
+      ? window.CW_RUNTIME.parseBoardReceiptLocator(text)
+      : null;
+    if (!opened) return '<span class="cn-sig-text">' + esc(text) + "</span>";
+    return '<button type="button" class="cn-sig-text" data-receipt-locator="' + esc(opened.locator) + '"' +
+      ' title="' + esc(opened.title) + '">' + esc(opened.locator) + "</button>";
+  }
+
   function formatBody(text) {
-    if (window.CW_ASCII && window.CW_ASCII.formatBody) return window.CW_ASCII.formatBody(text);
-    return esc(text);
+    var format = function (chunk) {
+      if (window.CW_ASCII && window.CW_ASCII.formatBody) return window.CW_ASCII.formatBody(chunk);
+      return esc(chunk);
+    };
+    if (window.CW_STREAM && typeof window.CW_STREAM.slabHtml === "function" &&
+        window.CW_STREAM.role && window.CW_STREAM.role() === "spectator") {
+      return window.CW_STREAM.slabHtml(text, format);
+    }
+    return format(text);
   }
   function formatAscii(text) {
     if (window.CW_ASCII && window.CW_ASCII.colorizeAscii) return window.CW_ASCII.colorizeAscii(text);
@@ -474,7 +511,9 @@
           '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(objectId) +
           '">copy canonical</button>' +
           ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
-            esc(objectId) + '">copy exact revision</button>' : "") + '</div>' +
+            esc(objectId) + '">copy exact revision</button>' : "") +
+          '<button type="button" class="cn-act" data-mute-post="' + esc(objectId) + '">mute</button>' +
+          '<button type="button" class="cn-act" data-report-post="' + esc(objectId) + '">report</button></div>' +
           renderReactions(objectId, p, reactions, reactPick === objectId) : "") +
         '</article></div>';
     }
@@ -552,10 +591,10 @@
         '<div class="cn-comment-body">' + (tombstone
           ? esc("Unavailable ancestor: " + (tombstone.reason || "unavailable"))
           : formatBody(p.body)) + "</div>" +
-        (p.anchor ? '<div data-c="anchor" class="cn-anchor">-&gt; ' + esc(p.anchor) + "</div>" : "") +
+        (p.anchor ? '<div data-c="anchor" class="cn-anchor">-&gt; ' + receiptLocatorHtml(p.anchor) + "</div>" : "") +
         '<div data-c="receipt" class="cn-receipt">' +
         '<span class="cn-sigil" aria-hidden="true">' + window.CW_ASCII.sigil(p.sig, 4) + "</span>" +
-        '<span class="cn-sig-text">' + esc(p.sig) + "</span></div>" +
+        receiptLocatorHtml(p.sig) + "</div>" +
         (!tombstone ? '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(key) + '"' +
         ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
@@ -570,6 +609,8 @@
           esc(key) + '" title="Copy exact revision link">copy exact revision</button>' : "") +
         '<button type="button" class="cn-act" data-copy-post="' + esc(key) + '"' +
         ' aria-keyshortcuts="y" title="Copy this thread in an optimized paste format (y)">copy</button>' +
+        '<button type="button" class="cn-act" data-mute-post="' + esc(key) + '" title="Mute this object">mute</button>' +
+        '<button type="button" class="cn-act" data-report-post="' + esc(key) + '" title="Report this object for legal hold">report</button>' +
         (isFolded && below
           ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(key) + '">' +
             below + (below === 1 ? " more" : " more") + "</button>"
@@ -765,8 +806,8 @@
     return '<div class="cn-agent-card" data-key="agent-' + esc(agent.id || "eve") + '">' +
       '<header class="cn-agent-head">' +
       "<b>" + esc(agent.name || agent.id || "agent") + "</b>" +
-      '<span class="cn-space-pill" data-status="' + esc(agent.status || "agent") + '">' +
-      esc(agent.status || "eve") + "</span>" +
+      '<span class="cn-space-pill" data-status="' + esc(honestAgentStatus(agent.status, agent.heartbeatAt)) + '">' +
+      esc(honestAgentStatus(agent.status, agent.heartbeatAt)) + "</span>" +
       "</header>" +
       '<p class="cn-agent-lead">' + esc(agent.summary || "") + "</p>" +
       '<div class="cn-fact"><dt>scope</dt><dd>' + esc(scopeLabel) + "</dd></div>" +
@@ -817,7 +858,7 @@
       '<p class="cn-space-card-lead">' + esc(space.description || "") + "</p>" +
       '<div class="cn-fact"><dt>name</dt><dd>' + esc(space.name || "") +
       (space.guestsAllowed === false ? " · members only" : " · guests ok") + "</dd></div>" +
-      '<div class="cn-fact"><dt>members</dt><dd>' + (space.subscribers || 0) + "</dd></div>" +
+      '<div class="cn-fact"><dt>members</dt><dd>sample space</dd></div>' +
       '<div class="cn-fact"><dt>path</dt><dd>' + esc(path || "") + "</dd></div>" +
       (rules ? '<div class="cn-space-rules"><b>Rules</b><ul>' + rules + "</ul></div>" : "") +
       '<footer class="cn-space-card-foot">' +
@@ -842,7 +883,7 @@
       '<b class="cn-ctx-name">' + esc(space.slug || space.name) + "</b>" +
       '<span class="cn-ctx-kind" data-kind="' + esc(space.kind || "community") + '">' +
       esc(space.kind || "space") + "</span>" +
-      '<span class="cn-ctx-fact">' + (space.subscribers || 0) + " members</span>" +
+      '<span class="cn-ctx-fact">sample space</span>' +
       '<span class="cn-ctx-fact">' + feedN + " feed posts</span>" +
       (space.guestsAllowed === false
         ? '<span class="cn-badge">members</span>'
@@ -1614,7 +1655,7 @@
         { keys: "open", desc: "Default — still cooking" },
         { keys: "needs-review", desc: "Waiting on a maintainer (amber)" },
         { keys: "promoted", desc: "Raised in the channel (magenta)" },
-        { keys: "signed", desc: "Cryptographic receipt (mint)" },
+        { keys: "signed", desc: "Signed post state — inspect the receipt, not a cryptographic proof by itself" },
       ],
     },
     {
@@ -4235,6 +4276,10 @@
       } else if (ctxLabel) {
         if (ctxLabel.dm) preview = dmContextStrip(ctxLabel.dm, extra, state) + preview;
         else preview = contextStrip(ctxLabel, extra) + preview;
+      }
+
+      if (state.receiptFocus) {
+        preview = receiptBladeHtml(state.receiptFocus) + (preview || "");
       }
 
       // Selecting a space from the catalogue: show about card in preview.

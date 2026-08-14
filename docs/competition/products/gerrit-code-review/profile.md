@@ -24,4 +24,5 @@ Gerrit is a self-hostable Git code review system organized around changes, patch
 
 - Gerrit proves that serious teams will accept a specialized workflow when review integrity is the payoff.
 - Epoch should learn from Gerrit's patch-set and metadata durability, while avoiding the onboarding tax of magic refs, numeric label votes, and admin-heavy submit expressions.
+- Native default: `epoch change submit` is change-based review publish ([ADR-0051](../../../design-decisions/0051-change-based-review-publish.md)). The Git dialect is a `Change-Id` trailer and `refs/for/<target>`; it is not a `gerritMode` flag.
 

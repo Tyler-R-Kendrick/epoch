@@ -107,8 +107,10 @@ Unsupported Git commands fail explicitly instead of pretending to be safe.
 
 ## Change Graph commands
 
-- `new`, `change create|revise|show|diff`, and `log --revisions REVSET` operate
-  on stable changes/revisions using the canonical revset parser.
+- `new`, `change create|revise|show|submit|diff`, and `log --revisions REVSET` operate
+  on stable changes/revisions using the canonical revset parser. Submit publishes
+  the current Revision to `refs/for/<target>` with a `Change-Id` trailer;
+  `--topic`, `--hashtag`, and `--wip` are review options.
 - `op`, `graph`, `split`, `bundle`, `review record`, `merge-plan`, and
   `conflict` expose local operation recovery, dependency graphs, exact split,
   exact review/merge, and durable resolution workflows.

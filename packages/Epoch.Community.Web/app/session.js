@@ -357,55 +357,46 @@
   }
 
   /**
-   * Portable-handle sign-in (mock). Resolves a handle into a durable local
-   * session; DID minting stays an implementation detail.
+   * Normalize a handle for local claim. AT sign-in uses the OAuth token handle
+   * and never invents `.bsky.social` or a DID.
    */
   function resolveHandle(handle) {
     var h = String(handle || "").trim().replace(/^@/, "").toLowerCase();
     if (!h) throw new Error("handle required");
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(h) &&
-        !/^[a-z0-9][a-z0-9._-]{1,30}$/.test(h)) {
-      // Allow short demo handles like "maya" by expanding to .bsky.social
-      if (/^[a-z0-9][a-z0-9_-]{1,30}$/.test(h)) h = h + ".bsky.social";
-      else throw new Error("invalid handle");
-    } else if (h.indexOf(".") === -1) {
-      h = h + ".bsky.social";
-    }
-    // Deterministic mock DID from handle (not a real PLC).
-    var hash = 0;
-    for (var i = 0; i < h.length; i++) hash = ((hash << 5) - hash + h.charCodeAt(i)) | 0;
-    var did = "did:plc:" + ("000000000000000000000000" + Math.abs(hash).toString(16)).slice(-24);
-    return {
-      handle: h,
-      did: did,
-      pdsEndpoint: "https://bsky.social",
-    };
+    if (!/^[a-z0-9][a-z0-9._-]{1,61}$/.test(h)) throw new Error("invalid handle");
+    return { handle: h };
   }
 
-  function authorizeAtproto(handle, principalId, spaceId) {
-    var resolved = resolveHandle(handle);
+  function authorizeAtproto(handle, principalId, spaceId, oauth) {
+    if (!oauth || oauth.source !== "par-pkce-dpop" || !oauth.did || !oauth.accessToken) {
+      throw new Error("AT OAuth is not linked — PAR/PKCE/DPoP required");
+    }
+    if (window.CW_RUNTIME && typeof window.CW_RUNTIME.isHandleHashStub === "function" &&
+        window.CW_RUNTIME.isHandleHashStub(oauth.did, oauth.handle || handle)) {
+      throw new Error("AT OAuth refused stub DID mint");
+    }
     var space = findSpace(spaceId) || homeSpace();
-    var token = {
-      accessToken: "cw-at-" + resolved.did.slice(-12) + "-" + Date.now().toString(36),
-      scope: "atproto transition:generic",
-      // Design exploration: we do not request rotation keys; scope is honest.
-      expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
-      pdsEndpoint: resolved.pdsEndpoint,
-    };
+    var handleFromToken = String(oauth.handle || "").replace(/^@/, "");
+    if (!handleFromToken) throw new Error("AT OAuth token did not include a handle");
     return attachSpace({
       principalId: principalId || newGuestId(),
       kind: "atproto",
-      handle: resolved.handle,
-      did: resolved.did,
-      displayName: "@" + resolved.handle,
+      handle: handleFromToken,
+      did: oauth.did,
+      displayName: "@" + handleFromToken,
       canParticipate: true,
       claimable: false,
       anonymous: false,
       atproto: {
-        handle: resolved.handle,
-        did: resolved.did,
-        pdsEndpoint: resolved.pdsEndpoint,
-        token: token,
+        handle: handleFromToken,
+        did: oauth.did,
+        pdsEndpoint: oauth.pdsEndpoint || "",
+        token: {
+          accessToken: oauth.accessToken,
+          tokenType: "DPoP",
+          scope: "atproto transition:generic",
+          pdsEndpoint: oauth.pdsEndpoint || "",
+        },
         linkedAt: Date.now(),
       },
       createdAt: Date.now(),
@@ -455,7 +446,7 @@
       }
     }
     if (opts.atprotoHandle) {
-      return authorizeAtproto(opts.atprotoHandle, next.principalId, space.id);
+      return authorizeAtproto(opts.atprotoHandle, next.principalId, space.id, opts.oauth);
     }
     if (opts.handle) {
       if (next.kind === "atproto") {

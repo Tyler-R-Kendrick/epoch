@@ -1595,11 +1595,19 @@ var CW_RUNTIME = (() => {
   // packages/Epoch.Community.Runtime/src/index.ts
   var index_exports = {};
   __export(index_exports, {
+    AtprotoOAuthError: () => AtprotoOAuthError,
     DEFAULT_PROJECT_SLUG: () => DEFAULT_PROJECT_SLUG,
+    DEFAULT_STREAM_IGNORE: () => DEFAULT_STREAM_IGNORE,
     EpochCommandError: () => EpochCommandError,
+    STREAM_CIPHER_ALPHABET: () => STREAM_CIPHER_ALPHABET,
+    STREAM_CIPHER_WIDTH: () => STREAM_CIPHER_WIDTH,
     TRUNK_VIEW: () => TRUNK_VIEW,
+    activityFromParticipantEvents: () => activityFromParticipantEvents,
     appendSocialRevision: () => appendSocialRevision,
+    beginAtprotoAuthorization: () => beginAtprotoAuthorization,
+    cipherToken: () => cipherToken,
     communityRuntimeUsage: () => communityRuntimeUsage,
+    composerOwnsLetter: () => composerOwnsLetter,
     createBrowserEpochWorkspace: () => createBrowserEpochWorkspace,
     createCommandReceipt: () => createCommandReceipt,
     createCommunityCommandBus: () => createCommunityCommandBus,
@@ -1608,6 +1616,7 @@ var CW_RUNTIME = (() => {
     createWebMcpTools: () => createWebMcpTools,
     defaultCommunityHarness: () => defaultCommunityHarness,
     describeCatalog: () => describeCatalog,
+    describeReceiptBlade: () => describeReceiptBlade,
     diffDynamicUiManifests: () => diffDynamicUiManifests,
     digestOf: () => digestOf,
     ensureProject: () => ensureProject,
@@ -1616,21 +1625,38 @@ var CW_RUNTIME = (() => {
     feedEntity: () => feedEntity,
     findComponent: () => findComponent,
     findSlot: () => findSlot,
+    finishAtprotoAuthorization: () => finishAtprotoAuthorization,
     historyOf: () => historyOf,
+    honestAgentStatus: () => honestAgentStatus,
     identifier: () => identifier,
     importWorkspaceBundle: () => importWorkspaceBundle,
     isCommunityRuntimeInvocation: () => isCommunityRuntimeInvocation,
     isDynamicUiManifest: () => isDynamicUiManifest,
+    isHandleHashStub: () => isHandleHashStub,
+    isProtectedStreamTarget: () => isProtectedStreamTarget,
+    isSpectatorViewPreference: () => isSpectatorViewPreference,
+    jumpChooserShouldOpen: () => jumpChooserShouldOpen,
+    letterSteersBoard: () => letterSteersBoard,
     listFeeds: () => listFeeds,
     listProjects: () => listProjects,
+    normalizeAtprotoHandle: () => normalizeAtprotoHandle,
+    openBoardReceipt: () => openBoardReceipt,
     openDurableStorage: () => openDurableStorage,
+    parseBoardReceiptLocator: () => parseBoardReceiptLocator,
+    parseStreamIgnore: () => parseStreamIgnore,
+    parseStreamRewrite: () => parseStreamRewrite,
+    pathIsStreamIgnored: () => pathIsStreamIgnored,
     policyReceipt: () => policyReceipt,
+    preservedSearchAfterJump: () => preservedSearchAfterJump,
     projectEntity: () => projectEntity,
     readProject: () => readProject,
     recordsOf: () => recordsOf,
     registerWebMcpTools: () => registerWebMcpTools,
+    replayStreamCommand: () => replayStreamCommand,
+    requireScopedTarget: () => requireScopedTarget,
     resolveBrowserIdentity: () => resolveBrowserIdentity,
     revisionsOf: () => revisionsOf,
+    sanitizeStreamCommand: () => sanitizeStreamCommand,
     setCliBundleReader: () => setCliBundleReader,
     skippedValidation: () => skippedValidation,
     summarizeReceipt: () => summarizeReceipt,
@@ -3328,6 +3354,398 @@ var CW_RUNTIME = (() => {
   }
   function describeCatalog(runtime) {
     return runtime.commands.catalog;
+  }
+
+  // packages/Epoch.Community.Runtime/src/stream-policy.ts
+  var STREAM_CIPHER_WIDTH = 12;
+  var STREAM_CIPHER_ALPHABET = "\u2591\u2592\u2593\u2588\u2580\u2584\u25A0\u25A1\u25C6\u25C7\u203B\u2021\u2020\xA4\xA7\xF8\xE6#@%&";
+  var INPUT_ACTIONS = /* @__PURE__ */ new Set([
+    "compose.publish",
+    "prompt.mode",
+    "search.open",
+    "search.localFilter",
+    "context.act",
+    "identity.login",
+    "identity.claim"
+  ]);
+  var VIEW_PREFERENCE_PREFIXES = ["theme."];
+  var DEFAULT_STREAM_IGNORE = [
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/id_rsa*",
+    "**/credentials*",
+    "**/secrets/**",
+    "dms/**",
+    "**/private/**"
+  ].join("\n");
+  var DEFAULT_REWRITE = [
+    { name: "email", pattern: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, mode: "cipher" }
+  ];
+  function parseStreamIgnore(source) {
+    const lines = `${DEFAULT_STREAM_IGNORE}
+${source ?? ""}`.split("\n");
+    const rules = [];
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      rules.push(line);
+    }
+    return Object.freeze(rules);
+  }
+  function pathIsStreamIgnored(path, rules) {
+    const normalized = normalizePath(path);
+    let ignored = false;
+    for (const rule of rules) {
+      const negated = rule.startsWith("!");
+      const pattern = negated ? rule.slice(1) : rule;
+      if (matchGlob(normalized, pattern)) ignored = !negated;
+    }
+    return ignored;
+  }
+  function isProtectedStreamTarget(input) {
+    if (input.protectAttr === true || input.inAuthDialog === true) return true;
+    if (input.inputType === "password") return true;
+    if (input.autocomplete === "one-time-code" || input.autocomplete === "current-password") return true;
+    const path = normalizePath(input.path ?? "");
+    return pathIsStreamIgnored(path, parseStreamIgnore(void 0));
+  }
+  function cipherToken(sessionSalt, field, value) {
+    const digest = identifier("stream", { sessionSalt, field, value });
+    let out = "";
+    for (let index = 0; index < STREAM_CIPHER_WIDTH; index += 1) {
+      const code = digest.charCodeAt(index % digest.length) + index;
+      out += STREAM_CIPHER_ALPHABET[code % STREAM_CIPHER_ALPHABET.length];
+    }
+    return out;
+  }
+  function sanitizeStreamCommand(input) {
+    const envelope = input.envelope;
+    if (input.protectedInput === true || input.inputMuted === true) {
+      if (isInputAction(envelope.actionId) || hasTextPayload(envelope.args)) {
+        return { kind: "drop", reason: "protected-input" };
+      }
+    }
+    const rules = parseStreamIgnore(input.ignore);
+    const path = envelope.path ?? "";
+    if (path && pathIsStreamIgnored(path, rules)) {
+      return { kind: "drop", reason: "ignored-path" };
+    }
+    if (path && input.spectatorCanReadPath && !input.spectatorCanReadPath(path)) {
+      return { kind: "drop", reason: "not-public" };
+    }
+    const rewritten = rewriteArgs(envelope.args, input.rewrite, input.sessionSalt ?? "session");
+    if (rewritten.dropped) return { kind: "drop", reason: "rewrite-drop" };
+    return {
+      kind: "emit",
+      envelope: {
+        t: envelope.t,
+        actorId: envelope.actorId,
+        actionId: envelope.actionId,
+        args: rewritten.args,
+        ...path ? { path } : {}
+      }
+    };
+  }
+  function isInputAction(actionId) {
+    return INPUT_ACTIONS.has(actionId) || actionId.startsWith("prompt.") || actionId.startsWith("compose.");
+  }
+  function isSpectatorViewPreference(actionId) {
+    return VIEW_PREFERENCE_PREFIXES.some((prefix) => actionId.startsWith(prefix));
+  }
+  function replayStreamCommand(envelope) {
+    if (isSpectatorViewPreference(envelope.actionId)) {
+      return { kind: "skip", reason: "view-preference" };
+    }
+    return { kind: "apply", envelope };
+  }
+  function hasTextPayload(args) {
+    return typeof args.body === "string" || typeof args.text === "string" || typeof args.value === "string";
+  }
+  function rewriteArgs(args, rewriteSource, sessionSalt) {
+    const rules = [...DEFAULT_REWRITE, ...parseStreamRewrite(rewriteSource)];
+    const next = {};
+    for (const [key, value] of Object.entries(args)) {
+      if (typeof value !== "string") {
+        next[key] = value;
+        continue;
+      }
+      let text = value;
+      for (const rule of rules) {
+        rule.pattern.lastIndex = 0;
+        if (!rule.pattern.test(text)) continue;
+        if (rule.mode === "drop") return { args: {}, dropped: true };
+        rule.pattern.lastIndex = 0;
+        text = text.replace(rule.pattern, (match) => cipherToken(sessionSalt, rule.name, match));
+      }
+      next[key] = text;
+    }
+    return { args: Object.freeze(next), dropped: false };
+  }
+  function parseStreamRewrite(source) {
+    if (!source) return [];
+    const rules = [];
+    for (const raw of source.split("\n")) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const match = /^([A-Za-z][A-Za-z0-9_-]*)\s*=\s*\/(.+)\/([a-z]*)\s*→\s*(cipher|drop)\s*$/u.exec(line);
+      if (!match) continue;
+      try {
+        rules.push({
+          name: match[1],
+          pattern: new RegExp(match[2], match[3]),
+          mode: match[4]
+        });
+      } catch {
+      }
+    }
+    return rules;
+  }
+  function normalizePath(path) {
+    return String(path ?? "").replaceAll("\\", "/").replace(/^\/+/u, "").replace(/\/+$/u, "");
+  }
+  function matchGlob(path, pattern) {
+    const cleaned = normalizePath(pattern);
+    if (cleaned.endsWith("/**")) {
+      const prefix = cleaned.slice(0, -3);
+      return path === prefix || path.startsWith(`${prefix}/`);
+    }
+    const escaped = cleaned.replaceAll("**/", "\0dbl\0").replaceAll("**", "\0all\0").replaceAll("*", "\0one\0").replaceAll(/[.+^${}()|[\]\\]/gu, "\\$&").replaceAll("\0dbl\0", "(?:.*/)?").replaceAll("\0all\0", ".*").replaceAll("\0one\0", "[^/]*");
+    return new RegExp(`^${escaped}$`, "u").test(path);
+  }
+
+  // packages/Epoch.Community.Runtime/src/board-honesty.ts
+  var RECEIPT = /^(sig:|intent:\/\/|agent-run:\/\/)([^\s]+)$/u;
+  function parseBoardReceiptLocator(raw) {
+    const text = String(raw || "").trim();
+    const match = RECEIPT.exec(text);
+    if (!match) return null;
+    const prefix = match[1];
+    const id = match[2];
+    const kind = prefix === "sig:" ? "sig" : prefix === "intent://" ? "intent" : "agent-run";
+    const title = kind === "sig" ? "Signature receipt" : kind === "intent" ? "Intent receipt" : "Agent-run receipt";
+    return Object.freeze({ kind, locator: text, id, title, inspectable: true });
+  }
+  function openBoardReceipt(raw) {
+    const receipt = parseBoardReceiptLocator(raw);
+    if (!receipt) return { kind: "unknown", reason: "not-a-receipt" };
+    return { kind: "open", receipt };
+  }
+  function preservedSearchAfterJump(searchQuery) {
+    return String(searchQuery ?? "");
+  }
+  function jumpChooserShouldOpen(input) {
+    if (input.kind !== "jump") return false;
+    if (input.candidateCount < 1) return false;
+    if (input.menuDismissed && !input.intelOpen) return false;
+    return true;
+  }
+  function composerOwnsLetter(input) {
+    if (!input.composerFocused) return false;
+    return input.key.length === 1;
+  }
+  function letterSteersBoard(input) {
+    if (input.composerFocused) return false;
+    if (!input.columnFocus) return false;
+    return /^[hjklzyvre]$/iu.test(input.key);
+  }
+  var SCOPED_ACTIONS = /* @__PURE__ */ new Set(["post.mute", "post.report", "hooks.test", "moderation.report"]);
+  function requireScopedTarget(actionId, objectId) {
+    if (!SCOPED_ACTIONS.has(actionId)) {
+      return { ok: true, actionId, objectId: String(objectId || "") };
+    }
+    const id = String(objectId || "").trim();
+    if (!id) return { ok: false, reason: "unscoped", actionId };
+    return { ok: true, actionId, objectId: id };
+  }
+  function activityFromParticipantEvents(events, input) {
+    if (input.sampleBoard) return Object.freeze([]);
+    const muted = new Set(input.mutedObjectIds ?? []);
+    return Object.freeze(events.filter((event) => {
+      if (!event.id || !event.actorId || event.kind === "tick") return false;
+      if (muted.has(event.id) || muted.has(event.actorId)) return false;
+      return true;
+    }));
+  }
+  function describeReceiptBlade(receipt, source) {
+    return Object.freeze({
+      kind: receipt.kind,
+      locator: receipt.locator,
+      id: receipt.id,
+      title: receipt.title,
+      actor: String(source?.who || "unknown"),
+      evidence: String(source?.body || source?.path || receipt.locator),
+      inspectable: true
+    });
+  }
+  function honestAgentStatus(status, heartbeatAt, now = Date.now()) {
+    if (status === "working" && !(typeof heartbeatAt === "number" && now - heartbeatAt < 3e4)) {
+      return "idle";
+    }
+    return status || "idle";
+  }
+
+  // packages/Epoch.Community.Runtime/src/atproto-oauth.ts
+  var AtprotoOAuthError = class extends Error {
+    constructor(code, message2) {
+      super(message2);
+      __publicField(this, "code");
+      this.name = "AtprotoOAuthError";
+      this.code = code;
+    }
+  };
+  var HANDLE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/u;
+  function normalizeAtprotoHandle(handle) {
+    let value = String(handle || "").trim().replace(/^@/u, "").toLowerCase();
+    if (!value) throw new AtprotoOAuthError("invalid-handle", "handle required");
+    if (value.indexOf(".") === -1) value = `${value}.bsky.social`;
+    if (!HANDLE.test(value)) throw new AtprotoOAuthError("invalid-handle", `invalid handle: ${handle}`);
+    return value;
+  }
+  async function beginAtprotoAuthorization(handle, host) {
+    if (!host || !host.authorizationServer || typeof host.fetch !== "function") {
+      throw new AtprotoOAuthError("not-linked", "AT OAuth is not linked \u2014 PAR/PKCE/DPoP required");
+    }
+    const loginHint = normalizeAtprotoHandle(handle);
+    const cryptoApi = host.crypto ?? globalThis.crypto;
+    if (!cryptoApi?.subtle) throw new AtprotoOAuthError("crypto", "WebCrypto required for PKCE and DPoP");
+    const verifier = base64Url(randomBytes(host, 32));
+    const challenge = base64Url(await sha256(cryptoApi, verifier));
+    const state = base64Url(randomBytes(host, 16));
+    const dpop = await createDpopProof(cryptoApi, "POST", parUrl(host), host);
+    const body = new URLSearchParams({
+      client_id: host.clientId,
+      redirect_uri: host.redirectUri,
+      response_type: "code",
+      scope: "atproto transition:generic",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      state,
+      login_hint: loginHint
+    });
+    const response = await host.fetch(parUrl(host), {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        DPoP: dpop.proof
+      },
+      body: body.toString()
+    });
+    if (!response.ok) {
+      throw new AtprotoOAuthError("par-failed", `PAR failed (${response.status})`);
+    }
+    const payload = await readJson(response);
+    const requestUri = String(payload.request_uri || "");
+    if (!requestUri) throw new AtprotoOAuthError("par-failed", "PAR response missing request_uri");
+    const authorizationUrl = `${host.authorizationServer.replace(/\/+$/u, "")}/oauth/authorize?client_id=${encodeURIComponent(host.clientId)}&request_uri=${encodeURIComponent(requestUri)}`;
+    return Object.freeze({
+      authorizationUrl,
+      state,
+      codeVerifier: verifier,
+      codeChallenge: challenge,
+      requestUri,
+      dpopJkt: dpop.jkt,
+      loginHint
+    });
+  }
+  async function finishAtprotoAuthorization(input) {
+    if (input.state !== input.expectedState) {
+      throw new AtprotoOAuthError("state-mismatch", "OAuth state mismatch");
+    }
+    if (!input.code) throw new AtprotoOAuthError("missing-code", "authorization code required");
+    const cryptoApi = input.host.crypto ?? globalThis.crypto;
+    if (!cryptoApi?.subtle) throw new AtprotoOAuthError("crypto", "WebCrypto required for PKCE and DPoP");
+    const tokenEndpoint = `${input.host.authorizationServer.replace(/\/+$/u, "")}/oauth/token`;
+    const dpop = await createDpopProof(cryptoApi, "POST", tokenEndpoint, input.host);
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: input.code,
+      redirect_uri: input.host.redirectUri,
+      client_id: input.host.clientId,
+      code_verifier: input.codeVerifier
+    });
+    const response = await input.host.fetch(tokenEndpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        DPoP: dpop.proof
+      },
+      body: body.toString()
+    });
+    if (!response.ok) throw new AtprotoOAuthError("token-failed", `token exchange failed (${response.status})`);
+    const payload = await readJson(response);
+    const did = String(payload.sub || payload.did || "");
+    if (!did.startsWith("did:")) {
+      throw new AtprotoOAuthError("missing-did", "token response did not include a DID");
+    }
+    if (isHandleHashStub(did, input.loginHint)) {
+      throw new AtprotoOAuthError("stub-did", "AT OAuth refused stub DID mint");
+    }
+    return Object.freeze({
+      did,
+      handle: String(payload.handle || input.loginHint),
+      accessToken: String(payload.access_token || ""),
+      tokenType: "DPoP",
+      pdsEndpoint: String(payload.iss || input.host.authorizationServer),
+      source: "par-pkce-dpop"
+    });
+  }
+  function isHandleHashStub(did, handle) {
+    let hash = 0;
+    const h = handle;
+    for (let index = 0; index < h.length; index += 1) {
+      hash = (hash << 5) - hash + h.charCodeAt(index) | 0;
+    }
+    const stub = `did:plc:${`000000000000000000000000${Math.abs(hash).toString(16)}`.slice(-24)}`;
+    return did === stub;
+  }
+  function parUrl(host) {
+    return `${host.authorizationServer.replace(/\/+$/u, "")}/oauth/par`;
+  }
+  async function createDpopProof(cryptoApi, method, url, host) {
+    const pair = await cryptoApi.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]);
+    const jwk = await cryptoApi.subtle.exportKey("jwk", pair.publicKey);
+    const header = { typ: "dpop+jwt", alg: "ES256", jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y } };
+    const now = host.now ? Math.floor(host.now() / 1e3) : Math.floor(Date.now() / 1e3);
+    const payload = { jti: base64Url(randomBytes(host, 12)), htm: method, htu: url, iat: now };
+    const signingInput = `${base64Url(bytesFromUtf8(JSON.stringify(header)))}.${base64Url(bytesFromUtf8(JSON.stringify(payload)))}`;
+    const signature = new Uint8Array(await cryptoApi.subtle.sign(
+      { name: "ECDSA", hash: "SHA-256" },
+      pair.privateKey,
+      utf8Buffer(signingInput)
+    ));
+    const jkt = identifier("dpop", { x: jwk.x, y: jwk.y });
+    return { proof: `${signingInput}.${base64Url(signature)}`, jkt };
+  }
+  function randomBytes(host, size) {
+    if (host.randomBytes) return host.randomBytes(size);
+    const cryptoApi = host.crypto ?? globalThis.crypto;
+    const out = new Uint8Array(size);
+    cryptoApi.getRandomValues(out);
+    return out;
+  }
+  async function sha256(cryptoApi, value) {
+    return new Uint8Array(await cryptoApi.subtle.digest("SHA-256", utf8Buffer(value)));
+  }
+  function bytesFromUtf8(value) {
+    return new Uint8Array(utf8Buffer(value));
+  }
+  function utf8Buffer(value) {
+    const encoded = new TextEncoder().encode(value);
+    return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+  }
+  function base64Url(bytes) {
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  }
+  async function readJson(response) {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {};
+    }
   }
   return __toCommonJS(index_exports);
 })();

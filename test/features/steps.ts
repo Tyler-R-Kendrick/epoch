@@ -765,6 +765,12 @@ When("I remember the CLI output as {string}", function (name: string) {
   state.rememberedCliOutput = { ...(state.rememberedCliOutput ?? {}), [name]: state.cliStdout.trim() };
 });
 
+When("I remember the created Change id as {string}", function (name: string) {
+  const match = /epoch:change:[a-z2-7]{52}/u.exec(state.cliStdout ?? "");
+  assert.ok(match, "CLI output must contain a Change id");
+  state.rememberedCliOutput = { ...(state.rememberedCliOutput ?? {}), [name]: match[0] };
+});
+
 Then("the CLI exits with code {int}", function (code: number) {
   assert.equal(state.cliExitCode, code);
 });

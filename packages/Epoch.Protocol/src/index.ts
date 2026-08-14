@@ -6,3 +6,4 @@ export * from "./inspection";
 export * from "./models";
 export * from "./revset";
 export * from "./schema";
+export * from "./review-publish";

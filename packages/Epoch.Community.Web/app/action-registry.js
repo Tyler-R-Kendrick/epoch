@@ -75,6 +75,10 @@
     try {
       return Promise.resolve(descriptor.execute(input, context)).then(function (result) {
         latest = eventFor(descriptor, context, "success");
+        if (window.CW_STREAM && typeof window.CW_STREAM.emit === "function" &&
+            context.origin !== "stream-replay" && context.replay !== true) {
+          window.CW_STREAM.emit(descriptor.actionId, input || {}, context.path);
+        }
         return result;
       }, function (error) {
         latest = eventFor(descriptor, context, "error");

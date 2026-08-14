@@ -2,6 +2,12 @@ import { createHash } from "node:crypto";
 
 export const COMPATIBILITY_PROFILES = Object.freeze({
   git: { status: "native", mode: "protocol-v2-subset", unsupported: ["replace-refs", "filter-without-promisor"] },
+  gerrit: {
+    status: "native",
+    mode: "change-review",
+    supported: ["Change-Id trailer", "refs/for", "topic", "hashtag", "wip"],
+    unsupported: ["numeric label votes", "submit expressions"],
+  },
   mercurial: { status: "subset", mode: "bridge", supported: ["heads", "bookmarks", "linear-changesets"], unsupported: ["phases", "evolve"] },
   sapling: { status: "subset", mode: "git-profile", supported: ["Git-compatible clone", "Git-compatible push"], unsupported: ["Sapling native wire protocol"] },
 } as const);

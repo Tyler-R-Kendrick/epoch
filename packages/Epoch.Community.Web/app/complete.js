@@ -376,6 +376,13 @@
         hint: "arm reply to @" + (post.who || "post") + (post.id ? " · " + post.id : ""),
         kind: "act",
       });
+      caps.push({
+        value: "promote",
+        hint: post.state === "promoted"
+          ? "fixture promoted · sample/read-only"
+          : "mark this post promoted on the sample board",
+        kind: "act",
+      });
     } else if (state.threadFocus) {
       caps.push({
         value: "reply",

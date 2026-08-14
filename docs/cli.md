@@ -254,7 +254,7 @@ signed event IDs; `epoch:revision:*` is not a valid canonical ID kind.
 
 | Command group | Shipped operations |
 |---|---|
-| `new`, `change` | Create a revision from one or more explicit parents; create, revise, show, and diff a stable logical change. |
+| `new`, `change` | Create a revision from one or more explicit parents; create, revise, show, submit, and diff a stable logical change. Submit publishes the current Revision for review at `refs/for/<target>` with an automatic `Change-Id` trailer; `--topic`, `--hashtag`, and `--wip` are review options. It does not push a matching branch name. |
 | `log --revisions REVSET` | Parse and evaluate the canonical browser-safe revset against the available revision graph. |
 | `op` | Inspect the local operation DAG, undo an operation, or restore a prior local state. Operation history is local-only. |
 | `graph` | Create, show, add, remove, order, restack, and submit dependency-ordered Changes. |

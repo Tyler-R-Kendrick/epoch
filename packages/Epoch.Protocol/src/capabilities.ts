@@ -15,4 +15,11 @@ export const PROTOCOL_CAPABILITIES = Object.freeze({
   operations: { localOnly: true, concurrentHeads: true, undoRestore: true, secretRedaction: true },
   providers: { trusted: false, mayMutateCanonicalState: false },
   fidelity: { byteExactSplit: true, binarySemanticMerge: false },
+  review: {
+    changeBased: true,
+    gitChangeIdTrailer: true,
+    reviewRef: "refs/for/*",
+    publishOptions: ["topic", "hashtag", "wip"],
+    pullRequestBranches: false,
+  },
 } as const);

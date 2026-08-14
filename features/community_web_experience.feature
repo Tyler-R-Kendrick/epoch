@@ -2,6 +2,74 @@ Feature: Community Web community-first experience
   Epoch Community Web opens into a community with its own channels (Discord-like),
   with Network Feed discovery and linked repository projects as secondary planes.
 
+  @persona.security_compliance_responder
+  Scenario: Spectator replay hides private identity and protected input
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then a livestream command that names an email is rewritten to a fixed-width cipher
+    And a protected login field emits no livestream input events
+    And a DM path is omitted from the livestream command log
+    And a livestream rewrite rule ciphers a legal name
+    And a livestream ignore file drops a private organization path
+
+  @persona.github_open_source_contributor
+  Scenario: Streamer silences input so spectators cannot watch a secret
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I mute livestream inputs
+    Then composing a secret does not appear on the livestream command log
+
+  @persona.github_open_source_contributor
+  Scenario: Spectator replays a stream in their own theme
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then replaying a streamer theme command leaves my theme unchanged
+    And replaying a public navigation command uses my view
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor follows a receipt without losing search
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I keep a search query while jumping
+    Then the search query remains after jump
+    And a signature locator opens as an inspectable receipt
+
+  @persona.slack_power_user
+  Scenario: Power user types in the composer without j k R stealing focus
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then composer letters stay in the prompt
+    And Escape from Following returns along the documented path
+
+  @persona.security_compliance_responder
+  Scenario: Moderator scopes mute report and hook to the selected object
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then mute report and hook refuse an unscoped target
+    And mute report and hook apply only to the selected object
+
+  @persona.bluesky_power_user
+  Scenario: Contributor cannot mint a stub AT session without OAuth
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then AT sign-in without an OAuth host stays unlinked
+    And AT OAuth completes through PAR PKCE and DPoP without a stub DID
+
+  @persona.slack_power_user
+  Scenario: Power user sees Activity grow only from store participants
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then the sample board does not invent idle Activity
+    And store participant events can add Activity when the board is live
+
   @persona.github_open_source_contributor
   Scenario: Contributor searches registered sources and sees completeness
     Given Community Web has authorized Entities from current and stale registered sources
@@ -207,6 +275,22 @@ Feature: Community Web community-first experience
     Then the landing presents the creator story with CanvasUI motion
     When I enter the community board
     Then the tmux-style Community Web is ready for keyboard collaboration
+
+  @persona.slack_power_user
+  Scenario: Power user sees the sample board named as a sample stream
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then the board names itself a sample stream
+    And idle Activity unread does not grow on the sample board
+    And spaces do not present fixture subscriber counts as live members
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor enters a clean sample channel from the landing
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then the sample board opens the general channel without a restored showcase filter
 
   @persona.slack_power_user
   Scenario: Power user traverses Community Web messages without a pointer

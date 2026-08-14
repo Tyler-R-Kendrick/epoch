@@ -8,6 +8,10 @@ import {
   assertRevisionId,
   assertProtocolEvent,
   createCanonicalId,
+  describeChangePublish,
+  gerritChangeIdTrailer,
+  gerritPushSpec,
+  gerritReviewRef,
   parseCanonicalId,
   parseChangeId,
   parseRevset,
@@ -31,6 +35,7 @@ const tests: readonly [string, () => void][] = [
   ["PROTO-INSPECT-001 browser inspection is strict and deterministic", inspectionContract],
   ["PROTO-SWHID-001 inspection uses canonical SWHID v1.2 parsing", swhidContract],
   ["PROTO-SCHEMA-003 generated schema binds event types to exact body definitions", eventBodySchemaContract],
+  ["PROTO-REVIEW-001 change publish is Gerrit-shaped and stable across revisions", reviewPublishContract],
 ];
 
 for (const [name, run] of tests) {
@@ -129,6 +134,8 @@ function capabilityManifest(): void {
   assert.equal(PROTOCOL_CAPABILITIES.merge.conservativeCommutation, true);
   assert.equal(PROTOCOL_CAPABILITIES.providers.mayMutateCanonicalState, false);
   assert.equal(PROTOCOL_CAPABILITIES.fidelity.binarySemanticMerge, false);
+  assert.equal(PROTOCOL_CAPABILITIES.review.changeBased, true);
+  assert.equal(PROTOCOL_CAPABILITIES.review.pullRequestBranches, false);
 }
 
 function revsetContract(): void {
@@ -203,4 +210,29 @@ function canonical(kind: string, token: string): string {
 
 function digest(token: string): string {
   return token.repeat(64).slice(0, 64);
+}
+
+function reviewPublishContract(): void {
+  const changeId = canonical("change", "a");
+  const trailer = gerritChangeIdTrailer(changeId);
+  assert.match(trailer, /^I[0-9a-f]{40}$/u);
+  assert.equal(gerritChangeIdTrailer(changeId), trailer);
+  assert.notEqual(gerritChangeIdTrailer(canonical("change", "b")), trailer);
+  assert.equal(gerritReviewRef("main"), "refs/for/main");
+  assert.equal(gerritReviewRef("refs/heads/main"), "refs/for/main");
+  assert.equal(gerritPushSpec({ target: "main", topic: "parser", hashtags: ["cli"], wip: true }),
+    "refs/for/main%topic=parser,hashtag=cli,wip");
+  const published = describeChangePublish({
+    changeId,
+    revisionId: digest("1"),
+    target: "main",
+    topic: "parser",
+    hashtags: ["cli"],
+    wip: true,
+  });
+  assert.equal(published.changeIdTrailer, trailer);
+  assert.equal(published.reviewRef, "refs/for/main");
+  assert.equal(published.wip, true);
+  assert.throws(() => gerritReviewRef("../etc"), (error) => error instanceof ProtocolError && error.code === "invalid-ref");
+  assert.throws(() => gerritPushSpec({ topic: "bad,topic" }), (error) => error instanceof ProtocolError && error.code === "invalid-ref");
 }

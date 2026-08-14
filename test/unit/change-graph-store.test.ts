@@ -46,6 +46,19 @@ export function runChangeGraphStoreTests(): void {
     const shown = store.showChange(created.id);
     assert.equal(shown.data.title, "Parser");
     assert.equal(shown.data.revisionId, revised.data.revisionId);
+    assert.match(String(created.data.changeIdTrailer), /^I[0-9a-f]{40}$/u);
+    assert.equal(shown.data.changeIdTrailer, created.data.changeIdTrailer);
+
+    const published = store.publishChange(created.id, {
+      target: "main",
+      topic: "parser",
+      hashtags: ["cli"],
+      wip: true,
+    });
+    assert.equal(published.data.reviewRef, "refs/for/main");
+    assert.equal(published.data.pushSpec, "refs/for/main%topic=parser,hashtag=cli,wip");
+    assert.equal(published.data.changeIdTrailer, created.data.changeIdTrailer);
+    assert.equal(store.showChange(created.id).data.reviewRef, "refs/for/main");
 
     const mergeRevision = store.createRevision({
       parentRevisionIds: [String(created.data.revisionId), String(revised.data.revisionId)],

@@ -10,8 +10,11 @@ import {
   assertProtocolEvent,
   assertRevisionId,
   createCanonicalId,
+  describeChangePublish,
+  gerritChangeIdTrailer,
   parseCanonicalId,
   type CanonicalId,
+  type ChangePublishOptions,
   type RandomSource,
   type RevisionId,
 } from "@epoch/protocol";
@@ -71,7 +74,13 @@ export class SignedChangeGraphStore {
     const body = this.revisionBody(changeId, parents, input.title);
     const event = this.append("change.created", body);
     this.note("change.create", [changeId, input.title, event.id]);
-    return this.changeRecord(changeId, 1, { title: input.title, parentRevisionIds: body.parentRevisionIds, revisionId: event.id, message: input.title });
+    return this.changeRecord(changeId, 1, {
+      title: input.title,
+      parentRevisionIds: body.parentRevisionIds,
+      revisionId: event.id,
+      message: input.title,
+      changeIdTrailer: gerritChangeIdTrailer(changeId),
+    });
   }
 
   reviseChange(changeId: string, input: { readonly message?: string; readonly parentRevisionIds?: readonly string[] } = {}): ChangeGraphRecord {
@@ -87,6 +96,7 @@ export class SignedChangeGraphStore {
       parentRevisionIds: body.parentRevisionIds,
       revisionId: event.id,
       message: input.message ?? "",
+      changeIdTrailer: gerritChangeIdTrailer(changeId),
     });
   }
 
@@ -102,6 +112,25 @@ export class SignedChangeGraphStore {
       parentRevisionIds: latest.payload.parentRevisionIds,
       revisionId: latest.id,
       message: titleFromBody(latest.payload),
+      changeIdTrailer: gerritChangeIdTrailer(changeId),
+      ...this.publishedFields(changeId),
+    });
+  }
+
+  publishChange(changeId: string, input: ChangePublishOptions = {}): ChangeGraphRecord {
+    const current = this.showChange(changeId);
+    const published = describeChangePublish({
+      changeId,
+      revisionId: String(current.data.revisionId),
+      target: input.target ?? "main",
+      topic: input.topic,
+      hashtags: input.hashtags,
+      wip: input.wip,
+    });
+    this.note("change.publish", [changeId, published.reviewRef, published.changeIdTrailer, published.pushSpec]);
+    return this.changeRecord(changeId, current.revision, {
+      ...current.data,
+      ...published,
     });
   }
 
@@ -688,6 +717,17 @@ export class SignedChangeGraphStore {
   private namedValue(id: string, command: string): string | undefined {
     const match = this.#operations.list().find((operation) => operation.command === command && operation.args[0] === id);
     return match?.args[1];
+  }
+
+  private publishedFields(changeId: string): Readonly<Record<string, unknown>> {
+    const match = [...this.#operations.list()].reverse().find((operation) =>
+      operation.command === "change.publish" && operation.args[0] === changeId);
+    if (!match) return {};
+    return {
+      reviewRef: match.args[1],
+      changeIdTrailer: match.args[2],
+      pushSpec: match.args[3],
+    };
   }
 
   private changeRecord(id: string, revision: number, data: Readonly<Record<string, unknown>>): ChangeGraphRecord {

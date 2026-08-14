@@ -114,6 +114,8 @@
 </div>
 
 <footer data-region="status" role="contentinfo">
+  <span data-sample-stream hidden>SAMPLE STREAM</span>
+  <span data-stream-protect-state hidden></span>
   <span data-status-line></span>
   <span class="cw-harness-slot cw-harness-status" data-cw-slot="shell.workspace-status"
     aria-label="Workspace status" hidden></span>
@@ -136,7 +138,7 @@
 </footer>
 
 <!-- Sign in to a space + claim / portable handle (host only; app paints). -->
-<div class="cw-auth" data-auth-dialog data-open="false" role="dialog" aria-modal="true" aria-labelledby="cw-auth-title" hidden>
+<div class="cw-auth" data-auth-dialog data-stream-protect data-open="false" role="dialog" aria-modal="true" aria-labelledby="cw-auth-title" hidden>
   <div class="cw-auth-card">
     <h2 id="cw-auth-title" data-auth-title>Sign in to a space</h2>
     <p data-auth-lead>Pick a space and a handle. Anonymous guests can browse guest-friendly spaces; signing in claims your identity in that space.</p>
@@ -192,6 +194,7 @@
 <script src="copy-format.js"></script>
 <script src="themes.js"></script>
 <script src="community-runtime.js"></script>
+<script src="stream.js"></script>
 <script src="app.js"></script>
 <script src="generate.js"></script>
 <script src="theme.js"></script>
