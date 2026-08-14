@@ -200,3 +200,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Real CI red before merge: jump chooser hid after Enter cleared the prompt; Coverage/Test Chromium crashes on reload and an agent-blade visibility timeout. Fixed on the same PR. |
 | Notes | Honest sample board (no fake tick, unsigned guests, receipts as objects, jump/search isolation, scoped mute/report, PAR/PKCE/DPoP AT OAuth). Command-replay livestream with fail-closed `.epochstreamignore` / rewrite / protect. Native Change publish uses Gerrit-shaped Change-Id + `refs/for/<target>` (ADR-0050/0051). Production Vercel `epoch-vcs` deployed `f72df08`. Local junk (`.impeccable`, `.serena`, leftover nightboard canvasui) was not committed. |
+
+## 2026-08-14 — Remove Bo/HoBo from the public surface
+
+| Field | Value |
+|---|---|
+| Initiative | Community Web product surface |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `chore/remove-hobo-surface` |
+| PR | [#142](https://github.com/Tyler-R-Kendrick/epoch/pull/142) — squash-merged [`ef1abaf`](https://github.com/Tyler-R-Kendrick/epoch/commit/ef1abaf8d14014119ec5afb6c965c6286c645caa) |
+| Result | **success** |
+| Failure class | Real CI red before merge: Community Web axe `aria-prohibited-attr` on unlabeled generic harness slots. Fixed on the same PR by giving those slots explicit roles. |
+| Notes | Removed the Bo fixture agent, `hobo` command/action/MCP tool, and `CW_HOBO` workbench. ADR-0028 is startup/routing only. Skill tags and OptimizeXP copy no longer name HoBo. Production Vercel deployed `ef1abaf`; `data.js` has no Bo/HoBo. Historical untracked OptimizeXP run folders with `hobo` in the name were deleted locally and were never in git. |
