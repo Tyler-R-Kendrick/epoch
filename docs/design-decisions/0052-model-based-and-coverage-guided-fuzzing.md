@@ -100,7 +100,7 @@ different oracles.
 
 - `test/fuzz/change-graph-parser.fuzz.test.ts` — deterministic smoke
 - `test/fuzz/properties/parser-roundtrip.fast-check.test.ts` — short fast-check
-- `test/fuzz/history/history.fast-check.test.ts` — history command model
+- `test/fuzz/history/history.fast-check.test.ts` — history command model plus always-on invariants (snapshot+tail, missing revision, rejected conflict blocks merge, git ingest subset, workspace path escape)
 - `test/fuzz/jazzer/*` — coverage-guided parser targets
 - `test/fuzz/regressions/*` — promoted minimized failures
 - `.github/workflows/fuzz-campaign.yml` — scheduled campaign

@@ -47,3 +47,7 @@ trailing-space inputs stay byte-for-byte.
 
 Parser smoke uses seed `0x46555a5a` and a fixed case count. Case failures
 report `seed`, `case`, and `caseSeed` for exact local reproduction.
+
+The history suite always runs, in addition to shrinking command lists:
+snapshot then tail replay, missing-revision fail-closed, rejected conflicts
+blocking merge, git ingest of a declared subset, and workspace path escape.
