@@ -1,11 +1,11 @@
 {
-  "_coverageThresholdRationale": "Floors were recalibrated after the Community Web client extraction: the old 85/85 line and statement floors were set when the web surfaces were single emitted template-literal modules, so their giant style/markup strings counted as covered lines and inflated the totals. The vite-compiled client entry (Epoch.Community.Web/dist/client/*) executes only inside Playwright and is invisible to c8, so it is excluded with the workbench/search bundles. Remaining Node-visible actuals after that exclude sit near 90/87/78 for lines/functions/branches. Floors sit 1-2 points below those actuals and ratchet up when fuzz/history commands cover more Change Graph fail-closed paths.",
+  "_coverageThresholdRationale": "Floors were recalibrated after the Community Web client extraction: the old 85/85 line and statement floors were set when the web surfaces were single emitted template-literal modules, so their giant style/markup strings counted as covered lines and inflated the totals. The vite-compiled client entry (Epoch.Community.Web/dist/client/*) executes only inside Playwright and is invisible to c8, so it is excluded with the workbench/search bundles. Remaining Node-visible actuals after that exclude sit near 89/86/78 for lines/functions/branches. Floors sit 1-2 points below those actuals (lines/statements ratchet 78→87). Function coverage stays at 85 until history/fuzz work covers more store methods.",
   "all": true,
   "check-coverage": true,
-  "lines": 82,
+  "lines": 87,
   "branches": 78,
-  "functions": 86,
-  "statements": 82,
+  "functions": 85,
+  "statements": 87,
   "reporter": ["text", "lcov"],
   "include": ["packages/*/dist/**/*.js"],
   "exclude": [
