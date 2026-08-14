@@ -244,7 +244,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | Change Graph fuzz lanes (ADR-0052) + coverage honesty |
 | Backend | Sequential fallback; coordinator inline |
 | Branch | `test/coverage-ratchet` |
-| PR | this delivery |
-| Result | **in flight** |
-| Failure class | None yet |
-| Notes | Orphaned Community API/Core package tests now run under `test:runtime` so they count. Unit tests accept every protocol event type and fail closed on escapes; CLI git and Community Web state/PWA helpers are exercised on Node. Fast-check covers identity, promise, and space-join events. |
+| PR | [#148](https://github.com/Tyler-R-Kendrick/epoch/pull/148) — squash-merged [`95187c6`](https://github.com/Tyler-R-Kendrick/epoch/commit/95187c665e90fa58dd80d3099bb74d37ef2e9999) |
+| Result | **success** |
+| Failure class | None. Docs, Test, Coverage, Pact, Typecheck, Lint, and Community Web e2e passed on the PR. |
+| Notes | Orphaned Community API/Core package tests now run under `test:runtime`. Unit tests accept every protocol event type and fail closed on escapes; CLI git and Community Web state/PWA helpers are exercised on Node. Fast-check covers identity, promise, and space-join events. Measured 91.85/79.9/88.2; floors 90/79/87. Production Vercel deploys `95187c6`. |
