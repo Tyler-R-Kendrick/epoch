@@ -20,7 +20,7 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 | `npm run change-graph:fuzz-smoke` | Change Graph / protocol parser changes | Deterministic seeded smoke (not coverage-guided). |
 | `npm run fuzz:fast-check` | Change Graph / parser property changes | Short fast-check + history command model with shrinking. |
 | `npm run fuzz:regression` | Corpus or oracle changes | Replay versioned `test/fuzz/corpus/v1` entries. |
-| `npm run fuzz:jazzer:regression` | Parser oracle / Jazzer target changes | Jazzer.js corpus regression mode (PR-safe). |
+| `npm run fuzz:jazzer:regression` | Scheduled campaign / local parser work | Jazzer.js corpus mode. Kept out of `test:runtime` so libFuzzer cannot rewrite c8 maps. |
 | `npm run fuzz:history:long` / `npm run fuzz:jazzer` | Scheduled campaign only | Long history model and coverage-guided parser campaigns ([ADR-0052](../../../docs/design-decisions/0052-model-based-and-coverage-guided-fuzzing.md)). |
 
 Community package and experience changes must keep the Community validation

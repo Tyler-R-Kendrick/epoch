@@ -10,10 +10,12 @@ Do not call the smoke suite "coverage-guided fuzzing."
 | Corpus regression | `npm run fuzz:regression` | Every PR / `test:runtime` |
 | History long run | `npm run fuzz:history:long` | Scheduled campaign |
 | Jazzer.js campaigns | `npm run fuzz:jazzer` | Scheduled campaign |
-| Jazzer regression | `npm run fuzz:jazzer:regression` | PR + schedule |
+| Jazzer regression | `npm run fuzz:jazzer:regression` | Scheduled campaign / local |
 
-Jazzer children drop `NODE_OPTIONS` / `NODE_V8_COVERAGE` so a `c8`-wrapped
-`test:runtime` does not let libFuzzer rewrite package coverage maps.
+Jazzer is not part of `test:runtime` or `coverage`. PR replay is
+`corpus-regression` plus explicit minimized tests. Jazzer children also drop
+`NODE_OPTIONS` / `NODE_V8_COVERAGE` so a manual `c8` wrap cannot rewrite
+package coverage maps.
 
 ## Layout
 

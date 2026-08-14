@@ -43,9 +43,10 @@ Epoch runs **three lanes**:
    formats evolve.
 
 **PR / `test:runtime`** runs smoke + short fast-check + corpus regression
-mode only. **Scheduled** `.github/workflows/fuzz-campaign.yml` runs the
-long history campaign and Jazzer mutation budgets. The full campaign is
-not a required PR check.
+only. Jazzer stays off that path so libFuzzer cannot rewrite `c8` maps.
+**Scheduled** `.github/workflows/fuzz-campaign.yml` runs the long history
+campaign and Jazzer mutation budgets. The full campaign is not a required
+PR check.
 
 ### Properties The History Model Must Guard
 
