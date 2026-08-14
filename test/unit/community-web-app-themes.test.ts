@@ -1249,6 +1249,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "console render must use app.menuShouldOpen (includes menuDismissed) for the combobox");
   assert.ok(appSrc.includes("jumpChooserShouldOpen"),
     "jump chooser must stay visible after Enter clears the prompt");
+  const streamSrc = readFileSync(join(ROOT, "stream.js"), "utf8");
+  assert.ok(!/DOMContentLoaded[\s\S]{0,120}fetchWorkspacePolicy/.test(streamSrc),
+    "stream policy HTTP fetch must not run on every board boot");
   assert.ok(appSrc.includes("feedNoticeOpen") && appSrc.includes("pendingByFeed") &&
     consoleSrc2.includes("cn-feed-notice"),
     "new-posts notice is feed-scoped overlay, not page chrome");

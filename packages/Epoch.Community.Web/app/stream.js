@@ -56,6 +56,7 @@
     var api = runtime();
     if (typeof api.sanitizeStreamCommand !== "function") return { kind: "drop", reason: "unavailable" };
     loadWorkspacePolicy();
+    if (!policy.ignore && !policy.rewrite) fetchWorkspacePolicy();
     var result = api.sanitizeStreamCommand({
       envelope: {
         t: Date.now(),
@@ -245,13 +246,9 @@
   });
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      paint();
-      fetchWorkspacePolicy();
-    });
+    document.addEventListener("DOMContentLoaded", paint);
   } else {
     paint();
-    fetchWorkspacePolicy();
   }
 
   window.CW_STREAM = {

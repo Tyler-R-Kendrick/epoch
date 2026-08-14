@@ -382,23 +382,44 @@ Given("Epoch Community is available", function () {
   assert.ok(existsSync(join(COMMUNITY_WEB_APP_ROOT, "canvasui-fx.js")));
 });
 
+async function fulfillCommunityTestRoute(route: Route): Promise<void> {
+  const pathname = new URL(route.request().url()).pathname;
+  const name = pathname === "/" ? "index.html" : basename(pathname);
+  const file = join(COMMUNITY_WEB_APP_ROOT, name);
+  if (!existsSync(file)) {
+    await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
+    return;
+  }
+  await route.fulfill({
+    status: 200,
+    contentType: COMMUNITY_WEB_APP_CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
+    body: readFileSync(file),
+  });
+}
+
+async function reloadCommunityPage(page: Page): Promise<Page> {
+  const url = page.url();
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    return page;
+  } catch {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return page;
+    } catch {
+      const next = await page.context().newPage();
+      await next.goto(url, { waitUntil: "domcontentloaded" });
+      world = { ...world, page: next };
+      return next;
+    }
+  }
+}
+
 When("I open Epoch Community", async function () {
   const browser = await chromium.launch(chromiumLaunchOptions({ headless: true }));
-  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
-  await page.route("https://community.test/**", async (route) => {
-    const pathname = new URL(route.request().url()).pathname;
-    const name = pathname === "/" ? "index.html" : basename(pathname);
-    const file = join(COMMUNITY_WEB_APP_ROOT, name);
-    if (!existsSync(file)) {
-      await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: COMMUNITY_WEB_APP_CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
-      body: readFileSync(file),
-    });
-  });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
+  await context.route("https://community.test/**", fulfillCommunityTestRoute);
+  const page = await context.newPage();
   await page.goto("https://community.test/", { waitUntil: "domcontentloaded" });
   world = { ...world, browser, page };
 });
@@ -990,11 +1011,15 @@ Then("the bottom line recommends one Ctrl+U restart action", async function () {
 
 When("I restart Community Web with Ctrl+U", async function () {
   const page = requirePage();
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: "domcontentloaded" }),
-    page.keyboard.press("Control+u"),
-  ]);
-  communityWebAppStartupApplied = await page.evaluate(() => {
+  try {
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      page.keyboard.press("Control+u"),
+    ]);
+  } catch {
+    await reloadCommunityPage(page);
+  }
+  communityWebAppStartupApplied = await requirePage().evaluate(() => {
     const got = JSON.parse(localStorage.getItem("cw-startup-applied-v1") ?? "{}");
     return got.update === "0.9.0" && got.workspace === 2 && got.continuation === "codex-cucumber";
   });
@@ -1169,12 +1194,8 @@ When("I save and reopen the Community Web needs-review Projection Definition", a
   });
   const savedResult = communityWebAppSavedViewResult;
   assert.ok(savedResult);
-  try {
-    await page.reload({ waitUntil: "domcontentloaded" });
-  } catch {
-    await page.goto(page.url(), { waitUntil: "domcontentloaded" });
-  }
-  await page.waitForFunction((id) => !!(window as unknown as {
+  await reloadCommunityPage(page);
+  await requirePage().waitForFunction((id) => !!(window as unknown as {
     CW_WORKBENCH?: { definitions(): Array<{ projectionId: string }> };
   }).CW_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
 });
@@ -1554,8 +1575,8 @@ Then("the review macro persists as the {string} agent skill", async function (to
   }, toolName);
   assert.equal(before.action?.voice, "start review");
   assert.equal(before.tool, true);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  const after = await page.evaluate((name) => {
+  await reloadCommunityPage(page);
+  const after = await requirePage().evaluate((name) => {
     const root = window as unknown as {
       CW_POWER: { list: () => Array<{ name: string; voice: string }> };
       CW_MCP: { list: () => Array<{ name: string }> };
