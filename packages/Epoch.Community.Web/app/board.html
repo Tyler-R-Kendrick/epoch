@@ -49,8 +49,8 @@
   <p class="cw-harness-notice" data-cw-harness-notice hidden></p>
   <button type="button" class="cw-ws-action" data-compose-open
     title="Propose a change to your own interface">Compose interface</button>
-  <div class="cw-harness-slot" data-cw-slot="board.context-panel" aria-label="Context panel" hidden></div>
-  <div class="cw-harness-slot" data-cw-slot="board.recovery" aria-label="Workspace recovery" hidden></div>
+  <div class="cw-harness-slot" data-cw-slot="board.context-panel" role="region" aria-label="Context panel" hidden></div>
+  <div class="cw-harness-slot" data-cw-slot="board.recovery" role="region" aria-label="Workspace recovery" hidden></div>
 </aside>
 
 <!-- Compose: prompt an interface change, see what it does, then decide.
@@ -118,7 +118,7 @@
   <span data-stream-protect-state hidden></span>
   <span data-status-line></span>
   <span class="cw-harness-slot cw-harness-status" data-cw-slot="shell.workspace-status"
-    aria-label="Workspace status" hidden></span>
+    role="status" aria-label="Workspace status" hidden></span>
   <span class="cw-status-trail">
     <button type="button" class="cw-restart-cue" data-restart-cue hidden
       title="Apply compatible startup actions and restart (Ctrl+U)"

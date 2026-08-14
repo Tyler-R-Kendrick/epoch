@@ -898,6 +898,12 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   const boardHtmlBrand = readFileSync(join(ROOT, "board.html"), "utf8");
   assert.ok(boardHtmlBrand.includes("cw-skip") && boardHtmlBrand.includes("role=\"banner\""),
     "skip link and banner landmark must exist for keyboard a11y");
+  assert.ok(
+    /data-cw-slot="board.context-panel"[^>]*role="region"/.test(boardHtmlBrand) &&
+    /data-cw-slot="board.recovery"[^>]*role="region"/.test(boardHtmlBrand) &&
+    /cw-harness-status[\s\S]{0,80}role="status"/.test(boardHtmlBrand),
+    "harness slots that carry aria-label must have an explicit role",
+  );
   assert.ok(boardHtmlBrand.includes('data-brand') && boardHtmlBrand.includes("data-brand-art"),
     "top bar must host the Epoch ASCII brand mark");
   assert.ok(boardHtmlBrand.includes("data-goto-landing"),
