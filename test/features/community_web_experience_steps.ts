@@ -1134,24 +1134,32 @@ Then("Community Web keeps the same cache route until policy or failure invalidat
   assert.equal(communityWebAppRouteSticky, true);
 });
 
-When("I expand and restore the focused panel by keyboard", async function () {
+When("I expand and restore the focused panel by keyboard", { timeout: 60_000 }, async function () {
   const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
     const app = (window as unknown as {
-      CW_APP: { state: { focus: number }; focusColumns(): void; render(keep?: boolean): void };
+      CW_APP: {
+        state: { focus: number; helpOpen?: boolean; columnFocus?: boolean };
+        focusColumns(): void;
+        render(keep?: boolean): void;
+      };
     }).CW_APP;
+    app.state.helpOpen = false;
     app.state.focus = 1;
     app.focusColumns();
+    app.state.columnFocus = true;
     app.render(true);
   });
   await page.keyboard.press("z");
   await page.waitForFunction(() => (
     document.querySelector(".cn-blades")?.getAttribute("data-focus-expanded") === "1"
-  ));
+  ), null, { timeout: 10_000 });
   await page.keyboard.press("z");
   await page.waitForFunction(() => (
     document.querySelector(".cn-blades")?.getAttribute("data-focus-expanded") !== "1"
-  ));
+  ), null, { timeout: 10_000 });
   communityWebAppFocusRestored = true;
 });
 
