@@ -195,7 +195,8 @@ is the estimate that misleads someone.
 
 `@epoch/semantic` is browser-safe and performs no byte-level entropy coding. It
 produces the boundaries, dedup table, dictionary, and delta that a host codec
-then encodes.
+then encodes. That host codec is `@epoch/openzl` ([ADR-0053](design-decisions/0053-openzl-host-entropy-codec.md),
+[openzl.md](openzl.md)): entity-aware frames with plaintext SHA-256 identity.
 
 ## Boundaries
 

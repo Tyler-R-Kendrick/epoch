@@ -976,18 +976,104 @@ Then("the selected Community Web message remains the single focused feed item", 
   assert.equal(await selected.getAttribute("data-key"), communityWebAppFocusedMessage);
   assert.equal(await selected.getAttribute("data-here"), "true");
   assert.equal(await selected.getAttribute("aria-current"), "true");
-  assert.equal(
-    await page.evaluate(() => (window as unknown as { CW_APP: { state: { threadFocus: string } } }).CW_APP.state.threadFocus),
-    communityWebAppFocusedMessage,
-  );
-  const synchronized = await page.evaluate(() => {
-    const app = (window as unknown as { CW_APP: { state: { threadFocus: string } } }).CW_APP;
+  const location = await page.evaluate(() => {
+    const app = (window as unknown as { CW_APP: { state: { threadFocus: string; path: string } } }).CW_APP;
     const tree = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
     const reading = document.querySelector('.cn-thread-reading article');
-    return tree?.getAttribute("data-object-id") === reading?.getAttribute("data-object-id") &&
-      tree?.getAttribute("data-key") === app.state.threadFocus;
+    return {
+      threadFocus: app.state.threadFocus,
+      path: app.state.path,
+      synchronized: tree?.getAttribute("data-object-id") === reading?.getAttribute("data-object-id") &&
+        tree?.getAttribute("data-key") === app.state.threadFocus,
+      virtualNav: Array.from(document.querySelectorAll('.cn-blade[data-blade-kind="list"] .cn-item'))
+        .map((el) => el.getAttribute("data-key"))
+        .some((name) => /^(body\.md|metadata\.json|replies|backlinks|receipts)$/.test(name || "")),
+    };
   });
-  assert.equal(synchronized, true);
+  assert.equal(location.threadFocus, communityWebAppFocusedMessage);
+  assert.equal(location.path, "/projects/community/channels/general");
+  assert.equal(location.synchronized, true);
+  assert.equal(location.virtualNav, false, "opening a thread must not swap the navigator into message directories");
+});
+
+When("I navigate the Community Web VFS into general and return from messages by keyboard", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      CW_APP: {
+        state: {
+          cursor: number;
+          focus: number;
+          columnFocus: boolean;
+          detailOpen: boolean;
+        };
+        render: (keepCli?: boolean) => void;
+      };
+      CW_MAP: { list: (path: string) => Array<{ name: string }> };
+    };
+    const list = w.CW_MAP.list("/projects/community/channels") || [];
+    const ix = list.findIndex((e) => e.name === "general");
+    w.CW_APP.state.cursor = ix >= 0 ? ix : 0;
+    w.CW_APP.state.focus = 0;
+    w.CW_APP.state.columnFocus = true;
+    w.CW_APP.state.detailOpen = true;
+    w.CW_APP.render(true);
+    const navItem = document.querySelector(
+      '.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]',
+    ) as HTMLElement | null;
+    navItem?.focus({ preventScroll: true });
+  });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    return app.state.path === "/projects/community/channels/general" && app.state.focus >= 1;
+  });
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { focus: number } } }).CW_APP;
+    return app.state.focus === 0 &&
+      !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item');
+  });
+  await page.keyboard.press("ArrowRight");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { focus: number } } }).CW_APP;
+    return app.state.focus >= 1 &&
+      !!document.activeElement?.closest?.(".cn-comment[data-key]");
+  });
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForFunction(() =>
+    (window as unknown as { CW_APP: { state: { focus: number } } }).CW_APP.state.focus === 0);
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    return app.state.path === "/projects/community/channels" && app.state.focus === 0 &&
+      !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item');
+  }, null, { timeout: 10_000 });
+});
+
+Then("the Community Web navigator owns the keyboard again at the channels list", async function () {
+  const page = requirePage();
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    return app.state.path === "/projects/community/channels" && app.state.focus === 0 &&
+      !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item') &&
+      !document.activeElement?.closest?.(".cn-comment[data-key]");
+  }, null, { timeout: 10_000 });
+  const probe = await page.evaluate(() => {
+    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    return {
+      path: app.state.path,
+      focus: app.state.focus,
+      onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
+      onMessage: !!document.activeElement?.closest?.(".cn-comment[data-key]"),
+    };
+  });
+  assert.equal(probe.path, "/projects/community/channels");
+  assert.equal(probe.focus, 0);
+  assert.equal(probe.onNav, true);
+  assert.equal(probe.onMessage, false);
 });
 
 When("I enter the community board with a resumable session update and workspace defaults", async function () {
@@ -1404,6 +1490,175 @@ Then("repost and share are visible and every post action has keyboard parity", f
     copied: true,
     replied: true,
   });
+});
+
+When("I reply to a Community Web message in CLI mode and see it under the parent", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: {
+        state: { ai: boolean; columnFocus: boolean };
+        navigate(path: string): void;
+        render(preserve?: boolean): void;
+        clearComposeDraft?(opts?: object): void;
+        armReplyTo(id: string, who: string, channel: string, project: string | null): void;
+      };
+    }).CW_APP;
+    app.state.ai = false;
+    app.clearComposeDraft?.({ silent: true, noRender: true });
+    app.navigate("/projects/community/channels/general");
+    app.armReplyTo("p1", "lea", "general", null);
+    app.state.columnFocus = false;
+    app.render(true);
+    document.querySelector<HTMLInputElement>("[data-cli]")?.focus();
+  });
+  await page.locator("[data-cli]").fill("bdd cli reply under lea");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: { merged: Array<{ id: string; re?: string; body?: string }>; feedMark: string; threadFocus: string } };
+    }).CW_APP;
+    const hit = (app.state.merged || [])
+      .filter((p) => p.re === "p1" && /bdd cli reply under lea/.test(p.body || ""))
+      .pop();
+    if (!hit) return false;
+    const inDom = !!document.querySelector('.cn-comment[data-key="' + hit.id + '"]');
+    return inDom && app.state.feedMark === hit.id && app.state.threadFocus === "p1";
+  });
+});
+
+When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_000 }, async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    const win = window as unknown as {
+      CWResilient?: { availability(): Promise<string> };
+      CW_AGENT?: { run(...args: unknown[]): Promise<unknown> };
+      CW_APP: {
+        state: {
+          ai: boolean;
+          columnFocus: boolean;
+          sessionClosed?: boolean;
+          sessionOutFocus?: boolean;
+        };
+        clearComposeDraft?(opts?: object): void;
+        armReplyTo(id: string, who: string, channel: string, project: string | null): void;
+        render(preserve?: boolean): void;
+      };
+    };
+    // Keep drafting deterministic under coverage load: never wait on on-device model.
+    if (win.CWResilient) win.CWResilient.availability = async () => "unavailable";
+    if (win.CW_AGENT) win.CW_AGENT.run = async () => undefined;
+    const app = win.CW_APP;
+    app.clearComposeDraft?.({ silent: true, noRender: true });
+    app.state.ai = true;
+    app.state.sessionClosed = true;
+    app.state.sessionOutFocus = false;
+    app.armReplyTo("p1", "lea", "general", null);
+    app.state.columnFocus = false;
+    app.render(true);
+    document.querySelector<HTMLInputElement>("[data-cli]")?.focus();
+  });
+  await page.locator("[data-cli]").fill("bdd ai draft intent");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as {
+      CW_APP: {
+        state: {
+          composeDraft?: { status?: string; body?: string; postId?: string };
+          ai: boolean;
+          sessionClosed?: boolean;
+        };
+      };
+    }).CW_APP;
+    const draft = app.state.composeDraft;
+    const inline = document.querySelector(
+      '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p1"] [data-compose-draft], ' +
+      '.cn-comment[data-key="p1"] [data-compose-draft]',
+    );
+    const footDraft = document.querySelector(".cn-tui-foot [data-compose-draft]");
+    const sessionBlade = document.querySelector('.cn-blade[data-blade-kind="session"]');
+    return app.state.ai === true && draft?.status === "ready" && draft.postId === "p1" &&
+      /bdd ai draft intent/.test(draft.body || "") &&
+      !!inline && !footDraft && !sessionBlade && app.state.sessionClosed !== false &&
+      !!document.querySelector("[data-draft-accept]");
+  }, null, { timeout: 10_000 });
+  await page.keyboard.press("e");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: { composeDraft?: unknown }; composeContext(): { kind?: string } };
+    }).CW_APP;
+    const value = document.querySelector<HTMLInputElement>("[data-cli]")?.value || "";
+    return !app.state.composeDraft && /bdd ai draft intent/.test(value) &&
+      app.composeContext().kind === "reply";
+  }, null, { timeout: 10_000 });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const draft = (window as unknown as {
+      CW_APP: { state: { composeDraft?: { status?: string } } };
+    }).CW_APP.state.composeDraft;
+    return !!document.querySelector("[data-compose-draft]") && draft?.status === "ready";
+  }, null, { timeout: 10_000 });
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: { composeDraft?: unknown }; composeContext(): { kind?: string; postId?: string } };
+    }).CW_APP;
+    return !app.state.composeDraft && !document.querySelector("[data-compose-draft]") &&
+      app.composeContext().kind === "reply" && app.composeContext().postId === "p1";
+  }, null, { timeout: 10_000 });
+  await page.locator("[data-cli]").fill("bdd ai committed reply");
+  await page.keyboard.press("Enter");
+  // Commit via keyboard like the e2e path — avoid scrolling a hidden duplicate in another blade.
+  await page.waitForFunction(() => {
+    const draft = (window as unknown as {
+      CW_APP: { state: { composeDraft?: { status?: string; postId?: string } } };
+    }).CW_APP.state.composeDraft;
+    return draft?.status === "ready" && draft.postId === "p1" &&
+      !!document.querySelector("[data-draft-accept]");
+  }, null, { timeout: 10_000 });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: {
+        merged: Array<{ id: string; re?: string; body?: string }>;
+        composeDraft?: unknown;
+        feedMark: string;
+        threadFocus: string;
+        sessionClosed?: boolean;
+      } };
+    }).CW_APP;
+    const hit = (app.state.merged || [])
+      .filter((p) => p.re === "p1" && /bdd ai committed reply/.test(p.body || ""))
+      .pop();
+    if (!hit || app.state.composeDraft) return false;
+    const sessionBlade = document.querySelector('.cn-blade[data-blade-kind="session"]');
+    return !!document.querySelector('.cn-comment[data-key="' + hit.id + '"]') &&
+      app.state.feedMark === hit.id && app.state.threadFocus === "p1" &&
+      !sessionBlade && app.state.sessionClosed !== false;
+  }, null, { timeout: 10_000 });
+});
+
+Then("Community Web reply drafts stay visible under the parent until committed", async function () {
+  const page = requirePage();
+  const ok = await page.evaluate(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: {
+        merged: Array<{ id: string; re?: string; body?: string }>;
+        composeDraft?: unknown;
+        sessionClosed?: boolean;
+      } };
+    }).CW_APP;
+    const hit = (app.state.merged || [])
+      .filter((p) => p.re === "p1" && /bdd ai committed reply/.test(p.body || ""))
+      .pop();
+    const sessionBlade = document.querySelector('.cn-blade[data-blade-kind="session"]');
+    return !!hit && !app.state.composeDraft &&
+      !!document.querySelector('.cn-comment[data-key="' + hit.id + '"]') &&
+      !sessionBlade && app.state.sessionClosed !== false;
+  });
+  assert.equal(ok, true, "committed AI reply should remain visible under the parent without opening agent chat");
 });
 
 When("I browse Community Web message directories with cd completion", async function () {
@@ -3398,4 +3653,112 @@ Then("my board no longer shows the panel, and the change I rolled back is still 
   assert.equal(after.generated, "", "the panel is gone from my board");
   assert.notEqual(after.cell, "0.58rem", "the token is no longer applied");
   assert.match(after.rolledBack, /GeneratedPanel/u, "what I rolled back is still there to read");
+});
+
+When("a realtime fabric endpoint is configured for the board", async function () {
+  const page = requirePage();
+  const result = await page.evaluate(async () => {
+    const win = globalThis as unknown as {
+      CW_NATS_FABRIC: {
+        reset(): void;
+        attach(identity: unknown, overrides?: unknown): Promise<Record<string, unknown>>;
+        statusLabel(): string;
+      };
+      CW_APP: { getIdentity(): { kind?: string; principalId?: string; anonymous?: boolean } };
+    };
+    win.CW_NATS_FABRIC.reset();
+    const identity = win.CW_APP.getIdentity();
+    const attached = await win.CW_NATS_FABRIC.attach(identity, {
+      endpoint: "wss://nats.example/ws",
+    });
+    return {
+      identityKind: identity?.kind,
+      attached: attached.attached,
+      status: attached.status,
+      message: attached.message,
+      openChat: attached.openChat,
+      label: win.CW_NATS_FABRIC.statusLabel(),
+    };
+  });
+  (this as { fabricGuestProbe?: unknown }).fabricGuestProbe = result;
+});
+
+Then("as a guest I am not attached to the realtime fabric", function () {
+  const probe = (this as { fabricGuestProbe?: Record<string, unknown> }).fabricGuestProbe;
+  assert.ok(probe, "fabric guest probe missing");
+  assert.ok(probe.identityKind === "guest" || probe.identityKind === "denied", "expected guest identity");
+  assert.equal(probe.attached, false);
+  assert.equal(probe.status, "needs-sign-in");
+});
+
+Then("the fabric status says realtime requires sign-in", function () {
+  const probe = (this as { fabricGuestProbe?: Record<string, unknown> }).fabricGuestProbe;
+  assert.ok(probe);
+  assert.match(String(probe.message || probe.label || ""), /realtime requires sign-in/i);
+});
+
+Then("fabric failure does not open session chat", function () {
+  const probe = (this as { fabricGuestProbe?: Record<string, unknown>; fabricTicketProbe?: Record<string, unknown> }).fabricGuestProbe
+    ?? (this as { fabricTicketProbe?: Record<string, unknown> }).fabricTicketProbe;
+  assert.ok(probe);
+  assert.equal(probe.openChat, false);
+});
+
+When("I present a Platform fabric ticket for a signed-in identity", async function () {
+  const page = requirePage();
+  const result = await page.evaluate(async () => {
+    const win = globalThis as unknown as {
+      CW_NATS_FABRIC: {
+        reset(): void;
+        attach(identity: unknown, overrides?: unknown): Promise<Record<string, unknown>>;
+        status(): { opened: boolean; hasSecret: boolean; status: string };
+      };
+    };
+    win.CW_NATS_FABRIC.reset();
+    const identity = {
+      kind: "atproto",
+      principalId: "did:plc:contributor",
+      platformSessionId: "session_board_1",
+      anonymous: false,
+    };
+    const attached = await win.CW_NATS_FABRIC.attach(identity, {
+      endpoint: "wss://nats.example/ws",
+      mintFabricCredential: (input: { sessionId?: string }) => {
+        if (input.sessionId !== "session_board_1") throw new Error("unexpected parent");
+        return { id: "fabric_board", secret: "opaque-fabric-board-secret" };
+      },
+      connect: async (opts: { fabricSecret: string }) => {
+        if (opts.fabricSecret === identity.principalId || opts.fabricSecret === identity.platformSessionId) {
+          throw new Error("secret leaked identity id");
+        }
+        return { channel: true };
+      },
+    });
+    return {
+      attached: attached.attached,
+      status: attached.status,
+      openChat: attached.openChat,
+      hasSecretField: Object.prototype.hasOwnProperty.call(attached, "fabricSecret"),
+      fabricStatus: win.CW_NATS_FABRIC.status(),
+      secretWasIdentity: false,
+    };
+  });
+  (this as { fabricTicketProbe?: unknown }).fabricTicketProbe = result;
+});
+
+Then("the board attaches to the realtime fabric without opening session chat", function () {
+  const probe = (this as { fabricTicketProbe?: Record<string, unknown> }).fabricTicketProbe;
+  assert.ok(probe);
+  assert.equal(probe.attached, true);
+  assert.equal(probe.status, "online");
+  assert.equal(probe.openChat, false);
+  const fabricStatus = probe.fabricStatus as { opened?: boolean; status?: string };
+  assert.equal(fabricStatus.opened, true);
+  assert.equal(fabricStatus.status, "online");
+});
+
+Then("the fabric secret is never returned as a board identity id", function () {
+  const probe = (this as { fabricTicketProbe?: Record<string, unknown> }).fabricTicketProbe;
+  assert.ok(probe);
+  assert.equal(probe.hasSecretField, false, "attach result must not leak fabricSecret");
 });

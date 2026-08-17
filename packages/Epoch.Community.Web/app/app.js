@@ -138,6 +138,9 @@
     spoilers: {},
     // Armed reply target — cleared on send or when navigating away from its channel.
     replyTo: null,
+    // Inline compose draft (AI rewrite / staged reply) — commit, reject, or edit.
+    composeDraft: null,
+    _captureComposeDraft: false,
     // Session-created channels / projects (sitemap reads boardOverlay).
     boardOverlay: { channels: [], projects: [], projectChannels: {} },
     treeOpen: {},
@@ -1125,7 +1128,8 @@
   function submitSpeechPrompt() {
     var text = cliValue || ($("[data-cli]") && $("[data-cli]").value) || "";
     closeIntel();
-    if (!String(text || "").trim() && !(state.attachments && state.attachments.length)) {
+    if (!String(text || "").trim() && !(state.attachments && state.attachments.length) &&
+        !(state.composeDraft && state.composeDraft.status === "ready")) {
       status("nothing to send");
       return;
     }
@@ -1140,6 +1144,10 @@
     }
     var cctx = composeContext();
     var trimmed = String(text || "").trim();
+    if (state.composeDraft && state.composeDraft.status === "ready" && !trimmed) {
+      acceptComposeDraft();
+      return;
+    }
     if (trimmed && !isCommand(text) &&
         (cctx.kind === "reply" || cctx.kind === "post" || cctx.kind === "dm")) {
       if (!requireParticipation("post")) {
@@ -1147,6 +1155,10 @@
         if (input) input.value = text;
         speechBase = text;
         return render(true);
+      }
+      if (state.ai) {
+        startAiComposeDraft(trimmed, cctx);
+        return;
       }
       publishCompose(trimmed, cctx);
       return;
@@ -2340,6 +2352,8 @@
     state.lines.push(line);
     if (state.lines.length > 80) state.lines = state.lines.slice(-80);
     // New transcript reopens a user-closed session blade so output is visible.
+    // Quiet lines (board compose receipts) must not auto-open agent chat.
+    if (line.quiet) return;
     if (line.kind && line.kind !== "banner") state.sessionClosed = false;
   }
 
@@ -2814,11 +2828,13 @@
       if (i === state.candIndex) {
         el.setAttribute("aria-current", "true");
         el.setAttribute("aria-selected", "true");
+        el.setAttribute("data-active", "true");
         el.scrollIntoView({ block: "nearest" });
         if (input) input.setAttribute("aria-activedescendant", el.id || ("cn-cand-" + i));
       } else {
         el.removeAttribute("aria-current");
         el.setAttribute("aria-selected", "false");
+        el.removeAttribute("data-active");
       }
     });
   }
@@ -3417,8 +3433,17 @@
     if (state.editor) state.editor.focused = false;
     if (!opts.noRender) render(true);
     if (!opts.noHistory) commitNavigation();
-    if (!opts.silent) status("thread · " + postId);
+    if (!opts.silent) status("thread · " + postId + " · ← feed · ↑↓ messages");
     pushLayer("thread-detail", "thread", "close thread", function () { clearThreadFocus(); }, document.activeElement);
+    if (opts.focus !== false) {
+      var el = document.querySelector(
+        '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + postId + '"]',
+      );
+      if (el) {
+        try { el.focus({ preventScroll: true }); } catch { /* fine */ }
+        try { el.scrollIntoView({ block: "nearest" }); } catch { /* fine */ }
+      }
+    }
     return true;
   }
 
@@ -3924,15 +3949,21 @@
     return false;
   }
 
+  /**
+   * Open the focused message as a thread in the detail pane. Keyboard ←→ never
+   * rewrite the channel path into message-ID directories — those stay on `cd`.
+   */
   function openFocusedMessage(id) {
     if (!id) return false;
-    var target = MAP.messagePath ? MAP.messagePath(state.path, id, state.merged) : null;
-    if (!target || !navigate(target, { keepCli: true })) return openThread(id);
-    requestAnimationFrame(function () {
-      var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
-      if (el) try { el.focus({ preventScroll: true }); } catch { /* fine */ }
-    });
-    return true;
+    return openThread(id);
+  }
+
+  /** Leave a stuck message-ID address for its channel feed (CLI/deep-link recovery). */
+  function leaveMessageAddressPath() {
+    if (!(MAP.isPostReplyPath && MAP.isPostReplyPath(state.path))) return false;
+    var feedPath = MAP.channelFeedPath ? MAP.channelFeedPath(state.path) : state.path;
+    if (!feedPath || feedPath === state.path) return false;
+    return !!navigate(feedPath, { keepCli: true });
   }
 
   function ascendFocusedMessage() {
@@ -4082,8 +4113,9 @@
       if (e.voice) {
         status("voice · " + state.path);
       } else {
-        focusCli();
-        status("channel · " + state.path + " · write");
+        // Channel open hands steering to the message feed; : / i / Tab write.
+        focusColumns();
+        status("channel · " + state.path + " · ↑↓ messages · Enter/→ thread · ← nav · : write");
       }
       return true;
     }
@@ -4288,10 +4320,13 @@
       if (state.editor) state.editor.focused = false;
       setNavCollapsed(false, { silent: true, noRender: true });
       render(true);
+      focusColumns();
+      status("nav — ↑↓ move · → messages · ← parent");
       return;
     }
     if (MAP.split(state.path).length === 0) return;
     closeBlade(listBladeIndex());
+    focusColumns();
     status("slide ← " + state.path);
   }
 
@@ -4306,6 +4341,18 @@
     var list = entries();
     var e = list[state.cursor];
     var onList = listOwnsKeyboard();
+    // Already addressing this channel with VFS focus: hand keyboard to messages.
+    if (onList && e && e.kind === "channel" && isDetailOpen()) {
+      var chPath = MAP.resolve(navListPath(), e.name);
+      if (state.path === chPath) {
+        state.focus = detailBladeIndex();
+        if (state.editor) state.editor.focused = false;
+        render(true);
+        focusColumns();
+        status("messages — ↑↓ browse · Enter/→ thread · ← returns to nav");
+        return;
+      }
+    }
     if (onList && e && (e.kind === "dir" || e.kind === "channel")) return descend();
     if (onList && e && e.post) return descend();
     if (onList && e && entryHasTextEditor(e)) return activateDetailEditor(e);
@@ -4329,6 +4376,9 @@
       status("nav — ↑↓ to move, → or Enter to open · Esc returns to home rows");
       return;
     }
+    // Detail ← closes an open thread before handing focus to the navigator.
+    if (leaveMessageAddressPath()) return;
+    if (state.threadFocus) return clearThreadFocus();
     return ascend();
   }
 
@@ -4520,6 +4570,226 @@
     state.replyTo = null;
   }
 
+  function clearComposeDraft(opts) {
+    opts = opts || {};
+    if (!state.composeDraft && !state._captureComposeDraft) return false;
+    state.composeDraft = null;
+    state._captureComposeDraft = false;
+    removeLayer("compose-draft");
+    if (!opts.silent) status("draft rejected");
+    if (!opts.noRender) render(true);
+    return true;
+  }
+
+  function rejectComposeDraft() {
+    clearComposeDraft({ silent: true });
+    status("draft rejected — reply still armed · type again");
+    focusCli();
+    render(true);
+    return true;
+  }
+
+  function modifyComposeDraft() {
+    var draft = state.composeDraft;
+    if (!draft) return false;
+    var body = String(draft.body || draft.prompt || "");
+    state.composeDraft = null;
+    state._captureComposeDraft = false;
+    removeLayer("compose-draft");
+    state.columnFocus = false;
+    cliValue = body;
+    var input = $("[data-cli]");
+    if (input) input.value = body;
+    recompute();
+    render(true);
+    focusCli();
+    status("edit draft — change then Enter" + (state.ai ? " to restage" : " to post"));
+    return true;
+  }
+
+  function acceptComposeDraft() {
+    var draft = state.composeDraft;
+    if (!draft || draft.status === "generating") {
+      status(draft && draft.status === "generating" ? "still drafting…" : "no draft");
+      return false;
+    }
+    var body = String(draft.body || "").trim();
+    if (!body) {
+      status("draft is empty — edit or reject");
+      return false;
+    }
+    var ctx = {
+      kind: draft.kind,
+      postId: draft.postId,
+      who: draft.who,
+      channel: draft.channel,
+      project: draft.project,
+      dm: draft.dm,
+      channelLabel: draft.channel,
+      path: state.path,
+    };
+    if (ctx.kind === "reply" && ctx.postId) {
+      armReplyTo(ctx.postId, ctx.who, ctx.channel, ctx.project);
+    }
+    state.composeDraft = null;
+    state._captureComposeDraft = false;
+    removeLayer("compose-draft");
+    var posted = publishCompose(body, ctx);
+    return !!posted;
+  }
+
+  /**
+   * After a successful compose publish, keep the reply visible under its parent
+   * (thread open, mark + focus the new message).
+   */
+  function revealPostedCompose(post, ctx) {
+    if (!post) return;
+    state.detailOpen = true;
+    state.focus = detailBladeIndex();
+    // Keep keyboard on the thread so the new reply stays the reading target.
+    // Defer columnFocus so a bubbling Enter cannot re-enter activateSelection.
+    var revealId = post.id;
+    var revealParent = ctx && ctx.kind === "reply" ? ctx.postId : null;
+    if (revealParent) {
+      state.threadFocus = revealParent;
+      state.feedMark = revealId;
+    } else if (revealId) {
+      state.feedMark = revealId;
+    }
+    render(true);
+    requestAnimationFrame(function () {
+      state.columnFocus = true;
+      var el = document.querySelector(
+        '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + revealId + '"]',
+      );
+      if (el) {
+        try { el.focus({ preventScroll: true }); } catch { /* fine */ }
+        try { el.scrollIntoView({ block: "nearest" }); } catch { /* fine */ }
+      }
+    });
+  }
+
+  /**
+   * Stage an inline compose draft the user can commit, reject, or edit. Used when AI
+   * mode is drafting a reply/post instead of publishing on Enter. Stays in-thread;
+   * does not open the session/agent chat pane.
+   */
+  function stageComposeDraft(prompt, ctx, opts) {
+    opts = opts || {};
+    ctx = ctx || composeContext();
+    var body = String((opts.body != null ? opts.body : prompt) || "").trim();
+    if (!body && !opts.allowEmpty) return false;
+    if (ctx.kind === "reply" && ctx.postId) {
+      armReplyTo(ctx.postId, ctx.who, ctx.channel, ctx.project);
+      // Keep the draft visible under the parent in detail — never open session.
+      state.detailOpen = true;
+      state.threadFocus = ctx.postId;
+      state.feedMark = ctx.postId;
+      state.focus = detailBladeIndex();
+    }
+    clearSessionOutFocus({ noRender: true });
+    state.composeDraft = {
+      kind: ctx.kind,
+      postId: ctx.postId || null,
+      who: ctx.who || null,
+      channel: ctx.channel || null,
+      project: ctx.project || null,
+      dm: ctx.dm || null,
+      prompt: String(prompt || ""),
+      body: body,
+      source: opts.source || (state.ai ? "ai" : "user"),
+      status: opts.status || "ready",
+    };
+    removeLayer("compose-draft");
+    pushLayer("compose-draft", "draft", "reject draft", function () {
+      rejectComposeDraft();
+    }, document.activeElement);
+    cliValue = "";
+    var input = $("[data-cli]");
+    if (input) input.value = "";
+    recompute();
+    if (!opts.noRender) render(true);
+    if (!opts.silent) {
+      status(state.composeDraft.status === "generating"
+        ? "drafting inline…"
+        : "inline draft — Enter commit · Esc reject · e edit");
+    }
+    return true;
+  }
+
+  async function startAiComposeDraft(prompt, ctx) {
+    ctx = ctx || composeContext();
+    // Stage immediately under the parent as a pending reply. Optional on-device
+    // rewrite updates the same inline draft — never the session blade.
+    if (!stageComposeDraft(prompt, ctx, {
+      source: "ai",
+      status: "ready",
+      body: prompt,
+      silent: true,
+    })) return false;
+    status("inline draft — Enter commit · Esc reject · e edit");
+    focusCli();
+    var canRun = window.CW_AGENT && typeof window.CW_AGENT.run === "function" &&
+      window.CWResilient && typeof window.CWResilient.availability === "function";
+    if (!canRun) return true;
+    var avail;
+    try {
+      avail = await window.CWResilient.availability();
+    } catch {
+      return true;
+    }
+    if (avail !== "available") return true;
+    state.composeDraft.status = "generating";
+    state._captureComposeDraft = true;
+    render(true);
+    status("drafting inline reply…");
+    var captured = [];
+    try {
+      var here = authorizedNamespaceEntries(state.path).map(function (e) { return e.name; });
+      var instruction = ctx.kind === "reply"
+        ? ("Draft a concise reply to @" + (ctx.who || "them") +
+          " (post " + (ctx.postId || "") + "). Intent: " + prompt +
+          "\nReturn only the reply body text via say. Do not call board_post.")
+        : ("Draft a concise " + ctx.kind + " message. Intent: " + prompt +
+          "\nReturn only the message body text via say.");
+      await window.CW_AGENT.run(instruction, {
+        cwd: state.path,
+        workspaceId: "workspace-" + (state.activeSession + 1),
+        here: here,
+        compose: ctx,
+        attachments: [],
+        displayInput: prompt,
+        boundContext: state.boundContext || [],
+        draftOnly: true,
+      }, function (ev) {
+        var E = window.CW_AGENT.EVENT;
+        if (ev.type === E.TEXT_MESSAGE_CONTENT && ev.delta) {
+          captured.push(ev.delta);
+          if (state.composeDraft) {
+            state.composeDraft.body = captured.join("").trim() || prompt;
+            render(true);
+          }
+        }
+        // Swallow every other AG-UI event — drafting must not open or fill
+        // the session/agent chat pane.
+      });
+    } catch {
+      /* keep staged prompt body */
+    } finally {
+      state._captureComposeDraft = false;
+      if (state.composeDraft) {
+        if (!String(state.composeDraft.body || "").trim()) {
+          state.composeDraft.body = String(prompt || "").trim();
+        }
+        state.composeDraft.status = "ready";
+      }
+      render(true);
+      status("inline draft — Enter commit · Esc reject · e edit");
+      focusCli();
+    }
+    return true;
+  }
+
   /** Clear armed reply when the path leaves that channel (or board entirely). */
   function syncReplyWithPath() {
     if (!state.replyTo) return;
@@ -4607,19 +4877,22 @@
     }
     state.merged = mergeUniquePosts(state.merged, [post]);
     if (ctx.kind === "reply") clearReplyTo();
+    clearComposeDraft({ silent: true, noRender: true });
     clearSessionOutFocus({ noRender: true });
-    beginUserTurn(body, "compose");
+    // Consume staged attachments without opening agent chat — the post itself
+    // is the receipt, visible inline in the thread/feed.
+    takeAttachments();
     var where = ctx.kind === "dm"
       ? ("@" + ctx.dm)
       : (ctx.kind === "reply"
         ? ("reply to " + ctx.postId)
         : ("#" + (ctx.channelLabel || ctx.channel)));
-    pushLine({ kind: "out", text: "posted · " + where });
     notifyFromLivePost(post);
     if (!ctx.fromAction && window.CW_STREAM && typeof window.CW_STREAM.emit === "function") {
       window.CW_STREAM.emit("compose.publish", { body: body }, state.path);
     }
-    render(true);
+    if (!ctx.noReveal) revealPostedCompose(post, ctx);
+    else render(true);
     status("posted · " + where);
     return post;
   }
@@ -5373,6 +5646,44 @@
     return true;
   }
 
+  /** Current non-empty DOM text selection, if any. */
+  function domSelectionText() {
+    try {
+      var sel = window.getSelection && window.getSelection();
+      if (!sel || sel.isCollapsed) return "";
+      return String(sel.toString() || "").replace(/\u00a0/g, " ").trim();
+    } catch {
+      return "";
+    }
+  }
+
+  /**
+   * Terminal select-to-copy: highlighted board text (paths, messages, session
+   * output) lands on the clipboard — same habit as a classic TTY.
+   */
+  function copyDomSelection(opts) {
+    opts = opts || {};
+    var text = domSelectionText();
+    if (!text) return false;
+    if (!window.CW_COPY || typeof window.CW_COPY.copyText !== "function") {
+      status("copy unavailable");
+      return false;
+    }
+    window.CW_COPY.copyText(text).then(function (ok) {
+      if (!opts.silent) {
+        status(ok
+          ? ("copied · selection (" + text.length + " chars)")
+          : "copy failed");
+      }
+    });
+    return true;
+  }
+
+  /** True when a DOM text selection should own pointer release (not a click). */
+  function selectionOwnsPointer() {
+    return !!domSelectionText();
+  }
+
   function removeBoundContext(id) {
     state.boundContext = (state.boundContext || []).filter(function (c) {
       return c.id !== id;
@@ -5713,11 +6024,13 @@
     if (!post) throw new Error("reply target unavailable");
     armReplyTo(post.id, post.who || "there", post.channel, post.project);
     state.columnFocus = false;
-    state.ai = true;
+    // Keep the user's ai/cli mode — AI drafts a preview; CLI posts directly.
     cliValue = "";
     render(true);
     focusCli();
-    status("reply @" + (post.who || "there") + " — type and Enter to post");
+    status(state.ai
+      ? ("reply @" + (post.who || "there") + " — describe the rewrite, Enter drafts a preview")
+      : ("reply @" + (post.who || "there") + " — type and Enter to post"));
     return { objectId: post.id };
   }
 
@@ -5894,6 +6207,20 @@
     if (actionId === "compose.publish") {
       var body = String(input.body || "").trim();
       if (!body) throw new Error("body required");
+      // AI draft capture: stage a preview instead of publishing immediately.
+      if (state._captureComposeDraft || (state.composeDraft && state.composeDraft.status === "generating")) {
+        if (!state.composeDraft) {
+          stageComposeDraft(body, composeContext(), {
+            body: body, source: "ai", status: "ready", silent: true,
+          });
+        } else {
+          state.composeDraft.body = body;
+          state.composeDraft.status = "ready";
+          render(true);
+        }
+        status("inline draft — Enter commit · Esc reject · e edit");
+        return { drafted: true, body: body };
+      }
       var compose = composeContext();
       if (input.re) {
         armReplyTo(input.re, "there", input.channel || (compose && compose.channel), compose && compose.project);
@@ -6087,6 +6414,10 @@
       return;
     }
 
+    var invokedAs = cmd;
+    if (cmd === "rg" || cmd === "ripgrep") cmd = "grep";
+    if (cmd === "fd") cmd = "find";
+
     if (cmd === "cd") {
       var dest = arg === "-" ? state.prev : arg;
       var moved = navigate(dest || "/", { keepCli: true });
@@ -6094,6 +6425,10 @@
         var projection = MAP.projectionForPath(state.path);
         var objectPath = MAP.pathForObject(dest, projection.projectionId, state.merged);
         if (objectPath) moved = navigate(objectPath, { keepCli: true });
+      }
+      if (!moved && dest) {
+        // zoxide-style: exact cd failed — fall through to ranked jump (`z`).
+        return jumpBest(dest);
       }
       if (!moved) {
         var guess = window.CW_COMPLETE.analyse("cd " + dest, { cwd: state.path, extra: state.merged });
@@ -6137,27 +6472,74 @@
         reply = state.feedQueryError ? "query error: " + state.feedQueryError : "view: " + arg;
       }
     } else if (cmd === "find") {
-      var hits = [];
-      ["/projects", "/members", "/spaces", "/dms"].forEach(function (root) {
-        authorizedNamespaceEntries(root).forEach(function (e) {
-          if (window.CW_COMPLETE.score(e.name, arg) !== null) hits.push(root + "/" + e.name);
-          if (e.kind === "dir") {
-            authorizedNamespaceEntries(root + "/" + e.name).forEach(function (f) {
-              if (window.CW_COMPLETE.score(f.name, arg) !== null) hits.push(root + "/" + e.name + "/" + f.name);
+      var findLabel = invokedAs === "fd" || invokedAs === "find" ? invokedAs : "fd";
+      var findHits = [];
+      var findNeedle = String(arg || "").trim();
+      if (!findNeedle) {
+        reply = findLabel + ": <pattern>  (fd-style name search)";
+      } else {
+        var findRe = null;
+        try {
+          findRe = new RegExp(findNeedle.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, "."), "i");
+        } catch {
+          findRe = null;
+        }
+        ["/projects", "/members", "/spaces", "/dms", "/views"].forEach(function (root) {
+          function walk(path, depth) {
+            if (depth > 4) return;
+            authorizedNamespaceEntries(path).forEach(function (e) {
+              var full = path === "/" ? "/" + e.name : path + "/" + e.name;
+              var hay = e.name + " " + full;
+              var matched = findRe ? findRe.test(hay) : window.CW_COMPLETE.score(e.name, findNeedle) !== null;
+              if (matched) findHits.push(full);
+              if (e.kind === "dir") walk(full, depth + 1);
             });
           }
+          walk(root, 0);
         });
-      });
-      reply = hits.length ? hits.slice(0, 12).join("\n") : "find: nothing matched";
+        reply = findHits.length ? findHits.slice(0, 40).join("\n") : findLabel + ": nothing matched";
+      }
     } else if (cmd === "search") {
       return finishSearch(arg);
     } else if (cmd === "grep") {
-      var g = D.posts.concat(state.merged.filter(function (post) { return !post.dm; })).filter(function (q) {
-        return (q.body + " " + (q.subject || "")).toLowerCase().indexOf(arg.toLowerCase()) !== -1;
-      });
-      reply = g.length ? g.slice(0, 8).map(function (q) {
-        return q.channel + "/" + q.who + ": " + (q.subject || q.body).slice(0, 60);
-      }).join("\n") : "grep: no matches";
+      var grepLabel = (invokedAs === "rg" || invokedAs === "ripgrep" || invokedAs === "grep") ? invokedAs : "rg";
+      var grepArg = String(arg || "").trim();
+      if (!grepArg) {
+        reply = grepLabel + ": <regex>  (rg-style body search; -i for ignore-case)";
+      } else {
+        var grepIgnoreCase = false;
+        var grepPattern = grepArg;
+        var grepParts = grepArg.split(/\s+/);
+        while (grepParts[0] && grepParts[0].charAt(0) === "-") {
+          var flag = grepParts.shift();
+          if (flag === "-i" || flag === "--ignore-case") grepIgnoreCase = true;
+          else if (flag === "-e" || flag === "--regexp") {
+            grepPattern = grepParts.join(" ");
+            grepParts = [];
+            break;
+          } else break;
+        }
+        if (grepParts.length) grepPattern = grepParts.join(" ");
+        var grepRe = null;
+        try {
+          grepRe = new RegExp(grepPattern, grepIgnoreCase ? "i" : "");
+        } catch (error) {
+          reply = grepLabel + ": invalid regex: " + (error && error.message || error);
+          grepRe = null;
+        }
+        if (grepRe) {
+          var g = D.posts.concat(state.merged.filter(function (post) { return !post.dm; })).filter(function (q) {
+            return grepRe.test((q.body || "") + "\n" + (q.subject || "") + "\n" + (q.channel || "") + "/" + (q.who || ""));
+          });
+          reply = g.length ? g.slice(0, 20).map(function (q) {
+            return q.channel + "/" + q.who + ": " + (q.subject || q.body).slice(0, 80);
+          }).join("\n") : grepLabel + ": no matches";
+        }
+      }
+    } else if (cmd === "pass") {
+      reply = window.CW_PASS && typeof window.CW_PASS.command === "function"
+        ? window.CW_PASS.command(arg)
+        : "pass: unavailable";
     } else if (cmd === "tail") {
       var n = state.pending.length; mergePending();
       reply = n ? "loaded " + n : "nothing queued";
@@ -6481,18 +6863,21 @@
     if (bound.length && window.CW_CTX && window.CW_CTX.composeWithBoundContext) {
       display = window.CW_CTX.composeWithBoundContext(display, bound);
     }
+    var quiet = mode === "compose" || mode === "compose-quiet";
     pushLine({
       kind: "user",
       text: display,
-      mode: mode || (state.ai ? "ai" : "cli"),
+      mode: mode === "compose-quiet" ? "compose" : (mode || (state.ai ? "ai" : "cli")),
+      quiet: quiet,
       attachments: attachmentMetaList(atts),
       boundContext: bound.map(function (c) {
         return { id: c.id, name: c.name, kind: c.kind };
       }),
       _pendingAsk: mode === "ai",
     });
-    // Agent/chat turns claim the dedicated session blade immediately.
-    if (mode === "ai" || mode === "compose") {
+    // Only explicit agent turns claim the session blade. Board compose / AI
+    // reply drafts stay in the thread — never auto-open agent chat.
+    if (mode === "ai") {
       state.sessionClosed = false;
       state.sessionOutFocus = true;
       if (sessionBladeIndex() >= 0) state.focus = sessionBladeIndex();
@@ -6626,7 +7011,6 @@
         render(true);
         return true;
       }
-      state.ai = true;
       var hereR = feedEntries();
       var selR = entries()[state.cursor];
       var post = selR && selR.post ? selR.post : null;
@@ -6648,11 +7032,18 @@
       }
       if (post) {
         armReplyTo(post.id, post.who, post.channel, post.project);
+        state.columnFocus = false;
+        if (rest && state.ai) {
+          startAiComposeDraft(rest, composeContext());
+          return true;
+        }
         cliValue = rest || "";
         recompute();
         pushLine({
           kind: "out",
-          text: "reply @" + post.who + " armed — type and Enter",
+          text: state.ai
+            ? ("reply @" + post.who + " armed — describe a rewrite, Enter for preview")
+            : ("reply @" + post.who + " armed — type and Enter to post"),
         });
         render(true);
         focusCli();
@@ -6760,7 +7151,7 @@
       openJumpChooser(arg);
       reply = null;
     } else if (run === "ls" || run === "cat" || run === "sort" || run === "find" ||
-               run === "search" || run === "grep" || run === "tail" || run === "watch" ||
+               run === "search" || run === "grep" || run === "pass" || run === "tail" || run === "watch" ||
                run === "stat" || run === "clear") {
       // Reuse CLI implementations by synthesizing a command line.
       var synthetic = (run === "tail" ? "tail" : run) + (arg ? " " + arg : "");
@@ -6843,16 +7234,33 @@
         render(true);
         return true;
       }
-      state.ai = true;
       var hereR = authorizedNamespaceEntries(state.path);
       var selR = hereR[state.cursor];
-      if (selR && selR.post) {
-        armReplyTo(selR.post.id, selR.post.who, selR.post.channel, selR.post.project);
+      var replyPost = selR && selR.post ? selR.post : null;
+      if (!replyPost && (state.threadFocus || state.feedMark)) {
+        var wantR = state.threadFocus || state.feedMark;
+        var feedR = feedEntries();
+        for (var rix = 0; rix < feedR.length; rix++) {
+          if (feedR[rix].post && feedR[rix].post.id === wantR) {
+            replyPost = feedR[rix].post;
+            break;
+          }
+        }
+      }
+      if (replyPost) {
+        armReplyTo(replyPost.id, replyPost.who, replyPost.channel, replyPost.project);
+        state.columnFocus = false;
+        if (arg && state.ai) {
+          startAiComposeDraft(arg, composeContext());
+          return true;
+        }
         cliValue = arg || "";
         recompute();
         render(true);
         focusCli();
-        reply = "reply @" + selR.post.who + " armed — type and Enter";
+        reply = state.ai
+          ? ("reply @" + replyPost.who + " armed — describe a rewrite, Enter for preview")
+          : ("reply @" + replyPost.who + " armed — type and Enter to post");
       } else {
         cliValue = arg || "";
         recompute();
@@ -7119,6 +7527,18 @@
   }
 
   /**
+   * Prompt owns the keyboard. Focusing the CLI (click, Tab, :, compose arm)
+   * must clear columnFocus — otherwise ↑↓ for autocomplete still look like
+   * VFS steers and reclaim the navigator.
+   */
+  function claimPromptFocus(opts) {
+    opts = opts || {};
+    state.columnFocus = false;
+    if (state.editor) state.editor.focused = false;
+    if (opts.focus !== false) focusCli();
+  }
+
+  /**
    * Hand keyboard steering to the workbench (nav / home / detail). Always
    * blurs the prompt so document-level chords are not swallowed by the
    * input's early-return — columnFocus alone is not enough when the CLI
@@ -7131,6 +7551,15 @@
       try { input.blur(); } catch { /* fine */ }
     }
     requestAnimationFrame(function () {
+      // Keep DOM focus aligned with keyboard ownership. A leftover message
+      // article must not keep receiving ←/→ while the VFS list owns steering.
+      if (listOwnsKeyboard()) {
+        var item = document.querySelector(
+          '.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]',
+        );
+        if (item) try { item.focus({ preventScroll: true }); } catch { /* fine */ }
+        return;
+      }
       if (!detailOwnsKeyboard()) return;
       var post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[tabindex="0"]');
       if (post) try { post.focus({ preventScroll: true }); } catch { /* fine */ }
@@ -7175,6 +7604,11 @@
   function isColumnSteerKey(ev) {
     if (ev.altKey || ev.ctrlKey || ev.metaKey) return false;
     var k = ev.key;
+    var composerFocused = !!(ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-cli"));
+    // Open autocomplete owns ↑↓ / Enter while the prompt is focused.
+    if (composerFocused && menuShouldOpen()) {
+      if (k === "ArrowDown" || k === "ArrowUp" || k === "Enter") return false;
+    }
     if (k === "ArrowDown" || k === "ArrowUp" || k === "ArrowLeft" || k === "ArrowRight") {
       return true;
     }
@@ -7182,7 +7616,6 @@
     if (k === " " || k === "Spacebar" || k === "PageUp" || k === "PageDown") return true;
     if (k === "[" || k === "]") return true;
     if (k.length === 1 && /^[hjklzyvre]$/i.test(k)) {
-      var composerFocused = !!(ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-cli"));
       if (window.CW_RUNTIME && typeof window.CW_RUNTIME.letterSteersBoard === "function") {
         return window.CW_RUNTIME.letterSteersBoard({
           composerFocused: composerFocused,
@@ -7210,6 +7643,16 @@
   function wireMount() {
     var mount = $("[data-mount]");
 
+    // Clicking / focusing the prompt claims keyboard ownership from the VFS.
+    mount.addEventListener("focusin", function (ev) {
+      if (!ev.target || !ev.target.hasAttribute || !ev.target.hasAttribute("data-cli")) return;
+      claimPromptFocus({ focus: false });
+    });
+    mount.addEventListener("pointerdown", function (ev) {
+      if (!ev.target || !ev.target.closest) return;
+      if (!ev.target.closest("[data-cli]")) return;
+      claimPromptFocus({ focus: false });
+    }, true);
     // Right-click: themed context menu (suppress native browser menu).
     document.addEventListener("contextmenu", function (ev) {
       if (!window.CW_CTX) return;
@@ -7230,6 +7673,22 @@
         window.requestAnimationFrame(function () { focusContextMenuItem(0); });
       }
       status("context · " + (t.kind || "ctrl") + " · " + (t.name || t.id));
+    });
+
+    // Select-to-copy anywhere on the board terminal (paths, feed, session…).
+    // Skip editable fields — those keep native clipboard chords.
+    document.addEventListener("mouseup", function (ev) {
+      if (ev.button !== 0) return;
+      var target = ev.target;
+      if (!target || !target.closest) return;
+      if (!target.closest("[data-mount]") && !target.closest(".cw-bar") &&
+          !target.closest("[data-region='status']")) {
+        return;
+      }
+      if (target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (target.closest(".cw-ed")) return;
+      if (!selectionOwnsPointer()) return;
+      copyDomSelection();
     });
 
     mount.addEventListener("click", function (ev) {
@@ -7391,9 +7850,19 @@
       }
       if (ev.target.closest("[data-compose-clear]")) {
         clearReplyTo();
+        clearComposeDraft({ silent: true });
         render(true);
         focusCli();
-        return status("reply cleared");
+        return status("compose cleared");
+      }
+      if (ev.target.closest("[data-draft-accept]")) {
+        return acceptComposeDraft();
+      }
+      if (ev.target.closest("[data-draft-reject]")) {
+        return rejectComposeDraft();
+      }
+      if (ev.target.closest("[data-draft-modify]")) {
+        return modifyComposeDraft();
       }
       if (ev.target.closest("[data-help-close]")) {
         closeIntel();
@@ -7577,6 +8046,10 @@
       if (commentHit && !ev.target.closest(
         "button, a, [data-vote-id], [data-reply], [data-repost], [data-share-post], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
       )) {
+        if (selectionOwnsPointer()) {
+          try { ev.preventDefault(); } catch { /* fine */ }
+          return;
+        }
         var cid = commentHit.getAttribute("data-key");
         if (cid) {
           try { ev.preventDefault(); } catch { /* fine */ }
@@ -7610,6 +8083,11 @@
       }
       var go = ev.target.closest("[data-goto]");
       if (go) {
+        // Dragging a path/crumb selection must copy, not navigate.
+        if (selectionOwnsPointer()) {
+          try { ev.preventDefault(); } catch { /* fine */ }
+          return;
+        }
         try { ev.preventDefault(); } catch { /* fine */ }
         // Following-card Open / row click → land on source with selection detail.
         if (go.closest(".cn-follow-row") || go.closest(".cn-home-open") ||
@@ -7667,6 +8145,10 @@
       }
       var item = ev.target.closest(".cn-item");
       if (item) {
+        if (selectionOwnsPointer()) {
+          try { ev.preventDefault(); } catch { /* fine */ }
+          return;
+        }
         // Single click: select + preview in detail (path stays on the parent
         // branch). Enter / → / double-click activates or slides into a dir.
         var target = item.dataset.path;
@@ -8001,8 +8483,19 @@
         // is explicit with arrows + Enter, or fish-style Right/End ghost accept.
         return;
       }
+      // Empty prompt + ready draft: `e` opens the body for editing.
+      if (ev.key === "e" && !ev.altKey && !ev.ctrlKey && !ev.metaKey &&
+          state.composeDraft && state.composeDraft.status === "ready" &&
+          !String(cli.value || "").trim()) {
+        ev.preventDefault();
+        return modifyComposeDraft();
+      }
       if (ev.key === "Enter") {
         ev.preventDefault();
+        // Compose/submit owns this Enter. Stop bubbling so the document
+        // column handler cannot activateSelection after reveal flips
+        // columnFocus true mid-event (which wiped the new reply mark).
+        try { ev.stopPropagation(); } catch { /* fine */ }
         // Arrow selection previews `cd` in place. Enter accepts that preview
         // and executes the resolved line; it must not fall back through the
         // generic combobox branch and merely reinsert the same option.
@@ -8044,7 +8537,14 @@
         // Allow send with only attachments or bound context staged.
         if (!String(text || "").trim() &&
             !(state.attachments && state.attachments.length) &&
-            !(state.boundContext && state.boundContext.length)) {
+            !(state.boundContext && state.boundContext.length) &&
+            !(state.composeDraft && state.composeDraft.status === "ready")) {
+          return;
+        }
+        // Staged AI/user draft: bare Enter accepts.
+        if (state.composeDraft && state.composeDraft.status === "ready" &&
+            !String(text || "").trim()) {
+          acceptComposeDraft();
           return;
         }
         cliValue = "";
@@ -8065,6 +8565,11 @@
             cliValue = text;
             cli.value = text;
             return render(true);
+          }
+          // AI mode stages a preview; CLI posts immediately into the thread.
+          if (state.ai) {
+            startAiComposeDraft(trimmed, cctx);
+            return;
           }
           publishCompose(trimmed, cctx);
           return;
@@ -8127,6 +8632,9 @@
       }
       if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
         ev.preventDefault();
+        try { ev.stopPropagation(); } catch { /* fine */ }
+        // Autocomplete / history recall owns these chords — never VFS.
+        state.columnFocus = false;
         var c = state.completion;
         // With a *visible* multi-choice menu, arrows walk candidates. An empty
         // prompt still has a full command catalogue in completion state, but
@@ -8141,6 +8649,7 @@
           highlightCandidate();
           paintGhost();
           previewCdCandidate();
+          focusCli();
           return;
         }
         if (!state.history.length) return;
@@ -8153,6 +8662,7 @@
         // an exact one-row completion must not capture the next Up/Down key.
         state.menuDismissed = true;
         paintGhost();
+        focusCli();
       }
     });
   }
@@ -8470,8 +8980,13 @@
       // Inputs normally own every keystroke. Exception: columns already own
       // steering (Esc from prompt, click into nav/home) but the CLI still has
       // DOM focus — then board chords (j/k/arrows/…) must reach the board.
+      // Autocomplete / compose on the prompt always wins over that exception.
       if (ev.target.matches("input, textarea, select")) {
+        if (ev.defaultPrevented) return;
         var cliEl = ev.target.hasAttribute && ev.target.hasAttribute("data-cli");
+        if (cliEl && (menuShouldOpen() || hasLayer("completion") || state.composeDraft)) {
+          return;
+        }
         if (state.columnFocus && cliEl && isColumnSteerKey(ev)) {
           try { ev.target.blur(); } catch { /* fine */ }
         } else {
@@ -8480,21 +8995,35 @@
       }
       var k = ev.key;
 
-      // A focused feed article owns message navigation. Child controls keep
-      // native keyboard behavior; Tab continues to return to the prompt.
+      // Message chords only while the detail blade owns keyboard. Stale DOM
+      // focus on a .cn-comment must not hijack VFS ←/→/↑/↓ ownership.
+      // Mental model: ↑↓ browse · Enter/→ open thread · ← close thread then nav.
+      // Message-ID directories are a CLI/cd power path — not arrow navigation.
       var message = ev.target.closest && ev.target.closest(".cn-comment[data-key]");
-      if (message && !ev.target.closest("button, a, input, textarea, select")) {
+      if (message && detailOwnsKeyboard() &&
+          !ev.target.closest("button, a, input, textarea, select")) {
         var threadItem = message.getAttribute("role") === "treeitem";
-        if (threadItem && (k === "ArrowLeft" || k === "h" || k === "ArrowRight" ||
-            k === "l" || k === "Enter")) {
-          ev.preventDefault();
-          return handleThreadTreeKey(message, k);
-        }
-        if (k === "ArrowLeft" || k === "h") {
-          if (ascendFocusedMessage()) {
+        if (threadItem && (k === "ArrowRight" || k === "l" || k === "Enter")) {
+          // Outline tree: expand / drill to child / open reading selection.
+          if (handleThreadTreeKey(message, k)) {
             ev.preventDefault();
             return;
           }
+        }
+        if (threadItem && (k === "ArrowLeft" || k === "h") &&
+            message.getAttribute("aria-expanded") === "true") {
+          // Collapse only — parent-walk is confusing next to "← closes thread".
+          if (handleThreadTreeKey(message, k)) {
+            ev.preventDefault();
+            return;
+          }
+        }
+        if (k === "ArrowLeft" || k === "h") {
+          ev.preventDefault();
+          // Deep-link / cd message addresses leave for the channel in one step.
+          if (leaveMessageAddressPath()) return;
+          if (state.threadFocus) return clearThreadFocus();
+          return goLeft();
         }
         if (k === "ArrowDown" || k === "j") {
           ev.preventDefault();
@@ -8536,9 +9065,9 @@
       // input is where you are by default and returning is one key.
       if (k === ":" || k === "i" || k === ">") {
         ev.preventDefault();
-        state.columnFocus = false;
+        claimPromptFocus();
         render();
-        return focusCli();
+        return;
       }
       if (k === "/") { ev.preventDefault(); state.filter = ""; state.focus = 1; render(); return status("filter: type to narrow, Esc to clear"); }
       if (k === "Escape") {
@@ -8565,8 +9094,13 @@
         focusColumns();
         return toggleFocusedPanel();
       }
-      // Yank: copy focused content (post thread, channel feed, chat, …).
-      if (k === "y" && state.columnFocus && window.CW_CTX && window.CW_COPY) {
+      // Yank: prefer an active DOM selection, else focused content.
+      if (k === "y" && state.columnFocus && window.CW_COPY) {
+        if (copyDomSelection()) {
+          ev.preventDefault();
+          return;
+        }
+        if (!window.CW_CTX) return;
         ev.preventDefault();
         var yankTarget = window.CW_CTX.resolveTarget(
           { target: document.activeElement || $("[data-mount]") || document.body },
@@ -8689,12 +9223,22 @@
         return dismissCurrent();
       }
 
+      // Enter accepts a ready compose draft even from panel focus.
+      if (k === "Enter" && state.composeDraft && state.composeDraft.status === "ready" &&
+          state.columnFocus) {
+        ev.preventDefault();
+        return acceptComposeDraft();
+      }
       if (k === "ArrowDown" || k === "j") { ev.preventDefault(); focusColumns(); return moveCursor(1); }
       if (k === "ArrowUp" || k === "k") { ev.preventDefault(); focusColumns(); return moveCursor(-1); }
       // → / l : slide into selected dir, open post thread, or edit a file
       if (k === "ArrowRight" || k === "l") { ev.preventDefault(); focusColumns(); return goRight(); }
       if (k === "Enter") { ev.preventDefault(); focusColumns(); return activateSelection(); }
-      // e : open terminal editor (posts included — → opens threads instead)
+      // e : modify staged draft, else open terminal editor
+      if (k === "e" && state.composeDraft) {
+        ev.preventDefault();
+        return modifyComposeDraft();
+      }
       if (k === "e" && state.columnFocus) {
         ev.preventDefault();
         return editCursorEntry();
@@ -8710,8 +9254,12 @@
       if (k === "Backspace" && !state.filter) {
         ev.preventDefault();
         focusColumns();
-        // On thread: back to channel feed. On detail: close. On nav: go up.
+        // Message-ID address → channel, then thread → feed, then detail/nav.
+        if (leaveMessageAddressPath()) return;
         if (state.threadFocus) return clearThreadFocus();
+        if (MAP.isPostReplyPath && MAP.isPostReplyPath(state.path) && ascendFocusedMessage()) {
+          return;
+        }
         if (isDetailOpen() && (state.focus != null ? state.focus : 0) >= detailBladeIndex()) {
           return closeDetail();
         }
@@ -8781,18 +9329,15 @@
     var avail = await window.CWResilient.availability();
 
     if (avail === "absent" || avail === "unavailable") {
-      if (!state.searchWorkbench) {
-        state.ai = false;
-        render(true);
-      }
-      return status("no on-device model here — cli mode, Alt+A to switch");
+      // Keep AI mode for compose draft previews and CLI-superset commands;
+      // agent turns still fail closed without a model.
+      return status("no on-device model here — ai drafts still preview · Alt+A for cli");
     }
 
     if (avail === "available") {
       status("loading the on-device model…");
       await window.CW_AGENT.warm(function (m) { if (!state.busy) status(m); });
       var st = window.CWResilient.modelState();
-      if (st.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       return status(st.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st.error));
@@ -8812,7 +9357,6 @@
       status("fetching the on-device model, once…");
       await window.CW_AGENT.warm(function (m) { if (!state.busy) status(m); });
       var st2 = window.CWResilient.modelState();
-      if (st2.state !== "ready" && !state.searchWorkbench) { state.ai = false; render(true); }
       status(st2.state === "ready"
         ? "model ready — ai mode. Alt+A for cli."
         : humanModelStatus(st2.error));
@@ -8930,10 +9474,33 @@
       bootNote = (bootNote ? bootNote + " · " : "") + window.CW_NOTIFY.permissionLabel();
     }
     var recovery = activeRecovery();
-    status(recovery ? recovery.message : (navigationRestoreNotice || bootNote));
+    var fabricNote = "";
+    if (window.CW_NATS_FABRIC && typeof window.CW_NATS_FABRIC.evaluateHandoff === "function") {
+      var fabricDecision = window.CW_NATS_FABRIC.evaluateHandoff(identity);
+      if (fabricDecision && fabricDecision.message) fabricNote = fabricDecision.message;
+    }
+    var finalBoot = recovery ? recovery.message : (navigationRestoreNotice || bootNote);
+    if (!recovery && fabricNote) {
+      finalBoot = (finalBoot ? finalBoot + " · " : "") + fabricNote;
+    }
+    status(finalBoot);
     // First visit: open keys after the boot status so the onboard cue wins.
     maybeOpenKeysOnboard();
     paintSampleStream();
+    attachNatsFabricHandoff();
+  }
+
+  /**
+   * Complementary NATS fabric gate (ADR-0054): only when endpoint is configured
+   * and a Platform-backed ticket path exists. Guests stay local-only with an
+   * honest status. Never opens session/agent chat on fabric failure.
+   */
+  function attachNatsFabricHandoff() {
+    if (!window.CW_NATS_FABRIC || typeof window.CW_NATS_FABRIC.attach !== "function") return;
+    window.CW_NATS_FABRIC.attach(identity).then(function (result) {
+      // Intentionally never openAuth / open session chat on fabric failure.
+      if (!result || result.openChat) return;
+    }).catch(function () { /* fail soft — local board stays usable */ });
   }
 
   /**
@@ -9165,6 +9732,12 @@
     createProject: createProject,
     armReplyTo: armReplyTo,
     clearReplyTo: clearReplyTo,
+    clearComposeDraft: clearComposeDraft,
+    acceptComposeDraft: acceptComposeDraft,
+    rejectComposeDraft: rejectComposeDraft,
+    modifyComposeDraft: modifyComposeDraft,
+    stageComposeDraft: stageComposeDraft,
+    startAiComposeDraft: startAiComposeDraft,
     setView: function (v) {
       // Back-compat: view_set tool / chips now map onto feed projections.
       applyFeedView(v);
@@ -9190,6 +9763,11 @@
     openIntel: openIntel,
     // Profile + spaces (tests and WebMCP honesty).
     getIdentity: function () { return identity; },
+    getFabricStatus: function () {
+      return window.CW_NATS_FABRIC && window.CW_NATS_FABRIC.status
+        ? window.CW_NATS_FABRIC.status()
+        : { status: "idle", reason: "nats-fabric not loaded", opened: false };
+    },
     readWorkspaceText: function (path) {
       path = String(path || "").replace(/^\/+/u, "");
       var buffers = state.editor && state.editor.buffers;
@@ -9290,6 +9868,8 @@
     runContextAction: runContextAction,
     clearBoundContext: clearBoundContext,
     copyTargetContent: copyTargetContent,
+    copyDomSelection: copyDomSelection,
+    domSelectionText: domSelectionText,
     cycleHomeTab: cycleHomeTab,
     moveHomeCursor: moveHomeCursor,
     focusColumns: focusColumns,

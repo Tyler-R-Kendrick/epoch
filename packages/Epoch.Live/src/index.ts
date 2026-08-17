@@ -18,10 +18,12 @@ export { createIntegritySigner, createIntegrityVerifier } from "./signer";
 export type { LiveSigner, LiveVerifier } from "./signer";
 
 export {
+  createAuthenticatedNatsLiveProvider,
   createBroadcastChannelProvider,
   createChannelProvider,
   createInMemoryRelay,
   createInMemoryRelayProvider,
+  createNatsLiveProvider,
   createWebRTCProvider,
   createWebSocketRelayProvider,
 } from "./providers";

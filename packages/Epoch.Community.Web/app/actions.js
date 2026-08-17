@@ -23,11 +23,11 @@
   }
 
   [
-    { actionId: "nav.enter", label: "Change directory", description: "Enter an exact path or unique alias", commandAliases: ["cd"], commandArg: "path", slashAliases: ["/go"], slashArg: "path", run: "cd" },
+    { actionId: "nav.enter", label: "Change directory", description: "Enter an exact path, unique alias, or zoxide-style ranked jump", commandAliases: ["cd", "z"], commandArg: "path", slashAliases: ["/go"], slashArg: "path", run: "cd" },
     { actionId: "nav.ascend", label: "Ascend namespace", description: "Follow the current projection parent", run: "nav-ascend" },
     { actionId: "nav.list", label: "List", description: "List namespace entries and capabilities", commandAliases: ["ls"], commandArg: "path", run: "ls" },
     { actionId: "nav.read", label: "Read", description: "Read an object's default representation", commandAliases: ["cat"], commandArg: "path", run: "cat" },
-    { actionId: "jump.best", label: "Jump", description: "Rank and open a unique global destination", commandAliases: ["z"], commandArg: "terms", run: "jump-best" },
+    { actionId: "jump.best", label: "Jump", description: "Rank and open a unique global destination", run: "jump-best", hidden: true },
     { actionId: "jump.interactive", label: "Jump chooser", description: "Open the grouped global destination chooser", commandAliases: ["zi"], commandArg: "terms", slashAliases: ["/jump"], slashArg: "terms", keyBindings: [{ key: "Ctrl+J", contexts: ["board"] }], voiceAliases: ["open global jump"], run: "jump-interactive", mcp: { toolName: "board_jump", inputSchema: { type: "object", properties: { terms: { type: "string" }, interactive: { type: "boolean" } }, required: ["terms"] } } },
     { actionId: "feed.sort", label: "Sort view", description: "Set hot, new, top, or best order", commandAliases: ["sort"], commandArg: "sort", slashAliases: ["/sort"], slashArg: "sort", run: "sort" },
     { actionId: "search.open", label: "Open search", description: "Open deterministic cross-source search", commandAliases: ["search", "q", "view"], commandArg: "query", slashAliases: ["/search", "/q", "/view"], slashArg: "query", keyBindings: [{ key: "Ctrl+F", contexts: ["board"] }], voiceAliases: ["open search"], run: "search" },
@@ -58,8 +58,9 @@
     { actionId: "snapshot.freeze", label: "Freeze snapshot", description: "Freeze content and ordering for this workbench" },
     { actionId: "snapshot.refresh", label: "Refresh snapshot", description: "Refresh source checkpoints explicitly" },
     { actionId: "snapshot.applyQueued", label: "Apply queued updates", description: "Apply queued projection changes without losing the reading anchor" },
-    { actionId: "search.find", label: "Find names", description: "Search names without changing deterministic cd", commandAliases: ["find"], commandArg: "text", run: "find" },
-    { actionId: "search.body", label: "Search bodies", description: "Search readable message bodies", commandAliases: ["grep"], commandArg: "text", run: "grep" },
+    { actionId: "search.find", label: "Find names", description: "fd-style name search without changing deterministic cd", commandAliases: ["fd", "find"], commandArg: "text", run: "find" },
+    { actionId: "search.body", label: "Search bodies", description: "rg-style search over readable message bodies", commandAliases: ["rg", "ripgrep", "grep"], commandArg: "text", run: "grep" },
+    { actionId: "secrets.pass", label: "Password store", description: "Unix pass against the board password-store VFS", commandAliases: ["pass"], commandArg: "pass", run: "pass" },
     { actionId: "stream.load", label: "Load queued posts", description: "Merge queued arrivals without stealing the reader anchor", commandAliases: ["tail"], run: "tail" },
     { actionId: "stream.watch", label: "Resume stream", description: "Resume live arrivals", commandAliases: ["watch"], run: "watch" },
     { actionId: "macro.manage", label: "Manage macros", description: "Define and invoke safe reusable registered actions", commandAliases: ["macro", "skill"], commandArg: "macro", run: "macro" },

@@ -19,6 +19,8 @@ decisions, operations, or contribution workflow.
 | [Community Search And Projections](community-search-projections.md) | Typed cross-source search, snapshots, GraphQL, Projection Definitions, Namespace Mounts, browser backends, migration, and recovery. |
 | [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
+| [OpenZL Host Entropy Codec](openzl.md) | Entity-aware OpenZL compression for blobs/artifacts and changediffs (`@epoch/openzl`). |
+| [NATS Realtime Fabric](nats.md) | Host NATS JetStream/WebSocket, complementary auth callout (opaque fabric credentials), and Live/platform/community streams (`@epoch/nats`). |
 | [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | The model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
 | [Forge And Mirror Adapters](forge-adapters.md) | Authority, fidelity, loss, mirror safety, and federation codec boundaries. |
 | [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
@@ -129,6 +131,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0050: Command Livestream Privacy](design-decisions/0050-command-livestream-privacy.md) | Livestreams are sanitized command logs, not pixels; spectators replay them in their own theme; ignore/rewrite files and protected inputs fail closed. |
 | [ADR-0051: Change-Based Review Publish](design-decisions/0051-change-based-review-publish.md) | Review publish is change-based by default: `Change-Id` trailer, `refs/for/<target>`, topic/hashtag/WIP — not a pull-request branch and not a mode. |
 | [ADR-0052: Model-Based And Coverage-Guided Fuzzing](design-decisions/0052-model-based-and-coverage-guided-fuzzing.md) | Deterministic smoke (PR), fast-check history command model with shrinking, Jazzer.js parser campaigns with versioned corpora; scheduled CI, not every PR. |
+| [ADR-0053: OpenZL Host Entropy Codec](design-decisions/0053-openzl-host-entropy-codec.md) | Entity-aware OpenZL host codec for blobs/artifacts and changediffs; SHA-256 stays on plaintext. |
+| [ADR-0054: NATS Realtime Fabric](design-decisions/0054-nats-realtime-fabric.md) | Host nats-server with JetStream, WebSocket, and complementary Epoch auth callout (fabric credentials); Live/platform/community streams. |
 | [Fuzz Lanes And Corpora](../test/fuzz/README.md) | How smoke, fast-check, Jazzer.js, corpora, and regression promotion relate. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 

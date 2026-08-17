@@ -13,6 +13,9 @@ coverage/
 .vercel
 packages/Epoch.Community.Web/.vercel-output/
 .data/
+.env
+.env.*
+!.env.example
 
 # Impeccable installs a full copy of its skill tree into every detected harness
 # (~3.4M each). They are vendor artifacts reproducible from the devDependency

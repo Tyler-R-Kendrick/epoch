@@ -13,7 +13,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/cli_wasm.feature` | 11 |
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 78 |
+| `features/community_web_experience.feature` | 82 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -109,6 +109,8 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user sees the sample board named as a sample stream | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor enters a clean sample channel from the landing | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user traverses Community Web messages without a pointer | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user navigates the VFS and returns from messages by keyboard | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user replies in CLI and previews AI drafts before posting | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user operates every Community Web post action without a pointer | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user previews and enters message directories from the prompt | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user navigates a Community Web context menu without losing focus | None | 0 |
@@ -146,6 +148,8 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor gets their own workspace and project when they open the board | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor composes an interface change and accepts it after reading the diff | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor carries their interface to another machine and rolls it back | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Guest contributor with fabric configured is told realtime requires sign-in | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Signed-in contributor with a Platform fabric ticket attaches realtime honestly | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Valid mutual binding verifies without trusting the index | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Rollback after revocation is rejected | None | 0 |
 | `features/identity_bridge.feature` | `@persona.security_compliance_responder` | Scenario | Mix-and-match plane proofs fail closed | None | 0 |

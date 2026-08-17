@@ -210,6 +210,12 @@ async function syncHandshakeTransactionsAndTransportsAreBounded(): Promise<void>
   const negotiated = negotiateSyncV2(local, remote);
   assert.equal(negotiated.protocol, "epoch.sync/v2");
   assert.equal(negotiated.eventVersion, 1);
+  assert.equal(negotiated.compression, "identity");
+  const bothOpenZl = negotiateSyncV2(
+    createSyncV2Handshake(),
+    createSyncV2Handshake({ compressions: ["openzl", "identity"] }),
+  );
+  assert.equal(bothOpenZl.compression, "openzl");
   assert.ok(negotiated.commands.includes("push-transaction"));
   assert.throws(() => negotiateSyncV2(local, createSyncV2Handshake({ signatureAlgorithms: ["unsupported"] })),
     /capability intersection/i);

@@ -216,6 +216,51 @@ export function createWebRTCProvider(channel: LiveChannel, id = "webrtc"): LiveP
   return createChannelProvider(channel, id);
 }
 
+/**
+ * NATS Live provider (ADR-0054). Dumb fan-out wrapper: pass a LiveChannel
+ * already opened through `@epoch/nats` `openAuthenticatedNatsLiveChannel`
+ * (or `createNatsLiveChannel` after a gated connect). ingestEvents still
+ * verifies signatures. This function does not authenticate.
+ */
+export function createNatsLiveProvider(channel: LiveChannel, id = "nats"): LiveProvider {
+  return createChannelProvider(channel, id);
+}
+
+/**
+ * Open a NATS Live provider only after `connect(fabricSecret)` succeeds.
+ * Missing/invalid secrets must throw from `connect` (or here if the secret
+ * is empty) — the provider is never returned in an anonymous online state.
+ */
+export async function createAuthenticatedNatsLiveProvider(input: {
+  readonly repoId: string;
+  readonly fabricSecret: string;
+  readonly connect: (secret: string) => Promise<{ channel: LiveChannel; stop(): void }>;
+}): Promise<LiveProvider> {
+  const secret = input.fabricSecret;
+  if (typeof secret !== "string" || secret.trim().length === 0) {
+    throw new Error("nats connect denied");
+  }
+  if (typeof input.repoId !== "string" || input.repoId.trim().length === 0) {
+    throw new Error("nats connect denied");
+  }
+  const opened = await input.connect(secret);
+  if (!opened || !opened.channel || typeof opened.channel.send !== "function") {
+    throw new Error("nats connect denied");
+  }
+  const inner = createNatsLiveProvider(opened.channel, `nats:${input.repoId}`);
+  return {
+    id: inner.id,
+    connect(endpoint) {
+      inner.connect(endpoint);
+    },
+    disconnect() {
+      inner.disconnect();
+      opened.stop?.();
+    },
+    status: () => inner.status(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Shared wiring for channel-style providers.
 // ---------------------------------------------------------------------------

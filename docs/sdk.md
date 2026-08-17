@@ -513,7 +513,8 @@ const deployment = sdk.deployments.executePlan(plan.id);
 
 Current platform SDK surfaces include capability discovery, organizations,
 projects, repositories, environments, deployables, deploy plans, protected
-deployment approvals, identity/RBAC, issues, review intents, packages, search,
+deployment approvals, identity/RBAC, opaque fabric credentials bound to sessions
+and API tokens, issues, review intents, packages, search,
 observability, runners, infrastructure targets, resources, deployable templates,
 configuration validation, backup destination readiness, backup verification,
 restore dry-runs, HA failover drills, secret references and rotation,
@@ -588,6 +589,9 @@ const token = sdk.identity.issueApiToken({
   serviceAccountId: serviceAccount.id,
   name: "iac-token",
 });
+const fabric = sdk.identity.mintFabricCredential({ apiTokenId: token.id });
+sdk.identity.verifyFabricCredential(fabric.secret);
+sdk.identity.revokeFabricCredential(fabric.id);
 
 sdk.api.openRequest({
   correlationId: "req-1",

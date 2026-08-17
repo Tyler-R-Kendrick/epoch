@@ -105,7 +105,7 @@ envelopes, HMAC webhooks, manifest-hashed backup artifacts, and backup-artifact
 restore. The current slice covers
 capability discovery, organizations, projects, repositories, environments,
 deployables, deploy plans, protected-environment approval checks, identity/RBAC, SSO/SCIM,
-service accounts, API tokens, sessions, issues, review intents, packages,
+service accounts, API tokens, sessions, opaque fabric credentials, issues, review intents, packages,
 search, observability, infrastructure targets, resources, templates, runners,
 backup verification, restore dry-runs, HA failover drills, secret references
 and rotation, deployment jobs/logs, incident diagnosis, rollback, AI action
