@@ -1,6 +1,6 @@
 # ADR-0038: Semantic Diff, Merge, And Compression
 
-Status: Accepted (design); staged implementation
+Status: Accepted (design); staged implementation — host entropy codec shipped as `@epoch/openzl` ([ADR-0053](0053-openzl-host-entropy-codec.md))
 
 ## Context
 

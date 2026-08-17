@@ -101,6 +101,52 @@
     { key: "thinking", mark: "think", label: "thinking" },
   ];
 
+  /**
+   * Pending compose draft — rendered as an inline reply/post in the thread
+   * (not a foot card, not agent chat). Looks like a real message with
+   * commit / edit / reject affordances.
+   */
+  function renderComposeDraftCard(draft, opts) {
+    opts = opts || {};
+    if (!draft) return "";
+    var status = draft.status || "ready";
+    var body = String(draft.body || "").trim();
+    var handle = "you";
+    var pendingLabel = status === "generating" ? "drafting…"
+      : (draft.source === "ai" ? "ai draft · pending" : "draft · pending");
+    var actions = (status === "ready" && !opts.live)
+      ? ('<div class="cn-actions cn-draft-actions" role="group" aria-label="Draft actions">' +
+        '<button type="button" class="cn-act cn-act-commit" data-draft-accept ' +
+        'title="Commit draft (Enter)" aria-keyshortcuts="Enter">commit</button>' +
+        '<button type="button" class="cn-act" data-draft-modify ' +
+        'title="Edit draft (e)" aria-keyshortcuts="e">edit</button>' +
+        '<button type="button" class="cn-act cn-act-reject" data-draft-reject ' +
+        'title="Reject draft (Esc)" aria-keyshortcuts="Escape">reject</button>' +
+        "</div>")
+      : "";
+    var depthRails = opts.depth > 0
+      ? Array(opts.depth).fill(
+        '<span class="cn-rail cn-rail-pending" aria-hidden="true">' +
+        '<span class="cn-rail-mark">|</span></span>',
+      ).join("")
+      : "";
+    return '<article class="cn-comment cn-compose-draft" data-compose-draft data-pending="true"' +
+      ' data-status="' + esc(status) + '"' +
+      (opts.inline ? ' data-inline="true"' : "") +
+      ' aria-label="' + esc(pendingLabel + ": " + body.slice(0, 80)) + '">' +
+      (depthRails ? '<div class="cn-rails" aria-hidden="true">' + depthRails + "</div>" : "") +
+      '<div class="cn-comment-main">' +
+      '<header class="cn-comment-head">' +
+      '<span data-c="actor"><b data-c="handle">' + esc(handle) + "</b></span>" +
+      '<span class="cn-head-sep" aria-hidden="true">|</span>' +
+      '<span data-c="meta"><span data-c="state" data-draft-state="' + esc(status) + '">' +
+      esc(pendingLabel) + "</span></span></header>" +
+      '<div class="cn-comment-body">' +
+      esc(body || (status === "generating" ? "…" : "")) + "</div>" +
+      actions +
+      "</div></article>";
+  }
+
   function reactionDef(key) {
     for (var i = 0; i < REACTIONS.length; i++) {
       if (REACTIONS[i].key === key) return REACTIONS[i];
@@ -626,6 +672,11 @@
             return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
           }).join("") + "</div>";
       }
+      // Staged reply draft sits under its parent as a pending inline response.
+      var draft = window.CW_APP && window.CW_APP.state && window.CW_APP.state.composeDraft;
+      if (draft && draft.kind === "reply" && draft.postId === key) {
+        html += renderComposeDraftCard(draft, { inline: true, depth: depth + 1 });
+      }
       if (isThread) html += "</article>";
       return html;
     }
@@ -650,8 +701,13 @@
       (feedQuery ? ' data-query="true"' : "") + ">" +
       sortedRoots.map(function (p, index) {
         return nodeHtml(p, 0, [], index + 1, sortedRoots.length);
-      }).join("") +
-      "</div>";
+      }).join("");
+    // Channel/DM top-level draft (not a reply) appends as a pending post inline.
+    var feedDraft = window.CW_APP && window.CW_APP.state && window.CW_APP.state.composeDraft;
+    if (feedDraft && feedDraft.kind !== "reply" && !opts.threadOf) {
+      tree += renderComposeDraftCard(feedDraft, { inline: true, depth: 0 });
+    }
+    tree += "</div>";
     if (opts.threadOf) {
       return matchNote + '<div class="cn-thread-layout">' + tree +
         readingHtml(byId[keyboardId] || byId[opts.threadOf] || sortedRoots[0]) + '</div>';
@@ -2699,14 +2755,17 @@
     [data-exp="console"] .cn-tab-close:hover{opacity:1;color:var(--cw-danger)}
     [data-exp="console"] .cn-tab-new{font-weight:700;color:var(--cw-ink-dim)}
 
-    /* Breadcrumb. Clickable, because the path is also the navigation. */
+    /* Breadcrumb. Clickable, because the path is also the navigation.
+       Text stays selectable so drag-select copies the address (TTY habit). */
     [data-exp="console"] .cn-path{display:flex;gap:.15rem;align-items:center;flex-wrap:wrap;
-      padding:.4rem .8rem;border-block-end:1px solid var(--cw-rule);font-size:.9em}
+      padding:.4rem .8rem;border-block-end:1px solid var(--cw-rule);font-size:.9em;
+      user-select:text;-webkit-user-select:text}
     [data-exp="console"] .cn-crumb{background:none;border:0;font:inherit;color:var(--cw-ink-dim);
-      cursor:pointer;padding:.1rem .15rem;border-radius:0}
+      cursor:pointer;padding:.1rem .15rem;border-radius:0;
+      user-select:text;-webkit-user-select:text}
     [data-exp="console"] .cn-crumb:hover{color:var(--cw-ink);text-decoration:underline}
     [data-exp="console"] .cn-crumb:last-of-type{color:var(--cw-ink);font-weight:700}
-    [data-exp="console"] .cn-sep{color:var(--cw-ink-faint)}
+    [data-exp="console"] .cn-sep{color:var(--cw-ink-faint);user-select:text;-webkit-user-select:text}
     [data-exp="console"] .cn-path-preview{margin-inline-start:auto;color:var(--cw-warn);font-weight:700}
     [data-exp="console"] .cn-views{margin-inline-start:auto;display:flex;gap:.15rem;align-items:center;flex-wrap:wrap}
     [data-exp="console"] .cn-feed-notice{position:sticky;top:0;z-index:2;width:100%;
@@ -3156,8 +3215,10 @@
     [data-exp="console"] .cn-pm:hover{color:var(--cw-ink);text-decoration:underline}
     [data-exp="console"] .cn-pm-leaf{display:inline-block;visibility:hidden;cursor:default}
     [data-exp="console"] .cn-pm-leaf::before,[data-exp="console"] .cn-pm-leaf::after{content:none}
-    [data-exp="console"] .cn-subject{margin:0;font-weight:700;color:var(--cw-ink);letter-spacing:.01em}
-    [data-exp="console"] .cn-comment-body{margin:0;max-width:76ch;color:var(--cw-ink);line-height:1.45}
+    [data-exp="console"] .cn-comment-body{margin:0;max-width:76ch;color:var(--cw-ink);line-height:1.45;
+      user-select:text;-webkit-user-select:text}
+    [data-exp="console"] .cn-subject{margin:0;font-weight:700;color:var(--cw-ink);letter-spacing:.01em;
+      user-select:text;-webkit-user-select:text}
     [data-exp="console"] .cn-anchor{color:var(--cw-ink-faint);font-size:.9em}
     [data-exp="console"] .cn-receipt{display:flex;align-items:baseline;gap:.35rem;font-size:.85em;
       color:var(--cw-ink-faint)}
@@ -3756,6 +3817,25 @@
     [data-exp="console"] .cn-compose-clear{background:none;border:0;font:inherit;font-size:.85em;
       color:var(--cw-ink-faint);cursor:pointer;padding:0;margin-inline-start:.35rem}
     [data-exp="console"] .cn-compose-clear:hover{color:var(--cw-ink);text-decoration:underline}
+    /* Pending inline draft — looks like a real reply, not a foot card or chat pane. */
+    [data-exp="console"] .cn-compose-draft[data-pending=true]{
+      display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 .55rem;
+      margin:.15rem 0 .35rem;padding:.35rem .45rem .4rem;
+      border:1px dashed color-mix(in srgb,var(--cw-accent) 45%,var(--cw-rule));
+      background:color-mix(in srgb,var(--cw-accent) 7%,transparent);
+      max-width:72ch}
+    [data-exp="console"] .cn-compose-draft[data-status=generating]{
+      border-color:color-mix(in srgb,var(--cw-live) 50%,var(--cw-rule));
+      background:color-mix(in srgb,var(--cw-live) 8%,transparent)}
+    [data-exp="console"] .cn-compose-draft .cn-comment-main{min-width:0;display:grid;gap:.3rem}
+    [data-exp="console"] .cn-compose-draft [data-draft-state]{
+      color:var(--cw-accent);font-weight:700;letter-spacing:.02em}
+    [data-exp="console"] .cn-compose-draft[data-status=generating] [data-draft-state]{color:var(--cw-live)}
+    [data-exp="console"] .cn-compose-draft .cn-comment-body{opacity:.95}
+    [data-exp="console"] .cn-compose-draft .cn-draft-actions{display:flex;flex-wrap:wrap;gap:.35rem .55rem}
+    [data-exp="console"] .cn-compose-draft .cn-act-commit{color:var(--cw-signed);font-weight:700}
+    [data-exp="console"] .cn-compose-draft .cn-act-reject{color:var(--cw-danger)}
+    [data-exp="console"] .cn-compose-draft .cn-rail-pending .cn-rail-mark{opacity:.55}
 
     [data-exp="console"] .cn-panel-tab{/* also used as workspace tabs */}
     [data-exp="console"] .cn-tab-close{background:none;border:0;font:inherit;color:var(--cw-ink-faint);

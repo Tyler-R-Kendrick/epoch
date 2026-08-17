@@ -28,6 +28,11 @@ import { runEpochLiveStoreTests } from "./unit/epoch-live-store.test";
 import { runEpochLiveYjsTests } from "./unit/epoch-live-yjs.test";
 import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
+import { runNatsStreamCoverageTests } from "./unit/nats-stream-coverage.test";
+import { runOpenZlCodecTests } from "./unit/openzl-codec.test";
+import { runPlatformFabricCredentialTests } from "./unit/platform-fabric-credentials.test";
+import { runPlatformFabricNatsContractTests } from "./unit/platform-fabric-nats-contract.test";
+import { runFabricAuthAdversarialMutationTests } from "./unit/fabric-auth-adversarial-mutation.test";
 import { runPlatformProductionCoreTests } from "./unit/platform-production-core.test";
 import { runPersonaFeatureModelTests } from "./unit/persona-feature-model.test";
 import { runPersonaMapTests } from "./unit/persona-map.test";
@@ -72,7 +77,12 @@ import { runCodeOperationContextTests } from "./unit/code-operation-context.test
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
+  runOpenZlCodecTests();
+  runNatsStreamCoverageTests();
   runPlatformProductionCoreTests();
+  runPlatformFabricCredentialTests();
+  await runPlatformFabricNatsContractTests();
+  await runFabricAuthAdversarialMutationTests();
   await runPlatformCommunityModuleTests();
   runPlatformWebConsoleTests();
   await runCommunityContractTests();

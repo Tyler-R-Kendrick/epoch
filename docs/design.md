@@ -655,7 +655,11 @@ The current implementation does not provide:
 - production container orchestration for the platform service descriptors
 - process, filesystem, or network sandboxing of external extensions
 - grammar-backed syntax providers for general-purpose languages
-- byte-level entropy coding or a packfile format for semantic compression
+- byte-level entropy coding *inside* `@epoch/semantic` (planning only); host
+  entropy coding is `@epoch/openzl` ([ADR-0053](design-decisions/0053-openzl-host-entropy-codec.md))
+- a packfile container for compressed objects (OpenZL frames ship first; packs later)
+- compiling `nats-server` to browser WASM; realtime fabric is host NATS +
+  `nats.ws` ([ADR-0054](design-decisions/0054-nats-realtime-fabric.md))
 - a kernel VFS/FUSE mount provider for Spaces; hydration is a provider seam,
   so tools outside the provider do not see virtual paths (ADR-0043 phase 4)
 - container or microVM sandboxing; isolated execution is Linux user namespaces

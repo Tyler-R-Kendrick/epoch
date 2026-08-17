@@ -302,6 +302,23 @@ Feature: Community Web community-first experience
     Then the selected Community Web message remains the single focused feed item
 
   @persona.slack_power_user
+  Scenario: Power user navigates the VFS and returns from messages by keyboard
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I navigate the Community Web VFS into general and return from messages by keyboard
+    Then the Community Web navigator owns the keyboard again at the channels list
+
+  @persona.slack_power_user
+  Scenario: Power user replies in CLI and previews AI drafts before posting
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I reply to a Community Web message in CLI mode and see it under the parent
+    And I draft an AI reply inline then commit reject and edit it
+    Then Community Web reply drafts stay visible under the parent until committed
+
+  @persona.slack_power_user
   Scenario: Power user operates every Community Web post action without a pointer
     Given Epoch Community is available
     When I open Epoch Community
@@ -616,3 +633,22 @@ Feature: Community Web community-first experience
     Then the other participant renders the same interface from the same history
     When I roll my interface back to the revision before the change
     Then my board no longer shows the panel, and the change I rolled back is still readable
+
+  @persona.github_open_source_contributor
+  Scenario: Guest contributor with fabric configured is told realtime requires sign-in
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And a realtime fabric endpoint is configured for the board
+    Then as a guest I am not attached to the realtime fabric
+    And the fabric status says realtime requires sign-in
+    And fabric failure does not open session chat
+
+  @persona.github_open_source_contributor
+  Scenario: Signed-in contributor with a Platform fabric ticket attaches realtime honestly
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I present a Platform fabric ticket for a signed-in identity
+    Then the board attaches to the realtime fabric without opening session chat
+    And the fabric secret is never returned as a board identity id

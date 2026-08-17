@@ -6,7 +6,7 @@ Do not call the smoke suite "coverage-guided fuzzing."
 | Lane | Entry | When |
 |---|---|---|
 | Deterministic smoke | `npm run change-graph:fuzz-smoke` | Every PR / `test:runtime` |
-| Short fast-check | `npm run fuzz:fast-check` | Every PR / `test:runtime` |
+| Short fast-check | `npm run fuzz:fast-check` | Every PR / `test:runtime` (parsers + fabric auth + history) |
 | Corpus regression | `npm run fuzz:regression` | Every PR / `test:runtime` |
 | History long run | `npm run fuzz:history:long` | Scheduled campaign |
 | Jazzer.js campaigns | `npm run fuzz:jazzer` | Scheduled campaign |
@@ -25,7 +25,7 @@ test/fuzz/
   change-graph-parser.fuzz.test.ts
   oracles/                      # Shared parse/assert helpers
   arbitraries/                  # fast-check generators
-  properties/                   # Short shrinking properties
+  properties/                   # Short shrinking properties (incl. fabric-auth)
   history/                      # Command model over SignedChangeGraphStore
   jazzer/                       # Coverage-guided targets
   corpus/v1/<target>/           # Versioned seed + crash corpora

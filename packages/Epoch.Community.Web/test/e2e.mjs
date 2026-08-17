@@ -220,6 +220,89 @@ const CASES = [
     },
   },
   {
+    name: "FABRIC-001 guest with fabric endpoint stays honest and offline",
+    run: async (page, log) => {
+      const probe = await page.evaluate(async () => {
+        const fabric = window.CW_NATS_FABRIC;
+        if (!fabric) return { missing: true };
+        fabric.reset();
+        const identity = window.CW_APP.getIdentity();
+        const result = await fabric.attach(identity, { endpoint: "wss://nats.example/ws" });
+        return {
+          kind: identity?.kind,
+          attached: result.attached,
+          status: result.status,
+          openChat: result.openChat,
+          message: result.message,
+          label: fabric.statusLabel(),
+          opened: fabric.status().opened,
+          hasSecret: fabric.status().hasSecret,
+          leaked: Object.prototype.hasOwnProperty.call(result, "fabricSecret"),
+        };
+      });
+      if (probe.missing) return log("CW_NATS_FABRIC missing");
+      if (probe.kind !== "guest" && probe.kind !== "denied") {
+        return log("expected guest identity: " + JSON.stringify(probe));
+      }
+      if (probe.attached || probe.opened || probe.status !== "needs-sign-in") {
+        return log("guest claimed fabric: " + JSON.stringify(probe));
+      }
+      if (probe.openChat || probe.hasSecret || probe.leaked) {
+        return log("guest fabric leaked chat/secret: " + JSON.stringify(probe));
+      }
+      if (!/realtime requires sign-in/i.test(String(probe.message || probe.label || ""))) {
+        return log("missing honesty message: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
+    name: "FABRIC-002 Platform ticket attaches online without leaking secret or opening chat",
+    run: async (page, log) => {
+      const probe = await page.evaluate(async () => {
+        const fabric = window.CW_NATS_FABRIC;
+        if (!fabric) return { missing: true };
+        fabric.reset();
+        const identity = {
+          kind: "atproto",
+          principalId: "did:plc:e2e",
+          platformSessionId: "session_e2e",
+          anonymous: false,
+        };
+        const result = await fabric.attach(identity, {
+          endpoint: "wss://nats.example/ws",
+          mintFabricCredential: (input) => ({
+            id: "fabric_e2e",
+            secret: input.sessionId === "session_e2e" ? "opaque-e2e-secret" : "",
+          }),
+          connect: async (opts) => {
+            if (opts.fabricSecret === identity.principalId || opts.fabricSecret === identity.platformSessionId) {
+              throw new Error("identity id used as secret");
+            }
+            return { channel: true };
+          },
+        });
+        return {
+          attached: result.attached,
+          status: result.status,
+          openChat: result.openChat,
+          leaked: Object.prototype.hasOwnProperty.call(result, "fabricSecret"),
+          opened: fabric.status().opened,
+          hasSecret: fabric.status().hasSecret,
+        };
+      });
+      if (probe.missing) return log("CW_NATS_FABRIC missing");
+      if (!probe.attached || probe.status !== "online" || !probe.opened) {
+        return log("ticketed attach failed: " + JSON.stringify(probe));
+      }
+      if (probe.openChat || probe.leaked) {
+        return log("ticketed attach leaked chat/secret: " + JSON.stringify(probe));
+      }
+      if (!probe.hasSecret) return log("internal secret state missing after attach: " + JSON.stringify(probe));
+      return true;
+    },
+  },
+  {
     name: "HONEST-003 receipts jump keyboard scope oauth and store activity",
     run: async (page, log) => {
       const probe = await page.evaluate(async () => {
@@ -838,31 +921,112 @@ const CASES = [
     },
   },
   {
-    name: "power: message namespace drill and reply-parent navigation stay distinct",
+    name: "keyboard: message ←→ open and close thread without message-path panes",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels/general");
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.state.detailOpen = true;
+        document.querySelector('.cn-comment[data-key="p3"]')?.focus({ preventScroll: true });
+      });
+      await page.keyboard.press("ArrowRight");
+      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p3");
+      const opened = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        thread: window.CW_APP.state.threadFocus,
+        mark: window.CW_APP.state.feedMark,
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
+        navVirtual: Array.from(document.querySelectorAll('.cn-blade[data-blade-kind="list"] .cn-item'))
+          .map((el) => el.getAttribute("data-key")),
+        crumb: document.querySelector("[data-path], .cn-crumbs, [data-cwd]")?.textContent || "",
+      }));
+      if (opened.path !== "/projects/community/channels/general") {
+        return log("→ changed channel path into message IDs: " + JSON.stringify(opened));
+      }
+      if (!(opened.thread === "p3" && opened.threadCtx)) {
+        return log("→ did not open thread in place: " + JSON.stringify(opened));
+      }
+      if (opened.navVirtual.some((name) => /^(body\.md|metadata\.json|replies|backlinks|receipts)$/.test(name || ""))) {
+        return log("→ opened message virtual directory in nav: " + JSON.stringify(opened));
+      }
+      if (/\/p[0-9]+(\/|$)/.test(opened.path) || /\/p[0-9]+(\/|$)/.test(opened.crumb)) {
+        return log("→ exposed message-ID path chrome: " + JSON.stringify(opened));
+      }
+
+      // Close thread (collapse outline first if needed — ← never walks message IDs).
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() => !window.CW_APP.state.threadFocus, null, { timeout: 3000 }).catch(() => {});
+      if (await page.evaluate(() => !!window.CW_APP.state.threadFocus)) {
+        await page.keyboard.press("ArrowLeft");
+        await page.waitForFunction(() => !window.CW_APP.state.threadFocus);
+      }
+      const feed = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        thread: window.CW_APP.state.threadFocus,
+        mark: window.CW_APP.state.feedMark,
+        focus: window.CW_APP.state.focus,
+        threadCtx: !!document.querySelector(".cn-thread-ctx"),
+        feedBar: !!document.querySelector(".cn-feed-bar"),
+      }));
+      if (!(feed.path === "/projects/community/channels/general" && !feed.thread &&
+          !feed.threadCtx && feed.feedBar)) {
+        return log("← did not return to channel feed: " + JSON.stringify(feed));
+      }
+      if (feed.mark && feed.mark !== "p3") {
+        return log("← lost the prior message mark: " + JSON.stringify(feed));
+      }
+
+      await page.evaluate(() => {
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.state.detailOpen = true;
+        const post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key]');
+        if (post) post.focus({ preventScroll: true });
+        window.CW_APP.render(true);
+      });
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() => window.CW_APP.state.focus === 0);
+      const toNav = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        focus: window.CW_APP.state.focus,
+        thread: window.CW_APP.state.threadFocus,
+      }));
+      return (toNav.focus === 0 && toNav.path === "/projects/community/channels/general" &&
+        !toNav.thread) || log("← from channel feed did not hand focus to navigator: " + JSON.stringify(toNav));
+    },
+  },
+  {
+    name: "power: message directories stay on cd/CLI — not on message ←→",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.focus('.cn-comment[data-key="p3"]');
       await page.keyboard.press("ArrowRight");
-      await page.evaluate(() => new Promise((resolve) =>
-        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
-      const drilled = await page.evaluate(() => ({
+      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p3");
+      const viaKeys = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
         thread: window.CW_APP.state.threadFocus,
-        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
       }));
-      if (drilled.path !== "/projects/community/channels/general/p1/p2/p3" ||
-          drilled.thread !== "p3" || drilled.active !== "p3") {
-        return log("message did not become directory context: " + JSON.stringify(drilled));
+      if (viaKeys.path !== "/projects/community/channels/general" || viaKeys.thread !== "p3") {
+        return log("keyboard → should open thread on channel: " + JSON.stringify(viaKeys));
       }
-      await page.keyboard.press("ArrowLeft");
-      await page.waitForFunction(() => window.CW_APP.state.feedMark === "p2");
-      const parented = await page.evaluate(() => ({
+      // Explicit cd still addresses the message namespace for power users.
+      await page.evaluate(() => window.CW_APP.clearThreadFocus?.({ silent: true }));
+      await page.evaluate(() => window.CW_ACTIONS.invoke("nav.enter", {
+        line: "cd p3", arg: "p3", options: {},
+      }, { origin: "cli", context: "board" }));
+      const viaCd = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
-        root: window.CW_APP.state.threadFocus,
-        selected: window.CW_APP.state.feedMark,
+        thread: window.CW_APP.state.threadFocus,
+        action: window.CW_ACTIONS.lastEvent()?.actionId,
       }));
-      if (parented.path !== drilled.path || parented.root !== "p3" || parented.selected !== "p2") {
-        return log("reply parent changed namespace: " + JSON.stringify(parented));
+      const messagePath = "/projects/community/channels/general/p1/p2/p3";
+      if (viaCd.path !== messagePath && viaCd.thread !== "p3") {
+        return log("cd into message lost both path and thread: " + JSON.stringify(viaCd));
       }
       await page.evaluate(() => window.CW_ACTIONS.invoke("nav.enter", {
         line: "cd ..", arg: "..", options: {},
@@ -871,8 +1035,132 @@ const CASES = [
         path: window.CW_APP.state.path,
         action: window.CW_ACTIONS.lastEvent()?.actionId,
       }));
-      return ascended.path === "/projects/community/channels/general/p1/p2" &&
-        ascended.action === "nav.enter" || log("namespace ascend failed: " + JSON.stringify(ascended));
+      return ascended.action === "nav.enter" ||
+        log("namespace ascend via cd failed: " + JSON.stringify(ascended));
+    },
+  },
+  {
+    name: "keyboard: root message path Left/Backspace escape the trap",
+    run: async (page, log) => {
+      await page.evaluate(() => {
+        window.CW_APP.state.helpOpen = false;
+        window.CW_APP.state.intelOpen = false;
+      });
+      await go(page, "/projects/community/channels/ideas/id2");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels/ideas/id2" &&
+        window.CW_APP.state.threadFocus === "id2");
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        document.querySelector('.cn-comment[data-key="id2"]')?.focus({ preventScroll: true });
+      });
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() =>
+        !window.CW_APP.state.threadFocus ||
+        window.CW_APP.state.path === "/projects/community/channels/ideas");
+      const leftOnce = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        thread: window.CW_APP.state.threadFocus,
+        focus: window.CW_APP.state.focus,
+      }));
+      // ← closes the thread first; a stuck message-ID path also returns to the channel.
+      if (leftOnce.thread && leftOnce.path !== "/projects/community/channels/ideas") {
+        return log("← did not leave root message context: " + JSON.stringify(leftOnce));
+      }
+      if (leftOnce.path === "/projects/community/channels/ideas/id2" && leftOnce.thread) {
+        return log("← left thread stuck on message path: " + JSON.stringify(leftOnce));
+      }
+
+      await go(page, "/projects/community/channels/ideas/id2");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels/ideas/id2");
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        document.querySelector('.cn-comment[data-key="id2"]')?.focus({ preventScroll: true });
+      });
+      await page.keyboard.press("Backspace");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels/ideas" ||
+        !window.CW_APP.state.threadFocus);
+      const backed = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        thread: window.CW_APP.state.threadFocus,
+      }));
+      if (backed.path === "/projects/community/channels/ideas/id2" && backed.thread) {
+        return log("Backspace did not leave root message context: " + JSON.stringify(backed));
+      }
+
+      // From the channel feed, another ← returns keyboard to the VFS list.
+      await page.evaluate(() => {
+        window.CW_APP.clearThreadFocus?.({ silent: true, noRender: true });
+        if (window.CW_APP.state.path !== "/projects/community/channels/ideas") {
+          window.CW_APP.navigate("/projects/community/channels/ideas", { keepCli: true, noHistory: true });
+        }
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.state.detailOpen = true;
+        const post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key]');
+        if (post) post.focus({ preventScroll: true });
+        window.CW_APP.render(true);
+      });
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() => window.CW_APP.state.focus === 0);
+      const toNav = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        focus: window.CW_APP.state.focus,
+        onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
+      }));
+      return (toNav.focus === 0 && toNav.path === "/projects/community/channels/ideas") ||
+        log("← from channel feed did not return to VFS: " + JSON.stringify(toNav));
+    },
+  },
+  {
+    name: "clipboard: highlighting terminal path text copies selection",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/ideas");
+      await page.evaluate(() => {
+        window.__selClipboard = null;
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: {
+            writeText: async (text) => { window.__selClipboard = text; },
+          },
+        });
+      });
+      const selected = await page.evaluate(() => {
+        const path = document.querySelector(".cn-path");
+        if (!path) return { err: "no path" };
+        const crumbs = Array.from(path.querySelectorAll(".cn-crumb, .cn-sep"));
+        if (crumbs.length < 3) return { err: "short path", n: crumbs.length };
+        const range = document.createRange();
+        range.setStart(crumbs[0], 0);
+        range.setEnd(crumbs[crumbs.length - 1], crumbs[crumbs.length - 1].childNodes.length || 1);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        const text = window.CW_APP.domSelectionText();
+        window.CW_APP.copyDomSelection({ silent: true });
+        return { text, path: window.CW_APP.state.path };
+      });
+      if (selected.err) return log(JSON.stringify(selected));
+      if (!/board/.test(selected.text) || !/projects/.test(selected.text) || !/ideas/.test(selected.text)) {
+        return log("selection missed path segments: " + JSON.stringify(selected));
+      }
+      await page.waitForFunction(() => !!window.__selClipboard);
+      const clip = await page.evaluate(() => window.__selClipboard);
+      if (!clip || clip !== selected.text) {
+        return log("clipboard mismatch: " + JSON.stringify({ clip, selected: selected.text }));
+      }
+      // mouseup with an active selection must not navigate crumbs away.
+      await page.locator(".cn-path .cn-crumb").last().dispatchEvent("mouseup", { button: 0 });
+      await page.waitForTimeout(40);
+      const stayed = await path(page);
+      return stayed === "/projects/community/channels/ideas" ||
+        log("selection mouseup navigated away: " + stayed);
     },
   },
   {
@@ -1086,6 +1374,133 @@ const CASES = [
       const back = await page.evaluate(() =>
         document.activeElement === document.querySelector("[data-cli]"));
       return back || log("colon did not return the prompt");
+    },
+  },
+  {
+    name: "keyboard: VFS focus owns arrows; messages hand off and return",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels");
+      await page.evaluate(() => {
+        const list = window.CW_MAP.list("/projects/community/channels") || [];
+        const ix = list.findIndex((e) => e.name === "general");
+        window.CW_APP.state.cursor = ix >= 0 ? ix : 0;
+        window.CW_APP.state.focus = 0;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.render(true);
+        document.querySelector('.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]')?.focus();
+      });
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels/general" &&
+        window.CW_APP.state.focus >= 1);
+      const opened = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        focus: window.CW_APP.state.focus,
+        onCli: document.activeElement?.hasAttribute?.("data-cli"),
+        onMessage: !!document.activeElement?.closest?.(".cn-comment[data-key]"),
+        onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
+        posts: document.querySelectorAll(".cn-comment[data-key]").length,
+      }));
+      if (opened.path !== "/projects/community/channels/general") {
+        return log("Enter did not address channel: " + JSON.stringify(opened));
+      }
+      if (!(opened.focus >= 1) || opened.onCli || opened.posts < 1) {
+        return log("Enter did not hand keyboard to messages: " + JSON.stringify(opened));
+      }
+
+      await page.keyboard.press("ArrowDown");
+      const browsed = await page.evaluate(() =>
+        document.activeElement?.closest?.(".cn-comment[data-key]")?.getAttribute("data-key") || null);
+      if (!browsed) return log("ArrowDown did not move among messages");
+
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.focus === 0 &&
+        !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'));
+      const backToNav = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        focus: window.CW_APP.state.focus,
+        onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
+        onMessage: !!document.activeElement?.closest?.(".cn-comment[data-key]"),
+      }));
+      if (backToNav.path !== "/projects/community/channels/general" || backToNav.focus !== 0) {
+        return log("← from messages did not return to VFS: " + JSON.stringify(backToNav));
+      }
+      if (!backToNav.onNav || backToNav.onMessage) {
+        return log("← left DOM focus on messages: " + JSON.stringify(backToNav));
+      }
+
+      // Stale message DOM focus must not steal VFS arrows when nav owns keyboard.
+      await page.evaluate(() => {
+        const post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key]');
+        if (post) post.focus({ preventScroll: true });
+        window.CW_APP.state.focus = 0;
+        window.CW_APP.state.columnFocus = true;
+      });
+      const beforeCursor = await page.evaluate(() => window.CW_APP.state.cursor);
+      await page.keyboard.press("ArrowDown");
+      await page.waitForFunction((prev) =>
+        window.CW_APP.state.cursor !== prev && window.CW_APP.state.focus === 0, beforeCursor);
+      const afterStale = await page.evaluate(() => ({
+        cursor: window.CW_APP.state.cursor,
+        focus: window.CW_APP.state.focus,
+        path: window.CW_APP.state.path,
+        onMessage: !!document.activeElement?.closest?.(".cn-comment[data-key]"),
+        onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
+      }));
+      if (afterStale.focus !== 0 || afterStale.onMessage) {
+        return log("stale message focus stole VFS ownership: " + JSON.stringify(afterStale));
+      }
+      if (afterStale.cursor === beforeCursor || !afterStale.onNav) {
+        return log("ArrowDown with VFS ownership did not steer nav: " +
+          JSON.stringify({ beforeCursor, afterStale }));
+      }
+
+      // Re-select general so → hands messages for the addressed channel.
+      await page.evaluate(() => {
+        const list = window.CW_MAP.list("/projects/community/channels") || [];
+        const ix = list.findIndex((e) => e.name === "general");
+        window.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
+        window.CW_APP.state.cursor = ix >= 0 ? ix : 0;
+        window.CW_APP.state.focus = 0;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.render(true);
+        document.querySelector('.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]')
+          ?.focus({ preventScroll: true });
+      });
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels/general" &&
+        window.CW_APP.state.focus === 0);
+      await page.keyboard.press("ArrowRight");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.focus >= 1 &&
+        !!document.activeElement?.closest?.(".cn-comment[data-key]"));
+      const toMessages = await page.evaluate(() => ({
+        focus: window.CW_APP.state.focus,
+        path: window.CW_APP.state.path,
+        onMessage: !!document.activeElement?.closest?.(".cn-comment[data-key]"),
+      }));
+      if (!(toMessages.focus >= 1) || toMessages.path !== "/projects/community/channels/general") {
+        return log("→ from VFS did not reopen messages: " + JSON.stringify(toMessages));
+      }
+
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() => window.CW_APP.state.focus === 0);
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.path === "/projects/community/channels" &&
+        window.CW_APP.state.focus === 0);
+      const ascended = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        focus: window.CW_APP.state.focus,
+        onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
+      }));
+      if (ascended.path !== "/projects/community/channels" || ascended.focus !== 0) {
+        return log("second ← did not ascend VFS: " + JSON.stringify(ascended));
+      }
+      return ascended.onNav || log("ascended without nav DOM focus: " + JSON.stringify(ascended));
     },
   },
   {
@@ -1567,8 +1982,10 @@ const CASES = [
         thread: window.CW_APP.state.threadFocus,
         editor: !!(window.CW_APP.state.editor && window.CW_APP.state.editor.focused),
       }));
-      if (!after.path.startsWith(armed.path + "/") || !after.path.split("/").includes(armed.id)) {
-        return log("→ should address the message path: " + JSON.stringify({ armed, after }));
+      // Keyboard → opens the thread in detail without rewriting the channel path
+      // into message-ID directories (those stay on `cd`).
+      if (after.path !== armed.path) {
+        return log("→ must keep channel path: " + JSON.stringify({ armed, after }));
       }
       if (!after.thread) return log("→ did not open thread: " + JSON.stringify(after));
       if (after.editor) return log("→ opened editor instead of thread: " + JSON.stringify(after));
@@ -2129,6 +2546,11 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(120);
+      await page.evaluate(() => {
+        // CLI mode posts immediately; AI mode stages a preview instead.
+        window.CW_APP.state.ai = false;
+        window.CW_APP.render(true);
+      });
       await page.click('.cn-comment[data-key="p1"] [data-reply]');
       await page.waitForTimeout(80);
       const armed = await page.evaluate(() => {
@@ -2159,16 +2581,241 @@ const CASES = [
       const posted = await page.evaluate(() => {
         const merged = window.CW_APP.state.merged || [];
         const hit = merged.filter((p) => p.re === "p1" && /e2e reply body/.test(p.body || "")).pop();
-        const tree = document.querySelector('.cn-comment[data-key="' + (hit?.id || "") + '"]');
+        const tree = document.querySelector(
+          '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + (hit?.id || "") + '"]',
+        ) || document.querySelector('.cn-comment[data-key="' + (hit?.id || "") + '"]');
         const ctx = window.CW_APP.composeContext?.() || window.CW_APP.state.compose;
         return {
           hit: hit ? { id: hit.id, re: hit.re, channel: hit.channel, body: hit.body } : null,
           inDom: !!tree,
+          mark: window.CW_APP.state.feedMark,
+          thread: window.CW_APP.state.threadFocus,
+          detailOpen: !!window.CW_APP.state.detailOpen,
           composeAfter: ctx?.kind,
         };
       });
       if (!posted.hit || posted.hit.channel !== "general") {
         return log("reply not published: " + JSON.stringify(posted));
+      }
+      if (!(posted.inDom && posted.mark === posted.hit.id && posted.thread === "p1" && posted.detailOpen)) {
+        return log("reply not visible under parent: " + JSON.stringify(posted));
+      }
+      return true;
+    },
+  },
+  {
+    name: "compose: AI reply stages inline draft; commit / reject / edit",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(120);
+      await page.evaluate(() => {
+        window.CW_APP.state.ai = true;
+        window.CW_APP.state.sessionClosed = true;
+        window.CW_APP.state.sessionOutFocus = false;
+        window.CW_APP.clearComposeDraft?.({ silent: true, noRender: true });
+        window.CW_APP.render(true);
+      });
+      await page.click('.cn-comment[data-key="p1"] [data-reply="p1"]');
+      await page.waitForTimeout(80);
+      await page.evaluate(() => {
+        window.CW_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "e2e ai draft intent under lea");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(200);
+      const staged = await page.evaluate(() => {
+        const draft = window.CW_APP.state.composeDraft;
+        const inline = document.querySelector(
+          '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p1"] [data-compose-draft], ' +
+          '.cn-comment[data-key="p1"] [data-compose-draft]',
+        );
+        const footDraft = document.querySelector(".cn-tui-foot [data-compose-draft]");
+        const sessionBlade = document.querySelector('.cn-blade[data-blade-kind="session"], .cn-blade-out');
+        const mergedHit = (window.CW_APP.state.merged || [])
+          .find((p) => p.re === "p1" && /e2e ai draft intent/.test(p.body || ""));
+        return {
+          status: draft?.status,
+          body: draft?.body,
+          postId: draft?.postId,
+          kind: draft?.kind,
+          inline: !!inline,
+          pending: inline?.getAttribute("data-pending"),
+          footDraft: !!footDraft,
+          sessionClosed: !!window.CW_APP.state.sessionClosed,
+          sessionOutFocus: !!window.CW_APP.state.sessionOutFocus,
+          sessionVisible: !!(sessionBlade && sessionBlade.offsetParent !== null &&
+            getComputedStyle(sessionBlade).display !== "none"),
+          publishedEarly: !!mergedHit,
+          hasCommit: !!document.querySelector("[data-draft-accept]"),
+          hasReject: !!document.querySelector("[data-draft-reject]"),
+          hasEdit: !!document.querySelector("[data-draft-modify]"),
+          commitLabel: document.querySelector("[data-draft-accept]")?.textContent?.trim(),
+          rejectLabel: document.querySelector("[data-draft-reject]")?.textContent?.trim(),
+        };
+      });
+      if (staged.publishedEarly) {
+        return log("AI mode published without preview: " + JSON.stringify(staged));
+      }
+      if (!(staged.status === "ready" && staged.postId === "p1" && staged.kind === "reply" &&
+          /e2e ai draft intent/.test(staged.body || "") && staged.inline &&
+          staged.pending === "true" && !staged.footDraft &&
+          staged.sessionClosed && !staged.sessionOutFocus &&
+          staged.hasCommit && staged.hasReject && staged.hasEdit &&
+          /commit/i.test(staged.commitLabel || "") && /reject/i.test(staged.rejectLabel || ""))) {
+        return log("AI draft not inline pending: " + JSON.stringify(staged));
+      }
+      // Modify: body returns to prompt for editing.
+      await page.keyboard.press("e");
+      await page.waitForTimeout(80);
+      const modifying = await page.evaluate(() => ({
+        draft: window.CW_APP.state.composeDraft,
+        value: document.querySelector("[data-cli]")?.value || "",
+        kind: window.CW_APP.composeContext?.()?.kind,
+        sessionClosed: !!window.CW_APP.state.sessionClosed,
+      }));
+      if (modifying.draft || !/e2e ai draft intent/.test(modifying.value) ||
+          modifying.kind !== "reply" || !modifying.sessionClosed) {
+        return log("edit did not restore prompt: " + JSON.stringify(modifying));
+      }
+      // Stage again, then reject.
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(80);
+      const rejected = await page.evaluate(() => ({
+        draft: window.CW_APP.state.composeDraft,
+        cards: document.querySelectorAll("[data-compose-draft]").length,
+        kind: window.CW_APP.composeContext?.()?.kind,
+        postId: window.CW_APP.composeContext?.()?.postId,
+        sessionClosed: !!window.CW_APP.state.sessionClosed,
+      }));
+      if (rejected.draft || rejected.cards > 0 || rejected.kind !== "reply" ||
+          rejected.postId !== "p1" || !rejected.sessionClosed) {
+        return log("reject should clear draft and keep reply armed: " + JSON.stringify(rejected));
+      }
+      // Stage and commit.
+      await page.fill("[data-cli]", "e2e ai accepted reply body");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const accepted = await page.evaluate(() => {
+        const hit = (window.CW_APP.state.merged || [])
+          .filter((p) => p.re === "p1" && /e2e ai accepted reply/.test(p.body || ""))
+          .pop();
+        const inDom = !!(hit && (
+          document.querySelector(
+            '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + hit.id + '"]',
+          ) || document.querySelector('.cn-comment[data-key="' + hit.id + '"]')
+        ));
+        return {
+          hit: hit ? { id: hit.id, re: hit.re } : null,
+          inDom,
+          draft: window.CW_APP.state.composeDraft,
+          mark: window.CW_APP.state.feedMark,
+          thread: window.CW_APP.state.threadFocus,
+          sessionClosed: !!window.CW_APP.state.sessionClosed,
+          sessionOutFocus: !!window.CW_APP.state.sessionOutFocus,
+        };
+      });
+      if (!accepted.hit || accepted.draft || !accepted.inDom ||
+          accepted.mark !== accepted.hit.id || accepted.thread !== "p1" ||
+          !accepted.sessionClosed || accepted.sessionOutFocus) {
+        return log("commit did not publish visible reply without session: " + JSON.stringify(accepted));
+      }
+      return true;
+    },
+  },
+  {
+    name: "compose: CLI reply posts inline without opening session chat",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      await page.evaluate(() => {
+        window.CW_APP.state.ai = false;
+        window.CW_APP.state.sessionClosed = true;
+        window.CW_APP.state.sessionOutFocus = false;
+        window.CW_APP.state.lines = [];
+        window.CW_APP.render(true);
+      });
+      await page.click('.cn-comment[data-key="p1"] [data-reply="p1"]');
+      await page.evaluate(() => {
+        window.CW_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "e2e cli no-session reply");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const after = await page.evaluate(() => {
+        const hit = (window.CW_APP.state.merged || [])
+          .filter((p) => p.re === "p1" && /e2e cli no-session/.test(p.body || ""))
+          .pop();
+        return {
+          hit: !!hit,
+          inDom: !!(hit && document.querySelector('.cn-comment[data-key="' + hit.id + '"]')),
+          sessionClosed: !!window.CW_APP.state.sessionClosed,
+          sessionOutFocus: !!window.CW_APP.state.sessionOutFocus,
+          lines: (window.CW_APP.state.lines || []).length,
+        };
+      });
+      if (!(after.hit && after.inDom && after.sessionClosed && !after.sessionOutFocus)) {
+        return log("CLI reply opened session or missing inline: " + JSON.stringify(after));
+      }
+      return true;
+    },
+  },
+  {
+    name: "compose: /act reply then CLI Enter shows the response under the message",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.waitForTimeout(100);
+      await page.evaluate(() => {
+        window.CW_APP.state.ai = false;
+        window.CW_APP.state.columnFocus = false;
+        const feed = window.CW_MAP.feedEntriesAt
+          ? window.CW_MAP.feedEntriesAt(window.CW_APP.state.path, window.CW_APP.state.merged)
+          : [];
+        const first = feed.find((e) => e && e.post);
+        if (first) window.CW_APP.openThread(first.post.id, { silent: true, noRender: true });
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.feedMark = first?.post?.id || "p1";
+        window.CW_APP.render(true);
+        document.querySelector("[data-cli]")?.focus();
+      });
+      await page.fill("[data-cli]", "/act reply");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
+      const armed = await page.evaluate(() => {
+        const ctx = window.CW_APP.composeContext?.() || {};
+        return { kind: ctx.kind, postId: ctx.postId, ai: window.CW_APP.state.ai };
+      });
+      if (armed.kind !== "reply" || !armed.postId || armed.ai !== false) {
+        return log("/act reply arm failed: " + JSON.stringify(armed));
+      }
+      const parentId = armed.postId;
+      await page.fill("[data-cli]", "e2e act-reply visible body");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(150);
+      const posted = await page.evaluate((parent) => {
+        const hit = (window.CW_APP.state.merged || [])
+          .filter((p) => p.re === parent && /e2e act-reply visible/.test(p.body || ""))
+          .pop();
+        const inDom = !!(hit && (
+          document.querySelector(
+            '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + hit.id + '"]',
+          ) || document.querySelector('.cn-comment[data-key="' + hit.id + '"]')
+        ));
+        return {
+          hit: hit ? { id: hit.id, re: hit.re } : null,
+          inDom,
+          mark: window.CW_APP.state.feedMark,
+          thread: window.CW_APP.state.threadFocus,
+        };
+      }, parentId);
+      if (!posted.hit || !posted.inDom || posted.mark !== posted.hit.id ||
+          posted.thread !== parentId) {
+        return log("/act reply not visible: " + JSON.stringify(posted));
       }
       return true;
     },
@@ -2179,8 +2826,10 @@ const CASES = [
       await go(page, "/projects/community/channels/bugs");
       await page.waitForTimeout(100);
       const ctx = await page.evaluate(() => {
+        window.CW_APP.state.ai = false;
         window.CW_APP.state.replyTo = null;
         window.CW_APP.state.compose = null;
+        window.CW_APP.clearComposeDraft?.({ silent: true, noRender: true });
         return window.CW_APP.composeContext?.() || window.CW_APP.state.compose;
       });
       if (ctx?.kind !== "post" || ctx?.channel !== "bugs") {
@@ -2364,7 +3013,11 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/dms/scout");
       await page.waitForTimeout(100);
-      const ctx = await page.evaluate(() => window.CW_APP.composeContext?.() || window.CW_APP.state.compose);
+      const ctx = await page.evaluate(() => {
+        window.CW_APP.state.ai = false;
+        window.CW_APP.clearComposeDraft?.({ silent: true, noRender: true });
+        return window.CW_APP.composeContext?.() || window.CW_APP.state.compose;
+      });
       if (ctx?.kind !== "dm" || ctx?.dm !== "scout") {
         return log("expected dm/scout: " + JSON.stringify(ctx));
       }
@@ -3093,6 +3746,89 @@ const CASES = [
     },
   },
   {
+    name: "cli: autocomplete arrows keep prompt focus (do not reclaim VFS)",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels");
+      await page.waitForTimeout(80);
+      // Start as if the navigator owns the keyboard, then click the prompt —
+      // ownership must move to the CLI so ↑↓ walk suggestions, not the VFS.
+      await page.evaluate(() => {
+        window.CW_APP.state.helpOpen = false;
+        window.CW_APP.state.ai = false;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 0;
+        window.CW_APP.state.cursor = 0;
+        window.CW_APP.render(true);
+      });
+      const beforePath = await page.evaluate(() => window.CW_APP.state.path);
+      const beforeCursor = await page.evaluate(() => window.CW_APP.state.cursor);
+      await page.click("[data-cli]");
+      await page.waitForTimeout(40);
+      const claimed = await page.evaluate(() => ({
+        columnFocus: window.CW_APP.state.columnFocus,
+        active: document.activeElement?.hasAttribute("data-cli"),
+      }));
+      if (claimed.columnFocus || !claimed.active) {
+        return log("clicking prompt did not claim focus: " + JSON.stringify(claimed));
+      }
+      await page.fill("[data-cli]", "");
+      await page.keyboard.type("/a", { delay: 15 });
+      await page.waitForTimeout(100);
+      const menu = await page.evaluate(() => ({
+        open: document.querySelector(".cn-tui-foot")?.dataset.open,
+        cands: document.querySelectorAll(".cn-cand").length,
+        path: window.CW_APP.state.path,
+        cursor: window.CW_APP.state.cursor,
+      }));
+      if (menu.open !== "true" || menu.cands < 2) {
+        return log("expected slash autocomplete: " + JSON.stringify(menu));
+      }
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(50);
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(50);
+      const after = await page.evaluate(() => ({
+        columnFocus: window.CW_APP.state.columnFocus,
+        active: document.activeElement?.hasAttribute("data-cli"),
+        tag: document.activeElement?.tagName,
+        cls: String(document.activeElement?.className || "").slice(0, 40),
+        candIndex: window.CW_APP.state.candIndex,
+        path: window.CW_APP.state.path,
+        cursor: window.CW_APP.state.cursor,
+        value: document.querySelector("[data-cli]")?.value || "",
+      }));
+      if (!after.active || after.tag !== "INPUT" || after.columnFocus) {
+        return log("autocomplete lost prompt focus to VFS: " + JSON.stringify(after));
+      }
+      if (!(after.candIndex >= 1) || after.value !== "/a") {
+        return log("arrows did not walk candidates: " + JSON.stringify(after));
+      }
+      if (after.path !== beforePath || after.cursor !== beforeCursor) {
+        return log("VFS cursor/path moved during command autocomplete: " +
+          JSON.stringify({ beforePath, beforeCursor, after }));
+      }
+      const painted = await page.evaluate(() => {
+        const active = document.querySelector(".cn-cand[data-active='true']");
+        const idx = window.CW_APP.state.candIndex;
+        const row = document.querySelector('.cn-cand[data-cand="' + idx + '"]');
+        return {
+          hasActive: !!active,
+          rowActive: row?.getAttribute("data-active") === "true",
+          ariaSelected: row?.getAttribute("aria-selected"),
+          bg: active ? getComputedStyle(active).backgroundColor : null,
+          text: active?.querySelector("span")?.textContent || null,
+        };
+      });
+      if (!(painted.hasActive && painted.rowActive && painted.ariaSelected === "true")) {
+        return log("autocomplete highlight not painted: " + JSON.stringify(painted));
+      }
+      if (!painted.bg || painted.bg === "rgba(0, 0, 0, 0)" || painted.bg === "transparent") {
+        return log("active candidate has no highlight color: " + JSON.stringify(painted));
+      }
+      return true;
+    },
+  },
+  {
     name: "cli: Enter submits typed text even when autocomplete menu is open",
     run: async (page, log) => {
       // Nav scope so Enter runs the CLI line (not compose-post).
@@ -3141,8 +3877,9 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(100);
       await page.evaluate(() => {
-        window.CW_APP.state.ai = true;
+        window.CW_APP.state.ai = false;
         window.CW_APP.clearReplyTo?.();
+        window.CW_APP.clearComposeDraft?.({ silent: true, noRender: true });
         window.CW_APP.render(true);
       });
       await page.focus("[data-cli]");
@@ -3285,7 +4022,7 @@ const CASES = [
       const out = await page.evaluate(() =>
         (document.querySelector(".cn-out")?.textContent || "") + "\n" +
         (window.CW_APP.state.lines || []).map((l) => l.text || "").join("\n"));
-      return (/cd\s*<path>/i.test(out) && /ls(?:\s*<path>)?/i.test(out)) ||
+      return (/cd(?:,\s*z)?\s*<path>/i.test(out) && /ls(?:\s*<path>)?/i.test(out)) ||
         log("help did not run after ghost accept: " + out.slice(0, 160));
     },
   },
@@ -4026,8 +4763,9 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.evaluate(() => {
-        window.CW_APP.state.ai = true;
+        window.CW_APP.state.ai = false;
         window.CW_APP.clearReplyTo?.();
+        window.CW_APP.clearComposeDraft?.({ silent: true, noRender: true });
         window.CW_APP.render(true);
       });
       await page.focus("[data-cli]");
@@ -4229,7 +4967,8 @@ const CASES = [
           inFeed: !!(feed && out && feed.contains(out)),
           inDetail: !!document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-out'),
           banner: !!document.querySelector(".cn-banner"),
-          hasHelp: /cd\s*<path>/i.test(out?.textContent || "") && /ls(?:\s*<path>)?/i.test(out?.textContent || ""),
+          hasHelp: /cd(?:,\s*z)?\s*<path>/i.test(out?.textContent || "") &&
+            /ls(?:\s*<path>)?/i.test(out?.textContent || ""),
           homeView: feed?.getAttribute("data-home-view"),
         };
       });
@@ -4897,6 +5636,11 @@ const CASES = [
       // Send in AI mode — attachments travel as chat context on the user line.
       await page.evaluate(() => {
         window.CW_APP.state.ai = true;
+        // Keep the agent path deterministic: do not wait on on-device model retries.
+        if (window.CWResilient) window.CWResilient.availability = async () => "unavailable";
+        if (window.CW_AGENT) {
+          window.CW_AGENT.run = async () => undefined;
+        }
       });
       await page.click("[data-cli]");
       await page.keyboard.type("summarise the attached install notes");
@@ -4930,7 +5674,8 @@ const CASES = [
         const f = new File(["x"], "tmp.txt", { type: "text/plain" });
         await window.CW_APP.addAttachmentFiles([f]);
       });
-      await page.keyboard.type("/attach clear");
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "/attach clear");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
       const cleared = await page.evaluate(() => (window.CW_APP.state.attachments || []).length);
@@ -5940,9 +6685,9 @@ const CASES = [
           replyInDetail: !!document.querySelector('.cn-comment[data-key="p2"]'),
         };
       });
-      if (!threadAfter.path.startsWith(postPrep.path + "/") ||
-          !threadAfter.path.split("/").includes(threadAfter.thread)) {
-        return log("→ should address the message path: " + JSON.stringify(threadAfter));
+      // Keyboard → keeps the channel address; message directories stay on `cd`.
+      if (threadAfter.path !== postPrep.path) {
+        return log("→ must keep channel path: " + JSON.stringify(threadAfter));
       }
       if (threadAfter.navPosts !== 0 || threadAfter.editor || threadAfter.thread !== "p1") {
         return log("→ should open thread in detail: " + JSON.stringify(threadAfter));

@@ -1,4 +1,4 @@
-import { createHmac, createHash, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -82,6 +82,43 @@ export type PlatformSession = {
   userId: string;
   name: string;
   state: "active" | "revoked";
+};
+
+export type FabricCredentialKind = "session" | "api-token";
+
+export type FabricCredentialRecord = {
+  id: string;
+  kind: FabricCredentialKind;
+  parentId: string;
+  secretHash: string;
+  expiresAt: number;
+  state: "active" | "revoked";
+  subjectRef: string;
+  scopes: string[];
+};
+
+export type MintFabricCredentialInput = {
+  sessionId?: string;
+  apiTokenId?: string;
+  ttlSeconds?: number;
+};
+
+export type MintFabricCredentialResult = {
+  id: string;
+  secret: string;
+  expiresAt: number;
+  subjectRef: string;
+  kind: FabricCredentialKind;
+  scopes: readonly string[];
+};
+
+export type VerifiedFabricCredential = {
+  id: string;
+  kind: FabricCredentialKind;
+  parentId: string;
+  subjectRef: string;
+  scopes: readonly string[];
+  expiresAt: number;
 };
 
 export type PlatformTeam = {
@@ -534,6 +571,7 @@ export type PlatformSnapshot = {
   serviceAccounts: ServiceAccount[];
   apiTokens: ApiToken[];
   sessions: PlatformSession[];
+  fabricCredentials: FabricCredentialRecord[];
   infrastructureTargets: InfrastructureTarget[];
   resources: PlatformResource[];
   templates: DeployableTemplate[];
@@ -1017,6 +1055,7 @@ export class EpochPlatformCore {
   #serviceAccounts = new Map<string, ServiceAccount>();
   #apiTokens = new Map<string, ApiToken>();
   #sessions = new Map<string, PlatformSession>();
+  #fabricCredentials = new Map<string, FabricCredentialRecord>();
   #teams = new Map<string, PlatformTeam>();
   #teamRoleBindings = new Map<string, TeamRoleBinding>();
   #issues = new Map<string, PlatformIssue>();
@@ -1249,6 +1288,7 @@ export class EpochPlatformCore {
   revokeApiToken(tokenId: string): ApiToken {
     const token = this.#mustGet(this.#apiTokens, tokenId, "API token");
     token.state = "revoked";
+    this.#revokeFabricCredentialsForParent(token.id);
     this.#recordAudit("identity.token.revoked", token.id);
     return token;
   }
@@ -1273,8 +1313,110 @@ export class EpochPlatformCore {
   revokeSession(sessionId: string): PlatformSession {
     const session = this.#mustGet(this.#sessions, sessionId, "session");
     session.state = "revoked";
+    this.#revokeFabricCredentialsForParent(session.id);
     this.#recordAudit("identity.session.revoked", session.id);
     return session;
+  }
+
+  mintFabricCredential(input: MintFabricCredentialInput): MintFabricCredentialResult {
+    const hasSession = input.sessionId !== undefined;
+    const hasApiToken = input.apiTokenId !== undefined;
+    if (hasSession === hasApiToken) {
+      throw new PlatformError("invalid_input", "Minting a fabric credential requires exactly one of sessionId or apiTokenId.");
+    }
+
+    const ttlSeconds = input.ttlSeconds ?? 3600;
+    if (!Number.isFinite(ttlSeconds)) {
+      throw new PlatformError("invalid_input", "Fabric credential ttlSeconds must be a finite number.");
+    }
+    const expiresAt = Date.now() + ttlSeconds * 1000;
+    const secret = randomBytes(32).toString("base64url");
+    const secretHash = hashSecret(secret);
+
+    let kind: FabricCredentialKind;
+    let parentId: string;
+    let subjectRef: string;
+    let scopes: string[];
+
+    if (input.sessionId !== undefined) {
+      const session = this.#mustGet(this.#sessions, input.sessionId, "session");
+      this.#assertParentActive(session.state, "session", session.id);
+      kind = "session";
+      parentId = session.id;
+      subjectRef = session.userId;
+      scopes = ["fabric:human"];
+    } else {
+      const apiTokenId = input.apiTokenId;
+      if (apiTokenId === undefined) {
+        throw new PlatformError("invalid_input", "Minting a fabric credential requires exactly one of sessionId or apiTokenId.");
+      }
+      const token = this.#mustGet(this.#apiTokens, apiTokenId, "API token");
+      this.#assertParentActive(token.state, "API token", token.id);
+      const serviceAccount = this.#mustGet(this.#serviceAccounts, token.serviceAccountId, "service account");
+      kind = "api-token";
+      parentId = token.id;
+      subjectRef = serviceAccount.id;
+      scopes = [...serviceAccount.scopes];
+    }
+
+    const credential: FabricCredentialRecord = {
+      id: this.#id("fabric"),
+      kind,
+      parentId,
+      secretHash,
+      expiresAt,
+      state: "active",
+      subjectRef,
+      scopes,
+    };
+    this.#fabricCredentials.set(credential.id, credential);
+    this.#recordAudit("identity.fabric_credential.minted", credential.id);
+    return {
+      id: credential.id,
+      secret,
+      expiresAt: credential.expiresAt,
+      subjectRef: credential.subjectRef,
+      kind: credential.kind,
+      scopes: [...credential.scopes],
+    };
+  }
+
+  verifyFabricCredential(secret: string): VerifiedFabricCredential {
+    if (typeof secret !== "string" || secret.trim().length === 0) {
+      throw new PlatformError("unauthorized", "Unknown fabric credential.");
+    }
+    const secretHash = hashSecret(secret);
+    const credential = [...this.#fabricCredentials.values()].find((candidate) => safeEqual(candidate.secretHash, secretHash));
+    if (credential === undefined) {
+      throw new PlatformError("unauthorized", "Unknown fabric credential.");
+    }
+    if (credential.state === "revoked") {
+      throw new PlatformError("unauthorized", "Fabric credential is revoked.");
+    }
+    if (!Number.isFinite(credential.expiresAt) || credential.expiresAt <= Date.now()) {
+      throw new PlatformError("unauthorized", "Fabric credential has expired.");
+    }
+    const parent = credential.kind === "session"
+      ? this.#sessions.get(credential.parentId)
+      : this.#apiTokens.get(credential.parentId);
+    if (parent === undefined || parent.state === "revoked") {
+      throw new PlatformError("unauthorized", "Fabric credential parent is revoked.");
+    }
+    return {
+      id: credential.id,
+      kind: credential.kind,
+      parentId: credential.parentId,
+      subjectRef: credential.subjectRef,
+      scopes: [...credential.scopes],
+      expiresAt: credential.expiresAt,
+    };
+  }
+
+  revokeFabricCredential(id: string): FabricCredentialRecord {
+    const credential = this.#mustGet(this.#fabricCredentials, id, "fabric credential");
+    credential.state = "revoked";
+    this.#recordAudit("identity.fabric_credential.revoked", credential.id);
+    return credential;
   }
 
   createTeam(input: CreateTeamInput): PlatformTeam {
@@ -2489,6 +2631,7 @@ export class EpochPlatformCore {
       serviceAccounts: values(this.#serviceAccounts),
       apiTokens: values(this.#apiTokens),
       sessions: values(this.#sessions),
+      fabricCredentials: values(this.#fabricCredentials),
       infrastructureTargets: values(this.#infrastructureTargets),
       resources: values(this.#resources),
       templates: values(this.#templates),
@@ -2538,6 +2681,7 @@ export class EpochPlatformCore {
     this.#serviceAccounts = mapById(snapshot.serviceAccounts);
     this.#apiTokens = mapById(snapshot.apiTokens);
     this.#sessions = mapById(snapshot.sessions);
+    this.#fabricCredentials = mapById(snapshot.fabricCredentials ?? []);
     this.#infrastructureTargets = mapById(snapshot.infrastructureTargets);
     this.#resources = mapById(snapshot.resources);
     this.#templates = mapById(snapshot.templates);
@@ -2618,6 +2762,23 @@ export class EpochPlatformCore {
     }
     return value;
   }
+
+  #assertParentActive(state: "active" | "revoked", label: string, id: string): void {
+    if (state !== "active") {
+      throw new PlatformError("policy_denied", `${label} ${id} is not active.`, {
+        suggestion: "Mint a fabric credential from an active session or API token",
+      });
+    }
+  }
+
+  #revokeFabricCredentialsForParent(parentId: string): void {
+    for (const credential of this.#fabricCredentials.values()) {
+      if (credential.parentId === parentId && credential.state === "active") {
+        credential.state = "revoked";
+        this.#recordAudit("identity.fabric_credential.revoked", credential.id);
+      }
+    }
+  }
 }
 
 export function createInMemoryPlatformCore(options: PlatformCoreOptions = {}): EpochPlatformCore {
@@ -2630,6 +2791,10 @@ export function createFileSystemPlatformCore(options: FileSystemPlatformCoreOpti
 
 export function signWebhookPayload(secret: string, payload: string): string {
   return `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
+}
+
+function hashSecret(secret: string): string {
+  return createHash("sha256").update(secret).digest("hex");
 }
 
 function normalizeSlug(value: string): string {

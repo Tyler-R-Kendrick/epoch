@@ -137,8 +137,9 @@ count instead of interrupting.
 | Key | Does |
 |---|---|
 | `R` | Load queued posts for the open feed |
-| `J` / `K` or arrows | Move through the focused message list (roots and replies) |
-| `→` / `←` on a message | Drill into its message-ID directory path / return to its parent context |
+| `J` / `K` or arrows | Move through the focused surface — VFS list when the navigator owns focus, or the message list when the detail feed owns focus |
+| `→` / `←` on the **navigator** | Enter the selected directory/channel, or return to the parent VFS scope (first `←` from messages returns to the navigator) |
+| `→` / `←` on a **focused message** | `→` / Enter opens that **thread** in the detail pane (channel path stays put). `←` closes the thread back to the channel feed; another `←` returns keyboard to the navigator. Message-ID directories stay on `cd`, not on arrows |
 | `u` / `d` on a message | Upvote / downvote |
 | `a` / `f` on a message | Open reactions / fold its reply chain |
 | `r` / `Shift+R` on a message | Reply / repost |
@@ -152,13 +153,14 @@ count instead of interrupting.
 | `G` | Open the garden |
 | `?` | Key help |
 | `Alt+T` | New isolated workspace tab (default home) |
-| `Enter` (in channel) | Publish a new post |
-| `Enter` (after reply) | Publish a reply under that post |
+| `Enter` (in channel) | Publish a new post (CLI) or stage an inline AI draft |
+| `Enter` (after reply) | CLI: publish under that post (visible in thread). AI: stage **inline** pending draft — Enter commit · Esc reject · `e` edit. Never auto-opens agent chat |
 | `Enter` (in nav) | AI/tools act in the current path scope |
 | `Alt+Z` / `z` | Expand / restore the **focused panel** without changing its selection |
 | `Ctrl+U` | Apply compatible update, workspace-default, and agent-session continuation signals in one restart; remains editor page-up when none are pending |
 | `Ctrl+Space` | Intellisense + hotkey cheatsheet for the **focused component** (also always on the status bar as `[Ctrl+Space] keys`). **First visit** opens this sheet automatically so keyboard navigation is the obvious default — Esc dismisses and remembers. |
 | Right-click | Themed context menu: **Prompt…**, **Copy** (optimized paste format for chats/posts/messages), + learned actions; ↑/↓ moves, Home/End jumps, Enter runs, Esc closes and restores focus |
+| Drag-select text | Copies the highlight to the clipboard (paths, messages, session output) — classic TTY select-to-copy; click still navigates when there is no selection |
 | `y` | Yank / copy the focused post, channel feed, or session chat (same optimized format) |
 | Hold `` ` `` | Push-to-talk speech (when on-device STT model is ready); channel-voice transmit when joined in PTT mode |
 | `Alt+V` | Toggle continuous listening (when on-device STT is ready) |
@@ -369,7 +371,8 @@ never cloned into a stack of path-segment columns.
 - **Enter / →** — `→` / Enter slides into a directory or **channel**, opens a
   marked feed post’s **thread** in detail, or the editor for files. Reply compose
   starts when **Tab** focuses the prompt while a post detail is open.
-  Channels/DMs ready the prompt; dirs slide in
+  Channels open into the message feed (`:` / `i` / Tab to write); DMs ready the
+  prompt; dirs slide in
 - **Click** selects and **previews** (dirs → children, channels → **feed** in
   detail) without changing the nav path; double-click activates like Enter.
   Click a post in **detail** to open its thread
@@ -394,10 +397,10 @@ never cloned into a stack of path-segment columns.
 
 | | |
 |---|---|
-| `←` / `h` | reload nav at parent; from **home feed** (detail focused), focus the nav sidebar |
-| `→` / `l` | reload nav into selected **dir**; on a **channel** (terminal), open its detail feed while the navbar stays on the channels list; on a marked feed post in **detail**, open its **thread**; on other text files, open the editor; on **home feed** (detail focused), open the current row |
+| `←` / `h` | when the **navigator** owns focus: reload nav at parent; when a **thread** is open: close it to the channel feed; when the **channel feed** owns focus: return keyboard to the navigator (detail stays as preview); from **home feed** (detail focused), focus the nav sidebar |
+| `→` / `l` | when the **navigator** owns focus: reload nav into selected **dir**, or open/hand focus to a **channel** message feed (navbar stays on the channels list); when already addressing that channel, hand keyboard to messages; on a marked feed post in **detail**, open its **thread** (path stays the channel — no message-ID panes); on other text files, open the editor; on **home feed** (detail focused), open the current row |
 | `↑↓` / `jk` | move within the focused surface — nav list (**preview** updates), home-feed rows (when home owns focus), or previous/next post in the **detail** channel feed / thread |
-| `Enter` | **Activate** the preview — open a **channel** (detail feed), post **thread**, editor, or slide into dir; on home, open the current row |
+| `Enter` | **Activate** the preview — open a **channel** into the message feed (keyboard stays on messages; `:` / `i` / Tab write), post **thread**, editor, or slide into dir; on home, open the current row |
 | `Tab` | normal focus traversal; from **post detail**, focusing the prompt **arms a reply** |
 | `d` | **Dismiss** — home stack / Activity / notification / DM alert under the cursor |
 | `m` | **Mark read** — home feed (keep in stack, clear unread) |
@@ -461,11 +464,16 @@ resolves for agents only).
 **CLI** — the text is a command. Wrong input is an error, which is what a shell
 owes you. While you type, the prompt shows **fish-style ghost preview** and
 **syntax highlighting** (verb, path, sort, query fields) plus a suggestions menu.
+Focusing the prompt (click or Tab) claims keyboard ownership from the VFS —
+↑↓ walk autocomplete candidates (or history when the menu is closed) and do not
+move the navigator.
 
 **AI** — the text is intent. It goes to an agent that interprets it into tool
 calls, and a failed call is **repaired rather than rejected**: the error is fed
 back once and the agent chooses again. "take me to the bug reports" lands at
-`/channels/bugs` even when the first attempt guesses `/chat/bugz`.
+`/channels/bugs` even when the first attempt guesses `/chat/bugz`. Without an
+on-device model, AI mode still stages **inline** compose drafts (commit / edit /
+reject) without opening agent chat; agent turns fail closed until a model is available.
 
 **AI mode is a superset of CLI, not a replacement.** Anything that is already a
 valid command runs directly — sending `cd ..` to a model is slower, less
@@ -684,10 +692,45 @@ not costume:
   round pills. Keys: `+1`, `-1`, `eyes`, `rocket`, `heart`, `laugh`, `tada`,
   `thinking`. Click to toggle yours; `[+]` opens the picker. Fixture posts ship
   seed counts; your reactions persist with page state.
-- **Reply** — `[reply]` arms compose as reply scope; Enter publishes under that
-  post. The label above the prompt shows `[reply @handle · id]`.
+- **Reply** — `[reply]` or `/act reply` arms compose as reply scope. The label
+  above the prompt shows `[reply @handle · id]`.
+  - **CLI mode** — type the body and press Enter; the reply publishes under the
+    parent and stays visible in the open thread (mark + focus on the new message).
+  - **AI mode** — Enter stages a **pending inline reply** under the parent
+    (looks like a real message with `commit` / `edit` / `reject`). It does **not**
+    open the session/agent chat pane. Commit with Enter, reject with Esc, edit
+    with `e`. When an on-device model is available, the same inline draft can
+    rewrite from your intent while you keep commit/reject control.
 - **Compose scopes** — channel → new post; DM → dm message; nav at
   `…/channels` or `/projects` → create tools / AI stay in that project.
+
+### Adversarial design critique — message ←→ navigation
+
+Persona: `@persona.slack_power_user`
+Surface: `/board.html` channel feed and thread detail keyboard
+DESIGN.md north star check: pass — ←→ match reading levels (thread ↔ feed ↔ nav), not a second VFS of message IDs (`DESIGN.md`; `app.js`).
+Craft (hierarchy, density, typography, color rarity): pass — one detail pane; status says “thread · ← feed”; navigator stays on channels (`e2e.mjs`).
+Playfulness / wonder (craft delight, not slop): pass — open/close feels like Slack/Discord threads, while `cd` still exposes message directories for power users (`docs/community-web/README.md`).
+Competitive bar (vs Discord/Slack/X/Bluesky/Tangled where relevant): pass — arrows never dump `body.md` / `replies` panes mid-browse (`e2e.mjs`).
+Accessibility / honesty / trust legibility: pass — Enter/→ open the same thread; Esc/Backspace/`←` share the leave ladder; outline → still expands when needed (`features/community_web_experience.feature`).
+Unacceptable issues (must fix before merge):
+- None.
+Delight opportunities (should fix this pass if cheap):
+- None.
+
+### Adversarial design critique — reply compose and AI inline draft
+
+Persona: `@persona.slack_power_user`
+Surface: `/board.html` reply arming, inline pending reply under parent (not session blade)
+DESIGN.md north star check: pass — pending draft is a real nest reply with commit/edit/reject acts, not a separate pane or agent chat (`DESIGN.md`; `console.js`).
+Craft (hierarchy, density, typography, color rarity): pass — one job under the parent; pending rail marks draft vs published (`app.js`; `e2e.mjs`).
+Playfulness / wonder (craft delight, not slop): pass — AI rewrite is a reversible inline commit, not a silent publish or chat dump (`features/community_web_experience.feature`; `e2e.mjs`).
+Competitive bar (vs Discord/Slack/X/Bluesky/Tangled where relevant): pass — CLI posts immediately; AI matches “draft then send” in-thread without auto-opening agent chat (`docs/community-web/README.md`).
+Accessibility / honesty / trust legibility: pass — Enter/Esc/`e` and labeled commit/reject buttons share outcomes; session blade stays closed unless the user opens it (`e2e.mjs`).
+Unacceptable issues (must fix before merge):
+- None.
+Delight opportunities (should fix this pass if cheap):
+- None.
 - **Feed views (Lucene-style)** — more robust than thumbs-up ranking alone.
   Named projections (`hot`, `new`, `top` by default; pin more with `[+]`)
   and a free-form query bar:
@@ -1008,13 +1051,17 @@ Polish that had been missing, each piece done the terminal way:
   virtual worktrees — each has its own path, folds, session log, history, detail
   pane and attachments. New tabs land at the default home channel. The prompt at
   the foot is compose-only (scoped to the active blade): **reply** posts under
-  the armed message, a **channel** creates a new top-level post, a **DM** sends
+  the armed message in CLI mode (and keeps the new reply visible in the open
+  thread); in AI mode Enter stages an inline pending reply under that message
+  with commit/edit/reject — it does **not** open the session/agent chat pane.
+  A **channel** creates a new top-level post, a **DM** sends
   to that thread, and **nav** scopes `board_create_channel` /
   `board_create_project` (and the AI) to the current path. Compose scope is
   labelled above the input. CLI/AI session output lands in a **dedicated
   session blade** (third pane) when there is useful transcript — the blade is
-  **closed by default** at boot and opens on the next command or agent turn;
-  never appended under featured creators, following, or thread content. The chat
+  **closed by default** at boot and opens only when you expand it or when an
+  explicit agent turn / command transcript needs it; board compose and AI
+  reply drafts stay in the thread. The chat
   formats as a scannable log: **you / agent / sys** who-rail, turn breaks between
   speakers, mode chips above your message, and collapsible tool rows nested under
   the agent. Close it with **[esc]**
@@ -1057,6 +1104,18 @@ It earned its place immediately. Two themes shipped below the floor — Breadbin
 at 6.0:1 and Solar Night at 5.6:1 — and IBM CGA used one magenta for accent,
 warn and danger, which made its legend impossible to read truthfully. All three
 were found by the test rather than by looking.
+
+## Realtime fabric handoff
+
+NATS fabric CONNECT is **complementary** to board auth
+([ADR-0054](../design-decisions/0054-nats-realtime-fabric.md), [nats.md](../nats.md)).
+`nats-fabric.js` (`CW_NATS_FABRIC`) attaches only when
+`window.CW_FABRIC_CONFIG.endpoint` is set **and** a non-guest identity has a
+Platform-backed ticket path (`platformSessionId` / `platformApiTokenId` /
+`fabricSecret`, with an injectable mint). Guests never claim broad fabric
+access; status stays honest (“realtime requires sign-in”). Fabric failure does
+not open session or agent chat. Unit coverage:
+`packages/Epoch.Community.Web/test/nats-fabric.test.mjs`.
 
 ## Fixtures
 

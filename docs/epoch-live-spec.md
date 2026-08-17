@@ -68,8 +68,11 @@ deployment concerns behind the provider seam).
 - No second CRDT engine (the reference client uses a deterministic op-based
   LWW-map fold; Collabs remains available for richer entities per ADR-0002).
 - No full patch-algebra rewrite of the event model.
-- No bundled WebSocket-relay or WebRTC-signaling server; networked providers plug
-  in behind the provider seam.
+- No bundled WebSocket-relay or WebRTC-signaling *implementation* inside Live
+  core; networked providers plug in behind the provider seam. Optional fabric:
+  host NATS + `createNatsLiveProvider` over an authenticated channel from
+  `@epoch/nats` `openAuthenticatedNatsLiveChannel` ([ADR-0054](design-decisions/0054-nats-realtime-fabric.md),
+  [nats.md](nats.md)). Anonymous `epoch.live.*` access is refused.
 - No imports of incumbent state or collaboration libraries anywhere in the
   family; compatibility is structural, and only the React hooks extension
   carries a framework peer dependency.
@@ -87,7 +90,7 @@ transport moves bytes while verification decides trust (ADR-0003).
 | Time-travel | Yes, in dev tools | Local undo/redo via `UndoManager` | `rewind` preview + durable `rollbackTo` commit |
 | Conflict resolution | None (app-defined; last dispatch wins) | Automatic CRDT merge | Automatic CRDT merge (Collabs) + signed reusable resolutions |
 | Offline-first | Add-on (`redux-offline`) | Core strength | Core: append offline, converge on reconnect |
-| Networked sync | None in core (add-ons) | Yes (WebSocket/WebRTC providers) | Yes (BroadcastChannel / WebSocket relay / WebRTC) over `EpochTransport` |
+| Networked sync | None in core (add-ons) | Yes (WebSocket/WebRTC providers) | Yes (BroadcastChannel / WebSocket relay / WebRTC / NATS) over `EpochTransport` |
 | Presence / awareness | None | Yes (awareness protocol) | Yes, ephemeral and **unsigned** |
 | Identity / signing / audit | None | None (peer trust) | Ed25519-signed, content-addressed, `verify()` gate |
 | Framework binding | React (`react-redux`) and others | Editor bindings; framework-agnostic | React hooks first; framework-agnostic core |

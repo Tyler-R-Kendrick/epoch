@@ -16,7 +16,7 @@ export interface SyncV2Handshake {
   readonly eventVersions: readonly number[];
   readonly storageKinds: readonly ("inline" | "chunk-manifest" | "external-pointer")[];
   readonly filters: readonly string[];
-  readonly compressions: readonly ("identity" | "gzip")[];
+  readonly compressions: readonly ("identity" | "gzip" | "openzl")[];
   readonly bundleVersions: readonly number[];
   readonly rangeFetch: boolean;
   readonly resume: boolean;
@@ -35,7 +35,8 @@ export function createSyncV2Handshake(overrides: Partial<SyncV2Handshake> = {}):
     eventVersions: [1],
     storageKinds: ["inline", "chunk-manifest"],
     filters: [],
-    compressions: ["identity"],
+    // Prefer OpenZL when both peers advertise it (ADR-0053); identity always available.
+    compressions: ["openzl", "identity"],
     bundleVersions: [1],
     rangeFetch: true,
     resume: true,
