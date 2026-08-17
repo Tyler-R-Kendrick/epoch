@@ -1982,8 +1982,10 @@ const CASES = [
         thread: window.CW_APP.state.threadFocus,
         editor: !!(window.CW_APP.state.editor && window.CW_APP.state.editor.focused),
       }));
-      if (!after.path.startsWith(armed.path + "/") || !after.path.split("/").includes(armed.id)) {
-        return log("→ should address the message path: " + JSON.stringify({ armed, after }));
+      // Keyboard → opens the thread in detail without rewriting the channel path
+      // into message-ID directories (those stay on `cd`).
+      if (after.path !== armed.path) {
+        return log("→ must keep channel path: " + JSON.stringify({ armed, after }));
       }
       if (!after.thread) return log("→ did not open thread: " + JSON.stringify(after));
       if (after.editor) return log("→ opened editor instead of thread: " + JSON.stringify(after));
@@ -4020,7 +4022,7 @@ const CASES = [
       const out = await page.evaluate(() =>
         (document.querySelector(".cn-out")?.textContent || "") + "\n" +
         (window.CW_APP.state.lines || []).map((l) => l.text || "").join("\n"));
-      return (/cd\s*<path>/i.test(out) && /ls(?:\s*<path>)?/i.test(out)) ||
+      return (/cd(?:,\s*z)?\s*<path>/i.test(out) && /ls(?:\s*<path>)?/i.test(out)) ||
         log("help did not run after ghost accept: " + out.slice(0, 160));
     },
   },
@@ -4965,7 +4967,8 @@ const CASES = [
           inFeed: !!(feed && out && feed.contains(out)),
           inDetail: !!document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-out'),
           banner: !!document.querySelector(".cn-banner"),
-          hasHelp: /cd\s*<path>/i.test(out?.textContent || "") && /ls(?:\s*<path>)?/i.test(out?.textContent || ""),
+          hasHelp: /cd(?:,\s*z)?\s*<path>/i.test(out?.textContent || "") &&
+            /ls(?:\s*<path>)?/i.test(out?.textContent || ""),
           homeView: feed?.getAttribute("data-home-view"),
         };
       });
@@ -5633,6 +5636,11 @@ const CASES = [
       // Send in AI mode — attachments travel as chat context on the user line.
       await page.evaluate(() => {
         window.CW_APP.state.ai = true;
+        // Keep the agent path deterministic: do not wait on on-device model retries.
+        if (window.CWResilient) window.CWResilient.availability = async () => "unavailable";
+        if (window.CW_AGENT) {
+          window.CW_AGENT.run = async () => undefined;
+        }
       });
       await page.click("[data-cli]");
       await page.keyboard.type("summarise the attached install notes");
@@ -5666,7 +5674,8 @@ const CASES = [
         const f = new File(["x"], "tmp.txt", { type: "text/plain" });
         await window.CW_APP.addAttachmentFiles([f]);
       });
-      await page.keyboard.type("/attach clear");
+      await page.focus("[data-cli]");
+      await page.fill("[data-cli]", "/attach clear");
       await page.keyboard.press("Enter");
       await page.waitForTimeout(150);
       const cleared = await page.evaluate(() => (window.CW_APP.state.attachments || []).length);
@@ -6676,9 +6685,9 @@ const CASES = [
           replyInDetail: !!document.querySelector('.cn-comment[data-key="p2"]'),
         };
       });
-      if (!threadAfter.path.startsWith(postPrep.path + "/") ||
-          !threadAfter.path.split("/").includes(threadAfter.thread)) {
-        return log("→ should address the message path: " + JSON.stringify(threadAfter));
+      // Keyboard → keeps the channel address; message directories stay on `cd`.
+      if (threadAfter.path !== postPrep.path) {
+        return log("→ must keep channel path: " + JSON.stringify(threadAfter));
       }
       if (threadAfter.navPosts !== 0 || threadAfter.editor || threadAfter.thread !== "p1") {
         return log("→ should open thread in detail: " + JSON.stringify(threadAfter));

@@ -1156,6 +1156,10 @@
         speechBase = text;
         return render(true);
       }
+      if (state.attachments && state.attachments.length) {
+        render(true);
+        return ask(trimmed);
+      }
       if (state.ai) {
         startAiComposeDraft(trimmed, cctx);
         return;
@@ -6897,6 +6901,8 @@
     state._askInconclusive = false;
     var here = authorizedNamespaceEntries(state.path).map(function (e) { return e.name; });
     var turn = beginUserTurn(text, "ai");
+    // Paint the user turn (and attachment chips) before the agent run starts.
+    render(true);
     try {
       await window.CW_AGENT.run(turn.agentInput, {
         cwd: state.path,
@@ -8565,6 +8571,11 @@
             cliValue = text;
             cli.value = text;
             return render(true);
+          }
+          // Staged files are chat context — send to the agent, not a board draft.
+          if (state.attachments && state.attachments.length) {
+            render(true);
+            return ask(trimmed);
           }
           // AI mode stages a preview; CLI posts immediately into the thread.
           if (state.ai) {
