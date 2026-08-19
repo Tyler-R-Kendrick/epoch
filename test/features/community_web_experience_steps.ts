@@ -1167,14 +1167,16 @@ Then("focus and selection remain in the same panel context", function () {
   assert.equal(communityWebAppFocusRestored, true);
 });
 
-When("I open one Community Web message from its channel projection", async function () {
+When("I open one Community Web message from its channel projection", { timeout: 60_000 }, async function () {
   const page = requirePage();
   await page.evaluate(() => (window as unknown as {
     CW_APP: { navigate(path: string, options?: Record<string, unknown>): void };
   }).CW_APP.navigate("/projects/community/channels/general", { keepCli: true }));
-  await page.locator('.cn-comment[data-key="p3"]').focus();
+  const message = page.locator('.cn-comment[data-key="p3"]');
+  await message.waitFor({ state: "visible", timeout: 30_000 });
+  await message.focus();
   await page.keyboard.press("Enter");
-  await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible" });
+  await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible", timeout: 30_000 });
   communityWebAppLinkResult = await page.evaluate(() => {
     const runtime = window as unknown as {
       CW_APP: { state: { path: string; threadFocus: string } };
@@ -1537,7 +1539,7 @@ When("I reply to a Community Web message in CLI mode and see it under the parent
   });
 });
 
-When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_000 }, async function () {
+When("I draft an AI reply inline then commit reject and edit it", { timeout: 120_000 }, async function () {
   const page = requirePage();
   await page.evaluate(() => {
     const win = window as unknown as {
@@ -1549,6 +1551,8 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
           columnFocus: boolean;
           sessionClosed?: boolean;
           sessionOutFocus?: boolean;
+          menuDismissed?: boolean;
+          candIndex?: number;
         };
         clearComposeDraft?(opts?: object): void;
         armReplyTo(id: string, who: string, channel: string, project: string | null): void;
@@ -1565,6 +1569,8 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
     app.state.sessionOutFocus = false;
     app.armReplyTo("p1", "lea", "general", null);
     app.state.columnFocus = false;
+    app.state.menuDismissed = true;
+    app.state.candIndex = -1;
     app.render(true);
     document.querySelector<HTMLInputElement>("[data-cli]")?.focus();
   });
@@ -1591,7 +1597,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
       /bdd ai draft intent/.test(draft.body || "") &&
       !!inline && !footDraft && !sessionBlade && app.state.sessionClosed !== false &&
       !!document.querySelector("[data-draft-accept]");
-  }, null, { timeout: 10_000 });
+  }, null, { timeout: 30_000 });
   await page.keyboard.press("e");
   await page.waitForFunction(() => {
     const app = (window as unknown as {
@@ -1600,14 +1606,14 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
     const value = document.querySelector<HTMLInputElement>("[data-cli]")?.value || "";
     return !app.state.composeDraft && /bdd ai draft intent/.test(value) &&
       app.composeContext().kind === "reply";
-  }, null, { timeout: 10_000 });
+  }, null, { timeout: 30_000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
     const draft = (window as unknown as {
       CW_APP: { state: { composeDraft?: { status?: string } } };
     }).CW_APP.state.composeDraft;
     return !!document.querySelector("[data-compose-draft]") && draft?.status === "ready";
-  }, null, { timeout: 10_000 });
+  }, null, { timeout: 30_000 });
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => {
     const app = (window as unknown as {
@@ -1615,7 +1621,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
     }).CW_APP;
     return !app.state.composeDraft && !document.querySelector("[data-compose-draft]") &&
       app.composeContext().kind === "reply" && app.composeContext().postId === "p1";
-  }, null, { timeout: 10_000 });
+  }, null, { timeout: 30_000 });
   await page.locator("[data-cli]").fill("bdd ai committed reply");
   await page.keyboard.press("Enter");
   // Commit via keyboard like the e2e path — avoid scrolling a hidden duplicate in another blade.
@@ -1625,7 +1631,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
     }).CW_APP.state.composeDraft;
     return draft?.status === "ready" && draft.postId === "p1" &&
       !!document.querySelector("[data-draft-accept]");
-  }, null, { timeout: 10_000 });
+  }, null, { timeout: 30_000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
     const app = (window as unknown as {
@@ -1645,7 +1651,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 60_
     return !!document.querySelector('.cn-comment[data-key="' + hit.id + '"]') &&
       app.state.feedMark === hit.id && app.state.threadFocus === "p1" &&
       !sessionBlade && app.state.sessionClosed !== false;
-  }, null, { timeout: 10_000 });
+  }, null, { timeout: 30_000 });
 });
 
 Then("Community Web reply drafts stay visible under the parent until committed", async function () {

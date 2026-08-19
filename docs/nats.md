@@ -133,6 +133,8 @@ subscribe to broad fabric subjects and status stays honest
 | Unit / package | `npm test -w @epoch/nats` (ACL, validator, gated connect, Live auth, **chaos** auth + discovery) |
 | Platform fabric | `test/unit/platform-fabric-credentials.test.ts` |
 | Service discovery / callout | `test/unit/nats-service-discovery.test.ts` |
+| Mutation oracles | `test/unit/nats-mutation-oracles.test.ts`, `test/unit/fabric-auth-adversarial-mutation.test.ts` |
+| Characterization | `test/unit/verify-characterization.test.ts` ([testing lanes](testing-lanes.md)) |
 | Cross-package contract | `test/unit/platform-fabric-nats-contract.test.ts` (mint → callout → Live) |
 | Adversarial / mutation-style | `test/unit/fabric-auth-adversarial-mutation.test.ts` (guards that fail if wide defaults / id-as-secret return) |
 | Property / fuzz (PR) | fabric-auth + service-discovery fast-check via `npm run fuzz:fast-check` |
@@ -141,9 +143,8 @@ subscribe to broad fabric subjects and status stays honest
 | Product Gherkin | `features/community_web_experience.feature` guest honesty + ticketed attach |
 
 HTTP [Pact](pact-contracts.md) does not cover NATS AUTH JSON; the contract test
-above plus characterization goldens are the Epoch-native seam. Full Stryker
-mutation scoring is still out of band; PR-time oracles + chaos cover the
-high-risk mutants for this path. Revoke fencing severs tracked connections within a bounded interval
+above plus characterization goldens are the Epoch-native seam. `npm run mutation:nats`
+kills listed ACL/discovery mutants. Full Stryker scoring is still out of band. Revoke fencing severs tracked connections within a bounded interval
 (short-lived user JWT + disconnect/kick). Untyped broker connections that
 never enrolled in the fencer can still outlive revoke until TTL — that gap is
 recorded, not claimed closed.

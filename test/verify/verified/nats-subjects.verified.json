@@ -1,0 +1,8 @@
+{
+  "authCallout": "$SYS.REQ.USER.AUTH",
+  "communityLivestream": "epoch.community.stream.>",
+  "livePresence": "epoch.live.*.presence",
+  "liveSync": "epoch.live.*.sync",
+  "platformEvents": "epoch.platform.events.>",
+  "serviceDiscovery": "epoch.svc.>"
+}

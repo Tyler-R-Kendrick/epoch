@@ -93,6 +93,7 @@ export default [
       "packages/**/scripts/**/*.mjs",
       "packages/**/test/**/*.mjs",
       "test/fuzz/**/*.mjs",
+      "test/mutation/**/*.mjs",
       // Node tooling for the Community Web app. faults.mjs and e2e.mjs are Node
       // scripts whose page.evaluate callbacks are browser code, so both apply.
       "packages/Epoch.Community.Web/scripts/**/*.mjs",

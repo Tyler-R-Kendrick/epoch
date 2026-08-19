@@ -1,0 +1,42 @@
+{
+  "denied": {
+    "allowCrossCommunityFabric": false,
+    "allowServiceDiscovery": false,
+    "interNodeTransport": "none",
+    "posture": "open",
+    "publicArtifactPlane": "none",
+    "serverTrackedReadState": false
+  },
+  "hosted": {
+    "allowCrossCommunityFabric": false,
+    "allowServiceDiscovery": true,
+    "interNodeTransport": "none",
+    "posture": "hosted",
+    "publicArtifactPlane": "atproto",
+    "serverTrackedReadState": true
+  },
+  "open": {
+    "allowCrossCommunityFabric": false,
+    "allowServiceDiscovery": false,
+    "interNodeTransport": "gossip",
+    "posture": "open",
+    "publicArtifactPlane": "atproto",
+    "serverTrackedReadState": false
+  },
+  "openEvaluated": {
+    "allowCrossCommunityFabric": false,
+    "allowServiceDiscovery": false,
+    "interNodeTransport": "gossip",
+    "posture": "open",
+    "publicArtifactPlane": "atproto",
+    "serverTrackedReadState": false
+  },
+  "private": {
+    "allowCrossCommunityFabric": false,
+    "allowServiceDiscovery": true,
+    "interNodeTransport": "none",
+    "posture": "private",
+    "publicArtifactPlane": "none",
+    "serverTrackedReadState": true
+  }
+}

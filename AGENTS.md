@@ -59,5 +59,6 @@ These instructions apply to the entire repository.
 | `npm test` | Build and execute the Cucumber feature suite. |
 | `npm run coverage` | Run Cucumber under c8 and enforce coverage thresholds. |
 | `npm run gate:fast` | Local commit/push pre-flight: konsistent, docs:check, design:lint, design:audit, lint. Runs in `.githooks/pre-commit` and `.githooks/pre-push`. |
+| `npm run mutation:nats` | Kill listed NATS ACL/discovery source mutants (`@epoch/nats` package tests must fail). |
 | `npm run gate:push` | Optional manual mid-tier gate: gate:fast + typecheck + build + unit tests. No longer wired to a hook — GitHub Actions Quality Gates run this and more on every PR/push. |
 | `npm run verify` | Full local gate: gate suite + coverage + pact. Matches what CI runs, job-by-job. |

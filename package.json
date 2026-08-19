@@ -211,6 +211,7 @@
     "fuzz:history:long": "npm run build -- --pretty false && EPOCH_FUZZ_HISTORY_LONG=1 EPOCH_FUZZ_RUNS=${EPOCH_FUZZ_RUNS:-400} node dist/test/fuzz/history/history.fast-check.test.js",
     "fuzz:jazzer": "node test/fuzz/jazzer/run-campaign.mjs",
     "fuzz:jazzer:regression": "node test/fuzz/jazzer/run-campaign.mjs --mode=regression",
+    "mutation:nats": "node test/mutation/run-nats-mutants.mjs",
     "fuzz:regression": "npm run build -- --pretty false && node dist/test/fuzz/regressions/corpus-regression.test.js && node dist/test/fuzz/regressions/jazzer-swhid-forge-malformed.test.js",
     "fuzz:promote": "node test/fuzz/promote.mjs",
     "change-graph:benchmark": "node benchmarks/change-graph-convergence.mjs",
