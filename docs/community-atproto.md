@@ -45,7 +45,9 @@ Order (public + federated):
 2. Gossip peers from card/session
 3. AT `getBlob` using release artifact CIDs (then materialize locally)
 
-`verify()` always uses local signatures and SHA-256 only.
+`verify()` always uses local signatures and SHA-256 only. `RealPds` implements
+the same `PdsTransport` seam and stays **off** until E10. MockPds is the default
+control. See [protocol experiments](protocol-experiments.md).
 
 ## CLI
 

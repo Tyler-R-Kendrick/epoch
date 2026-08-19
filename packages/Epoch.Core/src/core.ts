@@ -283,6 +283,18 @@ export interface EpochRepositoryConfig {
     readonly block?: readonly string[];
     readonly allow_publishers?: readonly string[];
   };
+  /** Trust posture (ADR-0055). Parsed from `[community.posture]`. */
+  readonly community?: {
+    readonly posture?: {
+      readonly posture?: string;
+      readonly allow_service_discovery?: boolean;
+      readonly allow_cross_community_fabric?: boolean;
+      readonly public_artifact_plane?: string;
+      readonly inter_node_transport?: string;
+      readonly server_tracked_read_state?: boolean;
+      readonly s2s_allowlist?: readonly string[];
+    };
+  };
 }
 
 export interface WorkingTreeEntry {
@@ -2607,6 +2619,17 @@ function deepMergeConfig(left: EpochRepositoryConfig, right: EpochRepositoryConf
     working_tree: mergeConfigTable(left.working_tree, right.working_tree),
     ignore: mergeConfigTable(left.ignore, right.ignore),
     extensions: mergeConfigTable(left.extensions, right.extensions),
+    community: mergeCommunityConfig(left.community, right.community),
+  };
+}
+
+function mergeCommunityConfig(
+  left: EpochRepositoryConfig["community"] | undefined,
+  right: EpochRepositoryConfig["community"] | undefined,
+): EpochRepositoryConfig["community"] | undefined {
+  if (left === undefined && right === undefined) return undefined;
+  return {
+    posture: mergeConfigTable(left?.posture, right?.posture),
   };
 }
 
