@@ -4,6 +4,9 @@
   "description": "Epoch-native XMPP s2s FederationTransport adapter (loss-declared; JIDs are admission only).",
   "main": "dist/index.js",
   "types": "src/index.ts",
+  "dependencies": {
+    "@epoch/protocol": "0.1.0"
+  },
   "scripts": {
     "build": "tsgo -p tsconfig.json",
     "typecheck": "tsgo -p tsconfig.json --noEmit",

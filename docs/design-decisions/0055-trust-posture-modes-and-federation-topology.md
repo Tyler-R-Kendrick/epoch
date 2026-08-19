@@ -29,7 +29,10 @@ blocked for non-public data in private; Nostr attestation in all postures;
 identity authority = ADR-0023 bindings + Ed25519 principals in all
 postures. (3) Invariants I-1..I-7 as in §2 of this brief. (4) Native
 channels/presence/read-state over the signed log and the sanitized
-livestream close the Discord-shaped gap; Matrix is not imported. (5)
+livestream close the Discord-shaped gap; Matrix is not imported. Public
+`channel.create`/`channel.message` events may fan out over enabled XMPP s2s
+as signed bytes addressed with conference-shaped routing JIDs. That does
+not adopt XEP-0045: MUC occupancy and nicks remain refused as identity. (5)
 Acceptance is experimental: the E01–E16 gated registry, default verdict
 rejected, standing "Production ship: (none yet)" row, rejected-protocol
 ledger.
