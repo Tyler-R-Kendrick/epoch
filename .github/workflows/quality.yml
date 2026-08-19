@@ -296,3 +296,63 @@ jobs:
 
       - name: Community Web app end-to-end suite
         run: npm run community-web:app:e2e
+
+  nats-broker:
+    name: NATS broker JWT
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install nats-server
+        run: |
+          curl -fsSL -o /tmp/nats-server.tgz https://github.com/nats-io/nats-server/releases/download/v2.10.26/nats-server-v2.10.26-linux-amd64.tar.gz
+          tar -xzf /tmp/nats-server.tgz -C /tmp
+          sudo install /tmp/nats-server-v2.10.26-linux-amd64/nats-server /usr/local/bin/nats-server
+          nats-server -v
+
+      - name: Build NATS package
+        run: npm run build -w @epoch/protocol && npm run build -w @epoch/nats
+
+      - name: Real-broker JWT tests
+        run: node packages/Epoch.Nats/test/nats-server-jwt.integration.mjs
+
+  xmpp-prosody:
+    name: XMPP Prosody harness
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Prosody
+        run: sudo apt-get update && sudo apt-get install -y prosody
+
+      - name: Build XMPP package
+        run: npm run build -w @epoch/xmpp
+
+      - name: Prosody s2s harness
+        run: node packages/Epoch.Xmpp/test/prosody-harness.mjs

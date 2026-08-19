@@ -36,6 +36,9 @@ Operations. These terms are contracts, not synonyms.
 | **Grant** | An attenuated authorization from an issuer to a subject. | Membership or identity. |
 | **Budget** | Durable reserved and consumed resource authority. | A process-local rate limit. |
 | **Evidence** | A digest-bound review, gate, session, or tool result with an explicit verification state. | Proof when its state is unverified. |
+| **Trust Posture** | Per-community `hosted`, `private`, or `open` deployment property. Open is the default with extras off. | A transport identity, a Matrix/XMPP account, or a NATS operator. |
+| **Native Channel** | Signed `channel.*` gossip events (`epoch.channel/v1`) projected as Community messages. | Issue-backed chat, MUC, or a livestream identity. |
+| **Exit Bundle** | An `epoch-exit/v1` verified-history package with events, ADR-0023 bindings, and a sha256/eventCount/headId manifest. | A Git bundle, an unsigned dump, or a live replica. |
 
 ## Community search and namespace language
 

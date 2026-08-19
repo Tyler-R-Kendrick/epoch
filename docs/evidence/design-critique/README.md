@@ -107,3 +107,14 @@ Evidence: `.optimizexp/audits/token-conformance.json` (0 findings),
 `docs/evidence/community-web-app/`. The deterministic Impeccable detector returned no
 findings for `packages/Epoch.Community.Web/app/index.html`; rendered DOM and
 desktop/mobile screenshots were inspected from the local canonical server.
+
+## Federation hardening — posture badge (2026-08-18)
+
+Surface: board masthead `.cw-posture` / `data-posture-badge`.
+Persona critics: GitHub open-source contributor, platform operator.
+
+- Pass: honest labels (`open` / `hosted` / `private` / `denied`); token glow;
+  extras-off in the title; unknown config does not claim a valid open evaluation.
+- Pass: no `sig:local-only` implication; craft uses existing Tron masthead type.
+- Automatic-fail conditions (lifeless chrome, AI-slop radius, DESIGN.md drift)
+  are clear for this chip. Screenshots were not regenerated; DOM contract is the evidence.

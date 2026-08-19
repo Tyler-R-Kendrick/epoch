@@ -415,7 +415,9 @@ stable IDs and typed errors plus `parseRevset`, `evaluateRevset`,
 `inspectSwhid`, and `nodeOnlyAdapterStatus`.
 
 `createCanonicalId(kind, random?)` requires exactly 256 random bits and emits
-lowercase unpadded base32. `RevisionId` is a branded signed `EventId`, validated
+lowercase unpadded base32. Protocol also exports `evaluatePosture`,
+`TrustPosture`, and `PosturePolicy` ([ADR-0055](design-decisions/0055-trust-posture-modes-and-federation-topology.md)).
+`RevisionId` is a branded signed `EventId`, validated
 with `assertRevisionId`; it is intentionally not an `epoch:revision:*`
 canonical object ID. Protocol also owns the browser-safe SWHID parser used by
 `inspectSwhid` and wrapped by `@epoch/software-heritage`, so both surfaces
@@ -619,6 +621,12 @@ sdk.restores.dryRun({ backupId: backup.id });
 
 sdk.identity.revokeApiToken(token.id);
 ```
+
+`verifyFabricCredential` includes `allowServiceDiscovery` from community
+posture. Hosted/private NATS callouts may grant `epoch.svc.>`; the default
+open posture does not. See [NATS Realtime Fabric](nats.md) for
+`attachAuthCalloutService` (`$SYS.REQ.USER.AUTH`) and
+`createInMemoryServiceDirectory`.
 
 Filesystem-backed Core writes `platform-state.json` as a hash-verified state
 envelope and refuses to boot from tampered state. Backup runs include

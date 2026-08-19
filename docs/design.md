@@ -93,6 +93,10 @@ The current domain constants include:
 - `approval`
 - `rejection`
 - `ci`
+- `channel.create`
+- `channel.message`
+- `channel.presence`
+- `channel.read`
 
 Records, CRDT operations, and native file lifecycle events are also treated as
 intents for named-view projection because they represent requested, not yet
@@ -375,7 +379,19 @@ and [docs/community-atproto.md](community-atproto.md).
   for clone/push and live migration ([ADR-0021](design-decisions/0021-git-projection-and-live-migration.md)).
 
 Epoch Core remains authoritative; Community disabled and local-only modes stay
-supported. Private content never touches ATProto.
+supported. Private content never touches ATProto. Real PDS (`RealPds`) stays
+off until E10; MockPds is the default control.
+
+Trust posture ([ADR-0055](design-decisions/0055-trust-posture-modes-and-federation-topology.md))
+is a first-class per-community property (`hosted` | `private` | `open`).
+`evaluatePosture` in `@epoch/protocol` fails closed on unknown or malformed
+config. Absent config evaluates to **open with extras off**. Open cannot
+enable service discovery. NATS stays intra-community. `$SYS.REQ.USER.AUTH`
+callout plus `epoch.svc.>` advertise/lookup exist in `@epoch/nats`; open
+never receives discovery ACLs. XMPP s2s is an optional
+loss-declared bridge (`@epoch/xmpp`), default off. Native channels are signed
+`epoch.channel/v1` gossip events. Production ship remains
+**(none yet)** — see [protocol experiments](protocol-experiments.md).
 
 `Epoch.Community.Operations.Web` is a separate Coolify-inspired project
 operations extension. It consumes `Epoch.Platform.Sdk` and
@@ -660,6 +676,9 @@ The current implementation does not provide:
 - a packfile container for compressed objects (OpenZL frames ship first; packs later)
 - compiling `nats-server` to browser WASM; realtime fabric is host NATS +
   `nats.ws` ([ADR-0054](design-decisions/0054-nats-realtime-fabric.md))
+- Production-shipped XMPP, real PDS, or nats-server JWT handshake; those
+  adapters exist behind E01/E02/E10 and stay off
+  ([ADR-0055](design-decisions/0055-trust-posture-modes-and-federation-topology.md))
 - a kernel VFS/FUSE mount provider for Spaces; hydration is a provider seam,
   so tools outside the provider do not see virtual paths (ADR-0043 phase 4)
 - container or microVM sandboxing; isolated execution is Linux user namespaces

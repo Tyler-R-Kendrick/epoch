@@ -200,6 +200,10 @@ High-value entry points:
 | Community Operations extension | [docs/community-operations.md](docs/community-operations.md) |
 | Create repo and version materialization proposal | [docs/create-repository-and-version-materialization.md](docs/create-repository-and-version-materialization.md) |
 | Feature registry | [docs/features.md](docs/features.md) |
+| Protocol experiments | [docs/protocol-experiments.md](docs/protocol-experiments.md) |
+| Exit and migration | [docs/exit-and-migration.md](docs/exit-and-migration.md) |
+| XMPP s2s profile | [docs/xmpp-profile.md](docs/xmpp-profile.md) |
+| NATS realtime fabric | [docs/nats.md](docs/nats.md) |
 | Executable feature scenario inventory | [docs/feature-scenario-inventory.md](docs/feature-scenario-inventory.md) |
 | Epoch.Platform product spec | [docs/epoch-platform-spec.md](docs/epoch-platform-spec.md) |
 | Community human-centered design | [docs/community-human-centered-design.md](docs/community-human-centered-design.md) |

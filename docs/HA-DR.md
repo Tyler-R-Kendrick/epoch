@@ -40,7 +40,7 @@ Use `bootstrapFromSeeds(repository, seeds)` to try multiple local seed paths in 
 
 Repository event-log HA/DR above is **not** NATS clustering. The optional
 realtime fabric ([nats.md](nats.md), [ADR-0054](design-decisions/0054-nats-realtime-fabric.md))
-uses host `nats-server` JetStream for live/platform/community streams. Losing
+uses host `nats-server` JetStream for live/platform/community/svc streams. Losing
 NATS does not rewrite signed Epoch history; clients re-verify on reconnect.
 
 ## Disaster Recovery Runbook

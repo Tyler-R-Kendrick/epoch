@@ -271,3 +271,31 @@ Acceptance criteria:
 - Scenarios name the design-thinking stage and user-centric success criteria.
 - Repository and agent instructions require Community work to keep those
   persona scenarios current.
+
+### TOOL-009: Exchange Signed Native Channel Messages
+
+**As a** GitHub open-source contributor,
+**I want** in-project conversation to be signed gossip events rather than
+issue-backed chat,
+**So that** a relay cannot impersonate me and live composer rows are never
+`sig:local-only`.
+
+Acceptance criteria:
+
+- `channel.create` / `channel.message` events use `epoch.channel/v1`.
+- Forged or replayed messages are rejected by ingest.
+- Live composer does not use `sig:local-only`.
+- Open posture unread stays a local watermark (ADR-0025).
+
+### OPS-024: Exit A Community Without Lock-In
+
+**As a** platform operator,
+**I want** to export verified history and bindings and import them on a fresh
+node,
+**So that** hosted or private custody is not a trap.
+
+Acceptance criteria:
+
+- `epoch export-exit` / `import-exit` / `migrate-community` exist.
+- Tamper and truncation fail closed.
+- Hosted→open and private→open refuse crafted downgrade.
