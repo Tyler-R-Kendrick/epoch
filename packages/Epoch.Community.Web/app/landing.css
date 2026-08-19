@@ -406,7 +406,7 @@ body.cw-landing {
 .cw-scroll-rail-item .cw-case-code {
   font-size: .68rem;
   font-weight: 700;
-  letter-spacing: .12em;
+  letter-spacing: .02em;
   color: var(--cw-agent);
 }
 
@@ -414,7 +414,7 @@ body.cw-landing {
   font-size: .72rem;
   font-weight: 700;
   letter-spacing: .04em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .cw-scroll-rail-item:hover,
@@ -469,8 +469,8 @@ body.cw-landing {
   font-family: var(--cw-font);
   font-size: .82rem;
   font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--cw-agent);
   background: none;
   border: 0;
@@ -1015,8 +1015,8 @@ body.cw-landing {
 
 .cw-landing-theater-tag {
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--cw-accent);
 }
 
@@ -1055,7 +1055,7 @@ body.cw-landing {
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .05em;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--cw-bg);
   background: var(--cw-agent);
   border: 1px solid var(--cw-agent);
@@ -1254,9 +1254,9 @@ body.cw-landing {
 
 .cw-landing-h2 .cw-case-code {
   font-size: .72em;
-  letter-spacing: .14em;
+  letter-spacing: .02em;
   color: var(--cw-agent);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .cw-case-code {
@@ -1296,7 +1296,7 @@ body.cw-landing {
   align-self: center;
   font-size: .78rem;
   font-weight: 700;
-  letter-spacing: .12em;
+  letter-spacing: .02em;
   color: var(--cw-agent);
 }
 
@@ -1336,7 +1336,7 @@ body.cw-landing {
 
 @keyframes cw-title-settle {
   from {
-    letter-spacing: .08em;
+    letter-spacing: 0;
     filter: blur(2px);
     opacity: .7;
   }
@@ -1411,8 +1411,8 @@ body.cw-landing {
   display: block;
   margin-block-end: .25rem;
   font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   font-size: .78rem;
   color: var(--cw-accent);
 }

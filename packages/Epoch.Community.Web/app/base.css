@@ -671,18 +671,20 @@ body {
 [data-c="post"][data-state="promoted"] [data-c="state"] { color: var(--cw-accent); }
 [data-c="post"][data-state="signed"] [data-c="state"] { color: var(--cw-signed); }
 
-/* Selection: ground plus a leading mark, because a background alone disappears
-   in a high-contrast theme. */
-[data-c="post"][data-state="selected"] {
-  background: var(--cw-surface);
-  box-shadow: inset 3px 0 0 var(--cw-accent);
-}
+/* Selection: reverse video. A wash alone can vanish in high-contrast; invert
+   is the TTY mark and stays hairline-free. */
 [data-c="post"]:hover { background: var(--cw-surface); }
+[data-c="post"][data-state="selected"],
+[data-c="post"][data-state="selected"]:hover {
+  background: var(--cw-accent);
+  color: var(--cw-accent-ink);
+}
 
 [data-c="channel"]:hover, [data-c="member"]:hover, [data-c="project"]:hover { background: var(--cw-surface); }
-[data-c="channel"][data-state="selected"] {
-  background: var(--cw-surface);
-  box-shadow: inset 3px 0 0 var(--cw-accent);
+[data-c="channel"][data-state="selected"],
+[data-c="channel"][data-state="selected"]:hover {
+  background: var(--cw-accent);
+  color: var(--cw-accent-ink);
 }
 [data-c="channel"][data-state="selected"] [data-c="label"] { font-weight: 700; }
 [data-c="channel"][data-kind="work"] [data-c="sigil"] { color: var(--cw-ink-dim); }

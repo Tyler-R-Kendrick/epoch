@@ -1785,6 +1785,98 @@ Then("the Community Web context menu retains focus without moving the nav select
   });
 });
 
+When("I join Community Web lounge voice with a mocked microphone", { timeout: 60_000 }, async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  await page.evaluate(async () => {
+    const track = {
+      kind: "audio",
+      enabled: true,
+      stop() { this.enabled = false; },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    const stream = {
+      getTracks() { return [track]; },
+      getAudioTracks() { return [track]; },
+      getVideoTracks() { return []; },
+    };
+    (navigator.mediaDevices as { getUserMedia: () => Promise<unknown> }).getUserMedia = async () => stream;
+    const app = (window as unknown as {
+      CW_APP: {
+        joinVoice(id: string, path: string): Promise<unknown>;
+      };
+    }).CW_APP;
+    await app.joinVoice("lounge", "/projects/community/channels/lounge");
+  });
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { voice?: { joined?: boolean; channelId?: string } } } }).CW_APP;
+    return !!document.querySelector("[data-voice-tray]") &&
+      app.state.voice?.joined === true && app.state.voice?.channelId === "lounge";
+  }, null, { timeout: 15_000 });
+});
+
+When("I open the Community Web general channel while still in voice", { timeout: 30_000 }, async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    (window as unknown as { CW_APP: { navigate(path: string, options?: Record<string, unknown>): void } })
+      .CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
+  });
+  await page.waitForFunction(() =>
+    /\/channels\/general/.test((window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path),
+  null, { timeout: 10_000 });
+});
+
+Then("the voice connections tray still names lounge and can disconnect", { timeout: 30_000 }, async function () {
+  const page = requirePage();
+  const snap = await page.evaluate(() => {
+    const tray = document.querySelector("[data-voice-tray]");
+    const leave = document.querySelector("[data-voice-leave]");
+    const ptt = document.querySelector("[data-voice-ptt]");
+    const voice = (window as unknown as { CW_APP: { state: { voice?: { joined?: boolean; channelId?: string } } } }).CW_APP.state.voice;
+    return {
+      tray: !!tray,
+      label: tray?.textContent || "",
+      leave: !!leave,
+      ptt: !!ptt,
+      joined: !!voice?.joined,
+      channelId: voice?.channelId || "",
+    };
+  });
+  assert.equal(snap.joined, true);
+  assert.equal(snap.channelId, "lounge");
+  assert.equal(snap.tray, true);
+  assert.match(snap.label, /lounge/i);
+  assert.equal(snap.leave, true);
+  assert.equal(snap.ptt, true);
+});
+
+Then("I can hold push-to-speak from that tray", { timeout: 30_000 }, async function () {
+  const page = requirePage();
+  const ptt = page.locator("[data-voice-ptt]");
+  await ptt.waitFor({ state: "visible" });
+  const box = await ptt.boundingBox();
+  assert.ok(box, "push-to-speak control must stay on screen after changing rooms");
+  await ptt.dispatchEvent("pointerdown");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as {
+      CW_APP: { state: { voice?: { speaking?: boolean; inputMode?: string } } };
+    }).CW_APP;
+    return app.state.voice?.inputMode === "ptt" && app.state.voice?.speaking === true;
+  }, null, { timeout: 10_000 });
+  await ptt.dispatchEvent("pointerup");
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { voice?: { speaking?: boolean } } } }).CW_APP;
+    return app.state.voice?.speaking !== true;
+  }, null, { timeout: 10_000 });
+  await page.locator("[data-voice-leave]").click();
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { voice?: { joined?: boolean } } } }).CW_APP;
+    return !app.state.voice?.joined && !document.querySelector("[data-voice-tray]");
+  }, null, { timeout: 10_000 });
+});
+
 When("I define the Community Web review macro with voice phrase {string}", async function (phrase: string) {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");

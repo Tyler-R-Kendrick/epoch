@@ -14,7 +14,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_channels.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 82 |
+| `features/community_web_experience.feature` | 83 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -118,6 +118,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user operates every Community Web post action without a pointer | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user previews and enters message directories from the prompt | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user navigates a Community Web context menu without losing focus | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user manages lounge voice after moving to another room | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer defines one action for prompt agent and voice control | None | 0 |
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator consumes compatible startup conditions with one restart | None | 0 |
 | `features/community_web_experience.feature` | `@persona.platform_operator` | Scenario | Agent operator keeps model routing sticky within a workspace | None | 0 |

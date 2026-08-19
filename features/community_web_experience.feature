@@ -342,6 +342,16 @@ Feature: Community Web community-first experience
     And I open the general channel context menu and move down and up by keyboard
     Then the Community Web context menu retains focus without moving the nav selection
 
+  @persona.slack_power_user
+  Scenario: Power user manages lounge voice after moving to another room
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I join Community Web lounge voice with a mocked microphone
+    And I open the Community Web general channel while still in voice
+    Then the voice connections tray still names lounge and can disconnect
+    And I can hold push-to-speak from that tray
+
   @persona.maintainer
   Scenario: Maintainer defines one action for prompt agent and voice control
     Given Epoch Community is available

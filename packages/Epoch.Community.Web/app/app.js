@@ -917,7 +917,7 @@
   }
 
   function paintVoiceLight(st) {
-    var dock = document.querySelector(".cn-voice-dock");
+    var dock = document.querySelector("[data-voice-tray]");
     if (!dock) return false;
     var rtt = dock.querySelector(".cn-voice-rtt");
     if (rtt) rtt.textContent = st.latencyMs != null ? (st.latencyMs + " ms") : "…";
@@ -930,7 +930,26 @@
     }
     var mode = dock.querySelector(".cn-voice-mode-tag");
     if (mode) mode.textContent = st.inputMode || "vad";
+    var ptt = dock.querySelector("[data-voice-ptt]");
+    if (ptt) {
+      var held = st.inputMode === "ptt" && !!st.speaking;
+      ptt.setAttribute("aria-pressed", held ? "true" : "false");
+      ptt.textContent = held ? "speaking" : "push to speak";
+    }
     return true;
+  }
+
+  function beginVoicePtt() {
+    var eng = ensureVoiceEngine();
+    if (!eng || !state.voice || !state.voice.joined) return false;
+    if (state.voice.inputMode !== "ptt") setVoiceInputMode("ptt");
+    voicePttHeld = true;
+    return !!eng.pttDown();
+  }
+
+  function endVoicePtt() {
+    voicePttHeld = false;
+    if (voiceEngine) voiceEngine.pttUp();
   }
 
   function onVoiceState(st) {
@@ -8765,6 +8784,12 @@
         joinVoice(joinBtn.dataset.voiceJoin, joinBtn.dataset.voicePath || null);
         return;
       }
+      if (ev.target.closest("[data-voice-goto]")) {
+        var goBtn = ev.target.closest("[data-voice-goto]");
+        var dest = goBtn && goBtn.getAttribute("data-voice-goto");
+        if (dest) navigate(dest, { keepCli: true });
+        return;
+      }
       if (ev.target.closest("[data-voice-leave]")) {
         leaveVoice();
         return;
@@ -9708,6 +9733,23 @@
       return false;
     }
 
+    document.addEventListener("pointerdown", function (ev) {
+      var btn = ev.target && ev.target.closest && ev.target.closest("[data-voice-ptt]");
+      if (!btn) return;
+      if (ev.button != null && ev.button !== 0) return;
+      ev.preventDefault();
+      beginVoicePtt();
+    }, true);
+
+    document.addEventListener("pointerup", function () {
+      if (!voicePttHeld) return;
+      endVoicePtt();
+    }, true);
+
+    document.addEventListener("pointercancel", function () {
+      endVoicePtt();
+    }, true);
+
     document.addEventListener("keydown", function (ev) {
       if (!state.voice || !state.voice.joined) return;
       if (blockedTarget(ev)) return;
@@ -9723,11 +9765,7 @@
       ev.preventDefault();
       ev.stopPropagation();
       if (ev.repeat) return;
-      if (!voicePttHeld) {
-        voicePttHeld = true;
-        var eng = ensureVoiceEngine();
-        if (eng) eng.pttDown();
-      }
+      beginVoicePtt();
     }, true);
 
     document.addEventListener("keyup", function (ev) {
@@ -9735,15 +9773,11 @@
       if (!window.CW_VOICE.isVoicePttKey(ev)) return;
       ev.preventDefault();
       ev.stopPropagation();
-      voicePttHeld = false;
-      if (voiceEngine) voiceEngine.pttUp();
+      endVoicePtt();
     }, true);
 
     window.addEventListener("blur", function () {
-      if (voicePttHeld && voiceEngine) {
-        voicePttHeld = false;
-        voiceEngine.pttUp();
-      }
+      endVoicePtt();
     });
   }
 

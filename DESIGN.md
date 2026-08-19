@@ -140,6 +140,101 @@ components:
     padding: "6px 8px"
   focus-ring:
     backgroundColor: "{colors.agent}"
+  page-void:
+    backgroundColor: "{colors.neutral}"
+    textColor: "{colors.ink}"
+  panel-raised:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
+  ink-secondary:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-soft}"
+  ink-muted:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.muted}"
+  rule:
+    backgroundColor: "{colors.line}"
+    textColor: "{colors.ink}"
+  rule-strong:
+    backgroundColor: "{colors.line-strong}"
+    textColor: "{colors.ink}"
+  chrome-control:
+    backgroundColor: "{colors.control}"
+    textColor: "{colors.accent-ink}"
+    rounded: "{rounded.none}"
+    padding: "4px 10px"
+  mark-signed:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.signed}"
+  mark-gold:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.gold}"
+  status-live:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.live}"
+  status-success:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.success}"
+  status-warn:
+    backgroundColor: "{colors.warning-bg}"
+    textColor: "{colors.warning-ink}"
+  status-warn-line:
+    backgroundColor: "{colors.warning-bg}"
+    textColor: "{colors.warning-line}"
+  status-caution:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.warn}"
+  status-danger:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.danger}"
+  agent-teal:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.teal}"
+  agent-teal-deep:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.teal-deep}"
+  rail-muted:
+    backgroundColor: "{colors.rail}"
+    textColor: "{colors.rail-muted}"
+  rail-hover:
+    backgroundColor: "{colors.rail-hover}"
+    textColor: "{colors.rail-text}"
+  rail-rule:
+    backgroundColor: "{colors.rail-line}"
+    textColor: "{colors.rail-text}"
+  avatar:
+    backgroundColor: "{colors.avatar}"
+    textColor: "{colors.avatar-ink}"
+  compat-runnable:
+    backgroundColor: "{colors.runnable}"
+    textColor: "{colors.ink}"
+  compat-rough:
+    backgroundColor: "{colors.rough}"
+    textColor: "{colors.ink}"
+  compat-rough-strong:
+    backgroundColor: "{colors.rough-strong}"
+    textColor: "{colors.ink}"
+  compat-open-land:
+    backgroundColor: "{colors.open-land}"
+    textColor: "{colors.accent-ink}"
+  compat-open-land-strong:
+    backgroundColor: "{colors.open-land-strong}"
+    textColor: "{colors.accent-ink}"
+  compat-marsh:
+    backgroundColor: "{colors.marsh}"
+    textColor: "{colors.accent-ink}"
+  compat-marsh-strong:
+    backgroundColor: "{colors.marsh-strong}"
+    textColor: "{colors.accent-ink}"
+  compat-mint:
+    backgroundColor: "{colors.mint}"
+    textColor: "{colors.accent-ink}"
+  compat-mint-strong:
+    backgroundColor: "{colors.mint-strong}"
+    textColor: "{colors.accent-ink}"
+  compat-out-of-bounds:
+    backgroundColor: "{colors.out-of-bounds}"
+    textColor: "{colors.accent-ink}"
 ---
 
 # Epoch Community Web Design
