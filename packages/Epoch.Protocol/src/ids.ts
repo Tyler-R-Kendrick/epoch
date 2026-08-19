@@ -8,6 +8,8 @@ export const CANONICAL_ID_KINDS = [
   // and anchor get their own kinds so a turn can name where it ran and a
   // comment can name what it points at without either borrowing `workspace`.
   "space", "sandbox", "anchor",
+  // ADR-0055 native channels: a channel is a signed gossip object, never a transport identity.
+  "channel",
 ] as const;
 
 export type CanonicalIdKind = typeof CANONICAL_ID_KINDS[number];
