@@ -6,14 +6,14 @@ Open — stacked PRs for cucumber flake, Verify goldens, Protocol mutant kill, a
 
 ## Session PRs
 
-| Layer | Branch | Purpose |
+| Layer | PR | Purpose |
 |---|---|---|
-| 01 | `sdlc/test-lanes-01-cucumber-flake` | Share-message cucumber no longer hangs on first-keys help chrome |
-| 02 | `sdlc/test-lanes-02-verify-goldens` | Protocol, design-token, and voice-tray Verify goldens plus helper tests |
-| 03 | `sdlc/test-lanes-03-mutation-guards` | `npm run mutation:protocol` + Quality Gates / fuzz-campaign jobs |
-| 04 | `sdlc/test-lanes-04-docs` | Honest testing-lanes inventory and this closeout |
+| 01 | [#157](https://github.com/Tyler-R-Kendrick/epoch/pull/157) | Share-message cucumber no longer hangs on first-keys help chrome |
+| 02 | [#158](https://github.com/Tyler-R-Kendrick/epoch/pull/158) | Protocol, design-token, and voice-tray Verify goldens plus helper tests |
+| 03 | [#159](https://github.com/Tyler-R-Kendrick/epoch/pull/159) | `npm run mutation:protocol` + Quality Gates / fuzz-campaign jobs |
+| 04 | [#160](https://github.com/Tyler-R-Kendrick/epoch/pull/160) | Honest testing-lanes inventory and this closeout |
 
-PR numbers are filled after `gh stack submit`.
+Stack: [#161](https://github.com/Tyler-R-Kendrick/epoch/issues/161)
 
 ## Inventory (honest)
 
