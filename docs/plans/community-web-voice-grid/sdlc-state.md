@@ -27,5 +27,5 @@ Community Web Grid: no kicker eyebrows, reverse-video selection, 1px error boxes
 ## Residual
 
 - Engine still replaces the current voice room on join (one live connection).
-- Window blur does not release channel-voice PTT (pointer/key release and pointercancel do).
+- Window blur releases channel-voice PTT (`endVoicePtt` on `blur` in `app.js`); pointer/key release and pointercancel also release.
 - Sibling Platform/Ops Web kickers remain outside this Grid surface.

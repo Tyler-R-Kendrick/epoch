@@ -272,3 +272,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | None. Quality Gates including Test, Coverage, Community Web e2e, and XMPP Prosody harness passed before squash-merge. |
 | Notes | Persistent voice tray after room change; Grid kickers/side-tabs/em-dashes cleaned; DESIGN.md components consume all tokens. |
+
+## 2026-08-19 — Test lanes honesty (stacked)
+
+| Field | Value |
+|---|---|
+| Initiative | [`test-lanes`](test-lanes/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Branches | `sdlc/test-lanes-01-cucumber-flake` → `02-verify-goldens` → `03-mutation-guards` → `04-docs` |
+| PRs | [#157](https://github.com/Tyler-R-Kendrick/epoch/pull/157) → [#158](https://github.com/Tyler-R-Kendrick/epoch/pull/158) → [#159](https://github.com/Tyler-R-Kendrick/epoch/pull/159) → [#160](https://github.com/Tyler-R-Kendrick/epoch/pull/160) (stack [#161](https://github.com/Tyler-R-Kendrick/epoch/issues/161))
+| Result | **in progress** |
+| Failure class | #156 Coverage once flaked on share-message thread open (help chrome / 30s locator). Layer 01 closes that wait. |
+| Notes | Honest answer: unit/BDD/Pact/PR-fuzz are strong; mutation and Verify are listed-contract, not whole-program; chaos is NATS + Community Web faults. |
