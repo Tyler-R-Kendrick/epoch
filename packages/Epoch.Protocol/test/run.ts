@@ -133,6 +133,7 @@ function capabilityManifest(): void {
   assert.equal(PROTOCOL_CAPABILITIES.transactions.quarantineAtomicPublish, true);
   assert.equal(PROTOCOL_CAPABILITIES.merge.conservativeCommutation, true);
   assert.equal(PROTOCOL_CAPABILITIES.providers.mayMutateCanonicalState, false);
+  assert.equal(PROTOCOL_CAPABILITIES.providers.trusted, false);
   assert.equal(PROTOCOL_CAPABILITIES.fidelity.binarySemanticMerge, false);
   assert.equal(PROTOCOL_CAPABILITIES.review.changeBased, true);
   assert.equal(PROTOCOL_CAPABILITIES.review.pullRequestBranches, false);

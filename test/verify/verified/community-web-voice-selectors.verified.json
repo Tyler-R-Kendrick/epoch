@@ -1,0 +1,22 @@
+{
+  "boardStage": true,
+  "present": [
+    "data-voice-tray",
+    "data-voice-ptt",
+    "data-voice-leave",
+    "data-voice-goto",
+    "data-voice-mute",
+    "data-voice-deafen",
+    "data-voice-join"
+  ],
+  "pttBlurReleases": true,
+  "required": [
+    "data-voice-tray",
+    "data-voice-ptt",
+    "data-voice-leave",
+    "data-voice-goto",
+    "data-voice-mute",
+    "data-voice-deafen",
+    "data-voice-join"
+  ]
+}

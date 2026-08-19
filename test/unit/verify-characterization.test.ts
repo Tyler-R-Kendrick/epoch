@@ -2,7 +2,9 @@
  * Characterization / snapshot tests (Verify-style). Goldens live in
  * test/verify/verified/. Refresh with EPOCH_UPDATE_VERIFIED=1.
  */
+import { readFileSync } from "node:fs";
 import { CHANNEL_EVENT_SCHEMA } from "@epoch/community-core";
+import { epochTokens } from "@epoch/design-tokens";
 import {
   EPOCH_NATS_SUBJECTS,
   EPOCH_STREAM_SPECS,
@@ -10,7 +12,7 @@ import {
   createPlatformAuthValidator,
   permissionsForScopes,
 } from "@epoch/nats";
-import { DENIED_POSTURE_POLICY, OPEN_POSTURE_DEFAULTS, evaluatePosture } from "@epoch/protocol";
+import { DENIED_POSTURE_POLICY, OPEN_POSTURE_DEFAULTS, PROTOCOL_CAPABILITIES, evaluatePosture } from "@epoch/protocol";
 import {
   XMPP_FIDELITY_STATEMENT,
   conferenceRoutingJid,
@@ -24,6 +26,9 @@ export async function runVerifyCharacterizationTests(): Promise<void> {
   posturePolicyContract();
   fabricAclContract();
   xmppFidelityAndFanoutContract();
+  protocolCapabilityContract();
+  designTokenColorContract();
+  communityWebVoiceSelectorContract();
   await authCalloutAllowShapeContract();
 }
 
@@ -89,6 +94,34 @@ function xmppFidelityAndFanoutContract(): void {
     conferenceJid: conferenceRoutingJid(channelId, "a.example"),
     eventType: (envelope.event as { type: string }).type,
     refusedMuc: XMPP_FIDELITY_STATEMENT.xeps.refused.includes("XEP-0045"),
+  });
+}
+
+function protocolCapabilityContract(): void {
+  assertVerified("protocol-capabilities", PROTOCOL_CAPABILITIES);
+}
+
+function designTokenColorContract(): void {
+  assertVerified("design-token-colors", epochTokens.colors);
+}
+
+function communityWebVoiceSelectorContract(): void {
+  const consoleSrc = readFileSync("packages/Epoch.Community.Web/app/console.js", "utf8");
+  const appSrc = readFileSync("packages/Epoch.Community.Web/app/app.js", "utf8");
+  const required = [
+    "data-voice-tray",
+    "data-voice-ptt",
+    "data-voice-leave",
+    "data-voice-goto",
+    "data-voice-mute",
+    "data-voice-deafen",
+    "data-voice-join",
+  ];
+  assertVerified("community-web-voice-selectors", {
+    boardStage: consoleSrc.includes("cn-board-stage"),
+    required,
+    present: required.filter((attr) => consoleSrc.includes(attr)),
+    pttBlurReleases: /addEventListener\("blur", function \(\) \{\s*endVoicePtt\(\);/.test(appSrc),
   });
 }
 

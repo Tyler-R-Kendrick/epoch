@@ -1,0 +1,61 @@
+{
+  "changes": {
+    "fragmentKinds": [
+      "add",
+      "delete",
+      "move",
+      "copy",
+      "text",
+      "structured",
+      "binary"
+    ],
+    "multipleParents": true,
+    "stableLineage": true
+  },
+  "fidelity": {
+    "binarySemanticMerge": false,
+    "byteExactSplit": true
+  },
+  "identifiers": {
+    "encoding": "base32-lower-no-padding",
+    "injectableCsprng": true,
+    "randomBits": 256
+  },
+  "merge": {
+    "conservativeCommutation": true,
+    "dependencyClosure": true,
+    "durableConflicts": true,
+    "squashProvenance": true
+  },
+  "operations": {
+    "concurrentHeads": true,
+    "localOnly": true,
+    "secretRedaction": true,
+    "undoRestore": true
+  },
+  "providers": {
+    "mayMutateCanonicalState": false,
+    "trusted": false
+  },
+  "review": {
+    "changeBased": true,
+    "gitChangeIdTrailer": true,
+    "publishOptions": [
+      "topic",
+      "hashtag",
+      "wip"
+    ],
+    "pullRequestBranches": false,
+    "reviewRef": "refs/for/*"
+  },
+  "schemaVersion": 1,
+  "transactions": {
+    "atomicPublish": false,
+    "compareAndSwapHeads": true,
+    "explicitParents": true,
+    "gitPromotionAtomic": false,
+    "quarantineAtomicPublish": true,
+    "repositoryAppendRecovery": false,
+    "syncBatchAtomic": false
+  }
+}
