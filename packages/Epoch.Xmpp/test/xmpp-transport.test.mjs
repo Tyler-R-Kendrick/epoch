@@ -22,6 +22,7 @@ test("xmpp: default off and private publish fails closed", async () => {
   assert.throws(() => principalFromJid("room@conference.a.example/nick"), /admission only/u);
   assert.equal(dialbackTrustLevel("dialback"), "reduced");
   assert.equal(dialbackTrustLevel("sasl-external"), "full");
+  assert.ok(XMPP_FIDELITY_STATEMENT.xeps.refused.includes("XEP-0045"));
   assert.equal(XMPP_FIDELITY_STATEMENT.channelRouting, "conference-jid-labels-not-muc-occupancy");
 });
 
@@ -55,4 +56,24 @@ test("xmpp: public channel events fan out as conference-routed signed bytes", as
   const received = await receiveFederatedChannelEvents(transport);
   assert.deepEqual(received, [event]);
   assert.match(conferenceRoutingJid(channelId, "a.example"), /@conference\.a\.example$/u);
+  assert.notEqual(conferenceRoutingJid(channelId, "a.example"), `${channelId}@a.example`);
+});
+
+test("xmpp: channel.read does not federate", async () => {
+  const transport = new InMemoryXmppTransport({ enabled: true, allowlist: ["a.example"] });
+  await assert.rejects(
+    () => federatePublicChannelEvent(transport, {
+      schemaVersion: 1,
+      type: "channel.read",
+      eventId: "read-1",
+      revisionId: "read-1",
+      body: {
+        schema: "epoch.channel/v1",
+        channelId: `epoch:channel:${"c".repeat(52)}`,
+        principalId: `epoch:principal:${"p".repeat(52)}`,
+        watermarkEventId: "wm-1",
+      },
+    }, "a.example"),
+    /does not federate/u,
+  );
 });
