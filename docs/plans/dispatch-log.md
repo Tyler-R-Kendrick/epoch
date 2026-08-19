@@ -248,3 +248,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | None. Docs, Test, Coverage, Pact, Typecheck, Lint, and Community Web e2e passed on the PR. |
 | Notes | Orphaned Community API/Core package tests now run under `test:runtime`. Unit tests accept every protocol event type and fail closed on escapes; CLI git and Community Web state/PWA helpers are exercised on Node. Fast-check covers identity, promise, and space-join events. Measured 91.85/79.9/88.2; floors 90/79/87. Production Vercel deploys `95187c6`. |
+
+## 2026-08-19 — Federation hardening + test lanes (`/sdlc finish`)
+
+| Field | Value |
+|---|---|
+| Initiative | [`federation-hardening`](federation-hardening/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Branches | `feat/federation-hardening` → `feat/federation-test-lanes` |
+| PRs | [#151](https://github.com/Tyler-R-Kendrick/epoch/pull/151) squash-merged [`aa44b92`](https://github.com/Tyler-R-Kendrick/epoch/commit/aa44b9240892d9af73735aa0bda2089bf84dea16); [#152](https://github.com/Tyler-R-Kendrick/epoch/pull/152) closed when the base branch was deleted; replacement [#153](https://github.com/Tyler-R-Kendrick/epoch/pull/153) squash-merged [`41433e6`](https://github.com/Tyler-R-Kendrick/epoch/commit/41433e6f55e6271e7517f36d5900a86994a18074) |
+| Result | **success** |
+| Failure class | Real CI: #152 Test timed out on Community Web cucumber (share-message 30s). Fixed waits on #153; Test passed. XMPP Prosody harness on #153 stayed `in_progress` on `apt-get install prosody` at merge time — not billing, not a failed test run. |
+| Notes | Local `npm run verify` on Node 22 passed. Production ship remains none. Pact-js metadata 16.4 vs 16.5 was not committed. |
