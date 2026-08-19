@@ -21,7 +21,7 @@ decisions, operations, or contribution workflow.
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
 | [OpenZL Host Entropy Codec](openzl.md) | Entity-aware OpenZL compression for blobs/artifacts and changediffs (`@epoch/openzl`). |
 | [NATS Realtime Fabric](nats.md) | Host NATS JetStream/WebSocket, complementary auth callout, host-side JWT issuance, Live/platform/community streams, and posture-gated `epoch.svc.>` discovery (`@epoch/nats`). |
-| [Testing Lanes](testing-lanes.md) | Unit, Cucumber, Pact, chaos, fuzz, mutation oracles, and Verify-style characterization goldens. |
+| [Testing Lanes](testing-lanes.md) | Honest inventory: unit, Cucumber, Pact, chaos, fuzz, NATS/Protocol mutant kill, and Verify-style goldens. |
 | [Protocol Experiments](protocol-experiments.md) | E01–E16 gated registry, rejected-protocol ledger, standing Production ship: (none yet). |
 | [XMPP s2s Profile](xmpp-profile.md) | Loss-declared `@epoch/xmpp` FederationTransport, XEP profile, and fidelity statement. |
 | [Exit And Migration](exit-and-migration.md) | `epoch-exit/v1` export, import, and community migration with binding continuity. |
@@ -154,6 +154,7 @@ decisions, operations, or contribution workflow.
 | [Community Web Startup And Routing Plan](plans/community-web-startup-routing/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, next-action guidance, and focus expansion. |
 | [Federation Hardening State](plans/federation-hardening/sdlc-state.md) | Closed record for trust posture, NATS discovery, native channels, gated bridges, and test lanes. |
 | [Community Web Voice Tray State](plans/community-web-voice-grid/sdlc-state.md) | Closed record for persistent lounge voice connections and Grid design-system cleanup. |
+| [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Open record for cucumber flake, Verify goldens, Protocol mutant kill, and testing-lane inventory. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
 | [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |
