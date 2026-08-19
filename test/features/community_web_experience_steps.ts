@@ -1169,14 +1169,29 @@ Then("focus and selection remain in the same panel context", function () {
 
 When("I open one Community Web message from its channel projection", { timeout: 60_000 }, async function () {
   const page = requirePage();
-  await page.evaluate(() => (window as unknown as {
-    CW_APP: { navigate(path: string, options?: Record<string, unknown>): void };
-  }).CW_APP.navigate("/projects/community/channels/general", { keepCli: true }));
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  await page.evaluate(() => {
+    const app = window as unknown as {
+      CW_APP: {
+        cancelTopLayer?: () => void;
+        navigate(path: string, options?: Record<string, unknown>): void;
+      };
+    };
+    if (typeof app.CW_APP.cancelTopLayer === "function") app.CW_APP.cancelTopLayer();
+    app.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
+  });
+  await page.waitForFunction(() =>
+    /\/channels\/general/.test((window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path),
+  { timeout: 10_000 });
   const message = page.locator('.cn-comment[data-key="p3"]');
-  await message.waitFor({ state: "visible", timeout: 30_000 });
-  await message.focus();
-  await page.keyboard.press("Enter");
-  await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible", timeout: 30_000 });
+  await message.waitFor({ state: "visible", timeout: 15_000 });
+  await message.click();
+  await page.waitForFunction(() => {
+    const app = (window as unknown as { CW_APP: { state: { threadFocus?: string } } }).CW_APP;
+    return app.state.threadFocus === "p3"
+      && !!document.querySelector('.cn-thread-tree[role="tree"]');
+  }, null, { timeout: 15_000 });
   communityWebAppLinkResult = await page.evaluate(() => {
     const runtime = window as unknown as {
       CW_APP: { state: { path: string; threadFocus: string } };

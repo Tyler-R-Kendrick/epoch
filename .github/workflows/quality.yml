@@ -351,8 +351,8 @@ jobs:
       - name: Install Prosody
         run: sudo apt-get update && sudo apt-get install -y prosody
 
-      - name: Build XMPP package
-        run: npm run build -w @epoch/xmpp
+      - name: Build protocol and XMPP packages
+        run: npm run build -w @epoch/protocol && npm run build -w @epoch/xmpp
 
       - name: Prosody s2s harness
         run: node packages/Epoch.Xmpp/test/prosody-harness.mjs
