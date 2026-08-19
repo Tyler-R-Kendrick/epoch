@@ -2,7 +2,7 @@
  * Characterization / snapshot tests (Verify-style). Goldens live in
  * test/verify/verified/. Refresh with EPOCH_UPDATE_VERIFIED=1.
  */
-import { DENIED_POSTURE_POLICY, OPEN_POSTURE_DEFAULTS, evaluatePosture } from "@epoch/protocol";
+import { CHANNEL_EVENT_SCHEMA } from "@epoch/community-core";
 import {
   EPOCH_NATS_SUBJECTS,
   EPOCH_STREAM_SPECS,
@@ -10,12 +10,20 @@ import {
   createPlatformAuthValidator,
   permissionsForScopes,
 } from "@epoch/nats";
+import { DENIED_POSTURE_POLICY, OPEN_POSTURE_DEFAULTS, evaluatePosture } from "@epoch/protocol";
+import {
+  XMPP_FIDELITY_STATEMENT,
+  conferenceRoutingJid,
+  decodeChannelFanout,
+  encodeChannelFanout,
+} from "@epoch/xmpp";
 import { assertVerified } from "../verify/assert-verified";
 
 export async function runVerifyCharacterizationTests(): Promise<void> {
   natsStreamAndSubjectContract();
   posturePolicyContract();
   fabricAclContract();
+  xmppFidelityAndFanoutContract();
   await authCalloutAllowShapeContract();
 }
 
@@ -54,6 +62,33 @@ function fabricAclContract(): void {
       allowServiceDiscovery: true,
       sourceServer: "server-a",
     }),
+  });
+}
+
+function xmppFidelityAndFanoutContract(): void {
+  assertVerified("xmpp-fidelity", { ...XMPP_FIDELITY_STATEMENT });
+  const channelId = `epoch:channel:${"c".repeat(52)}`;
+  const event = {
+    schemaVersion: 1 as const,
+    type: "channel.message" as const,
+    eventId: "m1",
+    revisionId: "m1",
+    body: {
+      schema: CHANNEL_EVENT_SCHEMA,
+      channelId,
+      messageId: "m1",
+      principalId: `epoch:principal:${"p".repeat(52)}`,
+      bodyDigest: "a".repeat(64),
+      visibility: "public" as const,
+    },
+  };
+  const envelope = decodeChannelFanout(encodeChannelFanout(event, "a.example", channelId));
+  assertVerified("xmpp-channel-fanout-envelope", {
+    schema: envelope.schema,
+    routing: envelope.routing,
+    conferenceJid: conferenceRoutingJid(channelId, "a.example"),
+    eventType: (envelope.event as { type: string }).type,
+    refusedMuc: XMPP_FIDELITY_STATEMENT.xeps.refused.includes("XEP-0045"),
   });
 }
 
