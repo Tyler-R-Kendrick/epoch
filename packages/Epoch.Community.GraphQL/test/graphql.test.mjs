@@ -169,6 +169,104 @@ assert.equal(event.value.data.projectionDeltas.sequence, 1);
 await iterator.return?.();
 assert.deepEqual(calls.findLast((call) => call[0] === "watchClosed"), ["watchClosed", "/"]);
 
+assert.throws(() => searchExpressionFromInput({}), /exactly one variant/);
+assert.throws(() => searchExpressionFromInput({ all: { enabled: false } }), /all.enabled must be true/);
+assert.deepEqual(searchExpressionFromInput({ all: { enabled: true } }), { kind: "all" });
+assert.deepEqual(searchExpressionFromInput({ and: { terms: [{ exists: { field: "a" } }] } }).kind, "and");
+assert.deepEqual(searchExpressionFromInput({ or: { terms: [{ exists: { field: "a" } }] } }).kind, "or");
+assert.deepEqual(searchExpressionFromInput({ not: { term: { exists: { field: "a" } } } }).kind, "not");
+assert.deepEqual(searchExpressionFromInput({ text: { fields: ["title"], value: "epoch", mode: "PHRASE" } }).mode, "phrase");
+assert.deepEqual(searchExpressionFromInput({
+  compare: { field: "n", operator: "IN", value: { values: [{ number: 1 }, { boolean: true }, { nullValue: true }] } },
+}).value, [1, true, null]);
+assert.deepEqual(searchExpressionFromInput({
+  range: { field: "score", lower: { number: 1 }, upper: { number: 9 }, includeLower: true, includeUpper: false },
+}).kind, "range");
+assert.equal(searchExpressionFromInput({
+  related: { relation: "REPLY", target: { objectId: "m1", kind: "message" }, direction: "OUT", maxDepth: 2 },
+}).kind, "related");
+assert.throws(() => searchExpressionFromInput({ and: { terms: [] } }), /1 and 64 terms/);
+assert.throws(() => searchExpressionFromInput({ related: { relation: "REPLY", target: { objectId: "m1", kind: "message" }, direction: "OUT", maxDepth: 0 } }), /depth/);
+assert.throws(() => searchExpressionFromInput({ compare: { field: "n", operator: "EQ", value: {} } }), /scalar or a bounded/);
+assert.throws(() => searchExpressionFromInput({ compare: { field: "n", operator: "EQ", value: { scalar: {} } } }), /exactly one value/);
+
+const missingAuth = await executeCommunityGraphQL({ schema, source: `{ node(id: "visible-node") { fields } }`, context: { authorization: null } });
+assert.equal(missingAuth.errors[0].extensions.code, "AUTHORIZATION_DENIED");
+
+const badParse = await executeCommunityGraphQL({ schema, source: "{", context });
+assert.equal(badParse.errors[0].extensions.code, "QUERY_SYNTAX");
+
+const tooBig = await executeCommunityGraphQL({ schema, source: `{ node(id: "visible-node") { fields } }`, context, limits: { maxDocumentBytes: 8 } });
+assert.equal(tooBig.errors[0].extensions.code, "QUERY_COST_LIMIT");
+
+const twoOps = await executeCommunityGraphQL({
+  schema,
+  source: `query A { node(id: "visible-node") { fields } } query B { node(id: "visible-node") { fields } }`,
+  context,
+});
+assert.equal(twoOps.errors[0].extensions.code, "QUERY_SYNTAX");
+
+const named = await executeCommunityGraphQL({
+  schema,
+  source: `query A { node(id: "visible-node") { fields } } query B { node(id: "missing") { fields } }`,
+  operationName: "A",
+  context,
+});
+assert.equal(named.data.node.fields.title, "Visible");
+
+const firstTooLarge = await executeCommunityGraphQL({
+  schema,
+  source: `{ search(where: { all: { enabled: true } }, first: 1001) { nodes { target { objectId } } } }`,
+  context,
+});
+assert.equal(firstTooLarge.errors[0].extensions.code, "QUERY_COST_LIMIT");
+
+const cancelled = await executeCommunityGraphQL({
+  schema: createCommunityGraphQLSchema({
+    ...services,
+    async search() { const error = new Error("stopped"); error.name = "AbortError"; throw error; },
+  }),
+  source: `{ search(where: { all: { enabled: true } }, first: 1) { nodes { target { objectId } } } }`,
+  context,
+});
+assert.equal(cancelled.errors[0].extensions.code, "CANCELLED");
+
+const badCursor = await executeCommunityGraphQL({
+  schema,
+  source: `{ search(where: { all: { enabled: true } }, first: 1, after: "bad cursor") { nodes { target { objectId } } } }`,
+  context,
+});
+assert.equal(badCursor.errors[0].extensions.code, "QUERY_SYNTAX");
+
+const fragmentCycle = await executeCommunityGraphQL({
+  schema,
+  source: `query { ...A } fragment A on Query { ...B } fragment B on Query { ...A }`,
+  context,
+});
+assert.equal(fragmentCycle.errors[0].extensions.code, "QUERY_SYNTAX");
+
+const listed = await executeCommunityGraphQL({
+  schema,
+  source: `{ listPath(path: "/", first: 5, namespace: "user") { nodes { name } pageInfo { hasNextPage } componentOrder } locate(objectId: "visible-node") { name } resolvePath(path: "/") { name } explainPath(path: "/") { detail } projections { id } projection(id: "missing") { id } }`,
+  context,
+});
+assert.equal(listed.errors, undefined);
+assert.equal(listed.data.projection, null);
+
+const mounted = await executeCommunityGraphQL({
+  schema,
+  source: `mutation { mountProjection(input: { mountId: "m2", projectionId: "projection-one", path: "/extra", mode: AFTER, scope: USER, order: 1, writable: false }) { id path } deleteProjection(id: "projection-one") unmountProjection(id: "mount-one") }`,
+  context,
+});
+assert.equal(mounted.errors, undefined);
+
+const parseLocale = await executeCommunityGraphQL({
+  schema,
+  source: `{ parseSearch(expression: "state:needs-review", timezone: "UTC", locale: "en-US") { canonical } }`,
+  context,
+});
+assert.equal(parseLocale.errors, undefined);
+
 const noLegacy = schema.getQueryType().getFields();
 assert.equal(noLegacy.savedViews, undefined);
 assert.equal(noLegacy.communitySearch, undefined);

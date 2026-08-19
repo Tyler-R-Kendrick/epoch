@@ -6,12 +6,14 @@ import {
   agreeOnHead,
   attestationIsActive,
   buildBindingRecord,
+  buildBindingTags,
   buildSignedProtocolProof,
   computeEventId,
   decodeProtocolProofSlice,
   didDocumentForCommitKey,
   DisabledRelayClient,
   encodeProtocolProofSlice,
+  generateNostrKeypair,
   GuardedRelayClient,
   InMemoryBindingRecordStore,
   InMemoryRelay,
@@ -22,6 +24,7 @@ import {
   NOSTR_BINDING_KIND,
   pairKey,
   parseBindingEvent,
+  prevEventIdFromTags,
   ProtocolAtProofVerifier,
   publishBindingEvent,
   publishOwnerAgentAttestation,
@@ -32,8 +35,10 @@ import {
   scopeAllows,
   ScopedOAuthClient,
   BINDING_RECORD_SCOPE,
+  signEvent,
   signNip98Request,
   StaticDidResolver,
+  tagValue,
   validateChain,
   verifyBinding,
   verifyEventSignature,
@@ -44,6 +49,7 @@ import {
 } from "@epoch/identity-bridge";
 
 export async function runIdentityBridgeTests(): Promise<void> {
+  nostrSigningAndBindingTagHelpers();
   await s1SchemasAndVectors();
   await s2VerifierThreatVectors();
   await s2ProtocolCarProof();
@@ -61,6 +67,34 @@ export async function runIdentityBridgeTests(): Promise<void> {
   await t12PinnedHeadConsistency();
   custodyGrepSurface();
   console.log("identity-bridge unit tests passed");
+}
+
+function nostrSigningAndBindingTagHelpers(): void {
+  const keys = generateNostrKeypair();
+  const signed = signEvent({
+    pubkey: keys.publicKey,
+    created_at: 1,
+    kind: 1,
+    tags: [["d", "binding"]],
+    content: "",
+  }, keys.privateKey);
+  assert.equal(verifyEventSignature(signed), true);
+  assert.equal(tagValue([["a", "b"]], "a"), "b");
+  assert.equal(tagValue([["a", "b"]], "missing"), undefined);
+  assert.equal(prevEventIdFromTags([["e", "prev-id", "", "prev"]]), "prev-id");
+  const tags = buildBindingTags({
+    d: "binding",
+    epochAuthor: "alice",
+    atDid: "did:plc:alice",
+    atHandle: "alice.example",
+    bindingNonce: "ab".repeat(32),
+    seqno: 2,
+    prevEventId: "prev-id",
+    revoked: true,
+    expiration: 99,
+  });
+  assert.equal(tagValue(tags, "revoked"), "true");
+  assert.equal(tagValue(tags, "expiration"), "99");
 }
 
 async function s1SchemasAndVectors(): Promise<void> {

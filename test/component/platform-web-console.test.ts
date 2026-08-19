@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { renderPlatformConsole } from "@epoch/platform-web";
+import { renderPlatformConsole, createPlatformWebApp } from "@epoch/platform-web";
 
 export function runPlatformWebConsoleTests(): void {
   withPlatformConsoleDom(360, (root) => {
@@ -66,6 +66,73 @@ export function runPlatformWebConsoleTests(): void {
     assert.match(root?.querySelector("[aria-label=\"Community activity\"]")?.textContent ?? "", /alice opened discussion Roadmap/);
     assert.match(root?.querySelector("[aria-label=\"Community moderation\"]")?.textContent ?? "", /1 moderation item/);
   });
+
+  withPlatformConsoleDom(360, (root) => {
+    renderPlatformConsole(root, {
+      role: "incident-responder",
+      productionReady: false,
+      projectName: "platform",
+      environmentName: "staging",
+      deployableName: "ops",
+      primaryAction: "Inspect",
+      deploymentHealth: "degraded",
+      communityEnabled: true,
+      runnerCount: 0,
+      homeModules: ["Incidents"],
+      adminSections: ["Tokens"],
+      tableColumns: ["id", "state"],
+      confirmationResource: "rollback",
+      sdkEquivalent: "sdk.rollback()",
+      mobileActions: ["Rollback", "Logs"],
+      communityProjectPage: {
+        publicSlug: "epoch/epoch",
+        readme: "Community board",
+        deployStatusBadge: "healthy",
+        contributionPrompt: "Open a change",
+        bookmarksCount: 3,
+        discussionsCount: 4,
+      },
+    });
+    assert.equal(root?.querySelector("[data-epoch-platform-ready=\"true\"]")?.getAttribute("data-navigation-mode"), "mobile");
+    assert.match(root?.textContent ?? "", /Setup incomplete/);
+    assert.match(root?.textContent ?? "", /Incidents/);
+    assert.match(root?.textContent ?? "", /Tokens/);
+    assert.match(root?.textContent ?? "", /Confirm rollback/);
+    assert.match(root?.textContent ?? "", /sdk.rollback\(\)/);
+    assert.match(root?.textContent ?? "", /Rollback/);
+    assert.match(root?.textContent ?? "", /epoch\/epoch/);
+    assert.match(root?.textContent ?? "", /3 bookmarks/);
+  });
+
+  assert.throws(() => renderPlatformConsole(null, {
+    role: "operator",
+    productionReady: true,
+    projectName: "p",
+    environmentName: "e",
+    deployableName: "d",
+    primaryAction: "Go",
+    deploymentHealth: "unknown",
+    communityEnabled: false,
+  }), /requires a container element/);
+
+  const app = createPlatformWebApp({
+    basePath: "console/",
+    deployableApps: [{
+      id: "board",
+      kind: "community-web",
+      displayName: "Board",
+      version: "0.1.0",
+      image: "ghcr.io/epoch/board:0.1.0",
+      route: "/board",
+      healthPath: "/healthz",
+      ports: [8080],
+      environment: ["EPOCH_BOARD"],
+      requiredServices: ["epoch-node"],
+    }],
+  });
+  assert.equal(app.pwa.startUrl, "/console");
+  assert.ok(app.managedServices.some((service) => service.id === "board"));
+  assert.equal(createPlatformWebApp({ basePath: "" }).pwa.startUrl, "/");
 }
 
 function withPlatformConsoleDom(width: number, run: (root: Element | null) => void): void {

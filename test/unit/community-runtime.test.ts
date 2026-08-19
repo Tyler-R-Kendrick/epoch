@@ -12,6 +12,7 @@ import {
   createWebMcpTools,
   defaultCommunityHarness,
   executeCommunityRuntimeCommand,
+  isCommunityRuntimeInvocation,
   registerWebMcpTools,
   TRUNK_VIEW,
   verifyStaticHarnessRelease,
@@ -55,6 +56,7 @@ export async function runCommunityRuntimeTests(): Promise<void> {
   await capabilitiesAreEnforcedBelowTheToolLayer();
   await everyAdapterReturnsTheSameReceipt();
   await theEpochBinaryOwnsBothCommandGroups();
+  await remainingRuntimeCliCommandsAreRouted();
   await theDefaultProjectOwnsTheInterface();
   await socialRecordsAreChangeFeeds();
   await durableStorageCarriesAWorkspaceForward();
@@ -262,6 +264,37 @@ async function everyAdapterReturnsTheSameReceipt(): Promise<void> {
   const usage = await executeCommunityRuntimeCommand(viaCli, ["ui", "nonsense"]);
   assert.equal(usage.ok, false);
   assert.match(usage.output, /epoch ui status/u);
+}
+
+async function remainingRuntimeCliCommandsAreRouted(): Promise<void> {
+  const runtime = runtimeWith();
+  assert.equal(isCommunityRuntimeInvocation(["ui"]), true);
+  assert.equal(isCommunityRuntimeInvocation(["view"]), true);
+  assert.equal(isCommunityRuntimeInvocation(["log"]), false);
+
+  const created = await executeCommunityRuntimeCommand(runtime, ["view", "create", "coverage-view", "--scope", "personal", "--json"]);
+  assert.equal(created.ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "status", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "verify", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "views", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["view", "list", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "log", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "preview", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "validate", "coverage-view", "--json"])).ok, true);
+  const proposed = await executeCommunityRuntimeCommand(runtime, [
+    "ui", "propose", "coverage-view", "--manifest", JSON.stringify(denserFeed), "--prompt", "denser", "--model", "test", "--retain-prompt", "--json",
+  ]);
+  assert.equal(proposed.ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "diff", "coverage-view", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "safe-mode", "on", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "safe-mode", "off", "--confirm", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["view", "switch", "coverage-view", "--json"])).ok, true);
+  assert.equal((await executeCommunityRuntimeCommand(runtime, ["ui", "rollback", "coverage-view"])).ok, false);
+  const exported = await executeCommunityRuntimeCommand(runtime, ["ui", "export", "--json"]);
+  assert.equal(exported.ok, true);
+  const imported = await executeCommunityRuntimeCommand(runtime, ["ui", "import", "bundle.json"]);
+  assert.equal(imported.ok, false);
+  assert.match(imported.output, /cannot read bundle files|ENOENT|invalid-input|Unexpected/);
 }
 
 async function theEpochBinaryOwnsBothCommandGroups(): Promise<void> {

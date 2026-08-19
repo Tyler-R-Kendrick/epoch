@@ -86,10 +86,14 @@ import { runVerifiedLaunchTests } from "./unit/verified-launch.test";
 import { runPublisherLifecycleTests } from "./unit/publisher-lifecycle.test";
 import { runMixedCompressionTests } from "./unit/mixed-compression.test";
 import { runProviderLoadingTests } from "./unit/provider-loading.test";
+import { runCliCoverageTests } from "./unit/cli-coverage.test";
+import { runHaSeedTests } from "./unit/ha-seed.test";
 import { runCodeOperationContextTests } from "./unit/code-operation-context.test";
 
 async function main(): Promise<void> {
   runAdvancedInfrastructureTests();
+  await runHaSeedTests();
+  await runCliCoverageTests();
   runOpenZlCodecTests();
   runNatsStreamCoverageTests();
   await runNatsServiceDiscoveryTests();

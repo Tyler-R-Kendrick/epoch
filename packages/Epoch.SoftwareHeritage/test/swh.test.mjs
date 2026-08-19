@@ -46,7 +46,30 @@ test("archive client denies private/local origins and never promotes pending res
   const client = new SaveCodeNowClient({ transport: async () => ({ status: 200, body: { save_task_status: "pending" } }), maxAttempts: 1 });
   await assert.rejects(() => client.save({ origin: "https://example.test/private", visibility: "private" }), /private/u);
   await assert.rejects(() => client.save({ origin: "file:///workspace/repo", visibility: "public" }), /local/u);
+  await assert.rejects(() => client.save({ origin: "https://localhost/repo", visibility: "public" }), /local/u);
+  await assert.rejects(() => client.save({ origin: "not a url", visibility: "public" }), /invalid archive origin/u);
   assert.deepEqual(await client.save({ origin: "https://example.test/repo", visibility: "public" }), { confirmed: false, state: "pending", attempts: 1 });
+  assert.throws(() => new SaveCodeNowClient({ transport: async () => ({ status: 200, body: {} }), maxAttempts: 0 }), /maxAttempts/);
+  assert.throws(() => formatSwhid({ version: 1, kind: "ori", digest: "ab".repeat(20), qualifiers: {} }), /invalid SWHID/);
+  assert.throws(() => formatSwhid({ version: 1, kind: "cnt", digest: "ab".repeat(20), qualifiers: { extra: "1" } }), /unsupported SWHID qualifier/);
+});
+
+test("Save Code Now treats origin mismatch and non-retryable failures as failed", async () => {
+  const mismatch = new SaveCodeNowClient({
+    transport: async () => ({ status: 200, body: { save_task_status: "succeeded", visit_status: "full", origin_url: "https://other.test/repo" } }),
+    maxAttempts: 1,
+  });
+  assert.deepEqual(await mismatch.save({ origin: "https://example.test/repo", visibility: "public" }), { confirmed: false, state: "failed", attempts: 1 });
+  const failed = new SaveCodeNowClient({
+    transport: async () => ({ status: 400, body: { save_task_status: "failed" } }),
+    maxAttempts: 1,
+  });
+  assert.deepEqual(await failed.save({ origin: "https://example.test/repo", visibility: "public" }), { confirmed: false, state: "failed", attempts: 1 });
+  const exhausted = new SaveCodeNowClient({
+    transport: async () => ({ status: 503, body: "retry" }),
+    maxAttempts: 1,
+  });
+  assert.deepEqual(await exhausted.save({ origin: "https://example.test/repo", visibility: "public" }), { confirmed: false, state: "failed", attempts: 1 });
 });
 
 test("capability manifest pins SWHID v1.2 without claiming live transport", () => {
