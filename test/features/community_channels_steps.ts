@@ -8,6 +8,12 @@ import {
   unreadForPosture,
 } from "@epoch/community-core";
 import { evaluatePosture } from "@epoch/protocol";
+import {
+  InMemoryXmppTransport,
+  federatePublicChannelEvent,
+  principalFromJid,
+  receiveFederatedChannelEvents,
+} from "@epoch/xmpp";
 import { composeLiveChannelMessage } from "../../packages/Epoch.Community.Web/src/client/channel-compose";
 
 type World = {
@@ -16,6 +22,8 @@ type World = {
   events: unknown[];
   live?: Awaited<ReturnType<typeof composeLiveChannelMessage>>;
   unread?: ReturnType<typeof unreadForPosture>;
+  xmpp?: InMemoryXmppTransport;
+  destServer?: string;
 };
 
 const world: World = { events: [] };
@@ -31,6 +39,8 @@ function ids() {
 Given("a signed community channel named general", function () {
   world.maya = new LiveLog({ author: "maya" });
   world.jules = new LiveLog({ author: "jules" });
+  world.xmpp = undefined;
+  world.destServer = undefined;
   world.events = [{
     schemaVersion: 1,
     type: "channel.create",
@@ -47,14 +57,19 @@ Given("a signed community channel named general", function () {
   }];
 });
 
-When("Maya posts a signed channel message {string}", function (body: string) {
+Given("an enabled XMPP s2s bridge to a.example", function () {
+  world.destServer = "a.example";
+  world.xmpp = new InMemoryXmppTransport({ enabled: true, allowlist: ["a.example"] });
+});
+
+When("Maya posts a signed channel message {string}", async function (body: string) {
   assert.ok(world.maya);
   const { channelId, principalId } = ids();
   world.maya.append("op", "channel:general", {
     type: "channel.message",
     bodyDigest: digestChannelBody(body),
   });
-  world.events.push({
+  const event = {
     schemaVersion: 1,
     type: "channel.message",
     eventId: `m-${world.events.length}`,
@@ -67,7 +82,11 @@ When("Maya posts a signed channel message {string}", function (body: string) {
       bodyDigest: digestChannelBody(body),
       visibility: "public",
     },
-  });
+  };
+  world.events.push(event);
+  if (world.xmpp !== undefined && world.destServer !== undefined) {
+    await federatePublicChannelEvent(world.xmpp, event, world.destServer);
+  }
 });
 
 When("Jules posts a signed channel message {string}", function (body: string) {
@@ -125,6 +144,17 @@ When("Maya composes a live channel message {string}", async function (body: stri
     principalId: ids().principalId,
     body,
   });
+});
+
+Then("the peer receives the same signed channel bytes over XMPP", async function () {
+  assert.ok(world.xmpp);
+  const received = await receiveFederatedChannelEvents(world.xmpp);
+  const last = world.events.at(-1);
+  assert.deepEqual(received.at(-1), last);
+});
+
+Then("a MUC occupant JID cannot author the message", function () {
+  assert.throws(() => principalFromJid("general@conference.a.example/maya"), /admission only/u);
 });
 
 Then("the live signature is not local-only", function () {

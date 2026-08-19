@@ -15,6 +15,14 @@ Feature: Community native channels
     When Maya composes a live channel message "queue rule holds"
     Then the live signature is not local-only
 
+  @persona.github_open_source_contributor
+  Scenario: Public channel messages fan out over XMPP without treating MUC as identity
+    Given a signed community channel named general
+    And an enabled XMPP s2s bridge to a.example
+    When Maya posts a signed channel message "ship the posture badge"
+    Then the peer receives the same signed channel bytes over XMPP
+    And a MUC occupant JID cannot author the message
+
   @persona.platform_operator
   Scenario: Open posture keeps a local unread watermark
     Given an open-posture community

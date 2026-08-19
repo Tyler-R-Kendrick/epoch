@@ -390,7 +390,9 @@ enable service discovery. NATS stays intra-community. `$SYS.REQ.USER.AUTH`
 callout plus `epoch.svc.>` advertise/lookup exist in `@epoch/nats`; open
 never receives discovery ACLs. XMPP s2s is an optional
 loss-declared bridge (`@epoch/xmpp`), default off. Native channels are signed
-`epoch.channel/v1` gossip events. Production ship remains
+`epoch.channel/v1` gossip events. When the adapter is enabled, public
+`channel.create` and `channel.message` events fan out as signed bytes using
+conference-shaped routing JIDs; that is not XEP-0045 MUC identity. Production ship remains
 **(none yet)** — see [protocol experiments](protocol-experiments.md).
 
 `Epoch.Community.Operations.Web` is a separate Coolify-inspired project

@@ -19,6 +19,7 @@ Epoch.Platform headless management and web console APIs.
 - Platform Web package: `@epoch/platform-web`
 - Community packages: `@epoch/community-api`, `@epoch/community-core`,
   `@epoch/community-runtime`, `@epoch/community-cli`, and `@epoch/community-web`
+- Federation package: `@epoch/xmpp` (gated, default off)
 - Root package export: `epoch`
 - Git compatibility export: `epoch/Epoch.Core.Git`
 - Browser integration root exports: `epoch/Epoch.Integration.Core`,
@@ -447,7 +448,12 @@ Host packages add explicit seams:
   profile, quarantine receive, and remote-helper foundation;
 - `@epoch/forge`: public-only codecs and injected mirror reconciliation;
 - `@epoch/identity`: principals, grants, budget reservations, and receipts with
-  injected durability required for production authority; and
+  injected durability required for production authority;
+- `@epoch/xmpp`: gated, default-off `FederationTransport`. Public
+  `channel.create`/`channel.message` events fan out as
+  `epoch.xmpp.channel-fanout/v1` bytes with conference-shaped routing JIDs.
+  JIDs remain admission-only (`principalFromJid` never authors). See
+  [XMPP s2s Profile](xmpp-profile.md); and
 - `@epoch/software-heritage`: SWHID v1.2 plus injected Save Code Now transport.
   The Change Graph CLI ships the default HTTP adapter and records signed archive status.
 

@@ -285,6 +285,7 @@ issue-backed chat,
 Acceptance criteria:
 
 - `channel.create` / `channel.message` events use `epoch.channel/v1`.
+- Public channel create/message events fan out over enabled XMPP s2s as signed bytes with conference-shaped routing JIDs; MUC occupant JIDs never author principals.
 - Forged or replayed messages are rejected by ingest.
 - Live composer does not use `sig:local-only`.
 - Open posture unread stays a local watermark (ADR-0025).

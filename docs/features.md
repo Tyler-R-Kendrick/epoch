@@ -40,7 +40,7 @@ The current registry is backed by these Cucumber feature files:
 | [`features/identity_bridge.feature`](../features/identity_bridge.feature) | Nostr↔ATProto mutual identity binding ceremony, pure client-side verification, revocation rollback defense, mix-and-match rejection, and agent attestation policy. |
 | [`features/community_sandbox_workspaces.feature`](../features/community_sandbox_workspaces.feature) | Community Sandbox Workspace journeys where a contributor launches, resumes, checks, and submits a signed patch from a sandbox workspace, and a maintainer reviews the result. |
 | [`features/community_agent_sandboxes.feature`](../features/community_agent_sandboxes.feature) | Community Agent Sandbox journeys where a maintainer starts a policy-bound agent run from a signed intent, reviews completed output, and retries failures without losing evidence. |
-| [`features/community_channels.feature`](../features/community_channels.feature) | Signed native channel create/message journeys, live composer integrity, and open-posture local unread watermarks. |
+| [`features/community_channels.feature`](../features/community_channels.feature) | Signed native channel create/message journeys, live composer integrity, XMPP s2s fanout of public channel bytes, and open-posture local unread watermarks. |
 
 ### Unit-covered federation packages (no Cucumber yet)
 
@@ -60,7 +60,7 @@ The current registry is backed by these Cucumber feature files:
 | `@epoch/community-core` native channels | `epoch.channel/v1` projectors and unread watermarks (`test/unit/channel-events.test.ts`). |
 | `@epoch/nats` fabric | JWT issuance, sourceServer ACLs, revoke fencing, auth callout, posture-gated `epoch.svc.>` discovery (`test/unit/fabric-jwt.test.ts`, `test/unit/nats-service-discovery.test.ts`). |
 | `@epoch/atproto` RealPds (gated) | Default-off adapter, PrivatePublishError, CID spoof (`test/unit/real-pds.test.ts`). |
-| `@epoch/xmpp` (gated) | FederationTransport double, PrivatePublishError, JID admission-only (`test/unit/xmpp-transport.test.ts`). |
+| `@epoch/xmpp` (gated) | FederationTransport double, PrivatePublishError, JID admission-only, public `channel.create`/`channel.message` fanout over conference-shaped routing JIDs (`test/unit/xmpp-transport.test.ts`). |
 | `@epoch/core` exit | `epoch-exit/v1` export/import/migrate (`test/unit/exit-bundle.test.ts`). |
 | Protocol experiments | E01–E16 rejected/pending, garbage cannot promote (`test/unit/protocol-experiments/registry.test.ts`). |
 
@@ -149,7 +149,14 @@ Covered by: `test/unit/real-pds.test.ts`
 `@epoch/xmpp` is a loss-declared FederationTransport. Default off. JIDs are
 admission only. Honest phrase: Epoch-native with optional bridges.
 
-Covered by: `test/unit/xmpp-transport.test.ts`
+When enabled, public `channel.create` and `channel.message` events fan out as
+canonical signed bytes using conference-shaped routing JIDs
+(`local@conference.dest`). That is a routing label, not XEP-0045 MUC:
+occupants never author Epoch principals. Private/shared visibility throws
+`PrivatePublishError`. `channel.read` and `channel.presence` do not federate.
+
+Covered by: `test/unit/xmpp-transport.test.ts`,
+`features/community_channels.feature`
 
 ## F-043 - Exit And Migration
 

@@ -29,7 +29,8 @@ Change Graph packages add `@epoch/protocol` browser-safe IDs, errors, schemas,
 revsets, inspection, and `evaluatePosture`; Core `SignedChangeGraphStore`, change/transaction/conflict, object/chunk/promise,
 sync-v2, workspace-provider, and `epoch-exit/v1` modules; `@epoch/git-proxy`; `@epoch/forge`;
 `@epoch/identity`; `@epoch/nats` (auth callout on `$SYS.REQ.USER.AUTH`, posture-gated
-`epoch.svc.>` discovery); `@epoch/xmpp` (gated, default off); and `@epoch/software-heritage`. Persistence, network
+`epoch.svc.>` discovery); `@epoch/xmpp` (gated, default off; public channel
+create/message fanout uses conference JID labels, not MUC identity); and `@epoch/software-heritage`. Persistence, network
 transport, and external authority are injected where capability manifests say
 so. See [Change Graph And Operation History](../../../docs/change-graph.md).
 

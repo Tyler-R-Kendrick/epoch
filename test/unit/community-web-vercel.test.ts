@@ -73,11 +73,14 @@ function inlinedRuntimeBundleStaysWithinByteBudget(): void {
   // 76,000 -> 77,000: live signed channel compose (`composeLiveChannelMessage`)
   // so live mode never emits `sig:local-only`. Snapshot still uses the labeled
   // local-only path. The IIFE stays unminified.
+  // 77,000 -> 78,000: live compose fans public channel bytes through the
+  // default-off XMPP hook (`federateComposedChannelIfEnabled`) using
+  // conference-shaped routing labels, not MUC identity.
   const bundlePath = join("packages", "Epoch.Community.Web", "dist", "client", "runtime.js");
   const bundleBytes = statSync(bundlePath).size;
   assert.ok(
-    bundleBytes < 77_000,
-    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 77,000 bytes (keep the unminified IIFE lean)`,
+    bundleBytes < 78_000,
+    `inlined client runtime bundle is ${bundleBytes} bytes; budget is 78,000 bytes (keep the unminified IIFE lean)`,
   );
 }
 

@@ -34,6 +34,7 @@ import { renderAgentMemberButton, renderChannelButton } from "../view/rail";
 import { asListState, renderChannelOrigin, renderEmptyState, renderSearchZeroState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
 import { composeLiveChannelMessage } from "./channel-compose";
+import { federateComposedChannelIfEnabled } from "./channel-federate";
 
 /** Serialized shape of the #epoch-community-state JSON island. */
 interface CommunityClientState {
@@ -1076,6 +1077,7 @@ async function handleComposerSubmit(text: string): Promise<void> {
     body,
     visibility: "public",
   });
+  await federateComposedChannelIfEnabled(signed);
   appendConversation({
     id: signed.eventId,
     channel: activeChannel,
