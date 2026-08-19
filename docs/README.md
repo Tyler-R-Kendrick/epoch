@@ -153,6 +153,7 @@ decisions, operations, or contribution workflow.
 | [Community Web Pass-2 Honesty State](plans/community-web-pass2-honesty/sdlc-state.md) | Active record for sample/live honesty, receipt verbs, AT OAuth, and live multi-user Activity after competitor pass 2. |
 | [Community Web Startup And Routing Plan](plans/community-web-startup-routing/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, next-action guidance, and focus expansion. |
 | [Federation Hardening State](plans/federation-hardening/sdlc-state.md) | Closed record for trust posture, NATS discovery, native channels, gated bridges, and test lanes. |
+| [Community Web Voice Tray State](plans/community-web-voice-grid/sdlc-state.md) | Closed record for persistent lounge voice connections and Grid design-system cleanup. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
 | [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |

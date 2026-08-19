@@ -260,3 +260,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Real CI: #152 Test timed out on Community Web cucumber (share-message 30s). Fixed waits on #153; Test passed. XMPP Prosody harness on #153 stayed `in_progress` on `apt-get install prosody` at merge time — not billing, not a failed test run. |
 | Notes | Local `npm run verify` on Node 22 passed. Production ship remains none. Pact-js metadata 16.4 vs 16.5 was not committed. |
+
+## 2026-08-19 — Community Web voice tray + Grid polish (`/sdlc finish`)
+
+| Field | Value |
+|---|---|
+| Initiative | [`community-web-voice-grid`](community-web-voice-grid/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `feat/community-web-voice-grid` |
+| PR | [#155](https://github.com/Tyler-R-Kendrick/epoch/pull/155) — squash-merged [`48d8b39`](https://github.com/Tyler-R-Kendrick/epoch/commit/48d8b393da2345260bef203fdff4321206c8c367) |
+| Result | **success** |
+| Failure class | None. Quality Gates including Test, Coverage, Community Web e2e, and XMPP Prosody harness passed before squash-merge. |
+| Notes | Persistent voice tray after room change; Grid kickers/side-tabs/em-dashes cleaned; DESIGN.md components consume all tokens. |
