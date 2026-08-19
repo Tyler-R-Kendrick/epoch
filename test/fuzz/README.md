@@ -61,3 +61,5 @@ rejections.
 Fabric auth properties cover blank secrets, least-privilege ACLs (including
 posture-gated `epoch.svc.>`), and fail-closed expiry. Service-discovery
 properties live in `test/fuzz/properties/service-discovery.fast-check.test.ts`.
+Characterization goldens for stream/ACL/callout shapes are in
+[Testing Lanes](../../docs/testing-lanes.md), not this fuzz tree.

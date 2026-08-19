@@ -63,6 +63,9 @@ frontmatter and run the affected harness tests before the repository gates.
 - Do not commit generated `dist/`, `coverage/`, local repositories, logs, or secrets.
 - Do not lower coverage thresholds, disable lint rules, or skip tests to make CI pass.
 
+The named lanes (unit, Cucumber, Pact, chaos, fuzz, mutation oracles,
+Verify-style characterization) are listed in [Testing Lanes](docs/testing-lanes.md).
+
 ## Repository layout
 
 | Path | Purpose |

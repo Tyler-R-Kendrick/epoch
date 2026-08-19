@@ -30,6 +30,8 @@ import { runPlatformBoundaryTests } from "./unit/platform-boundaries.test";
 import { runPlatformCommunityModuleTests } from "./unit/platform-community-module.test";
 import { runNatsStreamCoverageTests } from "./unit/nats-stream-coverage.test";
 import { runNatsServiceDiscoveryTests } from "./unit/nats-service-discovery.test";
+import { runNatsMutationOracleTests } from "./unit/nats-mutation-oracles.test";
+import { runVerifyCharacterizationTests } from "./unit/verify-characterization.test";
 import { runOpenZlCodecTests } from "./unit/openzl-codec.test";
 import { runPlatformFabricCredentialTests } from "./unit/platform-fabric-credentials.test";
 import { runPlatformFabricNatsContractTests } from "./unit/platform-fabric-nats-contract.test";
@@ -90,6 +92,8 @@ async function main(): Promise<void> {
   runOpenZlCodecTests();
   runNatsStreamCoverageTests();
   await runNatsServiceDiscoveryTests();
+  runNatsMutationOracleTests();
+  await runVerifyCharacterizationTests();
   runPlatformProductionCoreTests();
   runPlatformFabricCredentialTests();
   await runPlatformFabricNatsContractTests();
