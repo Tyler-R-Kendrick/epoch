@@ -9,6 +9,7 @@ node_modules/
 dist/
 dist-server/
 coverage/
+*.received.json
 .pact-logs/
 .vercel
 packages/Epoch.Community.Web/.vercel-output/

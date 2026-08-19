@@ -133,6 +133,8 @@ subscribe to broad fabric subjects and status stays honest
 | Unit / package | `npm test -w @epoch/nats` (ACL, validator, gated connect, Live auth, **chaos** auth + discovery) |
 | Platform fabric | `test/unit/platform-fabric-credentials.test.ts` |
 | Service discovery / callout | `test/unit/nats-service-discovery.test.ts` |
+| Mutation oracles | `test/unit/nats-mutation-oracles.test.ts`, `test/unit/fabric-auth-adversarial-mutation.test.ts` |
+| Characterization | `test/unit/verify-characterization.test.ts` ([testing lanes](testing-lanes.md)) |
 | Cross-package contract | `test/unit/platform-fabric-nats-contract.test.ts` (mint → callout → Live) |
 | Adversarial / mutation-style | `test/unit/fabric-auth-adversarial-mutation.test.ts` (guards that fail if wide defaults / id-as-secret return) |
 | Property / fuzz (PR) | fabric-auth + service-discovery fast-check via `npm run fuzz:fast-check` |

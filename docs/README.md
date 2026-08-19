@@ -21,6 +21,7 @@ decisions, operations, or contribution workflow.
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
 | [OpenZL Host Entropy Codec](openzl.md) | Entity-aware OpenZL compression for blobs/artifacts and changediffs (`@epoch/openzl`). |
 | [NATS Realtime Fabric](nats.md) | Host NATS JetStream/WebSocket, complementary auth callout, host-side JWT issuance, Live/platform/community streams, and posture-gated `epoch.svc.>` discovery (`@epoch/nats`). |
+| [Testing Lanes](testing-lanes.md) | Unit, Cucumber, Pact, chaos, fuzz, mutation oracles, and Verify-style characterization goldens. |
 | [Protocol Experiments](protocol-experiments.md) | E01–E16 gated registry, rejected-protocol ledger, standing Production ship: (none yet). |
 | [XMPP s2s Profile](xmpp-profile.md) | Loss-declared `@epoch/xmpp` FederationTransport, XEP profile, and fidelity statement. |
 | [Exit And Migration](exit-and-migration.md) | `epoch-exit/v1` export, import, and community migration with binding continuity. |
