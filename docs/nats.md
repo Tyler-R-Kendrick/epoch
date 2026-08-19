@@ -143,9 +143,8 @@ subscribe to broad fabric subjects and status stays honest
 | Product Gherkin | `features/community_web_experience.feature` guest honesty + ticketed attach |
 
 HTTP [Pact](pact-contracts.md) does not cover NATS AUTH JSON; the contract test
-above plus characterization goldens are the Epoch-native seam. Full Stryker
-mutation scoring is still out of band; PR-time oracles + chaos cover the
-high-risk mutants for this path. Revoke fencing severs tracked connections within a bounded interval
+above plus characterization goldens are the Epoch-native seam. `npm run mutation:nats`
+kills listed ACL/discovery mutants. Full Stryker scoring is still out of band. Revoke fencing severs tracked connections within a bounded interval
 (short-lived user JWT + disconnect/kick). Untyped broker connections that
 never enrolled in the fencer can still outlive revoke until TTL — that gap is
 recorded, not claimed closed.

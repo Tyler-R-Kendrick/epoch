@@ -10,7 +10,7 @@ agents do not invent a second stack or call one lane by another lane's name.
 | Contract | Official Pact for HTTP (`Community.Core`↔`Community.API`, gossip HTTP). NATS AUTH is **not** Pact; it is `test/unit/platform-fabric-nats-contract.test.ts` plus characterization goldens | `npm run test:pact`; unit runner |
 | Chaos / faults | Hang, malformed JSON, revoke, concurrency (`packages/Epoch.Nats/test/chaos-auth.test.mjs`, `chaos-svc.test.mjs`); Community Web `community-web:app:faults` | `npm test -w @epoch/nats`, `npm run community-web:app:faults` |
 | Fuzz | ADR-0052: smoke, short fast-check (parsers, fabric auth, **service discovery**, history), corpus regression. Jazzer is scheduled, not every PR | `npm run fuzz:fast-check` (also inside `npm test`) |
-| Mutation | **Not Stryker.** PR-time oracles that fail if a guard is deleted (`test/unit/fabric-auth-adversarial-mutation.test.ts`, `test/unit/nats-mutation-oracles.test.ts`, adversarial I-1..I-7). Same honesty as “Jazzer is out of band” | unit runner |
+| Mutation | PR-time oracles plus **source mutant kill** for NATS ACL/discovery (`npm run mutation:nats`). Full-project Stryker scoring stays out of band | unit runner + Quality Gates `NATS mutant kill` |
 | Snapshot / characterization | Verify-style canonical JSON goldens (`test/verify/`), Node's equivalent of [VerifyTests/Verify](https://github.com/VerifyTests/Verify) | unit runner; refresh `EPOCH_UPDATE_VERIFIED=1` |
 
 Coverage floors (`.c8rc.json`) apply to Node-visible `packages/*/dist/**/*.js` after `npm run coverage`. Playwright-only Community Web client bundles are excluded on purpose.
@@ -30,6 +30,6 @@ signatures.
 
 ## What is still out of band
 
-- Full-project Stryker mutation scoring
+- Full-project Stryker mutation scoring (NATS uses an owned mutant-kill script instead)
 - Jazzer.js campaigns (`npm run fuzz:jazzer`) except corpus replay on PR
 - Production nats-server JWT handshake (gated; not a Production ship)
