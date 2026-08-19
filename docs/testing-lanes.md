@@ -5,7 +5,10 @@ agents do not invent a second stack or call one lane by another lane's name.
 
 **High coverage is not uniform across every lane.** Node-visible package
 coverage is held to high c8 floors (lines/statements 90, functions 87, branches
-79 in `.c8rc.json`). Those floors do not cover Playwright-only Community Web
+80 in `.c8rc.json`). All four global metrics are above 80%. Those floors do not
+cover Playwright-only Community Web client bundles. Some individual packages
+(notably Community CLI, Atproto, Identity Bridge internals, and Community Web
+render branches) remain below 80% on a single metric.
 client bundles. Mutation and characterization are strong on listed contracts,
 not a whole-program Stryker or Verify suite.
 

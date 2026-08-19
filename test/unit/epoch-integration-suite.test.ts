@@ -29,9 +29,12 @@ export async function runEpochIntegrationSuiteTests(): Promise<void> {
   serializesUndefinedStably();
   versionsGeneratedUiComponents();
   tracksReduxActionsExplicitly();
+  tracksReduxFunctionMatcherAndMetadata();
   tracksXStateTransitionsExplicitly();
+  tracksXStateOptionalFiltersAndSummaries();
   recordsXStateMachineUpdatesExplicitly();
   await providesReactHooksForTrackedEntitiesAndLedgers();
+  await providesReactHooksFromOptionsWithoutInjectedEpoch();
 }
 
 function recordsTrackedChangesWithBrowserDefaults(): void {
@@ -139,6 +142,40 @@ function versionsGeneratedUiComponents(): void {
   assert.equal(epoch.readTrackedEntity<{ components: readonly { version: number }[] }>("dashboard").payload.components[0]?.version, 2);
 }
 
+function tracksReduxFunctionMatcherAndMetadata(): void {
+  const epoch = createBrowserEpoch({
+    namespace: "suite-redux-fn",
+    author: "redux-agent",
+    storage: createMemoryEpochIntegrationStorage(),
+  });
+  const store = createTinyReduxStore({ counter: 0 });
+  const middleware = createEpochReduxMiddleware<{ counter: number }, ReduxAction>({
+    epoch,
+    entity: "redux:counter-fn",
+    source: "counter-store",
+    actions: (action) => action.type.startsWith("counter/"),
+    select: (state) => ({ counter: state.counter }),
+    summary: (action) => `saw ${action.type}`,
+    metadata: (action) => ({ via: action.type }),
+  });
+  const dispatch = middleware(store)((action) => store.dispatch(action));
+  dispatch({ type: "other/skip" });
+  dispatch({ type: "counter/increment" });
+  assert.equal(epoch.repository.history().length, 1);
+  assert.equal(epoch.versionLedger("redux:counter-fn")[0]?.summary, "saw counter/increment");
+  assert.equal(epoch.versionLedger("redux:counter-fn")[0]?.metadata?.via, "counter/increment");
+
+  const open = createEpochReduxMiddleware<{ counter: number }, ReduxAction>({
+    epoch,
+    entity: "redux:open",
+    source: "open-store",
+    select: (state) => state,
+  });
+  const openDispatch = open(store)((action) => store.dispatch(action));
+  openDispatch({ type: "anything" });
+  assert.equal(epoch.versionLedger("redux:open").length, 1);
+}
+
 function tracksReduxActionsExplicitly(): void {
   const epoch = createBrowserEpoch({
     namespace: "suite-redux",
@@ -204,6 +241,48 @@ function tracksXStateTransitionsExplicitly(): void {
   assert.equal(epoch.readTrackedEntity<{ count: number }>("xstate:counter").payload.count, 1);
 }
 
+function tracksXStateOptionalFiltersAndSummaries(): void {
+  const epoch = createBrowserEpoch({
+    namespace: "suite-xstate-open",
+    author: "machine-agent",
+    storage: createMemoryEpochIntegrationStorage(),
+  });
+  const observer = createEpochXStateObserver({
+    epoch,
+    entity: "xstate:open",
+    source: "open-machine",
+    select: (snapshot) => snapshot.context,
+    summary: (snapshot) => `to ${String(snapshot.value)}`,
+    metadata: (snapshot) => ({ value: snapshot.value }),
+  });
+  observer.next({ context: { count: 0 }, value: "idle" });
+  observer.next({ context: { count: 0 }, value: "idle" });
+  observer.next({ context: { count: 1 }, value: "ready", event: { type: "advance" } });
+  assert.equal(epoch.repository.history().length, 1);
+  assert.equal(epoch.versionLedger("xstate:open")[0]?.summary, "to ready");
+
+  const filtered = createEpochXStateObserver({
+    epoch,
+    entity: "xstate:filtered",
+    source: "filtered-machine",
+    events: ["keep"],
+    select: (snapshot) => snapshot.context,
+  });
+  filtered.next({ context: { n: 0 } });
+  filtered.next({ context: { n: 1 }, event: { type: "drop" } });
+  filtered.next({ context: { n: 2 }, event: {} });
+  assert.equal(epoch.versionLedger("xstate:filtered").length, 1);
+
+  trackXStateMachineUpdate(epoch, {
+    entity: "xstate:machine-meta",
+    source: "generator",
+    summary: "with metadata",
+    definition: { id: "m" },
+    metadata: { origin: "test" },
+  });
+  assert.equal(epoch.versionLedger("xstate:machine-meta")[0]?.metadata?.origin, "test");
+}
+
 function recordsXStateMachineUpdatesExplicitly(): void {
   const epoch = createBrowserEpoch({
     namespace: "suite-xstate-update",
@@ -220,6 +299,29 @@ function recordsXStateMachineUpdatesExplicitly(): void {
   assert.equal(result.revision, 1);
   assert.equal(epoch.versionLedger("xstate:machine")[0]?.summary, "generated guard update");
   assert.deepEqual(epoch.readTrackedEntity<{ definition: { guards: string[] } }>("xstate:machine").payload.definition.guards, ["canDeploy"]);
+}
+
+async function providesReactHooksFromOptionsWithoutInjectedEpoch(): Promise<void> {
+  const dom = new JSDOM("<!doctype html><main id=\"host\"></main>", { url: "https://epoch.local/" });
+  const restore = installDomGlobals(dom);
+  try {
+    const host = dom.window.document.getElementById("host");
+    assert.ok(host);
+    function Label(): React.ReactElement {
+      const epoch = useEpochRepository();
+      return React.createElement("output", { id: "ns" }, epoch.namespace);
+    }
+    const root = createRoot(host);
+    flushSync(() => root.render(React.createElement(EpochProvider, {
+      options: { namespace: "from-options", author: "react-agent" },
+    }, React.createElement(Label))));
+    assert.equal(text(dom, "#ns"), "from-options");
+    flushSync(() => root.unmount());
+    await settleReactClient();
+  } finally {
+    restore();
+    dom.window.close();
+  }
 }
 
 function createTinyReduxStore(initialState: { readonly counter: number }): ReduxStore<{ counter: number }> {

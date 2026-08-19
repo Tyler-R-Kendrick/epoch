@@ -177,6 +177,15 @@ async function projectionValidateSaveCloneAndExportAreDeterministic(): Promise<v
   assert.equal(shown.exitCode, 0);
   assert.deepEqual(JSON.parse(shown.stdout), definition("mine"));
   assert.equal(shown.stdout, (await runProjectionCommand(["show", "mine", "--json"], services)).stdout);
+  const explained = await runProjectionCommand(["explain", "mine", "--json"], services);
+  assert.equal(explained.exitCode, 0);
+  assert.equal(JSON.parse(explained.stdout).detail, "ok");
+  const listed = await runProjectionCommand(["list", "--json"], services);
+  assert.equal(listed.exitCode, 0);
+  const previewed = await runProjectionCommand(["preview", "projection.json", "--path", "/", "--json"], services);
+  assert.equal(previewed.exitCode, 0);
+  const deleted = await runProjectionCommand(["delete", "mine", "--json"], services);
+  assert.equal(deleted.exitCode, 0);
 }
 
 async function namespaceCommandsPreserveTypedMountSemantics(): Promise<void> {
@@ -228,6 +237,9 @@ class FakeProjectionServices implements ProjectionCommandServices {
   async get(id: string): Promise<ProjectionDefinition | undefined> { return id === "mine" || id === "builtin:default" ? definition(id) : undefined; }
   async validate(input: ProjectionDefinition): Promise<CompiledProjection> { return compiled(input); }
   async preview(): Promise<VfsPage> { return vfsPage(); }
+  async explain(): Promise<ProjectionExplanation> {
+    return { projectionId: "mine", path: "/", componentOrder: [], shadowed: [], detail: "ok" };
+  }
   async save(input: ProjectionDefinition): Promise<ProjectionDefinition> { this.saved.push(input); return input; }
   async delete(): Promise<boolean> { return true; }
   formattedDefinition(input: ProjectionDefinition): string { return `${JSON.stringify(input, null, 2)}\n`; }
