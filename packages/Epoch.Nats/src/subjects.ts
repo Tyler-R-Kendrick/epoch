@@ -4,6 +4,7 @@ export const EPOCH_NATS_STREAMS = Object.freeze({
   LIVE: "EPOCH_LIVE",
   PLATFORM_EVENTS: "EPOCH_PLATFORM_EVENTS",
   COMMUNITY_LIVESTREAM: "EPOCH_COMMUNITY_LIVESTREAM",
+  SVC: "EPOCH_SVC",
 } as const);
 
 export type EpochNatsStreamName = (typeof EPOCH_NATS_STREAMS)[keyof typeof EPOCH_NATS_STREAMS];
@@ -13,6 +14,7 @@ export const EPOCH_NATS_SUBJECTS = Object.freeze({
   livePresence: "epoch.live.*.presence",
   platformEvents: "epoch.platform.events.>",
   communityLivestream: "epoch.community.stream.>",
+  serviceDiscovery: "epoch.svc.>",
   authCallout: "$SYS.REQ.USER.AUTH",
 } as const);
 
@@ -30,6 +32,14 @@ export function platformEventsSubject(kind = "audit"): string {
 
 export function communityLivestreamSubject(spaceId: string): string {
   return `epoch.community.stream.${sanitize(spaceId)}`;
+}
+
+export function serviceAdvertiseSubject(communityId: string): string {
+  return `epoch.svc.advertise.${sanitize(communityId)}`;
+}
+
+export function serviceLookupSubject(communityId: string, name: string): string {
+  return `epoch.svc.lookup.${sanitize(communityId)}.${sanitize(name)}`;
 }
 
 function sanitize(value: string): string {

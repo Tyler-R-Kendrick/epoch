@@ -173,6 +173,9 @@ export class MockPds implements PdsTransport {
   }
 }
 
+export { RealPds, verifyBlobCid } from "./real-pds";
+export type { RealPdsOptions, RealPdsRecord } from "./real-pds";
+
 export interface FederatedCommunityOptions {
   readonly mode?: CommunityFederationMode;
   readonly pds?: PdsTransport;

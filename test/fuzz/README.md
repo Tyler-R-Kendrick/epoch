@@ -57,3 +57,7 @@ and `space.participant.joined` events, not only budget allocations. Path
 queries stay fail-closed. Every declared protocol event type is accepted by
 `test/unit/protocol-event-bodies.test.ts` with escape and unknown-field
 rejections.
+
+Fabric auth properties cover blank secrets, least-privilege ACLs (including
+posture-gated `epoch.svc.>`), and fail-closed expiry. Service-discovery
+properties live in `test/fuzz/properties/service-discovery.fast-check.test.ts`.

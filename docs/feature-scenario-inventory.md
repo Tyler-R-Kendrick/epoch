@@ -12,6 +12,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/advanced_collaboration.feature` | 9 |
 | `features/cli_wasm.feature` | 11 |
 | `features/community_agent_sandboxes.feature` | 3 |
+| `features/community_channels.feature` | 3 |
 | `features/community_sandbox_workspaces.feature` | 3 |
 | `features/community_web_experience.feature` | 82 |
 | `features/identity_bridge.feature` | 5 |
@@ -65,6 +66,9 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_agent_sandboxes.feature` | `@persona.maintainer` | Scenario | Maintainer starts a policy-bound agent sandbox from a signed intent | None | 0 |
 | `features/community_agent_sandboxes.feature` | `@persona.maintainer` | Scenario | Maintainer reviews a completed agent sandbox result | None | 0 |
 | `features/community_agent_sandboxes.feature` | `@persona.maintainer` | Scenario | Maintainer retries a failed agent sandbox without losing failure evidence | None | 0 |
+| `features/community_channels.feature` | `@persona.github_open_source_contributor` | Scenario | Two contributors exchange signed channel messages | None | 0 |
+| `features/community_channels.feature` | `@persona.github_open_source_contributor` | Scenario | Live composer does not use local-only signatures | None | 0 |
+| `features/community_channels.feature` | `@persona.platform_operator` | Scenario | Open posture keeps a local unread watermark | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor submits a repository patch without local setup | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor resumes an interrupted sandbox workspace | None | 0 |
 | `features/community_sandbox_workspaces.feature` | `@persona.maintainer` | Scenario | Maintainer approves a submitted sandbox workspace result | None | 0 |

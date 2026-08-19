@@ -48,6 +48,9 @@ export const CliCommand = {
   hydrate: "hydrate",
   ext: "ext",
   semantic: "semantic",
+  exportExit: "export-exit",
+  importExit: "import-exit",
+  migrateCommunity: "migrate-community",
 } as const;
 
 export const CliOption = {
@@ -102,7 +105,7 @@ export const CliSyntax = {
 export const CliText = {
   ok: "ok",
   verificationFailed: "verification failed",
-  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|dr-plan|preview|hydrate|ext|semantic|component|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
+  usage: "usage: epoch [--repo PATH] <help|create|init|push|record|track|forget|mv|rm|cp|intent|events|verify|merge|reject|comment|issue|review|ci-record|gate-status|op-log|op-show|redact|redact-plan|status|check-ignore|config|main|resolve|sync|gossip|publish-artifacts|rollback|view-create|views|checkout|view-delete|view-diff|view-promote|version|versions|import|export|export-exit|import-exit|migrate-community|dr-plan|preview|hydrate|ext|semantic|component|new|change|log|op|graph|split|bundle|merge-plan|conflict|workspace|clone|fetch|backfill|mirror|principal|agent|forge|swhid|archive|interop>",
   createUsage: "usage: epoch create [--author NAME] [PATH]",
   extUsage: "usage: epoch ext <list|show NAME|trust NAME|untrust NAME|publisher <succeed|revoke> FILE>",
   semanticUsage: "usage: epoch semantic <diff BEFORE AFTER|apply FILE PATCH.json|merge BASE LEFT RIGHT|plan FILE...> [--json]",

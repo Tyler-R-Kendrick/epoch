@@ -20,7 +20,10 @@ decisions, operations, or contribution workflow.
 | [Workspace Providers](workspace-providers.md) | Truthful residency, materialization, copy mode, and execution-isolation boundaries. |
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
 | [OpenZL Host Entropy Codec](openzl.md) | Entity-aware OpenZL compression for blobs/artifacts and changediffs (`@epoch/openzl`). |
-| [NATS Realtime Fabric](nats.md) | Host NATS JetStream/WebSocket, complementary auth callout (opaque fabric credentials), and Live/platform/community streams (`@epoch/nats`). |
+| [NATS Realtime Fabric](nats.md) | Host NATS JetStream/WebSocket, complementary auth callout, host-side JWT issuance, Live/platform/community streams, and posture-gated `epoch.svc.>` discovery (`@epoch/nats`). |
+| [Protocol Experiments](protocol-experiments.md) | E01–E16 gated registry, rejected-protocol ledger, standing Production ship: (none yet). |
+| [XMPP s2s Profile](xmpp-profile.md) | Loss-declared `@epoch/xmpp` FederationTransport, XEP profile, and fidelity statement. |
+| [Exit And Migration](exit-and-migration.md) | `epoch-exit/v1` export, import, and community migration with binding continuity. |
 | [Repository Composition And Workspace Selection](repository-composition-and-selection.md) | The model for nested repositories, vendored source, monorepo scale, and partial workspaces: Repository Links, Selection, materialization modes, and the Namespace Manifest. |
 | [Forge And Mirror Adapters](forge-adapters.md) | Authority, fidelity, loss, mirror safety, and federation codec boundaries. |
 | [Community Web Content Design](community-web-content-design.md) | Voice, microcopy, and empty/loading/error state-copy rules for Community surfaces — the written half of DESIGN.md. |
@@ -132,7 +135,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0051: Change-Based Review Publish](design-decisions/0051-change-based-review-publish.md) | Review publish is change-based by default: `Change-Id` trailer, `refs/for/<target>`, topic/hashtag/WIP — not a pull-request branch and not a mode. |
 | [ADR-0052: Model-Based And Coverage-Guided Fuzzing](design-decisions/0052-model-based-and-coverage-guided-fuzzing.md) | Deterministic smoke (PR), fast-check history command model with shrinking, Jazzer.js parser campaigns with versioned corpora; scheduled CI, not every PR. |
 | [ADR-0053: OpenZL Host Entropy Codec](design-decisions/0053-openzl-host-entropy-codec.md) | Entity-aware OpenZL host codec for blobs/artifacts and changediffs; SHA-256 stays on plaintext. |
-| [ADR-0054: NATS Realtime Fabric](design-decisions/0054-nats-realtime-fabric.md) | Host nats-server with JetStream, WebSocket, and complementary Epoch auth callout (fabric credentials); Live/platform/community streams. |
+| [ADR-0054: NATS Realtime Fabric](design-decisions/0054-nats-realtime-fabric.md) | Host nats-server with JetStream, WebSocket, and complementary Epoch auth callout (fabric credentials); Live/platform/community streams plus posture-gated `epoch.svc.>` discovery. |
+| [ADR-0055: Trust Posture Modes And Federation Topology](design-decisions/0055-trust-posture-modes-and-federation-topology.md) | Hosted / private / open postures, intra-community NATS, optional XMPP bridges, and rejected-by-default experiment gates. |
 | [Fuzz Lanes And Corpora](../test/fuzz/README.md) | How smoke, fast-check, Jazzer.js, corpora, and regression promotion relate. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 

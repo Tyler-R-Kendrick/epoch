@@ -109,6 +109,22 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
     spaceId: id("space"), anchorId: id("anchor"), principalId: id("principal"), revisionId,
     path: repositoryPath, structuralPath: nonemptyString, contentDigest: digest,
   }),
+  channelCreateBody: object(["schema", "channelId", "communityId", "name", "principalId", "visibility"], {
+    schema: { const: "epoch.channel/v1" }, channelId: id("channel"), communityId: id("space"),
+    name: nonemptyString, principalId: id("principal"), visibility: { enum: ["public", "shared", "private"] },
+  }),
+  channelMessageBody: object(["schema", "channelId", "messageId", "principalId", "bodyDigest", "visibility"], {
+    schema: { const: "epoch.channel/v1" }, channelId: id("channel"), messageId: revisionId,
+    principalId: id("principal"), bodyDigest: digest, visibility: { enum: ["public", "shared", "private"] },
+  }),
+  channelPresenceBody: object(["schema", "channelId", "principalId", "state"], {
+    schema: { const: "epoch.channel/v1" }, channelId: id("channel"), principalId: id("principal"),
+    state: { enum: ["active", "idle", "away"] },
+  }),
+  channelReadBody: object(["schema", "channelId", "principalId", "watermarkEventId"], {
+    schema: { const: "epoch.channel/v1" }, channelId: id("channel"), principalId: id("principal"),
+    watermarkEventId: revisionId,
+  }),
 };
 
 const complexBodies: Readonly<Record<string, JsonSchema>> = {
@@ -175,6 +191,8 @@ const bodyDefinitionByType: Readonly<Record<ProtocolEventType, string>> = {
   "space.turn.recorded": "spaceTurnRecordedBody", "space.budget.allocated": "spaceBudgetAllocatedBody", "space.capture.opened": "spaceCaptureOpenedBody",
   "space.capture.closed": "spaceCaptureClosedBody", "space.capture.operation": "spaceCaptureOperationBody",
   "space.anchor.recorded": "spaceAnchorRecordedBody", "space.turn.receipt": "spaceTurnReceiptBody",
+  "channel.create": "channelCreateBody", "channel.message": "channelMessageBody",
+  "channel.presence": "channelPresenceBody", "channel.read": "channelReadBody",
 };
 
 /** Deterministic, dependency-free JSON Schema emitted by the authoritative runtime contract. */

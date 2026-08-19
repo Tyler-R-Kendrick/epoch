@@ -366,6 +366,11 @@ trusted is reported and refused, never run silently.
 | `swhid` | Inspect, compute, and verify SWHIDs locally. |
 | `archive` | `archive software-heritage map` records a local SWHID mapping. `request` submits through Save Code Now HTTP (`EPOCH_SWH_SAVE_URL` overrides the endpoint) and records the signed status. Private origins are denied. |
 | `interop doctor` | Probe Git/protocol, optional jj/hg/Rift commands, CoW support, adapter manifests, and SWHID support without printing credentials. |
+| `export-exit [--out FILE] FILE` | Write an `epoch-exit/v1` bundle of verified events, ADR-0023 bindings, and a sha256/eventCount/headId manifest. |
+| `import-exit FILE` | Import a bundle into `--repo`; tamper, truncation, and verify failure deny. |
+| `migrate-community --from PATH --to PATH [--fromPosture hosted\|private\|open] [--toPosture open]` | Copy verified history between repositories; crafted posture downgrade fails closed. |
+
+See [Exit And Migration](exit-and-migration.md).
 
 ## Community And Interface Commands
 

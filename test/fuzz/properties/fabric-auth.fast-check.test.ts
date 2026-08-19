@@ -20,6 +20,7 @@ const API_SCOPES = [
   "platform.events:read",
   "community.stream:write",
   "community.stream:read",
+  "svc:discover",
   "unrelated:scope",
 ] as const;
 
@@ -43,19 +44,26 @@ async function main(): Promise<void> {
   );
 
   await fc.assert(
-    fc.asyncProperty(fc.array(fc.constantFrom(...API_SCOPES), { maxLength: 6 }), async (scopes) => {
-      const perms = permissionsForScopes(scopes, "api-token");
-      for (const subject of perms.publish) {
-        assert.match(subject, /^epoch\.(live|platform\.events|community\.stream)\.>$/);
-      }
-      for (const subject of perms.subscribe) {
-        assert.match(subject, /^epoch\.(live|platform\.events|community\.stream)\.>$/);
-      }
-      // Never grant epoch.> or SYS subjects from scopes.
-      assert.ok(!perms.publish.includes("epoch.>"));
-      assert.ok(!perms.subscribe.includes("epoch.>"));
-      assert.ok(!perms.publish.some((s) => s.startsWith("$SYS")));
-    }),
+    fc.asyncProperty(
+      fc.array(fc.constantFrom(...API_SCOPES), { maxLength: 6 }),
+      fc.boolean(),
+      async (scopes, allowDiscovery) => {
+        const perms = permissionsForScopes(scopes, "api-token", { allowServiceDiscovery: allowDiscovery });
+        const subjectOk = allowDiscovery && scopes.includes("svc:discover")
+          ? /^epoch\.(live|platform\.events|community\.stream|svc)\.>$/u
+          : /^epoch\.(live|platform\.events|community\.stream)\.>$/u;
+        for (const subject of [...perms.publish, ...perms.subscribe]) {
+          assert.match(subject, subjectOk);
+        }
+        assert.equal(
+          [...perms.publish, ...perms.subscribe].some((subject) => subject.startsWith("epoch.svc.")),
+          allowDiscovery === true && scopes.includes("svc:discover"),
+        );
+        assert.ok(!perms.publish.includes("epoch.>"));
+        assert.ok(!perms.subscribe.includes("epoch.>"));
+        assert.ok(!perms.publish.some((s) => s.startsWith("$SYS")));
+      },
+    ),
     params,
   );
 
@@ -96,6 +104,7 @@ async function main(): Promise<void> {
         } else {
           assert.equal(decision.type, "allow");
           assert.ok(decision.permissions);
+          assert.equal(decision.permissions.publish.some((subject) => subject.startsWith("epoch.svc.")), false);
         }
       },
     ),

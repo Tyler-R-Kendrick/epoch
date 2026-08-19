@@ -119,6 +119,8 @@ export type VerifiedFabricCredential = {
   subjectRef: string;
   scopes: readonly string[];
   expiresAt: number;
+  /** Hosted/private only. Callout must not grant `epoch.svc.>` when false. */
+  allowServiceDiscovery: boolean;
 };
 
 export type PlatformTeam = {
@@ -604,6 +606,15 @@ export class PlatformError extends Error {
 export type PlatformCoreOptions = {
   communityEnabled?: boolean;
   snapshot?: PlatformSnapshot;
+  /** Evaluated ADR-0055 posture. Absent → open with extras off. */
+  posturePolicy?: {
+    posture: "hosted" | "private" | "open";
+    allowServiceDiscovery: boolean;
+    allowCrossCommunityFabric: boolean;
+    publicArtifactPlane: "atproto" | "none";
+    interNodeTransport: "xmpp-s2s" | "gossip" | "none";
+    serverTrackedReadState: boolean;
+  };
 };
 
 export type FileSystemPlatformCoreOptions = PlatformCoreOptions & {
@@ -1034,6 +1045,14 @@ export class EpochPlatformCore {
   #backupDir?: string;
   #persisting = false;
   #communityEnabled = false;
+  #posturePolicy: NonNullable<PlatformCoreOptions["posturePolicy"]> = {
+    posture: "open",
+    allowServiceDiscovery: false,
+    allowCrossCommunityFabric: false,
+    publicArtifactPlane: "atproto",
+    interNodeTransport: "gossip",
+    serverTrackedReadState: false,
+  };
   #communityVisibilityPolicy?: CommunityVisibilityPolicy;
   #sequence = 0;
   #organizations = new Map<string, Organization>();
@@ -1102,6 +1121,9 @@ export class EpochPlatformCore {
       return;
     }
     this.#communityEnabled = options.communityEnabled ?? false;
+    if (options.posturePolicy !== undefined) {
+      this.#posturePolicy = { ...options.posturePolicy, allowCrossCommunityFabric: false };
+    }
     this.#persist();
   }
 
@@ -1111,6 +1133,21 @@ export class EpochPlatformCore {
     }
     if (key === "core" || key === "sdk") {
       return { key, enabled: true };
+    }
+    if (key === "service-discovery") {
+      return { key, enabled: this.#posturePolicy.allowServiceDiscovery };
+    }
+    if (key === "cross-community-fabric") {
+      return { key, enabled: false };
+    }
+    if (key === "server-tracked-read-state") {
+      return { key, enabled: this.#posturePolicy.serverTrackedReadState };
+    }
+    if (key === "public-artifact-plane") {
+      return { key, enabled: this.#posturePolicy.publicArtifactPlane === "atproto" };
+    }
+    if (key === "inter-node-transport") {
+      return { key, enabled: this.#posturePolicy.interNodeTransport === "xmpp-s2s" };
     }
     return { key, enabled: false };
   }
@@ -1409,6 +1446,7 @@ export class EpochPlatformCore {
       subjectRef: credential.subjectRef,
       scopes: [...credential.scopes],
       expiresAt: credential.expiresAt,
+      allowServiceDiscovery: this.#posturePolicy.allowServiceDiscovery === true,
     };
   }
 

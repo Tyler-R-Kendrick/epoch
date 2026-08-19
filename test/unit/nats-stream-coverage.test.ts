@@ -12,6 +12,8 @@ import {
   livePresenceSubject,
   liveSyncSubject,
   platformEventsSubject,
+  serviceAdvertiseSubject,
+  serviceLookupSubject,
 } from "@epoch/nats";
 
 export function runNatsStreamCoverageTests(): void {
@@ -37,10 +39,11 @@ function jetstreamPublishReadAndFilter(): void {
 
 function memoryEpochStreamsBootstrap(): void {
   const streams = createMemoryEpochStreams();
-  assert.equal(streams.size, 3);
+  assert.equal(streams.size, 4);
   assert.ok(streams.get(EPOCH_NATS_STREAMS.LIVE));
   assert.ok(streams.get(EPOCH_NATS_STREAMS.PLATFORM_EVENTS));
   assert.ok(streams.get(EPOCH_NATS_STREAMS.COMMUNITY_LIVESTREAM));
+  assert.ok(streams.get(EPOCH_NATS_STREAMS.SVC));
 }
 
 function subjectHelpersSanitize(): void {
@@ -50,4 +53,6 @@ function subjectHelpersSanitize(): void {
   assert.equal(platformEventsSubject(""), "epoch.platform.events.default");
   assert.equal(communityLivestreamSubject("a/b"), "epoch.community.stream.a_b");
   assert.equal(liveSyncSubject(""), "epoch.live.default.sync");
+  assert.equal(serviceAdvertiseSubject("civic"), "epoch.svc.advertise.civic");
+  assert.equal(serviceLookupSubject("civic", "live"), "epoch.svc.lookup.civic.live");
 }

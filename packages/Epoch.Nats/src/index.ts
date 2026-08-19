@@ -13,6 +13,8 @@ export {
   livePresenceSubject,
   liveSyncSubject,
   platformEventsSubject,
+  serviceAdvertiseSubject,
+  serviceLookupSubject,
   type EpochNatsStreamName,
 } from "./subjects";
 
@@ -28,7 +30,25 @@ export {
   type EpochNatsPermissions,
 } from "./auth-callout";
 
-export { permissionsForScopes } from "./acl";
+export { permissionsForScopes, type PermissionsForScopesOptions } from "./acl";
+
+export {
+  HIGH_STAKES_SCOPES,
+  requiresBinding,
+  type FabricAdmission,
+  type FabricValidator,
+} from "./admission";
+
+export {
+  generateIssuerKey,
+  issueUserJwt,
+  verifyUserJwt,
+  createJwtFabricValidator,
+  type IssuedFabricJwt,
+  type NkeyPair,
+} from "./jwt-issuance";
+
+export { createConnectionFencer, type TrackedConnection } from "./revoke-fence";
 
 export {
   createPlatformAuthValidator,
@@ -73,3 +93,12 @@ export {
   createMemoryEpochStreams,
   type EpochStreamSpec,
 } from "./streams";
+
+export {
+  ServiceDiscoveryDeniedError,
+  createInMemoryServiceDirectory,
+  type CreateInMemoryServiceDirectoryOptions,
+  type EpochServiceDirectory,
+  type ServiceAdvertisement,
+  type ServiceDirectorySnapshot,
+} from "./service-discovery";

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   CRDTRegistry,
   DefaultAuthor,
@@ -7,9 +7,12 @@ import {
   dumpEntity,
   EntityType,
   EpochRepository,
+  exportExitBundle,
   gossipWithUrl,
+  importExitBundle,
   JsonEncoding,
   loadEntity,
+  migrateCommunity,
   normalizeMaterializationMode,
   parseSelection,
   startGossipServer,
@@ -367,6 +370,39 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
       const paths = repo.exportToGit(parsed.args[0]);
       writeLine(io, `exported ${paths.length} files`);
       recordCliOperation(repo, "export", { gitRepo: parsed.args[0], paths });
+      return;
+    }
+    case CliCommand.exportExit: {
+      const options = parseOptions(parsed.args, { out: "" });
+      const dest = options.out === "" ? options.positionals[0] : options.out;
+      if (!dest) throw new Error("usage: epoch export-exit [--out FILE] FILE");
+      const bundle = exportExitBundle(repo);
+      writeFileSync(dest, `${JSON.stringify(bundle, null, 2)}\n`, JsonEncoding);
+      writeLine(io, `exported exit bundle events=${bundle.manifest.eventCount} sha256=${bundle.manifest.sha256}`);
+      return;
+    }
+    case CliCommand.importExit: {
+      if (parsed.args.length !== 1) throw new Error("usage: epoch import-exit FILE");
+      const bundle = JSON.parse(readFileSync(parsed.args[0], JsonEncoding)) as unknown;
+      importExitBundle(repo, bundle);
+      writeLine(io, "imported exit bundle");
+      return;
+    }
+    case CliCommand.migrateCommunity: {
+      const options = parseOptions(parsed.args, { from: "", to: "", fromPosture: "hosted", toPosture: "open" });
+      if (options.from === "" || options.to === "") {
+        throw new Error("usage: epoch migrate-community --from PATH --to PATH [--fromPosture hosted|private|open] [--toPosture open]");
+      }
+      const source = new EpochRepository(options.from);
+      const dest = new EpochRepository(options.to);
+      if (!dest.isInitialized()) dest.init(source.identity());
+      const bundle = migrateCommunity({
+        from: source,
+        to: dest,
+        fromPosture: { posture: options.fromPosture },
+        toPosture: { posture: options.toPosture },
+      });
+      writeLine(io, `migrated community events=${bundle.manifest.eventCount} sha256=${bundle.manifest.sha256}`);
       return;
     }
     case CliCommand.merge: {

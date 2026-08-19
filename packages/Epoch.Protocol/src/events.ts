@@ -20,6 +20,7 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "space.workspace.bound", "space.turn.recorded", "space.budget.allocated",
   "space.capture.opened", "space.capture.closed", "space.capture.operation",
   "space.anchor.recorded", "space.turn.receipt",
+  "channel.create", "channel.message", "channel.presence", "channel.read",
 ] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
@@ -193,6 +194,30 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
       required: ["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"],
       ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },
       revisions: ["revisionId"], paths: ["path"], strings: ["structuralPath"], digests: ["contentDigest"],
+    }); return;
+    case "channel.create": validateFields(value, {
+      required: ["schema", "channelId", "communityId", "name", "principalId", "visibility"],
+      ids: { channelId: "channel", communityId: "space", principalId: "principal" },
+      strings: ["name"],
+      enums: { schema: ["epoch.channel/v1"], visibility: ["public", "shared", "private"] },
+    }); return;
+    case "channel.message": validateFields(value, {
+      required: ["schema", "channelId", "messageId", "principalId", "bodyDigest", "visibility"],
+      ids: { channelId: "channel", principalId: "principal" },
+      revisions: ["messageId"],
+      digests: ["bodyDigest"],
+      enums: { schema: ["epoch.channel/v1"], visibility: ["public", "shared", "private"] },
+    }); return;
+    case "channel.presence": validateFields(value, {
+      required: ["schema", "channelId", "principalId", "state"],
+      ids: { channelId: "channel", principalId: "principal" },
+      enums: { schema: ["epoch.channel/v1"], state: ["active", "idle", "away"] },
+    }); return;
+    case "channel.read": validateFields(value, {
+      required: ["schema", "channelId", "principalId", "watermarkEventId"],
+      ids: { channelId: "channel", principalId: "principal" },
+      revisions: ["watermarkEventId"],
+      enums: { schema: ["epoch.channel/v1"] },
     }); return;
   }
 }

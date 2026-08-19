@@ -4,6 +4,7 @@ export * from "./events";
 export * from "./ids";
 export * from "./inspection";
 export * from "./models";
+export * from "./posture";
 export * from "./revset";
 export * from "./schema";
 export * from "./review-publish";

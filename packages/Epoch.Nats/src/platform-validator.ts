@@ -4,6 +4,7 @@
  */
 
 import { permissionsForScopes } from "./acl";
+import { requiresBinding } from "./admission";
 import type { AuthCalloutDecision, AuthCalloutRequest, AuthCalloutValidator } from "./auth-callout";
 
 export type FabricCredential = {
@@ -12,6 +13,10 @@ export type FabricCredential = {
   readonly subjectRef: string;
   readonly scopes: readonly string[];
   readonly expiresAt: number;
+  readonly sourceServer?: string;
+  readonly bindingVerified?: boolean;
+  /** When true (hosted/private), callout may grant `epoch.svc.>`. */
+  readonly allowServiceDiscovery?: boolean;
 };
 
 export type FabricCredentialVerifier = (
@@ -61,9 +66,21 @@ export function createPlatformAuthValidator(deps: {
       return { type: "deny", reason: "invalid credentials" };
     }
 
-    const permissions = permissionsForScopes(credential.scopes, credential.kind);
+    const permissions = permissionsForScopes(credential.scopes, credential.kind, {
+      sourceServer: credential.sourceServer,
+      allowServiceDiscovery: credential.allowServiceDiscovery === true,
+    });
     if (permissions.publish.length === 0 && permissions.subscribe.length === 0) {
       return { type: "deny", reason: "empty permissions" };
+    }
+
+    if (requiresBinding(credential.scopes) && credential.bindingVerified !== true) {
+      return { type: "deny", reason: "unverifiable binding" };
+    }
+
+    const presentedServer = typeof request.serverId === "string" ? request.serverId : undefined;
+    if (credential.sourceServer && presentedServer && credential.sourceServer !== presentedServer) {
+      return { type: "deny", reason: "sourceServer mismatch" };
     }
 
     return {

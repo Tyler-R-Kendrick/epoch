@@ -91,6 +91,16 @@ export { applyUnifiedDiff, formatUnifiedDiff, isTextBlob } from "./patch";
 export type { UnifiedDiffInput } from "./patch";
 export { canonicalJson } from "./json";
 export { parseTomlDocument, TomlDateTime, TomlError } from "./toml";
+export {
+  EXIT_BUNDLE_SCHEMA,
+  ExitBundleError,
+  assertSupportedPostureTransition,
+  exportExitBundle,
+  importExitBundle,
+  migrateCommunity,
+  parseExitBundle,
+} from "./exit";
+export type { ExitBindingRecord, ExitBundle, ExitManifest } from "./exit";
 export { ActorCommand, CompositionEventType, CompositionFormat, DefaultAuthor, EntityType, EventType, IntentStatus, JsonEncoding, LinkAvailability, MaterializationMode, MaterializationModeAlias, NamespaceFormat, NamespaceShardThreshold, Schemas, SelectionFormat, SelectionSyntax, SparseIndexFormat, StorageName, Symbols, VirtualCheckoutFormat, VirtualCheckoutSchema, VirtualRecordStatus, WorkspaceSelectionStateSchema, normalizeMaterializationMode } from "./domain";
 export type { CanonicalMaterializationMode, WorkspaceSelectionState } from "./domain";
 export type { EventData, EventId, EventMetadata, EventPayload, IntentCommentPayload, IntentMergePayload, IntentPayload, IntentRejectPayload, RepositoryPath, VersionEntity, VersionFile, VersionPayload, VirtualCheckout, VirtualCheckoutRecord } from "./domain";

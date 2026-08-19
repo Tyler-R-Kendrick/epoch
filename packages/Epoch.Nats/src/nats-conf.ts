@@ -2,18 +2,19 @@
  * Documented nats-server template (JetStream + WebSocket + auth callout).
  *
  * Host `nats-server` auth_callout expects a JWT-issuing auth service
- * (issuer nkey, user JWT). `@epoch/nats` ships an Epoch-native JSON
- * in-process handler (`attachAuthCalloutService` on NatsConnectionLike)
- * for tests and embedded buses; the JWT adapter that answers real
- * `$SYS.REQ.USER.AUTH` for nats-server is not done yet — use this
- * template as the broker shape once that adapter exists.
+ * (issuer nkey, user JWT). `@epoch/nats` ships:
+ * - Epoch-native JSON in-process handler (`attachAuthCalloutService`)
+ * - host-side JWT issuance (`issueUserJwt` / `verifyUserJwt`) for mixed-mode
+ *   callout + resolver accounts (ADR-0054).
+ *
+ * NATS never crosses operators. Subjects stay epoch.live.>, epoch.community.stream.>,
+ * epoch.platform.events.>, epoch.svc.>. sourceServer prefixes those trees so A cannot mint B.
  */
 export const NATS_SERVER_CONF_TEMPLATE = `# Epoch NATS fabric (ADR-0054)
 # Host process — browsers connect with nats.ws; do not compile nats-server to WASM.
 #
-# Auth note: nats-server auth_callout needs a JWT-issuing adapter (issuer nkey).
-# @epoch/nats attachAuthCalloutService is Epoch-native JSON over in-process
-# NatsConnectionLike — not a drop-in JWT auth user for this conf yet.
+# Mixed-mode: auth_callout issues short-lived user JWTs via @epoch/nats issueUserJwt.
+# Resolver accounts stay intra-community. Do not link brokers across operators (I-2).
 
 port: 4222
 http_port: 8222
@@ -41,14 +42,13 @@ accounts {
 authorization {
   auth_callout {
     issuer: "AUTH_ISSUER_NKEY"
-    # Auth service account/user that may answer $SYS.REQ.USER.AUTH
     auth_users: [ auth ]
     account: EPOCH
-    # xkey: "AUTH_XKEY"  # encrypt callout payloads
   }
   timeout: 2s
 }
 
 # Streams are created by @epoch/nats bootstrap (EPOCH_LIVE, EPOCH_PLATFORM_EVENTS,
-# EPOCH_COMMUNITY_LIVESTREAM) or via nats CLI.
+# EPOCH_COMMUNITY_LIVESTREAM, EPOCH_SVC) or via nats CLI.
+# Subjects: epoch.live.>, epoch.community.stream.>, epoch.platform.events.>, epoch.svc.>
 `;

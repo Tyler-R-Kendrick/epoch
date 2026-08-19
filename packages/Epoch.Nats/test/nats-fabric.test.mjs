@@ -93,12 +93,21 @@ test("nats: ACL api-token scope matrix", () => {
       publish: [],
       subscribe: ["epoch.community.stream.>"],
     },
+    {
+      scopes: ["svc:discover"],
+      publish: [],
+      subscribe: [],
+    },
   ];
   for (const row of cases) {
     const perms = permissionsForScopes(row.scopes, "api-token");
     assert.deepEqual([...perms.publish].sort(), [...row.publish].sort(), row.scopes.join(","));
     assert.deepEqual([...perms.subscribe].sort(), [...row.subscribe].sort(), row.scopes.join(","));
   }
+
+  const hostedDiscover = permissionsForScopes(["svc:discover"], "api-token", { allowServiceDiscovery: true });
+  assert.deepEqual([...hostedDiscover.publish], ["epoch.svc.>"]);
+  assert.deepEqual([...hostedDiscover.subscribe], ["epoch.svc.>"]);
 
   const empty = permissionsForScopes([], "api-token");
   assert.equal(empty.publish.length, 0);
@@ -296,10 +305,11 @@ test("nats: community livestream subject isolation", () => {
 
 test("nats: memory epoch streams bootstrap", () => {
   const streams = createMemoryEpochStreams();
-  assert.equal(streams.size, 3);
+  assert.equal(streams.size, 4);
   assert.ok(streams.get(EPOCH_NATS_STREAMS.LIVE));
   assert.ok(streams.get(EPOCH_NATS_STREAMS.PLATFORM_EVENTS));
   assert.ok(streams.get(EPOCH_NATS_STREAMS.COMMUNITY_LIVESTREAM));
+  assert.ok(streams.get(EPOCH_NATS_STREAMS.SVC));
 });
 
 test("nats: jetstream publish/read and subject helpers", () => {

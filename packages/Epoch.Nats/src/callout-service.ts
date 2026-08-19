@@ -2,8 +2,8 @@
  * In-process AUTH callout answering over NatsConnectionLike.
  *
  * This is Epoch-native JSON request/reply on `$SYS.REQ.USER.AUTH`.
- * Full nats-server JWT issuance (issuer nkey, authorization user JWT) is an
- * adapter-not-done limitation — production brokers still need that bridge.
+ * Host-side JWT issuance lives in `jwt-issuance.ts` (short-lived user JWT +
+ * revoke fencing). Mixed-mode: callout + resolver accounts, intra-community only.
  */
 
 import type {

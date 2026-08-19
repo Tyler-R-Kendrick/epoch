@@ -24,6 +24,7 @@ export interface NatsConnectionLike {
 
 export interface InMemoryNatsBus extends NatsConnectionLike {
   readonly connections: number;
+  request(subject: string, data: Uint8Array | string, opts?: { timeout?: number }): Promise<NatsMsgLike>;
 }
 
 type Listener = (msg: NatsMsgLike) => void;

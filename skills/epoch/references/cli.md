@@ -101,6 +101,9 @@ rolling `.epoch/patches/<hash>.patch` (regenerable caches, excluded from `verify
 
 - `import GIT_REPO` records tracked files from a Git repository into Epoch.
 - `export GIT_REPO` writes latest recorded blobs into a Git repository directory.
+- `export-exit [--out FILE] FILE` writes an `epoch-exit/v1` verified-history bundle.
+- `import-exit FILE` imports an exit bundle; tamper and truncation deny.
+- `migrate-community --from PATH --to PATH` copies verified history and refuses crafted posture downgrade.
 - `epoch-git` provides a Git-like command surface for integrations that expect clone/add/commit/status behavior.
 
 Unsupported Git commands fail explicitly instead of pretending to be safe.

@@ -304,6 +304,34 @@ function canonicalBodies(): Record<ProtocolEventType, Record<string, unknown>> {
       exitCode: 0,
       durationMs: 12,
     },
+    "channel.create": {
+      schema: "epoch.channel/v1",
+      channelId: id("channel"),
+      communityId: id("space"),
+      name: "general",
+      principalId: id("principal"),
+      visibility: "public",
+    },
+    "channel.message": {
+      schema: "epoch.channel/v1",
+      channelId: id("channel"),
+      messageId: "msg-1",
+      principalId: id("principal"),
+      bodyDigest: digest("p"),
+      visibility: "public",
+    },
+    "channel.presence": {
+      schema: "epoch.channel/v1",
+      channelId: id("channel"),
+      principalId: id("principal"),
+      state: "active",
+    },
+    "channel.read": {
+      schema: "epoch.channel/v1",
+      channelId: id("channel"),
+      principalId: id("principal"),
+      watermarkEventId: "msg-1",
+    },
   };
 }
 

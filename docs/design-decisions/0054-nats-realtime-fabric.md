@@ -32,10 +32,13 @@ guests connect with **`nats.ws`** (or Node transports) to a host `nats-server`.
    - `EPOCH_LIVE` — live sync/presence (limits retention);
    - `EPOCH_PLATFORM_EVENTS` — durable platform audit; cursor ↔ stream seq;
    - `EPOCH_COMMUNITY_LIVESTREAM` — sanitized command envelopes (privacy policy
-     remains in Community Runtime, not in NATS).
+     remains in Community Runtime, not in NATS);
+   - `EPOCH_SVC` — intra-community advertise/lookup on `epoch.svc.>` (hosted/private
+     only; advertisements are admission hints, not identity).
 4. Auth callout is **complementary**, not primary login: Platform / Community /
    Identity Bridge remain identity of record. NATS only gates fabric admission.
-   Fail closed on callout timeout, reject, expiry, or revoke.
+   Fail closed on callout timeout, reject, expiry, or revoke. Callout answers
+   Epoch-native JSON on `$SYS.REQ.USER.AUTH` (`attachAuthCalloutService`).
 5. WASM capability guests ([ADR-0045](0045-sandboxed-capability-providers.md))
    do **not** embed a NATS server; network stays host-owned.
 
@@ -63,8 +66,8 @@ Platform session / API token
 
 | Credential class | Scopes | Publish | Subscribe |
 |---|---|---|---|
-| Human session | `fabric:human` | `epoch.live.>`, `epoch.community.stream.>` | those + `epoch.platform.events.>` (subscribe-only) |
-| Service API token | `live:write` / `live:read` / `platform.events:*` / `community.stream:*` | per scope map | per scope map |
+| Human session | `fabric:human` | `epoch.live.>`, `epoch.community.stream.>` (+ `epoch.svc.>` when posture allows discovery) | those + `epoch.platform.events.>` (subscribe-only) |
+| Service API token | `live:write` / `live:read` / `platform.events:*` / `community.stream:*` / `svc:discover` | per scope map; `svc:discover` only when posture allows | per scope map |
 
 Empty publish+subscribe after mapping → deny. Production validators never fill
 wide fixture defaults.
@@ -79,18 +82,19 @@ Fabric CONNECT requires a configured endpoint **and** a Platform-backed ticket
 ### Protocol honesty
 
 `@epoch/nats` ships Epoch-native JSON auth decisions over `NatsConnectionLike`
-(`attachAuthCalloutService` on `$SYS.REQ.USER.AUTH`). Full **nats-server JWT
-issuance** (issuer nkey → authorization user JWT) is an **adapter-not-done**
-limitation — do not claim drop-in production callout compatibility until that
-adapter exists. In-process / gated bus is the supported MVP for tests and
-embedded fabrics.
+(`attachAuthCalloutService` on `$SYS.REQ.USER.AUTH`) **and** host-side JWT
+issuance (`issueUserJwt` / `verifyUserJwt`, `alg: ed25519-nkey`). Mixed-mode
+callout + resolver accounts stay intra-community. Do not claim drop-in
+production nats-server JWT handshake compatibility until that job is a
+Production ship; the in-process / gated bus remains the supported MVP for
+tests. See [ADR-0055](0055-trust-posture-modes-and-federation-topology.md).
 
 ### Revoke after CONNECT
 
-Short-TTL tickets + fail-closed renew are the intended control. Existing NATS
-connections may outlive revoke until TTL expiry or explicit disconnect when the
-broker supports it — document that immortal CONNECT after revoke is an accepted
-limitation without renew.
+Short-TTL user JWTs plus `createConnectionFencer` disconnect/kick on revoke
+sever *tracked* connections within a bounded interval. Connections that never
+enrolled in the fencer can still outlive revoke until TTL — that remaining
+immortal-CONNECT gap is documented, not claimed closed.
 
 ## Consequences
 
@@ -98,6 +102,12 @@ limitation without renew.
   Community.
 - HA for NATS is orthogonal to repo event-log HA/DR ([`docs/HA-DR.md`](../HA-DR.md)).
 - Gossip HTTP snapshot sync remains; NATS does not replace it in this decision.
+- JWT issuance exists; `sourceServer` scopes ACLs (I-3). Revoke fencing exists
+  for tracked connections. Cross-operator NATS remains forbidden (I-2).
+  Intra-community service discovery (`createInMemoryServiceDirectory`,
+  `epoch.svc.>`) is posture-gated: hosted/private may advertise Live /
+  livestream / platform-event endpoints; open never receives `epoch.svc.>`
+  grants even if `svc:discover` is listed.
 
 ## Rejected alternatives
 

@@ -33,6 +33,7 @@ import { renderConversation, renderSignerStrip } from "../view/message";
 import { renderAgentMemberButton, renderChannelButton } from "../view/rail";
 import { asListState, renderChannelOrigin, renderEmptyState, renderSearchZeroState } from "../view/states";
 import { emptyArtifactItem, renderChangeListItem, renderIssueListItem } from "../view/work-surfaces";
+import { composeLiveChannelMessage } from "./channel-compose";
 
 /** Serialized shape of the #epoch-community-state JSON island. */
 interface CommunityClientState {
@@ -130,20 +131,6 @@ function conversations(): readonly CommunityConversationView[] {
 
 function messages(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-message]"));
-}
-
-function channelLabel(channel: string): string {
-  const map: Record<string, string> = {
-    general: "general",
-    showcase: "showcase",
-    ideas: "idea",
-    bugs: "bug",
-    support: "support",
-    "agent-runs": "agent",
-    previews: "preview",
-    governance: "governance",
-  };
-  return map[channel] || "general";
 }
 
 async function apiJson(method: string, path: string, body?: unknown): Promise<CommunityRepository> {
@@ -1040,41 +1027,35 @@ async function postReview(changeId: string, decision: string): Promise<Community
   );
 }
 
+function appendConversation(view: CommunityConversationView): void {
+  if (!feed) return;
+  const wrapper = document.createElement("template");
+  wrapper.innerHTML = renderConversation(view, activeChannel, activeCommunity).trim();
+  const item = wrapper.content.firstElementChild;
+  if (!item) return;
+  feed.append(item);
+  applyChannelFilter();
+}
+
 async function handleComposerSubmit(text: string): Promise<void> {
   const body = text.trim();
   if (!body) return;
   if (!live()) {
-    // Snapshot mode: local-only append (fail closed for durable write).
-    const id = `comment-${Date.now()}`;
-    if (!feed) return;
-    // Hand-written markup here duplicated renderRow's structure and drifted from
-    // it twice: once when the row primitive replaced .feed-message, and again
-    // when conversational messages stopped carrying a headline. A locally
-    // composed message goes through the same renderer as every other message.
-    const wrapper = document.createElement("template");
-    wrapper.innerHTML = renderConversation(
-      {
-        id,
-        channel: activeChannel,
-        communityId: activeCommunity,
-        author: "maya",
-        role: "maintainer",
-        body,
-        time: "now",
-        anchor: `community://${activeCommunity}/${activeChannel}`,
-        signature: "sig:local-only",
-        visibility: "community",
-        state: "local only",
-        reactions: [],
-        source: "snapshot",
-      },
-      activeChannel,
-      activeCommunity,
-    ).trim();
-    const item = wrapper.content.firstElementChild;
-    if (!item) return;
-    feed.append(item);
-    applyChannelFilter();
+    appendConversation({
+      id: `comment-${Date.now()}`,
+      channel: activeChannel,
+      communityId: activeCommunity,
+      author: "maya",
+      role: "maintainer",
+      body,
+      time: "now",
+      anchor: `community://${activeCommunity}/${activeChannel}`,
+      signature: "sig:local-only",
+      visibility: "community",
+      state: "local only",
+      reactions: [],
+      source: "snapshot",
+    });
     return;
   }
 
@@ -1089,20 +1070,27 @@ async function handleComposerSubmit(text: string): Promise<void> {
     return;
   }
 
-  const title = body.split("\n")[0].slice(0, 120) || "Community message";
-  const updated = await postIssue({
-    title,
-    author: actor,
+  const signed = await composeLiveChannelMessage({
+    channelId: `epoch:channel:${"c".repeat(52)}`,
+    principalId: `epoch:principal:${"p".repeat(52)}`,
     body,
-    labels: [channelLabel(activeChannel)],
+    visibility: "public",
   });
-  renderRepository(updated);
-  const issues = updated.issues ?? [];
-  const created = issues[issues.length - 1];
-  if (created) {
-    selectChannel(channelForIssue(created.labels ?? []));
-    selectMessage(`issue-${created.id}`);
-  }
+  appendConversation({
+    id: signed.eventId,
+    channel: activeChannel,
+    communityId: activeCommunity,
+    author: actor,
+    role: "member",
+    body,
+    time: "now",
+    anchor: `community://${activeCommunity}/${activeChannel}`,
+    signature: signed.signature,
+    visibility: "community",
+    state: "signed",
+    reactions: [],
+    source: "api",
+  });
 }
 
 async function handleAction(action: string, message: HTMLElement): Promise<void> {

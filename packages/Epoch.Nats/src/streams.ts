@@ -34,6 +34,12 @@ export const EPOCH_STREAM_SPECS: readonly EpochStreamSpec[] = Object.freeze([
     retention: "limits",
     maxAgeSeconds: 60 * 60 * 6,
   },
+  {
+    name: EPOCH_NATS_STREAMS.SVC,
+    subjects: Object.freeze([EPOCH_NATS_SUBJECTS.serviceDiscovery]),
+    retention: "limits",
+    maxAgeSeconds: 60,
+  },
 ]);
 
 /** Create in-memory stand-ins for all Epoch streams (tests / local demos). */

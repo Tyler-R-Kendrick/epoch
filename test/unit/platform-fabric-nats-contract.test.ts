@@ -46,6 +46,7 @@ async function mintVerifyAllowsGatedLiveConvergence(): Promise<void> {
           subjectRef: v.subjectRef,
           scopes: v.scopes,
           expiresAt: v.expiresAt,
+          allowServiceDiscovery: v.allowServiceDiscovery,
         };
       } catch {
         return null;
@@ -99,7 +100,14 @@ async function sessionIdIsNotAcceptedAsFabricSecret(): Promise<void> {
     verifyFabricCredential: (secret) => {
       try {
         const v = core.verifyFabricCredential(secret);
-        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+        return {
+          id: v.id,
+          kind: v.kind,
+          subjectRef: v.subjectRef,
+          scopes: v.scopes,
+          expiresAt: v.expiresAt,
+          allowServiceDiscovery: v.allowServiceDiscovery,
+        };
       } catch {
         return null;
       }
@@ -120,7 +128,14 @@ async function revokeParentDeniesCalloutAndBlocksConnect(): Promise<void> {
     verifyFabricCredential: (secret) => {
       try {
         const v = core.verifyFabricCredential(secret);
-        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+        return {
+          id: v.id,
+          kind: v.kind,
+          subjectRef: v.subjectRef,
+          scopes: v.scopes,
+          expiresAt: v.expiresAt,
+          allowServiceDiscovery: v.allowServiceDiscovery,
+        };
       } catch {
         return null;
       }
@@ -151,7 +166,14 @@ async function expiredTicketDeniesCallout(): Promise<void> {
     verifyFabricCredential: (secret) => {
       try {
         const v = core.verifyFabricCredential(secret);
-        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+        return {
+          id: v.id,
+          kind: v.kind,
+          subjectRef: v.subjectRef,
+          scopes: v.scopes,
+          expiresAt: v.expiresAt,
+          allowServiceDiscovery: v.allowServiceDiscovery,
+        };
       } catch {
         return null;
       }
@@ -170,7 +192,14 @@ async function emptyApiTokenScopesDenyCallout(): Promise<void> {
     verifyFabricCredential: (secret) => {
       try {
         const v = core.verifyFabricCredential(secret);
-        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+        return {
+          id: v.id,
+          kind: v.kind,
+          subjectRef: v.subjectRef,
+          scopes: v.scopes,
+          expiresAt: v.expiresAt,
+          allowServiceDiscovery: v.allowServiceDiscovery,
+        };
       } catch {
         return null;
       }
@@ -191,7 +220,14 @@ async function authCalloutResponseShapeIsStable(): Promise<void> {
     verifyFabricCredential: (secret) => {
       try {
         const v = core.verifyFabricCredential(secret);
-        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+        return {
+          id: v.id,
+          kind: v.kind,
+          subjectRef: v.subjectRef,
+          scopes: v.scopes,
+          expiresAt: v.expiresAt,
+          allowServiceDiscovery: v.allowServiceDiscovery,
+        };
       } catch {
         return null;
       }

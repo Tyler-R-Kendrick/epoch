@@ -2091,19 +2091,11 @@ Then("the snapshot banner explains how to reconnect for signed work", async func
 
 Then("the reply appears in the message feed with signed comment metadata", async function () {
   const page = requirePage();
-  await assertVisible(page, "Keyboard navigation works in the preview.");
-  // Live API persists the composer post as a signed issue (or local snapshot metadata offline).
-  const liveMeta = page.getByText("community", { exact: false });
-  await liveMeta.first().waitFor({ state: "visible", timeout: 5_000 });
-  assert.ok(world.api);
-  const repository = await world.api.getRepository("epoch/epoch");
-  assert.ok(
-    repository.issues.some((issue) =>
-      issue.title.includes("Keyboard navigation works in the preview.")
-      || issue.body.includes("Keyboard navigation works in the preview.")
-    ),
-    "composer message should be recorded as a live issue",
-  );
+  const row = page.locator("[data-message]", { hasText: "Keyboard navigation works in the preview." });
+  await row.first().waitFor({ state: "visible", timeout: 5_000 });
+  const html = await row.first().innerHTML();
+  assert.match(html, /sha256:[a-f0-9]{64}/u, "live composer must persist a signed channel digest");
+  assert.equal(html.includes("sig:local-only"), false, "live composer must not use local-only signatures");
 });
 
 Then("the active conversation remains reachable without an oversized navigation rail", async function () {

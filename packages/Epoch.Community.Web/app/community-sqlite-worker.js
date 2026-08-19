@@ -4915,8 +4915,1821 @@ var require_entity_projection_runtime = __commonJS({
   }
 });
 
-// packages/Epoch.Community.Core/dist/index.js
+// packages/Epoch.Protocol/dist/capabilities.js
+var require_capabilities = __commonJS({
+  "packages/Epoch.Protocol/dist/capabilities.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.PROTOCOL_CAPABILITIES = void 0;
+    exports.PROTOCOL_CAPABILITIES = Object.freeze({
+      schemaVersion: 1,
+      identifiers: { randomBits: 256, encoding: "base32-lower-no-padding", injectableCsprng: true },
+      transactions: {
+        explicitParents: true,
+        compareAndSwapHeads: true,
+        atomicPublish: false,
+        quarantineAtomicPublish: true,
+        repositoryAppendRecovery: false,
+        syncBatchAtomic: false,
+        gitPromotionAtomic: false
+      },
+      changes: { stableLineage: true, multipleParents: true, fragmentKinds: ["add", "delete", "move", "copy", "text", "structured", "binary"] },
+      merge: { dependencyClosure: true, durableConflicts: true, conservativeCommutation: true, squashProvenance: true },
+      operations: { localOnly: true, concurrentHeads: true, undoRestore: true, secretRedaction: true },
+      providers: { trusted: false, mayMutateCanonicalState: false },
+      fidelity: { byteExactSplit: true, binarySemanticMerge: false },
+      review: {
+        changeBased: true,
+        gitChangeIdTrailer: true,
+        reviewRef: "refs/for/*",
+        publishOptions: ["topic", "hashtag", "wip"],
+        pullRequestBranches: false
+      }
+    });
+  }
+});
+
+// packages/Epoch.Protocol/dist/errors.js
+var require_errors2 = __commonJS({
+  "packages/Epoch.Protocol/dist/errors.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ProtocolError = void 0;
+    exports.fail = fail;
+    var ProtocolError = class extends Error {
+      code;
+      details;
+      name = "ProtocolError";
+      constructor(code, message, details = {}) {
+        super(message);
+        this.code = code;
+        this.details = details;
+      }
+    };
+    exports.ProtocolError = ProtocolError;
+    function fail(code, message, details = {}) {
+      throw new ProtocolError(code, message, details);
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/ids.js
+var require_ids = __commonJS({
+  "packages/Epoch.Protocol/dist/ids.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CANONICAL_ID_KINDS = void 0;
+    exports.createCanonicalId = createCanonicalId;
+    exports.parseCanonicalId = parseCanonicalId;
+    exports.parseChangeId = parseChangeId;
+    exports.assertRevisionId = assertRevisionId;
+    var errors_1 = require_errors2();
+    exports.CANONICAL_ID_KINDS = [
+      "repo",
+      "principal",
+      "key",
+      "change",
+      "change-graph",
+      "fragment",
+      "review-bundle",
+      "merge-plan",
+      "conflict",
+      "workspace",
+      "operation",
+      "grant",
+      "budget",
+      "projection",
+      "mirror",
+      "version",
+      "session",
+      "promise",
+      // ADR-0043. A Space composes the kinds above; it never replaces one. Sandbox
+      // and anchor get their own kinds so a turn can name where it ran and a
+      // comment can name what it points at without either borrowing `workspace`.
+      "space",
+      "sandbox",
+      "anchor",
+      // ADR-0055 native channels: a channel is a signed gossip object, never a transport identity.
+      "channel"
+    ];
+    var kindSet = new Set(exports.CANONICAL_ID_KINDS);
+    var tokenPattern = /^[a-z2-7]{52}$/u;
+    var eventIdPattern = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u;
+    var alphabet = "abcdefghijklmnopqrstuvwxyz234567";
+    function createCanonicalId(kind, random = platformRandom) {
+      if (!kindSet.has(kind))
+        (0, errors_1.fail)("invalid-id", `Unknown canonical ID kind: ${String(kind)}`);
+      const bytes = random(32);
+      if (bytes.byteLength !== 32)
+        (0, errors_1.fail)("invalid-id", "Canonical IDs require exactly 256 bits of randomness");
+      return `epoch:${kind}:${base32(bytes)}`;
+    }
+    function parseCanonicalId(value, expectedKind) {
+      if (typeof value !== "string" || value.length > 96 || [...value].some((character) => character.codePointAt(0) > 127)) {
+        return (0, errors_1.fail)("invalid-id", "Canonical ID must be bounded ASCII");
+      }
+      const parts = value.split(":");
+      const kind = parts[1];
+      const token = parts[2];
+      if (parts.length !== 3 || parts[0] !== "epoch" || kind === void 0 || !kindSet.has(kind) || expectedKind !== void 0 && kind !== expectedKind || token === void 0 || !tokenPattern.test(token)) {
+        return (0, errors_1.fail)("invalid-id", `Invalid canonical ID: ${value}`);
+      }
+      return { kind, token };
+    }
+    function parseChangeId(value) {
+      const parsed = parseCanonicalId(value, "change");
+      return { kind: "change", token: parsed.token };
+    }
+    function assertRevisionId(value) {
+      if (typeof value !== "string" || !eventIdPattern.test(value))
+        (0, errors_1.fail)("invalid-ref", "RevisionId must be a signed EventId");
+      return value;
+    }
+    function platformRandom(byteLength) {
+      const crypto2 = globalThis.crypto;
+      if (crypto2 === void 0 || typeof crypto2.getRandomValues !== "function") {
+        (0, errors_1.fail)("unsupported-capability", "This runtime has no cryptographic random source; inject a 256-bit CSPRNG");
+      }
+      return crypto2.getRandomValues(new Uint8Array(byteLength));
+    }
+    function base32(bytes) {
+      if (bytes.length !== 32)
+        (0, errors_1.fail)("invalid-id", "Canonical IDs require exactly 256 bits of randomness");
+      let bits = 0;
+      let buffer = 0;
+      let result = "";
+      for (const byte of bytes) {
+        buffer = buffer << 8 | byte;
+        bits += 8;
+        while (bits >= 5) {
+          bits -= 5;
+          result += alphabet[buffer >>> bits & 31];
+          buffer &= (1 << bits) - 1;
+        }
+      }
+      if (bits > 0)
+        result += alphabet[buffer << 5 - bits & 31];
+      return result;
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/events.js
+var require_events = __commonJS({
+  "packages/Epoch.Protocol/dist/events.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.PROTOCOL_EVENT_SCHEMAS = void 0;
+    exports.assertProtocolEvent = assertProtocolEvent;
+    var errors_1 = require_errors2();
+    var ids_1 = require_ids();
+    exports.PROTOCOL_EVENT_SCHEMAS = [
+      "repository.identity",
+      "change.created",
+      "change.revised",
+      "change.superseded",
+      "change.dependency.added",
+      "change.dependency.removed",
+      "change-graph.defined",
+      "change-graph.revised",
+      "split.accepted",
+      "review.bundle.created",
+      "review.bundle.revised",
+      "review.recorded",
+      "merge.plan.created",
+      "merge.plan.gate-recorded",
+      "merge.plan.applied",
+      "conflict.recorded",
+      "conflict.resolution.proposed",
+      "conflict.resolution.accepted",
+      "conflict.resolution.rejected",
+      "agent.membership.granted",
+      "agent.membership.revoked",
+      "agent.capability.granted",
+      "agent.capability.revoked",
+      "agent.budget.allocated",
+      "agent.budget.reserved",
+      "agent.budget.consumed",
+      "agent.budget.released",
+      "projection.recorded",
+      "mirror.defined",
+      "mirror.checkpoint",
+      "mirror.run",
+      "object.promise.recorded",
+      "software-heritage.mapping",
+      "software-heritage.archive-requested",
+      "software-heritage.archive-status",
+      "space.created",
+      "space.participant.joined",
+      "space.participant.left",
+      "space.workspace.bound",
+      "space.turn.recorded",
+      "space.budget.allocated",
+      "space.capture.opened",
+      "space.capture.closed",
+      "space.capture.operation",
+      "space.anchor.recorded",
+      "space.turn.receipt",
+      "channel.create",
+      "channel.message",
+      "channel.presence",
+      "channel.read"
+    ];
+    var typeSet = new Set(exports.PROTOCOL_EVENT_SCHEMAS);
+    var digestPattern = /^[a-f0-9]{64}$/u;
+    var safePathSegment = /^(?!\.\.?$)[^/\\\0]+$/u;
+    function assertProtocolEvent(value) {
+      const event = record(value, "event");
+      exact(event, ["schemaVersion", "type", "eventId", "revisionId", "body"], "event");
+      if (event.schemaVersion !== 1)
+        (0, errors_1.fail)("invalid-schema", "Unsupported protocol schemaVersion");
+      if (typeof event.type !== "string" || !typeSet.has(event.type))
+        (0, errors_1.fail)("invalid-schema", `Unknown protocol event type: ${String(event.type)}`);
+      const eventId = (0, ids_1.assertRevisionId)(event.eventId);
+      const revisionId = (0, ids_1.assertRevisionId)(event.revisionId);
+      if (revisionId !== eventId)
+        (0, errors_1.fail)("invalid-schema", "RevisionId must equal the signed EventId");
+      validateBody(event.type, event.body);
+      return value;
+    }
+    function validateBody(type, value) {
+      switch (type) {
+        case "change.created":
+        case "change.revised":
+          validateChangeRevision(value);
+          return;
+        case "change-graph.defined":
+        case "change-graph.revised":
+          validateChangeGraph(value);
+          return;
+        case "split.accepted":
+          validateSplit(value);
+          return;
+        case "review.bundle.created":
+        case "review.bundle.revised":
+          validateReviewBundle(value);
+          return;
+        case "merge.plan.created":
+          validateMergePlan(value);
+          return;
+        case "conflict.recorded":
+          validateConflict(value);
+          return;
+        case "repository.identity":
+          validateFields(value, {
+            required: ["repositoryId", "principalId"],
+            ids: { repositoryId: "repo", principalId: "principal" },
+            optional: ["keyId"],
+            optionalIds: { keyId: "key" }
+          });
+          return;
+        case "change.superseded":
+          validateFields(value, {
+            required: ["changeId", "supersededRevisionId", "byRevisionId"],
+            ids: { changeId: "change" },
+            revisions: ["supersededRevisionId", "byRevisionId"]
+          });
+          return;
+        case "change.dependency.added":
+        case "change.dependency.removed":
+          validateFields(value, {
+            required: ["changeRevisionId", "dependencyRevisionId"],
+            revisions: ["changeRevisionId", "dependencyRevisionId"]
+          });
+          return;
+        case "review.recorded":
+          validateFields(value, {
+            required: ["reviewBundleId", "bundleRevisionId", "reviewerPrincipalId", "verdict"],
+            ids: { reviewBundleId: "review-bundle", reviewerPrincipalId: "principal" },
+            revisions: ["bundleRevisionId"],
+            enums: { verdict: ["approved", "changes-requested", "commented"] }
+          });
+          return;
+        case "merge.plan.gate-recorded":
+          validateFields(value, {
+            required: ["mergePlanId", "gateDefinitionDigest", "status", "evidenceRevisionIds"],
+            ids: { mergePlanId: "merge-plan" },
+            digests: ["gateDefinitionDigest"],
+            revisionArrays: ["evidenceRevisionIds"],
+            enums: { status: ["passed", "failed"] }
+          });
+          return;
+        case "merge.plan.applied":
+          validateFields(value, {
+            required: ["mergePlanId", "targetRevisionId", "resultRevisionId", "resultTreeDigest", "mergeMode", "sourceRevisionIds"],
+            ids: { mergePlanId: "merge-plan" },
+            revisions: ["targetRevisionId", "resultRevisionId"],
+            digests: ["resultTreeDigest"],
+            revisionArrays: ["sourceRevisionIds"],
+            enums: { mergeMode: ["per-change-squash", "change-graph-squash"] }
+          });
+          return;
+        case "conflict.resolution.proposed":
+        case "conflict.resolution.accepted":
+        case "conflict.resolution.rejected":
+          validateFields(value, {
+            required: ["conflictId", "resolutionRevisionId", "principalId"],
+            ids: { conflictId: "conflict", principalId: "principal" },
+            revisions: ["resolutionRevisionId"]
+          });
+          return;
+        case "agent.membership.granted":
+        case "agent.membership.revoked":
+          validateFields(value, {
+            required: ["workspaceId", "principalId", "grantId"],
+            ids: { workspaceId: "workspace", principalId: "principal", grantId: "grant" }
+          });
+          return;
+        case "agent.capability.granted":
+        case "agent.capability.revoked":
+          validateFields(value, {
+            required: ["grantId", "principalId", "capability"],
+            ids: { grantId: "grant", principalId: "principal" },
+            strings: ["capability"]
+          });
+          return;
+        case "agent.budget.allocated":
+        case "agent.budget.reserved":
+        case "agent.budget.consumed":
+        case "agent.budget.released":
+          validateFields(value, {
+            required: ["budgetId", "principalId", "units"],
+            ids: { budgetId: "budget", principalId: "principal" },
+            nonnegativeIntegers: ["units"]
+          });
+          return;
+        case "projection.recorded":
+          validateFields(value, {
+            required: ["projectionId", "repositoryId", "definitionDigest"],
+            ids: { projectionId: "projection", repositoryId: "repo" },
+            digests: ["definitionDigest"]
+          });
+          return;
+        case "mirror.defined":
+        case "mirror.checkpoint":
+        case "mirror.run":
+          validateFields(value, {
+            required: ["mirrorId", "repositoryId", "remoteRef", "frontier"],
+            ids: { mirrorId: "mirror", repositoryId: "repo" },
+            strings: ["remoteRef"],
+            revisionArrays: ["frontier"]
+          });
+          return;
+        case "object.promise.recorded":
+          validateFields(value, {
+            required: ["promiseId", "contentDigest", "status"],
+            ids: { promiseId: "promise" },
+            digests: ["contentDigest"],
+            enums: { status: ["pending", "fulfilled", "rejected"] }
+          });
+          return;
+        case "software-heritage.mapping":
+          validateFields(value, {
+            required: ["repositoryId", "swhId", "frontier"],
+            ids: { repositoryId: "repo" },
+            strings: ["swhId"],
+            revisionArrays: ["frontier"]
+          });
+          return;
+        case "software-heritage.archive-requested":
+        case "software-heritage.archive-status":
+          validateFields(value, {
+            required: ["repositoryId", "versionId", "requestId", "status"],
+            ids: { repositoryId: "repo", versionId: "version" },
+            strings: ["requestId"],
+            enums: { status: ["requested", "pending", "succeeded", "failed", "cancelled"] }
+          });
+          return;
+        case "space.created":
+          validateFields(value, {
+            required: ["spaceId", "repositoryId", "ownerPrincipalId", "viewName", "title"],
+            ids: { spaceId: "space", repositoryId: "repo", ownerPrincipalId: "principal" },
+            strings: ["viewName", "title"]
+          });
+          return;
+        // Joining is receiving a grant, not an ACL row: the grant ID is required so
+        // membership and authority cannot drift apart (ADR-0034, ADR-0043).
+        case "space.participant.joined":
+          validateFields(value, {
+            required: ["spaceId", "principalId", "grantId", "role"],
+            ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+            enums: { role: ["owner", "collaborator", "agent", "observer"] }
+          });
+          return;
+        case "space.participant.left":
+          validateFields(value, {
+            required: ["spaceId", "principalId", "grantId"],
+            ids: { spaceId: "space", principalId: "principal", grantId: "grant" }
+          });
+          return;
+        // The Space reports nothing about materialization on a provider's behalf;
+        // it records what that provider truthfully declared (ADR-0032).
+        case "space.workspace.bound":
+          validateFields(value, {
+            required: ["spaceId", "principalId", "workspaceId", "providerId", "storageMode", "residency", "materialization", "execution"],
+            ids: { spaceId: "space", principalId: "principal", workspaceId: "workspace" },
+            strings: ["providerId", "storageMode"],
+            enums: {
+              residency: ["resident", "partial", "virtual"],
+              materialization: ["materialized", "virtual"],
+              execution: ["disabled", "in-process", "isolated"]
+            }
+          });
+          return;
+        case "space.turn.recorded":
+          validateFields(value, {
+            required: ["spaceId", "principalId", "grantId", "execution", "requestDigest"],
+            optional: ["sandboxId", "budgetId", "units"],
+            ids: { spaceId: "space", principalId: "principal", grantId: "grant" },
+            optionalIds: { sandboxId: "sandbox", budgetId: "budget" },
+            digests: ["requestDigest"],
+            optionalNonnegativeIntegers: ["units"],
+            enums: { execution: ["disabled", "in-process", "isolated"] }
+          });
+          return;
+        // Budgets bind to the Space that allocated them. Without the spaceId an
+        // allocation made in one Space would be spendable in another.
+        case "space.budget.allocated":
+          validateFields(value, {
+            required: ["spaceId", "budgetId", "principalId", "units"],
+            ids: { spaceId: "space", budgetId: "budget", principalId: "principal" },
+            nonnegativeIntegers: ["units"]
+          });
+          return;
+        case "space.capture.opened":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            strings: ["scope", "retention"],
+            enums: { redaction: ["none", "declared-secrets", "full"] }
+          });
+          return;
+        case "space.capture.closed":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "operationCount"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            nonnegativeIntegers: ["operationCount"]
+          });
+          return;
+        case "space.capture.operation":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "path", "contentDigest"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            paths: ["path"],
+            digests: ["contentDigest"]
+          });
+          return;
+        // Anchors bind to a structural path inside an exact Revision, so they
+        // re-resolve after reformatting rather than naming a byte offset.
+        // A receipt is the evidence half of a turn: what actually ran, under which
+        // proven confinement, and what it cost (ADR-0034, ADR-0043 phase 5).
+        case "space.turn.receipt":
+          validateFields(value, {
+            required: ["spaceId", "principalId", "turnRevisionId", "sandboxId", "isolation", "network", "outcome"],
+            optional: ["exitCode", "durationMs"],
+            ids: { spaceId: "space", principalId: "principal", sandboxId: "sandbox" },
+            revisions: ["turnRevisionId"],
+            optionalNonnegativeIntegers: ["durationMs"],
+            enums: {
+              isolation: ["none", "process", "namespace"],
+              network: ["inherited", "denied"],
+              outcome: ["succeeded", "failed", "timed-out", "refused"]
+            }
+          });
+          return;
+        case "space.anchor.recorded":
+          validateFields(value, {
+            required: ["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"],
+            ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },
+            revisions: ["revisionId"],
+            paths: ["path"],
+            strings: ["structuralPath"],
+            digests: ["contentDigest"]
+          });
+          return;
+        case "channel.create":
+          validateFields(value, {
+            required: ["schema", "channelId", "communityId", "name", "principalId", "visibility"],
+            ids: { channelId: "channel", communityId: "space", principalId: "principal" },
+            strings: ["name"],
+            enums: { schema: ["epoch.channel/v1"], visibility: ["public", "shared", "private"] }
+          });
+          return;
+        case "channel.message":
+          validateFields(value, {
+            required: ["schema", "channelId", "messageId", "principalId", "bodyDigest", "visibility"],
+            ids: { channelId: "channel", principalId: "principal" },
+            revisions: ["messageId"],
+            digests: ["bodyDigest"],
+            enums: { schema: ["epoch.channel/v1"], visibility: ["public", "shared", "private"] }
+          });
+          return;
+        case "channel.presence":
+          validateFields(value, {
+            required: ["schema", "channelId", "principalId", "state"],
+            ids: { channelId: "channel", principalId: "principal" },
+            enums: { schema: ["epoch.channel/v1"], state: ["active", "idle", "away"] }
+          });
+          return;
+        case "channel.read":
+          validateFields(value, {
+            required: ["schema", "channelId", "principalId", "watermarkEventId"],
+            ids: { channelId: "channel", principalId: "principal" },
+            revisions: ["watermarkEventId"],
+            enums: { schema: ["epoch.channel/v1"] }
+          });
+          return;
+      }
+    }
+    function validateChangeRevision(value) {
+      const body = record(value, "change revision");
+      exact(body, ["changeId", "baseFrontier", "baseTreeDigest", "parentRevisionIds", "fragments", "resultingTreeDigest", "authorPrincipalId"], "change revision");
+      (0, ids_1.parseCanonicalId)(body.changeId, "change");
+      revisions(body.baseFrontier, "baseFrontier");
+      digest(body.baseTreeDigest, "baseTreeDigest");
+      revisions(body.parentRevisionIds, "parentRevisionIds");
+      if (!Array.isArray(body.fragments) || body.fragments.length === 0)
+        (0, errors_1.fail)("invalid-schema", "Change revision requires fragments");
+      const ids = /* @__PURE__ */ new Set();
+      for (const fragment of body.fragments) {
+        validateFragment(fragment);
+        const id = fragment.fragmentId;
+        if (ids.has(id))
+          (0, errors_1.fail)("invalid-schema", `Duplicate fragment ID: ${id}`);
+        ids.add(id);
+      }
+      digest(body.resultingTreeDigest, "resultingTreeDigest");
+      (0, ids_1.parseCanonicalId)(body.authorPrincipalId, "principal");
+    }
+    function validateFragment(value) {
+      const fragment = record(value, "fragment");
+      exact(fragment, ["fragmentId", "kind", "path", "from", "precondition", "resultDigest", "contentRef", "order", "dependencies", "provenance", "mergeStrategy"], "fragment", true);
+      (0, ids_1.parseCanonicalId)(fragment.fragmentId, "fragment");
+      if (!["add", "delete", "move", "copy", "text", "structured", "binary"].includes(String(fragment.kind)))
+        (0, errors_1.fail)("invalid-schema", "Unknown fragment kind");
+      path(fragment.path);
+      if (["move", "copy"].includes(String(fragment.kind))) {
+        const from = record(fragment.from, "fragment source");
+        exact(from, ["path", "digest"], "fragment source", true);
+        path(from.path);
+        if (from.digest !== void 0)
+          digest(from.digest, "source digest");
+      } else if (fragment.from !== void 0)
+        (0, errors_1.fail)("invalid-schema", "Only move/copy fragments may carry from");
+      const precondition = record(fragment.precondition, "fragment precondition");
+      exact(precondition, ["kind", "digest"], "fragment precondition", true);
+      if (precondition.kind === "absent") {
+        if (precondition.digest !== void 0)
+          (0, errors_1.fail)("invalid-schema", "Absent precondition cannot carry digest");
+      } else if (precondition.kind === "digest")
+        digest(precondition.digest, "precondition digest");
+      else
+        (0, errors_1.fail)("invalid-schema", "Unknown fragment precondition");
+      digest(fragment.resultDigest, "resultDigest");
+      if (fragment.contentRef !== void 0 && (typeof fragment.contentRef !== "string" || !/^(sha256:[a-f0-9]{64}|swh:[A-Za-z0-9:._~-]+|promise:epoch:promise:[a-z2-7]{52})$/u.test(fragment.contentRef)))
+        (0, errors_1.fail)("invalid-ref", "Invalid fragment content reference");
+      if (!Number.isInteger(fragment.order) || Number(fragment.order) < 0)
+        (0, errors_1.fail)("invalid-schema", "Fragment order must be nonnegative integer");
+      canonicalIds(fragment.dependencies, "fragment", "fragment dependencies");
+      const provenance = record(fragment.provenance, "fragment provenance");
+      exact(provenance, ["principalId", "sourceRevisionId"], "fragment provenance", true);
+      (0, ids_1.parseCanonicalId)(provenance.principalId, "principal");
+      if (provenance.sourceRevisionId !== void 0)
+        (0, ids_1.assertRevisionId)(provenance.sourceRevisionId);
+      if (!["exact", "text", "structured", "binary-replace"].includes(String(fragment.mergeStrategy)))
+        (0, errors_1.fail)("invalid-schema", "Unknown fragment merge strategy");
+    }
+    function validateChangeGraph(value) {
+      const body = record(value, "change graph");
+      exact(body, ["changeGraphId", "memberRevisionIds", "edges"], "change graph");
+      (0, ids_1.parseCanonicalId)(body.changeGraphId, "change-graph");
+      const members = revisions(body.memberRevisionIds, "change graph revisions");
+      if (!Array.isArray(body.edges))
+        (0, errors_1.fail)("invalid-schema", "Change graph edges must be an array");
+      for (const edgeValue of body.edges) {
+        const edge = record(edgeValue, "change graph edge");
+        exact(edge, ["from", "to", "kind"], "change graph edge");
+        (0, ids_1.assertRevisionId)(edge.from);
+        (0, ids_1.assertRevisionId)(edge.to);
+        if (!members.has(String(edge.from)) || !members.has(String(edge.to)))
+          (0, errors_1.fail)("invalid-ref", "Change graph edge must reference exact member revisions");
+        if (!["requires", "orders-after", "conflicts-with", "derived-from"].includes(String(edge.kind)))
+          (0, errors_1.fail)("invalid-schema", "Unknown change graph edge kind");
+      }
+    }
+    function validateSplit(value) {
+      const body = record(value, "split acceptance");
+      exact(body, ["sourceRevisionId", "groups", "resultingRevisionIds", "reconstructionDigest"], "split acceptance");
+      (0, ids_1.assertRevisionId)(body.sourceRevisionId);
+      if (!Array.isArray(body.groups) || body.groups.length === 0)
+        (0, errors_1.fail)("invalid-schema", "Split acceptance requires groups");
+      for (const groupValue of body.groups) {
+        const group = record(groupValue, "split group");
+        exact(group, ["fragmentIds", "risk", "reason"], "split group");
+        canonicalIds(group.fragmentIds, "fragment", "split fragments");
+        if (!["low", "medium", "high", "ambiguous"].includes(String(group.risk)) || typeof group.reason !== "string")
+          (0, errors_1.fail)("invalid-schema", "Invalid split risk");
+      }
+      revisions(body.resultingRevisionIds, "split results");
+      digest(body.reconstructionDigest, "reconstructionDigest");
+    }
+    function validateReviewBundle(value) {
+      const body = record(value, "review bundle");
+      exact(body, ["reviewBundleId", "selectedRevisionIds", "baseFrontier", "baseTreeDigest", "combinedTreeDigest", "overlaps", "conflictIds", "gateDefinitionDigest"], "review bundle");
+      (0, ids_1.parseCanonicalId)(body.reviewBundleId, "review-bundle");
+      revisions(body.selectedRevisionIds, "selected review revisions");
+      revisions(body.baseFrontier, "review base frontier");
+      digest(body.baseTreeDigest, "review base digest");
+      digest(body.combinedTreeDigest, "combined review tree digest");
+      digest(body.gateDefinitionDigest, "review gate definition digest");
+      canonicalIds(body.conflictIds, "conflict", "review conflicts");
+      if (!Array.isArray(body.overlaps))
+        (0, errors_1.fail)("invalid-schema", "Review overlaps must be an array");
+      for (const overlapValue of body.overlaps) {
+        const overlap = record(overlapValue, "review overlap");
+        exact(overlap, ["left", "right"], "review overlap");
+        (0, ids_1.parseCanonicalId)(overlap.left, "fragment");
+        (0, ids_1.parseCanonicalId)(overlap.right, "fragment");
+      }
+    }
+    function validateMergePlan(value) {
+      const body = record(value, "merge plan");
+      exact(body, ["mergePlanId", "targetRevisionId", "selectedRevisionIds", "hardDependencyClosure", "reviewBundleRevisionId", "conflictResolutionRevisionIds", "gateDefinitionDigest", "mergeMode", "resultingTreeDigest"], "merge plan");
+      (0, ids_1.parseCanonicalId)(body.mergePlanId, "merge-plan");
+      (0, ids_1.assertRevisionId)(body.targetRevisionId);
+      revisions(body.selectedRevisionIds, "selected merge revisions");
+      revisions(body.hardDependencyClosure, "hard dependency closure");
+      (0, ids_1.assertRevisionId)(body.reviewBundleRevisionId);
+      revisions(body.conflictResolutionRevisionIds, "conflict resolutions");
+      digest(body.gateDefinitionDigest, "merge gate definition digest");
+      digest(body.resultingTreeDigest, "merge result digest");
+      if (!["per-change-squash", "change-graph-squash"].includes(String(body.mergeMode)))
+        (0, errors_1.fail)("invalid-schema", "Unknown merge mode");
+    }
+    function validateConflict(value) {
+      const body = record(value, "conflict");
+      exact(body, ["conflictId", "sideRevisionIds", "status", "resolutionRevisionIds"], "conflict");
+      (0, ids_1.parseCanonicalId)(body.conflictId, "conflict");
+      if (revisions(body.sideRevisionIds, "conflict sides").size < 2)
+        (0, errors_1.fail)("invalid-schema", "Conflict requires at least two sides");
+      if (!["unresolved", "proposed", "accepted", "rejected"].includes(String(body.status)))
+        (0, errors_1.fail)("invalid-schema", "Unknown conflict status");
+      revisions(body.resolutionRevisionIds, "conflict resolutions");
+    }
+    function validateFields(value, rules) {
+      const body = record(value, "event body");
+      exact(body, [...rules.required, ...rules.optional ?? []], "event body", true);
+      for (const field of rules.required)
+        if (!(field in body))
+          (0, errors_1.fail)("invalid-schema", `Missing event body field: ${field}`);
+      for (const [field, kind] of Object.entries(rules.ids ?? {}))
+        (0, ids_1.parseCanonicalId)(body[field], kind);
+      for (const [field, kind] of Object.entries(rules.optionalIds ?? {}))
+        if (body[field] !== void 0)
+          (0, ids_1.parseCanonicalId)(body[field], kind);
+      for (const field of rules.revisions ?? [])
+        (0, ids_1.assertRevisionId)(body[field]);
+      for (const field of rules.revisionArrays ?? [])
+        revisions(body[field], field);
+      for (const field of rules.digests ?? [])
+        digest(body[field], field);
+      for (const field of rules.strings ?? [])
+        if (typeof body[field] !== "string" || body[field] === "")
+          (0, errors_1.fail)("invalid-schema", `${field} must be non-empty string`);
+      for (const field of rules.paths ?? [])
+        path(body[field]);
+      for (const field of rules.nonnegativeIntegers ?? [])
+        if (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0)
+          (0, errors_1.fail)("invalid-schema", `${field} must be nonnegative integer`);
+      for (const field of rules.optionalNonnegativeIntegers ?? []) {
+        if (body[field] !== void 0 && (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0)) {
+          (0, errors_1.fail)("invalid-schema", `${field} must be nonnegative integer`);
+        }
+      }
+      for (const [field, allowed2] of Object.entries(rules.enums ?? {}))
+        if (!allowed2.includes(String(body[field])))
+          (0, errors_1.fail)("invalid-schema", `Unknown ${field} variant`);
+    }
+    function record(value, label) {
+      if (typeof value !== "object" || value === null || Array.isArray(value))
+        (0, errors_1.fail)("invalid-schema", `${label} must be an object`);
+      return value;
+    }
+    function exact(value, fields, label, optional = false) {
+      const allowed2 = new Set(fields);
+      for (const key of Object.keys(value))
+        if (!allowed2.has(key))
+          (0, errors_1.fail)("invalid-schema", `Unknown ${label} field: ${key}`);
+      if (!optional) {
+        for (const field of fields)
+          if (!(field in value))
+            (0, errors_1.fail)("invalid-schema", `Missing ${label} field: ${field}`);
+      }
+    }
+    function revisions(value, label) {
+      if (!Array.isArray(value))
+        (0, errors_1.fail)("invalid-schema", `${label} must be an array`);
+      const result = /* @__PURE__ */ new Set();
+      for (const item of value) {
+        const revision = (0, ids_1.assertRevisionId)(item);
+        if (result.has(revision))
+          (0, errors_1.fail)("invalid-schema", `Duplicate ${label}: ${revision}`);
+        result.add(revision);
+      }
+      return result;
+    }
+    function canonicalIds(value, kind, label) {
+      if (!Array.isArray(value))
+        (0, errors_1.fail)("invalid-schema", `${label} must be an array`);
+      const result = /* @__PURE__ */ new Set();
+      for (const item of value) {
+        (0, ids_1.parseCanonicalId)(item, kind);
+        if (result.has(String(item)))
+          (0, errors_1.fail)("invalid-schema", `Duplicate ${label}: ${String(item)}`);
+        result.add(String(item));
+      }
+      return result;
+    }
+    function digest(value, label) {
+      if (typeof value !== "string" || !digestPattern.test(value))
+        (0, errors_1.fail)("invalid-ref", `${label} must be a lowercase SHA-256 digest`);
+      return value;
+    }
+    function path(value) {
+      if (typeof value !== "string" || value === "" || value.length > 4096 || value.startsWith("/") || value.split("/").some((segment) => !safePathSegment.test(segment)))
+        (0, errors_1.fail)("invalid-path", "Fragment path must be normalized repository-relative path");
+      return value;
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/inspection.js
+var require_inspection = __commonJS({
+  "packages/Epoch.Protocol/dist/inspection.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.inspectRevisionGraph = inspectRevisionGraph;
+    exports.inspectCloneFilter = inspectCloneFilter;
+    exports.inspectSyncContract = inspectSyncContract;
+    exports.parseSwhid = parseSwhid;
+    exports.inspectSwhid = inspectSwhid;
+    exports.nodeOnlyAdapterStatus = nodeOnlyAdapterStatus;
+    var errors_1 = require_errors2();
+    function inspectRevisionGraph(nodes) {
+      const byId = /* @__PURE__ */ new Map();
+      for (const node of nodes) {
+        if (!node.revisionId || byId.has(node.revisionId))
+          (0, errors_1.fail)("invalid-schema", `Duplicate or empty revision: ${node.revisionId}`);
+        byId.set(node.revisionId, node);
+      }
+      for (const node of nodes)
+        for (const parent of node.parentRevisionIds)
+          if (!byId.has(parent))
+            (0, errors_1.fail)("missing-dependency", `Missing graph parent: ${parent}`);
+      const visiting = /* @__PURE__ */ new Set();
+      const visited = /* @__PURE__ */ new Set();
+      const visit = (revisionId) => {
+        if (visiting.has(revisionId))
+          (0, errors_1.fail)("invalid-schema", `Revision graph cycle: ${revisionId}`);
+        if (visited.has(revisionId))
+          return;
+        visiting.add(revisionId);
+        for (const parent of byId.get(revisionId).parentRevisionIds)
+          visit(parent);
+        visiting.delete(revisionId);
+        visited.add(revisionId);
+      };
+      for (const revisionId of [...byId.keys()].sort())
+        visit(revisionId);
+      const parents = new Set(nodes.flatMap((node) => [...node.parentRevisionIds]));
+      return Object.freeze({
+        valid: true,
+        revisions: Object.freeze([...byId.keys()].sort()),
+        heads: Object.freeze([...byId.keys()].filter((id) => !parents.has(id)).sort()),
+        roots: Object.freeze(nodes.filter((node) => node.parentRevisionIds.length === 0).map((node) => node.revisionId).sort())
+      });
+    }
+    function inspectCloneFilter(value) {
+      if (typeof value !== "object" || value === null || Array.isArray(value))
+        (0, errors_1.fail)("invalid-schema", "Filter must be an object");
+      const input = value;
+      const known = /* @__PURE__ */ new Set(["paths", "entityTypes", "maxBytes", "includePromises"]);
+      for (const key of Object.keys(input))
+        if (!known.has(key))
+          (0, errors_1.fail)("invalid-schema", `Unknown filter field: ${key}`);
+      const strings = (name) => {
+        const item = input[name];
+        if (item === void 0)
+          return void 0;
+        if (!Array.isArray(item) || item.some((entry) => typeof entry !== "string" || entry.length === 0 || entry.includes("\0"))) {
+          return (0, errors_1.fail)("invalid-schema", `${name} must be bounded non-empty strings`);
+        }
+        return Object.freeze([...new Set(item)].sort());
+      };
+      const paths = strings("paths");
+      const entityTypes = strings("entityTypes");
+      if (input.maxBytes !== void 0 && (!Number.isSafeInteger(input.maxBytes) || input.maxBytes < 0))
+        (0, errors_1.fail)("invalid-schema", "maxBytes must be a non-negative integer");
+      if (input.includePromises !== void 0 && typeof input.includePromises !== "boolean")
+        (0, errors_1.fail)("invalid-schema", "includePromises must be boolean");
+      return Object.freeze({ valid: true, canonical: Object.freeze({ ...paths ? { paths } : {}, ...entityTypes ? { entityTypes } : {}, ...input.maxBytes === void 0 ? {} : { maxBytes: input.maxBytes }, ...input.includePromises === void 0 ? {} : { includePromises: input.includePromises } }) });
+    }
+    function inspectSyncContract(value) {
+      if (typeof value !== "object" || value === null)
+        (0, errors_1.fail)("invalid-schema", "Sync contract must be an object");
+      const input = value;
+      if (input.protocol !== "epoch.sync/v2")
+        return { supported: false, code: "unsupported-capability", reason: `unsupported sync protocol: ${String(input.protocol)}` };
+      if (!Array.isArray(input.commands) || !input.commands.every((command) => typeof command === "string"))
+        (0, errors_1.fail)("invalid-schema", "Sync commands must be strings");
+      return { supported: true, protocol: "epoch.sync/v2", code: "ok" };
+    }
+    var swhKinds = /* @__PURE__ */ new Set(["cnt", "dir", "rev", "rel", "snp"]);
+    var swhQualifiers = /* @__PURE__ */ new Set(["origin", "visit", "anchor", "path", "lines"]);
+    function parseSwhid(value) {
+      if (typeof value !== "string" || value.length > 2048)
+        (0, errors_1.fail)("invalid-id", "Invalid SWHID length");
+      const [core, ...parts] = value.split(";");
+      const fields = core.split(":");
+      if (fields.length !== 4 || fields[0] !== "swh")
+        (0, errors_1.fail)("invalid-id", "Invalid SWHID namespace or shape");
+      if (fields[1] !== "1")
+        (0, errors_1.fail)("invalid-id", "Unsupported SWHID version");
+      const kind = fields[2];
+      if (!swhKinds.has(kind))
+        (0, errors_1.fail)("invalid-id", "Invalid SWHID object kind");
+      const digest = fields[3];
+      if (!/^[0-9a-f]{40}$/u.test(digest))
+        (0, errors_1.fail)("invalid-id", "Invalid SWHID digest");
+      const qualifiers = {};
+      for (const part of parts) {
+        const equals = part.indexOf("=");
+        if (equals < 1)
+          (0, errors_1.fail)("invalid-id", "Malformed SWHID qualifier");
+        const key = part.slice(0, equals);
+        if (!swhQualifiers.has(key) || qualifiers[key] !== void 0)
+          (0, errors_1.fail)("invalid-id", "Unsupported or duplicate SWHID qualifier");
+        try {
+          qualifiers[key] = decodeURIComponent(part.slice(equals + 1));
+        } catch {
+          (0, errors_1.fail)("invalid-id", "Malformed SWHID qualifier encoding");
+        }
+      }
+      return Object.freeze({
+        version: 1,
+        kind,
+        digest,
+        qualifiers: Object.freeze(Object.fromEntries(Object.entries(qualifiers).sort(([left], [right]) => left.localeCompare(right))))
+      });
+    }
+    function inspectSwhid(value) {
+      const parsed = parseSwhid(value);
+      return Object.freeze({ namespace: "swh", version: 1, objectType: parsed.kind, objectId: parsed.digest, qualifiers: parsed.qualifiers });
+    }
+    function nodeOnlyAdapterStatus(adapter) {
+      return Object.freeze({ code: "unsupported-capability", adapter, reason: `${adapter} requires a Node.js host adapter` });
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/models.js
+var require_models = __commonJS({
+  "packages/Epoch.Protocol/dist/models.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+  }
+});
+
+// packages/Epoch.Protocol/dist/posture.js
+var require_posture = __commonJS({
+  "packages/Epoch.Protocol/dist/posture.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.DENIED_POSTURE_POLICY = exports.OPEN_POSTURE_DEFAULTS = exports.TRUST_POSTURES = void 0;
+    exports.evaluatePosture = evaluatePosture;
+    var errors_1 = require_errors2();
+    exports.TRUST_POSTURES = Object.freeze(["hosted", "private", "open"]);
+    exports.OPEN_POSTURE_DEFAULTS = Object.freeze({
+      posture: "open",
+      allowServiceDiscovery: false,
+      allowCrossCommunityFabric: false,
+      publicArtifactPlane: "atproto",
+      interNodeTransport: "gossip",
+      serverTrackedReadState: false
+    });
+    exports.DENIED_POSTURE_POLICY = Object.freeze({
+      posture: "open",
+      allowServiceDiscovery: false,
+      allowCrossCommunityFabric: false,
+      publicArtifactPlane: "none",
+      interNodeTransport: "none",
+      serverTrackedReadState: false
+    });
+    var POSTURE_SET = new Set(exports.TRUST_POSTURES);
+    function evaluatePosture(config) {
+      if (config === void 0 || config === null) {
+        return { ...exports.OPEN_POSTURE_DEFAULTS };
+      }
+      if (typeof config !== "object" || Array.isArray(config)) {
+        (0, errors_1.fail)("policy-denied", "Malformed trust posture config");
+      }
+      const row = flattenPostureConfig(config);
+      if (row === void 0) {
+        return { ...exports.OPEN_POSTURE_DEFAULTS };
+      }
+      const postureRaw = firstString(row, ["posture", "trust_posture", "trustPosture"]);
+      if (postureRaw === void 0) {
+        (0, errors_1.fail)("policy-denied", "Unknown trust posture: (missing)");
+      }
+      if (!POSTURE_SET.has(postureRaw)) {
+        (0, errors_1.fail)("policy-denied", `Unknown trust posture: ${postureRaw}`);
+      }
+      const posture = postureRaw;
+      const allowServiceDiscovery = optionalBoolean(row, ["allowServiceDiscovery", "allow_service_discovery"]);
+      const allowCrossCommunityFabric = optionalBoolean(row, ["allowCrossCommunityFabric", "allow_cross_community_fabric"]);
+      const serverTrackedReadState = optionalBoolean(row, ["serverTrackedReadState", "server_tracked_read_state"]);
+      const publicArtifactPlane = optionalEnum(row, ["publicArtifactPlane", "public_artifact_plane"], ["atproto", "none"]);
+      const interNodeTransport = optionalEnum(row, ["interNodeTransport", "inter_node_transport"], ["xmpp-s2s", "gossip", "none"]);
+      const allowlist = optionalStringArray(row, ["s2sAllowlist", "s2s_allowlist"]);
+      if (allowCrossCommunityFabric === true) {
+        (0, errors_1.fail)("policy-denied", "cross-community fabric is never allowed");
+      }
+      if (posture === "open" && allowServiceDiscovery === true) {
+        (0, errors_1.fail)("policy-denied", "open posture cannot enable service discovery");
+      }
+      if (interNodeTransport === "xmpp-s2s" && (allowlist === void 0 || allowlist.length === 0) && posture === "open") {
+        (0, errors_1.fail)("policy-denied", "open xmpp-s2s requires an explicit s2s allowlist");
+      }
+      if (posture === "hosted") {
+        return {
+          posture,
+          allowServiceDiscovery: allowServiceDiscovery ?? true,
+          allowCrossCommunityFabric: false,
+          publicArtifactPlane: publicArtifactPlane ?? "atproto",
+          interNodeTransport: interNodeTransport ?? "none",
+          serverTrackedReadState: serverTrackedReadState ?? true
+        };
+      }
+      if (posture === "private") {
+        return {
+          posture,
+          allowServiceDiscovery: allowServiceDiscovery ?? true,
+          allowCrossCommunityFabric: false,
+          publicArtifactPlane: publicArtifactPlane ?? "none",
+          interNodeTransport: interNodeTransport ?? "none",
+          serverTrackedReadState: serverTrackedReadState ?? true
+        };
+      }
+      return {
+        posture: "open",
+        allowServiceDiscovery: false,
+        allowCrossCommunityFabric: false,
+        publicArtifactPlane: publicArtifactPlane ?? "atproto",
+        interNodeTransport: interNodeTransport ?? "gossip",
+        serverTrackedReadState: serverTrackedReadState ?? false
+      };
+    }
+    function flattenPostureConfig(config) {
+      const community = config.community;
+      if (isRecord(community) && isRecord(community.posture)) {
+        return community.posture;
+      }
+      if (isRecord(config.posture) && typeof config.posture.posture === "string") {
+        return config.posture;
+      }
+      if (typeof config.posture === "string" || typeof config.trust_posture === "string" || typeof config.trustPosture === "string") {
+        return config;
+      }
+      if (Object.keys(config).length === 0)
+        return void 0;
+      if (isRecord(community) && Object.keys(community).length === 0)
+        return void 0;
+      if ("posture" in config || "trust_posture" in config || "trustPosture" in config)
+        return config;
+      return void 0;
+    }
+    function isRecord(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+    function firstString(row, keys) {
+      for (const key of keys) {
+        const value = row[key];
+        if (typeof value === "string")
+          return value;
+      }
+      return void 0;
+    }
+    function optionalBoolean(row, keys) {
+      for (const key of keys) {
+        const value = row[key];
+        if (value === void 0)
+          continue;
+        if (typeof value === "boolean")
+          return value;
+        (0, errors_1.fail)("policy-denied", `Malformed posture boolean: ${key}`);
+      }
+      return void 0;
+    }
+    function optionalEnum(row, keys, allowed2) {
+      for (const key of keys) {
+        const value = row[key];
+        if (value === void 0)
+          continue;
+        if (typeof value === "string" && allowed2.includes(value))
+          return value;
+        (0, errors_1.fail)("policy-denied", `Unknown posture enum: ${key}=${String(value)}`);
+      }
+      return void 0;
+    }
+    function optionalStringArray(row, keys) {
+      for (const key of keys) {
+        const value = row[key];
+        if (value === void 0)
+          continue;
+        if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
+          (0, errors_1.fail)("policy-denied", `Malformed posture allowlist: ${key}`);
+        }
+        return value;
+      }
+      return void 0;
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/revset.js
+var require_revset = __commonJS({
+  "packages/Epoch.Protocol/dist/revset.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.RevsetParseError = void 0;
+    exports.parseRevset = parseRevset;
+    exports.evaluateRevset = evaluateRevset;
+    var RevsetParseError = class extends Error {
+      offset;
+      name = "RevsetParseError";
+      code = "invalid-revset";
+      constructor(message, offset) {
+        super(`${message} at offset ${offset}`);
+        this.offset = offset;
+      }
+    };
+    exports.RevsetParseError = RevsetParseError;
+    var functions = /* @__PURE__ */ new Set(["heads", "roots", "ancestors", "descendants", "change", "graph", "conflicts", "pending", "approved", "mergeable", "author"]);
+    function tokenize(input) {
+      if (input.length > 4096)
+        throw new RevsetParseError("revset exceeds 4096 characters", 4096);
+      const tokens = [];
+      for (let index = 0; index < input.length; ) {
+        const character = input[index];
+        if (/\s/u.test(character)) {
+          index += 1;
+          continue;
+        }
+        if (["(", ")", "|", "&", "-"].includes(character)) {
+          tokens.push({ type: character, value: character, offset: index++ });
+          continue;
+        }
+        const start = index;
+        while (index < input.length && !/[\s()|&]/u.test(input[index]))
+          index += 1;
+        tokens.push({ type: "word", value: input.slice(start, index), offset: start });
+      }
+      tokens.push({ type: "eof", value: "", offset: input.length });
+      return tokens;
+    }
+    function parseRevset(input) {
+      const tokens = tokenize(input);
+      let cursor = 0;
+      const current = () => tokens[cursor];
+      const take = (type) => {
+        const token = current();
+        if (token.type !== type)
+          throw new RevsetParseError(`expected ${type}`, token.offset);
+        cursor += 1;
+        return token;
+      };
+      function primary() {
+        if (current().type === "(") {
+          take("(");
+          const expression2 = union();
+          take(")");
+          return expression2;
+        }
+        const nameToken = take("word");
+        if (!functions.has(nameToken.value))
+          throw new RevsetParseError(`unknown revset function ${nameToken.value}`, nameToken.offset);
+        const name = nameToken.value;
+        take("(");
+        if (current().type === ")") {
+          take(")");
+          return { type: "call", name };
+        }
+        const nested = current().type === "word" && tokens[cursor + 1]?.type !== "(" ? take("word").value : union();
+        take(")");
+        return { type: "call", name, argument: nested };
+      }
+      function intersection() {
+        let left = primary();
+        while (current().type === "&" || current().type === "-") {
+          const operator = take(current().type).type === "&" ? "intersection" : "difference";
+          left = { type: "binary", operator, left, right: primary() };
+        }
+        return left;
+      }
+      function union() {
+        let left = intersection();
+        while (current().type === "|") {
+          take("|");
+          left = { type: "binary", operator: "union", left, right: intersection() };
+        }
+        return left;
+      }
+      if (!input.trim())
+        throw new RevsetParseError("revset is empty", 0);
+      const expression = union();
+      if (current().type !== "eof")
+        throw new RevsetParseError("unexpected token", current().offset);
+      return expression;
+    }
+    function evaluateRevset(expression, nodes) {
+      const ast = typeof expression === "string" ? parseRevset(expression) : expression;
+      const byId = new Map(nodes.map((node) => [node.revisionId, node]));
+      const children = /* @__PURE__ */ new Map();
+      for (const node of nodes)
+        for (const parent of node.parentRevisionIds)
+          children.set(parent, [...children.get(parent) ?? [], node.revisionId]);
+      const all = new Set(byId.keys());
+      const result = visit(ast);
+      return [...result].sort();
+      function visit(value) {
+        if (value.type === "binary") {
+          const left = visit(value.left);
+          const right = visit(value.right);
+          if (value.operator === "union")
+            return /* @__PURE__ */ new Set([...left, ...right]);
+          if (value.operator === "intersection")
+            return new Set([...left].filter((id) => right.has(id)));
+          return new Set([...left].filter((id) => !right.has(id)));
+        }
+        const literal = typeof value.argument === "string" ? value.argument : void 0;
+        if (value.name === "heads") {
+          const parents = new Set(nodes.flatMap((node) => [...node.parentRevisionIds]));
+          return new Set([...all].filter((id) => !parents.has(id)));
+        }
+        if (value.name === "roots")
+          return new Set(nodes.filter((node) => node.parentRevisionIds.length === 0).map((node) => node.revisionId));
+        if (value.name === "change")
+          return new Set(nodes.filter((node) => node.changeId === literal).map((node) => node.revisionId));
+        if (value.name === "graph")
+          return new Set(nodes.filter((node) => node.changeGraphIds?.includes(literal ?? "")).map((node) => node.revisionId));
+        if (value.name === "author")
+          return new Set(nodes.filter((node) => node.authorId === literal).map((node) => node.revisionId));
+        if (value.name === "conflicts")
+          return new Set(nodes.filter((node) => node.conflict).map((node) => node.revisionId));
+        if (value.name === "pending" || value.name === "approved")
+          return new Set(nodes.filter((node) => node.reviewState === value.name).map((node) => node.revisionId));
+        if (value.name === "mergeable")
+          return new Set(nodes.filter((node) => node.mergeable === true).map((node) => node.revisionId));
+        const seed = typeof value.argument === "string" ? /* @__PURE__ */ new Set([value.argument]) : value.argument ? visit(value.argument) : /* @__PURE__ */ new Set();
+        const output = new Set(seed);
+        const queue = [...seed];
+        while (queue.length) {
+          const id = queue.shift();
+          const next = value.name === "ancestors" ? byId.get(id)?.parentRevisionIds ?? [] : children.get(id) ?? [];
+          for (const related of next)
+            if (!output.has(related)) {
+              output.add(related);
+              queue.push(related);
+            }
+        }
+        return output;
+      }
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/schema.js
+var require_schema = __commonJS({
+  "packages/Epoch.Protocol/dist/schema.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.protocolJsonSchemas = protocolJsonSchemas;
+    var events_1 = require_events();
+    var ids_1 = require_ids();
+    var revisionId = { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$" };
+    var digest = { type: "string", pattern: "^[a-f0-9]{64}$" };
+    var repositoryPath = { type: "string", minLength: 1, maxLength: 4096, pattern: "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$" };
+    var nonemptyString = { type: "string", minLength: 1 };
+    var nonnegativeInteger = { type: "integer", minimum: 0 };
+    var ref = (name) => ({ $ref: `#/$defs/${name}` });
+    var arrayOf = (items, minItems = 0) => ({ type: "array", items, minItems, uniqueItems: true });
+    var id = (kind) => ({ type: "string", pattern: `^epoch:${kind}:[a-z2-7]{52}$` });
+    var object = (required, properties) => ({
+      type: "object",
+      additionalProperties: false,
+      required: [...required],
+      properties
+    });
+    var simpleBodies = {
+      repositoryIdentityBody: object(["repositoryId", "principalId"], { repositoryId: id("repo"), principalId: id("principal"), keyId: id("key") }),
+      changeSupersededBody: object(["changeId", "supersededRevisionId", "byRevisionId"], { changeId: id("change"), supersededRevisionId: revisionId, byRevisionId: revisionId }),
+      changeDependencyBody: object(["changeRevisionId", "dependencyRevisionId"], { changeRevisionId: revisionId, dependencyRevisionId: revisionId }),
+      reviewRecordedBody: object(["reviewBundleId", "bundleRevisionId", "reviewerPrincipalId", "verdict"], {
+        reviewBundleId: id("review-bundle"),
+        bundleRevisionId: revisionId,
+        reviewerPrincipalId: id("principal"),
+        verdict: { enum: ["approved", "changes-requested", "commented"] }
+      }),
+      mergeGateBody: object(["mergePlanId", "gateDefinitionDigest", "status", "evidenceRevisionIds"], {
+        mergePlanId: id("merge-plan"),
+        gateDefinitionDigest: digest,
+        status: { enum: ["passed", "failed"] },
+        evidenceRevisionIds: arrayOf(revisionId)
+      }),
+      mergeAppliedBody: object(["mergePlanId", "targetRevisionId", "resultRevisionId", "resultTreeDigest", "mergeMode", "sourceRevisionIds"], {
+        mergePlanId: id("merge-plan"),
+        targetRevisionId: revisionId,
+        resultRevisionId: revisionId,
+        resultTreeDigest: digest,
+        mergeMode: { enum: ["per-change-squash", "change-graph-squash"] },
+        sourceRevisionIds: arrayOf(revisionId)
+      }),
+      conflictResolutionBody: object(["conflictId", "resolutionRevisionId", "principalId"], {
+        conflictId: id("conflict"),
+        resolutionRevisionId: revisionId,
+        principalId: id("principal")
+      }),
+      agentMembershipBody: object(["workspaceId", "principalId", "grantId"], {
+        workspaceId: id("workspace"),
+        principalId: id("principal"),
+        grantId: id("grant")
+      }),
+      agentCapabilityBody: object(["grantId", "principalId", "capability"], {
+        grantId: id("grant"),
+        principalId: id("principal"),
+        capability: nonemptyString
+      }),
+      agentBudgetBody: object(["budgetId", "principalId", "units"], {
+        budgetId: id("budget"),
+        principalId: id("principal"),
+        units: nonnegativeInteger
+      }),
+      projectionBody: object(["projectionId", "repositoryId", "definitionDigest"], {
+        projectionId: id("projection"),
+        repositoryId: id("repo"),
+        definitionDigest: digest
+      }),
+      mirrorBody: object(["mirrorId", "repositoryId", "remoteRef", "frontier"], {
+        mirrorId: id("mirror"),
+        repositoryId: id("repo"),
+        remoteRef: nonemptyString,
+        frontier: arrayOf(revisionId)
+      }),
+      objectPromiseBody: object(["promiseId", "contentDigest", "status"], {
+        promiseId: id("promise"),
+        contentDigest: digest,
+        status: { enum: ["pending", "fulfilled", "rejected"] }
+      }),
+      softwareHeritageMappingBody: object(["repositoryId", "swhId", "frontier"], {
+        repositoryId: id("repo"),
+        swhId: nonemptyString,
+        frontier: arrayOf(revisionId)
+      }),
+      softwareHeritageArchiveBody: object(["repositoryId", "versionId", "requestId", "status"], {
+        repositoryId: id("repo"),
+        versionId: id("version"),
+        requestId: nonemptyString,
+        status: { enum: ["requested", "pending", "succeeded", "failed", "cancelled"] }
+      }),
+      spaceCreatedBody: object(["spaceId", "repositoryId", "ownerPrincipalId", "viewName", "title"], {
+        spaceId: id("space"),
+        repositoryId: id("repo"),
+        ownerPrincipalId: id("principal"),
+        viewName: nonemptyString,
+        title: nonemptyString
+      }),
+      spaceParticipantJoinedBody: object(["spaceId", "principalId", "grantId", "role"], {
+        spaceId: id("space"),
+        principalId: id("principal"),
+        grantId: id("grant"),
+        role: { enum: ["owner", "collaborator", "agent", "observer"] }
+      }),
+      spaceParticipantLeftBody: object(["spaceId", "principalId", "grantId"], {
+        spaceId: id("space"),
+        principalId: id("principal"),
+        grantId: id("grant")
+      }),
+      spaceWorkspaceBoundBody: object(["spaceId", "principalId", "workspaceId", "providerId", "storageMode", "residency", "materialization", "execution"], {
+        spaceId: id("space"),
+        principalId: id("principal"),
+        workspaceId: id("workspace"),
+        providerId: nonemptyString,
+        storageMode: nonemptyString,
+        residency: { enum: ["resident", "partial", "virtual"] },
+        materialization: { enum: ["materialized", "virtual"] },
+        execution: { enum: ["disabled", "in-process", "isolated"] }
+      }),
+      spaceTurnRecordedBody: object(["spaceId", "principalId", "grantId", "execution", "requestDigest"], {
+        spaceId: id("space"),
+        principalId: id("principal"),
+        grantId: id("grant"),
+        execution: { enum: ["disabled", "in-process", "isolated"] },
+        requestDigest: digest,
+        sandboxId: id("sandbox"),
+        budgetId: id("budget"),
+        units: nonnegativeInteger
+      }),
+      spaceBudgetAllocatedBody: object(["spaceId", "budgetId", "principalId", "units"], {
+        spaceId: id("space"),
+        budgetId: id("budget"),
+        principalId: id("principal"),
+        units: nonnegativeInteger
+      }),
+      spaceCaptureOpenedBody: object(["spaceId", "sessionId", "principalId", "scope", "retention", "redaction"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        scope: nonemptyString,
+        retention: nonemptyString,
+        redaction: { enum: ["none", "declared-secrets", "full"] }
+      }),
+      spaceCaptureClosedBody: object(["spaceId", "sessionId", "principalId", "operationCount"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        operationCount: nonnegativeInteger
+      }),
+      spaceCaptureOperationBody: object(["spaceId", "sessionId", "principalId", "path", "contentDigest"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        path: repositoryPath,
+        contentDigest: digest
+      }),
+      spaceTurnReceiptBody: object(["spaceId", "principalId", "turnRevisionId", "sandboxId", "isolation", "network", "outcome"], {
+        spaceId: id("space"),
+        principalId: id("principal"),
+        turnRevisionId: revisionId,
+        sandboxId: id("sandbox"),
+        isolation: { enum: ["none", "process", "namespace"] },
+        network: { enum: ["inherited", "denied"] },
+        outcome: { enum: ["succeeded", "failed", "timed-out", "refused"] },
+        exitCode: { type: "integer" },
+        durationMs: nonnegativeInteger
+      }),
+      spaceAnchorRecordedBody: object(["spaceId", "anchorId", "principalId", "revisionId", "path", "structuralPath", "contentDigest"], {
+        spaceId: id("space"),
+        anchorId: id("anchor"),
+        principalId: id("principal"),
+        revisionId,
+        path: repositoryPath,
+        structuralPath: nonemptyString,
+        contentDigest: digest
+      }),
+      channelCreateBody: object(["schema", "channelId", "communityId", "name", "principalId", "visibility"], {
+        schema: { const: "epoch.channel/v1" },
+        channelId: id("channel"),
+        communityId: id("space"),
+        name: nonemptyString,
+        principalId: id("principal"),
+        visibility: { enum: ["public", "shared", "private"] }
+      }),
+      channelMessageBody: object(["schema", "channelId", "messageId", "principalId", "bodyDigest", "visibility"], {
+        schema: { const: "epoch.channel/v1" },
+        channelId: id("channel"),
+        messageId: revisionId,
+        principalId: id("principal"),
+        bodyDigest: digest,
+        visibility: { enum: ["public", "shared", "private"] }
+      }),
+      channelPresenceBody: object(["schema", "channelId", "principalId", "state"], {
+        schema: { const: "epoch.channel/v1" },
+        channelId: id("channel"),
+        principalId: id("principal"),
+        state: { enum: ["active", "idle", "away"] }
+      }),
+      channelReadBody: object(["schema", "channelId", "principalId", "watermarkEventId"], {
+        schema: { const: "epoch.channel/v1" },
+        channelId: id("channel"),
+        principalId: id("principal"),
+        watermarkEventId: revisionId
+      })
+    };
+    var complexBodies = {
+      fragmentSource: object(["path"], { path: repositoryPath, digest }),
+      fragmentPrecondition: {
+        oneOf: [
+          object(["kind"], { kind: { const: "absent" } }),
+          object(["kind", "digest"], { kind: { const: "digest" }, digest })
+        ]
+      },
+      fragmentProvenance: object(["principalId"], { principalId: id("principal"), sourceRevisionId: revisionId }),
+      fragment: object(["fragmentId", "kind", "path", "precondition", "resultDigest", "order", "dependencies", "provenance", "mergeStrategy"], {
+        fragmentId: id("fragment"),
+        kind: { enum: ["add", "delete", "move", "copy", "text", "structured", "binary"] },
+        path: repositoryPath,
+        from: ref("fragmentSource"),
+        precondition: ref("fragmentPrecondition"),
+        resultDigest: digest,
+        contentRef: { type: "string", pattern: "^(sha256:[a-f0-9]{64}|swh:[A-Za-z0-9:._~-]+|promise:epoch:promise:[a-z2-7]{52})$" },
+        order: nonnegativeInteger,
+        dependencies: arrayOf(id("fragment")),
+        provenance: ref("fragmentProvenance"),
+        mergeStrategy: { enum: ["exact", "text", "structured", "binary-replace"] }
+      }),
+      changeRevisionBody: object(["changeId", "baseFrontier", "baseTreeDigest", "parentRevisionIds", "fragments", "resultingTreeDigest", "authorPrincipalId"], {
+        changeId: id("change"),
+        baseFrontier: arrayOf(revisionId),
+        baseTreeDigest: digest,
+        parentRevisionIds: arrayOf(revisionId),
+        fragments: arrayOf(ref("fragment"), 1),
+        resultingTreeDigest: digest,
+        authorPrincipalId: id("principal")
+      }),
+      changeGraphEdge: object(["from", "to", "kind"], { from: revisionId, to: revisionId, kind: { enum: ["requires", "orders-after", "conflicts-with", "derived-from"] } }),
+      changeGraphBody: object(["changeGraphId", "memberRevisionIds", "edges"], { changeGraphId: id("change-graph"), memberRevisionIds: arrayOf(revisionId), edges: { type: "array", items: ref("changeGraphEdge") } }),
+      splitGroup: object(["fragmentIds", "risk", "reason"], { fragmentIds: arrayOf(id("fragment")), risk: { enum: ["low", "medium", "high", "ambiguous"] }, reason: { type: "string" } }),
+      splitBody: object(["sourceRevisionId", "groups", "resultingRevisionIds", "reconstructionDigest"], {
+        sourceRevisionId: revisionId,
+        groups: { type: "array", items: ref("splitGroup"), minItems: 1 },
+        resultingRevisionIds: arrayOf(revisionId),
+        reconstructionDigest: digest
+      }),
+      reviewOverlap: object(["left", "right"], { left: id("fragment"), right: id("fragment") }),
+      reviewBundleBody: object(["reviewBundleId", "selectedRevisionIds", "baseFrontier", "baseTreeDigest", "combinedTreeDigest", "overlaps", "conflictIds", "gateDefinitionDigest"], {
+        reviewBundleId: id("review-bundle"),
+        selectedRevisionIds: arrayOf(revisionId),
+        baseFrontier: arrayOf(revisionId),
+        baseTreeDigest: digest,
+        combinedTreeDigest: digest,
+        overlaps: { type: "array", items: ref("reviewOverlap") },
+        conflictIds: arrayOf(id("conflict")),
+        gateDefinitionDigest: digest
+      }),
+      mergePlanBody: object(["mergePlanId", "targetRevisionId", "selectedRevisionIds", "hardDependencyClosure", "reviewBundleRevisionId", "conflictResolutionRevisionIds", "gateDefinitionDigest", "mergeMode", "resultingTreeDigest"], {
+        mergePlanId: id("merge-plan"),
+        targetRevisionId: revisionId,
+        selectedRevisionIds: arrayOf(revisionId),
+        hardDependencyClosure: arrayOf(revisionId),
+        reviewBundleRevisionId: revisionId,
+        conflictResolutionRevisionIds: arrayOf(revisionId),
+        gateDefinitionDigest: digest,
+        mergeMode: { enum: ["per-change-squash", "change-graph-squash"] },
+        resultingTreeDigest: digest
+      }),
+      conflictBody: object(["conflictId", "sideRevisionIds", "status", "resolutionRevisionIds"], {
+        conflictId: id("conflict"),
+        sideRevisionIds: arrayOf(revisionId, 2),
+        status: { enum: ["unresolved", "proposed", "accepted", "rejected"] },
+        resolutionRevisionIds: arrayOf(revisionId)
+      })
+    };
+    var bodyDefinitionByType = {
+      "repository.identity": "repositoryIdentityBody",
+      "change.created": "changeRevisionBody",
+      "change.revised": "changeRevisionBody",
+      "change.superseded": "changeSupersededBody",
+      "change.dependency.added": "changeDependencyBody",
+      "change.dependency.removed": "changeDependencyBody",
+      "change-graph.defined": "changeGraphBody",
+      "change-graph.revised": "changeGraphBody",
+      "split.accepted": "splitBody",
+      "review.bundle.created": "reviewBundleBody",
+      "review.bundle.revised": "reviewBundleBody",
+      "review.recorded": "reviewRecordedBody",
+      "merge.plan.created": "mergePlanBody",
+      "merge.plan.gate-recorded": "mergeGateBody",
+      "merge.plan.applied": "mergeAppliedBody",
+      "conflict.recorded": "conflictBody",
+      "conflict.resolution.proposed": "conflictResolutionBody",
+      "conflict.resolution.accepted": "conflictResolutionBody",
+      "conflict.resolution.rejected": "conflictResolutionBody",
+      "agent.membership.granted": "agentMembershipBody",
+      "agent.membership.revoked": "agentMembershipBody",
+      "agent.capability.granted": "agentCapabilityBody",
+      "agent.capability.revoked": "agentCapabilityBody",
+      "agent.budget.allocated": "agentBudgetBody",
+      "agent.budget.reserved": "agentBudgetBody",
+      "agent.budget.consumed": "agentBudgetBody",
+      "agent.budget.released": "agentBudgetBody",
+      "projection.recorded": "projectionBody",
+      "mirror.defined": "mirrorBody",
+      "mirror.checkpoint": "mirrorBody",
+      "mirror.run": "mirrorBody",
+      "object.promise.recorded": "objectPromiseBody",
+      "software-heritage.mapping": "softwareHeritageMappingBody",
+      "software-heritage.archive-requested": "softwareHeritageArchiveBody",
+      "software-heritage.archive-status": "softwareHeritageArchiveBody",
+      "space.created": "spaceCreatedBody",
+      "space.participant.joined": "spaceParticipantJoinedBody",
+      "space.participant.left": "spaceParticipantLeftBody",
+      "space.workspace.bound": "spaceWorkspaceBoundBody",
+      "space.turn.recorded": "spaceTurnRecordedBody",
+      "space.budget.allocated": "spaceBudgetAllocatedBody",
+      "space.capture.opened": "spaceCaptureOpenedBody",
+      "space.capture.closed": "spaceCaptureClosedBody",
+      "space.capture.operation": "spaceCaptureOperationBody",
+      "space.anchor.recorded": "spaceAnchorRecordedBody",
+      "space.turn.receipt": "spaceTurnReceiptBody",
+      "channel.create": "channelCreateBody",
+      "channel.message": "channelMessageBody",
+      "channel.presence": "channelPresenceBody",
+      "channel.read": "channelReadBody"
+    };
+    function protocolJsonSchemas() {
+      return {
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $id: "https://epoch.dev/schemas/protocol/events-v1.json",
+        title: "Epoch Protocol Events v1",
+        type: "object",
+        additionalProperties: false,
+        required: ["schemaVersion", "type", "eventId", "revisionId", "body"],
+        properties: {
+          schemaVersion: { const: 1 },
+          type: { enum: [...events_1.PROTOCOL_EVENT_SCHEMAS] },
+          eventId: revisionId,
+          revisionId,
+          body: { type: "object" }
+        },
+        oneOf: events_1.PROTOCOL_EVENT_SCHEMAS.map((type) => ({
+          properties: { type: { const: type }, body: ref(bodyDefinitionByType[type]) },
+          required: ["type", "body"]
+        })),
+        $defs: {
+          canonicalId: { type: "string", pattern: `^epoch:(${ids_1.CANONICAL_ID_KINDS.join("|")}):[a-z2-7]{52}$` },
+          revisionId,
+          digest,
+          repositoryPath,
+          ...complexBodies,
+          ...simpleBodies
+        }
+      };
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/review-publish.js
+var require_review_publish = __commonJS({
+  "packages/Epoch.Protocol/dist/review-publish.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.gerritChangeIdTrailer = gerritChangeIdTrailer;
+    exports.gerritReviewRef = gerritReviewRef;
+    exports.gerritPushOptions = gerritPushOptions;
+    exports.gerritPushSpec = gerritPushSpec;
+    exports.describeChangePublish = describeChangePublish;
+    var ids_1 = require_ids();
+    var errors_1 = require_errors2();
+    var TARGET_PATTERN = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/u;
+    var OPTION_PATTERN = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/u;
+    var ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
+    function gerritChangeIdTrailer(changeId) {
+      const { token } = (0, ids_1.parseChangeId)(changeId);
+      const bytes = decodeBase32Token(token);
+      let hex = "";
+      for (let index = 0; index < 20; index += 1) {
+        hex += (bytes[index] ?? 0).toString(16).padStart(2, "0");
+      }
+      return `I${hex}`;
+    }
+    function gerritReviewRef(target = "main") {
+      return `refs/for/${normalizeTarget(target)}`;
+    }
+    function gerritPushOptions(input = {}) {
+      const options = [];
+      if (input.topic !== void 0 && input.topic !== "") {
+        options.push(`topic=${sanitizeOption(input.topic, "topic")}`);
+      }
+      for (const tag of input.hashtags ?? []) {
+        if (!tag)
+          continue;
+        options.push(`hashtag=${sanitizeOption(tag, "hashtag")}`);
+      }
+      if (input.wip === true)
+        options.push("wip");
+      return Object.freeze(options);
+    }
+    function gerritPushSpec(input = {}) {
+      const ref = gerritReviewRef(input.target);
+      const options = gerritPushOptions(input);
+      return options.length === 0 ? ref : `${ref}%${options.join(",")}`;
+    }
+    function describeChangePublish(input) {
+      const target = normalizeTarget(input.target ?? "main");
+      const hashtags = Object.freeze((input.hashtags ?? []).filter((tag) => tag.length > 0).map((tag) => sanitizeOption(tag, "hashtag")));
+      const topic = input.topic ? sanitizeOption(input.topic, "topic") : void 0;
+      const options = { target, topic, hashtags, wip: input.wip === true };
+      return Object.freeze({
+        changeId: (0, ids_1.parseChangeId)(input.changeId) && input.changeId,
+        revisionId: input.revisionId,
+        changeIdTrailer: gerritChangeIdTrailer(input.changeId),
+        target,
+        reviewRef: gerritReviewRef(target),
+        pushSpec: gerritPushSpec(options),
+        pushOptions: gerritPushOptions(options),
+        ...topic === void 0 ? {} : { topic },
+        hashtags,
+        wip: input.wip === true
+      });
+    }
+    function normalizeTarget(raw) {
+      const trimmed = raw.trim().replace(/^refs\/(?:for|heads)\//u, "").replace(/^\/+/u, "").replace(/\/+$/u, "");
+      if (!trimmed || !TARGET_PATTERN.test(trimmed) || trimmed.includes("..")) {
+        return (0, errors_1.fail)("invalid-ref", `Invalid review target: ${raw}`);
+      }
+      return trimmed;
+    }
+    function sanitizeOption(value, label) {
+      if (!OPTION_PATTERN.test(value) || value.includes("..")) {
+        return (0, errors_1.fail)("invalid-ref", `Invalid ${label}: ${value}`);
+      }
+      return value;
+    }
+    function decodeBase32Token(token) {
+      let bits = 0;
+      let buffer = 0;
+      const bytes = [];
+      for (const character of token) {
+        const value = ALPHABET.indexOf(character);
+        if (value < 0)
+          return (0, errors_1.fail)("invalid-id", `Invalid canonical token: ${token}`);
+        buffer = buffer << 5 | value;
+        bits += 5;
+        if (bits >= 8) {
+          bits -= 8;
+          bytes.push(buffer >>> bits & 255);
+          buffer &= (1 << bits) - 1;
+        }
+      }
+      return Uint8Array.from(bytes.slice(0, 32));
+    }
+  }
+});
+
+// packages/Epoch.Protocol/dist/index.js
 var require_dist = __commonJS({
+  "packages/Epoch.Protocol/dist/index.js"(exports) {
+    "use strict";
+    var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k2, k22) {
+      if (k22 === void 0) k22 = k2;
+      var desc = Object.getOwnPropertyDescriptor(m, k2);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k2];
+        } };
+      }
+      Object.defineProperty(o, k22, desc);
+    }) : (function(o, m, k2, k22) {
+      if (k22 === void 0) k22 = k2;
+      o[k22] = m[k2];
+    }));
+    var __exportStar = exports && exports.__exportStar || function(m, exports2) {
+      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p)) __createBinding(exports2, m, p);
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    __exportStar(require_capabilities(), exports);
+    __exportStar(require_errors2(), exports);
+    __exportStar(require_events(), exports);
+    __exportStar(require_ids(), exports);
+    __exportStar(require_inspection(), exports);
+    __exportStar(require_models(), exports);
+    __exportStar(require_posture(), exports);
+    __exportStar(require_revset(), exports);
+    __exportStar(require_schema(), exports);
+    __exportStar(require_review_publish(), exports);
+  }
+});
+
+// packages/Epoch.Community.Core/dist/channel.js
+var require_channel = __commonJS({
+  "packages/Epoch.Community.Core/dist/channel.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CHANNEL_EVENT_SCHEMA = void 0;
+    exports.digestChannelBody = digestChannelBody;
+    exports.assertChannelEvent = assertChannelEvent;
+    exports.projectChannelEvents = projectChannelEvents;
+    exports.unreadForPosture = unreadForPosture;
+    exports.evaluateChannelPosture = evaluateChannelPosture;
+    exports.queuePreservesWatermark = queuePreservesWatermark;
+    exports.sanitizeChannelLivestreamEnvelope = sanitizeChannelLivestreamEnvelope;
+    var protocol_1 = require_dist();
+    var entity_1 = require_entity();
+    exports.CHANNEL_EVENT_SCHEMA = "epoch.channel/v1";
+    var CHANNEL_TYPES = /* @__PURE__ */ new Set([
+      "channel.create",
+      "channel.message",
+      "channel.presence",
+      "channel.read"
+    ]);
+    function digestChannelBody(text) {
+      const bytes = new TextEncoder().encode(text);
+      let mix = 2166136261;
+      for (const byte of bytes)
+        mix = Math.imul(mix ^ byte, 16777619) >>> 0;
+      return mix.toString(16).padStart(64, "0").slice(-64);
+    }
+    function assertChannelEvent(value) {
+      const event = (0, protocol_1.assertProtocolEvent)(value);
+      if (!CHANNEL_TYPES.has(event.type)) {
+        throw new Error(`not a channel event: ${event.type}`);
+      }
+      return event;
+    }
+    function projectChannelEvents(events) {
+      const channels = /* @__PURE__ */ new Map();
+      const messages = [];
+      const presence = /* @__PURE__ */ new Map();
+      const reads = /* @__PURE__ */ new Map();
+      for (const raw of events) {
+        const event = assertChannelEvent(raw);
+        if (event.type === "channel.create") {
+          const body2 = event.body;
+          channels.set(body2.channelId, body2);
+          continue;
+        }
+        if (event.type === "channel.message") {
+          const body2 = event.body;
+          messages.push((0, entity_1.communityMessageToEntity)(channelMessageFromEvent(event.eventId, body2), {
+            provenance: {
+              sourceId: "epoch.channel",
+              nativeId: event.eventId,
+              observedAt: (/* @__PURE__ */ new Date(0)).toISOString()
+            },
+            visibility: body2.visibility,
+            ownerId: body2.principalId,
+            participantIds: [body2.principalId]
+          }));
+          continue;
+        }
+        if (event.type === "channel.presence") {
+          const body2 = event.body;
+          presence.set(`${body2.channelId}:${body2.principalId}`, body2);
+          continue;
+        }
+        const body = event.body;
+        reads.set(`${body.channelId}:${body.principalId}`, body);
+      }
+      return { channels, messages, presence, reads };
+    }
+    function unreadForPosture(policy, read, localWatermark) {
+      if (policy.serverTrackedReadState && read !== void 0) {
+        return { mode: "server", watermarkEventId: read.watermarkEventId };
+      }
+      return { mode: "local", watermarkEventId: localWatermark };
+    }
+    function evaluateChannelPosture(config) {
+      return (0, protocol_1.evaluatePosture)(config);
+    }
+    function queuePreservesWatermark(watermarkEventId, incomingMessageIds) {
+      const unreadIds = incomingMessageIds.filter((id) => id !== watermarkEventId);
+      return { watermarkEventId, unreadIds };
+    }
+    function sanitizeChannelLivestreamEnvelope(input) {
+      if (input.protectedInput === true || typeof input.secret === "string" && input.secret.length > 0) {
+        return { kind: "drop", reason: "protected-secret" };
+      }
+      if (input.visibility !== "public") {
+        return { kind: "drop", reason: "non-public" };
+      }
+      return {
+        kind: "emit",
+        envelope: {
+          kind: "channel.message",
+          channelId: input.channelId,
+          messageId: input.messageId,
+          bodyDigest: digestChannelBody(input.body ?? ""),
+          visibility: "public"
+        }
+      };
+    }
+    function channelMessageFromEvent(eventId, body) {
+      const ref = { objectId: opaqueCommunityId(body.messageId), kind: "message", revision: eventId };
+      const channel = { objectId: opaqueCommunityId(body.channelId), kind: "channel" };
+      return {
+        ref,
+        context: channel,
+        authorId: body.principalId,
+        body: body.bodyDigest,
+        publishedAt: (/* @__PURE__ */ new Date(0)).toISOString(),
+        threadRoot: ref,
+        relations: [],
+        state: "signed",
+        aliases: []
+      };
+    }
+    function opaqueCommunityId(value) {
+      const mapped = value.replaceAll(":", ".");
+      if (!/^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u.test(mapped)) {
+        throw new Error("channel identity cannot project to a Community objectId");
+      }
+      return mapped;
+    }
+  }
+});
+
+// packages/Epoch.Community.Core/dist/index.js
+var require_dist2 = __commonJS({
   "packages/Epoch.Community.Core/dist/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k2, k22) {
@@ -4963,6 +6776,7 @@ var require_dist = __commonJS({
     __exportStar(require_projection_runtime(), exports);
     __exportStar(require_entity_projection_runtime(), exports);
     __exportStar(require_builtin_projections(), exports);
+    __exportStar(require_channel(), exports);
     function createCommunityClient(transport) {
       return {
         listWorkflows: () => transport.listWorkflows(),
@@ -16153,10 +17967,10 @@ var init_dist = __esm({
 });
 
 // packages/Epoch.Community.Web/src/search/sqlite-worker.ts
-var import_community_core3 = __toESM(require_dist());
+var import_community_core3 = __toESM(require_dist2());
 
 // packages/Epoch.Community.Web/src/search/sqlite-wasm-backend.ts
-var import_community_core = __toESM(require_dist());
+var import_community_core = __toESM(require_dist2());
 var SQLITE_INDEX_SCHEMA_VERSION = 1;
 var SQLITE_ANALYZER_VERSION = "epoch-sqlite-fts5-unicode61-v1";
 async function initializeSqliteIndex(database, options) {
@@ -16298,7 +18112,7 @@ var SQLITE_SCHEMA_V1 = Object.freeze([
 ]);
 
 // packages/Epoch.Community.Web/src/search/persistence-coordinator.ts
-var import_community_core2 = __toESM(require_dist());
+var import_community_core2 = __toESM(require_dist2());
 function mapSqlitePersistenceError(error) {
   if (error instanceof import_community_core2.CommunityError) return error;
   const name = error instanceof DOMException ? error.name : "";

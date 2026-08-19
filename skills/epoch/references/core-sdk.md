@@ -26,9 +26,10 @@ Use the Core SDK when an application needs direct programmatic access to Epoch r
 Primary exports include `EpochRepository`, `EpochActorSystem`, `CRDTRegistry`, CRDT helpers, transport and serialization helpers, lifecycle hook types, backup/compact helpers, seed-node helpers, and Git compatibility classes.
 
 Change Graph packages add `@epoch/protocol` browser-safe IDs, errors, schemas,
-revsets, and inspection; Core `SignedChangeGraphStore`, change/transaction/conflict, object/chunk/promise,
-sync-v2, and workspace-provider modules; `@epoch/git-proxy`; `@epoch/forge`;
-`@epoch/identity`; and `@epoch/software-heritage`. Persistence, network
+revsets, inspection, and `evaluatePosture`; Core `SignedChangeGraphStore`, change/transaction/conflict, object/chunk/promise,
+sync-v2, workspace-provider, and `epoch-exit/v1` modules; `@epoch/git-proxy`; `@epoch/forge`;
+`@epoch/identity`; `@epoch/nats` (auth callout on `$SYS.REQ.USER.AUTH`, posture-gated
+`epoch.svc.>` discovery); `@epoch/xmpp` (gated, default off); and `@epoch/software-heritage`. Persistence, network
 transport, and external authority are injected where capability manifests say
 so. See [Change Graph And Operation History](../../../docs/change-graph.md).
 
