@@ -8,9 +8,9 @@ agents do not invent a second stack or call one lane by another lane's name.
 | Atomic unit | `node:assert` suites via `test/run-unit-tests.ts` and `packages/*/test/*.test.mjs` | `npm run test:unit:runtime`, `npm test -w @epoch/<pkg>` |
 | BDD / behavior | Cucumber `features/*.feature` + `test/features/*_steps.ts` | `npm run test:features:runtime` (`npm test`) |
 | Contract | Official Pact for HTTP (`Community.Core`↔`Community.API`, gossip HTTP). NATS AUTH is **not** Pact; it is `test/unit/platform-fabric-nats-contract.test.ts` plus characterization goldens | `npm run test:pact`; unit runner |
-| Chaos / faults | Hang, malformed JSON, revoke, concurrency (`packages/Epoch.Nats/test/chaos-auth.test.mjs`, `chaos-svc.test.mjs`); Community Web `community-web:app:faults` | `npm test -w @epoch/nats`, `npm run community-web:app:faults` |
+| Chaos / faults | Hang, malformed JSON, revoke, concurrency (`packages/Epoch.Nats/test/chaos-auth.test.mjs`, `chaos-svc.test.mjs`); XMPP malformed fanout envelopes (`packages/Epoch.Xmpp/test/chaos-fanout.test.mjs`); Community Web `community-web:app:faults` | `npm test -w @epoch/nats`, `npm test -w @epoch/xmpp`, `npm run community-web:app:faults` |
 | Fuzz | ADR-0052: smoke, short fast-check (parsers, fabric auth, **service discovery**, history), corpus regression. Jazzer is scheduled, not every PR | `npm run fuzz:fast-check` (also inside `npm test`) |
-| Mutation | PR-time oracles plus **source mutant kill** for NATS ACL/discovery (`npm run mutation:nats`). Full-project Stryker scoring stays out of band | unit runner + Quality Gates `NATS mutant kill` |
+| Mutation | PR-time oracles plus **source mutant kill** for NATS ACL/discovery (`npm run mutation:nats`) and XMPP admission/fanout (`npm run mutation:xmpp`). Full-project Stryker scoring stays out of band | Quality Gates `NATS mutant kill`, `XMPP mutant kill` |
 | Snapshot / characterization | Verify-style canonical JSON goldens (`test/verify/`), Node's equivalent of [VerifyTests/Verify](https://github.com/VerifyTests/Verify) | unit runner; refresh `EPOCH_UPDATE_VERIFIED=1` |
 
 Coverage floors (`.c8rc.json`) apply to Node-visible `packages/*/dist/**/*.js` after `npm run coverage`. Playwright-only Community Web client bundles are excluded on purpose.
@@ -30,6 +30,6 @@ signatures.
 
 ## What is still out of band
 
-- Full-project Stryker mutation scoring (NATS uses an owned mutant-kill script instead)
+- Full-project Stryker mutation scoring (NATS and XMPP use owned mutant-kill scripts instead)
 - Jazzer.js campaigns (`npm run fuzz:jazzer`) except corpus replay on PR
 - Production nats-server JWT handshake (gated; not a Production ship)
