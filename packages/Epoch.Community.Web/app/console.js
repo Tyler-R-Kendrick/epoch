@@ -2090,7 +2090,7 @@
     return Object.keys(distinct).length > 1 ? line : null;
   }
 
-  /** Discord-style voice dock — persists while joined, above the compose foot. */
+  /** Persistent voice connections tray — stays after leaving the room view. */
   function renderVoiceDock(state) {
     var vs = state && state.voice;
     if (!vs || !vs.joined) return "";
@@ -2118,17 +2118,28 @@
         (p.speaking ? " · talk" : "") + "</span>";
     }).join("");
     var rtt = vs.latencyMs != null ? (vs.latencyMs + " ms") : "…";
-    return '<div class="cn-voice-dock" data-key="voice-dock" data-region="voice"' +
-      ' data-channel="' + esc(vs.channelId || "") + '"' +
+    var room = vs.channelId || "room";
+    var path = vs.channelPath || ("/projects/community/channels/" + room);
+    var pttHeld = vs.inputMode === "ptt" && !!vs.speaking;
+    var inCall = 1 + ids.length;
+    return '<div class="cn-voice-dock" data-key="voice-dock" data-voice-tray data-region="voice"' +
+      ' data-channel="' + esc(room) + '"' +
       ' data-input="' + esc(vs.inputMode || "vad") + '"' +
-      ' role="region" aria-label="Channel voice">' +
-      '<div class="cn-voice-dock-meta">' +
-      '<b class="cn-voice-dock-name">voice/' + esc(vs.channelId || "room") + "</b>" +
+      ' role="region" aria-label="Voice connections">' +
+      '<div class="cn-voice-dock-head">' +
+      '<button type="button" class="cn-voice-act cn-voice-room-link" data-voice-goto="' + esc(path) + '"' +
+      ' title="Open this voice room" aria-label="Open voice room ' + esc(room) + '">' +
+      "voice/" + esc(room) + "</button>" +
       '<span class="cn-voice-rtt" title="WebRTC round-trip (candidate-pair)">' + esc(rtt) + "</span>" +
-      '<span class="cn-voice-mode-tag">' + esc(vs.inputMode || "vad") + "</span>" +
+      '<span class="cn-voice-dock-count">' + inCall + " in call</span>" +
       "</div>" +
       '<div class="cn-voice-roster" aria-label="In call">' + roster + "</div>" +
       '<div class="cn-voice-controls" role="toolbar" aria-label="Voice controls">' +
+      '<button type="button" class="cn-voice-act cn-voice-ptt" data-voice-ptt' +
+      ' aria-pressed="' + pttHeld + '"' +
+      ' title="Hold to speak (or hold ` in push-to-talk)"' +
+      ' aria-label="Push to speak">' +
+      (pttHeld ? "speaking" : "push to speak") + "</button>" +
       '<button type="button" class="cn-voice-act" data-voice-mute aria-pressed="' + !!vs.muted + '"' +
       ' title="Mute" aria-label="' + (vs.muted ? "Unmute" : "Mute") + '">' +
       (vs.muted ? "unmute" : "mute") + "</button>" +
@@ -2137,10 +2148,10 @@
       (vs.deafened ? "undeafen" : "deafen") + "</button>" +
       '<button type="button" class="cn-voice-act" data-voice-input="' +
       (vs.inputMode === "ptt" ? "vad" : "ptt") + '"' +
-      ' title="Toggle VAD / push-to-talk" aria-label="Input mode ' + esc(vs.inputMode || "vad") + '">' +
+      ' title="Toggle voice activity / push-to-talk" aria-label="Input mode ' + esc(vs.inputMode || "vad") + '">' +
       (vs.inputMode === "ptt" ? "vad" : "ptt") + "</button>" +
       '<button type="button" class="cn-voice-act cn-voice-leave" data-voice-leave' +
-      ' title="Disconnect" aria-label="Leave voice">leave</button>' +
+      ' title="Disconnect this voice room" aria-label="Leave voice">disconnect</button>' +
       "</div></div>";
   }
 
@@ -2618,7 +2629,6 @@
       : (blade.kind === "detail"
         ? (blade.title || "detail")
         : (blade.path === "/" ? "board" : blade.title));
-    var subtitle = isSession ? "chat" : (blade.kind === "detail" ? "detail" : "blade");
     var isList = blade.kind !== "detail" && !isSession;
     var collapsed = !!(navCollapsed && isList);
     var focusHidden = focusExpanded != null && blade.index !== focusExpanded;
@@ -2640,9 +2650,6 @@
         "</button></section>";
     }
 
-    var kicker = isList
-      ? (blade.path === "/" ? "nav" : "nav")
-      : subtitle;
     var closeTitle = isSession
       ? "Close session chat"
       : (isList
@@ -2675,7 +2682,6 @@
           '<span class="cn-blade-back-mark" aria-hidden="true">&lt;&lt;</span>' +
           '<span class="cn-blade-back-label" aria-hidden="true">back</span></button>'
         : "") +
-      '<span class="cn-blade-kicker" aria-hidden="true">' + esc(kicker) + "</span>" +
       '<span class="cn-col-title cn-blade-title">' + esc(title) +
       (blade.filter ? '<span class="cn-filter">/' + esc(blade.filter) + "</span>" : "") +
       "</span>" +
@@ -2737,6 +2743,7 @@
     /* Whole page is the TUI: workspace tabs + blades + prompt foot. No side terminal. */
     [data-exp="console"]{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;height:100%;min-height:0;position:relative}
     [data-exp="console"][data-tui=true]{/* contract hook */}
+    [data-exp="console"] .cn-board-stage{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
 
     /* Workspace tabs — isolated worktrees, not a dockable panel. */
     [data-exp="console"] .cn-workspace-tabs{display:flex;align-items:stretch;gap:0;min-width:0;
@@ -2890,7 +2897,7 @@
        selection; close or re-scope a parent and every child re-evaluates.
        Nav panes collapse to thin rails so detail can claim the width. */
     [data-exp="console"] .cn-blades,[data-exp="console"] .cn-cols{
-      display:flex;min-height:0;overflow-x:auto;overflow-y:hidden;
+      display:flex;min-height:0;flex:1 1 auto;overflow-x:auto;overflow-y:hidden;
       scroll-snap-type:x proximity;background:var(--cw-bg)}
     [data-exp="console"] .cn-blade,[data-exp="console"] .cn-col{
       display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:0;
@@ -2900,7 +2907,7 @@
       /* Clip always — nav rows / selection wash must not paint into the detail blade. */
       overflow:hidden;
       box-shadow:inset 0 0 0 1px transparent;
-      transition:flex-basis .16s ease,max-width .16s ease,opacity .12s ease}
+      transition:opacity .12s ease}
     [data-exp="console"] .cn-blade[data-blade-kind=detail],[data-exp="console"] .cn-pane{
       flex:1 1 24rem;max-width:none;opacity:.92}
     [data-exp="console"] .cn-blades[data-focus-expanded]:not([data-focus-expanded=""]) .cn-blade[data-focus-hidden=true]{display:none}
@@ -3018,8 +3025,6 @@
       display:flex;align-items:center;gap:.35rem;min-width:0;overflow:hidden;
       padding:.3rem .5rem .3rem .65rem;border-block-end:1px solid var(--cw-rule);
       color:var(--cw-ink-dim);font-size:.8em;background:var(--cw-surface)}
-    [data-exp="console"] .cn-blade-kicker{font-size:.7em;letter-spacing:.1em;text-transform:uppercase;
-      color:var(--cw-ink-dim);flex:none}
     [data-exp="console"] .cn-blade-title,[data-exp="console"] .cn-col-title{
       flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--cw-ink-dim)}
     [data-exp="console"] .cn-blade[data-focus=true] .cn-blade-title{color:var(--cw-ink);font-weight:700}
@@ -3036,7 +3041,7 @@
       color:var(--cw-accent-ink);background:var(--cw-agent);border-color:var(--cw-agent)}
     [data-exp="console"] .cn-blade-back-mark{font-size:1em;line-height:1;font-variant-ligatures:none}
     [data-exp="console"] .cn-blade-back-label{
-      font-size:.72em;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+      font-size:.72em;letter-spacing:0;text-transform:none;opacity:.9}
     [data-exp="console"] .cn-blade[data-nav-drilled=true] .cn-blade-head{gap:.4rem}
     /* [esc] dismiss chrome — same verb as the Escape key (help, detail, auth). */
     [data-exp="console"] .cn-esc,[data-exp="console"] .cn-esc-inline{
@@ -3347,7 +3352,7 @@
     [data-exp="console"] .cn-ann-toggle:hover .cn-ann-title,
     [data-exp="console"] .cn-ann-toggle:focus-visible .cn-ann-title{text-decoration:underline;outline:none}
     [data-exp="console"] .cn-ann-chev{color:var(--cw-ink-faint);font-weight:700;min-width:0.9rem}
-    [data-exp="console"] .cn-ann-pin{color:var(--cw-accent);font-size:.8em;letter-spacing:.04em;text-transform:uppercase}
+    [data-exp="console"] .cn-ann-pin{color:var(--cw-accent);font-size:.8em;letter-spacing:0;text-transform:none}
     [data-exp="console"] .cn-ann-title{font-weight:700;color:var(--cw-ink);min-width:0}
     [data-exp="console"] .cn-ann-body{max-width:72ch;line-height:1.45;color:var(--cw-ink);padding:.15rem 0 .1rem 1.15rem}
     [data-exp="console"] .cn-ann-post[data-collapsed=true] .cn-ann-body{display:none}
@@ -3362,8 +3367,8 @@
     [data-exp="console"] .cn-feat-blurb,[data-exp="console"] .cn-cre-why{
       margin:0;font-size:.92em;color:var(--cw-ink-dim);max-width:72ch}
     [data-exp="console"] .cn-feat-summary{display:flex;flex-direction:column;gap:.2rem;max-width:72ch}
-    [data-exp="console"] .cn-feat-label{font-size:.8em;letter-spacing:.06em;text-transform:uppercase;
-      color:var(--cw-ink-faint)}
+    [data-exp="console"] .cn-feat-label{font-size:.8em;letter-spacing:0;font-weight:700;
+      color:var(--cw-ink)}
     [data-exp="console"] .cn-feat-summary-body{color:var(--cw-ink);line-height:1.4;font-size:.95em}
     [data-exp="console"] .cn-feat-readme{margin:0;max-width:72ch;border:0;padding:0}
     [data-exp="console"] .cn-feat-readme-sum{cursor:pointer;color:var(--cw-ink-dim);font-size:.9em;
@@ -3521,8 +3526,7 @@
       [data-exp="console"] .cn-badge{animation:cn-arrive .3s ease-out both}
     }
     @keyframes cn-arrive{from{opacity:0;translate:0 .5rem}to{opacity:1;translate:0 0}}
-    @keyframes cn-ping-bg{0%{box-shadow:inset 0 0 0 0 transparent}
-      40%{box-shadow:inset 3px 0 0 var(--cw-accent)}100%{box-shadow:inset 3px 0 0 var(--cw-accent)}}
+    @keyframes cn-ping-bg{0%{background:transparent}40%{background:var(--cw-surface)}100%{background:var(--cw-surface)}}
 
     /* Markdown + colourised ASCII (tables, code, marks) — theme via tokens. */
     [data-exp="console"] .cw-md{display:grid;gap:.4rem;max-width:80ch}
@@ -3706,34 +3710,35 @@
     [data-exp="console"] .cn-tui-foot{display:flex;flex-direction:column;min-height:0;min-width:0;
       background:var(--cw-bg);border-block-start:1px solid var(--cw-rule);position:relative;flex:none}
     [data-exp="console"] .cn-tui-foot[data-open=true] .cn-menu{display:block}
-    /* Discord-parity voice dock — above compose while connected. */
+    /* Voice connections — TTY strip above compose: surface, hairline, [brackets]. */
     [data-exp="console"] .cn-voice-dock{display:grid;grid-template-columns:minmax(0,1fr) auto;
-      gap:.35rem .8rem;align-items:center;padding:.35rem .65rem;border-block-start:1px solid var(--cw-rule);
-      background:var(--cw-surface);flex:none}
-    [data-exp="console"] .cn-voice-dock-meta{display:flex;align-items:baseline;gap:.55rem;min-width:0;
-      grid-column:1 / -1}
-    [data-exp="console"] .cn-voice-dock-name{color:var(--cw-live);font-size:.85em}
+      gap:.25rem .5rem;align-items:center;padding:.5rem .75rem;
+      border-block-start:1px solid var(--cw-rule);background:var(--cw-surface);flex:none;z-index:4}
+    [data-exp="console"] .cn-voice-dock-head{display:flex;align-items:center;gap:.5rem;min-width:0;
+      flex-wrap:wrap}
+    [data-exp="console"] .cn-voice-dock-count{font-size:.75em;color:var(--cw-ink-dim)}
     [data-exp="console"] .cn-voice-rtt{font-size:.75em;color:var(--cw-ink-dim);font-variant-numeric:tabular-nums}
-    [data-exp="console"] .cn-voice-mode-tag{font-size:.72em;color:var(--cw-ink-dim);text-transform:uppercase;
-      letter-spacing:.04em}
-    [data-exp="console"] .cn-voice-roster{display:flex;flex-wrap:wrap;gap:.35rem .55rem;min-width:0}
-    [data-exp="console"] .cn-voice-user{font-size:.8em;color:var(--cw-ink-dim);padding:0 .15rem}
+    [data-exp="console"] .cn-voice-mode-tag{font-size:.75em;color:var(--cw-ink-dim)}
+    [data-exp="console"] .cn-voice-roster{display:flex;flex-wrap:wrap;gap:.25rem .5rem;min-width:0}
+    [data-exp="console"] .cn-voice-user{font-size:.82em;color:var(--cw-ink-dim);padding:0}
     [data-exp="console"] .cn-voice-user[data-speaking=true]{color:var(--cw-live);font-weight:700}
-    [data-exp="console"] .cn-voice-user[data-muted=true]{opacity:.55}
     [data-exp="console"] .cn-voice-user[data-self=true]{color:var(--cw-accent)}
-    [data-exp="console"] .cn-voice-controls{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end}
-    [data-exp="console"] .cn-voice-act{font:inherit;font-size:.8em;background:none;border:0;color:var(--cw-ink-dim);
-      cursor:pointer;padding:0 .1rem}
+    [data-exp="console"] .cn-voice-controls{display:flex;gap:.25rem;flex-wrap:wrap;justify-content:flex-end}
+    [data-exp="console"] .cn-voice-act{font:inherit;font-size:.85em;font-weight:700;background:none;border:0;
+      border-radius:0;color:var(--cw-ink-dim);cursor:pointer;padding:0 .15rem;min-height:2rem}
     [data-exp="console"] .cn-voice-act::before{content:"[";color:var(--cw-ink-faint)}
     [data-exp="console"] .cn-voice-act::after{content:"]";color:var(--cw-ink-faint)}
-    [data-exp="console"] .cn-voice-act:hover{color:var(--cw-ink)}
+    [data-exp="console"] .cn-voice-act:hover{color:var(--cw-ink);text-decoration:underline}
+    [data-exp="console"] .cn-voice-act:focus-visible{outline:1px solid var(--cw-accent);outline-offset:2px}
     [data-exp="console"] .cn-voice-act[aria-pressed=true]{color:var(--cw-danger)}
+    [data-exp="console"] .cn-voice-ptt[aria-pressed=true]{color:var(--cw-live);font-weight:700}
+    [data-exp="console"] .cn-voice-room-link{color:var(--cw-live)}
     [data-exp="console"] .cn-voice-join{color:var(--cw-live)}
     [data-exp="console"] .cn-voice-leave:hover{color:var(--cw-danger)}
-    [data-exp="console"] .cn-voice-room{padding:.6rem .8rem;display:grid;gap:.55rem}
+    [data-exp="console"] .cn-voice-room{padding:.5rem .75rem;display:grid;gap:.5rem}
     [data-exp="console"] .cn-voice-lead{margin:0;color:var(--cw-ink-dim);font-size:.9em;max-width:42ch}
     [data-exp="console"] .cn-voice-status{margin:0;color:var(--cw-live);font-size:.85em}
-    [data-exp="console"] .cn-voice-ctx{display:flex;flex-wrap:wrap;align-items:baseline;gap:.45rem}
+    [data-exp="console"] .cn-voice-ctx{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
     [data-exp="console"] .cn-voice-ctx .cn-voice-act{margin-inline-start:auto}
     [data-exp="console"] .cn-item[data-meta=voice] .cn-name{color:var(--cw-live)}
     [data-exp="console"] .cn-item[data-meta=voice] .cn-hint{color:var(--cw-live);opacity:.85}
@@ -3790,7 +3795,7 @@
     [data-exp="console"] .cn-blade-out .cn-line[data-kind=tool] .cn-body{gap:.2rem}
     [data-exp="console"] .cn-blade-out .cn-mode-tag{
       display:inline-block;align-self:flex-start;font-size:.7em;font-weight:700;
-      letter-spacing:.06em;text-transform:uppercase;color:var(--cw-ink-faint);
+      letter-spacing:0;text-transform:none;color:var(--cw-ink-faint);
       border:0;padding:0;margin:0;border-radius:0;line-height:1.2}
     [data-exp="console"] .cn-blade-out .cn-mode-tag::before{content:"[";color:var(--cw-ink-faint)}
     [data-exp="console"] .cn-blade-out .cn-mode-tag::after{content:"]";color:var(--cw-ink-faint)}
@@ -3847,14 +3852,14 @@
 
     [data-exp="console"] .cn-prompt-stack{position:relative;min-width:0}
     [data-exp="console"] .cn-menu-head{padding:.3rem .8rem;font-size:.78em;color:var(--cw-ink-faint);
-      border-block-end:1px solid var(--cw-rule);letter-spacing:.06em;text-transform:uppercase}
+      border-block-end:1px solid var(--cw-rule);letter-spacing:.06em;text-transform:none}
 
     /* Right-click popup menu — TTY chrome (do not reuse .cn-ctx detail headers). */
     [data-exp="console"] .cn-ctxmenu{position:fixed;z-index:60;min-width:14rem;max-width:min(22rem,92vw);
       background:var(--cw-bg);border:1px solid var(--cw-rule);border-radius:0;padding:.2rem 0;
       box-shadow:none;color:var(--cw-ink);display:block}
     [data-exp="console"] .cn-ctxmenu-head{display:flex;gap:.45rem;align-items:baseline;flex-wrap:wrap;
-      padding:.25rem .7rem .35rem;font-size:.72em;letter-spacing:.06em;text-transform:uppercase;
+      padding:.25rem .7rem .35rem;font-size:.72em;letter-spacing:.06em;text-transform:none;
       color:var(--cw-ink-faint);border-block-end:1px solid var(--cw-rule)}
     [data-exp="console"] .cn-ctxmenu-kind{color:var(--cw-accent)}
     [data-exp="console"] .cn-ctxmenu-name{color:var(--cw-ink-dim);text-transform:none;letter-spacing:0;
@@ -3883,7 +3888,7 @@
     /* Hotkey cheatsheet — Ctrl+Space overlay. */
     [data-exp="console"] .cn-help{position:absolute;inset:0;z-index:30;display:none;
       align-items:center;justify-content:center;padding:1rem;
-      background:color-mix(in srgb,var(--cw-bg) 78%,transparent);backdrop-filter:blur(2px)}
+      background:color-mix(in srgb,var(--cw-bg) 78%,transparent)}
     [data-exp="console"] .cn-help[data-open=true]{display:flex}
     [data-exp="console"] .cn-help-card{width:min(36rem,100%);max-height:min(84vh,42rem);overflow:auto;
       background:var(--cw-bg);border:1px solid var(--cw-rule);padding:.7rem .9rem 1rem;
@@ -3895,9 +3900,9 @@
     }
     [data-exp="console"] .cn-help-head{display:flex;align-items:baseline;gap:.7rem;flex-wrap:wrap;
       margin-block-end:.4rem}
-    [data-exp="console"] .cn-help-head b{color:var(--cw-ink);letter-spacing:.08em;font-size:.9em}
-    [data-exp="console"] .cn-help-scope{color:var(--cw-accent);font-size:.78em;letter-spacing:.06em;
-      text-transform:uppercase}
+    [data-exp="console"] .cn-help-head b{color:var(--cw-ink);letter-spacing:0;font-size:.9em}
+    [data-exp="console"] .cn-help-scope{color:var(--cw-accent);font-size:.78em;letter-spacing:0;
+      text-transform:none}
     [data-exp="console"] .cn-help-head .cn-esc{margin-inline-start:auto}
     [data-exp="console"] .cn-help-chips{display:flex;flex-wrap:wrap;gap:.25rem;margin-block-end:.45rem}
     [data-exp="console"] .cn-help-chip{font-size:.75em;color:var(--cw-ink-dim);border:0;
@@ -3909,8 +3914,8 @@
       padding-block-end:.45rem;border-block-end:1px solid var(--cw-rule)}
     [data-exp="console"] .cn-help-empty{color:var(--cw-ink-faint);margin:0;padding:.4rem 0}
     [data-exp="console"] .cn-help-grid{display:flex;flex-direction:column;gap:1rem}
-    [data-exp="console"] .cn-help-group h3{margin:0 0 .35rem;font-size:.75em;font-weight:700;
-      letter-spacing:.1em;text-transform:uppercase;color:var(--cw-accent)}
+    [data-exp="console"] .cn-help-group h3{margin:0 0 .35rem;font-size:.85em;font-weight:700;
+      letter-spacing:0;text-transform:none;color:var(--cw-ink)}
     [data-exp="console"] .cn-help-row{display:grid;grid-template-columns:minmax(10rem,13rem) minmax(0,1fr);
       gap:.65rem 1rem;align-items:baseline;padding:.14rem 0;font-size:.9em}
     [data-exp="console"] .cn-help-key{color:var(--cw-ink);font-variant-numeric:tabular-nums;
@@ -3925,7 +3930,7 @@
     [data-exp="console"] .cn-cand{display:grid;grid-template-columns:minmax(0,14rem) minmax(0,1fr);gap:.8rem;
       padding:.18rem .8rem;cursor:pointer}
     [data-exp="console"] .cn-cand-group{padding:.35rem .8rem .12rem;color:var(--cw-accent);
-      font-size:.72em;font-weight:700;letter-spacing:.1em;border-block-start:1px solid var(--cw-rule)}
+      font-size:.72em;font-weight:700;letter-spacing:0;border-block-start:1px solid var(--cw-rule)}
     [data-exp="console"] .cn-cand[data-active=true]{background:var(--cw-accent);color:var(--cw-accent-ink)}
     [data-exp="console"] .cn-cand i{font-style:normal;color:var(--cw-ink-faint)}
     [data-exp="console"] .cn-cand[data-active=true] i{color:inherit;opacity:.8}
@@ -4004,8 +4009,8 @@
     [data-exp="console"] .cn-prompt[data-speech=ptt],
     [data-exp="console"] .cn-prompt[data-speech=toggle]{box-shadow:inset 0 0 0 1px var(--cw-live)}
     [data-exp="console"] .cn-prompt[data-voice-intent=commands]{box-shadow:inset 0 0 0 1px var(--cw-accent)}
-    [data-exp="console"] .cn-speech-tag{font-size:.72em;color:var(--cw-live);letter-spacing:.04em;
-      text-transform:uppercase;white-space:nowrap;flex:none}
+    [data-exp="console"] .cn-speech-tag{font-size:.72em;color:var(--cw-live);letter-spacing:0;
+      text-transform:none;white-space:nowrap;flex:none}
     [data-exp="console"] .cn-speech-tag[data-avail=off],
     [data-exp="console"] .cn-speech-tag[data-avail=absent],
     [data-exp="console"] .cn-speech-tag[data-avail=unavailable]{color:var(--cw-ink-faint)}
@@ -4092,7 +4097,7 @@
     [data-exp="console"] .cn-workbench textarea:focus-visible,[data-exp="console"] .cn-workbench input:focus-visible{
       outline:2px solid var(--cw-accent);outline-offset:1px}
     [data-exp="console"] .cn-workbench-actions,[data-exp="console"] .cn-source-badges{display:flex;flex-wrap:wrap;gap:.4rem}
-    [data-exp="console"] .cn-workbench-error{color:var(--cw-danger);border-inline-start:3px solid var(--cw-danger);padding:.35rem .55rem}
+    [data-exp="console"] .cn-workbench-error{color:var(--cw-danger);border:1px solid var(--cw-danger);padding:.5rem .75rem}
     [data-exp="console"] .cn-search-completeness{color:var(--cw-live);font-weight:700}
     [data-exp="console"] .cn-source-badges span{border:1px solid var(--cw-rule);padding:.1rem .35rem;color:var(--cw-ink-dim)}
     [data-exp="console"] .cn-workbench pre{max-width:100%;max-height:30rem;overflow:auto;white-space:pre-wrap}
@@ -4103,7 +4108,7 @@
       vertical-align:baseline;text-transform:lowercase}
     /* Session blade overrides the generic bordered mode chip. */
     [data-exp="console"] .cn-blade-out .cn-mode-tag{border:0;padding:0;margin:0;border-radius:0;
-      font-size:.7em;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+      font-size:.7em;font-weight:700;letter-spacing:0;text-transform:none}
     [data-exp="console"] .cn-tool-sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .55rem;
       width:100%;background:none;border:0;border-block-end:1px dotted var(--cw-rule);font:inherit;font-size:.9em;
       color:var(--cw-ink);cursor:pointer;text-align:start;padding:.2rem .2rem;border-radius:0;
@@ -4151,7 +4156,8 @@
       [data-exp="console"] .cn-vup,[data-exp="console"] .cn-vdn,[data-exp="console"] .cn-pm{
         min-height:2rem;padding-block:.25rem}
       [data-exp="console"] .cn-act,[data-exp="console"] .cn-react-pill,
-      [data-exp="console"] .cn-react-add,[data-exp="console"] .cn-react-opt{min-height:2rem}
+      [data-exp="console"] .cn-react-add,[data-exp="console"] .cn-react-opt,
+      [data-exp="console"] .cn-voice-act{min-height:2.25rem}
     }`,
 
     render: function (state) {
@@ -4471,6 +4477,7 @@
         '<div class="cn-workspace-tabs" data-key="workspace-tabs">' +
         tabStrip + "</div>" +
         '<div class="cn-path" data-key="path">' + crumbs.join("") + "</div>" +
+        '<div class="cn-board-stage" data-key="board-stage">' +
         (blades.length > 1
           ? '<div class="cn-blade-pager" role="tablist" aria-label="Board panes" data-key="blade-pager">' +
             blades.map(function (b, i) {
@@ -4489,7 +4496,7 @@
         '" data-focus-expanded="' + (focusExpanded == null ? "" : focusExpanded) +
         '" role="group" aria-label="Navigation blades">' +
         bladeHtmls +
-        "</div>" +
+        "</div></div>" +
         renderVoiceDock(state) +
         '<div class="cn-tui-foot" data-key="tui-foot" data-region="composer" data-open="' + menuOpen + '">' +
         '<div class="cn-prompt-stack" data-key="prompt-stack" data-drop="' +

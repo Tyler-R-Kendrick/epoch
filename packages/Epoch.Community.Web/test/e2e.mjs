@@ -7464,12 +7464,31 @@ const CASES = [
       await page.click("[data-voice-join]");
       await page.waitForTimeout(200);
       const joined = await page.evaluate(() => ({
+        tray: !!document.querySelector("[data-voice-tray]"),
         dock: !!document.querySelector(".cn-voice-dock"),
         voice: { ...window.CW_APP.state.voice },
         mute: document.querySelector("[data-voice-mute]")?.textContent,
+        ptt: !!document.querySelector("[data-voice-ptt]"),
       }));
-      if (!joined.dock || !joined.voice.joined || joined.voice.channelId !== "lounge") {
+      if (!joined.tray || !joined.dock || !joined.voice.joined || joined.voice.channelId !== "lounge") {
         return log("join failed: " + JSON.stringify(joined));
+      }
+      if (!joined.ptt) return log("push-to-speak missing on tray");
+
+      await page.evaluate(() => {
+        window.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
+      });
+      await page.waitForTimeout(120);
+      const afterNav = await page.evaluate(() => ({
+        path: window.CW_APP.state.path,
+        tray: !!document.querySelector("[data-voice-tray]"),
+        leave: !!document.querySelector("[data-voice-leave]"),
+        ptt: !!document.querySelector("[data-voice-ptt]"),
+        channel: window.CW_APP.state.voice.channelId,
+        joined: window.CW_APP.state.voice.joined,
+      }));
+      if (!afterNav.joined || afterNav.channel !== "lounge" || !afterNav.tray || !afterNav.leave || !afterNav.ptt) {
+        return log("voice tray lost after room change: " + JSON.stringify(afterNav));
       }
 
       await page.click("[data-voice-mute]");

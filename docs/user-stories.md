@@ -239,6 +239,8 @@ Acceptance criteria:
 - Keyboard, pointer, CLI, slash, voice, macros, and WebMCP resolve through one
   permissioned action registry; feed, thread tree, and prompt completion follow
   their WAI-ARIA interaction contracts.
+- Channel voice stays in a persistent connections tray (room name, peers,
+  push-to-speak, disconnect) after navigating away from the voice room.
 - The historical document renderer has no local or production route.
 - Community Core and API are covered by Pact contract tests for their HTTP
   boundary.

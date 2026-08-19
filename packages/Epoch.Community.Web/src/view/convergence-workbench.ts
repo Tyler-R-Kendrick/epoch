@@ -15,7 +15,6 @@ export function renderConvergenceWorkbench(snapshot: ConvergenceWorkbenchSnapsho
   return `<section class="convergence-workbench" data-convergence-workbench aria-labelledby="convergence-title">
   <style>${convergenceWorkbenchStyles()}</style>
   <header class="convergence-header">
-    <p class="convergence-kicker">change graph · signed revisions</p>
     <h2 id="convergence-title">Review bundle</h2>
     <p>Review the combined result, then drill into each stable change without losing graph context.</p>
   </header>
@@ -76,8 +75,7 @@ function changeLevel(change: ConvergenceChange, changes: readonly ConvergenceCha
 
 function renderReviewDetail(change: ConvergenceChange | undefined): string {
   if (change === undefined) return `<h3 id="review-detail-title">No change selected</h3>`;
-  return `<p class="convergence-kicker">individual change</p>
-    <h3 id="review-detail-title">${escapeHtml(change.label)}</h3>
+  return `<h3 id="review-detail-title">${escapeHtml(change.label)}</h3>
     <dl>
       <div><dt>Stable change</dt><dd><code>${escapeHtml(change.changeId)}</code></dd></div>
       <div><dt>Current revision</dt><dd><code>${escapeHtml(change.currentRevisionIds.join(", "))}</code></dd></div>
@@ -146,7 +144,6 @@ function convergenceWorkbenchStyles(): string {
   .convergence-workbench{box-sizing:border-box;max-inline-size:100%;padding:clamp(var(--epoch-space-md),3vw,var(--epoch-space-xl));color:var(--epoch-color-ink);background:var(--epoch-color-surface);font-family:var(--epoch-font-ui);font-size:var(--epoch-type-body-size);font-weight:var(--epoch-type-body-weight);line-height:var(--epoch-type-body-leading);overflow-wrap:anywhere}
   .convergence-workbench *{box-sizing:border-box;min-inline-size:0}
   .convergence-header{border-block-end:1px solid var(--epoch-color-line);margin-block-end:var(--epoch-space-lg)}.convergence-header h2{margin:var(--epoch-space-xs) 0;font-size:var(--epoch-type-display-size);font-weight:var(--epoch-type-display-weight);line-height:var(--epoch-type-display-leading)}
-  .convergence-kicker{margin:0;color:var(--epoch-color-agent);text-transform:uppercase;letter-spacing:var(--epoch-type-label-tracking);font-size:var(--epoch-type-label-size)}
   .convergence-layout{display:grid;grid-template-columns:minmax(14rem,.8fr) minmax(0,1.2fr);gap:1rem}
   .convergence-navigator,.convergence-detail,.gate-panel,.conflict{border:1px solid var(--epoch-color-line);background:var(--epoch-color-surface-raised);padding:var(--epoch-space-lg)}
   [role=treeitem]{display:grid;grid-template-columns:1.25rem minmax(5rem,1fr) minmax(5rem,auto);gap:var(--epoch-space-sm);align-items:center;min-block-size:44px;padding:var(--epoch-space-sm);border-inline-start:2px solid transparent;cursor:pointer}
@@ -156,7 +153,7 @@ function convergenceWorkbenchStyles(): string {
   .convergence-detail dl{display:grid;gap:var(--epoch-space-sm)}.convergence-detail dl div{display:grid;grid-template-columns:minmax(7rem,.4fr) 1fr;gap:var(--epoch-space-sm)}.convergence-detail dt{color:var(--epoch-color-muted)}
   .review-modes{display:flex;flex-wrap:wrap;gap:var(--epoch-space-sm);margin-block-end:var(--epoch-space-md)}
   button{min-block-size:44px;max-inline-size:100%;padding:var(--epoch-space-sm) var(--epoch-space-md);border:1px solid var(--epoch-color-control);border-radius:var(--epoch-radius-sm);color:var(--epoch-color-ink);background:var(--epoch-color-surface-raised);font:inherit;text-align:start}
-  .gate-panel{margin-block-start:var(--epoch-space-lg)}.gate-scroll{max-inline-size:100%;overflow:auto}table{inline-size:100%;border-collapse:collapse}th,td{padding:var(--epoch-space-sm);border-block-end:1px solid var(--epoch-color-line);text-align:start}.gate{font-weight:800}.gate-passing{color:var(--epoch-color-success)}.gate-stale,.gate-failing{color:var(--epoch-color-danger)}.gate-missing{color:var(--epoch-color-warn)}.conflict{margin-block-start:var(--epoch-space-lg);border-color:var(--epoch-color-danger)}.untrusted{border-inline-start:4px solid var(--epoch-color-warn);padding-inline-start:var(--epoch-space-md);color:var(--epoch-color-warn);font-weight:800}
+  .gate-panel{margin-block-start:var(--epoch-space-lg)}.gate-scroll{max-inline-size:100%;overflow:auto}table{inline-size:100%;border-collapse:collapse}th,td{padding:var(--epoch-space-sm);border-block-end:1px solid var(--epoch-color-line);text-align:start}.gate{font-weight:800}.gate-passing{color:var(--epoch-color-success)}.gate-stale,.gate-failing{color:var(--epoch-color-danger)}.gate-missing{color:var(--epoch-color-warn)}.conflict{margin-block-start:var(--epoch-space-lg);border-color:var(--epoch-color-danger)}.untrusted{border:1px solid var(--epoch-color-warn);padding:var(--epoch-space-sm);color:var(--epoch-color-warn);font-weight:800}
   @media(max-width:42rem){.convergence-layout{grid-template-columns:1fr}.convergence-detail dl div{grid-template-columns:1fr}[role=treeitem]{grid-template-columns:1.1rem minmax(0,1fr)}[role=treeitem] code{grid-column:2}.gate-scroll{scrollbar-gutter:stable}}
   @media(prefers-reduced-motion:reduce){.convergence-workbench *{scroll-behavior:auto!important;transition:none!important}}
   `;
