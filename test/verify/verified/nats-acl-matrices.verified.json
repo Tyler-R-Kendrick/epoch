@@ -1,0 +1,49 @@
+{
+  "sessionHosted": {
+    "publish": [
+      "epoch.live.>",
+      "epoch.community.stream.>",
+      "epoch.svc.>"
+    ],
+    "subscribe": [
+      "epoch.live.>",
+      "epoch.community.stream.>",
+      "epoch.platform.events.>",
+      "epoch.svc.>"
+    ]
+  },
+  "sessionOpen": {
+    "publish": [
+      "epoch.live.>",
+      "epoch.community.stream.>"
+    ],
+    "subscribe": [
+      "epoch.live.>",
+      "epoch.community.stream.>",
+      "epoch.platform.events.>"
+    ]
+  },
+  "sessionOpenWithDiscoverScope": {
+    "publish": [
+      "epoch.live.>",
+      "epoch.community.stream.>"
+    ],
+    "subscribe": [
+      "epoch.live.>",
+      "epoch.community.stream.>",
+      "epoch.platform.events.>"
+    ]
+  },
+  "tokenSvcHosted": {
+    "publish": [
+      "epoch.svc.server-a.>"
+    ],
+    "subscribe": [
+      "epoch.svc.server-a.>"
+    ]
+  },
+  "tokenSvcOpen": {
+    "publish": [],
+    "subscribe": []
+  }
+}
