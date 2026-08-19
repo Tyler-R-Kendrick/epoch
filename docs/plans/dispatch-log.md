@@ -284,3 +284,27 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **in progress** |
 | Failure class | #156 Coverage once flaked on share-message thread open (help chrome / 30s locator). Layer 01 closes that wait. |
 | Notes | Honest answer: unit/BDD/Pact/PR-fuzz are strong; mutation and Verify are listed-contract, not whole-program; chaos is NATS + Community Web faults. |
+
+## 2026-08-19 — XMPP channel fanout (`/sdlc finish`)
+
+| Field | Value |
+|---|---|
+| Initiative | [`xmpp-channel-fanout`](xmpp-channel-fanout/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Stack | [#167](https://github.com/Tyler-R-Kendrick/epoch/issues/167) |
+| PRs | [#163](https://github.com/Tyler-R-Kendrick/epoch/pull/163) squash-merged [`68caef2`](https://github.com/Tyler-R-Kendrick/epoch/commit/68caef237fade16a6ed9cb574d1612805cecc5c5); [#164](https://github.com/Tyler-R-Kendrick/epoch/pull/164) [`16e92ef`](https://github.com/Tyler-R-Kendrick/epoch/commit/16e92efcd8ed0d1771ee7d98966513f4b4021d69); [#165](https://github.com/Tyler-R-Kendrick/epoch/pull/165) [`a239879`](https://github.com/Tyler-R-Kendrick/epoch/commit/a23987973d123bb69be15b5f88c72a11c022325c); [#166](https://github.com/Tyler-R-Kendrick/epoch/pull/166) [`babbc16`](https://github.com/Tyler-R-Kendrick/epoch/commit/babbc16f998a8bcd94ef4b71fe0f635507e49d79) |
+| Result | **success** |
+| Failure class | Real CI: #163 Test hung on share-message `.cn-thread-tree` (fixed by cherry-picking the wait from #157); Prosody job failed until `@epoch/protocol` was built before the harness. Later Prosody `apt-get install` hangs were cancelled and rerun green. Not billing. |
+| Notes | Public `channel.create` / `channel.message` fan out as `epoch.xmpp.channel-fanout/v1` to conference-shaped routing labels. Private/shared and `channel.read` do not federate. Adapter default off. Production ship remains none. |
+
+## 2026-08-19 — Test lanes honesty closeout (`/sdlc finish`)
+
+| Field | Value |
+|---|---|
+| Initiative | [`test-lanes`](test-lanes/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Stack | [#168](https://github.com/Tyler-R-Kendrick/epoch/issues/168) after dropping empty #157; previously [#161](https://github.com/Tyler-R-Kendrick/epoch/issues/161) |
+| PRs | [#157](https://github.com/Tyler-R-Kendrick/epoch/pull/157) closed as superseded; [#158](https://github.com/Tyler-R-Kendrick/epoch/pull/158) squash-merged [`2a03263`](https://github.com/Tyler-R-Kendrick/epoch/commit/2a032631905dfbafb83f89a8532e3ef472fcd55e); [#159](https://github.com/Tyler-R-Kendrick/epoch/pull/159) [`77ed6c2`](https://github.com/Tyler-R-Kendrick/epoch/commit/77ed6c2720a7f62862254dd30bcf2726975eb4b1); [#160](https://github.com/Tyler-R-Kendrick/epoch/pull/160) [`6f8eb14`](https://github.com/Tyler-R-Kendrick/epoch/commit/6f8eb1440407cf7e804fd65d5aae7a8b3c7c0279); [#162](https://github.com/Tyler-R-Kendrick/epoch/pull/162) [`ecc40ca`](https://github.com/Tyler-R-Kendrick/epoch/commit/ecc40ca0ee929b3caef2dee1bae9d9040bfa9977) |
+| Result | **success** |
+| Failure class | Real CI: Prosody `apt-get install` hung twice on #158 after retargeting to `main`; cancelled and rerun green. Not billing. |
+| Notes | Restacked onto post-#166 `main` so Verify/mutation/docs keep both XMPP and Protocol lanes. Branch coverage floor is 80. |
