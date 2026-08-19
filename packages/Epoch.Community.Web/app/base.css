@@ -101,6 +101,37 @@ body {
 /* Spacer lets clicks reach the grid-road canvas underneath. */
 .cw-bar-spacer { flex: 1 1 auto; min-width: .5rem; pointer-events: none; }
 
+.cw-posture {
+  position: relative;
+  z-index: 1;
+  font: 600 0.72rem/1 ui-monospace, "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--cw-agent) 55%, var(--cw-rule));
+  color: var(--cw-agent);
+  background: color-mix(in srgb, var(--cw-agent) 12%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cw-agent) 25%, transparent);
+  flex: none;
+}
+.cw-posture[data-posture="hosted"] {
+  color: var(--cw-signed);
+  border-color: color-mix(in srgb, var(--cw-signed) 55%, var(--cw-rule));
+  background: color-mix(in srgb, var(--cw-signed) 12%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cw-signed) 22%, transparent);
+}
+.cw-posture[data-posture="private"] {
+  color: var(--cw-ink);
+  border-color: color-mix(in srgb, var(--cw-ink) 45%, var(--cw-rule));
+  background: color-mix(in srgb, var(--cw-ink) 8%, transparent);
+}
+.cw-posture[data-posture="denied"] {
+  color: var(--cw-danger);
+  border-color: color-mix(in srgb, var(--cw-ink) 70%, var(--cw-rule));
+  background: color-mix(in srgb, var(--cw-ink) 14%, transparent);
+  box-shadow: none;
+}
+
 /* Grid-road canvas sits under chrome; clicks pass through to brand/buttons. */
 .cw-gridroad {
   position: absolute;

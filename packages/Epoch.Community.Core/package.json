@@ -8,5 +8,8 @@
     "build": "tsgo -p tsconfig.json",
     "test": "npm run build && node test/convergence.test.mjs && node test/projection-compiler.test.mjs && node test/namespace-runtime.test.mjs",
     "typecheck": "tsgo -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@epoch/protocol": "0.1.0"
   }
 }

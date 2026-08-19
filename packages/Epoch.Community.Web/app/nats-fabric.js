@@ -252,12 +252,44 @@
     state = emptyState();
   }
 
+  /**
+   * EPOCH_COMMUNITY_LIVESTREAM: sanitized channel envelopes only (ADR-0050).
+   * Protected secrets and non-public visibility never enter the fan-out.
+   */
+  function ingestChannelLivestream(envelope) {
+    if (!envelope || typeof envelope !== "object") {
+      return { kind: "drop", reason: "malformed" };
+    }
+    if (envelope.protectedInput || envelope.secret) {
+      return { kind: "drop", reason: "protected-secret" };
+    }
+    if (envelope.visibility && envelope.visibility !== "public") {
+      return { kind: "drop", reason: "non-public" };
+    }
+    var subject = typeof envelope.subject === "string" ? envelope.subject : "epoch.community.stream.default";
+    if (subject.indexOf("epoch.community.stream.") !== 0) {
+      return { kind: "drop", reason: "cross-operator-subject" };
+    }
+    return {
+      kind: "emit",
+      envelope: {
+        kind: "channel.message",
+        channelId: envelope.channelId || "",
+        messageId: envelope.messageId || "",
+        bodyDigest: envelope.bodyDigest || "",
+        visibility: "public",
+        subject: subject,
+      },
+    };
+  }
+
   window.CW_NATS_FABRIC = {
     evaluateHandoff: evaluateHandoff,
     attach: attach,
     status: status,
     statusLabel: statusLabel,
     isGuestIdentity: isGuestIdentity,
+    ingestChannelLivestream: ingestChannelLivestream,
     reset: reset,
   };
 })();

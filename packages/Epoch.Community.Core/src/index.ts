@@ -27,6 +27,7 @@ export * from "./projection-delta";
 export * from "./projection-runtime";
 export * from "./entity-projection-runtime";
 export * from "./builtin-projections";
+export * from "./channel";
 
 export type CommunityWorkflowId =
   | "repository-browsing"

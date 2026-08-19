@@ -1576,6 +1576,30 @@
       '<span class="cw-profile-space">' + escHtml(note) + "</span>" +
       "</span></button>";
     if (profileMenuOpen) paintProfileMenu();
+    paintPosture();
+  }
+
+  function paintPosture() {
+    var host = $("[data-posture-badge]");
+    if (!host) return;
+    var configured = window.CW_POSTURE;
+    var raw = configured && configured.posture;
+    var posture;
+    var extras;
+    if (!configured) {
+      posture = "open";
+      extras = "extras off";
+    } else if (raw === "hosted" || raw === "private" || raw === "open") {
+      posture = raw;
+      extras = configured.allowServiceDiscovery ? "discovery on" : "extras off";
+    } else {
+      posture = "denied";
+      extras = "gated capabilities off";
+    }
+    host.setAttribute("data-posture", posture);
+    host.textContent = posture;
+    host.title = "Trust posture: " + posture + " — " + extras;
+    host.setAttribute("aria-label", "Trust posture " + posture);
   }
 
   function paintProfileMenu() {
