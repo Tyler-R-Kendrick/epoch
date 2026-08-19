@@ -1,0 +1,10 @@
+{
+  "conferenceJid": "ch7ac39aeb@conference.a.example",
+  "eventType": "channel.message",
+  "refusedMuc": true,
+  "routing": {
+    "jid": "ch7ac39aeb@conference.a.example",
+    "kind": "conference-jid"
+  },
+  "schema": "epoch.xmpp.channel-fanout/v1"
+}

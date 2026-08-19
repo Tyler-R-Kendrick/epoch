@@ -1,0 +1,25 @@
+{
+  "authority": "epoch-ed25519-and-adr-0023-bindings",
+  "channelRouting": "conference-jid-labels-not-muc-occupancy",
+  "defaultEnabled": false,
+  "identity": "jid-admission-only",
+  "phrase": "Epoch-native with optional bridges",
+  "schemaVersion": 1,
+  "xeps": {
+    "adopted": [
+      "XEP-6120",
+      "XEP-6121",
+      "XEP-0178",
+      "XEP-0313"
+    ],
+    "legacyReducedTrust": [
+      "XEP-0220"
+    ],
+    "refused": [
+      "XEP-0045",
+      "XEP-0071",
+      "XEP-0198-as-identity",
+      "XEP-0280"
+    ]
+  }
+}
