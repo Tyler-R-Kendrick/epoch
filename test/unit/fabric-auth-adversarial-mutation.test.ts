@@ -10,7 +10,10 @@ import {
   createPlatformAuthValidator,
   evaluateAuthCallout,
   fixtureTokenValidator,
+  generateIssuerKey,
+  issueUserJwt,
   permissionsForScopes,
+  verifyUserJwt,
 } from "@epoch/nats";
 
 export async function runFabricAuthAdversarialMutationTests(): Promise<void> {
@@ -20,6 +23,7 @@ export async function runFabricAuthAdversarialMutationTests(): Promise<void> {
   await sessionIdPresentedAsSecretIsDenied();
   await revokeAfterAllowDeniesRenew();
   guestAnonymousCannotUseForgedTicketFields();
+  forgedJwtAndSourceServerSpoofDenied();
 }
 
 async function allowWithoutExplicitPermissionsIsDenied(): Promise<void> {
@@ -70,7 +74,7 @@ async function sessionIdPresentedAsSecretIsDenied(): Promise<void> {
       verifyFabricCredential: (secret) => {
         try {
           const v = core.verifyFabricCredential(secret);
-          return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+          return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt, allowServiceDiscovery: v.allowServiceDiscovery };
         } catch {
           return null;
         }
@@ -90,7 +94,7 @@ async function revokeAfterAllowDeniesRenew(): Promise<void> {
     verifyFabricCredential: (secret) => {
       try {
         const v = core.verifyFabricCredential(secret);
-        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt };
+        return { id: v.id, kind: v.kind, subjectRef: v.subjectRef, scopes: v.scopes, expiresAt: v.expiresAt, allowServiceDiscovery: v.allowServiceDiscovery };
       } catch {
         return null;
       }
@@ -131,4 +135,23 @@ function guestAnonymousCannotUseForgedTicketFields(): void {
     fabricSecret: "stolen",
   };
   assert.equal(isGuest(forged), true);
+}
+
+function forgedJwtAndSourceServerSpoofDenied(): void {
+  const issuer = generateIssuerKey();
+  const issued = issueUserJwt({
+    issuer,
+    admission: {
+      principal: "maya",
+      sourceServer: "server-a",
+      scopes: ["live:write"],
+      expiresAt: Date.now() + 60_000,
+    },
+  });
+  const parts = issued.jwt.split(".");
+  parts[2] = `${parts[2]}aa`;
+  assert.equal(verifyUserJwt(parts.join("."), issuer), null);
+  assert.equal(verifyUserJwt(issued.jwt, issuer, { expectedSourceServer: "server-b" }), null);
+  const escalated = permissionsForScopes(["admin", "$SYS.>"], "api-token", { sourceServer: "server-a" });
+  assert.equal(escalated.publish.length + escalated.subscribe.length, 0);
 }

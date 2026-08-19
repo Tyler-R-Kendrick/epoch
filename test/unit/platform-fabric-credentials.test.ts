@@ -40,6 +40,7 @@ function mintFromSessionVerifiesWithSecretAndRejectsWrongSecret(): void {
   assert.equal(verified.subjectRef, user.id);
   assert.deepEqual([...verified.scopes], ["fabric:human"]);
   assert.equal(verified.expiresAt, minted.expiresAt);
+  assert.equal(verified.allowServiceDiscovery, false);
 
   assert.throws(
     () => core.verifyFabricCredential("not-the-secret"),
