@@ -1,0 +1,35 @@
+[
+  {
+    "maxAgeSeconds": 86400,
+    "name": "EPOCH_LIVE",
+    "retention": "limits",
+    "subjects": [
+      "epoch.live.*.sync",
+      "epoch.live.*.presence"
+    ]
+  },
+  {
+    "maxAgeSeconds": 2592000,
+    "name": "EPOCH_PLATFORM_EVENTS",
+    "retention": "limits",
+    "subjects": [
+      "epoch.platform.events.>"
+    ]
+  },
+  {
+    "maxAgeSeconds": 21600,
+    "name": "EPOCH_COMMUNITY_LIVESTREAM",
+    "retention": "limits",
+    "subjects": [
+      "epoch.community.stream.>"
+    ]
+  },
+  {
+    "maxAgeSeconds": 60,
+    "name": "EPOCH_SVC",
+    "retention": "limits",
+    "subjects": [
+      "epoch.svc.>"
+    ]
+  }
+]

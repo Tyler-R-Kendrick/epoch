@@ -1,0 +1,21 @@
+{
+  "hasJwt": false,
+  "keys": [
+    "permissions",
+    "type",
+    "user"
+  ],
+  "permissions": {
+    "publish": [
+      "epoch.live.>",
+      "epoch.community.stream.>"
+    ],
+    "subscribe": [
+      "epoch.live.>",
+      "epoch.community.stream.>",
+      "epoch.platform.events.>"
+    ]
+  },
+  "type": "allow",
+  "user": "maya"
+}
