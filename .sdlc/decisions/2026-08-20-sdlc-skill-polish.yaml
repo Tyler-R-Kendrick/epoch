@@ -1,0 +1,14 @@
+id: 2026-08-20-sdlc-skill-polish
+date: "2026-08-20"
+initiative: sdlc-skill-expansion
+summary: >
+  Third polish pass after SkillOpt Night 2: Epoch gate wording (no pnpm agent:check),
+  cascade without inventing draft:cascade npm tasks, finish/help authorization clarity,
+  SkillOpt tasks for finish + gate:commit regression.
+status: accepted
+related:
+  - skills/sdlc/SKILL.md
+  - skills/sdlc/references/cascade.md
+  - skills/sdlc/references/finish.md
+  - skills/sdlc/references/help.md
+  - .sdlc/skillopt/sdlc-skill-tasks.json

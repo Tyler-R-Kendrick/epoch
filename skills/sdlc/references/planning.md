@@ -27,7 +27,8 @@ Order the work as the proof layers order it:
 
 - New tech, screens, features, and capabilities go **through the draft skill** — never ad-hoc
   files. Changing an existing proof follows plan → improve (review the blast radius) → ADR beside
-  the changed proof; the `draft:cascade` gate enforces rollup updates mechanically.
+  the changed proof; when a draft cascade gate exists use it — otherwise Epoch coordinators
+  apply rollups via handback deltas and keep `npm run docs:check` / freshness green.
 - Plans name exact packages/paths, the gates that prove each step, and the dependency order.
 - Requirements discovered mid-planning update the brainstorm record (append, never overwrite).
 - **Stack layers:** when the plan has 2+ dependent steps, name ordered stack branches

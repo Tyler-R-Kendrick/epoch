@@ -1,17 +1,33 @@
 # SDLC skill references
 
-Progressive-disclosure bundle for the sdlc coordinator skill. Route by phase:
+Progressive-disclosure bundle. Route by **subcommand** (see SKILL.md), then by phase:
 
-- [finish.md](finish.md) — **`--finish`**: land the current session (commit, rebase on latest trunk, conflicts, open/update PRs, push, bottom-up closeout, squash-merge all session PRs).
-- [brainstorm.md](brainstorm.md) — idea generation + adversarial/rubber-duck hardening, exit criteria.
-- [planning.md](planning.md) — plan mode over the draft-proof cascade; slice multi-phase work into stack layers.
-- [linear-planning.md](linear-planning.md) — one-shot issue contracts, initiative/milestone structure, paced creation.
-- [dispatch.md](dispatch.md) — permission gate, harness-detected backend matrix (cloud coding agents preferred for isolated issues), claim protocol, dual-transport handback, Done rule, resume/reconcile, incremental checkins.
-- [stacked-prs.md](stacked-prs.md) — parent-owned `gh stack` topology, subagent checkins, bottom-up rubber-duck/adversarial review, comment/check repair, per-PR squash-merge.
-- [loops-and-gates.md](loops-and-gates.md) — red/green inner loop, narrow-then-wide outer loop, required test lanes.
-- [cascade.md](cascade.md) — how requirement changes ripple through plans, proofs, ADRs, and Linear.
+## Stages (subcommands)
 
-SKILL.md keeps Codex-valid frontmatter; OKF concept metadata lives in these references
-(validated by `pnpm run docs:okf`; mirror equality by `pnpm run skills:mirror-check`).
+- [help.md](help.md) — `sdlc help` / `--help` / `-h`: usage, commands, flags
+- [stages/init.md](stages/init.md) — `sdlc init`: mirrors, `.sdlc/`, `gh stack` probe
+- [stages/clean.md](stages/clean.md) — `sdlc clean`: merged branches/worktrees
+- [stages/review.md](stages/review.md) — `sdlc review`: security / design / architecture
+- [stages/test.md](stages/test.md) — `sdlc test`: persona Gherkin + Playwright + Pact
+- [stages/evidence.md](stages/evidence.md) — `sdlc evidence`: pack + **standard PR `## SDLC evidence` block**
+- [stages/gate.md](stages/gate.md) — `sdlc gate`: gate:commit / push / verify
+- [stages/eval.md](stages/eval.md) — `sdlc eval`: rubrics → `.sdlc/evals/`
+- [persona-minimum.md](persona-minimum.md) — only what impacts documented personas
+- [repo-hygiene.md](repo-hygiene.md) — anti-bloat, coupling/cohesion, cleanup cadence
+- [skill-evolution.md](skill-evolution.md) — `sdlc skills`: SkillOpt/Sleep, promote patterns, harness workflows
+- [documentation.md](documentation.md) — `sdlc docs`: freshness, accuracy, ADR/docs standards
 
-Companion CLI skill (all agents): `gh-stack` under `.agents/skills/gh-stack` and `.claude/skills/gh-stack`.
+## Core loop
+
+- [finish.md](finish.md) — **`sdlc finish`**: land session (commit, PR, squash-merge)
+- [operations.md](operations.md) — when/how to use subagents; create/destroy branches and worktrees
+- [brainstorm.md](brainstorm.md) — adversarial / rubber-duck hardening
+- [planning.md](planning.md) — plan mode + stack slicing
+- [linear-planning.md](linear-planning.md) — one-shot issue contracts
+- [dispatch.md](dispatch.md) — backends, handback, Done rule, incremental checkins
+- [stacked-prs.md](stacked-prs.md) — `gh stack` + bottom-up closeout (**run `sdlc review` between PRs**)
+- [loops-and-gates.md](loops-and-gates.md) — red/green + required lanes
+- [cascade.md](cascade.md) — requirement ripple through proofs/ADRs
+
+SKILL.md keeps Codex-valid frontmatter. Companion CLI skill: `gh-stack`.
+Machine decisions/reviews/evals live under [`.sdlc/`](../../../.sdlc/).

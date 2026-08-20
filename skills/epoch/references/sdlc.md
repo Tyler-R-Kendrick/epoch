@@ -8,12 +8,13 @@ the [OptimizeXP skill](../../optimizexp/SKILL.md).
 
 ## Mission
 
-- Require a failing Gherkin feature before production behavior changes.
-- Require focused unit tests for public SDK behavior and edge cases.
+- Require a failing persona-tagged Gherkin feature before production behavior changes.
+- Prefer **Pact** at integration boundaries over new full-stack e2e (see `skills/sdlc` `test` stage).
+- Require focused unit tests for public SDK behavior and edge cases on the scenario path only.
 - Require component-level tests when framework integrations render or subscribe to state.
-- Require headless Playwright validation when browser behavior is part of the acceptance criteria.
-- Require `npm run lint`, `npm run typecheck`, `npm run konsistent`, `npm test`, `npm run coverage`, and `npm run verify` before completion.
-
+- Require Playwright-backed persona steps when browser behavior is acceptance criteria; publish evidence via `sdlc evidence`.
+- Require `npm run gate:commit` (and broader verify when browser/contract behavior changes) before completion.
+- Prefer `sdlc review` between stacked PRs and `sdlc finish` to land the session.
 ## Review checklist
 
 1. Confirm the feature scenario describes user-observable behavior and failed before implementation.

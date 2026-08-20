@@ -5,6 +5,7 @@ These instructions apply to the entire repository.
 ## Required development workflow
 
 - Use test-driven development for behavior changes: write or update a failing feature/test first, implement the smallest change, then make the full suite pass.
+- **New user-visible work** prefers persona-tagged Gherkin + Playwright steps + **Pact** at integration boundaries over new full-stack e2e (see [`docs/testing-lanes.md`](docs/testing-lanes.md) and [`skills/sdlc`](skills/sdlc/SKILL.md)). Existing e2e suites remain until migrated.
 - **GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`): docs, lint, konsistent, design, typecheck, test, coverage, Pact, and the Community Web/accessibility suites, each as its own job so failures are attributable. A fail-closed guard job keeps this on standard `ubuntu-latest` runners on this public repository, where they are free and unmetered; re-check that assumption (`docs/ai-automation-strategy.md` Finding 1) before touching runner selection or visibility.
   - Local hooks are a **strengthened pre-flight** — CI plus branch protection remain authoritative for the full verify bar. After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`; both `pre-commit` and `pre-push` run `npm run gate:commit` (parallel `gate:fast` static checks + Community Web a11y lint). Prefer `npm run gate:push` (adds typecheck, build, unit) before opening a PR when that bar is green.
   - Full bar remains `npm run verify` (adds feature/browser suite, coverage, Pact, a11y evidence, Community Web e2e). Agents must run **at least `gate:commit`** locally, and **`verify`** when changing browser-visible or contract behavior, before claiming done; CI re-verifies everything regardless.
@@ -20,7 +21,17 @@ These instructions apply to the entire repository.
 
 ## Agent skill harnesses
 
-Harness skill trees under `.agents/`, `.claude/skills/`, and `.grok/` are gitignored and reproducible. For the hosts this repository uses (Claude Code, Cursor, Codex, Grok):
+Harness skill trees under `.agents/`, `.claude/skills/`, `.grok/`, and `.cursor/skills/` are
+gitignored and reproducible. The tracked **SDLC** skill lives at `skills/sdlc/` and is mirrored
+into those hosts as **symlinks**:
+
+```bash
+npm run skills:mirror-sdlc
+# or: node scripts/mirror-sdlc-skill.mjs --check
+```
+
+`prepare` runs the mirror after hook install. For anti-slop / Impeccable / Higgsfield skill
+copies (Claude Code, Cursor, Codex, Grok):
 
 ```bash
 npm run agents:install-skills
@@ -28,7 +39,19 @@ npm run agents:install-skills
 # also: npx skills add higgsfield-ai/skills --agent claude-code --agent cursor --agent codex --agent grok -y --copy
 ```
 
+Microsoft **SkillOpt** is installed once during `sdlc init` (`node scripts/install-skillopt.mjs`),
+not via a recurring npm script. It provides `skillopt-sleep` / `skillopt-train` / `skillopt-eval`
+(ensure `~/.local/bin` is on `PATH`).
+
 The `install-anti-slop` skill configures the vendored Oxlint plugin; product sources are linted with `npm run lint:oxlint`.
+
+Invoke delivery with the SDLC skill subcommands (`sdlc` / `/sdlc`: `help`, `finish`, `clean`,
+`review`, `test`, `evidence`, `gate`, `eval`, `skills`, `docs`, `init`, …). Machine
+decisions/reviews/evals persist under [`.sdlc/`](.sdlc/README.md). Start with `sdlc help` for
+usage. Promote repeated agent patterns and SkillOpt/Sleep via
+`sdlc skills` ([skills/sdlc/references/skill-evolution.md](skills/sdlc/references/skill-evolution.md)).
+Keep docs accurate via `sdlc docs`
+([skills/sdlc/references/documentation.md](skills/sdlc/references/documentation.md)).
 
 ## Documentation freshness
 
@@ -70,6 +93,7 @@ The `install-anti-slop` skill configures the vendored Oxlint plugin; product sou
 | `npm run lint` | Run ESLint over source, tests, and configuration. |
 | `npm run lint:oxlint` | Run vendored anti-slop Oxlint rules (`docs/anti-slop.md`). Required in `gate:fast` and CI Lint. |
 | `npm run agents:install-skills` | Install `install-anti-slop` into Claude Code / Cursor / Codex / Grok skill trees. |
+| `npm run skills:mirror-sdlc` | Symlink `skills/sdlc` into `.agents` / `.claude` / `.grok` / `.cursor` skill hosts. |
 | `npm run konsistent` | Enforce workspace structural conventions declared in `konsistent.json`. |
 | `npm run typecheck` | Run `tsgo --noEmit` for every workspace and test project. |
 | `npm test` | Build and execute the Cucumber feature suite. |

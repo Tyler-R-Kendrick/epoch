@@ -44,9 +44,11 @@ If the session PR set is empty and the tree is clean relative to `origin/main`, 
 1. **No force-push** unless the user explicitly ordered it for that branch.
 2. **Never commit secrets** (`.env`, keys, tokens). Prefer env var **names** only.
 3. **Never delete user work** (`git clean -fdx`, wipe unrelated branches).
-4. **`pnpm agent:check -- --staged`** before every commit; never bypass hooks.
+4. **`npm run gate:commit`** before every commit; never bypass hooks (`SKIP_GIT_HOOKS` only with
+   documented emergency reason).
 5. **Rebase on `origin/main`** (or the stack base) before open/update PR; resolve conflicts fully.
-6. **Bottom-up closeout** for stacks (`stacked-prs.md`); single PR uses the same review steps.
+6. **Bottom-up closeout** for stacks (`stacked-prs.md`); run **`sdlc review`** on each PR before
+   squash-merge; single PR uses the same review steps.
 7. **Billing-red CI does not block squash-merge** (document + merge; `--admin` if needed).
 8. **Real CI failures** (tests/lint that ran and failed) must be fixed before merge — not
    papered over with the billing exception.
@@ -79,7 +81,7 @@ If there are intentional uncommitted changes:
    git checkout -b feat/<short-slug>   # or sdlc/<initiative>-NN-<slug>
    ```
 2. Stage deliberately (no secrets, no `.serena/`, no unrelated noise).
-3. `pnpm agent:check -- --staged` — fix failures; re-stage.
+3. `npm run gate:commit` — fix failures; re-stage.
 4. Commit with conventional, scoped message(s). Multiple small commits OK; squash at merge.
 5. If already mid-stack, commit on the **correct layer branch**, then
    `gh stack rebase --upstack` when lower layers change.
@@ -101,8 +103,8 @@ On conflict:
 1. Resolve files completely (no conflict markers left).
 2. `git add` resolved paths; continue rebase (`git rebase --continue` or
    `gh stack rebase --continue`).
-3. Re-run the narrowest gates (`pnpm agent:check -- --staged` for conflict-fix commits;
-   `pnpm agent:check -- --base=origin/main` only if intentionally validating the whole branch).
+3. Re-run the narrowest gates (`npm run gate:commit` for conflict-fix commits;
+   `npm run gate:push` only if intentionally validating the whole branch).
 4. Do **not** abort and abandon session work without telling the user.
 
 ### 3. Push + open or update PRs
@@ -124,8 +126,10 @@ gh stack submit --auto --open
 gh stack view --json
 ```
 
-PR body should include: why, what, test plan, initiative/state link if any, and for cloud
-handbacks a fenced `sdlc-report` when applicable.
+PR body should include: why, what, test plan, initiative/state link if any, for cloud
+handbacks a fenced `sdlc-report` when applicable, and — for user-visible work — the standard
+`## SDLC evidence` section ([stages/evidence.md](stages/evidence.md)). Also post/update the
+sticky evidence comment on the PR so reviewers see it without scrolling the description.
 
 Record PR numbers in `sdlc-state.md`.
 
@@ -138,11 +142,15 @@ For **each** PR:
 1. Rubber-duck the diff (problem, approach, files, tests, risks, rollback).
 2. Adversarial pass (security/tenancy, contracts, cascade, over-engineering, shared-file leaks).
 3. Independent review (spawn `reviewer` or re-run acceptance + gates yourself).
-4. Resolve **all** PR comments/threads.
-5. Status checks:
+4. Ensure `## SDLC evidence` is present and current (body + sticky comment); run `sdlc evidence`
+   if missing.
+5. Ensure documentation freshness/accuracy for the layer (`sdlc docs --fix` or justify none);
+   `npm run docs:check` must be green ([documentation.md](documentation.md)).
+6. Resolve **all** PR comments/threads.
+7. Status checks:
    - Fix real failures; push; re-check.
    - Billing/budget empty-step failures → document on PR + state → **still merge**.
-6. Squash-merge:
+8. Squash-merge:
    ```bash
    # stack layer:
    gh stack merge <pr> --yes --squash
@@ -151,7 +159,7 @@ For **each** PR:
    # protection + billing-red:
    gh pr merge <pr> --squash --delete-branch --admin
    ```
-7. After each merge: `git fetch origin`; for stacks `gh stack sync --prune`; rebase remaining
+9. After each merge: `git fetch origin`; for stacks `gh stack sync --prune`; rebase remaining
    session branches onto new trunk before merging the next.
 
 Repeat until **every** PR in the session set is MERGED (or explicitly closed with a recorded
@@ -162,10 +170,13 @@ reason the user accepted).
 1. `sdlc-state.md` → phase `closed` (or remaining true external blocks listed).
 2. Append `docs/plans/dispatch-log.md` with PR numbers, merge SHAs, failure classes
    (`billing-budget`, etc.).
-3. If state/log changes remain uncommitted after merges, open a **tiny follow-up PR** (or
+3. Stop any remaining session subagents; `sdlc clean --merged-only` with `--worktrees` /
+   `--remote` as appropriate ([operations.md](operations.md)). Apply
+   [repo-hygiene.md](repo-hygiene.md) for empty dirs / dead paths / uncommitted caches.
+4. If state/log changes remain uncommitted after merges, open a **tiny follow-up PR** (or
    include them in the last layer if not yet merged) — do not leave closed-initiative state
    only local.
-4. Report to the user: PR URLs, merge SHAs, billing exceptions, residuals.
+5. Report to the user: PR URLs, merge SHAs, billing exceptions, evidence pack links, residuals.
 
 ## Partial finish / blocked finish
 
@@ -186,7 +197,9 @@ user already passed `--finish`.
 | Flag / mode | Behavior |
 |---|---|
 | bare `/sdlc` | Full loop from brainstorm (or resume state) |
-| `/sdlc --finish` | **Skip** new brainstorm/plan/dispatch unless needed to land; run this finish protocol |
+| `/sdlc help` | Print usage only; do not land or implement |
+| `/sdlc --finish` / `finish` | **Skip** new brainstorm/plan/dispatch unless needed to land; run this finish protocol |
+| `/sdlc docs` / `skills` | Docs freshness or skill evolution — not a substitute for finish |
 | Closeout after dispatch | Same merge steps as here; `--finish` also scoops **uncommitted** work and **all** session PRs |
 
 ## Invocation examples
@@ -202,5 +215,9 @@ sdlc --finish
 
 - [stacked-prs.md](stacked-prs.md) — bottom-up closeout detail, billing exception
 - [dispatch.md](dispatch.md) — Done rule, handback, resume/reconcile
+- [operations.md](operations.md) — subagents / branches / worktrees lifecycle
+- [stages/evidence.md](stages/evidence.md) — standard PR evidence format
+- [repo-hygiene.md](repo-hygiene.md) — anti-bloat, coupling/cohesion, cleanup
+- [documentation.md](documentation.md) — docs freshness and accuracy
 - `repo` skill `references/git-pr.md` — single-PR hygiene
 - Companion skill `gh-stack` — non-interactive `gh stack` CLI

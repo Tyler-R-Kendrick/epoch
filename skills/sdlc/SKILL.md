@@ -1,226 +1,182 @@
 ---
 name: sdlc
-description: Coordinate iterative feature/capability development end to end in this repo — brainstorm with adversarial and rubber-duck hardening, plan through the draft-proof cascade, capture one-shot issues, dispatch subagents with incremental checkins, manage multi-phase work as GitHub stacked PRs (gh stack), then bottom-up rubber-duck/adversarial review, comment resolution, status-check repair, and squash-merge of every opened PR. Supports --finish to land the current session (commit, rebase on latest main, resolve conflicts, open/update PRs, push, bottom-up closeout, squash-merge all session PRs). Use when the user wants to develop a feature through the full loop, says "sdlc", "run the loop", "stacked PRs", "take this from idea to merge", "sdlc --finish", or "finish the session".
+description: >
+  Coordinate Epoch feature delivery end to end with persona-first BDD/TDD, stacked PRs,
+  incremental commits, automatic reviews, anti-slop + DESIGN.md gates, Pact at integration
+  boundaries, evidence packs posted on PRs, explicit subagent/branch/worktree lifecycle,
+  and repo hygiene (anti-bloat, cohesion/coupling, cleanup). Evolve agent skills with
+  Microsoft SkillOpt / SkillOpt-Sleep and harness-aware workflows. Keep documentation accurate
+  against the freshness policy and docs standards. Invoke as sdlc / /sdlc with subcommands:
+  help, loop (default), finish, clean, review, plan, brainstorm, dispatch, test, evidence,
+  gate, eval, skills, docs, init. Use when the user says sdlc, sdlc help, finish the session,
+  clean branches/worktrees, improve agent skills or docs, or wants the full development loop.
 ---
 
 # SDLC coordinator
 
-Drive a feature or capability through the full development loop **in this repo**. You are the
-**parent/coordinator**: you own the conversation with the user, the plan, Linear (or issue tracker)
-state, shared-file mutations, **stack topology**, and the final review→merge gate for every PR.
+You are the **parent/coordinator** for product work in this repository. Own the user dialogue,
+plan, shared files, **stack topology**, reviews between layers, and merge gate. Delegate
+implementation to subagents (one issue/layer each) whenever possible.
 
-Implementation work is delegated to **subagents** (or cloud coding agents) whenever possible.
-Subagents own exactly one issue/layer each, commit incrementally, and never touch Linear or shared
-coordinator files. For multi-step / multi-phase / multi-task work, the parent opens a **stack of
-PRs** with GitHub's official `gh stack` extension — not one giant PR.
-
-## Flags
-
-| Form | Meaning |
-|---|---|
-| **(none)** / bare `sdlc` | Full loop: reconcile state → brainstorm (or resume) → plan → issues → dispatch → closeout |
-| **`--finish`** / `finish` | **Land the current working session** — no new product brainstorm unless required to ship. Commit remaining work, fetch/rebase on latest trunk, resolve conflicts, open/update PRs, push, bottom-up review, **squash-merge every PR from this session**. Full protocol: `references/finish.md` |
-
-`--finish` is **explicit authorization** to push, open/update PRs, and squash-merge session work
-(billing-red CI does not block merge). Safety still applies: no secrets, no force-push, no deleting
-user work, fix real CI failures before merge.
+Everything starts from **documented personas** (humans and agents-as-users). Specs, designs,
+tests, and code exist only when they change an intended persona outcome. Prefer the minimum
+necessary design/spec to produce that outcome.
 
 ## First moves
 
-1. Parse flags. If **`--finish`** (or user clearly wants session land / “commit push PR merge”
-   under sdlc): load `references/finish.md` and **run that protocol to completion**. Skip opening
-   new brainstorm/plan/dispatch unless finish itself needs a tiny state/docs follow-up PR.
-2. Otherwise: durable state first (below), then phases 1–6 as usual.
+1. Parse the subcommand (table below). If `help` / `--help` / `-h`, load
+   [references/help.md](references/help.md), print usage, and **stop** (unless they named a
+   specific command to explain).
+2. Otherwise load **only** the matching reference.
+3. Run `sdlc init` probes when mirrors, `.sdlc/`, or `gh stack` may be missing.
+4. Read durable state: [`.sdlc/state/current.yaml`](../../.sdlc/state/current.yaml) and
+   `docs/plans/<initiative>/sdlc-state.md`. Reconcile before new work
+   (`references/dispatch.md` § Resume).
 
-## Install / probe (once per machine or session)
+## Subcommands
 
-```bash
-# Extension (also installed by scripts/setup-agent-tools.sh common layer)
-gh extension install github/gh-stack   # or: gh extension upgrade stack
-gh stack --help
+| Command | Reference | Purpose |
+|---|---|---|
+| `help` / `--help` / `-h` | [references/help.md](references/help.md) | Print usage, commands, flags; optional `help <command>` |
+| `(default)` / `loop` | this file + phase refs | Full persona-first loop → stack closeout |
+| `finish` / `--finish` | [references/finish.md](references/finish.md) | Commit, rebase, PR, bottom-up review, squash-merge session PRs |
+| `clean` | [references/stages/clean.md](references/stages/clean.md) | Delete merged session branches/worktrees (local/remote flags) |
+| `review` | [references/stages/review.md](references/stages/review.md) | Security / design / architecture review between PRs |
+| `brainstorm` | [references/brainstorm.md](references/brainstorm.md) | Adversarial + rubber-duck idea hardening |
+| `plan` | [references/planning.md](references/planning.md) | Plan mode + stack layer slicing |
+| `dispatch` | [references/dispatch.md](references/dispatch.md) | Subagent dispatch + handback |
+| `test` | [references/stages/test.md](references/stages/test.md) | Persona Gherkin + Playwright + Pact (no new full-stack e2e by default) |
+| `evidence` | [references/stages/evidence.md](references/stages/evidence.md) | Publish traces/video/snapshots + NL summary |
+| `gate` | [references/stages/gate.md](references/stages/gate.md) | `gate:commit` / optional `gate:push` / `verify` |
+| `eval` | [references/stages/eval.md](references/stages/eval.md) | Rubric scoring for self-improving loops |
+| `skills` | [references/skill-evolution.md](references/skill-evolution.md) | SkillOpt / Sleep; promote chat patterns; harness workflows |
+| `docs` | [references/documentation.md](references/documentation.md) | Freshness matrix, accuracy audit, ADR/docs standards |
+| `init` | [references/stages/init.md](references/stages/init.md) | Mirror skill symlinks, ensure `.sdlc/`, probe `gh stack` |
 
-# Agent-safe git defaults (also set by scripts/install-hooks.mts / setup script)
-git config --local rerere.enabled true
-git config --local remote.pushDefault origin
+### Flag cheatsheet
+
+```text
+sdlc help [command]
+sdlc finish
+sdlc clean [--local] [--remote] [--worktrees] [--merged-only] [--dry-run] [--force]
+sdlc review [--security] [--design] [--architecture]   # default: all three
+sdlc gate [--push] [--verify]
+sdlc test [--persona <tag>] [--feature <path>]
+sdlc evidence --feature <slug>
+sdlc eval --initiative <slug>
+sdlc skills [--promote] [--sleep] [--opt] [--workflow] [--dry-run]
+sdlc docs [--audit] [--fix] [--matrix] [--adr] [--dry-run]
+sdlc init [--check]
 ```
 
-If `gh stack` is missing, install it before dispatching multi-layer work. CLI detail lives in the
-companion **`gh-stack`** skill (mirrored under `.agents/skills/gh-stack` and `.claude/skills/gh-stack`)
-and in `references/stacked-prs.md`. Official docs: https://gh.io/stacks
+`finish` is **explicit authorization** to push, open/update PRs, and squash-merge session work
+(billing-red CI does not block merge). Safety still applies: no secrets, no force-push, no
+deleting unrelated user work.
 
-## Durable state (read this FIRST, every session)
+## Hard rules (always on)
 
-State lives in `docs/plans/<initiative-slug>/sdlc-state.md` (phase, decisions, dispatched issues →
-worktree/branch/PR/**stack layer**). On entry: read it; if it exists, **reconcile before anything
-else** (see `references/dispatch.md` § Resume). Write it at every phase boundary. Dispatch outcomes
-append to `docs/plans/dispatch-log.md`. Record stack id / branch chain / PR numbers in the state file.
+1. **Incremental commits** after each red→green unit. Never `SKIP_GIT_HOOKS` / `--no-verify`.
+2. **Stacked PRs** for 2+ dependent layers via non-interactive `gh stack`
+   ([references/stacked-prs.md](references/stacked-prs.md)).
+3. **`sdlc review` between stacked PRs** before bottom-up squash-merge.
+4. **Persona minimum** — [references/persona-minimum.md](references/persona-minimum.md).
+5. **Tests only** for components exercised by `@persona.*` scenarios in `features/*.feature`.
+6. **New work:** Gherkin + Playwright driver + **Pact** at integration boundaries. Do **not**
+   add new full-stack e2e when Pact covers the boundary (existing e2e stays until migrated).
+7. **Gates:** `npm run gate:commit` before every commit (anti-slop `lint:oxlint`, `design:lint`,
+   `design:audit`, Community Web a11y + design chrome lint). See [docs/anti-slop.md](../../docs/anti-slop.md)
+   and root [DESIGN.md](../../DESIGN.md).
+8. **Decisions** persist under [`.sdlc/decisions/`](../../.sdlc/decisions/) (machine YAML). Material
+   choices also get an ADR under `docs/design-decisions/`.
+9. **Evidence** for completed features: [references/stages/evidence.md](references/stages/evidence.md).
+   Publish the pack under `docs/evidence/<slug>/`, then post a visible `## SDLC evidence` section
+   on every related PR (**body + sticky comment**) that links that pack path before squash-merge.
+   Saying “evidence” without the `docs/evidence/…` path and PR block is incomplete.
+10. **Operations lifecycle** — create/destroy subagents, branches, and worktrees only per
+    [references/operations.md](references/operations.md). Parent owns topology and cleanup.
+11. **Repo hygiene** — no file/folder explosion; high cohesion / low coupling; clean merged
+    worktrees and never commit caches. See [references/repo-hygiene.md](references/repo-hygiene.md).
+12. **Skill evolution** — prefer Microsoft SkillOpt / SkillOpt-Sleep over lean forks; promote
+    repeated chat/coding patterns into skills; emit harness workflows only for the active
+    host ([references/skill-evolution.md](references/skill-evolution.md)).
+13. **Documentation** — same-PR freshness, no orphans, accurate claims vs code/features;
+    `npm run docs:check` before finish ([references/documentation.md](references/documentation.md)).
 
-## Phases (details in references/)
+## Default loop (when bare `sdlc` / `loop`)
 
-0. **`--finish` (session land)** — `references/finish.md`. When the flag is present, run the
-   finish protocol instead of starting a new initiative: commit → latest trunk → conflicts →
-   PR(s) → bottom-up closeout → squash-merge **all session PRs**. Then stop (or only open a
-   tiny state/docs follow-up if still needed).
-1. **Brainstorm & harden** — `references/brainstorm.md`. Always start here for new
-   features/capabilities. Ideas must survive adversarial + rubber-duck passes before planning.
-2. **Plan** — `references/planning.md`. Enter plan mode; map the work onto the draft cascade
-   (technical proofs → epic proofs; experience proofs in parallel; project proofs aggregate);
-   every proof change follows plan → improve → ADR-beside-the-proof; new tech/screens/features go
-   through the **draft** skill. **Slice multi-phase work into stack layers** (dependency order:
-   foundations at the bottom, dependents above).
-3. **Issue capture** — `references/linear-planning.md`. Initiative/projects/milestones/issues,
-   each issue a self-contained one-shot contract with verifiable outputs and required draft
-   artifacts named explicitly. Prefer **one issue per stack layer**.
-4. **Dispatch + stack** — `references/dispatch.md` + `references/stacked-prs.md`. ONLY after
-   explicit user permission for offloading. Detect harness backends; claim issues; spawn
-   subagents with incremental-checkin rules; parent owns `gh stack init|add|submit|sync`.
-5. **Loops & cascade** — `references/loops-and-gates.md` + `references/cascade.md`. Red/green
-   inner loop, narrow-then-wide outer loop, and machine-checked upward/downward requirement
-   cascades.
-6. **Close the stack (mandatory)** — `references/stacked-prs.md` § Bottom-up closeout (same
-   merge steps as `--finish`, scoped to the initiative stack). When implementation is done, the
-   **parent** reviews and merges **each PR from the bottom up**. Do not mark the initiative
-   complete until every opened PR is reviewed, repaired (when repairable), and **squash-merged**.
-   Billing/budget-only CI failures do **not** block merge.
+1. `brainstorm` → survive adversarial + rubber-duck passes.
+2. `plan` → draft cascade; slice stack layers; record decisions in `.sdlc/decisions/`. Prefer
+   extending existing packages/modules over new directories (`repo-hygiene.md`).
+3. Issue capture (`references/linear-planning.md`) — one issue per layer when possible.
+4. Create stack branches / local worktrees only as needed (`operations.md`); then `dispatch`
+   — implementers use `test` (red) → implement → `gate` → commit; apply `sdlc docs --fix`
+   for touched surfaces before handback.
+5. After each layer PR: `review` (default all facets, including docs accuracy) → `evidence`
+   (PR sticky comment) → repair → only then next layer.
+6. Close stack bottom-up (`stacked-prs.md`); refresh evidence + `eval` before marking Done.
+7. Stop agents; `clean --merged-only` (+ `--worktrees` / `--remote`); drop empty dirs / dead
+   paths that the initiative made obsolete.
+8. If the same agent mistake or user correction recurred this initiative, run
+   `sdlc skills --promote` (and `--sleep` when transcript optimization is warranted).
+9. If docs drifted or users hit the same doc gap twice, run `sdlc docs --audit` / `--fix`.
 
 ## Role split
 
 | Actor | Owns | Does not own |
 |---|---|---|
-| **Parent (this skill)** | User dialogue, plan, Linear, shared files, **stack topology**, PR submit/sync, bottom-up review, comments, CI repair, squash-merge | Implementing every layer itself when a subagent is available |
-| **Subagent / implementer** | One issue/layer, red/green work, **incremental commits**, local gates, handback report | Linear, shared registries, stack restructure, merging PRs |
-| **Reviewer subagent** | Independent re-run of gates + acceptance checklist (read-only) | Edits, merges, Linear |
+| **Parent (this skill)** | User dialogue, plan, Linear, shared files, stack topology, reviews, evidence-on-PR, merge, clean | Implementing every layer when a subagent is available |
+| **Subagent** | One layer, red/green, incremental commits, local `gate:commit`, drafting evidence pack files | Linear, stack restructure, merging PRs, deleting branches/worktrees |
+| **Reviewer** | Independent `sdlc review` + checklist (read-only) | Edits, merges |
 
-**Leverage subagents hard.** Prefer spawning implementers over doing layer work inline. Cap
-concurrency so no two agents share a package. Cloud backends for isolated layers; local worktrees
-for shared-file-adjacent layers. Sequential fallback only when no backend probes true.
+Lifecycle detail (when to spawn/stop agents, create/destroy branches and worktrees):
+[references/operations.md](references/operations.md). Anti-bloat and cleanup cadence:
+[references/repo-hygiene.md](references/repo-hygiene.md). Skill / workflow evolution:
+[references/skill-evolution.md](references/skill-evolution.md). Documentation accuracy:
+[references/documentation.md](references/documentation.md).
 
-## Subagent incremental checkins (required)
+## Subagent incremental checkins
 
-Every implementer instruction must require **small, frequent commits** — not one dump at the end:
+1. After each red→green unit, stage deliberately and commit.
+2. Run `npm run gate:commit` (hooks already do this) — never bypass.
+3. Conventional, scoped commit messages (why if non-obvious).
+4. Multiple commits per layer are expected; squash only at **merge** time.
+5. Do not create extra branches/worktrees beyond the assigned layer; do not run `sdlc clean`.
+6. Prefer extending existing modules; justify any new directory/package in the handback.
+7. Never tell implementers to run `pnpm agent:check` — Epoch uses `npm run gate:commit`.
 
-1. After each red→green unit (test + minimal implementation), stage deliberately and commit.
-2. Run `pnpm agent:check -- --staged` before **every** commit; never bypass hooks.
-3. Conventional, scoped commit messages that describe the step (why if non-obvious).
-4. Push / hand back often enough that progress is recoverable if the subagent dies mid-task.
-5. Multiple commits per layer are expected and good. Do **not** squash locally before handback
-   unless the issue contract says otherwise — squash happens at **merge** time.
-
-The parent may also require the subagent to open or update its layer branch via the branch the
-parent created in the stack; the parent alone runs `gh stack submit|sync|merge`.
-
-## Stacked PRs for multi-step work (parent)
-
-For any work with 2+ dependent phases/tasks:
+## Install / probe
 
 ```bash
-# Non-interactive only — never hang on prompts/TUIs
-gh stack init sdlc/<initiative>-01-<slug>
-# ... subagent works + incremental commits on that branch ...
-gh stack add sdlc/<initiative>-02-<slug>
-# ... next layer ...
-gh stack submit --auto --open     # create/update linked PRs
-gh stack view --json              # always --json for agents
-gh stack sync                     # after trunk moves or lower-layer changes
+npm run skills:mirror-sdlc          # or: sdlc init (also installs SkillOpt once)
+gh extension install github/gh-stack
+git config --local rerere.enabled true
+git config --local remote.pushDefault origin
 ```
 
-Hard agent rules for `gh stack` (summary — full set in `references/stacked-prs.md` + `gh-stack` skill):
+Host trees (`.agents/skills`, `.claude/skills`, `.grok/skills`, `.cursor/skills`) **symlink** to
+tracked `skills/sdlc`. Do not maintain duplicate copies.
 
-- Always pass branch names to `init` / `add` / `checkout` (no bare interactive forms).
-- Always `gh stack submit --auto` (add `--open` when ready for review).
-- Always `gh stack view --json` (never interactive TUI).
-- Mid-stack fixes: navigate to the correct lower branch, commit there, `gh stack rebase --upstack`, push.
-- **Merge stacked PRs with `gh stack merge`**, not bare `gh pr merge`, when merging a stack range.
-  Prefer **`--squash`**. For sequential bottom-up closeout, merge one PR at a time (see closeout).
+## Reference index
 
-Single-layer / single-issue work may use a normal PR; multi-step work **must** stack.
-
-## Bottom-up closeout (required for every PR the parent opened)
-
-When the parent is done dispatching implementation, it **must** process the stack from the
-**bottom (closest to trunk) to the top**:
-
-For **each** open PR in bottom-up order:
-
-1. **Rubber-duck the diff** — explain the layer step-by-step as if to a new contributor: problem,
-   approach, files, tests, risks, rollback. Anything you cannot justify plainly is a defect.
-2. **Adversarial pass** — red-team the layer: failure modes, security/tenancy, broken contracts,
-   cascade/reg misses, over-engineering, missing gates, silent shared-file edits by subagents.
-3. **Independent review** — spawn the `reviewer` (or re-run the acceptance checklist yourself on
-   a clean checkout). Do not trust the implementer's self-report.
-4. **Comments & review feedback** — list every unresolved PR comment and review thread
-   (`gh api` / `gh pr view` / review comments). Address **all** of them: fix code, or reply with
-   a reasoned non-action and resolve the thread. Leave no actionable thread open.
-5. **Status checks** — wait for required checks when they can run. Repair real failures
-   (tests, lint, architecture). Re-run narrow gates after fixes; `gh stack sync` / rebase so CI
-   sees the fix.
-   - **Billing / budget / quota does not block squash-merge.** If a check fails solely because
-     jobs never started or aborted for spending limit, payment failure, exhausted CI minutes,
-     runner quota, or similar **non-code** billing signals (empty steps, no runner assigned,
-     annotation like "spending limit" / "payments have failed"):
-     1. Record the exception on the PR comment + `sdlc-state.md` (which checks, exact message).
-     2. **Squash-merge immediately** — do **not** wait for green CI, do **not** stall for user
-        approval of the merge itself (user already authorized the workstream; tell them billing
-        is broken so they can fix account settings later).
-     3. Use `gh pr merge <n> --squash` (or `gh stack merge <n> --yes --squash`). If branch
-        protection still requires green checks, retry with `--admin` when the token has that
-        permission. If merge is impossible without elevated rights, say so — still do not
-        leave the PR as "waiting on CI" when CI cannot run.
-     4. Never use this exception for real test/lint/type failures.
-6. **Squash-merge that PR** when review is clean and either checks are green **or** only
-   billing-budget failures remain (after documenting them):
-   ```bash
-   # Stack-aware (preferred when in a stack):
-   gh stack merge <pr-number> --yes --squash
-   # Single PR / non-stack:
-   gh pr merge <pr-number> --squash --delete-branch
-   # If protection blocks on billing-red checks and you have admin:
-   gh pr merge <pr-number> --squash --delete-branch --admin
-   gh stack sync --prune   # after merge; realign remaining layers
-   ```
-7. Only then move to the next PR up the stack. Repeat until the stack is fully merged.
-
-Do **not** batch-merge the whole stack until every lower layer has passed rubber-duck + adversarial
-review and comment/check cleanup. Prefer one-PR-at-a-time bottom-up merges so each layer's review
-is honest against its final base.
-
-## Hard rules
-
-- Interactive stages (brainstorming, plan approval, dispatch permission) happen in the MAIN
-  conversation — subagents cannot ask the user anything.
-- One writer per shared file: Linear, `docs/design/traceability.md`, ledgers, registries, GAPS-style
-  registers, and the state file are coordinator-only. Implementation agents report deltas via the
-  handback schema (`.sdlc/report.json` locally, a fenced `sdlc-report` block on cloud PRs); you
-  apply them serially.
-- An issue/layer is Done only when (a) GitHub reports the PR checks green — queried by you, not
-  taken from the implementation agent — **or** only billing/budget failures remain and are
-  documented on the PR + state file, (b) the independent review pass succeeds, (c) all PR
-  comments/threads are addressed, and (d) the PR is **squash-merged**. Billing-red CI is not a
-  reason to leave a reviewed PR open.
-- Perf, contract (PACT), and feature (cucumber) tests are first-class: acceptance criteria become
-  failing tests before implementation starts.
-- Use this repo's performance-first loop: search before validate; narrow `agent:check` before
-  package/repo scope; no broad test sweeps as diagnostics.
-- Cross-agent availability: this skill is **mirrored** in `.agents/skills/sdlc` (Cursor, Codex,
-  Grok, and other agents that load `.agents/skills`) and `.claude/skills/sdlc` (Claude Code).
-  Keep both trees byte-identical (`pnpm run skills:mirror-check`).
-
-## Reference routing
-
-Use the [reference index](references/index.md) to route by phase.
-
-- **Session land / `--finish`:** `references/finish.md`
-- Stack create/sync/merge + bottom-up closeout: `references/stacked-prs.md`
-- Dispatch backends, handback, Done rule: `references/dispatch.md`
-- Brainstorm / plan / Linear / loops / cascade: remaining files under `references/`
-- Raw `gh stack` CLI for agents: companion skill `gh-stack`
-- Repo git/PR hygiene: `repo` skill → `references/git-pr.md`
-- Durable coordinator state: [`docs/plans/dispatch-log.md`](../../docs/plans/dispatch-log.md)
+See [references/index.md](references/index.md) for the full progressive-disclosure map.
 
 ## Invocation examples
 
 ```text
-/sdlc                         # full loop (or resume sdlc-state)
-/sdlc --finish                # commit, rebase, PR, squash-merge all session work
-/sdlc finish                  # same as --finish
+/sdlc help
+/sdlc help finish
+/sdlc
+/sdlc finish
+/sdlc clean --merged-only --dry-run
+/sdlc review --design --security
+/sdlc test --persona @persona.github_open_source_contributor
+/sdlc evidence --feature community-web-receipts
+/sdlc gate --push
+/sdlc eval --initiative anti-slop-zero
+/sdlc skills --promote --dry-run
+/sdlc skills --sleep
+/sdlc skills --workflow
+/sdlc docs --fix
+/sdlc docs --audit --dry-run
+/sdlc init
 ```

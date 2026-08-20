@@ -1,42 +1,43 @@
 ---
 type: Agent Skill Reference
 title: "SDLC loops and gates"
-description: "Red/green inner loop and narrow-then-wide outer loop with required perf/contract/feature lanes."
-tags: [epoch, sdlc, tdd, gates]
-timestamp: 2026-07-02T00:00:00Z
+description: "Red/green inner loop and narrow-then-wide outer loop with persona, Pact, and gate:commit lanes."
+tags: [epoch, sdlc, tdd, gates, pact, persona]
+timestamp: 2026-08-20T00:00:00Z
 ---
 
 # Loops & gates
 
 ## Inner loop (one package, minutes)
 
-Strict red/green (compose with the `tdd` skill / Superpowers test-driven-development):
+Strict red/green (compose with `sdlc test`):
 
-1. **Red:** write the failing test FIRST. The issue's acceptance checklist IS the test list —
-   unit (`test/`), contract (PACT fixtures + consumer tests), feature (cucumber `features/` for
-   epic behavior — ATDD: acceptance criteria become the failing scenario), bench (perf-critical
-   paths; must execute).
-2. **Green:** the smallest change that passes. Prefer compile-time feedback: typecheck,
-   generated-contract, CUE, and PACT failures are design feedback, not cleanup.
-3. **Refactor** with the tests green; `ponytail` the result.
-4. Package scope: `pnpm exec turbo run test --filter ./src/draft/<kind>/<slug>` (exp proofs:
-   `./src/draft/exp-proofs/<type>/<slug>`) or `pnpm --prefix <workspace> test`.
+1. **Red:** failing test FIRST from the persona acceptance checklist —
+   unit (`test/`), **Pact** contract tests, Gherkin `features/` (ATDD), benches when perf-critical.
+2. **Green:** smallest change that passes. Typecheck / Pact failures are design feedback.
+3. **Refactor** with tests green.
+4. Package / focused cucumber or unit commands — avoid monorepo-wide sweeps as diagnostics.
 
 ## Outer loop (branch, hours)
 
-- Before every commit: `pnpm agent:check -- --staged` (policy auto-selects the draft-artifact,
-  cascade, mirror, docs, and workspace lanes for the change).
-- **Incremental checkins:** implementers commit after each red→green step, not once at the end.
-- After committing: no-arg `pnpm agent:check` validates the latest commit.
-- Whole-branch confidence (`--base=origin/main`) only at PR time; CI (Quality Gates)
-  is the arbiter the coordinator queries for the Done rule.
-- Multi-layer work: parent keeps the stack in sync (`gh stack sync` / `rebase --upstack`) after
-  lower-layer commits so upper-layer gates run on realistic bases.
-- Never bypass hooks or gates; failures either get fixed or become explicit, ADR-backed waivers
-  (billing-budget exceptions are recorded on the PR + state file — see `stacked-prs.md`).
+- Before every commit: **`npm run gate:commit`** (hooks enforce this). Never bypass hooks.
+- **Incremental checkins** after each red→green step.
+- Whole-branch confidence at PR time; CI Quality Gates are the Done arbiter.
+- Multi-layer work: `gh stack sync` / rebase after lower-layer commits; **`sdlc review`** before
+  merging each PR.
+- Billing-budget CI exceptions: see `stacked-prs.md` / `finish.md`.
 
-## Required lanes (first-class, non-negotiable)
+## Required lanes (first-class)
 
-- **Contract tests** — every service boundary (PACT); `test:contract:consumer|provider`.
-- **Feature tests** — executable cucumber via `test:behavior`.
-- **Perf tests** — `bench/*.bench.ts` execute (numbers advisory, committed for trend).
+- **Persona feature tests** — cucumber `features/*.feature` with `@persona.*` (Playwright for
+  browser steps). See `stages/test.md` and `persona-minimum.md`.
+- **Contract tests** — Pact at HTTP/integration boundaries (`npm run test:pact`). Prefer Pact
+  over **new** full-stack e2e when the boundary is contractual.
+- **Anti-slop + design** — `lint:oxlint`, `design:lint`, `design:audit` inside `gate:commit`.
+- **Evidence** — for completed user-visible features (`stages/evidence.md`).
+- **Perf** — benches where latency is a persona-visible risk.
+
+## Explicitly not the default for new work
+
+Adding new Community Web full-stack e2e suites when Pact + persona Gherkin already cover the
+outcome. Existing e2e jobs remain until a dedicated migration.

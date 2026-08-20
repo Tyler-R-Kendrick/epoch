@@ -100,7 +100,7 @@ commits concern-scoped per branch.
 Instruct every implementer:
 
 1. Red tests → green minimal fix → commit (small steps).
-2. `pnpm agent:check -- --staged` before every commit.
+2. `npm run gate:commit` before every commit.
 3. Conventional commits; multiple commits per layer expected.
 4. Never edit coordinator-owned shared files; report `cascadeDeltas`.
 5. Do not run `gh stack merge` / `gh stack unstack` / restructure.
@@ -116,7 +116,9 @@ gh stack view --json
 ```
 
 Edit PR bodies after submit if needed (`gh pr edit`) — include initiative link, layer purpose,
-acceptance summary, and for cloud handbacks the `sdlc-report` fence.
+acceptance summary, for cloud handbacks the `sdlc-report` fence, and the standard
+`## SDLC evidence` section when the layer is persona-visible (`stages/evidence.md`). Also post
+the sticky evidence comment.
 
 Update `sdlc-state.md` with stack number, branch order, PR URLs.
 
@@ -174,11 +176,19 @@ For PR at index `i` (bottom first):
    - Shared-file edits that should have been cascade deltas.
    - Silent test skips or gate bypasses.
 
-4. **Independent review**
-   - Spawn `reviewer` subagent or re-run acceptance checklist + relevant gates yourself.
+4. **`sdlc review`** (default: security + design + architecture)
+   - Follow `stages/review.md`; write `.sdlc/reviews/<pr>.yaml`.
+   - Blocking findings must be fixed before merge.
+
+5. **`sdlc evidence` on the PR**
+   - Ensure `## SDLC evidence` is in the PR body and as a sticky comment
+     (`stages/evidence.md`). Missing evidence blocks merge for persona-visible layers.
+
+6. **Independent review**
+   - Spawn `reviewer` subagent or re-run acceptance checklist + `npm run gate:commit` yourself.
    - Query GitHub checks yourself; never trust implementer "green" alone.
 
-5. **All PR comments and review feedback**
+7. **All PR comments and review feedback**
    ```bash
    gh pr view <n> --comments
    gh api repos/{owner}/{repo}/pulls/<n>/comments
@@ -188,7 +198,7 @@ For PR at index `i` (bottom first):
    - Resolve threads after addressing.
    - Re-request review if human reviewers are in the loop.
 
-6. **Status checks**
+8. **Status checks**
    - Wait for required checks **when runners can start**.
    - On real (code) failure: fix on this layer, commit, `gh stack push` / `gh stack sync`, re-check.
    - **Billing / budget / quota — do not block merge:**
@@ -208,7 +218,7 @@ For PR at index `i` (bottom first):
      5. This exception **never** covers failing tests, lint, architecture, secret-scan content
         findings, or any check that actually executed and found a defect.
 
-7. **Squash-merge this PR**
+9. **Squash-merge this PR**
    ```bash
    gh stack merge <pr-number> --yes --squash
    # single PR: gh pr merge <pr-number> --squash --delete-branch
@@ -218,7 +228,7 @@ For PR at index `i` (bottom first):
    Prefer merging **one PR at a time** after its review so the next layer rebases onto real trunk
    history (especially after squash-merge). Do not leave comments unresolved "for later."
 
-8. Advance to the next PR up the stack. Repeat until none remain.
+9. Advance to the next PR up the stack. Repeat until none remain.
 
 ### Stack-complete criteria
 
@@ -264,6 +274,7 @@ When layers are implemented by cloud coding agents that open their own branches/
 
 - `finish.md` — `/sdlc --finish` session land (commit + all session PRs through squash-merge)
 - `dispatch.md` — backend matrix, claim protocol, handback schema
-- `loops-and-gates.md` — red/green and agent:check ladder
+- `loops-and-gates.md` — red/green and `gate:commit` ladder
+- `stages/review.md` — required between stacked PRs before squash-merge
 - `repo` skill `references/git-pr.md` — single-PR hygiene (stacks supersede for multi-layer)
 - Companion skill `gh-stack` — full non-interactive CLI reference

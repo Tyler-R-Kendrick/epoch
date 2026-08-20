@@ -1,0 +1,257 @@
+{
+  "format": "skillopt_sleep.tasks.v1",
+  "project": "/home/codex/.herdr/worktrees/epoch",
+  "transcript_source": "curated-conversation-feedback",
+  "n_sessions": 1,
+  "target_skill_path": "/home/codex/.herdr/worktrees/epoch/skills/sdlc/SKILL.md",
+  "reviewed": true,
+  "notes": "Curated from feat/sdlc-skill-expansion chat: help, SkillOpt-on-init (no npm task), PR evidence, docs, hygiene, operations. Evidence task split into train+val so reflection can fire on train failures.",
+  "tasks": [
+    {
+      "id": "sdlc-help-usage",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "The user says: sdlc help. What do you do? List the exact first actions and which subcommands you mention.",
+      "context_excerpt": "User wants usage help for the Epoch SDLC skill router, not product implementation.",
+      "attempted_solution": "Previously agents started product work instead of printing usage.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "Print usage from help.md and stop; mention help, finish, clean, review, docs, skills, init",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "help" },
+          { "op": "contains", "arg": "finish" },
+          { "op": "contains", "arg": "clean" },
+          { "op": "regex", "arg": "(?i)\\b(stop|do not start|without starting|print usage|usage block)\\b" }
+        ]
+      },
+      "tags": ["sdlc", "help"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "train",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-skillopt-init-once",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "How should Microsoft SkillOpt be installed for Epoch agents? Should there be an npm run agents:install-skillopt script?",
+      "context_excerpt": "User rejected a standing npm task; install is once on sdlc init via node scripts/install-skillopt.mjs.",
+      "attempted_solution": "Agent added npm run agents:install-skillopt scripts.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "Install once via sdlc init / node scripts/install-skillopt.mjs; no npm task",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "init" },
+          { "op": "contains", "arg": "install-skillopt" },
+          { "op": "regex", "arg": "(?i)(no npm|not via npm|do not add.*npm|once|one-time|idempotent)" }
+        ]
+      },
+      "tags": ["sdlc", "skillopt"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "train",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-pr-evidence-block",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "Before squash-merging a persona-visible feature PR, what evidence must appear on the GitHub PR, and where is the pack stored?",
+      "context_excerpt": "SDLC requires docs/evidence pack plus visible PR ## SDLC evidence section.",
+      "attempted_solution": "Mentioned sticky comment only; omitted docs/evidence path.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "docs/evidence/<slug>/ plus ## SDLC evidence body + sticky comment",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "SDLC evidence" },
+          { "op": "contains", "arg": "docs/evidence" },
+          { "op": "regex", "arg": "(?i)(sticky comment|pr comment|pr body)" }
+        ]
+      },
+      "tags": ["sdlc", "evidence"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "train",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-pr-evidence-block-val",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "Reviewer asks: where is the evidence pack stored, and what heading must the PR show?",
+      "context_excerpt": "Held-out paraphrase of PR evidence requirements.",
+      "attempted_solution": "Mentioned sticky comment only; omitted docs/evidence path.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "docs/evidence/<slug>/ and ## SDLC evidence",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "SDLC evidence" },
+          { "op": "contains", "arg": "docs/evidence" },
+          { "op": "regex", "arg": "(?i)(sticky|pr body|pull request)" }
+        ]
+      },
+      "tags": ["sdlc", "evidence"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "val",
+      "origin": "real",
+      "derived_from": "sdlc-pr-evidence-block"
+    },
+    {
+      "id": "sdlc-docs-freshness",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "A layer changed CLI flags. Which sdlc command do you run for documentation, and what gate proves links/orphans are OK?",
+      "context_excerpt": "Documentation must follow freshness matrix in the same PR.",
+      "attempted_solution": "Docs deferred to a follow-up PR with no justification.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "sdlc docs --fix and npm run docs:check",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "docs" },
+          { "op": "contains", "arg": "docs:check" },
+          { "op": "regex", "arg": "(?i)(freshness|same.?pr|matrix)" }
+        ]
+      },
+      "tags": ["sdlc", "docs"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "train",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-repo-hygiene",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "An implementer wants a new packages/Epoch.TinyHelper package for a 40-line utility used by one module. What does sdlc say?",
+      "context_excerpt": "Repo hygiene: extend existing modules; avoid file/folder explosion.",
+      "attempted_solution": "Created a new package for a thin helper.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "Reject new package; extend existing module; high cohesion",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "regex", "arg": "(?i)(extend|existing|colocate|do not|don't|reject|avoid)" },
+          { "op": "regex", "arg": "(?i)(package|module|hygiene|bloat|sprawl)" },
+          { "op": "regex", "arg": "(?i)(cohesion|coupling|repo-hygiene|anti-bloat)" }
+        ]
+      },
+      "tags": ["sdlc", "hygiene"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "val",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-clean-worktrees",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "Stack layers are squash-merged. How do you clean session branches and worktrees safely?",
+      "context_excerpt": "Parent owns cleanup after merge; merged-only by default.",
+      "attempted_solution": "git clean -fdx and deleted unrelated user branches.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "sdlc clean --merged-only --worktrees; never git clean -fdx",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "clean" },
+          { "op": "contains", "arg": "merged-only" },
+          { "op": "regex", "arg": "(?i)worktree" },
+          { "op": "regex", "arg": "(?i)(never|do not|don't).{0,40}git clean|no git clean" }
+        ]
+      },
+      "tags": ["sdlc", "operations"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "test",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-prefer-microsoft-skillopt",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "Should Epoch use lean-skillopt community forks or Microsoft SkillOpt for skill evolution?",
+      "context_excerpt": "Locked preference: microsoft/SkillOpt including SkillOpt-Sleep.",
+      "attempted_solution": "Suggested an unmaintained lean fork.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "Prefer microsoft/SkillOpt; do not prefer lean forks",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "SkillOpt" },
+          { "op": "regex", "arg": "(?i)microsoft" },
+          { "op": "regex", "arg": "(?i)(prefer|default|do not prefer|not prefer|avoid).{0,60}lean|lean.{0,40}(not|avoid|do not)" }
+        ]
+      },
+      "tags": ["sdlc", "skillopt"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "test",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-new-work-pact",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "For new user-visible Community API boundary work, which test mix does sdlc require by default?",
+      "context_excerpt": "New work: persona Gherkin + Playwright driver + Pact; no new full-stack e2e by default.",
+      "attempted_solution": "Added a new full-stack e2e suite by default.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "Gherkin + Playwright + Pact; no new full-stack e2e by default",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "Pact" },
+          { "op": "regex", "arg": "(?i)(gherkin|persona|feature)" },
+          { "op": "regex", "arg": "(?i)playwright" },
+          { "op": "regex", "arg": "(?i)(no new|not add|do not add|avoid).{0,40}e2e|e2e.{0,40}(default|migrat)" }
+        ]
+      },
+      "tags": ["sdlc", "test"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "train",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-finish-authorizes-merge",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "User says /sdlc finish with uncommitted skill work on feat/sdlc-skill-expansion. What do you do, and do you ask again before squash-merge?",
+      "context_excerpt": "finish.md: finish is authorization to push, PR, and squash-merge; billing-red CI does not block.",
+      "attempted_solution": "Stopped after opening a PR and waited for human merge approval.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "Run finish protocol to squash-merge; do not re-ask for merge permission",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "finish" },
+          { "op": "regex", "arg": "(?i)(squash.?merge|merge)" },
+          { "op": "regex", "arg": "(?i)(do not re-ask|without re-asking|authorization|authorized|do not ask again)" },
+          { "op": "regex", "arg": "(?i)(commit|rebase|pr|pull request)" }
+        ]
+      },
+      "tags": ["sdlc", "finish"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "train",
+      "origin": "real"
+    },
+    {
+      "id": "sdlc-epoch-gate-not-pnpm",
+      "project": "/home/codex/.herdr/worktrees/epoch",
+      "intent": "What command must implementers run before every commit in Epoch? Is it pnpm agent:check?",
+      "context_excerpt": "Epoch uses npm run gate:commit; never instruct pnpm agent:check.",
+      "attempted_solution": "Told the subagent to run pnpm agent:check -- --staged.",
+      "outcome": "fail",
+      "reference_kind": "rule",
+      "reference": "npm run gate:commit; not pnpm agent:check",
+      "judge": {
+        "kind": "rule",
+        "checks": [
+          { "op": "contains", "arg": "gate:commit" },
+          { "op": "regex", "arg": "(?i)(not|never|do not|don't).{0,30}pnpm agent:check|no pnpm agent:check" }
+        ]
+      },
+      "tags": ["sdlc", "gate"],
+      "source_sessions": ["feat-sdlc-skill-expansion"],
+      "split": "val",
+      "origin": "real"
+    }
+  ]
+}

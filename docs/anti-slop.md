@@ -13,7 +13,8 @@ that reject low-evidence TypeScript and JavaScript patterns. See
 | `npm run lint:oxlint` | Runs Oxlint / anti-slop |
 
 `npm run lint:oxlint` is part of `gate:fast` and the CI Lint job alongside ESLint.
-Do not weaken anti-slop rules in `oxlint.config.ts` to greenwash findings.
+`sdlc gate` / `sdlc finish` require a clean anti-slop run (do not weaken rules in
+`oxlint.config.ts` to greenwash findings).
 
 ## Agent hosts
 

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.local/sdlc/eval.schema.json",
+  "title": "SDLC eval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "initiative", "scores", "status", "recordedAt"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "initiative": { "type": "string", "minLength": 1 },
+    "layer": { "type": ["string", "null"] },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personaOutcome",
+        "minimumSpec",
+        "designCraft",
+        "security",
+        "antiSlop",
+        "contracts",
+        "evidence",
+        "delivery",
+        "repoHygiene",
+        "docsAccuracy"
+      ],
+      "properties": {
+        "personaOutcome": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "minimumSpec": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "designCraft": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "security": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "antiSlop": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "contracts": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "evidence": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "delivery": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "repoHygiene": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "docsAccuracy": { "type": "integer", "minimum": 1, "maximum": 5 }
+      }
+    },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "recordedAt": { "type": "string" }
+  }
+}

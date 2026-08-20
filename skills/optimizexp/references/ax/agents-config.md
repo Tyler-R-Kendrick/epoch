@@ -56,8 +56,12 @@ Same one-shot issue contract for cloud coding agents (handback `sdlc-report` fen
 3. Document resume/reconcile (sdlc dispatch)
 4. Superpowers: note skills load at **session start**
 5. Keep host matrix in AGENTS + this file aligned
+6. Evolve skills with Microsoft SkillOpt / SkillOpt-Sleep; harness workflows only for the
+   active host — [`skills/sdlc` skill-evolution](../../../sdlc/references/skill-evolution.md).
+   Install CLIs once via `sdlc init` (`node scripts/install-skillopt.mjs`).
 
 ## Related
 
 - [hooks-plugins.md](hooks-plugins.md)
 - [model-routing.md](model-routing.md) — cloud vs local implementers
+- [../../../sdlc/references/skill-evolution.md](../../../sdlc/references/skill-evolution.md) — SkillOpt + workflows

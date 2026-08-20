@@ -82,7 +82,7 @@ decisions, operations, or contribution workflow.
 | [Platform Core And SDK APIs](sdk.md) | Repository lifecycle, async actor API, CRDT operations, React integration, hooks, sync, Git-compatible core surfaces, and `Epoch.Platform.Core` / `Epoch.Platform.Sdk` APIs. |
 | [Platform Packages](platforms.md) | Separate `Epoch.Platform.Web`, `Epoch.Community.*`, and Community Operations package responsibilities and integration boundary. |
 | [HA/DR Runbook](HA-DR.md) | Compacts, seed bootstrap, cold backups, and disaster recovery operator flow. |
-| [Documentation Freshness Policy](documentation-freshness.md) | Required docs update matrix, no-orphan rules, and docs check command. |
+| [Documentation Freshness Policy](documentation-freshness.md) | Required docs update matrix, no-orphan rules, and docs check command. SDLC: [`sdlc docs`](../skills/sdlc/references/documentation.md). |
 
 ## Design Decisions And ADRs
 
@@ -154,6 +154,10 @@ decisions, operations, or contribution workflow.
 | [Community Web Startup And Routing Plan](plans/community-web-startup-routing/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, next-action guidance, and focus expansion. |
 | [Federation Hardening State](plans/federation-hardening/sdlc-state.md) | Closed record for trust posture, NATS discovery, native channels, gated bridges, and test lanes. |
 | [Anti-slop (Oxlint)](anti-slop.md) | Vendored anti-slop Oxlint rules for agent hosts; required alongside ESLint in `gate:fast` and CI. |
+| [SDLC store](../.sdlc/README.md) | Machine-readable decisions, reviews, evals, and active initiative pointer for the SDLC skill. |
+| [SDLC skill](../skills/sdlc/SKILL.md) | Persona-first delivery loop with subcommands (`finish`, `clean`, `review`, `test`, …); mirrored into agent hosts. |
+| [SDLC Skill Expansion State](plans/sdlc-skill-expansion/sdlc-state.md) | Active record for subcommand router, `.sdlc/` store, SkillOpt-on-init, and host symlinks. |
+| [SDLC Skill Expansion Evidence](evidence/sdlc-skill-expansion/README.md) | Process evidence for skill mirrors, SkillOpt check, and gate replay (no persona UI). |
 | [Community Web Voice Tray State](plans/community-web-voice-grid/sdlc-state.md) | Closed record for persistent lounge voice connections and Grid design-system cleanup. |
 | [XMPP Channel Fanout State](plans/xmpp-channel-fanout/sdlc-state.md) | Closed record for public-channel s2s fanout, Verify goldens, mutant kill, and chaos envelopes. |
 | [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Closed record for Verify goldens, Protocol mutant kill, honest lane inventory, and the 80% branch floor. |

@@ -33,7 +33,9 @@ documentation, and is excluded from this navigation check.
 | WASM export or unsupported native behavior | `skills/epoch/references/wasm.md` and any relevant public docs |
 | HA/DR compact, backup, restore, or seed workflow | `docs/HA-DR.md`, `docs/features.md`, and relevant feature specs |
 | Dependency exception, override, or security rationale | `docs/dependency-exceptions.md` and the relevant ADR |
-| Agent workflow, quality gate, documentation policy, or skill behavior | `AGENTS.md`, `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and `skills/epoch/` references |
+| Agent workflow, quality gate, documentation policy, or skill behavior | `AGENTS.md`, `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `skills/epoch/` references, and `skills/sdlc/` when the delivery loop changes |
+| SDLC machine decisions, reviews, evals, or active initiative pointer | `.sdlc/` (schemas + YAML) and, when material to humans, an ADR under `docs/design-decisions/` |
+| Agent skill optimization (SkillOpt / Sleep), promoted chat patterns, or harness-native agent workflows | `skills/sdlc/references/skill-evolution.md`, host matrix in `skills/optimizexp/references/ax/agents-config.md`, and mirrored host skill/workflow paths only for harnesses in active use |
 
 ## Agent Checklist
 
@@ -47,5 +49,8 @@ Before finishing a change, agents must:
 4. Keep the root `README.md` focused on value proposition, quick start,
    contribution basics, and links to deeper docs.
 5. Run `npm run docs:check` and the required quality gates.
+
+SDLC coordinators: follow [`skills/sdlc/references/documentation.md`](../skills/sdlc/references/documentation.md)
+(`sdlc docs`) for accuracy audits, Diátaxis-aligned house style, and when to open ADRs.
 
 If no documentation update is needed, state why in the pull request.
