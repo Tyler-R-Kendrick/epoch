@@ -25,4 +25,4 @@
 
 ## Stack / PRs
 
-- Single delivery PR [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176) — merge SHA filled after squash-merge.
+- Single delivery PR [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176) — squash-merged [`a4a4277`](https://github.com/Tyler-R-Kendrick/epoch/commit/a4a427703bf305604686f80209a134d007303665).
