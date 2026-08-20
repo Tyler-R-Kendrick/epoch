@@ -731,9 +731,9 @@ implementations; it imports no Node persistence or browser globals. Structured
 expression inputs use `@oneOf`, and list/search connections use keyset cursors.
 
 `@epoch/community-api` supplies the transactional `CommunityStateStore` and
-canonical persistence/migration boundary. Schema 1 and schema 2 are accepted
-data inputs, then normalized to one current model; they are not old SDKs kept
-alive. Invalid Projection Definitions are quarantined for export.
+canonical persistence boundary. Only schema version 3 is accepted on disk;
+`seedCommunityState` builds current state for in-memory fixtures. Invalid
+Projection Definitions are quarantined for export.
 `createCommunityApiHost` wires the store, search, projection, namespace, and
 GraphQL fetch handler. `createCommunityApiFetchHandler` without services still
 fails closed on those routes.

@@ -15,6 +15,7 @@ import {
   createInMemoryCommunityApi,
   createMemoryCommunityStateStore,
   migrateCommunityState,
+  seedCommunityState,
   type CommunityServiceApis,
   type CommunityStateV3,
 } from "@epoch/community-api";
@@ -3262,23 +3263,22 @@ Then("reopening the replica returns the same authorized Entities and checkpoint"
   assert.deepEqual(reopened.checkpoint, first.checkpoint);
 });
 
-Given("persisted schema 2 contains stable Entity IDs and a saved query record", function () {
-  deterministicJourney.set("schema2", {
-    schemaVersion: 2,
-    repositories: [],
-    objects: [{
-      ref: { objectId: "message-stable", kind: "message" },
-      context: { objectId: "channel-general", kind: "channel" },
-      authorId: "maya",
-      title: "Stable migrated message",
-      body: "Migration must not invent identity or time.",
-      publishedAt: "2026-07-01T10:00:00.000Z",
-      updatedAt: "2026-07-02T10:00:00.000Z",
-      threadRoot: { objectId: "message-stable", kind: "message" },
-      relations: [],
-      state: "needs-review",
-      aliases: ["general/42"],
-    }],
+Given("persisted schema 3 contains stable Entity IDs and a saved Projection Definition", function () {
+  const message = {
+    ref: { objectId: "message-stable", kind: "message" as const },
+    context: { objectId: "channel-general", kind: "channel" as const },
+    authorId: "maya",
+    title: "Stable message",
+    body: "Reload must not invent identity or time.",
+    publishedAt: "2026-07-01T10:00:00.000Z",
+    updatedAt: "2026-07-02T10:00:00.000Z",
+    threadRoot: { objectId: "message-stable", kind: "message" as const },
+    relations: [],
+    state: "needs-review",
+    aliases: ["general/42"],
+  };
+  deterministicJourney.set("schema3", seedCommunityState({
+    messages: [message],
     projections: [{
       projectionId: "projection-needs-review",
       version: 1,
@@ -3291,31 +3291,29 @@ Given("persisted schema 2 contains stable Entity IDs and a saved query record", 
       createdAt: "2026-07-03T00:00:00.000Z",
       updatedAt: "2026-07-04T00:00:00.000Z",
     }],
-  });
-  deterministicJourney.set("migrationContext", {
+  }, {
     clock: { now: () => new Date(FIXED_NOW) },
-    idGenerator: { generate: (namespace: string) => `${namespace}-migration` },
+    idGenerator: { generate: (namespace: string) => `${namespace}-seed` },
     timezone: "UTC",
     locale: "en-US",
-  });
+  }));
 });
 
-When("Community migrates and reloads the state", async function () {
-  const migrated = migrateCommunityState(deterministicJourney.get("schema2"), journey("migrationContext"));
-  const store = createMemoryCommunityStateStore(migrated);
+When("Community reloads the state", async function () {
+  const initial = journey<CommunityStateV3>("schema3");
+  const store = createMemoryCommunityStateStore(initial);
   const exported = await store.export();
   const reloaded = createMemoryCommunityStateStore(exported);
-  deterministicJourney.set("migrated", migrated);
   deterministicJourney.set("reloaded", await reloaded.export());
 });
 
 Then("one current Projection Definition preserves the IDs timestamps query semantics and aliases", function () {
   const state = journey<CommunityStateV3>("reloaded");
   assert.equal(state.projectionDefinitions.length, 1);
-  const migratedEntity = state.entities.find((candidate) => candidate.ref.objectId === "message-stable");
-  assert.equal(migratedEntity?.createdAt, "2026-07-01T10:00:00.000Z");
-  assert.equal(migratedEntity?.updatedAt, "2026-07-02T10:00:00.000Z");
-  assert.deepEqual(migratedEntity?.fields.aliases, ["general/42"]);
+  const entity = state.entities.find((candidate) => candidate.ref.objectId === "message-stable");
+  assert.equal(entity?.createdAt, "2026-07-01T10:00:00.000Z");
+  assert.equal(entity?.updatedAt, "2026-07-02T10:00:00.000Z");
+  assert.deepEqual(entity?.fields.aliases, ["general/42"]);
   const definition = state.projectionDefinitions[0]?.definition;
   assert.equal(definition?.projectionId, "projection-needs-review");
   const select = definition?.root.kind === "literal" ? definition.root.children[0] : undefined;
@@ -3324,11 +3322,9 @@ Then("one current Projection Definition preserves the IDs timestamps query seman
   if (where?.kind === "compare") assert.deepEqual({ kind: where.kind, field: where.field, operator: where.operator, value: where.value }, { kind: "compare", field: "state", operator: "eq", value: "needs-review" });
 });
 
-Then("rerunning migration produces the same state without a compatibility API", function () {
+Then("reloading again produces the same state", function () {
   const reloaded = journey<CommunityStateV3>("reloaded");
-  assert.deepEqual(migrateCommunityState(reloaded, journey("migrationContext")), reloaded);
-  assert.equal(Object.hasOwn(reloaded, "projections"), false);
-  assert.equal(Object.hasOwn(reloaded, "objects"), false);
+  assert.deepEqual(migrateCommunityState(reloaded), reloaded);
 });
 
 Given("a structured GraphQL search and text search express the same authorized predicate", async function () {

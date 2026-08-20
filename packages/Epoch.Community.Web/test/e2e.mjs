@@ -9496,7 +9496,7 @@ const CASES = [
     name: "NAV-MIGRATE-004 Projection Definition recovery reuses the actionable recovery surface",
     firstVisit: true,
     storage: {
-      "cw-saved-views-v2": "{malformed saved view state",
+      "cw-projection-definitions-v1": "{malformed projection definition state",
     },
     run: async (page, log) => {
       await page.waitForTimeout(100);
@@ -9505,7 +9505,7 @@ const CASES = [
         exportAction: !!document.querySelector("[data-session-recovery-export]"),
         resetAction: !!document.querySelector("[data-session-recovery-reset]"),
         surfaces: document.querySelectorAll("[data-session-recovery]").length,
-        preserved: localStorage.getItem("cw-saved-views-v2"),
+        preserved: localStorage.getItem("cw-projection-definitions-v1"),
         status: window.CW_WORKBENCH.definitionStatus(),
       }));
       if (!recovery.exportAction || !recovery.resetAction) {
@@ -9515,7 +9515,7 @@ const CASES = [
       await page.waitForTimeout(100);
       const reset = await page.evaluate(() => ({
         surface: !!document.querySelector("[data-session-recovery]"),
-        stored: localStorage.getItem("cw-saved-views-v2"),
+        stored: localStorage.getItem("cw-projection-definitions-v1"),
         status: window.CW_WORKBENCH.definitionStatus(),
       }));
       return recovery.surfaces === 1 && !!recovery.preserved &&

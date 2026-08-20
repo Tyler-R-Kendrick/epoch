@@ -14,7 +14,7 @@ metadata read-only.
 |---|---|---|
 | Search language, planner, reference backend, cursors, privacy | Core unit and adversarial tests | Pass: typecheck, build, focused unit tests, seeded fuzz smoke, and migration recovery. |
 | Projection compiler/runtime/namespace | compiler, execution, namespace, and Nightboard navigation tests | Pass, including repeated targets, stable occurrences, recovery routes, collision order, and lazy path execution. |
-| Canonical store and schema 1/2 migration | Community API persistence/migration tests | Pass; timestamps and IDs are stable and invalid definitions quarantine. |
+| Canonical store schema 3 persistence | Community API persistence/seed tests | Pass; older schemas are refused and invalid seed definitions quarantine. |
 | GraphQL schema, `@oneOf`, execution, subscriptions | `packages/Epoch.Community.GraphQL/test/` | Pass; the Nightboard host uses the portable schema rather than a duplicate implementation. |
 | Reference and Orama backends | `community-search:conformance` | Pass for the supported semantic corpus. |
 | SQLite WASM/FTS5 | `community-search:sqlite-runtime` | Pass against official SQLite WASM 3.53.0-build1 with real FTS5 and hostile bound values. |

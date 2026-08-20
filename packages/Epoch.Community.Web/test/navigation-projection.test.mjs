@@ -385,7 +385,7 @@ assert.equal(generalJumpCandidates.filter((candidate) =>
   candidate.path === "/projects/community/channels/general").length, 1,
 "NAV-JUMP-003 one destination is not duplicated across CURRENT and GLOBAL groups");
 
-// NAV-QUERY-004: persisted query schemas migrate once into Projection Definitions.
+// Projection definitions load from the current key only; older saved-view keys are ignored.
 const schemaInputStorage = storage({
   "cw-saved-views-v1": JSON.stringify({
     views: [{ id: "view-stable", label: "Old review", query: " state:needs-review  sort:new " }],
@@ -396,36 +396,33 @@ load("community-core-runtime.js", schemaInputWindow);
 load("data.js", schemaInputWindow);
 load("query.js", schemaInputWindow);
 load("workbench.js", schemaInputWindow);
-assert.equal(schemaInputWindow.CW_WORKBENCH.definitions()[0].root.children[0].where.field, "state");
-const migratedOnce = schemaInputStorage.snapshot()["cw-projection-definitions-v1"];
-load("workbench.js", schemaInputWindow);
-assert.equal(schemaInputStorage.snapshot()["cw-projection-definitions-v1"], migratedOnce);
+assert.deepEqual(schemaInputWindow.CW_WORKBENCH.definitions(), []);
 
-// Schema-v2 queries migrate through Core, while malformed state remains exportable and write-blocked.
-const v2Storage = storage({
-  "cw-saved-views-v2": JSON.stringify({
-    schemaVersion: 2,
-    views: [{ projectionId: "view-v2", label: "V2", visibility: "private", ownerId: "owner",
-      query: " state:open  sort:new ", queryLanguageVersion: 0, order: "new", version: 1 }],
-  }),
+const currentStorage = storage({
+  "cw-projection-definitions-v1": JSON.stringify([{
+    projectionId: "view-current",
+    label: "Current",
+    version: 1,
+    root: { nodeId: "root", kind: "literal", segment: "work", children: [] },
+  }]),
 });
-const v2Window = { localStorage: v2Storage };
-load("community-core-runtime.js", v2Window);
-load("data.js", v2Window);
-load("query.js", v2Window);
-load("workbench.js", v2Window);
-assert.equal(v2Window.CW_WORKBENCH.definitions()[0].root.children[0].where.field, "state");
+const currentWindow = { localStorage: currentStorage };
+load("community-core-runtime.js", currentWindow);
+load("data.js", currentWindow);
+load("query.js", currentWindow);
+load("workbench.js", currentWindow);
+assert.equal(currentWindow.CW_WORKBENCH.definitions()[0].projectionId, "view-current");
 
-// Malformed legacy and unreadable storage enter the same explicit recovery/write-block state.
-const badLegacyRaw = JSON.stringify({ views: "not-an-array" });
-const badLegacyStorage = storage({ "cw-saved-views-v1": badLegacyRaw });
-const badLegacyWindow = { localStorage: badLegacyStorage };
-load("community-core-runtime.js", badLegacyWindow);
-load("data.js", badLegacyWindow);
-load("query.js", badLegacyWindow);
-load("workbench.js", badLegacyWindow);
-assert.equal(badLegacyWindow.CW_WORKBENCH.exportDefinitions(), badLegacyRaw);
-assert.match(badLegacyWindow.CW_WORKBENCH.definitionStatus().message, /recovery required/i);
+// Malformed current definition state remains exportable and write-blocked.
+const badDefinitionsRaw = JSON.stringify({ views: "not-an-array" });
+const badDefinitionsStorage = storage({ "cw-projection-definitions-v1": badDefinitionsRaw });
+const badDefinitionsWindow = { localStorage: badDefinitionsStorage };
+load("community-core-runtime.js", badDefinitionsWindow);
+load("data.js", badDefinitionsWindow);
+load("query.js", badDefinitionsWindow);
+load("workbench.js", badDefinitionsWindow);
+assert.equal(badDefinitionsWindow.CW_WORKBENCH.exportDefinitions(), badDefinitionsRaw);
+assert.match(badDefinitionsWindow.CW_WORKBENCH.definitionStatus().message, /recovery required/i);
 
 const unreadableWindow = { localStorage: {
   getItem() { throw new Error("storage denied"); },
@@ -438,15 +435,15 @@ load("query.js", unreadableWindow);
 load("workbench.js", unreadableWindow);
 assert.match(unreadableWindow.CW_WORKBENCH.definitionStatus().message, /storage denied/i);
 
-const malformedRaw = "{broken-saved-views";
-const malformedStorage = storage({ "cw-saved-views-v2": malformedRaw });
+const malformedRaw = "{broken-projection-definitions";
+const malformedStorage = storage({ "cw-projection-definitions-v1": malformedRaw });
 const malformedWindow = { localStorage: malformedStorage };
 load("community-core-runtime.js", malformedWindow);
 load("data.js", malformedWindow);
 load("query.js", malformedWindow);
 load("workbench.js", malformedWindow);
 assert.equal(malformedWindow.CW_WORKBENCH.exportDefinitions(), malformedRaw);
-assert.equal(malformedStorage.snapshot()["cw-saved-views-v2"], malformedRaw);
+assert.equal(malformedStorage.snapshot()["cw-projection-definitions-v1"], malformedRaw);
 assert.equal(malformedWindow.CW_WORKBENCH.resetDefinitions(), true);
 assert.equal(malformedWindow.CW_WORKBENCH.exportDefinitions(), "[]");
 
