@@ -5,7 +5,7 @@ drive findings to zero with stacked PRs, confirm a second clean run.
 
 ## Phase
 
-`dispatch` — install skill restored; plugin force-copied; baseline is **0 findings**.
+`closeout` — install skill restored; plugin force-copied; baseline stayed **0 findings**; stacked WIP for legacy-state + design-chrome.
 
 ## Decisions
 
