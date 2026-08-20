@@ -1,5 +1,4 @@
 // SAFETY: The module validates or constructs this value before applying the asserted contract.
-// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import {
   CommunityError,
   communityMessageToEntity,
@@ -64,7 +63,7 @@ function legacyStateV1(input: BoundaryValue): LegacyStateV1 {
 }
 
 function legacyStateV2(input: BoundaryValue): LegacyStateV2 {
-  if (!record(input) || input.schemaVersion !== 2 || !Array.isArray(input.objects) || !Array.isArray(input.projections)) {
+  if (!record(input) || input.schemaVersion !== 2 || !Array.isArray(input.objects) || !Array.isArray(input.projections) || !Array.isArray(input.repositories)) {
     fail("Schema 2 state collections are invalid");
   }
   return {
@@ -135,11 +134,15 @@ export function migrateCommunityState(input: BoundaryValue, context: CommunityMi
         participantIds: message.context.kind === "dm" ? [message.authorId] : [],
       }), "objects");
     }
-  }
-
-  for (const value of legacyStateV1(input).repositories) {
-    // SAFETY: Legacy repository entries are migrated through migrateRepository validators.
-    for (const entity of migrateRepository(value as BoundaryValue, runtime, migratedAt)) add(entity, "repositories", sourceVersion === 2);
+    for (const value of state.repositories) {
+      // SAFETY: Legacy repository entries are migrated through migrateRepository validators.
+      for (const entity of migrateRepository(value as BoundaryValue, runtime, migratedAt)) add(entity, "repositories", true);
+    }
+  } else {
+    for (const value of legacyStateV1(input).repositories) {
+      // SAFETY: Legacy repository entries are migrated through migrateRepository validators.
+      for (const entity of migrateRepository(value as BoundaryValue, runtime, migratedAt)) add(entity, "repositories", false);
+    }
   }
   if (conflicts.length > 0) fail("Conflicting duplicate canonical objects require recovery", {
     recovery: { code: "DUPLICATE_CANONICAL_OBJECT", conflicts },

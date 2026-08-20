@@ -103,7 +103,15 @@ export function toLiveAction(action: CompatibleAction): LiveAction {
     return { type: action.type, payload: dictionaryPayload };
   }
   if (payload !== undefined) return { type: action.type, payload: { value: payload } };
-  return { type: action.type };
+  // Legacy Redux flat actions carry payload fields as own properties beside `type`.
+  // SAFETY: CompatibleAction is structural; callers may pass extra own keys at runtime.
+  const flat = action as CompatibleAction & Record<string, DictionaryValue>;
+  const rest: { [key: string]: DictionaryValue } = {};
+  for (const [key, value] of Object.entries(flat)) {
+    if (key === "type" || key === "payload") continue;
+    rest[key] = value;
+  }
+  return Object.keys(rest).length > 0 ? { type: action.type, payload: rest } : { type: action.type };
 }
 
 function controlPayload(action: CompatibleAction) {

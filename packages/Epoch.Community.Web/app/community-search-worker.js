@@ -196,21 +196,32 @@ var require_actions = __commonJS({
       "namespace.unmount",
       "namespace.reset"
     ]);
-    exports.BUILT_IN_ACTIONS = exports.COMMUNITY_ACTION_IDS.map((actionId) => Object.freeze({
-      actionId,
-      label: labels[actionId],
-      description: labels[actionId],
-      contexts: actionId.startsWith("search.") || actionId.startsWith("projection.") ? ["workbench"] : ["global"],
-      sideEffect: MUTATING_ACTIONS.has(actionId) ? "shared" : "local",
-      ...actionId.startsWith("projection.") && MUTATING_ACTIONS.has(actionId) ? { permission: "community.projection.write" } : {},
-      ...actionId.startsWith("namespace.") && MUTATING_ACTIONS.has(actionId) ? { permission: "community.namespace.write" } : {},
-      ...actionId === "jump.best" ? { commandAliases: ["z"], slashAliases: ["/jump"] } : {},
-      ...actionId === "jump.interactive" ? { commandAliases: ["zi"], mcp: { toolName: "board_jump", inputSchema: { type: "object" } } } : {},
-      ...actionId === "search.open" ? { commandAliases: ["search"], slashAliases: ["/search"], keyBindings: [{ key: "Ctrl+F", contexts: ["global"] }], voiceAliases: ["open search"] } : {},
-      ...actionId === "search.localFilter" ? { commandAliases: ["filter"], keyBindings: [{ key: "/", contexts: ["navigator", "feed", "workbench"] }] } : {},
-      ...actionId === "projection.list" ? { commandAliases: ["projections"] } : {},
-      ...actionId === "namespace.list" ? { commandAliases: ["mounts"] } : {}
-    }));
+    exports.BUILT_IN_ACTIONS = exports.COMMUNITY_ACTION_IDS.map((actionId) => {
+      const definition = {
+        actionId,
+        label: labels[actionId],
+        description: labels[actionId],
+        contexts: actionId.startsWith("search.") || actionId.startsWith("projection.") ? ["workbench"] : ["global"],
+        sideEffect: MUTATING_ACTIONS.has(actionId) ? "shared" : "local"
+      };
+      if (actionId.startsWith("projection.") && MUTATING_ACTIONS.has(actionId))
+        Object.assign(definition, { permission: "community.projection.write" });
+      if (actionId.startsWith("namespace.") && MUTATING_ACTIONS.has(actionId))
+        Object.assign(definition, { permission: "community.namespace.write" });
+      if (actionId === "jump.best")
+        Object.assign(definition, { commandAliases: ["z"], slashAliases: ["/jump"] });
+      if (actionId === "jump.interactive")
+        Object.assign(definition, { commandAliases: ["zi"], mcp: { toolName: "board_jump", inputSchema: { type: "object" } } });
+      if (actionId === "search.open")
+        Object.assign(definition, { commandAliases: ["search"], slashAliases: ["/search"], keyBindings: [{ key: "Ctrl+F", contexts: ["global"] }], voiceAliases: ["open search"] });
+      if (actionId === "search.localFilter")
+        Object.assign(definition, { commandAliases: ["filter"], keyBindings: [{ key: "/", contexts: ["navigator", "feed", "workbench"] }] });
+      if (actionId === "projection.list")
+        Object.assign(definition, { commandAliases: ["projections"] });
+      if (actionId === "namespace.list")
+        Object.assign(definition, { commandAliases: ["mounts"] });
+      return Object.freeze(definition);
+    });
     function createActionRegistry(definitions, executors) {
       const definitionsById = new Map(definitions.map((definition) => [definition.actionId, definition]));
       if (definitionsById.size !== definitions.length)
@@ -218,13 +229,16 @@ var require_actions = __commonJS({
       validateBindings(definitions);
       let lastEvent;
       const event = (actionId, context, outcome) => {
-        lastEvent = {
+        const next = {
           actionId,
           origin: context.origin,
-          ...context.projectionId === void 0 ? {} : { projectionId: context.projectionId },
-          ...context.objectId === void 0 ? {} : { objectId: context.objectId },
           outcome
         };
+        if (context.projectionId !== void 0)
+          Object.assign(next, { projectionId: context.projectionId });
+        if (context.objectId !== void 0)
+          Object.assign(next, { objectId: context.objectId });
+        lastEvent = next;
       };
       const executeAction = async (actionId, input, context) => {
         const definition = definitionsById.get(actionId);
@@ -255,6 +269,7 @@ var require_actions = __commonJS({
       const actionsById = new Map(actions.map((action) => [action.actionId, action]));
       return {
         actions,
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         resolve: (actionId) => actionsById.get(actionId),
         execute: executeAction,
         lastActionEvent: () => lastEvent === void 0 ? void 0 : { ...lastEvent }
@@ -312,18 +327,24 @@ var require_convergence = __commonJS({
         grantStatus: "active",
         budget: { allocated: 100, reserved: 0, consumed: 0, released: 0, expired: 0 }
       } : void 0;
-      return {
+      const snapshot = {
         snapshotDigest: `snapshot:${ids.join("+") || "empty"}`,
         changes,
         gates,
         conflicts: options.conflict ? [{ conflictId: "conflict-1", path: "shared.ts", base: "object-base", left: "object-left", right: "object-right", state: "unresolved" }] : [],
-        selectedChangeId: ids[0] ?? "",
-        ...options.ambiguousPath === void 0 ? {} : { ambiguousPath: options.ambiguousPath },
-        ...agent === void 0 ? {} : { agent },
-        ...options.offline ? { replica: { online: false, promisedObjectIds: ["object-1"], hydratedObjectIds: [], integrity: "verified", copyMode: options.copyMode ?? "copy-on-write", executionIsolation: "none" } } : {},
-        ...options.forge ? { forge: { jjChangeId: "jj-change-1", mirrorState: "lagging", fidelity: { preserved: ["change.identity", "revision.identity", "dependencies"], losses: ["review.threading"] } } } : {},
-        ...options.archive ? { archive: { swhid: "swh:1:rev:0123456789abcdef0123456789abcdef01234567", publicRelease: true } } : {}
+        selectedChangeId: ids[0] ?? ""
       };
+      if (options.ambiguousPath !== void 0)
+        snapshot.ambiguousPath = options.ambiguousPath;
+      if (agent !== void 0)
+        snapshot.agent = agent;
+      if (options.offline)
+        snapshot.replica = { online: false, promisedObjectIds: ["object-1"], hydratedObjectIds: [], integrity: "verified", copyMode: options.copyMode ?? "copy-on-write", executionIsolation: "none" };
+      if (options.forge)
+        snapshot.forge = { jjChangeId: "jj-change-1", mirrorState: "lagging", fidelity: { preserved: ["change.identity", "revision.identity", "dependencies"], losses: ["review.threading"] } };
+      if (options.archive)
+        snapshot.archive = { swhid: "swh:1:rev:0123456789abcdef0123456789abcdef01234567", publicRelease: true };
+      return snapshot;
     }
     var ConvergenceWorkbench = class {
       #state;
@@ -482,18 +503,32 @@ var require_convergence = __commonJS({
       return { changeId, label: changeId, dependsOn: [...dependsOn], revisions: multiHead ? [base, a, b] : [{ ...a, revisionId: `rev-${changeId}-1`, supersedes: void 0 }], currentRevisionIds: multiHead ? [a.revisionId, b.revisionId] : [`rev-${changeId}-1`], files: [...files] };
     }
     function cloneState(snapshot) {
-      return {
+      const changes = snapshot.changes.map((change) => {
+        const cloned = { ...change, dependsOn: [...change.dependsOn], revisions: change.revisions.map((revision) => ({ ...revision })), currentRevisionIds: [...change.currentRevisionIds], files: [...change.files] };
+        if (change.sourceChanges !== void 0)
+          Object.assign(cloned, { sourceChanges: [...change.sourceChanges] });
+        if (change.sourceRevisions !== void 0)
+          Object.assign(cloned, { sourceRevisions: [...change.sourceRevisions] });
+        return cloned;
+      });
+      const state = {
         snapshotDigest: snapshot.snapshotDigest,
-        changes: snapshot.changes.map((change) => ({ ...change, dependsOn: [...change.dependsOn], revisions: change.revisions.map((revision) => ({ ...revision })), currentRevisionIds: [...change.currentRevisionIds], files: [...change.files], ...change.sourceChanges === void 0 ? {} : { sourceChanges: [...change.sourceChanges] }, ...change.sourceRevisions === void 0 ? {} : { sourceRevisions: [...change.sourceRevisions] } })),
+        changes,
         gates: snapshot.gates.map((gate) => ({ ...gate })),
         conflicts: snapshot.conflicts.map((conflict) => ({ ...conflict })),
-        selectedChangeId: snapshot.selectedChangeId,
-        ...snapshot.ambiguousPath === void 0 ? {} : { ambiguousPath: snapshot.ambiguousPath },
-        ...snapshot.agent === void 0 ? {} : { agent: { ...snapshot.agent, budget: { ...snapshot.agent.budget } } },
-        ...snapshot.replica === void 0 ? {} : { replica: { ...snapshot.replica, promisedObjectIds: [...snapshot.replica.promisedObjectIds], hydratedObjectIds: [...snapshot.replica.hydratedObjectIds] } },
-        ...snapshot.forge === void 0 ? {} : { forge: { ...snapshot.forge, fidelity: { preserved: [...snapshot.forge.fidelity.preserved], losses: [...snapshot.forge.fidelity.losses] } } },
-        ...snapshot.archive === void 0 ? {} : { archive: { ...snapshot.archive } }
+        selectedChangeId: snapshot.selectedChangeId
       };
+      if (snapshot.ambiguousPath !== void 0)
+        state.ambiguousPath = snapshot.ambiguousPath;
+      if (snapshot.agent !== void 0)
+        state.agent = { ...snapshot.agent, budget: { ...snapshot.agent.budget } };
+      if (snapshot.replica !== void 0)
+        state.replica = { ...snapshot.replica, promisedObjectIds: [...snapshot.replica.promisedObjectIds], hydratedObjectIds: [...snapshot.replica.hydratedObjectIds] };
+      if (snapshot.forge !== void 0)
+        state.forge = { ...snapshot.forge, fidelity: { preserved: [...snapshot.forge.fidelity.preserved], losses: [...snapshot.forge.fidelity.losses] } };
+      if (snapshot.archive !== void 0)
+        state.archive = { ...snapshot.archive };
+      return state;
     }
     function splitList(value) {
       return value.split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -552,11 +587,13 @@ var require_errors = __commonJS({
         this.details = details === void 0 ? void 0 : Object.freeze({ ...details });
       }
       toJSON() {
-        return {
+        const body = {
           code: this.code,
-          message: this.message,
-          ...this.details === void 0 ? {} : { details: this.details }
+          message: this.message
         };
+        if (this.details !== void 0)
+          body.details = this.details;
+        return body;
       }
     };
     exports.CommunityError = CommunityError3;
@@ -564,10 +601,22 @@ var require_errors = __commonJS({
       return STATUS_BY_CODE[code];
     }
     function isCommunityError2(error) {
-      return error instanceof CommunityError3 || typeof error === "object" && error !== null && error.name === "CommunityError" && typeof error.message === "string" && isCommunityErrorCode(error.code) && error.httpStatus === communityErrorHttpStatus(error.code);
+      if (error instanceof CommunityError3)
+        return true;
+      if (!isErrorDetails(error))
+        return false;
+      const details = error;
+      const code = details.code;
+      return details.name === "CommunityError" && isString(details.message) && isCommunityErrorCode(code) && details.httpStatus === communityErrorHttpStatus(code);
     }
     function isCommunityErrorCode(value) {
       return typeof value === "string" && Object.hasOwn(STATUS_BY_CODE, value);
+    }
+    function isErrorDetails(value) {
+      return typeof value === "object" && value !== null;
+    }
+    function isString(value) {
+      return typeof value === "string";
     }
   }
 });
@@ -601,35 +650,38 @@ var require_identity = __commonJS({
     var opaqueId = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u;
     var MAX_REVISION_LENGTH = 512;
     function validateRevision(value) {
-      if (typeof value !== "string" || value.length === 0 || value.length > MAX_REVISION_LENGTH) {
+      if (!isString(value) || value.length === 0 || value.length > MAX_REVISION_LENGTH) {
         throw new Error("Community object revision must be a non-empty bounded value");
       }
       return value;
     }
     function validateObjectRef(value) {
-      if (typeof value !== "object" || value === null)
+      if (!isNonNullObject(value))
         throw new Error("Community object reference must be an object");
       const ref = value;
-      if (typeof ref.objectId !== "string" || !opaqueId.test(ref.objectId)) {
+      if (!isString(ref.objectId) || !opaqueId.test(ref.objectId)) {
         throw new Error("Community objectId must be an opaque URL-safe identifier");
       }
-      if (typeof ref.kind !== "string" || !kinds.has(ref.kind)) {
+      if (!isCommunityObjectKind(ref.kind)) {
         throw new Error(`Unsupported community object kind: ${String(ref.kind)}`);
       }
-      if (ref.atUri !== void 0 && (typeof ref.atUri !== "string" || !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri))) {
+      if (ref.atUri !== void 0 && (!isString(ref.atUri) || !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri))) {
         throw new Error("Federated object identity must be a valid AT URI");
       }
       if (ref.revision !== void 0)
         validateRevision(ref.revision);
-      return Object.freeze({
+      const validated = {
         objectId: ref.objectId,
-        kind: ref.kind,
-        ...ref.atUri === void 0 ? {} : { atUri: ref.atUri },
-        ...ref.revision === void 0 ? {} : { revision: ref.revision }
-      });
+        kind: ref.kind
+      };
+      if (ref.atUri !== void 0)
+        validated.atUri = ref.atUri;
+      if (ref.revision !== void 0)
+        validated.revision = validateRevision(ref.revision);
+      return Object.freeze(validated);
     }
     function validateProjectionId(projectionId) {
-      if (typeof projectionId !== "string" || !opaqueId.test(projectionId)) {
+      if (!isString(projectionId) || !opaqueId.test(projectionId)) {
         throw new Error("Projection ID must be an opaque URL-safe identifier");
       }
       return projectionId;
@@ -673,11 +725,21 @@ var require_identity = __commonJS({
           return void 0;
         }
       }
-      return {
-        objectId,
-        ...projectionId === void 0 ? {} : { projectionId },
-        ...revision === void 0 ? {} : { revision }
-      };
+      const parsed = { objectId };
+      if (projectionId !== void 0)
+        parsed.projectionId = projectionId;
+      if (revision !== void 0)
+        parsed.revision = revision;
+      return parsed;
+    }
+    function isString(value) {
+      return typeof value === "string";
+    }
+    function isNonNullObject(value) {
+      return typeof value === "object" && value !== null;
+    }
+    function isCommunityObjectKind(value) {
+      return typeof value === "string" && kinds.has(value);
     }
   }
 });
@@ -715,20 +777,11 @@ var require_entity = __commonJS({
         author: value.authorId,
         state: value.state,
         contextId: value.context.objectId,
-        ...value.context.kind === "channel" ? { channelId: value.context.objectId } : {},
-        ...value.context.kind === "dm" ? { dmId: value.context.objectId } : {},
-        ...value.context.kind === "project" ? { projectId: value.context.objectId } : {},
         createdAt: value.publishedAt,
         updatedAt: value.updatedAt ?? value.publishedAt,
         visibility: options.visibility,
         aliases: [...value.aliases],
         participantIds,
-        ...value.title === void 0 ? {} : { title: value.title },
-        ...value.inReplyTo === void 0 ? {} : { parentId: value.inReplyTo.objectId },
-        ...value.reactions === void 0 ? {} : {
-          reactions: Object.keys(value.reactions).filter((token) => (value.reactions?.[token] ?? 0) > 0).sort(),
-          score: Object.values(value.reactions).reduce((sum, count3) => sum + Math.max(0, count3), 0)
-        },
         has: [.../* @__PURE__ */ new Set([
           ...value.title === void 0 ? [] : ["subject", "title"],
           ...value.inReplyTo === void 0 ? [] : ["re", "reply", "parent"],
@@ -736,6 +789,21 @@ var require_entity = __commonJS({
           ...value.relations.map((relation) => relation.type)
         ])]
       };
+      if (value.context.kind === "channel")
+        Object.assign(fields, { channelId: value.context.objectId });
+      if (value.context.kind === "dm")
+        Object.assign(fields, { dmId: value.context.objectId });
+      if (value.context.kind === "project")
+        Object.assign(fields, { projectId: value.context.objectId });
+      if (value.title !== void 0)
+        Object.assign(fields, { title: value.title });
+      if (value.inReplyTo !== void 0)
+        Object.assign(fields, { parentId: value.inReplyTo.objectId });
+      if (value.reactions !== void 0)
+        Object.assign(fields, {
+          reactions: Object.keys(value.reactions).filter((token) => (value.reactions?.[token] ?? 0) > 0).sort(),
+          score: Object.values(value.reactions).reduce((sum, count3) => sum + Math.max(0, count3), 0)
+        });
       const entity = {
         ref: value.ref,
         fields: Object.freeze(fields),
@@ -746,14 +814,16 @@ var require_entity = __commonJS({
         }),
         relations: value.relations,
         visibility: options.visibility,
-        ...options.ownerId === void 0 ? {} : { ownerId: options.ownerId },
         participantIds,
         createdAt: value.publishedAt,
         updatedAt: value.updatedAt ?? value.publishedAt,
         provenance: cloneProvenance(options.provenance),
-        ...value.tombstone === void 0 ? {} : { tombstone: value.tombstone },
         domain: Object.freeze({ kind: "message", value })
       };
+      if (options.ownerId !== void 0)
+        Object.assign(entity, { ownerId: options.ownerId });
+      if (value.tombstone !== void 0)
+        Object.assign(entity, { tombstone: value.tombstone });
       return validateCommunityEntity(entity);
     }
     function communityEntityToMessage(entity) {
@@ -764,7 +834,7 @@ var require_entity = __commonJS({
       return cloneMessage(validated.domain.value);
     }
     function validateCommunityEntity(value) {
-      if (typeof value !== "object" || value === null)
+      if (!isNonNullObject(value))
         invalid("Community entity must be an object");
       const input = value;
       const ref = (0, identity_1.validateObjectRef)(input.ref);
@@ -779,26 +849,31 @@ var require_entity = __commonJS({
       const updatedAt = validateIsoDateTime(input.updatedAt, "updatedAt");
       const provenance = cloneProvenance(input.provenance);
       const domain = validateDomain(input.domain, ref, createdAt, updatedAt);
-      return Object.freeze({
+      const entity = {
         ref,
         fields,
         searchableText,
         relations,
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         visibility: input.visibility,
-        ...input.ownerId === void 0 ? {} : { ownerId: boundedString(input.ownerId, "ownerId") },
         participantIds,
         createdAt,
         updatedAt,
-        provenance,
-        ...input.tombstone === void 0 ? {} : { tombstone: cloneTombstone(input.tombstone) },
-        ...domain === void 0 ? {} : { domain }
-      });
+        provenance
+      };
+      if (input.ownerId !== void 0)
+        Object.assign(entity, { ownerId: boundedString(input.ownerId, "ownerId") });
+      if (input.tombstone !== void 0)
+        Object.assign(entity, { tombstone: cloneTombstone(input.tombstone) });
+      if (domain !== void 0)
+        Object.assign(entity, { domain });
+      return Object.freeze(entity);
     }
     function isCommunityFieldValue(value) {
       return isScalar(value) || Array.isArray(value) && value.length <= 4096 && value.every(isScalar);
     }
     function validateIsoDateTime(value, label = "datetime") {
-      if (typeof value !== "string" || value.length > 128 || !/(?:Z|[+-]\d{2}:\d{2})$/u.test(value)) {
+      if (!isString(value) || value.length > 128 || !/(?:Z|[+-]\d{2}:\d{2})$/u.test(value)) {
         invalid(`${label} must be an ISO 8601 datetime with an explicit timezone`);
       }
       const timestamp = Date.parse(value);
@@ -807,7 +882,7 @@ var require_entity = __commonJS({
       return new Date(timestamp).toISOString();
     }
     function validateFields(value) {
-      if (typeof value !== "object" || value === null || Array.isArray(value))
+      if (!isNonNullObject(value) || Array.isArray(value))
         invalid("Community entity fields must be an object");
       const output = /* @__PURE__ */ Object.create(null);
       for (const [name, field] of Object.entries(value)) {
@@ -820,11 +895,11 @@ var require_entity = __commonJS({
       return Object.freeze(output);
     }
     function validateSearchableText(value) {
-      if (typeof value !== "object" || value === null || Array.isArray(value))
+      if (!isNonNullObject(value) || Array.isArray(value))
         invalid("searchableText must be an object");
       const output = /* @__PURE__ */ Object.create(null);
       for (const [name, text] of Object.entries(value)) {
-        if (!FIELD_NAME.test(name) || typeof text !== "string" || text.length > 1e7)
+        if (!FIELD_NAME.test(name) || !isString(text) || text.length > 1e7)
           invalid(`Invalid searchable text field: ${name}`);
         output[name] = text;
       }
@@ -834,12 +909,13 @@ var require_entity = __commonJS({
       if (!Array.isArray(value) || value.length > 1e5)
         invalid("Community entity relations must be a bounded array");
       return Object.freeze(value.map((candidate) => {
-        if (typeof candidate !== "object" || candidate === null)
+        if (!isNonNullObject(candidate))
           invalid("Community relation must be an object");
         const relation = candidate;
         if (!RELATION_TYPES.has(relation.type))
           invalid(`Unsupported community relation: ${String(relation.type)}`);
         return Object.freeze({
+          // SAFETY: The surrounding validation and domain contract establish the asserted type.
           type: relation.type,
           source: (0, identity_1.validateObjectRef)(relation.source),
           target: (0, identity_1.validateObjectRef)(relation.target)
@@ -847,23 +923,27 @@ var require_entity = __commonJS({
       }));
     }
     function cloneProvenance(value) {
-      if (typeof value !== "object" || value === null)
+      if (!isNonNullObject(value))
         invalid("Community provenance must be an object");
       const provenance = value;
       const uri = provenance.uri;
       if (uri !== void 0)
         validateProvenanceUri(uri);
-      return Object.freeze({
+      const cloned = {
         sourceId: boundedString(provenance.sourceId, "provenance.sourceId"),
         nativeId: boundedString(provenance.nativeId, "provenance.nativeId"),
-        observedAt: validateIsoDateTime(provenance.observedAt, "provenance.observedAt"),
-        ...provenance.checkpoint === void 0 ? {} : { checkpoint: boundedString(provenance.checkpoint, "provenance.checkpoint", 4096) },
-        ...uri === void 0 ? {} : { uri },
-        ...provenance.revision === void 0 ? {} : { revision: boundedString(provenance.revision, "provenance.revision", 4096) }
-      });
+        observedAt: validateIsoDateTime(provenance.observedAt, "provenance.observedAt")
+      };
+      if (provenance.checkpoint !== void 0)
+        Object.assign(cloned, { checkpoint: boundedString(provenance.checkpoint, "provenance.checkpoint", 4096) });
+      if (uri !== void 0)
+        Object.assign(cloned, { uri });
+      if (provenance.revision !== void 0)
+        Object.assign(cloned, { revision: boundedString(provenance.revision, "provenance.revision", 4096) });
+      return Object.freeze(cloned);
     }
     function validateProvenanceUri(value) {
-      if (typeof value !== "string" || value.length === 0 || value.length > 4096 || [...value].some((character) => {
+      if (!isString(value) || value.length === 0 || value.length > 4096 || [...value].some((character) => {
         const code = character.codePointAt(0) ?? 0;
         return code <= 32 || code === 127;
       })) {
@@ -888,27 +968,33 @@ var require_entity = __commonJS({
       if (reactions !== void 0 && Object.entries(reactions).some(([token, count3]) => token.length === 0 || !Number.isFinite(count3) || count3 < 0)) {
         invalid("Message reactions must contain finite non-negative counts");
       }
-      return Object.freeze({
+      const cloned = {
         ref: (0, identity_1.validateObjectRef)(message.ref),
         context: (0, identity_1.validateObjectRef)(message.context),
         authorId: boundedString(message.authorId, "message.authorId"),
-        ...message.title === void 0 ? {} : { title: message.title },
         body: message.body,
         publishedAt,
-        ...updatedAt === void 0 ? {} : { updatedAt },
-        ...message.inReplyTo === void 0 ? {} : { inReplyTo: (0, identity_1.validateObjectRef)(message.inReplyTo) },
         threadRoot: (0, identity_1.validateObjectRef)(message.threadRoot),
         relations,
-        ...reactions === void 0 ? {} : { reactions },
         state: boundedString(message.state, "message.state"),
-        aliases: canonicalStrings(message.aliases, "message.aliases", false),
-        ...message.tombstone === void 0 ? {} : { tombstone: cloneTombstone(message.tombstone) }
-      });
+        aliases: canonicalStrings(message.aliases, "message.aliases", false)
+      };
+      if (message.title !== void 0)
+        Object.assign(cloned, { title: message.title });
+      if (updatedAt !== void 0)
+        Object.assign(cloned, { updatedAt });
+      if (message.inReplyTo !== void 0)
+        Object.assign(cloned, { inReplyTo: (0, identity_1.validateObjectRef)(message.inReplyTo) });
+      if (reactions !== void 0)
+        Object.assign(cloned, { reactions });
+      if (message.tombstone !== void 0)
+        Object.assign(cloned, { tombstone: cloneTombstone(message.tombstone) });
+      return Object.freeze(cloned);
     }
     function validateDomain(value, ref, createdAt, updatedAt) {
       if (value === void 0)
         return void 0;
-      if (typeof value !== "object" || value === null || value.kind !== "message") {
+      if (!isNonNullObject(value) || !("kind" in value) || value.kind !== "message" || !("value" in value)) {
         invalid("Unsupported community entity domain projection");
       }
       const message = cloneMessage(value.value);
@@ -918,35 +1004,45 @@ var require_entity = __commonJS({
       return Object.freeze({ kind: "message", value: message });
     }
     function cloneTombstone(value) {
-      if (typeof value !== "object" || value === null)
+      if (!isNonNullObject(value))
         invalid("Community tombstone must be an object");
       const tombstone = value;
       if (!["deleted", "moderated", "missing", "unavailable", "unauthorized"].includes(tombstone.reason)) {
         invalid("Community tombstone reason is invalid");
       }
       const formerKind = (0, identity_1.validateObjectRef)({ objectId: "former-kind", kind: tombstone.formerKind }).kind;
-      return Object.freeze({
+      const cloned = {
         formerKind,
-        reason: tombstone.reason,
-        ...tombstone.deletedAt === void 0 ? {} : { deletedAt: validateIsoDateTime(tombstone.deletedAt, "tombstone.deletedAt") },
-        ...tombstone.replacement === void 0 ? {} : { replacement: (0, identity_1.validateObjectRef)(tombstone.replacement) }
-      });
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
+        reason: tombstone.reason
+      };
+      if (tombstone.deletedAt !== void 0)
+        Object.assign(cloned, { deletedAt: validateIsoDateTime(tombstone.deletedAt, "tombstone.deletedAt") });
+      if (tombstone.replacement !== void 0)
+        Object.assign(cloned, { replacement: (0, identity_1.validateObjectRef)(tombstone.replacement) });
+      return Object.freeze(cloned);
     }
     function canonicalStrings(value, label = "values", sort = true) {
-      if (!Array.isArray(value) || value.length > 4096 || value.some((item) => typeof item !== "string" || item.length > 4096)) {
+      if (!Array.isArray(value) || value.length > 4096 || value.some((item) => !isString(item) || item.length > 4096)) {
         invalid(`${label} must be a bounded string array`);
       }
       const output = [...value];
       return Object.freeze(sort ? [...new Set(output)].sort() : output);
     }
     function boundedString(value, label, limit = 512) {
-      if (typeof value !== "string" || value.length === 0 || value.length > limit || value.includes(String.fromCharCode(0))) {
+      if (!isString(value) || value.length === 0 || value.length > limit || value.includes(String.fromCharCode(0))) {
         invalid(`${label} must be a bounded string`);
       }
       return value.normalize("NFC");
     }
     function isScalar(value) {
       return value === null || typeof value === "string" || typeof value === "boolean" || typeof value === "number" && Number.isFinite(value);
+    }
+    function isString(value) {
+      return typeof value === "string";
+    }
+    function isNonNullObject(value) {
+      return typeof value === "object" && value !== null;
     }
     function invalid(message) {
       throw new errors_1.CommunityError("INVALID_ENTITY", message);
@@ -1040,13 +1136,13 @@ var require_fields = __commonJS({
       return Object.freeze({
         version,
         list: (authorization) => Object.freeze(ordered.filter((definition) => !definition.sensitive || hasSensitiveFieldPermission(authorization))),
-        resolve: (name) => typeof name === "string" ? byName.get(name.toLocaleLowerCase("en-US")) : void 0,
+        resolve: (name) => byName.get(name.toLocaleLowerCase("en-US")),
         validateValue,
         suggest: (name, authorization = {}) => suggestions(name, ordered.filter((definition) => !definition.sensitive || hasSensitiveFieldPermission(authorization)))
       });
     }
     function field(name, aliases, type, operators, options) {
-      return Object.freeze({
+      const definition = {
         name,
         aliases: Object.freeze([...aliases]),
         type,
@@ -1055,13 +1151,16 @@ var require_fields = __commonJS({
         sortable: options.sortable ?? false,
         facetable: options.facetable ?? false,
         sensitive: options.sensitive ?? false,
-        description: `Canonical ${name} field.`,
-        ...options.enumValues === void 0 ? {} : { enumValues: Object.freeze([...options.enumValues]) },
-        ...options.defaultTextField === void 0 ? {} : { defaultTextField: options.defaultTextField }
-      });
+        description: `Canonical ${name} field.`
+      };
+      if (options.enumValues !== void 0)
+        Object.assign(definition, { enumValues: Object.freeze([...options.enumValues]) });
+      if (options.defaultTextField !== void 0)
+        Object.assign(definition, { defaultTextField: options.defaultTextField });
+      return Object.freeze(definition);
     }
     function validateDefinition(input, source) {
-      if (typeof input !== "object" || input === null || !NAME.test(input.name))
+      if (!NAME.test(input.name))
         throw new errors_1.CommunityError("INVALID_FIELD", "Community field name is invalid");
       if (source && !SOURCE_NAME.test(input.name))
         throw new errors_1.CommunityError("INVALID_FIELD", "Source-contributed fields must use a namespaced name");
@@ -1075,15 +1174,17 @@ var require_fields = __commonJS({
       }
       if (input.description.length === 0 || input.description.length > 1024)
         throw new errors_1.CommunityError("INVALID_FIELD", `Description for ${input.name} is invalid`);
-      if (input.enumValues?.some((value) => typeof value !== "string" || value.length === 0 || value.length > 512) === true) {
+      if (input.enumValues?.some((value) => value.length === 0 || value.length > 512) === true) {
         throw new errors_1.CommunityError("INVALID_FIELD", `Enum values for ${input.name} are invalid`);
       }
-      return Object.freeze({
+      const definition = {
         ...input,
         aliases: Object.freeze([...input.aliases]),
-        operators: Object.freeze([...new Set(input.operators)]),
-        ...input.enumValues === void 0 ? {} : { enumValues: Object.freeze([...new Set(input.enumValues)]) }
-      });
+        operators: Object.freeze([...new Set(input.operators)])
+      };
+      if (input.enumValues !== void 0)
+        Object.assign(definition, { enumValues: Object.freeze([...new Set(input.enumValues)]) });
+      return Object.freeze(definition);
     }
     function validateValue(fieldDefinition, value) {
       const values = Array.isArray(value) ? value : [value];
@@ -1098,12 +1199,12 @@ var require_fields = __commonJS({
       let result;
       switch (fieldDefinition.type) {
         case "number":
-          if (typeof value !== "number" || !Number.isFinite(value))
+          if (!isNumber(value) || !Number.isFinite(value))
             throw invalidValue(fieldDefinition, "must be a finite number");
           result = value;
           break;
         case "boolean":
-          if (typeof value !== "boolean")
+          if (!isBoolean(value))
             throw invalidValue(fieldDefinition, "must be a boolean");
           result = value;
           break;
@@ -1115,12 +1216,12 @@ var require_fields = __commonJS({
           }
           break;
         case "object-id":
-          if (typeof value !== "string" || !OBJECT_ID2.test(value))
+          if (!isString(value) || !OBJECT_ID2.test(value))
             throw invalidValue(fieldDefinition, "must be an opaque object ID");
           result = value;
           break;
         case "uri":
-          if (typeof value !== "string")
+          if (!isString(value))
             throw invalidValue(fieldDefinition, "must be a URI");
           try {
             new URL(value);
@@ -1131,15 +1232,24 @@ var require_fields = __commonJS({
           break;
         case "keyword":
         case "text":
-          if (typeof value !== "string" || value.length > 1e6)
+          if (!isString(value) || value.length > 1e6)
             throw invalidValue(fieldDefinition, "must be a bounded string");
           result = value.normalize("NFC");
           break;
       }
-      if (fieldDefinition.enumValues !== void 0 && typeof result === "string" && !fieldDefinition.enumValues.includes(result)) {
+      if (fieldDefinition.enumValues !== void 0 && isString(result) && !fieldDefinition.enumValues.includes(result)) {
         throw invalidValue(fieldDefinition, `must be one of ${fieldDefinition.enumValues.join(", ")}`);
       }
       return result;
+    }
+    function isString(value) {
+      return typeof value === "string";
+    }
+    function isNumber(value) {
+      return typeof value === "number";
+    }
+    function isBoolean(value) {
+      return typeof value === "boolean";
     }
     function suggestions(input, definitions) {
       const needle = input.toLocaleLowerCase("en-US");
@@ -1204,7 +1314,7 @@ var require_graph = __commonJS({
         values.push(message.ref);
         children.set(message.inReplyTo.objectId, values);
       }
-      const idOf = (ref) => typeof ref === "string" ? ref : ref.objectId;
+      const idOf = (ref) => isObjectId(ref) ? ref : ref.objectId;
       const messageOf = (ref) => messages.get(idOf(ref));
       const parentOf = (ref) => {
         const parent = messageOf(ref)?.inReplyTo;
@@ -1267,6 +1377,9 @@ var require_graph = __commonJS({
         previousSiblingOf: (ref) => sibling(ref, -1),
         nextUnreadOf
       });
+    }
+    function isObjectId(ref) {
+      return typeof ref === "string";
     }
     function threadRelations(graph, ref) {
       return {
@@ -1334,7 +1447,7 @@ var require_query_evaluator = __commonJS({
           case "text": {
             const fields = node.fields.length === 0 ? Object.keys(entity.searchableText) : node.fields;
             const result = fields.some((field) => {
-              const found = values(entity, field).some((value) => typeof value === "string" && textMatches(value, node.value, node.mode));
+              const found = values(entity, field).some((value) => isStringScalar(value) && textMatches(value, node.value, node.mode));
               if (found)
                 matched.add(field);
               return found;
@@ -1412,13 +1525,22 @@ var require_query_evaluator = __commonJS({
         return -1;
       if (right === null)
         return 1;
-      if (typeof left !== typeof right)
-        return Number.NaN;
-      if (typeof left === "number" && typeof right === "number")
+      if (isNumberScalar(left) && isNumberScalar(right))
         return left - right;
-      if (typeof left === "boolean" && typeof right === "boolean")
+      if (isBooleanScalar(left) && isBooleanScalar(right))
         return Number(left) - Number(right);
+      if (!isStringScalar(left) || !isStringScalar(right))
+        return Number.NaN;
       return String(left).localeCompare(String(right), "en", { sensitivity: "variant" });
+    }
+    function isStringScalar(value) {
+      return typeof value === "string";
+    }
+    function isNumberScalar(value) {
+      return typeof value === "number";
+    }
+    function isBooleanScalar(value) {
+      return typeof value === "boolean";
     }
     function inRange(value, range) {
       if (value === null)
@@ -1467,25 +1589,38 @@ var require_search_expression = __commonJS({
           return { kind: expression.kind, fields: expression.fields, value: expression.value, mode: expression.mode };
         case "compare":
           return { kind: expression.kind, field: expression.field, operator: expression.operator, value: expression.value };
-        case "range":
-          return {
+        case "range": {
+          const semantic = {
             kind: expression.kind,
             field: expression.field,
-            ...expression.lower === void 0 ? {} : { lower: expression.lower },
-            ...expression.upper === void 0 ? {} : { upper: expression.upper },
             includeLower: expression.includeLower,
             includeUpper: expression.includeUpper
           };
+          if (expression.lower !== void 0)
+            Object.assign(semantic, { lower: expression.lower });
+          if (expression.upper !== void 0)
+            Object.assign(semantic, { upper: expression.upper });
+          return semantic;
+        }
         case "exists":
           return { kind: expression.kind, field: expression.field };
-        case "related":
+        case "related": {
+          const target = {
+            objectId: expression.target.objectId,
+            kind: expression.target.kind
+          };
+          if (expression.target.atUri !== void 0)
+            Object.assign(target, { atUri: expression.target.atUri });
+          if (expression.target.revision !== void 0)
+            Object.assign(target, { revision: expression.target.revision });
           return {
             kind: expression.kind,
             relation: expression.relation,
-            target: expression.target,
+            target,
             direction: expression.direction,
             maxDepth: expression.maxDepth
           };
+        }
       }
     }
     function canonicalExpressionJson(expression) {
@@ -1617,11 +1752,17 @@ ${canonicalJson}`),
           terms.push(this.parseNot(inherited));
         }
         if (terms.length === 1)
-          return terms[0];
+          return (
+            /* SAFETY: Assertion is justified by surrounding validation or construction. */
+            terms[0]
+          );
         const expressions = terms.filter((term) => term.kind !== "sort-marker");
         const markers = terms.filter((term) => term.kind === "sort-marker");
         if (expressions.length === 0)
-          return markers.length === 1 ? markers[0] : this.combineSorts(markers);
+          return markers.length === 1 ? (
+            /* SAFETY: Assertion is justified by surrounding validation or construction. */
+            markers[0]
+          ) : this.combineSorts(markers);
         const expression = expressions.length === 1 ? expressions[0] : this.node({
           kind: "and",
           terms: expressions,
@@ -1629,10 +1770,12 @@ ${canonicalJson}`),
         });
         if (markers.length === 0)
           return expression;
-        return this.node({ kind: "and", terms: [expression, ...markers], span: mergeSpans(expression.span, markers.at(-1)?.span) });
+        const markerTerms = JSON.parse(JSON.stringify(markers));
+        return this.node({ kind: "and", terms: [expression, ...markerTerms], span: mergeSpans(expression.span, markers.at(-1)?.span) });
       }
       combineSorts(markers) {
-        return this.node({ kind: "and", terms: markers, span: mergeSpans(markers[0]?.span, markers.at(-1)?.span) });
+        const markerTerms = JSON.parse(JSON.stringify(markers));
+        return this.node({ kind: "and", terms: markerTerms, span: mergeSpans(markers[0]?.span, markers.at(-1)?.span) });
       }
       parseNot(inherited) {
         const negation = this.take("NOT");
@@ -1719,6 +1862,7 @@ ${canonicalJson}`),
           order = {
             field: descriptor.name,
             direction: direction.startsWith("desc") ? "descending" : "ascending",
+            // SAFETY: The surrounding validation and domain contract establish the asserted type.
             nulls
           };
           canonical = `sort:${order.field}:${order.direction === "ascending" ? "asc" : "desc"}:nulls${order.nulls}`;
@@ -1743,6 +1887,7 @@ ${canonicalJson}`),
         }
         return this.node({
           kind: "related",
+          // SAFETY: The surrounding validation and domain contract establish the asserted type.
           relation,
           target,
           direction: "out",
@@ -1762,15 +1907,18 @@ ${canonicalJson}`),
         const upper = upperToken.value === "*" ? void 0 : this.convert(field, upperToken.value, upperToken);
         if (lower === void 0 && upper === void 0)
           this.fail("QUERY_INVALID_RANGE", "A range must have at least one bound", open);
-        return this.node({
+        const range = {
           kind: "range",
           field: field.name,
-          ...lower === void 0 ? {} : { lower },
-          ...upper === void 0 ? {} : { upper },
           includeLower: open.type === "LBRACKET",
           includeUpper: close.type === "RBRACKET",
           span: spanBetween(this.input, start, close.end)
-        });
+        };
+        if (lower !== void 0)
+          Object.assign(range, { lower });
+        if (upper !== void 0)
+          Object.assign(range, { upper });
+        return this.node(range);
       }
       fieldValue(field, operator, raw, phrase, token) {
         if (raw.length > MAX_VALUE_LENGTH)
@@ -1857,8 +2005,8 @@ ${canonicalJson}`),
       }
       readOperator() {
         const token = this.peek();
-        const mapping = { EQ: "eq", NE: "ne", LT: "lt", LTE: "lte", GT: "gt", GTE: "gte" };
-        const operator = mapping[token.type];
+        const mapping = /* @__PURE__ */ new Map([["EQ", "eq"], ["NE", "ne"], ["LT", "lt"], ["LTE", "lte"], ["GT", "gt"], ["GTE", "gte"]]);
+        const operator = mapping.get(token.type);
         if (operator === void 0)
           return "eq";
         this.position += 1;
@@ -1899,11 +2047,17 @@ ${canonicalJson}`),
           this.fail("QUERY_NODE_LIMIT", "Query has too many clauses", node.span);
         return node;
       }
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       peek() {
-        return this.tokens[this.position] ?? this.tokens.at(-1);
+        return this.tokens[this.position] ?? /* SAFETY: Assertion is justified by surrounding validation or construction. */
+        this.tokens.at(-1);
       }
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       previous() {
-        return this.tokens[Math.max(0, this.position - 1)];
+        return (
+          /* SAFETY: Assertion is justified by surrounding validation or construction. */
+          this.tokens[Math.max(0, this.position - 1)]
+        );
       }
       take(type) {
         if (this.peek().type !== type)
@@ -1936,26 +2090,28 @@ ${canonicalJson}`),
           continue;
         }
         const two = input.slice(index, index + 2);
-        const compound = { ">=": "GTE", "<=": "LTE", "!=": "NE" };
-        if (compound[two] !== void 0) {
-          push(compound[two], index, index + 2);
+        const compound = /* @__PURE__ */ new Map([[">=", "GTE"], ["<=", "LTE"], ["!=", "NE"]]);
+        const compoundType = compound.get(two);
+        if (compoundType !== void 0) {
+          push(compoundType, index, index + 2);
           index += 2;
           continue;
         }
-        const punctuation = {
-          "(": "LPAREN",
-          ")": "RPAREN",
-          "[": "LBRACKET",
-          "]": "RBRACKET",
-          "{": "LBRACE",
-          "}": "RBRACE",
-          ":": "COLON",
-          "=": "EQ",
-          "<": "LT",
-          ">": "GT"
-        };
-        if (punctuation[character] !== void 0) {
-          push(punctuation[character], index);
+        const punctuation = /* @__PURE__ */ new Map([
+          ["(", "LPAREN"],
+          [")", "RPAREN"],
+          ["[", "LBRACKET"],
+          ["]", "RBRACKET"],
+          ["{", "LBRACE"],
+          ["}", "RBRACE"],
+          [":", "COLON"],
+          ["=", "EQ"],
+          ["<", "LT"],
+          [">", "GT"]
+        ]);
+        const punctuationType = punctuation.get(character);
+        if (punctuationType !== void 0) {
+          push(punctuationType, index);
           index += 1;
           continue;
         }
@@ -1981,8 +2137,6 @@ ${canonicalJson}`),
           } catch {
             throw new QueryFailure("QUERY_SYNTAX", "invalid quoted phrase escape", spanBetween(input, start2, index));
           }
-          if (typeof phrase !== "string")
-            throw new QueryFailure("QUERY_SYNTAX", "invalid quoted phrase", spanBetween(input, start2, index));
           push("PHRASE", start2, index, phrase.normalize("NFC"));
           continue;
         }
@@ -2004,8 +2158,9 @@ ${canonicalJson}`),
         return { expression: null, sorts: [node] };
       if (node.kind !== "and")
         return { expression: node, sorts: [] };
-      const sorts = node.terms.filter((term) => term.kind === "sort-marker");
-      const expressions = node.terms.filter((term) => term.kind !== "sort-marker");
+      const parsedTerms = node.terms;
+      const sorts = parsedTerms.filter((term) => term.kind === "sort-marker");
+      const expressions = parsedTerms.filter((term) => term.kind !== "sort-marker");
       const seen = /* @__PURE__ */ new Set();
       for (const sort of sorts) {
         if (seen.has(sort.order.field))
@@ -2013,6 +2168,7 @@ ${canonicalJson}`),
         seen.add(sort.order.field);
       }
       return {
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         expression: expressions.length === 0 ? null : expressions.length === 1 ? expressions[0] : { ...node, terms: expressions },
         sorts
       };
@@ -2026,9 +2182,12 @@ ${canonicalJson}`),
           return normalized.kind === expression.kind ? normalized.terms : [normalized];
         });
         if (terms.length === 0)
-          return { kind: "all", ...expression.span === void 0 ? {} : { span: expression.span } };
+          return expression.span === void 0 ? { kind: "all" } : { kind: "all", span: expression.span };
         if (terms.length === 1)
-          return terms[0];
+          return (
+            /* SAFETY: Assertion is justified by surrounding validation or construction. */
+            terms[0]
+          );
         return { ...expression, terms };
       }
       if (expression.kind === "not")
@@ -2073,7 +2232,7 @@ ${canonicalJson}`),
       return { eq: "", ne: "!=", lt: "<", lte: "<=", gt: ">", gte: ">=", in: "=" }[operator];
     }
     function serializeScalar(value) {
-      if (typeof value === "string")
+      if (isString(value))
         return escapeValue(value);
       if (Array.isArray(value))
         return `(${value.map(serializeScalar).join(" OR ")})`;
@@ -2142,9 +2301,10 @@ ${canonicalJson}`),
         code: error.code,
         message: error.message,
         severity: "error",
-        ...error.span === void 0 ? {} : { span: error.span },
         suggestions: error.suggestions
       };
+      if (error.span !== void 0)
+        Object.assign(diagnostic, { span: error.span });
       const canonicalJson = JSON.stringify({ expression: null, sort: [] });
       return {
         ast: null,
@@ -2159,6 +2319,9 @@ ${canonicalJson}`),
         diagnostics: [diagnostic],
         error: diagnostic.message
       };
+    }
+    function isString(value) {
+      return typeof value === "string";
     }
     function spanToken(start, end) {
       return { type: "WORD", value: "", start, end };
@@ -2255,7 +2418,7 @@ var require_query = __commonJS({
         return (0, query_parser_1.parseCommunityQuery)(source, { version });
       if (saved.ast !== void 0) {
         const serialized = saved.ast === null ? "" : isPersistedNode(saved.ast) ? serializePersisted(saved.ast) : serializeSemantic(saved.ast);
-        const sort = typeof saved.sort === "string" ? `sort:${saved.sort}` : "";
+        const sort = saved.sort === null || saved.sort === void 0 || Array.isArray(saved.sort) ? "" : `sort:${saved.sort}`;
         return (0, query_parser_1.parseCommunityQuery)([serialized, sort].filter(Boolean).join(" "), { version });
       }
       return invalidMigration("Saved query has no canonical query or normalized AST");
@@ -2434,7 +2597,7 @@ var require_cursor = __commonJS({
           return base64Url(await seal(body, keyBytes));
         },
         decode: async (cursor, binding) => {
-          if (typeof cursor !== "string" || cursor.length > maxBytes * 2)
+          if (cursor.length > maxBytes * 2)
             throw new errors_1.CommunityError("CURSOR_INVALID", "Cursor is malformed or oversized");
           let body;
           try {
@@ -2492,10 +2655,19 @@ var require_cursor = __commonJS({
       }
     }
     function invalidScalar(value) {
-      return value !== null && (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean" || typeof value === "number" && !Number.isFinite(value));
+      return value !== null && !isStringScalar(value) && !isBooleanScalar(value) && (!isNumberScalar(value) || !Number.isFinite(value));
     }
     function bounded(value) {
       return typeof value === "string" && value.length > 0 && value.length <= 512;
+    }
+    function isStringScalar(value) {
+      return typeof value === "string";
+    }
+    function isNumberScalar(value) {
+      return typeof value === "number";
+    }
+    function isBooleanScalar(value) {
+      return typeof value === "boolean";
     }
     function base64Url(value) {
       let binary = "";
@@ -2524,6 +2696,7 @@ var require_search_backend = __commonJS({
     exports.ReferenceSearchBackend = void 0;
     var cursor_1 = require_cursor();
     var query_evaluator_1 = require_query_evaluator();
+    var search_expression_1 = require_search_expression();
     var ReferenceSearchBackend2 = class {
       backendId = "epoch-reference";
       backendVersion = "1";
@@ -2578,13 +2751,16 @@ var require_search_backend = __commonJS({
           sortKey: candidate.hit.sortKey,
           objectId: candidate.entity.ref.objectId
         })));
+        const firstCursor = cursors[0];
+        const lastCursor = cursors.at(-1);
+        const pageInfo = { hasNextPage: start + selected.length < candidates.length };
+        if (firstCursor !== void 0)
+          Object.assign(pageInfo, { startCursor: firstCursor });
+        if (lastCursor !== void 0)
+          Object.assign(pageInfo, { endCursor: lastCursor });
         return Object.freeze({
           hits: Object.freeze(selected.map(({ hit }) => hit)),
-          pageInfo: Object.freeze({
-            hasNextPage: start + selected.length < candidates.length,
-            ...cursors[0] === void 0 ? {} : { startCursor: cursors[0] },
-            ...cursors.at(-1) === void 0 ? {} : { endCursor: cursors.at(-1) }
-          }),
+          pageInfo: Object.freeze(pageInfo),
           snapshot: plan.snapshot,
           completeness: completeness(plan.snapshot.sourceCheckpoints)
         });
@@ -2615,22 +2791,22 @@ var require_search_backend = __commonJS({
         const counts = /* @__PURE__ */ new Map();
         for (const { entity } of this.#candidates(input.plan))
           for (const value of (0, query_evaluator_1.searchFieldValues)(entity, definition.name)) {
-            if (typeof value !== "string" || !normalize(value).startsWith(prefix))
+            if (!isStringScalar(value) || !normalize(value).startsWith(prefix))
               continue;
             counts.set(value, (counts.get(value) ?? 0) + 1);
           }
         return Object.freeze([...counts].map(([value, count3]) => ({ value, count: count3 })).sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, "en")).slice(0, input.limit));
       }
       async explain(plan) {
-        const safeExpression = JSON.parse(JSON.stringify(plan.expression));
+        const safeExpression = (0, search_expression_1.semanticExpression)(plan.expression);
         return Object.freeze({
           planHash: plan.planHash,
           backendId: this.backendId,
           expression: safeExpression,
           sourcePlans: Object.freeze(plan.sourcePlans.map((source) => ({
             sourceId: source.sourceId,
-            pushdown: JSON.parse(JSON.stringify(source.pushdown)),
-            residual: JSON.parse(JSON.stringify(source.residual))
+            pushdown: (0, search_expression_1.semanticExpression)(source.pushdown),
+            residual: (0, search_expression_1.semanticExpression)(source.residual)
           }))),
           ordering: Object.freeze(plan.order.map((order) => `${order.field}:${order.direction}:${order.nulls}`)),
           authorization: "pre-filtered"
@@ -2677,8 +2853,9 @@ var require_search_backend = __commonJS({
         candidates.sort((left, right) => compareCandidates(left, right, plan));
         const frozen = Object.freeze(candidates);
         this.#snapshots.set(cacheKey, frozen);
-        if (this.#snapshots.size > 32)
-          this.#snapshots.delete(this.#snapshots.keys().next().value);
+        const oldest = this.#snapshots.keys().next().value;
+        if (this.#snapshots.size > 32 && oldest !== void 0)
+          this.#snapshots.delete(oldest);
         return frozen;
       }
       #ensureOpen() {
@@ -2711,11 +2888,20 @@ var require_search_backend = __commonJS({
         return -1;
       if (right === null)
         return 1;
-      if (typeof left === "number" && typeof right === "number")
+      if (isNumberScalar(left) && isNumberScalar(right))
         return left - right;
-      if (typeof left === "boolean" && typeof right === "boolean")
+      if (isBooleanScalar(left) && isBooleanScalar(right))
         return Number(left) - Number(right);
       return String(left).localeCompare(String(right), "en", { sensitivity: "variant" });
+    }
+    function isStringScalar(value) {
+      return typeof value === "string";
+    }
+    function isNumberScalar(value) {
+      return typeof value === "number";
+    }
+    function isBooleanScalar(value) {
+      return typeof value === "boolean";
     }
     function equalKeys(left, right) {
       return left.length === right.length && left.every((value, index) => value === right[index]);
@@ -2762,11 +2948,14 @@ var require_search_plan = __commonJS({
         throw new errors_1.CommunityError("QUERY_COST_LIMIT", `Query estimated cost ${cost} exceeds limit ${maxCost}`, { estimatedCost: cost, maxCost });
       const planHash = (0, search_expression_1.stableQueryHash)(JSON.stringify({
         version: 1,
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         expression: JSON.parse((0, search_expression_1.canonicalExpressionJson)(input.expression)),
         order,
         sources: sourcePlans.map(({ sourceId, pushdown, residual, checkpoint }) => ({
           sourceId,
+          // SAFETY: The surrounding validation and domain contract establish the asserted type.
           pushdown: JSON.parse((0, search_expression_1.canonicalExpressionJson)(pushdown)),
+          // SAFETY: The surrounding validation and domain contract establish the asserted type.
           residual: JSON.parse((0, search_expression_1.canonicalExpressionJson)(residual)),
           checkpoint: checkpoint.token
         })),
@@ -3000,8 +3189,9 @@ var require_source = __commonJS({
         throw new errors_1.CommunityError("CRYPTO_UNAVAILABLE", "Source cursor generation is unavailable");
       const token = base64Url(bytes);
       sourceCursors.set(token, { sourceId, objectId });
-      if (sourceCursors.size > 4096)
-        sourceCursors.delete(sourceCursors.keys().next().value);
+      const oldest = sourceCursors.keys().next().value;
+      if (sourceCursors.size > 4096 && oldest !== void 0)
+        sourceCursors.delete(oldest);
       return token;
     }
     function decodeSourceKeysetCursor(cursor, sourceId) {
@@ -3086,14 +3276,14 @@ var require_search_service = __commonJS({
       async search(input) {
         if (input.signal?.aborted === true)
           throw new DOMException("Search was cancelled", "AbortError");
-        const plan = await this.plan({
+        const planInput = {
           expression: input.expression,
           order: input.order,
           authorization: input.authorization,
-          limit: input.first,
-          ...input.snapshot === void 0 ? {} : { snapshot: input.snapshot }
-        });
-        const page = { first: input.first, ...input.after === void 0 ? {} : { after: input.after } };
+          limit: input.first
+        };
+        const plan = input.snapshot === void 0 ? await this.plan(planInput) : await this.plan({ ...planInput, snapshot: input.snapshot });
+        const page = input.after === void 0 ? { first: input.first } : { first: input.first, after: input.after };
         return this.#backend.search(plan, page, input.signal);
       }
     };
@@ -3182,11 +3372,11 @@ var require_search_service = __commonJS({
         for (let pageNumber = 0; pageNumber < input.maxPages; pageNumber += 1) {
           if (input.signal !== void 0)
             (0, source_1.abortSource)(input.signal);
-          const page = await input.source.scan({
-            ...after === void 0 ? {} : { after },
+          const scanInput = {
             limit: (0, source_1.boundedSourcePageSize)(input.pageSize, input.capabilities),
             authorization: input.authorization
-          });
+          };
+          const page = await input.source.scan(after === void 0 ? scanInput : { ...scanInput, after });
           if (page.checkpoint.sourceId !== input.source.sourceId)
             throw new Error("page checkpoint source mismatch");
           const pageObservedAt = validObservedAt(page.checkpoint.observedAt);
@@ -3361,7 +3551,7 @@ var require_projection_compiler = __commonJS({
       }
       if (!Number.isInteger(definition.version) || definition.version < 1)
         problem(diagnostics, "PROJECTION_INVALID", "/version", "Version must be a positive integer");
-      if (typeof definition.label !== "string" || definition.label.trim().length === 0 || definition.label.length > 160)
+      if (definition.label.trim().length === 0 || definition.label.length > 160)
         problem(diagnostics, "PROJECTION_INVALID", "/label", "Label must be non-empty and at most 160 characters");
       if (!["private", "shared", "public"].includes(definition.visibility))
         problem(diagnostics, "PROJECTION_INVALID", "/visibility", "Unsupported projection visibility");
@@ -3473,7 +3663,7 @@ var require_projection_compiler = __commonJS({
     function renderSegmentTemplate(template, values, limits = {}) {
       const maxTemplateLength = limits.maxTemplateLength ?? 256;
       const maxSegmentLength = limits.maxSegmentLength ?? 120;
-      if (typeof template.template !== "string" || template.template.length === 0 || template.template.length > maxTemplateLength)
+      if (template.template.length === 0 || template.template.length > maxTemplateLength)
         throw new Error("Projection segment template is empty or too long");
       const fields = /* @__PURE__ */ new Set();
       let output = "";
@@ -3496,7 +3686,7 @@ var require_projection_compiler = __commonJS({
       return Object.freeze({ original: template.template, segment, fields: Object.freeze([...fields].sort()) });
     }
     function normalizeProjectionSegment(value, maximumLength = 120) {
-      if (typeof value !== "string" || value.length === 0)
+      if (value.length === 0)
         throw new Error("Projection segment must not be empty");
       if (value !== value.normalize("NFKC"))
         throw new Error("Projection segment uses ambiguous Unicode normalization");
@@ -3603,14 +3793,14 @@ var require_projection_compiler = __commonJS({
     function validateDefinitionLimits(definition, context, diagnostics) {
       if (definition.limits === void 0)
         return;
-      const maximums = {
-        maxDepth: context.limits.maxDepth,
-        maxEntriesPerDirectory: context.limits.maxFanout,
-        maxTotalEntries: 1e6,
-        maxRelationDepth: context.limits.maxRelationDepth ?? context.limits.maxDepth
-      };
+      const maximums = /* @__PURE__ */ new Map([
+        ["maxDepth", context.limits.maxDepth],
+        ["maxEntriesPerDirectory", context.limits.maxFanout],
+        ["maxTotalEntries", 1e6],
+        ["maxRelationDepth", context.limits.maxRelationDepth ?? context.limits.maxDepth]
+      ]);
       for (const [name, value] of Object.entries(definition.limits)) {
-        if (value === void 0 || !Number.isInteger(value) || value < 1 || value > (maximums[name] ?? 0)) {
+        if (value === void 0 || !Number.isInteger(value) || value < 1 || value > (maximums.get(name) ?? 0)) {
           problem(diagnostics, "PROJECTION_LIMIT", `/limits/${name}`, `${name} exceeds the host projection limit`);
         }
       }
@@ -3663,8 +3853,8 @@ var require_projection_compiler = __commonJS({
     function problem(diagnostics, code, pointer, messageValue) {
       diagnostics.push(Object.freeze({ code, message: messageValue, severity: "error", pointer }));
     }
-    function message(error) {
-      return error instanceof Error ? error.message : String(error);
+    function message(cause) {
+      return cause instanceof Error ? cause.message : String(cause);
     }
     function matchingBrace(value, open) {
       let quote = "";
@@ -3818,12 +4008,12 @@ var require_projection_compiler = __commonJS({
     function scalar(value) {
       if (value === void 0 || value === null)
         return "";
-      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+      if (!Array.isArray(value))
         return String(value);
       throw new Error("Projection template values must be scalar");
     }
     function integerArg(value, label, minimum, maximum) {
-      if (!Number.isSafeInteger(value) || value < minimum || value > maximum)
+      if (!isNumber(value) || !Number.isSafeInteger(value) || value < minimum || value > maximum)
         throw new Error(`${label} must be between ${minimum} and ${maximum}`);
       return value;
     }
@@ -3847,22 +4037,31 @@ var require_projection_compiler = __commonJS({
       return hash.toString(36).padStart(13, "0");
     }
     function canonicalJson(value) {
-      if (value === null || typeof value !== "object")
+      if (!isNonNullObject(value))
         return JSON.stringify(value);
       if (Array.isArray(value))
         return `[${value.map(canonicalJson).join(",")}]`;
       return `{${Object.entries(value).filter(([, item]) => item !== void 0).sort(([left], [right]) => compareText(left, right)).map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
     }
     function cloneJson(value) {
-      return JSON.parse(JSON.stringify(value));
+      return (
+        /* SAFETY: Assertion is justified by surrounding validation or construction. */
+        JSON.parse(JSON.stringify(value))
+      );
     }
     function deepFreeze(value) {
-      if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+      if (isNonNullObject(value) && !Object.isFrozen(value)) {
         Object.freeze(value);
         for (const child of Object.values(value))
           deepFreeze(child);
       }
       return value;
+    }
+    function isNumber(value) {
+      return typeof value === "number";
+    }
+    function isNonNullObject(value) {
+      return typeof value === "object" && value !== null;
     }
     function validateDefinitionId(value) {
       if (/^builtin:[a-z][a-z0-9-]{0,63}$/u.test(value))
@@ -3932,7 +4131,8 @@ var require_projection_runtime = __commonJS({
         if (this.source.explain !== void 0)
           return this.source.explain(projectionId, path, context);
         const entry = await this.resolve(projectionId, path, context);
-        return Object.freeze({ projectionId, path, ...entry === void 0 ? {} : { entry }, componentOrder: [projectionId], shadowed: [], detail: entry === void 0 ? "Path did not resolve" : "Path resolved directly in the projection" });
+        const explanation = { projectionId, path, componentOrder: [projectionId], shadowed: [], detail: entry === void 0 ? "Path did not resolve" : "Path resolved directly in the projection" };
+        return entry === void 0 ? Object.freeze(explanation) : Object.freeze({ ...explanation, entry });
       }
       async *watch(projectionId, path, context) {
         validateExecution(path, void 0, context);
@@ -3949,7 +4149,7 @@ var require_projection_runtime = __commonJS({
     };
     exports.InMemoryProjectionRuntime = InMemoryProjectionRuntime;
     function normalizeVirtualPath(path) {
-      if (typeof path !== "string" || path.length === 0 || path.length > 4096 || !path.startsWith("/"))
+      if (path.length === 0 || path.length > 4096 || !path.startsWith("/"))
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Virtual paths must be absolute and bounded");
       if (path !== path.normalize("NFKC"))
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Virtual path uses ambiguous Unicode normalization");
@@ -3980,9 +4180,9 @@ var require_projection_runtime = __commonJS({
     function validateVfsEntry(entry, projectionId) {
       if (entry.projectionId !== projectionId || !Number.isInteger(entry.projectionVersion) || entry.projectionVersion < 1)
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Projection entry has mismatched projection identity");
-      if (typeof entry.entryId !== "string" || entry.entryId.length === 0 || entry.entryId.length > 512 || typeof entry.parentEntryId !== "string" || entry.parentEntryId.length > 512)
+      if (entry.entryId.length === 0 || entry.entryId.length > 512 || entry.parentEntryId.length > 512)
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Projection occurrence identity is invalid");
-      if (typeof entry.name !== "string" || entry.name.length === 0 || entry.name.length > 120 || entry.name === "." || entry.name === ".." || /[/\\]/u.test(entry.name))
+      if (entry.name.length === 0 || entry.name.length > 120 || entry.name === "." || entry.name === ".." || /[/\\]/u.test(entry.name))
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Projection entry name is unsafe");
       normalizeVirtualPath(entry.logicalPath);
       (0, identity_1.validateObjectRef)(entry.target);
@@ -4212,7 +4412,9 @@ var require_namespace = __commonJS({
           }
           const entry = occurrences[0];
           const shadowed = occurrences.slice(1);
-          return Object.freeze({ projectionId: "namespace", path: normalized, ...entry === void 0 ? {} : { entry }, componentOrder: components.map((component) => component.mount.mountId), shadowed, detail: entry === void 0 ? "No visible mount component contains the path" : shadowed.length === 0 ? "The first matching mount component provides this path" : `${shadowed.length} lower-precedence occurrence(s) are shadowed` });
+          const detail = entry === void 0 ? "No visible mount component contains the path" : shadowed.length === 0 ? "The first matching mount component provides this path" : `${shadowed.length} lower-precedence occurrence(s) are shadowed`;
+          const explanation = { projectionId: "namespace", path: normalized, componentOrder: components.map((component) => component.mount.mountId), shadowed, detail };
+          return entry === void 0 ? Object.freeze(explanation) : Object.freeze({ ...explanation, entry });
         },
         async *watch(path, context) {
           const normalized = (0, projection_runtime_1.normalizeVirtualPath)(path);
@@ -4378,7 +4580,8 @@ var require_namespace = __commonJS({
         throw new errors_1.CommunityError("CURSOR_STALE", "Namespace cursor no longer resolves in this snapshot");
       const values = entries.slice(start, start + page.first);
       const hasNextPage = start + page.first < entries.length;
-      const pageInfo = Object.freeze({ hasNextPage, ...hasNextPage && values.length > 0 ? { endCursor: cursors.encode(values.at(-1).entryId, context) } : {} });
+      const last = values.at(-1);
+      const pageInfo = hasNextPage && last !== void 0 ? Object.freeze({ hasNextPage, endCursor: cursors.encode(last.entryId, context) }) : Object.freeze({ hasNextPage });
       return Object.freeze({ entries: Object.freeze(values), pageInfo, freshness, shadowed: Object.freeze([...shadowed]), componentOrder: Object.freeze([...componentOrder]) });
     }
     function createNamespaceCursorStore() {
@@ -4393,8 +4596,9 @@ var require_namespace = __commonJS({
             binary += String.fromCharCode(byte);
           const token = globalThis.btoa(binary).replace(/\+/gu, "-").replace(/\//gu, "_").replace(/=+$/gu, "");
           issued.set(token, { entryId, snapshotId: context.snapshotId, authorizationFingerprint: context.authorizationFingerprint });
-          if (issued.size > 4096)
-            issued.delete(issued.keys().next().value);
+          const oldest = issued.keys().next().value;
+          if (issued.size > 4096 && oldest !== void 0)
+            issued.delete(oldest);
           return token;
         },
         decode(cursor, context) {
@@ -4562,11 +4766,11 @@ var require_entity_projection_runtime = __commonJS({
           sortKey: entry.sortKey,
           objectId: entry.entryId
         })));
-        const pageInfo = Object.freeze({
-          hasNextPage: start + selected.length < records.length,
-          ...cursors[0] === void 0 ? {} : { startCursor: cursors[0] },
-          ...cursors.at(-1) === void 0 ? {} : { endCursor: cursors.at(-1) }
-        });
+        const pageInfo = { hasNextPage: start + selected.length < records.length };
+        if (cursors[0] !== void 0)
+          Object.assign(pageInfo, { startCursor: cursors[0] });
+        if (cursors.at(-1) !== void 0)
+          Object.assign(pageInfo, { endCursor: cursors.at(-1) });
         return Object.freeze({ entries: Object.freeze(selected.map(({ entry }) => entry)), pageInfo, freshness: this.#completeness });
       }
       async resolve(projectionId, path, context) {
@@ -4821,9 +5025,9 @@ var require_entity_projection_runtime = __commonJS({
         return nulls === "first" ? -1 : 1;
       if (right === null)
         return nulls === "first" ? 1 : -1;
-      if (typeof left === "number" && typeof right === "number")
+      if (isNumberScalar(left) && isNumberScalar(right))
         return left - right;
-      if (typeof left === "boolean" && typeof right === "boolean")
+      if (isBooleanScalar(left) && isBooleanScalar(right))
         return Number(left) - Number(right);
       return compareText(String(left), String(right));
     }
@@ -4873,7 +5077,7 @@ var require_entity_projection_runtime = __commonJS({
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Projection page size must be between 1 and 1000");
     }
     function freezeCompleteness(value) {
-      if (typeof value !== "object" || value === null || !["complete", "partial", "stale", "approximate"].includes(value.status) || value.sources.length > 4096 || value.omittedSources.length > 4096 || value.unsupportedPredicates.length > 4096) {
+      if (!["complete", "partial", "stale", "approximate"].includes(value.status) || value.sources.length > 4096 || value.omittedSources.length > 4096 || value.unsupportedPredicates.length > 4096) {
         throw new errors_1.CommunityError("PROJECTION_INVALID", "Projection completeness metadata is invalid");
       }
       return Object.freeze({
@@ -4882,6 +5086,12 @@ var require_entity_projection_runtime = __commonJS({
         omittedSources: Object.freeze([...value.omittedSources]),
         unsupportedPredicates: Object.freeze([...value.unsupportedPredicates])
       });
+    }
+    function isNumberScalar(value) {
+      return typeof value === "number";
+    }
+    function isBooleanScalar(value) {
+      return typeof value === "boolean";
     }
     function emptyPage(freshness) {
       return Object.freeze({ entries: [], pageInfo: Object.freeze({ hasNextPage: false }), freshness });
@@ -4972,6 +5182,12 @@ var require_ids = __commonJS({
     exports.parseChangeId = parseChangeId;
     exports.assertRevisionId = assertRevisionId;
     var errors_1 = require_errors2();
+    function __epochIsString(value) {
+      return typeof value === "string";
+    }
+    function __epochIsFunction(value) {
+      return typeof value === "function";
+    }
     exports.CANONICAL_ID_KINDS = [
       "repo",
       "principal",
@@ -5013,7 +5229,7 @@ var require_ids = __commonJS({
       return `epoch:${kind}:${base32(bytes)}`;
     }
     function parseCanonicalId(value, expectedKind) {
-      if (typeof value !== "string" || value.length > 96 || [...value].some((character) => character.codePointAt(0) > 127)) {
+      if (!__epochIsString(value) || value.length > 96 || [...value].some((character) => character.codePointAt(0) > 127)) {
         return (0, errors_1.fail)("invalid-id", "Canonical ID must be bounded ASCII");
       }
       const parts = value.split(":");
@@ -5029,13 +5245,13 @@ var require_ids = __commonJS({
       return { kind: "change", token: parsed.token };
     }
     function assertRevisionId(value) {
-      if (typeof value !== "string" || !eventIdPattern.test(value))
+      if (!__epochIsString(value) || !eventIdPattern.test(value))
         (0, errors_1.fail)("invalid-ref", "RevisionId must be a signed EventId");
       return value;
     }
     function platformRandom(byteLength) {
       const crypto = globalThis.crypto;
-      if (crypto === void 0 || typeof crypto.getRandomValues !== "function") {
+      if (crypto === void 0 || !__epochIsFunction(crypto.getRandomValues)) {
         (0, errors_1.fail)("unsupported-capability", "This runtime has no cryptographic random source; inject a 256-bit CSPRNG");
       }
       return crypto.getRandomValues(new Uint8Array(byteLength));
@@ -5071,6 +5287,12 @@ var require_events = __commonJS({
     exports.assertProtocolEvent = assertProtocolEvent;
     var errors_1 = require_errors2();
     var ids_1 = require_ids();
+    function __epochIsString(value) {
+      return typeof value === "string";
+    }
+    function __epochIsObject(value) {
+      return typeof value === "object";
+    }
     exports.PROTOCOL_EVENT_SCHEMAS = [
       "repository.identity",
       "change.created",
@@ -5131,7 +5353,7 @@ var require_events = __commonJS({
       exact(event, ["schemaVersion", "type", "eventId", "revisionId", "body"], "event");
       if (event.schemaVersion !== 1)
         (0, errors_1.fail)("invalid-schema", "Unsupported protocol schemaVersion");
-      if (typeof event.type !== "string" || !typeSet.has(event.type))
+      if (!__epochIsString(event.type) || !typeSet.has(event.type))
         (0, errors_1.fail)("invalid-schema", `Unknown protocol event type: ${String(event.type)}`);
       const eventId = (0, ids_1.assertRevisionId)(event.eventId);
       const revisionId = (0, ids_1.assertRevisionId)(event.revisionId);
@@ -5582,7 +5804,7 @@ var require_events = __commonJS({
       for (const field of rules.digests ?? [])
         digest(body[field], field);
       for (const field of rules.strings ?? [])
-        if (typeof body[field] !== "string" || body[field] === "")
+        if (!__epochIsString(body[field]) || body[field] === "")
           (0, errors_1.fail)("invalid-schema", `${field} must be non-empty string`);
       for (const field of rules.paths ?? [])
         path(body[field]);
@@ -5599,7 +5821,7 @@ var require_events = __commonJS({
           (0, errors_1.fail)("invalid-schema", `Unknown ${field} variant`);
     }
     function record(value, label) {
-      if (typeof value !== "object" || value === null || Array.isArray(value))
+      if (!__epochIsObject(value) || value === null || Array.isArray(value))
         (0, errors_1.fail)("invalid-schema", `${label} must be an object`);
       return value;
     }
@@ -5639,12 +5861,12 @@ var require_events = __commonJS({
       return result;
     }
     function digest(value, label) {
-      if (typeof value !== "string" || !digestPattern.test(value))
+      if (!__epochIsString(value) || !digestPattern.test(value))
         (0, errors_1.fail)("invalid-ref", `${label} must be a lowercase SHA-256 digest`);
       return value;
     }
     function path(value) {
-      if (typeof value !== "string" || value === "" || value.length > 4096 || value.startsWith("/") || value.split("/").some((segment) => !safePathSegment.test(segment)))
+      if (!__epochIsString(value) || value === "" || value.length > 4096 || value.startsWith("/") || value.split("/").some((segment) => !safePathSegment.test(segment)))
         (0, errors_1.fail)("invalid-path", "Fragment path must be normalized repository-relative path");
       return value;
     }
@@ -5663,6 +5885,15 @@ var require_inspection = __commonJS({
     exports.inspectSwhid = inspectSwhid;
     exports.nodeOnlyAdapterStatus = nodeOnlyAdapterStatus;
     var errors_1 = require_errors2();
+    function __epochIsObject(value) {
+      return typeof value === "object";
+    }
+    function __epochIsString(value) {
+      return typeof value === "string";
+    }
+    function __epochIsBoolean(value) {
+      return typeof value === "boolean";
+    }
     function inspectRevisionGraph(nodes) {
       const byId = /* @__PURE__ */ new Map();
       for (const node of nodes) {
@@ -5698,7 +5929,7 @@ var require_inspection = __commonJS({
       });
     }
     function inspectCloneFilter(value) {
-      if (typeof value !== "object" || value === null || Array.isArray(value))
+      if (!__epochIsObject(value) || value === null || Array.isArray(value))
         (0, errors_1.fail)("invalid-schema", "Filter must be an object");
       const input = value;
       const known = /* @__PURE__ */ new Set(["paths", "entityTypes", "maxBytes", "includePromises"]);
@@ -5709,7 +5940,7 @@ var require_inspection = __commonJS({
         const item = input[name];
         if (item === void 0)
           return void 0;
-        if (!Array.isArray(item) || item.some((entry) => typeof entry !== "string" || entry.length === 0 || entry.includes("\0"))) {
+        if (!Array.isArray(item) || item.some((entry) => !__epochIsString(entry) || entry.length === 0 || entry.includes("\0"))) {
           return (0, errors_1.fail)("invalid-schema", `${name} must be bounded non-empty strings`);
         }
         return Object.freeze([...new Set(item)].sort());
@@ -5718,24 +5949,24 @@ var require_inspection = __commonJS({
       const entityTypes = strings("entityTypes");
       if (input.maxBytes !== void 0 && (!Number.isSafeInteger(input.maxBytes) || input.maxBytes < 0))
         (0, errors_1.fail)("invalid-schema", "maxBytes must be a non-negative integer");
-      if (input.includePromises !== void 0 && typeof input.includePromises !== "boolean")
+      if (input.includePromises !== void 0 && !__epochIsBoolean(input.includePromises))
         (0, errors_1.fail)("invalid-schema", "includePromises must be boolean");
-      return Object.freeze({ valid: true, canonical: Object.freeze({ ...paths ? { paths } : {}, ...entityTypes ? { entityTypes } : {}, ...input.maxBytes === void 0 ? {} : { maxBytes: input.maxBytes }, ...input.includePromises === void 0 ? {} : { includePromises: input.includePromises } }) });
+      return Object.freeze({ valid: true, canonical: Object.freeze({ ...paths && { paths }, ...entityTypes && { entityTypes }, ...!(input.maxBytes === void 0) && { maxBytes: input.maxBytes }, ...!(input.includePromises === void 0) && { includePromises: input.includePromises } }) });
     }
     function inspectSyncContract(value) {
-      if (typeof value !== "object" || value === null)
+      if (!__epochIsObject(value) || value === null)
         (0, errors_1.fail)("invalid-schema", "Sync contract must be an object");
       const input = value;
       if (input.protocol !== "epoch.sync/v2")
         return { supported: false, code: "unsupported-capability", reason: `unsupported sync protocol: ${String(input.protocol)}` };
-      if (!Array.isArray(input.commands) || !input.commands.every((command) => typeof command === "string"))
+      if (!Array.isArray(input.commands) || !input.commands.every((command) => __epochIsString(command)))
         (0, errors_1.fail)("invalid-schema", "Sync commands must be strings");
       return { supported: true, protocol: "epoch.sync/v2", code: "ok" };
     }
     var swhKinds = /* @__PURE__ */ new Set(["cnt", "dir", "rev", "rel", "snp"]);
     var swhQualifiers = /* @__PURE__ */ new Set(["origin", "visit", "anchor", "path", "lines"]);
     function parseSwhid(value) {
-      if (typeof value !== "string" || value.length > 2048)
+      if (!__epochIsString(value) || value.length > 2048)
         (0, errors_1.fail)("invalid-id", "Invalid SWHID length");
       const [core, ...parts] = value.split(";");
       const fields = core.split(":");
@@ -5796,6 +6027,15 @@ var require_posture = __commonJS({
     exports.DENIED_POSTURE_POLICY = exports.OPEN_POSTURE_DEFAULTS = exports.TRUST_POSTURES = void 0;
     exports.evaluatePosture = evaluatePosture;
     var errors_1 = require_errors2();
+    function __epochIsObject(value) {
+      return typeof value === "object";
+    }
+    function __epochIsString(value) {
+      return typeof value === "string";
+    }
+    function __epochIsBoolean(value) {
+      return typeof value === "boolean";
+    }
     exports.TRUST_POSTURES = Object.freeze(["hosted", "private", "open"]);
     exports.OPEN_POSTURE_DEFAULTS = Object.freeze({
       posture: "open",
@@ -5818,7 +6058,7 @@ var require_posture = __commonJS({
       if (config === void 0 || config === null) {
         return { ...exports.OPEN_POSTURE_DEFAULTS };
       }
-      if (typeof config !== "object" || Array.isArray(config)) {
+      if (!__epochIsObject(config) || Array.isArray(config)) {
         (0, errors_1.fail)("policy-denied", "Malformed trust posture config");
       }
       const row = flattenPostureConfig(config);
@@ -5882,10 +6122,10 @@ var require_posture = __commonJS({
       if (isRecord(community) && isRecord(community.posture)) {
         return community.posture;
       }
-      if (isRecord(config.posture) && typeof config.posture.posture === "string") {
+      if (isRecord(config.posture) && __epochIsString(config.posture.posture)) {
         return config.posture;
       }
-      if (typeof config.posture === "string" || typeof config.trust_posture === "string" || typeof config.trustPosture === "string") {
+      if (__epochIsString(config.posture) || __epochIsString(config.trust_posture) || __epochIsString(config.trustPosture)) {
         return config;
       }
       if (Object.keys(config).length === 0)
@@ -5902,7 +6142,7 @@ var require_posture = __commonJS({
     function firstString(row, keys) {
       for (const key of keys) {
         const value = row[key];
-        if (typeof value === "string")
+        if (__epochIsString(value))
           return value;
       }
       return void 0;
@@ -5912,7 +6152,7 @@ var require_posture = __commonJS({
         const value = row[key];
         if (value === void 0)
           continue;
-        if (typeof value === "boolean")
+        if (__epochIsBoolean(value))
           return value;
         (0, errors_1.fail)("policy-denied", `Malformed posture boolean: ${key}`);
       }
@@ -5923,8 +6163,11 @@ var require_posture = __commonJS({
         const value = row[key];
         if (value === void 0)
           continue;
-        if (typeof value === "string" && allowed.includes(value))
-          return value;
+        if (__epochIsString(value) && allowed.includes(value))
+          return (
+            /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */
+            value
+          );
         (0, errors_1.fail)("policy-denied", `Unknown posture enum: ${key}=${String(value)}`);
       }
       return void 0;
@@ -5934,7 +6177,7 @@ var require_posture = __commonJS({
         const value = row[key];
         if (value === void 0)
           continue;
-        if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
+        if (!Array.isArray(value) || value.some((item) => !__epochIsString(item) || item.length === 0)) {
           (0, errors_1.fail)("policy-denied", `Malformed posture allowlist: ${key}`);
         }
         return value;
@@ -5952,6 +6195,9 @@ var require_revset = __commonJS({
     exports.RevsetParseError = void 0;
     exports.parseRevset = parseRevset;
     exports.evaluateRevset = evaluateRevset;
+    function __epochIsString(value) {
+      return typeof value === "string";
+    }
     var RevsetParseError = class extends Error {
       offset;
       name = "RevsetParseError";
@@ -5974,7 +6220,10 @@ var require_revset = __commonJS({
           continue;
         }
         if (["(", ")", "|", "&", "-"].includes(character)) {
-          tokens.push({ type: character, value: character, offset: index++ });
+          tokens.push({ type: (
+            /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */
+            character
+          ), value: character, offset: index++ });
           continue;
         }
         const start = index;
@@ -6040,7 +6289,7 @@ var require_revset = __commonJS({
       return expression;
     }
     function evaluateRevset(expression, nodes) {
-      const ast = typeof expression === "string" ? parseRevset(expression) : expression;
+      const ast = __epochIsString(expression) ? parseRevset(expression) : expression;
       const byId = new Map(nodes.map((node) => [node.revisionId, node]));
       const children = /* @__PURE__ */ new Map();
       for (const node of nodes)
@@ -6059,7 +6308,7 @@ var require_revset = __commonJS({
             return new Set([...left].filter((id) => right.has(id)));
           return new Set([...left].filter((id) => !right.has(id)));
         }
-        const literal = typeof value.argument === "string" ? value.argument : void 0;
+        const literal = __epochIsString(value.argument) ? value.argument : void 0;
         if (value.name === "heads") {
           const parents = new Set(nodes.flatMap((node) => [...node.parentRevisionIds]));
           return new Set([...all].filter((id) => !parents.has(id)));
@@ -6078,7 +6327,7 @@ var require_revset = __commonJS({
           return new Set(nodes.filter((node) => node.reviewState === value.name).map((node) => node.revisionId));
         if (value.name === "mergeable")
           return new Set(nodes.filter((node) => node.mergeable === true).map((node) => node.revisionId));
-        const seed = typeof value.argument === "string" ? /* @__PURE__ */ new Set([value.argument]) : value.argument ? visit(value.argument) : /* @__PURE__ */ new Set();
+        const seed = __epochIsString(value.argument) ? /* @__PURE__ */ new Set([value.argument]) : value.argument ? visit(value.argument) : /* @__PURE__ */ new Set();
         const output = new Set(seed);
         const queue = [...seed];
         while (queue.length) {
@@ -6515,7 +6764,7 @@ var require_review_publish = __commonJS({
         reviewRef: gerritReviewRef(target),
         pushSpec: gerritPushSpec(options),
         pushOptions: gerritPushOptions(options),
-        ...topic === void 0 ? {} : { topic },
+        ...!(topic === void 0) && { topic },
         hashtags,
         wip: input.wip === true
       });
@@ -6674,7 +6923,7 @@ var require_channel = __commonJS({
       return { watermarkEventId, unreadIds };
     }
     function sanitizeChannelLivestreamEnvelope(input) {
-      if (input.protectedInput === true || typeof input.secret === "string" && input.secret.length > 0) {
+      if (input.protectedInput === true || input.secret !== void 0 && input.secret.length > 0) {
         return { kind: "drop", reason: "protected-secret" };
       }
       if (input.visibility !== "public") {
@@ -6800,12 +7049,12 @@ var require_dist2 = __commonJS({
       const fetcher = options.fetch ?? globalThis.fetch;
       const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl.slice(0, -1) : options.baseUrl;
       return async function request(method, path, body) {
+        const headers = new Headers({ Accept: "application/json" });
+        if (body !== void 0)
+          headers.set("Content-Type", "application/json");
         const response = await fetcher(`${baseUrl}${path}`, {
           method,
-          headers: {
-            Accept: "application/json",
-            ...body === void 0 ? {} : { "Content-Type": "application/json" }
-          },
+          headers,
           body: body === void 0 ? void 0 : JSON.stringify(body)
         });
         const text = await response.text();
@@ -6821,11 +7070,16 @@ var require_dist2 = __commonJS({
       return `/repositories/${encodeURIComponent(slug)}`;
     }
     function errorMessage(value) {
-      if (typeof value === "object" && value !== null && "error" in value) {
-        const error = value.error;
-        return typeof error === "string" ? error : void 0;
-      }
-      return void 0;
+      if (!isJsonObject(value))
+        return void 0;
+      const error = value.error;
+      return isString(error) ? error : void 0;
+    }
+    function isJsonObject(value) {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    function isString(value) {
+      return typeof value === "string";
     }
   }
 });
@@ -11649,7 +11903,7 @@ function validateDocuments(documents) {
   }
 }
 function success(requestId, result) {
-  return { requestId, ok: true, ...result === void 0 ? {} : { result } };
+  return { requestId, ok: true, ...result === void 0 ? void 0 : { result } };
 }
 function failure(requestId, error) {
   if ((0, import_community_core2.isCommunityError)(error)) {

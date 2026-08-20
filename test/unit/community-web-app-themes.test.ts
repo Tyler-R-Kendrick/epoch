@@ -33,6 +33,16 @@ function fixture<T>(value: T): T {
   return value;
 }
 
+function ensureValueKind(): void {
+  // Classic app scripts classify through globalThis.CW_VALUE (value-kind.js).
+  // Node unit fixtures eval those scripts against a fake window, so install the
+  // helpers on the real globalThis once before any dependent script loads.
+  // SAFETY: CW_VALUE is installed by value-kind.js onto globalThis in browsers and tests.
+  const host = globalThis as { CW_VALUE?: unknown };
+  if (host.CW_VALUE !== undefined) return;
+  new Function(readFileSync(join(ROOT, "value-kind.js"), "utf8"))();
+}
+
 function dataJson(): string {
   const source = readFileSync(join(ROOT, "data.js"), "utf8");
   const sandbox = fixture<{ CW_DATA?: FixtureValue }>({});
@@ -41,10 +51,12 @@ function dataJson(): string {
 }
 
 function loadCommunityCore(window: FixtureDictionary): void {
+  ensureValueKind();
   new Function("window", readFileSync(join(ROOT, "community-core-runtime.js"), "utf8"))(window);
 }
 
 function loadActions(window: FixtureDictionary): void {
+  ensureValueKind();
   new Function("window", readFileSync(join(ROOT, "action-registry.js"), "utf8"))(window);
   new Function("window", readFileSync(join(ROOT, "actions.js"), "utf8"))(window);
 }
@@ -87,6 +99,7 @@ function contrast(a: string, b: string): number {
 }
 
 export async function runCommunityWebAppThemeTests(): Promise<void> {
+  ensureValueKind();
   // Hoisted source snapshots — many sections assert against these.
   const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
   const actionSrc = readFileSync(join(ROOT, "actions.js"), "utf8");

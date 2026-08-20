@@ -36,23 +36,28 @@ export function runTomlParserTests(): void {
  * asserted directly in `prototypeNamedKeysAreOrdinaryKeys`, against the
  * unnormalized document.
  */
+type TomlFixture =
+  | TestJsonValue
+  | TomlDateTime
+  | readonly TomlFixture[]
+  | { readonly [key: string]: TomlFixture };
+
 function parse(text: string): TestJsonObject {
-  // SAFETY: TOML tables normalize into JSON-shaped test fixtures.
-  return plain(JSON.parse(JSON.stringify(parseTomlDocument(text))) as TestJsonValue) as TestJsonObject;
+  // SAFETY: plain() re-roots tables on Object.prototype while preserving TomlDateTime.
+  return plain(parseTomlDocument(text) as TomlFixture) as TestJsonObject;
 }
 
-function plain(value: TestJsonValue | TomlDateTime): TestJsonValue {
+function plain(value: TomlFixture): TomlFixture {
   if (Array.isArray(value)) {
-    return value.map((entry) => {
-      // SAFETY: TOML array entries normalize into JSON-shaped test fixtures.
-      return plain(entry as TestJsonValue | TomlDateTime);
-    });
+    return value.map((entry) => plain(entry));
   }
   if (!isTestJsonObject(value) || value instanceof TomlDateTime) {
-    // SAFETY: Non-object TOML scalars pass through unchanged.
-    return value as TestJsonValue;
+    return value;
   }
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, plain(entry)]));
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+    // SAFETY: TOML table entries remain TomlFixture values after recursive plain().
+    return [key, plain(entry as TomlFixture)];
+  }));
 }
 
 function isTestJsonObject<Value>(value: Value): value is Value & TestJsonObject {

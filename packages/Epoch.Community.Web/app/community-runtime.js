@@ -1038,6 +1038,18 @@ var CW_RUNTIME = (() => {
       exports.stableJson = stableJson2;
       exports.isRecord = isRecord6;
       var react_1 = require_react();
+      function __epochIsFunction2(value) {
+        return typeof value === "function";
+      }
+      function __epochIsNumber4(value) {
+        return typeof value === "number";
+      }
+      function __epochIsString6(value) {
+        return typeof value === "string";
+      }
+      function __epochIsUndefined(value) {
+        return typeof value === "undefined";
+      }
       function createMemoryEpochReactStorage(initial = {}) {
         const values = new Map(Object.entries(initial));
         return {
@@ -1089,7 +1101,7 @@ var CW_RUNTIME = (() => {
           };
         }
         function setState(update) {
-          const nextState = normalizeState(typeof update === "function" ? update(snapshot.state) : update);
+          const nextState = normalizeState(resolveStateUpdate(update, snapshot.state));
           const operations = diffStates(entity, asRecord(snapshot.state), asRecord(nextState));
           if (operations.length === 0)
             return { state: snapshot.state, events: [] };
@@ -1240,16 +1252,20 @@ var CW_RUNTIME = (() => {
       function useEpochView(repository) {
         return (0, react_1.useSyncExternalStore)(repository.subscribe, repository.view, repository.view);
       }
+      function reactEventPayload(operation, replicaId, lamport) {
+        return {
+          backend: "epoch-react",
+          entity: operation.entity,
+          // SAFETY: EpochReactOperation is JSON-serializable and stored as dictionary payload.
+          operation,
+          replica_id: hashString(stableJson2({ replicaId, lamport, operation })).padStart(8, "0").slice(0, 32)
+        };
+      }
       function appendOperations(existing, operations, author, replicaId) {
         const next = [...existing];
         for (const operation of operations) {
           const lamport = next.length + 1;
-          const payload = {
-            backend: "epoch-react",
-            entity: operation.entity,
-            operation,
-            replica_id: hashString(stableJson2({ replicaId, lamport, operation })).padStart(8, "0").slice(0, 32)
-          };
+          const payload = reactEventPayload(operation, replicaId, lamport);
           next.push({
             id: `epoch-react-${lamport}-${hashString(stableJson2(payload))}`,
             type: "crdt",
@@ -1280,23 +1296,35 @@ var CW_RUNTIME = (() => {
       }
       function materializeState(entity, events) {
         if (events.length === 0)
-          return {};
+          return (
+            /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */
+            {}
+          );
         const state = {};
         for (const event of events) {
           const operation = event.payload.operation;
           if (!isReactOperation(operation) || operation.entity !== entity)
             continue;
-          if (operation.kind === "map-delete")
+          if (operation.kind === "map-delete") {
             delete state[operation.key];
-          else
+          } else if ("value" in operation) {
             state[operation.key] = operation.value;
+          }
         }
         return normalizeState(state);
+      }
+      function resolveStateUpdate(update, state) {
+        const candidate = update;
+        if (__epochIsFunction2(candidate)) {
+          const updater = update;
+          return updater(state);
+        }
+        return update;
       }
       function eventsForTarget(events, target) {
         if (target === "latest")
           return events;
-        if (typeof target === "number")
+        if (__epochIsNumber4(target))
           return events.slice(0, clampEventCount(target, events.length));
         const index = events.findIndex((event) => event.id === target);
         if (index === -1)
@@ -1317,7 +1345,7 @@ var CW_RUNTIME = (() => {
         if (raw === void 0)
           return void 0;
         const parsed = JSON.parse(raw);
-        if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord6(parsed.payload)) {
+        if (parsed.type !== "entity" || !__epochIsString6(parsed.id) || !__epochIsString6(parsed.entity) || !__epochIsString6(parsed.author) || !__epochIsNumber4(parsed.lamport) || !isRecord6(parsed.payload)) {
           throw new Error("invalid Epoch live repository event");
         }
         return {
@@ -1339,7 +1367,7 @@ var CW_RUNTIME = (() => {
       function normalizeTarget(target, events) {
         if (target === "latest")
           return target;
-        if (typeof target === "number")
+        if (__epochIsNumber4(target))
           return clampEventCount(target, events.length);
         if (!events.some((event) => event.id === target))
           throw new Error(`unknown Epoch React event '${target}'`);
@@ -1362,7 +1390,7 @@ var CW_RUNTIME = (() => {
         }));
       }
       function browserStorage() {
-        return typeof globalThis.localStorage === "undefined" ? void 0 : globalThis.localStorage;
+        return __epochIsUndefined(globalThis.localStorage) ? void 0 : globalThis.localStorage;
       }
       function normalizeState(value) {
         if (!isRecord6(value))
@@ -1395,12 +1423,12 @@ var CW_RUNTIME = (() => {
         return Math.max(0, Math.min(count, length));
       }
       function requireNonEmpty(value, label) {
-        if (typeof value !== "string" || value.length === 0)
+        if (!__epochIsString6(value) || value.length === 0)
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
       function requireNumber(value, label) {
-        if (typeof value !== "number" || !Number.isFinite(value))
+        if (!__epochIsNumber4(value) || !Number.isFinite(value))
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
@@ -1461,7 +1489,7 @@ var CW_RUNTIME = (() => {
             payload: input.payload,
             metadata: input.metadata
           });
-          const event = repository.append(entity, change);
+          const event = repository.append(entity, trackedChangeRecord(change));
           return {
             event,
             revision,
@@ -1537,7 +1565,7 @@ var CW_RUNTIME = (() => {
         return isTrackedChange(value) ? value : void 0;
       }
       function versionLedgerFromRepository(repository, entity) {
-        return repository.history().filter((event) => event.entity === entity && isTrackedChange(event.payload)).map((event) => ledgerEntryFromEvent(event, event.payload));
+        return repository.history().filter((event) => event.entity === entity && isTrackedChange(event.payload)).map((event) => ledgerEntryFromEvent(event, assertTrackedChange(event.payload)));
       }
       function nextRevision(repository, entity) {
         const latest = versionLedgerFromRepository(repository, entity).at(-1);
@@ -1588,6 +1616,26 @@ var CW_RUNTIME = (() => {
       }
       function isTrackedChange(value) {
         return (0, wasm_react_1.isRecord)(value) && value.kind === "tracked-change" && typeof value.surface === "string" && typeof value.source === "string" && typeof value.revision === "number" && typeof value.summary === "string" && "payload" in value;
+      }
+      function trackedChangeRecord(change) {
+        const record = {
+          kind: change.kind,
+          surface: change.surface,
+          source: change.source,
+          revision: change.revision,
+          summary: change.summary,
+          // SAFETY: Repository append accepts dictionary-serializable tracked payloads.
+          payload: change.payload
+        };
+        if (change.metadata !== void 0) {
+          return { ...record, metadata: change.metadata };
+        }
+        return record;
+      }
+      function assertTrackedChange(value) {
+        if (!isTrackedChange(value))
+          throw new Error("Expected tracked change payload");
+        return value;
       }
     }
   });
@@ -1717,9 +1765,9 @@ var CW_RUNTIME = (() => {
       actor: input.actor,
       workspaceId: input.workspaceId,
       readOnly: input.readOnly,
-      ...input.baseRef === void 0 ? {} : { baseRef: input.baseRef },
-      ...input.proposalRef === void 0 ? {} : { proposalRef: input.proposalRef },
-      ...input.changeId === void 0 ? {} : { changeId: input.changeId },
+      ...!(input.baseRef === void 0) && { baseRef: input.baseRef },
+      ...!(input.proposalRef === void 0) && { proposalRef: input.proposalRef },
+      ...!(input.changeId === void 0) && { changeId: input.changeId },
       revisionIds: input.revisionIds ?? [],
       eventIds: input.eventIds ?? [],
       policy: input.policy,
@@ -1734,7 +1782,7 @@ var CW_RUNTIME = (() => {
       decision,
       capability,
       receiptId: identifier("pol", { decision, capability, reason: reason ?? null }),
-      ...reason === void 0 ? {} : { reason }
+      ...!(reason === void 0) && { reason }
     };
   }
   var skippedValidation = {
@@ -1785,6 +1833,9 @@ var CW_RUNTIME = (() => {
 
   // packages/Epoch.Community.Runtime/src/ui.ts
   var import_integration_core2 = __toESM(require_dist2());
+  function __epochIsString(value) {
+    return typeof value === "string";
+  }
   var unsafeThemeValue = /url\(|javascript:|expression\(|[<>;{}]/iu;
   function validateDynamicUiManifest(manifest, release) {
     const errors = [];
@@ -1869,7 +1920,7 @@ var CW_RUNTIME = (() => {
     };
   }
   function isDynamicUiManifest(value) {
-    return (0, import_integration_core2.isRecord)(value) && typeof value.abiVersion === "number" && isDynamicUiScope(value.scope) && Array.isArray(value.placements) && value.placements.every(isDynamicUiPlacement) && (0, import_integration_core2.isRecord)(value.theme) && Object.values(value.theme).every((token) => typeof token === "string");
+    return (0, import_integration_core2.isRecord)(value) && typeof value.abiVersion === "number" && isDynamicUiScope(value.scope) && Array.isArray(value.placements) && value.placements.every(isDynamicUiPlacement) && (0, import_integration_core2.isRecord)(value.theme) && Object.values(value.theme).every((token) => __epochIsString(token));
   }
   function isDynamicUiScope(value) {
     return value === "personal" || value === "project" || value === "session";
@@ -1893,7 +1944,7 @@ var CW_RUNTIME = (() => {
     const epoch = (0, import_integration_core3.createBrowserEpoch)({
       namespace: options.namespace,
       author: options.author,
-      ...options.storage === void 0 ? {} : { storage: options.storage }
+      ...!(options.storage === void 0) && { storage: options.storage }
     });
     const id = identifier("ws", { namespace: options.namespace, harness: harness.releaseId });
     const initialManifest = options.initialManifest ?? harness.safeModeManifest;
@@ -1955,7 +2006,7 @@ var CW_RUNTIME = (() => {
         revision: revision2,
         headEventId,
         valid: validate(record.manifest).length === 0,
-        ...base === void 0 ? {} : { base }
+        ...!(base === void 0) && { base }
       };
     }
     function readRecord(name) {
@@ -2048,12 +2099,12 @@ var CW_RUNTIME = (() => {
       const errors = validate(input.manifest);
       const provenance = {
         kind: "proposed",
-        ...existing === void 0 ? {} : { baseView: name },
-        ...baseRevision === void 0 ? {} : { baseRevision },
-        ...input.prompt === void 0 ? {} : { promptDigest: digestOf(input.prompt) },
-        ...input.prompt !== void 0 && input.retainPrompt === true ? { prompt: input.prompt } : {},
-        ...input.model === void 0 ? {} : { model: input.model },
-        ...errors.length === 0 ? {} : { validationErrors: errors }
+        ...!(existing === void 0) && { baseView: name },
+        ...!(baseRevision === void 0) && { baseRevision },
+        ...!(input.prompt === void 0) && { promptDigest: digestOf(input.prompt) },
+        ...input.prompt !== void 0 && input.retainPrompt === true && { prompt: input.prompt },
+        ...!(input.model === void 0) && { model: input.model },
+        ...!(errors.length === 0) && { validationErrors: errors }
       };
       return appendRevision(name, {
         manifest: input.manifest,
@@ -2155,7 +2206,7 @@ var CW_RUNTIME = (() => {
         events: epoch.repository.history().length,
         safeMode: rendered.safeMode,
         state: rendered.safeMode && !safeMode() ? "unrenderable" : proposals.length > 0 ? "proposed" : "clean",
-        ...known === void 0 ? {} : { lastKnownGood: known }
+        ...!(known === void 0) && { lastKnownGood: known }
       };
     }
     return {
@@ -2253,6 +2304,12 @@ var CW_RUNTIME = (() => {
 
   // packages/Epoch.Community.Runtime/src/feeds.ts
   var import_integration_core5 = __toESM(require_dist2());
+  function __epochIsString2(value) {
+    return typeof value === "string";
+  }
+  function __epochIsNumber(value) {
+    return typeof value === "number";
+  }
   var FEED_PREFIX = "feeds/";
   function feedEntity(feed) {
     return `${FEED_PREFIX}${feed}`;
@@ -2276,9 +2333,9 @@ var CW_RUNTIME = (() => {
       body,
       author,
       revision,
-      ...input.subject === void 0 ? {} : { subject: input.subject },
-      ...previous === void 0 ? {} : { editOf: previous.revisionId },
-      ...input.links === void 0 ? {} : { links: input.links }
+      ...!(input.subject === void 0) && { subject: input.subject },
+      ...!(previous === void 0) && { editOf: previous.revisionId },
+      ...!(input.links === void 0) && { links: input.links }
     };
     const result = epoch.trackChange({
       entity: feedEntity(feed),
@@ -2302,7 +2359,7 @@ var CW_RUNTIME = (() => {
     };
   }
   function revisionsOf(epoch, feed) {
-    return epoch.repository.history().filter((event) => event.entity === feedEntity(feed)).map((event) => event.payload.payload).filter(isSocialRevision);
+    return epoch.repository.history().filter((event) => event.entity === feedEntity(feed)).map((event) => event.payload.payload).filter((payload) => isSocialRevision(payload));
   }
   function recordsOf(epoch, feed) {
     const byChange = /* @__PURE__ */ new Map();
@@ -2332,7 +2389,7 @@ var CW_RUNTIME = (() => {
     return [...feeds].sort();
   }
   function isSocialRevision(value) {
-    return (0, import_integration_core5.isRecord)(value) && typeof value.changeId === "string" && typeof value.revisionId === "string" && typeof value.feed === "string" && typeof value.body === "string" && typeof value.revision === "number";
+    return (0, import_integration_core5.isRecord)(value) && __epochIsString2(value.changeId) && __epochIsString2(value.revisionId) && __epochIsString2(value.feed) && __epochIsString2(value.body) && __epochIsNumber(value.revision);
   }
   function requireText(value, label) {
     const trimmed = String(value ?? "").trim();
@@ -2472,6 +2529,9 @@ var CW_RUNTIME = (() => {
   }
 
   // packages/Epoch.Community.Runtime/src/identity.ts
+  function __epochIsString3(value) {
+    return typeof value === "string";
+  }
   var ALGORITHM = { name: "ECDSA", namedCurve: "P-256" };
   async function resolveBrowserIdentity(options) {
     const key = `${options.namespace}:identity`;
@@ -2498,7 +2558,7 @@ var CW_RUNTIME = (() => {
     if (raw === null) return void 0;
     try {
       const parsed = JSON.parse(raw);
-      if (parsed.version !== 1 || typeof parsed.actor !== "string" || parsed.publicKey === void 0) {
+      if (parsed.version !== 1 || !__epochIsString3(parsed.actor) || parsed.publicKey === void 0) {
         return void 0;
       }
       return { version: 1, actor: parsed.actor, publicKey: parsed.publicKey };
@@ -2557,6 +2617,12 @@ var CW_RUNTIME = (() => {
   }
 
   // packages/Epoch.Community.Runtime/src/commands.ts
+  function __epochIsString4(value) {
+    return typeof value === "string";
+  }
+  function __epochIsNumber2(value) {
+    return typeof value === "number";
+  }
   function createCommunityCommandBus(options) {
     const workspace = options.workspace;
     const handlers = /* @__PURE__ */ new Map();
@@ -2688,12 +2754,12 @@ var CW_RUNTIME = (() => {
       })
     }, (input) => {
       const project = ensureProject(workspace.epoch, {
-        ...optionalString(input, "slug") === void 0 ? {} : { slug: requiredString(input, "slug") },
-        ...optionalString(input, "title") === void 0 ? {} : { title: requiredString(input, "title") }
+        ...!(optionalString(input, "slug") === void 0) && { slug: requiredString(input, "slug") },
+        ...!(optionalString(input, "title") === void 0) && { title: requiredString(input, "title") }
       });
       return {
         data: project,
-        ...project.created ? { eventIds: [project.eventId], revisionIds: [project.revision] } : {},
+        ...project.created && { eventIds: [project.eventId], revisionIds: [project.revision] },
         baseRef: workspace.getView(project.uiView).ref
       };
     });
@@ -2750,9 +2816,9 @@ var CW_RUNTIME = (() => {
         feed: requiredString(input, "feed"),
         kind: requiredString(input, "kind"),
         body: requiredString(input, "body"),
-        ...optionalString(input, "subject") === void 0 ? {} : { subject: requiredString(input, "subject") },
-        ...optionalString(input, "author") === void 0 ? {} : { author: requiredString(input, "author") },
-        ...optionalString(input, "changeId") === void 0 ? {} : { changeId: requiredString(input, "changeId") }
+        ...!(optionalString(input, "subject") === void 0) && { subject: requiredString(input, "subject") },
+        ...!(optionalString(input, "author") === void 0) && { author: requiredString(input, "author") },
+        ...!(optionalString(input, "changeId") === void 0) && { changeId: requiredString(input, "changeId") }
       });
       return {
         data: record,
@@ -2802,8 +2868,8 @@ var CW_RUNTIME = (() => {
       )
     }, (input) => fromMutation(workspace.createView({
       name: requiredString(input, "name"),
-      ...optionalString(input, "from") === void 0 ? {} : { from: requiredString(input, "from") },
-      ...optionalString(input, "scope") === void 0 ? {} : { scope: requiredScope(input) }
+      ...!(optionalString(input, "from") === void 0) && { from: requiredString(input, "from") },
+      ...!(optionalString(input, "scope") === void 0) && { scope: requiredScope(input) }
     }), "proposal"));
     register({
       kind: "view.switch",
@@ -2832,13 +2898,17 @@ var CW_RUNTIME = (() => {
         ["view", "manifest"]
       )
     }, (input) => {
-      const manifest = input.manifest;
+      const manifestValue = input.manifest;
+      if (!isDynamicUiManifest(manifestValue)) {
+        throw new EpochCommandError("invalid-input", "manifest must be a dynamic UI manifest");
+      }
+      const manifest = manifestValue;
       const mutation = workspace.propose({
         view: requiredString(input, "view"),
         manifest,
-        ...optionalString(input, "prompt") === void 0 ? {} : { prompt: requiredString(input, "prompt") },
-        ...optionalString(input, "model") === void 0 ? {} : { model: requiredString(input, "model") },
-        ...input.retainPrompt === true ? { retainPrompt: true } : {}
+        ...!(optionalString(input, "prompt") === void 0) && { prompt: requiredString(input, "prompt") },
+        ...!(optionalString(input, "model") === void 0) && { model: requiredString(input, "model") },
+        ...input.retainPrompt === true && { retainPrompt: true }
       });
       return {
         ...fromMutation(mutation, "proposal"),
@@ -2858,7 +2928,7 @@ var CW_RUNTIME = (() => {
       )
     }, (input) => fromMutation(workspace.merge({
       from: requiredString(input, "from"),
-      ...optionalString(input, "into") === void 0 ? {} : { into: requiredString(input, "into") }
+      ...!(optionalString(input, "into") === void 0) && { into: requiredString(input, "into") }
     }), "base"));
     register({
       kind: "change.revert",
@@ -2964,11 +3034,11 @@ var CW_RUNTIME = (() => {
         policy: policyReceipt("allow", descriptor.capability),
         validation: outcome.validation ?? skippedValidation,
         confirmation: { required: needsConfirmation(descriptor), granted: request.confirmed === true },
-        ...outcome.baseRef === void 0 ? {} : { baseRef: outcome.baseRef },
-        ...outcome.proposalRef === void 0 ? {} : { proposalRef: outcome.proposalRef },
-        ...outcome.changeId === void 0 ? {} : { changeId: outcome.changeId },
-        ...outcome.revisionIds === void 0 ? {} : { revisionIds: outcome.revisionIds },
-        ...outcome.eventIds === void 0 ? {} : { eventIds: outcome.eventIds },
+        ...!(outcome.baseRef === void 0) && { baseRef: outcome.baseRef },
+        ...!(outcome.proposalRef === void 0) && { proposalRef: outcome.proposalRef },
+        ...!(outcome.changeId === void 0) && { changeId: outcome.changeId },
+        ...!(outcome.revisionIds === void 0) && { revisionIds: outcome.revisionIds },
+        ...!(outcome.eventIds === void 0) && { eventIds: outcome.eventIds },
         data: outcome.data
       }));
     }
@@ -3013,18 +3083,18 @@ var CW_RUNTIME = (() => {
   }
   function requiredString(input, key) {
     const value = input[key];
-    if (typeof value !== "string" || value.trim().length === 0) {
+    if (!__epochIsString4(value) || value.trim().length === 0) {
       throw new EpochCommandError("invalid-input", `Command input '${key}' must be a non-empty string.`);
     }
     return value;
   }
   function optionalString(input, key) {
     const value = input[key];
-    return typeof value === "string" && value.trim().length > 0 ? value : void 0;
+    return __epochIsString4(value) && value.trim().length > 0 ? value : void 0;
   }
   function requiredNumber(input, key) {
     const value = input[key];
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!__epochIsNumber2(value) || !Number.isFinite(value)) {
       throw new EpochCommandError("invalid-input", `Command input '${key}' must be a number.`);
     }
     return value;
@@ -3045,8 +3115,8 @@ var CW_RUNTIME = (() => {
       namespace: options.namespace,
       author: options.actor,
       harness,
-      ...options.storage === void 0 ? {} : { storage: options.storage },
-      ...options.initialManifest === void 0 ? {} : { initialManifest: options.initialManifest }
+      ...!(options.storage === void 0) && { storage: options.storage },
+      ...!(options.initialManifest === void 0) && { initialManifest: options.initialManifest }
     });
     const listeners = /* @__PURE__ */ new Set();
     const commands = createCommunityCommandBus({
@@ -3204,7 +3274,11 @@ var CW_RUNTIME = (() => {
       case "export":
         return { kind: "workspace.export", input: {} };
       case "import":
-        return { kind: "workspace.import", input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) } };
+        return {
+          kind: "workspace.import",
+          // SAFETY: readBundle JSON is validated during workspace import.
+          input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) }
+        };
       case "safe-mode":
         return {
           kind: requirePositional(rest, 0, "on|off") === "on" ? "ui.enterSafeMode" : "ui.leaveSafeMode",
@@ -3243,10 +3317,11 @@ var CW_RUNTIME = (() => {
       kind: "ui.propose",
       input: {
         view,
-        manifest,
+        // SAFETY: isDynamicUiManifest validates the manifest before this request is built.
+        manifest: JSON.parse(JSON.stringify(manifest)),
         ...optionValue(rest, "prompt", "prompt"),
         ...optionValue(rest, "model", "model"),
-        ...rest.includes("--retain-prompt") ? { retainPrompt: true } : {}
+        ...rest.includes("--retain-prompt") && { retainPrompt: true }
       }
     };
   }
@@ -3346,8 +3421,8 @@ var CW_RUNTIME = (() => {
       decision: receipt.policy.decision,
       confirmationRequired: receipt.confirmation.required && !receipt.confirmation.granted,
       validation: receipt.validation.state,
-      ...receipt.baseRef === void 0 ? {} : { baseRef: receipt.baseRef },
-      ...receipt.proposalRef === void 0 ? {} : { proposalRef: receipt.proposalRef },
+      ...!(receipt.baseRef === void 0) && { baseRef: receipt.baseRef },
+      ...!(receipt.proposalRef === void 0) && { proposalRef: receipt.proposalRef },
       eventIds: receipt.eventIds,
       data: receipt.data
     });
@@ -3357,6 +3432,9 @@ var CW_RUNTIME = (() => {
   }
 
   // packages/Epoch.Community.Runtime/src/stream-policy.ts
+  function __epochIsString5(value) {
+    return typeof value === "string";
+  }
   var STREAM_CIPHER_WIDTH = 12;
   var STREAM_CIPHER_ALPHABET = "\u2591\u2592\u2593\u2588\u2580\u2584\u25A0\u25A1\u25C6\u25C7\u203B\u2021\u2020\xA4\xA7\xF8\xE6#@%&";
   var INPUT_ACTIONS = /* @__PURE__ */ new Set([
@@ -3443,7 +3521,7 @@ ${source ?? ""}`.split("\n");
         actorId: envelope.actorId,
         actionId: envelope.actionId,
         args: rewritten.args,
-        ...path ? { path } : {}
+        ...path && { path }
       }
     };
   }
@@ -3460,13 +3538,13 @@ ${source ?? ""}`.split("\n");
     return { kind: "apply", envelope };
   }
   function hasTextPayload(args) {
-    return typeof args.body === "string" || typeof args.text === "string" || typeof args.value === "string";
+    return __epochIsString5(args.body) || __epochIsString5(args.text) || __epochIsString5(args.value);
   }
   function rewriteArgs(args, rewriteSource, sessionSalt) {
     const rules = [...DEFAULT_REWRITE, ...parseStreamRewrite(rewriteSource)];
     const next = {};
     for (const [key, value] of Object.entries(args)) {
-      if (typeof value !== "string") {
+      if (!__epochIsString5(value)) {
         next[key] = value;
         continue;
       }
@@ -3515,6 +3593,9 @@ ${source ?? ""}`.split("\n");
   }
 
   // packages/Epoch.Community.Runtime/src/board-honesty.ts
+  function __epochIsNumber3(value) {
+    return typeof value === "number";
+  }
   var RECEIPT = /^(sig:|intent:\/\/|agent-run:\/\/)([^\s]+)$/u;
   function parseBoardReceiptLocator(raw) {
     const text = String(raw || "").trim();
@@ -3579,13 +3660,16 @@ ${source ?? ""}`.split("\n");
     });
   }
   function honestAgentStatus(status, heartbeatAt, now = Date.now()) {
-    if (status === "working" && !(typeof heartbeatAt === "number" && now - heartbeatAt < 3e4)) {
+    if (status === "working" && !(__epochIsNumber3(heartbeatAt) && now - heartbeatAt < 3e4)) {
       return "idle";
     }
     return status || "idle";
   }
 
   // packages/Epoch.Community.Runtime/src/atproto-oauth.ts
+  function __epochIsFunction(value) {
+    return typeof value === "function";
+  }
   var AtprotoOAuthError = class extends Error {
     constructor(code, message2) {
       super(message2);
@@ -3603,7 +3687,7 @@ ${source ?? ""}`.split("\n");
     return value;
   }
   async function beginAtprotoAuthorization(handle, host) {
-    if (!host || !host.authorizationServer || typeof host.fetch !== "function") {
+    if (!host || !host.authorizationServer || !__epochIsFunction(host.fetch)) {
       throw new AtprotoOAuthError("not-linked", "AT OAuth is not linked \u2014 PAR/PKCE/DPoP required");
     }
     const loginHint = normalizeAtprotoHandle(handle);

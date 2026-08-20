@@ -57,6 +57,10 @@ interface LoadedWebMcp {
 function loadWebMcp(document: NativeDocument): LoadedWebMcp {
   const native: NativeCall[] = [];
   const window: WebMcpWindow = {};
+  // SAFETY: CW_VALUE is installed by value-kind.js onto globalThis in browsers and tests.
+  if ((globalThis as { CW_VALUE?: unknown }).CW_VALUE === undefined) {
+    new Function(readFileSync(join(ROOT, "value-kind.js"), "utf8"))();
+  }
   new Function("window", "document", "AbortController", readFileSync(join(ROOT, "webmcp.js"), "utf8"))(
     window,
     document,

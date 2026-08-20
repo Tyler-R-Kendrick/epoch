@@ -86,7 +86,7 @@ export function validateObjectRef<Value>(value: Value): CommunityObjectRef {
 }
 
 export function validateProjectionId(projectionId: string): string {
-  if (!opaqueId.test(projectionId)) {
+  if (!isString(projectionId) || !opaqueId.test(projectionId)) {
     throw new Error("Projection ID must be an opaque URL-safe identifier");
   }
   return projectionId;
