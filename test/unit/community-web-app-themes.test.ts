@@ -769,9 +769,13 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(!appSrc.includes("function wireSurface"),
     "per-render listener wiring must be gone — with persistent nodes it stacks handlers");
 
-  for (const keyed of ['class="cn-item" data-key=', 'class="cn-comment" data-key=', 'data-key="blades"']) {
+  for (const keyed of ['class="cn-item" data-key=', 'data-key="blades"']) {
     assert.ok(consoleSrc2.includes(keyed), `morph targets must be keyed: ${keyed}`);
   }
+  assert.ok(
+    /class="cn-comment[^"]*"[\s\S]{0,120}?data-key=/.test(consoleSrc2),
+    "morph targets must be keyed: cn-comment articles carry data-key (class may include cn-feed-post/cn-comment-op)",
+  );
 
   // Behavioural check of the morph algorithm itself, on a minimal DOM stand-in.
   const morphSandbox = fixture<{ CW_MORPH?: { morph: (live: FixtureValue, html: string) => void } }>({});

@@ -130,7 +130,7 @@
         '<span class="cn-rail-mark">|</span></span>',
       ).join("")
       : "";
-    return '<article class="cn-comment cn-compose-draft" data-compose-draft data-pending="true"' +
+    return '<article class="cn-comment cn-compose-draft" data-key="compose-draft" data-compose-draft data-pending="true"' +
       ' data-status="' + esc(status) + '"' +
       (opts.inline ? ' data-inline="true"' : "") +
       ' aria-label="' + esc(pendingLabel + ": " + body.slice(0, 80)) + '">' +
