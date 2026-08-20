@@ -331,3 +331,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Real CI on earlier heads: Schema-1 migration misuse on schema-2 state, non-string `validateProjectionId`, missing `CW_VALUE` in unit fixtures, TomlDateTime JSON round-trip, Live Redux flat-action mapping, and client runtime byte budget. Fixed on `50156f7`; Quality Gates green before merge. Not billing. |
 | Notes | Vendored anti-slop Oxlint (ADR-0056), parallel `gate:fast`, hooks on `gate:commit`. Independent review: approve-with-nits (follow-ups only). |
+
+## 2026-08-20 — Community Web feed/thread + receipt chrome finish
+
+| Field | Value |
+|---|---|
+| Initiative | [`community-web-feed-thread-nav`](community-web-feed-thread-nav/sdlc-state.md) |
+| Backend | Sequential fallback (coordinator inline) |
+| Branch | `feat/community-web-feed-thread-receipt-chrome` |
+| PR | [#178](https://github.com/Tyler-R-Kendrick/epoch/pull/178) — squash-merged [`69f6e8f`](https://github.com/Tyler-R-Kendrick/epoch/commit/69f6e8f9cf2c9115ac0dbc881be6b10ca8210a2e) |
+| Result | **success** |
+| Failure class | Real CI fixed in-session (morph key pin, faults arrival roots, cucumber/e2e roots-only adaptations, axe feed nesting). Not billing. |
+| Notes | Receipt Bracket Rule + `community-web:app:design-lint` gated in `gate:commit`/CI; agent rule `.cursor/rules/community-web-receipt-chips.mdc`. [#174](https://github.com/Tyler-R-Kendrick/epoch/pull/174) closed superseded. Residual open: [#172](https://github.com/Tyler-R-Kendrick/epoch/pull/172), [#173](https://github.com/Tyler-R-Kendrick/epoch/pull/173). |
