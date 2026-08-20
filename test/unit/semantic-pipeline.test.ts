@@ -321,7 +321,7 @@ function malformedContentFailsClosed(): void {
   );
   assert.throws(
     () => applySemanticPatch(`{\n  "different": 1\n}`, patch, jsonSyntaxProvider),
-    (error: unknown) => error instanceof SemanticPatchError && error.code === "missing-path",
+    (error) => error instanceof SemanticPatchError && error.code === "missing-path",
   );
 
   const rendered = formatSemanticPatch(patch);
@@ -337,7 +337,7 @@ function malformedContentFailsClosed(): void {
   };
   assert.throws(
     () => applySemanticPatch(`{}`, reorder, jsonSyntaxProvider),
-    (error: unknown) => error instanceof SemanticPatchError && error.code === "unsupported-edit",
+    (error) => error instanceof SemanticPatchError && error.code === "unsupported-edit",
   );
 }
 
@@ -414,13 +414,14 @@ function patchApplicationRejectsAmbiguousEdits(): void {
   const doubled = { ...patch, edits: [...patch.edits, ...patch.edits] };
   assert.throws(
     () => applySemanticPatch(source, doubled, jsonSyntaxProvider),
-    (error: unknown) => error instanceof SemanticPatchError && error.code === "overlapping-edits",
+    (error) => error instanceof SemanticPatchError && error.code === "overlapping-edits",
   );
 
-  const unsupported = { ...patch, edits: [{ kind: "teleport", path: "object#0" }] } as unknown as typeof patch;
+  // SAFETY: Runtime checks or construction above establish unknown as typeof patch.
+  const unsupported = JSON.parse(JSON.stringify({ ...patch, edits: [{ kind: "teleport", path: "object#0" }] })) as typeof patch;
   assert.throws(
     () => applySemanticPatch(source, unsupported, jsonSyntaxProvider),
-    (error: unknown) => error instanceof SemanticPatchError && error.code === "unsupported-edit",
+    (error) => error instanceof SemanticPatchError && error.code === "unsupported-edit",
   );
 
   // Appending a declaration to an empty document exercises the root-level

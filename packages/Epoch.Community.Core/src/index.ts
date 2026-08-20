@@ -221,23 +221,24 @@ function createCommunityHttpRequester(options: CreateHttpCommunityClientOptions)
   const fetcher = options.fetch ?? globalThis.fetch;
   const baseUrl = options.baseUrl.endsWith("/") ? options.baseUrl.slice(0, -1) : options.baseUrl;
 
-  return async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return async function request<T, Body = never>(method: string, path: string, body?: Body): Promise<T> {
+    const headers = new Headers({ Accept: "application/json" });
+    if (body !== undefined) headers.set("Content-Type", "application/json");
     const response = await fetcher(`${baseUrl}${path}`, {
       method,
-      headers: {
-        Accept: "application/json",
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-      },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 
     const text = await response.text();
-    const parsed = text.length === 0 ? undefined : JSON.parse(text) as unknown;
+    // SAFETY: Community HTTP responses are required to contain JSON values.
+    const parsed = text.length === 0 ? undefined : JSON.parse(text) as JsonValue;
     if (!response.ok) {
       const message = errorMessage(parsed) ?? response.statusText;
       throw new Error(`Community API request failed (${response.status}): ${message}`);
     }
 
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     return parsed as T;
   };
 }
@@ -246,11 +247,19 @@ function repositoryPath(slug: string): string {
   return `/repositories/${encodeURIComponent(slug)}`;
 }
 
-function errorMessage(value: unknown): string | undefined {
-  if (typeof value === "object" && value !== null && "error" in value) {
-    const error = (value as { readonly error?: unknown }).error;
-    return typeof error === "string" ? error : undefined;
-  }
+type JsonValue = string | number | boolean | null | JsonObject | readonly JsonValue[];
+interface JsonObject { readonly [key: string]: JsonValue }
 
-  return undefined;
+function errorMessage(value: JsonValue | undefined): string | undefined {
+  if (!isJsonObject(value)) return undefined;
+  const error = value.error;
+  return isString(error) ? error : undefined;
+}
+
+function isJsonObject(value: JsonValue | undefined): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isString(value: JsonValue | undefined): value is string {
+  return typeof value === "string";
 }

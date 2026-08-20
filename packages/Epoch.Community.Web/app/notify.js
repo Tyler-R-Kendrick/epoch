@@ -17,7 +17,7 @@
   var TAG_PREFIX = "cw-activity-";
 
   function isSupported() {
-    return typeof window !== "undefined" && typeof window.Notification === "function";
+    return !globalThis.CW_VALUE.isUndefined(window) && globalThis.CW_VALUE.isFunction(window.Notification);
   }
 
   function permission() {
@@ -34,7 +34,7 @@
       var raw = window.localStorage.getItem(KEY_PUSHED);
       if (!raw) return {};
       var got = JSON.parse(raw);
-      return got && typeof got === "object" ? got : {};
+      return got && globalThis.CW_VALUE.isObject(got) ? got : {};
     } catch {
       return {};
     }
@@ -138,14 +138,14 @@
       if (handlers.onError) handlers.onError(opts.data, item);
     };
     // Auto-close after a minute so the tray does not fill forever.
-    var later = (typeof window !== "undefined" && window.setTimeout) ||
-      (typeof setTimeout !== "undefined" ? setTimeout : null);
+    var later = (!globalThis.CW_VALUE.isUndefined(window) && window.setTimeout) ||
+      (!globalThis.CW_VALUE.isUndefined(setTimeout) ? setTimeout : null);
     if (later) {
       var timer = later(function () {
         try { n.close(); } catch { /* fine */ }
       }, 60 * 1000);
       // Node test runners: do not keep the process alive for the auto-close.
-      if (timer && typeof timer.unref === "function") timer.unref();
+      if (timer && globalThis.CW_VALUE.isFunction(timer.unref)) timer.unref();
     }
     return n;
   }
@@ -182,7 +182,7 @@
     try {
       var result = window.Notification.requestPermission();
       // Older browsers pass a callback instead of returning a Promise.
-      if (result && typeof result.then === "function") return result;
+      if (result && globalThis.CW_VALUE.isFunction(result.then)) return result;
       return new Promise(function (resolve) {
         window.Notification.requestPermission(function (p) { resolve(p || permission()); });
       });

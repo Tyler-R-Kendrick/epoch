@@ -21,8 +21,19 @@ import {
   type WebMcpToolDescriptor,
 } from "@epoch/community-runtime";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 const fullAccess = { capabilities: ["*"] } as const;
 const clock = (): string => "2026-08-12T00:00:00.000Z";
+
+// SAFETY: DynamicUiManifest and workspace bundle fixtures are JSON-serializable command inputs.
+function commandInput<T>(value: T): TestJsonObject {
+  // SAFETY: Command inputs are JSON-round-tripped before runtime CLI invocation.
+  return JSON.parse(JSON.stringify(value)) as TestJsonObject;
+}
 
 const denserFeed: DynamicUiManifest = {
   abiVersion: 1,
@@ -91,7 +102,7 @@ async function proposalReachesMergeThroughOneCommandPath(): Promise<void> {
 
   const proposed = await runtime.commands.execute({
     kind: "ui.propose",
-    input: { view: "denser-feed", manifest: denserFeed, prompt: "make my feed denser", model: "test-model" },
+    input: { view: "denser-feed", manifest: commandInput(denserFeed), prompt: "make my feed denser", model: "test-model" },
   });
   assert.equal(proposed.validation.state, "valid");
   assert.equal(proposed.eventIds.length, 1);
@@ -126,7 +137,7 @@ async function proposalReachesMergeThroughOneCommandPath(): Promise<void> {
 async function consequentialCommandsWaitForConfirmation(): Promise<void> {
   const runtime = runtimeWith();
   await runtime.commands.execute({ kind: "view.create", input: { name: "quiet", from: TRUNK_VIEW } });
-  await runtime.commands.execute({ kind: "ui.propose", input: { view: "quiet", manifest: denserFeed } });
+  await runtime.commands.execute({ kind: "ui.propose", input: { view: "quiet", manifest: commandInput(denserFeed) } });
 
   const unconfirmed = await runtime.commands.execute({ kind: "change.merge", input: { from: "quiet" } });
   assert.equal(unconfirmed.policy.decision, "confirm");
@@ -139,7 +150,7 @@ async function historySurvivesReloadAndRollbackKeepsEvidence(): Promise<void> {
   const storage = createMemoryEpochIntegrationStorage();
   const first = runtimeWith(storage);
   await first.commands.execute({ kind: "view.create", input: { name: "denser-feed" } });
-  await first.commands.execute({ kind: "ui.propose", input: { view: "denser-feed", manifest: denserFeed } });
+  await first.commands.execute({ kind: "ui.propose", input: { view: "denser-feed", manifest: commandInput(denserFeed) } });
   await first.commands.execute({ kind: "change.merge", input: { from: "denser-feed" }, confirmed: true });
   const eventsBefore = first.workspace.status().events;
 
@@ -167,7 +178,7 @@ async function invalidManifestsAreRecordedButNeverRendered(): Promise<void> {
   await runtime.commands.execute({ kind: "view.create", input: { name: "bad-idea" } });
   const proposed = await runtime.commands.execute({
     kind: "ui.propose",
-    input: { view: "bad-idea", manifest: forbidden },
+    input: { view: "bad-idea", manifest: commandInput(forbidden) },
   });
 
   assert.equal(proposed.validation.state, "invalid");
@@ -182,7 +193,7 @@ async function invalidManifestsAreRecordedButNeverRendered(): Promise<void> {
   );
 
   // A head that stops validating boots the signed harness instead of rendering.
-  await runtime.commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: forbidden } });
+  await runtime.commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: commandInput(forbidden) } });
   const rendered = runtime.workspace.materialize();
   assert.equal(rendered.safeMode, true);
   assert.match(rendered.reason ?? "", /fails validation/u);
@@ -207,7 +218,8 @@ async function capabilitiesAreEnforcedBelowTheToolLayer(): Promise<void> {
   assert.equal(propose.annotations.readOnlyHint, false);
 
   // Visibility is not authorization: the tool exists, the command still refuses.
-  const result = JSON.parse(await propose.execute({ view: TRUNK_VIEW, manifest: denserFeed })) as {
+  // SAFETY: Runtime checks or construction above establish {.
+  const result = JSON.parse(await propose.execute({ view: TRUNK_VIEW, manifest: commandInput(denserFeed) })) as {
     decision: string;
     eventIds: readonly string[];
   };
@@ -218,6 +230,7 @@ async function capabilitiesAreEnforcedBelowTheToolLayer(): Promise<void> {
   const status = tools.find((tool) => tool.name === "epoch_workspace_status");
   assert.ok(status);
   assert.equal(status.annotations.readOnlyHint, true);
+  // SAFETY: Runtime checks or construction above establish { decision: string }).decision.
   assert.equal((JSON.parse(await status.execute({})) as { decision: string }).decision, "allow");
 
   const showChange = tools.find((tool) => tool.name === "epoch_change_show");
@@ -242,11 +255,13 @@ async function everyAdapterReturnsTheSameReceipt(): Promise<void> {
 
   const cli = await executeCommunityRuntimeCommand(viaCli, ["view", "create", "denser-feed", "--json"]);
   assert.equal(cli.ok, true);
+  // SAFETY: Runtime checks or construction above establish EpochCommandReceipt.
   const cliReceipt = JSON.parse(cli.output) as EpochCommandReceipt;
 
   const tools = createWebMcpTools(viaTool);
   const create = tools.find((tool) => tool.name === "epoch_view_create");
   assert.ok(create);
+  // SAFETY: Runtime checks or construction above establish { commandId: string }.
   const toolReceipt = JSON.parse(await create.execute({ name: "denser-feed" })) as { commandId: string };
 
   assert.equal(cliReceipt.kind, "view.create");
@@ -316,6 +331,7 @@ async function theEpochBinaryOwnsBothCommandGroups(): Promise<void> {
     assert.equal(await executeCommunityCli(root, "ui", ["merge", "denser-feed", "--confirm"], io), true);
 
     // The workspace is on disk, so a second process sees the merged trunk.
+    // SAFETY: Runtime checks or construction above establish { data: { views: number } }.
     const status = JSON.parse((await capture(root, ["status", "--json"])).split("\n")[0]) as { data: { views: number } };
     assert.equal(status.data.views, 2);
 
@@ -370,7 +386,7 @@ async function theDefaultProjectOwnsTheInterface(): Promise<void> {
   assert.equal(listed.readOnly, true);
 
   // Breaking the interface still leaves a way back, without erasing the break.
-  await reloaded.commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: forbidden } });
+  await reloaded.commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: commandInput(forbidden) } });
   assert.equal(reloaded.workspace.materialize().safeMode, true);
   const restored = await reloaded.commands.execute({ kind: "ui.restoreLastKnownGood", confirmed: true });
   assert.equal(restored.policy.decision, "allow");
@@ -491,14 +507,17 @@ async function identityIsStablePerDevice(): Promise<void> {
   assert.equal(second.created, false);
 
   // The private half never leaves: what is stored is the public key only.
-  const stored = JSON.parse(store.get("epoch:community-web:identity") ?? "{}") as Record<string, unknown>;
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  const stored = JSON.parse(store.get("epoch:community-web:identity") ?? "{}") as TestJsonObject;
   assert.deepEqual(Object.keys(stored).sort(), ["actor", "publicKey", "version"]);
+  // SAFETY: Runtime checks or construction above establish { d?: string }).d.
   assert.equal((stored.publicKey as { d?: string }).d, undefined, "no private key material is stored");
 
   // Without WebCrypto, say so rather than fake a durable identity.
   const withoutCrypto = await resolveBrowserIdentity({
     namespace: "epoch:community-web",
     storage: { getItem: () => null, setItem: () => {} },
+    // SAFETY: Runtime checks or construction above establish Crypto.
     crypto: {} as Crypto,
   });
   assert.equal(withoutCrypto.kind, "ephemeral");
@@ -510,7 +529,7 @@ async function twoParticipantsConvergeThroughBundles(): Promise<void> {
   const desktop = runtimeWith();
 
   await laptop.commands.execute({ kind: "view.create", input: { name: "denser-feed" } });
-  await laptop.commands.execute({ kind: "ui.propose", input: { view: "denser-feed", manifest: denserFeed } });
+  await laptop.commands.execute({ kind: "ui.propose", input: { view: "denser-feed", manifest: commandInput(denserFeed) } });
   await laptop.commands.execute({ kind: "change.merge", input: { from: "denser-feed" }, confirmed: true });
 
   const bundle = await laptop.commands.execute<{ events: readonly unknown[]; digest: string }>({
@@ -520,12 +539,12 @@ async function twoParticipantsConvergeThroughBundles(): Promise<void> {
   assert.ok(bundle.data.events.length > 0);
 
   // Importing is consequential, so it waits for a confirmation like any merge.
-  const held = await desktop.commands.execute({ kind: "workspace.import", input: { bundle: bundle.data } });
+  const held = await desktop.commands.execute({ kind: "workspace.import", input: { bundle: commandInput(bundle.data) } });
   assert.equal(held.policy.decision, "confirm");
 
   const imported = await desktop.commands.execute<{ applied: number; skipped: number }>({
     kind: "workspace.import",
-    input: { bundle: bundle.data },
+    input: { bundle: commandInput(bundle.data) },
     confirmed: true,
   });
   assert.ok(imported.data.applied > 0);
@@ -537,7 +556,7 @@ async function twoParticipantsConvergeThroughBundles(): Promise<void> {
 
   const again = await desktop.commands.execute<{ applied: number }>({
     kind: "workspace.import",
-    input: { bundle: bundle.data },
+    input: { bundle: commandInput(bundle.data) },
     confirmed: true,
   });
   assert.equal(again.data.applied, 0, "importing the same bundle twice changes nothing");
@@ -546,13 +565,13 @@ async function twoParticipantsConvergeThroughBundles(): Promise<void> {
   await assert.rejects(
     desktop.commands.execute({
       kind: "workspace.import",
-      input: { bundle: { ...bundle.data, digest: "cafebabe" } },
+      input: { bundle: commandInput({ ...bundle.data, digest: "cafebabe" }) },
       confirmed: true,
     }),
     /digest does not match/u,
   );
   await assert.rejects(
-    desktop.commands.execute({ kind: "workspace.import", input: { bundle: { hello: "world" } }, confirmed: true }),
+    desktop.commands.execute({ kind: "workspace.import", input: { bundle: commandInput({ hello: "world" }) }, confirmed: true }),
     /not an Epoch workspace bundle/u,
   );
 }

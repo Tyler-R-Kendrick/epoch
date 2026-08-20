@@ -51,7 +51,8 @@ const REQUIRED_SECTIONS_V2 = [
 ] as const;
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "scaffold" };
+	const out: Record<string, string> = {};
+	out.mode = "scaffold";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";

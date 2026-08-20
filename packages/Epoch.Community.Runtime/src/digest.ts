@@ -1,4 +1,6 @@
 import { stableJson } from "@epoch/integration-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * Content digests for runtime records.
@@ -14,12 +16,12 @@ import { stableJson } from "@epoch/integration-core";
  * corruption; it is not a signature and must never be presented as one. Signed
  * provenance belongs to the Epoch core signing path.
  */
-export function digestOf(value: unknown): string {
+export function digestOf(value: BoundaryValue): string {
   return fnv1a(stableJson(value));
 }
 
 /** `prefix_<digest>` — the shape every runtime identifier uses. */
-export function identifier(prefix: string, value: unknown): string {
+export function identifier(prefix: string, value: BoundaryValue): string {
   return `${prefix}_${digestOf(value)}`;
 }
 

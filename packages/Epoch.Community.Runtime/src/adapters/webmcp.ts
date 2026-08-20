@@ -1,6 +1,8 @@
 import type { CommunityRuntime } from "../runtime";
 import type { EpochCommandDescriptor, JsonSchema } from "../commands";
 import type { EpochCommandReceipt } from "../receipts";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 /**
  * WebMCP adapter.
@@ -33,7 +35,7 @@ export interface WebMcpToolDescriptor {
   readonly description: string;
   readonly inputSchema: JsonSchema;
   readonly annotations: WebMcpToolAnnotations;
-  execute(input: Readonly<Record<string, unknown>>): Promise<string>;
+  execute(input: Readonly<Record<string, DictionaryValue>>): Promise<string>;
 }
 
 export interface WebMcpRegistrationOptions {
@@ -113,8 +115,8 @@ export function summarizeReceipt(receipt: EpochCommandReceipt): string {
     decision: receipt.policy.decision,
     confirmationRequired: receipt.confirmation.required && !receipt.confirmation.granted,
     validation: receipt.validation.state,
-    ...(receipt.baseRef === undefined ? {} : { baseRef: receipt.baseRef }),
-    ...(receipt.proposalRef === undefined ? {} : { proposalRef: receipt.proposalRef }),
+    ...(!(receipt.baseRef === undefined) && { baseRef: receipt.baseRef }),
+    ...(!(receipt.proposalRef === undefined) && { proposalRef: receipt.proposalRef }),
     eventIds: receipt.eventIds,
     data: receipt.data,
   });

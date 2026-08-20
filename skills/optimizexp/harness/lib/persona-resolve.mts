@@ -95,12 +95,13 @@ function listField(body: string, key: string): string[] {
 	return value.split(",").map((v) => v.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
 }
 
-export function parsePersonaModels(text: string): { models: PersonaModels | null; problems: string[] } {
+export function parsePersonaModels(text: string) {
 	const problems: string[] = [];
 	const demo = section(text, "Demographic model");
 	const psycho = section(text, "Psychographic model");
 	const cognitive = section(text, "Cognitive thresholds");
 	if (!demo || !psycho || !cognitive) return { models: null, problems: ["schemaVersion 2 requires structured demographic, psychographic, and cognitive models"] };
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const model = Object.fromEntries(MODEL_KEYS.map((k) => [k, field(demo, k)])) as Record<string, string>;
 	for (const key of MODEL_KEYS) if (!model[key]) problems.push(`Demographic model missing ${key}`);
 	const psychKeys = ["values", "riskTolerance", "noveltySeeking", "trustInAutomation", "documentationPreference", "errorEmotion", "socialProofNeed", "aestheticSensitivity", "controlNeed"];
@@ -121,6 +122,7 @@ export function parsePersonaModels(text: string): { models: PersonaModels | null
 	for (const key of ["riskTolerance", "noveltySeeking", "trustInAutomation", "socialProofNeed", "aestheticSensitivity", "controlNeed"]) if (!level(key)) problems.push(`${key} must be low, medium, or high`);
 	if (Object.values(thresholds).every((v) => v === 5)) problems.push("cognitive thresholds cannot all be 5");
 	if (model.seniority === "junior" && thresholds.informationDensity > 4) problems.push("junior personas need an informationDensity threshold <= 4");
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	return { models: problems.length ? null : { ...model, values: listField(psycho, "values"), riskTolerance: field(psycho, "riskTolerance"), noveltySeeking: field(psycho, "noveltySeeking"), trustInAutomation: field(psycho, "trustInAutomation"), documentationPreference: field(psycho, "documentationPreference"), errorEmotion: field(psycho, "errorEmotion"), socialProofNeed: field(psycho, "socialProofNeed"), aestheticSensitivity: field(psycho, "aestheticSensitivity"), controlNeed: field(psycho, "controlNeed"), thresholds } as PersonaModels, problems };
 }
 
@@ -142,6 +144,7 @@ function parsePersonaFile(
 	const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	if (!fm) return null;
 	const yaml = fm[1]!;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const schemaVersion = Number(yaml.match(/^schemaVersion:\s*(\d+)/m)?.[1] || 1) as 1 | 2;
 	const base = path.basename(filePath, ".md");
 	const id = yaml.match(/^id:\s*(\S+)/m)?.[1] || base;
@@ -235,7 +238,7 @@ export function resolvePersonaIds(input: {
 	selection?: ProjectSelection;
 	/** Skip loading config prefer/exclude */
 	skipConfig?: boolean;
-}): { ids: string[]; reason: string; metas: PersonaMeta[] } {
+}) {
 	const root = input.root ?? repoRoot();
 	const all = listPersonaMetas(root, input.selection);
 	const byId = new Map(all.map((m) => [m.id, m]));

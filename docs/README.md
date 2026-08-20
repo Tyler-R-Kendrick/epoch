@@ -153,9 +153,11 @@ decisions, operations, or contribution workflow.
 | [Community Web Pass-2 Honesty State](plans/community-web-pass2-honesty/sdlc-state.md) | Active record for sample/live honesty, receipt verbs, AT OAuth, and live multi-user Activity after competitor pass 2. |
 | [Community Web Startup And Routing Plan](plans/community-web-startup-routing/sdlc-state.md) | Accepted implementation and validation record for resumable startup, sticky routing, next-action guidance, and focus expansion. |
 | [Federation Hardening State](plans/federation-hardening/sdlc-state.md) | Closed record for trust posture, NATS discovery, native channels, gated bridges, and test lanes. |
+| [Anti-slop (Oxlint)](anti-slop.md) | Vendored anti-slop Oxlint rules for agent hosts; required alongside ESLint in `gate:fast` and CI. |
 | [Community Web Voice Tray State](plans/community-web-voice-grid/sdlc-state.md) | Closed record for persistent lounge voice connections and Grid design-system cleanup. |
 | [XMPP Channel Fanout State](plans/xmpp-channel-fanout/sdlc-state.md) | Closed record for public-channel s2s fanout, Verify goldens, mutant kill, and chaos envelopes. |
 | [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Closed record for Verify goldens, Protocol mutant kill, honest lane inventory, and the 80% branch floor. |
+| [Anti-slop Oxlint Gates State](plans/anti-slop-oxlint-gates/sdlc-state.md) | Active record for vendored anti-slop Oxlint, clean baseline, and strengthened `gate:commit` hooks. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
 | [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |

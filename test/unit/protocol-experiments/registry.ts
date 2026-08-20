@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isObjectNonNull, isString } from "../../helpers/type-guards";
 
 export type ExperimentVerdict = "rejected" | "pending" | "accepted";
 
@@ -39,7 +40,7 @@ export function standingProductionRow(): string {
   return `Production ship: ${PRODUCTION_SHIP}`;
 }
 
-export function configHash(config: unknown): string {
+export function configHash<T>(config: T): string {
   return createHash("sha256").update(JSON.stringify(config)).digest("hex");
 }
 
@@ -50,10 +51,10 @@ export function evaluateEvidence(input: {
   const gate = GATES.find((item) => item.id === input.gateId);
   if (!gate || !gate.runnable) return gate?.verdict ?? "rejected";
   if (input.evidence === null || input.evidence === undefined) return "rejected";
-  if (typeof input.evidence === "string" && /garbage|forged|unsigned/i.test(input.evidence)) {
+  if (isString(input.evidence) && /garbage|forged|unsigned/i.test(input.evidence)) {
     return "rejected";
   }
-  if (typeof input.evidence === "object" && input.evidence !== null && "promote" in input.evidence) {
+  if (isObjectNonNull(input.evidence) && "promote" in input.evidence) {
     return "rejected";
   }
   return "rejected";

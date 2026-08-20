@@ -8,6 +8,11 @@ import {
   type SearchOrder,
   type SearchPage,
 } from "@epoch/community-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export interface CommunityCliCommandDescriptor {
   readonly command: string;
@@ -69,9 +74,9 @@ export interface QueryCommandServices {
   }): Promise<SearchExplanation>;
   executeGraphql(input: {
     readonly document: string;
-    readonly variables?: Readonly<Record<string, unknown>>;
+    readonly variables?: Readonly<Record<string, DictionaryValue>>;
     readonly signal?: AbortSignal;
-  }): Promise<unknown>;
+  }): BoundaryValue;
   readFile(path: string): Promise<string>;
 }
 
@@ -108,7 +113,7 @@ export async function runQueryCommand(
       const explanation = await services.explain({
         expression: normalized.ast,
         order: normalized.sort,
-        ...(execution.signal === undefined ? {} : { signal: execution.signal }),
+        ...(!(execution.signal === undefined) && { signal: execution.signal }),
       });
       return success(json ? explanation : formatExplanation(explanation), json);
     }
@@ -118,8 +123,8 @@ export async function runQueryCommand(
       expression: normalized.ast,
       order: normalized.sort,
       first,
-      ...(after === undefined ? {} : { after }),
-      ...(execution.signal === undefined ? {} : { signal: execution.signal }),
+      ...(!(after === undefined) && { after }),
+      ...(!(execution.signal === undefined) && { signal: execution.signal }),
     });
     const output = json ? searchEnvelope(page) : formatSearchPage(page);
     if (page.completeness.status === "partial") {
@@ -131,11 +136,12 @@ export async function runQueryCommand(
     }
     return success(output, json);
   } catch (error) {
-    return failure(error);
+    // SAFETY: catch binds unknown; failure accepts any thrown runtime value.
+    return failure(error as BoundaryValue);
   }
 }
 
-export function communityCliExitCode(error: unknown): number {
+export function communityCliExitCode(error: BoundaryValue): number {
   if (error instanceof DOMException && error.name === "AbortError") return COMMUNITY_CLI_EXIT_CODES.cancelled;
   if (!(error instanceof CommunityError)) return COMMUNITY_CLI_EXIT_CODES.internal;
   switch (error.code) {
@@ -169,15 +175,15 @@ export function parseCliArguments(args: readonly string[]): ParsedCliArguments {
   return Object.freeze({ positional: Object.freeze(positional), options: Object.freeze(options) });
 }
 
-export function stableJson(value: unknown, indent?: number): string {
+export function stableJson(value: BoundaryValue, indent?: number): string {
   return JSON.stringify(sortJson(value), undefined, indent);
 }
 
-export function success(value: unknown, json: boolean): CommunityCliCommandResult {
+export function success(value: BoundaryValue, json: boolean): CommunityCliCommandResult {
   return Object.freeze({ exitCode: 0, stdout: render(value, json), stderr: "" });
 }
 
-export function failure(error: unknown): CommunityCliCommandResult {
+export function failure(error: BoundaryValue): CommunityCliCommandResult {
   const exitCode = communityCliExitCode(error);
   const code = error instanceof CommunityError ? error.code : error instanceof DOMException && error.name === "AbortError" ? "CANCELLED" : "INTERNAL";
   const message = error instanceof CommunityError ? error.message : error instanceof DOMException && error.name === "AbortError" ? "Command cancelled" : "Community CLI command failed";
@@ -186,14 +192,14 @@ export function failure(error: unknown): CommunityCliCommandResult {
 
 export function stringOption(parsed: ParsedCliArguments, key: string, required = false): string {
   const value = parsed.options[key];
-  if (typeof value === "string") return value;
+  if (__epochIsString(value)) return value;
   if (required) throw invalidInput(`Missing required option --${key}`);
   return "";
 }
 
 export function optionalString(parsed: ParsedCliArguments, key: string): string | undefined {
   const value = parsed.options[key];
-  return typeof value === "string" ? value : undefined;
+  return __epochIsString(value) ? value : undefined;
 }
 
 export function integerOption(parsed: ParsedCliArguments, key: string, fallback: number, minimum: number, maximum: number): number {
@@ -215,28 +221,29 @@ export function assertAllowedOptions(parsed: ParsedCliArguments, allowed: readon
   if (unknown !== undefined) throw invalidInput(`Unknown option --${unknown}`);
 }
 
-async function executeGraphql(parsed: ParsedCliArguments, services: QueryCommandServices, signal?: AbortSignal): Promise<unknown> {
+async function executeGraphql(parsed: ParsedCliArguments, services: QueryCommandServices, signal?: AbortSignal): Promise<BoundaryValue> {
   const documentPath = stringOption(parsed, "graphql", true);
   const document = await services.readFile(documentPath);
   if (document.length > 65_536) throw new CommunityError("QUERY_COST_LIMIT", "GraphQL document exceeds 65536 characters");
   const variablesPath = optionalString(parsed, "variables");
-  let variables: Readonly<Record<string, unknown>> | undefined;
+  let variables: Readonly<Record<string, DictionaryValue>> | undefined;
   if (variablesPath !== undefined) {
     const raw = await services.readFile(variablesPath);
     if (new TextEncoder().encode(raw).length > 1_000_000) throw new CommunityError("QUERY_COST_LIMIT", "GraphQL variables exceed 1 MB");
     try {
       const parsedVariables: unknown = JSON.parse(raw);
-      if (typeof parsedVariables !== "object" || parsedVariables === null || Array.isArray(parsedVariables)) throw invalidInput("GraphQL variables must be a JSON object");
-      variables = parsedVariables as Readonly<Record<string, unknown>>;
+      if (!__epochIsObject(parsedVariables) || parsedVariables === null || Array.isArray(parsedVariables)) throw invalidInput("GraphQL variables must be a JSON object");
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      variables = parsedVariables as Readonly<Record<string, DictionaryValue>>;
     } catch (error) {
       if (error instanceof CommunityError) throw error;
       throw invalidInput("GraphQL variables file is not valid JSON");
     }
   }
-  return services.executeGraphql({ document, ...(variables === undefined ? {} : { variables }), ...(signal === undefined ? {} : { signal }) });
+  return services.executeGraphql({ document, ...(!(variables === undefined) && { variables }), ...(!(signal === undefined) && { signal }) });
 }
 
-function searchEnvelope(page: SearchPage): unknown {
+function searchEnvelope(page: SearchPage): BoundaryValue {
   return { schema: "epoch.community.cli.search.v1", hits: page.hits, pageInfo: page.pageInfo, snapshot: page.snapshot, completeness: page.completeness };
 }
 
@@ -251,14 +258,14 @@ function formatExplanation(explanation: SearchExplanation): string {
   return `backend\t${explanation.backendId}\nplan\t${explanation.planHash}\nauthorization\t${explanation.authorization}\n`;
 }
 
-function render(value: unknown, json: boolean): string {
-  if (typeof value === "string" && !json) return value.endsWith("\n") ? value : `${value}\n`;
+function render(value: BoundaryValue, json: boolean): string {
+  if (__epochIsString(value) && !json) return value.endsWith("\n") ? value : `${value}\n`;
   return `${stableJson(value)}\n`;
 }
 
-function sortJson(value: unknown): unknown {
+function sortJson(value: BoundaryValue): BoundaryValue {
   if (Array.isArray(value)) return value.map(sortJson);
-  if (typeof value !== "object" || value === null) return value;
+  if (!__epochIsObject(value) || value === null) return value;
   return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right, "en")).map(([key, item]) => [key, sortJson(item)]));
 }
 

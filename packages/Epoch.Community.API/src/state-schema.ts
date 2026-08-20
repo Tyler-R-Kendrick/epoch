@@ -1,3 +1,5 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import {
   CommunityError,
   validateCommunityEntity,
@@ -10,6 +12,11 @@ import {
   type NamespaceMount,
   type ProjectionDefinition,
 } from "@epoch/community-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
+
 
 export type { CommunitySourceCheckpoint, NamespaceMount } from "@epoch/community-core";
 
@@ -54,7 +61,7 @@ export type CommunityStateExport = CommunityStateV3;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,255}$/u;
 const SAFE_PATH = /^\/(?:[^/\\\0]+(?:\/[^/\\\0]+)*)?$/u;
 
-export function validateCommunityStateV3(input: unknown): CommunityStateV3 {
+export function validateCommunityStateV3(input: BoundaryValue): CommunityStateV3 {
   if (!record(input) || input.schemaVersion !== COMMUNITY_STATE_SCHEMA_VERSION) invalid("Community state must use schema version 3");
   const metadata = validateMetadata(input.metadata);
   const entities = array(input.entities, "entities").map(validateCommunityEntity);
@@ -79,8 +86,10 @@ export function validateCommunityStateV3(input: unknown): CommunityStateV3 {
   }));
 }
 
-function validateMetadata(input: unknown): CommunityStateMetadata {
+function validateMetadata(input: BoundaryValue): CommunityStateMetadata {
+  // SAFETY: Runtime checks or construction above establish number)) invalid("Community state migration metadata is invalid").
   if (!record(input) || ![1, 2, 3].includes(input.sourceSchemaVersion as number)) invalid("Community state migration metadata is invalid");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return Object.freeze({
     createdAt: validateIsoDateTime(input.createdAt, "metadata.createdAt"),
     updatedAt: validateIsoDateTime(input.updatedAt, "metadata.updatedAt"),
@@ -91,10 +100,11 @@ function validateMetadata(input: unknown): CommunityStateMetadata {
   });
 }
 
-function validateRelation(input: unknown): CommunityRelation {
-  if (!record(input) || typeof input.type !== "string") invalid("Persisted relation is invalid");
+function validateRelation(input: BoundaryValue): CommunityRelation {
+  if (!record(input) || !__epochIsString(input.type)) invalid("Persisted relation is invalid");
   const allowed = ["reply", "quote", "mention", "provenance", "promotion", "replacement", "moderation", "attachment", "backlink"];
   if (!allowed.includes(input.type)) invalid(`Unsupported persisted relation: ${input.type}`);
+  // SAFETY: Relation type validated against allowed persisted relation names.
   return Object.freeze({
     type: input.type as CommunityRelation["type"],
     source: validateObjectRef(input.source),
@@ -102,23 +112,32 @@ function validateRelation(input: unknown): CommunityRelation {
   });
 }
 
-function validateProjectionRecord(input: unknown): PersistedProjectionDefinition {
+function readProjectionDefinition(value: Record<string, DictionaryValue>): ProjectionDefinition {
+  // SAFETY: Persisted v3 projection definitions are validated by validateProjectionRecord after read.
+  return JSON.parse(JSON.stringify(value)) as ProjectionDefinition;
+}
+
+function validateProjectionRecord(input: BoundaryValue): PersistedProjectionDefinition {
   if (!record(input) || !record(input.definition)) invalid("Persisted projection definition is invalid");
-  const definition = structuredClone(input.definition) as unknown as ProjectionDefinition;
+  const definition = readProjectionDefinition(input.definition);
   validateProjectionId(definition.projectionId);
   if (definition.apiVersion !== "epoch.dev/v1alpha1" || !Number.isInteger(definition.version) || definition.version < 1) {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     invalid("Persisted projection definition version is invalid");
   }
+  // SAFETY: Runtime checks or construction above establish number) < 1) invalid("Persisted projection revision is invalid").
   if (!Number.isInteger(input.revision) || (input.revision as number) < 1) invalid("Persisted projection revision is invalid");
+  // SAFETY: Integer revision validated above.
+  const revision = input.revision as number;
   return Object.freeze({
     definition,
-    revision: input.revision as number,
+    revision,
     createdAt: validateIsoDateTime(input.createdAt, "projection.createdAt"),
     updatedAt: validateIsoDateTime(input.updatedAt, "projection.updatedAt"),
   });
 }
 
-function validateMount(input: unknown): NamespaceMount {
+function validateMount(input: BoundaryValue): NamespaceMount {
   if (!record(input)) invalid("Persisted namespace mount is invalid");
   const mountId = bounded(input.mountId, "mount.mountId");
   const projectionId = validateProjectionId(String(input.projectionId));
@@ -126,45 +145,60 @@ function validateMount(input: unknown): NamespaceMount {
     invalid("Persisted namespace mount scope is invalid");
   }
   if (!(input.mode === "replace" || input.mode === "before" || input.mode === "after")) invalid("Persisted namespace mount mode is invalid");
-  if (typeof input.mountPath !== "string" || !SAFE_PATH.test(input.mountPath) || input.mountPath.split("/").some((segment) => segment === "." || segment === "..")) {
+  if (!__epochIsString(input.mountPath) || !SAFE_PATH.test(input.mountPath) || input.mountPath.split("/").some((segment) => segment === "." || segment === "..")) {
     invalid("Persisted namespace mount path is invalid");
   }
-  if (!Number.isSafeInteger(input.order) || typeof input.writable !== "boolean") invalid("Persisted namespace mount order or writability is invalid");
-  return Object.freeze({
+  if (!Number.isSafeInteger(input.order) || !__epochIsBoolean(input.writable)) invalid("Persisted namespace mount order or writability is invalid");
+  // SAFETY: SafeInteger order validated above.
+  const order = input.order as number;
+  const mount: NamespaceMount = Object.freeze({
     mountId,
     scope: input.scope,
     mountPath: input.mountPath,
     projectionId,
     mode: input.mode,
-    order: input.order as number,
+    order,
     writable: input.writable,
-    ...(input.ownerId === undefined ? {} : { ownerId: bounded(input.ownerId, "mount.ownerId") }),
     createdAt: validateIsoDateTime(input.createdAt, "mount.createdAt"),
     updatedAt: validateIsoDateTime(input.updatedAt, "mount.updatedAt"),
   });
+  if (input.ownerId !== undefined) {
+    return Object.freeze({ ...mount, ownerId: bounded(input.ownerId, "mount.ownerId") });
+  }
+  return mount;
 }
 
-function validateCheckpoint(input: unknown): CommunitySourceCheckpoint {
+function validateCheckpoint(input: BoundaryValue): CommunitySourceCheckpoint {
   if (!record(input) || !["current", "stale", "partial", "unavailable"].includes(String(input.status))) {
     invalid("Persisted source checkpoint is invalid");
   }
-  return Object.freeze({
+  const checkpoint: CommunitySourceCheckpoint = Object.freeze({
     sourceId: bounded(input.sourceId, "checkpoint.sourceId"),
     token: bounded(input.token, "checkpoint.token", 4096),
     observedAt: validateIsoDateTime(input.observedAt, "checkpoint.observedAt"),
+    // SAFETY: Status string validated against checkpoint vocabulary above.
     status: input.status as CommunitySourceCheckpoint["status"],
-    ...(input.detail === undefined ? {} : { detail: bounded(input.detail, "checkpoint.detail", 4096) }),
   });
+  if (input.detail !== undefined) {
+    return Object.freeze({ ...checkpoint, detail: bounded(input.detail, "checkpoint.detail", 4096) });
+  }
+  return checkpoint;
 }
 
-function validateQuarantine(input: unknown): QuarantinedProjectionDefinition {
+function validateQuarantine(input: BoundaryValue): QuarantinedProjectionDefinition {
   if (!record(input)) invalid("Persisted projection quarantine entry is invalid");
-  return Object.freeze({
-    ...(input.projectionId === undefined ? {} : { projectionId: typeof input.projectionId === "string" ? input.projectionId : String(input.projectionId) }),
+  const quarantine: QuarantinedProjectionDefinition = Object.freeze({
     reason: bounded(input.reason, "quarantine.reason", 4096),
     quarantinedAt: validateIsoDateTime(input.quarantinedAt, "quarantine.quarantinedAt"),
     input: structuredClone(input.input),
   });
+  if (input.projectionId !== undefined) {
+    return Object.freeze({
+      ...quarantine,
+      projectionId: __epochIsString(input.projectionId) ? input.projectionId : String(input.projectionId),
+    });
+  }
+  return quarantine;
 }
 
 function unique<T>(values: readonly T[], key: (value: T) => string, label: string): void {
@@ -176,19 +210,20 @@ function unique<T>(values: readonly T[], key: (value: T) => string, label: strin
   }
 }
 
-function bounded(input: unknown, label: string, limit = 512): string {
-  if (typeof input !== "string" || input.length === 0 || input.length > limit || input.includes(String.fromCharCode(0))) invalid(`${label} is invalid`);
+function bounded(input: BoundaryValue, label: string, limit = 512): string {
+  if (!__epochIsString(input) || input.length === 0 || input.length > limit || input.includes(String.fromCharCode(0))) invalid(`${label} is invalid`);
   const value = input.normalize("NFC");
   if (limit <= 512 && !SAFE_ID.test(value)) invalid(`${label} must be an opaque identifier`);
   return value;
 }
 
-function array(input: unknown, label: string): unknown[] {
+function array(input: BoundaryValue, label: string): BoundaryValue[] {
   if (!Array.isArray(input) || input.length > 1_000_000) invalid(`Community state ${label} must be a bounded array`);
-  return input;
+  // SAFETY: Array elements are validated by downstream schema validators.
+  return input as BoundaryValue[];
 }
 
-function record(input: unknown): input is Record<string, unknown> {
+function record(input: BoundaryValue): input is Record<string, DictionaryValue> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
 }
 

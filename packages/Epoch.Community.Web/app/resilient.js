@@ -50,7 +50,7 @@
    * stable — it can change between the check and the call.
    */
   async function availability() {
-    if (typeof LanguageModel === "undefined") return "absent";
+    if (globalThis.CW_VALUE.isUndefined(LanguageModel)) return "absent";
     try {
       var state = await LanguageModel.availability({
         expectedInputs: [{ type: "text", languages: ["en"] }],
@@ -96,7 +96,7 @@
             lastEvent = Date.now();
             // `loaded` is 0..1 in the current API but has shipped as 0..100
             // elsewhere; normalise rather than showing "4700%".
-            var raw = typeof e.loaded === "number" ? e.loaded : 0;
+            var raw = globalThis.CW_VALUE.isNumber(e.loaded) ? e.loaded : 0;
             pct = Math.round(raw > 1 ? raw : raw * 100);
             report("Downloading the on-device model — " + pct + "%", "busy");
           });
@@ -276,7 +276,7 @@
   function readRoutes() {
     try {
       var got = JSON.parse(window.localStorage.getItem(ROUTE_KEY) || "{}");
-      return got && typeof got === "object" && !Array.isArray(got) ? got : {};
+      return got && globalThis.CW_VALUE.isObject(got) && !Array.isArray(got) ? got : {};
     } catch { return {}; }
   }
 
@@ -288,7 +288,7 @@
     var workspace = String(workspaceId || "default");
     var p = policy || DEFAULT_POLICY;
     var routes = Array.isArray(p.routes) ? p.routes.filter(function (route) {
-      return route && typeof route.id === "string" && route.id && typeof route.model === "string";
+      return route && globalThis.CW_VALUE.isString(route.id) && route.id && globalThis.CW_VALUE.isString(route.model);
     }) : [];
     if (!routes.length) return null;
     var bag = readRoutes();

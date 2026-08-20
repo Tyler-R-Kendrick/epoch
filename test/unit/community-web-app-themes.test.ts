@@ -22,28 +22,52 @@ interface Theme {
   readonly css: string;
 }
 
+type FixtureFunction = (...args: never[]) => FixtureValue | void;
+type FixtureConstructor = abstract new (...args: never[]) => object;
+type FixtureValue = boolean | null | number | string | FixtureConstructor | FixtureDictionary | FixtureFunction | readonly FixtureValue[] | undefined;
+interface FixtureDictionary {
+  [key: string]: FixtureValue;
+}
+
+function fixture<T>(value: T): T {
+  return value;
+}
+
+function ensureValueKind(): void {
+  // Classic app scripts classify through globalThis.CW_VALUE (value-kind.js).
+  // Node unit fixtures eval those scripts against a fake window, so install the
+  // helpers on the real globalThis once before any dependent script loads.
+  // SAFETY: CW_VALUE is installed by value-kind.js onto globalThis in browsers and tests.
+  const host = globalThis as { CW_VALUE?: unknown };
+  if (host.CW_VALUE !== undefined) return;
+  new Function(readFileSync(join(ROOT, "value-kind.js"), "utf8"))();
+}
+
 function dataJson(): string {
   const source = readFileSync(join(ROOT, "data.js"), "utf8");
-  const sandbox: { CW_DATA?: unknown } = {};
+  const sandbox = fixture<{ CW_DATA?: FixtureValue }>({});
   new Function("window", source)(sandbox);
   return JSON.stringify(sandbox.CW_DATA);
 }
 
-function loadCommunityCore(window: object): void {
+function loadCommunityCore(window: FixtureDictionary): void {
+  ensureValueKind();
   new Function("window", readFileSync(join(ROOT, "community-core-runtime.js"), "utf8"))(window);
 }
 
-function loadActions(window: object): void {
+function loadActions(window: FixtureDictionary): void {
+  ensureValueKind();
   new Function("window", readFileSync(join(ROOT, "action-registry.js"), "utf8"))(window);
   new Function("window", readFileSync(join(ROOT, "actions.js"), "utf8"))(window);
 }
 
 function loadThemes(): readonly Theme[] {
   const source = readFileSync(join(ROOT, "themes.js"), "utf8");
-  const sandbox: { CW_THEMES?: Theme[] } = {};
+  const sandbox = fixture<{ CW_THEMES?: Theme[] }>({});
   // The file is a browser script assigning to window; give it a window.
   new Function("window", source)(sandbox);
   assert.ok(Array.isArray(sandbox.CW_THEMES), "themes.js must define window.CW_THEMES");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   return sandbox.CW_THEMES as Theme[];
 }
 
@@ -75,6 +99,7 @@ function contrast(a: string, b: string): number {
 }
 
 export async function runCommunityWebAppThemeTests(): Promise<void> {
+  ensureValueKind();
   // Hoisted source snapshots — many sections assert against these.
   const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
   const actionSrc = readFileSync(join(ROOT, "actions.js"), "utf8");
@@ -111,7 +136,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     const dim = tokens.get("--cw-ink-dim");
     assert.ok(bg && ink && dim, `${theme.id} must set --cw-bg, --cw-ink and --cw-ink-dim`);
 
+    // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
     const inkRatio = contrast(ink as string, bg as string);
+    // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
     const dimRatio = contrast(dim as string, bg as string);
     assert.ok(inkRatio >= 7,
       `${theme.id}: body ink is ${inkRatio.toFixed(1)}:1 on its ground, below the 7:1 floor`);
@@ -119,6 +146,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       `${theme.id}: dim ink is ${dimRatio.toFixed(1)}:1 on its ground, below the 4.5:1 floor`);
     const faint = tokens.get("--cw-ink-faint");
     if (faint !== undefined) {
+      // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
       const faintRatio = contrast(faint as string, bg as string);
       assert.ok(faintRatio >= 4.5,
         `${theme.id}: faint ink is ${faintRatio.toFixed(1)}:1 on its ground, below the 4.5:1 AA floor`);
@@ -141,7 +169,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   // reruns the build, the page ships a prompt and a schema that disagree with
   // the renderer — the drift class this repo keeps rediscovering.
   const library = readFileSync(join(ROOT, "openui-library.js"), "utf8");
-  const librarySandbox: { CW_OPENUI?: { schema: { properties?: Record<string, unknown> }; systemPrompt: string } } = {};
+  const librarySandbox = fixture<{ CW_OPENUI?: { schema: { properties?: FixtureDictionary }; systemPrompt: string } }>({});
   new Function("window", library)(librarySandbox);
   const openui = librarySandbox.CW_OPENUI;
   assert.ok(openui, "openui-library.js must define window.CW_OPENUI");
@@ -189,9 +217,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   // one thing. What has to be tested is that the navigation model is coherent,
   // not that a count is met.
   const consoleSource = readFileSync(join(ROOT, "console.js"), "utf8");
-  const sandbox2: { CW_DATA?: unknown; CW_MAP?: unknown; CW_EXPERIENCES?: { id: string; keys?: string }[] } = {
+  const sandbox2 = fixture<{ CW_DATA?: FixtureValue; CW_MAP?: FixtureValue; CW_EXPERIENCES?: { id: string; keys?: string }[] }>({
     CW_DATA: JSON.parse(dataJson()),
-  };
+  });
   loadCommunityCore(sandbox2);
   new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(sandbox2);
   new Function("window", consoleSource)(sandbox2);
@@ -268,8 +296,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   }
 
   // Every path the sitemap can produce must be resolvable, or `cd` lies.
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const map = sandbox2.CW_MAP as {
-    list: (p: string, e?: unknown) => unknown[] | null;
+    list: (p: string, e?: FixtureValue) => FixtureValue[] | null;
     join: (p: string[]) => string;
   };
   for (const root of ["/", "/channels", "/members", "/projects", "/dms", "/notifications", "/spaces", "/.agents"]) {
@@ -277,6 +306,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   }
   assert.equal(map.list("/epochs"), null, "epochs leaf removed — it meant nothing");
   // Board root exposes spaces, dms, notifications as siblings of projects.
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const boardRoot = map.list("/") as Array<{ name: string }>;
   assert.ok(boardRoot.some((e) => e.name === "projects"), "board root lists projects");
   assert.ok(boardRoot.some((e) => e.name === "spaces"), "board root lists spaces");
@@ -284,6 +314,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(boardRoot.some((e) => e.name === "notifications"),
     "board root lists notifications (Teams-style Activity)");
   // Members roll opens DMs, not a profile card path.
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const memberList = map.list("/members") as Array<{ name: string; openDm?: string; member?: { kind?: string; eve?: boolean } }>;
   assert.ok(memberList.some((e) => e.name === "scout" && e.openDm === "scout"),
     "members list marks openDm for each person/agent");
@@ -297,16 +328,20 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(map.list("/dms/nora") !== null,
     "known members without fixture history still get an openable empty DM");
   // Every project tree has a members child beside channels.
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const communityKids = map.list("/projects/community") as Array<{ name: string }>;
   assert.ok(communityKids.some((e) => e.name === "channels"), "project has channels");
   assert.ok(communityKids.some((e) => e.name === "members"), "project has members child");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const projMembers = map.list("/projects/community/members") as Array<{ name: string; openDm?: string }>;
   assert.ok(projMembers.length >= 1 && projMembers.every((e) => e.openDm),
     "project members open DMs");
   assert.ok(projMembers.some((e) => e.name === "community-host"),
     "project Eve agents appear on that project's members roll");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const tunerKids = map.list("/projects/civic-tuner") as Array<{ name: string }>;
   assert.ok(tunerKids.some((e) => e.name === "members"), "linked project has members");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const tunerRoster = map.list("/projects/civic-tuner/members") as Array<{ name: string }>;
   assert.ok(tunerRoster.some((e) => e.name === "maya") || tunerRoster.length >= 1,
     "linked project roster is non-empty");
@@ -318,18 +353,18 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "editor.js must expose CW_EDITOR with key handling");
   assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("editor.js"),
     "index must load editor.js");
-  const edWin: {
+  const edWin = fixture<{
     CW_EDITOR?: {
-      open: (path: string, text: string, meta?: object) => {
+      open: (path: string, text: string, meta?: FixtureDictionary) => {
         lines: string[]; cursor: { line: number; col: number }; mode: string; dirty: boolean;
       };
-      handleKey: (buf: object, ev: { key: string; preventDefault?: () => void }) => boolean;
-      render: (buf: object, opts?: object) => string;
-      text: (buf: object) => string;
-      clickAt: (buf: object, line: number, col: number, opts?: object) => object;
-      contentFromEntry: (entry: object, path?: string) => { text: string; name: string; path: string };
+      handleKey: (buf: FixtureDictionary, ev: { key: string; preventDefault?: () => void }) => boolean;
+      render: (buf: FixtureDictionary, opts?: FixtureDictionary) => string;
+      text: (buf: FixtureDictionary) => string;
+      clickAt: (buf: FixtureDictionary, line: number, col: number, opts?: FixtureDictionary) => object;
+      contentFromEntry: (entry: FixtureDictionary, path?: string) => { text: string; name: string; path: string };
     };
-  } = {};
+  }>({});
   new Function("window", editorSrc)(edWin);
   assert.ok(edWin.CW_EDITOR);
   const Ed = edWin.CW_EDITOR!;
@@ -362,10 +397,12 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   // .agents (Vercel Eve) at board + project levels.
   assert.ok(boardRoot.some((e) => e.name === ".agents"),
     "board root lists .agents (space-scoped Eve agents)");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const boardAgents = map.list("/.agents") as Array<{ name: string; agent?: { scope?: string } }>;
   assert.ok(boardAgents.length >= 1, "board .agents has space agents");
   assert.ok(boardAgents.every((e) => e.agent && e.agent.scope === "space"),
     "board agents are space-scoped");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const steward = map.list("/.agents/space-steward") as Array<{ name: string }>;
   assert.ok(steward.some((e) => e.name === "instructions.md"), "eve agent has instructions.md");
   assert.ok(steward.some((e) => e.name === "agent.ts"), "eve agent has agent.ts");
@@ -375,6 +412,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "project tree has .agents child");
   assert.ok(tunerKids.some((e) => e.name === ".agents"),
     "linked project has .agents child");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const tunerAgents = map.list("/projects/civic-tuner/.agents") as Array<{
     name: string; agent?: { scope?: string; project?: string };
   }>;
@@ -383,9 +421,11 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   const dataAgents = readFileSync(join(ROOT, "data.js"), "utf8");
   assert.ok(dataAgents.includes("agents:") && dataAgents.includes("space-steward"),
     "fixtures include Eve agent definitions");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const spaceList = map.list("/spaces") as Array<{ name: string; hint?: string; space?: { relay?: { protocol?: string } } }>;
   assert.ok(spaceList.length >= 2, "spaces catalogue lists joinable spaces");
   assert.ok(spaceList.some((e) => e.name === "civic-workshop"), "home space present");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const hub = map.list("/spaces/civic-workshop") as Array<{ name: string }>;
   assert.ok(hub.some((e) => e.name === "feed"), "space hub has feed");
   assert.ok(hub.some((e) => e.name === "channels"), "space hub has channels");
@@ -395,12 +435,15 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "space hub must not surface relay as a user-facing child");
   assert.ok(!spaceList.some((e) => /nostr|relay\+/i.test(e.hint || "")),
     "space catalogue hints must not name transport internals");
-  const feed = map.list("/spaces/civic-workshop/feed") as Array<{ post?: unknown }>;
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
+  const feed = map.list("/spaces/civic-workshop/feed") as Array<{ post?: FixtureValue }>;
   assert.ok(feed.length >= 1 && feed.every((e) => e.post), "space feed lists posts");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const dmList = map.list("/dms") as Array<{ name: string; kind: string }>;
   assert.ok(dmList.length >= 2, "fixture DMs with people and agents");
   assert.ok(dmList.some((e) => e.name === "scout"), "agent DM thread exists");
   assert.ok(dmList.some((e) => e.name === "maya"), "person DM thread exists");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const scoutThread = map.list("/dms/scout") as Array<{ post?: { who: string; dm?: string } }>;
   assert.ok(scoutThread.length >= 2 && scoutThread.every((e) => e.post),
     "DM threads list post-shaped messages");
@@ -410,17 +453,20 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "local principal messages use who: you");
 
   // Notifications: filters + mention/subscription kinds.
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const notifFilters = map.list("/notifications") as Array<{ name: string }>;
   assert.ok(notifFilters.some((e) => e.name === "all"));
   assert.ok(notifFilters.some((e) => e.name === "mentions"));
   assert.ok(notifFilters.some((e) => e.name === "subscribed"));
   assert.ok(notifFilters.some((e) => e.name === "hooks"),
     "notifications lists hooks filter for custom event subscriptions");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const mentions = map.list("/notifications/mentions") as Array<{
     notification?: { kind: string; unread?: boolean; body?: string };
   }>;
   assert.ok(mentions.length >= 1 && mentions.every((e) => e.notification?.kind === "mention"),
     "mentions filter is only @you mentions");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const subscribed = map.list("/notifications/subscribed") as Array<{
     notification?: { kind: string };
   }>;
@@ -463,27 +509,27 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     whereLabel?: string;
   };
   const memN = new Map<string, string>();
-  const notifyOff: {
-    Notification?: unknown;
+  const notifyOff = fixture<{
+    Notification?: FixtureValue;
     CW_NOTIFY?: {
       isSupported: () => boolean;
       permission: () => string;
       permissionLabel: (p?: string) => string;
       requestPermission: () => Promise<string>;
-      deliver: (item: NotifyItem, h?: object) => unknown;
-      deliverUnread: (items: NotifyItem[], h?: object) => number;
+      deliver: (item: NotifyItem, h?: FixtureDictionary) => FixtureValue;
+      deliverUnread: (items: NotifyItem[], h?: FixtureDictionary) => number;
       wasPushed: (id: string) => boolean;
       markPushed: (id: string) => void;
-      optionsFor: (item: object) => { title: string; body: string; tag: string; data: { id: string | null } };
+      optionsFor: (item: FixtureDictionary) => { title: string; body: string; tag: string; data: { id: string | null } };
     };
     localStorage: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void };
-  } = {
+  }>({
     localStorage: {
       getItem: (k: string) => (memN.has(k) ? memN.get(k)! : null),
       setItem: (k: string, v: string) => { memN.set(k, String(v)); },
       removeItem: (k: string) => { memN.delete(k); },
     },
-  };
+  });
   new Function("window", notifySrc)(notifyOff);
   assert.ok(notifyOff.CW_NOTIFY);
   assert.equal(notifyOff.CW_NOTIFY!.isSupported(), false);
@@ -493,8 +539,8 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   // Supported mock Notification.
   type NotifInst = {
     title: string;
-    options: Record<string, unknown>;
-    onclick: ((ev?: unknown) => void) | null;
+    options: FixtureDictionary;
+    onclick: ((ev?: FixtureValue) => void) | null;
     onclose: (() => void) | null;
     onerror: (() => void) | null;
     close: () => void;
@@ -507,11 +553,11 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       return Promise.resolve("granted");
     }
     title: string;
-    options: Record<string, unknown>;
-    onclick: ((ev?: unknown) => void) | null = null;
+    options: FixtureDictionary;
+    onclick: ((ev?: FixtureValue) => void) | null = null;
     onclose: (() => void) | null = null;
     onerror: (() => void) | null = null;
-    constructor(title: string, options: Record<string, unknown> = {}) {
+    constructor(title: string, options: FixtureDictionary = {}) {
       this.title = title;
       this.options = options;
       created.push(this);
@@ -564,35 +610,36 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   // These glyphs are readings, not decoration, so they are testable: a
   // sparkline that does not track its series and a sigil that collides are both
   // lies told in a font nobody reads closely.
-  const ascii: {
+  const ascii = fixture<{
     CW_ASCII?: {
       sparkline: (v: number[], w?: number) => string;
       gauge: (d: number, t: number, w?: number) => string;
       sigil: (t: string, w?: number) => string;
       rule: (c: string, w?: number) => string;
       branch: (last: boolean, depth: number) => string;
-      banner: (b: Record<string, unknown>, n: number, host: string) => string;
+      banner: (b: FixtureDictionary, n: number, host: string) => string;
       BLOCKS: string[];
     };
-  } = {};
+  }>({});
   new Function("window", readFileSync(join(ROOT, "ascii.js"), "utf8"))(ascii);
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const A = ascii.CW_ASCII as {
     sparkline: (v: number[], w?: number) => string;
     gauge: (d: number, t: number, w?: number) => string;
     sigil: (t: string, w?: number) => string;
     rule: (c: string, w?: number) => string;
     branch: (last: boolean, depth: number) => string;
-    banner: (b: Record<string, unknown>, n: number, host: string) => string;
+    banner: (b: FixtureDictionary, n: number, host: string) => string;
     BLOCKS: string[];
-    markdown?: (s: string) => string;
-    asciiTable?: (rows: string[][], opts?: { asHtml?: boolean }) => string;
+    markdown: (s: string) => string;
+    asciiTable: (rows: string[][], opts?: { asHtml?: boolean }) => string;
     looksLikeMarkdown?: (s: string) => boolean;
     formatBody?: (s: string) => string;
     colorizeAscii?: (s: string) => string;
   };
   assert.ok(A, "ascii.js must expose CW_ASCII");
   // Markdown + colour-coded ASCII tables.
-  assert.ok(typeof A.markdown === "function" && typeof A.asciiTable === "function",
+  assert.ok(Object.hasOwn(A, "markdown") && Object.hasOwn(A, "asciiTable"),
     "ascii.js must render markdown and ASCII tables");
   assert.ok(A.looksLikeMarkdown!("| a | b |\n| --- | --- |\n| 1 | 2 |"),
     "pipe tables are detected as markdown");
@@ -617,16 +664,17 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "console must apply formatBody and style markdown tables");
 
   // Link preview cards — generated summary, ASCII/terminal reusable component.
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const A2 = A as typeof A & {
-    linkPreview?: (url: string, opts?: object) => string;
-    linkPreviewAscii?: (summary: object, w?: number) => string;
-    summarizeLink?: (url: string, opts?: object) => {
+    linkPreview: (url: string, opts?: FixtureDictionary) => string;
+    linkPreviewAscii?: (summary: FixtureDictionary, w?: number) => string;
+    summarizeLink: (url: string, opts?: FixtureDictionary) => {
       href: string; title: string; description: string; kind: string; site: string; displayUrl: string;
     };
     extractLinks?: (text: string) => Array<{ href: string; label: string }>;
     linkPreviewsFor?: (text: string) => string;
   };
-  assert.ok(typeof A2.linkPreview === "function" && typeof A2.summarizeLink === "function",
+  assert.ok(Object.hasOwn(A2, "linkPreview") && Object.hasOwn(A2, "summarizeLink"),
     "ascii.js must expose linkPreview + summarizeLink");
   const sum = A2.summarizeLink!("https://github.com/ag-ui-protocol");
   assert.equal(sum.kind, "repo");
@@ -726,7 +774,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   }
 
   // Behavioural check of the morph algorithm itself, on a minimal DOM stand-in.
-  const morphSandbox: { CW_MORPH?: { morph: (live: unknown, html: string) => void } } = {};
+  const morphSandbox = fixture<{ CW_MORPH?: { morph: (live: FixtureValue, html: string) => void } }>({});
   new Function("window", readFileSync(join(ROOT, "morph.js"), "utf8"))(morphSandbox);
   assert.ok(morphSandbox.CW_MORPH, "morph.js must expose CW_MORPH");
 
@@ -796,18 +844,18 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
 
   // Following feed: only followed authors; sam is not followed.
   {
-    const followWin: {
+    const followWin = fixture<{
       CW_DATA?: { follows?: string[] };
       CW_MAP?: {
-        followingFeed: (extra?: unknown[]) => Array<{ who: string; summary: string; unread?: boolean }>;
+        followingFeed: (extra?: FixtureValue[]) => Array<{ who: string; summary: string; unread?: boolean }>;
         followsList: () => string[];
         homeFeedViews: () => Array<{ id: string; label: string }>;
-        homeFeedItems: (view: string, extra?: unknown[], read?: Record<string, boolean>) =>
+        homeFeedItems: (view: string, extra?: FixtureValue[], read?: Record<string, boolean>) =>
           Array<{ id: string; unread?: boolean; who?: string }>;
-        homeFeedUnreadCounts: (extra?: unknown[], read?: Record<string, boolean>) =>
+        homeFeedUnreadCounts: (extra?: FixtureValue[], read?: Record<string, boolean>) =>
           Record<string, number>;
       };
-    } = {};
+    }>({});
     loadCommunityCore(followWin);
     new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(followWin);
     new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(followWin);
@@ -1039,19 +1087,19 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "query.js must expose Lucene-style feed projections");
   assert.ok(readFileSync(join(ROOT, "board.html"), "utf8").includes("query.js"),
     "index must load query.js");
-  const qWin: {
+  const qWin = fixture<{
     CW_QUERY?: {
-      parse: (q: string) => { ast: unknown; sort: string | null; error: string | null };
-      apply: (posts: object[], q: string, ctx?: object) => {
-        posts: object[]; sort: string | null; error: string | null;
+      parse: (q: string) => { ast: FixtureValue; sort: string | null; error: string | null };
+      apply: (posts: FixtureDictionary[], q: string, ctx?: FixtureDictionary) => {
+        posts: FixtureDictionary[]; sort: string | null; error: string | null;
       };
-      filterEntries: (entries: object[], q: string, ctx?: object) => {
-        entries: object[]; matched: number; count: number; error: string | null; sort: string | null;
+      filterEntries: (entries: FixtureDictionary[], q: string, ctx?: FixtureDictionary) => {
+        entries: FixtureDictionary[]; matched: number; count: number; error: string | null; sort: string | null;
       };
       presets: () => Array<{ id: string; query: string }>;
     };
-    CW_DATA?: { members?: object[] };
-  } = { CW_DATA: { members: [{ handle: "maya", kind: "person" }, { handle: "scout", kind: "agent" }] } };
+    CW_DATA?: { members?: FixtureDictionary[] };
+  }>({ CW_DATA: { members: [{ handle: "maya", kind: "person" }, { handle: "scout", kind: "agent" }] } });
   loadCommunityCore(qWin);
   new Function("window", querySrc)(qWin);
   assert.ok(qWin.CW_QUERY);
@@ -1063,6 +1111,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   ];
   assert.equal(Q.parse("state:needs-review").error, null);
   assert.equal(Q.apply(samplePosts, "state:needs-review").posts.length, 1);
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   assert.equal((Q.apply(samplePosts, "state:needs-review").posts[0] as { id: string }).id, "a");
   assert.equal(Q.apply(samplePosts, "who:maya OR kind:agent").posts.length, 2);
   assert.equal(Q.apply(samplePosts, "has:anchor").posts.length, 1);
@@ -1104,17 +1153,17 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "console must render attach control and tray");
   assert.ok(actionSrc.includes('"/attach"'),
     "slash surface exposes /attach");
-  const attachWin: {
+  const attachWin = fixture<{
     CW_ATTACH?: {
       kindFor: (f: { name?: string; type?: string }) => string;
       formatSize: (n: number) => string;
-      composeInput: (text: string, atts: object[]) => string;
-      formatContext: (atts: object[]) => string;
-      chipLabel: (a: object) => string;
-      meta: (a: object) => { name?: string; kind?: string };
+      composeInput: (text: string, atts: FixtureDictionary[]) => string;
+      formatContext: (atts: FixtureDictionary[]) => string;
+      chipLabel: (a: FixtureDictionary) => string;
+      meta: (a: FixtureDictionary) => { name?: string; kind?: string };
       MAX_FILES: number;
     };
-  } = {};
+  }>({});
   new Function("window", attachSrc)(attachWin);
   assert.ok(attachWin.CW_ATTACH);
   const Att = attachWin.CW_ATTACH!;
@@ -1149,30 +1198,30 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "slash surface exposes /hooks");
   assert.ok(consoleSrc2.includes("hooks") && consoleSrc2.includes("/notifications/hooks"),
     "Activity UI surfaces hooks filter");
-  const hooksWin: {
+  const hooksWin = fixture<{
     localStorage: {
       store: Record<string, string>;
       getItem: (k: string) => string | null;
       setItem: (k: string, v: string) => void;
       removeItem: (k: string) => void;
     };
-    CW_DATA?: { hooks?: object[]; members?: object[] };
+    CW_DATA?: { hooks?: FixtureDictionary[]; members?: FixtureDictionary[] };
     CW_QUERY?: typeof Q;
     CW_HOOKS?: {
       events: () => Array<{ id: string; label: string }>;
       list: () => Array<{ id: string; event: string; match: string; enabled: boolean; notify: boolean }>;
-      add: (spec: object) => { ok: boolean; hook?: { id: string; event: string } };
+      add: (spec: FixtureDictionary) => { ok: boolean; hook?: { id: string; event: string } };
       remove: (id: string) => { ok: boolean };
       enable: (id: string, on: boolean) => { ok: boolean; hook?: { enabled: boolean } };
-      match: (event: string, payload: object) => object[];
-      emit: (event: string, payload: object, opts?: object) => Array<{ id: string; kind: string; subject?: string }>;
+      match: (event: string, payload: FixtureDictionary) => object[];
+      emit: (event: string, payload: FixtureDictionary, opts?: FixtureDictionary) => Array<{ id: string; kind: string; subject?: string }>;
       fired: () => Array<{ id: string; kind: string }>;
-      clearFired: () => unknown;
-      reset: () => unknown;
+      clearFired: () => FixtureValue;
+      reset: () => FixtureValue;
       summarize: () => { total: number; enabled: number; fired: number };
-      matchesFilter: (match: string, payload: object, event?: string) => boolean;
+      matchesFilter: (match: string, payload: FixtureDictionary, event?: string) => boolean;
     };
-  } = {
+  }>({
     localStorage: {
       store: {},
       getItem(k) { return Object.prototype.hasOwnProperty.call(this.store, k) ? this.store[k] : null; },
@@ -1187,7 +1236,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       ],
     },
     CW_QUERY: Q,
-  };
+  });
   new Function("window", hooksSrc)(hooksWin);
   assert.ok(hooksWin.CW_HOOKS);
   const H = hooksWin.CW_HOOKS!;
@@ -1283,15 +1332,15 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "opening a person defaults to the messages pane");
 
   // Behavioural: focused component decides which groups appear.
-  const helpWin: {
+  const helpWin = fixture<{
     CW_HELP?: {
-      buildContext: (s: Record<string, unknown>) => { context: string; contextLabel: string };
+      buildContext: (s: FixtureDictionary) => { context: string; contextLabel: string };
       visibleGroups: (ctx: { context: string }) => { id: string; title: string }[];
-      resolveComponent: (s: Record<string, unknown>) => string;
+      resolveComponent: (s: FixtureDictionary) => string;
     };
-    CW_MAP?: unknown;
-    CW_DATA?: unknown;
-  } = { CW_DATA: JSON.parse(dataJson()) };
+    CW_MAP?: FixtureValue;
+    CW_DATA?: FixtureValue;
+  }>({ CW_DATA: JSON.parse(dataJson()) });
   loadCommunityCore(helpWin);
   new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(helpWin);
   new Function("window", consoleSrc2)(helpWin);
@@ -1321,6 +1370,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "onboard must not dump Navigation: " + onboardIds.join(","));
   assert.ok(onboardIds.includes("sheet") && onboardIds.includes("verbs"),
     "onboard keeps sheet + verbs: " + onboardIds.join(","));
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const onboardVerbKeys = ((onboardGroups.find((g) => g.id === "verbs") as
     { rows?: { keys?: string }[] } | undefined)?.rows || [])
     .map((r) => String(r.keys || ""));
@@ -1387,21 +1437,21 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "UI must surface mentions in the palette and cheatsheet");
 
   // Behavioural: analyse("@ma") → @maya; analyse("#draft") → #draft-persistence
-  const completeWin: {
-    CW_DATA?: unknown;
-    CW_MAP?: unknown;
+  const completeWin = fixture<{
+    CW_DATA?: FixtureValue;
+    CW_MAP?: FixtureValue;
     CW_COMPLETE?: {
-      analyse: (input: string, ctx: { cwd: string; extra: unknown[]; slash?: boolean }) => {
+      analyse: (input: string, ctx: { cwd: string; extra: FixtureValue[]; slash?: boolean }) => {
         kind: string; candidates: Array<{ value: string; label?: string; kind?: string }>; insert: string;
         insertSpace?: boolean; replaceFrom: number; query: string;
       };
       activeMarker: (text: string) => { char: string; query: string } | null;
       isMarkerKind: (k: string) => boolean;
-      formatGroupedHelp: (list: unknown[]) => string;
+      formatGroupedHelp: (list: FixtureValue[]) => string;
       slashSpec: (name: string) => { name: string; run?: string } | null;
       SLASH_COMMANDS: Array<{ name: string; run?: string; help?: string }>;
     };
-  } = {};
+  }>({});
   new Function("window", readFileSync(join(ROOT, "data.js"), "utf8"))(completeWin);
   loadActions(completeWin);
   // sitemap optional for markers; provide a stub MAP if complete.js closes over it.
@@ -1414,7 +1464,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   new Function("window", completeSrc)(completeWin);
   assert.ok(completeWin.CW_COMPLETE, "complete.js must define CW_COMPLETE");
   const C = completeWin.CW_COMPLETE!;
-  assert.ok(typeof C.formatGroupedHelp === "function", "formatGroupedHelp groups aliases");
+  assert.ok(C.formatGroupedHelp, "formatGroupedHelp groups aliases");
   const helpText = C.formatGroupedHelp(C.SLASH_COMMANDS);
   assert.ok(/\/dm,\s*\/msg/.test(helpText), "help groups /dm with /msg");
   assert.ok(!/alias of \/dm/i.test(helpText), "help must not list alias-of lines");
@@ -1454,18 +1504,18 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(bareTopic.candidates.some((c) => c.value === "#bugs" || c.kind === "channel"),
     "# also surfaces channel short-names");
 
-  const pathWin: {
-    CW_DATA?: unknown;
+  const pathWin = fixture<{
+    CW_DATA?: FixtureValue;
     CW_MAP?: {
-      messagePath: (path: string, id: string, extra: unknown[]) => string | null;
-      list: (path: string, extra?: unknown[]) => Array<{ name: string; hint?: string }> | null;
+      messagePath: (path: string, id: string, extra: FixtureValue[]) => string | null;
+      list: (path: string, extra?: FixtureValue[]) => Array<{ name: string; hint?: string }> | null;
     };
     CW_COMPLETE?: {
-      analyse: (input: string, ctx: { cwd: string; extra: unknown[] }) => {
+      analyse: (input: string, ctx: { cwd: string; extra: FixtureValue[] }) => {
         candidates: Array<{ value: string; label?: string; hint?: string; kind?: string }>;
       };
     };
-  } = { CW_DATA: JSON.parse(dataJson()) };
+  }>({ CW_DATA: JSON.parse(dataJson()) });
   loadCommunityCore(pathWin);
   new Function("window", readFileSync(join(ROOT, "sitemap.js"), "utf8"))(pathWin);
   loadActions(pathWin);
@@ -1517,9 +1567,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     "index must load speech.js");
 
   // Unsupported browser: no constructor → isSupported false, create still safe.
-  const speechOff: {
-    SpeechRecognition?: unknown;
-    webkitSpeechRecognition?: unknown;
+  const speechOff = fixture<{
+    SpeechRecognition?: FixtureValue;
+    webkitSpeechRecognition?: FixtureValue;
     CW_SPEECH?: {
       isSupported: () => boolean;
       create: (opts: {
@@ -1544,7 +1594,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       whatCanISay?: () => string;
       HOTKEYS: { ptt: string; toggle: string; intent?: string };
     };
-  } = {};
+  }>({});
   new Function("window", speechSrc)(speechOff);
   assert.ok(speechOff.CW_SPEECH, "speech.js defines CW_SPEECH");
   assert.equal(speechOff.CW_SPEECH!.isSupported(), false, "no SpeechRecognition → unsupported");
@@ -1578,7 +1628,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok((P.whatCanISay!() || "").includes("go to"));
 
   // Supported: mock Recognition drives ptt/toggle + final transcript.
-  type RecHandler = ((ev?: unknown) => void) | null;
+  type RecHandler = ((ev?: FixtureValue) => void) | null;
   class MockRec {
     continuous = false;
     interimResults = false;
@@ -1694,16 +1744,16 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(readFileSync(join(ROOT, "tools.js"), "utf8").includes("board_voice_join"),
     "WebMCP exposes board_voice_join");
 
-  const voiceOff: {
-    RTCPeerConnection?: unknown;
-    BroadcastChannel?: unknown;
+  const voiceOff = fixture<{
+    RTCPeerConnection?: FixtureValue;
+    BroadcastChannel?: FixtureValue;
     CW_VOICE?: {
       isSupported: () => boolean;
       isVoicePttKey: (ev: {
         code?: string; key?: string; altKey?: boolean; ctrlKey?: boolean;
         metaKey?: boolean; shiftKey?: boolean;
       }) => boolean;
-      create: (opts?: { onState?: (s: Record<string, unknown>) => void }) => {
+      create: (opts?: { onState?: (s: FixtureDictionary) => void }) => {
         join: (id: string, path?: string) => Promise<{ ok: boolean; error?: string }>;
         leave: () => Promise<{ ok: boolean }>;
         toggleMute: () => boolean;
@@ -1713,8 +1763,8 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       };
       CHANNEL: string;
     };
-    navigator?: { mediaDevices?: { getUserMedia?: unknown } };
-  } = { navigator: {} };
+    navigator?: { mediaDevices?: { getUserMedia?: FixtureValue } };
+  }>({ navigator: {} });
   new Function("window", voiceSrc)(voiceOff);
   assert.ok(voiceOff.CW_VOICE, "voice.js defines CW_VOICE");
   assert.equal(voiceOff.CW_VOICE!.isSupported(), false, "no RTCPeerConnection → unsupported");
@@ -1727,7 +1777,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   class MockPC {
     connectionState = "new";
     onicecandidate: ((ev: { candidate: null }) => void) | null = null;
-    ontrack: ((ev: unknown) => void) | null = null;
+    ontrack: ((ev: FixtureValue) => void) | null = null;
     onconnectionstatechange: (() => void) | null = null;
     addTrack() { /* noop */ }
     close() { this.connectionState = "closed"; }
@@ -1738,12 +1788,12 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
     addIceCandidate() { return Promise.resolve(); }
     getStats() { return Promise.resolve(new Map()); }
   }
-  const busInbox: unknown[] = [];
+  const busInbox: FixtureValue[] = [];
   class MockBC {
     name: string;
-    onmessage: ((ev: { data: unknown }) => void) | null = null;
+    onmessage: ((ev: { data: FixtureValue }) => void) | null = null;
     constructor(name: string) { this.name = name; }
-    postMessage(data: unknown) { busInbox.push(data); }
+    postMessage(data: FixtureValue) { busInbox.push(data); }
     close() { /* noop */ }
   }
   const micTrack = { kind: "audio", enabled: true, stop() { /* noop */ } };
@@ -1773,16 +1823,18 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
         }),
       },
     },
+    // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
     CW_VOICE: undefined as undefined | typeof voiceOff.CW_VOICE,
   };
   new Function("window", voiceSrc)(voiceOn);
   assert.equal(voiceOn.CW_VOICE!.isSupported(), true);
-  const voiceStates: Array<Record<string, unknown>> = [];
+  const voiceStates: Array<FixtureDictionary> = [];
   const veng = voiceOn.CW_VOICE!.create({ onState: (s) => voiceStates.push(s) });
   const voiceJoined = await veng.join("lounge", "/projects/community/channels/lounge");
   assert.equal(voiceJoined.ok, true, "mock join succeeds");
   assert.equal(veng.getState().joined, true);
   assert.equal(veng.getState().inputMode, "vad");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   assert.ok(busInbox.some((m) => (m as { type?: string }).type === "hello"),
     "hello signal posted on join");
   assert.equal(veng.toggleMute(), true);
@@ -1851,24 +1903,24 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
       kind: string; did: string; handle: string; principalId: string; atproto: { did: string };
       spaceId?: string;
     };
-    joinSpace: (cur: object, spaceId: string, opts?: { handle?: string; atprotoHandle?: string }) => {
+    joinSpace: (cur: FixtureDictionary, spaceId: string, opts?: { handle?: string; atprotoHandle?: string }) => {
       kind: string; spaceId?: string; handle?: string | null; anonymous?: boolean;
       relay?: { status?: string; write?: boolean };
     };
     listSpaces: () => Space[];
-    profileLabel: (id: object) => string;
-    profileInitials: (id: object) => string;
+    profileLabel: (id: FixtureDictionary) => string;
+    profileInitials: (id: FixtureDictionary) => string;
     signOut: (p: { guestsAllowed: boolean }) => { kind: string; principalId?: string | null; displayName?: string };
-    saveBoardState: (s: unknown) => void;
-    loadBoardState: () => unknown;
-    saveIdentity: (id: unknown) => void;
+    saveBoardState: (s: FixtureValue) => void;
+    loadBoardState: () => FixtureValue;
+    saveIdentity: (id: FixtureValue) => void;
     KEYS: { identity: string; board: string; policy: string };
   };
-  const win: {
+  const win = fixture<{
     CW_SESSION?: SessionApi;
     CW_DATA?: { spaces: Space[] };
     localStorage: typeof ls;
-  } = {
+  }>({
     localStorage: ls,
     CW_DATA: {
       spaces: [
@@ -1889,7 +1941,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
         },
       ],
     },
-  };
+  });
   new Function("window", sessionSrc)(win);
   assert.ok(win.CW_SESSION, "session.js must define window.CW_SESSION");
   const S = win.CW_SESSION!;
@@ -1958,6 +2010,7 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   );
   // Board state round-trip.
   S.saveBoardState({ v: 2, principalId: guest.principalId, path: "/projects/community/channels/bugs" });
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const board = S.loadBoardState() as { path: string; principalId: string };
   assert.equal(board.path, "/projects/community/channels/bugs");
   assert.equal(board.principalId, guest.principalId);

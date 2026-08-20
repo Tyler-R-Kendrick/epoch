@@ -2,11 +2,11 @@
 /**
  * Fail-open git hook installer.
  *
- * Wires `core.hooksPath` to `.githooks` so a fast local pre-flight runs after
- * `npm install`:
- *   - pre-commit → `npm run gate:fast`
- *   - pre-push   → `npm run gate:fast` (GitHub Actions Quality Gates are the
- *                   authoritative bar; see .github/workflows/quality.yml)
+ * Wires `core.hooksPath` to `.githooks` so a strengthened local pre-flight
+ * runs after `npm install`:
+ *   - pre-commit → `npm run gate:commit` (parallel gate:fast + a11y lint)
+ *   - pre-push   → `npm run gate:commit` (same; GitHub Actions Quality Gates
+ *                   remain authoritative — see quality.yml)
  *
  * Never blocks an install: no-ops on CI, when `SKIP_GIT_HOOKS` is set, or
  * outside a git checkout, and swallows any error.

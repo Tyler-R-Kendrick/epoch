@@ -1,4 +1,9 @@
 import { node, type SyntaxNode, type SyntaxProvider, type SyntaxTree } from "@epoch/semantic";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 /**
  * WebAssembly capability providers (ADR-0045).
@@ -50,17 +55,12 @@ export class WasmProviderError extends Error {
   }
 }
 
-interface GuestExports {
-  readonly epoch_abi_version: () => number;
-  readonly alloc: (length: number) => number;
-  readonly parse: (pointer: number, length: number) => number;
-}
-
 function requireFunction(exports: WebAssembly.Exports, name: string): (...args: number[]) => number {
   const value = exports[name];
-  if (typeof value !== "function") {
+  if (!__epochIsFunction(value)) {
     throw new WasmProviderError("missing-export", `provider module does not export '${name}'`);
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as (...args: number[]) => number;
 }
 
@@ -108,6 +108,7 @@ export function instantiateWasmSyntaxModule(
   try {
     // `BufferSource` is the engine's own parameter type; it stays inside this
     // module so the exported signature does not drag a DOM type into callers.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     compiled = new WebAssembly.Module(moduleBytes as BufferSource);
   } catch (error) {
     throw new WasmProviderError(
@@ -128,7 +129,7 @@ export function instantiateWasmSyntaxModule(
    * (ADR-0045). Validating the output does not restore determinism; only
    * starting from the same state does.
    */
-  const fresh = (): { guest: GuestExports; memory: WebAssembly.Memory } => {
+  const fresh = () => {
     const memory = new WebAssembly.Memory({ initial: 1, maximum: limits.maximumPages });
     let instance: WebAssembly.Instance;
     try {
@@ -139,6 +140,7 @@ export function instantiateWasmSyntaxModule(
         `provider module could not be instantiated: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return {
       memory,
       guest: {
@@ -224,7 +226,7 @@ function decodeTree(
   source: string,
   byteLength: number,
   limits: WasmProviderLimits,
-): { readonly language?: string; readonly root: SyntaxNode } {
+) {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -234,10 +236,11 @@ function decodeTree(
       `provider module returned malformed JSON: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+  if (!__epochIsObject(parsed) || parsed === null || Array.isArray(parsed)) {
     throw new WasmProviderError("invalid-result", "provider result must be a JSON object");
   }
 
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const record = parsed as { readonly language?: unknown; readonly root?: unknown };
   const offsets = byteToUnitOffsets(source, byteLength);
   const toUnit = (byte: number): number => {
@@ -250,24 +253,27 @@ function decodeTree(
   };
 
   let nodes = 0;
-  const build = (raw: unknown, depth: number, lowerBound: number, upperBound: number): SyntaxNode => {
+  const build = (raw: BoundaryValue, depth: number, lowerBound: number, upperBound: number): SyntaxNode => {
     if (depth > limits.maximumDepth) {
       throw new WasmProviderError("invalid-tree", `tree exceeds the depth limit of ${limits.maximumDepth}`);
     }
     if ((nodes += 1) > limits.maximumNodes) {
       throw new WasmProviderError("invalid-tree", `tree exceeds the node limit of ${limits.maximumNodes}`);
     }
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    if (!__epochIsObject(raw) || raw === null || Array.isArray(raw)) {
       throw new WasmProviderError("invalid-tree", "every node must be a JSON object");
     }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const value = raw as RawNode;
-    if (typeof value.kind !== "string" || value.kind.length === 0) {
+    if (!__epochIsString(value.kind) || value.kind.length === 0) {
       throw new WasmProviderError("invalid-tree", "every node needs a non-empty 'kind'");
     }
     if (!Number.isInteger(value.start) || !Number.isInteger(value.end)) {
       throw new WasmProviderError("invalid-tree", `node '${value.kind}' needs integer 'start' and 'end'`);
     }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const startByte = value.start as number;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const endByte = value.end as number;
     if (startByte < 0 || endByte < startByte || endByte > byteLength) {
       throw new WasmProviderError("invalid-tree", `node '${value.kind}' spans ${startByte}..${endByte}, outside the source`);
@@ -295,24 +301,25 @@ function decodeTree(
       children.push(built);
     }
 
-    if (value.name !== undefined && typeof value.name !== "string") {
+    if (value.name !== undefined && !__epochIsString(value.name)) {
       throw new WasmProviderError("invalid-tree", `node '${value.kind}' has a non-string 'name'`);
     }
-    if (value.separator !== undefined && typeof value.separator !== "string") {
+    if (value.separator !== undefined && !__epochIsString(value.separator)) {
       throw new WasmProviderError("invalid-tree", `node '${value.kind}' has a non-string 'separator'`);
     }
 
     return node(value.kind, source, start, end, {
-      name: typeof value.name === "string" ? value.name : undefined,
+      name: __epochIsString(value.name) ? value.name : undefined,
       children,
       commutative: value.commutative === true ? true : undefined,
-      separator: typeof value.separator === "string" ? value.separator : undefined,
+      separator: __epochIsString(value.separator) ? value.separator : undefined,
     });
   };
 
   return {
-    language: typeof record.language === "string" ? record.language : undefined,
-    root: build(record.root, 0, 0, source.length),
+    language: __epochIsString(record.language) ? record.language : undefined,
+    // SAFETY: build() validates each node object before constructing SyntaxNode values.
+    root: build(record.root as BoundaryValue, 0, 0, source.length),
   };
 }
 

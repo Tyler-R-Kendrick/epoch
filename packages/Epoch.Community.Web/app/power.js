@@ -14,7 +14,7 @@
   function read() {
     try {
       var raw = JSON.parse(window.localStorage.getItem(KEY) || "{}");
-      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
+      if (!raw || !globalThis.CW_VALUE.isObject(raw) || Array.isArray(raw)) return;
       var voices = {};
       Object.keys(raw).forEach(function (name) {
         var item = raw[name];
@@ -158,7 +158,7 @@
     if (call) {
       var result = run(call[1].toLowerCase());
       if (result.completion) result.completion.catch(function (error) {
-        if (runtime && typeof runtime.status === "function") runtime.status(error.message || String(error));
+        if (runtime && globalThis.CW_VALUE.isFunction(runtime.status)) runtime.status(error.message || String(error));
       });
       return result;
     }

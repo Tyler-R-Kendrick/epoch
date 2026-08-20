@@ -38,10 +38,12 @@ function seedSectionText(persona: string): string {
 	return seedBody.split(/^## /m)[0]?.trim() ?? "";
 }
 
-function validatePersona(persona: string): {
+interface PersonaValidationResult {
 	ok: boolean;
 	problems: string[];
-} {
+}
+
+function validatePersona(persona: string): PersonaValidationResult {
 	const root = mkdtempSync(path.join(tmpdir(), "oxp-gp-validate-"));
 	// repoRoot() walks up for .git; without it the tmp root is not discovered.
 	mkdirSync(path.join(root, ".git"));

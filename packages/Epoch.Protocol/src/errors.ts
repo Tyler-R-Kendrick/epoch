@@ -1,3 +1,5 @@
+
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 export type ProtocolErrorCode =
   | "invalid-schema" | "invalid-id" | "invalid-path" | "invalid-ref"
   | "unsupported-capability" | "unsupported-fidelity"
@@ -13,12 +15,12 @@ export class ProtocolError extends Error {
   constructor(
     readonly code: ProtocolErrorCode,
     message: string,
-    readonly details: Readonly<Record<string, unknown>> = {},
+    readonly details: Readonly<Record<string, DictionaryValue>> = {},
   ) {
     super(message);
   }
 }
 
-export function fail(code: ProtocolErrorCode, message: string, details: Readonly<Record<string, unknown>> = {}): never {
+export function fail(code: ProtocolErrorCode, message: string, details: Readonly<Record<string, DictionaryValue>> = {}): never {
   throw new ProtocolError(code, message, details);
 }

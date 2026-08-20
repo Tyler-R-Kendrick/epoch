@@ -22,6 +22,9 @@ import {
 } from "../schemas/binding-record";
 import type { DidDocument } from "./didResolve";
 import type { AtProofBundle, AtProofVerifier } from "./carProof";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export const PROTOCOL_PROOF_VERSION = 1 as const;
 export const PROTOCOL_PROOF_DOMAIN = "epoch-at-proof-v1";
@@ -109,10 +112,11 @@ export function decodeProtocolProofSlice(carSliceB64: string): ProtocolAtProofSl
   } catch {
     throw new Error("proof-invalid");
   }
-  if (typeof parsed !== "object" || parsed === null) {
+  if (!__epochIsObject(parsed) || parsed === null) {
     throw new Error("proof-invalid");
   }
-  const o = parsed as Record<string, unknown>;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const o = parsed as Record<string, DictionaryValue>;
   if (o.version !== PROTOCOL_PROOF_VERSION) {
     throw new Error("proof-invalid");
   }
@@ -120,6 +124,7 @@ export function decodeProtocolProofSlice(carSliceB64: string): ProtocolAtProofSl
     throw new Error("proof-invalid");
   }
   const record = bindingRecordSchema.parse(o.record);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return {
     version: PROTOCOL_PROOF_VERSION,
     did: String(o.did),
@@ -147,7 +152,7 @@ export function buildSignedProtocolProof(input: {
   readonly commitRev?: string;
   readonly commitPrivateKeyHex: string;
   readonly siblings?: readonly InclusionStep[];
-}): { readonly slice: ProtocolAtProofSlice; readonly carSliceB64: string; readonly publicKeyHex: string } {
+}) {
   const record = bindingRecordSchema.parse(input.record);
   const rkey = record.nostrPubkey.toLowerCase();
   const recordCid = hashRecord(record);

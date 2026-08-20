@@ -1,5 +1,7 @@
 import { isRecord, type BrowserEpoch } from "@epoch/integration-core";
 import { TRUNK_VIEW } from "./workspace";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * Projects, and the default `.epoch` project.
@@ -99,7 +101,7 @@ export function ensureProject(epoch: BrowserEpoch, input: EnsureProjectInput = {
   return { ...record, revision: result.revision, eventId: result.event.id, created: true };
 }
 
-function isProjectRecord(value: unknown): value is CommunityProjectRecord {
+function isProjectRecord(value: BoundaryValue): value is CommunityProjectRecord {
   return isRecord(value)
     && typeof value.slug === "string"
     && typeof value.title === "string"

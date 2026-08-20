@@ -13,6 +13,8 @@ import {
   generateDashboardChange,
 } from "./domain";
 import "./styles.css";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 const epoch = createBrowserEpoch({ namespace: "self-evolving-dashboard", author: "gen-ui-agent" });
 
@@ -141,7 +143,7 @@ function VersionLedger({ dashboard }: { readonly dashboard: DashboardDocument })
   );
 }
 
-function componentIds(version: { readonly metadata?: Record<string, unknown> }): readonly string[] {
+function componentIds(version: { readonly metadata?: Record<string, DictionaryValue> }): readonly string[] {
   const value = version.metadata?.componentIds;
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }

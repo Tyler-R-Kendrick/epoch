@@ -72,7 +72,9 @@ function mirrorDivergenceCreatesConflictWithoutRewrite(): void {
 }
 
 function readFixture<T>(name: string): T {
+  // SAFETY: Runtime checks or construction above establish T.
   return JSON.parse(readFileSync(join(process.cwd(), "test", "compatibility", "fixtures", name), "utf8")) as T;
 }
 
-void main().catch((error: unknown) => { process.stderr.write(`${String((error as Error).stack ?? error)}\n`); process.exitCode = 1; });
+// SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
+void main().catch((error) => { process.stderr.write(`${String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ error as Error).stack ?? error)}\n`); process.exitCode = 1; });

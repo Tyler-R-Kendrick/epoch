@@ -36,7 +36,7 @@ async function availablePort(): Promise<number> {
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       server.close(() => {
-        if (address === null || typeof address === "string") {
+        if (address === null || isPipeAddress(address)) {
           reject(new Error("could not allocate platform web test port"));
           return;
         }
@@ -45,6 +45,10 @@ async function availablePort(): Promise<number> {
     });
     server.on("error", reject);
   });
+}
+
+function isPipeAddress<Address>(address: Address): address is Address & string {
+  return typeof address === "string";
 }
 
 Before(function () {
@@ -85,6 +89,7 @@ Given("the web console model is production ready", function () {
 });
 
 Given("the web console model role is {string}", function (role: string) {
+  // SAFETY: Runtime checks or construction above establish PlatformConsoleModel["role"].
   webState.model.role = role as PlatformConsoleModel["role"];
 });
 

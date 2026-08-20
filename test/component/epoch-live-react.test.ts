@@ -6,9 +6,14 @@ import { flushSync } from "react-dom";
 import { createLiveStore, type LiveStore } from "@epoch/live";
 import { useLiveHistory, useLiveSelector, useLiveStore, usePresence } from "@epoch/live-react";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 interface CounterState {
   readonly count?: number;
-  readonly [key: string]: unknown;
+  readonly [key: string]: TestJsonValue;
 }
 
 export async function runEpochLiveReactTests(): Promise<void> {
@@ -109,7 +114,7 @@ function text(dom: JSDOM, selector: string): string {
   return element.textContent ?? "";
 }
 
-function restoreGlobal(key: string, value: unknown): void {
+function restoreGlobal<T>(key: string, value: T): void {
   Object.defineProperty(globalThis, key, { configurable: true, value });
 }
 

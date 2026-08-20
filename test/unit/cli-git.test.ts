@@ -5,10 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EpochCLIGit } from "@epoch/core";
 
+// SAFETY: Runtime checks or construction above establish {.
 const { main: epochGitMain } = createRequire(__filename)(join(process.cwd(), "packages/Epoch.CLI/dist/cli-git.js")) as {
   main: (
     argv?: readonly string[],
-    io?: { stdout: { write(message: string): unknown }; stderr: { write(message: string): unknown } },
+    io?: { stdout: { write(message: string): void }; stderr: { write(message: string): void } },
   ) => number;
 };
 
@@ -18,7 +19,13 @@ export function runCliGitTests(): void {
   mirrorAndProjectReportMissingInputs();
 }
 
-function capture(argv: readonly string[]): { code: number; stdout: string; stderr: string } {
+interface CliGitCapture {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+function capture(argv: readonly string[]): CliGitCapture {
   let stdout = "";
   let stderr = "";
   const code = epochGitMain([...argv], {

@@ -66,7 +66,7 @@ try {
   });
   console.log("nats-server jwt integration: broker reachable; JWT issue/verify/revoke proved");
 } catch (error) {
-  if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+  if (error instanceof Object && "code" in error && error.code === "ENOENT") {
     console.log("nats-server not installed; JWT unit proofs still hold");
     process.exit(0);
   }

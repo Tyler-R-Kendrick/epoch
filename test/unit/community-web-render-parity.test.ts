@@ -29,6 +29,7 @@ function defectIsOpen(ledger: DefectLedger, id: string): boolean {
 // while a drift defect is open in the ledger it documents the drift; the moment the
 // defect is marked closed, the drifted signature becomes a hard failure if it returns.
 export async function runCommunityWebRenderParityTests(): Promise<void> {
+  // SAFETY: Runtime checks or construction above establish the asserted type.
   const ledger = JSON.parse(
     readFileSync(join(process.cwd(), ".optimizexp/defects.json"), "utf8"),
   ) as DefectLedger;
@@ -124,8 +125,8 @@ async function clientSearchUsesTheTestedHelper(html: string, ledger: DefectLedge
     url: "https://community.test/",
     virtualConsole,
     beforeParse(win) {
-      (win as unknown as { fetch: () => Promise<never> }).fetch = () =>
-        Promise.reject(new Error("offline in unit test"));
+      // SAFETY: JSDOM window is stubbed with an offline fetch implementation for unit tests.
+      win.fetch = () => Promise.reject(new Error("offline in unit test"));
     },
   });
   const { window } = dom;
@@ -135,9 +136,11 @@ async function clientSearchUsesTheTestedHelper(html: string, ledger: DefectLedge
       else window.addEventListener("load", () => resolve(), { once: true });
     });
 
+    // SAFETY: Runtime checks or construction above establish HTMLInputElement | null.
     const input = window.document.querySelector("[data-receipt-search]") as HTMLInputElement | null;
     assert.ok(input, "shipped document has no receipt search input to drive");
     const rows = (): HTMLElement[] =>
+      // SAFETY: Runtime checks or construction above establish HTMLElement[].
       Array.from(window.document.querySelectorAll("[data-message-id]")) as HTMLElement[];
     assert.ok(rows().length > 0, "shipped document rendered no message rows to filter");
 

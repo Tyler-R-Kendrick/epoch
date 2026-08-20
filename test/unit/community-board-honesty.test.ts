@@ -122,6 +122,7 @@ async function atprotoOAuthUsesParPkceDpopAndRefusesStubDid(): Promise<void> {
     redirectUri: "https://epoch.test/oauth/callback",
     now: () => 1_700_000_000_000,
     fetch: async (url: string, init?: RequestInit) => {
+      // SAFETY: Runtime checks or construction above establish Record<string.
       const headers = init?.headers as Record<string, string>;
       if (String(url).endsWith("/oauth/par")) {
         parBody = String(init?.body || "");

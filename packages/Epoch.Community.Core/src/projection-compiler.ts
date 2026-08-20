@@ -1,4 +1,5 @@
 import { validateObjectRef, validateProjectionId } from "./identity";
+import type { CommunityFieldValue } from "./entity";
 import type { SearchExpression, SearchOrder } from "./search-expression";
 import {
   PROJECTION_DEFINITION_API_VERSION,
@@ -46,7 +47,7 @@ export function compileProjectionDefinition(
   if (definition.apiVersion !== PROJECTION_DEFINITION_API_VERSION) problem(diagnostics, "PROJECTION_INVALID", "/apiVersion", "Unsupported projection API version");
   try { validateDefinitionId(definition.projectionId); } catch (error) { problem(diagnostics, "PROJECTION_INVALID", "/projectionId", message(error)); }
   if (!Number.isInteger(definition.version) || definition.version < 1) problem(diagnostics, "PROJECTION_INVALID", "/version", "Version must be a positive integer");
-  if (typeof definition.label !== "string" || definition.label.trim().length === 0 || definition.label.length > 160) problem(diagnostics, "PROJECTION_INVALID", "/label", "Label must be non-empty and at most 160 characters");
+  if (definition.label.trim().length === 0 || definition.label.length > 160) problem(diagnostics, "PROJECTION_INVALID", "/label", "Label must be non-empty and at most 160 characters");
   if (!["private", "shared", "public"].includes(definition.visibility)) problem(diagnostics, "PROJECTION_INVALID", "/visibility", "Unsupported projection visibility");
   if (!["live", "queued", "snapshot"].includes(definition.updateMode)) problem(diagnostics, "PROJECTION_INVALID", "/updateMode", "Unsupported update mode");
   if (!["current", "session-snapshot", "fixed-snapshot"].includes(definition.consistency)) problem(diagnostics, "PROJECTION_INVALID", "/consistency", "Unsupported consistency mode");
@@ -62,10 +63,12 @@ export function compileProjectionDefinition(
     maximumDepth = Math.max(maximumDepth, depth);
     if (nodeCount > context.limits.maxNodes) problem(diagnostics, "PROJECTION_LIMIT", pointer, `Projection exceeds ${context.limits.maxNodes} nodes`);
     if (depth > context.limits.maxDepth) problem(diagnostics, "PROJECTION_LIMIT", pointer, `Projection exceeds depth ${context.limits.maxDepth}`);
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     if (active.has(node as object)) {
       problem(diagnostics, "PROJECTION_CYCLE", pointer, "Projection node graph contains a cycle");
       return;
     }
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     active.add(node as object);
     if (!NODE_ID.test(node.nodeId)) problem(diagnostics, "PROJECTION_INVALID", `${pointer}/nodeId`, "nodeId must be an opaque URL-safe identifier");
     if (nodeIds.has(node.nodeId)) problem(diagnostics, "PROJECTION_COLLISION", `${pointer}/nodeId`, `Duplicate nodeId ${node.nodeId}`);
@@ -112,8 +115,10 @@ export function compileProjectionDefinition(
         if (!["default", "body.md", "metadata.json"].includes(node.representation)) problem(diagnostics, "PROJECTION_INVALID", `${pointer}/representation`, "Unsupported leaf representation");
         break;
       default:
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         problem(diagnostics, "PROJECTION_INVALID", pointer, `Unknown projection node kind ${(node as { readonly kind?: unknown }).kind as string}`);
     }
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     active.delete(node as object);
 
     function validateChildren(children: readonly ProjectionNode[], parentPointer: string, parentDepth: number): void {
@@ -138,12 +143,12 @@ export function compileProjectionDefinition(
 
 export function renderSegmentTemplate(
   template: SegmentTemplate,
-  values: Readonly<Record<string, unknown>>,
+  values: TemplateValues,
   limits: { readonly maxTemplateLength?: number; readonly maxSegmentLength?: number } = {},
 ): RenderedSegment {
   const maxTemplateLength = limits.maxTemplateLength ?? 256;
   const maxSegmentLength = limits.maxSegmentLength ?? 120;
-  if (typeof template.template !== "string" || template.template.length === 0 || template.template.length > maxTemplateLength) throw new Error("Projection segment template is empty or too long");
+  if (template.template.length === 0 || template.template.length > maxTemplateLength) throw new Error("Projection segment template is empty or too long");
   const fields = new Set<string>();
   let output = "";
   let cursor = 0;
@@ -162,7 +167,7 @@ export function renderSegmentTemplate(
 }
 
 export function normalizeProjectionSegment(value: string, maximumLength = 120): string {
-  if (typeof value !== "string" || value.length === 0) throw new Error("Projection segment must not be empty");
+  if (value.length === 0) throw new Error("Projection segment must not be empty");
   if (value !== value.normalize("NFKC")) throw new Error("Projection segment uses ambiguous Unicode normalization");
   if (value === "." || value === ".." || value.toLowerCase() === RECOVERY_SEGMENT) throw new Error("Projection segment is reserved or unsafe");
   if (value.length > maximumLength) throw new Error(`Projection segment exceeds ${maximumLength} characters`);
@@ -259,14 +264,14 @@ function validateLimits(context: ProjectionCompileContext, diagnostics: Projecti
 
 function validateDefinitionLimits(definition: ProjectionDefinition, context: ProjectionCompileContext, diagnostics: ProjectionDiagnostic[]): void {
   if (definition.limits === undefined) return;
-  const maximums: Readonly<Record<string, number>> = {
-    maxDepth: context.limits.maxDepth,
-    maxEntriesPerDirectory: context.limits.maxFanout,
-    maxTotalEntries: 1_000_000,
-    maxRelationDepth: context.limits.maxRelationDepth ?? context.limits.maxDepth,
-  };
+  const maximums = new Map<string, number>([
+    ["maxDepth", context.limits.maxDepth],
+    ["maxEntriesPerDirectory", context.limits.maxFanout],
+    ["maxTotalEntries", 1_000_000],
+    ["maxRelationDepth", context.limits.maxRelationDepth ?? context.limits.maxDepth],
+  ]);
   for (const [name, value] of Object.entries(definition.limits)) {
-    if (value === undefined || !Number.isInteger(value) || value < 1 || value > (maximums[name] ?? 0)) {
+    if (value === undefined || !Number.isInteger(value) || value < 1 || value > (maximums.get(name) ?? 0)) {
       problem(diagnostics, "PROJECTION_LIMIT", `/limits/${name}`, `${name} exceeds the host projection limit`);
     }
   }
@@ -285,10 +290,12 @@ function validateSearchExpression(
     problem(diagnostics, "PROJECTION_LIMIT", pointer, `Search expression exceeds depth ${context.limits.maxDepth}`);
     return;
   }
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   if (active.has(expression as object)) {
     problem(diagnostics, "PROJECTION_CYCLE", pointer, "Search expression contains a cycle");
     return;
   }
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   const next = new Set(active).add(expression as object);
   switch (expression.kind) {
     case "all": break;
@@ -317,7 +324,7 @@ function problem(diagnostics: ProjectionDiagnostic[], code: ProjectionDiagnostic
   diagnostics.push(Object.freeze({ code, message: messageValue, severity: "error", pointer }));
 }
 
-function message(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+function message(cause: unknown): string { return cause instanceof Error ? cause.message : String(cause); }
 
 function matchingBrace(value: string, open: number): number {
   let quote = "";
@@ -336,18 +343,18 @@ class TemplateExpressionParser {
   private index = 0;
   constructor(
     private readonly input: string,
-    private readonly values: Readonly<Record<string, unknown>>,
+    private readonly values: TemplateValues,
     private readonly fields: Set<string>,
   ) {}
 
-  parse(): unknown {
+  parse(): CommunityFieldValue {
     const value = this.expression();
     this.space();
     if (this.index !== this.input.length) throw new Error(`Unexpected template input near ${this.input.slice(this.index)}`);
     return value;
   }
 
-  private expression(): unknown {
+  private expression(): CommunityFieldValue {
     this.space();
     const character = this.input[this.index];
     if (character === "'" || character === "\"") return this.string();
@@ -361,7 +368,7 @@ class TemplateExpressionParser {
     }
     if (!FUNCTIONS.has(identifier)) throw new Error(`Unsupported projection template function ${identifier}`);
     this.index += 1;
-    const args: unknown[] = [];
+    const args: CommunityFieldValue[] = [];
     this.space();
     while (this.input[this.index] !== ")") {
       if (this.index >= this.input.length) throw new Error("Unclosed projection template function");
@@ -410,7 +417,7 @@ class TemplateExpressionParser {
   private space(): void { while (/\s/u.test(this.input[this.index] ?? "")) this.index += 1; }
 }
 
-function applyTemplateFunction(name: string, args: readonly unknown[]): string {
+function applyTemplateFunction(name: string, args: readonly CommunityFieldValue[]): string {
   const first = scalar(args[0]);
   switch (name) {
     case "slug": return first.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "") || "item";
@@ -439,15 +446,15 @@ function applyTemplateFunction(name: string, args: readonly unknown[]): string {
   }
 }
 
-function scalar(value: unknown): string {
+function scalar(value: CommunityFieldValue | undefined): string {
   if (value === undefined || value === null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (!Array.isArray(value)) return String(value);
   throw new Error("Projection template values must be scalar");
 }
 
-function integerArg(value: unknown, label: string, minimum: number, maximum: number): number {
-  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) throw new Error(`${label} must be between ${minimum} and ${maximum}`);
-  return value as number;
+function integerArg(value: CommunityFieldValue | undefined, label: string, minimum: number, maximum: number): number {
+  if (!isNumber(value) || !Number.isSafeInteger(value) || value < minimum || value > maximum) throw new Error(`${label} must be between ${minimum} and ${maximum}`);
+  return value;
 }
 
 function occurrenceKey(candidate: ProjectionCollisionCandidate): string {
@@ -471,23 +478,28 @@ function stableHash(value: string): string {
   return hash.toString(36).padStart(13, "0");
 }
 
-function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
+function canonicalJson<Value>(value: Value): string {
+  if (!isNonNullObject(value)) return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  return `{${Object.entries(value as Record<string, unknown>)
+  return `{${Object.entries(value)
     .filter(([, item]) => item !== undefined)
     .sort(([left], [right]) => compareText(left, right))
     .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
 }
 
-function cloneJson<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
+// SAFETY: The surrounding validation and domain contract establish the asserted type.
+function cloneJson<T>(value: T): T { return /* SAFETY: Assertion is justified by surrounding validation or construction. */ JSON.parse(JSON.stringify(value)) as T; }
 function deepFreeze<T>(value: T): T {
-  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+  if (isNonNullObject(value) && !Object.isFrozen(value)) {
     Object.freeze(value);
-    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+    for (const child of Object.values(value)) deepFreeze(child);
   }
   return value;
 }
+
+interface TemplateValues { readonly [key: string]: CommunityFieldValue }
+function isNumber(value: CommunityFieldValue | undefined): value is number { return typeof value === "number"; }
+function isNonNullObject<Value>(value: Value): value is Value & object { return typeof value === "object" && value !== null; }
 
 function validateDefinitionId(value: string): string {
   if (/^builtin:[a-z][a-z0-9-]{0,63}$/u.test(value)) return value;

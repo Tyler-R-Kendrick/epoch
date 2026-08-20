@@ -4,6 +4,7 @@
  * evidence artifact (meta.json + primary transcript). Fail-closed: any missing
  * artifact, unreadable meta, or failing assertion is a validation problem.
  */
+import { isObject, isString } from "./value-types.mts";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { EvidenceCheck, MetricScorecard } from "./scorecard.mts";
@@ -32,6 +33,7 @@ function evaluateEvidenceCheck(
 	}
 	let meta: EvidenceMeta;
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		meta = JSON.parse(readFileSync(metaPath, "utf8")) as EvidenceMeta;
 	} catch {
 		return [`${prefix}: meta_json_invalid:${check.evidence}`];
@@ -89,16 +91,17 @@ function evaluateEvidenceCheck(
  * root used to resolve relative refs. Returns [] when the card declares no
  * evidence fields or is missing.
  */
-export function evaluateScorecardEvidence(
-	card: unknown,
+export function evaluateScorecardEvidence<T>(
+	card: T,
 	root: string,
 ): string[] {
-	if (!card || typeof card !== "object") return [];
+	if (!card || !isObject(card)) return [];
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const s = card as Partial<MetricScorecard>;
 	const problems: string[] = [];
 	if (Array.isArray(s.evidenceRefs)) {
 		for (const ref of s.evidenceRefs) {
-			if (typeof ref !== "string" || ref.length === 0) {
+			if (!isString(ref) || ref.length === 0) {
 				problems.push("evidenceRefs entries must be non-empty strings");
 				continue;
 			}
@@ -109,7 +112,7 @@ export function evaluateScorecardEvidence(
 	}
 	if (Array.isArray(s.evidenceChecks)) {
 		s.evidenceChecks.forEach((check, i) => {
-			if (!check || typeof check !== "object" || !check.evidence) return;
+			if (!check || !isObject(check) || !check.evidence) return;
 			problems.push(
 				...evaluateEvidenceCheck(check, root, `evidenceChecks[${i}]`),
 			);

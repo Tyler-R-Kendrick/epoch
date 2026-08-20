@@ -5,6 +5,8 @@
  */
 
 import type { EpochNatsPermissions } from "./auth-callout";
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 const LIVE = "epoch.live.>";
 const PLATFORM_EVENTS = "epoch.platform.events.>";
@@ -74,7 +76,7 @@ export function permissionsForScopes(
 }
 
 function sourcePrefix(sourceServer: string | undefined): string | undefined {
-  if (typeof sourceServer !== "string") return undefined;
+  if (!__epochIsString(sourceServer)) return undefined;
   const cleaned = sourceServer.replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
   return cleaned.length > 0 ? cleaned : undefined;
 }

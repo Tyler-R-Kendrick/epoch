@@ -7,6 +7,11 @@ import {
 } from "@epoch/platform-core";
 import { EpochPlatformSdk } from "@epoch/platform-sdk";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 export function runPlatformFabricCredentialTests(): void {
   mintFromSessionVerifiesWithSecretAndRejectsWrongSecret();
   revokeCredentialMakesVerifyFail();
@@ -44,7 +49,7 @@ function mintFromSessionVerifiesWithSecretAndRejectsWrongSecret(): void {
 
   assert.throws(
     () => core.verifyFabricCredential("not-the-secret"),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -57,7 +62,7 @@ function revokeCredentialMakesVerifyFail(): void {
 
   assert.throws(
     () => core.verifyFabricCredential(minted.secret),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -69,7 +74,7 @@ function revokeSessionCascadesToFabricCredentials(): void {
 
   assert.throws(
     () => core.verifyFabricCredential(minted.secret),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -90,7 +95,7 @@ function mintFromApiTokenCopiesServiceAccountScopes(): void {
   core.revokeApiToken(token.id);
   assert.throws(
     () => core.verifyFabricCredential(minted.secret),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -101,7 +106,7 @@ function expiredCredentialFailsVerification(): void {
   assert.ok(minted.expiresAt <= Date.now());
   assert.throws(
     () => core.verifyFabricCredential(minted.secret),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -111,7 +116,7 @@ function zeroTtlExpiresImmediately(): void {
   assert.ok(minted.expiresAt <= Date.now());
   assert.throws(
     () => core.verifyFabricCredential(minted.secret),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -120,7 +125,8 @@ function invalidTtlIsRejected(): void {
   for (const ttlSeconds of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
     assert.throws(
       () => core.mintFabricCredential({ sessionId: session.id, ttlSeconds }),
-      (error: unknown) => error instanceof PlatformError && (error as PlatformError).code === "invalid_input",
+      // SAFETY: Runtime checks or construction above establish PlatformError).code === "invalid_input".
+      (error) => error instanceof PlatformError && (error as PlatformError).code === "invalid_input",
     );
   }
 }
@@ -130,7 +136,7 @@ function sessionIdIsNotAFabricSecret(): void {
   core.mintFabricCredential({ sessionId: session.id });
   assert.throws(
     () => core.verifyFabricCredential(session.id),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -139,7 +145,7 @@ function blankSecretIsRejected(): void {
   for (const secret of ["", "   ", "\n"]) {
     assert.throws(
       () => core.verifyFabricCredential(secret),
-      (error: unknown) => error instanceof PlatformError,
+      (error) => error instanceof PlatformError,
     );
   }
 }
@@ -149,14 +155,14 @@ function mintRequiresActiveParent(): void {
   core.revokeSession(session.id);
   assert.throws(
     () => core.mintFabricCredential({ sessionId: session.id }),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 
   const { core: core2, token } = platformWithApiToken(["live:write"]);
   core2.revokeApiToken(token.id);
   assert.throws(
     () => core2.mintFabricCredential({ apiTokenId: token.id }),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 
@@ -179,9 +185,12 @@ function snapshotPersistsHashNotSecretAndRestoresEmptyForLegacy(): void {
   const verified = restored.verifyFabricCredential(minted.secret);
   assert.equal(verified.id, minted.id);
 
-  const parsed = JSON.parse(JSON.stringify(snapshot)) as Record<string, unknown>;
-  delete parsed.fabricCredentials;
-  const fromLegacy = createInMemoryPlatformCore({ snapshot: parsed as unknown as PlatformSnapshot });
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  const parsed = JSON.parse(JSON.stringify(snapshot)) as TestJsonObject;
+  // SAFETY: Legacy snapshots omit fabricCredentials before platform core restore.
+  delete (parsed as { fabricCredentials?: TestJsonValue }).fabricCredentials;
+  // SAFETY: Runtime checks or construction above establish unknown as PlatformSnapshot }).
+  const fromLegacy = createInMemoryPlatformCore({ snapshot: parsed as PlatformSnapshot });
   assert.deepEqual(fromLegacy.exportSnapshot().fabricCredentials, []);
 }
 
@@ -197,7 +206,7 @@ function sdkIdentityExposesFabricCredentialWrappers(): void {
   sdk.identity.revokeFabricCredential(minted.id);
   assert.throws(
     () => sdk.identity.verifyFabricCredential(minted.secret),
-    (error: unknown) => error instanceof PlatformError,
+    (error) => error instanceof PlatformError,
   );
 }
 

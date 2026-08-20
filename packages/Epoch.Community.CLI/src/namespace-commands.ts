@@ -18,6 +18,7 @@ import {
   success,
   type CommunityCliCommandResult,
 } from "./query-commands";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 
 export const NAMESPACE_CLI_COMMANDS: readonly {
   readonly command: string;
@@ -91,20 +92,21 @@ export async function runNamespaceCommand(
         requirePositionals(positional, 1, "namespace ls PATH");
         const first = integerOption(parsed, "first", 50, 1, 1000);
         const after = optionalString(parsed, "after");
-        const page = await services.list({ path: positional[0]!, first, ...(after === undefined ? {} : { after }), ...(execution.signal === undefined ? {} : { signal: execution.signal }) });
+        const page = await services.list({ path: positional[0]!, first, ...(!(after === undefined) && { after }), ...(!(execution.signal === undefined) && { signal: execution.signal }) });
         const envelope = { schema: "epoch.community.cli.namespace-list.v1", path: positional[0], entries: page.entries, pageInfo: page.pageInfo, freshness: page.freshness, shadowed: page.shadowed, componentOrder: page.componentOrder };
         return success(json ? envelope : formatPage(page), json);
       }
       case "explain": {
         assertAllowedOptions(parsed, ["json"]);
         requirePositionals(positional, 1, "namespace explain PATH");
-        const explanation = await services.explain({ path: positional[0]!, ...(execution.signal === undefined ? {} : { signal: execution.signal }) });
+        const explanation = await services.explain({ path: positional[0]!, ...(!(execution.signal === undefined) && { signal: execution.signal }) });
         return success(json ? explanation : `${explanation.path}\t${explanation.detail}\ncomponents\t${explanation.componentOrder.join(",") || "none"}\n`, json);
       }
       default: throw invalidInput("Unknown namespace command");
     }
   } catch (error) {
-    return failure(error);
+    // SAFETY: catch binds unknown; failure accepts any thrown runtime value.
+    return failure(error as BoundaryValue);
   }
 }
 

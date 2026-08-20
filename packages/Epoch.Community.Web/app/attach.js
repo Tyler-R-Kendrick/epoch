@@ -91,12 +91,12 @@
       var base = {
         id: nextId(),
         name: file.name || "untitled",
-        size: typeof file.size === "number" ? file.size : 0,
+        size: globalThis.CW_VALUE.isNumber(file.size) ? file.size : 0,
         type: file.type || "application/octet-stream",
         kind: kind,
         text: null,
         dataUrl: null,
-        bytes: typeof file.size === "number" ? file.size : 0,
+        bytes: globalThis.CW_VALUE.isNumber(file.size) ? file.size : 0,
         truncated: false,
         error: null,
       };

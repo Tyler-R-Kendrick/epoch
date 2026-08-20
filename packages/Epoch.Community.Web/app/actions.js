@@ -7,7 +7,7 @@
 
   function execute(actionId) {
     return function (input, context) {
-      if (!window.CW_APP || typeof window.CW_APP.executeAction !== "function") {
+      if (!window.CW_APP || !globalThis.CW_VALUE.isFunction(window.CW_APP.executeAction)) {
         throw new Error("Community Web action runtime is not ready");
       }
       return window.CW_APP.executeAction(actionId, input || {}, context || {});

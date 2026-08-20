@@ -44,8 +44,8 @@ export function createCommunityRuntime(options: CreateCommunityRuntimeOptions): 
     namespace: options.namespace,
     author: options.actor,
     harness,
-    ...(options.storage === undefined ? {} : { storage: options.storage }),
-    ...(options.initialManifest === undefined ? {} : { initialManifest: options.initialManifest }),
+    ...(!(options.storage === undefined) && { storage: options.storage }),
+    ...(!(options.initialManifest === undefined) && { initialManifest: options.initialManifest }),
   });
 
   const listeners = new Set<(receipt: EpochCommandReceipt) => void>();

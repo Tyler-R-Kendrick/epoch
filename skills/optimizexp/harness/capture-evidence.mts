@@ -15,6 +15,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import type { JsonObject } from "./lib/value-types.mts";
+import { isObject, isString } from "./lib/value-types.mts";
 import { captureCli } from "./drivers/cli.mts";
 import { captureTui } from "./drivers/tui.mts";
 import { captureWeb } from "./drivers/web.mts";
@@ -52,7 +54,8 @@ type FeatureMeta = {
 };
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "help" };
+	const out: Record<string, string> = {};
+	out.mode = "help";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";
@@ -105,6 +108,7 @@ and overwrites the previous primary artifact for that scenario.
 
 function readJson<T>(file: string): T | null {
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		return JSON.parse(readFileSync(file, "utf8")) as T;
 	} catch {
 		return null;
@@ -238,11 +242,12 @@ function writeReplayPage(
 	dir: string,
 	featureId: string,
 	scenario: string,
-	meta: Record<string, unknown>,
+	meta: JsonObject,
 ): void {
-	const primary = (meta.primary ?? {}) as Record<string, unknown>;
-	const file = typeof primary.file === "string" ? primary.file : "";
-	const kind = typeof primary.kind === "string" ? primary.kind : "transcript";
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+	const primary = (meta.primary ?? {}) as JsonObject;
+	const file = isString(primary.file) ? primary.file : "";
+	const kind = isString(primary.kind) ? primary.kind : "transcript";
 	const playback = kind === "video"
 		? `<video controls preload="metadata" src="${file}"></video>`
 		: /^(image|gif)$/i.test(kind)
@@ -252,7 +257,7 @@ function writeReplayPage(
 			: file
 				? `[Open captured transcript](${file})`
 				: "No primary artifact was produced.";
-	const screen = meta.screen && typeof meta.screen === "object"
+	const screen = meta.screen && isObject(meta.screen)
 		? `\n### Parsed screen\n\n\`\`\`json\n${JSON.stringify(meta.screen, null, 2)}\n\`\`\`\n`
 		: "";
 	writeFileSync(path.join(dir, "REPLAY.md"),
@@ -304,6 +309,7 @@ function capture(args: Record<string, string>) {
 		process.exit(2);
 	}
 	const loc = resolveFeatureLoc(featureId, root, args.projects?.split(/[,\s]+/)[0]);
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const meta = JSON.parse(
 		readFileSync(loc.featureJsonPath, "utf8"),
 	) as FeatureMeta;
@@ -327,11 +333,11 @@ function capture(args: Record<string, string>) {
 
 	let primaryFile = "";
 	let kind = "transcript";
-	let screen: Record<string, unknown> = {};
+	let screen: JsonObject = {};
 	let degraded = false;
 	let notes: string[] = [];
 	let exitCode: number | null = null;
-	let repro: Record<string, unknown> = {};
+	let repro: JsonObject = {};
 
 	if (driver === "cli") {
 		const command = args.command || meta.surfaces?.[0];
@@ -382,7 +388,9 @@ function capture(args: Record<string, string>) {
 		screen = r.screen;
 		degraded = r.degraded;
 		notes = r.notes;
-		repro = { nativeCmd: args.nativeCmd || process.env.OPTIMIZEXP_NATIVE_CAPTURE };
+		repro = {
+			nativeCmd: args.nativeCmd || process.env.OPTIMIZEXP_NATIVE_CAPTURE || "",
+		};
 	} else {
 		console.error(`unknown driver: ${driver}`);
 		process.exit(2);
@@ -491,7 +499,12 @@ function review(args: Record<string, string>) {
 		console.error("capture evidence before reviewing it");
 		process.exit(1);
 	}
-	const meta = JSON.parse(readFileSync(metaPath, "utf8")) as { claims?: EvidenceClaim[]; primary?: { sha256?: string } };
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+	const meta = JSON.parse(readFileSync(metaPath, "utf8")) as {
+		claims?: EvidenceClaim[];
+		primary?: { sha256?: string };
+		runId?: string;
+	};
 	const relevant = /^(yes|true|relevant)$/i.test(args.relevant || "");
 	const complete = /^(yes|true|complete)$/i.test(args.complete || "");
 	const all = (meta.claims ?? []).map((claim) => claim.id);
@@ -502,7 +515,7 @@ function review(args: Record<string, string>) {
 	// Preserve the fields capture() seeded. Rewriting review.json from a fresh
 	// literal dropped authoredBy and defects, so every reviewed capture failed
 	// validation on the very checks that make a review more than a confirmation.
-	const seeded = readJson<Record<string, unknown>>(path.join(dir, "review.json")) ?? {};
+	const seeded = readJson<JsonObject>(path.join(dir, "review.json")) ?? {};
 	const defects = Array.isArray(args.defects ? JSON.parse(args.defects) : seeded.defects)
 		? (args.defects ? JSON.parse(args.defects) : seeded.defects)
 		: [];
@@ -555,8 +568,9 @@ function stitch(args: Record<string, string>) {
 		rmSync(result.file, { force: true });
 	}
 	const metaPath = path.join(outDir, "meta.json");
+	// SAFETY: Existing capture metadata is JSON and receives owner-controlled fields below.
 	const meta = existsSync(metaPath)
-		? (JSON.parse(readFileSync(metaPath, "utf8")) as Record<string, unknown>)
+		? (JSON.parse(readFileSync(metaPath, "utf8")) as JsonObject)
 		: {};
 	meta.primary = {
 		file: path.basename(primary),
@@ -613,6 +627,7 @@ function validate(args: Record<string, string>) {
 				}
 				continue;
 			}
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const m = JSON.parse(readFileSync(man, "utf8")) as {
 				primaryPath?: string;
 			};

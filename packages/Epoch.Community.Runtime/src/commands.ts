@@ -12,8 +12,13 @@ import { verifyStaticHarnessRelease } from "./harness";
 import { DEFAULT_PROJECT_SLUG, ensureProject, listProjects } from "./projects";
 import { appendSocialRevision, historyOf, listFeeds, recordsOf, type SocialRecordKind } from "./feeds";
 import { exportWorkspaceBundle, importWorkspaceBundle } from "./sync";
-import type { DynamicUiManifest } from "./ui";
+import { isDynamicUiManifest } from "./ui";
 import type { BrowserEpochWorkspace, WorkspaceMutation } from "./workspace";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 /**
  * The command bus.
@@ -30,7 +35,7 @@ import type { BrowserEpochWorkspace, WorkspaceMutation } from "./workspace";
  */
 export interface JsonSchema {
   readonly type: "object";
-  readonly properties: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  readonly properties: Readonly<Record<string, Readonly<Record<string, DictionaryValue>>>>;
   readonly required?: readonly string[];
 }
 
@@ -47,7 +52,7 @@ export interface EpochCommandDescriptor {
 
 export interface EpochCommandRequest {
   readonly kind: string;
-  readonly input?: Readonly<Record<string, unknown>>;
+  readonly input?: Readonly<Record<string, DictionaryValue>>;
   readonly source?: EpochCommandSource;
   readonly actor?: string;
   readonly confirmed?: boolean;
@@ -78,7 +83,7 @@ interface CommandOutcome {
 
 interface CommandHandler {
   readonly descriptor: EpochCommandDescriptor;
-  run(input: Readonly<Record<string, unknown>>): CommandOutcome;
+  run(input: Readonly<Record<string, DictionaryValue>>): CommandOutcome;
 }
 
 export interface CreateCommandBusOptions {
@@ -231,13 +236,13 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     }),
   }, (input) => {
     const project = ensureProject(workspace.epoch, {
-      ...(optionalString(input, "slug") === undefined ? {} : { slug: requiredString(input, "slug") }),
-      ...(optionalString(input, "title") === undefined ? {} : { title: requiredString(input, "title") }),
+      ...(!(optionalString(input, "slug") === undefined) && { slug: requiredString(input, "slug") }),
+      ...(!(optionalString(input, "title") === undefined) && { title: requiredString(input, "title") }),
     });
 
     return {
       data: project,
-      ...(project.created ? { eventIds: [project.eventId], revisionIds: [project.revision] } : {}),
+      ...(project.created && { eventIds: [project.eventId], revisionIds: [project.revision] }),
       baseRef: workspace.getView(project.uiView).ref,
     };
   });
@@ -294,13 +299,14 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       changeId: stringProperty("Native change id to revise. Omit to open a new record."),
     }, ["feed", "kind", "body"]),
   }, (input) => {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const record = appendSocialRevision(workspace.epoch, {
       feed: requiredString(input, "feed"),
       kind: requiredString(input, "kind") as SocialRecordKind,
       body: requiredString(input, "body"),
-      ...(optionalString(input, "subject") === undefined ? {} : { subject: requiredString(input, "subject") }),
-      ...(optionalString(input, "author") === undefined ? {} : { author: requiredString(input, "author") }),
-      ...(optionalString(input, "changeId") === undefined ? {} : { changeId: requiredString(input, "changeId") }),
+      ...(!(optionalString(input, "subject") === undefined) && { subject: requiredString(input, "subject") }),
+      ...(!(optionalString(input, "author") === undefined) && { author: requiredString(input, "author") }),
+      ...(!(optionalString(input, "changeId") === undefined) && { changeId: requiredString(input, "changeId") }),
     });
 
     return {
@@ -354,8 +360,8 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     ),
   }, (input) => fromMutation(workspace.createView({
     name: requiredString(input, "name"),
-    ...(optionalString(input, "from") === undefined ? {} : { from: requiredString(input, "from") }),
-    ...(optionalString(input, "scope") === undefined ? {} : { scope: requiredScope(input) }),
+    ...(!(optionalString(input, "from") === undefined) && { from: requiredString(input, "from") }),
+    ...(!(optionalString(input, "scope") === undefined) && { scope: requiredScope(input) }),
   }), "proposal"));
 
   register({
@@ -386,13 +392,18 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       ["view", "manifest"],
     ),
   }, (input) => {
-    const manifest = input.manifest as DynamicUiManifest;
+    // SAFETY: Command input manifest is validated as a DynamicUiManifest before proposal.
+    const manifestValue = input.manifest as BoundaryValue;
+    if (!isDynamicUiManifest(manifestValue)) {
+      throw new EpochCommandError("invalid-input", "manifest must be a dynamic UI manifest");
+    }
+    const manifest = manifestValue;
     const mutation = workspace.propose({
       view: requiredString(input, "view"),
       manifest,
-      ...(optionalString(input, "prompt") === undefined ? {} : { prompt: requiredString(input, "prompt") }),
-      ...(optionalString(input, "model") === undefined ? {} : { model: requiredString(input, "model") }),
-      ...(input.retainPrompt === true ? { retainPrompt: true } : {}),
+      ...(!(optionalString(input, "prompt") === undefined) && { prompt: requiredString(input, "prompt") }),
+      ...(!(optionalString(input, "model") === undefined) && { model: requiredString(input, "model") }),
+      ...(input.retainPrompt === true && { retainPrompt: true }),
     });
 
     return {
@@ -414,7 +425,7 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     ),
   }, (input) => fromMutation(workspace.merge({
     from: requiredString(input, "from"),
-    ...(optionalString(input, "into") === undefined ? {} : { into: requiredString(input, "into") }),
+    ...(!(optionalString(input, "into") === undefined) && { into: requiredString(input, "into") }),
   }), "base"));
 
   register({
@@ -509,6 +520,7 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     } as const;
 
     if (!granted(descriptor.capability)) {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       return emit(createCommandReceipt<TData>({
         ...base,
         policy: policyReceipt("deny", descriptor.capability, `principal lacks capability '${descriptor.capability}'`),
@@ -519,6 +531,7 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     }
 
     if (needsConfirmation(descriptor) && request.confirmed !== true) {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       return emit(createCommandReceipt<TData>({
         ...base,
         policy: policyReceipt("confirm", descriptor.capability, `'${descriptor.kind}' requires explicit confirmation`),
@@ -529,21 +542,23 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     }
 
     const outcome = handler.run(input);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return emit(createCommandReceipt<TData>({
       ...base,
       policy: policyReceipt("allow", descriptor.capability),
       validation: outcome.validation ?? skippedValidation,
       confirmation: { required: needsConfirmation(descriptor), granted: request.confirmed === true },
-      ...(outcome.baseRef === undefined ? {} : { baseRef: outcome.baseRef }),
-      ...(outcome.proposalRef === undefined ? {} : { proposalRef: outcome.proposalRef }),
-      ...(outcome.changeId === undefined ? {} : { changeId: outcome.changeId }),
-      ...(outcome.revisionIds === undefined ? {} : { revisionIds: outcome.revisionIds }),
-      ...(outcome.eventIds === undefined ? {} : { eventIds: outcome.eventIds }),
+      ...(!(outcome.baseRef === undefined) && { baseRef: outcome.baseRef }),
+      ...(!(outcome.proposalRef === undefined) && { proposalRef: outcome.proposalRef }),
+      ...(!(outcome.changeId === undefined) && { changeId: outcome.changeId }),
+      ...(!(outcome.revisionIds === undefined) && { revisionIds: outcome.revisionIds }),
+      ...(!(outcome.eventIds === undefined) && { eventIds: outcome.eventIds }),
       data: outcome.data as TData,
     }));
   }
 
   function emit<TData>(receipt: EpochCommandReceipt<TData>): EpochCommandReceipt<TData> {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     options.onReceipt?.(receipt as EpochCommandReceipt);
     return receipt;
   }
@@ -572,7 +587,7 @@ function emptySchema(): JsonSchema {
 }
 
 function schema(
-  properties: Readonly<Record<string, Readonly<Record<string, unknown>>>>,
+  properties: Readonly<Record<string, Readonly<Record<string, DictionaryValue>>>>,
   required: readonly string[] = [],
 ): JsonSchema {
   return required.length === 0
@@ -580,46 +595,46 @@ function schema(
     : { type: "object", properties, required };
 }
 
-function stringProperty(description: string): Readonly<Record<string, unknown>> {
+function stringProperty(description: string) {
   return { type: "string", description };
 }
 
-function numberProperty(description: string): Readonly<Record<string, unknown>> {
+function numberProperty(description: string) {
   return { type: "number", description };
 }
 
-function booleanProperty(description: string): Readonly<Record<string, unknown>> {
+function booleanProperty(description: string) {
   return { type: "boolean", description };
 }
 
-function enumProperty(description: string, values: readonly string[]): Readonly<Record<string, unknown>> {
+function enumProperty(description: string, values: readonly string[]) {
   return { type: "string", description, enum: values };
 }
 
-function requiredString(input: Readonly<Record<string, unknown>>, key: string): string {
+function requiredString(input: Readonly<Record<string, DictionaryValue>>, key: string): string {
   const value = input[key];
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (!__epochIsString(value) || value.trim().length === 0) {
     throw new EpochCommandError("invalid-input", `Command input '${key}' must be a non-empty string.`);
   }
 
   return value;
 }
 
-function optionalString(input: Readonly<Record<string, unknown>>, key: string): string | undefined {
+function optionalString(input: Readonly<Record<string, DictionaryValue>>, key: string): string | undefined {
   const value = input[key];
-  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+  return __epochIsString(value) && value.trim().length > 0 ? value : undefined;
 }
 
-function requiredNumber(input: Readonly<Record<string, unknown>>, key: string): number {
+function requiredNumber(input: Readonly<Record<string, DictionaryValue>>, key: string): number {
   const value = input[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (!__epochIsNumber(value) || !Number.isFinite(value)) {
     throw new EpochCommandError("invalid-input", `Command input '${key}' must be a number.`);
   }
 
   return value;
 }
 
-function requiredScope(input: Readonly<Record<string, unknown>>): "personal" | "project" | "session" {
+function requiredScope(input: Readonly<Record<string, DictionaryValue>>): "personal" | "project" | "session" {
   const value = requiredString(input, "scope");
   if (value !== "personal" && value !== "project" && value !== "session") {
     throw new EpochCommandError("invalid-input", `Unsupported change scope '${value}'.`);

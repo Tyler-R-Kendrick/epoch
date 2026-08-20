@@ -9,6 +9,10 @@ import {
 import type { CommunityApiTransport } from "@epoch/community-core";
 import { PACT_DIR, PactProviders, startFetchHandlerServer } from "../helpers";
 
+interface ProviderState {
+  api: CommunityApiTransport;
+}
+
 /**
  * Provider verification: Epoch.Community.API against consumer pacts.
  * @see https://docs.pact.io/getting_started/verifying_pacts
@@ -22,7 +26,7 @@ export async function runCommunityApiProviderVerification(): Promise<void> {
     );
   }
 
-  const state: { api: CommunityApiTransport } = {
+  const state: ProviderState = {
     api: createInMemoryCommunityApi(),
   };
 
@@ -110,6 +114,7 @@ function listPactsForProvider(provider: string): string[] {
     .map((name) => join(PACT_DIR, name))
     .filter((path) => {
       try {
+        // SAFETY: Runtime checks or construction above establish {.
         const parsed = JSON.parse(readFileSync(path, "utf8")) as {
           provider?: { name?: string };
         };

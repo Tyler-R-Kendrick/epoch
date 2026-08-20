@@ -13,6 +13,8 @@
 // emit Course Line hex — palette rules are report-only until those surfaces port.
 // Structural rules stay enforced for every package.
 //
+const __epochIsString = (value) => String(value) === value;
+
 // Finding classes:
 //   undefined-token       var(--epoch-*) used but the custom property is never defined
 //   var-fallback          var() carries a literal fallback (tokens are always inlined first,
@@ -234,7 +236,7 @@ function checkDesignJson(palette) {
   const colorMeta = designJson.extensions?.colorMeta ?? {};
   for (const [name, meta] of Object.entries(colorMeta)) {
     const expected = palette.get(name);
-    const canonical = typeof meta.canonical === "string" ? meta.canonical.toLowerCase() : undefined;
+    const canonical = __epochIsString(meta.canonical) ? meta.canonical.toLowerCase() : undefined;
     if (expected !== undefined && canonical !== undefined && canonical !== expected) {
       findings.push({
         rule: "design-json-drift",

@@ -7,7 +7,7 @@ async function main(): Promise<void> {
   console.log("pact consumer contracts passed (see ./pacts)");
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

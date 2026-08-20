@@ -20,7 +20,7 @@
       var parsed = JSON.parse(window.localStorage.getItem(HISTORY_KEY) || "[]");
       if (!Array.isArray(parsed)) return [];
       return parsed.filter(function (entry) {
-        return entry && typeof entry.queryHash === "string" && typeof entry.canonical === "string";
+        return entry && globalThis.CW_VALUE.isString(entry.queryHash) && globalThis.CW_VALUE.isString(entry.canonical);
       }).slice(0, 50);
     } catch { return []; }
   }

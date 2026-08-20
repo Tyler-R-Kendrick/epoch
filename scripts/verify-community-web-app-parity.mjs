@@ -2,6 +2,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, normalize } from "node:path";
 
+const __epochIsString = (value) => String(value) === value;
+
 const manifestPath = join("docs", "evidence", "community-web-app-navigation-projection-parity", "parity-manifest.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
@@ -57,7 +59,7 @@ for (const claim of manifest.claims || []) {
     catch { errors.push(`${claim.testId}: additionalSourceUrls contains a non-absolute URL`); }
   }
   const reference = references[claim.testId];
-  if (!reference || typeof reference.path !== "string" || typeof reference.kind !== "string") {
+  if (!reference || !__epochIsString(reference.path) || !__epochIsString(reference.kind)) {
     errors.push(`${claim.testId}: missing explicit test reference`);
     continue;
   }

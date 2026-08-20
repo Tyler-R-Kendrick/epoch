@@ -1,7 +1,9 @@
+
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 export interface ProtocolV2Profile { readonly promisorConfigured: boolean }
 
 export function encodePktLine(payload: string | Uint8Array): Buffer {
-  const bytes = typeof payload === "string" ? Buffer.from(payload) : Buffer.from(payload);
+  const bytes = __epochIsString(payload) ? Buffer.from(payload) : Buffer.from(payload);
   const size = bytes.length + 4;
   if (size > 0xffff) throw new Error("Git packet line is too large");
   return Buffer.concat([Buffer.from(size.toString(16).padStart(4, "0")), bytes]);
@@ -29,7 +31,7 @@ export function protocolV2Advertisement(profile: ProtocolV2Profile): string {
   return capabilities.join("\n") + "\n";
 }
 
-export function gitProtocolEnvironment(headers: Readonly<Record<string, string | string[] | undefined>>): { readonly GIT_PROTOCOL?: string } {
+export function gitProtocolEnvironment(headers: Readonly<Record<string, string | string[] | undefined>>) {
   const raw = headers["git-protocol"];
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === undefined) return {};

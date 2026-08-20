@@ -3,7 +3,7 @@ import { evaluatePosture, type PosturePolicy, type TrustPosture } from "@epoch/p
 import { EpochRepository, Event, MemoryEpochTransport } from "./core";
 import type { EventData } from "./domain";
 import { blobsForEvents } from "./ha/compact";
-import { canonicalJson } from "./json";
+import { canonicalJson, isRecord } from "./json";
 
 export const EXIT_BUNDLE_SCHEMA = "epoch-exit/v1" as const;
 
@@ -16,7 +16,6 @@ export type ExitBindingRecord = {
   readonly seqno: number;
   readonly revoked: boolean;
   readonly createdAt: string;
-  readonly [key: string]: unknown;
 };
 
 export type ExitManifest = {
@@ -67,7 +66,7 @@ export function exportExitBundle(
   };
 }
 
-export function importExitBundle(repo: EpochRepository, bundle: unknown): void {
+export function importExitBundle<Value>(repo: EpochRepository, bundle: Value): void {
   const parsed = parseExitBundle(bundle);
   const verifyProblems = repo.verify();
   if (verifyProblems.length > 0 && repo.events().length > 0) {
@@ -85,11 +84,11 @@ export function importExitBundle(repo: EpochRepository, bundle: unknown): void {
   }
 }
 
-export function parseExitBundle(value: unknown): ExitBundle {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+export function parseExitBundle<Value>(value: Value): ExitBundle {
+  if (!isRecord(value)) {
     throw new ExitBundleError("exit bundle must be an object");
   }
-  const row = value as Record<string, unknown>;
+  const row = value;
   if (row.schema !== EXIT_BUNDLE_SCHEMA) {
     throw new ExitBundleError("unsupported exit bundle schema");
   }
@@ -97,10 +96,10 @@ export function parseExitBundle(value: unknown): ExitBundle {
     throw new ExitBundleError("exit bundle missing events, bindings, or manifest");
   }
   const blobs = isRecord(row.blobs)
-    ? Object.fromEntries(Object.entries(row.blobs).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
+    ? Object.fromEntries(Object.entries(row.blobs).filter((entry): entry is [string, string] => isString(entry[1])))
     : {};
   const manifest = row.manifest;
-  if (typeof manifest.sha256 !== "string" || typeof manifest.eventCount !== "number" || typeof manifest.headId !== "string") {
+  if (!isString(manifest.sha256) || !isNumber(manifest.eventCount) || !isString(manifest.headId)) {
     throw new ExitBundleError("exit bundle manifest is malformed");
   }
   if (manifest.eventCount !== row.events.length) {
@@ -108,10 +107,12 @@ export function parseExitBundle(value: unknown): ExitBundle {
   }
   let events: EventData[];
   try {
+    // SAFETY: Event.fromJSON validates each serialized event before it is retained.
     events = row.events.map((item) => Event.fromJSON(item as EventData).toJSON());
   } catch (error) {
     throw new ExitBundleError(`exit bundle event decode failed: ${error instanceof Error ? error.message : "invalid event"}`);
   }
+  // SAFETY: Runtime checks or construction above establish ExitBindingRecord[].
   const bindings = row.bindings as ExitBindingRecord[];
   const payload = { events, blobs, bindings, headId: manifest.headId };
   const digest = createHash("sha256").update(canonicalJson(payload)).digest("hex");
@@ -132,15 +133,15 @@ export function parseExitBundle(value: unknown): ExitBundle {
       eventCount: manifest.eventCount,
       headId: manifest.headId,
     },
-    posture: posture as TrustPosture | undefined,
+    posture,
   };
 }
 
 export function migrateCommunity(input: {
   readonly from: EpochRepository;
   readonly to: EpochRepository;
-  readonly fromPosture: unknown;
-  readonly toPosture: unknown;
+  readonly fromPosture: Parameters<typeof evaluatePosture>[0];
+  readonly toPosture: Parameters<typeof evaluatePosture>[0];
   readonly bindings?: readonly ExitBindingRecord[];
 }): ExitBundle {
   const fromPolicy = evaluatePosture(input.fromPosture);
@@ -164,6 +165,10 @@ export function assertSupportedPostureTransition(from: PosturePolicy, to: Postur
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
+}
+
+function isNumber<Value>(value: Value): value is Value & number {
+  return typeof value === "number";
 }

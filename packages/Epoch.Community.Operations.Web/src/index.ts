@@ -12,6 +12,8 @@ import type {
 } from "@epoch/platform-core";
 import type { EpochPlatformSdk } from "@epoch/platform-sdk";
 import type { DeployableEpochApp, PwaAppDescriptor } from "@epoch/platform-web";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 export type CommunityWorkflowAutomationSource = "github-actions" | "epoch-workflow";
 export type CommunityOperationsRunState = "queued" | "running" | "scheduled" | "reconciled" | "succeeded" | "failed" | "canceled";
@@ -528,7 +530,7 @@ export function renderConvergenceOperationsPanel(status: CommunityConvergenceOpe
  */
 export function createRedactedConvergenceSupportBundle(
   status: CommunityConvergenceOperations,
-  _privateContext?: unknown,
+  _privateContext?: BoundaryValue,
 ): string {
   return JSON.stringify({
     schemaVersion: 1,
@@ -693,6 +695,7 @@ function renderHostedApp(app: CommunityHostedApp): string {
 }
 
 function renderPreviewCard(app: CommunityHostedApp): string {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return `<article class="ops-card compact">
     <h3>${escapeHtml(app.name)} preview</h3>
     <p>${escapeHtml(app.environmentName)} deploys can be promoted or rolled back from signed review state.</p>

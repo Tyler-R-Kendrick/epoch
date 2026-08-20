@@ -53,7 +53,7 @@ function signedConversationProjects(): void {
   });
   const ingested = jules.ingest([first]);
   assert.equal(ingested.applied, 1);
-  const protocolShaped = [{
+  const matchesProtocolContract = [{
     schemaVersion: 1 as const,
     type: "channel.message" as const,
     eventId: "m1",
@@ -67,7 +67,7 @@ function signedConversationProjects(): void {
       visibility: "public" as const,
     },
   }];
-  const projected = projectChannelEvents(protocolShaped);
+  const projected = projectChannelEvents(matchesProtocolContract);
   assert.equal(projected.messages.length, 1);
   assert.equal(projected.messages[0]?.domain.value.authorId, id("principal"));
 }
@@ -80,6 +80,7 @@ function ingestRejectsForgery(): void {
     entity: "channel:general",
     author: "maya",
     lamport: 1,
+    // SAFETY: Runtime checks or construction above establish string[].
     parents: [] as string[],
     payload: { type: "channel.message" },
     scheme: "not-a-scheme",

@@ -148,7 +148,7 @@ export class MirrorCoordinator {
     this.#decisions.set(operation.operationId, frozen);
     this.#checkpoints.set(operation.ruleId, Object.freeze({ ruleId: operation.ruleId,
       lastOperationId: operation.operationId, sourceOid: operation.sourceOid,
-      ...(operation.observedDestinationOid === undefined ? {} : { observedDestinationOid: operation.observedDestinationOid }),
+      ...(!(operation.observedDestinationOid === undefined) && { observedDestinationOid: operation.observedDestinationOid }),
       outcome: decision.outcome, updatedAt: Date.now() }));
     return frozen;
   }

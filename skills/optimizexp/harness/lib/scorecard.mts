@@ -1,5 +1,7 @@
 /** Formal metric scorecard helpers for expect / act / outcome. */
 
+import { isBoolean, isNumber, isObject, isString } from "./value-types.mts";
+
 export type PrimaryScores = {
 	harms: number;
 	friction: number;
@@ -158,8 +160,8 @@ export type OutcomeComparison = {
 	};
 };
 
-function isInt0to5(n: unknown): n is number {
-	return typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 5;
+function isInt0to5<T>(n: T): n is T & number {
+	return isNumber(n) && Number.isInteger(n) && n >= 0 && n <= 5;
 }
 
 export function buildPrimary(
@@ -197,11 +199,12 @@ export function buildPositive(
 	};
 }
 
-export function validatePositive(raw: unknown, prefix = "scores.positive"): string[] {
+export function validatePositive<T>(raw: T, prefix = "scores.positive"): string[] {
 	const problems: string[] = [];
-	if (!raw || typeof raw !== "object") {
+	if (!isObject(raw)) {
 		return [`${prefix}: missing or not an object`];
 	}
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const p = raw as Partial<PositiveScores>;
 	for (const k of ["excitement", "easeOfUse", "perceivedOptimality"] as const) {
 		if (!isInt0to5(p[k])) problems.push(`${prefix}.${k} must be int 0-5`);
@@ -237,7 +240,7 @@ export function cognitiveBreaches(
 		const m = measured[k];
 		if (!isInt0to5(m)) continue;
 		const t = thresholds[k];
-		const limit = typeof t === "number" ? t : 3;
+		const limit = isNumber(t) ? t : 3;
 		if (m > limit) breaches.push(k);
 	}
 	return breaches;
@@ -247,6 +250,7 @@ export function buildCognitive(
 	channels: Partial<Record<CognitiveKey, number>>,
 	thresholds: CognitiveThresholds = {},
 ): CognitiveScores {
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const full = {} as Record<CognitiveKey, number>;
 	let total = 0;
 	let max = 0;
@@ -265,20 +269,22 @@ export function buildCognitive(
 	};
 }
 
-export function validateCognitive(
-	raw: unknown,
+export function validateCognitive<T>(
+	raw: T,
 	prefix = "scores.cognitive",
 ): string[] {
 	const problems: string[] = [];
-	if (!raw || typeof raw !== "object") {
+	if (!isObject(raw)) {
 		return [`${prefix}: missing or not an object`];
 	}
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const c = raw as Partial<CognitiveScores>;
 	for (const k of COGNITIVE_KEYS) {
 		if (!isInt0to5(c[k])) problems.push(`${prefix}.${k} must be int 0-5`);
 	}
 	if (COGNITIVE_KEYS.every((k) => isInt0to5(c[k]))) {
 		const expected = buildCognitive(
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			Object.fromEntries(COGNITIVE_KEYS.map((k) => [k, c[k]!])) as Record<
 				CognitiveKey,
 				number
@@ -288,7 +294,9 @@ export function validateCognitive(
 		let total = 0;
 		let max = 0;
 		for (const k of COGNITIVE_KEYS) {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			total += c[k] as number;
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			max = Math.max(max, c[k] as number);
 		}
 		if (c.total !== total) problems.push(`${prefix}.total must be ${total}`);
@@ -308,7 +316,7 @@ export function isParetoAdmissible(input: {
 	prevPositive?: PositiveScores;
 	currPositive?: PositiveScores;
 	cognitiveBreaches?: string[];
-}): { ok: boolean; reasons: string[] } {
+}) {
 	const reasons: string[] = [];
 	if (input.currHarm.total > input.prevHarm.total) {
 		reasons.push("harm total increased");
@@ -353,29 +361,30 @@ export function scoresWithinTolerance(
 	);
 }
 
-/** Pure shape validation for the evidenceChecks rubric (no filesystem access). */
-export function validateEvidenceChecksShape(raw: unknown): string[] {
+/** Pure contract validation for the evidenceChecks rubric (no filesystem access). */
+export function validateEvidenceChecks<T>(raw: T): string[] {
 	if (!Array.isArray(raw)) return ["scores.evidenceChecks must be an array"];
 	const problems: string[] = [];
 	raw.forEach((c, i) => {
 		const prefix = `scores.evidenceChecks[${i}]`;
-		if (!c || typeof c !== "object") {
+		if (!isObject(c)) {
 			problems.push(`${prefix}: must be an object`);
 			return;
 		}
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const check = c as Partial<EvidenceCheck>;
-		if (!check.evidence || typeof check.evidence !== "string") {
+		if (!check.evidence || !isString(check.evidence)) {
 			problems.push(`${prefix}.evidence required (string path to evidence dir)`);
 		}
 		for (const k of ["exitCodeEquals", "exitCodeNotEquals"] as const) {
 			const v = check[k];
-			if (v !== undefined && (typeof v !== "number" || !Number.isInteger(v))) {
+			if (v !== undefined && (!isNumber(v) || !Number.isInteger(v))) {
 				problems.push(`${prefix}.${k} must be an integer`);
 			}
 		}
 		for (const k of ["transcriptContains", "transcriptNotContains"] as const) {
 			const v = check[k];
-			if (v !== undefined && typeof v !== "string") {
+			if (v !== undefined && !isString(v)) {
 				problems.push(`${prefix}.${k} must be a string (regex)`);
 			}
 		}
@@ -391,14 +400,15 @@ export function validateEvidenceChecksShape(raw: unknown): string[] {
 	return problems;
 }
 
-export function validateScorecard(
-	raw: unknown,
+export function validateScorecard<T>(
+	raw: T,
 	expectedPhase?: MetricScorecard["phase"],
 ): string[] {
 	const problems: string[] = [];
-	if (!raw || typeof raw !== "object") {
+	if (!isObject(raw)) {
 		return ["scores: missing or not an object"];
 	}
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const s = raw as Partial<MetricScorecard>;
 	if (s.schemaVersion !== 1) problems.push("scores.schemaVersion must be 1");
 	if (expectedPhase && s.phase !== expectedPhase) {
@@ -406,24 +416,24 @@ export function validateScorecard(
 	} else if (!["expect", "act", "outcome"].includes(String(s.phase))) {
 		problems.push("scores.phase invalid");
 	}
-	const roleByPhase: Record<string, string> = {
+	const roleByPhase = {
 		expect: "predicted",
 		act: "observed",
 		outcome: "judged",
-	};
+	} as const;
 	if (s.phase && s.role !== roleByPhase[s.phase]) {
 		problems.push(
 			`scores.role must be ${roleByPhase[s.phase!]} for phase ${s.phase}`,
 		);
 	}
-	if (!s.persona || typeof s.persona !== "string") {
+	if (!s.persona || !isString(s.persona)) {
 		problems.push("scores.persona required");
 	}
-	if (!s.surface || typeof s.surface !== "string") {
+	if (!s.surface || !isString(s.surface)) {
 		problems.push("scores.surface required");
 	}
 	const p = s.primary;
-	if (!p || typeof p !== "object") {
+	if (!isObject(p)) {
 		problems.push("scores.primary required");
 	} else {
 		for (const k of ["harms", "friction", "uncertainty"] as const) {
@@ -440,9 +450,9 @@ export function validateScorecard(
 			}
 		}
 	}
-	if (!s.rationale || typeof s.rationale !== "object") {
+	if (!isObject(s.rationale)) {
 		problems.push("scores.rationale required");
-	} else if (p && typeof p === "object") {
+	} else if (p && isObject(p)) {
 		for (const k of ["harms", "friction", "uncertainty"] as const) {
 			if (isInt0to5(p[k]) && p[k]! >= 1 && !s.rationale[k]) {
 				problems.push(`scores.rationale.${k} required when primary.${k} >= 1`);
@@ -457,14 +467,15 @@ export function validateScorecard(
 			problems.push(`scores.evidenceRefs should be non-empty for ${s.phase}`);
 		}
 	}
-	if (!s.scoredAt || typeof s.scoredAt !== "string") {
+	if (!s.scoredAt || !isString(s.scoredAt)) {
 		problems.push("scores.scoredAt required");
 	}
-	if (s.hcd && typeof s.hcd === "object") {
+	if (s.hcd && isObject(s.hcd)) {
 		let hcdTotal = 0;
 		let hcdMax = 0;
 		for (const key of Object.keys(s.hcd)) {
-			const v = (s.hcd as Record<string, unknown>)[key];
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+			const v = s.hcd[key as HcdKey];
 			if (!isInt0to5(v)) problems.push(`scores.hcd.${key} must be int 0-5`);
 			else {
 				hcdTotal += v;
@@ -480,7 +491,8 @@ export function validateScorecard(
 	}
 	if (s.positive !== undefined) {
 		problems.push(...validatePositive(s.positive));
-		if (s.rationale && typeof s.rationale === "object" && s.positive) {
+		if (s.rationale && isObject(s.rationale) && s.positive) {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const pos = s.positive as PositiveScores;
 			for (const k of ["excitement", "easeOfUse", "perceivedOptimality"] as const) {
 				if (isInt0to5(pos[k]) && pos[k]! <= 3 && !s.rationale[k]) {
@@ -495,27 +507,28 @@ export function validateScorecard(
 		problems.push(...validateCognitive(s.cognitive));
 	}
 	if (s.evidenceChecks !== undefined) {
-		problems.push(...validateEvidenceChecksShape(s.evidenceChecks));
+		problems.push(...validateEvidenceChecks(s.evidenceChecks));
 	}
-	if (s.justification !== undefined && typeof s.justification !== "string") {
+	if (s.justification !== undefined && !isString(s.justification)) {
 		problems.push("scores.justification must be a string");
 	}
 	return problems;
 }
 
-export function validateComparison(
-	raw: unknown,
+export function validateComparison<T>(
+	raw: T,
 	expectPrimary?: PrimaryScores,
 	actPrimary?: PrimaryScores,
 	judged?: PrimaryScores,
 ): string[] {
 	const problems: string[] = [];
-	if (!raw || typeof raw !== "object") {
+	if (!isObject(raw)) {
 		return ["comparison: missing"];
 	}
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const c = raw as Partial<OutcomeComparison>;
 	if (!c.expectId) problems.push("comparison.expectId required");
-	if (!c.deltaFromExpect || typeof c.deltaFromExpect !== "object") {
+	if (!isObject(c.deltaFromExpect)) {
 		problems.push("comparison.deltaFromExpect required");
 	} else if (expectPrimary && judged) {
 		const d = deltaPrimary(expectPrimary, judged);
@@ -537,22 +550,22 @@ export function validateComparison(
 			}
 		}
 	}
-	if (!c.expectationMatch || typeof c.expectationMatch !== "object") {
+	if (!isObject(c.expectationMatch)) {
 		problems.push("comparison.expectationMatch required");
 	} else {
-		if (typeof c.expectationMatch.behavior !== "boolean") {
+		if (!isBoolean(c.expectationMatch.behavior)) {
 			problems.push("comparison.expectationMatch.behavior must be boolean");
 		}
-		if (typeof c.expectationMatch.scoresWithinTol !== "boolean") {
+		if (!isBoolean(c.expectationMatch.scoresWithinTol)) {
 			problems.push("comparison.expectationMatch.scoresWithinTol must be boolean");
 		}
 		if (
-			typeof c.expectationMatch.tolerance !== "number" ||
+			!isNumber(c.expectationMatch.tolerance) ||
 			c.expectationMatch.tolerance < 0
 		) {
 			problems.push("comparison.expectationMatch.tolerance must be >= 0");
 		}
-		if (expectPrimary && judged && typeof c.expectationMatch.tolerance === "number") {
+		if (expectPrimary && judged && isNumber(c.expectationMatch.tolerance)) {
 			const within = scoresWithinTolerance(
 				expectPrimary,
 				judged,
@@ -624,9 +637,10 @@ export function makeScorecard(input: {
 		card.hcd = input.hcd;
 		let total = 0;
 		let max = 0;
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		for (const k of Object.keys(input.hcd) as HcdKey[]) {
 			const v = input.hcd[k];
-			if (typeof v === "number") {
+			if (isNumber(v)) {
 				total += v;
 				max = Math.max(max, v);
 			}

@@ -22,10 +22,15 @@ import {
 } from "@epoch/live";
 import { createMemoryEpochVfs } from "@epoch/wasm-react";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 interface DocState {
   readonly title?: string;
   readonly count?: number;
-  readonly [key: string]: unknown;
+  readonly [key: string]: TestJsonValue;
 }
 
 export function runEpochLiveStoreTests(): void {
@@ -363,7 +368,7 @@ function createFakeBroadcastFactory(): (name: string) => LiveBroadcastChannel {
     byName.set(name, peers);
     const channel: LiveBroadcastChannel = {
       onmessage: null,
-      postMessage(message: unknown): void {
+      postMessage<Message>(message: Message): void {
         for (const other of peers) {
           if (other !== channel && other.onmessage) other.onmessage({ data: message });
         }

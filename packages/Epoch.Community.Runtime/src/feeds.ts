@@ -1,5 +1,9 @@
 import { isRecord, type BrowserEpoch } from "@epoch/integration-core";
 import { digestOf, identifier } from "./digest";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 /**
  * Social records as change feeds.
@@ -80,9 +84,9 @@ export function appendSocialRevision(
     body,
     author,
     revision,
-    ...(input.subject === undefined ? {} : { subject: input.subject }),
-    ...(previous === undefined ? {} : { editOf: previous.revisionId }),
-    ...(input.links === undefined ? {} : { links: input.links }),
+    ...(!(input.subject === undefined) && { subject: input.subject }),
+    ...(!(previous === undefined) && { editOf: previous.revisionId }),
+    ...(!(input.links === undefined) && { links: input.links }),
   };
 
   const result = epoch.trackChange<SocialRevision>({
@@ -112,10 +116,11 @@ export function appendSocialRevision(
 
 /** Every revision in a feed, oldest first. */
 export function revisionsOf(epoch: BrowserEpoch, feed: string): readonly SocialRevision[] {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return epoch.repository.history()
     .filter((event) => event.entity === feedEntity(feed))
     .map((event) => (event.payload as { payload?: unknown }).payload)
-    .filter(isSocialRevision);
+    .filter((payload): payload is SocialRevision => isSocialRevision(payload as BoundaryValue));
 }
 
 /** The current state of each record in a feed: the last revision of each change. */
@@ -151,13 +156,13 @@ export function listFeeds(epoch: BrowserEpoch): readonly string[] {
   return [...feeds].sort();
 }
 
-function isSocialRevision(value: unknown): value is SocialRevision {
+function isSocialRevision(value: BoundaryValue): value is SocialRevision {
   return isRecord(value)
-    && typeof value.changeId === "string"
-    && typeof value.revisionId === "string"
-    && typeof value.feed === "string"
-    && typeof value.body === "string"
-    && typeof value.revision === "number";
+    && __epochIsString(value.changeId)
+    && __epochIsString(value.revisionId)
+    && __epochIsString(value.feed)
+    && __epochIsString(value.body)
+    && __epochIsNumber(value.revision);
 }
 
 function requireText(value: string, label: string): string {

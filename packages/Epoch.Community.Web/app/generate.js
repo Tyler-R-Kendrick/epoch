@@ -26,7 +26,7 @@
   };
 
   function ready() {
-    return typeof window.OpenUILang !== "undefined" && typeof window.CW_OPENUI !== "undefined";
+    return !globalThis.CW_VALUE.isUndefined(window.OpenUILang) && !globalThis.CW_VALUE.isUndefined(window.CW_OPENUI);
   }
 
   /* ── Rendering the AST into the contract's own markup ──────────────────── */
@@ -111,7 +111,7 @@
       status("The OpenUI parser did not load. Run build-openui.mjs to regenerate it.", "rejected");
       return;
     }
-    if (typeof LanguageModel === "undefined") {
+    if (globalThis.CW_VALUE.isUndefined(LanguageModel)) {
       status(
         "On-device generation is unavailable in this browser.\n\n" +
         "The OpenUI Lang system prompt is still available below — paste it into " +

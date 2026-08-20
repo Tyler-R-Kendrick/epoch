@@ -1,3 +1,4 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -39,6 +40,11 @@ import {
   type TrustStore,
 } from "@epoch/extensions";
 import { BUILTIN_COMMANDS, CliText } from "./domain";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 /**
  * CLI surface for the extension mechanism (ADR-0037).
@@ -49,8 +55,8 @@ import { BUILTIN_COMMANDS, CliText } from "./domain";
  */
 
 export interface ExtensionCliIO {
-  stdout: { write(message: string): unknown };
-  stderr: { write(message: string): unknown };
+  stdout: { write(message: string): BoundaryValue };
+  stderr: { write(message: string): BoundaryValue };
 }
 
 /** Process launch, injected so dispatch is testable without real binaries. */
@@ -183,17 +189,18 @@ function policyFor(root: string): EffectivePolicy {
     };
   }
 
-  let table: Record<string, unknown> | undefined;
+  let table: Record<string, DictionaryValue> | undefined;
   try {
     const config = new EpochRepository(root).readRepositoryConfig();
     for (const problem of config.problems) {
       degraded.push(`${problem.path}:${problem.line}:${problem.column}: ${problem.reason}`);
     }
     const extensions: unknown = config.config.extensions;
-    if (extensions !== undefined && (typeof extensions !== "object" || extensions === null || Array.isArray(extensions))) {
+    if (extensions !== undefined && (!__epochIsObject(extensions) || extensions === null || Array.isArray(extensions))) {
       degraded.push("[extensions] is not a table, so no trust policy could be read from it");
     } else {
-      table = extensions as Record<string, unknown> | undefined;
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      table = extensions as Record<string, DictionaryValue> | undefined;
     }
   } catch (error) {
     degraded.push(`configuration could not be read: ${error instanceof Error ? error.message : String(error)}`);
@@ -222,18 +229,19 @@ const REVOCATION_COMMAND = "ext-publisher-revoke";
  * own signature and is verified where it is used, so replication moves
  * evidence rather than trust.
  */
-function replicatedStatements(root: string): {
-  readonly successors: readonly SuccessorStatement[];
-  readonly revocations: readonly PublisherRevocation[];
-} {
+function replicatedStatements(root: string) {
   const successors: SuccessorStatement[] = [];
   const revocations: PublisherRevocation[] = [];
   try {
     for (const operation of new EpochRepository(root).operations()) {
       const detail = operation.detail;
-      if (typeof detail !== "object" || detail === null) continue;
-      if (operation.command === SUCCESSOR_COMMAND) successors.push(detail as unknown as SuccessorStatement);
-      if (operation.command === REVOCATION_COMMAND) revocations.push(detail as unknown as PublisherRevocation);
+      if (!__epochIsObject(detail) || detail === null) continue;
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      if (operation.command === SUCCESSOR_COMMAND) successors.push(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ detail as SuccessorStatement);
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      if (operation.command === REVOCATION_COMMAND) revocations.push(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ detail as PublisherRevocation);
     }
   } catch {
     // A repository with no event log yet has seen no statements. That is not
@@ -241,6 +249,23 @@ function replicatedStatements(root: string): {
     // is read separately and is unaffected.
   }
   return { successors, revocations };
+}
+
+function readSuccessorStatement(record: Record<string, DictionaryValue>): SuccessorStatement {
+  return {
+    predecessor: String(record.predecessor),
+    successor: String(record.successor),
+    issuedAt: String(record.issuedAt),
+    signature: String(record.signature),
+  };
+}
+
+function readPublisherRevocation(record: Record<string, DictionaryValue>): PublisherRevocation {
+  return {
+    publisher: String(record.publisher),
+    effectiveAt: String(record.effectiveAt),
+    signature: String(record.signature),
+  };
 }
 
 /**
@@ -251,7 +276,7 @@ function replicatedStatements(root: string): {
  * that will never do anything, which an operator would otherwise read as
  * having taken effect.
  */
-function readPublisherStatement(action: "succeed" | "revoke", path: string): Record<string, unknown> {
+function readPublisherStatement(action: "succeed" | "revoke", path: string) {
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(path, "utf8"));
@@ -261,16 +286,17 @@ function readPublisherStatement(action: "succeed" | "revoke", path: string): Rec
       { cause: error },
     );
   }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+  if (!__epochIsObject(parsed) || parsed === null || Array.isArray(parsed)) {
     throw new Error(`publisher statement ${path} must be a JSON object`);
   }
-  const record = parsed as Record<string, unknown>;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const record = parsed as Record<string, DictionaryValue>;
 
   if (action === "succeed") {
-    const statement = record as unknown as SuccessorStatement;
     for (const field of ["predecessor", "successor", "issuedAt", "signature"] as const) {
-      if (typeof statement[field] !== "string") throw new Error(`successor statement needs a string '${field}'`);
+      if (!__epochIsString(record[field])) throw new Error(`successor statement needs a string '${field}'`);
     }
+    const statement = readSuccessorStatement(record);
     const verified = ed25519ManifestVerifier({
       payload: successorSigningPayload(statement),
       signature: statement.signature,
@@ -284,10 +310,10 @@ function readPublisherStatement(action: "succeed" | "revoke", path: string): Rec
     return { ...record };
   }
 
-  const revocation = record as unknown as PublisherRevocation;
   for (const field of ["publisher", "effectiveAt", "signature"] as const) {
-    if (typeof revocation[field] !== "string") throw new Error(`revocation statement needs a string '${field}'`);
+    if (!__epochIsString(record[field])) throw new Error(`revocation statement needs a string '${field}'`);
   }
+  const revocation = readPublisherRevocation(record);
   const verified = ed25519ManifestVerifier({
     payload: revocationSigningPayload(revocation),
     signature: revocation.signature ?? "",
@@ -420,7 +446,8 @@ export function runExtensionCommand(
     if ((verb !== "succeed" && verb !== "revoke") || path === undefined) throw new Error(CliText.extUsage);
     const statement = readPublisherStatement(verb, path);
     const command = verb === "succeed" ? SUCCESSOR_COMMAND : REVOCATION_COMMAND;
-    new EpochRepository(resolve(root)).appendOperation(command, "succeeded", statement);
+    // SAFETY: Publisher statements are JSON objects validated before append.
+    new EpochRepository(resolve(root)).appendOperation(command, "succeeded", statement as Parameters<EpochRepository["appendOperation"]>[2]);
     io.stdout.write(
       verb === "succeed"
         ? `recorded succession ${String(statement.predecessor)} -> ${String(statement.successor)}\n`

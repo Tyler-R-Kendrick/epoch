@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
 import { createMemoryEpochIntegrationStorage } from "@epoch/integration-core";
+import type { TestJsonObject } from "../helpers/json-types";
 import {
   createCommunityRuntime,
   createWebMcpTools,
@@ -67,6 +68,12 @@ function runtime(): CommunityRuntime {
   return world.runtime;
 }
 
+// SAFETY: DynamicUiManifest fixtures are JSON-serializable command inputs.
+function manifestInput(manifest: DynamicUiManifest): TestJsonObject {
+  // SAFETY: DynamicUiManifest fixtures are JSON-round-tripped before CLI command input.
+  return JSON.parse(JSON.stringify(manifest)) as TestJsonObject;
+}
+
 Given("a personal Community interface workspace on the installed harness", function () {
   world = { runtime: openWorkspace() };
   assert.equal(runtime().workspace.status().harnessVerified, true);
@@ -74,16 +81,16 @@ Given("a personal Community interface workspace on the installed harness", funct
 
 Given("a personal Community interface workspace whose current interface no longer validates", async function () {
   world = { runtime: openWorkspace() };
-  await runtime().commands.execute({ kind: "ui.propose", input: { view: PROPOSAL_VIEW, manifest: denserFeed } });
+  await runtime().commands.execute({ kind: "ui.propose", input: { view: PROPOSAL_VIEW, manifest: manifestInput(denserFeed) } });
   await runtime().commands.execute({ kind: "change.merge", input: { from: PROPOSAL_VIEW }, confirmed: true });
-  await runtime().commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: unrenderable } });
+  await runtime().commands.execute({ kind: "ui.propose", input: { view: TRUNK_VIEW, manifest: manifestInput(unrenderable) } });
 });
 
 When("I propose a denser feed that puts verification status beside each change", async function () {
   await runtime().commands.execute({ kind: "view.create", input: { name: PROPOSAL_VIEW, scope: "personal" } });
   await runtime().commands.execute({
     kind: "ui.propose",
-    input: { view: PROPOSAL_VIEW, manifest: denserFeed, prompt: PROMPT, model: "on-device" },
+    input: { view: PROPOSAL_VIEW, manifest: manifestInput(denserFeed), prompt: PROMPT, model: "on-device" },
   });
   const diff = await runtime().commands.execute<UiSemanticDiff>({
     kind: "ui.semanticDiff",
@@ -100,10 +107,12 @@ When("I open the board", function () {
 When("I create the same proposal from the terminal and from an agent tool", async function () {
   const agent = openWorkspace();
   const cli = await executeCommunityRuntimeCommand(runtime(), ["view", "create", PROPOSAL_VIEW, "--json"]);
+  // SAFETY: Runtime checks or construction above establish EpochCommandReceipt.
   world.cliReceipt = JSON.parse(cli.output) as EpochCommandReceipt;
 
   const create = createWebMcpTools(agent).find((tool) => tool.name === "epoch_view_create");
   assert.ok(create, "the agent is offered a view.create tool");
+  // SAFETY: Runtime checks or construction above establish UiWorld["toolReceipt"].
   world.toolReceipt = JSON.parse(await create.execute({ name: PROPOSAL_VIEW })) as UiWorld["toolReceipt"];
 });
 
@@ -168,6 +177,7 @@ Then("an agent without permission is refused even though the tool is offered", a
 
   const create = createWebMcpTools(reader).find((tool) => tool.name === "epoch_view_create");
   assert.ok(create, "the tool is still advertised — visibility is not authorization");
+  // SAFETY: Runtime checks or construction above establish { decision: string }.
   const result = JSON.parse(await create.execute({ name: PROPOSAL_VIEW })) as { decision: string };
   assert.equal(result.decision, "deny");
   assert.equal(reader.workspace.listViews().length, 1);

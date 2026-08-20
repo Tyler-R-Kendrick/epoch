@@ -1,21 +1,23 @@
-import { PROTOCOL_EVENT_SCHEMAS, type ProtocolEventType } from "./events";
+import { PROTOCOL_EVENT_SCHEMAS } from "./events";
 import { CANONICAL_ID_KINDS, type CanonicalIdKind } from "./ids";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 
-type JsonSchema = Readonly<Record<string, unknown>>;
 
-const revisionId: JsonSchema = { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$" };
-const digest: JsonSchema = { type: "string", pattern: "^[a-f0-9]{64}$" };
-const repositoryPath: JsonSchema = { type: "string", minLength: 1, maxLength: 4096, pattern: "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$" };
-const nonemptyString: JsonSchema = { type: "string", minLength: 1 };
-const nonnegativeInteger: JsonSchema = { type: "integer", minimum: 0 };
-const ref = (name: string): JsonSchema => ({ $ref: `#/$defs/${name}` });
-const arrayOf = (items: JsonSchema, minItems = 0): JsonSchema => ({ type: "array", items, minItems, uniqueItems: true });
-const id = (kind: CanonicalIdKind): JsonSchema => ({ type: "string", pattern: `^epoch:${kind}:[a-z2-7]{52}$` });
-const object = (required: readonly string[], properties: Readonly<Record<string, JsonSchema>>): JsonSchema => ({
+type JsonSchema = Readonly<Record<string, DictionaryValue>>;
+
+const revisionId = { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$" };
+const digest = { type: "string", pattern: "^[a-f0-9]{64}$" };
+const repositoryPath = { type: "string", minLength: 1, maxLength: 4096, pattern: "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\u0000]+$" };
+const nonemptyString = { type: "string", minLength: 1 };
+const nonnegativeInteger = { type: "integer", minimum: 0 };
+const ref = (name: string) => ({ $ref: `#/$defs/${name}` });
+const arrayOf = (items: JsonSchema, minItems = 0) => ({ type: "array", items, minItems, uniqueItems: true });
+const id = (kind: CanonicalIdKind) => ({ type: "string", pattern: `^epoch:${kind}:[a-z2-7]{52}$` });
+const object = (required: readonly string[], properties: Readonly<Record<string, JsonSchema>>) => ({
   type: "object", additionalProperties: false, required: [...required], properties,
 });
 
-const simpleBodies: Readonly<Record<string, JsonSchema>> = {
+const simpleBodies = {
   repositoryIdentityBody: object(["repositoryId", "principalId"], { repositoryId: id("repo"), principalId: id("principal"), keyId: id("key") }),
   changeSupersededBody: object(["changeId", "supersededRevisionId", "byRevisionId"], { changeId: id("change"), supersededRevisionId: revisionId, byRevisionId: revisionId }),
   changeDependencyBody: object(["changeRevisionId", "dependencyRevisionId"], { changeRevisionId: revisionId, dependencyRevisionId: revisionId }),
@@ -127,7 +129,7 @@ const simpleBodies: Readonly<Record<string, JsonSchema>> = {
   }),
 };
 
-const complexBodies: Readonly<Record<string, JsonSchema>> = {
+const complexBodies = {
   fragmentSource: object(["path"], { path: repositoryPath, digest }),
   fragmentPrecondition: {
     oneOf: [
@@ -170,7 +172,7 @@ const complexBodies: Readonly<Record<string, JsonSchema>> = {
   }),
 };
 
-const bodyDefinitionByType: Readonly<Record<ProtocolEventType, string>> = {
+const bodyDefinitionByType = {
   "repository.identity": "repositoryIdentityBody",
   "change.created": "changeRevisionBody", "change.revised": "changeRevisionBody", "change.superseded": "changeSupersededBody",
   "change.dependency.added": "changeDependencyBody", "change.dependency.removed": "changeDependencyBody",

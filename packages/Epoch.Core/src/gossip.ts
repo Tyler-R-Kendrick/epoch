@@ -7,7 +7,7 @@ import {
   type SyncResult,
 } from "./core";
 import { EventDataSchema } from "./domain";
-import { isRecord } from "./json";
+import { isRecord, type JsonValue } from "./json";
 
 export type { GossipPeer } from "./core";
 
@@ -66,7 +66,7 @@ export class HttpGossipPeer implements GossipPeer {
       const text = await response.text();
       throw new Error(`gossip peer request failed (${response.status}): ${text}`);
     }
-    const body = (await response.json()) as unknown;
+    const body = await response.json();
     return parseSnapshot(body);
   }
 }
@@ -93,7 +93,7 @@ export async function startGossipServer(
   const port = options.port ?? 0;
 
   const server: Server = createServer((req, res) => {
-    void handleGossipHttp(req, res, repository).catch((error: unknown) => {
+    void handleGossipHttp(req, res, repository).catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
       if (!res.headersSent) {
         res.statusCode = 500;
@@ -109,7 +109,7 @@ export async function startGossipServer(
   });
 
   const address = server.address();
-  if (address === null || typeof address === "string") {
+  if (address === null || isString(address)) {
     throw new Error("gossip server failed to bind");
   }
 
@@ -171,19 +171,18 @@ export async function gossipWithUrl(
   return gossipWithPeer(repository, peer, peerUrl);
 }
 
-export function parseSnapshot(value: unknown): MemoryEpochTransportSnapshot {
+export function parseSnapshot<Value>(value: Value): MemoryEpochTransportSnapshot {
   if (!isRecord(value)) throw new Error("invalid gossip snapshot");
   const events = Array.isArray(value.events)
     ? value.events.map((event) => EventDataSchema.parse(event))
     : [];
   const blobs =
-    isRecord(value.blobs) &&
-    Object.values(value.blobs).every((entry) => typeof entry === "string")
-      ? (value.blobs as Record<string, string>)
+    isStringRecord(value.blobs)
+      ? value.blobs
       : {};
   const heads =
-    Array.isArray(value.heads) && value.heads.every((head) => typeof head === "string")
-      ? (value.heads as string[])
+    Array.isArray(value.heads) && value.heads.every(isString)
+      ? value.heads
       : [];
   return { events, blobs, heads };
 }
@@ -194,7 +193,7 @@ function gossipUrl(baseUrl: string): string {
   return `${trimmed}/epoch/gossip`;
 }
 
-function readJsonBody(req: IncomingMessage): Promise<unknown> {
+function readJsonBody(req: IncomingMessage): Promise<JsonValue> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
@@ -208,4 +207,12 @@ function readJsonBody(req: IncomingMessage): Promise<unknown> {
     });
     req.on("error", reject);
   });
+}
+
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
+}
+
+function isStringRecord<Value>(value: Value): value is Value & Record<string, string> {
+  return isRecord(value) && Object.values(value).every(isString);
 }

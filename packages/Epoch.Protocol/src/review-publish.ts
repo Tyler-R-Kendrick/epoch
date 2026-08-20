@@ -84,7 +84,7 @@ export function describeChangePublish(input: ChangePublishOptions & {
     reviewRef: gerritReviewRef(target),
     pushSpec: gerritPushSpec(options),
     pushOptions: gerritPushOptions(options),
-    ...(topic === undefined ? {} : { topic }),
+    ...(!(topic === undefined) && { topic }),
     hashtags,
     wip: input.wip === true,
   });

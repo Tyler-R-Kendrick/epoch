@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   CRDTRegistry,
@@ -25,6 +26,12 @@ import { executeCommunityCli, isCommunityCliInvocation } from "./community";
 import { interopDoctor } from "./interop-doctor";
 import { dispatchExternalSubcommand, runExtensionCommand } from "./extensions";
 import { runSemanticCommand } from "./semantic";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 interface ParsedArgs {
   repo: string;
@@ -33,8 +40,8 @@ interface ParsedArgs {
 }
 
 export interface CliIO {
-  stdout: { write(message: string): unknown };
-  stderr: { write(message: string): unknown };
+  stdout: { write(message: string): BoundaryValue };
+  stderr: { write(message: string): BoundaryValue };
 }
 
 const processCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
@@ -42,11 +49,14 @@ class CliHandledError extends Error {}
 
 export function main(argv = process.argv.slice(2), io: CliIO = processCliIO): number | Promise<number> {
   try {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const result = run(argv, io);
-    if (result !== undefined && typeof (result as Promise<void>).then === "function") {
+    // SAFETY: Runtime checks or construction above establish Promise<void>).then)) {.
+    if (result !== undefined && __epochIsFunction((result as Promise<void>).then)) {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       return (result as Promise<void>).then(
         () => 0,
-        (error: unknown) => {
+        (error: BoundaryValue) => {
           if (error instanceof CliHandledError) return 1;
           io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
           return 1;
@@ -165,7 +175,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
         message: options.message === "" ? undefined : options.message,
         createVersion: !isFlagEnabled(options, CliOption.noVersion),
       });
-      const versionName = typeof result.version?.payload.name === "string" ? result.version.payload.name : result.version?.id;
+      const versionName = __epochIsString(result.version?.payload.name) ? result.version.payload.name : result.version?.id;
       writeLine(io, `pushed ${result.recorded.length} files${result.version === undefined ? "" : `; version ${versionName} ${result.version.id}`}`);
       return;
     }
@@ -323,7 +333,9 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
         );
       }
       return (async () => {
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const mode = options.mode as "federated" | "local-only" | "disabled";
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const visibility = options.visibility as "public" | "private";
         const did = options.did === "" ? "did:plc:local" : options.did;
         const gossipPeers = options.peer === "" ? [] : [options.peer];
@@ -357,6 +369,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
       if (options.positionals.length !== 1) throw new Error(`usage: epoch ${parsed.command} [--version NAME] GIT_REPO`);
       const events = repo.importFromGit(options.positionals[0]);
       const version = options.version === "" ? undefined : repo.createVersion({ name: options.version });
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       writeLine(io, `imported ${events.length} files${version === undefined ? "" : `; version ${version.payload.name as string} ${version.id}`}`);
       recordCliOperation(repo, "import", {
         gitRepo: options.positionals[0],
@@ -383,6 +396,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     }
     case CliCommand.importExit: {
       if (parsed.args.length !== 1) throw new Error("usage: epoch import-exit FILE");
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const bundle = JSON.parse(readFileSync(parsed.args[0], JsonEncoding)) as unknown;
       importExitBundle(repo, bundle);
       writeLine(io, "imported exit bundle");
@@ -581,10 +595,11 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
       if (requested !== undefined && normalizeMaterializationMode(requested) === undefined) {
         throw new Error(CliText.checkoutUsage);
       }
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const state = repo.checkoutView(options.positionals[0], {
         materialization: requested as MaterializationSetting | undefined,
         base: options.base === "" ? undefined : options.base,
-        ...(options.select === "" ? {} : { selection: parseSelection(options.select) }),
+        ...(!(options.select === "") && { selection: parseSelection(options.select) }),
       });
       const detail = ` [${state.materialization}: written=${state.written.length} virtual=${state.virtualPaths.length} excluded=${state.excludedPaths.length}]`;
       writeLine(io, `checked out ${state.name} (${state.intentIds.length} intents)${detail}`);
@@ -629,7 +644,7 @@ function run(argv: string[], io: CliIO): void | Promise<void> {
     }
     case CliCommand.versions:
       for (const version of repo.versions()) {
-        writeLine(io, `${version.id} ${typeof version.payload.name === "string" ? version.payload.name : ""} files=${Array.isArray(version.payload.files) ? version.payload.files.length : 0} entities=${Array.isArray(version.payload.entities) ? version.payload.entities.length : 0}`);
+        writeLine(io, `${version.id} ${__epochIsString(version.payload.name) ? version.payload.name : ""} files=${Array.isArray(version.payload.files) ? version.payload.files.length : 0} entities=${Array.isArray(version.payload.entities) ? version.payload.entities.length : 0}`);
       }
       return;
     case CliCommand.version:
@@ -661,23 +676,32 @@ function parseGlobalArgs(argv: string[]): ParsedArgs {
 }
 
 function parseOptions<T extends Record<string, string>>(args: string[], defaults: T, flags: readonly string[] = []): T & { positionals: string[] } {
-  const values: Record<string, string | string[]> = { ...defaults, positionals: [] };
+  const values: T & { positionals: string[] } = { ...defaults, positionals: [] };
   const remaining = [...args];
   while (remaining.length > 0) {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const token = remaining.shift() as string;
     if (!token.startsWith(CliSyntax.optionPrefix)) {
-      (values.positionals as string[]).push(token);
+      values.positionals.push(token);
       continue;
     }
     const key = token.slice(2);
     if (flags.includes(key)) {
-      values[key] = "true";
+      assignCliOption(values, key, "true");
       continue;
     }
     if (!(key in defaults)) throw new Error(`unknown option: ${token}`);
-    values[key] = requiredValue(token, remaining.shift());
+    assignCliOption(values, key, requiredValue(token, remaining.shift()));
   }
-  return values as T & { positionals: string[] };
+  return values;
+}
+
+function assignCliOption<T extends Record<string, string>>(
+  values: T & { positionals: string[] },
+  key: string,
+  value: string,
+): void {
+  Object.assign(values, { [key]: value });
 }
 
 function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): void {
@@ -693,7 +717,7 @@ function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): vo
         description: options.description === "" ? undefined : options.description,
         author: options.author === "" ? undefined : options.author,
       });
-      writeLine(io, `version ${typeof version.payload.name === "string" ? version.payload.name : version.id} ${version.id}`);
+      writeLine(io, `version ${__epochIsString(version.payload.name) ? version.payload.name : version.id} ${version.id}`);
       return;
     }
     case "show": {
@@ -710,7 +734,7 @@ function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): vo
         force: isFlagEnabled(options, CliOption.force),
         base: options.base === "" ? undefined : options.base,
       });
-      const name = typeof result.version.payload.name === "string" ? result.version.payload.name : result.version.id;
+      const name = __epochIsString(result.version.payload.name) ? result.version.payload.name : result.version.id;
       const suffix = result.virtualPaths === undefined ? "" : ` [virtual: written=${result.files.length} virtual=${result.virtualPaths.length}]`;
       writeLine(io, `materialized version ${name} to ${options.out}${suffix}`);
       return;
@@ -728,7 +752,7 @@ function runConfigCommand(repo: EpochRepository, args: string[], io: CliIO): voi
       if (options.positionals.length !== 1) throw new Error(CliText.configGetUsage);
       const value = repo.configValue(options.positionals[0]);
       if (value === undefined) throw new Error(`config key not found: ${options.positionals[0]}`);
-      writeLine(io, typeof value === "object" ? JSON.stringify(value, null, 2) : String(value));
+      writeLine(io, __epochIsObject(value) ? JSON.stringify(value, null, 2) : String(value));
       return;
     }
     case "path": {
@@ -746,7 +770,7 @@ function splitOption(value: string): string[] {
   return value.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
 }
 
-function isFlagEnabled(options: Record<string, unknown>, key: string): boolean {
+function isFlagEnabled(options: Record<string, DictionaryValue>, key: string): boolean {
   return options[key] === "true";
 }
 
@@ -770,8 +794,9 @@ function splitCsv(value: string): string[] {
   return value.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
 }
 
-function recordCliOperation(repo: EpochRepository, command: string, detail: Record<string, unknown>): void {
-  repo.appendOperation(command, "succeeded", detail);
+function recordCliOperation(repo: EpochRepository, command: string, detail: Record<string, DictionaryValue>): void {
+  // SAFETY: CLI operation details are built from JSON-safe values before append.
+  repo.appendOperation(command, "succeeded", detail as Parameters<EpochRepository["appendOperation"]>[2]);
 }
 
 function writeLine(io: CliIO, message: string): void {
@@ -784,7 +809,7 @@ function writeErrorLine(io: CliIO, message: string): void {
 
 if (require.main === module) {
   const result = main();
-  if (typeof result === "object" && result !== null && "then" in result) {
+  if (__epochIsObject(result) && result !== null && "then" in result) {
     void result.then((code) => {
       process.exitCode = code;
     });

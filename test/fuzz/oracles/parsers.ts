@@ -9,6 +9,12 @@ import {
 import { formatSwhid, parseSwhid, type SwhObjectKind } from "@epoch/software-heritage";
 import { parseCommunityQuery } from "@epoch/community-core";
 
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 /** Shared parse oracles used by smoke, fast-check, and Jazzer wrappers. */
 
 export function assertCanonicalIdRoundtrip(bytes: Uint8Array | Buffer): string {
@@ -37,7 +43,7 @@ export function assertProtocolEventClosed(event: {
   type: string;
   eventId: string;
   revisionId: string;
-  body: Record<string, unknown>;
+  body: TestJsonObject;
 }): void {
   assert.equal(assertProtocolEvent(JSON.parse(JSON.stringify(event))).eventId, event.eventId);
   assert.throws(() => assertProtocolEvent({ ...event, unknown: true }), /Unknown event field/u);
@@ -61,7 +67,7 @@ export function assertProtocolEventIdentityClosed(event: {
   type: string;
   eventId: string;
   revisionId: string;
-  body: Record<string, unknown>;
+  body: TestJsonObject;
 }): void {
   assertProtocolEventClosed(event);
   assert.throws(() => assertProtocolEvent({
@@ -199,7 +205,10 @@ export function fuzzSafeSwhid(input: string): void {
 export function fuzzSafeProtocolEventJson(raw: string): void {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { return; }
-  try { assertProtocolEvent(parsed); } catch (error) {
+  try {
+    // SAFETY: Fuzz corpora are JSON wire values validated by assertProtocolEvent.
+    assertProtocolEvent(parsed as BoundaryValue);
+  } catch (error) {
     if (!(error instanceof Error)) throw error;
     // Expected schema failures stay quiet; anything else aborts the fuzzer.
   }
@@ -217,7 +226,10 @@ export function fuzzSafeRemoteHelper(line: string): void {
 export function fuzzSafeChunkManifestJson(raw: string): void {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { return; }
-  try { assertChunkManifest(parsed as Parameters<typeof assertChunkManifest>[0]); } catch (error) {
+  try {
+    // SAFETY: Fuzz corpora are JSON wire values validated by assertChunkManifest.
+    assertChunkManifest(parsed as BoundaryValue);
+  } catch (error) {
     if (!(error instanceof Error) || !/size|layout|chunk|manifest|sha/iu.test(error.message)) throw error;
   }
 }
@@ -228,11 +240,15 @@ export function fuzzSafeForgeCodecBytes(buf: Buffer): void {
   }
   let parsed: unknown;
   try { parsed = JSON.parse(buf.toString("utf8")); } catch { return; }
-  try { decodeForgeFed(parsed); } catch (error) {
+  try {
+    // SAFETY: Fuzz corpora are JSON wire values validated by decodeForgeFed.
+    decodeForgeFed(parsed as BoundaryValue);
+  } catch (error) {
     if (!(error instanceof Error) || !/forge|fed|kind|invalid|unsupported/iu.test(error.message)) throw error;
   }
   try {
-    decodeNip34(parsed, {
+    // SAFETY: Fuzz corpora are JSON wire values validated by decodeNip34.
+    decodeNip34(parsed as BoundaryValue, {
       now: 500,
       signatureEvidence: { verified: true, eventId: "x", pubkey: "y", verifier: "fuzz" },
     });
@@ -241,7 +257,8 @@ export function fuzzSafeForgeCodecBytes(buf: Buffer): void {
     if (!(error instanceof Error) || !/nip|nostr|expired|audience|signature|invalid|event|malformed|forge/iu.test(error.message)) throw error;
   }
   try {
-    decodeRadicle(parsed, {
+    // SAFETY: Fuzz corpora are JSON wire values validated by decodeRadicle.
+    decodeRadicle(parsed as BoundaryValue, {
       lastSequence: 0,
       signedRefEvidence: {
         verified: true, radicleId: "rad:z0", signedRef: "refs/rad/sigrefs/0", sequence: 1, revision: "r", verifier: "fuzz",
@@ -254,7 +271,7 @@ export function fuzzSafeForgeCodecBytes(buf: Buffer): void {
 
 export function fuzzSafePathQuery(input: string): void {
   const result = parseCommunityQuery(input);
-  if (result === null || typeof result !== "object") {
+  if (!isObject(result)) {
     throw new Error("parseCommunityQuery must return an object");
   }
   if (!Array.isArray(result.diagnostics)) {
@@ -264,16 +281,20 @@ export function fuzzSafePathQuery(input: string): void {
 
 export function assertPathQueryFailClosed(input: string): void {
   const result = parseCommunityQuery(input);
-  assert.equal(typeof result, "object");
+  assert.equal(isObject(result), true);
   assert.ok(Array.isArray(result.diagnostics));
 }
 
 export function assertPathQueryNeverEscapesRoot(input: string): void {
   const result = parseCommunityQuery(input);
-  assert.equal(typeof result, "object");
+  assert.equal(isObject(result), true);
   assert.ok(Array.isArray(result.diagnostics));
   const serialized = JSON.stringify(result);
   assert.equal(serialized.includes("\0"), false);
+}
+
+function isObject<Value>(value: Value): value is Value & object {
+  return typeof value === "object" && value !== null;
 }
 
 export function assertProtocolEventUnknownTypeFails(rawType: string): void {

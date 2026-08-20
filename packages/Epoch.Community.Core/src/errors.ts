@@ -23,6 +23,9 @@ export type CommunityErrorCode =
   | "CRYPTO_UNAVAILABLE"
   | "INTERNAL";
 
+export type CommunityErrorDetail = string | number | boolean | null | CommunityErrorDetails | readonly CommunityErrorDetail[];
+export interface CommunityErrorDetails { readonly [key: string]: CommunityErrorDetail }
+
 const STATUS_BY_CODE: Readonly<Record<CommunityErrorCode, number>> = Object.freeze({
   QUERY_SYNTAX: 400,
   QUERY_UNKNOWN_FIELD: 400,
@@ -52,18 +55,24 @@ const STATUS_BY_CODE: Readonly<Record<CommunityErrorCode, number>> = Object.free
 export interface CommunityErrorBody {
   readonly code: CommunityErrorCode;
   readonly message: string;
-  readonly details?: Readonly<Record<string, unknown>>;
+  readonly details?: CommunityErrorDetails;
+}
+
+interface CommunityErrorBodyBuilder {
+  code: CommunityErrorCode;
+  message: string;
+  details?: CommunityErrorDetails;
 }
 
 export class CommunityError extends Error {
   readonly code: CommunityErrorCode;
   readonly httpStatus: number;
-  readonly details?: Readonly<Record<string, unknown>>;
+  readonly details?: CommunityErrorDetails;
 
   constructor(
     code: CommunityErrorCode,
     message: string,
-    details?: Readonly<Record<string, unknown>>,
+    details?: CommunityErrorDetails,
     options?: ErrorOptions,
   ) {
     super(message, options);
@@ -74,11 +83,12 @@ export class CommunityError extends Error {
   }
 
   toJSON(): CommunityErrorBody {
-    return {
+    const body: CommunityErrorBodyBuilder = {
       code: this.code,
       message: this.message,
-      ...(this.details === undefined ? {} : { details: this.details }),
     };
+    if (this.details !== undefined) body.details = this.details;
+    return body;
   }
 }
 
@@ -86,16 +96,24 @@ export function communityErrorHttpStatus(code: CommunityErrorCode): number {
   return STATUS_BY_CODE[code];
 }
 
-export function isCommunityError(error: unknown): error is CommunityError {
-  return error instanceof CommunityError || (typeof error === "object" && error !== null
-    && (error as { readonly name?: unknown }).name === "CommunityError"
-    && typeof (error as { readonly message?: unknown }).message === "string"
-    && isCommunityErrorCode((error as { readonly code?: unknown }).code)
-    && (error as { readonly httpStatus?: unknown }).httpStatus === communityErrorHttpStatus(
-      (error as { readonly code: CommunityErrorCode }).code,
-    ));
+export function isCommunityError<ErrorValue>(error: ErrorValue): error is ErrorValue & CommunityError {
+  if (error instanceof CommunityError) return true;
+  if (!isErrorDetails(error)) return false;
+  // SAFETY: isErrorDetails established the concrete dictionary contract.
+  const details = error as ErrorValue & CommunityErrorDetails;
+  const code = details.code;
+  return details.name === "CommunityError" && isString(details.message) && isCommunityErrorCode(code)
+    && details.httpStatus === communityErrorHttpStatus(code);
 }
 
-function isCommunityErrorCode(value: unknown): value is CommunityErrorCode {
+function isCommunityErrorCode(value: CommunityErrorDetail | undefined): value is CommunityErrorCode {
   return typeof value === "string" && Object.hasOwn(STATUS_BY_CODE, value);
+}
+
+function isErrorDetails<Value>(value: Value): value is Value & CommunityErrorDetails {
+  return typeof value === "object" && value !== null;
+}
+
+function isString(value: CommunityErrorDetail | undefined): value is string {
+  return typeof value === "string";
 }

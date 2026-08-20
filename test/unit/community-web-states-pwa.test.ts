@@ -8,6 +8,7 @@ import {
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
+// SAFETY: The built CommonJS module exports the state-rendering functions declared below.
 const {
   asListState,
   renderChannelOrigin,
@@ -89,6 +90,7 @@ async function pwaManifestAndServiceWorkerStayHonestAboutTheShell(): Promise<voi
       }],
     }),
   });
+  // SAFETY: Runtime checks or construction above establish {.
   const manifest = JSON.parse(renderWebManifest(app)) as {
     name: string;
     start_url: string;

@@ -24,7 +24,7 @@ export function projectionExplanationRows(explanation: {
   readonly path: string;
   readonly detail: string;
   readonly componentOrder: readonly string[];
-  readonly shadowed: readonly unknown[];
+  readonly shadowed: readonly object[];
 }): readonly ExplainRow[] {
   return Object.freeze([
     { label: "projection", value: explanation.projectionId },
@@ -35,7 +35,7 @@ export function projectionExplanationRows(explanation: {
   ]);
 }
 
-function stable(value: unknown): string {
+function stable<T>(value: T): string {
   if (value === undefined) return "none";
-  return JSON.stringify(value, (_key, current: unknown) => current, 0).slice(0, 2_048);
+  return JSON.stringify(value).slice(0, 2_048);
 }

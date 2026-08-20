@@ -91,7 +91,7 @@ export function deriveChannel(
 /** Empty-state copy for a channel id, for surfaces that only carry the id. */
 export function emptyCopyForChannel(
   channelId: CommunityChannelId,
-): { readonly title: string; readonly action: string } {
+) {
   const channel = [...defaultSocialChannels, ...defaultWorkChannels].find(
     (item) => item.id === channelId,
   );

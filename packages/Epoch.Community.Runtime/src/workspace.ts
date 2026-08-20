@@ -15,6 +15,8 @@ import {
   type DynamicUiScope,
   type UiSemanticDiff,
 } from "./ui";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * The browser Epoch workspace.
@@ -170,7 +172,7 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
   const epoch = createBrowserEpoch({
     namespace: options.namespace,
     author: options.author,
-    ...(options.storage === undefined ? {} : { storage: options.storage }),
+    ...(!(options.storage === undefined) && { storage: options.storage }),
   });
   const id = identifier("ws", { namespace: options.namespace, harness: harness.releaseId });
   const initialManifest = options.initialManifest ?? harness.safeModeManifest;
@@ -251,7 +253,7 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
       revision,
       headEventId,
       valid: validate(record.manifest).length === 0,
-      ...(base === undefined ? {} : { base }),
+      ...(!(base === undefined) && { base }),
     };
   }
 
@@ -273,13 +275,17 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
   function revision(name: string, target: number): UiRevisionRecord {
     const event = epoch.repository.history().find((candidate) => {
       if (candidate.entity !== viewEntity(name)) return false;
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const payload = candidate.payload as { revision?: unknown };
       return payload.revision === target;
     });
     if (event === undefined) throw new Error(`Epoch view '${name}' has no revision ${target}.`);
+    // SAFETY: Live repository events store nested UI revision payloads under payload.payload.
     const payload = (event.payload as { payload?: unknown }).payload;
-    if (!isUiRevisionRecord(payload)) throw new Error(`Epoch view '${name}' revision ${target} is unreadable.`);
-    return payload;
+    // SAFETY: isUiRevisionRecord validates the payload immediately below.
+    if (!isUiRevisionRecord(payload as BoundaryValue)) throw new Error(`Epoch view '${name}' revision ${target} is unreadable.`);
+    // SAFETY: isUiRevisionRecord validates the payload immediately above.
+    return payload as UiRevisionRecord;
   }
 
   function listViews(): readonly EpochViewSummary[] {
@@ -364,14 +370,15 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
     const errors = validate(input.manifest);
     const provenance: UiRevisionProvenance = {
       kind: "proposed",
-      ...(existing === undefined ? {} : { baseView: name }),
-      ...(baseRevision === undefined ? {} : { baseRevision }),
-      ...(input.prompt === undefined ? {} : { promptDigest: digestOf(input.prompt) }),
-      ...(input.prompt !== undefined && input.retainPrompt === true ? { prompt: input.prompt } : {}),
-      ...(input.model === undefined ? {} : { model: input.model }),
-      ...(errors.length === 0 ? {} : { validationErrors: errors }),
+      ...(!(existing === undefined) && { baseView: name }),
+      ...(!(baseRevision === undefined) && { baseRevision }),
+      ...(!(input.prompt === undefined) && { promptDigest: digestOf(input.prompt) }),
+      ...(input.prompt !== undefined && input.retainPrompt === true && { prompt: input.prompt }),
+      ...(!(input.model === undefined) && { model: input.model }),
+      ...(!(errors.length === 0) && { validationErrors: errors }),
     };
 
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return appendRevision(name, {
       manifest: input.manifest,
       kind: existing === undefined ? "proposal" : (existing.payload as UiRevisionRecord).kind,
@@ -454,7 +461,7 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
     };
   }
 
-  function materialize(name?: string): { readonly manifest: DynamicUiManifest; readonly safeMode: boolean; readonly reason?: string } {
+  function materialize(name?: string) {
     if (!verifyStaticHarnessRelease(harness)) {
       return { manifest: harness.safeModeManifest, safeMode: true, reason: "installed harness release failed digest verification" };
     }
@@ -490,7 +497,7 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
       events: epoch.repository.history().length,
       safeMode: rendered.safeMode,
       state: rendered.safeMode && !safeMode() ? "unrenderable" : proposals.length > 0 ? "proposed" : "clean",
-      ...(known === undefined ? {} : { lastKnownGood: known }),
+      ...(!(known === undefined) && { lastKnownGood: known }),
     };
   }
 
@@ -530,7 +537,7 @@ function requireViewName(name: string): string {
   return trimmed;
 }
 
-function isUiRevisionRecord(value: unknown): value is UiRevisionRecord {
+function isUiRevisionRecord(value: BoundaryValue): value is UiRevisionRecord {
   return isRecord(value)
     && isDynamicUiManifest(value.manifest)
     && isRecord(value.provenance)

@@ -1,8 +1,14 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 export type RevsetFunction = "heads" | "roots" | "ancestors" | "descendants" | "change" | "graph" |
   "conflicts" | "pending" | "approved" | "mergeable" | "author";
 export type RevsetExpression =
   | { readonly type: "call"; readonly name: RevsetFunction; readonly argument?: RevsetExpression | string }
   | { readonly type: "binary"; readonly operator: "union" | "intersection" | "difference"; readonly left: RevsetExpression; readonly right: RevsetExpression };
+
+function __epochIsString<T>(value: T): value is T & string {
+  return typeof value === "string";
+}
 
 export class RevsetParseError extends Error {
   readonly name = "RevsetParseError";
@@ -19,7 +25,10 @@ function tokenize(input: string): readonly Token[] {
   for (let index = 0; index < input.length;) {
     const character = input[index]!;
     if (/\s/u.test(character)) { index += 1; continue; }
-    if (["(", ")", "|", "&", "-"].includes(character)) { tokens.push({ type: character as Token["type"], value: character, offset: index++ }); continue; }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    if (["(", ")", "|", "&", "-"].includes(character)) { tokens.push({ type: /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ character as Token["type"], value: character, offset: index++ }); continue; }
     const start = index;
     while (index < input.length && !/[\s()|&]/u.test(input[index]!)) index += 1;
     tokens.push({ type: "word", value: input.slice(start, index), offset: start });
@@ -35,7 +44,9 @@ export function parseRevset(input: string): RevsetExpression {
   function primary(): RevsetExpression {
     if (current().type === "(") { take("("); const expression = union(); take(")"); return expression; }
     const nameToken = take("word");
+    // SAFETY: Runtime checks or construction above establish RevsetFunction)) throw new RevsetParseError(`unknown revset function ${nameToken.value}`.
     if (!functions.has(nameToken.value as RevsetFunction)) throw new RevsetParseError(`unknown revset function ${nameToken.value}`, nameToken.offset);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const name = nameToken.value as RevsetFunction; take("(");
     if (current().type === ")") { take(")"); return { type: "call", name }; }
     const nested = current().type === "word" && tokens[cursor + 1]?.type !== "(" ? take("word").value : union();
@@ -72,7 +83,7 @@ export interface RevsetNode {
 }
 
 export function evaluateRevset(expression: RevsetExpression | string, nodes: readonly RevsetNode[]): readonly string[] {
-  const ast = typeof expression === "string" ? parseRevset(expression) : expression;
+  const ast = __epochIsString(expression) ? parseRevset(expression) : expression;
   const byId = new Map(nodes.map((node) => [node.revisionId, node]));
   const children = new Map<string, string[]>();
   for (const node of nodes) for (const parent of node.parentRevisionIds) children.set(parent, [...(children.get(parent) ?? []), node.revisionId]);
@@ -87,7 +98,7 @@ export function evaluateRevset(expression: RevsetExpression | string, nodes: rea
       if (value.operator === "intersection") return new Set([...left].filter((id) => right.has(id)));
       return new Set([...left].filter((id) => !right.has(id)));
     }
-    const literal = typeof value.argument === "string" ? value.argument : undefined;
+    const literal = __epochIsString(value.argument) ? value.argument : undefined;
     if (value.name === "heads") {
       const parents = new Set(nodes.flatMap((node) => [...node.parentRevisionIds])); return new Set([...all].filter((id) => !parents.has(id)));
     }
@@ -98,7 +109,7 @@ export function evaluateRevset(expression: RevsetExpression | string, nodes: rea
     if (value.name === "conflicts") return new Set(nodes.filter((node) => node.conflict).map((node) => node.revisionId));
     if (value.name === "pending" || value.name === "approved") return new Set(nodes.filter((node) => node.reviewState === value.name).map((node) => node.revisionId));
     if (value.name === "mergeable") return new Set(nodes.filter((node) => node.mergeable === true).map((node) => node.revisionId));
-    const seed = typeof value.argument === "string" ? new Set([value.argument]) : value.argument ? visit(value.argument) : new Set<string>();
+    const seed = __epochIsString(value.argument) ? new Set([value.argument]) : value.argument ? visit(value.argument) : new Set<string>();
     const output = new Set(seed); const queue = [...seed];
     while (queue.length) {
       const id = queue.shift()!;

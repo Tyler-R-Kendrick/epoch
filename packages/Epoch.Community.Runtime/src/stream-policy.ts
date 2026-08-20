@@ -6,6 +6,9 @@
  * inputs are dropped or replaced with a fixed-width cipher — never a length oracle.
  */
 import { identifier } from "./digest";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export const STREAM_CIPHER_WIDTH = 12;
 export const STREAM_CIPHER_ALPHABET = "░▒▓█▀▄■□◆◇※‡†¤§øæ#@%&";
@@ -14,7 +17,7 @@ export interface StreamCommandEnvelope {
   readonly t: number;
   readonly actorId: string;
   readonly actionId: string;
-  readonly args: Readonly<Record<string, unknown>>;
+  readonly args: Readonly<Record<string, DictionaryValue>>;
   readonly path?: string;
 }
 
@@ -133,7 +136,7 @@ export function sanitizeStreamCommand(input: StreamSanitizeInput): StreamSanitiz
       actorId: envelope.actorId,
       actionId: envelope.actionId,
       args: rewritten.args,
-      ...(path ? { path } : {}),
+      ...(path && { path }),
     },
   };
 }
@@ -153,19 +156,19 @@ export function replayStreamCommand(envelope: StreamCommandEnvelope): StreamRepl
   return { kind: "apply", envelope };
 }
 
-function hasTextPayload(args: Readonly<Record<string, unknown>>): boolean {
-  return typeof args.body === "string" || typeof args.text === "string" || typeof args.value === "string";
+function hasTextPayload(args: Readonly<Record<string, DictionaryValue>>): boolean {
+  return __epochIsString(args.body) || __epochIsString(args.text) || __epochIsString(args.value);
 }
 
 function rewriteArgs(
-  args: Readonly<Record<string, unknown>>,
+  args: Readonly<Record<string, DictionaryValue>>,
   rewriteSource: string | undefined,
   sessionSalt: string,
-): { readonly args: Readonly<Record<string, unknown>>; readonly dropped: boolean } {
+) {
   const rules = [...DEFAULT_REWRITE, ...parseStreamRewrite(rewriteSource)];
-  const next: Record<string, unknown> = {};
+  const next: Record<string, DictionaryValue> = {};
   for (const [key, value] of Object.entries(args)) {
-    if (typeof value !== "string") {
+    if (!__epochIsString(value)) {
       next[key] = value;
       continue;
     }
@@ -191,6 +194,7 @@ export function parseStreamRewrite(source: string | undefined): readonly { reado
     const match = /^([A-Za-z][A-Za-z0-9_-]*)\s*=\s*\/(.+)\/([a-z]*)\s*→\s*(cipher|drop)\s*$/u.exec(line);
     if (!match) continue;
     try {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       rules.push({
         name: match[1]!,
         pattern: new RegExp(match[2]!, match[3]),

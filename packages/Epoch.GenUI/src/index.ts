@@ -1,9 +1,11 @@
 import type { BrowserEpoch, TrackChangeResult } from "@epoch/integration-core";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export interface GeneratedUiComponentPatch<TSpec = unknown> {
   readonly id: string;
   readonly spec: TSpec;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export interface GeneratedUiComponent<TSpec = unknown> {
@@ -11,7 +13,7 @@ export interface GeneratedUiComponent<TSpec = unknown> {
   readonly renderer: string;
   readonly version: number;
   readonly spec: TSpec;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export interface GeneratedUiDocument<TSpec = unknown> {
@@ -25,7 +27,7 @@ export interface TrackGeneratedUiChangeInput<TSpec = unknown> {
   readonly summary: string;
   readonly renderer: string;
   readonly components: readonly GeneratedUiComponentPatch<TSpec>[];
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export interface TrackGeneratedUiChangeResult<TSpec = unknown> extends TrackChangeResult<GeneratedUiDocument<TSpec>> {

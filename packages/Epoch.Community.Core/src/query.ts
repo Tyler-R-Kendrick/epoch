@@ -71,7 +71,7 @@ export function migrateNormalizedQuery(saved: PersistedSavedQuery): TypedNormali
   if (source !== undefined) return parseCommunityQuery(source, { version });
   if (saved.ast !== undefined) {
     const serialized = saved.ast === null ? "" : isPersistedNode(saved.ast) ? serializePersisted(saved.ast) : serializeSemantic(saved.ast);
-    const sort = typeof saved.sort === "string" ? `sort:${saved.sort}` : "";
+    const sort = saved.sort === null || saved.sort === undefined || Array.isArray(saved.sort) ? "" : `sort:${saved.sort}`;
     return parseCommunityQuery([serialized, sort].filter(Boolean).join(" "), { version });
   }
   return invalidMigration("Saved query has no canonical query or normalized AST");

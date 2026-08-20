@@ -58,7 +58,7 @@ export function createQueryWorkbench(services: QueryWorkbenchServices, history: 
     update({ running: true, error: undefined });
     return controller.signal;
   };
-  const failed = (error: unknown): QueryWorkbenchState => update({
+  const failed = <ErrorValue>(error: ErrorValue): QueryWorkbenchState => update({
     running: false,
     error: error instanceof DOMException && error.name === "AbortError" ? "Search cancelled" : message(error),
   });
@@ -96,4 +96,4 @@ export function createQueryWorkbench(services: QueryWorkbenchServices, history: 
   });
 }
 
-function message(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+function message<ErrorValue>(error: ErrorValue): string { return error instanceof Error ? error.message : String(error); }

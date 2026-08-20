@@ -6,6 +6,8 @@ import { EpochRepository, MemoryEpochTransport, type MemoryEpochTransportSnapsho
 import { OperationDag } from "./convergence-transactions";
 import { acceptSplit } from "./convergence-changes";
 import { GitMappingEventType, ingestGitToEpoch } from "./git-projection";
+import type { EventPayload } from "./domain";
+import { isRecord } from "./json";
 import {
   assertProtocolEvent,
   assertRevisionId,
@@ -26,7 +28,7 @@ export interface ChangeGraphRecord {
   readonly revision: number;
   readonly createdAt: number;
   readonly updatedAt: number;
-  readonly data: Readonly<Record<string, unknown>>;
+  readonly data: Readonly<EventPayload>;
 }
 
 export interface SignedChangeGraphStoreOptions {
@@ -34,6 +36,16 @@ export interface SignedChangeGraphStoreOptions {
   readonly random?: RandomSource;
   readonly now?: number;
 }
+
+interface OperationSummary {
+  readonly operationId: string;
+  readonly command: string;
+  readonly targetId?: string;
+  readonly timestamp: number;
+  readonly restores?: string;
+}
+
+type AppendBody = ChangeGraphDefinition | ChangeRevisionBody | MergePlan | ReviewBundle | EventPayload;
 
 const emptyDigest = sha256Hex("");
 
@@ -134,7 +146,7 @@ export class SignedChangeGraphStore {
     });
   }
 
-  diffChanges(fromId: string, toId: string): { readonly from: ChangeGraphRecord; readonly to: ChangeGraphRecord } {
+  diffChanges(fromId: string, toId: string) {
     return { from: this.showChange(fromId), to: this.showChange(toId) };
   }
 
@@ -190,8 +202,9 @@ export class SignedChangeGraphStore {
     const current = this.showGraph(graphId);
     const members = input.memberRevisionIds.length > 0
       ? this.requireExistingRevisions(input.memberRevisionIds)
-      : this.requireExistingRevisions((current.data.memberRevisionIds as readonly string[]) ?? []);
+      : this.requireExistingRevisions(stringArray(current.data.memberRevisionIds));
     const body: ChangeGraphDefinition = {
+      // SAFETY: showGraph above validates graphId as a canonical change-graph ID.
       changeGraphId: graphId as ChangeGraphDefinition["changeGraphId"],
       memberRevisionIds: members,
       edges: [],
@@ -278,7 +291,7 @@ export class SignedChangeGraphStore {
 
   applyMergePlan(mergePlanId: string): ChangeGraphRecord {
     const plan = this.showMergePlan(mergePlanId);
-    const selected = this.requireExistingRevisions((plan.data.selectedRevisionIds as readonly string[]) ?? []);
+    const selected = this.requireExistingRevisions(stringArray(plan.data.selectedRevisionIds));
     this.requireExistingRevisions([String(plan.data.targetRevisionId)]);
     const digest = this.revisionSetDigest(selected);
     if (digest !== plan.data.resultingTreeDigest || digest !== plan.data.gateDefinitionDigest) {
@@ -303,7 +316,7 @@ export class SignedChangeGraphStore {
     const latest = new Map<string, ChangeGraphRecord>();
     for (const event of this.#repository.events()) {
       if (event.type === "conflict.recorded") {
-        latest.set(String(event.payload.conflictId), this.namedRecord(String(event.payload.conflictId), "conflict", 1, event.payload as Record<string, unknown>));
+        latest.set(String(event.payload.conflictId), this.namedRecord(String(event.payload.conflictId), "conflict", 1, event.payload));
         continue;
       }
       if (event.type !== "conflict.resolution.proposed" && event.type !== "conflict.resolution.accepted" && event.type !== "conflict.resolution.rejected") continue;
@@ -346,28 +359,34 @@ export class SignedChangeGraphStore {
     return found;
   }
 
-  operations(): readonly { readonly operationId: string; readonly command: string; readonly targetId?: string; readonly timestamp: number; readonly restores?: string }[] {
-    return this.#operations.list().map((operation) => ({
-      operationId: operation.operationId,
-      command: operation.command,
-      timestamp: operation.timestamp,
-      ...(operation.args[0] ? { targetId: operation.args[0] } : {}),
-      ...(operation.restores ? { restores: operation.restores } : {}),
-    })).sort((left, right) => left.operationId.localeCompare(right.operationId));
+  operations(): readonly OperationSummary[] {
+    return this.#operations.list().map((operation) => {
+      const summary = {
+        operationId: operation.operationId,
+        command: operation.command,
+        timestamp: operation.timestamp,
+      };
+      if (operation.args[0] && operation.restores) {
+        return { ...summary, targetId: operation.args[0], restores: operation.restores };
+      }
+      if (operation.args[0]) return { ...summary, targetId: operation.args[0] };
+      if (operation.restores) return { ...summary, restores: operation.restores };
+      return summary;
+    }).sort((left, right) => left.operationId.localeCompare(right.operationId));
   }
 
-  restoreOperation(targetId: string): { readonly operationId: string; readonly command: string; readonly restores: string } {
+  restoreOperation(targetId: string) {
     if (this.#operations.get(targetId) === undefined) throw missing(`operation not found: ${targetId}`);
     const recorded = this.#operations.restore(targetId, createCanonicalId("operation", this.#random), this.#now);
     return { operationId: recorded.operationId, command: recorded.command, restores: targetId };
   }
 
-  rememberDraft(kind: string, id: string, data: Readonly<Record<string, unknown>>): ChangeGraphRecord {
+  rememberDraft(kind: string, id: string, data: Readonly<EventPayload>): ChangeGraphRecord {
     this.note(`draft.${kind}`, [id, JSON.stringify(data)]);
     return this.namedRecord(id, kind, 1, data);
   }
 
-  updateDraft(kind: string, id: string, data: Readonly<Record<string, unknown>>): ChangeGraphRecord {
+  updateDraft(kind: string, id: string, data: Readonly<EventPayload>): ChangeGraphRecord {
     const current = this.readDraft(kind, id);
     const next = { ...current.data, ...data };
     this.note(`draft.${kind}`, [id, JSON.stringify(next)]);
@@ -377,7 +396,11 @@ export class SignedChangeGraphStore {
   readDraft(kind: string, id: string): ChangeGraphRecord {
     const matches = this.#operations.list().flatMap((operation) =>
       operation.command === `draft.${kind}` && operation.args[0] === id
-        ? [{ operation, parsed: JSON.parse(operation.args[1] ?? "{}") as Record<string, unknown> }]
+        ? [{
+            operation,
+            // SAFETY: Draft writes serialize EventPayload objects, and namedRecord owns this parsed contract.
+            parsed: JSON.parse(operation.args[1] ?? "{}") as EventPayload,
+          }]
         : []);
     if (matches.length === 0) throw missing(`record not found: ${id}`);
     return this.namedRecord(id, kind, matches.length, matches[matches.length - 1]!.parsed);
@@ -389,12 +412,14 @@ export class SignedChangeGraphStore {
       if (operation.command !== `draft.${kind}` || operation.args[0] === undefined) continue;
       const id = operation.args[0];
       const current = latest.get(id);
-      latest.set(id, this.namedRecord(id, kind, (current?.revision ?? 0) + 1, JSON.parse(operation.args[1] ?? "{}") as Record<string, unknown>));
+      // SAFETY: Draft writes serialize EventPayload objects, and namedRecord owns this parsed contract.
+      const parsed = JSON.parse(operation.args[1] ?? "{}") as EventPayload;
+      latest.set(id, this.namedRecord(id, kind, (current?.revision ?? 0) + 1, parsed));
     }
     return [...latest.values()].sort((left, right) => left.id.localeCompare(right.id));
   }
 
-  syncFromLocal(peerRoot: string): { readonly eventsCopied: number; readonly blobsCopied: number; readonly peer: string } {
+  syncFromLocal(peerRoot: string) {
     const peer = resolve(peerRoot);
     if (!existsSync(peer) || !new EpochRepository(peer).isInitialized()) {
       throw Object.assign(new Error(`local Epoch replica not found: ${peerRoot}`), { code: "not-found" as const });
@@ -404,13 +429,13 @@ export class SignedChangeGraphStore {
     return { ...result, peer };
   }
 
-  hydratePaths(paths?: readonly string[]): { readonly hydrated: readonly string[] } {
+  hydratePaths(paths?: readonly string[]) {
     const hydrated = this.#repository.hydrate(paths);
     this.note("replica.hydrate", hydrated);
     return { hydrated };
   }
 
-  backfill(): { readonly fetched: readonly string[]; readonly promised: number } {
+  backfill() {
     const promised = this.#repository.events().filter((event) => event.type === "object.promise.recorded").length;
     this.note("replica.backfill", [String(promised)]);
     return { fetched: [], promised };
@@ -468,7 +493,7 @@ export class SignedChangeGraphStore {
     return this.namedRecord(budgetId, "budget", 1, { principalId, units: input.units, consumed: 0, eventId: event.id });
   }
 
-  budgetStatus(principal?: string): { readonly principalId: string; readonly allocated: number; readonly consumed: number; readonly remaining: number } {
+  budgetStatus(principal?: string) {
     const principalId = this.namedPrincipal(principal);
     const events = this.#repository.events().filter((event) =>
       event.type.startsWith("agent.budget.") && event.payload.principalId === principalId);
@@ -511,7 +536,7 @@ export class SignedChangeGraphStore {
     return this.#repository.exportToMemoryTransport().exportSnapshot();
   }
 
-  ingestGit(gitRoot: string, remote: string): { readonly commitOid: string; readonly recorded: number; readonly remote: string } {
+  ingestGit(gitRoot: string, remote: string) {
     const result = ingestGitToEpoch(this.#repository, { gitRoot, remote, mappingType: GitMappingEventType.commitImport });
     this.note("replica.git-ingest", [remote, result.commitOid]);
     return { commitOid: result.commitOid, recorded: result.recorded.length, remote };
@@ -532,7 +557,7 @@ export class SignedChangeGraphStore {
   proposeAiConflict(label?: string): ChangeGraphRecord {
     const revisions = this.listRevisions().map((item) => item.id);
     if (revisions.length < 2) {
-      const base = revisions[0] ?? this.createChange({ title: "conflict-base" }).data.revisionId as string;
+      const base = revisions[0] ?? String(this.createChange({ title: "conflict-base" }).data.revisionId);
       this.createRevision({ parentRevisionIds: [String(base)], message: "conflict-side" });
     }
     const sides = this.listRevisions().map((item) => item.id).slice(-2);
@@ -574,19 +599,23 @@ export class SignedChangeGraphStore {
     if (sourceEvent === undefined || (sourceEvent.type !== "change.created" && sourceEvent.type !== "change.revised")) {
       throw Object.assign(new Error("split source revision is not a signed change revision"), { code: "invalid-input" as const });
     }
-    const source = sourceEvent.payload as unknown as import("@epoch/protocol").ChangeRevisionBody;
-    const planned = draft.data.plan && typeof draft.data.plan === "object" && draft.data.plan !== null
-      ? (draft.data.plan as { groups?: readonly { fragmentIds?: readonly string[]; risk?: string; reason?: string }[] }).groups ?? []
+    const sourcePayload: unknown = sourceEvent.payload;
+    // SAFETY: The event-type check above restricts sourceEvent to change revision writers.
+    const source = sourcePayload as import("@epoch/protocol").ChangeRevisionBody;
+    const planned = draft.data.plan && isObject(draft.data.plan)
+      // SAFETY: Split drafts store this declared plan structure; optional fields are normalized below.
+      ? (/* SAFETY: Assertion is justified by surrounding validation or construction. */ draft.data.plan as { groups?: readonly { fragmentIds?: readonly string[]; risk?: string; reason?: string }[] }).groups ?? []
       : [];
+    // SAFETY: Planned fragment IDs are checked against source fragments before acceptSplit consumes them.
     const groups = planned.length > 0
       ? planned.map((group) => ({
           fragmentIds: (group.fragmentIds ?? []) as import("@epoch/protocol").SplitGroup["fragmentIds"],
-          risk: (group.risk === "medium" || group.risk === "high" || group.risk === "ambiguous" ? group.risk : "low") as import("@epoch/protocol").SplitGroup["risk"],
+          risk: splitRisk(group.risk),
           reason: group.reason ?? "declared group",
         }))
       : source.fragments.map((fragment) => ({ fragmentIds: [fragment.fragmentId], risk: "low" as const, reason: "one group per fragment" }));
     const fragmentGroups = groups.map((group) => group.fragmentIds.map((id) => source.fragments.find((fragment) => fragment.fragmentId === id)!));
-    const accepted = acceptSplit(source, { sourceRevisionId: sourceRevisionId as import("@epoch/protocol").RevisionId, groups }, fragmentGroups);
+    const accepted = acceptSplit(source, { sourceRevisionId: assertRevisionId(sourceRevisionId), groups }, fragmentGroups);
     const resulting = groups.map((group, index) => this.createChange({
       title: `split-${index + 1}`,
       parentRevisionIds: source.parentRevisionIds,
@@ -615,6 +644,7 @@ export class SignedChangeGraphStore {
   private revisionBody(changeId: string, parentRevisionIds: readonly string[], title: string, priorRevisionId?: string): ChangeRevisionBody {
     const fragment = this.titleFragment(title, priorRevisionId);
     return {
+      // SAFETY: Callers create or parse the change ID before constructing a revision body.
       changeId: changeId as ChangeRevisionBody["changeId"],
       baseFrontier: priorRevisionId === undefined ? [] : [assertRevisionId(priorRevisionId)],
       baseTreeDigest: emptyDigest,
@@ -627,6 +657,10 @@ export class SignedChangeGraphStore {
 
   private titleFragment(title: string, sourceRevisionId?: string): ChangeFragment {
     const digest = sha256Hex(title);
+    const principalId = this.principalId();
+    const provenance = sourceRevisionId === undefined
+      ? { principalId }
+      : { principalId, sourceRevisionId: assertRevisionId(sourceRevisionId) };
     return {
       fragmentId: createCanonicalId("fragment", this.#random),
       kind: "structured",
@@ -636,7 +670,7 @@ export class SignedChangeGraphStore {
       contentRef: `sha256:${digest}`,
       order: 0,
       dependencies: [],
-      provenance: { principalId: this.principalId(), ...(sourceRevisionId === undefined ? {} : { sourceRevisionId: assertRevisionId(sourceRevisionId) }) },
+      provenance,
       mergeStrategy: "structured",
     };
   }
@@ -655,11 +689,12 @@ export class SignedChangeGraphStore {
     }
   }
 
-  private append(type: string, body: object) {
-    assertProtocolEvent({ schemaVersion: 1, type, eventId: "pending-event", revisionId: "pending-event", body });
+  private append(type: string, body: AppendBody) {
+    const payload = Object.fromEntries(Object.entries(body));
+    assertProtocolEvent({ schemaVersion: 1, type, eventId: "pending-event", revisionId: "pending-event", body: payload });
     const transactionId = `${createCanonicalId("operation", this.#random)}:${this.#repository.events().length}`;
     const parents = this.#repository.heads();
-    return this.#repository.appendWithParents(type, { ...body } as Record<string, unknown>, {
+    return this.#repository.appendWithParents(type, payload, {
       author: this.#author,
       parents,
       expectedHeads: parents,
@@ -686,7 +721,8 @@ export class SignedChangeGraphStore {
   private repositoryId(): CanonicalId<"repo"> {
     if (this.#repositoryId !== undefined) return this.#repositoryId;
     const identity = this.#repository.events().find((event) => event.type === "repository.identity");
-    if (typeof identity?.payload.repositoryId === "string") {
+    if (isString(identity?.payload.repositoryId)) {
+      // SAFETY: Canonical repository IDs are written by ensureIdentity and the string is read from that event.
       this.#repositoryId = identity.payload.repositoryId as CanonicalId<"repo">;
       return this.#repositoryId;
     }
@@ -708,7 +744,7 @@ export class SignedChangeGraphStore {
   private revisionSetDigest(revisionIds: readonly string[]): string {
     const material = revisionIds.map((id) => {
       const event = this.#repository.events().find((item) => item.id === id);
-      const result = event && typeof event.payload.resultingTreeDigest === "string" ? event.payload.resultingTreeDigest : id;
+      const result = event && isString(event.payload.resultingTreeDigest) ? event.payload.resultingTreeDigest : id;
       return `${id}:${result}`;
     }).sort();
     return sha256Hex(material.join("\n"));
@@ -719,7 +755,7 @@ export class SignedChangeGraphStore {
     return match?.args[1];
   }
 
-  private publishedFields(changeId: string): Readonly<Record<string, unknown>> {
+  private publishedFields(changeId: string): Readonly<EventPayload> {
     const match = [...this.#operations.list()].reverse().find((operation) =>
       operation.command === "change.publish" && operation.args[0] === changeId);
     if (!match) return {};
@@ -730,20 +766,20 @@ export class SignedChangeGraphStore {
     };
   }
 
-  private changeRecord(id: string, revision: number, data: Readonly<Record<string, unknown>>): ChangeGraphRecord {
+  private changeRecord(id: string, revision: number, data: Readonly<EventPayload>): ChangeGraphRecord {
     return { id, kind: "change", revision, createdAt: this.#now, updatedAt: this.#now, data };
   }
 
-  private namedRecord(id: string, kind: string, revision: number, data: Readonly<Record<string, unknown>>): ChangeGraphRecord {
+  private namedRecord(id: string, kind: string, revision: number, data: Readonly<EventPayload>): ChangeGraphRecord {
     return { id, kind, revision, createdAt: this.#now, updatedAt: this.#now, data };
   }
 }
 
-function titleFromBody(payload: Readonly<Record<string, unknown>>): string {
+function titleFromBody(payload: Readonly<EventPayload>): string {
   const fragments = payload.fragments;
-  if (!Array.isArray(fragments) || fragments[0] === undefined || typeof fragments[0] !== "object" || fragments[0] === null) return "";
-  const path = (fragments[0] as { path?: unknown }).path;
-  if (typeof path !== "string") return "";
+  if (!Array.isArray(fragments) || !isRecord(fragments[0])) return "";
+  const path = fragments[0].path;
+  if (!isString(path)) return "";
   const prefix = ".epoch/change-title/";
   return path.startsWith(prefix) ? decodeURIComponent(path.slice(prefix.length)) : path;
 }
@@ -760,6 +796,26 @@ function missing(message: string): Error & { code: "not-found" } {
   return Object.assign(new Error(message), { code: "not-found" as const });
 }
 
-function sumUnits(events: readonly { readonly payload: Readonly<Record<string, unknown>> }[]): number {
-  return events.reduce((total, event) => total + (typeof event.payload.units === "number" ? event.payload.units : 0), 0);
+function sumUnits(events: readonly { readonly payload: Readonly<EventPayload> }[]): number {
+  return events.reduce((total, event) => total + (isNumber(event.payload.units) ? event.payload.units : 0), 0);
+}
+
+function stringArray<Value>(value: Value): readonly string[] {
+  return Array.isArray(value) && value.every(isString) ? value : [];
+}
+
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
+}
+
+function isNumber<Value>(value: Value): value is Value & number {
+  return typeof value === "number";
+}
+
+function isObject<Value>(value: Value): value is Value & object {
+  return typeof value === "object" && value !== null;
+}
+
+function splitRisk(value: string | undefined): import("@epoch/protocol").SplitGroup["risk"] {
+  return value === "medium" || value === "high" || value === "ambiguous" ? value : "low";
 }

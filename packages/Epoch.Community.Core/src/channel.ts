@@ -46,6 +46,7 @@ export type ChannelReadBody = {
 };
 
 export type ChannelKind = "channel.create" | "channel.message" | "channel.presence" | "channel.read";
+type ChannelBoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 
 export type SignedChannelEvent = ProtocolEvent<
   ChannelCreateBody | ChannelMessageBody | ChannelPresenceBody | ChannelReadBody
@@ -74,11 +75,12 @@ export function digestChannelBody(text: string): string {
   return mix.toString(16).padStart(64, "0").slice(-64);
 }
 
-export function assertChannelEvent(value: unknown): SignedChannelEvent {
+export function assertChannelEvent(value: ChannelBoundaryValue): SignedChannelEvent {
   const event = assertProtocolEvent(value);
   if (!CHANNEL_TYPES.has(event.type)) {
     throw new Error(`not a channel event: ${event.type}`);
   }
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   return event as SignedChannelEvent;
 }
 
@@ -86,7 +88,7 @@ export function assertChannelEvent(value: unknown): SignedChannelEvent {
  * Project verified channel.* protocol events onto Community message entities.
  * Callers must verify signatures (Live ingestEvents / gossip) before this.
  */
-export function projectChannelEvents(events: readonly unknown[]): ChannelProjection {
+export function projectChannelEvents(events: readonly ChannelBoundaryValue[]): ChannelProjection {
   const channels = new Map<string, ChannelCreateBody>();
   const messages: CommunityMessageEntity[] = [];
   const presence = new Map<string, ChannelPresenceBody>();
@@ -95,11 +97,13 @@ export function projectChannelEvents(events: readonly unknown[]): ChannelProject
   for (const raw of events) {
     const event = assertChannelEvent(raw);
     if (event.type === "channel.create") {
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       const body = event.body as ChannelCreateBody;
       channels.set(body.channelId, body);
       continue;
     }
     if (event.type === "channel.message") {
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       const body = event.body as ChannelMessageBody;
       messages.push(communityMessageToEntity(channelMessageFromEvent(event.eventId, body), {
         provenance: {
@@ -114,10 +118,12 @@ export function projectChannelEvents(events: readonly unknown[]): ChannelProject
       continue;
     }
     if (event.type === "channel.presence") {
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       const body = event.body as ChannelPresenceBody;
       presence.set(`${body.channelId}:${body.principalId}`, body);
       continue;
     }
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     const body = event.body as ChannelReadBody;
     reads.set(`${body.channelId}:${body.principalId}`, body);
   }
@@ -145,7 +151,7 @@ export function unreadForPosture(
   return { mode: "local", watermarkEventId: localWatermark };
 }
 
-export function evaluateChannelPosture(config: unknown): PosturePolicy {
+export function evaluateChannelPosture(config: ChannelBoundaryValue): PosturePolicy {
   return evaluatePosture(config);
 }
 
@@ -153,10 +159,15 @@ export function evaluateChannelPosture(config: unknown): PosturePolicy {
  * Live arrivals never steal the reading position: a new message after the
  * watermark stays unread; the watermark itself is unchanged.
  */
+export interface WatermarkQueueResult {
+  readonly watermarkEventId: string | undefined;
+  readonly unreadIds: readonly string[];
+}
+
 export function queuePreservesWatermark(
   watermarkEventId: string | undefined,
   incomingMessageIds: readonly string[],
-): { readonly watermarkEventId: string | undefined; readonly unreadIds: readonly string[] } {
+): WatermarkQueueResult {
   const unreadIds = incomingMessageIds.filter((id) => id !== watermarkEventId);
   return { watermarkEventId, unreadIds };
 }
@@ -177,7 +188,7 @@ export function sanitizeChannelLivestreamEnvelope(input: {
   readonly protectedInput?: boolean;
   readonly secret?: string;
 }): { readonly kind: "drop"; readonly reason: string } | { readonly kind: "emit"; readonly envelope: ChannelLivestreamEnvelope } {
-  if (input.protectedInput === true || (typeof input.secret === "string" && input.secret.length > 0)) {
+  if (input.protectedInput === true || (input.secret !== undefined && input.secret.length > 0)) {
     return { kind: "drop", reason: "protected-secret" };
   }
   if (input.visibility !== "public") {

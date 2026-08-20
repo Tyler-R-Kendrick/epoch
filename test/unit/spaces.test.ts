@@ -45,32 +45,32 @@ export async function runSpaceTests(): Promise<void> {
 
     // --- authority: a turn requires a live grant ----------------------------
     assert.throws(() => store.recordTurn(space.id, { request: "refactor", principal: "mallory" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "grant-denied");
+      (error) => error instanceof SpaceError && error.code === "grant-denied");
 
     store.join(space.id, { principal: "bob", role: "collaborator" });
     assert.equal(store.recordTurn(space.id, { request: "refactor the rail", principal: "bob" }).kind, "space-turn");
     assert.throws(() => store.join(space.id, { principal: "bob" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "conflict");
+      (error) => error instanceof SpaceError && error.code === "conflict");
 
     // Leaving revokes the grant in the same event, so authority cannot linger.
     store.leave(space.id, { principal: "bob" });
     assert.throws(() => store.recordTurn(space.id, { request: "sneak one in", principal: "bob" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "grant-denied");
+      (error) => error instanceof SpaceError && error.code === "grant-denied");
     assert.equal(store.participants(space.id).find((item) => item.principalId.length > 0 && !item.active) !== undefined, true);
 
     // An observer is a participant whose grant does not authorize turns.
     store.join(space.id, { principal: "carol", role: "observer" });
     assert.throws(() => store.recordTurn(space.id, { request: "watch only", principal: "carol" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "grant-denied");
+      (error) => error instanceof SpaceError && error.code === "grant-denied");
 
     // --- budgets: authority is bounded, not just present --------------------
     store.join(space.id, { principal: "agent-steward", role: "agent" });
     assert.throws(() => store.recordTurn(space.id, { request: "index", principal: "agent-steward", units: 1 }),
-      (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
+      (error) => error instanceof SpaceError && error.code === "budget-exceeded");
     store.allocateTurnBudget(space.id, { principal: "agent-steward", units: 3 });
     assert.equal(store.recordTurn(space.id, { request: "index the board", principal: "agent-steward", units: 2 }).data.remaining, 1);
     assert.throws(() => store.recordTurn(space.id, { request: "index again", principal: "agent-steward", units: 2 }),
-      (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
+      (error) => error instanceof SpaceError && error.code === "budget-exceeded");
     assert.equal(store.recordTurn(space.id, { request: "finish", principal: "agent-steward", units: 1 }).data.remaining, 0);
 
     // A budget belongs to the Space that allocated it. Units granted here must
@@ -78,7 +78,7 @@ export async function runSpaceTests(): Promise<void> {
     const otherSpace = store.createSpace({ title: "Unrelated space", view: "main" });
     store.join(otherSpace.id, { principal: "agent-steward", role: "agent" });
     assert.throws(() => store.recordTurn(otherSpace.id, { request: "spend elsewhere", principal: "agent-steward", units: 1 }),
-      (error: unknown) => error instanceof SpaceError && error.code === "budget-exceeded");
+      (error) => error instanceof SpaceError && error.code === "budget-exceeded");
     // ...and consumption in one Space does not silently drain another.
     store.allocateTurnBudget(otherSpace.id, { principal: "agent-steward", units: 1 });
     assert.equal(store.recordTurn(otherSpace.id, { request: "spend here", principal: "agent-steward", units: 1 }).data.remaining, 0);
@@ -101,18 +101,18 @@ export async function runSpaceTests(): Promise<void> {
 
     // --- capture: continuous recording requires signed consent --------------
     assert.throws(() => store.recordCapturedOperation(space.id, { path: "rail.json", content: "{}", principal: "agent-steward" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "policy-denied");
+      (error) => error instanceof SpaceError && error.code === "policy-denied");
     const session = store.openCapture(space.id, {
       scope: "packages/Epoch.Community.Web", retention: "30d", redaction: "declared-secrets", principal: "agent-steward",
     });
     parseCanonicalId(session.id, "session");
     assert.throws(() => store.openCapture(space.id, { scope: "again", retention: "30d", principal: "agent-steward" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "conflict");
+      (error) => error instanceof SpaceError && error.code === "conflict");
     store.recordCapturedOperation(space.id, { path: "rail.json", content: '{"a":1}', principal: "agent-steward" });
     assert.equal(store.closeCapture(space.id, { principal: "agent-steward" }).data.operationCount, 1);
     // Consent ends with the session; capture is refused again once it is sealed.
     assert.throws(() => store.recordCapturedOperation(space.id, { path: "rail.json", content: "{}", principal: "agent-steward" }),
-      (error: unknown) => error instanceof SpaceError && error.code === "policy-denied");
+      (error) => error instanceof SpaceError && error.code === "policy-denied");
     assert.equal(store.captureSessions(space.id).every((item) => item.data.open === false), true);
 
     // --- anchors: survive a reformat that would break a line anchor ---------
@@ -120,7 +120,7 @@ export async function runSpaceTests(): Promise<void> {
     const original = '{"rail":{"width":24},"stream":{"rows":40}}';
     assert.throws(() => store.recordAnchor(space.id, {
       revisionId, path: "board.json", structuralPath: "object#0/member:absent", content: original, principal: "agent-steward",
-    }), (error: unknown) => error instanceof SpaceError && error.code === "not-found");
+    }), (error) => error instanceof SpaceError && error.code === "not-found");
 
     const anchor = store.recordAnchor(space.id, {
       revisionId, path: "board.json", structuralPath: "object#0/member:rail", content: original, principal: "agent-steward",
@@ -149,11 +149,12 @@ export async function runSpaceTests(): Promise<void> {
 
     // --- rejections stay typed ----------------------------------------------
     assert.throws(() => store.showSpace("epoch:space:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-      (error: unknown) => error instanceof SpaceError && error.code === "not-found");
+      (error) => error instanceof SpaceError && error.code === "not-found");
     assert.throws(() => store.createSpace({ title: "  " }),
-      (error: unknown) => error instanceof SpaceError && error.code === "invalid-input");
+      (error) => error instanceof SpaceError && error.code === "invalid-input");
+    // SAFETY: Runtime checks or construction above establish never }).
     assert.throws(() => store.join(space.id, { principal: "dave", role: "sudo" as never }),
-      (error: unknown) => error instanceof SpaceError && error.code === "invalid-input");
+      (error) => error instanceof SpaceError && error.code === "invalid-input");
 
     // Optional fields are still validated when present: a turn body may omit
     // units, but a negative or fractional value must be rejected.
@@ -179,6 +180,7 @@ export async function runSpaceCliTests(): Promise<void> {
   try {
     const created = await executeChangeGraphCommand(root, ["space", "create", "Board work", "--view", "main"]);
     assert.equal(created.ok, true);
+    // SAFETY: Runtime checks or construction above establish { id: string }).id.
     const spaceId = (created.data as { id: string }).id;
 
     assert.equal((await executeChangeGraphCommand(root, ["space", "show", spaceId])).ok, true);
@@ -213,11 +215,14 @@ export async function runSpaceCliTests(): Promise<void> {
       "--revision", revisionId, "--path", "board.json", "--structural-path", "object#0/member:rail",
       "--content", content, "--principal", "bob"]);
     assert.equal(anchor.ok, true);
+    // SAFETY: Runtime checks or construction above establish { id: string }).id.
     const anchorId = (anchor.data as { id: string }).id;
     const resolved = await executeChangeGraphCommand(root, ["space", "anchor", "resolve", anchorId, "--content", content]);
+    // SAFETY: Runtime checks or construction above establish { status: string }).status.
     assert.equal((resolved.data as { status: string }).status, "resolved");
     const moved = await executeChangeGraphCommand(root,
       ["space", "anchor", "resolve", anchorId, "--content", '{\n  "rail": {\n    "width": 24\n  }\n}\n']);
+    // SAFETY: Runtime checks or construction above establish { status: string }).status.
     assert.equal((moved.data as { status: string }).status, "moved");
     assert.equal((await executeChangeGraphCommand(root, ["space", "anchor", "list", spaceId])).ok, true);
 

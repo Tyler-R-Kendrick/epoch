@@ -38,7 +38,7 @@ export function planSyncV2(local: SyncV2Inventory, remote: SyncV2Inventory): Syn
     protocol: SYNC_V2_PROTOCOL,
     wantManifests: [...ids(remote.manifests)].filter((id) => !localManifests.has(id)).sort(),
     wantChunks: [...ids(remote.chunks)].filter((id) => !localChunks.has(id)).sort(),
-    ...(remote.cursor === undefined ? {} : { resumeCursor: remote.cursor }),
+    resumeCursor: remote.cursor,
   });
 }
 

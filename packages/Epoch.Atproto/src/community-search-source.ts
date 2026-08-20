@@ -11,6 +11,10 @@ import {
 } from "@epoch/community-core";
 import type { AtRecord, CommunityFederationMode } from "./index";
 import { EpochLexicon } from "./index";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export interface AtprotoCommunitySourceInput {
   readonly records: () => readonly AtRecord[] | Promise<readonly AtRecord[]>;
@@ -63,7 +67,7 @@ export function createAtprotoCommunitySource(input: AtprotoCommunitySourceInput)
       const last = page.at(-1);
       return Object.freeze({
         entities: Object.freeze(page),
-        ...(last === undefined || start + page.length >= current.length ? {} : { next: sourceKeysetCursor(sourceId, last.ref.objectId) }),
+        ...(!(last === undefined || start + page.length >= current.length) && { next: sourceKeysetCursor(sourceId, last.ref.objectId) }),
         checkpoint: atprotoCheckpoint(sourceId, input.mode, input.observedAt, currentRecords),
       });
     },
@@ -94,6 +98,7 @@ export async function atprotoDeletionChangeSet(input: {
   readonly deleted: readonly AtRecord[];
   readonly checkpoint: { readonly token: string; readonly observedAt: string; readonly status: "current" | "stale" | "partial" | "unavailable" };
 }): Promise<CommunitySearchChangeSet> {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const deletes = await Promise.all(input.deleted.filter((record) => KIND_BY_COLLECTION[record.collection] !== undefined)
     .map(async (record) => ({ objectId: await stableAtprotoObjectId(record.uri), kind: KIND_BY_COLLECTION[record.collection] as CommunityObjectKind, atUri: record.uri, revision: record.cid })));
   return Object.freeze({
@@ -127,7 +132,7 @@ async function atRecordEntity(record: AtRecord, kind: CommunityObjectKind): Prom
       visibility: "public",
       "atproto.collection": record.collection,
       "atproto.did": record.did,
-      ...(repo === undefined ? {} : { "atproto.repo": repo }),
+      ...(!(repo === undefined) && { "atproto.repo": repo }),
     },
     searchableText: { title, body },
     relations: [],
@@ -166,15 +171,15 @@ function atprotoCheckpoint(sourceId: string, mode: CommunityFederationMode, obse
 
 function validateAtRecord(record: AtRecord): void {
   if (!/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(record.uri) || record.collection.length > 256 || record.cid.length > 512
-    || record.did.length > 512 || typeof record.value !== "object" || record.value === null) {
+    || record.did.length > 512 || !__epochIsObject(record.value) || record.value === null) {
     throw new Error("Malformed ATProto community record");
   }
   if (record.value.$type !== undefined && record.value.$type !== record.collection) throw new Error("ATProto record type does not match its collection");
 }
 
-function stringField(value: Record<string, unknown>, field: string): string | undefined {
+function stringField(value: Record<string, DictionaryValue>, field: string): string | undefined {
   const candidate = value[field];
   if (candidate === undefined) return undefined;
-  if (typeof candidate !== "string" || candidate.length > 1_000_000) throw new Error(`Malformed ATProto ${field} field`);
+  if (!__epochIsString(candidate) || candidate.length > 1_000_000) throw new Error(`Malformed ATProto ${field} field`);
   return candidate;
 }

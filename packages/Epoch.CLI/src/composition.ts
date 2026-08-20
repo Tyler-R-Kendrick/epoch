@@ -12,6 +12,9 @@ import {
   type RepositoryLinkResolver,
   type ResolvedChildRepository,
 } from "@epoch/core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 /**
  * CLI handlers for Workspace Selection and Repository Links.
@@ -38,7 +41,7 @@ export function executeSelectionCommand(
   action: string | undefined,
   positionals: readonly string[],
   options: { readonly view?: string; readonly description?: string },
-): unknown {
+): BoundaryValue {
   switch (action) {
     case undefined:
     case "show": {
@@ -145,7 +148,7 @@ export function executeComponentCommand(
     readonly hint?: string;
   },
   resolver?: RepositoryLinkResolver,
-): unknown {
+): BoundaryValue {
   switch (action) {
     case "link": {
       const mountPath = required(positionals[0], "mount path");
@@ -156,11 +159,9 @@ export function executeComponentCommand(
           repositoryId: required(options.repositoryId, "--repository-id"),
           versionId: required(options.versionId, "--version-id"),
           namespaceRoot: required(options.namespaceRoot, "--namespace-root"),
-          ...(options.sourcePath === undefined || options.sourcePath === "" ? {} : { sourcePath: options.sourcePath }),
+          ...(!(options.sourcePath === undefined || options.sourcePath === "") && { sourcePath: options.sourcePath }),
         },
-        ...(options.hint === undefined || options.hint === ""
-          ? {}
-          : { resolverHints: [{ kind: "locator", locator: options.hint }] }),
+        ...(!(options.hint === undefined || options.hint === "") && { resolverHints: [{ kind: "locator", locator: options.hint }] }),
       };
       const event = repository.defineRepositoryLink(link);
       return { eventId: event.id, link };
@@ -223,7 +224,8 @@ export function executeComponentCommand(
 
 function parseDigestMap(value: string): Readonly<Record<string, string>> {
   try {
-    const parsed = JSON.parse(value) as Record<string, unknown>;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const parsed = JSON.parse(value) as Record<string, DictionaryValue>;
     return Object.fromEntries(Object.entries(parsed).map(([path, digest]) => [path, String(digest)]));
   } catch {
     throw commandError("invalid-input", "manifest must be a JSON object of path -> digest");

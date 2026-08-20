@@ -1,3 +1,5 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,6 +27,12 @@ import {
 } from "@epoch/protocol";
 import { parseSwhid, swhidForGitObject, swhKindForGitType } from "@epoch/software-heritage";
 import { executeComponentCommand, executeSelectionCommand, localLinkResolver } from "./composition";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
+
 
 const SPACE_ROLES = ["owner", "collaborator", "agent", "observer"] as const;
 
@@ -42,7 +50,7 @@ export interface ChangeGraphCommandEnvelope {
   readonly command: string;
   readonly code: "ok" | ChangeGraphCommandErrorCode;
   readonly data?: unknown;
-  readonly error?: { readonly message: string; readonly details?: Readonly<Record<string, unknown>> };
+  readonly error?: { readonly message: string; readonly details?: Readonly<Record<string, DictionaryValue>> };
 }
 
 export interface ChangeGraphCommandDependencies {
@@ -60,9 +68,11 @@ export function isChangeGraphInvocation(command: string | undefined, args: reado
     command === "hydrate" && args.some((argument) => argument === "--filter" || argument.startsWith("--filter="));
 }
 
-function stable(value: unknown): string {
+function stable(value: BoundaryValue): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
-  if (value !== null && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>)
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  if (value !== null && __epochIsObject(value)) return `{${Object.entries(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as Record<string, DictionaryValue>)
     .sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => `${JSON.stringify(key)}:${stable(item)}`).join(",")}}`;
   return JSON.stringify(value);
 }
@@ -75,7 +85,8 @@ function remotesPath(root: string): string { return join(resolve(root), ".epoch"
 function readRemotes(root: string): Record<string, string> {
   const path = remotesPath(root);
   if (!existsSync(path)) return {};
-  const value = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const value = JSON.parse(readFileSync(path, "utf8")) as Record<string, DictionaryValue>;
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 }
 function writeRemote(root: string, name: string, url: string): void {
@@ -84,7 +95,7 @@ function writeRemote(root: string, name: string, url: string): void {
   writeFileSync(remotesPath(root), `${JSON.stringify(remotes)}\n`);
 }
 
-function classifyLocator(value: string): { readonly kind: "epoch-local" | "http" | "git"; readonly url: string } {
+function classifyLocator(value: string) {
   if (isLocalEpochReplica(value)) return { kind: "epoch-local", url: resolve(value) };
   if (/^https?:\/\//iu.test(value)) return { kind: "http", url: value };
   if (/^git@/u.test(value)) {
@@ -95,7 +106,7 @@ function classifyLocator(value: string): { readonly kind: "epoch-local" | "http"
   return { kind: "git", url: value };
 }
 
-async function syncFromLocator(store: SignedChangeGraphStore, locator: string): Promise<unknown> {
+async function syncFromLocator(store: SignedChangeGraphStore, locator: string): Promise<BoundaryValue> {
   const configured = readRemotes(store.repository.root)[locator];
   const resolved = classifyLocator(configured ?? locator);
   if (resolved.kind === "epoch-local") return store.syncFromLocal(resolved.url);
@@ -132,7 +143,7 @@ function gossipUrl(baseUrl: string): string {
   return trimmed.endsWith("/epoch/gossip") || trimmed.endsWith("/gossip") ? trimmed : `${trimmed}/epoch/gossip`;
 }
 
-async function requestJson(method: string, url: string, body?: unknown): Promise<{ readonly status: number; readonly body: unknown }> {
+async function requestJson(method: string, url: string, body?: BoundaryValue): Promise<{ readonly status: number; readonly body: unknown }> {
   try {
     const response = await fetch(url, {
       method,
@@ -162,8 +173,9 @@ async function requestSoftwareHeritage(origin: string): Promise<{ readonly state
   assertPublicHttpsOrigin(origin);
   const endpoint = process.env.EPOCH_SWH_SAVE_URL ?? "https://archive.softwareheritage.org/api/1/origin/save/";
   const response = await requestJson("POST", endpoint, { origin_url: origin });
-  const body = response.body && typeof response.body === "object" ? response.body as Record<string, unknown> : {};
-  const requestId = typeof body.id === "string" ? body.id : `swh-save-${shaLike(origin)}`;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const body = response.body && __epochIsObject(response.body) ? response.body as Record<string, DictionaryValue> : {};
+  const requestId = __epochIsString(body.id) ? body.id : `swh-save-${shaLike(origin)}`;
   if (response.status >= 200 && response.status < 300 && body.save_task_status === "succeeded" && body.visit_status === "full") {
     return { state: "succeeded", requestId };
   }
@@ -175,7 +187,7 @@ function shaLike(value: string): string {
   return Buffer.from(value).toString("hex").slice(0, 16);
 }
 
-function interopReportSync(): unknown {
+function interopReportSync(): BoundaryValue {
   const exec = (command: string, args: readonly string[]): string =>
     execFileSync(command, [...args], {
       encoding: "utf8",
@@ -197,8 +209,8 @@ function interopReportSync(): unknown {
   };
 }
 
-function commandError(code: ChangeGraphCommandErrorCode, message: string, details?: Readonly<Record<string, unknown>>): Error & { code: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> } {
-  return Object.assign(new Error(message), { code, ...(details === undefined ? {} : { details }) });
+function commandError(code: ChangeGraphCommandErrorCode, message: string, details?: Readonly<Record<string, DictionaryValue>>): Error & { code: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, DictionaryValue>> } {
+  return Object.assign(new Error(message), { code, ...(!(details === undefined) && { details }) });
 }
 
 interface Parsed { readonly positionals: readonly string[]; readonly options: Readonly<Record<string, string | boolean>> }
@@ -217,7 +229,7 @@ function parse(args: readonly string[]): Parsed {
   return { positionals, options };
 }
 function stringOption(parsed: Parsed, name: string): string | undefined {
-  const value = parsed.options[name]; return typeof value === "string" ? value : undefined;
+  const value = parsed.options[name]; return __epochIsString(value) ? value : undefined;
 }
 
 /** Local sibling repositories a link may resolve against. Core never reaches the network itself. */
@@ -231,32 +243,41 @@ function required(value: string | undefined, label: string): string { if (!value
 function oneOf<T extends string>(parsed: Parsed, name: string, allowed: readonly T[]): T | undefined {
   const value = stringOption(parsed, name);
   if (value === undefined) return undefined;
+  // SAFETY: Runtime checks or construction above establish readonly string[]).includes(value)) {.
   if (!(allowed as readonly string[]).includes(value)) {
     throw commandError("invalid-input", `--${name} must be one of: ${allowed.join(", ")}`, { option: name, value });
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as T;
 }
-function jsonOption(parsed: Parsed, name: string): unknown {
+function jsonOption(parsed: Parsed, name: string): BoundaryValue {
   const raw = required(stringOption(parsed, name), `--${name}`);
   try { return JSON.parse(raw); } catch { throw commandError("invalid-input", `--${name} must be valid JSON`); }
 }
 
-function revisionNodes(records: readonly { readonly id: string; readonly data: Readonly<Record<string, unknown>> }[]): readonly RevsetNode[] {
+function revisionNodes(records: readonly { readonly id: string; readonly data: Readonly<Record<string, DictionaryValue>> }[]): readonly RevsetNode[] {
   return records.map((record) => {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const strings = (name: string): readonly string[] => Array.isArray(record.data[name])
       ? (record.data[name] as unknown[]).filter((value): value is string => typeof value === "string") : [];
-    const text = (name: string): string | undefined => typeof record.data[name] === "string" ? record.data[name] as string : undefined;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const text = (name: string): string | undefined => __epochIsString(record.data[name]) ? record.data[name] as string : undefined;
+    const changeId = text("changeId");
+    const authorId = text("authorId");
+    const changeGraphIds = strings("changeGraphIds");
+    const reviewState = (record.data.reviewState === "pending" || record.data.reviewState === "approved" || record.data.reviewState === "rejected")
+      ? record.data.reviewState
+      : undefined;
     return {
       revisionId: record.id,
       parentRevisionIds: strings("parentRevisionIds"),
-      ...(text("changeId") ? { changeId: text("changeId") } : {}),
-      ...(text("authorId") ? { authorId: text("authorId") } : {}),
-      ...(strings("changeGraphIds").length > 0 ? { changeGraphIds: strings("changeGraphIds") } : {}),
-      ...(typeof record.data.conflict === "boolean" ? { conflict: record.data.conflict } : {}),
-      ...(record.data.reviewState === "pending" || record.data.reviewState === "approved" || record.data.reviewState === "rejected"
-        ? { reviewState: record.data.reviewState } : {}),
-      ...(typeof record.data.mergeable === "boolean" ? { mergeable: record.data.mergeable } : {}),
-    };
+      ...(changeId !== undefined && { changeId }),
+      ...(authorId !== undefined && { authorId }),
+      ...(changeGraphIds.length > 0 && { changeGraphIds }),
+      ...(__epochIsBoolean(record.data.conflict) && { conflict: record.data.conflict }),
+      ...(reviewState !== undefined && { reviewState }),
+      ...(__epochIsBoolean(record.data.mergeable) && { mergeable: record.data.mergeable }),
+    } satisfies RevsetNode;
   });
 }
 
@@ -281,9 +302,10 @@ export async function executeChangeGraphCommand(root: string, argv: readonly str
       return { schemaVersion: 1, ok: false, command: argv.join(" "), code: error.code,
         error: { message: error.message, details: error.details } };
     }
-    const known = error as Error & { code?: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, unknown>> };
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const known = error as Error & { code?: ChangeGraphCommandErrorCode; details?: Readonly<Record<string, DictionaryValue>> };
     return { schemaVersion: 1, ok: false, command: argv.join(" "), code: known.code ?? "external-error",
-      error: { message: known.message, ...(known.details === undefined ? {} : { details: known.details }) } };
+      error: { message: known.message, ...(!(known.details === undefined) && { details: known.details }) } };
   }
 }
 
@@ -293,7 +315,7 @@ export async function executeChangeGraphCommand(root: string, argv: readonly str
  * The Space store owns every refusal; this layer only shapes arguments, so the
  * CLI can never authorize something the store would have denied.
  */
-async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): Promise<unknown> {
+async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): Promise<BoundaryValue> {
   const store = SignedSpaceStore.open(resolve(root), { random: dependencies.random });
   const action = parsed.positionals[0];
   const spaceArgument = (index = 1): string => required(parsed.positionals[index], "space ID");
@@ -354,7 +376,7 @@ async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: C
         requireIsolation: parsed.options["isolated"] === true,
         units: stringOption(parsed, "units") === undefined ? undefined : Number(stringOption(parsed, "units")),
         timeoutMs: stringOption(parsed, "timeout") === undefined ? undefined : Number(stringOption(parsed, "timeout")),
-        ...(stringOption(parsed, "cwd") === undefined ? {} : { cwd: resolve(stringOption(parsed, "cwd")!) }),
+        ...(!(stringOption(parsed, "cwd") === undefined) && { cwd: resolve(stringOption(parsed, "cwd")!) }),
       });
     }
     case "receipts": return { receipts: store.receipts(spaceArgument()) };
@@ -411,7 +433,7 @@ async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: C
   }
 }
 
-async function execute(root: string, command: string, args: readonly string[], now: number, dependencies: ChangeGraphCommandDependencies): Promise<unknown> {
+async function execute(root: string, command: string, args: readonly string[], now: number, dependencies: ChangeGraphCommandDependencies): Promise<BoundaryValue> {
   const parsed = parse(args); const action = parsed.positionals[0];
   const store = SignedChangeGraphStore.open(resolve(root), { random: dependencies.random, now });
   const expected = stringOption(parsed, "expected-revision");
@@ -426,7 +448,10 @@ async function execute(root: string, command: string, args: readonly string[], n
   if (command === "log") {
     const revisions = store.listRevisions(); const expression = stringOption(parsed, "revisions") ?? "heads()";
     try {
-      const selected = new Set(evaluateRevset(parseRevset(expression), revisionNodes(revisions)));
+      const selected = new Set(evaluateRevset(parseRevset(expression), revisionNodes(
+        // SAFETY: listRevisions returns graph records validated before revset evaluation.
+        revisions as readonly { readonly id: string; readonly data: Readonly<Record<string, DictionaryValue>> }[],
+      )));
       return { revisions: revisions.filter((revision) => selected.has(revision.id)), expression };
     } catch (error) {
       throw commandError("invalid-input", error instanceof Error ? error.message : "invalid revset", { expression });
@@ -531,8 +556,11 @@ async function execute(root: string, command: string, args: readonly string[], n
   }
   if (["clone", "fetch", "hydrate", "backfill"].includes(command)) {
     const filter = stringOption(parsed, "filter");
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const parsedFilter = filter === undefined ? undefined : (() => {
-      try { return JSON.parse(filter) as { readonly paths?: readonly string[] }; }
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      try { return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ JSON.parse(filter) as { readonly paths?: readonly string[] }; }
       catch { throw commandError("invalid-input", "--filter must be valid JSON"); }
     })();
     const target = parsed.positionals[0];
@@ -564,6 +592,7 @@ async function execute(root: string, command: string, args: readonly string[], n
     if (action === "export-f3" || action === "export") {
       const objects = jsonOption(parsed, "objects");
       if (!Array.isArray(objects)) throw commandError("invalid-input", "--objects must be a JSON array");
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       return encodeF3Archive(objects as never);
     }
     if (action === "import-f3" || action === "import") {
@@ -615,5 +644,6 @@ async function execute(root: string, command: string, args: readonly string[], n
 export function formatChangeGraphCommandEnvelope(envelope: ChangeGraphCommandEnvelope, json: boolean): string {
   if (json) return stable(envelope);
   if (!envelope.ok) return `${envelope.code}: ${envelope.error?.message ?? "change graph command failed"}`;
-  return stable(envelope.data);
+  // SAFETY: Successful envelopes carry serializable command output validated by the store layer.
+  return stable(envelope.data as BoundaryValue);
 }

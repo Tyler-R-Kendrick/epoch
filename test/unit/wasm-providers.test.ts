@@ -8,6 +8,11 @@ import {
 import { semanticDiff } from "@epoch/semantic";
 import { buildSyntaxProviderModule, FIXTURE_INPUT_CAPACITY } from "./wasm-fixture";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 /**
  * The provider ABI is a boundary with untrusted code on the other side, so the
  * tests are about what the host refuses, not about what a cooperative module
@@ -40,7 +45,7 @@ function objectTree(source: string): string {
   });
 }
 
-function moduleFor(source: string, overrides: Record<string, unknown> = {}) {
+function moduleFor(source: string, overrides: TestJsonObject = {}) {
   return instantiateWasmSyntaxModule(
     buildSyntaxProviderModule({ result: objectTree(source), ...overrides }),
   );
@@ -80,6 +85,7 @@ function theHostReconstructsTextFromItsOwnSource(): void {
  */
 function theModuleGetsNoCapabilities(): void {
   const bytes = buildSyntaxProviderModule({ result: objectTree("{}") });
+  // SAFETY: Runtime checks or construction above establish BufferSource)).
   const imports = WebAssembly.Module.imports(new WebAssembly.Module(bytes as BufferSource));
 
   assert.deepEqual(imports, [{ module: "env", name: "memory", kind: "memory" }]);
@@ -96,14 +102,14 @@ function malformedResultsAreRefused(): void {
   // An ABI this build does not speak.
   assert.throws(
     () => instantiateWasmSyntaxModule(buildSyntaxProviderModule({ result: objectTree(source), abiVersion: 99 })),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "abi-mismatch",
+    (error) => error instanceof WasmProviderError && error.code === "abi-mismatch",
   );
 
   // A module missing a required export.
   for (const omit of ["epoch_abi_version", "alloc", "parse"] as const) {
     assert.throws(
       () => instantiateWasmSyntaxModule(buildSyntaxProviderModule({ result: objectTree(source), omit })),
-      (error: unknown) => error instanceof WasmProviderError && error.code === "missing-export",
+      (error) => error instanceof WasmProviderError && error.code === "missing-export",
       `omitting ${omit} must be refused`,
     );
   }
@@ -111,19 +117,19 @@ function malformedResultsAreRefused(): void {
   // Bytes that are not WebAssembly at all.
   assert.throws(
     () => instantiateWasmSyntaxModule(new Uint8Array([1, 2, 3, 4])),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "instantiation-failed",
+    (error) => error instanceof WasmProviderError && error.code === "instantiation-failed",
   );
 
   // A result claiming to extend past the end of guest memory.
   assert.throws(
     () => moduleFor(source, { overstateLength: 10_000_000 }).parse(source),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "out-of-bounds",
+    (error) => error instanceof WasmProviderError && error.code === "out-of-bounds",
   );
 
   // A result that is not JSON.
   assert.throws(
     () => instantiateWasmSyntaxModule(buildSyntaxProviderModule({ result: "not json" })).parse(source),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "invalid-result",
+    (error) => error instanceof WasmProviderError && error.code === "invalid-result",
   );
 }
 
@@ -135,12 +141,12 @@ function malformedResultsAreRefused(): void {
  */
 function malformedTreesAreRefused(): void {
   const source = `{"a":1}`;
-  const refuse = (root: unknown, why: string): void => {
+  const refuse = (root: TestJsonValue, why: string): void => {
     assert.throws(
       () => instantiateWasmSyntaxModule(
         buildSyntaxProviderModule({ result: JSON.stringify({ language: "json", root }) }),
       ).parse(source),
-      (error: unknown) => error instanceof WasmProviderError && error.code === "invalid-tree",
+      (error) => error instanceof WasmProviderError && error.code === "invalid-tree",
       why,
     );
   };
@@ -166,7 +172,7 @@ function malformedTreesAreRefused(): void {
   refuse({ kind: "object", start: 0, end: 7, children: "nope" }, "non-array children");
 
   // Depth is bounded, so a module cannot exhaust the host stack.
-  let deep: unknown = { kind: "leaf", start: 0, end: 7 };
+  let deep: TestJsonValue = { kind: "leaf", start: 0, end: 7 };
   for (let level = 0; level < DEFAULT_WASM_LIMITS.maximumDepth + 2; level += 1) {
     deep = { kind: "wrap", start: 0, end: 7, children: [deep] };
   }
@@ -205,7 +211,7 @@ function multiByteOffsetsMapToCodeUnits(): void {
   });
   assert.throws(
     () => instantiateWasmSyntaxModule(buildSyntaxProviderModule({ result: split })).parse(source),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "invalid-tree",
+    (error) => error instanceof WasmProviderError && error.code === "invalid-tree",
   );
 }
 
@@ -243,19 +249,19 @@ function everyRefusalCodeIsReachable(): void {
     () => instantiateWasmSyntaxModule(
       buildSyntaxProviderModule({ result: objectTree(source), allocReturns: 0 }),
     ).parse(source),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "allocation-failed",
+    (error) => error instanceof WasmProviderError && error.code === "allocation-failed",
   );
 
   // And a tree with more nodes than the limit allows, which is how a module
   // would otherwise exhaust the host through its output rather than its memory.
-  let tree: unknown = { kind: "leaf", start: 0, end: 7 };
+  let tree: TestJsonValue = { kind: "leaf", start: 0, end: 7 };
   for (let level = 0; level < 8; level += 1) tree = { kind: "wrap", start: 0, end: 7, children: [tree] };
   assert.throws(
     () => instantiateWasmSyntaxModule(
       buildSyntaxProviderModule({ result: JSON.stringify({ language: "json", root: tree }) }),
       { maximumPages: 4, maximumNodes: 4, maximumDepth: 64 },
     ).parse(source),
-    (error: unknown) => error instanceof WasmProviderError && error.code === "invalid-tree",
+    (error) => error instanceof WasmProviderError && error.code === "invalid-tree",
   );
 
   assert.ok(FIXTURE_INPUT_CAPACITY > source.length, "the fixture arena holds these sources");

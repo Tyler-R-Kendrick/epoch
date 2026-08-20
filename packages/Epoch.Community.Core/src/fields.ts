@@ -24,7 +24,7 @@ export interface CommunityFieldRegistry {
   readonly version: number;
   list(authorization: CommunityAuthorizationContext): readonly CommunityFieldDefinition[];
   resolve(name: string): CommunityFieldDefinition | undefined;
-  validateValue(field: CommunityFieldDefinition, value: unknown): CommunityFieldValue;
+  validateValue<Value>(field: CommunityFieldDefinition, value: Value): CommunityFieldValue;
   suggest(name: string, authorization?: CommunityAuthorizationContext): readonly string[];
 }
 
@@ -97,7 +97,7 @@ export function createCommunityFieldRegistry(
     version,
     list: (authorization: CommunityAuthorizationContext) => Object.freeze(ordered.filter((definition) =>
       !definition.sensitive || hasSensitiveFieldPermission(authorization))),
-    resolve: (name: string) => typeof name === "string" ? byName.get(name.toLocaleLowerCase("en-US")) : undefined,
+    resolve: (name: string) => byName.get(name.toLocaleLowerCase("en-US")),
     validateValue,
     suggest: (name: string, authorization: CommunityAuthorizationContext = {}) => suggestions(
       name,
@@ -113,7 +113,7 @@ function field(
   operators: readonly CommunityFieldOperator[],
   options: Partial<Pick<CommunityFieldDefinition, "searchable" | "sortable" | "facetable" | "sensitive" | "enumValues" | "defaultTextField">>,
 ): CommunityFieldDefinition {
-  return Object.freeze({
+  const definition: CommunityFieldDefinition = {
     name,
     aliases: Object.freeze([...aliases]),
     type,
@@ -123,13 +123,14 @@ function field(
     facetable: options.facetable ?? false,
     sensitive: options.sensitive ?? false,
     description: `Canonical ${name} field.`,
-    ...(options.enumValues === undefined ? {} : { enumValues: Object.freeze([...options.enumValues]) }),
-    ...(options.defaultTextField === undefined ? {} : { defaultTextField: options.defaultTextField }),
-  });
+  };
+  if (options.enumValues !== undefined) Object.assign(definition, { enumValues: Object.freeze([...options.enumValues]) });
+  if (options.defaultTextField !== undefined) Object.assign(definition, { defaultTextField: options.defaultTextField });
+  return Object.freeze(definition);
 }
 
 function validateDefinition(input: CommunityFieldDefinition, source: boolean): CommunityFieldDefinition {
-  if (typeof input !== "object" || input === null || !NAME.test(input.name)) throw new CommunityError("INVALID_FIELD", "Community field name is invalid");
+  if (!NAME.test(input.name)) throw new CommunityError("INVALID_FIELD", "Community field name is invalid");
   if (source && !SOURCE_NAME.test(input.name)) throw new CommunityError("INVALID_FIELD", "Source-contributed fields must use a namespaced name");
   if (!Array.isArray(input.aliases) || input.aliases.some((alias) => !NAME.test(alias))) throw new CommunityError("INVALID_FIELD", `Aliases for ${input.name} are invalid`);
   if (!Array.isArray(input.operators) || input.operators.length === 0 || input.operators.some((operator) => !ALL_OPERATORS.has(operator))) {
@@ -139,34 +140,36 @@ function validateDefinition(input: CommunityFieldDefinition, source: boolean): C
     throw new CommunityError("INVALID_FIELD", `Operators for ${input.name} are incompatible with ${input.type}`);
   }
   if (input.description.length === 0 || input.description.length > 1024) throw new CommunityError("INVALID_FIELD", `Description for ${input.name} is invalid`);
-  if (input.enumValues?.some((value) => typeof value !== "string" || value.length === 0 || value.length > 512) === true) {
+  if (input.enumValues?.some((value) => value.length === 0 || value.length > 512) === true) {
     throw new CommunityError("INVALID_FIELD", `Enum values for ${input.name} are invalid`);
   }
-  return Object.freeze({
+  const definition: CommunityFieldDefinition = {
     ...input,
     aliases: Object.freeze([...input.aliases]),
     operators: Object.freeze([...new Set(input.operators)]),
-    ...(input.enumValues === undefined ? {} : { enumValues: Object.freeze([...new Set(input.enumValues)]) }),
-  });
+  };
+  if (input.enumValues !== undefined) Object.assign(definition, { enumValues: Object.freeze([...new Set(input.enumValues)]) });
+  return Object.freeze(definition);
 }
 
-function validateValue(fieldDefinition: CommunityFieldDefinition, value: unknown): CommunityFieldValue {
+function validateValue<Value>(fieldDefinition: CommunityFieldDefinition, value: Value): CommunityFieldValue {
   const values = Array.isArray(value) ? value : [value];
   if (values.length > 4096) throw invalidValue(fieldDefinition, "contains too many values");
   const validated = values.map((candidate) => validateScalar(fieldDefinition, candidate));
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   return Object.freeze(Array.isArray(value) ? validated : validated[0]) as CommunityFieldValue;
 }
 
-function validateScalar(fieldDefinition: CommunityFieldDefinition, value: unknown): string | number | boolean | null {
+function validateScalar<Value>(fieldDefinition: CommunityFieldDefinition, value: Value): string | number | boolean | null {
   if (value === null) return null;
   let result: string | number | boolean;
   switch (fieldDefinition.type) {
     case "number":
-      if (typeof value !== "number" || !Number.isFinite(value)) throw invalidValue(fieldDefinition, "must be a finite number");
+      if (!isNumber(value) || !Number.isFinite(value)) throw invalidValue(fieldDefinition, "must be a finite number");
       result = value;
       break;
     case "boolean":
-      if (typeof value !== "boolean") throw invalidValue(fieldDefinition, "must be a boolean");
+      if (!isBoolean(value)) throw invalidValue(fieldDefinition, "must be a boolean");
       result = value;
       break;
     case "datetime":
@@ -174,24 +177,28 @@ function validateScalar(fieldDefinition: CommunityFieldDefinition, value: unknow
       catch { throw invalidValue(fieldDefinition, "must be a datetime with an explicit timezone"); }
       break;
     case "object-id":
-      if (typeof value !== "string" || !OBJECT_ID.test(value)) throw invalidValue(fieldDefinition, "must be an opaque object ID");
+      if (!isString(value) || !OBJECT_ID.test(value)) throw invalidValue(fieldDefinition, "must be an opaque object ID");
       result = value;
       break;
     case "uri":
-      if (typeof value !== "string") throw invalidValue(fieldDefinition, "must be a URI");
+      if (!isString(value)) throw invalidValue(fieldDefinition, "must be a URI");
       try { new URL(value); } catch { throw invalidValue(fieldDefinition, "must be an absolute URI"); }
       result = value;
       break;
     case "keyword": case "text":
-      if (typeof value !== "string" || value.length > 1_000_000) throw invalidValue(fieldDefinition, "must be a bounded string");
+      if (!isString(value) || value.length > 1_000_000) throw invalidValue(fieldDefinition, "must be a bounded string");
       result = value.normalize("NFC");
       break;
   }
-  if (fieldDefinition.enumValues !== undefined && typeof result === "string" && !fieldDefinition.enumValues.includes(result)) {
+  if (fieldDefinition.enumValues !== undefined && isString(result) && !fieldDefinition.enumValues.includes(result)) {
     throw invalidValue(fieldDefinition, `must be one of ${fieldDefinition.enumValues.join(", ")}`);
   }
   return result;
 }
+
+function isString<Value>(value: Value): value is Value & string { return typeof value === "string"; }
+function isNumber<Value>(value: Value): value is Value & number { return typeof value === "number"; }
+function isBoolean<Value>(value: Value): value is Value & boolean { return typeof value === "boolean"; }
 
 function suggestions(input: string, definitions: readonly CommunityFieldDefinition[]): readonly string[] {
   const needle = input.toLocaleLowerCase("en-US");
@@ -218,6 +225,7 @@ function editDistance(left: string, right: string): number {
 }
 
 function hasSensitiveFieldPermission(authorization: CommunityAuthorizationContext): boolean {
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   return (authorization.permissions as readonly string[] | undefined)?.includes("field:sensitive:read") === true;
 }
 

@@ -405,9 +405,13 @@ Effort sizing follows the `DX.md` convention.
    environment's configured proxy — a pre-existing issue in that dependency's
    installer, not something this hook can or should route around.)*
 3. ✅ **Demote `pre-push` to `gate:fast`** once CI carries the heavy tail. **[S]**
-   *Done 2026-08-10: `.githooks/pre-push` now runs `gate:fast`, matching
-   `pre-commit`; `gate:push` remains an optional manual command
-   (`AGENTS.md`'s command table) but is no longer hook-wired.*
+   *Done 2026-08-10: `.githooks/pre-push` ran `gate:fast`, matching
+   `pre-commit`; `gate:push` was optional manual.*
+   *Revised 2026-08-20: hooks run `gate:commit` — parallel `gate:fast`
+   plus Community Web a11y lint (CI Lint-job parity). `gate:push`
+   (typecheck + build + unit) stays a preferred pre-PR command until
+   anti-slop typecheck debt is cleared; coverage/Pact/e2e stay in Actions /
+   `verify`.*
 4. ⛔ **Turn on Copilot code review** for every PR — no workflow required. **[S]**
    *Blocked 2026-08-10: this is a repository-settings toggle (Settings → Code
    review → Copilot, or the equivalent org policy), not a file change, and no

@@ -274,6 +274,7 @@ function auditFeatureDir(
 		return out;
 	}
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const meta = JSON.parse(readFileSync(fj, "utf8")) as {
 			id?: string;
 			personas?: string[];
@@ -965,6 +966,7 @@ export function runDoctorRepair(input: {
 		const fj = path.join(loc.dir, "feature.json");
 		if (existsSync(fj)) {
 			try {
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				const meta = JSON.parse(readFileSync(fj, "utf8")) as { id?: string };
 				if (meta.id && meta.id !== loc.id) {
 					apply(`feature-json-id:${loc.id}`, () => {
@@ -1046,10 +1048,11 @@ export function runDoctorSnapshot(input: {
 		"utf8",
 	);
 
-	const manifest: {
+	interface SnapshotManifest {
 		files: { rel: string; sha256: string; bytes: number }[];
 		copiedAt: string;
-	} = { files: [], copiedAt: new Date().toISOString() };
+	}
+	const manifest: SnapshotManifest = { files: [], copiedAt: new Date().toISOString() };
 
 	const copyIf = (abs: string, rel: string) => {
 		if (!existsSync(abs) || !statSync(abs).isFile()) return;

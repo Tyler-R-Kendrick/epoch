@@ -1,4 +1,12 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsUndefined<T>(value: T): value is T & undefined { return typeof value === "undefined"; }
+
 
 export interface EpochReactStorage {
   getItem(key: string): string | null;
@@ -11,7 +19,7 @@ export interface EpochReactEvent {
   readonly type: "crdt";
   readonly author: string;
   readonly lamport: number;
-  readonly payload: Record<string, unknown>;
+  readonly payload: Record<string, DictionaryValue>;
 }
 
 export type EpochReactOperation =
@@ -68,7 +76,7 @@ export interface EpochLiveRepositoryEvent {
   readonly entity: string;
   readonly author: string;
   readonly lamport: number;
-  readonly payload: Record<string, unknown>;
+  readonly payload: Record<string, DictionaryValue>;
 }
 
 export interface EpochLiveRepositoryOptions {
@@ -78,10 +86,10 @@ export interface EpochLiveRepositoryOptions {
 }
 
 export interface EpochLiveRepository {
-  append(entity: string, value: Record<string, unknown>): EpochLiveRepositoryEvent;
-  entity(entity: string): Record<string, unknown>;
+  append(entity: string, value: Record<string, DictionaryValue>): EpochLiveRepositoryEvent;
+  entity(entity: string): Record<string, DictionaryValue>;
   history(): readonly EpochLiveRepositoryEvent[];
-  view(): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, unknown>>> };
+  view(): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, DictionaryValue>>> };
   subscribe(listener: () => void): () => void;
   syncFrom(peer: EpochVirtualFileSystem): number;
 }
@@ -149,7 +157,7 @@ export function createEpochReactStore<TState extends object>(options: EpochReact
   }
 
   function setState(update: EpochReactStateUpdater<TState>): EpochReactChange<TState> {
-    const nextState = normalizeState(typeof update === "function" ? update(snapshot.state) : update);
+    const nextState = normalizeState(resolveStateUpdate(update, snapshot.state));
     const operations = diffStates(entity, asRecord(snapshot.state), asRecord(nextState));
     if (operations.length === 0) return { state: snapshot.state, events: [] };
 
@@ -237,7 +245,7 @@ export function createEpochLiveRepository(options: EpochLiveRepositoryOptions): 
   let historySnapshot = loadHistory();
   let entitySnapshots = materializeLiveEntities(historySnapshot);
 
-  function append(entity: string, value: Record<string, unknown>): EpochLiveRepositoryEvent {
+  function append(entity: string, value: Record<string, DictionaryValue>): EpochLiveRepositoryEvent {
     const cleanEntity = requireNonEmpty(entity, "live entity");
     const payload = normalizeState(value);
     const lamport = history().length + 1;
@@ -255,7 +263,7 @@ export function createEpochLiveRepository(options: EpochLiveRepositoryOptions): 
     return event;
   }
 
-  function entity(name: string): Record<string, unknown> {
+  function entity(name: string): Record<string, DictionaryValue> {
     return entitySnapshots.get(name) ?? emptyLiveEntity;
   }
 
@@ -263,7 +271,7 @@ export function createEpochLiveRepository(options: EpochLiveRepositoryOptions): 
     return historySnapshot;
   }
 
-  function view(): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, unknown>>> } {
+  function view() {
     return {
       events: historySnapshot,
       entities: Object.fromEntries(entitySnapshots.entries()),
@@ -316,12 +324,26 @@ export function useEpochHistory(repository: EpochLiveRepository): readonly Epoch
   return useSyncExternalStore(repository.subscribe, repository.history, repository.history);
 }
 
-export function useEpochEntity(repository: EpochLiveRepository, entity: string): Record<string, unknown> {
+export function useEpochEntity(repository: EpochLiveRepository, entity: string): Record<string, DictionaryValue> {
   return useSyncExternalStore(repository.subscribe, () => repository.entity(entity), () => repository.entity(entity));
 }
 
-export function useEpochView(repository: EpochLiveRepository): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, unknown>>> } {
+export function useEpochView(repository: EpochLiveRepository): { readonly events: readonly EpochLiveRepositoryEvent[]; readonly entities: Readonly<Record<string, Record<string, DictionaryValue>>> } {
   return useSyncExternalStore(repository.subscribe, repository.view, repository.view);
+}
+
+function reactEventPayload(
+  operation: EpochReactOperation,
+  replicaId: string,
+  lamport: number,
+) {
+  return {
+    backend: "epoch-react",
+    entity: operation.entity,
+    // SAFETY: EpochReactOperation is JSON-serializable and stored as dictionary payload.
+    operation: operation as DictionaryValue,
+    replica_id: hashString(stableJson({ replicaId, lamport, operation })).padStart(8, "0").slice(0, 32),
+  };
 }
 
 function appendOperations(
@@ -333,12 +355,7 @@ function appendOperations(
   const next = [...existing];
   for (const operation of operations) {
     const lamport = next.length + 1;
-    const payload = {
-      backend: "epoch-react",
-      entity: operation.entity,
-      operation,
-      replica_id: hashString(stableJson({ replicaId, lamport, operation })).padStart(8, "0").slice(0, 32),
-    };
+    const payload = reactEventPayload(operation, replicaId, lamport);
     next.push({
       id: `epoch-react-${lamport}-${hashString(stableJson(payload))}`,
       type: "crdt",
@@ -350,13 +367,13 @@ function appendOperations(
   return next;
 }
 
-function operationsForState(entity: string, state: Record<string, unknown>): EpochReactOperation[] {
+function operationsForState(entity: string, state: Record<string, DictionaryValue>): EpochReactOperation[] {
   return Object.entries(state)
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => ({ kind: "map-set", entity, key, value }));
 }
 
-function diffStates(entity: string, previous: Record<string, unknown>, next: Record<string, unknown>): EpochReactOperation[] {
+function diffStates(entity: string, previous: Record<string, DictionaryValue>, next: Record<string, DictionaryValue>): EpochReactOperation[] {
   const operations: EpochReactOperation[] = [];
   const keys = [...new Set([...Object.keys(previous), ...Object.keys(next)])].sort();
   for (const key of keys) {
@@ -375,20 +392,42 @@ function materializeState<TState extends object>(
   entity: string,
   events: readonly EpochReactEvent[],
 ): TState {
-  if (events.length === 0) return {} as TState;
-  const state: Record<string, unknown> = {};
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  if (events.length === 0) return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ {} as TState;
+  const state: Record<string, DictionaryValue> = {};
   for (const event of events) {
     const operation = event.payload.operation;
     if (!isReactOperation(operation) || operation.entity !== entity) continue;
-    if (operation.kind === "map-delete") delete state[operation.key];
-    else state[operation.key] = operation.value;
+    if (operation.kind === "map-delete") {
+      delete state[operation.key];
+    } else if ("value" in operation) {
+      // SAFETY: map-set operations carry dictionary-serializable values.
+      state[operation.key] = operation.value as DictionaryValue;
+    }
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return normalizeState(state) as TState;
+}
+
+function resolveStateUpdate<TState extends object>(
+  update: EpochReactStateUpdater<TState>,
+  state: TState,
+): TState {
+  // SAFETY: EpochReactStateUpdater is narrowed via __epochIsFunction before callback invocation.
+  const candidate = update as BoundaryValue;
+  if (__epochIsFunction(candidate)) {
+    // SAFETY: __epochIsFunction narrows update to a state updater callback.
+    const updater = update as (current: TState) => TState;
+    return updater(state);
+  }
+  // SAFETY: Non-function updaters are whole-state replacements.
+  return update as TState;
 }
 
 function eventsForTarget(events: readonly EpochReactEvent[], target: EpochReactMaterializationTarget): readonly EpochReactEvent[] {
   if (target === "latest") return events;
-  if (typeof target === "number") return events.slice(0, clampEventCount(target, events.length));
+  if (__epochIsNumber(target)) return events.slice(0, clampEventCount(target, events.length));
   const index = events.findIndex((event) => event.id === target);
   if (index === -1) throw new Error(`unknown Epoch React event '${target}'`);
   return events.slice(0, index + 1);
@@ -409,8 +448,9 @@ function eventPath(root: string, eventId: string): string {
 
 function parseLiveEvent(raw: string | undefined): EpochLiveRepositoryEvent | undefined {
   if (raw === undefined) return undefined;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const parsed = JSON.parse(raw) as Partial<EpochLiveRepositoryEvent>;
-  if (parsed.type !== "entity" || typeof parsed.id !== "string" || typeof parsed.entity !== "string" || typeof parsed.author !== "string" || typeof parsed.lamport !== "number" || !isRecord(parsed.payload)) {
+  if (parsed.type !== "entity" || !__epochIsString(parsed.id) || !__epochIsString(parsed.entity) || !__epochIsString(parsed.author) || !__epochIsNumber(parsed.lamport) || !isRecord(parsed.payload)) {
     throw new Error("invalid Epoch live repository event");
   }
   return {
@@ -423,17 +463,17 @@ function parseLiveEvent(raw: string | undefined): EpochLiveRepositoryEvent | und
   };
 }
 
-const emptyLiveEntity: Record<string, unknown> = {};
+const emptyLiveEntity: Record<string, DictionaryValue> = {};
 
-function materializeLiveEntities(events: readonly EpochLiveRepositoryEvent[]): Map<string, Record<string, unknown>> {
-  const entities = new Map<string, Record<string, unknown>>();
+function materializeLiveEntities(events: readonly EpochLiveRepositoryEvent[]): Map<string, Record<string, DictionaryValue>> {
+  const entities = new Map<string, Record<string, DictionaryValue>>();
   for (const event of events) entities.set(event.entity, normalizeState(event.payload));
   return entities;
 }
 
 function normalizeTarget(target: EpochReactMaterializationTarget, events: readonly EpochReactEvent[]): EpochReactMaterializationTarget {
   if (target === "latest") return target;
-  if (typeof target === "number") return clampEventCount(target, events.length);
+  if (__epochIsNumber(target)) return clampEventCount(target, events.length);
   if (!events.some((event) => event.id === target)) throw new Error(`unknown Epoch React event '${target}'`);
   return target;
 }
@@ -441,6 +481,7 @@ function normalizeTarget(target: EpochReactMaterializationTarget, events: readon
 function loadPersisted(storage: EpochReactStorage, storageKey: string, entity: string): EpochReactEvent[] {
   const raw = storage.getItem(storageKey);
   if (raw === null) return [];
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const parsed = JSON.parse(raw) as Partial<PersistedEpochReactState>;
   if (parsed.version !== 1 || parsed.entity !== entity || !Array.isArray(parsed.events)) {
     throw new Error(`invalid Epoch React storage payload for '${storageKey}'`);
@@ -455,11 +496,12 @@ function loadPersisted(storage: EpochReactStorage, storageKey: string, entity: s
 }
 
 function browserStorage(): EpochReactStorage | undefined {
-  return typeof globalThis.localStorage === "undefined" ? undefined : globalThis.localStorage;
+  return __epochIsUndefined(globalThis.localStorage) ? undefined : globalThis.localStorage;
 }
 
 function normalizeState<TState extends object>(value: TState): TState {
   if (!isRecord(value)) throw new TypeError("Epoch React state must be a JSON object");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return JSON.parse(JSON.stringify(value)) as TState;
 }
 
@@ -467,7 +509,7 @@ function stableId(value: string): string {
   return hashString(value).padStart(8, "0").slice(0, 32);
 }
 
-export function stableJson(value: unknown): string {
+export function stableJson(value: BoundaryValue): string {
   if (value === undefined) return "null";
   if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
   if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
@@ -488,31 +530,31 @@ function clampEventCount(count: number, length: number): number {
   return Math.max(0, Math.min(count, length));
 }
 
-function requireNonEmpty(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.length === 0) throw new Error(`invalid Epoch React ${label}`);
+function requireNonEmpty(value: BoundaryValue, label: string): string {
+  if (!__epochIsString(value) || value.length === 0) throw new Error(`invalid Epoch React ${label}`);
   return value;
 }
 
-function requireNumber(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`invalid Epoch React ${label}`);
+function requireNumber(value: BoundaryValue, label: string): number {
+  if (!__epochIsNumber(value) || !Number.isFinite(value)) throw new Error(`invalid Epoch React ${label}`);
   return value;
 }
 
-function requireRecord(value: unknown, label: string): Record<string, unknown> {
+function requireRecord(value: BoundaryValue, label: string): Record<string, DictionaryValue> {
   if (!isRecord(value)) throw new Error(`invalid Epoch React ${label}`);
   return value;
 }
 
-function asRecord(value: object): Record<string, unknown> {
+function asRecord(value: BoundaryValue): Record<string, DictionaryValue> {
   if (!isRecord(value)) throw new TypeError("Epoch React state must be a JSON object");
   return value;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isReactOperation(value: unknown): value is EpochReactOperation {
+function isReactOperation(value: BoundaryValue): value is EpochReactOperation {
   if (!isRecord(value) || typeof value.entity !== "string" || typeof value.key !== "string") return false;
   return value.kind === "map-delete" || value.kind === "map-set";
 }

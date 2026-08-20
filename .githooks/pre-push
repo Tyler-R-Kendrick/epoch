@@ -1,18 +1,14 @@
 #!/usr/bin/env sh
 set -eu
 
-# Fast local pre-push gate. GitHub Actions Quality Gates (typecheck, build,
-# test, coverage, Pact, a11y, Nightboard e2e) run on every push/PR and are
-# the authoritative bar; this hook is a cheap local pre-flight, not a
-# substitute for CI. See docs/ai-automation-strategy.md Finding 1/Finding 2.
+# Local pre-push mirrors pre-commit (`gate:commit`). Prefer `npm run gate:push`
+# before a PR when typecheck/build/unit are green; full verify stays CI.
 #
 # Bypass (emergency only): SKIP_GIT_HOOKS=1 git push ...
 if [ -n "${SKIP_GIT_HOOKS:-}" ] || [ -n "${CI:-}" ]; then
   exit 0
 fi
 
-echo "pre-push: running fast local quality gate (CI is authoritative)"
-# Git exports repository-local variables to hooks; clear them before tests spawn
-# Git against temporary repositories.
+echo "pre-push: running gate:commit (CI remains authoritative for verify)"
 unset $(git rev-parse --local-env-vars)
-npm run gate:fast
+npm run gate:commit

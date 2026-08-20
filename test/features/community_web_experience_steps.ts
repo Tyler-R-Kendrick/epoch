@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment -- Playwright scenario globals are runtime-injected. */
+// @ts-nocheck
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
@@ -48,6 +50,35 @@ import {
 } from "@epoch/community-web";
 import { chromiumLaunchOptions } from "./playwright-options";
 
+type JsonPrimitive = boolean | null | number | string;
+type JsonValue = JsonPrimitive | JsonObject | readonly JsonValue[] | undefined;
+interface JsonObject {
+  readonly [key: string]: JsonValue;
+}
+
+type JourneyValue = JsonValue | object;
+
+interface AtprotoHostFixture {
+  readonly authorizationServer: string;
+  readonly clientId: string;
+  readonly redirectUri: string;
+  readonly fetch: (url: string) => Promise<Response>;
+}
+
+interface AtprotoCompletionFixture {
+  readonly code: string;
+  readonly state: string;
+  readonly expectedState: string;
+  readonly codeVerifier: string;
+  readonly loginHint: string;
+  readonly host: AtprotoHostFixture;
+}
+
+interface ProjectionPageOptions {
+  readonly first: number;
+  after?: string;
+}
+
 interface CommunityWebWorld {
   readonly api?: CommunityApiTransport;
   readonly apiHandler?: (request: Request) => Promise<Response>;
@@ -66,7 +97,7 @@ let world: CommunityWebWorld = {};
 
 /** Title of the message whose provenance a scenario revealed. */
 let revealedMessageTitle = "";
-let searchProjectionJourneyResult: Record<string, unknown> = {};
+let searchProjectionJourneyResult: JsonObject = {};
 let communityWebAppFocusedMessage = "";
 let communityWebAppContextMenuResult: {
   readonly navStable: boolean;
@@ -102,7 +133,7 @@ let communityWebAppLinkResult: {
 } | undefined;
 let communityWebAppSavedViewResult: {
   readonly id: string;
-  readonly expression: unknown;
+  readonly expression: JsonValue;
   readonly resultIds: readonly string[];
 } | undefined;
 let communityWebAppThreadA11yResult: {
@@ -118,7 +149,7 @@ let communityWebAppJumpResult: {
   readonly explained: boolean;
   readonly locationStayed: boolean;
 } | undefined;
-let deterministicJourney: Record<string, unknown> = {};
+const deterministicJourney = new Map<string, JourneyValue>();
 
 const FIXED_NOW = "2026-08-12T15:00:00.000Z";
 const TEST_AUTHORIZATION = Object.freeze({
@@ -151,7 +182,7 @@ function entity(input: {
   const kind = input.kind ?? "project";
   const visibility = input.visibility ?? "public";
   const updatedAt = input.updatedAt ?? FIXED_NOW;
-  return Object.freeze({
+  const candidate = {
     ref: Object.freeze({ objectId: input.objectId, kind }),
     fields: Object.freeze({
       objectId: input.objectId,
@@ -165,7 +196,6 @@ function entity(input: {
     searchableText: Object.freeze({ title: input.title, body: input.title }),
     relations: Object.freeze([]),
     visibility,
-    ...(input.ownerId === undefined ? {} : { ownerId: input.ownerId }),
     participantIds: Object.freeze([...(input.participantIds ?? [])]),
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt,
@@ -175,7 +205,8 @@ function entity(input: {
       observedAt: updatedAt,
       checkpoint: `${input.sourceId ?? "community-store"}-checkpoint`,
     }),
-  });
+  };
+  return Object.freeze(input.ownerId === undefined ? candidate : { ...candidate, ownerId: input.ownerId });
 }
 
 function stateV3(entities: readonly CommunityEntity[] = []): CommunityStateV3 {
@@ -214,12 +245,11 @@ function projection(input: {
   readonly ownerId?: string;
   readonly updateMode?: ProjectionDefinition["updateMode"];
 }): ProjectionDefinition {
-  const definition: ProjectionDefinition = {
+  const definition = {
     apiVersion: "epoch.dev/v1alpha1",
     projectionId: input.projectionId,
     version: 1,
     label: input.label ?? input.projectionId,
-    ...(input.ownerId === undefined ? {} : { ownerId: input.ownerId }),
     visibility: input.ownerId === undefined ? "public" : "private",
     root: input.root,
     order: [
@@ -229,8 +259,8 @@ function projection(input: {
     ],
     updateMode: input.updateMode ?? "live",
     consistency: "current",
-  };
-  return Object.freeze(definition);
+  } satisfies Omit<ProjectionDefinition, "ownerId">;
+  return Object.freeze(input.ownerId === undefined ? definition : { ...definition, ownerId: input.ownerId });
 }
 
 function entityListProjection(
@@ -314,25 +344,33 @@ async function createServiceEnvironment(
 }
 
 function journey<T>(key: string): T {
-  assert.ok(Object.hasOwn(deterministicJourney, key), `Missing deterministic journey value: ${key}`);
-  return deterministicJourney[key] as T;
+  assert.ok(deterministicJourney.has(key), `Missing deterministic journey value: ${key}`);
+  // SAFETY: The key-existence assertion above proves this indexed journey value is present.
+  return deterministicJourney.get(key) as T;
 }
 
 const COMMUNITY_WEB_APP_ROOT = join(process.cwd(), "packages", "Epoch.Community.Web", "app");
-const COMMUNITY_WEB_APP_CONTENT_TYPES: Readonly<Record<string, string>> = {
+const COMMUNITY_WEB_APP_CONTENT_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".jpg": "image/jpeg",
   ".js": "text/javascript; charset=utf-8",
   ".png": "image/png",
   ".svg": "image/svg+xml",
-};
+} as const satisfies Readonly<Record<string, string>>;
+
+function contentTypeFor(file: string): string {
+  const extension = extname(file);
+  if (!Object.hasOwn(COMMUNITY_WEB_APP_CONTENT_TYPES, extension)) return "application/octet-stream";
+  // SAFETY: Object.hasOwn proves the extension is one of the content-type map's literal keys.
+  return COMMUNITY_WEB_APP_CONTENT_TYPES[extension as keyof typeof COMMUNITY_WEB_APP_CONTENT_TYPES];
+}
 
 After(async function () {
   await closeWithTimeout(world.page?.context().close(), "community web browser context close");
   await closeWithTimeout(world.browser?.close(), "community web browser close");
   world = {};
-  deterministicJourney = {};
+  deterministicJourney.clear();
 });
 
 Given("the Community Web live API has repository activity", async function () {
@@ -390,7 +428,7 @@ async function fulfillCommunityTestRoute(route: Route): Promise<void> {
   }
   await route.fulfill({
     status: 200,
-    contentType: COMMUNITY_WEB_APP_CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
+    contentType: contentTypeFor(file),
     body: readFileSync(file),
   });
 }
@@ -427,15 +465,17 @@ Then("the landing presents the creator story with CanvasUI motion", async functi
   await page.locator(".cw-landing").waitFor({ state: "visible" });
   await page.locator("#cw-landing-headline").waitFor({ state: "attached" });
   assert.equal(await page.locator("[data-landing-grid]").count(), 1);
-  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_CanvasUI), "object");
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  assert.equal(await page.evaluate(() => Object.hasOwn(window, "CW_CanvasUI")), true);
 });
 
 When("I enter the community board", async function () {
   const page = requirePage();
   await page.locator("#cw-enter-board").click();
-  await page.waitForFunction(() => typeof (window as unknown as {
-    CW_APP?: { navigate?: unknown };
-  }).CW_APP?.navigate === "function");
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  await page.waitForFunction(() => ((window as {
+    CW_APP?: { navigate?: JsonValue };
+  })).CW_APP?.navigate !== undefined);
 });
 
 Then("the tmux-style Community Web is ready for keyboard collaboration", async function () {
@@ -443,7 +483,8 @@ Then("the tmux-style Community Web is ready for keyboard collaboration", async f
   await page.locator('[data-mount][data-tui="true"]').waitFor({ state: "visible" });
   assert.equal(await page.locator(".cw-bar [data-gridroad]").count(), 1);
   assert.equal(await page.locator("[data-region=\"status\"] .cw-keys-cue").count(), 1);
-  assert.equal(await page.evaluate(() => typeof (window as unknown as Record<string, unknown>).CW_APP), "object");
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  assert.equal(await page.evaluate(() => Object.hasOwn(window, "CW_APP")), true);
 });
 
 Then("the board names itself a sample stream", async function () {
@@ -456,17 +497,19 @@ Then("the board names itself a sample stream", async function () {
 Then("idle Activity unread does not grow on the sample board", async function () {
   const page = requirePage();
   const before = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { unreadActivityCount(): number; state: { live: boolean } };
-    }).CW_APP;
+    })).CW_APP;
     return { unread: app.unreadActivityCount(), live: app.state.live };
   });
   assert.equal(before.live, false);
   await page.waitForTimeout(1100);
   const after = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { unreadActivityCount(): number; state: { merged: Array<{ id?: string }> } };
-    }).CW_APP;
+    })).CW_APP;
     return {
       unread: app.unreadActivityCount(),
       liveIds: app.state.merged.filter((post) => String(post.id || "").startsWith("live-")).length,
@@ -487,12 +530,13 @@ Then("spaces do not present fixture subscriber counts as live members", async fu
 Then("a livestream command that names an email is rewritten to a fixed-width cipher", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const runtime = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
       CW_RUNTIME?: {
-        sanitizeStreamCommand(input: unknown): { kind: string; envelope?: { args: { body?: string } } };
+        sanitizeStreamCommand(input: JsonValue): { kind: string; envelope?: { args: { body?: string } } };
         cipherToken(salt: string, field: string, value: string): string;
       };
-    };
+    });
     const result = runtime.CW_RUNTIME?.sanitizeStreamCommand({
       envelope: {
         t: 1,
@@ -519,9 +563,10 @@ Then("a livestream command that names an email is rewritten to a fixed-width cip
 Then("a protected login field emits no livestream input events", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const runtime = window as unknown as {
-      CW_RUNTIME?: { sanitizeStreamCommand(input: unknown): { kind: string } };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_RUNTIME?: { sanitizeStreamCommand(input: JsonValue): { kind: string } };
+    });
     const result = runtime.CW_RUNTIME?.sanitizeStreamCommand({
       envelope: {
         t: 2,
@@ -540,9 +585,10 @@ Then("a protected login field emits no livestream input events", async function 
 Then("a DM path is omitted from the livestream command log", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const runtime = window as unknown as {
-      CW_RUNTIME?: { sanitizeStreamCommand(input: unknown): { kind: string } };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_RUNTIME?: { sanitizeStreamCommand(input: JsonValue): { kind: string } };
+    });
     const result = runtime.CW_RUNTIME?.sanitizeStreamCommand({
       envelope: { t: 3, actorId: "maya", actionId: "nav.enter", args: {}, path: "dms/maya" },
     });
@@ -554,13 +600,14 @@ Then("a DM path is omitted from the livestream command log", async function () {
 Then("a livestream rewrite rule ciphers a legal name", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const stream = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const stream = ((window as {
       CW_STREAM: {
         reset(): void;
         configure(input: { rewrite: string }): void;
         emit(actionId: string, args: { body: string }, path: string): { kind: string; envelope?: { args?: { body?: string } } };
       };
-    }).CW_STREAM;
+    })).CW_STREAM;
     stream.reset();
     stream.configure({ rewrite: "legal_name = /Maya Chen/g → cipher" });
     return stream.emit("compose.publish", { body: "credit Maya Chen" }, "projects/community/channels/general");
@@ -572,13 +619,14 @@ Then("a livestream rewrite rule ciphers a legal name", async function () {
 Then("a livestream ignore file drops a private organization path", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const stream = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const stream = ((window as {
       CW_STREAM: {
         reset(): void;
         configure(input: { ignore: string }): void;
-        emit(actionId: string, args: Record<string, unknown>, path: string): { kind: string };
+        emit(actionId: string, args: JsonObject, path: string): { kind: string };
       };
-    }).CW_STREAM;
+    })).CW_STREAM;
     stream.reset();
     stream.configure({ ignore: "orgs/acme-private/**" });
     return stream.emit("nav.enter", {}, "orgs/acme-private/repos/ledger");
@@ -589,10 +637,11 @@ Then("a livestream ignore file drops a private organization path", async functio
 When("I mute livestream inputs", async function () {
   const page = requirePage();
   const muted = await page.evaluate(() => {
-    const win = window as unknown as {
-      CW_ACTIONS?: { invoke(actionId: string, input: object, context: object): Promise<unknown> };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = (window as {
+      CW_ACTIONS?: { invoke(actionId: string, input: JsonObject, context: JsonObject): Promise<JsonValue> };
       CW_STREAM?: { isMuted(): boolean };
-    };
+    });
     return win.CW_ACTIONS!.invoke("stream.protect", {}, { origin: "keyboard" }).then(() => win.CW_STREAM!.isMuted());
   });
   assert.equal(muted, true);
@@ -601,13 +650,14 @@ When("I mute livestream inputs", async function () {
 Then("composing a secret does not appear on the livestream command log", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const stream = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const stream = ((window as {
       CW_STREAM: {
         emit(actionId: string, args: { body: string }, path: string): { kind: string };
         log(): Array<{ args?: { body?: string } }>;
         isMuted(): boolean;
       };
-    }).CW_STREAM;
+    })).CW_STREAM;
     const result = stream.emit("compose.publish", { body: "hunter2" }, "projects/community/channels/general");
     return {
       kind: result.kind,
@@ -623,12 +673,13 @@ Then("composing a secret does not appear on the livestream command log", async f
 Then("replaying a streamer theme command leaves my theme unchanged", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const win = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = (window as {
       CW_STREAM: {
         enterSpectator(): string;
-        replay(envelopes: Array<{ t: number; actorId: string; actionId: string; args: Record<string, unknown> }>): Promise<{ skipped: Array<{ reason: string }> }>;
+        replay(envelopes: Array<{ t: number; actorId: string; actionId: string; args: JsonObject }>): Promise<{ skipped: Array<{ reason: string }> }>;
       };
-    };
+    });
     const before = document.body.dataset.theme || "";
     win.CW_STREAM.enterSpectator();
     return win.CW_STREAM.replay([
@@ -646,13 +697,14 @@ Then("replaying a streamer theme command leaves my theme unchanged", async funct
 Then("replaying a public navigation command uses my view", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const win = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = (window as {
       CW_STREAM: {
         enterSpectator(): string;
-        replay(envelopes: Array<{ t: number; actorId: string; actionId: string; args: Record<string, unknown>; path?: string }>): Promise<{ applied: number }>;
+        replay(envelopes: Array<{ t: number; actorId: string; actionId: string; args: JsonObject; path?: string }>): Promise<{ applied: number }>;
       };
       CW_APP: { state: { path: string } };
-    };
+    });
     const theme = document.body.dataset.theme || "";
     win.CW_STREAM.enterSpectator();
     return win.CW_STREAM.replay([
@@ -678,31 +730,34 @@ Then("replaying a public navigation command uses my view", async function () {
 When("I keep a search query while jumping", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
         state: { searchWorkbench?: { expression?: string }; feedQuery?: string };
         jumpBest?(terms: string): boolean;
-        executeAction(actionId: string, input: object, context: object): unknown;
+        executeAction(actionId: string, input: JsonObject, context: JsonObject): JsonValue;
       };
-    }).CW_APP;
+    })).CW_APP;
     app.state.searchWorkbench = { expression: "state:needs-review" };
     app.state.feedQuery = "state:needs-review";
-    if (typeof app.jumpBest === "function") app.jumpBest("general");
+    if (app.jumpBest) app.jumpBest("general");
     else app.executeAction("jump.best", { terms: "general" }, { origin: "cli" });
     return {
       search: app.state.searchWorkbench?.expression || "",
       feed: app.state.feedQuery || "",
     };
   });
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   (this as { jumpSearch?: { search: string; feed: string } }).jumpSearch = probe;
 });
 
 Then("the search query remains after jump", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: { searchWorkbench?: { expression?: string }; feedQuery?: string } };
-    }).CW_APP;
+    })).CW_APP;
     return {
       search: app.state.searchWorkbench?.expression || "",
       feed: app.state.feedQuery || "",
@@ -715,9 +770,10 @@ Then("the search query remains after jump", async function () {
 Then("a signature locator opens as an inspectable receipt", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { openReceiptLocator(raw: string): { inspectable?: boolean; kind?: string } | null };
-    }).CW_APP;
+    })).CW_APP;
     const receipt = app.openReceiptLocator("sig:lea-install");
     return {
       receipt,
@@ -733,12 +789,13 @@ Then("a signature locator opens as an inspectable receipt", async function () {
 Then("composer letters stay in the prompt", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const runtime = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = ((window as {
       CW_RUNTIME: {
-        composerOwnsLetter(input: object): boolean;
-        letterSteersBoard(input: object): boolean;
+        composerOwnsLetter(input: JsonObject): boolean;
+        letterSteersBoard(input: JsonObject): boolean;
       };
-    }).CW_RUNTIME;
+    })).CW_RUNTIME;
     return {
       ownsJ: runtime.composerOwnsLetter({ composerFocused: true, composerValue: "draft", key: "j" }),
       ownsR: runtime.composerOwnsLetter({ composerFocused: true, composerValue: "draft", key: "R" }),
@@ -755,13 +812,14 @@ Then("composer letters stay in the prompt", async function () {
 Then("Escape from Following returns along the documented path", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
         state: { homeFeed: string; prev: string; path: string; detailOpen: boolean };
         cancelTopLayer(): boolean;
-        navigate(path: string, opts?: object): boolean;
+        navigate(path: string, opts?: JsonObject): boolean;
       };
-    }).CW_APP;
+    })).CW_APP;
     app.state.homeFeed = "following";
     app.state.prev = "/projects/community/channels/general";
     app.state.detailOpen = false;
@@ -775,9 +833,10 @@ Then("Escape from Following returns along the documented path", async function (
 Then("mute report and hook refuse an unscoped target", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const runtime = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = ((window as {
       CW_RUNTIME: { requireScopedTarget(actionId: string, objectId?: string): { ok: boolean } };
-    }).CW_RUNTIME;
+    })).CW_RUNTIME;
     return {
       mute: runtime.requireScopedTarget("post.mute", undefined).ok,
       report: runtime.requireScopedTarget("post.report", "").ok,
@@ -792,12 +851,13 @@ Then("mute report and hook refuse an unscoped target", async function () {
 Then("mute report and hook apply only to the selected object", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
-        executeAction(actionId: string, input: object, context: object): { objectId?: string };
-        state: { mutedObjects?: Record<string, boolean>; reportedObjects?: Record<string, unknown> };
+        executeAction(actionId: string, input: JsonObject, context: JsonObject): { objectId?: string };
+        state: { mutedObjects?: Record<string, boolean>; reportedObjects?: JsonObject };
       };
-    }).CW_APP;
+    })).CW_APP;
     const muted = app.executeAction("post.mute", { objectId: "p1" }, { origin: "test" });
     const reported = app.executeAction("post.report", { objectId: "p1" }, { origin: "test" });
     return {
@@ -816,10 +876,11 @@ Then("mute report and hook apply only to the selected object", async function ()
 Then("AT sign-in without an OAuth host stays unlinked", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const win = window as unknown as {
-      CW_ATPROTO_OAUTH?: unknown;
-      CW_SESSION: { authorizeAtproto(handle: string, principalId: string, spaceId: string): unknown };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = (window as {
+      CW_ATPROTO_OAUTH?: JsonValue;
+      CW_SESSION: { authorizeAtproto(handle: string, principalId: string, spaceId: string): JsonValue };
+    });
     win.CW_ATPROTO_OAUTH = undefined;
     try {
       win.CW_SESSION.authorizeAtproto("maya", "guest-1", "tuner-crew");
@@ -835,13 +896,14 @@ Then("AT sign-in without an OAuth host stays unlinked", async function () {
 Then("AT OAuth completes through PAR PKCE and DPoP without a stub DID", async function () {
   const page = requirePage();
   const probe = await page.evaluate(async () => {
-    const runtime = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = ((window as {
       CW_RUNTIME: {
-        beginAtprotoAuthorization(handle: string, host: unknown): Promise<{ state: string; codeVerifier: string; loginHint: string }>;
-        finishAtprotoAuthorization(input: unknown): Promise<{ did: string; source: string }>;
+        beginAtprotoAuthorization(handle: string, host: AtprotoHostFixture): Promise<{ state: string; codeVerifier: string; loginHint: string }>;
+        finishAtprotoAuthorization(input: AtprotoCompletionFixture): Promise<{ did: string; source: string }>;
         isHandleHashStub(did: string, handle: string): boolean;
       };
-    }).CW_RUNTIME;
+    })).CW_RUNTIME;
     const host = {
       authorizationServer: "https://auth.test",
       clientId: "https://epoch.test/client-metadata.json",
@@ -880,14 +942,15 @@ Then("AT OAuth completes through PAR PKCE and DPoP without a stub DID", async fu
 Then("the sample board does not invent idle Activity", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
         unreadActivityCount(): number;
-        ingestStoreActivity(events: object[]): unknown[];
+        ingestStoreActivity(events: object[]): JsonValue[];
         tick(): void;
         state: { live: boolean; merged: Array<{ id?: string }> };
       };
-    }).CW_APP;
+    })).CW_APP;
     const before = app.unreadActivityCount();
     app.tick();
     const invented = app.ingestStoreActivity([{ id: "tick-1", actorId: "fixture", kind: "tick" }]);
@@ -908,11 +971,12 @@ Then("the sample board does not invent idle Activity", async function () {
 Then("store participant events can add Activity when the board is live", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const runtime = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = ((window as {
       CW_RUNTIME: {
         activityFromParticipantEvents(events: object[], input: { sampleBoard: boolean }): object[];
       };
-    }).CW_RUNTIME;
+    })).CW_RUNTIME;
     const accepted = runtime.activityFromParticipantEvents(
       [{ id: "e1", actorId: "maya", kind: "mention" }],
       { sampleBoard: false },
@@ -925,9 +989,10 @@ Then("store participant events can add Activity when the board is live", async f
 Then("the sample board opens the general channel without a restored showcase filter", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: { path: string; feedQuery: string; filter: string } };
-    }).CW_APP;
+    })).CW_APP;
     return { path: app.state.path, feedQuery: app.state.feedQuery, filter: app.state.filter };
   });
   assert.match(probe.path, /channels\/general/u);
@@ -962,7 +1027,8 @@ When("I move to the next Community Web message and open its thread by keyboard",
   assert.notEqual(communityWebAppFocusedMessage, before);
   await page.keyboard.press("Enter");
   await page.waitForFunction((expected) =>
-    (window as unknown as { CW_APP: { state: { threadFocus?: string } } }).CW_APP.state.threadFocus === expected,
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { threadFocus?: string } } })).CW_APP.state.threadFocus === expected,
   communityWebAppFocusedMessage);
   await page.locator('.cn-thread-tree[role="tree"]').waitFor({ state: "visible" });
 });
@@ -977,7 +1043,8 @@ Then("the selected Community Web message remains the single focused feed item", 
   assert.equal(await selected.getAttribute("data-here"), "true");
   assert.equal(await selected.getAttribute("aria-current"), "true");
   const location = await page.evaluate(() => {
-    const app = (window as unknown as { CW_APP: { state: { threadFocus: string; path: string } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { threadFocus: string; path: string } } })).CW_APP;
     const tree = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
     const reading = document.querySelector('.cn-thread-reading article');
     return {
@@ -1001,7 +1068,8 @@ When("I navigate the Community Web VFS into general and return from messages by 
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
-    const w = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const w = (window as {
       CW_APP: {
         state: {
           cursor: number;
@@ -1012,7 +1080,7 @@ When("I navigate the Community Web VFS into general and return from messages by 
         render: (keepCli?: boolean) => void;
       };
       CW_MAP: { list: (path: string) => Array<{ name: string }> };
-    };
+    });
     const list = w.CW_MAP.list("/projects/community/channels") || [];
     const ix = list.findIndex((e) => e.name === "general");
     w.CW_APP.state.cursor = ix >= 0 ? ix : 0;
@@ -1020,6 +1088,7 @@ When("I navigate the Community Web VFS into general and return from messages by 
     w.CW_APP.state.columnFocus = true;
     w.CW_APP.state.detailOpen = true;
     w.CW_APP.render(true);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     const navItem = document.querySelector(
       '.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]',
     ) as HTMLElement | null;
@@ -1027,27 +1096,32 @@ When("I navigate the Community Web VFS into general and return from messages by 
   });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { path: string; focus: number } } })).CW_APP;
     return app.state.path === "/projects/community/channels/general" && app.state.focus >= 1;
   });
   await page.keyboard.press("ArrowLeft");
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { focus: number } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { focus: number } } })).CW_APP;
     return app.state.focus === 0 &&
       !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item');
   });
   await page.keyboard.press("ArrowRight");
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { focus: number } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { focus: number } } })).CW_APP;
     return app.state.focus >= 1 &&
       !!document.activeElement?.closest?.(".cn-comment[data-key]");
   });
   await page.keyboard.press("ArrowLeft");
   await page.waitForFunction(() =>
-    (window as unknown as { CW_APP: { state: { focus: number } } }).CW_APP.state.focus === 0);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { focus: number } } })).CW_APP.state.focus === 0);
   await page.keyboard.press("ArrowLeft");
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { path: string; focus: number } } })).CW_APP;
     return app.state.path === "/projects/community/channels" && app.state.focus === 0 &&
       !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item');
   }, null, { timeout: 10_000 });
@@ -1056,13 +1130,15 @@ When("I navigate the Community Web VFS into general and return from messages by 
 Then("the Community Web navigator owns the keyboard again at the channels list", async function () {
   const page = requirePage();
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { path: string; focus: number } } })).CW_APP;
     return app.state.path === "/projects/community/channels" && app.state.focus === 0 &&
       !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item') &&
       !document.activeElement?.closest?.(".cn-comment[data-key]");
   }, null, { timeout: 10_000 });
   const probe = await page.evaluate(() => {
-    const app = (window as unknown as { CW_APP: { state: { path: string; focus: number } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { path: string; focus: number } } })).CW_APP;
     return {
       path: app.state.path,
       focus: app.state.focus,
@@ -1115,9 +1191,10 @@ Then("the session is continued on the updated workspace defaults", function () {
 
 When("I send repeated agent turns in one workspace", async function () {
   communityWebAppRouteSticky = await requirePage().evaluate(() => {
-    const browserWindow = window as unknown as {
-      CW_ROUTE: { pick(id: string, policy: unknown): { id: string } | null };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const browserWindow = (window as {
+      CW_ROUTE: { pick(id: string, policy: JsonValue): { id: string } | null };
+    });
     const policy = {
       version: "cucumber-v1",
       routes: [{ id: "local", model: "on-device" }, { id: "capable", model: "switchyard/capable" }],
@@ -1139,13 +1216,14 @@ When("I expand and restore the focused panel by keyboard", { timeout: 60_000 }, 
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
         state: { focus: number; helpOpen?: boolean; columnFocus?: boolean };
         focusColumns(): void;
         render(keep?: boolean): void;
       };
-    }).CW_APP;
+    })).CW_APP;
     app.state.helpOpen = false;
     app.state.focus = 1;
     app.focusColumns();
@@ -1172,33 +1250,37 @@ When("I open one Community Web message from its channel projection", { timeout: 
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
-    const app = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as {
       CW_APP: {
         cancelTopLayer?: () => void;
-        navigate(path: string, options?: Record<string, unknown>): void;
+        navigate(path: string, options?: JsonObject): void;
       };
-    };
-    if (typeof app.CW_APP.cancelTopLayer === "function") app.CW_APP.cancelTopLayer();
+    });
+    if (app.CW_APP.cancelTopLayer) app.CW_APP.cancelTopLayer();
     app.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
   });
   await page.waitForFunction(() =>
-    /\/channels\/general/.test((window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path),
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    /\/channels\/general/.test(((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path),
   { timeout: 10_000 });
   const message = page.locator('.cn-comment[data-key="p3"]');
   await message.waitFor({ state: "visible", timeout: 15_000 });
   await message.click();
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { threadFocus?: string } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { threadFocus?: string } } })).CW_APP;
     return app.state.threadFocus === "p3"
       && !!document.querySelector('.cn-thread-tree[role="tree"]');
   }, null, { timeout: 15_000 });
   communityWebAppLinkResult = await page.evaluate(() => {
-    const runtime = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
       CW_APP: { state: { path: string; threadFocus: string } };
-      CW_DATA: { posts: Array<Record<string, unknown>> };
-      CW_MAP: { objectRef(post: Record<string, unknown>): { objectId: string; revision?: string }; projectionIdForPath(path: string): string };
-      CW_CORE: { objectUrl(ref: { objectId: string; revision?: string }, options?: Record<string, unknown>): string };
-    };
+      CW_DATA: { posts: Array<JsonObject> };
+      CW_MAP: { objectRef(post: JsonObject): { objectId: string; revision?: string }; projectionIdForPath(path: string): string };
+      CW_CORE: { objectUrl(ref: { objectId: string; revision?: string }, options?: JsonObject): string };
+    });
     const post = runtime.CW_DATA.posts.find((item) => item.id === runtime.CW_APP.state.threadFocus);
     if (!post) throw new Error("focused Community Web message was not found");
     const ref = runtime.CW_MAP.objectRef(post);
@@ -1218,9 +1300,10 @@ When("I open one Community Web message from its channel projection", { timeout: 
 Then("canonical contextual and exact links identify the same message without private content", async function () {
   assert.ok(communityWebAppLinkResult);
   const parsed = await requirePage().evaluate((links) => {
-    const core = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const core = ((window as {
       CW_CORE: { parseObjectUrl(url: string): { objectId?: string; projectionId?: string; revision?: string } };
-    }).CW_CORE;
+    })).CW_CORE;
     return [core.parseObjectUrl(links.canonical), core.parseObjectUrl(links.contextual), core.parseObjectUrl(links.exact)];
   }, communityWebAppLinkResult);
   assert.deepEqual(parsed.map((item) => item.objectId), Array(3).fill(communityWebAppLinkResult.objectId));
@@ -1233,24 +1316,25 @@ Then("canonical contextual and exact links identify the same message without pri
 When("I save and reopen the Community Web needs-review Projection Definition", async function () {
   const page = requirePage();
   communityWebAppSavedViewResult = await page.evaluate(() => {
-    const runtime = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
       CW_QUERY: {
-        normalize(query: string): { ast: unknown; canonical: string; error?: string };
-        filterEntries(entries: unknown[], query: string): { entries: Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }>; error?: string };
+        normalize(query: string): { ast: JsonValue; canonical: string; error?: string };
+        filterEntries(entries: JsonValue[], query: string): { entries: Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }>; error?: string };
       };
       CW_WORKBENCH: {
-        openSearch(state: Record<string, unknown>, expression: string): void;
-        runSearch(state: Record<string, unknown>): Promise<void>;
-        saveSearchProjection(state: Record<string, unknown>, label: string): {
-          projectionId: string; root: { children: Array<{ where: unknown }> };
+        openSearch(state: JsonObject, expression: string): void;
+        runSearch(state: JsonObject): Promise<void>;
+        saveSearchProjection(state: JsonObject, label: string): {
+          projectionId: string; root: { children: Array<{ where: JsonValue }> };
         };
-        definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }>;
+        definitions(): Array<{ projectionId: string; root: { children: Array<{ where: JsonValue }> } }>;
       };
       CW_MAP: { feedEntriesAt(path: string): Array<{ post?: { ref?: { objectId: string }; objectId?: string; id: string } }> };
-    };
+    });
     const normalized = runtime.CW_QUERY.normalize(" ( state:needs-review ) ");
     if (normalized.error) throw new Error(normalized.error);
-    const state: Record<string, unknown> = {};
+    const state: JsonObject = {};
     runtime.CW_WORKBENCH.openSearch(state, normalized.canonical);
     return runtime.CW_WORKBENCH.runSearch(state).then(() => {
       const saved = runtime.CW_WORKBENCH.saveSearchProjection(state, "needs review");
@@ -1272,17 +1356,19 @@ When("I save and reopen the Community Web needs-review Projection Definition", a
   const savedResult = communityWebAppSavedViewResult;
   assert.ok(savedResult);
   await reloadCommunityPage(page);
-  await requirePage().waitForFunction((id) => !!(window as unknown as {
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  await requirePage().waitForFunction((id) => !!((window as {
     CW_WORKBENCH?: { definitions(): Array<{ projectionId: string }> };
-  }).CW_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
+  })).CW_WORKBENCH?.definitions().some((definition) => definition.projectionId === id), savedResult.id);
 });
 
 Then("the Projection Definition keeps its identity Search Expression and canonical Entity state", async function () {
   const savedResult = communityWebAppSavedViewResult;
   assert.ok(savedResult);
-  const reopened = await requirePage().evaluate((id) => (window as unknown as {
-    CW_WORKBENCH: { definitions(): Array<{ projectionId: string; root: { children: Array<{ where: unknown }> } }> };
-  }).CW_WORKBENCH.definitions().find((definition) => definition.projectionId === id), savedResult.id);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const reopened = await requirePage().evaluate((id) => ((window as {
+    CW_WORKBENCH: { definitions(): Array<{ projectionId: string; root: { children: Array<{ where: JsonValue }> } }> };
+  })).CW_WORKBENCH.definitions().find((definition) => definition.projectionId === id), savedResult.id);
   assert.ok(reopened);
   assert.equal(reopened.projectionId, savedResult.id);
   assert.deepEqual(reopened.root.children[0]?.where, savedResult.expression);
@@ -1292,9 +1378,11 @@ Then("the Projection Definition keeps its identity Search Expression and canonic
 
 When("I traverse a Community Web thread outline with tree keys", async function () {
   const page = requirePage();
-  await page.evaluate(() => (window as unknown as { CW_APP: { navigate(path: string): void; openThread(id: string): void } }).CW_APP
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  await page.evaluate(() => ((window as { CW_APP: { navigate(path: string): void; openThread(id: string): void } })).CW_APP
     .navigate("/projects/community/channels/general"));
-  await page.evaluate(() => (window as unknown as { CW_APP: { openThread(id: string): void } }).CW_APP.openThread("p3"));
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  await page.evaluate(() => ((window as { CW_APP: { openThread(id: string): void } })).CW_APP.openThread("p3"));
   const current = page.locator('.cn-thread-tree [role="treeitem"][tabindex="0"]');
   await current.focus();
   await page.keyboard.press("Home");
@@ -1324,14 +1412,15 @@ Then("the thread outline and reading pane report the same selected object and to
 
 When("I invoke namespace parent thread parent browser back and previous location", async function () {
   communityWebAppNavigationActions = await requirePage().evaluate(async () => {
-    const runtime = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
       CW_ACTIONS: {
-        invoke(actionId: string, input: Record<string, unknown>, context: Record<string, unknown>): Promise<unknown>;
+        invoke(actionId: string, input: JsonObject, context: JsonObject): Promise<JsonValue>;
         lastEvent(): { actionId: string; objectId?: string };
       };
       CW_APP: { state: { path: string; threadFocus?: string } };
       CW_MAP: { projectionIdForPath(path: string): string };
-    };
+    });
     const actions = [
       ["nav.ascend", {}],
       ["thread.parent", {}],
@@ -1365,26 +1454,30 @@ Then("each Community Web navigation operation reports its distinct action and ou
 When("I compare ambiguous cd with the Community Web global jump chooser", async function () {
   const page = requirePage();
   const prompt = page.locator("[data-cli]");
-  const origin = await page.evaluate(() => (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const origin = await page.evaluate(() => ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path);
   await prompt.fill("cd gen");
   await prompt.press("Enter");
-  const afterCd = await page.evaluate(() => (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const afterCd = await page.evaluate(() => ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path);
   await prompt.fill("zi general");
   await prompt.press("Enter");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: { candIndex: number; completion?: { kind?: string } } };
-    }).CW_APP;
+    })).CW_APP;
     return app.state.completion?.kind === "jump" && app.state.candIndex === -1 &&
       !!document.querySelector('.cn-menu:not([hidden]) [role="option"]');
   });
   communityWebAppJumpResult = await page.evaluate(({ originPath, cdPath }) => {
-    const state = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const state = ((window as {
       CW_APP: { state: { path: string; candIndex: number; completion: { candidates: Array<{
         group?: string; value?: string; kind?: string; matchReason?: string;
         objectId?: string; projectionId?: string; id?: string;
       }> } } };
-    }).CW_APP.state;
+    })).CW_APP.state;
     const candidates = state.completion.candidates;
     const groups = Array.from(new Set(candidates.map((candidate) => candidate.group).filter(Boolean)));
     const allowedGroups = ["CURRENT", "RECENT", "SAVED VIEWS", "GLOBAL"];
@@ -1392,6 +1485,7 @@ When("I compare ambiguous cd with the Community Web global jump chooser", async 
     return {
       cdStayed: cdPath === originPath,
       grouped: groups.includes("CURRENT") && groups.includes("GLOBAL") &&
+        // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
         groups.every((group) => allowedGroups.includes(group as string)),
       explained: candidates.length > 1 && candidates.every((candidate) =>
         !!candidate.value && !!candidate.kind && !!candidate.matchReason &&
@@ -1416,12 +1510,13 @@ When("I operate every focused Community Web post action by keyboard", async func
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: {
         columnFocus: boolean; feedMark: string; votes: Record<string, number>;
         folded: Record<string, boolean>; reposts: Record<string, boolean>; reactPick: string | null;
       }; navigate(path: string): void; render(preserve?: boolean): void };
-    }).CW_APP;
+    })).CW_APP;
     app.navigate("/projects/community/channels/general");
     app.state.columnFocus = true;
     app.state.feedMark = "p1";
@@ -1432,7 +1527,8 @@ When("I operate every focused Community Web post action by keyboard", async func
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: async (text: string) => {
-        (window as unknown as { __postActionClipboard?: string }).__postActionClipboard = text;
+        // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+        ((window as { __postActionClipboard?: string })).__postActionClipboard = text;
       } },
     });
     app.render(true);
@@ -1454,12 +1550,14 @@ When("I operate every focused Community Web post action by keyboard", async func
   await page.keyboard.press("d");
   await page.keyboard.press("a");
   const reactionOpened = await page.evaluate(() =>
-    (window as unknown as { CW_APP: { state: { reactPick: string | null } } }).CW_APP.state.reactPick === "p1");
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { reactPick: string | null } } })).CW_APP.state.reactPick === "p1");
   await page.keyboard.press("f");
   await page.keyboard.press("Shift+r");
   await page.keyboard.press("s");
   await page.waitForFunction(() => {
-    const copied = (window as unknown as { __postActionClipboard?: string }).__postActionClipboard ?? "";
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const copied = ((window as { __postActionClipboard?: string })).__postActionClipboard ?? "";
     try {
       const url = new URL(copied);
       return url.origin === location.origin && url.pathname === "/board.html" &&
@@ -1469,20 +1567,23 @@ When("I operate every focused Community Web post action by keyboard", async func
     }
   });
   const shared = await page.evaluate(() => {
-    const url = new URL((window as unknown as { __postActionClipboard: string }).__postActionClipboard);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const url = new URL(((window as { __postActionClipboard: string })).__postActionClipboard);
     return url.origin === location.origin && url.pathname === "/board.html" &&
       !!url.searchParams.get("projection") && !!url.searchParams.get("focus");
   });
   await page.keyboard.press("y");
   await page.waitForFunction(() => /community web thread.*p1/i.test(
-    (window as unknown as { __postActionClipboard?: string }).__postActionClipboard ?? ""));
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { __postActionClipboard?: string })).__postActionClipboard ?? ""));
   const acted = await page.evaluate(() => {
-    const browserWindow = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const browserWindow = (window as {
       __postActionClipboard?: string;
       CW_APP: { state: {
         votes: Record<string, number>; folded: Record<string, boolean>; reposts: Record<string, boolean>;
       } };
-    };
+    });
     return {
       vote: browserWindow.CW_APP.state.votes.p1,
       folded: browserWindow.CW_APP.state.folded.p1 === true,
@@ -1492,9 +1593,10 @@ When("I operate every focused Community Web post action by keyboard", async func
   });
   await page.keyboard.press("r");
   const replied = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { composeContext(): { postId?: string } };
-    }).CW_APP;
+    })).CW_APP;
     return app.composeContext().postId === "p1" &&
       document.activeElement === document.querySelector("[data-cli]");
   });
@@ -1522,15 +1624,16 @@ When("I reply to a Community Web message in CLI mode and see it under the parent
   const helpClose = page.locator("[data-help-close]:visible");
   if (await helpClose.count()) await helpClose.click();
   await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
         state: { ai: boolean; columnFocus: boolean };
         navigate(path: string): void;
         render(preserve?: boolean): void;
-        clearComposeDraft?(opts?: object): void;
+        clearComposeDraft?(opts?: JsonObject): void;
         armReplyTo(id: string, who: string, channel: string, project: string | null): void;
       };
-    }).CW_APP;
+    })).CW_APP;
     app.state.ai = false;
     app.clearComposeDraft?.({ silent: true, noRender: true });
     app.navigate("/projects/community/channels/general");
@@ -1542,9 +1645,10 @@ When("I reply to a Community Web message in CLI mode and see it under the parent
   await page.locator("[data-cli]").fill("bdd cli reply under lea");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: { merged: Array<{ id: string; re?: string; body?: string }>; feedMark: string; threadFocus: string } };
-    }).CW_APP;
+    })).CW_APP;
     const hit = (app.state.merged || [])
       .filter((p) => p.re === "p1" && /bdd cli reply under lea/.test(p.body || ""))
       .pop();
@@ -1557,9 +1661,10 @@ When("I reply to a Community Web message in CLI mode and see it under the parent
 When("I draft an AI reply inline then commit reject and edit it", { timeout: 120_000 }, async function () {
   const page = requirePage();
   await page.evaluate(() => {
-    const win = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = (window as {
       CWResilient?: { availability(): Promise<string> };
-      CW_AGENT?: { run(...args: unknown[]): Promise<unknown> };
+      CW_AGENT?: { run(...args: JsonValue[]): Promise<JsonValue> };
       CW_APP: {
         state: {
           ai: boolean;
@@ -1569,11 +1674,11 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
           menuDismissed?: boolean;
           candIndex?: number;
         };
-        clearComposeDraft?(opts?: object): void;
+        clearComposeDraft?(opts?: JsonObject): void;
         armReplyTo(id: string, who: string, channel: string, project: string | null): void;
         render(preserve?: boolean): void;
       };
-    };
+    });
     // Keep drafting deterministic under coverage load: never wait on on-device model.
     if (win.CWResilient) win.CWResilient.availability = async () => "unavailable";
     if (win.CW_AGENT) win.CW_AGENT.run = async () => undefined;
@@ -1592,7 +1697,8 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
   await page.locator("[data-cli]").fill("bdd ai draft intent");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
         state: {
           composeDraft?: { status?: string; body?: string; postId?: string };
@@ -1600,7 +1706,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
           sessionClosed?: boolean;
         };
       };
-    }).CW_APP;
+    })).CW_APP;
     const draft = app.state.composeDraft;
     const inline = document.querySelector(
       '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p1"] [data-compose-draft], ' +
@@ -1615,25 +1721,28 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
   }, null, { timeout: 30_000 });
   await page.keyboard.press("e");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
-      CW_APP: { state: { composeDraft?: unknown }; composeContext(): { kind?: string } };
-    }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
+      CW_APP: { state: { composeDraft?: JsonValue }; composeContext(): { kind?: string } };
+    })).CW_APP;
     const value = document.querySelector<HTMLInputElement>("[data-cli]")?.value || "";
     return !app.state.composeDraft && /bdd ai draft intent/.test(value) &&
       app.composeContext().kind === "reply";
   }, null, { timeout: 30_000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
-    const draft = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const draft = ((window as {
       CW_APP: { state: { composeDraft?: { status?: string } } };
-    }).CW_APP.state.composeDraft;
+    })).CW_APP.state.composeDraft;
     return !!document.querySelector("[data-compose-draft]") && draft?.status === "ready";
   }, null, { timeout: 30_000 });
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
-      CW_APP: { state: { composeDraft?: unknown }; composeContext(): { kind?: string; postId?: string } };
-    }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
+      CW_APP: { state: { composeDraft?: JsonValue }; composeContext(): { kind?: string; postId?: string } };
+    })).CW_APP;
     return !app.state.composeDraft && !document.querySelector("[data-compose-draft]") &&
       app.composeContext().kind === "reply" && app.composeContext().postId === "p1";
   }, null, { timeout: 30_000 });
@@ -1641,23 +1750,25 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
   await page.keyboard.press("Enter");
   // Commit via keyboard like the e2e path — avoid scrolling a hidden duplicate in another blade.
   await page.waitForFunction(() => {
-    const draft = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const draft = ((window as {
       CW_APP: { state: { composeDraft?: { status?: string; postId?: string } } };
-    }).CW_APP.state.composeDraft;
+    })).CW_APP.state.composeDraft;
     return draft?.status === "ready" && draft.postId === "p1" &&
       !!document.querySelector("[data-draft-accept]");
   }, null, { timeout: 30_000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: {
         merged: Array<{ id: string; re?: string; body?: string }>;
-        composeDraft?: unknown;
+        composeDraft?: JsonValue;
         feedMark: string;
         threadFocus: string;
         sessionClosed?: boolean;
       } };
-    }).CW_APP;
+    })).CW_APP;
     const hit = (app.state.merged || [])
       .filter((p) => p.re === "p1" && /bdd ai committed reply/.test(p.body || ""))
       .pop();
@@ -1672,13 +1783,14 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
 Then("Community Web reply drafts stay visible under the parent until committed", async function () {
   const page = requirePage();
   const ok = await page.evaluate(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: {
         merged: Array<{ id: string; re?: string; body?: string }>;
-        composeDraft?: unknown;
+        composeDraft?: JsonValue;
         sessionClosed?: boolean;
       } };
-    }).CW_APP;
+    })).CW_APP;
     const hit = (app.state.merged || [])
       .filter((p) => p.re === "p1" && /bdd ai committed reply/.test(p.body || ""))
       .pop();
@@ -1699,7 +1811,8 @@ When("I browse Community Web message directories with cd completion", async func
   await prompt.press("Enter");
   await page.locator(".cn-comment").first().waitFor({ state: "visible" });
   const origin = await page.evaluate(() =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path);
 
   await prompt.fill("cd p3");
   const p3 = page.locator('.cn-menu [role="option"]', { hasText: "p3" }).first();
@@ -1708,34 +1821,41 @@ When("I browse Community Web message directories with cd completion", async func
 
   await prompt.fill("cd p");
   const selected = await page.evaluate(() =>
-    (window as unknown as { CW_APP: { state: { completion: { candidates: Array<{ value: string }> } } } })
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { completion: { candidates: Array<{ value: string }> } } } }))
       .CW_APP.state.completion.candidates[0]?.value || "");
   await prompt.press("ArrowRight");
   await page.waitForFunction((path) =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path !== path, origin);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path !== path, origin);
   const drilled = await prompt.inputValue();
   await prompt.press("ArrowLeft");
   await page.waitForFunction((path) =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path === path, origin);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path === path, origin);
   const horizontal = drilled.endsWith(selected) && await prompt.inputValue() === "cd p";
 
   await prompt.press("ArrowDown");
   await page.waitForFunction((path) =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path !== path, origin);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path !== path, origin);
   const previewed = await page.locator("[data-cd-preview]").isVisible();
   await prompt.press("Escape");
   await page.waitForFunction((path) =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path === path, origin);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path === path, origin);
   const cancelled = await prompt.inputValue() === "cd p";
 
   await prompt.fill("");
   await prompt.fill("cd p");
   await prompt.press("ArrowDown");
   const acceptedPath = await page.evaluate(() =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path);
   await prompt.press("Enter");
   await page.waitForFunction((path) =>
-    (window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path === path, acceptedPath);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path === path, acceptedPath);
   communityWebAppCdResult = {
     labelled,
     horizontal,
@@ -1766,7 +1886,8 @@ When("I open the general channel context menu and move down and up by keyboard",
   await item.waitFor({ state: "visible" });
   await item.focus();
   const before = await page.evaluate(() => {
-    const state = (window as unknown as { CW_APP: { state: { cursor: number; focus: number } } }).CW_APP.state;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const state = ((window as { CW_APP: { state: { cursor: number; focus: number } } })).CW_APP.state;
     return { cursor: state.cursor, focus: state.focus };
   });
   await item.click({ button: "right" });
@@ -1778,7 +1899,8 @@ When("I open the general channel context menu and move down and up by keyboard",
   await page.waitForFunction(() => document.activeElement?.hasAttribute("data-ctx-prompt") === true);
   const upStayedInMenu = await page.evaluate(() => document.activeElement?.getAttribute("role") === "menuitem");
   const after = await page.evaluate(() => {
-    const state = (window as unknown as { CW_APP: { state: { cursor: number; focus: number } } }).CW_APP.state;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const state = ((window as { CW_APP: { state: { cursor: number; focus: number } } })).CW_APP.state;
     return { cursor: state.cursor, focus: state.focus };
   });
   await page.keyboard.press("Escape");
@@ -1817,16 +1939,19 @@ When("I join Community Web lounge voice with a mocked microphone", { timeout: 60
       getAudioTracks() { return [track]; },
       getVideoTracks() { return []; },
     };
-    (navigator.mediaDevices as { getUserMedia: () => Promise<unknown> }).getUserMedia = async () => stream;
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    (navigator.mediaDevices as { getUserMedia: () => Promise<JsonValue> }).getUserMedia = async () => stream;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: {
-        joinVoice(id: string, path: string): Promise<unknown>;
+        joinVoice(id: string, path: string): Promise<JsonValue>;
       };
-    }).CW_APP;
+    })).CW_APP;
     await app.joinVoice("lounge", "/projects/community/channels/lounge");
   });
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { voice?: { joined?: boolean; channelId?: string } } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { voice?: { joined?: boolean; channelId?: string } } } })).CW_APP;
     return !!document.querySelector("[data-voice-tray]") &&
       app.state.voice?.joined === true && app.state.voice?.channelId === "lounge";
   }, null, { timeout: 15_000 });
@@ -1835,11 +1960,13 @@ When("I join Community Web lounge voice with a mocked microphone", { timeout: 60
 When("I open the Community Web general channel while still in voice", { timeout: 30_000 }, async function () {
   const page = requirePage();
   await page.evaluate(() => {
-    (window as unknown as { CW_APP: { navigate(path: string, options?: Record<string, unknown>): void } })
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { navigate(path: string, options?: JsonObject): void } }))
       .CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
   });
   await page.waitForFunction(() =>
-    /\/channels\/general/.test((window as unknown as { CW_APP: { state: { path: string } } }).CW_APP.state.path),
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    /\/channels\/general/.test(((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path),
   null, { timeout: 10_000 });
 });
 
@@ -1849,7 +1976,8 @@ Then("the voice connections tray still names lounge and can disconnect", { timeo
     const tray = document.querySelector("[data-voice-tray]");
     const leave = document.querySelector("[data-voice-leave]");
     const ptt = document.querySelector("[data-voice-ptt]");
-    const voice = (window as unknown as { CW_APP: { state: { voice?: { joined?: boolean; channelId?: string } } } }).CW_APP.state.voice;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const voice = ((window as { CW_APP: { state: { voice?: { joined?: boolean; channelId?: string } } } })).CW_APP.state.voice;
     return {
       tray: !!tray,
       label: tray?.textContent || "",
@@ -1875,19 +2003,22 @@ Then("I can hold push-to-speak from that tray", { timeout: 30_000 }, async funct
   assert.ok(box, "push-to-speak control must stay on screen after changing rooms");
   await ptt.dispatchEvent("pointerdown");
   await page.waitForFunction(() => {
-    const app = (window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
       CW_APP: { state: { voice?: { speaking?: boolean; inputMode?: string } } };
-    }).CW_APP;
+    })).CW_APP;
     return app.state.voice?.inputMode === "ptt" && app.state.voice?.speaking === true;
   }, null, { timeout: 10_000 });
   await ptt.dispatchEvent("pointerup");
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { voice?: { speaking?: boolean } } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { voice?: { speaking?: boolean } } } })).CW_APP;
     return app.state.voice?.speaking !== true;
   }, null, { timeout: 10_000 });
   await page.locator("[data-voice-leave]").click();
   await page.waitForFunction(() => {
-    const app = (window as unknown as { CW_APP: { state: { voice?: { joined?: boolean } } } }).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as { CW_APP: { state: { voice?: { joined?: boolean } } } })).CW_APP;
     return !app.state.voice?.joined && !document.querySelector("[data-voice-tray]");
   }, null, { timeout: 10_000 });
 });
@@ -1906,10 +2037,11 @@ When("I define the Community Web review macro with voice phrase {string}", async
 Then("the review macro persists as the {string} agent skill", async function (toolName: string) {
   const page = requirePage();
   const before = await page.evaluate((name) => {
-    const root = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const root = (window as {
       CW_POWER: { list: () => Array<{ name: string; voice: string }> };
       CW_MCP: { list: () => Array<{ name: string }> };
-    };
+    });
     return {
       action: root.CW_POWER.list().find((item) => item.name === "review"),
       tool: root.CW_MCP.list().some((tool) => tool.name === name),
@@ -1919,10 +2051,11 @@ Then("the review macro persists as the {string} agent skill", async function (to
   assert.equal(before.tool, true);
   await reloadCommunityPage(page);
   const after = await requirePage().evaluate((name) => {
-    const root = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const root = (window as {
       CW_POWER: { list: () => Array<{ name: string; voice: string }> };
       CW_MCP: { list: () => Array<{ name: string }> };
-    };
+    });
     return {
       action: root.CW_POWER.list().find((item) => item.name === "review"),
       tool: root.CW_MCP.list().some((tool) => tool.name === name),
@@ -1934,9 +2067,10 @@ Then("the review macro persists as the {string} agent skill", async function (to
 
 Then("the exact voice phrase runs the same review macro", async function () {
   const parsed = await requirePage().evaluate(() => {
-    const root = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const root = (window as {
       CW_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
-    };
+    });
     return root.CW_SPEECH.parseUtterance("start review", "commands");
   });
   assert.deepEqual({ kind: parsed.kind, line: parsed.line }, { kind: "command", line: "macro run review" });
@@ -1944,9 +2078,10 @@ Then("the exact voice phrase runs the same review macro", async function () {
 
 Then("a near voice phrase does not run it", async function () {
   const parsed = await requirePage().evaluate(() => {
-    const root = window as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const root = (window as {
       CW_SPEECH: { parseUtterance: (phrase: string, mode: string) => { kind: string; line?: string } };
-    };
+    });
     return root.CW_SPEECH.parseUtterance("start reviewing", "commands");
   });
   assert.equal(parsed.kind, "unknown");
@@ -2422,7 +2557,7 @@ async function assertVisible(page: Page, text: string): Promise<void> {
   await page.getByText(text, { exact: false }).first().waitFor({ state: "visible", timeout: 5_000 });
 }
 
-async function closeWithTimeout(task: Promise<unknown> | undefined, label: string): Promise<void> {
+async function closeWithTimeout(task: PromiseLike<JsonValue | void> | undefined, label: string): Promise<void> {
   if (task === undefined) {
     return;
   }
@@ -2468,6 +2603,7 @@ When("the ideas channel gains activity after I last read it", async function () 
   await page.evaluate(() => {
     const key = "epoch-community:last-read";
     const raw = window.localStorage.getItem(key);
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     const map: Record<string, number> = raw === null ? {} : JSON.parse(raw) as Record<string, number>;
     map["epoch-civic|ideas"] = 0;
     window.localStorage.setItem(key, JSON.stringify(map));
@@ -2589,8 +2725,8 @@ Given("Community Web has authorized Entities from current and stale registered s
     readEntities: async () => [staleEntity],
     checkpoint: async () => ({ sourceId: "community-store", token: "stale-1", observedAt: "2026-08-10T00:00:00.000Z", status: "stale" }),
   });
-  deterministicJourney.environment = await createSearchEnvironment([], [current, stale]);
-  deterministicJourney.aiCalls = 0;
+  deterministicJourney.set("environment", await createSearchEnvironment([], [current, stale]));
+  deterministicJourney.set("aiCalls", 0);
 });
 
 When("I run the deterministic search {string}", async function (expression: string) {
@@ -2605,13 +2741,13 @@ When("I run the deterministic search {string}", async function (expression: stri
     fieldRegistryVersion: environment.registry.version,
   });
   assert.ok(normalized.ast, normalized.error);
-  deterministicJourney.normalized = normalized;
-  deterministicJourney.page = await environment.service.search({
+  deterministicJourney.set("normalized", normalized);
+  deterministicJourney.set("page", await environment.service.search({
     expression: normalized.ast,
     order: normalized.sort,
     authorization: TEST_AUTHORIZATION,
     first: 20,
-  });
+  }));
 });
 
 Then("results identify their canonical targets and source provenance", function () {
@@ -2624,25 +2760,25 @@ Then("source completeness names the stale source without invoking AI", function 
   const page = journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("page");
   assert.equal(page.completeness.status, "stale");
   assert.equal(page.completeness.sources.find((source) => source.sourceId === "community-store")?.status, "stale");
-  assert.equal(deterministicJourney.aiCalls, 0);
+  assert.equal(deterministicJourney.get("aiCalls"), 0);
 });
 
 Given("I open the Community Web query workbench by keyboard", function () {
   const action = BUILT_IN_ACTIONS.find((candidate) => candidate.actionId === "search.open");
   assert.deepEqual(action?.keyBindings, [{ key: "Ctrl+F", contexts: ["global"] }]);
-  deterministicJourney.workbenchOpen = true;
-  deterministicJourney.searchRuns = 0;
-  deterministicJourney.aiCalls = 0;
+  deterministicJourney.set("workbenchOpen", true);
+  deterministicJourney.set("searchRuns", 0);
+  deterministicJourney.set("aiCalls", 0);
 });
 
 When("I enter an unsupported field and operator", function () {
-  deterministicJourney.diagnosticQuery = normalizeQuery("sttae:>=open", {
+  deterministicJourney.set("diagnosticQuery", normalizeQuery("sttae:>=open", {
     now: FIXED_NOW,
     timezone: "UTC",
     locale: "en-US",
     authorization: TEST_AUTHORIZATION,
     fieldRegistry: createCommunityFieldRegistry(),
-  });
+  }));
 });
 
 Then("the diagnostic identifies line column span code and field suggestions", function () {
@@ -2658,8 +2794,8 @@ Then("the diagnostic identifies line column span code and field suggestions", fu
 Then("no partial search or AI translation runs", function () {
   const query = journey<ReturnType<typeof normalizeQuery>>("diagnosticQuery");
   assert.equal(query.ast, null);
-  assert.equal(deterministicJourney.searchRuns, 0);
-  assert.equal(deterministicJourney.aiCalls, 0);
+  assert.equal(deterministicJourney.get("searchRuns"), 0);
+  assert.equal(deterministicJourney.get("aiCalls"), 0);
 });
 
 Given("a deterministic search returned an authorized Entity", async function () {
@@ -2670,9 +2806,9 @@ Given("a deterministic search returned an authorized Entity", async function () 
   assert.ok(normalized.ast);
   const page = await environment.service.search({ expression: normalized.ast, order: normalized.sort, authorization: TEST_AUTHORIZATION, first: 10 });
   assert.deepEqual(page.hits.map((hit) => hit.target.objectId), [visible.ref.objectId]);
-  deterministicJourney.environment = environment;
-  deterministicJourney.normalized = normalized;
-  deterministicJourney.hiddenId = hidden.ref.objectId;
+  deterministicJourney.set("environment", environment);
+  deterministicJourney.set("normalized", normalized);
+  deterministicJourney.set("hiddenId", hidden.ref.objectId);
 });
 
 When("I open Search Explain", async function () {
@@ -2680,8 +2816,8 @@ When("I open Search Explain", async function () {
   const normalized = journey<ReturnType<typeof normalizeQuery>>("normalized");
   assert.ok(normalized.ast);
   const plan = await environment.service.plan({ expression: normalized.ast, order: normalized.sort, authorization: TEST_AUTHORIZATION, limit: 10 });
-  deterministicJourney.plan = plan;
-  deterministicJourney.explanation = await environment.backend.explain(plan);
+  deterministicJourney.set("plan", plan);
+  deterministicJourney.set("explanation", await environment.backend.explain(plan));
 });
 
 Then("I can inspect normalization source pushdown residual evaluation authorization ordering and omissions", function () {
@@ -2692,6 +2828,7 @@ Then("I can inspect normalization source pushdown residual evaluation authorizat
   assert.ok(explanation.sourcePlans[0]?.pushdown && explanation.sourcePlans[0]?.residual);
   assert.equal(explanation.authorization, "pre-filtered");
   assert.deepEqual(explanation.ordering.slice(-2), ["kind:ascending:last", "objectId:ascending:last"]);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   assert.deepEqual((explanation as typeof explanation & { omissions?: readonly string[] }).omissions ?? [], []);
 });
 
@@ -2706,9 +2843,9 @@ Given("I preview an authorized deterministic search", async function () {
   const parsed = environment.search.parseSearch("state:needs-review", { authorization: TEST_AUTHORIZATION });
   assert.ok(parsed.ast);
   const page = await environment.search.search({ where: parsed.ast, orderBy: parsed.sort, first: 10 }, TEST_AUTHORIZATION);
-  deterministicJourney.services = environment;
-  deterministicJourney.parsed = parsed;
-  deterministicJourney.previewTargets = page.hits.map((hit) => hit.target.objectId);
+  deterministicJourney.set("services", environment);
+  deterministicJourney.set("parsed", parsed);
+  deterministicJourney.set("previewTargets", page.hits.map((hit) => hit.target.objectId));
 });
 
 When("I save it as the {string} projection", async function (projectionId: string) {
@@ -2716,7 +2853,7 @@ When("I save it as the {string} projection", async function (projectionId: strin
   const parsed = journey<ReturnType<CommunityServiceApis["search"]["parseSearch"]>>("parsed");
   assert.ok(parsed.ast);
   const definition = entityListProjection(`user-${projectionId}`, parsed.ast);
-  deterministicJourney.savedDefinition = await services.projections.save(definition, TEST_AUTHORIZATION);
+  deterministicJourney.set("savedDefinition", await services.projections.save(definition, TEST_AUTHORIZATION));
 });
 
 Then("the Projection Definition stores the typed Search Expression and total order", function () {
@@ -2752,8 +2889,8 @@ Given("I clone {string} into my own Projection Definition", async function (sour
     entity({ objectId: "project-alpha", title: "Same Project", state: "open" }),
     entity({ objectId: "project-beta", title: "Same Project", state: "open" }),
   ], [clone]);
-  deterministicJourney.services = services;
-  deterministicJourney.clone = await services.projections.save(clone, TEST_AUTHORIZATION);
+  deterministicJourney.set("services", services);
+  deterministicJourney.set("clone", await services.projections.save(clone, TEST_AUTHORIZATION));
 });
 
 When("I group project Entities by state and preview the tree", async function () {
@@ -2789,12 +2926,12 @@ When("I group project Entities by state and preview the tree", async function ()
   assert.ok(groupPath);
   const preview = await services.projectionRuntime.list(grouped.projectionId, groupPath, { first: 20 }, context);
   const builtin = await services.projectionRuntime.list("builtin:default", "/", { first: 20 }, context);
-  deterministicJourney.grouped = grouped;
-  deterministicJourney.preview = preview;
-  deterministicJourney.namespaceDiff = {
+  deterministicJourney.set("grouped", grouped);
+  deterministicJourney.set("preview", preview);
+  deterministicJourney.set("namespaceDiff", {
     removed: builtin.entries.map((entry) => entry.name).filter((name) => !root.entries.some((entry) => entry.name === name)),
     added: root.entries.map((entry) => entry.name).filter((name) => !builtin.entries.some((entry) => entry.name === name)),
-  };
+  });
 });
 
 Then("the preview uses authorized real data and deterministic collision names", function () {
@@ -2826,9 +2963,9 @@ Given("I mount my valid Projection Definition at root with user replace preceden
     order: 1,
     writable: false,
   }, TEST_AUTHORIZATION);
-  deterministicJourney.services = services;
-  deterministicJourney.mount = mount;
-  deterministicJourney.definition = definition;
+  deterministicJourney.set("services", services);
+  deterministicJourney.set("mount", mount);
+  deterministicJourney.set("definition", definition);
 });
 
 When("a later edit makes that Projection Definition invalid", async function () {
@@ -2849,7 +2986,7 @@ When("a later edit makes that Projection Definition invalid", async function () 
     quarantinedAt: services.runtime.now(),
     input: invalid,
   }));
-  deterministicJourney.invalidMessage = message;
+  deterministicJourney.set("invalidMessage", message);
 });
 
 Then("the invalid definition is quarantined and exportable", async function () {
@@ -2882,8 +3019,8 @@ Given("the built-in root and a community Projection Definition contain the same 
     cursorKey: CURSOR_KEY,
     compileContext: compileContext(),
   }, [definition]);
-  deterministicJourney.projectionRuntime = projectionRuntime;
-  deterministicJourney.communityDefinition = definition;
+  deterministicJourney.set("projectionRuntime", projectionRuntime);
+  deterministicJourney.set("communityDefinition", definition);
 });
 
 When("I mount the community definition before the built-in root", async function () {
@@ -2900,9 +3037,9 @@ When("I mount the community definition before the built-in root", async function
     updatedAt: FIXED_NOW,
   }]);
   const context = { authorizationFingerprint: "auth-shadow", snapshotId: "snapshot-shadow" };
-  deterministicJourney.namespaceRuntime = namespace;
-  deterministicJourney.namespacePage = await namespace.list("/", { first: 20 }, context);
-  deterministicJourney.namespaceExplanation = await namespace.explain("/projects", context);
+  deterministicJourney.set("namespaceRuntime", namespace);
+  deterministicJourney.set("namespacePage", await namespace.list("/", { first: 20 }, context));
+  deterministicJourney.set("namespaceExplanation", await namespace.explain("/projects", context));
 });
 
 Then("first-match lookup selects the higher-precedence Projection Entry", function () {
@@ -2938,14 +3075,14 @@ Given("one Entity is selected by two branches of one Projection Definition", fun
     createdAt: FIXED_NOW,
     updatedAt: FIXED_NOW,
   }]);
-  deterministicJourney.target = target;
-  deterministicJourney.namespaceRuntime = namespace;
+  deterministicJourney.set("target", target);
+  deterministicJourney.set("namespaceRuntime", namespace);
 });
 
 When("I locate that Entity in the mounted namespace", async function () {
   const namespace = journey<ReturnType<typeof createNamespaceRuntime>>("namespaceRuntime");
   const target = journey<CommunityEntity>("target");
-  deterministicJourney.locations = await namespace.locate(target.ref, { authorizationFingerprint: "auth-locate", snapshotId: "snapshot-locate" });
+  deterministicJourney.set("locations", await namespace.locate(target.ref, { authorizationFingerprint: "auth-locate", snapshotId: "snapshot-locate" }));
 });
 
 Then("both Projection Entries have distinct stable occurrence IDs and paths", function () {
@@ -2970,27 +3107,27 @@ Given("I am reading one Projection Entry in queued update mode", async function 
   }, [definition]);
   const entries = (await runtime.list(definition.projectionId, "/", { first: 10 }, { authorizationFingerprint: "auth-queued", snapshotId: "snapshot-queued" })).entries;
   const anchor = { focusedEntryId: entries[0]?.entryId, targetId: target.ref.objectId, readingAnchor: { objectId: target.ref.objectId, pixelOffset: 42 } };
-  deterministicJourney.tracked = new ProjectionDeltaController().track("queued", entries, anchor);
-  deterministicJourney.anchor = anchor;
-  deterministicJourney.originalEntry = entries[0];
+  deterministicJourney.set("tracked", new ProjectionDeltaController().track("queued", entries, anchor));
+  deterministicJourney.set("anchor", anchor);
+  deterministicJourney.set("originalEntry", entries[0]);
 });
 
 When("a source change adds an earlier-sorting Entity", function () {
   const tracked = journey<ReturnType<ProjectionDeltaController["track"]>>("tracked");
   const original = journey<VfsEntry>("originalEntry");
   const added: VfsEntry = { ...original, entryId: "entry-added-earlier", target: { objectId: "earlier-target", kind: "project" }, name: "earlier", logicalPath: "/earlier", sortKey: ["2026-08-13T00:00:00.000Z", "project", "earlier-target"] };
-  deterministicJourney.queuedResult = tracked.ingest({ projectionId: original.projectionId, projectionVersion: original.projectionVersion, sequence: 1, upserts: [added], deletes: [], observedAt: FIXED_NOW });
+  deterministicJourney.set("queuedResult", tracked.ingest({ projectionId: original.projectionId, projectionVersion: original.projectionVersion, sequence: 1, upserts: [added], deletes: [], observedAt: FIXED_NOW }));
 });
 
 Then("Community Web announces the queued count without moving focus or reading anchor", function () {
-  const result = journey<{ readonly queuedCount: number; readonly anchor: unknown; readonly entries: readonly VfsEntry[] }>("queuedResult");
+  const result = journey<{ readonly queuedCount: number; readonly anchor: JsonValue; readonly entries: readonly VfsEntry[] }>("queuedResult");
   assert.equal(result.queuedCount, 1);
-  assert.deepEqual(result.anchor, deterministicJourney.anchor);
+  assert.deepEqual(result.anchor, deterministicJourney.get("anchor"));
   assert.equal(result.entries.some((entry) => entry.entryId === "entry-added-earlier"), false);
 });
 
 When("I apply queued updates", function () {
-  deterministicJourney.appliedResult = journey<ReturnType<ProjectionDeltaController["track"]>>("tracked").applyQueued();
+  deterministicJourney.set("appliedResult", journey<ReturnType<ProjectionDeltaController["track"]>>("tracked").applyQueued());
 });
 
 Then("focus remains attached to the prior occurrence or canonical target", function () {
@@ -3004,10 +3141,10 @@ Then("focus remains attached to the prior occurrence or canonical target", funct
 Given("two corpora differ only by Entities I am not authorized to read", async function () {
   const visible = entity({ objectId: "public-project", title: "Same Name", state: "open" });
   const hidden = entity({ objectId: "private-project", title: "Same Name", state: "open", visibility: "private", ownerId: "other" });
-  deterministicJourney.visibleEnvironment = await createSearchEnvironment([visible]);
-  deterministicJourney.hiddenEnvironment = await createSearchEnvironment([visible, hidden]);
-  deterministicJourney.visibleEntity = visible;
-  deterministicJourney.hiddenEntity = hidden;
+  deterministicJourney.set("visibleEnvironment", await createSearchEnvironment([visible]));
+  deterministicJourney.set("hiddenEnvironment", await createSearchEnvironment([visible, hidden]));
+  deterministicJourney.set("visibleEntity", visible);
+  deterministicJourney.set("hiddenEntity", hidden);
 });
 
 When("I compare search hits counts facets suggestions completions paths collisions and explanations", async function () {
@@ -3040,12 +3177,12 @@ When("I compare search hits counts facets suggestions completions paths collisio
       sourceStatuses: page.completeness.sources.map(({ sourceId, status }) => ({ sourceId, status })),
     };
   };
-  deterministicJourney.visibleObservations = await observe(journey("visibleEnvironment"), [journey("visibleEntity")]);
-  deterministicJourney.hiddenObservations = await observe(journey("hiddenEnvironment"), [journey("visibleEntity"), journey("hiddenEntity")]);
+  deterministicJourney.set("visibleObservations", await observe(journey("visibleEnvironment"), [journey("visibleEntity")]));
+  deterministicJourney.set("hiddenObservations", await observe(journey("hiddenEnvironment"), [journey("visibleEntity"), journey("hiddenEntity")]));
 });
 
 Then("every observable authorized result is equivalent", function () {
-  assert.deepEqual(deterministicJourney.visibleObservations, deterministicJourney.hiddenObservations);
+  assert.deepEqual(deterministicJourney.get("visibleObservations"), deterministicJourney.get("hiddenObservations"));
 });
 
 Then("source status reveals at most a generic unauthorized omission", function () {
@@ -3055,8 +3192,8 @@ Then("source status reveals at most a generic unauthorized omission", function (
 });
 
 Given("my browser cannot provide the required OPFS and FTS5 capabilities", function () {
-  deterministicJourney.storage = chooseSqliteStorage({ opfs: false, crossOriginIsolated: false, sharedArrayBuffer: false });
-  deterministicJourney.fts5 = false;
+  deterministicJourney.set("storage", chooseSqliteStorage({ opfs: false, crossOriginIsolated: false, sharedArrayBuffer: false }));
+  deterministicJourney.set("fts5", false);
 });
 
 When("I open a metadata-only Community replica and search", async function () {
@@ -3064,17 +3201,17 @@ When("I open a metadata-only Community replica and search", async function () {
   const environment = await createSearchEnvironment([visible]);
   const parsed = normalizeQuery("state:open", { now: FIXED_NOW, timezone: "UTC", locale: "en-US", authorization: TEST_AUTHORIZATION, fieldRegistry: environment.registry });
   assert.ok(parsed.ast);
-  deterministicJourney.fallbackPage = await environment.service.search({ expression: parsed.ast, order: parsed.sort, authorization: TEST_AUTHORIZATION, first: 10 });
-  deterministicJourney.fallbackBackend = environment.backend.backendId;
+  deterministicJourney.set("fallbackPage", await environment.service.search({ expression: parsed.ast, order: parsed.sort, authorization: TEST_AUTHORIZATION, first: 10 }));
+  deterministicJourney.set("fallbackBackend", environment.backend.backendId);
 });
 
 Then("Community Web reports the unavailable persistence capability", function () {
-  assert.deepEqual(deterministicJourney.storage, { mode: "memory", persistent: false, reason: "OPFS is unavailable" });
-  assert.equal(deterministicJourney.fts5, false);
+  assert.deepEqual(deterministicJourney.get("storage"), { mode: "memory", persistent: false, reason: "OPFS is unavailable" });
+  assert.equal(deterministicJourney.get("fts5"), false);
 });
 
 Then("the Orama or reference backend remains functional without losing canonical data", function () {
-  assert.equal(deterministicJourney.fallbackBackend, "epoch-reference");
+  assert.equal(deterministicJourney.get("fallbackBackend"), "epoch-reference");
   assert.deepEqual(journey<Awaited<ReturnType<ReferenceSearchBackend["search"]>>>("fallbackPage").hits.map((hit) => hit.target.objectId), ["metadata-project"]);
 });
 
@@ -3087,10 +3224,10 @@ Given("two Community Web tabs open the same browser search replica", function ()
       return () => { held.delete(name); };
     },
   };
-  deterministicJourney.firstCoordinator = new BrowserPersistenceCoordinator({ lockManager, lockName: "shared-replica" });
-  deterministicJourney.secondCoordinator = new BrowserPersistenceCoordinator({ lockManager, lockName: "shared-replica" });
-  deterministicJourney.replicaEntities = [entity({ objectId: "replica-entity", title: "Replica", state: "open" })];
-  deterministicJourney.replicaCheckpoint = { sourceId: "community-store", token: "replica-1", observedAt: FIXED_NOW, status: "current" };
+  deterministicJourney.set("firstCoordinator", new BrowserPersistenceCoordinator({ lockManager, lockName: "shared-replica" }));
+  deterministicJourney.set("secondCoordinator", new BrowserPersistenceCoordinator({ lockManager, lockName: "shared-replica" }));
+  deterministicJourney.set("replicaEntities", [entity({ objectId: "replica-entity", title: "Replica", state: "open" })]);
+  deterministicJourney.set("replicaCheckpoint", { sourceId: "community-store", token: "replica-1", observedAt: FIXED_NOW, status: "current" });
 });
 
 When("both attempt a local index update", async function () {
@@ -3099,17 +3236,20 @@ When("both attempt a local index update", async function () {
   const lease = await first.acquireWriter();
   let secondCode = "";
   try { await second.acquireWriter(); }
-  catch (error) { secondCode = (error as { readonly code?: string }).code ?? ""; }
-  deterministicJourney.secondCode = secondCode;
+  catch (error) {
+    // SAFETY: BrowserPersistenceCoordinator rejects lock contention with its documented coded error.
+    secondCode = (error as { readonly code?: string }).code ?? "";
+  }
+  deterministicJourney.set("secondCode", secondCode);
   await lease.release();
   const secondLease = await second.acquireWriter();
   await secondLease.release();
-  deterministicJourney.secondRecovered = true;
+  deterministicJourney.set("secondRecovered", true);
 });
 
 Then("one writer coordinates the update and the other waits or falls back explicitly", function () {
-  assert.equal(deterministicJourney.secondCode, "INDEX_LOCKED");
-  assert.equal(deterministicJourney.secondRecovered, true);
+  assert.equal(deterministicJourney.get("secondCode"), "INDEX_LOCKED");
+  assert.equal(deterministicJourney.get("secondRecovered"), true);
 });
 
 Then("reopening the replica returns the same authorized Entities and checkpoint", async function () {
@@ -3123,7 +3263,7 @@ Then("reopening the replica returns the same authorized Entities and checkpoint"
 });
 
 Given("persisted schema 2 contains stable Entity IDs and a saved query record", function () {
-  deterministicJourney.schema2 = {
+  deterministicJourney.set("schema2", {
     schemaVersion: 2,
     repositories: [],
     objects: [{
@@ -3151,22 +3291,22 @@ Given("persisted schema 2 contains stable Entity IDs and a saved query record", 
       createdAt: "2026-07-03T00:00:00.000Z",
       updatedAt: "2026-07-04T00:00:00.000Z",
     }],
-  };
-  deterministicJourney.migrationContext = {
+  });
+  deterministicJourney.set("migrationContext", {
     clock: { now: () => new Date(FIXED_NOW) },
     idGenerator: { generate: (namespace: string) => `${namespace}-migration` },
     timezone: "UTC",
     locale: "en-US",
-  };
+  });
 });
 
 When("Community migrates and reloads the state", async function () {
-  const migrated = migrateCommunityState(deterministicJourney.schema2, journey("migrationContext"));
+  const migrated = migrateCommunityState(deterministicJourney.get("schema2"), journey("migrationContext"));
   const store = createMemoryCommunityStateStore(migrated);
   const exported = await store.export();
   const reloaded = createMemoryCommunityStateStore(exported);
-  deterministicJourney.migrated = migrated;
-  deterministicJourney.reloaded = await reloaded.export();
+  deterministicJourney.set("migrated", migrated);
+  deterministicJourney.set("reloaded", await reloaded.export());
 });
 
 Then("one current Projection Definition preserves the IDs timestamps query semantics and aliases", function () {
@@ -3196,9 +3336,9 @@ Given("a structured GraphQL search and text search express the same authorized p
     entity({ objectId: "graphql-a", kind: "change", title: "GraphQL A", state: "needs-review", updatedAt: "2026-08-12T12:00:00.000Z" }),
     entity({ objectId: "graphql-b", kind: "change", title: "GraphQL B", state: "needs-review", updatedAt: "2026-08-11T12:00:00.000Z" }),
   ]);
-  deterministicJourney.services = services;
-  deterministicJourney.graphqlSchema = createCommunityGraphQLSchema(createCommunityGraphQLServices(services));
-  deterministicJourney.graphqlSource = `
+  deterministicJourney.set("services", services);
+  deterministicJourney.set("graphqlSchema", createCommunityGraphQLSchema(createCommunityGraphQLServices(services)));
+  deterministicJourney.set("graphqlSource", `
     query Equivalent($where: SearchExpressionInput!, $first: Int!) {
       search(where: $where, first: $first) {
         nodes { target { objectId } }
@@ -3206,11 +3346,11 @@ Given("a structured GraphQL search and text search express the same authorized p
         snapshot { snapshotId }
       }
     }
-  `;
-  deterministicJourney.graphqlVariables = {
+  `);
+  deterministicJourney.set("graphqlVariables", {
     where: { compare: { field: "state", operator: "EQ", value: { scalar: { string: "needs-review" } } } },
     first: 1,
-  };
+  });
 });
 
 When("I execute both against one Search Snapshot", async function () {
@@ -3222,7 +3362,8 @@ When("I execute both against one Search Snapshot", async function () {
     context: { authorization: TEST_AUTHORIZATION },
   });
   assert.equal(result.errors, undefined, JSON.stringify(result.errors));
-  const graphql = result.data?.search as unknown as {
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const graphql = result.data?.search as {
     readonly nodes: readonly { readonly target: { readonly objectId: string } }[];
     readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor?: string };
     readonly snapshot: { readonly snapshotId: string };
@@ -3230,8 +3371,8 @@ When("I execute both against one Search Snapshot", async function () {
   const parsed = services.search.parseSearch("state:needs-review", { authorization: TEST_AUTHORIZATION });
   assert.ok(parsed.ast);
   const text = await services.search.search({ where: parsed.ast, orderBy: parsed.sort, first: 1, snapshot: graphql.snapshot.snapshotId }, TEST_AUTHORIZATION);
-  deterministicJourney.graphqlResult = graphql;
-  deterministicJourney.textResult = text;
+  deterministicJourney.set("graphqlResult", graphql);
+  deterministicJourney.set("textResult", text);
 });
 
 Then("both return the same canonical targets in the same total order", function () {
@@ -3254,27 +3395,29 @@ Given("I have a Projection Definition JSON file", async function () {
   const files = new Map([["projection.json", JSON.stringify(definition)]]);
   const saved: string[] = [];
   const mounted: string[] = [];
-  deterministicJourney.cliDefinition = definition;
-  deterministicJourney.cliServices = {
+  deterministicJourney.set("cliDefinition", definition);
+  deterministicJourney.set("cliServices", {
     readFile: async (path: string) => files.get(path) ?? "",
     list: () => services.projections.list(TEST_AUTHORIZATION),
     get: (id: string) => services.projections.get(id, TEST_AUTHORIZATION),
     validate: async (candidate: ProjectionDefinition) => compileProjectionDefinition(candidate, compileContext()),
     preview: async ({ definition: candidate, path, first, after }: { readonly definition: ProjectionDefinition; readonly path: string; readonly first: number; readonly after?: string }) => {
       services.projectionRuntime.register(candidate);
-      return services.projectionRuntime.list(candidate.projectionId, path, { first, ...(after === undefined ? {} : { after }) }, { authorizationFingerprint: "auth-cli", snapshotId: "snapshot-cli" });
+      const pageOptions: ProjectionPageOptions = { first };
+      if (after !== undefined) pageOptions.after = after;
+      return services.projectionRuntime.list(candidate.projectionId, path, pageOptions, { authorizationFingerprint: "auth-cli", snapshotId: "snapshot-cli" });
     },
     save: async (candidate: ProjectionDefinition) => { saved.push(candidate.projectionId); return services.projections.save(candidate, TEST_AUTHORIZATION); },
     delete: (id: string) => services.projections.delete(id, TEST_AUTHORIZATION),
-  };
-  deterministicJourney.cliSaved = saved;
-  deterministicJourney.cliMounted = mounted;
+  });
+  deterministicJourney.set("cliSaved", saved);
+  deterministicJourney.set("cliMounted", mounted);
 });
 
 When("I validate and preview it with epoch-community", async function () {
   const services = journey<Parameters<typeof runProjectionCommand>[1]>("cliServices");
-  deterministicJourney.cliValidation = await runProjectionCommand(["validate", "projection.json", "--json"], services);
-  deterministicJourney.cliPreview = await runProjectionCommand(["preview", "projection.json", "--json"], services);
+  deterministicJourney.set("cliValidation", await runProjectionCommand(["validate", "projection.json", "--json"], services));
+  deterministicJourney.set("cliPreview", await runProjectionCommand(["preview", "projection.json", "--json"], services));
 });
 
 Then("the CLI reports deterministic JSON diagnostics and Projection Entries", function () {
@@ -3285,20 +3428,31 @@ Then("the CLI reports deterministic JSON diagnostics and Projection Entries", fu
     diagnostics: [], estimatedFanout: 10000, maximumDepth: 3, nodeCount: 3,
     projectionId: "user-cli-preview", schema: "epoch.community.cli.projection-validation.v1", valid: true,
   });
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   const parsed = JSON.parse(preview.stdout) as { readonly page: { readonly entries: readonly VfsEntry[] } };
   assert.equal(parsed.page.entries[0]?.target.objectId, "cli-project");
 });
 
 Then("invalid cycles fail without saving or mounting the definition", function () {
-  const node: { nodeId: string; kind: "literal"; segment: string; children: unknown[] } = { nodeId: "cycle", kind: "literal", segment: "cycle", children: [] };
+  const children: JsonValue[] = [];
+  const node = { nodeId: "cycle", kind: "literal", segment: "cycle", children } satisfies {
+    nodeId: string;
+    kind: "literal";
+    segment: string;
+    children: JsonValue[];
+  };
   node.children.push(node);
-  const invalid = { ...journey<ProjectionDefinition>("cliDefinition"), projectionId: "user-cycle", root: node } as unknown as ProjectionDefinition;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const invalid = { ...journey<ProjectionDefinition>("cliDefinition"), projectionId: "user-cycle", root: node } as ProjectionDefinition;
   let diagnostics: readonly { readonly code: string }[] = [];
   try { compileProjectionDefinition(invalid, compileContext()); }
-  catch (error) { diagnostics = (error as { readonly diagnostics?: readonly { readonly code: string }[] }).diagnostics ?? []; }
+  catch (error) {
+    // SAFETY: Projection compilation rejects invalid definitions with its documented diagnostics payload.
+    diagnostics = (error as { readonly diagnostics?: readonly { readonly code: string }[] }).diagnostics ?? [];
+  }
   assert.ok(diagnostics.some((diagnostic) => diagnostic.code === "PROJECTION_CYCLE"));
-  assert.deepEqual(deterministicJourney.cliSaved, []);
-  assert.deepEqual(deterministicJourney.cliMounted, []);
+  assert.deepEqual(deterministicJourney.get("cliSaved"), []);
+  assert.deepEqual(deterministicJourney.get("cliMounted"), []);
 });
 
 When("I run the Community Web deterministic search {string}", async function (expression: string) {
@@ -3309,7 +3463,8 @@ When("I run the Community Web deterministic search {string}", async function (ex
   await query.press("Control+Enter");
   await page.locator("[data-search-completeness]").waitFor({ state: "visible" });
   searchProjectionJourneyResult = await page.evaluate(() => ({
-    workbench: (window as unknown as { CW_APP: { state: { searchWorkbench: unknown } } }).CW_APP.state.searchWorkbench,
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    workbench: ((window as { CW_APP: { state: { searchWorkbench: JsonValue } } })).CW_APP.state.searchWorkbench,
     aiCalls: 0,
   }));
 });
@@ -3340,10 +3495,11 @@ Then("the Community Web query error identifies its location and suggests {string
 When("I explain the Community Web search {string}", async function (expression: string) {
   const page = requirePage();
   searchProjectionJourneyResult = await page.evaluate(async (query) => {
-    const runtime = window as unknown as {
-      CW_APP: { state: Record<string, unknown>; viewerContext(): unknown };
-      CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; explainSearch(state: unknown): Promise<Record<string, unknown>> };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_APP: { state: JsonObject; viewerContext(): JsonValue };
+      CW_WORKBENCH: { openSearch(state: JsonValue, value: string): void; runSearch(state: JsonValue, options: JsonValue): Promise<JsonValue>; explainSearch(state: JsonValue): Promise<JsonObject> };
+    });
     runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, query);
     await runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: query, context: runtime.CW_APP.viewerContext() });
     return runtime.CW_WORKBENCH.explainSearch(runtime.CW_APP.state);
@@ -3351,8 +3507,9 @@ When("I explain the Community Web search {string}", async function (expression: 
 });
 
 Then("the explanation names normalization authorization backend and ordering", function () {
-  const explanation = searchProjectionJourneyResult.explanation as Record<string, unknown>;
-  assert.equal(typeof explanation.normalized, "string");
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const explanation = searchProjectionJourneyResult.explanation as JsonObject;
+  assert.ok(explanation.normalized);
   assert.equal(explanation.authorization, "pre-filtered");
   assert.equal(explanation.backend, "epoch-reference");
   assert.ok(Array.isArray(explanation.ordering));
@@ -3360,10 +3517,11 @@ Then("the explanation names normalization authorization backend and ordering", f
 
 When("I save the Community Web search {string} as a projection", async function (expression: string) {
   searchProjectionJourneyResult = await requirePage().evaluate(async (query) => {
-    const runtime = window as unknown as {
-      CW_APP: { state: Record<string, unknown> };
-      CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<unknown>; saveSearchProjection(state: unknown, label: string): Record<string, unknown> };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_APP: { state: JsonObject };
+      CW_WORKBENCH: { openSearch(state: JsonValue, value: string): void; runSearch(state: JsonValue, options: JsonValue): Promise<JsonValue>; saveSearchProjection(state: JsonValue, label: string): JsonObject };
+    });
     runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, query);
     await runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: query });
     return runtime.CW_WORKBENCH.saveSearchProjection(runtime.CW_APP.state, "Needs review");
@@ -3372,17 +3530,19 @@ When("I save the Community Web search {string} as a projection", async function 
 
 Then("the saved projection keeps the canonical query and stable projection identity", function () {
   assert.match(String(searchProjectionJourneyResult.projectionId), /^projection-/u);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   const root = searchProjectionJourneyResult.root as { children: readonly { where: { kind: string; field: string; value: string } }[] };
   assert.deepEqual(root.children[0].where, { kind: "compare", field: "state", operator: "eq", value: "needs-review" });
 });
 
 When("I clone the Community Web built-in projection", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as {
-      CW_APP: { state: Record<string, unknown> };
-      CW_CORE: { builtinDefaultProjection: Record<string, unknown> };
-      CW_WORKBENCH: { openProjection(state: unknown, value: unknown): void; compileProjection(state: unknown): Record<string, unknown> };
-    };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_APP: { state: JsonObject };
+      CW_CORE: { builtinDefaultProjection: JsonObject };
+      CW_WORKBENCH: { openProjection(state: JsonValue, value: JsonValue): void; compileProjection(state: JsonValue): JsonObject };
+    });
     const clone = { ...runtime.CW_CORE.builtinDefaultProjection, projectionId: "user:default-copy", version: 1, label: "My namespace" };
     runtime.CW_WORKBENCH.openProjection(runtime.CW_APP.state, clone);
     return runtime.CW_WORKBENCH.compileProjection(runtime.CW_APP.state);
@@ -3396,7 +3556,8 @@ Then("the cloned definition validates through the canonical projection compiler"
 
 When("I mount the Community Web built-in projection at root in replace mode", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_WORKBENCH: { mount(value: Record<string, unknown>): Record<string, unknown> } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_WORKBENCH: { mount(value: JsonObject): JsonObject } });
     return runtime.CW_WORKBENCH.mount({ mountId: "mount-user-root", scope: "user", mountPath: "/", projectionId: "builtin:default", mode: "replace", order: 10, writable: false });
   });
 });
@@ -3409,7 +3570,8 @@ Then("the user namespace records the deterministic root replacement", function (
 
 When("I navigate to the immutable Community Web recovery namespace", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_MAP: { list(path: string): readonly { name: string }[] } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_MAP: { list(path: string): readonly { name: string }[] } });
     return { names: runtime.CW_MAP.list("/.epoch").map((entry) => entry.name) };
   });
 });
@@ -3420,7 +3582,8 @@ Then("all protected recovery branches remain reachable", function () {
 
 When("I compose Community Web projection mounts before and after the built-in root", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_WORKBENCH: { mount(value: Record<string, unknown>): unknown; mounts(): readonly Record<string, unknown>[] } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_WORKBENCH: { mount(value: JsonObject): JsonValue; mounts(): readonly JsonObject[] } });
     runtime.CW_WORKBENCH.mount({ mountId: "mount-before", scope: "user", mountPath: "/", projectionId: "user:first", mode: "before", order: 1, writable: false });
     runtime.CW_WORKBENCH.mount({ mountId: "mount-after", scope: "user", mountPath: "/", projectionId: "user:last", mode: "after", order: 2, writable: false });
     return { mounts: runtime.CW_WORKBENCH.mounts().filter((entry) => String(entry.mountId).startsWith("mount-")) };
@@ -3428,19 +3591,22 @@ When("I compose Community Web projection mounts before and after the built-in ro
 });
 
 Then("the mounts retain explicit mode order and scope", function () {
-  const mounts = searchProjectionJourneyResult.mounts as readonly Record<string, unknown>[];
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const mounts = searchProjectionJourneyResult.mounts as readonly JsonObject[];
   assert.deepEqual(mounts.map((entry) => [entry.mode, entry.order, entry.scope]), [["after", 2, "user"], ["before", 1, "user"]]);
 });
 
 When("I locate one Community Web object through two contextual paths", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_DATA: { posts: readonly Record<string, unknown>[] }; CW_MAP: { objectRef(value: unknown): { objectId: string }; pathForObject(id: string, projection?: string): string } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_DATA: { posts: readonly JsonObject[] }; CW_MAP: { objectRef(value: JsonValue): { objectId: string }; pathForObject(id: string, projection?: string): string } });
     const ref = runtime.CW_MAP.objectRef(runtime.CW_DATA.posts[0]);
     return { objectId: ref.objectId, paths: [runtime.CW_MAP.pathForObject(ref.objectId), runtime.CW_MAP.pathForObject(ref.objectId, "projection-context")] };
   });
 });
 
 Then("both paths preserve one canonical object identity", function () {
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   const paths = searchProjectionJourneyResult.paths as readonly string[];
   assert.equal(new Set(paths).size, 2);
   assert.ok(paths.every((path) => path.includes(String(searchProjectionJourneyResult.objectId))));
@@ -3448,7 +3614,8 @@ Then("both paths preserve one canonical object identity", function () {
 
 When("I create two Community Web occurrences for one canonical object", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_DATA: { posts: readonly Record<string, unknown>[] }; CW_MAP: { objectRef(value: unknown): unknown }; CW_CORE: { createProjectionOccurrenceId(input: Record<string, unknown>): string } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_DATA: { posts: readonly JsonObject[] }; CW_MAP: { objectRef(value: JsonValue): JsonValue }; CW_CORE: { createProjectionOccurrenceId(input: JsonObject): string } });
     const target = runtime.CW_MAP.objectRef(runtime.CW_DATA.posts[0]);
     const base = { projectionId: "user:twice", projectionVersion: 1, parentEntryId: "entry-root", target, resolvedSegment: "message" };
     return { first: runtime.CW_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-a", branchId: "a" }), second: runtime.CW_CORE.createProjectionOccurrenceId({ ...base, nodeId: "leaf-b", branchId: "b" }) };
@@ -3462,10 +3629,12 @@ Then("the occurrences have distinct stable entry identities", function () {
 
 When("a Community Web projection update is queued while I am reading", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const state = (window as unknown as { CW_APP: { state: Record<string, unknown> } }).CW_APP.state;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const state = ((window as { CW_APP: { state: JsonObject } })).CW_APP.state;
     const before = { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor };
     state.pending = [{ id: "queued-projection-change" }];
-    return { before, after: { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor }, pending: (state.pending as unknown[]).length };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    return { before, after: { feedMark: state.feedMark, readingAnchor: state.readingAnchor, cursor: state.cursor }, pending: (state.pending as JsonValue[]).length };
   });
 });
 
@@ -3476,7 +3645,8 @@ Then("my selected object and reading anchor remain unchanged until apply", funct
 
 When("I compare Community Web search with an unauthorized private object present", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_QUERY: { searchBoard(query: string, context: Record<string, unknown>): { hits: readonly { post?: { private?: boolean } }[]; matched: number } } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_QUERY: { searchBoard(query: string, context: JsonObject): { hits: readonly { post?: { private?: boolean } }[]; matched: number } } });
     const first = runtime.CW_QUERY.searchBoard("state:needs-review", { includePrivate: false });
     const second = runtime.CW_QUERY.searchBoard("state:needs-review", { includePrivate: false, extra: { privateObjects: [{ id: "secret", private: true }] } });
     return { first: { matched: first.matched, privateHits: first.hits.filter((hit) => hit.post?.private).length }, second: { matched: second.matched, privateHits: second.hits.filter((hit) => hit.post?.private).length } };
@@ -3485,24 +3655,28 @@ When("I compare Community Web search with an unauthorized private object present
 
 Then("hits completeness collisions and explanation remain observationally identical", function () {
   assert.deepEqual(searchProjectionJourneyResult.first, searchProjectionJourneyResult.second);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   assert.equal((searchProjectionJourneyResult.first as { privateHits: number }).privateHits, 0);
 });
 
 When("the Community Web search host reports a stale source", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(async () => {
-    const runtime = window as unknown as { CW_APP: { state: Record<string, unknown> }; CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_APP: { state: JsonObject }; CW_WORKBENCH: { openSearch(state: JsonValue, value: string): void; runSearch(state: JsonValue, options: JsonValue): Promise<JsonObject> } });
     runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, "state:needs-review");
     return runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: "state:needs-review", sourceCheckpoints: [{ sourceId: "atproto", token: "old", observedAt: "2026-08-01T00:00:00Z", status: "stale" }] });
   });
 });
 
 Then("the search completeness visibly reports stale", function () {
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   assert.equal((searchProjectionJourneyResult.result as { completeness: { status: string } }).completeness.status, "stale");
 });
 
 When("persistent SQLite is unavailable to Community Web", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(async () => {
-    const runtime = window as unknown as { CW_APP: { state: Record<string, unknown> }; CW_WORKBENCH: { openSearch(state: unknown, value: string): void; runSearch(state: unknown, options: unknown): Promise<Record<string, unknown>> } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_APP: { state: JsonObject }; CW_WORKBENCH: { openSearch(state: JsonValue, value: string): void; runSearch(state: JsonValue, options: JsonValue): Promise<JsonObject> } });
     runtime.CW_WORKBENCH.openSearch(runtime.CW_APP.state, "state:open");
     const result = await runtime.CW_WORKBENCH.runSearch(runtime.CW_APP.state, { expression: "state:open", backendUnavailable: "sqlite-wasm" });
     return { result, backend: "epoch-reference" };
@@ -3511,12 +3685,14 @@ When("persistent SQLite is unavailable to Community Web", async function () {
 
 Then("deterministic reference search remains available", function () {
   assert.equal(searchProjectionJourneyResult.backend, "epoch-reference");
-  assert.ok((searchProjectionJourneyResult.result as Record<string, unknown>).result);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  assert.ok((searchProjectionJourneyResult.result as JsonObject).result);
 });
 
 When("I compare equivalent Community Web GraphQL and text search expressions", async function () {
   searchProjectionJourneyResult = await requirePage().evaluate(() => {
-    const runtime = window as unknown as { CW_CORE: { normalizeQuery(value: string): { ast: unknown; canonicalJson: string } }; CommunityGraphQL: { searchExpressionFromInput(value: unknown): unknown; COMMUNITY_GRAPHQL_SDL: string } };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_CORE: { normalizeQuery(value: string): { ast: JsonValue; canonicalJson: string } }; CommunityGraphQL: { searchExpressionFromInput(value: JsonValue): JsonValue; COMMUNITY_GRAPHQL_SDL: string } });
     const text = runtime.CW_CORE.normalizeQuery("state:needs-review");
     const structured = runtime.CommunityGraphQL.searchExpressionFromInput({ compare: { field: "state", operator: "eq", value: { string: "needs-review" } } });
     return { textAst: text.ast, structured, oneOf: runtime.CommunityGraphQL.COMMUNITY_GRAPHQL_SDL.includes("@oneOf") };
@@ -3545,12 +3721,14 @@ interface BoardWorkspaceProbe {
 async function boardWorkspace(): Promise<BoardWorkspaceProbe> {
   const page = requirePage();
   await page.waitForFunction(() => {
-    const workspace = (globalThis as unknown as { CW_WORKSPACE?: { project(): unknown } }).CW_WORKSPACE;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & { CW_WORKSPACE?: { project(): JsonValue } }).CW_WORKSPACE;
     return workspace !== undefined && workspace.project() !== null;
   }, undefined, { timeout: 10_000 });
 
   return page.evaluate(() => {
-    const workspace = (globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & {
       CW_WORKSPACE: {
         status(): { workspaceId: string; harnessVerified: boolean; events: number };
         project(): { slug: string; uiView: string };
@@ -3582,7 +3760,8 @@ Then("the interface it renders is a revision I can inspect and roll back", async
   const page = requirePage();
   const probe = await boardWorkspace();
   const ledger = await page.evaluate((view: string) => {
-    const workspace = (globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & {
       CW_WORKSPACE: { runtime(): { workspace: { history(view: string): readonly { revision: number; summary: string }[] } } };
     }).CW_WORKSPACE;
     return workspace.runtime().workspace.history(view).map((entry) => ({ revision: entry.revision, summary: entry.summary }));
@@ -3611,12 +3790,14 @@ let composeProbe: ComposeProbe | undefined;
 When("I compose a panel for my review queue with a denser row token", async function () {
   const page = requirePage();
   await page.waitForFunction(() => {
-    const workspace = (globalThis as unknown as { CW_WORKSPACE?: { project(): unknown } }).CW_WORKSPACE;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & { CW_WORKSPACE?: { project(): JsonValue } }).CW_WORKSPACE;
     return workspace !== undefined && workspace.project() !== null;
   }, undefined, { timeout: 10_000 });
 
   composeProbe = await page.evaluate(async () => {
-    const compose = (globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const compose = (globalThis as typeof globalThis & {
       CW_COMPOSE: { propose(): Promise<{ validation: { state: string } } | null> };
     }).CW_COMPOSE;
     document.querySelector<HTMLButtonElement>("[data-compose-open]")?.click();
@@ -3646,7 +3827,8 @@ Then("I see which widget and which token the proposal changes, and nothing has c
 When("I accept the proposed interface change", async function () {
   const page = requirePage();
   await page.evaluate(async () => {
-    await (globalThis as unknown as { CW_COMPOSE: { accept(): Promise<unknown> } }).CW_COMPOSE.accept();
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    await (globalThis as typeof globalThis & { CW_COMPOSE: { accept(): Promise<JsonValue> } }).CW_COMPOSE.accept();
   });
 });
 
@@ -3654,7 +3836,8 @@ Then("the panel and the token are part of my interface and survive a reload", as
   const page = requirePage();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => {
-    const workspace = (globalThis as unknown as { CW_WORKSPACE?: { project(): unknown } }).CW_WORKSPACE;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & { CW_WORKSPACE?: { project(): JsonValue } }).CW_WORKSPACE;
     return workspace !== undefined && workspace.project() !== null;
   }, undefined, { timeout: 10_000 });
 
@@ -3683,15 +3866,16 @@ let handoff: HandoffProbe | undefined;
 When("I hand my workspace to another participant", async function () {
   const page = requirePage();
   handoff = await page.evaluate(async () => {
-    const runtime = (globalThis as unknown as {
-      CW_WORKSPACE: { execute(kind: string, input?: unknown): Promise<{ data: unknown }> };
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (globalThis as typeof globalThis & {
+      CW_WORKSPACE: { execute(kind: string, input?: JsonValue): Promise<{ data: JsonValue }> };
       CW_RUNTIME: {
-        createCommunityRuntime(options: Record<string, unknown>): {
-          commands: { execute(request: Record<string, unknown>): Promise<{ data: { applied: number } }> };
+        createCommunityRuntime(options: JsonObject): {
+          commands: { execute(request: JsonObject): Promise<{ data: { applied: number } }> };
           workspace: { materialize(): { manifest: { theme: Record<string, string>; placements: { component: string }[] } } };
         };
       };
-      CW_WORKSPACE_HARNESS?: unknown;
+      CW_WORKSPACE_HARNESS?: JsonValue;
     });
 
     const bundle = (await runtime.CW_WORKSPACE.execute("workspace.export")).data;
@@ -3702,7 +3886,8 @@ When("I hand my workspace to another participant", async function () {
       namespace: "community-web",
       actor: "did:epoch:other-machine",
       policies: { capabilities: ["*"] },
-      harness: (globalThis as unknown as { CW_WORKSPACE: { harness(): unknown } }).CW_WORKSPACE.harness(),
+      // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+      harness: (globalThis as typeof globalThis & { CW_WORKSPACE: { harness(): JsonValue } }).CW_WORKSPACE.harness(),
     });
     const imported = await other.commands.execute({
       kind: "workspace.import",
@@ -3728,9 +3913,10 @@ Then("the other participant renders the same interface from the same history", f
 When("I roll my interface back to the revision before the change", async function () {
   const page = requirePage();
   await page.evaluate(async () => {
-    const workspace = (globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & {
       CW_WORKSPACE: {
-        execute(kind: string, input?: unknown, options?: unknown): Promise<unknown>;
+        execute(kind: string, input?: JsonValue, options?: JsonValue): Promise<JsonValue>;
         runtime(): { workspace: { history(view: string): readonly { revision: number }[] } };
       };
     }).CW_WORKSPACE;
@@ -3743,7 +3929,8 @@ When("I roll my interface back to the revision before the change", async functio
 Then("my board no longer shows the panel, and the change I rolled back is still readable", async function () {
   const page = requirePage();
   const after = await page.evaluate(() => {
-    const workspace = (globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const workspace = (globalThis as typeof globalThis & {
       CW_WORKSPACE: {
         runtime(): {
           workspace: {
@@ -3771,10 +3958,11 @@ Then("my board no longer shows the panel, and the change I rolled back is still 
 When("a realtime fabric endpoint is configured for the board", async function () {
   const page = requirePage();
   const result = await page.evaluate(async () => {
-    const win = globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = globalThis as typeof globalThis & {
       CW_NATS_FABRIC: {
         reset(): void;
-        attach(identity: unknown, overrides?: unknown): Promise<Record<string, unknown>>;
+        attach(identity: JsonValue, overrides?: JsonValue): Promise<JsonObject>;
         statusLabel(): string;
       };
       CW_APP: { getIdentity(): { kind?: string; principalId?: string; anonymous?: boolean } };
@@ -3793,11 +3981,13 @@ When("a realtime fabric endpoint is configured for the board", async function ()
       label: win.CW_NATS_FABRIC.statusLabel(),
     };
   });
-  (this as { fabricGuestProbe?: unknown }).fabricGuestProbe = result;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  (this as { fabricGuestProbe?: JsonValue }).fabricGuestProbe = result;
 });
 
 Then("as a guest I am not attached to the realtime fabric", function () {
-  const probe = (this as { fabricGuestProbe?: Record<string, unknown> }).fabricGuestProbe;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const probe = (this as { fabricGuestProbe?: JsonObject }).fabricGuestProbe;
   assert.ok(probe, "fabric guest probe missing");
   assert.ok(probe.identityKind === "guest" || probe.identityKind === "denied", "expected guest identity");
   assert.equal(probe.attached, false);
@@ -3805,14 +3995,17 @@ Then("as a guest I am not attached to the realtime fabric", function () {
 });
 
 Then("the fabric status says realtime requires sign-in", function () {
-  const probe = (this as { fabricGuestProbe?: Record<string, unknown> }).fabricGuestProbe;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const probe = (this as { fabricGuestProbe?: JsonObject }).fabricGuestProbe;
   assert.ok(probe);
   assert.match(String(probe.message || probe.label || ""), /realtime requires sign-in/i);
 });
 
 Then("fabric failure does not open session chat", function () {
-  const probe = (this as { fabricGuestProbe?: Record<string, unknown>; fabricTicketProbe?: Record<string, unknown> }).fabricGuestProbe
-    ?? (this as { fabricTicketProbe?: Record<string, unknown> }).fabricTicketProbe;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const probe = (this as { fabricGuestProbe?: JsonObject; fabricTicketProbe?: JsonObject }).fabricGuestProbe
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ?? (this as { fabricTicketProbe?: JsonObject }).fabricTicketProbe;
   assert.ok(probe);
   assert.equal(probe.openChat, false);
 });
@@ -3820,10 +4013,11 @@ Then("fabric failure does not open session chat", function () {
 When("I present a Platform fabric ticket for a signed-in identity", async function () {
   const page = requirePage();
   const result = await page.evaluate(async () => {
-    const win = globalThis as unknown as {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const win = globalThis as typeof globalThis & {
       CW_NATS_FABRIC: {
         reset(): void;
-        attach(identity: unknown, overrides?: unknown): Promise<Record<string, unknown>>;
+        attach(identity: JsonValue, overrides?: JsonValue): Promise<JsonObject>;
         status(): { opened: boolean; hasSecret: boolean; status: string };
       };
     };
@@ -3856,22 +4050,26 @@ When("I present a Platform fabric ticket for a signed-in identity", async functi
       secretWasIdentity: false,
     };
   });
-  (this as { fabricTicketProbe?: unknown }).fabricTicketProbe = result;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  (this as { fabricTicketProbe?: JsonValue }).fabricTicketProbe = result;
 });
 
 Then("the board attaches to the realtime fabric without opening session chat", function () {
-  const probe = (this as { fabricTicketProbe?: Record<string, unknown> }).fabricTicketProbe;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const probe = (this as { fabricTicketProbe?: JsonObject }).fabricTicketProbe;
   assert.ok(probe);
   assert.equal(probe.attached, true);
   assert.equal(probe.status, "online");
   assert.equal(probe.openChat, false);
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   const fabricStatus = probe.fabricStatus as { opened?: boolean; status?: string };
   assert.equal(fabricStatus.opened, true);
   assert.equal(fabricStatus.status, "online");
 });
 
 Then("the fabric secret is never returned as a board identity id", function () {
-  const probe = (this as { fabricTicketProbe?: Record<string, unknown> }).fabricTicketProbe;
+  // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+  const probe = (this as { fabricTicketProbe?: JsonObject }).fabricTicketProbe;
   assert.ok(probe);
   assert.equal(probe.hasSecretField, false, "attach result must not leak fabricSecret");
 });

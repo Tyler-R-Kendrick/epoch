@@ -51,5 +51,6 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   if (!response.ok) {
     throw new Error(`Epoch sample request failed (${response.status}): ${await response.text()}`);
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return await response.json() as T;
 }

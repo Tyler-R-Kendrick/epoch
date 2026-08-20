@@ -104,7 +104,7 @@
       guestsAllowed: s.guestsAllowed !== false,
       home: !!s.home,
       description: s.description || "",
-      subscribers: typeof s.subscribers === "number" ? s.subscribers : 0,
+      subscribers: globalThis.CW_VALUE.isNumber(s.subscribers) ? s.subscribers : 0,
       rules: Array.isArray(s.rules) ? s.rules.slice() : [],
       channels: Array.isArray(s.channels) ? s.channels.slice() : [],
       projects: Array.isArray(s.projects) ? s.projects.slice() : [],
@@ -178,7 +178,7 @@
 
   function newGuestId() {
     var bytes = new Uint8Array(8);
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(bytes);
+    if (!globalThis.CW_VALUE.isUndefined(crypto) && crypto.getRandomValues) crypto.getRandomValues(bytes);
     else for (var i = 0; i < 8; i++) bytes[i] = Math.floor(Math.random() * 256);
     var hex = Array.prototype.map.call(bytes, function (b) {
       return ("0" + b.toString(16)).slice(-2);
@@ -371,7 +371,7 @@
     if (!oauth || oauth.source !== "par-pkce-dpop" || !oauth.did || !oauth.accessToken) {
       throw new Error("AT OAuth is not linked — PAR/PKCE/DPoP required");
     }
-    if (window.CW_RUNTIME && typeof window.CW_RUNTIME.isHandleHashStub === "function" &&
+    if (window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.isHandleHashStub) &&
         window.CW_RUNTIME.isHandleHashStub(oauth.did, oauth.handle || handle)) {
       throw new Error("AT OAuth refused stub DID mint");
     }
@@ -489,8 +489,8 @@
   /* ── Durable board state ──────────────────────────────────────────────── */
 
   function migrateSessionState(session) {
-    session = session && typeof session === "object" ? Object.assign({}, session) : {};
-    var alias = typeof session.path === "string" ? session.path : "/projects/community/channels/general";
+    session = session && globalThis.CW_VALUE.isObject(session) ? Object.assign({}, session) : {};
+    var alias = globalThis.CW_VALUE.isString(session.path) ? session.path : "/projects/community/channels/general";
     var focused = session.focusedObjectId || session.threadFocus || session.feedMark || null;
     session.path = alias;
     session.navigation = Object.assign({
@@ -507,7 +507,7 @@
 
   /** Previous unversioned snapshots become v2 exactly once; aliases resolve after CW_MAP loads. */
   function migrateBoardState(snapshot) {
-    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    if (!snapshot || !globalThis.CW_VALUE.isObject(snapshot) || Array.isArray(snapshot)) {
       return {
         schemaVersion: BOARD_SCHEMA_VERSION,
         recovery: {
@@ -588,12 +588,12 @@
     var applied = readJson(STARTUP_APPLIED_KEY);
     var out = [];
     var update = signals.update;
-    if (update && typeof update.available === "string" && update.available &&
+    if (update && globalThis.CW_VALUE.isString(update.available) && update.available &&
         update.available !== update.current && applied.update !== update.available) {
       out.push({ kind: "update", label: "update " + update.available, value: update.available });
     }
     var workspace = signals.workspace;
-    if (workspace && typeof workspace.id === "string" && workspace.id &&
+    if (workspace && globalThis.CW_VALUE.isString(workspace.id) && workspace.id &&
         Number.isInteger(workspace.defaultsVersion) && Number.isInteger(workspace.appliedVersion) &&
         workspace.defaultsVersion > workspace.appliedVersion &&
         applied.workspace !== workspace.defaultsVersion) {
@@ -604,8 +604,8 @@
     }
     var continuation = signals.continuation;
     if (continuation && /^(?:claude|codex|grok)$/i.test(String(continuation.host || "")) &&
-        typeof continuation.sessionId === "string" && continuation.sessionId &&
-        typeof continuation.workspace === "string" && continuation.workspace &&
+        globalThis.CW_VALUE.isString(continuation.sessionId) && continuation.sessionId &&
+        globalThis.CW_VALUE.isString(continuation.workspace) && continuation.workspace &&
         applied.continuation !== continuation.sessionId) {
       out.push({
         kind: "continuation", label: "resume " + continuation.host + " session",

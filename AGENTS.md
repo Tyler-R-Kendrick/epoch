@@ -6,15 +6,29 @@ These instructions apply to the entire repository.
 
 - Use test-driven development for behavior changes: write or update a failing feature/test first, implement the smallest change, then make the full suite pass.
 - **GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`): docs, lint, konsistent, design, typecheck, test, coverage, Pact, and the Community Web/accessibility suites, each as its own job so failures are attributable. A fail-closed guard job keeps this on standard `ubuntu-latest` runners on this public repository, where they are free and unmetered; re-check that assumption (`docs/ai-automation-strategy.md` Finding 1) before touching runner selection or visibility.
-  - Local hooks are a **fast pre-flight, not the enforcement boundary** — CI plus branch protection are authoritative. After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`; both `pre-commit` and `pre-push` run `npm run gate:fast` (konsistent, docs, design.md lint, design token audit, eslint).
-  - Full bar remains `npm run verify` (adds feature/browser suite, coverage, Pact, a11y, Community Web e2e). Agents must run **at least `gate:fast`** locally, and **`verify`** when changing browser-visible or contract behavior, before claiming done; CI re-verifies everything regardless.
+  - Local hooks are a **strengthened pre-flight** — CI plus branch protection remain authoritative for the full verify bar. After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`; both `pre-commit` and `pre-push` run `npm run gate:commit` (parallel `gate:fast` static checks + Community Web a11y lint). Prefer `npm run gate:push` (adds typecheck, build, unit) before opening a PR when that bar is green.
+  - Full bar remains `npm run verify` (adds feature/browser suite, coverage, Pact, a11y evidence, Community Web e2e). Agents must run **at least `gate:commit`** locally, and **`verify`** when changing browser-visible or contract behavior, before claiming done; CI re-verifies everything regardless.
 - Do not consider work complete until required quality gates pass:
-  - `npm run gate:fast` — local commit/push pre-flight
+  - `npm run gate:commit` — local commit/push hook gate
+  - `npm run gate:push` — mid-tier (commit gate + typecheck + build + unit); run before PR when green
   - `npm run verify` — full bar (docs, lint, design:lint, typecheck, konsistent, test, coverage, pact) — also what CI runs, job-by-job
 - Never skip hooks to greenwash a change. Emergency bypass only: `SKIP_GIT_HOOKS=1` (document why in the PR/commit body). CI still runs regardless of a local bypass.
 - Preserve or improve coverage for changed behavior. Add new Gherkin scenarios only for user-visible product behavior, and use focused tests or docs checks for repository process, documentation, evidence, or governance requirements.
 - Do not lower coverage thresholds or weaken lint/typecheck settings to make a change pass.
+- Do not weaken or disable anti-slop Oxlint rules in `oxlint.config.ts` to greenwash findings. Prefer inference, `satisfies`, named contracts, boundary parsing, and `// SAFETY:` comments. See [`docs/anti-slop.md`](docs/anti-slop.md).
 - Keep generated outputs such as `dist/`, `coverage/`, and temporary files out of commits.
+
+## Agent skill harnesses
+
+Harness skill trees under `.agents/`, `.claude/skills/`, and `.grok/` are gitignored and reproducible. For the hosts this repository uses (Claude Code, Cursor, Codex, Grok):
+
+```bash
+npm run agents:install-skills
+# also: npx impeccable install
+# also: npx skills add higgsfield-ai/skills --agent claude-code --agent cursor --agent codex --agent grok -y --copy
+```
+
+The `install-anti-slop` skill configures the vendored Oxlint plugin; product sources are linted with `npm run lint:oxlint`.
 
 ## Documentation freshness
 
@@ -54,12 +68,15 @@ These instructions apply to the entire repository.
 | `npm run build` | Build Core, CLI, WASM, and test TypeScript outputs. |
 | `npm run docs:check` | Validate local Markdown links and docs/spec discoverability from `README.md`. |
 | `npm run lint` | Run ESLint over source, tests, and configuration. |
+| `npm run lint:oxlint` | Run vendored anti-slop Oxlint rules (`docs/anti-slop.md`). Required in `gate:fast` and CI Lint. |
+| `npm run agents:install-skills` | Install `install-anti-slop` into Claude Code / Cursor / Codex / Grok skill trees. |
 | `npm run konsistent` | Enforce workspace structural conventions declared in `konsistent.json`. |
 | `npm run typecheck` | Run `tsgo --noEmit` for every workspace and test project. |
 | `npm test` | Build and execute the Cucumber feature suite. |
 | `npm run coverage` | Run Cucumber under c8 and enforce coverage thresholds. |
-| `npm run gate:fast` | Local commit/push pre-flight: konsistent, docs:check, design:lint, design:audit, lint. Runs in `.githooks/pre-commit` and `.githooks/pre-push`. |
+| `npm run gate:fast` | Parallel static pre-flight: konsistent, docs:check, design:lint, design:audit, lint, lint:oxlint (`scripts/run-gate-fast.mjs`). |
 | `npm run mutation:nats` | Kill listed NATS ACL/discovery source mutants (`@epoch/nats` package tests must fail). |
 | `npm run mutation:protocol` | Kill listed Protocol capability-manifest mutants (`@epoch/protocol` package tests must fail). |
-| `npm run gate:push` | Optional manual mid-tier gate: gate:fast + typecheck + build + unit tests. No longer wired to a hook — GitHub Actions Quality Gates run this and more on every PR/push. |
+| `npm run gate:commit` | Hook gate: gate:fast + Community Web a11y lint. Wired to `.githooks/pre-commit` and `pre-push`. |
+| `npm run gate:push` | Mid-tier: gate:commit + typecheck + build + unit tests. Run before PR when green; not hook-wired while typecheck debt remains. |
 | `npm run verify` | Full local gate: gate suite + coverage + pact. Matches what CI runs, job-by-job. |

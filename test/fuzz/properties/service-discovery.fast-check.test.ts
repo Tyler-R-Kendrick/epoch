@@ -43,7 +43,7 @@ async function main(): Promise<void> {
         });
         assert.throws(
           () => directory.advertise({ name, endpoint: "epoch.live.civic.>" }),
-          (error: unknown) => error instanceof ServiceDiscoveryDeniedError,
+          (error) => error instanceof ServiceDiscoveryDeniedError,
         );
       },
     ),
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
   console.log("service-discovery fast-check properties passed");
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

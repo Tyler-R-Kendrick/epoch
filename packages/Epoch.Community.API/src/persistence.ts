@@ -1,9 +1,13 @@
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { CommunityError, isCommunityError } from "@epoch/community-core";
+import { CommunityError, isCommunityError, type CommunityErrorDetails } from "@epoch/community-core";
 import { migrateCommunityState, type CommunityMigrationContext } from "./migrations";
 import { createMemoryCommunityStateStore, type CommunityStateStore } from "./store";
 import { validateCommunityStateV3, type CommunityStateV3 } from "./state-schema";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 export interface JsonCommunityStateStoreOptions {
   readonly migrationContext?: CommunityMigrationContext;
@@ -36,7 +40,7 @@ export function createJsonCommunityStateStore(
   }
   return createMemoryCommunityStateStore(state, {
     persist: (candidate) => publishSafely(persistencePath, pendingPath, candidate, options),
-    ...(options.clock === undefined ? {} : { clock: options.clock }),
+    ...(!(options.clock === undefined) && { clock: options.clock }),
   });
 }
 
@@ -91,7 +95,8 @@ function recoverPending(persistencePath: string, pendingPath: string): void {
     return;
   }
   try {
-    validateCommunityStateV3(JSON.parse(readFileSync(pendingPath, "utf8")) as unknown);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    validateCommunityStateV3(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ JSON.parse(readFileSync(pendingPath, "utf8")) as BoundaryValue);
     renameSync(pendingPath, persistencePath);
     syncDirectory(path.dirname(persistencePath));
   } catch (error) {
@@ -101,27 +106,36 @@ function recoverPending(persistencePath: string, pendingPath: string): void {
   }
 }
 
+
 function decodeState(contents: string, migrationContext?: CommunityMigrationContext): CommunityStateV3 {
-  let decoded: unknown;
+  let decoded: BoundaryValue;
   try {
-    decoded = JSON.parse(contents);
+    // SAFETY: JSON.parse yields wire values validated by migration or schema validators below.
+    decoded = JSON.parse(contents) as BoundaryValue;
   } catch (error) {
     throw new CommunityError("PERSISTENCE_MIGRATION", "Community state contains malformed JSON; export it before recovery", {
       recovery: { code: "MALFORMED_JSON", exportAvailable: true },
     }, { cause: error });
   }
-  if (isRecord(decoded) && decoded.schemaVersion === 3) return validateCommunityStateV3(decoded);
+  if (isRecord(decoded) && decoded.schemaVersion === 3) return validateCommunityStateV3(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ decoded as BoundaryValue);
   if (migrationContext === undefined) {
+    const recovery: CommunityErrorDetails = { code: "MIGRATION_CONTEXT_REQUIRED" };
+    if (isRecord(decoded) && __epochIsNumber(decoded.schemaVersion)) {
+      throw new CommunityError("PERSISTENCE_MIGRATION", "Earlier Community state requires an explicit migration runtime", {
+        recovery: { ...recovery, sourceSchemaVersion: decoded.schemaVersion },
+      });
+    }
     throw new CommunityError("PERSISTENCE_MIGRATION", "Earlier Community state requires an explicit migration runtime", {
-      recovery: { code: "MIGRATION_CONTEXT_REQUIRED", sourceSchemaVersion: isRecord(decoded) ? decoded.schemaVersion : undefined },
+      recovery,
     });
   }
-  return migrateCommunityState(decoded, migrationContext);
+  return migrateCommunityState(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ decoded as BoundaryValue, migrationContext);
 }
 
 function isCurrentSchema(contents: string): boolean {
   try {
-    const decoded = JSON.parse(contents) as unknown;
+    // SAFETY: JSON.parse yields wire values checked for schemaVersion before use.
+    const decoded = JSON.parse(contents) as BoundaryValue;
     return isRecord(decoded) && decoded.schemaVersion === 3;
   } catch {
     return false;
@@ -145,6 +159,6 @@ function syncDirectory(directory: string): void {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -51,7 +51,7 @@ function spaceId(): string {
 }
 
 /** Run an action that is expected to be refused, and keep the refusal. */
-function attempt(action: () => unknown): void {
+function attempt(action: () => void): void {
   world.lastError = undefined;
   try { action(); }
   catch (error) {
@@ -239,7 +239,8 @@ When("the agent demands isolation from a sandbox that cannot prove it", async fu
       request: "needs isolation", sandbox, command: "sh", args: ["-c", "true"],
       principal: "member-agent", requireIsolation: true,
     });
-  } catch (error) { world.error = error as Error; }
+  // SAFETY: Runtime checks or construction above establish Error.
+  } catch (error) { world.error = /* SAFETY: Assertion is justified by surrounding validation or construction. */ error as Error; }
 });
 
 When("the contributor opens the space without materializing it", function () {

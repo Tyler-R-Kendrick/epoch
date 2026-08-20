@@ -1,3 +1,4 @@
+import { isBoolean, isNumber } from "../value-kind";
 import {
   CommunityError,
   ReferenceSearchBackend,
@@ -21,11 +22,12 @@ export const SQLITE_INDEX_SCHEMA_VERSION = 1;
 export const SQLITE_ANALYZER_VERSION = "epoch-sqlite-fts5-unicode61-v1";
 
 type SqlParameter = CommunityFieldScalar | Uint8Array;
+type SqliteColumnValue = SqlParameter | undefined;
 
 export interface SqliteStatementDatabase {
-  value(sql: string, parameters?: readonly SqlParameter[]): unknown;
+  value(sql: string, parameters?: readonly SqlParameter[]): SqliteColumnValue;
   execute(sql: string, parameters?: readonly SqlParameter[]): void;
-  rows(sql: string, parameters?: readonly SqlParameter[]): readonly Readonly<Record<string, unknown>>[];
+  rows(sql: string, parameters?: readonly SqlParameter[]): readonly Readonly<Record<string, SqliteColumnValue>>[];
   export?(): Uint8Array;
   close(): void;
 }
@@ -152,7 +154,7 @@ function comparisonSql(
     if (operator !== "eq" && operator !== "ne" && operator !== "in") return "0";
     return `field.null_value ${operator === "ne" ? "IS NULL" : "IS NOT NULL"}`;
   }
-  return `field.${valueColumn(value)} ${sqlOperator(operator)} ${bind(typeof value === "boolean" ? Number(value) : value)}`;
+  return `field.${valueColumn(value)} ${sqlOperator(operator)} ${bind(isBoolean(value) ? Number(value) : value)}`;
 }
 
 function sqlOperator(operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in"): string {
@@ -168,8 +170,8 @@ function sqlOperator(operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in")
 
 function valueColumn(value: CommunityFieldScalar): "text_value" | "number_value" | "boolean_value" | "null_value" {
   if (value === null) return "null_value";
-  if (typeof value === "number") return "number_value";
-  if (typeof value === "boolean") return "boolean_value";
+  if (isNumber(value)) return "number_value";
+  if (isBoolean(value)) return "boolean_value";
   return "text_value";
 }
 
@@ -237,11 +239,11 @@ export class SqliteWasmSearchBackend implements SearchBackend {
     return Object.freeze({
       planHash: plan.planHash,
       backendId: this.backendId,
-      expression: JSON.parse(JSON.stringify(plan.expression)) as unknown,
+      expression: semanticClone(plan.expression),
       sourcePlans: Object.freeze(plan.sourcePlans.map((source) => ({
         sourceId: source.sourceId,
-        pushdown: source.pushdown,
-        residual: source.residual,
+        pushdown: semanticClone(source.pushdown),
+        residual: semanticClone(source.residual),
       }))),
       ordering: Object.freeze(plan.order.map((order) => `${order.field}:${order.direction}:${order.nulls}`)),
       authorization: "pre-filtered" as const,
@@ -261,7 +263,7 @@ export class SqliteWasmSearchBackend implements SearchBackend {
     const allowedObjectIds = [...this.#entities.values()].filter(plan.canRead).map((entity) => entity.ref.objectId).sort();
     let ids: readonly string[];
     try {
-      ids = await this.#index.query({ expression: plan.expression, allowedObjectIds, ...(signal === undefined ? {} : { signal }) });
+      ids = await this.#index.query({ expression: plan.expression, allowedObjectIds, ...(signal === undefined ? undefined : { signal }) });
     } catch (error) {
       if (!(error instanceof CommunityError) || error.code !== "QUERY_UNSUPPORTED_SOURCE") throw error;
       // The local database is an optimization, never semantic authority. A
@@ -280,6 +282,12 @@ export class SqliteWasmSearchBackend implements SearchBackend {
   #ensureOpen(): void {
     if (this.#closed) throw new CommunityError("INDEX_STALE", "The SQLite search backend is closed");
   }
+}
+
+function semanticClone(expression: SearchExpression): SearchExplanation["expression"] {
+  // SAFETY: SearchExpression is JSON data; the round trip removes optional
+  // undefined fields and yields the recursive SemanticValue representation.
+  return JSON.parse(JSON.stringify(expression)) as SearchExplanation["expression"];
 }
 
 export async function createSqliteWasmSearchBackend(options: {

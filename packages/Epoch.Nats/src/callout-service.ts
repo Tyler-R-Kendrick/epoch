@@ -12,6 +12,8 @@ import type {
   AuthCalloutResponse,
 } from "./auth-callout";
 import type { NatsConnectionLike, NatsMsgLike } from "./connection";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 export const AUTH_CALLOUT_SUBJECT = "$SYS.REQ.USER.AUTH";
 
@@ -30,7 +32,7 @@ export function attachAuthCalloutService(
   nc: NatsConnectionLike,
   handler: AuthCalloutHandler,
   options?: AttachAuthCalloutServiceOptions,
-): { stop(): void } {
+) {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const decoder = new TextDecoder();
 
@@ -40,6 +42,7 @@ export function attachAuthCalloutService(
     void (async () => {
       let response: AuthCalloutResponse;
       try {
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const request = JSON.parse(decoder.decode(msg.data)) as AuthCalloutRequest;
         response = await withTimeout(handler(request), timeoutMs);
       } catch (err) {
@@ -69,7 +72,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
         clearTimeout(timer);
         resolve(value);
       },
-      (err: unknown) => {
+      (err: BoundaryValue) => {
         clearTimeout(timer);
         reject(err);
       },

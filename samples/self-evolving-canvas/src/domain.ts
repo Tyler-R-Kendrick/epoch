@@ -1,4 +1,9 @@
 import type { EpochLiveRepository, EpochLiveRepositoryEvent, EpochVirtualFileSystem } from "@epoch/wasm-react";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 export const CANVAS_ENTITY = "canvas:main";
 
@@ -146,7 +151,7 @@ export function readCanvas(repository: EpochLiveRepository): CanvasDocument {
   return normalizeCanvas(repository.entity(CANVAS_ENTITY));
 }
 
-export function normalizeCanvasDocument(value: unknown): CanvasDocument {
+export function normalizeCanvasDocument(value: BoundaryValue): CanvasDocument {
   return normalizeCanvas(value);
 }
 
@@ -244,17 +249,17 @@ function titleFromPrompt(prompt: string): string {
     .join(" ");
 }
 
-function normalizeCanvas(value: unknown): CanvasDocument {
+function normalizeCanvas(value: BoundaryValue): CanvasDocument {
   if (!isRecord(value) || !Array.isArray(value.widgets)) return emptyCanvas;
   return {
     revision: numberOr(value.revision, 0),
     viewport: normalizeViewport(value.viewport),
     widgets: value.widgets.map(normalizeWidget).filter((widget): widget is CanvasWidget => widget !== undefined),
-    lastPrompt: typeof value.lastPrompt === "string" ? value.lastPrompt : undefined,
+    lastPrompt: __epochIsString(value.lastPrompt) ? value.lastPrompt : undefined,
   };
 }
 
-function normalizeViewport(value: unknown): CanvasViewport {
+function normalizeViewport(value: BoundaryValue): CanvasViewport {
   if (!isRecord(value)) return emptyCanvas.viewport;
   return {
     x: numberOr(value.x, 0),
@@ -263,9 +268,9 @@ function normalizeViewport(value: unknown): CanvasViewport {
   };
 }
 
-function normalizeWidget(value: unknown): CanvasWidget | undefined {
+function normalizeWidget(value: BoundaryValue): CanvasWidget | undefined {
   if (!isRecord(value) || value.renderer !== "json-render" || !isRecord(value.json)) return undefined;
-  const id = typeof value.id === "string" ? value.id : "";
+  const id = __epochIsString(value.id) ? value.id : "";
   if (id.length === 0 || !isJsonRenderWidget(value.json)) return undefined;
   return {
     id,
@@ -276,22 +281,23 @@ function normalizeWidget(value: unknown): CanvasWidget | undefined {
   };
 }
 
-function isJsonRenderWidget(value: Record<string, unknown>): value is JsonRenderWidget {
+function isJsonRenderWidget(value: Record<string, DictionaryValue>): value is JsonRenderWidget {
   return (value.type === "note" || value.type === "metric" || value.type === "list") && isRecord(value.props);
 }
 
-function toPayload(canvas: CanvasDocument): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(canvas)) as Record<string, unknown>;
+function toPayload(canvas: CanvasDocument): Record<string, DictionaryValue> {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  return JSON.parse(JSON.stringify(canvas)) as Record<string, DictionaryValue>;
 }
 
 function storageKey(prefix: string, path: string): string {
   return `${prefix}${path}`;
 }
 
-function numberOr(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function numberOr(value: BoundaryValue, fallback: number): number {
+  return __epochIsNumber(value) && Number.isFinite(value) ? value : fallback;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

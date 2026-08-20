@@ -16,6 +16,11 @@ import {
   type CommunitySourceAdapter,
 } from "@epoch/community-core";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 const NOW = "2026-08-12T19:00:00.000Z";
 const MAYA: CommunityAuthorizationContext = { actorId: "maya", readableDmIds: ["dm-team"] };
 
@@ -69,6 +74,7 @@ async function atprotoSourceConformsAndPreservesProvenance(): Promise<void> {
   const source = createAtprotoCommunitySource({ records: () => [unknown, privateRecord, publicRecord], mode: "federated", observedAt: NOW });
   const page = await source.scan({ limit: 10, authorization: {} });
   assert.equal(page.entities.length, 1);
+  // SAFETY: Runtime checks or construction above establish CommunityEntity.
   const mapped = page.entities[0] as CommunityEntity;
   assert.equal(mapped.ref.atUri, publicRecord.uri);
   assert.equal(mapped.ref.revision, publicRecord.cid);
@@ -137,7 +143,7 @@ async function atomicIngestionRollsBackAndMarksStale(): Promise<void> {
 function cancellationIsExplicit(): void {
   const controller = new AbortController();
   controller.abort();
-  assert.throws(() => abortSource(controller.signal), (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+  assert.throws(() => abortSource(controller.signal), (error) => error instanceof DOMException && error.name === "AbortError");
 }
 
 async function assertSourceConformance(
@@ -150,7 +156,8 @@ async function assertSourceConformance(
   const seen: string[] = [];
   let after: string | undefined;
   for (let pages = 0; pages < 100; pages += 1) {
-    const page = await source.scan({ ...(after === undefined ? {} : { after }), limit: 1, authorization });
+    const request = after === undefined ? { limit: 1, authorization } : { after, limit: 1, authorization };
+    const page = await source.scan(request);
     seen.push(...page.entities.map((value) => value.ref.objectId));
     if (page.next === undefined) break;
     assert.doesNotMatch(String.fromCharCode(...Uint8Array.from(atob(page.next.replaceAll("-", "+").replaceAll("_", "/")), (character) => character.charCodeAt(0))), new RegExp(page.entities[0]?.ref.objectId ?? "never", "u"));
@@ -184,13 +191,15 @@ function entity(objectId: string, visibility: CommunityEntity["visibility"], own
   });
 }
 
-function atRecord(uri: string, collection: string, value: Record<string, unknown>): AtRecord {
+function atRecord(uri: string, collection: string, value: TestJsonObject): AtRecord {
   const parts = uri.split("/");
   return {
     uri,
     cid: `bafy-${parts.at(-1)}`,
+    // SAFETY: Runtime checks or construction above establish string.
     did: parts[2] as string,
     collection,
+    // SAFETY: Runtime checks or construction above establish string.
     rkey: parts.at(-1) as string,
     value: { ...value, $type: collection },
     createdAt: NOW,
@@ -200,7 +209,7 @@ function atRecord(uri: string, collection: string, value: Record<string, unknown
 if (require.main === module) {
   runCommunitySourceAdapterTests().then(
     () => console.log("community source adapter tests passed"),
-    (error: unknown) => {
+    (error) => {
       console.error(error);
       process.exitCode = 1;
     },

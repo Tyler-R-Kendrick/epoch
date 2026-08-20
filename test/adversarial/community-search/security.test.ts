@@ -13,13 +13,20 @@ import {
   type VfsPage,
 } from "@epoch/community-core";
 import { migrateCommunityState, migrateLocalSavedViews } from "../../../packages/Epoch.Community.API/src/migrations";
+import { isString } from "../../helpers/type-guards";
 import { createMemoryCommunityStateStore } from "../../../packages/Epoch.Community.API/src/store";
 import { chooseSqliteStorage, mapSqlitePersistenceError } from "../../../packages/Epoch.Community.Web/src/search/persistence-coordinator";
 import { BrowserPersistenceCoordinator, type ExclusiveLockManager } from "../../../packages/Epoch.Community.Web/src/search/persistence-coordinator";
 import { translateSearchExpressionToSql } from "../../../packages/Epoch.Community.Web/src/search/sqlite-wasm-backend";
-import { SqliteWorkerClient, type SqliteWorkerLike } from "../../../packages/Epoch.Community.Web/src/search/sqlite-worker";
+import { SqliteWorkerClient } from "../../../packages/Epoch.Community.Web/src/search/sqlite-worker";
 import { COMMUNITY_GRAPHQL_SDL } from "../../../packages/Epoch.Community.GraphQL/src/schema";
 import { FIXED_NOW, conformanceCorpus } from "../../conformance/community-search/fixture";
+
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
 
 interface BrowserFaultFixture {
   readonly cases: readonly {
@@ -117,11 +124,12 @@ async function workerCancellationAndMultiTabContentionFailClosed(): Promise<void
   await (await second.acquireWriter()).release();
 
   const worker = new TestWorker();
+  // @ts-expect-error TestWorker implements the sqlite worker seam under test.
   const client = new SqliteWorkerClient(worker);
   const controller = new AbortController();
   const request = client.request({ type: "health" }, controller.signal);
   controller.abort();
-  await assert.rejects(() => request, (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+  await assert.rejects(() => request, (error) => error instanceof DOMException && error.name === "AbortError");
   assert.equal(worker.messages.at(-1)?.type, "cancel");
 }
 
@@ -143,6 +151,7 @@ async function migrationsAreIdempotentAndInterruptedWritesAreAtomic(): Promise<v
 }
 
 function browserFaultsAndFtsPayloadsAreExplicit(): void {
+  // SAFETY: Runtime checks or construction above establish BrowserFaultFixture.
   const fixture = JSON.parse(readFileSync("test/adversarial/community-search/fixtures/browser-faults.json", "utf8")) as BrowserFaultFixture;
   for (const item of fixture.cases) {
     if (item.capabilities !== undefined) assert.equal(chooseSqliteStorage(item.capabilities).mode, item.expectedMode, item.id);
@@ -152,7 +161,7 @@ function browserFaultsAndFtsPayloadsAreExplicit(): void {
   for (const payload of fixture.ftsInjectionCorpus) {
     const translation = translateSearchExpressionToSql({ kind: "text", fields: ["title"], value: payload, mode: "phrase" }, ["issue-alpha"]);
     assert.equal(translation.sql.includes(payload), false);
-    assert.ok(translation.parameters.some((parameter) => typeof parameter === "string" && parameter.includes(payload.replaceAll('"', '""'))));
+    assert.ok(translation.parameters.some((parameter) => isString(parameter) && parameter.includes(payload.replaceAll('"', '""'))));
   }
 }
 
@@ -192,8 +201,8 @@ function migrationContext() {
   return { clock: { now: () => new Date(FIXED_NOW) }, idGenerator: { generate: (namespace: string) => `${namespace}-fixed` }, timezone: "UTC", locale: "en-US" };
 }
 
-function hasCode(code: CommunityError["code"]): (error: unknown) => boolean {
-  return (error: unknown) => error instanceof CommunityError && error.code === code;
+function hasCode(code: CommunityError["code"]): (error: BoundaryValue) => boolean {
+  return (error: BoundaryValue) => error instanceof CommunityError && error.code === code;
 }
 
 function xorshift32(seed: number): () => number {
@@ -215,16 +224,16 @@ class TestLockManager implements ExclusiveLockManager {
   }
 }
 
-class TestWorker implements SqliteWorkerLike {
-  readonly messages: Readonly<Record<string, unknown>>[] = [];
-  onmessage: ((event: MessageEvent<Record<string, unknown>>) => void) | null = null;
-  postMessage(message: Readonly<Record<string, unknown>>): void { this.messages.push(message); }
+class TestWorker {
+  readonly messages: Readonly<TestJsonObject>[] = [];
+  onmessage: ((event: MessageEvent<TestJsonObject>) => void) | null = null;
+  postMessage(message: Readonly<TestJsonObject>): void { this.messages.push(message); }
   terminate(): void {}
 }
 
 if (require.main === module) {
   runCommunitySearchAdversarialTests().then(
     () => console.log("community search adversarial tests passed"),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

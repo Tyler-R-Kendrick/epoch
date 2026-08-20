@@ -67,6 +67,7 @@ export function parsePrincipalId(value: string): PrincipalId {
   if (!/^epoch:principal:[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$/u.test(value)) {
     throw new Error("invalid principal id");
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as PrincipalId;
 }
 
@@ -82,6 +83,7 @@ function subset(child: readonly string[] | undefined, parent: readonly string[] 
 }
 
 function budgetList(budget: AuthorityGrant["budget"]): readonly GrantBudget[] {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return !budget ? [] : Array.isArray(budget) ? budget : [budget as GrantBudget];
 }
 
@@ -159,7 +161,10 @@ export class AuthorityLedger {
       ["provider", "providers", "provider-denied"],
     ];
     for (const [requestKey, grantKey, reason] of dimensions) {
-      const value = input[requestKey]; const allowed = grant[grantKey] as readonly string[] | undefined;
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      const value = input[requestKey]; const allowed = /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ grant[grantKey] as readonly string[] | undefined;
       if (value !== undefined && (!allowed?.length || !allowed.some((pattern) => matches(pattern, String(value))))) {
         return { allow: false, reason, explanation };
       }

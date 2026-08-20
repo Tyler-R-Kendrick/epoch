@@ -73,7 +73,9 @@ export function createOramaLexicalIndex(): BrowserLexicalIndex {
       const authorized = new Set(allowedObjectIds);
       const seen = new Set<string>();
       const hits = Object.freeze(result.hits.flatMap((hit) => {
-        const objectId = String((hit.document as unknown as { readonly objectId: unknown }).objectId);
+        // SAFETY: The Orama schema declares objectId for every indexed document,
+        // and only documents created by this adapter are inserted.
+        const objectId = String((hit.document as { readonly objectId: string }).objectId);
         if (!authorized.has(objectId) || seen.has(objectId) || !Number.isFinite(hit.score)) return [];
         seen.add(objectId);
         return [Object.freeze({ objectId, score: hit.score })];
@@ -174,7 +176,7 @@ export class OramaSearchBackend implements SearchBackend {
 
   health(): BrowserIndexHealth {
     const value = this.#index.health();
-    return Object.freeze({ ...value, ...(this.#lastCheckpoint === undefined ? {} : { lastCheckpoint: this.#lastCheckpoint }) });
+    return Object.freeze({ ...value, ...(this.#lastCheckpoint === undefined ? undefined : { lastCheckpoint: this.#lastCheckpoint }) });
   }
 
   async close(): Promise<void> {

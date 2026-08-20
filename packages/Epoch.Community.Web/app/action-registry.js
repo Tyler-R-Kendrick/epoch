@@ -19,7 +19,7 @@
   }
 
   function register(descriptor) {
-    if (!descriptor || !descriptor.actionId || typeof descriptor.execute !== "function") {
+    if (!descriptor || !descriptor.actionId || !globalThis.CW_VALUE.isFunction(descriptor.execute)) {
       throw new Error("actionId and execute are required");
     }
     if (descriptors.has(descriptor.actionId)) throw new Error("duplicate action: " + descriptor.actionId);
@@ -64,7 +64,7 @@
       return Promise.reject(new Error("action unavailable in " + context.context));
     }
     if (descriptor.permission) {
-      var allowed = typeof context.authorize === "function"
+      var allowed = globalThis.CW_VALUE.isFunction(context.authorize)
         ? context.authorize(descriptor.permission, descriptor, input)
         : !!(context.permissions && context.permissions.indexOf(descriptor.permission) >= 0);
       if (!allowed) {
@@ -75,7 +75,7 @@
     try {
       return Promise.resolve(descriptor.execute(input, context)).then(function (result) {
         latest = eventFor(descriptor, context, "success");
-        if (window.CW_STREAM && typeof window.CW_STREAM.emit === "function" &&
+        if (window.CW_STREAM && globalThis.CW_VALUE.isFunction(window.CW_STREAM.emit) &&
             context.origin !== "stream-replay" && context.replay !== true) {
           window.CW_STREAM.emit(descriptor.actionId, input || {}, context.path);
         }

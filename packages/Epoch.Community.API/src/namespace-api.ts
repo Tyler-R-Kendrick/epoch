@@ -78,6 +78,7 @@ export function createCommunityNamespaceApi(input: {
       if (scope === "builtin" || scope === "community") throw new CommunityError("NAMESPACE_RECOVERY_PROTECTED", `Namespace scope cannot be reset: ${scope}`);
       requireScopeOwner(scope, authorization);
       const previous = input.namespaceRuntime.mounts().filter((mount) => mount.scope === scope);
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const reset = input.namespaceRuntime.reset(scope as ResettableScope);
       try { await input.store.write((transaction) => { for (const mountId of reset.removedMountIds) transaction.deleteMount(mountId); }); }
       catch (error) { for (const mount of previous) input.namespaceRuntime.mount(mount); throw error; }

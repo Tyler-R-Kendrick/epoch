@@ -6,6 +6,8 @@
 import { permissionsForScopes } from "./acl";
 import { requiresBinding } from "./admission";
 import type { AuthCalloutDecision, AuthCalloutRequest, AuthCalloutValidator } from "./auth-callout";
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export type FabricCredential = {
   readonly id: string;
@@ -25,14 +27,14 @@ export type FabricCredentialVerifier = (
 
 function presentedSecret(request: AuthCalloutRequest): string | undefined {
   const raw = request.authToken || request.password;
-  if (typeof raw !== "string") return undefined;
+  if (!__epochIsString(raw)) return undefined;
   const secret = raw.trim();
   return secret.length > 0 ? secret : undefined;
 }
 
 function isUsableCredential(credential: FabricCredential): boolean {
   if (credential.kind !== "session" && credential.kind !== "api-token") return false;
-  if (typeof credential.subjectRef !== "string" || credential.subjectRef.trim().length === 0) {
+  if (!__epochIsString(credential.subjectRef) || credential.subjectRef.trim().length === 0) {
     return false;
   }
   if (!Number.isFinite(credential.expiresAt) || credential.expiresAt <= Date.now()) {
@@ -78,7 +80,7 @@ export function createPlatformAuthValidator(deps: {
       return { type: "deny", reason: "unverifiable binding" };
     }
 
-    const presentedServer = typeof request.serverId === "string" ? request.serverId : undefined;
+    const presentedServer = __epochIsString(request.serverId) ? request.serverId : undefined;
     if (credential.sourceServer && presentedServer && credential.sourceServer !== presentedServer) {
       return { type: "deny", reason: "sourceServer mismatch" };
     }

@@ -252,7 +252,7 @@
       var raw = window.localStorage.getItem("cw-notif-read");
       if (!raw) return {};
       var got = JSON.parse(raw);
-      return got && typeof got === "object" ? got : {};
+      return got && globalThis.CW_VALUE.isObject(got) ? got : {};
     } catch {
       return {};
     }
@@ -267,7 +267,7 @@
       var raw = window.localStorage.getItem("cw-home-feed-read");
       if (!raw) return {};
       var got = JSON.parse(raw);
-      return got && typeof got === "object" ? got : {};
+      return got && globalThis.CW_VALUE.isObject(got) ? got : {};
     } catch {
       return {};
     }
@@ -284,7 +284,7 @@
       var raw = window.localStorage.getItem("cw-home-feed-dismissed");
       if (!raw) return {};
       var got = JSON.parse(raw);
-      return got && typeof got === "object" ? got : {};
+      return got && globalThis.CW_VALUE.isObject(got) ? got : {};
     } catch {
       return {};
     }
@@ -1830,11 +1830,11 @@
   function doAtprotoLogin(handle) {
     if (!window.CW_SESSION) return authError("session module missing");
     var runtime = window.CW_RUNTIME || {};
-    if (typeof runtime.beginAtprotoAuthorization !== "function") {
+    if (!globalThis.CW_VALUE.isFunction(runtime.beginAtprotoAuthorization)) {
       return authError("AT OAuth is not linked — PAR/PKCE/DPoP required");
     }
     var host = window.CW_ATPROTO_OAUTH;
-    if (!host || typeof host.fetch !== "function") {
+    if (!host || !globalThis.CW_VALUE.isFunction(host.fetch)) {
       return authError("AT OAuth is not linked — PAR/PKCE/DPoP required");
     }
     var spaceId = selectedAuthSpaceId();
@@ -1955,7 +1955,7 @@
     if (state.sessionRecovery) {
       return Object.assign({ source: "session" }, state.sessionRecovery);
     }
-    if (!window.CW_WORKBENCH || typeof window.CW_WORKBENCH.definitionStatus !== "function") return null;
+    if (!window.CW_WORKBENCH || !globalThis.CW_VALUE.isFunction(window.CW_WORKBENCH.definitionStatus)) return null;
     var definitions = window.CW_WORKBENCH.definitionStatus();
     return definitions ? Object.assign({ source: "projection-definitions" }, definitions) : null;
   }
@@ -2043,7 +2043,7 @@
   }
 
   function locationNamesProjection() {
-    if (!window.CW_NAV || typeof window.CW_NAV.parseLocation !== "function") return false;
+    if (!window.CW_NAV || !globalThis.CW_VALUE.isFunction(window.CW_NAV.parseLocation)) return false;
     try {
       var loc = window.CW_NAV.parseLocation(window.location.href);
       return !!(loc && (loc.projectionId || loc.objectId));
@@ -2071,7 +2071,7 @@
     var on = sampleBoard();
     el.hidden = !on;
     el.textContent = on ? "SAMPLE STREAM" : "";
-    if (window.CW_STREAM && typeof window.CW_STREAM.paint === "function") window.CW_STREAM.paint();
+    if (window.CW_STREAM && globalThis.CW_VALUE.isFunction(window.CW_STREAM.paint)) window.CW_STREAM.paint();
   }
 
   function restoreBoardState() {
@@ -2147,7 +2147,7 @@
       state.nextId = Math.max(Number(snap.nextId) || 1, highestLiveId + 1);
       dismissMenuIfNoSlashDraft();
       if (snap.panes) state.panes = Object.assign({}, state.panes, snap.panes, { zoom: false });
-      if (typeof snap.themeIndex === "number" && snap.themeIndex >= 0) themeIndex = snap.themeIndex;
+      if (globalThis.CW_VALUE.isNumber(snap.themeIndex) && snap.themeIndex >= 0) themeIndex = snap.themeIndex;
     } catch {
       state.sessionRecovery = {
         reason: "restore-failed",
@@ -2168,7 +2168,7 @@
         sess.detailOpen = state.detailOpen !== false;
       } else sess[k] = state[k];
     });
-    sess.cliDraft = typeof cliValue === "string" ? cliValue : "";
+    sess.cliDraft = globalThis.CW_VALUE.isString(cliValue) ? cliValue : "";
     // Attachments and editor focus are per-workspace (not shared board state).
     sess.attachments = (state.attachments || []).slice();
     var Ed = state.editor;
@@ -2265,7 +2265,7 @@
           state.sort = window.CW_QUERY.legacySort
             ? window.CW_QUERY.legacySort(parsed.sort, parsed.canonical)
             : parsed.sort;
-          if (typeof state.sort !== "string") state.sort = state.feedView || "hot";
+          if (!globalThis.CW_VALUE.isString(state.sort)) state.sort = state.feedView || "hot";
         }
       }
     } else {
@@ -2782,7 +2782,7 @@
       }
     }
     if (!restoringHistory) lastScrolled = cur;
-    if (window.CW_STREAM && typeof window.CW_STREAM.attachCipherSlabs === "function") {
+    if (window.CW_STREAM && globalThis.CW_VALUE.isFunction(window.CW_STREAM.attachCipherSlabs)) {
       window.CW_STREAM.attachCipherSlabs(mount);
     }
     paintActivityBell();
@@ -3321,7 +3321,7 @@
     var key = currentFeedKey();
     if (!key) return false;
     var views = window.CW_CONSOLE_VIEWS;
-    if (views && typeof views.isFeedSortContext === "function") {
+    if (views && globalThis.CW_VALUE.isFunction(views.isFeedSortContext)) {
       var parts = MAP.split(state.path);
       var here = MAP.list(state.path, state.merged) || [];
       var selected = here[state.cursor];
@@ -4776,8 +4776,8 @@
     })) return false;
     status("inline draft — Enter commit · Esc reject · e edit");
     focusCli();
-    var canRun = window.CW_AGENT && typeof window.CW_AGENT.run === "function" &&
-      window.CWResilient && typeof window.CWResilient.availability === "function";
+    var canRun = window.CW_AGENT && globalThis.CW_VALUE.isFunction(window.CW_AGENT.run) &&
+      window.CWResilient && globalThis.CW_VALUE.isFunction(window.CWResilient.availability);
     if (!canRun) return true;
     var avail;
     try {
@@ -4935,7 +4935,7 @@
         ? ("reply to " + ctx.postId)
         : ("#" + (ctx.channelLabel || ctx.channel)));
     notifyFromLivePost(post);
-    if (!ctx.fromAction && window.CW_STREAM && typeof window.CW_STREAM.emit === "function") {
+    if (!ctx.fromAction && window.CW_STREAM && globalThis.CW_VALUE.isFunction(window.CW_STREAM.emit)) {
       window.CW_STREAM.emit("compose.publish", { body: body }, state.path);
     }
     if (!ctx.noReveal) revealPostedCompose(post, ctx);
@@ -5198,7 +5198,7 @@
     var mutedIds = Object.keys(state.mutedObjects || {}).filter(function (id) {
       return state.mutedObjects[id];
     });
-    var accepted = typeof runtime.activityFromParticipantEvents === "function"
+    var accepted = globalThis.CW_VALUE.isFunction(runtime.activityFromParticipantEvents)
       ? runtime.activityFromParticipantEvents(events || [], {
         sampleBoard: sampleBoard(),
         mutedObjectIds: mutedIds,
@@ -5225,7 +5225,7 @@
 
   function openReceiptLocator(raw) {
     var runtime = window.CW_RUNTIME || {};
-    var opened = typeof runtime.openBoardReceipt === "function"
+    var opened = globalThis.CW_VALUE.isFunction(runtime.openBoardReceipt)
       ? runtime.openBoardReceipt(raw)
       : { kind: "unknown" };
     if (opened.kind !== "open") {
@@ -5241,7 +5241,7 @@
         break;
       }
     }
-    var blade = typeof runtime.describeReceiptBlade === "function"
+    var blade = globalThis.CW_VALUE.isFunction(runtime.describeReceiptBlade)
       ? runtime.describeReceiptBlade(opened.receipt, {
         who: source && source.who,
         body: source && source.body,
@@ -5265,7 +5265,7 @@
 
   function scopedObjectAction(actionId, objectId) {
     var runtime = window.CW_RUNTIME || {};
-    var scoped = typeof runtime.requireScopedTarget === "function"
+    var scoped = globalThis.CW_VALUE.isFunction(runtime.requireScopedTarget)
       ? runtime.requireScopedTarget(actionId, objectId)
       : (objectId ? { ok: true, actionId: actionId, objectId: objectId } : { ok: false, reason: "unscoped" });
     if (!scoped.ok) {
@@ -5482,7 +5482,7 @@
     // on an empty prompt). Ordinary typing only opens when there is text and a
     // real choice — otherwise Enter-then-clear would leave every command listed.
     if (state.intelOpen) return true;
-    if (window.CW_RUNTIME && typeof window.CW_RUNTIME.jumpChooserShouldOpen === "function" &&
+    if (window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.jumpChooserShouldOpen) &&
         window.CW_RUNTIME.jumpChooserShouldOpen({
           kind: c.kind,
           candidateCount: c.candidates.length,
@@ -5712,7 +5712,7 @@
     opts = opts || {};
     var text = domSelectionText();
     if (!text) return false;
-    if (!window.CW_COPY || typeof window.CW_COPY.copyText !== "function") {
+    if (!window.CW_COPY || !globalThis.CW_VALUE.isFunction(window.CW_COPY.copyText)) {
       status("copy unavailable");
       return false;
     }
@@ -5740,7 +5740,7 @@
   function recordCtxInteraction(verb, targetOrKey) {
     if (!window.CW_CTX || !window.CW_CTX.record) return;
     var key = null;
-    if (typeof targetOrKey === "string") key = targetOrKey;
+    if (globalThis.CW_VALUE.isString(targetOrKey)) key = targetOrKey;
     else if (targetOrKey && targetOrKey.controlKey) key = targetOrKey.controlKey;
     else if (state.ctxMenu && state.ctxMenu.target) key = state.ctxMenu.target.controlKey;
     else {
@@ -6001,7 +6001,7 @@
   function jumpBest(terms) {
     var keptSearch = state.searchWorkbench && state.searchWorkbench.expression;
     var keptFeed = state.feedQuery;
-    var preserve = window.CW_RUNTIME && typeof window.CW_RUNTIME.preservedSearchAfterJump === "function"
+    var preserve = window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.preservedSearchAfterJump)
       ? window.CW_RUNTIME.preservedSearchAfterJump
       : function (query) { return String(query || ""); };
     var candidates = window.CW_COMPLETE.jumpCandidates(terms, { cwd: state.path, extra: state.merged });
@@ -6038,7 +6038,7 @@
       "thread.previousSibling": "previousSiblingOf",
       "thread.nextUnread": "nextUnreadOf",
     }[actionId];
-    if (!method || typeof graph[method] !== "function") return false;
+    if (!method || !globalThis.CW_VALUE.isFunction(graph[method])) return false;
     var target = graph[method](current);
     var id = target && (target.objectId || (target.ref && target.ref.objectId) || target.id || target);
     if (!id) return false;
@@ -6385,7 +6385,7 @@
       return runHooksCommand("test " + scoped.objectId);
     }
     if (actionId === "stream.protect") {
-      if (!window.CW_STREAM || typeof window.CW_STREAM.toggleMute !== "function") {
+      if (!window.CW_STREAM || !globalThis.CW_VALUE.isFunction(window.CW_STREAM.toggleMute)) {
         throw new Error("stream policy unavailable");
       }
       return { muted: window.CW_STREAM.toggleMute() };
@@ -6584,7 +6584,7 @@
         }
       }
     } else if (cmd === "pass") {
-      reply = window.CW_PASS && typeof window.CW_PASS.command === "function"
+      reply = window.CW_PASS && globalThis.CW_VALUE.isFunction(window.CW_PASS.command)
         ? window.CW_PASS.command(arg)
         : "pass: unavailable";
     } else if (cmd === "tail") {
@@ -7250,7 +7250,7 @@
       reply += "\n\n/act is context-dependent — type /act for actions here.";
     } else if (run === "stream-protect") {
       var stream = window.CW_STREAM;
-      if (!stream || typeof stream.toggleMute !== "function") {
+      if (!stream || !globalThis.CW_VALUE.isFunction(stream.toggleMute)) {
         status("stream policy unavailable");
         return true;
       }
@@ -7665,7 +7665,7 @@
     if (k === " " || k === "Spacebar" || k === "PageUp" || k === "PageDown") return true;
     if (k === "[" || k === "]") return true;
     if (k.length === 1 && /^[hjklzyvre]$/i.test(k)) {
-      if (window.CW_RUNTIME && typeof window.CW_RUNTIME.letterSteersBoard === "function") {
+      if (window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.letterSteersBoard)) {
         return window.CW_RUNTIME.letterSteersBoard({
           composerFocused: composerFocused,
           composerValue: composerFocused ? String(ev.target.value || "") : "",
@@ -8733,7 +8733,7 @@
       }
       if (ev.target.closest("[data-model-fetch]")) {
         ev.preventDefault();
-        if (typeof window.__cwModelFetchStart === "function") {
+        if (globalThis.CW_VALUE.isFunction(window.__cwModelFetchStart)) {
           window.__cwModelFetchStart();
         } else {
           status("on-device AI — press any key to download, or Alt+A for CLI");
@@ -9497,7 +9497,7 @@
       sel.value = exp().id;
     }
     startBrandAnimation();
-    if (window.CW_GRIDROAD && typeof window.CW_GRIDROAD.start === "function") {
+    if (window.CW_GRIDROAD && globalThis.CW_VALUE.isFunction(window.CW_GRIDROAD.start)) {
       window.CW_GRIDROAD.start();
     }
     paintIdentity();
@@ -9535,7 +9535,7 @@
     }
     var recovery = activeRecovery();
     var fabricNote = "";
-    if (window.CW_NATS_FABRIC && typeof window.CW_NATS_FABRIC.evaluateHandoff === "function") {
+    if (window.CW_NATS_FABRIC && globalThis.CW_VALUE.isFunction(window.CW_NATS_FABRIC.evaluateHandoff)) {
       var fabricDecision = window.CW_NATS_FABRIC.evaluateHandoff(identity);
       if (fabricDecision && fabricDecision.message) fabricNote = fabricDecision.message;
     }
@@ -9556,7 +9556,7 @@
    * honest status. Never opens session/agent chat on fabric failure.
    */
   function attachNatsFabricHandoff() {
-    if (!window.CW_NATS_FABRIC || typeof window.CW_NATS_FABRIC.attach !== "function") return;
+    if (!window.CW_NATS_FABRIC || !globalThis.CW_VALUE.isFunction(window.CW_NATS_FABRIC.attach)) return;
     window.CW_NATS_FABRIC.attach(identity).then(function (result) {
       // Intentionally never openAuth / open session chat on fabric failure.
       if (!result || result.openChat) return;
@@ -9845,8 +9845,8 @@
       for (var i = 0; i < candidates.length; i++) {
         var buf = buffers[candidates[i]];
         if (!buf) continue;
-        if (typeof buf.text === "function") return String(buf.text() || "");
-        if (typeof buf === "string") return buf;
+        if (globalThis.CW_VALUE.isFunction(buf.text)) return String(buf.text() || "");
+        if (globalThis.CW_VALUE.isString(buf)) return buf;
       }
       return "";
     },
@@ -9971,7 +9971,7 @@
       feed: String(feed),
       kind: "post",
       body: String(body),
-      ...(published.changeId ? { changeId: published.changeId } : {}),
+      ...(published.changeId ? { changeId: published.changeId } : undefined),
     }).then(function (receipt) {
       published.changeId = receipt.data.changeId;
       published.revisionIds = receipt.data.revisionIds;
@@ -9993,7 +9993,7 @@
     // What the browser actually accepted, not what the page hoped for. The
     // workspace tools register after this, so read the status lazily.
     window.CW_APP.toolStatus = function () {
-      return typeof window.CW_MCP.status === "function" ? window.CW_MCP.status() : null;
+      return globalThis.CW_VALUE.isFunction(window.CW_MCP.status) ? window.CW_MCP.status() : null;
     };
     // No Epoch terminal banner — the masthead carries brand. Tools register
     // silently; counts are available on CW_APP for debugging.

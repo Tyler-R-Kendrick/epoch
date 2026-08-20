@@ -45,7 +45,7 @@ function bootLandingFx() {
   }
 
   function htmlOk(api, key) {
-    if (!api || typeof api[key] !== "function") return false;
+    if (!api || !globalThis.CW_VALUE.isFunction(api[key])) return false;
     try {
       return !!api[key]();
     } catch {
@@ -370,7 +370,7 @@ function bootLandingFx() {
       return;
     }
 
-    if (htmlOk(api, "decryptSupported") && typeof api.createDecryptReveal === "function") {
+    if (htmlOk(api, "decryptSupported") && globalThis.CW_VALUE.isFunction(api.createDecryptReveal)) {
       var decrypts = startFxHosts('[data-fx="decrypt"]', "decrypt", function (nodes, host) {
         return api.createDecryptReveal(nodes, decryptOptionsFromHost(host));
       });
@@ -390,7 +390,7 @@ function bootLandingFx() {
       }
     }
 
-    if (htmlOk(api, "asciifySupported") && typeof api.createAsciify === "function") {
+    if (htmlOk(api, "asciifySupported") && globalThis.CW_VALUE.isFunction(api.createAsciify)) {
       startFxHost('[data-fx="asciify"]', "asciify", function (nodes) {
         return api.createAsciify(nodes, {
           charset: "blocks",
@@ -408,7 +408,7 @@ function bootLandingFx() {
       });
     }
 
-    if (htmlOk(api, "glitchSupported") && typeof api.createGlitch === "function") {
+    if (htmlOk(api, "glitchSupported") && globalThis.CW_VALUE.isFunction(api.createGlitch)) {
       var glitches = startFxHosts('[data-fx="glitch"]', "glitch", function (nodes, host) {
         return api.createGlitch(nodes, glitchOptionsFromHost(host));
       });
@@ -416,7 +416,7 @@ function bootLandingFx() {
       glitchInst = glitchInsts[0] || null;
     }
 
-    if (htmlOk(api, "vhsSupported") && typeof api.createVHS === "function") {
+    if (htmlOk(api, "vhsSupported") && globalThis.CW_VALUE.isFunction(api.createVHS)) {
       var v = startFxHost('[data-fx="vhs"]', "vhs", function (nodes) {
         return api.createVHS(nodes, {
           speed: 0.4,

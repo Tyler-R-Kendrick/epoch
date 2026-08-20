@@ -12,11 +12,16 @@ import {
   type CompatibleStore,
 } from "@epoch/live-redux";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 interface DocState {
   readonly title?: string;
   readonly count?: number;
-  readonly value?: unknown;
-  readonly [key: string]: unknown;
+  readonly value?: TestJsonValue;
+  readonly [key: string]: TestJsonValue;
 }
 
 export function runEpochLiveReduxTests(): void {
@@ -85,7 +90,9 @@ function rewindActionPreviewsWithoutCommitting(): void {
 function actionPayloadMappingVariants(): void {
   assert.deepEqual(toLiveAction({ type: "a", payload: { x: 1 } }), { type: "a", payload: { x: 1 } });
   assert.deepEqual(toLiveAction({ type: "a", payload: 5 }), { type: "a", payload: { value: 5 } });
-  assert.deepEqual(toLiveAction({ type: "a", x: 1, y: "z" }), { type: "a", payload: { x: 1, y: "z" } });
+  // SAFETY: Legacy Redux actions carry payload fields as own properties under test.
+  // SAFETY: Legacy Redux actions carry payload fields as own properties under test.
+  assert.deepEqual(toLiveAction({ type: "a", x: 1, y: "z" } as Parameters<typeof toLiveAction>[0]), { type: "a", payload: { x: 1, y: "z" } });
   assert.deepEqual(toLiveAction({ type: "a" }), { type: "a" });
 
   const live = createLiveStore<DocState>({ entity: "doc", author: "alice", initialState: {} });

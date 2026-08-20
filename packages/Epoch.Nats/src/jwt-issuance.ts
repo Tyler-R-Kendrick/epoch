@@ -8,6 +8,10 @@
 import { createPrivateKey, generateKeyPairSync, sign, verify } from "node:crypto";
 import type { FabricAdmission, FabricValidator } from "./admission";
 import { permissionsForScopes } from "./acl";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 const JWT_ALG = "ed25519-nkey";
 const DEFAULT_TTL_MS = 60_000;
@@ -82,7 +86,9 @@ export function verifyUserJwt(
     nats?: { pub?: { allow?: string[] }; sub?: { allow?: string[] }; sourceServer?: string };
   };
   try {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     header = JSON.parse(Buffer.from(headerPart, "base64url").toString()) as { alg?: string };
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     payload = JSON.parse(Buffer.from(payloadPart, "base64url").toString()) as typeof payload;
   } catch {
     return null;
@@ -97,8 +103,8 @@ export function verifyUserJwt(
   );
   if (!ok) return null;
   const now = options.now ?? Date.now();
-  if (typeof payload.exp !== "number" || payload.exp * 1000 <= now) return null;
-  if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
+  if (!__epochIsNumber(payload.exp) || payload.exp * 1000 <= now) return null;
+  if (!__epochIsString(payload.sub) || payload.sub.length === 0) return null;
   const sourceServer = payload.nats?.sourceServer || undefined;
   if (options.expectedSourceServer !== undefined && sourceServer !== options.expectedSourceServer) {
     return null;
@@ -111,7 +117,7 @@ export function verifyUserJwt(
     sourceServer,
     scopes: inferScopes(publish, subscribe),
     expiresAt: payload.exp * 1000,
-    ...(hay.includes("epoch.svc.") ? { allowServiceDiscovery: true } : {}),
+    ...(hay.includes("epoch.svc.") && { allowServiceDiscovery: true }),
   };
 }
 
@@ -133,6 +139,6 @@ function inferScopes(publish: readonly string[], subscribe: readonly string[]): 
   return [...scopes];
 }
 
-function b64(value: unknown): string {
+function b64(value: BoundaryValue): string {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }

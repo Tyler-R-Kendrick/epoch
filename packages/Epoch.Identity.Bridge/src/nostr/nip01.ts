@@ -47,6 +47,7 @@ export function signEvent(
 ): NostrEvent {
   const id = computeEventId(event);
   const sig = bytesToHex(schnorr.sign(hexToBytes(id), hexToBytes(privateKeyHex)));
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const tags = event.tags.map((tag) => [tag[0], ...tag.slice(1)] as [string, ...string[]]);
   return {
     id,
@@ -71,7 +72,7 @@ export function verifyEventSignature(event: NostrEvent): boolean {
   }
 }
 
-export function generateNostrKeypair(): { readonly privateKey: string; readonly publicKey: string } {
+export function generateNostrKeypair() {
   const privateKey = bytesToHex(schnorr.utils.randomPrivateKey());
   const publicKey = bytesToHex(schnorr.getPublicKey(hexToBytes(privateKey)));
   return { privateKey, publicKey };

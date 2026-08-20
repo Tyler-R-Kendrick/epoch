@@ -9,10 +9,10 @@ export function sha256(data: string | Buffer): string {
   return createHash(HASH_ALGORITHM).update(data).digest(HASH_DIGEST);
 }
 
-export function signJson(value: unknown, privateKey: string): string {
+export function signJson<Value>(value: Value, privateKey: string): string {
   return sign(null, Buffer.from(canonicalJson(value)), privateKey).toString(SIGNATURE_ENCODING);
 }
 
-export function verifyJsonSignature(value: unknown, signature: string, publicKey: string): boolean {
+export function verifyJsonSignature<Value>(value: Value, signature: string, publicKey: string): boolean {
   return verify(null, Buffer.from(canonicalJson(value)), publicKey, Buffer.from(signature, SIGNATURE_ENCODING));
 }

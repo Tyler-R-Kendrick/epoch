@@ -43,7 +43,7 @@ export async function runSpaceRuntimeTests(): Promise<void> {
       assert.ok(capabilities.unavailableReason !== undefined, "unavailable sandbox must explain itself");
       // A provider that cannot isolate refuses rather than silently degrading.
       await assert.rejects(() => namespaceProvider.run({ command: "sh", args: ["-c", "true"] }),
-        (error: unknown) => error instanceof SandboxError && error.code === "unavailable");
+        (error) => error instanceof SandboxError && error.code === "unavailable");
     }
 
     // An injected probe proves the refusal path on every host, including CI.
@@ -53,15 +53,16 @@ export async function runSpaceRuntimeTests(): Promise<void> {
     assert.equal(unavailable.capabilities().isolation, "none");
     assert.equal(unavailable.capabilities().verified, false);
     await assert.rejects(() => unavailable.run({ command: "sh", args: ["-c", "true"] }),
-      (error: unknown) => error instanceof SandboxError && error.code === "unavailable");
+      (error) => error instanceof SandboxError && error.code === "unavailable");
     // Selection degrades visibly: an unprovable namespace yields the process provider.
     assert.equal(selectSandboxProvider().id, probe.available && probe.networkDenied ? "namespace" : "process");
 
     // Command and argument shapes are refused before anything is spawned.
     const processProvider = new ProcessSandboxProvider();
     for (const bad of [{ command: "sh; rm -rf /" }, { command: "sh", args: ["a\nb"] }]) {
+      // SAFETY: Runtime checks or construction above establish { command: string.
       await assert.rejects(() => processProvider.run(bad as { command: string; args?: string[] }),
-        (error: unknown) => error instanceof SandboxError && error.code === "invalid-input");
+        (error) => error instanceof SandboxError && error.code === "invalid-input");
     }
 
     // The environment is scrubbed, so a sandboxed turn cannot read the
@@ -96,14 +97,14 @@ export async function runSpaceRuntimeTests(): Promise<void> {
     await assert.rejects(() => store.runTurn(space.id, {
       request: "needs isolation", sandbox: unavailable, command: "sh", args: ["-c", "true"],
       principal: "agent-steward", requireIsolation: true,
-    }), (error: unknown) => error instanceof SpaceError && error.code === "policy-denied");
+    }), (error) => error instanceof SpaceError && error.code === "policy-denied");
     assert.equal(store.receipts(space.id).length, before + 1);
     assert.equal(store.receipts(space.id).at(-1)!.data.outcome, "refused");
 
     // Running still needs a live grant: the sandbox does not bypass authority.
     await assert.rejects(() => store.runTurn(space.id, {
       request: "no grant", sandbox: processProvider, command: "sh", args: ["-c", "true"], principal: "mallory",
-    }), (error: unknown) => error instanceof SpaceError && error.code === "grant-denied");
+    }), (error) => error instanceof SpaceError && error.code === "grant-denied");
 
     // Where the host supports it, assert the isolation itself rather than the
     // claim: no network, and a private process table.
@@ -172,6 +173,7 @@ export async function runSpaceRuntimeTests(): Promise<void> {
     // A bare boolean is still accepted for compatibility, but it labels itself
     // as an assertion so a reader cannot mistake it for evidence.
     const asserted = new FileSystemWorkspaceProvider(join(root, "asserted"), { reflink: true });
+    // SAFETY: Runtime checks or construction above establish { mode: string }).mode).
     assert.match(String((asserted.capabilities.reflink as { mode: string }).mode), /asserted by caller/u);
 
     // --- phase 6: a second replica syncs, verifies, and joins ---------------

@@ -232,6 +232,7 @@ export async function probeReflink(directory: string): Promise<ReflinkProbe> {
   } catch (error) {
     return {
       supported: false, mode: "copy",
+      // SAFETY: Runtime checks or construction above establish Error).message.slice(0.
       reason: `filesystem refused a reflink clone: ${(error as Error).message.slice(0, 200)}`,
     };
   } finally {

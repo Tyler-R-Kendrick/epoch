@@ -112,7 +112,7 @@
     var tokens = {};
     Object.keys(TOKEN_OF).forEach(function (key) {
       var v = props[key];
-      if (typeof v === "string" && v.trim() !== "") tokens[TOKEN_OF[key]] = v.trim();
+      if (globalThis.CW_VALUE.isString(v) && v.trim() !== "") tokens[TOKEN_OF[key]] = v.trim();
     });
     return sanitize(tokens).tokens;
   }
@@ -131,7 +131,7 @@
   async function generate(description, report) {
     var R = window.CWResilient;
     if (!R) { report("The resilience layer did not load.", "rejected"); return null; }
-    if (typeof window.OpenUILang === "undefined" || typeof window.CW_OPENUI === "undefined") {
+    if (globalThis.CW_VALUE.isUndefined(window.OpenUILang) || globalThis.CW_VALUE.isUndefined(window.CW_OPENUI)) {
       report("The OpenUI parser did not load. Run build-openui.mjs.", "rejected");
       return null;
     }

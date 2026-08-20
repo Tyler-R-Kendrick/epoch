@@ -29,6 +29,11 @@ import {
   type QueryCommandServices,
 } from "@epoch/community-cli";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 const NOW = "2026-08-12T20:00:00.000Z";
 
 export async function runCommunitySearchCliTests(): Promise<void> {
@@ -65,13 +70,14 @@ async function helpWorksWithoutAnApiUrl(): Promise<void> {
 }
 
 async function shippedCliContextUsesTheCommunityApi(): Promise<void> {
-  const requests: { readonly method: string; readonly path: string; readonly body?: unknown }[] = [];
+  const requests: { readonly method: string; readonly path: string; readonly body?: TestJsonValue }[] = [];
   const context = createHttpCommunityCliContext({
     baseUrl: "https://community.example.test",
     now: NOW,
     fetch: async (input, init) => {
       const url = new URL(String(input));
-      requests.push({ method: init?.method ?? "GET", path: `${url.pathname}${url.search}`, ...(init?.body === undefined ? {} : { body: JSON.parse(String(init.body)) }) });
+      const request = { method: init?.method ?? "GET", path: `${url.pathname}${url.search}` };
+      requests.push(init?.body === undefined ? request : { ...request, body: JSON.parse(String(init.body)) });
       if (url.pathname === "/search") return Response.json(page());
       if (url.pathname === "/projections") return Response.json([]);
       if (url.pathname === "/namespace/mounts") return Response.json([]);
@@ -83,6 +89,7 @@ async function shippedCliContextUsesTheCommunityApi(): Promise<void> {
   const result = await main(["search", "--query", "kind:issue", "--json"], { stdout: () => undefined, stderr: () => undefined }, context);
   assert.equal(result, 0);
   assert.equal(requests[0]?.path, "/search");
+  // SAFETY: Runtime checks or construction above establish { readonly first?: number }).first.
   assert.equal((requests[0]?.body as { readonly first?: number }).first, 50);
   assert.deepEqual(await context.projections?.list(), []);
   assert.deepEqual(await context.namespace?.mounts(), []);
@@ -91,6 +98,7 @@ async function shippedCliContextUsesTheCommunityApi(): Promise<void> {
 async function publicCliDispatchesSearchCommands(): Promise<void> {
   const stdout: string[] = [];
   const stderr: string[] = [];
+  // SAFETY: This CLI branch does not access the transport client when query services are supplied.
   const exitCode = await main(["search", "--query", "kind:issue", "--json"], {
     stdout: (value) => stdout.push(value), stderr: (value) => stderr.push(value),
   }, { client: {} as never, search: new FakeQueryServices() });
@@ -209,16 +217,16 @@ class FakeQueryServices implements QueryCommandServices {
   readonly queryContext = { now: NOW, timezone: "UTC", locale: "en-US", actorId: "maya" };
   page: SearchPage = page();
   searchInput?: { readonly first: number; readonly after?: string };
-  graphqlInput?: { readonly document: string; readonly variables?: Readonly<Record<string, unknown>> };
+  graphqlInput?: { readonly document: string; readonly variables?: Readonly<TestJsonObject> };
   readonly files = new Map<string, string>();
   async search(input: Parameters<QueryCommandServices["search"]>[0]): Promise<SearchPage> {
-    this.searchInput = { first: input.first, ...(input.after === undefined ? {} : { after: input.after }) };
+    this.searchInput = input.after === undefined ? { first: input.first } : { first: input.first, after: input.after };
     return this.page;
   }
   async explain(): Promise<SearchExplanation> {
     return { planHash: "plan", backendId: "reference", expression: {}, sourcePlans: [], ordering: [], authorization: "pre-filtered" };
   }
-  async executeGraphql(input: { readonly document: string; readonly variables?: Readonly<Record<string, unknown>> }): Promise<unknown> {
+  async executeGraphql(input: { readonly document: string; readonly variables?: Readonly<TestJsonObject> }): Promise<TestJsonObject> {
     this.graphqlInput = input;
     return { data: { search: { totalCount: 1 } } };
   }
@@ -296,6 +304,6 @@ function mount(): NamespaceMount {
 if (require.main === module) {
   runCommunitySearchCliTests().then(
     () => console.log("community search CLI tests passed"),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

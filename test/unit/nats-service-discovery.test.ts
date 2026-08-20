@@ -59,11 +59,11 @@ function openPostureDeniesDiscovery(): void {
   });
   assert.throws(
     () => directory.advertise({ name: "live", endpoint: "epoch.live.civic.>" }),
-    (error: unknown) => error instanceof ServiceDiscoveryDeniedError,
+    (error) => error instanceof ServiceDiscoveryDeniedError,
   );
   assert.throws(
     () => directory.lookup("live"),
-    (error: unknown) => error instanceof ServiceDiscoveryDeniedError,
+    (error) => error instanceof ServiceDiscoveryDeniedError,
   );
 }
 
@@ -74,7 +74,7 @@ function crossCommunityAdvertiseDenied(): void {
   });
   assert.throws(
     () => directory.advertise({ name: "live", communityId: "other", endpoint: "epoch.live.other.>" }),
-    (error: unknown) => error instanceof ServiceDiscoveryDeniedError,
+    (error) => error instanceof ServiceDiscoveryDeniedError,
   );
 }
 
@@ -125,6 +125,7 @@ async function calloutTimeoutDenies(): Promise<void> {
   const bus = createInMemoryNatsBus();
   attachAuthCalloutService(bus, () => new Promise(() => undefined), { timeoutMs: 20 });
   const reply = await bus.request(AUTH_CALLOUT_SUBJECT, JSON.stringify({ authToken: "epoch-ok" }), { timeout: 200 });
+  // SAFETY: Runtime checks or construction above establish { type: string.
   const decision = JSON.parse(new TextDecoder().decode(reply.data)) as { type: string; reason?: string };
   assert.equal(decision.type, "deny");
   assert.match(decision.reason ?? "", /timeout/u);

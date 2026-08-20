@@ -4,7 +4,7 @@ import type { CommunityObjectRef } from "./identity";
 import { createKeysetCursorCodec, type KeysetCursorCodec } from "./cursor";
 import { evaluateSearchExpression, searchFieldValues } from "./query-evaluator";
 import type { SearchPlan } from "./search-plan";
-import type { CommunityFieldScalar } from "./search-expression";
+import { semanticExpression, type CommunityFieldScalar, type SemanticValue } from "./search-expression";
 import type { CommunitySourceCheckpoint, SearchSnapshot } from "./snapshot";
 
 export interface CommunitySearchChangeSet {
@@ -68,11 +68,11 @@ export interface Suggestion {
 export interface SearchExplanation {
   readonly planHash: string;
   readonly backendId: string;
-  readonly expression: unknown;
+  readonly expression: SemanticValue;
   readonly sourcePlans: readonly {
     readonly sourceId: string;
-    readonly pushdown: unknown;
-    readonly residual: unknown;
+    readonly pushdown: SemanticValue;
+    readonly residual: SemanticValue;
   }[];
   readonly ordering: readonly string[];
   readonly authorization: "pre-filtered";
@@ -145,13 +145,14 @@ export class ReferenceSearchBackend implements SearchBackend {
       sortKey: candidate.hit.sortKey,
       objectId: candidate.entity.ref.objectId,
     })));
+    const firstCursor = cursors[0];
+    const lastCursor = cursors.at(-1);
+    const pageInfo: KeysetPageInfo = { hasNextPage: start + selected.length < candidates.length };
+    if (firstCursor !== undefined) Object.assign(pageInfo, { startCursor: firstCursor });
+    if (lastCursor !== undefined) Object.assign(pageInfo, { endCursor: lastCursor });
     return Object.freeze({
       hits: Object.freeze(selected.map(({ hit }) => hit)),
-      pageInfo: Object.freeze({
-        hasNextPage: start + selected.length < candidates.length,
-        ...(cursors[0] === undefined ? {} : { startCursor: cursors[0] }),
-        ...(cursors.at(-1) === undefined ? {} : { endCursor: cursors.at(-1) }),
-      }),
+      pageInfo: Object.freeze(pageInfo),
       snapshot: plan.snapshot,
       completeness: completeness(plan.snapshot.sourceCheckpoints),
     });
@@ -181,7 +182,7 @@ export class ReferenceSearchBackend implements SearchBackend {
     const prefix = normalize(input.prefix);
     const counts = new Map<string, number>();
     for (const { entity } of this.#candidates(input.plan)) for (const value of searchFieldValues(entity, definition.name)) {
-      if (typeof value !== "string" || !normalize(value).startsWith(prefix)) continue;
+      if (!isStringScalar(value) || !normalize(value).startsWith(prefix)) continue;
       counts.set(value, (counts.get(value) ?? 0) + 1);
     }
     return Object.freeze([...counts].map(([value, count]) => ({ value, count }))
@@ -189,15 +190,15 @@ export class ReferenceSearchBackend implements SearchBackend {
   }
 
   async explain(plan: SearchPlan): Promise<SearchExplanation> {
-    const safeExpression = JSON.parse(JSON.stringify(plan.expression)) as unknown;
+    const safeExpression = semanticExpression(plan.expression);
     return Object.freeze({
       planHash: plan.planHash,
       backendId: this.backendId,
       expression: safeExpression,
       sourcePlans: Object.freeze(plan.sourcePlans.map((source) => ({
         sourceId: source.sourceId,
-        pushdown: JSON.parse(JSON.stringify(source.pushdown)) as unknown,
-        residual: JSON.parse(JSON.stringify(source.residual)) as unknown,
+        pushdown: semanticExpression(source.pushdown),
+        residual: semanticExpression(source.residual),
       }))),
       ordering: Object.freeze(plan.order.map((order) => `${order.field}:${order.direction}:${order.nulls}`)),
       authorization: "pre-filtered" as const,
@@ -243,7 +244,8 @@ export class ReferenceSearchBackend implements SearchBackend {
     candidates.sort((left, right) => compareCandidates(left, right, plan));
     const frozen = Object.freeze(candidates);
     this.#snapshots.set(cacheKey, frozen);
-    if (this.#snapshots.size > 32) this.#snapshots.delete(this.#snapshots.keys().next().value as string);
+    const oldest = this.#snapshots.keys().next().value;
+    if (this.#snapshots.size > 32 && oldest !== undefined) this.#snapshots.delete(oldest);
     return frozen;
   }
 
@@ -270,10 +272,14 @@ function scalarCompare(left: CommunityFieldScalar, right: CommunityFieldScalar):
   if (left === right) return 0;
   if (left === null) return -1;
   if (right === null) return 1;
-  if (typeof left === "number" && typeof right === "number") return left - right;
-  if (typeof left === "boolean" && typeof right === "boolean") return Number(left) - Number(right);
+  if (isNumberScalar(left) && isNumberScalar(right)) return left - right;
+  if (isBooleanScalar(left) && isBooleanScalar(right)) return Number(left) - Number(right);
   return String(left).localeCompare(String(right), "en", { sensitivity: "variant" });
 }
+
+function isStringScalar(value: CommunityFieldScalar): value is string { return typeof value === "string"; }
+function isNumberScalar(value: CommunityFieldScalar): value is number { return typeof value === "number"; }
+function isBooleanScalar(value: CommunityFieldScalar): value is boolean { return typeof value === "boolean"; }
 
 function equalKeys(left: readonly CommunityFieldScalar[], right: readonly CommunityFieldScalar[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);

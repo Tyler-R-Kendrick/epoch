@@ -38,6 +38,8 @@ export default [
       ".github/agents/**",
       ".github/hooks/**",
       ".grok/**",
+      // Vendored anti-slop Oxlint plugin (linted by oxlint itself, not ESLint).
+      "tools/oxlint/anti-slop/**",
       // Python virtualenvs (e.g. skills/gauntlet-loop/.venv) contain vendored
       // JS assets from installed packages; never repository source.
       "**/.venv/**"

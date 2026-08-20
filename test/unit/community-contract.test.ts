@@ -5,6 +5,7 @@ import {
   createHttpCommunityClient,
 } from "@epoch/community-core";
 import { createConsumerPact, PactConsumers, PactProviders } from "../pact/helpers";
+import { isString } from "../helpers/type-guards";
 
 /**
  * Consumer-driven contract: Epoch.Community.Core → Epoch.Community.API
@@ -170,7 +171,7 @@ async function coreHttpClientHonorsTheCommunityApiWorkflowsContract(): Promise<v
     const client = createHttpCommunityClient({ baseUrl: mockServer.url });
     const workflows = await client.listWorkflows();
     assert.ok(workflows.length >= 1);
-    assert.equal(typeof workflows[0].id, "string");
+    assert.equal(isString(workflows[0].id), true);
   });
 }
 

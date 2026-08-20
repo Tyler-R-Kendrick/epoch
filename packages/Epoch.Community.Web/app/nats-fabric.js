@@ -30,12 +30,12 @@
 
   function readConfig(overrides) {
     overrides = overrides || {};
-    var env = (typeof window !== "undefined" && window.CW_FABRIC_CONFIG) || {};
+    var env = (!globalThis.CW_VALUE.isUndefined(window) && window.CW_FABRIC_CONFIG) || {};
     var endpoint = overrides.endpoint != null ? overrides.endpoint : (env.endpoint || "");
     var repoId = overrides.repoId != null ? overrides.repoId : (env.repoId || "community");
     return {
-      endpoint: typeof endpoint === "string" ? endpoint.trim() : "",
-      repoId: typeof repoId === "string" ? repoId.trim() : "community",
+      endpoint: globalThis.CW_VALUE.isString(endpoint) ? endpoint.trim() : "",
+      repoId: globalThis.CW_VALUE.isString(repoId) ? repoId.trim() : "community",
       mintFabricCredential: overrides.mintFabricCredential || env.mintFabricCredential || null,
       connect: overrides.connect || env.connect || null,
     };
@@ -52,14 +52,14 @@
   function hasPlatformTicketSource(identity) {
     if (!identity || isGuestIdentity(identity)) return false;
     // Explicit Platform session id / API token / pre-minted secret — not board principalId.
-    if (typeof identity.fabricSecret === "string" && identity.fabricSecret.trim()) return true;
-    if (typeof identity.platformSessionId === "string" && identity.platformSessionId.trim()) return true;
-    if (typeof identity.platformApiTokenId === "string" && identity.platformApiTokenId.trim()) return true;
+    if (globalThis.CW_VALUE.isString(identity.fabricSecret) && identity.fabricSecret.trim()) return true;
+    if (globalThis.CW_VALUE.isString(identity.platformSessionId) && identity.platformSessionId.trim()) return true;
+    if (globalThis.CW_VALUE.isString(identity.platformApiTokenId) && identity.platformApiTokenId.trim()) return true;
     return false;
   }
 
   function looksLikeIdentityId(secret, identity) {
-    if (!identity || typeof secret !== "string") return false;
+    if (!identity || !globalThis.CW_VALUE.isString(secret)) return false;
     var candidates = [
       identity.principalId,
       identity.platformSessionId,
@@ -117,20 +117,20 @@
    */
   function resolveFabricSecret(identity, config) {
     config = readConfig(config);
-    if (identity && typeof identity.fabricSecret === "string" && identity.fabricSecret.trim()) {
+    if (identity && globalThis.CW_VALUE.isString(identity.fabricSecret) && identity.fabricSecret.trim()) {
       var presented = identity.fabricSecret.trim();
       if (looksLikeIdentityId(presented, identity)) {
         return Promise.reject(new Error("fabric secret must not equal identity ids"));
       }
       return Promise.resolve(presented);
     }
-    if (typeof config.mintFabricCredential !== "function") {
+    if (!globalThis.CW_VALUE.isFunction(config.mintFabricCredential)) {
       return Promise.reject(new Error("no fabric mint available"));
     }
     var input = {};
-    if (identity && typeof identity.platformSessionId === "string" && identity.platformSessionId.trim()) {
+    if (identity && globalThis.CW_VALUE.isString(identity.platformSessionId) && identity.platformSessionId.trim()) {
       input.sessionId = identity.platformSessionId.trim();
-    } else if (identity && typeof identity.platformApiTokenId === "string" && identity.platformApiTokenId.trim()) {
+    } else if (identity && globalThis.CW_VALUE.isString(identity.platformApiTokenId) && identity.platformApiTokenId.trim()) {
       input.apiTokenId = identity.platformApiTokenId.trim();
     } else {
       return Promise.reject(new Error("no platform parent for fabric mint"));
@@ -140,7 +140,7 @@
         return config.mintFabricCredential(input);
       })
       .then(function (minted) {
-        if (!minted || typeof minted.secret !== "string" || !minted.secret.trim()) {
+        if (!minted || !globalThis.CW_VALUE.isString(minted.secret) || !minted.secret.trim()) {
           throw new Error("fabric mint returned no secret");
         }
         var secret = minted.secret.trim();
@@ -178,7 +178,7 @@
     return resolveFabricSecret(identity, config)
       .then(function (secret) {
         state.fabricSecret = secret;
-        if (typeof config.connect !== "function") {
+        if (!globalThis.CW_VALUE.isFunction(config.connect)) {
           // Configured + ticket available but no injectable connect (browser MVP):
           // mark ready-for-connect without claiming broker online.
           state.status = STATUS_OFFLINE;
@@ -257,7 +257,7 @@
    * Protected secrets and non-public visibility never enter the fan-out.
    */
   function ingestChannelLivestream(envelope) {
-    if (!envelope || typeof envelope !== "object") {
+    if (!envelope || !globalThis.CW_VALUE.isObject(envelope)) {
       return { kind: "drop", reason: "malformed" };
     }
     if (envelope.protectedInput || envelope.secret) {
@@ -266,7 +266,7 @@
     if (envelope.visibility && envelope.visibility !== "public") {
       return { kind: "drop", reason: "non-public" };
     }
-    var subject = typeof envelope.subject === "string" ? envelope.subject : "epoch.community.stream.default";
+    var subject = globalThis.CW_VALUE.isString(envelope.subject) ? envelope.subject : "epoch.community.stream.default";
     if (subject.indexOf("epoch.community.stream.") !== 0) {
       return { kind: "drop", reason: "cross-operator-subject" };
     }

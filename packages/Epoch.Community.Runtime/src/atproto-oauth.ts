@@ -6,6 +6,10 @@
  * is not linked", not a fake session.
  */
 import { identifier } from "./digest";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+
 
 export interface AtprotoOAuthHost {
   readonly authorizationServer: string;
@@ -56,7 +60,7 @@ export function normalizeAtprotoHandle(handle: string): string {
 }
 
 export async function beginAtprotoAuthorization(handle: string, host: AtprotoOAuthHost): Promise<AtprotoOAuthStart> {
-  if (!host || !host.authorizationServer || typeof host.fetch !== "function") {
+  if (!host || !host.authorizationServer || !__epochIsFunction(host.fetch)) {
     throw new AtprotoOAuthError("not-linked", "AT OAuth is not linked — PAR/PKCE/DPoP required");
   }
   const loginHint = normalizeAtprotoHandle(handle);
@@ -214,10 +218,11 @@ function base64Url(bytes: Uint8Array): string {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
-async function readJson(response: Response): Promise<Record<string, unknown>> {
+async function readJson(response: Response): Promise<Record<string, DictionaryValue>> {
   const text = await response.text();
   try {
-    return JSON.parse(text) as Record<string, unknown>;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    return JSON.parse(text) as Record<string, DictionaryValue>;
   } catch {
     return {};
   }

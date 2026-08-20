@@ -96,8 +96,9 @@ export function decodeChunkManifest(bytes: Uint8Array): ChunkManifestV1 {
   return value;
 }
 
-export function assertChunkManifest(value: unknown): asserts value is ChunkManifestV1 {
+export function assertChunkManifest<Value>(value: Value): asserts value is Value & ChunkManifestV1 {
   if (typeof value !== "object" || value === null) throw new Error("Chunk manifest must be an object");
+  // SAFETY: Runtime checks or construction above establish Partial<ChunkManifestV1>.
   const manifest = value as Partial<ChunkManifestV1>;
   if (manifest.protocol !== "epoch.chunk-manifest/v1") throw new Error("Unsupported chunk manifest protocol");
   if (JSON.stringify(manifest.chunker) !== JSON.stringify(FASTCDC_V1)) throw new Error("Unsupported chunker descriptor");
@@ -141,8 +142,9 @@ export type StorageDescriptor =
   | { readonly kind: "chunk-manifest"; readonly manifestSha256: string }
   | { readonly kind: "external-pointer"; readonly locator: string; readonly credentialRef?: string };
 
-export function assertStorageDescriptor(value: unknown): asserts value is StorageDescriptor {
+export function assertStorageDescriptor<Value>(value: Value): asserts value is Value & StorageDescriptor {
   if (typeof value !== "object" || value === null) throw new Error("Storage descriptor must be an object");
+  // SAFETY: Runtime checks or construction above establish Partial<StorageDescriptor>.
   const descriptor = value as Partial<StorageDescriptor>;
   if (descriptor.kind === "inline") return;
   if (descriptor.kind === "chunk-manifest" && /^[a-f0-9]{64}$/u.test(descriptor.manifestSha256 ?? "")) return;

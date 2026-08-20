@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { MatchersV3 } from "@pact-foundation/pact";
 import { HttpGossipPeer, type MemoryEpochTransportSnapshot } from "@epoch/core";
 import { createConsumerPact, PactConsumers, PactProviders } from "../helpers";
+import { isObjectNonNull } from "../../helpers/type-guards";
 
 /**
  * Consumer-driven contract: Epoch.Core gossip client → Epoch.Core.GossipHttp
@@ -55,7 +56,7 @@ async function gossipClientExchangesSnapshotWithPeer(): Promise<void> {
     const peer = new HttpGossipPeer(mockServer.url);
     const remote = await peer.exchange(sampleSnapshot);
     assert.ok(Array.isArray(remote.events));
-    assert.equal(typeof remote.blobs, "object");
+    assert.equal(isObjectNonNull(remote.blobs), true);
     assert.ok(Array.isArray(remote.heads));
   });
 }

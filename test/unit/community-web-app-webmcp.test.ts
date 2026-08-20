@@ -13,42 +13,70 @@ import { join } from "node:path";
 
 const ROOT = join(process.cwd(), "packages/Epoch.Community.Web/app");
 
+type WebMcpFunction = (...args: never[]) => Promise<WebMcpValue> | WebMcpValue | void;
+type WebMcpValue = boolean | null | number | string | WebMcpObject | WebMcpFunction | readonly WebMcpValue[] | undefined;
+interface WebMcpObject {
+  readonly [key: string]: WebMcpValue;
+}
+
 interface RegisteredTool {
   readonly name: string;
   readonly description: string;
   readonly annotations: { readonly readOnlyHint: boolean; readonly untrustedContentHint: boolean };
-  execute(args: Record<string, unknown>): Promise<unknown>;
+  execute(args: WebMcpObject): Promise<WebMcpValue>;
 }
 
 interface NbMcp {
-  registerTool(descriptor: Record<string, unknown>): () => void;
+  registerTool(descriptor: WebMcpObject): () => void;
   list(): readonly RegisteredTool[];
-  call(name: string, args?: Record<string, unknown>): Promise<{ isError?: boolean; content: { text: string }[] }>;
-  status(): { available: boolean; registered: number; nativelyRegistered: number; failures: readonly unknown[] };
-  text(value: string): unknown;
+  call(name: string, args?: WebMcpObject): Promise<{ isError?: boolean; content: { text: string }[] }>;
+  status(): { available: boolean; registered: number; nativelyRegistered: number; failures: readonly WebMcpValue[] };
+  text(value: string): WebMcpValue;
 }
 
 interface NativeCall {
-  readonly descriptor: Record<string, unknown>;
-  readonly options?: { readonly signal?: AbortSignal };
+  readonly descriptor: WebMcpObject;
+  options?: { readonly signal?: AbortSignal };
 }
 
-function loadWebMcp(document: unknown): { mcp: NbMcp; native: NativeCall[] } {
+interface NativeDocument {
+  readonly modelContext?: {
+    readonly registerTool: (descriptor: WebMcpObject, options?: { signal?: AbortSignal }) => Promise<void>;
+  };
+}
+
+interface WebMcpWindow {
+  CW_MCP?: NbMcp;
+}
+
+interface LoadedWebMcp {
+  readonly mcp: NbMcp;
+  readonly native: NativeCall[];
+}
+
+function loadWebMcp(document: NativeDocument): LoadedWebMcp {
   const native: NativeCall[] = [];
-  const window: Record<string, unknown> = {};
+  const window: WebMcpWindow = {};
+  // SAFETY: CW_VALUE is installed by value-kind.js onto globalThis in browsers and tests.
+  if ((globalThis as { CW_VALUE?: unknown }).CW_VALUE === undefined) {
+    new Function(readFileSync(join(ROOT, "value-kind.js"), "utf8"))();
+  }
   new Function("window", "document", "AbortController", readFileSync(join(ROOT, "webmcp.js"), "utf8"))(
     window,
     document,
     AbortController,
   );
+  // SAFETY: Runtime checks or construction above establish NbMcp.
   return { mcp: window.CW_MCP as NbMcp, native };
 }
 
-function nativeDocument(calls: NativeCall[], behaviour: "accept" | "reject" = "accept"): unknown {
+function nativeDocument(calls: NativeCall[], behaviour: "accept" | "reject" = "accept"): NativeDocument {
   return {
     modelContext: {
-      registerTool(descriptor: Record<string, unknown>, options?: { signal?: AbortSignal }) {
-        calls.push({ descriptor, ...(options === undefined ? {} : { options }) });
+      registerTool(descriptor: WebMcpObject, options?: { signal?: AbortSignal }) {
+        const call: NativeCall = { descriptor };
+        if (options !== undefined) call.options = options;
+        calls.push(call);
         return behaviour === "accept"
           ? Promise.resolve()
           : Promise.reject(new Error("origin trial token expired"));

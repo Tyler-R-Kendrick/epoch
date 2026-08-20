@@ -121,7 +121,16 @@ export interface MutationAuthority {
   readonly confirmed: boolean;
 }
 
-export function createConvergenceFixture(options: ConvergenceFixtureOptions): ConvergenceWorkbenchSnapshot & { readonly ambiguousPath?: string } {
+export interface ConvergenceFixtureSnapshot extends ConvergenceWorkbenchSnapshot { readonly ambiguousPath?: string }
+export interface ConvergenceDecision { readonly ok: boolean; readonly explanation: string }
+export interface ConvergenceRevisionHistory { readonly heads: readonly string[]; readonly revisions: readonly ConvergenceRevision[] }
+export interface MergeAuthorityDecision { readonly allowed: boolean; readonly explanation: string }
+export interface HydrationResult { readonly availability: "available"; readonly integrity: "verified" | "failed"; readonly copyMode: string; readonly executionIsolation: string }
+export interface MirrorSynchronizationResult { readonly jjChangeId: string; readonly fidelity: { readonly preserved: readonly string[]; readonly losses: readonly string[] }; readonly exportPayload: string }
+export interface AgentAuthorizationDecision { readonly allowed: boolean; readonly explanation: string }
+export interface ArchiveReleaseResult { readonly status: "remote-confirmed" | "denied-private"; readonly swhid?: string; readonly explanation: string }
+
+export function createConvergenceFixture(options: ConvergenceFixtureOptions): ConvergenceFixtureSnapshot {
   const ids = splitList(options.changes);
   const dependencyMap = new Map<string, string[]>();
   for (const relation of splitList(options.dependencies ?? "")) {
@@ -145,18 +154,19 @@ export function createConvergenceFixture(options: ConvergenceFixtureOptions): Co
     grantStatus: "active" as const,
     budget: { allocated: 100, reserved: 0, consumed: 0, released: 0, expired: 0 },
   } : undefined;
-  return {
+  const snapshot: MutableState = {
     snapshotDigest: `snapshot:${ids.join("+") || "empty"}`,
     changes,
     gates,
     conflicts: options.conflict ? [{ conflictId: "conflict-1", path: "shared.ts", base: "object-base", left: "object-left", right: "object-right", state: "unresolved" }] : [],
     selectedChangeId: ids[0] ?? "",
-    ...(options.ambiguousPath === undefined ? {} : { ambiguousPath: options.ambiguousPath }),
-    ...(agent === undefined ? {} : { agent }),
-    ...(options.offline ? { replica: { online: false, promisedObjectIds: ["object-1"], hydratedObjectIds: [], integrity: "verified" as const, copyMode: options.copyMode ?? "copy-on-write", executionIsolation: "none" as const } } : {}),
-    ...(options.forge ? { forge: { jjChangeId: "jj-change-1", mirrorState: "lagging" as const, fidelity: { preserved: ["change.identity", "revision.identity", "dependencies"], losses: ["review.threading"] } } } : {}),
-    ...(options.archive ? { archive: { swhid: "swh:1:rev:0123456789abcdef0123456789abcdef01234567", publicRelease: true } } : {}),
   };
+  if (options.ambiguousPath !== undefined) snapshot.ambiguousPath = options.ambiguousPath;
+  if (agent !== undefined) snapshot.agent = agent;
+  if (options.offline) snapshot.replica = { online: false, promisedObjectIds: ["object-1"], hydratedObjectIds: [], integrity: "verified", copyMode: options.copyMode ?? "copy-on-write", executionIsolation: "none" };
+  if (options.forge) snapshot.forge = { jjChangeId: "jj-change-1", mirrorState: "lagging", fidelity: { preserved: ["change.identity", "revision.identity", "dependencies"], losses: ["review.threading"] } };
+  if (options.archive) snapshot.archive = { swhid: "swh:1:rev:0123456789abcdef0123456789abcdef01234567", publicRelease: true };
+  return snapshot;
 }
 
 export class ConvergenceWorkbench {
@@ -174,7 +184,7 @@ export class ConvergenceWorkbench {
     return this.#state.snapshotDigest;
   }
 
-  splitChange(changeId: string, partIds: readonly string[], fileBoundaries: readonly string[]): { readonly ok: boolean; readonly explanation: string } {
+  splitChange(changeId: string, partIds: readonly string[], fileBoundaries: readonly string[]): ConvergenceDecision {
     const index = this.#state.changes.findIndex((change) => change.changeId === changeId);
     if (index < 0) return { ok: false, explanation: `Unknown change ${changeId}; change graph unchanged.` };
     const duplicateBoundary = new Set(fileBoundaries).size !== fileBoundaries.length;
@@ -194,7 +204,7 @@ export class ConvergenceWorkbench {
     return { ok: true, explanation: `Split ${changeId} at explicit file boundaries; reconstructed snapshot remains ${this.#state.snapshotDigest}.` };
   }
 
-  revisionHistory(changeId: string): { readonly heads: readonly string[]; readonly revisions: readonly ConvergenceRevision[] } {
+  revisionHistory(changeId: string): ConvergenceRevisionHistory {
     const change = this.#change(changeId);
     return { heads: [...change.currentRevisionIds], revisions: change.revisions.map((revision) => ({ ...revision })) };
   }
@@ -231,7 +241,7 @@ export class ConvergenceWorkbench {
     };
   }
 
-  mergeAuthority(changeId: string): { readonly allowed: boolean; readonly explanation: string } {
+  mergeAuthority(changeId: string): MergeAuthorityDecision {
     const change = this.#change(changeId);
     const stale = this.#state.gates.find((gate) => gate.changeId === changeId && gate.state === "stale");
     if (stale !== undefined) return { allowed: false, explanation: `STALE approval targets ${stale.revisionId ?? "an older revision"}; current revision is ${change.currentRevisionIds.join(", ")}. Re-review before merge.` };
@@ -255,14 +265,14 @@ export class ConvergenceWorkbench {
     return resolved;
   }
 
-  hydrate(objectId: string): { readonly availability: "available"; readonly integrity: "verified" | "failed"; readonly copyMode: string; readonly executionIsolation: string } {
+  hydrate(objectId: string): HydrationResult {
     const replica = this.#state.replica;
     if (replica === undefined || !replica.promisedObjectIds.includes(objectId)) throw new Error(`Object ${objectId} is not promised by this replica.`);
     this.#state.replica = { ...replica, online: true, hydratedObjectIds: [...new Set([...replica.hydratedObjectIds, objectId])] };
     return { availability: "available", integrity: replica.integrity, copyMode: replica.copyMode, executionIsolation: replica.executionIsolation };
   }
 
-  synchronizeMirror(): { readonly jjChangeId: string; readonly fidelity: { readonly preserved: readonly string[]; readonly losses: readonly string[] }; readonly exportPayload: string } {
+  synchronizeMirror(): MirrorSynchronizationResult {
     const forge = this.#state.forge;
     if (forge === undefined) throw new Error("No forge mirror configured.");
     this.#state.forge = { ...forge, mirrorState: "current" };
@@ -288,13 +298,13 @@ export class ConvergenceWorkbench {
     this.#state.agent = { ...agent, grantStatus: "revoked" };
   }
 
-  authorizeAgentWork(): { readonly allowed: boolean; readonly explanation: string } {
+  authorizeAgentWork(): AgentAuthorizationDecision {
     const agent = this.#agent();
     const allowed = agent.principalKeyStatus === "active" && agent.grantStatus === "active" && agent.budget.allocated > agent.budget.consumed + agent.budget.expired;
     return { allowed, explanation: allowed ? `${agent.principalId} sponsored by ${agent.sponsorId}: active grant and budget available.` : `${agent.principalId} sponsored by ${agent.sponsorId}: ${agent.grantStatus} grant; budget cannot authorize new work.` };
   }
 
-  archiveRelease(input: { readonly visibility: "public" | "private"; readonly authority?: string; readonly confirmed: boolean }): { readonly status: "remote-confirmed" | "denied-private"; readonly swhid?: string; readonly explanation: string } {
+  archiveRelease(input: { readonly visibility: "public" | "private"; readonly authority?: string; readonly confirmed: boolean }): ArchiveReleaseResult {
     if (input.visibility === "private") return { status: "denied-private", explanation: "Private content and raw sessions are never submitted to a public archive." };
     requireMutation(input, "release.archive", "public archive");
     if (this.#state.archive === undefined) throw new Error("Release has no archival identity.");
@@ -321,18 +331,25 @@ function createChange(changeId: string, dependsOn: readonly string[], multiHead 
 }
 
 function cloneState(snapshot: ConvergenceWorkbenchSnapshot & { readonly ambiguousPath?: string }): MutableState {
-  return {
+  const changes = snapshot.changes.map((change) => {
+    const cloned: ConvergenceChange = { ...change, dependsOn: [...change.dependsOn], revisions: change.revisions.map((revision) => ({ ...revision })), currentRevisionIds: [...change.currentRevisionIds], files: [...change.files] };
+    if (change.sourceChanges !== undefined) Object.assign(cloned, { sourceChanges: [...change.sourceChanges] });
+    if (change.sourceRevisions !== undefined) Object.assign(cloned, { sourceRevisions: [...change.sourceRevisions] });
+    return cloned;
+  });
+  const state: MutableState = {
     snapshotDigest: snapshot.snapshotDigest,
-    changes: snapshot.changes.map((change) => ({ ...change, dependsOn: [...change.dependsOn], revisions: change.revisions.map((revision) => ({ ...revision })), currentRevisionIds: [...change.currentRevisionIds], files: [...change.files], ...(change.sourceChanges === undefined ? {} : { sourceChanges: [...change.sourceChanges] }), ...(change.sourceRevisions === undefined ? {} : { sourceRevisions: [...change.sourceRevisions] }) })),
+    changes,
     gates: snapshot.gates.map((gate) => ({ ...gate })),
     conflicts: snapshot.conflicts.map((conflict) => ({ ...conflict })),
     selectedChangeId: snapshot.selectedChangeId,
-    ...(snapshot.ambiguousPath === undefined ? {} : { ambiguousPath: snapshot.ambiguousPath }),
-    ...(snapshot.agent === undefined ? {} : { agent: { ...snapshot.agent, budget: { ...snapshot.agent.budget } } }),
-    ...(snapshot.replica === undefined ? {} : { replica: { ...snapshot.replica, promisedObjectIds: [...snapshot.replica.promisedObjectIds], hydratedObjectIds: [...snapshot.replica.hydratedObjectIds] } }),
-    ...(snapshot.forge === undefined ? {} : { forge: { ...snapshot.forge, fidelity: { preserved: [...snapshot.forge.fidelity.preserved], losses: [...snapshot.forge.fidelity.losses] } } }),
-    ...(snapshot.archive === undefined ? {} : { archive: { ...snapshot.archive } }),
   };
+  if (snapshot.ambiguousPath !== undefined) state.ambiguousPath = snapshot.ambiguousPath;
+  if (snapshot.agent !== undefined) state.agent = { ...snapshot.agent, budget: { ...snapshot.agent.budget } };
+  if (snapshot.replica !== undefined) state.replica = { ...snapshot.replica, promisedObjectIds: [...snapshot.replica.promisedObjectIds], hydratedObjectIds: [...snapshot.replica.hydratedObjectIds] };
+  if (snapshot.forge !== undefined) state.forge = { ...snapshot.forge, fidelity: { preserved: [...snapshot.forge.fidelity.preserved], losses: [...snapshot.forge.fidelity.losses] } };
+  if (snapshot.archive !== undefined) state.archive = { ...snapshot.archive };
+  return state;
 }
 
 function splitList(value: string): string[] {

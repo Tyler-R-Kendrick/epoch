@@ -32,11 +32,41 @@ export type SpaceRole = "owner" | "collaborator" | "agent" | "observer";
 export type SpaceExecution = "disabled" | "in-process" | "isolated";
 export type SpaceRedaction = "none" | "declared-secrets" | "full";
 
+/** JSON-shaped Space payloads — concrete values, not `unknown`. */
+export type SpaceJsonPrimitive = string | number | boolean | null;
+export type SpaceJsonValue = SpaceJsonPrimitive | SpaceJsonObject | readonly SpaceJsonValue[];
+export type SpaceJsonObject = { readonly [key: string]: SpaceJsonValue };
+
+interface SpaceTurnBody {
+  spaceId: string;
+  principalId: string;
+  grantId: string;
+  execution: SpaceExecution;
+  requestDigest: string;
+  sandboxId?: string;
+  budgetId?: string;
+  units?: number;
+}
+
+interface SpaceReceiptBody {
+  spaceId: string;
+  principalId: string;
+  turnRevisionId: string;
+  sandboxId: string;
+  isolation: SandboxCapabilities["isolation"];
+  network: SandboxCapabilities["network"];
+  outcome: "succeeded" | "failed" | "timed-out" | "refused";
+  exitCode?: number;
+  durationMs?: number;
+}
+
+type SpaceAppendBody = SpaceJsonObject | SpaceTurnBody | SpaceReceiptBody;
+
 export interface SpaceRecord {
   readonly id: string;
   readonly kind: string;
   readonly revision: number;
-  readonly data: Readonly<Record<string, unknown>>;
+  readonly data: SpaceJsonObject;
 }
 
 export interface SpaceParticipant {
@@ -67,13 +97,13 @@ export type SpaceErrorCode =
 
 export class SpaceError extends Error {
   readonly name = "SpaceError";
-  constructor(readonly code: SpaceErrorCode, message: string, readonly details: Readonly<Record<string, unknown>> = {}) {
+  constructor(readonly code: SpaceErrorCode, message: string, readonly details: SpaceJsonObject = {}) {
     super(message);
   }
 }
 
 /** Declared as a function so TypeScript narrows control flow after a call. */
-function fail(code: SpaceErrorCode, message: string, details: Readonly<Record<string, unknown>> = {}): never {
+function fail(code: SpaceErrorCode, message: string, details: SpaceJsonObject = {}): never {
   throw new SpaceError(code, message, details);
 }
 
@@ -163,6 +193,7 @@ export class SignedSpaceStore {
       if (event.type === "space.participant.joined") {
         byPrincipal.set(principalId, {
           principalId, grantId: String(event.payload.grantId),
+          // SAFETY: Runtime checks or construction above establish SpaceRole.
           role: String(event.payload.role) as SpaceRole, active: true,
         });
       } else if (event.type === "space.participant.left") {
@@ -182,7 +213,7 @@ export class SignedSpaceStore {
    * locator plus a Space ID, and it keeps working offline once synced — which
    * a Durable-Object-backed thread cannot.
    */
-  syncSpacesFrom(peerPath: string): { readonly eventsCopied: number; readonly blobsCopied: number; readonly spaces: readonly string[] } {
+  syncSpacesFrom(peerPath: string) {
     const before = new Set(this.#repository.events().map((event) => event.id));
     const result = this.#repository.syncFrom(peerPath);
     // Verification decides trust, not the transport (ADR-0003).
@@ -281,12 +312,19 @@ export class SignedSpaceStore {
       }
     }
     if (input.sandboxId !== undefined) parseCanonicalId(input.sandboxId, "sandbox");
-    const event = this.append("space.turn.recorded", {
-      spaceId, principalId, grantId: participant.grantId, execution,
+    const turnBody: SpaceTurnBody = {
+      spaceId,
+      principalId,
+      grantId: participant.grantId,
+      execution,
       requestDigest: sha256Hex(request),
-      ...(input.sandboxId === undefined ? {} : { sandboxId: input.sandboxId }),
-      ...(units > 0 && budget !== undefined ? { budgetId: budget.budgetId, units } : {}),
-    });
+    };
+    if (input.sandboxId !== undefined) turnBody.sandboxId = input.sandboxId;
+    if (units > 0 && budget !== undefined) {
+      turnBody.budgetId = budget.budgetId;
+      turnBody.units = units;
+    }
+    const event = this.append("space.turn.recorded", turnBody);
     return {
       id: event.id, kind: "space-turn", revision: 1,
       data: {
@@ -335,13 +373,14 @@ export class SignedSpaceStore {
     const turn = this.recordTurn(spaceId, {
       request: input.request, principal: input.principal, execution, units: input.units, sandboxId,
     });
-    const result = await input.sandbox.run({
+    const runInput = {
       command: input.command,
       args: input.args ?? [],
-      ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
-      ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
-      ...(input.env === undefined ? {} : { env: input.env }),
-    });
+      cwd: input.cwd,
+      timeoutMs: input.timeoutMs,
+      env: input.env,
+    };
+    const result = await input.sandbox.run(runInput);
     const outcome = result.timedOut ? "timed-out" : result.exitCode === 0 ? "succeeded" : "failed";
     const receipt = this.appendReceipt(spaceId, turn, sandboxId, capabilities, outcome, result.exitCode, result.durationMs);
     return { turn, receipt, result };
@@ -351,7 +390,7 @@ export class SignedSpaceStore {
     this.requireSpace(spaceId);
     return this.#repository.events()
       .filter((event) => event.type === "space.turn.receipt" && event.payload.spaceId === spaceId)
-      .map((event) => ({ id: event.id, kind: "space-turn-receipt", revision: 1, data: { ...event.payload } }));
+      .map((event) => ({ id: event.id, kind: "space-turn-receipt", revision: 1, data: requireSpaceJsonObject(event.payload) }));
   }
 
   private appendReceipt(
@@ -363,7 +402,7 @@ export class SignedSpaceStore {
     exitCode: number | null | undefined,
     durationMs: number | undefined,
   ): SpaceRecord {
-    const event = this.append("space.turn.receipt", {
+    const receiptBody: SpaceReceiptBody = {
       spaceId,
       principalId: String(turn.data.principalId),
       turnRevisionId: turn.id,
@@ -371,9 +410,10 @@ export class SignedSpaceStore {
       isolation: capabilities.isolation,
       network: capabilities.network,
       outcome,
-      ...(typeof exitCode === "number" ? { exitCode } : {}),
-      ...(durationMs === undefined ? {} : { durationMs: Math.max(0, Math.round(durationMs)) }),
-    });
+    };
+    if (isFiniteNumber(exitCode)) receiptBody.exitCode = exitCode;
+    if (durationMs !== undefined) receiptBody.durationMs = Math.max(0, Math.round(durationMs));
+    const event = this.append("space.turn.receipt", receiptBody);
     return { id: event.id, kind: "space-turn-receipt", revision: 1, data: { spaceId, sandboxId, outcome, ...capabilities } };
   }
 
@@ -381,7 +421,7 @@ export class SignedSpaceStore {
     this.requireSpace(spaceId);
     return this.#repository.events()
       .filter((event) => event.type === "space.turn.recorded" && event.payload.spaceId === spaceId)
-      .map((event) => ({ id: event.id, kind: "space-turn", revision: 1, data: { ...event.payload } }));
+      .map((event) => ({ id: event.id, kind: "space-turn", revision: 1, data: requireSpaceJsonObject(event.payload) }));
   }
 
   /**
@@ -536,7 +576,7 @@ export class SignedSpaceStore {
     this.requireSpace(spaceId);
     return this.#repository.events()
       .filter((event) => event.type === "space.anchor.recorded" && event.payload.spaceId === spaceId)
-      .map((event) => ({ id: String(event.payload.anchorId), kind: "space-anchor", revision: 1, data: { ...event.payload } }));
+      .map((event) => ({ id: String(event.payload.anchorId), kind: "space-anchor", revision: 1, data: requireSpaceJsonObject(event.payload) }));
   }
 
   // ---------------------------------------------------------------- internals
@@ -599,8 +639,10 @@ export class SignedSpaceStore {
     return {
       id: spaceId, kind: "space", revision: 1,
       data: {
-        title: created.payload.title, viewName: created.payload.viewName,
-        ownerPrincipalId: created.payload.ownerPrincipalId, eventId: created.id,
+        title: requireText(created.payload.title, "space title"),
+        viewName: requireText(created.payload.viewName, "space view"),
+        ownerPrincipalId: requireText(created.payload.ownerPrincipalId, "space owner"),
+        eventId: created.id,
         participantCount: participants.filter((item) => item.active).length,
         workspaceCount: this.workspaces(spaceId).length,
         turnCount: this.turns(spaceId).length,
@@ -608,10 +650,11 @@ export class SignedSpaceStore {
     };
   }
 
-  private append(type: string, body: object) {
-    assertProtocolEvent({ schemaVersion: 1, type, eventId: "pending-event", revisionId: "pending-event", body });
+  private append(type: string, body: SpaceAppendBody) {
+    const payload = Object.fromEntries(Object.entries(body));
+    assertProtocolEvent({ schemaVersion: 1, type, eventId: "pending-event", revisionId: "pending-event", body: payload });
     const parents = this.#repository.heads();
-    return this.#repository.appendWithParents(type, { ...body } as Record<string, unknown>, {
+    return this.#repository.appendWithParents(type, payload, {
       author: this.#author,
       parents,
       expectedHeads: parents,
@@ -633,6 +676,7 @@ export class SignedSpaceStore {
     if (name === undefined || name === "current" || name === this.#author) return this.principalId();
     if (name.startsWith("epoch:principal:")) {
       parseCanonicalId(name, "principal");
+      // SAFETY: Runtime checks or construction above establish CanonicalId<"principal">.
       return name as CanonicalId<"principal">;
     }
     const identity = this.#repository.identityFor(name);
@@ -647,9 +691,13 @@ export class SignedSpaceStore {
   private repositoryId(): CanonicalId<"repo"> {
     if (this.#repositoryId !== undefined) return this.#repositoryId;
     const identity = this.#repository.events().find((event) => event.type === "repository.identity");
-    this.#repositoryId = typeof identity?.payload.repositoryId === "string"
-      ? identity.payload.repositoryId as CanonicalId<"repo">
-      : createCanonicalId("repo", () => sha256Bytes(this.#repository.identityDocument().publicKey));
+    const repositoryId = identity?.payload.repositoryId;
+    if (isNonEmptyString(repositoryId)) {
+      // SAFETY: isNonEmptyString confirmed the identity payload carries a string id.
+      this.#repositoryId = repositoryId as CanonicalId<"repo">;
+    } else {
+      this.#repositoryId = createCanonicalId("repo", () => sha256Bytes(this.#repository.identityDocument().publicKey));
+    }
     return this.#repositoryId;
   }
 
@@ -665,16 +713,41 @@ export class SignedSpaceStore {
  * covers the path. Unsupported types fall back to digest comparison rather than
  * pretending a structural path was verified.
  */
-function indexContent(path: string, content: string): { readonly byPath: ReadonlyMap<string, unknown> } | undefined {
+function indexContent(path: string, content: string) {
   const provider = selectBuiltinProvider({ path });
   if (provider === undefined) return undefined;
   try { return indexTree(provider.parse(content)); }
   catch { return undefined; }
 }
 
-function requireText(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.trim() === "") fail("invalid-input", `${label} must be a non-empty string`);
-  return value as string;
+function isNonEmptyString<T>(value: T): value is T & string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function isFiniteNumber<T>(value: T): value is T & number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function requireSpaceJsonObject<Value>(value: Value): SpaceJsonObject {
+  if (!isSpaceJsonObject(value)) fail("invalid-input", "signed Space event payload is not JSON");
+  return value;
+}
+
+function isSpaceJsonObject<Value>(value: Value): value is Value & SpaceJsonObject {
+  return typeof value === "object"
+    && value !== null
+    && !Array.isArray(value)
+    && Object.values(value).every(isSpaceJsonValue);
+}
+
+function isSpaceJsonValue<Value>(value: Value): value is Value & SpaceJsonValue {
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return true;
+  return Array.isArray(value) ? value.every(isSpaceJsonValue) : isSpaceJsonObject(value);
+}
+
+function requireText<T>(value: T, label: string): string {
+  if (!isNonEmptyString(value)) fail("invalid-input", `${label} must be a non-empty string`);
+  return value;
 }
 
 function sha256Hex(value: string): string { return createHash("sha256").update(value).digest("hex"); }

@@ -19,6 +19,11 @@ interface ReduxAction {
   readonly payload?: unknown;
 }
 
+interface CounterMachineTypes {
+  readonly context: { count: number };
+  readonly events: { type: "increment" } | { type: "ignored" };
+}
+
 interface ReduxStore<State> {
   dispatch(action: ReduxAction): ReduxAction;
   getState(): State;
@@ -208,7 +213,8 @@ function tracksXStateTransitionsExplicitly(): void {
     storage: createMemoryEpochIntegrationStorage(),
   });
   const machine = createMachine({
-    types: {} as { context: { count: number }; events: { type: "increment" } | { type: "ignored" } },
+    // SAFETY: Runtime checks or construction above establish { context: { count: number }.
+    types: {} as CounterMachineTypes,
     id: "counter",
     context: { count: 0 },
     initial: "idle",
@@ -227,7 +233,8 @@ function tracksXStateTransitionsExplicitly(): void {
     entity: "xstate:counter",
     source: "counter-machine",
     events: ["increment"],
-    select: (snapshot) => snapshot.context,
+    // SAFETY: XState observer snapshots expose machine context as readonly object payloads.
+    select: (snapshot) => snapshot.context as Readonly<object>,
   });
 
   actor.subscribe(observer);
@@ -251,9 +258,13 @@ function tracksXStateOptionalFiltersAndSummaries(): void {
     epoch,
     entity: "xstate:open",
     source: "open-machine",
-    select: (snapshot) => snapshot.context,
+    // SAFETY: XState observer snapshots expose machine context as readonly object payloads.
+    select: (snapshot) => snapshot.context as Readonly<object>,
     summary: (snapshot) => `to ${String(snapshot.value)}`,
-    metadata: (snapshot) => ({ value: snapshot.value }),
+    metadata: (snapshot) => ({
+      // SAFETY: XState snapshot values are serialized as JSON-safe metadata.
+      value: snapshot.value as string | number | boolean | null,
+    }),
   });
   observer.next({ context: { count: 0 }, value: "idle" });
   observer.next({ context: { count: 0 }, value: "idle" });
@@ -266,7 +277,8 @@ function tracksXStateOptionalFiltersAndSummaries(): void {
     entity: "xstate:filtered",
     source: "filtered-machine",
     events: ["keep"],
-    select: (snapshot) => snapshot.context,
+    // SAFETY: XState observer snapshots expose machine context as readonly object payloads.
+    select: (snapshot) => snapshot.context as Readonly<object>,
   });
   filtered.next({ context: { n: 0 } });
   filtered.next({ context: { n: 1 }, event: { type: "drop" } });
@@ -378,6 +390,7 @@ function text(dom: JSDOM, selector: string): string {
 
 function restoreGlobal(key: string, descriptor: PropertyDescriptor | undefined): void {
   if (descriptor === undefined) {
+    // SAFETY: Runtime checks or construction above establish keyof typeof globalThis].
     delete globalThis[key as keyof typeof globalThis];
   } else {
     Object.defineProperty(globalThis, key, descriptor);

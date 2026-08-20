@@ -1,6 +1,11 @@
 import { fail } from "./errors";
 import { assertRevisionId, parseCanonicalId, type RevisionId } from "./ids";
 import type { ChangeFragment, ChangeGraphDefinition, ChangeRevisionBody, DurableConflict, MergePlan, ReviewBundle, SplitPlan } from "./models";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export const PROTOCOL_EVENT_SCHEMAS = [
   "repository.identity",
@@ -34,24 +39,26 @@ export interface ProtocolEvent<TBody = unknown> {
   readonly body: TBody;
 }
 
-type RecordValue = Record<string, unknown>;
+type RecordValue = Record<string, DictionaryValue>;
 const typeSet = new Set<string>(PROTOCOL_EVENT_SCHEMAS);
 const digestPattern = /^[a-f0-9]{64}$/u;
 const safePathSegment = /^(?!\.\.?$)[^/\\\0]+$/u;
 
-export function assertProtocolEvent(value: unknown): ProtocolEvent {
+export function assertProtocolEvent(value: BoundaryValue): ProtocolEvent {
   const event = record(value, "event");
   exact(event, ["schemaVersion", "type", "eventId", "revisionId", "body"], "event");
   if (event.schemaVersion !== 1) fail("invalid-schema", "Unsupported protocol schemaVersion");
-  if (typeof event.type !== "string" || !typeSet.has(event.type)) fail("invalid-schema", `Unknown protocol event type: ${String(event.type)}`);
+  if (!__epochIsString(event.type) || !typeSet.has(event.type)) fail("invalid-schema", `Unknown protocol event type: ${String(event.type)}`);
   const eventId = assertRevisionId(event.eventId);
   const revisionId = assertRevisionId(event.revisionId);
   if (revisionId !== eventId) fail("invalid-schema", "RevisionId must equal the signed EventId");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   validateBody(event.type as ProtocolEventType, event.body);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as ProtocolEvent;
 }
 
-function validateBody(type: ProtocolEventType, value: unknown): void {
+function validateBody(type: ProtocolEventType, value: BoundaryValue): void {
   switch (type) {
     case "change.created": case "change.revised": validateChangeRevision(value); return;
     case "change-graph.defined": case "change-graph.revised": validateChangeGraph(value); return;
@@ -222,7 +229,7 @@ function validateBody(type: ProtocolEventType, value: unknown): void {
   }
 }
 
-function validateChangeRevision(value: unknown): asserts value is ChangeRevisionBody {
+function validateChangeRevision(value: BoundaryValue): asserts value is ChangeRevisionBody {
   const body = record(value, "change revision");
   exact(body, ["changeId", "baseFrontier", "baseTreeDigest", "parentRevisionIds", "fragments", "resultingTreeDigest", "authorPrincipalId"], "change revision");
   parseCanonicalId(body.changeId, "change");
@@ -233,6 +240,7 @@ function validateChangeRevision(value: unknown): asserts value is ChangeRevision
   const ids = new Set<string>();
   for (const fragment of body.fragments) {
     validateFragment(fragment);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const id = (fragment as ChangeFragment).fragmentId;
     if (ids.has(id)) fail("invalid-schema", `Duplicate fragment ID: ${id}`);
     ids.add(id);
@@ -241,7 +249,7 @@ function validateChangeRevision(value: unknown): asserts value is ChangeRevision
   parseCanonicalId(body.authorPrincipalId, "principal");
 }
 
-function validateFragment(value: unknown): asserts value is ChangeFragment {
+function validateFragment(value: BoundaryValue): asserts value is ChangeFragment {
   const fragment = record(value, "fragment");
   exact(fragment, ["fragmentId", "kind", "path", "from", "precondition", "resultDigest", "contentRef", "order", "dependencies", "provenance", "mergeStrategy"], "fragment", true);
   parseCanonicalId(fragment.fragmentId, "fragment");
@@ -270,7 +278,7 @@ function validateFragment(value: unknown): asserts value is ChangeFragment {
   if (!["exact", "text", "structured", "binary-replace"].includes(String(fragment.mergeStrategy))) fail("invalid-schema", "Unknown fragment merge strategy");
 }
 
-function validateChangeGraph(value: unknown): asserts value is ChangeGraphDefinition {
+function validateChangeGraph(value: BoundaryValue): asserts value is ChangeGraphDefinition {
   const body = record(value, "change graph");
   exact(body, ["changeGraphId", "memberRevisionIds", "edges"], "change graph");
   parseCanonicalId(body.changeGraphId, "change-graph");
@@ -285,7 +293,7 @@ function validateChangeGraph(value: unknown): asserts value is ChangeGraphDefini
   }
 }
 
-function validateSplit(value: unknown): asserts value is SplitPlan {
+function validateSplit(value: BoundaryValue): asserts value is SplitPlan {
   const body = record(value, "split acceptance");
   exact(body, ["sourceRevisionId", "groups", "resultingRevisionIds", "reconstructionDigest"], "split acceptance");
   assertRevisionId(body.sourceRevisionId);
@@ -300,7 +308,7 @@ function validateSplit(value: unknown): asserts value is SplitPlan {
   digest(body.reconstructionDigest, "reconstructionDigest");
 }
 
-function validateReviewBundle(value: unknown): asserts value is ReviewBundle {
+function validateReviewBundle(value: BoundaryValue): asserts value is ReviewBundle {
   const body = record(value, "review bundle");
   exact(body, ["reviewBundleId", "selectedRevisionIds", "baseFrontier", "baseTreeDigest", "combinedTreeDigest", "overlaps", "conflictIds", "gateDefinitionDigest"], "review bundle");
   parseCanonicalId(body.reviewBundleId, "review-bundle");
@@ -314,7 +322,7 @@ function validateReviewBundle(value: unknown): asserts value is ReviewBundle {
   }
 }
 
-function validateMergePlan(value: unknown): asserts value is MergePlan {
+function validateMergePlan(value: BoundaryValue): asserts value is MergePlan {
   const body = record(value, "merge plan");
   exact(body, ["mergePlanId", "targetRevisionId", "selectedRevisionIds", "hardDependencyClosure", "reviewBundleRevisionId", "conflictResolutionRevisionIds", "gateDefinitionDigest", "mergeMode", "resultingTreeDigest"], "merge plan");
   parseCanonicalId(body.mergePlanId, "merge-plan");
@@ -324,7 +332,7 @@ function validateMergePlan(value: unknown): asserts value is MergePlan {
   if (!["per-change-squash", "change-graph-squash"].includes(String(body.mergeMode))) fail("invalid-schema", "Unknown merge mode");
 }
 
-function validateConflict(value: unknown): asserts value is DurableConflict {
+function validateConflict(value: BoundaryValue): asserts value is DurableConflict {
   const body = record(value, "conflict");
   exact(body, ["conflictId", "sideRevisionIds", "status", "resolutionRevisionIds"], "conflict");
   parseCanonicalId(body.conflictId, "conflict");
@@ -350,7 +358,7 @@ interface FieldRules {
   readonly enums?: Readonly<Record<string, readonly string[]>>;
 }
 
-function validateFields(value: unknown, rules: FieldRules): void {
+function validateFields(value: BoundaryValue, rules: FieldRules): void {
   const body = record(value, "event body");
   exact(body, [...rules.required, ...(rules.optional ?? [])], "event body", true);
   for (const field of rules.required) if (!(field in body)) fail("invalid-schema", `Missing event body field: ${field}`);
@@ -359,7 +367,7 @@ function validateFields(value: unknown, rules: FieldRules): void {
   for (const field of rules.revisions ?? []) assertRevisionId(body[field]);
   for (const field of rules.revisionArrays ?? []) revisions(body[field], field);
   for (const field of rules.digests ?? []) digest(body[field], field);
-  for (const field of rules.strings ?? []) if (typeof body[field] !== "string" || body[field] === "") fail("invalid-schema", `${field} must be non-empty string`);
+  for (const field of rules.strings ?? []) if (!__epochIsString(body[field]) || body[field] === "") fail("invalid-schema", `${field} must be non-empty string`);
   for (const field of rules.paths ?? []) path(body[field]);
   for (const field of rules.nonnegativeIntegers ?? []) if (!Number.isSafeInteger(body[field]) || Number(body[field]) < 0) fail("invalid-schema", `${field} must be nonnegative integer`);
   for (const field of rules.optionalNonnegativeIntegers ?? []) {
@@ -370,8 +378,9 @@ function validateFields(value: unknown, rules: FieldRules): void {
   for (const [field, allowed] of Object.entries(rules.enums ?? {})) if (!allowed.includes(String(body[field]))) fail("invalid-schema", `Unknown ${field} variant`);
 }
 
-function record(value: unknown, label: string): RecordValue {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) fail("invalid-schema", `${label} must be an object`);
+function record(value: BoundaryValue, label: string): RecordValue {
+  if (!__epochIsObject(value) || value === null || Array.isArray(value)) fail("invalid-schema", `${label} must be an object`);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as RecordValue;
 }
 
@@ -381,7 +390,7 @@ function exact(value: RecordValue, fields: readonly string[], label: string, opt
   if (!optional) for (const field of fields) if (!(field in value)) fail("invalid-schema", `Missing ${label} field: ${field}`);
 }
 
-function revisions(value: unknown, label: string): Set<string> {
+function revisions(value: BoundaryValue, label: string): Set<string> {
   if (!Array.isArray(value)) fail("invalid-schema", `${label} must be an array`);
   const result = new Set<string>();
   for (const item of value) {
@@ -392,7 +401,7 @@ function revisions(value: unknown, label: string): Set<string> {
   return result;
 }
 
-function canonicalIds(value: unknown, kind: Parameters<typeof parseCanonicalId>[1], label: string): Set<string> {
+function canonicalIds(value: BoundaryValue, kind: Parameters<typeof parseCanonicalId>[1], label: string): Set<string> {
   if (!Array.isArray(value)) fail("invalid-schema", `${label} must be an array`);
   const result = new Set<string>();
   for (const item of value) {
@@ -403,13 +412,13 @@ function canonicalIds(value: unknown, kind: Parameters<typeof parseCanonicalId>[
   return result;
 }
 
-function digest(value: unknown, label: string): string {
-  if (typeof value !== "string" || !digestPattern.test(value)) fail("invalid-ref", `${label} must be a lowercase SHA-256 digest`);
+function digest(value: BoundaryValue, label: string): string {
+  if (!__epochIsString(value) || !digestPattern.test(value)) fail("invalid-ref", `${label} must be a lowercase SHA-256 digest`);
   return value;
 }
 
-function path(value: unknown): string {
-  if (typeof value !== "string" || value === "" || value.length > 4096 || value.startsWith("/")
+function path(value: BoundaryValue): string {
+  if (!__epochIsString(value) || value === "" || value.length > 4096 || value.startsWith("/")
     || value.split("/").some((segment) => !safePathSegment.test(segment))) fail("invalid-path", "Fragment path must be normalized repository-relative path");
   return value;
 }

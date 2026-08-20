@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CodeOperation, CodeOperationFilter, CodeOperationRecord, CRDTEventLog, EntityRegistry, validateCodeOperation } from "./crdt";
-import { canonicalJson, isRecord } from "./json";
+import { canonicalJson, isRecord, type JsonObject, type JsonValue } from "./json";
 import {
   CryptoSpec,
   DefaultAuthor,
@@ -90,6 +90,20 @@ interface UnsignedEvent {
   authorPublicKey: string;
 }
 
+interface ProjectedRecord {
+  readonly eventId: string;
+  readonly entityType: string;
+  readonly blobSha256: string;
+  readonly size: number;
+}
+
+type ProjectedRecords = Record<string, ProjectedRecord>;
+
+interface ResolvedPath {
+  readonly absolute: string;
+  readonly relativePath: string;
+}
+
 export interface SyncResult {
   eventsCopied: number;
   blobsCopied: number;
@@ -98,8 +112,8 @@ export interface SyncResult {
 export interface EpochSerializationProvider {
   readonly format: string;
   readonly extension: string;
-  serialize(value: unknown): string;
-  deserialize(text: string): unknown;
+  serialize<Value>(value: Value): string;
+  deserialize(text: string): JsonValue;
 }
 
 export const JsonSerializationProvider: EpochSerializationProvider = {
@@ -160,16 +174,18 @@ export class BundleEpochTransport {
   }
 
   static read(path: string): MemoryEpochTransport {
+    // SAFETY: Fields are validated below before the parsed bundle is consumed.
     const parsed = JSON.parse(readFileSync(path, JsonEncoding)) as { format?: unknown; snapshotHash?: unknown; snapshot?: unknown };
-    if (parsed.format !== "epoch-bundle-v1" || typeof parsed.snapshotHash !== "string" || !isRecord(parsed.snapshot)) {
+    if (parsed.format !== "epoch-bundle-v1" || !isString(parsed.snapshotHash) || !isRecord(parsed.snapshot)) {
       throw new Error("invalid Epoch bundle transport");
     }
     if (sha256(canonicalJson(parsed.snapshot)) !== parsed.snapshotHash) throw new Error("Epoch bundle transport hash mismatch");
+    // SAFETY: isRecord above establishes an indexable snapshot; each field is validated independently.
     const snapshot = parsed.snapshot as Partial<MemoryEpochTransportSnapshot>;
     return new MemoryEpochTransport({
       events: Array.isArray(snapshot.events) ? snapshot.events.map((event) => EventDataSchema.parse(event)) : [],
       blobs: isStringRecord(snapshot.blobs) ? snapshot.blobs : {},
-      heads: Array.isArray(snapshot.heads) && snapshot.heads.every((head) => typeof head === "string") ? snapshot.heads : [],
+      heads: Array.isArray(snapshot.heads) && snapshot.heads.every(isString) ? snapshot.heads : [],
     });
   }
 }
@@ -232,7 +248,7 @@ export interface ViewState {
     readonly blobSha256: string;
     readonly size: number;
   }>>;
-  readonly crdt: Readonly<Record<string, unknown>>;
+  readonly crdt: Readonly<JsonObject>;
 }
 
 export interface ViewDiff {
@@ -241,7 +257,7 @@ export interface ViewDiff {
   readonly onlyInFrom: readonly string[];
   readonly onlyInTo: readonly string[];
   readonly records: Readonly<Record<string, { readonly from?: unknown; readonly to?: unknown }>>;
-  readonly crdt: Readonly<Record<string, { readonly from?: unknown; readonly to?: unknown }>>;
+  readonly crdt: Readonly<Record<string, { readonly from?: JsonValue; readonly to?: JsonValue }>>;
 }
 
 export interface EpochIgnoreMatch {
@@ -408,10 +424,11 @@ export interface EpochHookEvent {
   readonly name: EpochHookName;
   readonly repository: EpochRepository;
   readonly timestamp: number;
-  readonly detail: Record<string, unknown>;
+  readonly detail: EpochHookDetail;
 }
 
 export type EpochHook = (event: EpochHookEvent) => void;
+export type EpochHookDetail = Readonly<Record<string, JsonValue | EventPayload | Event | readonly Event[] | SyncResult | CodeOperation>>;
 
 export interface EpochRepositoryOptions {
   readonly hooks?: readonly EpochHook[];
@@ -774,7 +791,7 @@ export class EpochRepository {
 
     const trackedPaths = new Set<string>();
     for (const event of this.events()) {
-      if (event.type === "record" && typeof event.payload.path === "string") trackedPaths.add(event.payload.path);
+      if (event.type === "record" && isString(event.payload.path)) trackedPaths.add(event.payload.path);
     }
     for (const path of trackedPaths) {
       // A path that left the view, or that the Selection excludes, must not linger on disk.
@@ -823,21 +840,21 @@ export class EpochRepository {
 
     const patchText = mode === MaterializationMode.delta ? this.buildRollingPatch(baseRecords, state.records) : "";
     const patchPath = patchText.length > 0 ? this.writeRollingPatch(name, patchText) : undefined;
-    const manifest: VirtualCheckout = {
+    const manifest = {
       format: VirtualCheckoutFormat,
       view: name,
-      ...(baseName === undefined ? {} : { base: baseName }),
+      base: baseName,
       materialization: mode,
       selection: formatSelection(resolved.selection),
       selectionDigest: resolved.digest,
       namespaceRoot: namespace.root,
       frontier: this.heads(),
-      ...(patchPath === undefined ? {} : { patch: patchPath }),
+      patch: patchPath,
       records,
-    };
+    } satisfies VirtualCheckout;
     this.writeVirtualCheckout(manifest);
 
-    return {
+    const result = {
       ...state,
       materialization: mode,
       manifest,
@@ -846,8 +863,9 @@ export class EpochRepository {
       excludedPaths,
       selection: resolved,
       namespaceRoot: namespace.root,
-      ...(patchPath === undefined ? {} : { patchPath }),
-    };
+      patchPath,
+    } satisfies CheckoutResult;
+    return result;
   }
 
   /** Builds the content-addressed namespace manifest for a view state, including any links. */
@@ -883,33 +901,37 @@ export class EpochRepository {
 
   selectionProfiles(): readonly SelectionProfile[] {
     const state = this.workspaceSelectionState();
-    return (state?.profiles ?? []).map((profile) => ({
-      profileId: profile.profileId,
-      selection: parseSelection(profile.expression),
-      ...(profile.description === undefined ? {} : { description: profile.description }),
-    }));
+    return (state?.profiles ?? []).map((profile) => {
+      return {
+        profileId: profile.profileId,
+        selection: parseSelection(profile.expression),
+        description: profile.description,
+      } satisfies SelectionProfile;
+    });
   }
 
   /** Replaces the workspace Selection. Workspace-local by design: this writes no signed history. */
   setWorkspaceSelection(selection: Selection): Selection {
     const normalized = normalizeSelection(selection);
     const existing = this.workspaceSelectionState();
-    writeJson(this.selectionPath, {
+    const nextState = {
       format: SelectionFormat,
       expression: formatSelection(normalized),
-      ...(existing?.profiles === undefined ? {} : { profiles: existing.profiles }),
-    } satisfies WorkspaceSelectionState);
+      profiles: existing?.profiles,
+    } satisfies WorkspaceSelectionState;
+    writeJson(this.selectionPath, nextState);
     return normalized;
   }
 
   defineSelectionProfile(profileId: string, selection: Selection, description?: string): readonly SelectionProfile[] {
     const existing = this.workspaceSelectionState();
     const profiles = (existing?.profiles ?? []).filter((profile) => profile.profileId !== profileId);
-    profiles.push({
+    const profile = {
       profileId,
       expression: formatSelection(normalizeSelection(selection)),
-      ...(description === undefined ? {} : { description }),
-    });
+      description,
+    };
+    profiles.push(profile);
     writeJson(this.selectionPath, {
       format: SelectionFormat,
       expression: existing?.expression ?? formatSelection(SelectAll),
@@ -975,7 +997,8 @@ export class EpochRepository {
 
   /** Recomputes and persists the virtual manifest + rolling patch, rolling the checkout forward. */
   refreshVirtualManifest(view: string = this.currentView(), base?: string): VirtualCheckout {
-    return this.checkoutView(view, { materialization: MaterializationMode.virtual, ...(base === undefined ? {} : { base }) }).manifest;
+    const options = { materialization: MaterializationMode.virtual, base } satisfies CheckoutOptions;
+    return this.checkoutView(view, options).manifest;
   }
 
   /** True when the persisted manifest no longer matches the current head frontier. */
@@ -1000,7 +1023,7 @@ export class EpochRepository {
   defineRepositoryLink(link: RepositoryLink, author?: string): Event {
     const existing = this.repositoryLinks();
     const validated = validateLink(link, existing, this.repositoryIdentityId());
-    return this.append(CompositionEventType.linkDefined, validated as unknown as EventPayload, author);
+    return this.append(CompositionEventType.linkDefined, { ...validated }, author);
   }
 
   /** Moves a link to a different exact child Version. Retargeting is always a visible parent change. */
@@ -1096,7 +1119,7 @@ export class EpochRepository {
         size: file.size,
       } satisfies EventPayload, author);
     }
-    this.append(CompositionEventType.vendorized, plan.provenance as unknown as EventPayload, author);
+    this.append(CompositionEventType.vendorized, { ...plan.provenance }, author);
     this.removeRepositoryLink(linkId, author);
     return plan.provenance;
   }
@@ -1105,23 +1128,29 @@ export class EpochRepository {
   vendorProvenance(): readonly VendorProvenance[] {
     return sortEvents(this.events())
       .filter((event) => event.type === CompositionEventType.vendorized)
-      .map((event) => event.payload as unknown as VendorProvenance);
+      .map((event) => {
+        const payload: unknown = event.payload;
+        // SAFETY: Only vendorized events are selected, and this method is their sole writer.
+        return payload as VendorProvenance;
+      });
   }
 
   private namespaceLinkInputs(): readonly NamespaceLinkInput[] {
-    return this.repositoryLinks().map((link) => ({
-      linkId: link.linkId,
-      mountPath: link.mountPath,
-      repositoryId: link.target.repositoryId,
-      versionId: link.target.versionId,
-      namespaceRoot: link.target.namespaceRoot,
-      ...(link.target.sourcePath === undefined ? {} : { sourcePath: link.target.sourcePath }),
-    }));
+    return this.repositoryLinks().map((link) => {
+      return {
+        linkId: link.linkId,
+        mountPath: link.mountPath,
+        repositoryId: link.target.repositoryId,
+        versionId: link.target.versionId,
+        namespaceRoot: link.target.namespaceRoot,
+        sourcePath: link.target.sourcePath,
+      } satisfies NamespaceLinkInput;
+    });
   }
 
   private repositoryIdentityId(): string | undefined {
     for (const event of sortEvents(this.events())) {
-      if (event.type === EventType.repositoryIdentity && typeof event.payload.repositoryId === "string") {
+      if (event.type === EventType.repositoryIdentity && isString(event.payload.repositoryId)) {
         return event.payload.repositoryId;
       }
     }
@@ -1130,7 +1159,7 @@ export class EpochRepository {
 
   private patchContextLines(): number {
     const configured = this.isInitialized() ? this.repositoryConfig().working_tree?.patch_context_lines : undefined;
-    return typeof configured === "number" && Number.isInteger(configured) && configured >= 0 ? configured : 3;
+    return isNumber(configured) && Number.isInteger(configured) && configured >= 0 ? configured : 3;
   }
 
   private viewParent(name: string): string | undefined {
@@ -1197,10 +1226,10 @@ export class EpochRepository {
     const records = this.projectRecords(intents);
     const crdtEntities = new Set<string>();
     for (const event of intents) {
-      if (event.type === "crdt" && typeof event.payload.entity === "string") crdtEntities.add(event.payload.entity);
+      if (event.type === "crdt" && isString(event.payload.entity)) crdtEntities.add(event.payload.entity);
     }
     const crdtLog = new CRDTEventLog();
-    const crdt: Record<string, unknown> = {};
+    const crdt: JsonObject = {};
     for (const entity of [...crdtEntities].sort()) crdt[entity] = crdtLog.materialize(intents, entity);
     return { name, intentIds: intents.map((event) => event.id), records, crdt };
   }
@@ -1214,7 +1243,7 @@ export class EpochRepository {
     for (const path of [...new Set([...Object.keys(left.records), ...Object.keys(right.records)])].sort()) {
       if (canonicalJson(left.records[path] ?? null) !== canonicalJson(right.records[path] ?? null)) records[path] = { from: left.records[path], to: right.records[path] };
     }
-    const crdt: Record<string, { from?: unknown; to?: unknown }> = {};
+    const crdt: Record<string, { from?: JsonValue; to?: JsonValue }> = {};
     for (const entity of [...new Set([...Object.keys(left.crdt), ...Object.keys(right.crdt)])].sort()) {
       if (canonicalJson(left.crdt[entity] ?? null) !== canonicalJson(right.crdt[entity] ?? null)) crdt[entity] = { from: left.crdt[entity], to: right.crdt[entity] };
     }
@@ -1264,10 +1293,10 @@ export class EpochRepository {
     const issues: { readonly id: string; readonly title: string; readonly body: string; readonly author: string }[] = [];
     const reviews: { readonly id: string; readonly intentId: string; readonly state: string; readonly body: string; readonly author: string }[] = [];
     for (const event of this.events()) {
-      if (event.type === EventType.collaborationIssue && typeof event.payload.title === "string" && typeof event.payload.body === "string") {
+      if (event.type === EventType.collaborationIssue && isString(event.payload.title) && isString(event.payload.body)) {
         issues.push({ id: event.id, title: event.payload.title, body: event.payload.body, author: event.author });
       }
-      if (event.type === EventType.collaborationReview && typeof event.payload.intent_id === "string" && typeof event.payload.state === "string" && typeof event.payload.body === "string") {
+      if (event.type === EventType.collaborationReview && isString(event.payload.intent_id) && isString(event.payload.state) && isString(event.payload.body)) {
         reviews.push({ id: event.id, intentId: event.payload.intent_id, state: event.payload.state, body: event.payload.body, author: event.author });
       }
     }
@@ -1292,18 +1321,18 @@ export class EpochRepository {
     return { passed: blockers.length === 0, blockers };
   }
 
-  appendOperation(command: string, status: string, detail: Record<string, unknown> = {}, author = this.identity()): Event {
+  appendOperation(command: string, status: string, detail: JsonObject = {}, author = this.identity()): Event {
     return this.append(EventType.operation, { command, status, detail }, author);
   }
 
   operations(): readonly { readonly id: string; readonly command: string; readonly status: string; readonly detail: unknown; readonly author: string }[] {
     return this.events().flatMap((event) => {
-      if (event.type !== EventType.operation || typeof event.payload.command !== "string" || typeof event.payload.status !== "string") return [];
+      if (event.type !== EventType.operation || !isString(event.payload.command) || !isString(event.payload.status)) return [];
       return [{ id: event.id, command: event.payload.command, status: event.payload.status, detail: event.payload.detail, author: event.author }];
     });
   }
 
-  recordConflictResolution(input: { readonly path: string; readonly entityType: string; readonly base: unknown; readonly left: unknown; readonly right: unknown; readonly resolved: unknown }, author = this.identity()): Event {
+  recordConflictResolution(input: { readonly path: string; readonly entityType: string; readonly base: JsonValue; readonly left: JsonValue; readonly right: JsonValue; readonly resolved: JsonValue }, author = this.identity()): Event {
     return this.append(EventType.conflictResolution, {
       path: input.path,
       entity_type: input.entityType,
@@ -1312,14 +1341,15 @@ export class EpochRepository {
     }, author);
   }
 
-  reusableConflictResolution(input: { readonly path: string; readonly entityType: string; readonly base: unknown; readonly left: unknown; readonly right: unknown }): unknown {
+  reusableConflictResolution(input: { readonly path: string; readonly entityType: string; readonly base: JsonValue; readonly left: JsonValue; readonly right: JsonValue }): JsonValue | undefined {
     const hash = conflictHash(input);
-    return this.events()
+    const resolved = this.events()
       .filter((event) => event.type === EventType.conflictResolution && event.payload.path === input.path && event.payload.entity_type === input.entityType && event.payload.conflict_hash === hash)
       .at(-1)?.payload.resolved;
+    return isJsonValue(resolved) ? resolved : undefined;
   }
 
-  mergeEntity(path: string, entityType: string, base: unknown, left: unknown, right: unknown): unknown {
+  mergeEntity(path: string, entityType: string, base: JsonValue, left: JsonValue, right: JsonValue): JsonValue {
     const resolution = this.reusableConflictResolution({ path, entityType, base, left, right });
     return resolution ?? EntityRegistry.defaults().merge(entityType, base, left, right);
   }
@@ -1345,7 +1375,7 @@ export class EpochRepository {
 
   redactions(): readonly { readonly id: string; readonly blobSha256: string; readonly reason: string; readonly author: string }[] {
     return this.events().flatMap((event) => {
-      if (event.type !== EventType.redaction || typeof event.payload.blob_sha256 !== "string" || typeof event.payload.reason !== "string") return [];
+      if (event.type !== EventType.redaction || !isString(event.payload.blob_sha256) || !isString(event.payload.reason)) return [];
       return [{ id: event.id, blobSha256: event.payload.blob_sha256, reason: event.payload.reason, author: event.author }];
     });
   }
@@ -1501,8 +1531,10 @@ export class EpochRepository {
     return read.config;
   }
 
-  configValue(key: string): unknown {
-    return key.split(TextToken.dot).reduce<unknown>((current, part) => isRecord(current) ? current[part] : undefined, this.repositoryConfig());
+  configValue(key: string): JsonValue | undefined {
+    // SAFETY: Repository configuration is parsed from TOML, whose values are JSON-compatible.
+    const config = this.repositoryConfig() as JsonObject;
+    return key.split(TextToken.dot).reduce<JsonValue | undefined>((current, part) => isRecord(current) ? current[part] : undefined, config);
   }
 
   recordCodeOperation(operation: CodeOperation, author = this.identity()): Event {
@@ -1521,7 +1553,7 @@ export class EpochRepository {
     return new CRDTEventLog().operations(this.events(), filter);
   }
 
-  materialize(entity: string): unknown {
+  materialize(entity: string): JsonValue {
     this.requireInitialized();
     this.emitHook("repository.crdt.materialize.before", { entity });
     const value = new CRDTEventLog().materialize(this.events(), entity);
@@ -1592,15 +1624,15 @@ export class EpochRepository {
       });
     }
 
-    const payload: VersionPayload = {
-      ...(options.name === undefined ? {} : { name: options.name }),
-      ...(options.description === undefined ? {} : { description: options.description }),
+    const payload = {
+      name: options.name,
+      description: options.description,
       view,
       frontier: this.heads(),
       files,
       entities,
-      ...(options.labels === undefined ? {} : { metadata: { labels: [...options.labels] } }),
-    };
+      metadata: options.labels === undefined ? undefined : { labels: [...options.labels] },
+    } satisfies VersionPayload;
     return this.append(EventType.version, Schemas.versionPayload.parse(payload), options.author ?? this.identity());
   }
 
@@ -1716,7 +1748,9 @@ export class EpochRepository {
       const intent = this.read(intentId);
       if (intent.type !== EventType.intent) throw new Error(`not an intent: ${intentId}`);
     }
-    return this.append(EventType.intentComment, withMetadata({ ...(intentId === undefined ? {} : { intent: intentId }), body }, metadata), author);
+    const payload: EventPayload = { body };
+    if (intentId !== undefined) payload.intent = intentId;
+    return this.append(EventType.intentComment, withMetadata(payload, metadata), author);
   }
 
   policy(options: PolicyOptions = {}): PolicyProjection {
@@ -2057,12 +2091,12 @@ export class EpochRepository {
       blob_sha256: record.blobSha256,
       size: record.size,
     }]));
-    for (const patch of this.mainPatches()) records.set(patch.path as string, patch);
+    for (const patch of this.mainPatches()) records.set(String(patch.path), patch);
     return [...records.values()];
   }
 
-  private projectRecords(events: readonly Event[]): Record<string, { eventId: string; entityType: string; blobSha256: string; size: number }> {
-    const records: Record<string, { eventId: string; entityType: string; blobSha256: string; size: number }> = {};
+  private projectRecords(events: readonly Event[]) {
+    const records: ProjectedRecords = {};
     for (const event of sortEvents(events)) {
       if (event.type === EventType.record) {
         const parsed = Schemas.recordPayload.safeParse(event.payload);
@@ -2094,7 +2128,7 @@ export class EpochRepository {
   }
 
   private redactedBlobHashes(events: readonly Event[] = this.events()): Set<string> {
-    return new Set(events.flatMap((event) => event.type === EventType.redaction && typeof event.payload.blob_sha256 === "string" ? [event.payload.blob_sha256] : []));
+    return new Set(events.flatMap((event) => event.type === EventType.redaction && isString(event.payload.blob_sha256) ? [event.payload.blob_sha256] : []));
   }
 
   private latestRecordMap(): Map<string, RecordPatch> {
@@ -2162,7 +2196,7 @@ export class EpochRepository {
   private latestViewDefinitions(): Map<string, ViewDefinition> {
     const definitions = new Map<string, Event>();
     for (const event of this.events()) {
-      if (event.type !== EventType.viewDefinition || typeof event.payload.name !== "string" || !isInclusionRule(event.payload.rule)) continue;
+      if (event.type !== EventType.viewDefinition || !isString(event.payload.name) || !isInclusionRule(event.payload.rule)) continue;
       const previous = definitions.get(event.payload.name);
       if (previous === undefined || compareEvents(event, previous) > 0) definitions.set(event.payload.name, event);
     }
@@ -2176,15 +2210,16 @@ export class EpochRepository {
       timestamp: mainDefinition?.timestamp ?? 0,
     });
     for (const event of definitions.values()) {
+      if (!isString(event.payload.name) || !isInclusionRule(event.payload.rule)) continue;
       const metadata = isViewMetadata(event.payload.metadata) ? event.payload.metadata : undefined;
-      views.set(event.payload.name as string, {
+      views.set(event.payload.name, {
         type: "view-definition",
-        name: event.payload.name as string,
-        rule: event.payload.rule as InclusionRule,
+        name: event.payload.name,
+        rule: event.payload.rule,
         metadata,
         signature: event.signature,
         timestamp: event.timestamp,
-        parentView: typeof event.payload.parentView === "string" ? event.payload.parentView : undefined,
+        parentView: isString(event.payload.parentView) ? event.payload.parentView : undefined,
       });
     }
     return views;
@@ -2283,11 +2318,12 @@ export class EpochRepository {
   private localViewIndex(): LocalViewIndex {
     this.requireInitialized();
     if (!existsAsFile(this.viewsPath)) writeJson(this.viewsPath, emptyLocalViewIndex());
+    // SAFETY: Every field is validated while constructing the returned LocalViewIndex.
     const index = JSON.parse(readFileSync(this.viewsPath, JsonEncoding)) as Partial<LocalViewIndex>;
     return {
-      current: typeof index.current === "string" ? index.current : undefined,
+      current: isString(index.current) ? index.current : undefined,
       intentIds: isStringArrayRecord(index.intentIds) ? index.intentIds : {},
-      deleted: Array.isArray(index.deleted) && index.deleted.every((name) => typeof name === "string") ? index.deleted : [],
+      deleted: Array.isArray(index.deleted) && index.deleted.every(isString) ? index.deleted : [],
     };
   }
 
@@ -2329,7 +2365,7 @@ export class EpochRepository {
     return extname(name) === this.serializer.extension || extname(name) === JsonFileExtension;
   }
 
-  private readSerialized(path: string): unknown {
+  private readSerialized(path: string): JsonValue {
     const text = readFileSync(path, JsonEncoding);
     return extname(path) === this.serializer.extension ? this.serializer.deserialize(text) : JsonSerializationProvider.deserialize(text);
   }
@@ -2337,7 +2373,7 @@ export class EpochRepository {
   /**
    * Emits repository hook events with Unix-second timestamps matching persisted Epoch event timestamps.
    */
-  private emitHook(name: EpochHookName, detail: Record<string, unknown>): void {
+  private emitHook(name: EpochHookName, detail: EpochHookDetail): void {
     const event: EpochHookEvent = {
       name,
       repository: this,
@@ -2370,7 +2406,8 @@ export class EpochRepository {
     const compactPath = join(this.epochDir, COMPACT_DIR, entry.path ?? `${entry.id}${JsonFileExtension}`);
     if (!existsAsFile(compactPath)) return new Map();
     const compact = LocalCompactSchema.parse(JSON.parse(readFileSync(compactPath, JsonEncoding)));
-    if (typeof compact.payload !== "string") return new Map();
+    if (!isString(compact.payload)) return new Map();
+    // SAFETY: The optional events field is checked as an array before individual schema parsing.
     const payload = JSON.parse(Buffer.from(compact.payload, "base64").toString(JsonEncoding)) as { events?: unknown };
     if (!Array.isArray(payload.events)) return new Map();
     const events = new Map(payload.events.map((event) => {
@@ -2386,7 +2423,7 @@ export function readJson<T>(path: string, schema: z.ZodType<T>): T {
   return schema.parse(JSON.parse(readFileSync(path, JsonEncoding)));
 }
 
-export function writeJson(path: string, value: unknown): void {
+export function writeJson<Value>(path: string, value: Value): void {
   writeFileSync(path, `${canonicalJson(value)}${TextToken.newline}`, JsonEncoding);
 }
 
@@ -2411,7 +2448,7 @@ function cleanMetadata(metadata: EventMetadata): EventMetadata | undefined {
   return Object.keys(clean).length === 0 ? undefined : clean;
 }
 
-function conflictHash(input: { readonly path: string; readonly entityType: string; readonly base: unknown; readonly left: unknown; readonly right: unknown }): string {
+function conflictHash(input: { readonly path: string; readonly entityType: string; readonly base: JsonValue; readonly left: JsonValue; readonly right: JsonValue }): string {
   return sha256(canonicalJson({
     path: input.path,
     entity_type: input.entityType,
@@ -2421,7 +2458,7 @@ function conflictHash(input: { readonly path: string; readonly entityType: strin
   }));
 }
 
-function resolveInside(root: string, path: string, operation: string, description: string): { absolute: string; relativePath: string } {
+function resolveInside(root: string, path: string, operation: string, description: string): ResolvedPath {
   const absolute = resolve(isAbsolute(path) ? path : join(root, path));
   const relativePath = relative(root, absolute);
   if (relativePath === TextToken.empty || relativePath === TextToken.parentPath || relativePath.startsWith(`${TextToken.parentPath}${sep}`) || isAbsolute(relativePath)) {
@@ -2588,6 +2625,7 @@ function readConfigFile(path: string): { readonly config: EpochRepositoryConfig 
     return { error: { path, line: 0, column: 0, reason: error instanceof Error ? error.message : String(error) } };
   }
   try {
+    // SAFETY: EpochRepositoryConfig is the owner contract for parsed repository TOML.
     return { config: parseTomlDocument(text, path) as EpochRepositoryConfig };
   } catch (error) {
     if (error instanceof TomlError) {
@@ -2609,6 +2647,7 @@ function readConfigFile(path: string): { readonly config: EpochRepositoryConfig 
  */
 function mergeConfigTable<T>(left: T | undefined, right: T | undefined): T | undefined {
   if (!isRecord(left) || !isRecord(right)) return right ?? left;
+  // SAFETY: Both operands were verified as records and object spread preserves T's fields.
   return { ...left, ...right } as T;
 }
 
@@ -2681,12 +2720,12 @@ function intersectSets(sets: readonly Set<string>[]): Set<string> {
   return new Set([...sets[0]].filter((id) => sets.every((set) => set.has(id))));
 }
 
-function isStringArrayRecord(value: unknown): value is Record<string, string[]> {
-  return isRecord(value) && Object.values(value).every((entry) => Array.isArray(entry) && entry.every((item) => typeof item === "string"));
+function isStringArrayRecord<Value>(value: Value): value is Value & Record<string, string[]> {
+  return isRecord(value) && Object.values(value).every((entry) => Array.isArray(entry) && entry.every(isString));
 }
 
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
+function isStringRecord<Value>(value: Value): value is Value & Record<string, string> {
+  return isRecord(value) && Object.values(value).every(isString);
 }
 
 function eventReferencesBlob(event: Event, blobSha256: string): boolean {
@@ -2695,7 +2734,7 @@ function eventReferencesBlob(event: Event, blobSha256: string): boolean {
   return Array.isArray(patches) && patches.some((patch) => isRecord(patch) && patch.blob_sha256 === blobSha256);
 }
 
-function isViewMetadata(value: unknown): value is ViewMetadata {
+function isViewMetadata<Value>(value: Value): value is Value & ViewMetadata {
   if (value === undefined) return false;
   if (!isRecord(value)) return false;
   return (value.description === undefined || typeof value.description === "string")
@@ -2703,13 +2742,13 @@ function isViewMetadata(value: unknown): value is ViewMetadata {
     && (value.visibility === undefined || value.visibility === "private" || value.visibility === "shared");
 }
 
-function isInclusionRule(value: unknown): value is InclusionRule {
+function isInclusionRule<Value>(value: Value): value is Value & InclusionRule {
   if (!isRecord(value) || typeof value.type !== "string") return false;
   switch (value.type) {
     case "all":
       return true;
     case "intent-list":
-      return Array.isArray(value.intentIds) && value.intentIds.every((id) => typeof id === "string");
+      return Array.isArray(value.intentIds) && value.intentIds.every(isString);
     case "ancestor-chain":
       return typeof value.anchorIntentId === "string";
     case "tag-filter":
@@ -2736,16 +2775,26 @@ function existsAsFile(path: string): boolean {
   }
 }
 
-function isFileExistsError(error: unknown): boolean {
-  return isObject(error) && "code" in error && (error as { code: unknown }).code === FsFlag.exists;
+function isFileExistsError<ErrorValue>(error: ErrorValue): boolean {
+  return isObject(error) && "code" in error && error.code === FsFlag.exists;
 }
 
-function isString(value: unknown): value is string {
+function isString<Value>(value: Value): value is Value & string {
   return typeof value === "string";
 }
 
-function isObject(value: unknown): value is object {
+function isNumber<Value>(value: Value): value is Value & number {
+  return typeof value === "number";
+}
+
+function isObject<Value>(value: Value): value is Value & object {
   return typeof value === "object" && value !== null;
+}
+
+function isJsonValue<Value>(value: Value): value is Value & JsonValue {
+  if (value === null || isString(value) || isNumber(value) || typeof value === "boolean") return true;
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isRecord(value) && Object.values(value).every(isJsonValue);
 }
 
 function existsAsDirectory(path: string): boolean {

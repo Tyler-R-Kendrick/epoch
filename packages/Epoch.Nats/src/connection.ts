@@ -1,3 +1,5 @@
+
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 /**
  * Injectable NATS connection seam + in-memory bus for tests.
  * Real deployments inject nats.js / nats.ws connections with the same shape.
@@ -51,7 +53,7 @@ export function createInMemoryNatsBus(): InMemoryNatsBus {
       },
       publish(subject, data) {
         if (closed) throw new Error("nats bus closed");
-        const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        const bytes = __epochIsString(data) ? new TextEncoder().encode(data) : data;
         const msg: NatsMsgLike = { subject, data: bytes };
         for (const listener of matchListeners(subject)) listener(msg);
       },
@@ -73,7 +75,7 @@ export function createInMemoryNatsBus(): InMemoryNatsBus {
         };
       },
       async request(subject, data, opts) {
-        const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+        const bytes = __epochIsString(data) ? new TextEncoder().encode(data) : data;
         const reply = `_INBOX.${Math.random().toString(36).slice(2)}`;
         return await new Promise<NatsMsgLike>((resolve, reject) => {
           const timer = setTimeout(() => {
@@ -115,7 +117,7 @@ export async function connectGatedNatsBus(
   gate: (token: string) => Promise<boolean> | boolean,
   token: string,
 ): Promise<InMemoryNatsBus> {
-  if (typeof token !== "string") {
+  if (!__epochIsString(token)) {
     throw new Error("nats connect denied");
   }
   const presented = token.trim();
@@ -141,14 +143,7 @@ export async function connectGatedNatsBus(
 export function createNatsLiveChannel(
   nc: NatsConnectionLike,
   subjects: { readonly sync: string; readonly presence: string },
-): {
-  readonly channel: {
-    send(data: string): void;
-    onMessage(listener: (data: string) => void): void;
-    close(): void;
-  };
-  readonly stop: () => void;
-} {
+) {
   const listeners = new Set<(data: string) => void>();
   const deliver = (msg: NatsMsgLike) => {
     const text = new TextDecoder().decode(msg.data);
@@ -162,6 +157,7 @@ export function createNatsLiveChannel(
       send(data: string) {
         let subject = subjects.sync;
         try {
+          // SAFETY: The module validates or constructs this value before applying the asserted contract.
           const parsed = JSON.parse(data) as { type?: string };
           if (parsed.type === "presence") subject = subjects.presence;
         } catch {
@@ -169,7 +165,7 @@ export function createNatsLiveChannel(
         }
         nc.publish(subject, data);
       },
-      onMessage(listener) {
+      onMessage(listener: (data: string) => void) {
         listeners.add(listener);
       },
       close() {

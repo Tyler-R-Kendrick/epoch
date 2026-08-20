@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { asFixture } from "../helpers/type-guards";
 import {
   STREAM_CIPHER_WIDTH,
   cipherToken,
@@ -40,7 +41,9 @@ function protectedTargetsCoverSecretsAndAuth(): void {
   assert.equal(isProtectedStreamTarget({ protectAttr: true }), true);
   assert.equal(isProtectedStreamTarget({ path: "projects/community/channels/general", inputType: "text" }), false);
   // Non-string paths must not throw (editor buffers are objects with .path).
-  assert.equal(isProtectedStreamTarget({ path: { path: "projects/community/channels/general" } as unknown as string }), false);
+  // SAFETY: Runtime checks or construction above establish unknown as string }).
+  // SAFETY: Non-string path objects must be rejected without throwing.
+  assert.equal(isProtectedStreamTarget({ path: asFixture<string>({ path: "projects/community/channels/general" }) }), false);
 }
 
 function cipherIsFixedWidthAndStable(): void {

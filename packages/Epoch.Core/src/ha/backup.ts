@@ -66,9 +66,13 @@ export function createColdBackup(repository: EpochRepository, options: ColdBacku
 }
 
 export function restoreFromColdBackup(repository: EpochRepository, backupOrPath: ColdBackup | string): void {
-  const backup = typeof backupOrPath === "string"
-    ? JSON.parse(readFileSync(backupOrPath, JsonEncoding)) as ColdBackup
-    : backupOrPath;
+  let backup: ColdBackup;
+  if (isString(backupOrPath)) {
+    // SAFETY: Cold backup files are created from ColdBackup values and verified before restoration.
+    backup = JSON.parse(readFileSync(backupOrPath, JsonEncoding)) as ColdBackup;
+  } else {
+    backup = backupOrPath;
+  }
   verifyColdBackup(backup);
   repository.init();
   rmSync(repository.eventsDir, { recursive: true, force: true });
@@ -81,6 +85,10 @@ export function restoreFromColdBackup(repository: EpochRepository, backupOrPath:
     writeFileSync(join(repository.blobsDir, hash), Buffer.from(data, "base64"));
   }
   if (backup.tailEvents.length > 0) writeJson(repository.headsPath, headsForEvents(repository.events()));
+}
+
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
 }
 
 export function verifyColdBackup(backup: ColdBackup): void {

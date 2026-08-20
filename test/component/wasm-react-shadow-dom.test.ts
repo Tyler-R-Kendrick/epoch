@@ -93,7 +93,7 @@ function text(root: ShadowRoot, selector: string): string {
   return element.textContent ?? "";
 }
 
-function restoreGlobal(key: string, value: unknown): void {
+function restoreGlobal<T>(key: string, value: T): void {
   Object.defineProperty(globalThis, key, { configurable: true, value });
 }
 

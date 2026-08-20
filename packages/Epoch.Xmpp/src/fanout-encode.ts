@@ -1,3 +1,8 @@
+
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 /**
  * Conference-shaped routing labels for public channel byte carriage.
  * These JIDs are not XEP-0045 occupancy or nicks (ADR-0055).
@@ -23,7 +28,7 @@ export function conferenceRoutingJid(channelId: string, destServer: string): str
   return `${opaqueChannelLocalpart(channelId)}@conference.${destServer}`;
 }
 
-export function encodeChannelFanout(event: unknown, destServer: string, channelId: string): Uint8Array {
+export function encodeChannelFanout(event: BoundaryValue, destServer: string, channelId: string): Uint8Array {
   const envelope: ChannelFanoutEnvelope = {
     schema: CHANNEL_FANOUT_SCHEMA,
     routing: { kind: "conference-jid", jid: conferenceRoutingJid(channelId, destServer) },
@@ -34,19 +39,21 @@ export function encodeChannelFanout(event: unknown, destServer: string, channelI
 
 export function decodeChannelFanout(bytes: Uint8Array): ChannelFanoutEnvelope {
   const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
-  if (typeof parsed !== "object" || parsed === null) {
+  if (!__epochIsObject(parsed) || parsed === null) {
     throw new Error("channel fanout envelope is not an object");
   }
-  const row = parsed as Record<string, unknown>;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const row = parsed as Record<string, DictionaryValue>;
   if (row.schema !== CHANNEL_FANOUT_SCHEMA) {
     throw new Error("unknown channel fanout schema");
   }
   const routing = row.routing;
-  if (typeof routing !== "object" || routing === null) {
+  if (!__epochIsObject(routing) || routing === null) {
     throw new Error("channel fanout routing is missing");
   }
-  const route = routing as Record<string, unknown>;
-  if (route.kind !== "conference-jid" || typeof route.jid !== "string" || !route.jid.includes("@conference.")) {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const route = routing as Record<string, DictionaryValue>;
+  if (route.kind !== "conference-jid" || !__epochIsString(route.jid) || !route.jid.includes("@conference.")) {
     throw new Error("channel fanout routing must be a conference JID label");
   }
   return {

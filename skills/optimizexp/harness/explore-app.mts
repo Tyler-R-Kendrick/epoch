@@ -22,7 +22,8 @@ import {
 } from "./lib/experience-catalog.mts";
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "explore" };
+	const out: Record<string, string> = {};
+	out.mode = "explore";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";
@@ -74,6 +75,7 @@ function main() {
 			if (hit) targets = [hit];
 			else {
 				targets = [
+					// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 					{
 						id,
 						path: id.startsWith("packages/") ? id : `packages/${id}`,

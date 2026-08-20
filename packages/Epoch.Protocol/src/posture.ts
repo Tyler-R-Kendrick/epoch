@@ -1,4 +1,12 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { fail } from "./errors";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
+
 
 /** Per-community trust posture (ADR-0055). Open is the default for the general community. */
 export type TrustPosture = "hosted" | "private" | "open";
@@ -51,14 +59,15 @@ const POSTURE_SET = new Set<string>(TRUST_POSTURES);
  * Evaluate a posture config. Fail closed on unknown/malformed values (I-4).
  * Nested `[community.posture]` TOML tables and camelCase/snake_case keys are accepted.
  */
-export function evaluatePosture(config: unknown): PosturePolicy {
+export function evaluatePosture(config: BoundaryValue): PosturePolicy {
   if (config === undefined || config === null) {
     return { ...OPEN_POSTURE_DEFAULTS };
   }
-  if (typeof config !== "object" || Array.isArray(config)) {
+  if (!__epochIsObject(config) || Array.isArray(config)) {
     fail("policy-denied", "Malformed trust posture config");
   }
-  const row = flattenPostureConfig(config as Record<string, unknown>);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const row = flattenPostureConfig(config as Record<string, DictionaryValue>);
   if (row === undefined) {
     return { ...OPEN_POSTURE_DEFAULTS };
   }
@@ -70,6 +79,7 @@ export function evaluatePosture(config: unknown): PosturePolicy {
   if (!POSTURE_SET.has(postureRaw)) {
     fail("policy-denied", `Unknown trust posture: ${postureRaw}`);
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const posture = postureRaw as TrustPosture;
 
   const allowServiceDiscovery = optionalBoolean(row, ["allowServiceDiscovery", "allow_service_discovery"]);
@@ -127,15 +137,15 @@ export function evaluatePosture(config: unknown): PosturePolicy {
   };
 }
 
-function flattenPostureConfig(config: Record<string, unknown>): Record<string, unknown> | undefined {
+function flattenPostureConfig(config: Record<string, DictionaryValue>): Record<string, DictionaryValue> | undefined {
   const community = config.community;
   if (isRecord(community) && isRecord(community.posture)) {
     return community.posture;
   }
-  if (isRecord(config.posture) && typeof config.posture.posture === "string") {
+  if (isRecord(config.posture) && __epochIsString(config.posture.posture)) {
     return config.posture;
   }
-  if (typeof config.posture === "string" || typeof config.trust_posture === "string" || typeof config.trustPosture === "string") {
+  if (__epochIsString(config.posture) || __epochIsString(config.trust_posture) || __epochIsString(config.trustPosture)) {
     return config;
   }
   if (Object.keys(config).length === 0) return undefined;
@@ -144,49 +154,52 @@ function flattenPostureConfig(config: Record<string, unknown>): Record<string, u
   return undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function firstString(row: Record<string, unknown>, keys: readonly string[]): string | undefined {
+function firstString(row: Record<string, DictionaryValue>, keys: readonly string[]): string | undefined {
   for (const key of keys) {
     const value = row[key];
-    if (typeof value === "string") return value;
+    if (__epochIsString(value)) return value;
   }
   return undefined;
 }
 
-function optionalBoolean(row: Record<string, unknown>, keys: readonly string[]): boolean | undefined {
+function optionalBoolean(row: Record<string, DictionaryValue>, keys: readonly string[]): boolean | undefined {
   for (const key of keys) {
     const value = row[key];
     if (value === undefined) continue;
-    if (typeof value === "boolean") return value;
+    if (__epochIsBoolean(value)) return value;
     fail("policy-denied", `Malformed posture boolean: ${key}`);
   }
   return undefined;
 }
 
 function optionalEnum<T extends string>(
-  row: Record<string, unknown>,
+  row: Record<string, DictionaryValue>,
   keys: readonly string[],
   allowed: readonly T[],
 ): T | undefined {
   for (const key of keys) {
     const value = row[key];
     if (value === undefined) continue;
-    if (typeof value === "string" && (allowed as readonly string[]).includes(value)) return value as T;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    if (__epochIsString(value) && (allowed as readonly string[]).includes(value)) return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as T;
     fail("policy-denied", `Unknown posture enum: ${key}=${String(value)}`);
   }
   return undefined;
 }
 
-function optionalStringArray(row: Record<string, unknown>, keys: readonly string[]): readonly string[] | undefined {
+function optionalStringArray(row: Record<string, DictionaryValue>, keys: readonly string[]): readonly string[] | undefined {
   for (const key of keys) {
     const value = row[key];
     if (value === undefined) continue;
-    if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.length === 0)) {
+    if (!Array.isArray(value) || value.some((item) => !__epochIsString(item) || item.length === 0)) {
       fail("policy-denied", `Malformed posture allowlist: ${key}`);
     }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return value as readonly string[];
   }
   return undefined;

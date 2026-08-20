@@ -17,7 +17,8 @@ import {
 } from "./lib/doctor.mts";
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "check" };
+	const out: Record<string, string> = {};
+	out.mode = "check";
 	const projectTokens: string[] = [];
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;

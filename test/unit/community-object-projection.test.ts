@@ -18,6 +18,7 @@ import {
   type CommunityMessage,
   type CommunityObjectRef,
 } from "@epoch/community-core";
+import type { TestJsonObject, TestJsonValue } from "../helpers/json-types";
 
 const channelRef: CommunityObjectRef = { objectId: "channel-general", kind: "channel" };
 const rootRef: CommunityObjectRef = { objectId: "m-001", kind: "message", revision: "cid-a" };
@@ -182,7 +183,16 @@ function normalizedQuerySurvivesReload(): void {
   const first = normalizeQuery("( state:needs-review )   sort:new", { now: "2026-08-12T10:00:00Z" });
   const second = normalizeQuery(first.canonical, { version: first.version });
   assert.equal(first.error, undefined);
-  assert.deepEqual(stripSpans(second.ast), stripSpans(first.ast));
+  assert.deepEqual(
+    stripSpans(
+      // SAFETY: Search AST fixtures JSON-round-trip before span stripping comparison.
+      JSON.parse(JSON.stringify(second.ast)) as TestJsonValue,
+    ),
+    stripSpans(
+      // SAFETY: Search AST fixtures JSON-round-trip before span stripping comparison.
+      JSON.parse(JSON.stringify(first.ast)) as TestJsonValue,
+    ),
+  );
   assert.equal(second.canonical, "state:needs-review sort:new");
   assert.deepEqual(second.sort, [{ field: "updatedAt", direction: "descending", nulls: "last" }]);
   assert.match(first.queryHash, /^[a-f0-9]{16}$/u);
@@ -313,12 +323,16 @@ function queryUsesCanonicalFieldRegistry(): void {
   assert.equal(normalizeQuery("react:+1").canonical, "reactions:+1");
 }
 
-function stripSpans(value: unknown): unknown {
+function stripSpans(value: TestJsonValue): TestJsonValue {
   if (Array.isArray(value)) return value.map(stripSpans);
-  if (value !== null && typeof value === "object") {
+  if (isTestJsonObject(value)) {
     return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "span").map(([key, item]) => [key, stripSpans(item)]));
   }
   return value;
+}
+
+function isTestJsonObject(value: TestJsonValue): value is TestJsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function actionPermissionIsCentralized(): Promise<void> {
@@ -327,6 +341,7 @@ async function actionPermissionIsCentralized(): Promise<void> {
   });
   const context = {
     origin: "cli" as const,
+    // SAFETY: Runtime checks or construction above establish readonly string[].
     permissions: [] as readonly string[],
   };
   await assert.rejects(() => registry.execute("projection.delete", undefined, context), /permission/u);
@@ -367,13 +382,17 @@ function validationFailsClosed(): void {
     assert.throws(() => validateObjectRef(invalid));
   }
   assert.throws(() => validateProjectionId("unsafe/projection"));
-  assert.throws(() => validateProjectionId(7 as unknown as string));
+  // SAFETY: Runtime checks or construction above establish unknown as string)).
+  // @ts-expect-error validateProjectionId rejects non-string projection ids.
+  assert.throws(() => validateProjectionId(7));
   assert.equal(parseObjectUrl("not a url"), undefined);
   assert.equal(parseObjectUrl("/elsewhere?object=m-001"), undefined);
   assert.equal(parseObjectUrl("/board.html?object=bad%2Fid"), undefined);
   assert.equal(parseObjectUrl("/board.html?projection=bad%2Fid&focus=m-001"), undefined);
   assert.throws(() => objectUrl(rootRef, { revision: "" }), /revision/u);
-  assert.throws(() => objectUrl(rootRef, { revision: 7 as unknown as string }), /revision/u);
+  // SAFETY: Runtime checks or construction above establish unknown as string }).
+  // @ts-expect-error objectUrl rejects non-string revision values.
+  assert.throws(() => objectUrl(rootRef, { revision: 7 }), /revision/u);
   assert.throws(() => objectUrl(rootRef, { revision: "r".repeat(513) }), /revision/u);
   assert.equal(parseObjectUrl(`/board.html?object=m-001&revision=${"r".repeat(513)}`), undefined);
 
@@ -401,6 +420,7 @@ function resourceVisibilityFailsClosed(): void {
   assert.equal(canReadCommunityResource({ ...target, visibility: "private", ownerId: "alice" }, { actorId: "alice" }), true);
   assert.equal(canReadCommunityResource({ ...target, visibility: "private", ownerId: "alice" }, { actorId: "mallory" }), false);
   assert.equal(canReadCommunityResource(target, {}), false);
+  // SAFETY: Runtime checks or construction above establish "public" }.
   assert.equal(canReadCommunityResource({ ...target, visibility: "invalid" as "public" }, {}), false);
 }
 
@@ -412,17 +432,17 @@ function message(
   body: string,
   state = "read",
 ): CommunityMessage {
-  return {
+  const message = {
     ref,
     context: channelRef,
     authorId: "member-alice",
     title,
     body,
     publishedAt: "2026-08-11T00:00:00.000Z",
-    ...(inReplyTo === undefined ? {} : { inReplyTo }),
     threadRoot,
     relations: [],
     state,
     aliases: [title],
   };
+  return inReplyTo === undefined ? message : { ...message, inReplyTo };
 }

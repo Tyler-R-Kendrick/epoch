@@ -15,8 +15,12 @@ timestamp: 2026-07-31T00:00:00Z
 | Claude Code | `.claude/skills` | `.mcp.json` | `.claude/settings.json` | `.claude/agents/` |
 | Cursor | `.agents/skills` | `.cursor/mcp.json` | rules | — |
 | Codex | `.agents/skills` | `~/.codex/config.toml` | marketplace (machine) | — |
-| Grok Build | skill discovery + workflows | MCP via product | workflows | subagent tool |
+| Grok Build | `.grok/skills` | MCP via product | workflows | subagent tool |
 | Copilot CLI | limited | — | marketplace | — |
+
+Restore shared harness skills (gitignored trees) with `npm run agents:install-skills`
+(anti-slop) plus `npx impeccable install` / higgsfield `skills add` as documented in
+`AGENTS.md` and [`docs/anti-slop.md`](../../../../docs/anti-slop.md).
 
 CLI ergonomics and repo scripts: [harness-clis.md](harness-clis.md).
 MCP detail: [mcp.md](mcp.md).

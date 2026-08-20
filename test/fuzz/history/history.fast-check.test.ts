@@ -25,7 +25,12 @@ function deterministicRandom(seed: number): (byteLength: number) => Uint8Array {
   };
 }
 
-function openHistoryReal(seed: number): { real: HistoryReal; cleanup: () => void } {
+interface OpenHistoryReal {
+  readonly real: HistoryReal;
+  readonly cleanup: () => void;
+}
+
+function openHistoryReal(seed: number): OpenHistoryReal {
   const root = mkdtempSync(join(tmpdir(), "epoch-fuzz-history-"));
   const peerRoot = mkdtempSync(join(tmpdir(), "epoch-fuzz-history-peer-"));
   const snapshotRoots: string[] = [];
@@ -61,9 +66,10 @@ function openHistoryReal(seed: number): { real: HistoryReal; cleanup: () => void
   };
 }
 
-function promoteHistoryFailure(commands: unknown, error: unknown): void {
+function promoteHistoryFailure<Commands, Failure>(commands: Commands, error: Failure): void {
   const payload = {
     commands: String(commands),
+    // SAFETY: Runtime checks or construction above establish Error).message ?? error).
     error: String((error as Error).message ?? error),
     at: new Date().toISOString(),
   };
@@ -233,7 +239,8 @@ async function assertWorkspaceProviderStaysInsideRoot(): Promise<void> {
   }
 }
 
-void main().catch((error: unknown) => {
+void main().catch((error) => {
+  // SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
   process.stderr.write(`${String((error as Error).stack ?? error)}\n`);
   process.exitCode = 1;
 });

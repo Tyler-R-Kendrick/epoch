@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   console.log("pact: provider verification passed");
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

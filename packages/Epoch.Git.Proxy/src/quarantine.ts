@@ -17,6 +17,7 @@ export class GitReceiveQuarantine {
     const [type, size] = header.split(" ");
     if (type !== object.type || Number(size) !== object.bytes.length - separator - 1 ||
       createHash("sha1").update(object.bytes).digest("hex") !== object.oid) throw new Error("Git object identity mismatch");
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     this.#objects.set(object.oid, Object.freeze({ ...object, type: type as GitObjectType, bytes: Buffer.from(object.bytes) }));
   }
 

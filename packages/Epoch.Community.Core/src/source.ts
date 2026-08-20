@@ -63,7 +63,7 @@ export interface PreparedCommunityChange {
 export interface AtomicCommunityChangeTarget {
   readonly targetId: string;
   stage(changes: CommunitySearchChangeSet): Promise<PreparedCommunityChange>;
-  markStale(error: unknown): Promise<void>;
+  markStale(cause: unknown): Promise<void>;
 }
 
 export async function applyCommunityChangeSetAtomically(
@@ -103,7 +103,8 @@ export function sourceKeysetCursor(sourceId: string, objectId: string): string {
   if (bytes === undefined) throw new CommunityError("CRYPTO_UNAVAILABLE", "Source cursor generation is unavailable");
   const token = base64Url(bytes);
   sourceCursors.set(token, { sourceId, objectId });
-  if (sourceCursors.size > 4096) sourceCursors.delete(sourceCursors.keys().next().value as string);
+  const oldest = sourceCursors.keys().next().value;
+  if (sourceCursors.size > 4096 && oldest !== undefined) sourceCursors.delete(oldest);
   return token;
 }
 

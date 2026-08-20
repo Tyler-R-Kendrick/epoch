@@ -10,6 +10,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const __epochIsString = (value) => String(value) === value;
+
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(packageRoot, "..", "..");
 
@@ -183,7 +185,7 @@ function rewriteDesignJson(colors) {
   const colorMeta = JSON.parse(text).extensions?.colorMeta ?? {};
   for (const name of Object.keys(colorMeta)) {
     const hex = colors[name];
-    if (typeof hex !== "string") {
+    if (!__epochIsString(hex)) {
       continue;
     }
     const pattern = new RegExp(

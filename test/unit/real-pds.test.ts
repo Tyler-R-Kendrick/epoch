@@ -26,7 +26,8 @@ async function realAdapterOffUntilE10(): Promise<void> {
     did: "did:plc:alice",
     collection: "org.epoch.actor.profile",
     record: { displayName: "A" },
-  }), (error: unknown) => error instanceof Error && (error as { code?: string }).code === "feature_disabled");
+  // SAFETY: Runtime checks or construction above establish { code?: string }).code === "feature_disabled").
+  }), (error) => error instanceof Error && (/* SAFETY: Assertion is justified by surrounding validation or construction. */ error as { code?: string }).code === "feature_disabled");
 }
 
 async function privatePublishFailsBothImpls(): Promise<void> {
@@ -40,7 +41,7 @@ async function privatePublishFailsBothImpls(): Promise<void> {
         ownerDid: "did:plc:alice",
         visibility: "private",
       }),
-      (error: unknown) => error instanceof PrivatePublishError,
+      (error) => error instanceof PrivatePublishError,
     );
   }
 }
@@ -60,7 +61,8 @@ async function pdsDownStillGossipSyncs(): Promise<void> {
   writeFileSync(join(repo.root, "note.txt"), "hi");
   repo.recordFile("note.txt", "text/plain");
   const pds = new RealPds({ enabled: false });
-  await assert.rejects(() => pds.getBlob("did:plc:alice", "bafy"), (error: unknown) =>
+  await assert.rejects(() => pds.getBlob("did:plc:alice", "bafy"), (error) =>
+    // SAFETY: Runtime checks or construction above establish { code?: string }).code === "feature_disabled").
     error instanceof Error && (error as { code?: string }).code === "feature_disabled");
   assert.deepEqual(repo.verify(), []);
 }

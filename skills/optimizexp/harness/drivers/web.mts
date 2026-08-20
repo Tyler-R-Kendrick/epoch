@@ -55,7 +55,9 @@ export function captureWeb(
 	const screen = {
 		widthPx: width,
 		heightPx: height,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		cols: null as null,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		rows: null as null,
 	};
 

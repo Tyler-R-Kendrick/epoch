@@ -1,3 +1,4 @@
+import { isNumber, isObject, isString } from "../value-kind";
 import type {
   CommunityChange,
   CommunityIssue,
@@ -65,6 +66,7 @@ function readState(): CommunityClientState {
       activeRepo: "epoch/epoch",
     };
   }
+  // SAFETY: The server renders this JSON island from CommunityClientState.
   return JSON.parse(stateElement.textContent || "{}") as CommunityClientState;
 }
 
@@ -93,7 +95,7 @@ const composer = document.querySelector<HTMLFormElement>("[data-comment-composer
 const composerLabel = document.querySelector<HTMLElement>(".composer-label");
 const composerInput = (): HTMLTextAreaElement | null =>
   composer?.querySelector("textarea")
-  ?? (document.getElementById("community-message") as HTMLTextAreaElement | null);
+  ?? document.querySelector<HTMLTextAreaElement>("#community-message");
 const shareShipButton = document.querySelector<HTMLButtonElement>("[data-share-ship]");
 const changeList = document.querySelector<HTMLElement>("[data-change-list]");
 const issueList = document.querySelector<HTMLElement>("[data-issue-list]");
@@ -134,12 +136,12 @@ function messages(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-message]"));
 }
 
-async function apiJson(method: string, path: string, body?: unknown): Promise<CommunityRepository> {
+async function apiJson<Body>(method: string, path: string, body?: Body): Promise<CommunityRepository> {
   const response = await fetch(apiBase() + path, {
     method,
     headers: {
       Accept: "application/json",
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(body === undefined ? undefined : { "Content-Type": "application/json" }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -149,6 +151,8 @@ async function apiJson(method: string, path: string, body?: unknown): Promise<Co
     const message = parsed && parsed.error ? String(parsed.error) : response.statusText;
     throw new Error(message || `HTTP ${response.status}`);
   }
+  // SAFETY: This endpoint's success contract is CommunityRepository; non-success
+  // payloads are rejected above before the result reaches callers.
   return parsed as CommunityRepository;
 }
 
@@ -411,6 +415,8 @@ function openCommunity(communityId: string): void {
 }
 
 function renderDevFeedTab(tab: string): void {
+  // SAFETY: tab comes from the rendered data-feed-tab controls, whose values
+  // are the closed DevFeedTab set.
   activeFeedTab = (tab as DevFeedTab) || "following";
   document.querySelectorAll<HTMLElement>("[data-feed-tab]").forEach((button) => {
     button.setAttribute("aria-selected", button.dataset.feedTab === activeFeedTab ? "true" : "false");
@@ -432,6 +438,7 @@ function openRepository(slug: string, channel?: string): void {
   selectProductMode("repo");
   if (channel) {
     // Jump into community channel context for the linked project conversation.
+    // SAFETY: linked repository channels originate in CommunitySpace.channels.
     activeChannel = channel as CommunityChannelId;
   }
 }
@@ -460,23 +467,23 @@ function restoreComposerDraft(): void {
   const input = composerInput();
   if (!input) return;
   const saved = composerDrafts.get(draftKey(activeCommunity, activeChannel));
-  input.value = typeof saved === "string" ? saved : "";
+  input.value = isString(saved) ? saved : "";
 }
 
 function composerPlaceholder(channel: string): string {
   // A placeholder is a prompt, not a lesson. The channel topic already says what
   // this place is for; the box only needs to say where you are typing.
-  const placeholders: Record<string, string> = {
-    general: "Message #general",
-    showcase: "Share what you built",
-    support: "Ask a question",
-    ideas: "Propose an idea",
-    bugs: "Report a defect",
-    "agent-runs": "Link an agent run",
-    previews: "Share a preview",
-    governance: "Record a note",
-  };
-  return placeholders[channel] || `Message #${channel}`;
+  const placeholders = new Map<string, string>([
+    ["general", "Message #general"],
+    ["showcase", "Share what you built"],
+    ["support", "Ask a question"],
+    ["ideas", "Propose an idea"],
+    ["bugs", "Report a defect"],
+    ["agent-runs", "Link an agent run"],
+    ["previews", "Share a preview"],
+    ["governance", "Record a note"],
+  ]);
+  return placeholders.get(channel) || `Message #${channel}`;
 }
 
 function applyComposerChrome(): void {
@@ -497,6 +504,9 @@ function applyComposerChrome(): void {
 
 const STORAGE_PREFIX = "epoch-community:";
 const LAST_READ_KEY = `${STORAGE_PREFIX}last-read`;
+interface LastReadMap {
+  [channelKey: string]: number;
+}
 
 function readStoredValue(key: string): string | null {
   try {
@@ -514,14 +524,17 @@ function writeStoredValue(key: string, value: string): void {
   }
 }
 
-function readLastReadMap(): Record<string, number> {
+function readLastReadMap(): LastReadMap {
   const raw = readStoredValue(LAST_READ_KEY);
   if (raw === null) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null
-      ? (parsed as Record<string, number>)
-      : {};
+    if (!isObject(parsed)) return {};
+    const lastRead: LastReadMap = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (isNumber(value)) lastRead[key] = value;
+    }
+    return lastRead;
   } catch {
     return {};
   }
@@ -670,7 +683,7 @@ function updateFeedState(visibleCount: number, query: string): void {
 
 function receiptSearchQuery(): string {
   const input = document.querySelector<HTMLInputElement>("[data-receipt-search]");
-  return input && typeof input.value === "string" ? input.value.trim().toLowerCase() : "";
+  return input && isString(input.value) ? input.value.trim().toLowerCase() : "";
 }
 
 function applyChannelFilter(): void {
@@ -732,6 +745,7 @@ function applyChannelFilter(): void {
 
 function selectChannel(channel: string): void {
   saveComposerDraft();
+  // SAFETY: callers pass IDs from the rendered CommunitySpace channel list.
   activeChannel = (channel as CommunityChannelId) || "general";
   selectedMessage = null;
   if (productMode === "network" || productMode === "repo") {
@@ -851,26 +865,27 @@ function changeConversation(change: CommunityChange, repo: CommunityRepository):
 }
 
 function updateChannelCounts(repo: CommunityRepository): void {
-  const counts: Record<string, number> = {
-    support: 0, ideas: 0, bugs: 0, "agent-runs": 0, previews: 0, governance: 0, general: 0, showcase: 0,
-  };
+  const counts = new Map<string, number>([
+    ["support", 0], ["ideas", 0], ["bugs", 0], ["agent-runs", 0],
+    ["previews", 0], ["governance", 0], ["general", 0], ["showcase", 0],
+  ]);
   for (const issue of repo.issues ?? []) {
     const channel = channelForIssue(issue.labels ?? []);
-    counts[channel] = (counts[channel] || 0) + 1;
+    counts.set(channel, (counts.get(channel) || 0) + 1);
   }
   for (const _change of repo.changes ?? []) {
-    counts.previews += 1;
+    counts.set("previews", (counts.get("previews") || 0) + 1);
   }
   for (const item of conversations()) {
     if (item.role === "agent") {
-      counts["agent-runs"] = (counts["agent-runs"] || 0) + 1;
+      counts.set("agent-runs", (counts.get("agent-runs") || 0) + 1);
     } else if (item.channel === "general" || item.channel === "showcase") {
-      counts[item.channel] = (counts[item.channel] || 0) + 1;
+      counts.set(item.channel, (counts.get(item.channel) || 0) + 1);
     }
   }
   document.querySelectorAll<HTMLElement>("[data-channel][aria-pressed]").forEach((button) => {
     const countEl = button.querySelector(".channel-count");
-    if (countEl) countEl.textContent = String(counts[button.dataset.channel ?? ""] || 0);
+    if (countEl) countEl.textContent = String(counts.get(button.dataset.channel ?? "") || 0);
   });
   const issueCount = document.querySelector('[data-surface="issues"] .channel-count');
   if (issueCount) issueCount.textContent = String((repo.issues ?? []).length);
@@ -1103,15 +1118,15 @@ async function handleAction(action: string, message: HTMLElement): Promise<void>
   const repo = repository();
 
   if (!live()) {
-    const actionLabels: Record<string, string> = {
-      "promote-change": "Promote to Change",
-      agent: "Request agent",
-      answer: "Accept answer",
-      docs: "Docs patch",
-      report: "Report",
-      approve: "Approve change",
-    };
-    const actionLabel = actionLabels[action] || "this action";
+    const actionLabels = new Map<string, string>([
+      ["promote-change", "Promote to Change"],
+      ["agent", "Request agent"],
+      ["answer", "Accept answer"],
+      ["docs", "Docs patch"],
+      ["report", "Report"],
+      ["approve", "Approve change"],
+    ]);
+    const actionLabel = actionLabels.get(action) || "this action";
     setStatus(message, `Live API unavailable. Reconnect the Community API (EPOCH_COMMUNITY_API_URL), reload this page, then retry ${actionLabel}.`);
     return;
   }
@@ -1277,13 +1292,13 @@ function wireRailSheet(): void {
     });
   document.querySelector<HTMLElement>("[data-community-channel-rail]")
     ?.addEventListener("click", (event) => {
-      if ((event.target as Element | null)?.closest("button, a")) setRailOpen(false);
+      if (event.target instanceof Element && event.target.closest("button, a")) setRailOpen(false);
     });
   // The scrim is a pseudo-element on the shell, so a click outside the rail
   // while the sheet is open is a dismissal.
   shell?.addEventListener("click", (event) => {
     if (!railIsOpen()) return;
-    const target = event.target as Element | null;
+    const target = event.target instanceof Element ? event.target : null;
     if (target?.closest("[data-community-channel-rail]") || target?.closest("[data-rail-toggle]")) return;
     setRailOpen(false);
   });
@@ -1474,6 +1489,8 @@ function boot(): void {
   const route = initialRoute();
   if (route.channel !== undefined
     && (currentCommunity()?.channels ?? []).some((channel) => channel.id === route.channel)) {
+    // SAFETY: the preceding membership check proves this route value is one of
+    // the current community's CommunityChannelId values.
     activeChannel = route.channel as CommunityChannelId;
   }
   const deepLinkedRepo = route.repo !== undefined

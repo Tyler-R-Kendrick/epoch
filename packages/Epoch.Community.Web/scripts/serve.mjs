@@ -1,3 +1,4 @@
+import "../app/value-kind.js";
 /**
  * Self-hosting for the browser suites. A gate that depends on someone having
  * left a dev server running is not a gate; each suite serves the exploration
@@ -53,7 +54,7 @@ export async function serveCommunityWebApp({ host = "127.0.0.1", port = 0 } = {}
   });
   await new Promise((resolve) => server.listen(port, host, resolve));
   const address = server.address();
-  if (address === null || typeof address === "string") throw new Error("Community Web did not bind a TCP port");
+  if (address === null || globalThis.CW_VALUE.isString(address)) throw new Error("Community Web did not bind a TCP port");
   return {
     url: `http://${host}:${address.port}/`,
     close: () => new Promise((resolve) => server.close(resolve)),

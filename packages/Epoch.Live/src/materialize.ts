@@ -1,5 +1,10 @@
 import type { LiveEvent } from "./log";
 import { isRecord, stableJson } from "./util";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export type LiveOp =
   | { readonly kind: "set"; readonly key: string; readonly value: unknown }
@@ -13,13 +18,19 @@ export type LiveRollbackPayload = {
   readonly previousHeads: readonly string[];
 };
 
+export type LiveOpPayload = {
+  readonly op: LiveOp;
+  readonly action: string;
+  readonly summary: string;
+};
+
 /**
  * Materialize the latest converged state of an entity by folding its events in
  * the deterministic total order. A rollback event resets the accumulator to the
  * state at its target, after which later events reapply — so a rollback is a
  * first-class, replicated operation rather than a local rewind.
  */
-export function materialize(events: readonly LiveEvent[], entity: string): Record<string, unknown> {
+export function materialize(events: readonly LiveEvent[], entity: string): Record<string, DictionaryValue> {
   const ordered = orderedForEntity(events, entity);
   return foldOrdered(ordered, ordered.length - 1);
 }
@@ -32,7 +43,7 @@ export function materializeAt(
   events: readonly LiveEvent[],
   entity: string,
   target: LiveTarget,
-): Record<string, unknown> {
+): Record<string, DictionaryValue> {
   const ordered = orderedForEntity(events, entity);
   const cut = resolveCutIndex(ordered, target);
   return foldOrdered(ordered.slice(0, cut + 1), cut);
@@ -46,7 +57,7 @@ export function resolveRollbackTargetId(
 ): string {
   if (target === "genesis") return "genesis";
   const ops = orderedForEntity(events, entity).filter((event) => event.kind === "op");
-  if (typeof target === "number") {
+  if (__epochIsNumber(target)) {
     if (target <= 0) return "genesis";
     const index = Math.min(Math.trunc(target), ops.length) - 1;
     return index < 0 ? "genesis" : ops[index].id;
@@ -59,7 +70,7 @@ export function resolveRollbackTargetId(
   return match.id;
 }
 
-export function diffToOps(prev: Record<string, unknown>, next: Record<string, unknown>): readonly LiveOp[] {
+export function diffToOps(prev: Record<string, DictionaryValue>, next: Record<string, DictionaryValue>): readonly LiveOp[] {
   const ops: LiveOp[] = [];
   const keys = [...new Set([...Object.keys(prev), ...Object.keys(next)])].sort();
   for (const key of keys) {
@@ -79,23 +90,19 @@ export function orderedForEntity(events: readonly LiveEvent[], entity: string): 
   return events.filter((event) => event.entity === entity);
 }
 
-function foldOrdered(ordered: readonly LiveEvent[], upTo: number): Record<string, unknown> {
-  const memo = new Map<number, Record<string, unknown>>();
+function foldOrdered(ordered: readonly LiveEvent[], upTo: number): Record<string, DictionaryValue> {
+  const memo = new Map<number, Record<string, DictionaryValue>>();
   const indexById = new Map<string, number>();
   ordered.forEach((event, index) => indexById.set(event.id, index));
 
-  function stateAfter(index: number): Record<string, unknown> {
+  function stateAfter(index: number): Record<string, DictionaryValue> {
     if (index < 0) return {};
     const cached = memo.get(index);
     if (cached !== undefined) return cached;
     const event = ordered[index];
-    let next: Record<string, unknown>;
-    if (event.kind === "rollback") {
-      const targetIndex = rollbackTargetIndex(event, indexById, index);
-      next = { ...stateAfter(targetIndex) };
-    } else {
-      next = applyOp({ ...stateAfter(index - 1) }, event);
-    }
+    const next = event.kind === "rollback"
+      ? { ...stateAfter(rollbackTargetIndex(event, indexById, index)) }
+      : applyOp({ ...stateAfter(index - 1) }, event);
     memo.set(index, next);
     return next;
   }
@@ -103,13 +110,14 @@ function foldOrdered(ordered: readonly LiveEvent[], upTo: number): Record<string
   return stateAfter(upTo);
 }
 
-function applyOp(state: Record<string, unknown>, event: LiveEvent): Record<string, unknown> {
+function applyOp(state: Record<string, DictionaryValue>, event: LiveEvent): Record<string, DictionaryValue> {
   const op = event.payload.op;
   if (!isLiveOp(op)) return state;
   if (op.kind === "delete") {
     delete state[op.key];
-  } else {
-    state[op.key] = op.value;
+  } else if ("value" in op) {
+    // SAFETY: set operations store dictionary-serializable live values.
+    state[op.key] = op.value as DictionaryValue;
   }
   return state;
 }
@@ -120,7 +128,7 @@ function rollbackTargetIndex(
   selfIndex: number,
 ): number {
   const target = event.payload.target;
-  if (target === "genesis" || typeof target !== "string") return -1;
+  if (target === "genesis" || !__epochIsString(target)) return -1;
   const index = indexById.get(target);
   if (index === undefined || index >= selfIndex) return -1;
   return index;
@@ -128,7 +136,7 @@ function rollbackTargetIndex(
 
 function resolveCutIndex(ordered: readonly LiveEvent[], target: LiveTarget): number {
   if (target === "latest") return ordered.length - 1;
-  if (typeof target === "number") {
+  if (__epochIsNumber(target)) {
     if (target <= 0) return -1;
     let seen = 0;
     for (let index = 0; index < ordered.length; index += 1) {
@@ -144,7 +152,7 @@ function resolveCutIndex(ordered: readonly LiveEvent[], target: LiveTarget): num
   return index;
 }
 
-function isLiveOp(value: unknown): value is LiveOp {
+function isLiveOp(value: BoundaryValue): value is LiveOp {
   if (!isRecord(value) || typeof value.key !== "string") return false;
   return value.kind === "set" || value.kind === "delete";
 }

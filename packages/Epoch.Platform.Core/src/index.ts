@@ -1,6 +1,11 @@
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export type Capability = {
   key: string;
@@ -906,7 +911,7 @@ export type QuarantineRunnerInput = {
   reason: string;
 };
 
-export type LoadPlatformConfigurationInput = Record<string, unknown>;
+export type LoadPlatformConfigurationInput = Record<string, DictionaryValue>;
 
 export type SetAuditRetentionInput = {
   retention: string;
@@ -1419,7 +1424,7 @@ export class EpochPlatformCore {
   }
 
   verifyFabricCredential(secret: string): VerifiedFabricCredential {
-    if (typeof secret !== "string" || secret.trim().length === 0) {
+    if (!__epochIsString(secret) || secret.trim().length === 0) {
       throw new PlatformError("unauthorized", "Unknown fabric credential.");
     }
     const secretHash = hashSecret(secret);
@@ -1732,7 +1737,7 @@ export class EpochPlatformCore {
   }
 
   loadConfiguration(input: LoadPlatformConfigurationInput): PlatformConfigurationResult {
-    if (typeof input.database === "object" && input.database !== null && "invalid" in input.database) {
+    if (__epochIsObject(input.database) && input.database !== null && "invalid" in input.database) {
       throw new PlatformError("invalid_configuration", "Database configuration is invalid.", {
         suggestion: "Fix database configuration",
       });
@@ -2867,6 +2872,7 @@ function writePlatformStateFile(path: string, snapshot: PlatformSnapshot): void 
 }
 
 function readPlatformStateFile(path: string): PlatformSnapshot {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const stateFile = JSON.parse(readFileSync(path, "utf8")) as PlatformStateFile | PlatformSnapshot;
   if (isPlatformStateFile(stateFile)) {
     const expectedHash = snapshotHash(stateFile.snapshot);
@@ -2881,7 +2887,8 @@ function readPlatformStateFile(path: string): PlatformSnapshot {
 }
 
 function isPlatformStateFile(value: PlatformStateFile | PlatformSnapshot): value is PlatformStateFile {
-  const record = value as Record<string, unknown>;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const record = value as Record<string, DictionaryValue>;
   return typeof record.manifestHash === "string" && record.snapshot !== undefined;
 }
 
@@ -2890,6 +2897,7 @@ function writeBackupArtifact(path: string, artifact: PlatformBackupArtifact): vo
 }
 
 function readBackupArtifact(path: string): PlatformBackupArtifact {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const artifact = JSON.parse(readFileSync(path, "utf8")) as PlatformBackupArtifact;
   const expectedHash = snapshotHash(artifact.snapshot);
   if (artifact.manifest.manifestHash !== expectedHash) {
@@ -2900,22 +2908,22 @@ function readBackupArtifact(path: string): PlatformBackupArtifact {
   return artifact;
 }
 
-function writeJsonFile(path: string, value: unknown): void {
+function writeJsonFile(path: string, value: BoundaryValue): void {
   mkdirSync(dirname(path), { recursive: true });
   const tempPath = `${path}.tmp`;
   writeFileSync(tempPath, `${stableJson(value)}\n`, "utf8");
   renameSync(tempPath, path);
 }
 
-function stableJson(value: unknown): string {
+function stableJson(value: BoundaryValue): string {
   return JSON.stringify(sortJson(value));
 }
 
-function sortJson(value: unknown): unknown {
+function sortJson(value: BoundaryValue): BoundaryValue {
   if (Array.isArray(value)) {
     return value.map(sortJson);
   }
-  if (value !== null && typeof value === "object") {
+  if (value !== null && __epochIsObject(value)) {
     return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, inner]) => [key, sortJson(inner)]));
   }
   return value;

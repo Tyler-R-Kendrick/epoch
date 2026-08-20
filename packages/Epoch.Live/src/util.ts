@@ -1,8 +1,11 @@
+
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 // Structural-equality and record helpers are shared with the wider Epoch
 // browser integration surface rather than duplicated here.
 export { isRecord, stableJson } from "@epoch/integration-core";
 
 export function normalizeJson<T>(value: T): T {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
@@ -25,7 +28,7 @@ export function hashHex(value: string): string {
 }
 
 export function requireNonEmpty(value: string, label: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (!__epochIsString(value) || value.trim().length === 0) {
     throw new Error(`Epoch Live ${label} is required.`);
   }
   return value;

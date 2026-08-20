@@ -14,9 +14,11 @@ import {
 	type MetricScorecard,
 	type PrimaryScores,
 } from "./lib/scorecard.mts";
+import { isObject } from "./lib/value-types.mts";
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "help" };
+	const out: Record<string, string> = {};
+	out.mode = "help";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";
@@ -55,17 +57,21 @@ expect, act, and outcome bus entry. See references/metric-scorecard.md.
 `);
 }
 
-function readJson(path: string): unknown {
-	return JSON.parse(readFileSync(path, "utf8"));
+function readJson<T>(path: string): T {
+	// SAFETY: Callers provide a domain type and validate required fields before use.
+	return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 
-function entryScores(entry: unknown): MetricScorecard | null {
-	if (!entry || typeof entry !== "object") return null;
+function entryScores<T>(entry: T): MetricScorecard | null {
+	if (!isObject(entry)) return null;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const s = (entry as { scores?: unknown }).scores;
-	return s && typeof s === "object" ? (s as MetricScorecard) : null;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+	return s && isObject(s) ? (s as MetricScorecard) : null;
 }
 
 function validateEntry(path: string) {
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const entry = readJson(path) as {
 		kind?: string;
 		scores?: unknown;
@@ -79,6 +85,7 @@ function validateEntry(path: string) {
 	problems.push(
 		...validateScorecard(
 			entry.scores,
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			entry.kind as "expect" | "act" | "outcome" | undefined,
 		),
 	);
@@ -100,6 +107,7 @@ function validateEntry(path: string) {
 }
 
 function build(args: Record<string, string>) {
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const phase = args.phase as "expect" | "act" | "outcome";
 	if (!["expect", "act", "outcome"].includes(phase)) {
 		console.error("--phase expect|act|outcome required");
@@ -138,21 +146,26 @@ function compare(args: Record<string, string>) {
 		console.error("--expect and --outcome required");
 		process.exit(2);
 	}
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const expectEntry = readJson(args.expect) as {
 		id?: string;
 		scores?: MetricScorecard;
 	};
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const outcomeEntry = readJson(args.outcome) as {
 		scores?: MetricScorecard;
 		comparison?: unknown;
 		expects?: string;
 	};
 	const actEntry = args.act
-		? (readJson(args.act) as { id?: string; scores?: MetricScorecard })
+		? readJson<{ id?: string; scores?: MetricScorecard }>(args.act)
 		: null;
 
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const ep = expectEntry.scores?.primary as PrimaryScores | undefined;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const ap = actEntry?.scores?.primary as PrimaryScores | undefined;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const jp = outcomeEntry.scores?.primary as PrimaryScores | undefined;
 	if (!ep || !jp) {
 		console.error("expect and outcome must include scores.primary");

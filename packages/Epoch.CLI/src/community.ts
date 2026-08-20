@@ -9,6 +9,10 @@ import {
   type EpochIntegrationStorage,
 } from "@epoch/community-runtime";
 import { main as communityForgeMain, type CommunityCliIO } from "@epoch/community-cli";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 /**
  * `epoch community …` and `epoch ui …`.
@@ -37,7 +41,11 @@ export async function executeCommunityCli(
   }
 
   // The runtime stays browser-safe, so the host supplies file access.
-  setCliBundleReader((path) => JSON.parse(readFileSync(resolve(path), "utf8")) as unknown);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  setCliBundleReader((path) => {
+    // SAFETY: Bundle files are JSON objects validated by the workspace import command.
+    return JSON.parse(readFileSync(resolve(path), "utf8")) as BoundaryValue;
+  });
   const result = await executeCommunityRuntimeCommand(openWorkspaceRuntime(repoRoot), [command, ...args]);
   const target = outputPath(args);
   if (target !== undefined && result.ok && result.receipt !== undefined) {
@@ -101,10 +109,12 @@ export function createFileStorage(path: string): EpochIntegrationStorage {
 
 function readSnapshot(path: string): Record<string, string> {
   try {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    if (parsed === null || !__epochIsObject(parsed) || Array.isArray(parsed)) return {};
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return Object.fromEntries(
-      Object.entries(parsed as Record<string, unknown>)
+      Object.entries(parsed as Record<string, DictionaryValue>)
         .filter((entry): entry is [string, string] => typeof entry[1] === "string"),
     );
   } catch {

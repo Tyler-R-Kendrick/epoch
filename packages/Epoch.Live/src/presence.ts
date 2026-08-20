@@ -1,14 +1,16 @@
 import type { PresenceMessage } from "./providers";
 import { normalizeJson } from "./util";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export interface PresencePeer {
   readonly clientId: string;
   readonly author: string;
-  readonly state: Record<string, unknown>;
+  readonly state: Record<string, DictionaryValue>;
 }
 
 export interface LivePresence {
-  set(state: Record<string, unknown>): void;
+  set(state: Record<string, DictionaryValue>): void;
   peers(): readonly PresencePeer[];
   local(): PresencePeer;
   subscribe(listener: () => void): () => void;
@@ -36,7 +38,7 @@ export function createPresenceHub(options: PresenceHubOptions): PresenceHub {
   const remote = new Map<string, PresenceMessage>();
   const listeners = new Set<() => void>();
   const localListeners = new Set<(message: PresenceMessage) => void>();
-  let localState: Record<string, unknown> | undefined;
+  let localState: Record<string, DictionaryValue> | undefined;
   let seq = 0;
   let cachedPeers: readonly PresencePeer[] | undefined;
 
@@ -45,7 +47,7 @@ export function createPresenceHub(options: PresenceHubOptions): PresenceHub {
     for (const listener of listeners) listener();
   }
 
-  function set(state: Record<string, unknown>): void {
+  function set(state: Record<string, DictionaryValue>): void {
     seq += 1;
     localState = normalizeJson(state);
     const message: PresenceMessage = { clientId, author, state: localState, seq };

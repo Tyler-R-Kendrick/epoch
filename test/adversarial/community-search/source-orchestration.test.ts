@@ -67,7 +67,7 @@ async function publicDuplicateIdentityDoesNotMutateTheBackend(): Promise<void> {
   await assert.rejects(() => createSearchServiceFromSources({
     backend, registry: REGISTRY, context: CONTEXT, authorization: ACTOR,
     sources: [source("one", [[entity("duplicate", "public", "maya")]]), source("two", [[entity("duplicate", "public", "maya")]])],
-  }), (error: unknown) => error instanceof CommunityError && error.code === "INVALID_ENTITY");
+  }), (error) => error instanceof CommunityError && error.code === "INVALID_ENTITY");
   const service = await createSearchServiceFromSources({
     backend, registry: REGISTRY, context: CONTEXT, authorization: ACTOR, sources: [source("prior", [[prior]])],
   });
@@ -128,11 +128,11 @@ function source(
       const index = after === undefined ? 0 : Number(after);
       const entities = pages[index] ?? [];
       const next = index + 1 < pages.length ? String(index + 1) : undefined;
-      return {
+      const result = {
         entities,
-        ...(next === undefined ? {} : { next }),
         checkpoint: { sourceId, ...(overrides.pageCheckpoint ?? { token: `frontier-${index + 1}`, observedAt: NOW, status: "current" as const }) },
       };
+      return next === undefined ? result : { ...result, next };
     }),
   };
 }
@@ -143,7 +143,8 @@ function sourceCapabilities(sourceId: string): CommunitySourceCapabilities {
 }
 
 function page(sourceId: string, entities: readonly CommunityEntity[], token: string, next?: string): SourceSearchPage {
-  return { entities, ...(next === undefined ? {} : { next }), checkpoint: checkpoint(sourceId, token) };
+  const result = { entities, checkpoint: checkpoint(sourceId, token) };
+  return next === undefined ? result : { ...result, next };
 }
 
 function checkpoint(sourceId: string, token = "frontier-1") {
@@ -162,6 +163,6 @@ function entity(objectId: string, visibility: CommunityEntity["visibility"], own
 if (require.main === module) {
   runCommunitySourceOrchestrationAdversarialTests().then(
     () => console.log("community source orchestration adversarial tests passed"),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

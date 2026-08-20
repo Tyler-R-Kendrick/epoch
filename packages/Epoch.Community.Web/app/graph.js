@@ -217,7 +217,7 @@
     return CORE.communityMessageToEntity(message, {
       provenance: { sourceId: "community-web-host", nativeId: message.ref.objectId, observedAt: message.updatedAt || message.publishedAt },
       visibility: isDm ? "private" : "public",
-      ...(isDm ? { ownerId: authorization.actorId, participantIds: [authorization.actorId] } : {}),
+      ...(isDm ? { ownerId: authorization.actorId, participantIds: [authorization.actorId] } : undefined),
     });
   }
 
@@ -263,8 +263,8 @@
       }
       var page = await state.search.search({ expression: expression, order: input.orderBy,
         authorization: input.authorization, first: input.first,
-        ...(input.after ? { after: input.after } : {}), ...(snapshot ? { snapshot: snapshot } : {}),
-        ...(input.signal ? { signal: input.signal } : {}) });
+        ...(input.after ? { after: input.after } : undefined), ...(snapshot ? { snapshot: snapshot } : undefined),
+        ...(input.signal ? { signal: input.signal } : undefined) });
       snapshots.set(page.snapshot.snapshotId, page.snapshot);
       if (snapshots.size > 64) snapshots.delete(snapshots.keys().next().value);
       return page;
@@ -307,7 +307,7 @@
     },
     listPath: async function (input) {
       var state = stateForAuthorization(input.context);
-      var page = { first: input.first, ...(input.after ? { after: input.after } : {}) };
+      var page = { first: input.first, ...(input.after ? { after: input.after } : undefined) };
       return input.namespace ? state.projection.list(input.namespace, input.path, page, input.context)
         : state.namespace.list(input.path, page, input.context);
     },
@@ -388,7 +388,7 @@
   }
 
   function ready() {
-    if (!PORTABLE || typeof PORTABLE.createCommunityGraphQLSchema !== "function") return false;
+    if (!PORTABLE || !globalThis.CW_VALUE.isFunction(PORTABLE.createCommunityGraphQLSchema)) return false;
     if (!schema) schema = PORTABLE.createCommunityGraphQLSchema(services);
     return true;
   }

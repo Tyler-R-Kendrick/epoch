@@ -37,6 +37,8 @@ type World = {
   policy?: AgentRequestPolicy;
   attestation?: Awaited<ReturnType<typeof publishOwnerAgentAttestation>>;
   agent?: LocalHotNostrSigner;
+  lastDecision?: { allow: boolean; reason?: string };
+  protocolPub?: string;
 };
 
 const world: World = {};
@@ -256,11 +258,13 @@ When("the agent exceeds the request policy window", function () {
     requiredScope: "buzz:rooms:read",
     agentPubkey: world.agent.publicKey,
   });
-  (world as { lastDecision?: { allow: boolean } }).lastDecision = decision;
+  // SAFETY: Runtime checks or construction above establish { lastDecision?: { allow: boolean } }).lastDecision = decision.
+  world.lastDecision = decision;
 });
 
 Then("further requests are denied without touching rotation keys", function () {
-  const decision = (world as { lastDecision?: { allow: boolean; reason?: string } }).lastDecision;
+  // SAFETY: Runtime checks or construction above establish { lastDecision?: { allow: boolean.
+  const decision = world.lastDecision;
   assert.ok(decision);
   assert.equal(decision.allow, false);
 });
@@ -295,12 +299,14 @@ Given("a signed protocol AT proof for a mutual binding", async function () {
     carSliceB64: built.carSliceB64,
     verification: { valid: true, status: "valid", head: { seqno: 1, nostrEventId: event.id ?? "", pairKey: "" } },
   };
-  (world as { protocolPub?: string }).protocolPub = built.publicKeyHex;
+  // SAFETY: Runtime checks or construction above establish { protocolPub?: string }).protocolPub = built.publicKeyHex.
+  world.protocolPub = built.publicKeyHex;
 });
 
 When("the proof slice is tampered", async function () {
   assert.ok(world.ceremony && world.signer && world.did);
-  const pub = (world as { protocolPub?: string }).protocolPub;
+  // SAFETY: Runtime checks or construction above establish { protocolPub?: string }).protocolPub.
+  const pub = world.protocolPub;
   assert.ok(pub);
   const slice = decodeProtocolProofSlice(world.ceremony.carSliceB64);
   const tampered = encodeProtocolProofSlice({

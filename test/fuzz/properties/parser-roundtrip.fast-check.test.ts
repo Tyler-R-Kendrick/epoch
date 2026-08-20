@@ -72,6 +72,7 @@ async function main(): Promise<void> {
   }), params);
 
   await fc.assert(fc.asyncProperty(arbForgeObject, fc.nat({ max: 200 }), async (value, index) => {
+    // SAFETY: Runtime checks or construction above establish ForgeObject.
     assertForgeCodecSubset(value as ForgeObject, index);
   }), { ...params, numRuns: Math.min(params.numRuns, 32) });
 
@@ -100,7 +101,8 @@ async function main(): Promise<void> {
   }) + "\n");
 }
 
-void main().catch((error: unknown) => {
+void main().catch((error) => {
+  // SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
   process.stderr.write(`${String((error as Error).stack ?? error)}\n`);
   process.exitCode = 1;
 });

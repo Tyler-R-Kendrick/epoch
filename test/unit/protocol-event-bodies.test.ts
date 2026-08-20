@@ -5,6 +5,13 @@ import {
   type ProtocolEventType,
 } from "@epoch/protocol";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
+type CanonicalBodies = Record<ProtocolEventType, TestJsonObject>;
+
 export function runProtocolEventBodyTests(): void {
   everyDeclaredEventTypeAcceptsACanonicalBody();
   failClosedRejectsUnknownTypesFieldsAndEscapes();
@@ -23,7 +30,7 @@ function digest(token = "a"): string {
   return hex.repeat(64).slice(0, 64);
 }
 
-function event(type: ProtocolEventType, body: Record<string, unknown>, eventId = "event-01") {
+function event(type: ProtocolEventType, body: TestJsonValue, eventId = "event-01") {
   return { schemaVersion: 1 as const, type, eventId, revisionId: eventId, body };
 }
 
@@ -54,7 +61,7 @@ function changeRevisionBody() {
   };
 }
 
-function canonicalBodies(): Record<ProtocolEventType, Record<string, unknown>> {
+function canonicalBodies() {
   const changeGraph = {
     changeGraphId: id("change-graph"),
     memberRevisionIds: ["rev-a", "rev-b"],
@@ -332,7 +339,7 @@ function canonicalBodies(): Record<ProtocolEventType, Record<string, unknown>> {
       principalId: id("principal"),
       watermarkEventId: "msg-1",
     },
-  };
+  } satisfies CanonicalBodies;
 }
 
 function everyDeclaredEventTypeAcceptsACanonicalBody(): void {
@@ -387,7 +394,8 @@ function failClosedRejectsUnknownTypesFieldsAndEscapes(): void {
   }), /Unknown role/u);
   assert.throws(() => assertProtocolEvent(null), /event must be an object/u);
   assert.throws(() => assertProtocolEvent({
-    ...event("repository.identity", "not-an-object" as unknown as Record<string, unknown>),
+    // SAFETY: Runtime checks or construction above establish unknown as Record<string.
+    ...event("repository.identity", "not-an-object"),
   }), /event body must be an object/u);
 }
 
