@@ -23,10 +23,11 @@ plans, Linear, or shared registers themselves. The coordinator, single-writer, t
 
 ## Downward (design/proof change → dependents)
 
-Proof changes follow the draft skill: plan the change → improve-review the blast radius → ADR
-beside the changed proof → update every referencing rollup. `pnpm run draft:cascade` is the
-mechanical backstop — a changed technical/exp proof fails the gate until referencing epics/projects
-move in the same diff (waiver = proof.json + ADR).
+Proof changes follow the draft skill when present: plan the change → improve-review the blast
+radius → ADR beside the changed proof → update every referencing rollup. In Epoch, the
+coordinator applies those rollups serially from handback `cascadeDeltas` / `requirementChanges`
+and keeps `docs:check` + freshness matrix green — do **not** invent a `pnpm`/`agent:check`
+gate name. Use `npm run gate:commit` and `npm run docs:check` as the mechanical backstops.
 
 ## Shared-file strategy (conflict-free by construction)
 

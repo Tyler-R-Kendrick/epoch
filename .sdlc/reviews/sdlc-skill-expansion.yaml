@@ -1,0 +1,12 @@
+pr: pending
+layer: feat/sdlc-skill-expansion
+date: "2026-08-20"
+facets:
+  security: pass
+  design: n/a
+  architecture: pass
+notes: >
+  Skill/docs/process only. No secrets, no product UI. Canonical skill under skills/sdlc
+  with host symlinks; .sdlc machine store; Microsoft SkillOpt once-on-init. No pnpm
+  agent:check invented. Evidence pack docs/evidence/sdlc-skill-expansion/.
+verdict: approve

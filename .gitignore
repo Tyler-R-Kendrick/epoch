@@ -34,3 +34,6 @@ packages/Epoch.Community.Web/.vercel-output/
 .github/agents/
 .github/hooks/
 .grok/
+.cursor/skills/
+.skillopt-sleep/
+.serena/

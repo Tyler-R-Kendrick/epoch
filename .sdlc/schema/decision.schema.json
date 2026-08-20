@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.local/sdlc/decision.schema.json",
+  "title": "SDLC decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "date", "status", "summary", "personaImpact"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "format": "date" },
+    "status": { "type": "string", "enum": ["proposed", "accepted", "rejected", "superseded"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "personaImpact": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "adr": { "type": ["string", "null"] },
+    "supersedes": { "type": ["string", "null"] },
+    "notes": { "type": "string" }
+  }
+}

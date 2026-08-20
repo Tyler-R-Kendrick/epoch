@@ -1,0 +1,13 @@
+# Example accepted decision (template). Replace or add files as YYYY-MM-DD-<slug>.yaml.
+id: decision-sdlc-machine-store
+date: 2026-08-20
+status: accepted
+summary: >
+  Persist SDLC decisions, reviews, and evals under .sdlc/ as the machine-readable
+  standard; keep narrative ADRs in docs/design-decisions/ when material to humans.
+personaImpact:
+  - "@persona.platform_operator"
+  - agents coordinating delivery
+adr: null
+supersedes: null
+notes: Created with the expanded skills/sdlc subcommand skill.

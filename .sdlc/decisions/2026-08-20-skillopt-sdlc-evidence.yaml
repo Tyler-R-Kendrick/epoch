@@ -1,0 +1,14 @@
+id: 2026-08-20-skillopt-sdlc-evidence
+date: 2026-08-20
+status: accepted
+summary: >
+  SkillOpt-Sleep (Cursor backend) measured SDLC skill answers omitting docs/evidence
+  on PR-evidence tasks (baseline ~0.67). Strengthened SKILL.md hard rule 9; re-run
+  held-out score reached 1.0. No Sleep adopt of empty edits.
+personaImpact:
+  - agents coordinating delivery
+  - humans reviewing PRs for evidence packs
+related:
+  - skills/sdlc/SKILL.md
+  - .sdlc/skillopt/REPORT.md
+  - .sdlc/skillopt/sdlc-skill-tasks.json

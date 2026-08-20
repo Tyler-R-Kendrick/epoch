@@ -13,6 +13,9 @@ timestamp: 2026-07-02T00:00:00Z
 Ask the user before offloading ANY work to implementation agents, once per initiative (or
 per batch if the user prefers). No permission → the loop stops at the Linear capture phase.
 
+When/how to spawn or stop agents, and when to create or destroy branches and worktrees:
+[operations.md](operations.md).
+
 ## Backend matrix (pick per issue, not per initiative)
 
 The coordinator does not hardcode one delegation mechanism. Detect what the current harness
@@ -109,9 +112,13 @@ Every implementer brief **must** require incremental commits (see SKILL.md and
 `stacked-prs.md`):
 
 - Commit after each red→green step; never one mega-commit at the end.
-- `pnpm agent:check -- --staged` before every commit.
+- `npm run gate:commit` before every commit.
 - Conventional, scoped messages.
 - Push/hand back often enough that a dead subagent does not lose the layer.
+- Prefer extending existing modules; justify any new directory/package in the handback
+  ([repo-hygiene.md](repo-hygiene.md)).
+- Apply documentation freshness for touched surfaces ([documentation.md](documentation.md));
+  leave cascadeDeltas for inventory/index updates the parent must apply.
 
 Parent owns stack submit/sync/merge. Subagents do not restructure stacks.
 

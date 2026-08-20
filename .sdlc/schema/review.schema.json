@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.local/sdlc/review.schema.json",
+  "title": "SDLC review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "facets", "status", "recordedAt"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "pr": { "type": ["integer", "null"] },
+    "layer": { "type": ["string", "null"] },
+    "facets": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["security", "design", "architecture"] },
+      "minItems": 1
+    },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "blocking": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": { "type": "string" },
+    "recordedAt": { "type": "string" }
+  }
+}

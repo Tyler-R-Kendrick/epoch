@@ -19,8 +19,10 @@ scripts/ / harness/      # deterministic helpers
 
 ## Epoch rules
 
-- Mirror `.agents/skills/<name>` ↔ `.claude/skills/<name>` (byte-identical)
-- `pnpm run skills:mirror-check`
+- Canonical tracked skills live under `skills/<name>/` when versioned in-repo.
+- **SDLC:** `npm run skills:mirror-sdlc` symlinks `.agents/skills/sdlc`, `.claude/skills/sdlc`,
+  `.grok/skills/sdlc`, and `.cursor/skills/sdlc` → `skills/sdlc` (no duplicate trees).
+- Other harness skills: prefer byte-identical mirrors; `pnpm run skills:mirror-check` where wired.
 - OKF frontmatter on reference concepts for `repo` / `draft` / `sdlc` / `optimizexp`
 - Codex-valid YAML frontmatter on `SKILL.md`
 - Progressive disclosure: load references by **branch/section**, not all at once
@@ -32,7 +34,7 @@ scripts/ / harness/      # deterministic helpers
 |---|---|
 | `repo` | Lifecycle, search-before-test, PR hygiene |
 | `draft` | Proof taxonomy + artifact gates |
-| `sdlc` | Full loop; `/sdlc --finish` session land |
+| `sdlc` | Full loop + subcommands (`finish`, `clean`, `review`, `test`, `eval`, …); `/sdlc` |
 | `optimizexp` | UX/DX/AX measure→reduce→verify |
 | `gh-stack` | Non-interactive stacked PRs |
 

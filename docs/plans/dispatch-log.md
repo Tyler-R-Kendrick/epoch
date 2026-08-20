@@ -309,7 +309,18 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Failure class | Real CI: Prosody `apt-get install` hung twice on #158 after retargeting to `main`; cancelled and rerun green. Not billing. |
 | Notes | Restacked onto post-#166 `main` so Verify/mutation/docs keep both XMPP and Protocol lanes. Branch coverage floor is 80. |
 
-## 2026-08-20 — Anti-slop Oxlint + local gates (`/sdlc finish`)
+## 2026-08-20 — SDLC skill expansion (`/sdlc finish`)
+
+| Field | Value |
+|---|---|
+| Initiative | [`sdlc-skill-expansion`](sdlc-skill-expansion/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `feat/sdlc-skill-expansion` |
+| PR | [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176) |
+| Result | **success** (merge SHA filled after squash-merge) |
+| Failure class | none — Quality Gates 18/18 success before merge |
+| Notes | Subcommand router, `.sdlc/` store, SkillOpt-on-init, evidence hard rule, Epoch `gate:commit` wording. |
+
 
 | Field | Value |
 |---|---|

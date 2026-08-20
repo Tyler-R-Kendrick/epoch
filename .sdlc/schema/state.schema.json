@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epoch.local/sdlc/state.schema.json",
+  "title": "SDLC current state pointer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["initiative", "phase", "updatedAt"],
+  "properties": {
+    "initiative": { "type": ["string", "null"] },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "brainstorm",
+        "plan",
+        "dispatch",
+        "review",
+        "finish",
+        "closeout",
+        "closed"
+      ]
+    },
+    "planPath": { "type": ["string", "null"] },
+    "stack": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["branch"],
+        "properties": {
+          "branch": { "type": "string" },
+          "pr": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "updatedAt": { "type": "string" }
+  }
+}

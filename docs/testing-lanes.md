@@ -15,7 +15,7 @@ not a whole-program Stryker or Verify suite.
 | Lane | Strength | What Epoch uses | Where it runs |
 |---|---|---|---|
 | Atomic unit | Strong | `node:assert` suites via `test/run-unit-tests.ts` and `packages/*/test/*.test.mjs` | `npm run test:unit:runtime`, `npm test -w @epoch/<pkg>` |
-| BDD / behavior | Strong | Cucumber `features/*.feature` + `test/features/*_steps.ts` | `npm run test:features:runtime` (`npm test`) |
+| BDD / behavior | Strong | Cucumber `features/*.feature` + `test/features/*_steps.ts` (Playwright for browser persona steps) | `npm run test:features:runtime` (`npm test`) |
 | Contract | Strong (HTTP); NATS AUTH is not Pact | Official Pact for HTTP (`Community.Core`↔`Community.API`, gossip HTTP). NATS AUTH uses `test/unit/platform-fabric-nats-contract.test.ts` plus characterization goldens | `npm run test:pact`; unit runner |
 | Chaos / faults | Partial | Hang, malformed JSON, revoke, concurrency (`packages/Epoch.Nats/test/chaos-auth.test.mjs`, `chaos-svc.test.mjs`); XMPP malformed fanout envelopes (`packages/Epoch.Xmpp/test/chaos-fanout.test.mjs`); Community Web `community-web:app:faults` | `npm test -w @epoch/nats`, `npm test -w @epoch/xmpp`, `npm run community-web:app:faults` |
 | Fuzz | Strong on PR; Jazzer scheduled | ADR-0052: smoke, short fast-check (parsers, fabric auth, **service discovery**, history), corpus regression | `npm run fuzz:fast-check` (also inside `npm test`) |
@@ -50,6 +50,19 @@ Do not treat goldens as identity. Transport still moves bytes; clients verify
 signatures.
 
 `EPOCH_VERIFIED_DIR` redirects the golden directory for helper unit tests only.
+
+## New work (SDLC skill policy)
+
+For **new** user-visible work, prefer:
+
+1. Persona-tagged Gherkin under `features/` (`@persona.*`, including agents-as-users and
+   competitor power-user personas when the surface competes).
+2. Playwright as the browser driver for those scenarios.
+3. **Pact** at HTTP/integration boundaries instead of adding new full-stack e2e suites when
+   the boundary is contractual.
+
+Existing Community Web e2e jobs in `verify` / CI remain until a dedicated migration. Do not
+add new e2e-by-default paths. See [`skills/sdlc`](../skills/sdlc/SKILL.md) (`sdlc test`).
 
 ## What is still out of band
 
