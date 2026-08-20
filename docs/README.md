@@ -158,6 +158,7 @@ decisions, operations, or contribution workflow.
 | [XMPP Channel Fanout State](plans/xmpp-channel-fanout/sdlc-state.md) | Closed record for public-channel s2s fanout, Verify goldens, mutant kill, and chaos envelopes. |
 | [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Closed record for Verify goldens, Protocol mutant kill, honest lane inventory, and the 80% branch floor. |
 | [Anti-slop Oxlint Gates State](plans/anti-slop-oxlint-gates/sdlc-state.md) | Active record for vendored anti-slop Oxlint, clean baseline, and strengthened `gate:commit` hooks. |
+| [Anti-slop Zero Re-init State](plans/anti-slop-zero/sdlc-state.md) | Re-install / force re-vendor anti-slop; consecutive clean `lint:oxlint` evidence. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
 | [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |
