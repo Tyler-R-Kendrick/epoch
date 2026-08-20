@@ -1012,7 +1012,8 @@ When("I open the Community Web general channel from the prompt", async function 
 
 When("I move to the next Community Web message and open its thread by keyboard", async function () {
   const page = requirePage();
-  const first = page.locator('.cn-tree[role="feed"] .cn-comment[role="article"][tabindex="0"]');
+  // Roots-only channel feed: start from the first visible root, then move to the next.
+  const first = page.locator('.cn-feed-tree[role="feed"] .cn-comment[role="article"]').first();
   await first.waitFor({ state: "visible" });
   await first.focus();
   const before = await first.getAttribute("data-key");
@@ -1020,7 +1021,7 @@ When("I move to the next Community Web message and open its thread by keyboard",
   await page.keyboard.press("ArrowDown");
   await page.waitForFunction((previous) =>
     document.activeElement?.closest?.('.cn-comment[role="article"]')?.getAttribute("data-key") !== previous, before);
-  const selected = page.locator('.cn-tree[role="feed"] .cn-comment[role="article"]:focus');
+  const selected = page.locator('.cn-feed-tree[role="feed"] .cn-comment[role="article"]:focus');
   await selected.waitFor({ state: "attached" });
   communityWebAppFocusedMessage = (await selected.getAttribute("data-key")) ?? "";
   assert.ok(communityWebAppFocusedMessage);
@@ -1264,13 +1265,13 @@ When("I open one Community Web message from its channel projection", { timeout: 
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     /\/channels\/general/.test(((window as { CW_APP: { state: { path: string } } })).CW_APP.state.path),
   { timeout: 10_000 });
-  const message = page.locator('.cn-comment[data-key="p3"]');
+  const message = page.locator('.cn-feed-tree .cn-comment[data-key="p1"]');
   await message.waitFor({ state: "visible", timeout: 15_000 });
   await message.click();
   await page.waitForFunction(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     const app = ((window as { CW_APP: { state: { threadFocus?: string } } })).CW_APP;
-    return app.state.threadFocus === "p3"
+    return app.state.threadFocus === "p1"
       && !!document.querySelector('.cn-thread-tree[role="tree"]');
   }, null, { timeout: 15_000 });
   communityWebAppLinkResult = await page.evaluate(() => {
@@ -1540,8 +1541,8 @@ When("I operate every focused Community Web post action by keyboard", async func
     up: node.querySelector('[data-vote="up"]')?.getAttribute("aria-keyshortcuts") ?? null,
     down: node.querySelector('[data-vote="down"]')?.getAttribute("aria-keyshortcuts") ?? null,
     react: node.querySelector("[data-react-pick]")?.getAttribute("aria-keyshortcuts") ?? null,
-    fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts") ?? null,
-    foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label") ?? null,
+    fold: null as string | null,
+    foldName: null as string | null,
     reply: node.querySelector("[data-reply]")?.getAttribute("aria-keyshortcuts") ?? null,
     repost: node.querySelector("[data-repost]")?.getAttribute("aria-keyshortcuts") ?? null,
     share: node.querySelector("[data-share-post]")?.getAttribute("aria-keyshortcuts") ?? null,
@@ -1553,6 +1554,21 @@ When("I operate every focused Community Web post action by keyboard", async func
   const reactionOpened = await page.evaluate(() =>
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     ((window as { CW_APP: { state: { reactPick: string | null } } })).CW_APP.state.reactPick === "p1");
+  // Fold lives in thread detail only (roots-only channel feed has no inline nest).
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() =>
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { state: { threadFocus?: string } } })).CW_APP.state.threadFocus === "p1"
+      && !!document.querySelector('.cn-thread-tree [data-fold="p1"]'),
+  null, { timeout: 10_000 });
+  const threadArticle = page.locator('.cn-thread-tree .cn-comment[data-key="p1"]');
+  await threadArticle.focus();
+  const threadControls = await threadArticle.evaluate((node) => ({
+    fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts") ?? null,
+    foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label") ?? null,
+  }));
+  controls.fold = threadControls.fold;
+  controls.foldName = threadControls.foldName;
   await page.keyboard.press("f");
   await page.keyboard.press("Shift+r");
   await page.keyboard.press("s");
