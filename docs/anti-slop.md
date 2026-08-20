@@ -30,6 +30,19 @@ npx skills add dmmulroy/anti-slop --skill install-anti-slop \
 Ask an agent to follow the `install-anti-slop` skill when re-vendoring or
 reconfiguring the plugin.
 
+### Re-verify (force re-vendor)
+
+```bash
+npm run agents:install-skills
+node .agents/skills/install-anti-slop/scripts/install.mjs tools/oxlint/anti-slop --force
+npm view oxlint version   # pin matching oxlint + @oxlint/plugins
+npm run lint:oxlint       # must exit 0; probe a synthetic `unknown` param to prove rules load
+```
+
+Do not use `--force` casually — diff the existing tree first. See
+[`docs/plans/anti-slop-zero/sdlc-state.md`](plans/anti-slop-zero/sdlc-state.md)
+for the latest clean-baseline evidence.
+
 ## Commands
 
 ```bash
