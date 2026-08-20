@@ -1,10 +1,10 @@
 # Anti-slop Oxlint + local gates — SDLC state
 
 - Initiative: `anti-slop-oxlint-gates`
-- Phase: closeout
+- Phase: closed
 - Observed research baseline: `e40d8f7` (origin/main at session start)
-- Delivery branch: `feat/anti-slop-oxlint-gates`
-- PR: [#170](https://github.com/Tyler-R-Kendrick/epoch/pull/170)
+- Delivery branch: `feat/anti-slop-oxlint-gates` (deleted after merge)
+- PR: [#170](https://github.com/Tyler-R-Kendrick/epoch/pull/170) — squash-merged [`ed14571`](https://github.com/Tyler-R-Kendrick/epoch/commit/ed14571f907235893a8a641b82bb15e7e71a894e)
 
 ## Decisions
 
@@ -19,7 +19,8 @@
 - Parallel `scripts/run-gate-fast.mjs`.
 - Docs: `docs/anti-slop.md`, ADR-0056, AGENTS/CONTRIBUTING/DX/quality-gates/ai-automation updates.
 - Typecheck debt from the baseline rewrite cleared for packages and `tsconfig.test.json`.
+- Fail-closed follow-up on the same PR restored schema-2 migrations, `validateProjectionId` string checks, Live Redux flat-action payloads, TomlDateTime preservation, and `CW_VALUE` unit fixtures; Quality Gates all green on `50156f7` before squash-merge.
 
 ## Stack / PRs
 
-- Single delivery PR [#170](https://github.com/Tyler-R-Kendrick/epoch/pull/170) (no multi-layer stack).
+- Single delivery PR [#170](https://github.com/Tyler-R-Kendrick/epoch/pull/170) (no multi-layer stack) — **merged**.
