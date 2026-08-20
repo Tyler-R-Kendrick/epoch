@@ -179,7 +179,9 @@ async function storeExportImportIsolated(): Promise<void> {
   const store = createMemoryCommunityStateStore(migrateCommunityState(schemaTwo(), runtime()));
   const exported = await store.export();
   // SAFETY: Runtime checks or construction above establish unknown as { ref: { objectId: string } }[])[0]!.ref.objectId = "tampered".
-  (exported.entities as { ref: { objectId: string } }[])[0]!.ref.objectId = "tampered";
+  // SAFETY: Export tampering test mutates cloned entity refs before re-import.
+  const entities = [...exported.entities] as { ref: { objectId: string } }[];
+  entities[0]!.ref.objectId = "tampered";
   assert.equal(await store.read((snapshot) => snapshot.entity("m-api-1")?.ref.objectId), "m-api-1");
   const empty = emptyState();
   await store.import(empty);
@@ -254,6 +256,6 @@ function emptyState(): CommunityStateV3 {
   };
 }
 
-function typedMigrationError(error): boolean {
+function typedMigrationError(error: Error): boolean {
   return error instanceof CommunityError && error.code === "PERSISTENCE_MIGRATION";
 }

@@ -18,6 +18,12 @@ export type LiveRollbackPayload = {
   readonly previousHeads: readonly string[];
 };
 
+export type LiveOpPayload = {
+  readonly op: LiveOp;
+  readonly action: string;
+  readonly summary: string;
+};
+
 /**
  * Materialize the latest converged state of an entity by folding its events in
  * the deterministic total order. A rollback event resets the accumulator to the
@@ -109,8 +115,9 @@ function applyOp(state: Record<string, DictionaryValue>, event: LiveEvent): Reco
   if (!isLiveOp(op)) return state;
   if (op.kind === "delete") {
     delete state[op.key];
-  } else {
-    state[op.key] = op.value;
+  } else if ("value" in op) {
+    // SAFETY: set operations store dictionary-serializable live values.
+    state[op.key] = op.value as DictionaryValue;
   }
   return state;
 }

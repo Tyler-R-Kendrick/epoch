@@ -18,6 +18,7 @@ import {
   type CommunityMessage,
   type CommunityObjectRef,
 } from "@epoch/community-core";
+import type { TestJsonObject, TestJsonValue } from "../helpers/json-types";
 
 const channelRef: CommunityObjectRef = { objectId: "channel-general", kind: "channel" };
 const rootRef: CommunityObjectRef = { objectId: "m-001", kind: "message", revision: "cid-a" };
@@ -182,7 +183,16 @@ function normalizedQuerySurvivesReload(): void {
   const first = normalizeQuery("( state:needs-review )   sort:new", { now: "2026-08-12T10:00:00Z" });
   const second = normalizeQuery(first.canonical, { version: first.version });
   assert.equal(first.error, undefined);
-  assert.deepEqual(stripSpans(second.ast), stripSpans(first.ast));
+  assert.deepEqual(
+    stripSpans(
+      // SAFETY: Search AST fixtures JSON-round-trip before span stripping comparison.
+      JSON.parse(JSON.stringify(second.ast)) as TestJsonValue,
+    ),
+    stripSpans(
+      // SAFETY: Search AST fixtures JSON-round-trip before span stripping comparison.
+      JSON.parse(JSON.stringify(first.ast)) as TestJsonValue,
+    ),
+  );
   assert.equal(second.canonical, "state:needs-review sort:new");
   assert.deepEqual(second.sort, [{ field: "updatedAt", direction: "descending", nulls: "last" }]);
   assert.match(first.queryHash, /^[a-f0-9]{16}$/u);
@@ -373,14 +383,16 @@ function validationFailsClosed(): void {
   }
   assert.throws(() => validateProjectionId("unsafe/projection"));
   // SAFETY: Runtime checks or construction above establish unknown as string)).
-  assert.throws(() => validateProjectionId(7 as string));
+  // @ts-expect-error validateProjectionId rejects non-string projection ids.
+  assert.throws(() => validateProjectionId(7));
   assert.equal(parseObjectUrl("not a url"), undefined);
   assert.equal(parseObjectUrl("/elsewhere?object=m-001"), undefined);
   assert.equal(parseObjectUrl("/board.html?object=bad%2Fid"), undefined);
   assert.equal(parseObjectUrl("/board.html?projection=bad%2Fid&focus=m-001"), undefined);
   assert.throws(() => objectUrl(rootRef, { revision: "" }), /revision/u);
   // SAFETY: Runtime checks or construction above establish unknown as string }).
-  assert.throws(() => objectUrl(rootRef, { revision: 7 as string }), /revision/u);
+  // @ts-expect-error objectUrl rejects non-string revision values.
+  assert.throws(() => objectUrl(rootRef, { revision: 7 }), /revision/u);
   assert.throws(() => objectUrl(rootRef, { revision: "r".repeat(513) }), /revision/u);
   assert.equal(parseObjectUrl(`/board.html?object=m-001&revision=${"r".repeat(513)}`), undefined);
 

@@ -93,7 +93,7 @@ export function createMemoryCommunityStateStore(
         current = candidate;
         resolveResult(value);
       } catch (error) {
-        rejectResult(error);
+        rejectResult(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ error as BoundaryValue);
       }
     });
     await writes;

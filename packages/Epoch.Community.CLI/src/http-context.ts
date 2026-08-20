@@ -110,7 +110,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
   if (response.ok) return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as T;
-  const body = record(record(value)?.error);
+  const body = record(record(/* SAFETY: Error responses are JSON objects parsed above. */ value as BoundaryValue)?.error);
   const code = communityErrorCode(body?.code);
   throw new CommunityError(code, __epochIsString(body?.message) ? body.message : "Community API request failed");
 }

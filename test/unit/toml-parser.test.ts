@@ -37,13 +37,21 @@ export function runTomlParserTests(): void {
  * unnormalized document.
  */
 function parse(text: string): TestJsonObject {
-  // SAFETY: Runtime checks or construction above establish Record<string.
-  return plain(parseTomlDocument(text)) as TestJsonObject;
+  // SAFETY: TOML tables normalize into JSON-shaped test fixtures.
+  return plain(JSON.parse(JSON.stringify(parseTomlDocument(text))) as TestJsonValue) as TestJsonObject;
 }
 
 function plain(value: TestJsonValue | TomlDateTime): TestJsonValue {
-  if (Array.isArray(value)) return value.map(plain);
-  if (!isTestJsonObject(value) || value instanceof TomlDateTime) return value;
+  if (Array.isArray(value)) {
+    return value.map((entry) => {
+      // SAFETY: TOML array entries normalize into JSON-shaped test fixtures.
+      return plain(entry as TestJsonValue | TomlDateTime);
+    });
+  }
+  if (!isTestJsonObject(value) || value instanceof TomlDateTime) {
+    // SAFETY: Non-object TOML scalars pass through unchanged.
+    return value as TestJsonValue;
+  }
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, plain(entry)]));
 }
 
@@ -150,8 +158,10 @@ function datesAndTimesAreParsed(): void {
   ].join("\n"));
 
   const kinds = Object.fromEntries(
-    // SAFETY: Runtime checks or construction above establish TomlDateTime).kind]).
-    Object.entries(document).map(([key, value]) => [key, (value as TomlDateTime).kind]),
+    Object.entries(document).map(([key, value]) => {
+      assert.ok(value instanceof TomlDateTime, `${key} should parse as TomlDateTime`);
+      return [key, value.kind];
+    }),
   );
   assert.deepEqual(kinds, {
     offset: "offset-date-time",
@@ -268,7 +278,8 @@ function prototypeNamedKeysAreOrdinaryKeys(): void {
   assert.equal(document.toString, 1);
   assert.equal(document.valueOf, 2);
   assert.equal(document.hasOwnProperty, "three");
-  assert.deepEqual(plain(document.constructor), { x: 1 });
+  // SAFETY: Constructor tables JSON-round-trip before plain normalization.
+  assert.deepEqual(plain(JSON.parse(JSON.stringify(document.constructor)) as TestJsonValue), { x: 1 });
   assert.equal(Object.getPrototypeOf(document), null, "tables carry no prototype");
   // SAFETY: Runtime checks or construction above establish object).
   assert.equal(Object.getPrototypeOf(document.constructor as object), null, "nor do nested tables");

@@ -163,7 +163,13 @@ export function createLiveStore<TState extends object>(options: LiveStoreOptions
   }
 
   function appendOp(op: LiveOp, actionType: string): LiveEvent {
-    return log.append("op", entity, { op, action: actionType, summary: summarizeOp(op, actionType) });
+    const payload = {
+      // SAFETY: LiveOp values are JSON-serialized before durable log append.
+      op: JSON.parse(JSON.stringify(op)) as DictionaryValue,
+      action: actionType,
+      summary: summarizeOp(op, actionType),
+    };
+    return log.append("op", entity, payload);
   }
 
   function finishLocalCommit(events: readonly LiveEvent[]): void {

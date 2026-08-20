@@ -418,7 +418,7 @@ function patchApplicationRejectsAmbiguousEdits(): void {
   );
 
   // SAFETY: Runtime checks or construction above establish unknown as typeof patch.
-  const unsupported = { ...patch, edits: [{ kind: "teleport", path: "object#0" }] } as typeof patch;
+  const unsupported = JSON.parse(JSON.stringify({ ...patch, edits: [{ kind: "teleport", path: "object#0" }] })) as typeof patch;
   assert.throws(
     () => applySemanticPatch(source, unsupported, jsonSyntaxProvider),
     (error) => error instanceof SemanticPatchError && error.code === "unsupported-edit",

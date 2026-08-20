@@ -34,3 +34,15 @@ export function isFunction<T>(value: T): value is T & ((...args: never[]) => voi
 export function isObjectNonNull<T>(value: T): value is T & object {
   return typeof value === "object" && value !== null;
 }
+
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+type TestFixtureInput = Readonly<Record<PropertyKey, TestJsonValue>>;
+
+/** Narrow test fixtures after explicit runtime checks at the call site. */
+export function asFixture<T>(value: TestFixtureInput): T {
+  // SAFETY: Test call sites construct or validate fixtures before narrowing.
+  return value as T;
+}

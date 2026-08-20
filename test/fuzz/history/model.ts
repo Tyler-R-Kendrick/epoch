@@ -54,7 +54,8 @@ export function storeCanonicalDigest(store: SignedChangeGraphStore): string {
     .sort((left, right) => String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ left as { id?: string }).id).localeCompare(String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ right as { id?: string }).id)));
   // Heads intentionally omitted: a fresh replica may carry a local identity head
   // that is outside the transported change-graph event set.
-  return createHash("sha256").update(canonical({ events })).digest("hex");
+  // SAFETY: History events JSON-round-trip before canonical hashing in the fuzz model.
+  return createHash("sha256").update(canonical(JSON.parse(JSON.stringify({ events })) as Parameters<typeof canonical>[0])).digest("hex");
 }
 
 export function syncModelCounts(model: HistoryModel, store: SignedChangeGraphStore): void {

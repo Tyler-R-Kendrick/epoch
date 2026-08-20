@@ -17,19 +17,19 @@ import {
 const CORPUS_ROOT = join(process.cwd(), "test/fuzz/corpus/v1");
 
 const runners = {
-  revset: (bytes) => fuzzSafeRevset(bytes.toString("utf8")),
-  "canonical-id": (bytes) => fuzzSafeCanonicalId(bytes.toString("utf8")),
-  "pkt-line": (bytes) => fuzzSafePktLines(bytes),
-  "remote-helper": (bytes) => fuzzSafeRemoteHelper(bytes.toString("utf8")),
-  "chunk-manifest": (bytes) => fuzzSafeChunkManifestJson(bytes.toString("utf8")),
-  swhid: (bytes) => fuzzSafeSwhid(bytes.toString("utf8")),
-  "forge-codecs": (bytes) => fuzzSafeForgeCodecBytes(bytes),
-  "protocol-event": (bytes) => fuzzSafeProtocolEventJson(bytes.toString("utf8")),
-  "path-query": (bytes) => {
+  revset: (bytes: Buffer) => fuzzSafeRevset(bytes.toString("utf8")),
+  "canonical-id": (bytes: Buffer) => fuzzSafeCanonicalId(bytes.toString("utf8")),
+  "pkt-line": (bytes: Buffer) => fuzzSafePktLines(bytes),
+  "remote-helper": (bytes: Buffer) => fuzzSafeRemoteHelper(bytes.toString("utf8")),
+  "chunk-manifest": (bytes: Buffer) => fuzzSafeChunkManifestJson(bytes.toString("utf8")),
+  swhid: (bytes: Buffer) => fuzzSafeSwhid(bytes.toString("utf8")),
+  "forge-codecs": (bytes: Buffer) => fuzzSafeForgeCodecBytes(bytes),
+  "protocol-event": (bytes: Buffer) => fuzzSafeProtocolEventJson(bytes.toString("utf8")),
+  "path-query": (bytes: Buffer) => {
     fuzzSafePathQuery(bytes.toString("utf8"));
     assertPathQueryFailClosed(bytes.toString("utf8"));
   },
-  history: (bytes) => {
+  history: (bytes: Buffer) => {
     // History corpora are JSON failure records; presence alone is the regression latch.
     const text = bytes.toString("utf8").trim();
     if (text.length === 0) return;
@@ -38,7 +38,7 @@ const runners = {
     assert.notEqual(parsed, null);
     assert.equal(Array.isArray(parsed), false);
   },
-};
+} satisfies Record<string, (bytes: Buffer) => void>;
 
 function listCorpusFiles(target: string): string[] {
   const dir = join(CORPUS_ROOT, target);

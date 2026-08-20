@@ -3,6 +3,10 @@ import { stableJson } from "@epoch/integration-core";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 
+function xstateValueAsDictionary(value: BoundaryValue): DictionaryValue {
+  // SAFETY: XState machine values are JSON-serializable; stableJson round-trip preserves dictionary shape.
+  return JSON.parse(stableJson(value)) as DictionaryValue;
+}
 
 export interface EpochXStateSnapshot {
   readonly context?: unknown;
@@ -58,7 +62,8 @@ export function createEpochXStateObserver<TSnapshot extends EpochXStateSnapshot>
         payload,
         metadata: {
           eventType,
-          stateValue: snapshot.value,
+          // SAFETY: XState snapshot.value is JSON-serializable machine state consumed as dictionary metadata.
+          stateValue: xstateValueAsDictionary(snapshot.value as BoundaryValue),
           ...options.metadata?.(snapshot),
         },
       });

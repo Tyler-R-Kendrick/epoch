@@ -74,7 +74,8 @@ export async function openDurableStorage(options: DurableStorageOptions): Promis
         if (key.startsWith(prefix)) values.set(key, value);
       }
     } catch (error) {
-      failure = message(error);
+      // SAFETY: Storage open failures are normalized to human-readable messages at this boundary.
+      failure = message(error as BoundaryValue);
       database = undefined;
     }
   }
@@ -98,9 +99,10 @@ export async function openDurableStorage(options: DurableStorageOptions): Promis
     pending += 1;
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
     settled = settled.then(() => write(database as IDBDatabase, options.storeName ?? DEFAULT_STORE, key, value))
-      .then(() => { pending -= 1; }, (error: BoundaryValue) => {
+      .then(() => { pending -= 1; }, (error) => {
         pending -= 1;
-        failure = message(error);
+        // SAFETY: IndexedDB write failures are normalized at this storage boundary.
+        failure = message(error as BoundaryValue);
       });
   }
 

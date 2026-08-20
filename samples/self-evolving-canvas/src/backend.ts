@@ -19,6 +19,8 @@ import {
 } from "./domain.js";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+type JsonObject = { readonly [key: string]: JsonValue };
+type JsonValue = null | boolean | number | string | JsonValue[] | JsonObject;
 
 
 export interface CanvasClusterNodeOptions {
@@ -86,7 +88,8 @@ export function createCanvasClusterNode(options: CanvasClusterNodeOptions): Canv
       kind: "map-set",
       entity: CANVAS_ENTITY,
       key: "document",
-      value: canvas,
+      // SAFETY: CanvasDocument is JSON-round-tripped before persistence as a live map value.
+      value: JSON.parse(JSON.stringify(canvas)) as JsonValue,
     }, participantId);
   }
 

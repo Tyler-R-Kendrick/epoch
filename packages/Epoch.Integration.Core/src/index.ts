@@ -101,7 +101,7 @@ export function createBrowserEpoch(options: BrowserEpochOptions): BrowserEpoch {
       metadata: input.metadata,
     }) as TrackedChange<TPayload>;
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
-    const event = repository.append(entity, change as Record<string, DictionaryValue>);
+    const event = repository.append(entity, trackedChangeRecord(change));
     return {
       event,
       revision,
@@ -192,7 +192,7 @@ export function versionLedgerFromRepository(
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return repository.history()
     .filter((event) => event.entity === entity && isTrackedChange(event.payload))
-    .map((event) => ledgerEntryFromEvent(event, event.payload as TrackedChange));
+    .map((event) => ledgerEntryFromEvent(event, assertTrackedChange(event.payload)));
 }
 
 function nextRevision(repository: EpochLiveRepository, entity: string): number {
@@ -255,4 +255,26 @@ function isTrackedChange(value: BoundaryValue): value is TrackedChange {
     && typeof value.revision === "number"
     && typeof value.summary === "string"
     && "payload" in value;
+}
+
+function trackedChangeRecord(change: TrackedChange) {
+  const record = {
+    kind: change.kind,
+    surface: change.surface,
+    source: change.source,
+    revision: change.revision,
+    summary: change.summary,
+    // SAFETY: Repository append accepts dictionary-serializable tracked payloads.
+    payload: change.payload as DictionaryValue,
+  };
+  if (change.metadata !== undefined) {
+    return { ...record, metadata: change.metadata };
+  }
+  return record;
+}
+
+function assertTrackedChange(value: BoundaryValue): TrackedChange {
+  if (!isTrackedChange(value)) throw new Error("Expected tracked change payload");
+  // SAFETY: isTrackedChange narrows value to TrackedChange.
+  return value;
 }

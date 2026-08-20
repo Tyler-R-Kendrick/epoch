@@ -676,26 +676,32 @@ function parseGlobalArgs(argv: string[]): ParsedArgs {
 }
 
 function parseOptions<T extends Record<string, string>>(args: string[], defaults: T, flags: readonly string[] = []): T & { positionals: string[] } {
-  const values = { ...defaults, positionals: [] };
+  const values: T & { positionals: string[] } = { ...defaults, positionals: [] };
   const remaining = [...args];
   while (remaining.length > 0) {
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const token = remaining.shift() as string;
     if (!token.startsWith(CliSyntax.optionPrefix)) {
-      // SAFETY: The module validates or constructs this value before applying the asserted contract.
-      (values.positionals as string[]).push(token);
+      values.positionals.push(token);
       continue;
     }
     const key = token.slice(2);
     if (flags.includes(key)) {
-      values[key] = "true";
+      assignCliOption(values, key, "true");
       continue;
     }
     if (!(key in defaults)) throw new Error(`unknown option: ${token}`);
-    values[key] = requiredValue(token, remaining.shift());
+    assignCliOption(values, key, requiredValue(token, remaining.shift()));
   }
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  return values as T & { positionals: string[] };
+  return values;
+}
+
+function assignCliOption<T extends Record<string, string>>(
+  values: T & { positionals: string[] },
+  key: string,
+  value: string,
+): void {
+  Object.assign(values, { [key]: value });
 }
 
 function runVersionCommand(repo: EpochRepository, args: string[], io: CliIO): void {
@@ -789,7 +795,8 @@ function splitCsv(value: string): string[] {
 }
 
 function recordCliOperation(repo: EpochRepository, command: string, detail: Record<string, DictionaryValue>): void {
-  repo.appendOperation(command, "succeeded", detail);
+  // SAFETY: CLI operation details are built from JSON-safe values before append.
+  repo.appendOperation(command, "succeeded", detail as Parameters<EpochRepository["appendOperation"]>[2]);
 }
 
 function writeLine(io: CliIO, message: string): void {

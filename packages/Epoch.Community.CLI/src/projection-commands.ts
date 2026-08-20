@@ -138,7 +138,8 @@ export async function runProjectionCommand(
       default: throw invalidInput("Unknown projections command");
     }
   } catch (error) {
-    return failure(error);
+    // SAFETY: catch binds unknown; failure accepts any thrown runtime value.
+    return failure(error as BoundaryValue);
   }
 }
 

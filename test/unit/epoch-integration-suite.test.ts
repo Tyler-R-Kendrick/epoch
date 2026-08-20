@@ -233,7 +233,8 @@ function tracksXStateTransitionsExplicitly(): void {
     entity: "xstate:counter",
     source: "counter-machine",
     events: ["increment"],
-    select: (snapshot) => snapshot.context,
+    // SAFETY: XState observer snapshots expose machine context as readonly object payloads.
+    select: (snapshot) => snapshot.context as Readonly<object>,
   });
 
   actor.subscribe(observer);
@@ -257,9 +258,13 @@ function tracksXStateOptionalFiltersAndSummaries(): void {
     epoch,
     entity: "xstate:open",
     source: "open-machine",
-    select: (snapshot) => snapshot.context,
+    // SAFETY: XState observer snapshots expose machine context as readonly object payloads.
+    select: (snapshot) => snapshot.context as Readonly<object>,
     summary: (snapshot) => `to ${String(snapshot.value)}`,
-    metadata: (snapshot) => ({ value: snapshot.value }),
+    metadata: (snapshot) => ({
+      // SAFETY: XState snapshot values are serialized as JSON-safe metadata.
+      value: snapshot.value as string | number | boolean | null,
+    }),
   });
   observer.next({ context: { count: 0 }, value: "idle" });
   observer.next({ context: { count: 0 }, value: "idle" });
@@ -272,7 +277,8 @@ function tracksXStateOptionalFiltersAndSummaries(): void {
     entity: "xstate:filtered",
     source: "filtered-machine",
     events: ["keep"],
-    select: (snapshot) => snapshot.context,
+    // SAFETY: XState observer snapshots expose machine context as readonly object payloads.
+    select: (snapshot) => snapshot.context as Readonly<object>,
   });
   filtered.next({ context: { n: 0 } });
   filtered.next({ context: { n: 1 }, event: { type: "drop" } });

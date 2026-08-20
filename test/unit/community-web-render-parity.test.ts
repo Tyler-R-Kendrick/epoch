@@ -125,9 +125,8 @@ async function clientSearchUsesTheTestedHelper(html: string, ledger: DefectLedge
     url: "https://community.test/",
     virtualConsole,
     beforeParse(win) {
-      // SAFETY: Runtime checks or construction above establish unknown as { fetch: () => Promise<never> }).fetch = () =>.
-      (win as { fetch: () => Promise<never> }).fetch = () =>
-        Promise.reject(new Error("offline in unit test"));
+      // SAFETY: JSDOM window is stubbed with an offline fetch implementation for unit tests.
+      win.fetch = () => Promise.reject(new Error("offline in unit test"));
     },
   });
   const { window } = dom;

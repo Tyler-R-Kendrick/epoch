@@ -306,7 +306,8 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
         const services = requiredServices(options.services);
         // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as CommunitySearchRequest & { readonly scope?: unknown };
-        rejectUnsupportedSearchScope(body.scope);
+        // SAFETY: Optional search scope is rejected when present before the search service runs.
+        rejectUnsupportedSearchScope(body.scope as BoundaryValue | undefined);
         return json(await services.search.search(body, authorization, request.signal));
       }
       if (request.method === "POST" && url.pathname === "/search/parse") {
@@ -320,7 +321,8 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
         const services = requiredServices(options.services);
         // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as Omit<CommunitySearchRequest, "after" | "snapshot"> & { readonly scope?: unknown };
-        rejectUnsupportedSearchScope(body.scope);
+        // SAFETY: Optional search scope is rejected when present before the search service runs.
+        rejectUnsupportedSearchScope(body.scope as BoundaryValue | undefined);
         return json(await services.search.explain(body, authorization));
       }
       if (request.method === "GET" && url.pathname === "/namespace/list") {
@@ -399,7 +401,8 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
       }
       return json({ error: { code: "NOT_FOUND", message: "not found" } }, 404);
     } catch (error) {
-      const normalized = normalizeApiError(error);
+      // SAFETY: catch-clause errors are normalized at the Community API boundary.
+      const normalized = normalizeApiError(error as BoundaryValue);
       const status = __epochIsNumber(normalized.details?.httpStatus) ? normalized.details.httpStatus : normalized.httpStatus;
       return json({ error: normalized.toJSON() }, status);
     }
@@ -466,11 +469,22 @@ function cloneMessage(value: CommunityMessage): CommunityMessage { return struct
 function conflict(message: string): never { throw new CommunityError("PERSISTENCE_MIGRATION", message, { httpStatus: 409 }); }
 function notFound(message: string): never { throw new CommunityError("INVALID_ENTITY", message, { httpStatus: 404 }); }
 function denied(message: string): never { throw new CommunityError("AUTHORIZATION_DENIED", message); }
-function normalizeApiError(error: BoundaryValue): CommunityError { return isCommunityError(error) ? error : new CommunityError("INTERNAL", "Internal Community API failure", undefined, { cause: error }); }
+function normalizeApiError(error: BoundaryValue): CommunityError {
+  return isCommunityError(error) ? error : new CommunityError("INTERNAL", "Internal Community API failure", undefined, { cause: error });
+}
 function requiredServices(value: CommunityServiceApis | undefined): CommunityServiceApis { if (value === undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Community search and namespace services are not configured"); return value; }
-function rejectUnsupportedSearchScope(scope: BoundaryValue): void {
+function rejectUnsupportedSearchScope(scope: BoundaryValue | undefined): void {
   if (scope !== undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Scoped search requires a source-aware planner");
 }
 function boundedFirst(value: string | null): number { if (value === null) return 100; const parsed = Number(value); if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1000) throw new CommunityError("QUERY_COST_LIMIT", "first must be between 1 and 1000"); return parsed; }
-async function boundedJson(request: Request): BoundaryValue { const text = await request.text(); if (text.length > 1_000_000) throw new CommunityError("QUERY_COST_LIMIT", "Request body exceeds its size limit"); try { return JSON.parse(text); } catch (error) { throw new CommunityError("QUERY_SYNTAX", "Request body must be valid JSON", undefined, { cause: error }); } }
+async function boundedJson(request: Request): Promise<BoundaryValue> {
+  const text = await request.text();
+  if (text.length > 1_000_000) throw new CommunityError("QUERY_COST_LIMIT", "Request body exceeds its size limit");
+  try {
+    // SAFETY: JSON.parse yields wire values validated by downstream Community API handlers.
+    return JSON.parse(text) as BoundaryValue;
+  } catch (error) {
+    throw new CommunityError("QUERY_SYNTAX", "Request body must be valid JSON", undefined, { cause: error });
+  }
+}
 function json(value: BoundaryValue, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } }); }

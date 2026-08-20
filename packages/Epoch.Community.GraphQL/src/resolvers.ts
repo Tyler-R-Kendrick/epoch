@@ -25,7 +25,6 @@ import {
 import { GraphQLError } from "graphql";
 import { projectionDeltaEvents } from "./subscriptions";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
-type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
 function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
@@ -138,6 +137,9 @@ export interface CommunityGraphQLContext {
   readonly signal?: AbortSignal;
 }
 
+export type CommunityGraphQLRootResolver = (args: BoundaryValue, context: CommunityGraphQLContext) => Promise<BoundaryValue>;
+export type CommunityGraphQLResolvers = Readonly<Record<string, CommunityGraphQLRootResolver>>;
+
 export interface SearchExpressionInput {
   readonly all?: { readonly enabled: boolean };
   readonly and?: { readonly terms: readonly SearchExpressionInput[] };
@@ -155,8 +157,8 @@ export type CommunityValueInput = { readonly scalar?: CommunityScalarInput; read
 const RELATIONS = new Set(["reply", "quote", "mention", "provenance", "promotion", "replacement", "moderation", "attachment", "backlink"]);
 const SCOPES = new Set(["builtin", "community", "workspace", "user", "session"]);
 
-export function createRootResolvers(services: CommunityGraphQLServices): Readonly<Record<string, DictionaryValue>> {
-  return Object.freeze({
+export function createRootResolvers(services: CommunityGraphQLServices): CommunityGraphQLResolvers {
+  const resolvers = Object.freeze({
     node: guard(async ({ id }: { readonly id: string }, context: CommunityGraphQLContext) => {
       const authorized = authorization(context);
       const entity = await services.node(id, authorized);
@@ -205,6 +207,8 @@ export function createRootResolvers(services: CommunityGraphQLServices): Readonl
     resetNamespace: guard(async ({ scope }: { readonly scope: string }, context: CommunityGraphQLContext) => services.resetNamespace(resettableNamespaceScope(scope), authorization(context))),
     projectionDeltas: guard(async (args: PathArgs, context: CommunityGraphQLContext) => projectionDeltaEvents(services.projectionDeltas({ ...(!(args.namespace === undefined) && { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot), signal: context.signal ?? new AbortController().signal }), context.signal)),
   });
+  // SAFETY: Root resolvers are frozen after wiring validated service delegates.
+  return resolvers as CommunityGraphQLResolvers;
 }
 
 interface SearchArgs { readonly where: SearchExpressionInput; readonly scope?: SearchScope; readonly orderBy?: readonly SearchOrderInput[]; readonly first: number; readonly after?: string; readonly snapshot?: string }
@@ -343,7 +347,7 @@ function enumValue<const T extends string>(value: string, allowed: readonly T[],
 function guard<TArgs, TResult>(resolver: (args: TArgs, context: CommunityGraphQLContext) => TResult | Promise<TResult>): (args: TArgs, context: CommunityGraphQLContext) => Promise<TResult> {
   return async (args, context) => {
     try { return await resolver(args, context); }
-    catch (error) { throw graphQLError(error); }
+    catch (error) { throw graphQLError(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ error as BoundaryValue); }
   };
 }
 

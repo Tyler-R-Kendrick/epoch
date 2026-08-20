@@ -1,6 +1,8 @@
 import { isRecord, type BrowserEpoch } from "@epoch/integration-core";
 import { digestOf, identifier } from "./digest";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
 
 
 /**
@@ -118,7 +120,7 @@ export function revisionsOf(epoch: BrowserEpoch, feed: string): readonly SocialR
   return epoch.repository.history()
     .filter((event) => event.entity === feedEntity(feed))
     .map((event) => (event.payload as { payload?: unknown }).payload)
-    .filter(isSocialRevision);
+    .filter((payload): payload is SocialRevision => isSocialRevision(payload as BoundaryValue));
 }
 
 /** The current state of each record in a feed: the last revision of each change. */
@@ -156,11 +158,11 @@ export function listFeeds(epoch: BrowserEpoch): readonly string[] {
 
 function isSocialRevision(value: BoundaryValue): value is SocialRevision {
   return isRecord(value)
-    && typeof value.changeId === "string"
-    && typeof value.revisionId === "string"
-    && typeof value.feed === "string"
-    && typeof value.body === "string"
-    && typeof value.revision === "number";
+    && __epochIsString(value.changeId)
+    && __epochIsString(value.revisionId)
+    && __epochIsString(value.feed)
+    && __epochIsString(value.body)
+    && __epochIsNumber(value.revision);
 }
 
 function requireText(value: string, label: string): string {

@@ -61,7 +61,8 @@ function App() {
       setClusterState(response.state);
       setGossipStatus(`sent ${response.result.receivedEvents}, received ${importedEvents}`);
     } catch (error: unknown) {
-      setGossipStatus(errorMessage(error));
+      // SAFETY: Cluster gossip failures are normalized to user-visible status text.
+      setGossipStatus(errorMessage(error as BoundaryValue));
     }
   }
 

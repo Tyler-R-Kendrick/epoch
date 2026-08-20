@@ -318,7 +318,8 @@ function decodeTree(
 
   return {
     language: __epochIsString(record.language) ? record.language : undefined,
-    root: build(record.root, 0, 0, source.length),
+    // SAFETY: build() validates each node object before constructing SyntaxNode values.
+    root: build(record.root as BoundaryValue, 0, 0, source.length),
   };
 }
 

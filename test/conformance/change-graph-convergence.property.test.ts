@@ -18,7 +18,7 @@ import { MirrorCoordinator, createMirrorRule } from "@epoch/forge";
 import { formatSwhid, parseSwhid, type SwhObjectKind } from "@epoch/software-heritage";
 import { assertRevisionId } from "@epoch/protocol";
 import type { ChangeFragment, ChangeGraphDefinition, ChangeRevisionBody, SplitPlan } from "@epoch/protocol";
-import { canonical, property } from "../fuzz/deterministic";
+import { canonical, property, type TestJsonValue } from "../fuzz/deterministic";
 
 const SEED = 0x45504f43;
 const CASES = 64;
@@ -52,7 +52,13 @@ async function main(): Promise<void> {
     const plan: SplitPlan = { sourceRevisionId: assertRevisionId("split-source"), groups: groups.map((group) => ({ fragmentIds: group.map((item) => item.fragmentId), risk: group.length > 1 ? "ambiguous" : "low", reason: "generated bounded split" })) };
     const source = revision(fragments);
     const accepted = acceptSplit(source, plan, groups);
-    assert.equal(canonical(accepted.reconstructedFragments), canonical(source.fragments));
+    // SAFETY: ChangeFragment arrays are compared through the JSON canonicalizer in this property test.
+    assert.equal(
+      // SAFETY: ChangeFragment arrays are JSON-round-tripped before canonical comparison.
+      canonical(JSON.parse(JSON.stringify(accepted.reconstructedFragments)) as TestJsonValue),
+      // SAFETY: ChangeFragment arrays are JSON-round-tripped before canonical comparison.
+      canonical(JSON.parse(JSON.stringify(source.fragments)) as TestJsonValue),
+    );
   });
 
   await property("FRONTIER-PROP-003 commutation is true only for canonical equality", SEED ^ 2, CASES, (random) => {

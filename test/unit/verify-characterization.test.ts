@@ -19,7 +19,7 @@ import {
   decodeChannelFanout,
   encodeChannelFanout,
 } from "@epoch/xmpp";
-import { assertVerified } from "../verify/assert-verified";
+import { assertVerified, verifiedFixture } from "../verify/assert-verified";
 
 export async function runVerifyCharacterizationTests(): Promise<void> {
   natsStreamAndSubjectContract();
@@ -33,30 +33,31 @@ export async function runVerifyCharacterizationTests(): Promise<void> {
 }
 
 function natsStreamAndSubjectContract(): void {
-  assertVerified("nats-subjects", { ...EPOCH_NATS_SUBJECTS });
+  // SAFETY: NATS subject and stream fixtures are JSON-serializable characterization goldens.
+  assertVerified("nats-subjects", verifiedFixture({ ...EPOCH_NATS_SUBJECTS }));
   assertVerified(
     "nats-stream-specs",
-    EPOCH_STREAM_SPECS.map((spec) => ({
+    verifiedFixture(EPOCH_STREAM_SPECS.map((spec) => ({
       name: spec.name,
       subjects: [...spec.subjects],
       retention: spec.retention,
       maxAgeSeconds: spec.maxAgeSeconds ?? null,
-    })),
+    }))),
   );
 }
 
 function posturePolicyContract(): void {
-  assertVerified("posture-defaults", {
+  assertVerified("posture-defaults", verifiedFixture({
     open: OPEN_POSTURE_DEFAULTS,
     denied: DENIED_POSTURE_POLICY,
     hosted: evaluatePosture({ posture: "hosted" }),
     private: evaluatePosture({ posture: "private" }),
     openEvaluated: evaluatePosture({}),
-  });
+  }));
 }
 
 function fabricAclContract(): void {
-  assertVerified("nats-acl-matrices", {
+  assertVerified("nats-acl-matrices", verifiedFixture({
     sessionOpen: permissionsForScopes(["fabric:human"], "session"),
     sessionHosted: permissionsForScopes(["fabric:human"], "session", { allowServiceDiscovery: true }),
     sessionOpenWithDiscoverScope: permissionsForScopes(["fabric:human", "svc:discover"], "session", {
@@ -67,11 +68,11 @@ function fabricAclContract(): void {
       allowServiceDiscovery: true,
       sourceServer: "server-a",
     }),
-  });
+  }));
 }
 
 function xmppFidelityAndFanoutContract(): void {
-  assertVerified("xmpp-fidelity", { ...XMPP_FIDELITY_STATEMENT });
+  assertVerified("xmpp-fidelity", verifiedFixture({ ...XMPP_FIDELITY_STATEMENT }));
   const channelId = `epoch:channel:${"c".repeat(52)}`;
   const event = {
     schemaVersion: 1 as const,
@@ -99,7 +100,7 @@ function xmppFidelityAndFanoutContract(): void {
 }
 
 function protocolCapabilityContract(): void {
-  assertVerified("protocol-capabilities", PROTOCOL_CAPABILITIES);
+  assertVerified("protocol-capabilities", verifiedFixture(PROTOCOL_CAPABILITIES));
 }
 
 function designTokenColorContract(): void {
@@ -140,11 +141,11 @@ async function authCalloutAllowContract(): Promise<void> {
     }),
   );
   const allowed = await handler({ authToken: "secret" });
-  assertVerified("nats-auth-callout-allow-open", {
+  assertVerified("nats-auth-callout-allow-open", verifiedFixture({
     type: allowed.type,
     user: allowed.user,
     keys: Object.keys(allowed).sort(),
     hasJwt: "jwt" in allowed,
     permissions: allowed.permissions,
-  });
+  }));
 }

@@ -47,11 +47,17 @@ export function createEpochReduxMiddleware<State, Action extends EpochReduxActio
   };
 }
 
+function isActionMatcherFunction<Action extends EpochReduxAction>(
+  matcher: EpochReduxActionMatcher<Action>,
+): matcher is (action: Action) => boolean {
+  return typeof matcher === "function";
+}
+
 function matchesAction<Action extends EpochReduxAction>(
   matcher: EpochReduxActionMatcher<Action> | undefined,
   action: Action,
 ): boolean {
   if (matcher === undefined) return true;
-  if (__epochIsFunction(matcher)) return matcher(action);
+  if (isActionMatcherFunction(matcher)) return matcher(action);
   return matcher.includes(action.type);
 }

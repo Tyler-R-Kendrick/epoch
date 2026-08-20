@@ -10,6 +10,7 @@ import {
 } from "@epoch/community-runtime";
 import { main as communityForgeMain, type CommunityCliIO } from "@epoch/community-cli";
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
 
 
@@ -41,7 +42,10 @@ export async function executeCommunityCli(
 
   // The runtime stays browser-safe, so the host supplies file access.
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  setCliBundleReader((path) => JSON.parse(readFileSync(resolve(path), "utf8")) as unknown);
+  setCliBundleReader((path) => {
+    // SAFETY: Bundle files are JSON objects validated by the workspace import command.
+    return JSON.parse(readFileSync(resolve(path), "utf8")) as BoundaryValue;
+  });
   const result = await executeCommunityRuntimeCommand(openWorkspaceRuntime(repoRoot), [command, ...args]);
   const target = outputPath(args);
   if (target !== undefined && result.ok && result.receipt !== undefined) {

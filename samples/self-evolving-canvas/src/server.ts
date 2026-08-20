@@ -113,13 +113,14 @@ function resolveStaticPath(staticDir: string, pathname: string): string | undefi
   return absolute;
 }
 
-async function readJsonBody(request: IncomingMessage): BoundaryValue {
+async function readJsonBody(request: IncomingMessage): Promise<BoundaryValue> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     chunks.push(__epochIsString(chunk) ? Buffer.from(chunk) : chunk);
   }
   const text = Buffer.concat(chunks).toString("utf8");
-  return text.length === 0 ? {} : JSON.parse(text);
+  // SAFETY: Request bodies are JSON at the HTTP boundary for this sample server.
+  return text.length === 0 ? {} : JSON.parse(text) as BoundaryValue;
 }
 
 function asGossipRequest(value: BoundaryValue): CanvasClusterGossipRequest {

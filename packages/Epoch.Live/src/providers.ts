@@ -144,7 +144,8 @@ export function createBroadcastChannelProvider(options: BroadcastChannelProvider
       status = "connecting";
       connected = endpoint;
       channel = factory(name);
-      channel.onmessage = (event) => handleWireMessage(endpoint, event.data, (message) => channel?.postMessage(message));
+      // SAFETY: BroadcastChannel delivers JSON-shaped wire messages validated by handleWireMessage.
+      channel.onmessage = (event) => handleWireMessage(endpoint, event.data as BoundaryValue, (message) => channel?.postMessage(message));
       offLocal = wireLocalOutput(endpoint, (message) => channel?.postMessage(message));
       channel.postMessage({ type: "hello", from: endpoint.clientId } satisfies WireMessage);
       channel.postMessage({ type: "sync", events: endpoint.exportEvents() } satisfies WireMessage);

@@ -12,8 +12,9 @@ import { verifyStaticHarnessRelease } from "./harness";
 import { DEFAULT_PROJECT_SLUG, ensureProject, listProjects } from "./projects";
 import { appendSocialRevision, historyOf, listFeeds, recordsOf, type SocialRecordKind } from "./feeds";
 import { exportWorkspaceBundle, importWorkspaceBundle } from "./sync";
-import type { DynamicUiManifest } from "./ui";
+import { isDynamicUiManifest } from "./ui";
 import type { BrowserEpochWorkspace, WorkspaceMutation } from "./workspace";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
@@ -391,8 +392,12 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       ["view", "manifest"],
     ),
   }, (input) => {
-    // SAFETY: The module validates or constructs this value before applying the asserted contract.
-    const manifest = input.manifest as DynamicUiManifest;
+    // SAFETY: Command input manifest is validated as a DynamicUiManifest before proposal.
+    const manifestValue = input.manifest as BoundaryValue;
+    if (!isDynamicUiManifest(manifestValue)) {
+      throw new EpochCommandError("invalid-input", "manifest must be a dynamic UI manifest");
+    }
+    const manifest = manifestValue;
     const mutation = workspace.propose({
       view: requiredString(input, "view"),
       manifest,

@@ -18,6 +18,7 @@ import {
   success,
   type CommunityCliCommandResult,
 } from "./query-commands";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 
 export const NAMESPACE_CLI_COMMANDS: readonly {
   readonly command: string;
@@ -104,7 +105,8 @@ export async function runNamespaceCommand(
       default: throw invalidInput("Unknown namespace command");
     }
   } catch (error) {
-    return failure(error);
+    // SAFETY: catch binds unknown; failure accepts any thrown runtime value.
+    return failure(error as BoundaryValue);
   }
 }
 

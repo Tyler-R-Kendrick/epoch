@@ -10,6 +10,8 @@ import {
   isChangeGraphCommand,
 } from "@epoch/cli";
 
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 export async function runNomenclatureContractTests(): Promise<void> {
   assert.ok(CANONICAL_ID_KINDS.includes("change-graph"));
   assert.ok(CANONICAL_ID_KINDS.includes("review-bundle"));
@@ -39,8 +41,8 @@ export async function runNomenclatureContractTests(): Promise<void> {
   assert.equal((await executeChangeGraphCommand(root, ["weave", "create"])).code, "invalid-command");
 }
 
-function hasCode(code: string): (error) => boolean {
-  return (error) => isCodedError(error) && error.code === code;
+function hasCode(code: string): (error: BoundaryValue) => boolean {
+  return (error: BoundaryValue) => isCodedError(error) && error.code === code;
 }
 
 function isCodedError<Value>(value: Value): value is Value & { readonly code?: string } {

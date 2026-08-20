@@ -106,7 +106,7 @@ function classifyLocator(value: string) {
   return { kind: "git", url: value };
 }
 
-async function syncFromLocator(store: SignedChangeGraphStore, locator: string): BoundaryValue {
+async function syncFromLocator(store: SignedChangeGraphStore, locator: string): Promise<BoundaryValue> {
   const configured = readRemotes(store.repository.root)[locator];
   const resolved = classifyLocator(configured ?? locator);
   if (resolved.kind === "epoch-local") return store.syncFromLocal(resolved.url);
@@ -262,16 +262,22 @@ function revisionNodes(records: readonly { readonly id: string; readonly data: R
       ? (record.data[name] as unknown[]).filter((value): value is string => typeof value === "string") : [];
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const text = (name: string): string | undefined => __epochIsString(record.data[name]) ? record.data[name] as string : undefined;
+    const changeId = text("changeId");
+    const authorId = text("authorId");
+    const changeGraphIds = strings("changeGraphIds");
+    const reviewState = (record.data.reviewState === "pending" || record.data.reviewState === "approved" || record.data.reviewState === "rejected")
+      ? record.data.reviewState
+      : undefined;
     return {
       revisionId: record.id,
       parentRevisionIds: strings("parentRevisionIds"),
-      ...(text("changeId") && { changeId: text("changeId") }),
-      ...(text("authorId") && { authorId: text("authorId") }),
-      ...(strings("changeGraphIds").length > 0 && { changeGraphIds: strings("changeGraphIds") }),
+      ...(changeId !== undefined && { changeId }),
+      ...(authorId !== undefined && { authorId }),
+      ...(changeGraphIds.length > 0 && { changeGraphIds }),
       ...(__epochIsBoolean(record.data.conflict) && { conflict: record.data.conflict }),
-      ...(record.data.reviewState === "pending" || record.data.reviewState === "approved" || record.data.reviewState === "rejected" && { reviewState: record.data.reviewState }),
+      ...(reviewState !== undefined && { reviewState }),
       ...(__epochIsBoolean(record.data.mergeable) && { mergeable: record.data.mergeable }),
-    };
+    } satisfies RevsetNode;
   });
 }
 
@@ -309,7 +315,7 @@ export async function executeChangeGraphCommand(root: string, argv: readonly str
  * The Space store owns every refusal; this layer only shapes arguments, so the
  * CLI can never authorize something the store would have denied.
  */
-async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): BoundaryValue {
+async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: ChangeGraphCommandDependencies): Promise<BoundaryValue> {
   const store = SignedSpaceStore.open(resolve(root), { random: dependencies.random });
   const action = parsed.positionals[0];
   const spaceArgument = (index = 1): string => required(parsed.positionals[index], "space ID");
@@ -427,7 +433,7 @@ async function executeSpaceCommand(root: string, parsed: Parsed, dependencies: C
   }
 }
 
-async function execute(root: string, command: string, args: readonly string[], now: number, dependencies: ChangeGraphCommandDependencies): BoundaryValue {
+async function execute(root: string, command: string, args: readonly string[], now: number, dependencies: ChangeGraphCommandDependencies): Promise<BoundaryValue> {
   const parsed = parse(args); const action = parsed.positionals[0];
   const store = SignedChangeGraphStore.open(resolve(root), { random: dependencies.random, now });
   const expected = stringOption(parsed, "expected-revision");
@@ -442,7 +448,10 @@ async function execute(root: string, command: string, args: readonly string[], n
   if (command === "log") {
     const revisions = store.listRevisions(); const expression = stringOption(parsed, "revisions") ?? "heads()";
     try {
-      const selected = new Set(evaluateRevset(parseRevset(expression), revisionNodes(revisions)));
+      const selected = new Set(evaluateRevset(parseRevset(expression), revisionNodes(
+        // SAFETY: listRevisions returns graph records validated before revset evaluation.
+        revisions as readonly { readonly id: string; readonly data: Readonly<Record<string, DictionaryValue>> }[],
+      )));
       return { revisions: revisions.filter((revision) => selected.has(revision.id)), expression };
     } catch (error) {
       throw commandError("invalid-input", error instanceof Error ? error.message : "invalid revset", { expression });
@@ -635,5 +644,6 @@ async function execute(root: string, command: string, args: readonly string[], n
 export function formatChangeGraphCommandEnvelope(envelope: ChangeGraphCommandEnvelope, json: boolean): string {
   if (json) return stable(envelope);
   if (!envelope.ok) return `${envelope.code}: ${envelope.error?.message ?? "change graph command failed"}`;
-  return stable(envelope.data);
+  // SAFETY: Successful envelopes carry serializable command output validated by the store layer.
+  return stable(envelope.data as BoundaryValue);
 }

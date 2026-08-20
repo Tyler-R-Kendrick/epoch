@@ -27,7 +27,6 @@ import {
 } from "../../packages/Epoch.Community.Web/src/search/persistence-coordinator";
 import {
   SqliteWorkerClient,
-  type SqliteWorkerLike,
 } from "../../packages/Epoch.Community.Web/src/search/sqlite-worker";
 
 type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
@@ -118,6 +117,7 @@ async function persistenceCoordinatorRejectsSecondWriter(): Promise<void> {
 
 function workerCancellationRejectsAndCleansPendingRequest(): void {
   const worker = new FakeWorker();
+  // @ts-expect-error FakeWorker implements the sqlite worker seam under test.
   const client = new SqliteWorkerClient(worker);
   const controller = new AbortController();
   const pending = client.request({ type: "health" }, controller.signal);
@@ -128,6 +128,7 @@ function workerCancellationRejectsAndCleansPendingRequest(): void {
 
 function workerResponsesCompleteRequests(): void {
   const worker = new FakeWorker();
+  // @ts-expect-error FakeWorker implements the sqlite worker seam under test.
   const client = new SqliteWorkerClient(worker);
   const pending = client.request({ type: "health" });
   const requestId = Number(worker.messages[0]?.requestId);
@@ -209,7 +210,7 @@ class RecordingDatabase implements SqliteStatementDatabase {
     const version = /PRAGMA user_version = (\d+)/u.exec(sql)?.[1];
     if (version !== undefined) this.#userVersion = Number(version);
   }
-  rows(): readonly Readonly<TestJsonObject>[] { return []; }
+  rows(): ReturnType<SqliteStatementDatabase["rows"]> { return []; }
   close(): void {}
 }
 
@@ -222,7 +223,7 @@ class FakeLockManager implements ExclusiveLockManager {
   }
 }
 
-class FakeWorker implements SqliteWorkerLike {
+class FakeWorker {
   readonly messages: TestJsonObject[] = [];
   onmessage: ((event: MessageEvent) => void) | null = null;
   postMessage(message: TestJsonObject): void { this.messages.push(message); }

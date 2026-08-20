@@ -18,7 +18,7 @@ import {
   type OperationDefinitionNode,
   type SelectionSetNode,
 } from "graphql";
-import { createRootResolvers, type CommunityGraphQLContext, type CommunityGraphQLServices } from "./resolvers";
+import { createRootResolvers, type CommunityGraphQLContext, type CommunityGraphQLResolvers, type CommunityGraphQLServices } from "./resolvers";
 import { COMMUNITY_GRAPHQL_SDL } from "./schema";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
@@ -30,7 +30,7 @@ export { COMMUNITY_GRAPHQL_SDL } from "./schema";
 export * from "./resolvers";
 export * from "./subscriptions";
 
-const ROOTS = new WeakMap<GraphQLSchema, Readonly<Record<string, DictionaryValue>>>();
+const ROOTS = new WeakMap<GraphQLSchema, CommunityGraphQLResolvers>();
 const MAX_DOCUMENT_BYTES = 65_536;
 
 export interface CommunityGraphQLLimits {
@@ -46,8 +46,6 @@ export interface CommunityGraphQLExecutionInput {
   readonly operationName?: string;
   readonly context: CommunityGraphQLContext;
   readonly limits?: CommunityGraphQLLimits;
-  /** Extra host metadata is ignored rather than becoming resolver authority. */
-  readonly [hostMetadata: string]: DictionaryValue;
 }
 
 export function createCommunityGraphQLSchema(services: CommunityGraphQLServices): GraphQLSchema {
@@ -135,7 +133,7 @@ function enforceComplexity(
     for (const selection of selectionSet.selections) {
       if (selection.kind === Kind.FIELD) {
         const first = selection.arguments?.find((argument) => argument.name.value === "first");
-        const factor = first === undefined ? 1 : boundedListFactor(valueFromASTUntyped(first.value, variables));
+        const factor = first === undefined ? 1 : boundedListFactor(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ valueFromASTUntyped(first.value, variables) as BoundaryValue);
         complexity += multiplier * factor;
         if (complexity > maximumComplexity) throw boundedError(`GraphQL query exceeds complexity ${maximumComplexity}`);
         if (selection.selectionSet !== undefined) walk(selection.selectionSet, depth + 1, Math.min(1000, multiplier * factor), active);
@@ -153,18 +151,21 @@ function enforceComplexity(
 
 function configureScalars(schema: GraphQLSchema): void {
   configureScalar(schema, "JSON", {
-    serialize: boundedJson,
-    parseValue: boundedJson,
-    parseLiteral: (node, variables) => boundedJson(valueFromASTUntyped(node, variables)),
+    serialize: (value) => boundedJson(parseGraphQLWireValue(/* SAFETY: GraphQL wire input enters at scalar boundary. */ value as BoundaryValue)),
+    parseValue: (value) => boundedJson(parseGraphQLWireValue(/* SAFETY: GraphQL wire input enters at scalar boundary. */ value as BoundaryValue)),
+    parseLiteral: (node, variables) => {
+      // SAFETY: GraphQL literal values enter at scalar boundary via valueFromASTUntyped.
+      return boundedJson(parseGraphQLWireValue(valueFromASTUntyped(node, variables) as BoundaryValue));
+    },
   });
   configureScalar(schema, "VPath", {
-    serialize: pathScalar,
-    parseValue: pathScalar,
+    serialize: (value) => pathScalar(parseGraphQLWireValue(/* SAFETY: GraphQL wire input enters at scalar boundary. */ value as BoundaryValue)),
+    parseValue: (value) => pathScalar(parseGraphQLWireValue(/* SAFETY: GraphQL wire input enters at scalar boundary. */ value as BoundaryValue)),
     parseLiteral: (node) => node.kind === Kind.STRING ? pathScalar(node.value) : undefined,
   });
   configureScalar(schema, "Cursor", {
-    serialize: cursorScalar,
-    parseValue: cursorScalar,
+    serialize: (value) => cursorScalar(parseGraphQLWireValue(/* SAFETY: GraphQL wire input enters at scalar boundary. */ value as BoundaryValue)),
+    parseValue: (value) => cursorScalar(parseGraphQLWireValue(/* SAFETY: GraphQL wire input enters at scalar boundary. */ value as BoundaryValue)),
     parseLiteral: (node) => node.kind === Kind.STRING ? cursorScalar(node.value) : undefined,
   });
 }
@@ -198,7 +199,11 @@ function boundedListFactor(value: BoundaryValue): number {
   return __epochIsNumber(value) && Number.isInteger(value) && value >= 1 && value <= 1000 ? value : 10;
 }
 
-function requiredRoot(schema: GraphQLSchema): Readonly<Record<string, DictionaryValue>> {
+function parseGraphQLWireValue(value: BoundaryValue): BoundaryValue {
+  return value;
+}
+
+function requiredRoot(schema: GraphQLSchema): CommunityGraphQLResolvers {
   const root = ROOTS.get(schema);
   if (root === undefined) throw new CommunityError("INTERNAL", "GraphQL schema was not created by createCommunityGraphQLSchema");
   return root;

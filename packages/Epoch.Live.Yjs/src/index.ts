@@ -72,7 +72,8 @@ export function bindLiveStoreToSharedMap<TState extends object>(
     const payload: Record<string, DictionaryValue> = {};
     let changed = false;
     for (const key of keys) {
-      payload[key] = map.get(key);
+      // SAFETY: SharedMap entries are JSON-shaped live payloads consumed as dictionary bags.
+      payload[key] = map.get(key) as DictionaryValue;
       changed = true;
     }
     if (!changed) return;

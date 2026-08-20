@@ -104,7 +104,7 @@ function validateRelation(input: BoundaryValue): CommunityRelation {
   if (!record(input) || !__epochIsString(input.type)) invalid("Persisted relation is invalid");
   const allowed = ["reply", "quote", "mention", "provenance", "promotion", "replacement", "moderation", "attachment", "backlink"];
   if (!allowed.includes(input.type)) invalid(`Unsupported persisted relation: ${input.type}`);
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: Relation type validated against allowed persisted relation names.
   return Object.freeze({
     type: input.type as CommunityRelation["type"],
     source: validateObjectRef(input.source),
@@ -112,10 +112,14 @@ function validateRelation(input: BoundaryValue): CommunityRelation {
   });
 }
 
+function readProjectionDefinition(value: Record<string, DictionaryValue>): ProjectionDefinition {
+  // SAFETY: Persisted v3 projection definitions are validated by validateProjectionRecord after read.
+  return JSON.parse(JSON.stringify(value)) as ProjectionDefinition;
+}
+
 function validateProjectionRecord(input: BoundaryValue): PersistedProjectionDefinition {
   if (!record(input) || !record(input.definition)) invalid("Persisted projection definition is invalid");
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  const definition = structuredClone(input.definition) as ProjectionDefinition;
+  const definition = readProjectionDefinition(input.definition);
   validateProjectionId(definition.projectionId);
   if (definition.apiVersion !== "epoch.dev/v1alpha1" || !Number.isInteger(definition.version) || definition.version < 1) {
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
@@ -123,10 +127,11 @@ function validateProjectionRecord(input: BoundaryValue): PersistedProjectionDefi
   }
   // SAFETY: Runtime checks or construction above establish number) < 1) invalid("Persisted projection revision is invalid").
   if (!Number.isInteger(input.revision) || (input.revision as number) < 1) invalid("Persisted projection revision is invalid");
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: Integer revision validated above.
+  const revision = input.revision as number;
   return Object.freeze({
     definition,
-    revision: input.revision as number,
+    revision,
     createdAt: validateIsoDateTime(input.createdAt, "projection.createdAt"),
     updatedAt: validateIsoDateTime(input.updatedAt, "projection.updatedAt"),
   });
@@ -144,43 +149,56 @@ function validateMount(input: BoundaryValue): NamespaceMount {
     invalid("Persisted namespace mount path is invalid");
   }
   if (!Number.isSafeInteger(input.order) || !__epochIsBoolean(input.writable)) invalid("Persisted namespace mount order or writability is invalid");
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  return Object.freeze({
+  // SAFETY: SafeInteger order validated above.
+  const order = input.order as number;
+  const mount: NamespaceMount = Object.freeze({
     mountId,
     scope: input.scope,
     mountPath: input.mountPath,
     projectionId,
     mode: input.mode,
-    order: input.order as number,
+    order,
     writable: input.writable,
-    ...(!(input.ownerId === undefined) && { ownerId: bounded(input.ownerId, "mount.ownerId") }),
     createdAt: validateIsoDateTime(input.createdAt, "mount.createdAt"),
     updatedAt: validateIsoDateTime(input.updatedAt, "mount.updatedAt"),
   });
+  if (input.ownerId !== undefined) {
+    return Object.freeze({ ...mount, ownerId: bounded(input.ownerId, "mount.ownerId") });
+  }
+  return mount;
 }
 
 function validateCheckpoint(input: BoundaryValue): CommunitySourceCheckpoint {
   if (!record(input) || !["current", "stale", "partial", "unavailable"].includes(String(input.status))) {
     invalid("Persisted source checkpoint is invalid");
   }
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  return Object.freeze({
+  const checkpoint: CommunitySourceCheckpoint = Object.freeze({
     sourceId: bounded(input.sourceId, "checkpoint.sourceId"),
     token: bounded(input.token, "checkpoint.token", 4096),
     observedAt: validateIsoDateTime(input.observedAt, "checkpoint.observedAt"),
+    // SAFETY: Status string validated against checkpoint vocabulary above.
     status: input.status as CommunitySourceCheckpoint["status"],
-    ...(!(input.detail === undefined) && { detail: bounded(input.detail, "checkpoint.detail", 4096) }),
   });
+  if (input.detail !== undefined) {
+    return Object.freeze({ ...checkpoint, detail: bounded(input.detail, "checkpoint.detail", 4096) });
+  }
+  return checkpoint;
 }
 
 function validateQuarantine(input: BoundaryValue): QuarantinedProjectionDefinition {
   if (!record(input)) invalid("Persisted projection quarantine entry is invalid");
-  return Object.freeze({
-    ...(!(input.projectionId === undefined) && { projectionId: __epochIsString(input.projectionId) ? input.projectionId : String(input.projectionId) }),
+  const quarantine: QuarantinedProjectionDefinition = Object.freeze({
     reason: bounded(input.reason, "quarantine.reason", 4096),
     quarantinedAt: validateIsoDateTime(input.quarantinedAt, "quarantine.quarantinedAt"),
     input: structuredClone(input.input),
   });
+  if (input.projectionId !== undefined) {
+    return Object.freeze({
+      ...quarantine,
+      projectionId: __epochIsString(input.projectionId) ? input.projectionId : String(input.projectionId),
+    });
+  }
+  return quarantine;
 }
 
 function unique<T>(values: readonly T[], key: (value: T) => string, label: string): void {
@@ -199,9 +217,10 @@ function bounded(input: BoundaryValue, label: string, limit = 512): string {
   return value;
 }
 
-function array(input: BoundaryValue, label: string): unknown[] {
+function array(input: BoundaryValue, label: string): BoundaryValue[] {
   if (!Array.isArray(input) || input.length > 1_000_000) invalid(`Community state ${label} must be a bounded array`);
-  return input;
+  // SAFETY: Array elements are validated by downstream schema validators.
+  return input as BoundaryValue[];
 }
 
 function record(input: BoundaryValue): input is Record<string, DictionaryValue> {

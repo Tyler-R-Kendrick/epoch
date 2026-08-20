@@ -138,7 +138,8 @@ export function isExtensionName(value: string): boolean {
  */
 function parseTable(text: string): Record<string, DictionaryValue> {
   try {
-    return parseTomlDocument(text);
+    // SAFETY: TomlValue is a JSON-like subset; manifest field validators run on each accessed key.
+    return parseTomlDocument(text) as Record<string, DictionaryValue>;
   } catch (error) {
     if (error instanceof TomlError) {
       throw new ExtensionManifestError("invalid-syntax", `invalid manifest at line ${error.line}: ${error.reason}`);

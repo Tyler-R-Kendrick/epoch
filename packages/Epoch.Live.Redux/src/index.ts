@@ -1,4 +1,5 @@
 import { isRecord, type LiveAction, type LiveStore, type LiveTarget } from "@epoch/live";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
@@ -15,8 +16,7 @@ function __epochIsNumber<T>(value: T): value is T & number { return typeof value
  */
 export interface CompatibleAction {
   readonly type: string;
-  readonly payload?: unknown;
-  readonly [extra: string]: DictionaryValue;
+  readonly payload?: DictionaryValue;
 }
 
 export interface CompatibleStore<TState extends object> {
@@ -95,17 +95,26 @@ export function applyCompatibleAction<TState extends object>(
  * extra own properties become the payload.
  */
 export function toLiveAction(action: CompatibleAction): LiveAction {
-  if (isRecord(action.payload)) return { type: action.type, payload: action.payload };
-  if (action.payload !== undefined) return { type: action.type, payload: { value: action.payload } };
-  const { type: _type, payload: _payload, ...rest } = action;
-  return Object.keys(rest).length > 0 ? { type: action.type, payload: rest } : { type: action.type };
+  const payload = action.payload;
+  // SAFETY: isRecord narrows CompatibleAction.payload to a dictionary bag.
+  if (isRecord(payload as BoundaryValue)) {
+    // SAFETY: isRecord narrows CompatibleAction.payload to a dictionary bag.
+    const dictionaryPayload = payload as Record<string, DictionaryValue>;
+    return { type: action.type, payload: dictionaryPayload };
+  }
+  if (payload !== undefined) return { type: action.type, payload: { value: payload } };
+  return { type: action.type };
 }
 
 function controlPayload(action: CompatibleAction) {
-  if (!isRecord(action.payload)) throw new Error(`Epoch Live control action '${action.type}' requires a payload.`);
-  const target = action.payload.target;
+  const payload = action.payload;
+  // SAFETY: Control actions require a record payload; validated immediately below.
+  if (!isRecord(payload as BoundaryValue)) throw new Error(`Epoch Live control action '${action.type}' requires a payload.`);
+  // SAFETY: isRecord established dictionary payload for control actions.
+  const dictionaryPayload = payload as Record<string, DictionaryValue>;
+  const target = dictionaryPayload.target;
   if (!__epochIsString(target) && !__epochIsNumber(target)) {
     throw new Error(`Epoch Live control action '${action.type}' requires a string or number target.`);
   }
-  return { target, reason: action.payload.reason };
+  return { target, reason: dictionaryPayload.reason };
 }

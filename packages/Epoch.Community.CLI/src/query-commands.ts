@@ -136,7 +136,8 @@ export async function runQueryCommand(
     }
     return success(output, json);
   } catch (error) {
-    return failure(error);
+    // SAFETY: catch binds unknown; failure accepts any thrown runtime value.
+    return failure(error as BoundaryValue);
   }
 }
 
@@ -220,7 +221,7 @@ export function assertAllowedOptions(parsed: ParsedCliArguments, allowed: readon
   if (unknown !== undefined) throw invalidInput(`Unknown option --${unknown}`);
 }
 
-async function executeGraphql(parsed: ParsedCliArguments, services: QueryCommandServices, signal?: AbortSignal): BoundaryValue {
+async function executeGraphql(parsed: ParsedCliArguments, services: QueryCommandServices, signal?: AbortSignal): Promise<BoundaryValue> {
   const documentPath = stringOption(parsed, "graphql", true);
   const document = await services.readFile(documentPath);
   if (document.length > 65_536) throw new CommunityError("QUERY_COST_LIMIT", "GraphQL document exceeds 65536 characters");

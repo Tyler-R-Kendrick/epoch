@@ -12,7 +12,7 @@ export { LiveLog, compareEvents } from "./log";
 export type { LiveEvent, LiveEventKind, LiveLogIngestResult, LiveLogOptions } from "./log";
 
 export { diffToOps, materialize, materializeAt, orderedForEntity, resolveRollbackTargetId } from "./materialize";
-export type { LiveOp, LiveRollbackPayload, LiveTarget } from "./materialize";
+export type { LiveOp, LiveOpPayload, LiveRollbackPayload, LiveTarget } from "./materialize";
 
 export { createIntegritySigner, createIntegrityVerifier } from "./signer";
 export type { LiveSigner, LiveVerifier } from "./signer";

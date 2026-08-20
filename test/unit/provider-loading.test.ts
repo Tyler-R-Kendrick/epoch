@@ -79,22 +79,23 @@ function workspace(options: { readonly declaredDigest?: string } = {}): Fixture 
   return { root, moduleSha256 };
 }
 
-interface Sink {
-  stdout: { write(message: string): void };
-  stderr: { write(message: string): void };
-}
+type ExtensionCliIO = Parameters<typeof runExtensionCommand>[2];
+type SemanticCliIO = Parameters<typeof repositorySyntaxRegistry>[1];
+type Sink = ExtensionCliIO & SemanticCliIO;
 
 interface CapturedSink {
   readonly io: Sink;
   readonly err: () => string;
 }
 
-const io: Sink = { stdout: { write: () => true }, stderr: { write: () => true } };
+// SAFETY: Test sinks satisfy CLI IO interfaces used by provider loading tests.
+const io = { stdout: { write: () => true }, stderr: { write: () => true } } as Sink;
 
 function capture(): CapturedSink {
   let err = "";
   return {
-    io: { stdout: { write: () => true }, stderr: { write: (message: string) => { err += message; return true; } } },
+    // SAFETY: Test capture buffers implement CLI sink interfaces for provider loading tests.
+    io: { stdout: { write: () => true }, stderr: { write: (message: string) => { err += message; return true; } } } as Sink,
     err: () => err,
   };
 }

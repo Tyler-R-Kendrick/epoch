@@ -157,7 +157,7 @@ export function createEpochReactStore<TState extends object>(options: EpochReact
   }
 
   function setState(update: EpochReactStateUpdater<TState>): EpochReactChange<TState> {
-    const nextState = normalizeState(__epochIsFunction(update) ? update(snapshot.state) : update);
+    const nextState = normalizeState(resolveStateUpdate(update, snapshot.state));
     const operations = diffStates(entity, asRecord(snapshot.state), asRecord(nextState));
     if (operations.length === 0) return { state: snapshot.state, events: [] };
 
@@ -332,6 +332,20 @@ export function useEpochView(repository: EpochLiveRepository): { readonly events
   return useSyncExternalStore(repository.subscribe, repository.view, repository.view);
 }
 
+function reactEventPayload(
+  operation: EpochReactOperation,
+  replicaId: string,
+  lamport: number,
+) {
+  return {
+    backend: "epoch-react",
+    entity: operation.entity,
+    // SAFETY: EpochReactOperation is JSON-serializable and stored as dictionary payload.
+    operation: operation as DictionaryValue,
+    replica_id: hashString(stableJson({ replicaId, lamport, operation })).padStart(8, "0").slice(0, 32),
+  };
+}
+
 function appendOperations(
   existing: readonly EpochReactEvent[],
   operations: readonly EpochReactOperation[],
@@ -341,12 +355,7 @@ function appendOperations(
   const next = [...existing];
   for (const operation of operations) {
     const lamport = next.length + 1;
-    const payload = {
-      backend: "epoch-react",
-      entity: operation.entity,
-      operation,
-      replica_id: hashString(stableJson({ replicaId, lamport, operation })).padStart(8, "0").slice(0, 32),
-    };
+    const payload = reactEventPayload(operation, replicaId, lamport);
     next.push({
       id: `epoch-react-${lamport}-${hashString(stableJson(payload))}`,
       type: "crdt",
@@ -390,11 +399,30 @@ function materializeState<TState extends object>(
   for (const event of events) {
     const operation = event.payload.operation;
     if (!isReactOperation(operation) || operation.entity !== entity) continue;
-    if (operation.kind === "map-delete") delete state[operation.key];
-    else state[operation.key] = operation.value;
+    if (operation.kind === "map-delete") {
+      delete state[operation.key];
+    } else if ("value" in operation) {
+      // SAFETY: map-set operations carry dictionary-serializable values.
+      state[operation.key] = operation.value as DictionaryValue;
+    }
   }
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return normalizeState(state) as TState;
+}
+
+function resolveStateUpdate<TState extends object>(
+  update: EpochReactStateUpdater<TState>,
+  state: TState,
+): TState {
+  // SAFETY: EpochReactStateUpdater is narrowed via __epochIsFunction before callback invocation.
+  const candidate = update as BoundaryValue;
+  if (__epochIsFunction(candidate)) {
+    // SAFETY: __epochIsFunction narrows update to a state updater callback.
+    const updater = update as (current: TState) => TState;
+    return updater(state);
+  }
+  // SAFETY: Non-function updaters are whole-state replacements.
+  return update as TState;
 }
 
 function eventsForTarget(events: readonly EpochReactEvent[], target: EpochReactMaterializationTarget): readonly EpochReactEvent[] {

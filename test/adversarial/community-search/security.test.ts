@@ -18,11 +18,12 @@ import { createMemoryCommunityStateStore } from "../../../packages/Epoch.Communi
 import { chooseSqliteStorage, mapSqlitePersistenceError } from "../../../packages/Epoch.Community.Web/src/search/persistence-coordinator";
 import { BrowserPersistenceCoordinator, type ExclusiveLockManager } from "../../../packages/Epoch.Community.Web/src/search/persistence-coordinator";
 import { translateSearchExpressionToSql } from "../../../packages/Epoch.Community.Web/src/search/sqlite-wasm-backend";
-import { SqliteWorkerClient, type SqliteWorkerLike } from "../../../packages/Epoch.Community.Web/src/search/sqlite-worker";
+import { SqliteWorkerClient } from "../../../packages/Epoch.Community.Web/src/search/sqlite-worker";
 import { COMMUNITY_GRAPHQL_SDL } from "../../../packages/Epoch.Community.GraphQL/src/schema";
 import { FIXED_NOW, conformanceCorpus } from "../../conformance/community-search/fixture";
 
 type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 interface TestJsonObject {
   readonly [key: string]: TestJsonValue;
 }
@@ -123,6 +124,7 @@ async function workerCancellationAndMultiTabContentionFailClosed(): Promise<void
   await (await second.acquireWriter()).release();
 
   const worker = new TestWorker();
+  // @ts-expect-error TestWorker implements the sqlite worker seam under test.
   const client = new SqliteWorkerClient(worker);
   const controller = new AbortController();
   const request = client.request({ type: "health" }, controller.signal);
@@ -199,8 +201,8 @@ function migrationContext() {
   return { clock: { now: () => new Date(FIXED_NOW) }, idGenerator: { generate: (namespace: string) => `${namespace}-fixed` }, timezone: "UTC", locale: "en-US" };
 }
 
-function hasCode(code: CommunityError["code"]): (error) => boolean {
-  return (error) => error instanceof CommunityError && error.code === code;
+function hasCode(code: CommunityError["code"]): (error: BoundaryValue) => boolean {
+  return (error: BoundaryValue) => error instanceof CommunityError && error.code === code;
 }
 
 function xorshift32(seed: number): () => number {
@@ -222,7 +224,7 @@ class TestLockManager implements ExclusiveLockManager {
   }
 }
 
-class TestWorker implements SqliteWorkerLike {
+class TestWorker {
   readonly messages: Readonly<TestJsonObject>[] = [];
   onmessage: ((event: MessageEvent<TestJsonObject>) => void) | null = null;
   postMessage(message: Readonly<TestJsonObject>): void { this.messages.push(message); }

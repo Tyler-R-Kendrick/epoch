@@ -280,10 +280,12 @@ export function createBrowserEpochWorkspace(options: BrowserEpochWorkspaceOption
       return payload.revision === target;
     });
     if (event === undefined) throw new Error(`Epoch view '${name}' has no revision ${target}.`);
-    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: Live repository events store nested UI revision payloads under payload.payload.
     const payload = (event.payload as { payload?: unknown }).payload;
-    if (!isUiRevisionRecord(payload)) throw new Error(`Epoch view '${name}' revision ${target} is unreadable.`);
-    return payload;
+    // SAFETY: isUiRevisionRecord validates the payload immediately below.
+    if (!isUiRevisionRecord(payload as BoundaryValue)) throw new Error(`Epoch view '${name}' revision ${target} is unreadable.`);
+    // SAFETY: isUiRevisionRecord validates the payload immediately above.
+    return payload as UiRevisionRecord;
   }
 
   function listViews(): readonly EpochViewSummary[] {

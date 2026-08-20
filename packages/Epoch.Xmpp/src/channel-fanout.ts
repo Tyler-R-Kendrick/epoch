@@ -32,7 +32,8 @@ export async function receiveFederatedChannelEvents(
   const events: ProtocolEvent[] = [];
   for await (const bytes of transport.receive()) {
     const envelope = decodeChannelFanout(bytes);
-    events.push(assertProtocolEvent(envelope.event));
+    // SAFETY: JSON.parse yields unknown; assertProtocolEvent validates the envelope event shape.
+    events.push(assertProtocolEvent(envelope.event as BoundaryValue));
   }
   return events;
 }

@@ -172,8 +172,8 @@ export class LiveLog {
     for (const path of this.vfs.listFiles(`${this.root}/events/`)) {
       const raw = this.vfs.readFile(path);
       if (raw === undefined) continue;
-      // SAFETY: The module validates or constructs this value before applying the asserted contract.
-      const parsed = JSON.parse(raw) as unknown;
+      // SAFETY: VFS event JSON is validated by isValidLiveEvent before admission.
+      const parsed = JSON.parse(raw) as BoundaryValue;
       if (isValidLiveEvent(parsed)) {
         this.events.set(parsed.id, parsed);
         this.maxLamport = Math.max(this.maxLamport, parsed.lamport);

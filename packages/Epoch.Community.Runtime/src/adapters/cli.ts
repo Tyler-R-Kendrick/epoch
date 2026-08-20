@@ -130,7 +130,11 @@ function parse(args: readonly string[], runtime: CommunityRuntime): ParsedReques
     case "export":
       return { kind: "workspace.export", input: {} };
     case "import":
-      return { kind: "workspace.import", input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) } };
+      return {
+        kind: "workspace.import",
+        // SAFETY: readBundle JSON is validated during workspace import.
+        input: { bundle: readBundle(requirePositional(rest, 0, "FILE")) as DictionaryValue },
+      };
     case "safe-mode":
       return {
         kind: requirePositional(rest, 0, "on|off") === "on" ? "ui.enterSafeMode" : "ui.leaveSafeMode",
@@ -164,7 +168,7 @@ function parseViewGroup(command: string | undefined, rest: readonly string[]): P
 function parsePropose(rest: readonly string[], runtime: CommunityRuntime): ParsedRequest {
   const view = requirePositional(rest, 0, "VIEW");
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  const manifest = JSON.parse(requireOption(rest, "manifest")) as unknown;
+  const manifest = JSON.parse(requireOption(rest, "manifest")) as BoundaryValue;
   if (!isDynamicUiManifest(manifest)) {
     throw new EpochCommandError("invalid-input", "--manifest must be a dynamic UI manifest for harness ABI "
       + `${runtime.harness.abiVersion}: { abiVersion, scope, placements, theme }.`);
@@ -174,7 +178,8 @@ function parsePropose(rest: readonly string[], runtime: CommunityRuntime): Parse
     kind: "ui.propose",
     input: {
       view,
-      manifest,
+      // SAFETY: isDynamicUiManifest validates the manifest before this request is built.
+      manifest: JSON.parse(JSON.stringify(manifest)) as DictionaryValue,
       ...optionValue(rest, "prompt", "prompt"),
       ...optionValue(rest, "model", "model"),
       ...(rest.includes("--retain-prompt") && { retainPrompt: true }),

@@ -24,8 +24,10 @@ export function runExtensionCliTests(): void {
   dispatchRefusesWhenTheBinaryCannotBeDigested();
 }
 
+type ExtensionCliIO = Parameters<typeof runExtensionCommand>[2];
+
 interface Captured {
-  readonly io: { stdout: { write(message: string): void }; stderr: { write(message: string): void } };
+  readonly io: ExtensionCliIO;
   out(): string;
   err(): string;
 }
@@ -34,7 +36,8 @@ function capture(): Captured {
   let out = "";
   let err = "";
   return {
-    io: { stdout: { write: (message) => { out += message; } }, stderr: { write: (message) => { err += message; } } },
+    // SAFETY: Capture buffers implement ExtensionCliIO for dispatch and trust commands under test.
+    io: { stdout: { write: (message: string) => { out += message; } }, stderr: { write: (message: string) => { err += message; } } } as ExtensionCliIO,
     out: () => out,
     err: () => err,
   };

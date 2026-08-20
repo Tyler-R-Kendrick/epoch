@@ -187,7 +187,8 @@ function snapshotPersistsHashNotSecretAndRestoresEmptyForLegacy(): void {
 
   // SAFETY: Runtime checks or construction above establish Record<string.
   const parsed = JSON.parse(JSON.stringify(snapshot)) as TestJsonObject;
-  delete parsed.fabricCredentials;
+  // SAFETY: Legacy snapshots omit fabricCredentials before platform core restore.
+  delete (parsed as { fabricCredentials?: TestJsonValue }).fabricCredentials;
   // SAFETY: Runtime checks or construction above establish unknown as PlatformSnapshot }).
   const fromLegacy = createInMemoryPlatformCore({ snapshot: parsed as PlatformSnapshot });
   assert.deepEqual(fromLegacy.exportSnapshot().fabricCredentials, []);

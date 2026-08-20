@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+export type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
 interface TestJsonObject {
   readonly [key: string]: TestJsonValue;
 }

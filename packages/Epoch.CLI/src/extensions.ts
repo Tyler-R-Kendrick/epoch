@@ -251,6 +251,23 @@ function replicatedStatements(root: string) {
   return { successors, revocations };
 }
 
+function readSuccessorStatement(record: Record<string, DictionaryValue>): SuccessorStatement {
+  return {
+    predecessor: String(record.predecessor),
+    successor: String(record.successor),
+    issuedAt: String(record.issuedAt),
+    signature: String(record.signature),
+  };
+}
+
+function readPublisherRevocation(record: Record<string, DictionaryValue>): PublisherRevocation {
+  return {
+    publisher: String(record.publisher),
+    effectiveAt: String(record.effectiveAt),
+    signature: String(record.signature),
+  };
+}
+
 /**
  * Read a publisher statement from a file and check it before recording it.
  *
@@ -276,11 +293,10 @@ function readPublisherStatement(action: "succeed" | "revoke", path: string) {
   const record = parsed as Record<string, DictionaryValue>;
 
   if (action === "succeed") {
-    // SAFETY: The module validates or constructs this value before applying the asserted contract.
-    const statement = record as SuccessorStatement;
     for (const field of ["predecessor", "successor", "issuedAt", "signature"] as const) {
-      if (!__epochIsString(statement[field])) throw new Error(`successor statement needs a string '${field}'`);
+      if (!__epochIsString(record[field])) throw new Error(`successor statement needs a string '${field}'`);
     }
+    const statement = readSuccessorStatement(record);
     const verified = ed25519ManifestVerifier({
       payload: successorSigningPayload(statement),
       signature: statement.signature,
@@ -294,11 +310,10 @@ function readPublisherStatement(action: "succeed" | "revoke", path: string) {
     return { ...record };
   }
 
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  const revocation = record as PublisherRevocation;
   for (const field of ["publisher", "effectiveAt", "signature"] as const) {
-    if (!__epochIsString(revocation[field])) throw new Error(`revocation statement needs a string '${field}'`);
+    if (!__epochIsString(record[field])) throw new Error(`revocation statement needs a string '${field}'`);
   }
+  const revocation = readPublisherRevocation(record);
   const verified = ed25519ManifestVerifier({
     payload: revocationSigningPayload(revocation),
     signature: revocation.signature ?? "",
@@ -431,7 +446,8 @@ export function runExtensionCommand(
     if ((verb !== "succeed" && verb !== "revoke") || path === undefined) throw new Error(CliText.extUsage);
     const statement = readPublisherStatement(verb, path);
     const command = verb === "succeed" ? SUCCESSOR_COMMAND : REVOCATION_COMMAND;
-    new EpochRepository(resolve(root)).appendOperation(command, "succeeded", statement);
+    // SAFETY: Publisher statements are JSON objects validated before append.
+    new EpochRepository(resolve(root)).appendOperation(command, "succeeded", statement as Parameters<EpochRepository["appendOperation"]>[2]);
     io.stdout.write(
       verb === "succeed"
         ? `recorded succession ${String(statement.predecessor)} -> ${String(statement.successor)}\n`

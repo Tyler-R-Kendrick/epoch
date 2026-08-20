@@ -25,7 +25,8 @@ export class GuardedAiProvider {
     if (!/^[0-9a-f]{64}$/u.test(request.promptDigest) || !Number.isSafeInteger(request.promptByteLength) || request.promptByteLength < 0) throw new Error("invalid prompt metadata");
     const response = await this.#options.invoke(); const json = JSON.stringify(response.output); const bytes = new TextEncoder().encode(json);
     if (bytes.length > this.#options.maxOutputBytes) throw new Error("provider output length exceeded");
-    if (request.outputSchema && !validSchema(response.output, request.outputSchema)) throw new Error("provider output schema mismatch");
+    // SAFETY: validSchema performs runtime type checks against the declared JsonSchema.
+    if (request.outputSchema && !validSchema(response.output as BoundaryValue, request.outputSchema)) throw new Error("provider output schema mismatch");
     const digest = bytesToHex(sha256(bytes));
     this.#options.telemetry?.({ providerId: this.#options.providerId, modelId: this.#options.modelId, promptDigest: request.promptDigest,
       promptByteLength: request.promptByteLength, outputDigest: digest, outputByteLength: bytes.length,

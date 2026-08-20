@@ -14,6 +14,12 @@ function isJsonObject(value: JsonValue): value is JsonObject {
   return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
+/** Narrow characterization fixtures to verified JSON goldens. */
+export function verifiedFixture<T>(value: T): JsonValue {
+  // SAFETY: Characterization tests JSON-round-trip domain fixtures before golden comparison.
+  return JSON.parse(JSON.stringify(value)) as JsonValue;
+}
+
 export function canonicalJson(value: JsonValue): string {
   return `${JSON.stringify(canonicalize(value), null, 2)}\n`;
 }
