@@ -156,7 +156,7 @@ decisions, operations, or contribution workflow.
 | [Anti-slop (Oxlint)](anti-slop.md) | Vendored anti-slop Oxlint rules for agent hosts; required alongside ESLint in `gate:fast` and CI. |
 | [SDLC store](../.sdlc/README.md) | Machine-readable decisions, reviews, evals, and active initiative pointer for the SDLC skill. |
 | [SDLC skill](../skills/sdlc/SKILL.md) | Persona-first delivery loop with subcommands (`finish`, `clean`, `review`, `test`, …); mirrored into agent hosts. |
-| [SDLC Skill Expansion State](plans/sdlc-skill-expansion/sdlc-state.md) | Active record for subcommand router, `.sdlc/` store, SkillOpt-on-init, and host symlinks. |
+| [SDLC Skill Expansion State](plans/sdlc-skill-expansion/sdlc-state.md) | Closed record for subcommand router, `.sdlc/` store, SkillOpt-on-init, and host symlinks. |
 | [SDLC Skill Expansion Evidence](evidence/sdlc-skill-expansion/README.md) | Process evidence for skill mirrors, SkillOpt check, and gate replay (no persona UI). |
 | [Community Web Voice Tray State](plans/community-web-voice-grid/sdlc-state.md) | Closed record for persistent lounge voice connections and Grid design-system cleanup. |
 | [XMPP Channel Fanout State](plans/xmpp-channel-fanout/sdlc-state.md) | Closed record for public-channel s2s fanout, Verify goldens, mutant kill, and chaos envelopes. |

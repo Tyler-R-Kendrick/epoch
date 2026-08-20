@@ -1,9 +1,10 @@
 # SDLC skill expansion — state
 
 - Initiative: `sdlc-skill-expansion`
-- Phase: closing (finish in progress)
-- Delivery branch: `feat/sdlc-skill-expansion`
+- Phase: closed
+- Delivery branch: `feat/sdlc-skill-expansion` (deleted after merge)
 - Stack: single-layer (no `gh stack`)
+- PR: [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176)
 
 ## Decisions
 
@@ -20,7 +21,8 @@
 - Expanded SDLC skill + stage refs; docs policy updates; mirror + SkillOpt install scripts.
 - SkillOpt task set + REPORT under `.sdlc/skillopt/`.
 - Evidence pack: `docs/evidence/sdlc-skill-expansion/` (process/docs — no persona UI).
+- Quality Gates: all 18 check-runs success on PR head before squash-merge.
 
 ## Stack / PRs
 
-- Single delivery PR — filled in at finish (number + merge SHA).
+- Single delivery PR [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176) — merge SHA filled after squash-merge.
